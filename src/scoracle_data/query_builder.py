@@ -237,6 +237,49 @@ class QueryCache:
 query_cache = QueryCache()
 
 
+def get_placeholder(use_postgres: Optional[bool] = None) -> str:
+    """
+    Get the appropriate placeholder for the current database type.
+
+    Args:
+        use_postgres: If True, return PostgreSQL placeholder. If None, auto-detect.
+
+    Returns:
+        '%s' for PostgreSQL, '?' for SQLite
+    """
+    if use_postgres is None:
+        use_postgres = _use_postgres()
+    return "%s" if use_postgres else "?"
+
+
+def convert_placeholders(query: str, use_postgres: Optional[bool] = None) -> str:
+    """
+    Convert SQL query placeholders based on database type.
+
+    Converts between SQLite (?) and PostgreSQL (%s) placeholder styles.
+
+    Args:
+        query: SQL query with ? placeholders
+        use_postgres: If True, convert to %s. If False, keep as ?. If None, auto-detect.
+
+    Returns:
+        Query with appropriate placeholders
+
+    Example:
+        >>> convert_placeholders("SELECT * FROM users WHERE id = ?", use_postgres=True)
+        "SELECT * FROM users WHERE id = %s"
+    """
+    if use_postgres is None:
+        use_postgres = _use_postgres()
+
+    if use_postgres:
+        # Convert ? to %s
+        return query.replace("?", "%s")
+    else:
+        # Keep as-is (already using ?)
+        return query
+
+
 # Pre-defined column sets for common tables
 # This makes seeder code even cleaner - just reference the constant
 

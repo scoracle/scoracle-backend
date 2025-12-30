@@ -4,20 +4,27 @@ SQL query builder for statsdb operations.
 Generates UPSERT queries dynamically from column definitions,
 eliminating the need for manually maintaining 100+ line SQL strings.
 
-Design: Self-contained, SQLite-specific (uses ON CONFLICT syntax).
+Design: Supports both SQLite and PostgreSQL (uses ON CONFLICT syntax).
 This module is designed to be extracted to scoracle-data repo.
 """
 
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 
+def _use_postgres() -> bool:
+    """Check if PostgreSQL mode is enabled."""
+    return os.environ.get("USE_POSTGRESQL", "true").lower() in ("true", "1", "yes")
+
+
 class UpsertQueryBuilder:
-    """Build SQLite UPSERT queries dynamically from column definitions.
+    """Build UPSERT queries dynamically from column definitions.
 
     Eliminates the need for massive hand-written SQL strings in seeders.
     All queries use ON CONFLICT ... DO UPDATE SET pattern.
+    Supports both SQLite (named :param) and PostgreSQL (%s) placeholders.
     """
 
     @staticmethod
@@ -27,6 +34,7 @@ class UpsertQueryBuilder:
         conflict_keys: list[str],
         exclude_from_update: Optional[list[str]] = None,
         use_coalesce: bool = False,
+        use_postgres: Optional[bool] = None,
     ) -> str:
         """Generate UPSERT query from column list.
 
@@ -36,6 +44,7 @@ class UpsertQueryBuilder:
             conflict_keys: List of columns that define uniqueness (for ON CONFLICT)
             exclude_from_update: Columns to NOT update on conflict (default: conflict_keys + updated_at)
             use_coalesce: If True, use COALESCE to preserve existing values when new is NULL
+            use_postgres: If True, use PostgreSQL %s placeholders. If None, auto-detect.
 
         Returns:
             Complete SQL UPSERT query string
@@ -55,8 +64,15 @@ class UpsertQueryBuilder:
             if "updated_at" not in exclude_from_update:
                 exclude_from_update.append("updated_at")
 
+        # Determine placeholder style
+        if use_postgres is None:
+            use_postgres = _use_postgres()
+
         # Build placeholders for VALUES clause
-        placeholders = [f":{col}" for col in columns]
+        if use_postgres:
+            placeholders = ["%s" for _ in columns]
+        else:
+            placeholders = [f":{col}" for col in columns]
 
         # Build UPDATE SET clause
         update_assignments = []
@@ -100,6 +116,7 @@ class UpsertQueryBuilder:
         row_count: int,
         exclude_from_update: Optional[list[str]] = None,
         use_coalesce: bool = False,
+        use_postgres: Optional[bool] = None,
     ) -> str:
         """Generate bulk UPSERT query for multiple rows.
 
@@ -113,6 +130,7 @@ class UpsertQueryBuilder:
             row_count: Number of rows to insert
             exclude_from_update: Columns to NOT update on conflict
             use_coalesce: If True, preserve existing NULL values
+            use_postgres: If True, use PostgreSQL %s placeholders. If None, auto-detect.
 
         Returns:
             SQL query with multiple value sets
@@ -122,10 +140,17 @@ class UpsertQueryBuilder:
             if "updated_at" not in exclude_from_update:
                 exclude_from_update.append("updated_at")
 
+        # Determine placeholder style
+        if use_postgres is None:
+            use_postgres = _use_postgres()
+
         # Build multiple value sets
         value_sets = []
         for i in range(row_count):
-            placeholders = [f":{col}_{i}" for col in columns]
+            if use_postgres:
+                placeholders = ["%s" for _ in columns]
+            else:
+                placeholders = [f":{col}_{i}" for col in columns]
             value_sets.append(f"({', '.join(placeholders)})")
 
         # Build UPDATE SET clause
@@ -175,6 +200,7 @@ class QueryCache:
         conflict_keys: list[str],
         exclude_from_update: Optional[list[str]] = None,
         use_coalesce: bool = False,
+        use_postgres: Optional[bool] = None,
     ) -> str:
         """Get cached query or build and cache it.
 
@@ -184,10 +210,14 @@ class QueryCache:
         Returns:
             SQL query string
         """
+        # Determine placeholder style for cache key
+        if use_postgres is None:
+            use_postgres = _use_postgres()
+
         # Create cache key from inputs
         cache_key = (
             f"{table}:{','.join(columns)}:{','.join(conflict_keys)}:"
-            f"{','.join(exclude_from_update or [])}:{use_coalesce}"
+            f"{','.join(exclude_from_update or [])}:{use_coalesce}:{use_postgres}"
         )
 
         if cache_key not in self._cache:
@@ -197,6 +227,7 @@ class QueryCache:
                 conflict_keys=conflict_keys,
                 exclude_from_update=exclude_from_update,
                 use_coalesce=use_coalesce,
+                use_postgres=use_postgres,
             )
 
         return self._cache[cache_key]

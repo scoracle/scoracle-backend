@@ -100,12 +100,12 @@ class PlayerQueries:
                 FROM {table} s
                 JOIN players p ON s.player_id = p.id
                 LEFT JOIN teams t ON p.current_team_id = t.id
-                WHERE s.season_id = ?
-                  AND p.sport_id = ?
-                  AND p.position_group = ?
+                WHERE s.season_id = %s
+                  AND p.sport_id = %s
+                  AND p.position_group = %s
                   AND s.{stat_name} IS NOT NULL
                 ORDER BY s.{stat_name} DESC
-                LIMIT ?
+                LIMIT %s
             """
             params = (season_id, sport_id, position_group, limit)
         else:
@@ -119,11 +119,11 @@ class PlayerQueries:
                 FROM {table} s
                 JOIN players p ON s.player_id = p.id
                 LEFT JOIN teams t ON p.current_team_id = t.id
-                WHERE s.season_id = ?
-                  AND p.sport_id = ?
+                WHERE s.season_id = %s
+                  AND p.sport_id = %s
                   AND s.{stat_name} IS NOT NULL
                 ORDER BY s.{stat_name} DESC
-                LIMIT ?
+                LIMIT %s
             """
             params = (season_id, sport_id, limit)
 
@@ -196,12 +196,12 @@ class PlayerQueries:
             return []
 
         # Build WHERE conditions
-        conditions = ["s.season_id = ?", "p.sport_id = ?"]
+        conditions = ["s.season_id = %s", "p.sport_id = %s"]
         params: list[Any] = [season_id, sport_id]
 
         for stat_name, (operator, value) in filters.items():
             if operator in (">=", "<=", ">", "<", "="):
-                conditions.append(f"s.{stat_name} {operator} ?")
+                conditions.append(f"s.{stat_name} {operator} %s")
                 params.append(value)
 
         params.append(limit)
@@ -217,25 +217,15 @@ class PlayerQueries:
             JOIN players p ON s.player_id = p.id
             LEFT JOIN teams t ON p.current_team_id = t.id
             WHERE {' AND '.join(conditions)}
-            LIMIT ?
+            LIMIT %s
         """
 
         return self.db.fetchall(query, tuple(params))
 
     def _get_nfl_table_for_stat(self, stat_name: str) -> str:
-        """Get the NFL table containing a stat."""
-        passing = {"pass_yards", "pass_touchdowns", "passer_rating", "completion_pct"}
-        rushing = {"rush_yards", "rush_touchdowns", "yards_per_carry"}
-        receiving = {"receiving_yards", "receiving_touchdowns", "receptions"}
-        defense = {"tackles_total", "sacks", "interceptions"}
+        """Get the NFL table containing a stat.
 
-        if stat_name in passing:
-            return "nfl_player_passing"
-        elif stat_name in rushing:
-            return "nfl_player_rushing"
-        elif stat_name in receiving:
-            return "nfl_player_receiving"
-        elif stat_name in defense:
-            return "nfl_player_defense"
-
-        return "nfl_player_passing"
+        Returns the unified nfl_player_stats table for PostgreSQL.
+        """
+        # All NFL stats are now in the unified table
+        return "nfl_player_stats"

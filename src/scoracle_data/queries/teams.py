@@ -83,11 +83,11 @@ class TeamQueries:
 
         # Build query based on sport
         if sport_id == "FOOTBALL":
-            conditions = ["s.season_id = ?"]
+            conditions = ["s.season_id = %s"]
             params: list[Any] = [season_id]
 
             if league_id:
-                conditions.append("s.league_id = ?")
+                conditions.append("s.league_id = %s")
                 params.append(league_id)
 
             query = f"""
@@ -113,15 +113,15 @@ class TeamQueries:
             """
         else:
             # NBA/NFL
-            conditions = ["s.season_id = ?", "t.sport_id = ?"]
+            conditions = ["s.season_id = %s", "t.sport_id = %s"]
             params = [season_id, sport_id]
 
             if conference:
-                conditions.append("t.conference = ?")
+                conditions.append("t.conference = %s")
                 params.append(conference)
 
             if division:
-                conditions.append("t.division = ?")
+                conditions.append("t.division = %s")
                 params.append(division)
 
             query = f"""
@@ -190,11 +190,11 @@ class TeamQueries:
 
         order = "ASC" if ascending else "DESC"
 
-        conditions = ["s.season_id = ?", f"s.{stat_name} IS NOT NULL"]
+        conditions = ["s.season_id = %s", f"s.{stat_name} IS NOT NULL"]
         params: list[Any] = [season_id]
 
         if league_id:
-            conditions.append("s.league_id = ?")
+            conditions.append("s.league_id = %s")
             params.append(league_id)
 
         query = f"""

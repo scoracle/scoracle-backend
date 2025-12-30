@@ -357,15 +357,15 @@ class EntityRepository:
         params: list[Any] = []
 
         if sport_id:
-            conditions.append("sport_id = ?")
+            conditions.append("sport_id = %s")
             params.append(sport_id)
 
         if league_id:
-            conditions.append("current_league_id = ?")
+            conditions.append("current_league_id = %s")
             params.append(league_id)
 
         # Use LIKE for prefix/contains matching
-        conditions.append("LOWER(full_name) LIKE ?")
+        conditions.append("LOWER(full_name) LIKE %s")
         params.append(f"%{normalized_query}%")
 
         params.append(limit)
@@ -374,7 +374,7 @@ class EntityRepository:
             SELECT id, sport_id, current_league_id as league_id, full_name as name
             FROM players
             WHERE {' AND '.join(conditions)}
-            LIMIT ?
+            LIMIT %s
         """
 
         rows = self.db.fetchall(query, tuple(params))
@@ -404,14 +404,14 @@ class EntityRepository:
         params: list[Any] = []
 
         if sport_id:
-            conditions.append("sport_id = ?")
+            conditions.append("sport_id = %s")
             params.append(sport_id)
 
         if league_id:
-            conditions.append("league_id = ?")
+            conditions.append("league_id = %s")
             params.append(league_id)
 
-        conditions.append("LOWER(name) LIKE ?")
+        conditions.append("LOWER(name) LIKE %s")
         params.append(f"%{normalized_query}%")
 
         params.append(limit)
@@ -420,7 +420,7 @@ class EntityRepository:
             SELECT id, sport_id, league_id, name
             FROM teams
             WHERE {' AND '.join(conditions)}
-            LIMIT ?
+            LIMIT %s
         """
 
         rows = self.db.fetchall(query, tuple(params))
@@ -495,21 +495,21 @@ class EntityRepository:
     def _get_league_info(self, league_id: int) -> Optional[dict[str, Any]]:
         """Get league info including priority tier."""
         return self.db.fetchone(
-            "SELECT * FROM leagues WHERE id = ?",
+            "SELECT * FROM leagues WHERE id = %s",
             (league_id,),
         )
 
     def get_priority_leagues(self, sport_id: str) -> list[dict[str, Any]]:
         """Get all priority leagues for a sport."""
         return self.db.fetchall(
-            "SELECT * FROM leagues WHERE sport_id = ? AND priority_tier = 1",
+            "SELECT * FROM leagues WHERE sport_id = %s AND priority_tier = 1",
             (sport_id,),
         )
 
     def get_percentile_leagues(self, sport_id: str) -> list[dict[str, Any]]:
         """Get leagues included in percentile calculations."""
         return self.db.fetchall(
-            "SELECT * FROM leagues WHERE sport_id = ? AND include_in_percentiles = 1",
+            "SELECT * FROM leagues WHERE sport_id = %s AND include_in_percentiles = true",
             (sport_id,),
         )
 
@@ -570,18 +570,18 @@ class EntityRepository:
 
 
 # Global instance factory
-def get_entity_repository(db: Optional["StatsDB"] = None) -> EntityRepository:
+def get_entity_repository(db=None) -> EntityRepository:
     """
     Get an EntityRepository instance.
 
     Args:
-        db: Optional StatsDB instance. If None, uses global instance.
+        db: Optional database instance. If None, uses PostgreSQL by default.
 
     Returns:
         EntityRepository instance
     """
     if db is None:
-        from .connection import get_stats_db
-        db = get_stats_db(read_only=True)
+        from .pg_connection import get_postgres_db
+        db = get_postgres_db()
 
     return EntityRepository(db)

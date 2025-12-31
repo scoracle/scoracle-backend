@@ -82,15 +82,15 @@ class BaseSeeder(ABC):
         season_id: Optional[int] = None,
     ) -> int:
         """Record the start of a sync operation."""
-        self.db.execute(
+        result = self.db.fetchone(
             """
             INSERT INTO sync_log (sport_id, sync_type, entity_type, season_id, started_at, status)
-            VALUES (?, ?, ?, ?, ?, 'running')
+            VALUES (%s, %s, %s, %s, NOW(), 'running')
+            RETURNING id
             """,
-            (self.sport_id, sync_type, entity_type, season_id, int(time.time())),
+            (self.sport_id, sync_type, entity_type, season_id),
         )
-        result = self.db.fetchone("SELECT last_insert_rowid() as id")
-        return result["id"]
+        return result["id"] if result else 0
 
     def _complete_sync(
         self,
@@ -104,14 +104,13 @@ class BaseSeeder(ABC):
             """
             UPDATE sync_log
             SET status = 'completed',
-                completed_at = ?,
-                records_processed = ?,
-                records_inserted = ?,
-                records_updated = ?
-            WHERE id = ?
+                completed_at = NOW(),
+                records_processed = %s,
+                records_inserted = %s,
+                records_updated = %s
+            WHERE id = %s
             """,
             (
-                int(time.time()),
                 records_processed,
                 records_inserted,
                 records_updated,
@@ -125,11 +124,11 @@ class BaseSeeder(ABC):
             """
             UPDATE sync_log
             SET status = 'failed',
-                completed_at = ?,
-                error_message = ?
-            WHERE id = ?
+                completed_at = NOW(),
+                error_message = %s
+            WHERE id = %s
             """,
-            (int(time.time()), error_message, sync_id),
+            (error_message, sync_id),
         )
 
     # =========================================================================
@@ -148,7 +147,7 @@ class BaseSeeder(ABC):
             Season ID
         """
         existing = self.db.fetchone(
-            "SELECT id FROM seasons WHERE sport_id = ? AND season_year = ?",
+            "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
             (self.sport_id, season_year),
         )
 
@@ -156,11 +155,11 @@ class BaseSeeder(ABC):
             # Update is_current if needed
             if is_current:
                 self.db.execute(
-                    "UPDATE seasons SET is_current = 0 WHERE sport_id = ?",
+                    "UPDATE seasons SET is_current = false WHERE sport_id = %s",
                     (self.sport_id,),
                 )
                 self.db.execute(
-                    "UPDATE seasons SET is_current = 1 WHERE id = ?",
+                    "UPDATE seasons SET is_current = true WHERE id = %s",
                     (existing["id"],),
                 )
             return existing["id"]
@@ -171,20 +170,20 @@ class BaseSeeder(ABC):
         if is_current:
             # Clear current flag from other seasons
             self.db.execute(
-                "UPDATE seasons SET is_current = 0 WHERE sport_id = ?",
+                "UPDATE seasons SET is_current = false WHERE sport_id = %s",
                 (self.sport_id,),
             )
 
-        self.db.execute(
+        result = self.db.fetchone(
             """
             INSERT INTO seasons (sport_id, season_year, season_label, is_current)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
             """,
             (self.sport_id, season_year, label, is_current),
         )
 
-        result = self.db.fetchone("SELECT last_insert_rowid() as id")
-        return result["id"]
+        return result["id"] if result else 0
 
     def _get_season_label(self, season_year: int) -> str:
         """
@@ -209,17 +208,20 @@ class BaseSeeder(ABC):
         Returns:
             Team ID
         """
-        profile_fetched_at = int(time.time()) if mark_profile_fetched else team_data.get("profile_fetched_at")
+        # For PostgreSQL TIMESTAMPTZ, use NOW() for profile_fetched_at when marking
+        # Otherwise pass NULL or existing value
+        profile_fetched_clause = "NOW()" if mark_profile_fetched else "%s"
+        profile_fetched_param = [] if mark_profile_fetched else [team_data.get("profile_fetched_at")]
 
         self.db.execute(
-            """
+            f"""
             INSERT INTO teams (
                 id, sport_id, league_id, name, abbreviation, logo_url,
                 conference, division, country, city, founded,
                 venue_name, venue_city, venue_capacity, venue_surface, venue_image,
                 profile_fetched_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
             ON CONFLICT(id) DO UPDATE SET
                 name = COALESCE(excluded.name, teams.name),
                 abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
@@ -235,7 +237,7 @@ class BaseSeeder(ABC):
                 venue_surface = COALESCE(excluded.venue_surface, teams.venue_surface),
                 venue_image = COALESCE(excluded.venue_image, teams.venue_image),
                 profile_fetched_at = COALESCE(excluded.profile_fetched_at, teams.profile_fetched_at),
-                updated_at = excluded.updated_at
+                updated_at = NOW()
             """,
             (
                 team_data["id"],
@@ -254,8 +256,7 @@ class BaseSeeder(ABC):
                 team_data.get("venue_capacity"),
                 team_data.get("venue_surface"),
                 team_data.get("venue_image"),
-                profile_fetched_at,
-                int(time.time()),
+                *profile_fetched_param,
             ),
         )
         return team_data["id"]
@@ -275,17 +276,19 @@ class BaseSeeder(ABC):
         Returns:
             Player ID
         """
-        profile_fetched_at = int(time.time()) if mark_profile_fetched else player_data.get("profile_fetched_at")
+        # For PostgreSQL TIMESTAMPTZ, use NOW() for profile_fetched_at when marking
+        profile_fetched_clause = "NOW()" if mark_profile_fetched else "%s"
+        profile_fetched_param = [] if mark_profile_fetched else [player_data.get("profile_fetched_at")]
 
         self.db.execute(
-            """
+            f"""
             INSERT INTO players (
                 id, sport_id, first_name, last_name, full_name,
                 position, position_group, nationality, birth_date, birth_place,
                 height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
                 jersey_number, college, experience_years, profile_fetched_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
             ON CONFLICT(id) DO UPDATE SET
                 first_name = COALESCE(excluded.first_name, players.first_name),
                 last_name = COALESCE(excluded.last_name, players.last_name),
@@ -304,7 +307,7 @@ class BaseSeeder(ABC):
                 college = COALESCE(excluded.college, players.college),
                 experience_years = COALESCE(excluded.experience_years, players.experience_years),
                 profile_fetched_at = COALESCE(excluded.profile_fetched_at, players.profile_fetched_at),
-                updated_at = excluded.updated_at
+                updated_at = NOW()
             """,
             (
                 player_data["id"],
@@ -325,8 +328,7 @@ class BaseSeeder(ABC):
                 player_data.get("jersey_number"),
                 player_data.get("college"),
                 player_data.get("experience_years"),
-                profile_fetched_at,
-                int(time.time()),
+                *profile_fetched_param,
             ),
         )
         return player_data["id"]
@@ -347,7 +349,7 @@ class BaseSeeder(ABC):
         """
         table = "teams" if entity_type == "team" else "players"
         result = self.db.fetchall(
-            f"SELECT id FROM {table} WHERE sport_id = ? AND profile_fetched_at IS NULL",
+            f"SELECT id FROM {table} WHERE sport_id = %s AND profile_fetched_at IS NULL",
             (self.sport_id,),
         )
         return [r["id"] for r in result]
@@ -362,8 +364,8 @@ class BaseSeeder(ABC):
         """
         table = "teams" if entity_type == "team" else "players"
         self.db.execute(
-            f"UPDATE {table} SET profile_fetched_at = ? WHERE id = ?",
-            (int(time.time()), entity_id),
+            f"UPDATE {table} SET profile_fetched_at = NOW() WHERE id = %s",
+            (entity_id,),
         )
 
     def detect_team_changes(self, player_id: int, new_team_id: Optional[int], season_id: int) -> bool:
@@ -379,7 +381,7 @@ class BaseSeeder(ABC):
             True if player changed teams (transfer detected)
         """
         existing = self.db.fetchone(
-            "SELECT current_team_id FROM players WHERE id = ?",
+            "SELECT current_team_id FROM players WHERE id = %s",
             (player_id,),
         )
 
@@ -394,8 +396,8 @@ class BaseSeeder(ABC):
                 self.db.execute(
                     """
                     UPDATE player_teams
-                    SET end_date = date('now'), is_current = 0
-                    WHERE player_id = ? AND team_id = ? AND is_current = 1
+                    SET end_date = CURRENT_DATE, is_current = false
+                    WHERE player_id = %s AND team_id = %s AND is_current = true
                     """,
                     (player_id, old_team_id),
                 )
@@ -404,11 +406,12 @@ class BaseSeeder(ABC):
             if new_team_id:
                 self.db.execute(
                     """
-                    INSERT OR IGNORE INTO player_teams
+                    INSERT INTO player_teams
                     (player_id, team_id, season_id, start_date, is_current, detected_at)
-                    VALUES (?, ?, ?, date('now'), 1, ?)
+                    VALUES (%s, %s, %s, CURRENT_DATE, true, NOW())
+                    ON CONFLICT (player_id, team_id, season_id) DO NOTHING
                     """,
-                    (player_id, new_team_id, season_id, int(time.time())),
+                    (player_id, new_team_id, season_id),
                 )
 
             return True
@@ -446,7 +449,7 @@ class BaseSeeder(ABC):
             teams = await self.fetch_teams(season, league_id=league_id)
             for team_data in teams:
                 existing = self.db.fetchone(
-                    "SELECT id, profile_fetched_at FROM teams WHERE id = ?",
+                    "SELECT id, profile_fetched_at FROM teams WHERE id = %s",
                     (team_data["id"],),
                 )
 
@@ -468,7 +471,7 @@ class BaseSeeder(ABC):
             players = await self.fetch_players(season, league_id=league_id)
             for player_data in players:
                 existing = self.db.fetchone(
-                    "SELECT id, profile_fetched_at, current_team_id FROM players WHERE id = ?",
+                    "SELECT id, profile_fetched_at, current_team_id FROM players WHERE id = %s",
                     (player_data["id"],),
                 )
 
@@ -904,7 +907,7 @@ class BaseSeeder(ABC):
                 ]
             else:
                 players = self.db.fetchall(
-                    "SELECT id, current_team_id FROM players WHERE sport_id = ?",
+                    "SELECT id, current_team_id FROM players WHERE sport_id = %s",
                     (self.sport_id,),
                 )
 
@@ -950,7 +953,7 @@ class BaseSeeder(ABC):
 
         try:
             teams = self.db.fetchall(
-                "SELECT id FROM teams WHERE sport_id = ?",
+                "SELECT id FROM teams WHERE sport_id = %s",
                 (self.sport_id,),
             )
 

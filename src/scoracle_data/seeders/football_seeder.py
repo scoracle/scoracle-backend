@@ -94,13 +94,13 @@ class FootballSeeder(BaseSeeder):
             self.db.execute(
                 """
                 INSERT INTO leagues (id, sport_id, name, country, priority_tier, include_in_percentiles, is_active)
-                VALUES (?, ?, ?, ?, ?, ?, 1)
+                VALUES (%s, %s, %s, %s, %s, %s, true)
                 ON CONFLICT(id) DO UPDATE SET
                     name = excluded.name,
                     country = excluded.country,
                     priority_tier = excluded.priority_tier,
                     include_in_percentiles = excluded.include_in_percentiles,
-                    updated_at = ?
+                    updated_at = NOW()
                 """,
                 (
                     league["id"],
@@ -109,7 +109,6 @@ class FootballSeeder(BaseSeeder):
                     league["country"],
                     league.get("priority_tier", 0),
                     league.get("include_in_percentiles", 0),
-                    int(time.time()),
                 ),
             )
             league_ids.append(league["id"])
@@ -162,7 +161,7 @@ class FootballSeeder(BaseSeeder):
                 """
                 SELECT id, current_team_id, current_league_id
                 FROM players
-                WHERE sport_id = ?
+                WHERE sport_id = %s
                 """,
                 (self.sport_id,),
             )

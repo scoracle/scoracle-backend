@@ -53,6 +53,30 @@ async def get_api_service():
     return get_api_client()
 
 
+def cmd_seed_small(args: argparse.Namespace) -> int:
+    """Seed a tiny JSON fixture (one team/player per sport) for quick DB validation."""
+    from .seeders.small_dataset_seeder import seed_small_dataset
+
+    result = seed_small_dataset(fixture_path=args.fixture)
+    summary = result.get("summary", {})
+
+    # Best-effort backend reporting
+    backend = "postgres" if (os.getenv("DATABASE_URL") or os.getenv("NEON_DATABASE_URL")) else "sqlite"
+
+    print("\nSmall dataset seeding complete")
+    print("=" * 50)
+    print(f"Backend: {backend}")
+    if backend == "sqlite":
+        from .connection import DEFAULT_DB_PATH
+        print(f"SQLite path: {DEFAULT_DB_PATH}")
+    else:
+        print("Postgres URL: DATABASE_URL/NEON_DATABASE_URL")
+    print(f"Teams upserted: {summary.get('teams', 0)}")
+    print(f"Players upserted: {summary.get('players', 0)}")
+
+    return 0
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     """Initialize the database with schema."""
     from .schema import init_database
@@ -754,6 +778,16 @@ def main() -> int:
     seed_debug_parser.add_argument("--teams", type=int, default=5, help="Number of teams to seed (default: 5)")
     seed_debug_parser.add_argument("--players", type=int, default=5, help="Number of players to seed (default: 5)")
 
+    # seed-small command (fixture seeding)
+    seed_small_parser = subparsers.add_parser(
+        "seed-small",
+        help="Seed the small dataset JSON fixture (no external API calls)",
+    )
+    seed_small_parser.add_argument(
+        "--fixture",
+        help="Optional path to fixture JSON (default: tests/fixtures/small_dataset.json)",
+    )
+
     # diff command
     diff_parser = subparsers.add_parser("diff", help="Run roster diff (detect trades/transfers)")
     diff_parser.add_argument("--sport", help="Sport (NBA, NFL, FOOTBALL)")
@@ -797,6 +831,7 @@ def main() -> int:
         "seed": cmd_seed,
         "seed-2phase": cmd_seed_2phase,
         "seed-debug": cmd_seed_debug,
+        "seed-small": cmd_seed_small,
         "diff": cmd_diff,
         "percentiles": cmd_percentiles,
         "export": cmd_export,

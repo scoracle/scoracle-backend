@@ -1,3 +1,7 @@
 ﻿httpx>=0.25.0
 pydantic>=2.4.2
 python-dotenv>=1.0.0
+
+# Postgres / Neon driver (required for pg_connection.PostgresDB)
+psycopg[binary]>=3.1
+psycopg-pool>=3.1

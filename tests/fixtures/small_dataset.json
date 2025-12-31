@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "api_key_env": "API_SPORTS_KEY",
+    "profile_refresh_days": 183,
+    "note": "Do NOT commit API keys. Use the environment variable named in api_key_env at runtime.",
+    "filters": {
+      "nfl": { "exclude_profile_fields": ["coaches"] }
+    }
+  },
+  "nba": {
+    "season": 2025,
+    "league": "standard",
+    "teams": [
+      {
+        "id": 10,
+        "name": "Detroit Pistons",
+        "profile_url": "https://v2.nba.api-sports.io/teams?id=10&league=standard",
+        "stats_url": "https://v2.nba.api-sports.io/teams/statistics?id=10&season=2025",
+        "standings_url": "https://v2.nba.api-sports.io/standings?league=standard&season=2025&team=10",
+        "players": [
+          {
+            "id": 2801,
+            "name": "Cade Cunningham",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=2801",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=2801&season=2025"
+          }
+        ]
+      }
+    ]
+  },
+  "nfl": {
+    "season": 2025,
+    "league": 1,
+    "teams": [
+      {
+        "id": 29,
+        "name": "Dallas Cowboys",
+        "profile_url": "https://v1.american-football.api-sports.io/teams?id=29&league=1&season=2025",
+        "standings_url": "https://v1.american-football.api-sports.io/standings?league=1&season=2025&team=29",
+        "players": [
+          {
+            "id": 2076,
+            "name": "Dak Prescott",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=2076",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=2076&season=2025"
+          }
+        ]
+      }
+    ]
+  },
+  "football": {
+    "season": 2025,
+    "league": 39,
+    "teams": [
+      {
+        "id": 49,
+        "name": "Chelsea",
+        "profile_url": "https://v3.football.api-sports.io/teams?id=49&league=39&season=2025",
+        "stats_url": "https://v3.football.api-sports.io/teams/statistics?league=39&season=2025&team=49",
+        "players": [
+          {
+            "id": 152982,
+            "name": "C. Palmer",
+            "firstname": "Cole Jermaine",
+            "lastname": "Palmer",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=152982",
+            "stats_url": "https://v3.football.api-sports.io/players?id=152982&league=39&season=2025"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -14,6 +14,12 @@
       {
         "id": 10,
         "name": "Detroit Pistons",
+        "code": "DET",
+        "city": "Detroit",
+        "logo": "https://upload.wikimedia.org/wikipedia/commons/7/7c/Pistons_logo17.svg",
+        "conference": "East",
+        "division": "Central",
+        "founded": 1941,
         "profile_url": "https://v2.nba.api-sports.io/teams?id=10&league=standard",
         "stats_url": "https://v2.nba.api-sports.io/teams/statistics?id=10&season=2025",
         "standings_url": "https://v2.nba.api-sports.io/standings?league=standard&season=2025&team=10",
@@ -21,8 +27,123 @@
           {
             "id": 2801,
             "name": "Cade Cunningham",
+            "firstname": "Cade",
+            "lastname": "Cunningham",
+            "position": "G",
+            "height_inches": 78,
+            "weight_lbs": 220,
+            "jersey_number": 2,
+            "college": "Oklahoma State",
             "profile_url": "https://v2.nba.api-sports.io/players?id=2801",
             "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=2801&season=2025"
+          },
+          {
+            "id": 350,
+            "name": "Jalen Duren",
+            "firstname": "Jalen",
+            "lastname": "Duren",
+            "position": "C",
+            "height_inches": 83,
+            "weight_lbs": 250,
+            "jersey_number": 0,
+            "college": "Memphis",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=350",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=350&season=2025"
+          },
+          {
+            "id": 351,
+            "name": "Jaden Ivey",
+            "firstname": "Jaden",
+            "lastname": "Ivey",
+            "position": "G",
+            "height_inches": 76,
+            "weight_lbs": 195,
+            "jersey_number": 23,
+            "college": "Purdue",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=351",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=351&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 20,
+        "name": "Los Angeles Lakers",
+        "code": "LAL",
+        "city": "Los Angeles",
+        "logo": "https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg",
+        "conference": "West",
+        "division": "Pacific",
+        "founded": 1947,
+        "profile_url": "https://v2.nba.api-sports.io/teams?id=20&league=standard",
+        "stats_url": "https://v2.nba.api-sports.io/teams/statistics?id=20&season=2025",
+        "standings_url": "https://v2.nba.api-sports.io/standings?league=standard&season=2025&team=20",
+        "players": [
+          {
+            "id": 265,
+            "name": "LeBron James",
+            "firstname": "LeBron",
+            "lastname": "James",
+            "position": "F",
+            "height_inches": 81,
+            "weight_lbs": 250,
+            "jersey_number": 23,
+            "college": "None",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=265",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=265&season=2025"
+          },
+          {
+            "id": 132,
+            "name": "Anthony Davis",
+            "firstname": "Anthony",
+            "lastname": "Davis",
+            "position": "F-C",
+            "height_inches": 82,
+            "weight_lbs": 253,
+            "jersey_number": 3,
+            "college": "Kentucky",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=132",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=132&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "name": "Boston Celtics",
+        "code": "BOS",
+        "city": "Boston",
+        "logo": "https://upload.wikimedia.org/wikipedia/en/8/8f/Boston_Celtics.svg",
+        "conference": "East",
+        "division": "Atlantic",
+        "founded": 1946,
+        "profile_url": "https://v2.nba.api-sports.io/teams?id=1&league=standard",
+        "stats_url": "https://v2.nba.api-sports.io/teams/statistics?id=1&season=2025",
+        "standings_url": "https://v2.nba.api-sports.io/standings?league=standard&season=2025&team=1",
+        "players": [
+          {
+            "id": 124,
+            "name": "Jayson Tatum",
+            "firstname": "Jayson",
+            "lastname": "Tatum",
+            "position": "F",
+            "height_inches": 80,
+            "weight_lbs": 210,
+            "jersey_number": 0,
+            "college": "Duke",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=124",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=124&season=2025"
+          },
+          {
+            "id": 308,
+            "name": "Jaylen Brown",
+            "firstname": "Jaylen",
+            "lastname": "Brown",
+            "position": "G-F",
+            "height_inches": 78,
+            "weight_lbs": 223,
+            "jersey_number": 7,
+            "college": "California",
+            "profile_url": "https://v2.nba.api-sports.io/players?id=308",
+            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=308&season=2025"
           }
         ]
       }
@@ -35,14 +156,133 @@
       {
         "id": 29,
         "name": "Dallas Cowboys",
+        "code": "DAL",
+        "city": "Dallas",
+        "logo": "https://upload.wikimedia.org/wikipedia/commons/1/15/Dallas_Cowboys.svg",
+        "conference": "NFC",
+        "division": "East",
+        "founded": 1960,
         "profile_url": "https://v1.american-football.api-sports.io/teams?id=29&league=1&season=2025",
         "standings_url": "https://v1.american-football.api-sports.io/standings?league=1&season=2025&team=29",
         "players": [
           {
             "id": 2076,
             "name": "Dak Prescott",
+            "firstname": "Dak",
+            "lastname": "Prescott",
+            "position": "QB",
+            "height_inches": 74,
+            "weight_lbs": 238,
+            "jersey_number": 4,
+            "college": "Mississippi State",
             "profile_url": "https://v1.american-football.api-sports.io/players?id=2076",
             "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=2076&season=2025"
+          },
+          {
+            "id": 3450,
+            "name": "CeeDee Lamb",
+            "firstname": "CeeDee",
+            "lastname": "Lamb",
+            "position": "WR",
+            "height_inches": 74,
+            "weight_lbs": 198,
+            "jersey_number": 88,
+            "college": "Oklahoma",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=3450",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=3450&season=2025"
+          },
+          {
+            "id": 2100,
+            "name": "Micah Parsons",
+            "firstname": "Micah",
+            "lastname": "Parsons",
+            "position": "LB",
+            "height_inches": 75,
+            "weight_lbs": 245,
+            "jersey_number": 11,
+            "college": "Penn State",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=2100",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=2100&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "name": "Kansas City Chiefs",
+        "code": "KC",
+        "city": "Kansas City",
+        "logo": "https://upload.wikimedia.org/wikipedia/en/e/e1/Kansas_City_Chiefs_logo.svg",
+        "conference": "AFC",
+        "division": "West",
+        "founded": 1960,
+        "profile_url": "https://v1.american-football.api-sports.io/teams?id=1&league=1&season=2025",
+        "standings_url": "https://v1.american-football.api-sports.io/standings?league=1&season=2025&team=1",
+        "players": [
+          {
+            "id": 1500,
+            "name": "Patrick Mahomes",
+            "firstname": "Patrick",
+            "lastname": "Mahomes",
+            "position": "QB",
+            "height_inches": 75,
+            "weight_lbs": 230,
+            "jersey_number": 15,
+            "college": "Texas Tech",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=1500",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=1500&season=2025"
+          },
+          {
+            "id": 1850,
+            "name": "Travis Kelce",
+            "firstname": "Travis",
+            "lastname": "Kelce",
+            "position": "TE",
+            "height_inches": 77,
+            "weight_lbs": 250,
+            "jersey_number": 87,
+            "college": "Cincinnati",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=1850",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=1850&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "name": "San Francisco 49ers",
+        "code": "SF",
+        "city": "San Francisco",
+        "logo": "https://upload.wikimedia.org/wikipedia/commons/3/3a/San_Francisco_49ers_logo.svg",
+        "conference": "NFC",
+        "division": "West",
+        "founded": 1946,
+        "profile_url": "https://v1.american-football.api-sports.io/teams?id=14&league=1&season=2025",
+        "standings_url": "https://v1.american-football.api-sports.io/standings?league=1&season=2025&team=14",
+        "players": [
+          {
+            "id": 2900,
+            "name": "Brock Purdy",
+            "firstname": "Brock",
+            "lastname": "Purdy",
+            "position": "QB",
+            "height_inches": 73,
+            "weight_lbs": 220,
+            "jersey_number": 13,
+            "college": "Iowa State",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=2900",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=2900&season=2025"
+          },
+          {
+            "id": 3200,
+            "name": "Christian McCaffrey",
+            "firstname": "Christian",
+            "lastname": "McCaffrey",
+            "position": "RB",
+            "height_inches": 71,
+            "weight_lbs": 205,
+            "jersey_number": 23,
+            "college": "Stanford",
+            "profile_url": "https://v1.american-football.api-sports.io/players?id=3200",
+            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=3200&season=2025"
           }
         ]
       }
@@ -55,6 +295,11 @@
       {
         "id": 49,
         "name": "Chelsea",
+        "code": "CHE",
+        "city": "London",
+        "country": "England",
+        "logo": "https://media.api-sports.io/football/teams/49.png",
+        "founded": 1905,
         "profile_url": "https://v3.football.api-sports.io/teams?id=49&league=39&season=2025",
         "stats_url": "https://v3.football.api-sports.io/teams/statistics?league=39&season=2025&team=49",
         "players": [
@@ -63,8 +308,110 @@
             "name": "C. Palmer",
             "firstname": "Cole Jermaine",
             "lastname": "Palmer",
+            "position": "Midfielder",
+            "height_inches": 74,
+            "weight_lbs": 165,
+            "jersey_number": 20,
+            "nationality": "England",
+            "birth_date": "2002-05-06",
             "profile_url": "https://v3.football.api-sports.io/players/profiles?player=152982",
             "stats_url": "https://v3.football.api-sports.io/players?id=152982&league=39&season=2025"
+          },
+          {
+            "id": 184837,
+            "name": "N. Jackson",
+            "firstname": "Nicolas",
+            "lastname": "Jackson",
+            "position": "Attacker",
+            "height_inches": 72,
+            "weight_lbs": 176,
+            "jersey_number": 15,
+            "nationality": "Senegal",
+            "birth_date": "2001-06-20",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=184837",
+            "stats_url": "https://v3.football.api-sports.io/players?id=184837&league=39&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 33,
+        "name": "Manchester United",
+        "code": "MUN",
+        "city": "Manchester",
+        "country": "England",
+        "logo": "https://media.api-sports.io/football/teams/33.png",
+        "founded": 1878,
+        "profile_url": "https://v3.football.api-sports.io/teams?id=33&league=39&season=2025",
+        "stats_url": "https://v3.football.api-sports.io/teams/statistics?league=39&season=2025&team=33",
+        "players": [
+          {
+            "id": 882,
+            "name": "Bruno Fernandes",
+            "firstname": "Bruno Miguel",
+            "lastname": "Borges Fernandes",
+            "position": "Midfielder",
+            "height_inches": 70,
+            "weight_lbs": 150,
+            "jersey_number": 8,
+            "nationality": "Portugal",
+            "birth_date": "1994-09-08",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=882",
+            "stats_url": "https://v3.football.api-sports.io/players?id=882&league=39&season=2025"
+          },
+          {
+            "id": 19088,
+            "name": "M. Rashford",
+            "firstname": "Marcus",
+            "lastname": "Rashford",
+            "position": "Attacker",
+            "height_inches": 71,
+            "weight_lbs": 154,
+            "jersey_number": 10,
+            "nationality": "England",
+            "birth_date": "1997-10-31",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=19088",
+            "stats_url": "https://v3.football.api-sports.io/players?id=19088&league=39&season=2025"
+          }
+        ]
+      },
+      {
+        "id": 50,
+        "name": "Manchester City",
+        "code": "MCI",
+        "city": "Manchester",
+        "country": "England",
+        "logo": "https://media.api-sports.io/football/teams/50.png",
+        "founded": 1880,
+        "profile_url": "https://v3.football.api-sports.io/teams?id=50&league=39&season=2025",
+        "stats_url": "https://v3.football.api-sports.io/teams/statistics?league=39&season=2025&team=50",
+        "players": [
+          {
+            "id": 630,
+            "name": "Erling Haaland",
+            "firstname": "Erling",
+            "lastname": "Haaland",
+            "position": "Attacker",
+            "height_inches": 76,
+            "weight_lbs": 194,
+            "jersey_number": 9,
+            "nationality": "Norway",
+            "birth_date": "2000-07-21",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=630",
+            "stats_url": "https://v3.football.api-sports.io/players?id=630&league=39&season=2025"
+          },
+          {
+            "id": 635,
+            "name": "Kevin De Bruyne",
+            "firstname": "Kevin",
+            "lastname": "De Bruyne",
+            "position": "Midfielder",
+            "height_inches": 71,
+            "weight_lbs": 154,
+            "jersey_number": 17,
+            "nationality": "Belgium",
+            "birth_date": "1991-06-28",
+            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=635",
+            "stats_url": "https://v3.football.api-sports.io/players?id=635&league=39&season=2025"
           }
         ]
       }

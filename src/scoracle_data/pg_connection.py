@@ -250,6 +250,226 @@ class PostgresDB:
             (entity_type, entity_id, sport_id, season_id),
         )
 
+    # =========================================================================
+    # Optimized Query Methods (for API performance)
+    # =========================================================================
+
+    def get_team_profile_optimized(
+        self,
+        team_id: int,
+        sport_id: str,
+        season_year: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get complete team profile in a single optimized query.
+
+        Combines team info, stats, and percentiles using JOINs for better performance.
+
+        Args:
+            team_id: Team ID
+            sport_id: Sport identifier
+            season_year: Season year
+
+        Returns:
+            Dict with team, stats, and percentiles, or None if not found
+        """
+        season_id = self.get_season_id(sport_id, season_year)
+        if not season_id:
+            return None
+
+        # Determine stats table based on sport
+        table_map = {
+            "NBA": "nba_team_stats",
+            "NFL": "nfl_team_stats",
+            "FOOTBALL": "football_team_stats",
+        }
+        stats_table = table_map.get(sport_id)
+        if not stats_table:
+            return None
+
+        # Single query with JOINs and aggregation
+        query = f"""
+            SELECT
+                json_build_object(
+                    'id', t.id,
+                    'sport_id', t.sport_id,
+                    'league_id', t.league_id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'conference', t.conference,
+                    'division', t.division,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                ) as team,
+                row_to_json(s.*) as stats,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'stat_category', p.stat_category,
+                            'stat_value', p.stat_value,
+                            'percentile', p.percentile,
+                            'rank', p.rank,
+                            'sample_size', p.sample_size,
+                            'comparison_group', p.comparison_group
+                        )
+                        ORDER BY p.stat_category
+                    ) FILTER (WHERE p.id IS NOT NULL),
+                    '[]'::json
+                ) as percentiles
+            FROM teams t
+            LEFT JOIN {stats_table} s ON s.team_id = t.id AND s.season_id = %s
+            LEFT JOIN percentile_cache p ON p.entity_type = 'team'
+                AND p.entity_id = t.id
+                AND p.sport_id = t.sport_id
+                AND p.season_id = %s
+            WHERE t.id = %s AND t.sport_id = %s
+            GROUP BY t.id, s.*
+        """
+
+        result = self.fetchone(query, (season_id, season_id, team_id, sport_id))
+
+        if not result:
+            return None
+
+        # Parse JSON fields back to dicts/lists
+        import json
+
+        return {
+            "team": json.loads(result["team"]) if isinstance(result["team"], str) else result["team"],
+            "stats": json.loads(result["stats"]) if isinstance(result["stats"], str) else result["stats"],
+            "percentiles": json.loads(result["percentiles"]) if isinstance(result["percentiles"], str) else result["percentiles"],
+        }
+
+    def get_player_profile_optimized(
+        self,
+        player_id: int,
+        sport_id: str,
+        season_year: int,
+    ) -> Optional[dict[str, Any]]:
+        """
+        Get complete player profile in a single optimized query.
+
+        Combines player info, team info, stats, and percentiles using JOINs for better performance.
+
+        Args:
+            player_id: Player ID
+            sport_id: Sport identifier
+            season_year: Season year
+
+        Returns:
+            Dict with player, team, stats, and percentiles, or None if not found
+        """
+        season_id = self.get_season_id(sport_id, season_year)
+        if not season_id:
+            return None
+
+        # Determine stats table based on sport
+        table_map = {
+            "NBA": "nba_player_stats",
+            "NFL": "nfl_player_stats",
+            "FOOTBALL": "football_player_stats",
+        }
+        stats_table = table_map.get(sport_id)
+        if not stats_table:
+            return None
+
+        # Single query with JOINs and aggregation
+        query = f"""
+            SELECT
+                json_build_object(
+                    'id', pl.id,
+                    'sport_id', pl.sport_id,
+                    'first_name', pl.first_name,
+                    'last_name', pl.last_name,
+                    'full_name', pl.full_name,
+                    'position', pl.position,
+                    'position_group', pl.position_group,
+                    'nationality', pl.nationality,
+                    'birth_date', pl.birth_date,
+                    'birth_place', pl.birth_place,
+                    'height_inches', pl.height_inches,
+                    'weight_lbs', pl.weight_lbs,
+                    'photo_url', pl.photo_url,
+                    'current_team_id', pl.current_team_id,
+                    'current_league_id', pl.current_league_id,
+                    'jersey_number', pl.jersey_number,
+                    'college', pl.college,
+                    'experience_years', pl.experience_years,
+                    'profile_fetched_at', pl.profile_fetched_at,
+                    'is_active', pl.is_active
+                ) as player,
+                CASE WHEN t.id IS NOT NULL THEN
+                    json_build_object(
+                        'id', t.id,
+                        'sport_id', t.sport_id,
+                        'league_id', t.league_id,
+                        'name', t.name,
+                        'abbreviation', t.abbreviation,
+                        'logo_url', t.logo_url,
+                        'conference', t.conference,
+                        'division', t.division,
+                        'country', t.country,
+                        'city', t.city,
+                        'founded', t.founded,
+                        'venue_name', t.venue_name,
+                        'venue_city', t.venue_city,
+                        'venue_capacity', t.venue_capacity,
+                        'venue_surface', t.venue_surface,
+                        'venue_image', t.venue_image,
+                        'profile_fetched_at', t.profile_fetched_at,
+                        'is_active', t.is_active
+                    )
+                ELSE NULL END as team,
+                row_to_json(s.*) as stats,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'stat_category', p.stat_category,
+                            'stat_value', p.stat_value,
+                            'percentile', p.percentile,
+                            'rank', p.rank,
+                            'sample_size', p.sample_size,
+                            'comparison_group', p.comparison_group
+                        )
+                        ORDER BY p.stat_category
+                    ) FILTER (WHERE p.id IS NOT NULL),
+                    '[]'::json
+                ) as percentiles
+            FROM players pl
+            LEFT JOIN teams t ON pl.current_team_id = t.id AND t.sport_id = pl.sport_id
+            LEFT JOIN {stats_table} s ON s.player_id = pl.id AND s.season_id = %s
+            LEFT JOIN percentile_cache p ON p.entity_type = 'player'
+                AND p.entity_id = pl.id
+                AND p.sport_id = pl.sport_id
+                AND p.season_id = %s
+            WHERE pl.id = %s AND pl.sport_id = %s
+            GROUP BY pl.id, t.id, s.*
+        """
+
+        result = self.fetchone(query, (season_id, season_id, player_id, sport_id))
+
+        if not result:
+            return None
+
+        # Parse JSON fields back to dicts/lists
+        import json
+
+        return {
+            "player": json.loads(result["player"]) if isinstance(result["player"], str) else result["player"],
+            "team": json.loads(result["team"]) if isinstance(result["team"], str) else result["team"] if result["team"] is not None else None,
+            "stats": json.loads(result["stats"]) if isinstance(result["stats"], str) else result["stats"],
+            "percentiles": json.loads(result["percentiles"]) if isinstance(result["percentiles"], str) else result["percentiles"],
+        }
+
     def get_meta(self, key: str) -> Optional[str]:
         """Get a metadata value."""
         result = self.fetchone("SELECT value FROM meta WHERE key = %s", (key,))

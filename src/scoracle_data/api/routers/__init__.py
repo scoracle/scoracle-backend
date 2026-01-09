@@ -1,5 +1,5 @@
 """API routers module."""
 
-from . import teams, players
+from . import teams, players, intel
 
-__all__ = ["teams", "players"]
+__all__ = ["teams", "players", "intel"]

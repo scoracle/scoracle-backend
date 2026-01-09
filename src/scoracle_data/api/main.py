@@ -11,7 +11,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response, JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import teams, players
+from .routers import teams, players, intel
 
 
 class MSGSpecResponse(Response):
@@ -143,6 +143,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(teams.router, prefix="/api/v1/teams", tags=["teams"])
     app.include_router(players.router, prefix="/api/v1/players", tags=["players"])
+    app.include_router(intel.router, prefix="/api/v1/intel", tags=["intel"])
 
     return app
 

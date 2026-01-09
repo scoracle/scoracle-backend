@@ -29,14 +29,28 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# API serving functionality
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.22.0",
+    "msgspec>=0.18.0",
+]
 # CLI and seeding functionality
 cli = [
     "httpx>=0.25.0",
+]
+# Redis caching (optional, falls back to in-memory)
+redis = [
+    "redis>=5.0.0",
 ]
 # Development dependencies
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+]
+# All optional dependencies
+all = [
+    "scoracle-data[api,cli,redis]",
 ]
 
 [project.scripts]

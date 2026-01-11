@@ -131,7 +131,7 @@ def _get_stats_ttl(sport: str, season: int) -> int:
 # INFO ENDPOINT
 # =============================================================================
 
-@router.get("/info/{entity_type}/{entity_id}")
+@router.get("/info/{entity_type}/{entity_id}", response_model=None)
 async def get_entity_info(
     entity_type: EntityType,
     entity_id: int,

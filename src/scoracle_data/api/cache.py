@@ -311,6 +311,68 @@ class HybridCache:
         if self.enable_l1_cache:
             self._l1.delete(key)
 
+    def invalidate_by_pattern(self, pattern: str) -> int:
+        """
+        Invalidate all cache entries matching a pattern.
+
+        Args:
+            pattern: Glob-style pattern (e.g., "*|player|*|NBA|*")
+
+        Returns:
+            Number of entries invalidated
+        """
+        count = 0
+        keys = self._primary.keys(pattern)
+        for key in keys:
+            self._primary.delete(key)
+            count += 1
+        if self.enable_l1_cache:
+            l1_keys = self._l1.keys(pattern)
+            for key in l1_keys:
+                self._l1.delete(key)
+        return count
+
+    def invalidate_stats_cache(self, sport_id: str, season: int | None = None) -> int:
+        """
+        Invalidate all stats cache entries for a sport (and optionally season).
+
+        Called after stats are updated to ensure fresh data is served.
+
+        Args:
+            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
+            season: Optional season year to limit invalidation
+
+        Returns:
+            Number of entries invalidated
+        """
+        # Pattern matches: stats|{entity_type}|{entity_id}|{sport}|{season}|...
+        # Since we use MD5 hashing, we need to delete all and let them re-cache
+        # For in-memory cache, we can clear all stats entries
+        count = 0
+
+        # Clear from both L1 and primary
+        if hasattr(self._l1, '_cache'):
+            with self._l1._lock:
+                keys_to_delete = []
+                for key in list(self._l1._cache.keys()):
+                    # We can't easily filter MD5 keys, so clear all stats
+                    keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    self._l1._cache.pop(key, None)
+                    count += 1
+
+        if isinstance(self._primary, InMemoryBackend):
+            with self._primary._lock:
+                keys_to_delete = []
+                for key in list(self._primary._cache.keys()):
+                    keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    self._primary._cache.pop(key, None)
+                    count += 1
+
+        logger.info(f"Invalidated {count} cache entries for {sport_id} stats refresh")
+        return count
+
     def clear(self) -> None:
         """Clear all cached values."""
         self._primary.clear()

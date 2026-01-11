@@ -92,7 +92,9 @@ CREATE TABLE IF NOT EXISTS teams (
     country TEXT,
     city TEXT,
     founded INTEGER,
+    is_national BOOLEAN DEFAULT false,
     venue_name TEXT,
+    venue_address TEXT,
     venue_capacity INTEGER,
     venue_city TEXT,
     venue_surface TEXT,
@@ -121,6 +123,7 @@ CREATE TABLE IF NOT EXISTS players (
     nationality TEXT,
     birth_date DATE,
     birth_place TEXT,
+    birth_country TEXT,
     height_inches INTEGER,
     weight_lbs INTEGER,
     photo_url TEXT,
@@ -592,6 +595,12 @@ CREATE TABLE IF NOT EXISTS football_player_stats (
     starts INTEGER DEFAULT 0,
     bench_appearances INTEGER DEFAULT 0,
     minutes_played INTEGER DEFAULT 0,
+
+    -- Performance & Substitutions
+    rating REAL DEFAULT 0,
+    is_captain BOOLEAN DEFAULT false,
+    subs_in INTEGER DEFAULT 0,
+    subs_out INTEGER DEFAULT 0,
 
     -- Scoring
     goals INTEGER DEFAULT 0,

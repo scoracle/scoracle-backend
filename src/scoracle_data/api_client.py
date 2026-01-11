@@ -80,9 +80,40 @@ class ApiClientProtocol(ABC):
     async def get_standings(
         self,
         sport_key: str,
-        season: Optional[str] = None
+        season: Optional[str] = None,
+        league: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Fetch standings for a sport."""
+        ...
+
+    @abstractmethod
+    async def get_player_profile(
+        self,
+        player_id: str,
+        sport_key: str
+    ) -> Dict[str, Any]:
+        """Fetch detailed player profile.
+
+        Returns full biographical data including:
+        - height, weight, birth date, nationality
+        - photo URL, jersey number, college
+        - current team and league info
+        """
+        ...
+
+    @abstractmethod
+    async def get_team_profile(
+        self,
+        team_id: str,
+        sport_key: str
+    ) -> Dict[str, Any]:
+        """Fetch detailed team profile.
+
+        Returns full team info including:
+        - logo URL, venue details
+        - conference, division
+        - founded year
+        """
         ...
 
 
@@ -150,11 +181,15 @@ class StandaloneApiClient(ApiClientProtocol):
         out = []
         for t in response:
             team = t.get("team") or t
-            out.append({
+            team_data = {
                 "id": team.get("id"),
                 "name": team.get("name"),
                 "abbreviation": team.get("code") or team.get("nickname") or team.get("name"),
-            })
+            }
+            # Include NBA-specific fields for filtering
+            if sport_key.upper() == "NBA":
+                team_data["nbaFranchise"] = team.get("nbaFranchise")
+            out.append(team_data)
         return out
 
     async def list_players(
@@ -229,12 +264,113 @@ class StandaloneApiClient(ApiClientProtocol):
     async def get_standings(
         self,
         sport_key: str,
-        season: Optional[str] = None
+        season: Optional[str] = None,
+        league: Optional[str] = None,
     ) -> Dict[str, Any]:
         params: Dict[str, Any] = {}
         if season:
             params["season"] = int(season) if str(season).isdigit() else season
+        # NBA requires league=standard for regular season standings
+        if sport_key.upper() == "NBA":
+            params["league"] = league or "standard"
+        elif league:
+            params["league"] = league
         return await self._request(sport_key, "standings", params)
+
+    async def get_player_profile(
+        self,
+        player_id: str,
+        sport_key: str
+    ) -> Dict[str, Any]:
+        """Fetch detailed player profile from API-Sports.
+
+        NBA API structure:
+        - GET /players?id={id}
+        - Returns: id, firstname, lastname, birth, nba, height, weight, college, leagues
+
+        NFL API structure:
+        - GET /players?id={id}
+        - Returns: id, name, position, team, height, weight, college, etc.
+
+        Football API structure:
+        - GET /players/profiles?player={id}
+        - Returns: player.id, player.name, player.firstname, player.lastname, birth, nationality
+        """
+        sport_up = sport_key.upper()
+
+        if sport_up == "FOOTBALL":
+            # Football uses a different endpoint for profiles
+            payload = await self._request(sport_key, "players/profiles", {"player": player_id})
+        else:
+            # NBA and NFL use /players?id={id}
+            payload = await self._request(sport_key, "players", {"id": player_id})
+
+        rows = payload.get("response", [])
+        if not rows:
+            return {}
+
+        # For Football, the response structure is different
+        if sport_up == "FOOTBALL":
+            return rows[0] if rows else {}
+
+        # For NBA/NFL, extract the player data
+        player_data = rows[0]
+
+        # NBA returns player object directly, NFL wraps it
+        if sport_up == "NBA":
+            return player_data
+        elif sport_up == "NFL":
+            # NFL may have nested structure
+            return player_data.get("player") or player_data
+
+        return player_data
+
+    async def get_team_profile(
+        self,
+        team_id: str,
+        sport_key: str
+    ) -> Dict[str, Any]:
+        """Fetch detailed team profile from API-Sports.
+
+        NBA API structure:
+        - GET /teams?id={id}
+        - Returns: id, name, nickname, code, city, logo, conference, division, leagues
+
+        NFL API structure:
+        - GET /teams?id={id}
+        - Returns: id, name, logo, city, coach, stadium, etc.
+
+        Football API structure:
+        - GET /teams?id={id}
+        - Returns: team.id, team.name, team.logo, venue details
+        """
+        sport_up = sport_key.upper()
+
+        payload = await self._request(sport_key, "teams", {"id": team_id})
+        rows = payload.get("response", [])
+
+        if not rows:
+            return {}
+
+        team_data = rows[0]
+
+        # Football wraps in team/venue structure
+        if sport_up == "FOOTBALL":
+            team = team_data.get("team", team_data)
+            venue = team_data.get("venue", {})
+            # Merge venue info into team
+            return {
+                **team,
+                "venue_name": venue.get("name"),
+                "venue_address": venue.get("address"),
+                "venue_city": venue.get("city"),
+                "venue_capacity": venue.get("capacity"),
+                "venue_surface": venue.get("surface"),
+                "venue_image": venue.get("image"),
+            }
+
+        # NBA/NFL return team directly (NBA has nested structure)
+        return team_data
 
 
 # Global client instance

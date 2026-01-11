@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import datetime
 from typing import Any, Optional
 
 from .base import BaseSeeder
@@ -39,16 +40,24 @@ class NBASeeder(BaseSeeder):
     async def fetch_teams(
         self,
         season: int,
-        league_id: Optional[int] = None,
+        league: Optional[str] = None,
     ) -> list[dict[str, Any]]:
         """Fetch NBA teams from API-Sports.
 
-        Note: NBA doesn't use league_id, parameter included for interface compliance.
+        Args:
+            season: Season year
+            league: League filter - "standard" for NBA teams only (30 teams),
+                   None returns all teams including G-League/historical (66+ teams)
         """
-        teams = await self.api.list_teams("NBA")
+        # Use "standard" to get NBA teams, then filter by nbaFranchise=True
+        teams = await self.api.list_teams("NBA", league=league or "standard")
 
         result = []
         for team in teams:
+            # Filter to only NBA franchises (excludes international teams like Brisbane Bullets)
+            if team.get("nbaFranchise") is False:
+                continue
+
             result.append({
                 "id": team["id"],
                 "name": team["name"],
@@ -127,14 +136,39 @@ class NBASeeder(BaseSeeder):
         player_id: int,
         season: int,
     ) -> Optional[dict[str, Any]]:
-        """Fetch player statistics from API-Sports."""
+        """Fetch player statistics from API-Sports.
+
+        NBA API returns per-game data, not season totals.
+        This method fetches all games and returns them for aggregation.
+
+        Returns dict with:
+        - 'games': list of all game stats
+        - 'player': player info
+        - 'team': team info
+        """
         try:
-            stats = await self.api.get_player_statistics(
-                str(player_id),
-                "NBA",
-                str(season),
-            )
-            return stats
+            import httpx
+
+            # Need to call API directly to get all games
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.get(
+                    "https://v2.nba.api-sports.io/players/statistics",
+                    headers={"x-apisports-key": self.api.api_key},
+                    params={"id": player_id, "season": season},
+                )
+                r.raise_for_status()
+                data = r.json()
+
+            games = data.get("response", [])
+            if not games:
+                return None
+
+            # Return all games for aggregation
+            return {
+                "games": games,
+                "player": games[0].get("player") if games else {},
+                "team": games[0].get("team") if games else {},
+            }
         except Exception as e:
             logger.warning("Failed to fetch stats for player %d: %s", player_id, e)
             return None
@@ -144,14 +178,39 @@ class NBASeeder(BaseSeeder):
         team_id: int,
         season: int,
     ) -> Optional[dict[str, Any]]:
-        """Fetch team statistics from API-Sports."""
+        """Fetch team statistics from API-Sports.
+
+        NBA win/loss records come from /standings, not /teams/statistics.
+        We also fetch team statistics for PPG data.
+        """
         try:
-            stats = await self.api.get_team_statistics(
-                str(team_id),
-                "NBA",
-                str(season),
-            )
-            return stats
+            # Get standings for win/loss records
+            standings_data = await self.api.get_standings("NBA", str(season))
+            standings = standings_data.get("response", [])
+
+            # Find this team in standings
+            team_standings = None
+            for s in standings:
+                if s.get("team", {}).get("id") == team_id:
+                    team_standings = s
+                    break
+
+            if not team_standings:
+                logger.warning("Team %d not found in standings", team_id)
+                return None
+
+            # Also get team statistics for PPG data
+            try:
+                team_stats = await self.api.get_team_statistics(
+                    str(team_id), "NBA", str(season)
+                )
+                # Merge standings and stats
+                if team_stats:
+                    team_standings["_team_stats"] = team_stats
+            except Exception:
+                pass  # PPG data is optional
+
+            return team_standings
         except Exception as e:
             logger.warning("Failed to fetch stats for team %d: %s", team_id, e)
             return None
@@ -176,10 +235,14 @@ class NBASeeder(BaseSeeder):
                 venue_name = venue.get("name") or team.get("arena")
                 venue_city = venue.get("city") or team.get("city")
                 venue_capacity = venue.get("capacity")
+                venue_surface = venue.get("surface")
+                venue_image = venue.get("image")
             else:
                 venue_name = team.get("arena")
                 venue_city = team.get("city")
                 venue_capacity = None
+                venue_surface = None
+                venue_image = None
 
             # Handle leagues nested structure
             leagues = team.get("leagues")
@@ -191,6 +254,9 @@ class NBASeeder(BaseSeeder):
                     conference = conference or standard.get("conference")
                     division = division or standard.get("division")
 
+            # Additional metadata (may not be available for all teams)
+            is_nba_franchise = team.get("nbaFranchise", True)
+
             return {
                 "id": team["id"],
                 "name": team["name"],
@@ -199,10 +265,15 @@ class NBASeeder(BaseSeeder):
                 "conference": conference,
                 "division": division,
                 "city": team.get("city"),
+                "country": team.get("country") or "USA",  # NBA teams are in USA
                 "founded": team.get("founded"),
                 "venue_name": venue_name,
                 "venue_city": venue_city,
                 "venue_capacity": venue_capacity,
+                "venue_surface": venue_surface,
+                "venue_image": venue_image,
+                # Note: NBA API doesn't provide venue details or founded year
+                # These would need to be supplemented from another source
             }
         except Exception as e:
             logger.warning("Failed to fetch profile for team %d: %s", team_id, e)
@@ -243,6 +314,17 @@ class NBASeeder(BaseSeeder):
             # Birth info
             birth = player.get("birth", {}) or {}
 
+            # Experience years - calculate from NBA start year
+            nba_info = player.get("nba", {}) or {}
+            experience_years = None
+            if isinstance(nba_info, dict) and nba_info.get("start"):
+                try:
+                    start_year = int(nba_info["start"])
+                    current_year = datetime.now().year
+                    experience_years = current_year - start_year
+                except (ValueError, TypeError):
+                    pass
+
             return {
                 "id": player["id"],
                 "first_name": player.get("first_name") or player.get("firstname"),
@@ -259,6 +341,7 @@ class NBASeeder(BaseSeeder):
                 "current_team_id": current_team_id,
                 "jersey_number": player.get("jersey") or (standard.get("jersey") if isinstance(standard, dict) else None),
                 "college": player.get("college"),
+                "experience_years": experience_years,
             }
         except Exception as e:
             logger.warning("Failed to fetch profile for player %d: %s", player_id, e)
@@ -275,59 +358,80 @@ class NBASeeder(BaseSeeder):
         season_id: int,
         team_id: Optional[int] = None,
     ) -> dict[str, Any]:
-        """Transform API stats to database schema."""
-        # API-Sports NBA stats structure varies, handle common patterns
-        stats = raw_stats if isinstance(raw_stats, dict) else {}
+        """Transform API stats to database schema.
 
-        # Try to extract from nested structure
-        if "response" in stats and stats["response"]:
-            stats = stats["response"][0] if isinstance(stats["response"], list) else stats["response"]
+        NBA API returns per-game data which needs to be aggregated.
+        Expected input structure:
+        {
+            "games": [list of game stat dicts],
+            "player": {...},
+            "team": {...}
+        }
 
-        # Extract games/minutes
-        games = stats.get("games", {}) if isinstance(stats.get("games"), dict) else {}
-        games_played = games.get("played") or stats.get("games_played", 0)
-        games_started = games.get("started") or stats.get("games_started", 0)
-        minutes = stats.get("min") or stats.get("minutes", 0)
+        Each game has: points, min, fgm, fga, tpm, tpa, ftm, fta,
+                       offReb, defReb, totReb, assists, steals, turnovers,
+                       blocks, pFouls, plusMinus
+        """
+        data = raw_stats if isinstance(raw_stats, dict) else {}
+        games = data.get("games", [])
 
-        # Points
-        points = stats.get("points", {}) if isinstance(stats.get("points"), dict) else {}
-        points_total = points.get("total") or stats.get("points_total", 0) or 0
+        if not games:
+            # Return empty/zero stats if no games
+            return self._empty_player_stats(player_id, season_id, team_id)
 
-        # Field goals
-        fg = stats.get("fgm", {}) if isinstance(stats.get("fgm"), dict) else {}
-        fgm = fg.get("made") or stats.get("fgm", 0) or 0
-        fga = fg.get("attempted") or stats.get("fga", 0) or 0
-        fg_pct = DataParsers.safe_percentage(fgm, fga) or stats.get("fgp", 0) or 0
+        # Aggregate totals from all games
+        games_played = len(games)
+        games_started = 0  # API doesn't provide this per-game, would need roster data
 
-        # Three pointers
-        tp = stats.get("tpm", {}) if isinstance(stats.get("tpm"), dict) else {}
-        tpm = tp.get("made") or stats.get("tpm", 0) or 0
-        tpa = tp.get("attempted") or stats.get("tpa", 0) or 0
-        tp_pct = DataParsers.safe_percentage(tpm, tpa) or stats.get("tpp", 0) or 0
+        # Sum all numeric stats
+        minutes_total = 0
+        points_total = 0
+        fgm = 0
+        fga = 0
+        tpm = 0
+        tpa = 0
+        ftm = 0
+        fta = 0
+        off_reb = 0
+        def_reb = 0
+        assists = 0
+        turnovers = 0
+        steals = 0
+        blocks = 0
+        fouls = 0
+        plus_minus = 0
 
-        # Free throws
-        ft = stats.get("ftm", {}) if isinstance(stats.get("ftm"), dict) else {}
-        ftm = ft.get("made") or stats.get("ftm", 0) or 0
-        fta = ft.get("attempted") or stats.get("fta", 0) or 0
-        ft_pct = DataParsers.safe_percentage(ftm, fta) or stats.get("ftp", 0) or 0
+        for game in games:
+            # Parse minutes (can be "25" or "25:30")
+            minutes_total += self._parse_minutes_total(game.get("min", 0))
+            points_total += int(game.get("points", 0) or 0)
+            fgm += int(game.get("fgm", 0) or 0)
+            fga += int(game.get("fga", 0) or 0)
+            tpm += int(game.get("tpm", 0) or 0)
+            tpa += int(game.get("tpa", 0) or 0)
+            ftm += int(game.get("ftm", 0) or 0)
+            fta += int(game.get("fta", 0) or 0)
+            off_reb += int(game.get("offReb", 0) or 0)
+            def_reb += int(game.get("defReb", 0) or 0)
+            assists += int(game.get("assists", 0) or 0)
+            turnovers += int(game.get("turnovers", 0) or 0)
+            steals += int(game.get("steals", 0) or 0)
+            blocks += int(game.get("blocks", 0) or 0)
+            fouls += int(game.get("pFouls", 0) or 0)
 
-        # Rebounds
-        rebounds = stats.get("rebounds", {}) if isinstance(stats.get("rebounds"), dict) else {}
-        off_reb = rebounds.get("offensive") or stats.get("offReb", 0) or 0
-        def_reb = rebounds.get("defensive") or stats.get("defReb", 0) or 0
-        tot_reb = rebounds.get("total") or stats.get("totReb", 0) or off_reb + def_reb
+            # Plus/minus can be "+5" or "-3"
+            pm_raw = game.get("plusMinus", 0) or 0
+            if isinstance(pm_raw, str):
+                pm_raw = pm_raw.replace("+", "")
+                try:
+                    plus_minus += int(pm_raw)
+                except ValueError:
+                    pass
+            else:
+                plus_minus += int(pm_raw)
 
-        # Other stats
-        assists = stats.get("assists") or stats.get("assists", 0) or 0
-        turnovers = stats.get("turnovers") or stats.get("turnovers", 0) or 0
-        steals = stats.get("steals") or stats.get("steals", 0) or 0
-        blocks = stats.get("blocks") or stats.get("blocks", 0) or 0
-        fouls = stats.get("pFouls") or stats.get("personal_fouls", 0) or 0
-        pm_raw = stats.get("plusMinus") or stats.get("plus_minus", 0) or 0
-        plus_minus = int(pm_raw) if isinstance(pm_raw, (int, float, str)) and str(pm_raw).lstrip("+-").isdigit() else 0
-
-        # Calculate per-game averages
-        gp = max(games_played, 1)  # Avoid division by zero
+        tot_reb = off_reb + def_reb
+        gp = max(games_played, 1)
 
         return {
             "player_id": player_id,
@@ -335,19 +439,19 @@ class NBASeeder(BaseSeeder):
             "team_id": team_id,
             "games_played": games_played,
             "games_started": games_started,
-            "minutes_total": self._parse_minutes_total(minutes),
-            "minutes_per_game": self._parse_minutes_total(minutes) / gp if isinstance(minutes, (int, float)) else 0,
+            "minutes_total": minutes_total,
+            "minutes_per_game": round(minutes_total / gp, 1),
             "points_total": points_total,
-            "points_per_game": round(points_total / gp, 1) if points_total else 0,
+            "points_per_game": round(points_total / gp, 1),
             "fgm": fgm,
             "fga": fga,
-            "fg_pct": fg_pct,
+            "fg_pct": DataParsers.safe_percentage(fgm, fga),
             "tpm": tpm,
             "tpa": tpa,
-            "tp_pct": tp_pct,
+            "tp_pct": DataParsers.safe_percentage(tpm, tpa),
             "ftm": ftm,
             "fta": fta,
-            "ft_pct": ft_pct,
+            "ft_pct": DataParsers.safe_percentage(ftm, fta),
             "offensive_rebounds": off_reb,
             "defensive_rebounds": def_reb,
             "total_rebounds": tot_reb,
@@ -370,7 +474,7 @@ class NBASeeder(BaseSeeder):
             "true_shooting_pct": StatCalculators.calculate_true_shooting_pct(points_total, fga, fta),
             "effective_fg_pct": StatCalculators.calculate_effective_fg_pct(fgm, tpm, fga),
             "assist_turnover_ratio": round(assists / max(turnovers, 1), 2) if assists else 0,
-            "updated_at": int(time.time()),
+            "updated_at": datetime.now(),
         }
 
     def transform_team_stats(
@@ -379,35 +483,49 @@ class NBASeeder(BaseSeeder):
         team_id: int,
         season_id: int,
     ) -> dict[str, Any]:
-        """Transform API team stats to database schema."""
+        """Transform NBA standings/stats to database schema.
+
+        NBA data comes from standings endpoint which has structure:
+        {
+            "win": {"home": X, "away": Y, "total": 0, ...},
+            "loss": {"home": X, "away": Y, "total": 0, ...},
+            "_team_stats": { optional PPG data }
+        }
+
+        Note: win.total and loss.total are often 0 (API bug), so we calculate from home+away.
+        """
         stats = raw_stats if isinstance(raw_stats, dict) else {}
 
-        if "response" in stats and stats["response"]:
-            stats = stats["response"][0] if isinstance(stats["response"], list) else stats["response"]
+        # Extract win/loss from standings structure
+        wins = stats.get("win", {}) if isinstance(stats.get("win"), dict) else {}
+        losses = stats.get("loss", {}) if isinstance(stats.get("loss"), dict) else {}
 
-        # Defensive helper for nested dict access
-        def safe_nested_get(d, *keys, default=0):
-            """Safely traverse nested dicts, returning default if any key fails."""
-            for key in keys:
-                if isinstance(d, dict):
-                    d = d.get(key, {})
-                else:
-                    return default
-            return d if d else default
+        # Get home/away values
+        home_wins = wins.get("home", 0) or 0
+        away_wins = wins.get("away", 0) or 0
+        home_losses = losses.get("home", 0) or 0
+        away_losses = losses.get("away", 0) or 0
 
-        # Extract record - handle both nested and flat structures
-        games = stats.get("games", {}) if isinstance(stats.get("games"), dict) else {}
-        wins = games.get("wins", {}) if isinstance(games.get("wins"), dict) else {}
-        losses = games.get("losses", {}) if isinstance(games.get("losses"), dict) else {}
-
-        # Try nested structure first, fall back to flat
-        total_wins = safe_nested_get(wins, "all", "total") or stats.get("wins", 0) or 0
-        total_losses = safe_nested_get(losses, "all", "total") or stats.get("losses", 0) or 0
+        # Calculate totals from home+away (since total field is often buggy/0)
+        total_wins = home_wins + away_wins
+        total_losses = home_losses + away_losses
         games_played = total_wins + total_losses
 
-        # Points - safely handle different structures
-        points_for_ppg = safe_nested_get(stats, "points", "for", "average", "all")
-        points_against_ppg = safe_nested_get(stats, "points", "against", "average", "all")
+        # Calculate PPG from team statistics if available
+        points_per_game = 0.0
+        opponent_ppg = 0.0
+
+        team_stats = stats.get("_team_stats")
+        if team_stats and isinstance(team_stats, (dict, list)):
+            # team_stats might be a list with one element
+            if isinstance(team_stats, list) and team_stats:
+                team_stats = team_stats[0]
+
+            if isinstance(team_stats, dict):
+                total_points = team_stats.get("points", 0) or 0
+                total_games = team_stats.get("games", 0) or games_played
+                if total_games > 0:
+                    points_per_game = round(total_points / total_games, 1)
 
         return {
             "team_id": team_id,
@@ -416,13 +534,13 @@ class NBASeeder(BaseSeeder):
             "wins": total_wins,
             "losses": total_losses,
             "win_pct": DataParsers.safe_percentage(total_wins, games_played),
-            "home_wins": safe_nested_get(wins, "home", "total"),
-            "home_losses": safe_nested_get(losses, "home", "total"),
-            "away_wins": safe_nested_get(wins, "away", "total"),
-            "away_losses": safe_nested_get(losses, "away", "total"),
-            "points_per_game": points_for_ppg if isinstance(points_for_ppg, (int, float)) else 0,
-            "opponent_ppg": points_against_ppg if isinstance(points_against_ppg, (int, float)) else 0,
-            "updated_at": int(time.time()),
+            "home_wins": home_wins,
+            "home_losses": home_losses,
+            "away_wins": away_wins,
+            "away_losses": away_losses,
+            "points_per_game": points_per_game,
+            "opponent_ppg": opponent_ppg,  # Not available from current API
+            "updated_at": datetime.now(),
         }
 
     # =========================================================================
@@ -436,7 +554,9 @@ class NBASeeder(BaseSeeder):
             columns=NBA_PLAYER_STATS_COLUMNS,
             conflict_keys=["player_id", "season_id", "team_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in NBA_PLAYER_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     def upsert_team_stats(self, stats: dict[str, Any]) -> None:
         """Insert or update NBA team statistics."""
@@ -445,11 +565,27 @@ class NBASeeder(BaseSeeder):
             columns=NBA_TEAM_STATS_COLUMNS,
             conflict_keys=["team_id", "season_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in NBA_TEAM_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     # =========================================================================
     # Helper Methods
     # =========================================================================
+
+    def _empty_player_stats(
+        self, player_id: int, season_id: int, team_id: Optional[int] = None
+    ) -> dict[str, Any]:
+        """Return empty stats dict for player with no games."""
+        from ..query_builder import NBA_PLAYER_STATS_COLUMNS
+
+        # Create dict with all columns set to 0/None
+        stats = {col: 0 for col in NBA_PLAYER_STATS_COLUMNS}
+        stats["player_id"] = player_id
+        stats["season_id"] = season_id
+        stats["team_id"] = team_id
+        stats["updated_at"] = datetime.now()
+        return stats
 
     def _parse_minutes_total(self, minutes: Any) -> int:
         """Parse minutes to integer total.

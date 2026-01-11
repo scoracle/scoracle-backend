@@ -50,7 +50,322 @@ class PostgresPercentileCalculator:
         self.db = db
 
     # =========================================================================
-    # Batch Calculation Methods (Main Optimization)
+    # Optimized Multi-Stat Batch Calculation (Single Query)
+    # =========================================================================
+
+    def calculate_all_player_percentiles_optimized(
+        self,
+        sport_id: str,
+        season_id: int,
+        position_group: Optional[str] = None,
+    ) -> int:
+        """
+        Calculate percentiles for ALL stats in a SINGLE query.
+
+        Uses PostgreSQL UNNEST to pivot multiple stat columns into rows,
+        reducing 12 DB roundtrips to 1 for massive performance gain.
+
+        Args:
+            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
+            season_id: Season ID
+            position_group: Optional filter for specific position group
+
+        Returns:
+            Number of percentile records created/updated
+        """
+        table = self.STATS_TABLE_MAP.get((sport_id, "player"))
+        if not table:
+            return 0
+
+        categories = get_stat_categories(sport_id, "player", position_group)
+        if not categories:
+            return 0
+
+        min_sample = get_min_sample_size(sport_id, "player")
+
+        # Build position filter
+        position_filter = ""
+        position_params: list = []
+        if position_group:
+            position_filter = "AND p.position_group = %s"
+            position_params = [position_group]
+
+        # Build the multi-stat SELECT with all percentile calculations
+        stat_selects = []
+        for stat_name in categories:
+            order_dir = "ASC" if is_inverse_stat(stat_name) else "DESC"
+            stat_selects.append(f"""
+                s.{stat_name},
+                ROUND((PERCENT_RANK() OVER (
+                    PARTITION BY p.position_group
+                    ORDER BY s.{stat_name} {order_dir} NULLS LAST
+                ) * 100)::numeric, 1) as {stat_name}_pct,
+                RANK() OVER (
+                    PARTITION BY p.position_group
+                    ORDER BY s.{stat_name} {order_dir} NULLS LAST
+                ) as {stat_name}_rank""")
+
+        stat_select_clause = ",".join(stat_selects)
+
+        # Build UNNEST arrays for pivoting
+        stat_names_array = ", ".join(f"'{stat}'" for stat in categories)
+        stat_values_array = ", ".join(f"stat_data.{stat}" for stat in categories)
+        stat_pcts_array = ", ".join(f"stat_data.{stat}_pct" for stat in categories)
+        stat_ranks_array = ", ".join(f"stat_data.{stat}_rank" for stat in categories)
+
+        try:
+            query = f"""
+                WITH stat_data AS (
+                    SELECT
+                        p.id as player_id,
+                        p.position_group,
+                        COUNT(*) OVER (PARTITION BY p.position_group) as sample_size,
+                        {stat_select_clause}
+                    FROM {table} s
+                    JOIN players p ON s.player_id = p.id
+                    WHERE s.season_id = %s
+                      AND p.sport_id = %s
+                      {position_filter}
+                ),
+                unpivoted AS (
+                    SELECT
+                        stat_data.player_id,
+                        stat_data.position_group,
+                        stat_data.sample_size,
+                        stat_info.stat_name,
+                        stat_info.stat_value,
+                        stat_info.percentile,
+                        stat_info.rank
+                    FROM stat_data
+                    CROSS JOIN LATERAL (
+                        SELECT * FROM UNNEST(
+                            ARRAY[{stat_names_array}],
+                            ARRAY[{stat_values_array}],
+                            ARRAY[{stat_pcts_array}],
+                            ARRAY[{stat_ranks_array}]
+                        ) AS t(stat_name, stat_value, percentile, rank)
+                    ) stat_info
+                    WHERE stat_info.stat_value IS NOT NULL
+                      AND stat_data.sample_size >= %s
+                )
+                INSERT INTO percentile_cache (
+                    entity_type, entity_id, sport_id, season_id, stat_category,
+                    stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                )
+                SELECT
+                    'player',
+                    player_id,
+                    %s,
+                    %s,
+                    stat_name,
+                    stat_value,
+                    percentile,
+                    rank,
+                    sample_size,
+                    position_group || ' ' || %s::text,
+                    NOW()
+                FROM unpivoted
+                ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                DO UPDATE SET
+                    stat_value = EXCLUDED.stat_value,
+                    percentile = EXCLUDED.percentile,
+                    rank = EXCLUDED.rank,
+                    sample_size = EXCLUDED.sample_size,
+                    comparison_group = EXCLUDED.comparison_group,
+                    calculated_at = EXCLUDED.calculated_at
+            """
+
+            params = [
+                season_id,
+                sport_id,
+                *position_params,
+                min_sample,
+                sport_id,
+                season_id,
+                season_id,
+            ]
+
+            self.db.execute(query, tuple(params))
+
+        except Exception as e:
+            logger.warning(
+                "Optimized player percentile calculation failed for %s: %s, falling back to per-stat",
+                sport_id,
+                e,
+            )
+            # Fallback to the per-stat method
+            return self.calculate_all_player_percentiles(sport_id, season_id, position_group)
+
+        # Get count of records created
+        result = self.db.fetchone(
+            """
+            SELECT COUNT(*) as count FROM percentile_cache
+            WHERE sport_id = %s AND season_id = %s AND entity_type = 'player'
+            """,
+            (sport_id, season_id),
+        )
+        return result["count"] if result else 0
+
+    def calculate_all_team_percentiles_optimized(
+        self,
+        sport_id: str,
+        season_id: int,
+        league_id: Optional[int] = None,
+    ) -> int:
+        """
+        Calculate percentiles for ALL team stats in a SINGLE query.
+
+        Args:
+            sport_id: Sport identifier
+            season_id: Season ID
+            league_id: Optional league filter (for FOOTBALL)
+
+        Returns:
+            Number of percentile records created/updated
+        """
+        table = self.STATS_TABLE_MAP.get((sport_id, "team"))
+        if not table:
+            return 0
+
+        categories = get_stat_categories(sport_id, "team")
+        if not categories:
+            return 0
+
+        min_sample = get_min_sample_size(sport_id, "team")
+
+        # Build partition and comparison group based on sport
+        if sport_id == "FOOTBALL":
+            partition_clause = "PARTITION BY s.league_id"
+            comparison_group_expr = "l.name"
+            league_join = "LEFT JOIN leagues l ON s.league_id = l.id"
+        else:
+            partition_clause = ""
+            comparison_group_expr = f"'{sport_id} Teams'"
+            league_join = ""
+
+        league_filter = ""
+        league_params: list = []
+        if league_id:
+            league_filter = "AND s.league_id = %s"
+            league_params = [league_id]
+
+        # Build multi-stat SELECT
+        stat_selects = []
+        for stat_name in categories:
+            order_dir = "ASC" if is_inverse_stat(stat_name) else "DESC"
+            stat_selects.append(f"""
+                s.{stat_name},
+                ROUND((PERCENT_RANK() OVER (
+                    {partition_clause}
+                    ORDER BY s.{stat_name} {order_dir} NULLS LAST
+                ) * 100)::numeric, 1) as {stat_name}_pct,
+                RANK() OVER (
+                    {partition_clause}
+                    ORDER BY s.{stat_name} {order_dir} NULLS LAST
+                ) as {stat_name}_rank""")
+
+        stat_select_clause = ",".join(stat_selects)
+
+        # Build UNNEST arrays
+        stat_names_array = ", ".join(f"'{stat}'" for stat in categories)
+        stat_values_array = ", ".join(f"stat_data.{stat}" for stat in categories)
+        stat_pcts_array = ", ".join(f"stat_data.{stat}_pct" for stat in categories)
+        stat_ranks_array = ", ".join(f"stat_data.{stat}_rank" for stat in categories)
+
+        try:
+            query = f"""
+                WITH stat_data AS (
+                    SELECT
+                        t.id as team_id,
+                        {'s.league_id,' if sport_id == 'FOOTBALL' else ''}
+                        {comparison_group_expr} as comparison_group,
+                        COUNT(*) OVER ({partition_clause}) as sample_size,
+                        {stat_select_clause}
+                    FROM {table} s
+                    JOIN teams t ON s.team_id = t.id
+                    {league_join}
+                    WHERE s.season_id = %s
+                      AND t.sport_id = %s
+                      {league_filter}
+                ),
+                unpivoted AS (
+                    SELECT
+                        stat_data.team_id,
+                        stat_data.comparison_group,
+                        stat_data.sample_size,
+                        stat_info.stat_name,
+                        stat_info.stat_value,
+                        stat_info.percentile,
+                        stat_info.rank
+                    FROM stat_data
+                    CROSS JOIN LATERAL (
+                        SELECT * FROM UNNEST(
+                            ARRAY[{stat_names_array}],
+                            ARRAY[{stat_values_array}],
+                            ARRAY[{stat_pcts_array}],
+                            ARRAY[{stat_ranks_array}]
+                        ) AS t(stat_name, stat_value, percentile, rank)
+                    ) stat_info
+                    WHERE stat_info.stat_value IS NOT NULL
+                      AND stat_data.sample_size >= %s
+                )
+                INSERT INTO percentile_cache (
+                    entity_type, entity_id, sport_id, season_id, stat_category,
+                    stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                )
+                SELECT
+                    'team',
+                    team_id,
+                    %s,
+                    %s,
+                    stat_name,
+                    stat_value,
+                    percentile,
+                    rank,
+                    sample_size,
+                    comparison_group,
+                    NOW()
+                FROM unpivoted
+                ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                DO UPDATE SET
+                    stat_value = EXCLUDED.stat_value,
+                    percentile = EXCLUDED.percentile,
+                    rank = EXCLUDED.rank,
+                    sample_size = EXCLUDED.sample_size,
+                    comparison_group = EXCLUDED.comparison_group,
+                    calculated_at = EXCLUDED.calculated_at
+            """
+
+            params = [
+                season_id,
+                sport_id,
+                *league_params,
+                min_sample,
+                sport_id,
+                season_id,
+            ]
+
+            self.db.execute(query, tuple(params))
+
+        except Exception as e:
+            logger.warning(
+                "Optimized team percentile calculation failed for %s: %s, falling back to per-stat",
+                sport_id,
+                e,
+            )
+            return self.calculate_all_team_percentiles(sport_id, season_id, league_id)
+
+        result = self.db.fetchone(
+            """
+            SELECT COUNT(*) as count FROM percentile_cache
+            WHERE sport_id = %s AND season_id = %s AND entity_type = 'team'
+            """,
+            (sport_id, season_id),
+        )
+        return result["count"] if result else 0
+
+    # =========================================================================
+    # Legacy Per-Stat Batch Calculation (Fallback)
     # =========================================================================
 
     def calculate_all_player_percentiles(
@@ -315,6 +630,7 @@ class PostgresPercentileCalculator:
         self,
         sport_id: str,
         season_year: int,
+        use_optimized: bool = True,
     ) -> dict[str, int]:
         """
         Recalculate all percentiles for a sport and season.
@@ -324,6 +640,7 @@ class PostgresPercentileCalculator:
         Args:
             sport_id: Sport identifier
             season_year: Season year
+            use_optimized: If True, use single-query optimization (default)
 
         Returns:
             Summary with player and team counts
@@ -338,11 +655,17 @@ class PostgresPercentileCalculator:
             (sport_id, season_id),
         )
 
-        # Calculate player percentiles
-        player_count = self.calculate_all_player_percentiles(sport_id, season_id)
+        # Calculate player percentiles (optimized = 1 query, legacy = 12 queries)
+        if use_optimized:
+            player_count = self.calculate_all_player_percentiles_optimized(sport_id, season_id)
+        else:
+            player_count = self.calculate_all_player_percentiles(sport_id, season_id)
 
-        # Calculate team percentiles
-        team_count = self.calculate_all_team_percentiles(sport_id, season_id)
+        # Calculate team percentiles (optimized = 1 query, legacy = 10 queries)
+        if use_optimized:
+            team_count = self.calculate_all_team_percentiles_optimized(sport_id, season_id)
+        else:
+            team_count = self.calculate_all_team_percentiles(sport_id, season_id)
 
         logger.info(
             "Recalculated percentiles for %s %d: %d player records, %d team records",

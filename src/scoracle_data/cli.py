@@ -12,6 +12,13 @@ Usage:
     python -m backend.app.statsdb.cli percentiles --sport NBA --season 2025
     python -m backend.app.statsdb.cli status
     python -m backend.app.statsdb.cli export --format json
+
+    # Schedule-driven fixture commands
+    python -m backend.app.statsdb.cli fixtures load schedule.csv --sport FOOTBALL
+    python -m backend.app.statsdb.cli fixtures status
+    python -m backend.app.statsdb.cli fixtures pending
+    python -m backend.app.statsdb.cli fixtures run-scheduler
+    python -m backend.app.statsdb.cli fixtures seed 12345
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ import argparse
 import asyncio
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +40,10 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("statsdb.cli")
+
+# All supported sports - derived from api.types.Sport enum
+# Keep in sync with SPORT_REGISTRY in api/types.py
+ALL_SPORTS = ["NBA", "NFL", "FOOTBALL"]
 
 
 def get_db():
@@ -164,7 +176,7 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
 
     sports_to_seed = []
     if args.all:
-        sports_to_seed = ["NBA", "NFL", "FOOTBALL"]
+        sports_to_seed = ALL_SPORTS
     elif args.sport:
         sports_to_seed = [args.sport.upper()]
     else:
@@ -242,7 +254,7 @@ async def cmd_seed_2phase_async(args: argparse.Namespace) -> int:
 
     sports_to_seed = []
     if args.all:
-        sports_to_seed = ["NBA", "NFL", "FOOTBALL"]
+        sports_to_seed = ALL_SPORTS
     elif args.sport:
         sports_to_seed = [args.sport.upper()]
     else:
@@ -342,7 +354,7 @@ async def cmd_seed_debug_async(args: argparse.Namespace) -> int:
 
     sports_to_seed = []
     if args.all:
-        sports_to_seed = ["NBA", "NFL", "FOOTBALL"]
+        sports_to_seed = ALL_SPORTS
     elif args.sport:
         sports_to_seed = [args.sport.upper()]
     else:
@@ -549,7 +561,7 @@ def cmd_percentiles(args: argparse.Namespace) -> int:
 
     calculator = PercentileCalculator(db)
 
-    sports = [args.sport.upper()] if args.sport else ["NBA", "NFL", "FOOTBALL"]
+    sports = [args.sport.upper()] if args.sport else ALL_SPORTS
     season = args.season or 2025
 
     for sport_id in sports:
@@ -586,7 +598,7 @@ def cmd_export(args: argparse.Namespace) -> int:
 
     logger.info("Exporting data to %s in %s format...", output_dir, format_type)
 
-    sports = [sport] if sport else ["NBA", "NFL", "FOOTBALL"]
+    sports = [sport] if sport else ALL_SPORTS
 
     for sport_id in sports:
         season_id = db.get_season_id(sport_id, season)
@@ -732,6 +744,399 @@ def cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+# =============================================================================
+# FIXTURE MANAGEMENT COMMANDS
+# =============================================================================
+
+def get_pg_db():
+    """Get PostgreSQL database connection for fixture operations."""
+    from .pg_connection import PostgresDB
+    return PostgresDB()
+
+
+def cmd_fixtures(args: argparse.Namespace) -> int:
+    """Route fixture subcommands."""
+    subcommand = args.fixtures_command
+
+    if subcommand == "load":
+        return cmd_fixtures_load(args)
+    elif subcommand == "status":
+        return cmd_fixtures_status(args)
+    elif subcommand == "pending":
+        return cmd_fixtures_pending(args)
+    elif subcommand == "upcoming":
+        return cmd_fixtures_upcoming(args)
+    elif subcommand == "failed":
+        return cmd_fixtures_failed(args)
+    elif subcommand == "recent":
+        return cmd_fixtures_recent(args)
+    elif subcommand == "seed":
+        return asyncio.run(cmd_fixtures_seed_async(args))
+    elif subcommand == "run-scheduler":
+        return asyncio.run(cmd_fixtures_run_scheduler_async(args))
+    elif subcommand == "reset":
+        return cmd_fixtures_reset(args)
+    else:
+        logger.error("Unknown fixtures subcommand: %s", subcommand)
+        return 1
+
+
+def cmd_fixtures_load(args: argparse.Namespace) -> int:
+    """Load fixtures from CSV or JSON file."""
+    from .fixtures import FixtureLoader
+
+    db = get_pg_db()
+
+    try:
+        loader = FixtureLoader(db)
+        file_path = Path(args.file)
+
+        if not file_path.exists():
+            logger.error("File not found: %s", file_path)
+            return 1
+
+        # Determine format from extension
+        if file_path.suffix.lower() == ".csv":
+            result = loader.load_from_csv(
+                file_path,
+                sport_id=args.sport,
+                season_year=args.season,
+                seed_delay_hours=args.delay or 4,
+                clear_existing=args.clear,
+            )
+        elif file_path.suffix.lower() == ".json":
+            result = loader.load_from_json(
+                file_path,
+                sport_id=args.sport,
+                season_year=args.season,
+                seed_delay_hours=args.delay or 4,
+                clear_existing=args.clear,
+            )
+        else:
+            logger.error("Unsupported file format. Use .csv or .json")
+            return 1
+
+        print(f"\nFixtures Loaded")
+        print("=" * 50)
+        print(f"  Loaded:  {result['loaded']}")
+        print(f"  Skipped: {result['skipped']}")
+        print(f"  Errors:  {result['errors']}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to load fixtures: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_status(args: argparse.Namespace) -> int:
+    """Show fixture status summary."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None)  # No API needed for status
+        summary = scheduler.get_fixture_status_summary(args.sport)
+
+        print(f"\nFixture Status Summary")
+        if args.sport:
+            print(f"Sport: {args.sport}")
+        print("=" * 50)
+
+        total = 0
+        for status, count in sorted(summary.items()):
+            print(f"  {status:<15} {count:>6,}")
+            total += count
+
+        print("-" * 50)
+        print(f"  {'Total':<15} {total:>6,}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get fixture status: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_pending(args: argparse.Namespace) -> int:
+    """Show pending fixtures ready to seed."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None, max_fixtures_per_run=args.limit or 50)
+        pending = scheduler._get_pending_fixtures(args.sport)
+
+        print(f"\nPending Fixtures (ready to seed)")
+        if args.sport:
+            print(f"Sport: {args.sport}")
+        print("=" * 70)
+
+        if not pending:
+            print("  No pending fixtures")
+            return 0
+
+        print(f"  {'ID':<8} {'Sport':<10} {'Start Time':<20} {'Attempts':<10}")
+        print("-" * 70)
+
+        for f in pending:
+            start_time = f["start_time"].strftime("%Y-%m-%d %H:%M") if f["start_time"] else "N/A"
+            print(f"  {f['id']:<8} {f['sport_id']:<10} {start_time:<20} {f['seed_attempts']:<10}")
+
+        print(f"\nTotal: {len(pending)} fixtures ready to seed")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get pending fixtures: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_upcoming(args: argparse.Namespace) -> int:
+    """Show upcoming fixtures."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None)
+        upcoming = scheduler.get_upcoming_fixtures(
+            sport_id=args.sport,
+            hours_ahead=args.hours or 24,
+            limit=args.limit or 50,
+        )
+
+        print(f"\nUpcoming Fixtures (next {args.hours or 24} hours)")
+        if args.sport:
+            print(f"Sport: {args.sport}")
+        print("=" * 80)
+
+        if not upcoming:
+            print("  No upcoming fixtures")
+            return 0
+
+        print(f"  {'ID':<8} {'Sport':<10} {'Start Time':<20} {'Home':<15} {'Away':<15}")
+        print("-" * 80)
+
+        for f in upcoming:
+            start_time = f["start_time"].strftime("%Y-%m-%d %H:%M") if f["start_time"] else "N/A"
+            home = f.get("home_team_name", "N/A")[:14]
+            away = f.get("away_team_name", "N/A")[:14]
+            print(f"  {f['id']:<8} {f['sport_id']:<10} {start_time:<20} {home:<15} {away:<15}")
+
+        print(f"\nTotal: {len(upcoming)} upcoming fixtures")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get upcoming fixtures: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_recent(args: argparse.Namespace) -> int:
+    """Show recently seeded fixtures."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None)
+        recent = scheduler.get_recent_seeds(
+            sport_id=args.sport,
+            hours_back=args.hours or 24,
+            limit=args.limit or 50,
+        )
+
+        print(f"\nRecently Seeded Fixtures (past {args.hours or 24} hours)")
+        if args.sport:
+            print(f"Sport: {args.sport}")
+        print("=" * 80)
+
+        if not recent:
+            print("  No recently seeded fixtures")
+            return 0
+
+        print(f"  {'ID':<8} {'Sport':<10} {'Seeded At':<20} {'Home':<15} {'Away':<15}")
+        print("-" * 80)
+
+        for f in recent:
+            seeded_at = f["seeded_at"].strftime("%Y-%m-%d %H:%M") if f["seeded_at"] else "N/A"
+            home = f.get("home_team_name", "N/A")[:14]
+            away = f.get("away_team_name", "N/A")[:14]
+            print(f"  {f['id']:<8} {f['sport_id']:<10} {seeded_at:<20} {home:<15} {away:<15}")
+
+        print(f"\nTotal: {len(recent)} recently seeded fixtures")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get recent fixtures: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_failed(args: argparse.Namespace) -> int:
+    """Show fixtures that failed seeding."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None)
+        failed = scheduler.get_failed_fixtures(
+            sport_id=args.sport,
+            limit=args.limit or 50,
+        )
+
+        print(f"\nFailed Fixtures")
+        if args.sport:
+            print(f"Sport: {args.sport}")
+        print("=" * 90)
+
+        if not failed:
+            print("  No failed fixtures")
+            return 0
+
+        print(f"  {'ID':<8} {'Sport':<10} {'Attempts':<10} {'Error':<50}")
+        print("-" * 90)
+
+        for f in failed:
+            error = (f.get("last_seed_error") or "Unknown")[:48]
+            print(f"  {f['id']:<8} {f['sport_id']:<10} {f['seed_attempts']:<10} {error:<50}")
+
+        print(f"\nTotal: {len(failed)} failed fixtures")
+        print("\nUse 'fixtures reset <fixture_id>' to reset a fixture for retry")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get failed fixtures: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
+    """Manually seed a specific fixture."""
+    from .fixtures import PostMatchSeeder
+
+    db = get_pg_db()
+    api = await get_api_service()
+
+    try:
+        seeder = PostMatchSeeder(db, api)
+        fixture_id = args.fixture_id
+
+        logger.info("Seeding fixture %d...", fixture_id)
+        result = await seeder.seed_fixture(
+            fixture_id,
+            recalculate_percentiles=not args.skip_percentiles,
+        )
+
+        print(f"\nFixture Seeding Result")
+        print("=" * 50)
+        print(f"  Fixture ID:    {result.fixture_id}")
+        print(f"  Sport:         {result.sport_id}")
+        print(f"  Success:       {result.success}")
+        print(f"  Players:       {result.players_updated}")
+        print(f"  Teams:         {result.teams_updated}")
+        print(f"  Percentiles:   {'Yes' if result.percentiles_recalculated else 'No'}")
+        print(f"  Duration:      {result.duration_seconds:.1f}s")
+
+        if result.error:
+            print(f"  Error:         {result.error}")
+
+        return 0 if result.success else 1
+
+    except Exception as e:
+        logger.error("Failed to seed fixture: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_fixtures_run_scheduler_async(args: argparse.Namespace) -> int:
+    """Run the scheduler to process pending fixtures."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+    api = await get_api_service()
+
+    try:
+        scheduler = SchedulerService(
+            db,
+            api,
+            max_fixtures_per_run=args.max or 10,
+            max_retries=args.max_retries or 3,
+        )
+
+        logger.info("Running fixture scheduler...")
+        result = await scheduler.process_pending_fixtures(
+            sport_id=args.sport,
+            recalculate_percentiles=not args.skip_percentiles,
+        )
+
+        print(f"\nScheduler Run Summary")
+        print("=" * 50)
+        print(f"  Fixtures Found:     {result.fixtures_found}")
+        print(f"  Fixtures Processed: {result.fixtures_processed}")
+        print(f"  Succeeded:          {result.fixtures_succeeded}")
+        print(f"  Failed:             {result.fixtures_failed}")
+        print(f"  Players Updated:    {result.total_players_updated}")
+        print(f"  Teams Updated:      {result.total_teams_updated}")
+        print(f"  Duration:           {result.total_duration_seconds:.1f}s")
+
+        if result.errors:
+            print(f"\nErrors:")
+            for err in result.errors[:10]:
+                print(f"  - {err}")
+            if len(result.errors) > 10:
+                print(f"  ... and {len(result.errors) - 10} more")
+
+        return 0 if result.fixtures_failed == 0 else 1
+
+    except Exception as e:
+        logger.error("Scheduler run failed: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_fixtures_reset(args: argparse.Namespace) -> int:
+    """Reset a fixture to allow retry."""
+    from .fixtures import SchedulerService
+
+    db = get_pg_db()
+
+    try:
+        scheduler = SchedulerService(db, None)
+        fixture_id = args.fixture_id
+
+        if scheduler.reset_fixture_for_retry(fixture_id):
+            print(f"Fixture {fixture_id} has been reset for retry")
+            return 0
+        else:
+            print(f"Fixture {fixture_id} not found")
+            return 1
+
+    except Exception as e:
+        logger.error("Failed to reset fixture: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -819,6 +1224,101 @@ def main() -> int:
     query_parser.add_argument("--entity-type", choices=["player", "team"])
     query_parser.add_argument("--entity-id", type=int, help="Entity ID for profile")
 
+    # fixtures command (schedule-driven seeding)
+    fixtures_parser = subparsers.add_parser(
+        "fixtures",
+        help="Manage match fixtures and schedule-driven seeding",
+    )
+    fixtures_subparsers = fixtures_parser.add_subparsers(
+        dest="fixtures_command",
+        help="Fixture subcommands",
+    )
+
+    # fixtures load
+    fixtures_load_parser = fixtures_subparsers.add_parser(
+        "load",
+        help="Load fixtures from CSV or JSON file",
+    )
+    fixtures_load_parser.add_argument("file", help="Path to CSV or JSON file")
+    fixtures_load_parser.add_argument("--sport", help="Default sport ID if not in file")
+    fixtures_load_parser.add_argument("--season", type=int, help="Season year")
+    fixtures_load_parser.add_argument("--delay", type=int, default=4, help="Hours after match to seed (default: 4)")
+    fixtures_load_parser.add_argument("--clear", action="store_true", help="Clear existing fixtures first")
+
+    # fixtures status
+    fixtures_status_parser = fixtures_subparsers.add_parser(
+        "status",
+        help="Show fixture status summary",
+    )
+    fixtures_status_parser.add_argument("--sport", help="Filter by sport")
+
+    # fixtures pending
+    fixtures_pending_parser = fixtures_subparsers.add_parser(
+        "pending",
+        help="Show fixtures ready to seed",
+    )
+    fixtures_pending_parser.add_argument("--sport", help="Filter by sport")
+    fixtures_pending_parser.add_argument("--limit", type=int, default=50, help="Max fixtures to show")
+
+    # fixtures upcoming
+    fixtures_upcoming_parser = fixtures_subparsers.add_parser(
+        "upcoming",
+        help="Show upcoming fixtures",
+    )
+    fixtures_upcoming_parser.add_argument("--sport", help="Filter by sport")
+    fixtures_upcoming_parser.add_argument("--hours", type=int, default=24, help="Hours ahead to look")
+    fixtures_upcoming_parser.add_argument("--limit", type=int, default=50, help="Max fixtures to show")
+
+    # fixtures recent
+    fixtures_recent_parser = fixtures_subparsers.add_parser(
+        "recent",
+        help="Show recently seeded fixtures",
+    )
+    fixtures_recent_parser.add_argument("--sport", help="Filter by sport")
+    fixtures_recent_parser.add_argument("--hours", type=int, default=24, help="Hours back to look")
+    fixtures_recent_parser.add_argument("--limit", type=int, default=50, help="Max fixtures to show")
+
+    # fixtures failed
+    fixtures_failed_parser = fixtures_subparsers.add_parser(
+        "failed",
+        help="Show fixtures that failed seeding",
+    )
+    fixtures_failed_parser.add_argument("--sport", help="Filter by sport")
+    fixtures_failed_parser.add_argument("--limit", type=int, default=50, help="Max fixtures to show")
+
+    # fixtures seed
+    fixtures_seed_parser = fixtures_subparsers.add_parser(
+        "seed",
+        help="Manually seed a specific fixture",
+    )
+    fixtures_seed_parser.add_argument("fixture_id", type=int, help="Fixture ID to seed")
+    fixtures_seed_parser.add_argument(
+        "--skip-percentiles",
+        action="store_true",
+        help="Skip percentile recalculation",
+    )
+
+    # fixtures run-scheduler
+    fixtures_scheduler_parser = fixtures_subparsers.add_parser(
+        "run-scheduler",
+        help="Run scheduler to process pending fixtures",
+    )
+    fixtures_scheduler_parser.add_argument("--sport", help="Filter by sport")
+    fixtures_scheduler_parser.add_argument("--max", type=int, default=10, help="Max fixtures per run")
+    fixtures_scheduler_parser.add_argument("--max-retries", type=int, default=3, help="Skip fixtures with more failures")
+    fixtures_scheduler_parser.add_argument(
+        "--skip-percentiles",
+        action="store_true",
+        help="Skip percentile recalculation",
+    )
+
+    # fixtures reset
+    fixtures_reset_parser = fixtures_subparsers.add_parser(
+        "reset",
+        help="Reset a fixture for retry",
+    )
+    fixtures_reset_parser.add_argument("fixture_id", type=int, help="Fixture ID to reset")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -836,6 +1336,7 @@ def main() -> int:
         "percentiles": cmd_percentiles,
         "export": cmd_export,
         "query": cmd_query,
+        "fixtures": cmd_fixtures,
     }
 
     cmd_func = commands.get(args.command)

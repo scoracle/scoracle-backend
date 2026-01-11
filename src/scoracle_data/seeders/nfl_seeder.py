@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from datetime import datetime
 from typing import Any, Optional
 
 from .base import BaseSeeder
@@ -51,7 +52,8 @@ class NFLSeeder(BaseSeeder):
         league_id: Optional[int] = None,
     ) -> list[dict[str, Any]]:
         """Fetch NFL teams from API-Sports."""
-        teams = await self.api.list_teams("NFL", season=str(season))
+        # NFL requires league_id=1 to fetch teams
+        teams = await self.api.list_teams("NFL", league=league_id or 1, season=str(season))
 
         result = []
         for team in teams:
@@ -398,7 +400,7 @@ class NFLSeeder(BaseSeeder):
             "punt_return_yards": self._safe_int(returns.get("punt_return_yards")),
             "punt_return_touchdowns": self._safe_int(returns.get("punt_return_tds")),
 
-            "updated_at": int(time.time()),
+            "updated_at": datetime.now(),
         }
 
     def _convert_nfl_stats_format(self, raw: dict[str, Any]) -> dict[str, Any]:
@@ -550,7 +552,7 @@ class NFLSeeder(BaseSeeder):
             "pass_yards_allowed": 0,
             "rush_yards_allowed": 0,
             "takeaways": 0,
-            "updated_at": int(time.time()),
+            "updated_at": datetime.now(),
         }
 
     # =========================================================================
@@ -564,7 +566,9 @@ class NFLSeeder(BaseSeeder):
             columns=NFL_PLAYER_STATS_COLUMNS,
             conflict_keys=["player_id", "season_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in NFL_PLAYER_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     def upsert_team_stats(self, stats: dict[str, Any]) -> None:
         """Insert or update NFL team statistics."""
@@ -573,7 +577,9 @@ class NFLSeeder(BaseSeeder):
             columns=NFL_TEAM_STATS_COLUMNS,
             conflict_keys=["team_id", "season_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in NFL_TEAM_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     # =========================================================================
     # Helper Methods
@@ -598,3 +604,21 @@ class NFLSeeder(BaseSeeder):
                     pass
 
         return None
+
+    def _safe_int(self, value: Any) -> int:
+        """Safely convert value to int, returning 0 for None/invalid."""
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
+
+    def _safe_float(self, value: Any) -> float:
+        """Safely convert value to float, returning 0.0 for None/invalid."""
+        if value is None:
+            return 0.0
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return 0.0

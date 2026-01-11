@@ -8,21 +8,73 @@ Two-Phase Seeding Architecture:
   Phase 1: DISCOVERY - Fetch rosters, identify new/changed entities
   Phase 2: PROFILE FETCH - Fetch full profiles for new entities only
   Phase 3: STATS UPDATE - Update statistics for all entities
+
+Parallelization:
+  Uses asyncio.gather with configurable batch sizes to parallelize
+  API calls while respecting rate limits.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, TypeVar
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
     from ...services.apisports import ApiSportsService
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+async def run_parallel_batches(
+    items: list[T],
+    async_fn: Callable[[T], Coroutine[Any, Any, Any]],
+    batch_size: int = 10,
+    delay_between_batches: float = 0.5,
+) -> list[tuple[T, Any, Exception | None]]:
+    """
+    Execute async function on items in parallel batches.
+
+    This respects API rate limits by:
+    1. Processing items in batches of `batch_size`
+    2. Adding a delay between batches
+
+    Args:
+        items: List of items to process
+        async_fn: Async function to call for each item
+        batch_size: Number of concurrent requests per batch
+        delay_between_batches: Seconds to wait between batches
+
+    Returns:
+        List of (item, result, error) tuples. Error is None if successful.
+    """
+    results: list[tuple[T, Any, Exception | None]] = []
+
+    for i in range(0, len(items), batch_size):
+        batch = items[i : i + batch_size]
+
+        async def safe_call(item: T) -> tuple[T, Any, Exception | None]:
+            try:
+                result = await async_fn(item)
+                return (item, result, None)
+            except Exception as e:
+                logger.warning(f"Batch item failed: {e}")
+                return (item, None, e)
+
+        batch_results = await asyncio.gather(*[safe_call(item) for item in batch])
+        results.extend(batch_results)
+
+        # Add delay between batches to respect rate limits
+        if i + batch_size < len(items):
+            await asyncio.sleep(delay_between_batches)
+
+    return results
 
 
 @dataclass
@@ -132,6 +184,65 @@ class BaseSeeder(ABC):
         )
 
     # =========================================================================
+    # Cache Invalidation
+    # =========================================================================
+
+    def invalidate_percentile_cache(self, season_id: int) -> int:
+        """
+        Invalidate the percentile cache for this sport and season.
+
+        Should be called after stats are updated to ensure percentiles
+        are recalculated with fresh data.
+
+        Args:
+            season_id: Season ID to invalidate
+
+        Returns:
+            Number of records deleted
+        """
+        result = self.db.fetchone(
+            """
+            DELETE FROM percentile_cache
+            WHERE sport_id = %s AND season_id = %s
+            RETURNING COUNT(*) as count
+            """,
+            (self.sport_id, season_id),
+        )
+
+        # Also try to invalidate API cache if available
+        try:
+            from ..api.cache import get_cache
+            cache = get_cache()
+            cache.invalidate_stats_cache(self.sport_id)
+        except Exception:
+            # API cache may not be available during CLI seeding
+            pass
+
+        count = result["count"] if result else 0
+        logger.info(f"Invalidated {count} percentile cache entries for {self.sport_id} season {season_id}")
+        return count
+
+    def recalculate_percentiles(self, season_year: int) -> dict[str, int]:
+        """
+        Recalculate all percentiles for this sport and season.
+
+        This ensures the percentile_cache is up-to-date after stats updates.
+
+        Args:
+            season_year: Season year
+
+        Returns:
+            Dict with player and team counts
+        """
+        try:
+            from ..percentiles.pg_calculator import PostgresPercentileCalculator
+            calculator = PostgresPercentileCalculator(self.db)
+            return calculator.recalculate_all_percentiles(self.sport_id, season_year)
+        except ImportError:
+            logger.warning("Percentile calculator not available")
+            return {"players": 0, "teams": 0}
+
+    # =========================================================================
     # Season Management
     # =========================================================================
 
@@ -217,11 +328,11 @@ class BaseSeeder(ABC):
             f"""
             INSERT INTO teams (
                 id, sport_id, league_id, name, abbreviation, logo_url,
-                conference, division, country, city, founded,
-                venue_name, venue_city, venue_capacity, venue_surface, venue_image,
+                conference, division, country, city, founded, is_national,
+                venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
                 profile_fetched_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
             ON CONFLICT(id) DO UPDATE SET
                 name = COALESCE(excluded.name, teams.name),
                 abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
@@ -231,7 +342,9 @@ class BaseSeeder(ABC):
                 country = COALESCE(excluded.country, teams.country),
                 city = COALESCE(excluded.city, teams.city),
                 founded = COALESCE(excluded.founded, teams.founded),
+                is_national = COALESCE(excluded.is_national, teams.is_national),
                 venue_name = COALESCE(excluded.venue_name, teams.venue_name),
+                venue_address = COALESCE(excluded.venue_address, teams.venue_address),
                 venue_city = COALESCE(excluded.venue_city, teams.venue_city),
                 venue_capacity = COALESCE(excluded.venue_capacity, teams.venue_capacity),
                 venue_surface = COALESCE(excluded.venue_surface, teams.venue_surface),
@@ -251,7 +364,9 @@ class BaseSeeder(ABC):
                 team_data.get("country"),
                 team_data.get("city"),
                 team_data.get("founded"),
+                team_data.get("is_national", False),
                 team_data.get("venue_name"),
+                team_data.get("venue_address"),
                 team_data.get("venue_city"),
                 team_data.get("venue_capacity"),
                 team_data.get("venue_surface"),
@@ -284,11 +399,11 @@ class BaseSeeder(ABC):
             f"""
             INSERT INTO players (
                 id, sport_id, first_name, last_name, full_name,
-                position, position_group, nationality, birth_date, birth_place,
+                position, position_group, nationality, birth_date, birth_place, birth_country,
                 height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
                 jersey_number, college, experience_years, profile_fetched_at, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
             ON CONFLICT(id) DO UPDATE SET
                 first_name = COALESCE(excluded.first_name, players.first_name),
                 last_name = COALESCE(excluded.last_name, players.last_name),
@@ -298,6 +413,7 @@ class BaseSeeder(ABC):
                 nationality = COALESCE(excluded.nationality, players.nationality),
                 birth_date = COALESCE(excluded.birth_date, players.birth_date),
                 birth_place = COALESCE(excluded.birth_place, players.birth_place),
+                birth_country = COALESCE(excluded.birth_country, players.birth_country),
                 height_inches = COALESCE(excluded.height_inches, players.height_inches),
                 weight_lbs = COALESCE(excluded.weight_lbs, players.weight_lbs),
                 photo_url = COALESCE(excluded.photo_url, players.photo_url),
@@ -320,6 +436,7 @@ class BaseSeeder(ABC):
                 player_data.get("nationality"),
                 player_data.get("birth_date"),
                 player_data.get("birth_place"),
+                player_data.get("birth_country"),
                 player_data.get("height_inches"),
                 player_data.get("weight_lbs"),
                 player_data.get("photo_url"),
@@ -332,6 +449,183 @@ class BaseSeeder(ABC):
             ),
         )
         return player_data["id"]
+
+    # =========================================================================
+    # Batch Upsert Methods (Performance Optimized)
+    # =========================================================================
+
+    def batch_upsert_teams(self, teams: list[dict[str, Any]], batch_size: int = 100) -> int:
+        """
+        Batch insert/update teams using PostgreSQL multi-row INSERT.
+
+        Reduces N database roundtrips to ceil(N/batch_size) roundtrips.
+
+        Args:
+            teams: List of team data dicts
+            batch_size: Number of rows per batch (default 100)
+
+        Returns:
+            Number of teams upserted
+        """
+        if not teams:
+            return 0
+
+        total = 0
+        for i in range(0, len(teams), batch_size):
+            batch = teams[i : i + batch_size]
+            total += self._batch_upsert_teams_chunk(batch)
+
+        return total
+
+    def _batch_upsert_teams_chunk(self, teams: list[dict[str, Any]]) -> int:
+        """Execute a single batch upsert for teams."""
+        if not teams:
+            return 0
+
+        # Build VALUES clause with placeholders
+        placeholders = []
+        params = []
+        for team in teams:
+            placeholders.append(
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+            )
+            params.extend([
+                team["id"],
+                self.sport_id,
+                team.get("league_id"),
+                team["name"],
+                team.get("abbreviation"),
+                team.get("logo_url"),
+                team.get("conference"),
+                team.get("division"),
+                team.get("country"),
+                team.get("city"),
+                team.get("founded"),
+                team.get("is_national", False),
+                team.get("venue_name"),
+                team.get("venue_address"),
+                team.get("venue_city"),
+                team.get("venue_capacity"),
+                team.get("venue_surface"),
+                team.get("venue_image"),
+            ])
+
+        query = f"""
+            INSERT INTO teams (
+                id, sport_id, league_id, name, abbreviation, logo_url,
+                conference, division, country, city, founded, is_national,
+                venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
+                updated_at
+            )
+            VALUES {", ".join(placeholders)}
+            ON CONFLICT(id) DO UPDATE SET
+                name = COALESCE(excluded.name, teams.name),
+                abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
+                logo_url = COALESCE(excluded.logo_url, teams.logo_url),
+                conference = COALESCE(excluded.conference, teams.conference),
+                division = COALESCE(excluded.division, teams.division),
+                country = COALESCE(excluded.country, teams.country),
+                city = COALESCE(excluded.city, teams.city),
+                founded = COALESCE(excluded.founded, teams.founded),
+                is_national = COALESCE(excluded.is_national, teams.is_national),
+                venue_name = COALESCE(excluded.venue_name, teams.venue_name),
+                venue_address = COALESCE(excluded.venue_address, teams.venue_address),
+                venue_city = COALESCE(excluded.venue_city, teams.venue_city),
+                venue_capacity = COALESCE(excluded.venue_capacity, teams.venue_capacity),
+                venue_surface = COALESCE(excluded.venue_surface, teams.venue_surface),
+                venue_image = COALESCE(excluded.venue_image, teams.venue_image),
+                updated_at = NOW()
+        """
+        self.db.execute(query, params)
+        return len(teams)
+
+    def batch_upsert_players(self, players: list[dict[str, Any]], batch_size: int = 100) -> int:
+        """
+        Batch insert/update players using PostgreSQL multi-row INSERT.
+
+        Reduces N database roundtrips to ceil(N/batch_size) roundtrips.
+
+        Args:
+            players: List of player data dicts
+            batch_size: Number of rows per batch (default 100)
+
+        Returns:
+            Number of players upserted
+        """
+        if not players:
+            return 0
+
+        total = 0
+        for i in range(0, len(players), batch_size):
+            batch = players[i : i + batch_size]
+            total += self._batch_upsert_players_chunk(batch)
+
+        return total
+
+    def _batch_upsert_players_chunk(self, players: list[dict[str, Any]]) -> int:
+        """Execute a single batch upsert for players."""
+        if not players:
+            return 0
+
+        # Build VALUES clause with placeholders
+        placeholders = []
+        params = []
+        for player in players:
+            placeholders.append(
+                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+            )
+            params.extend([
+                player["id"],
+                self.sport_id,
+                player.get("first_name"),
+                player.get("last_name"),
+                player["full_name"],
+                player.get("position"),
+                player.get("position_group"),
+                player.get("nationality"),
+                player.get("birth_date"),
+                player.get("birth_place"),
+                player.get("birth_country"),
+                player.get("height_inches"),
+                player.get("weight_lbs"),
+                player.get("photo_url"),
+                player.get("current_team_id"),
+                player.get("current_league_id"),
+                player.get("jersey_number"),
+                player.get("college"),
+                player.get("experience_years"),
+            ])
+
+        query = f"""
+            INSERT INTO players (
+                id, sport_id, first_name, last_name, full_name,
+                position, position_group, nationality, birth_date, birth_place, birth_country,
+                height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
+                jersey_number, college, experience_years, updated_at
+            )
+            VALUES {", ".join(placeholders)}
+            ON CONFLICT(id) DO UPDATE SET
+                first_name = COALESCE(excluded.first_name, players.first_name),
+                last_name = COALESCE(excluded.last_name, players.last_name),
+                full_name = COALESCE(excluded.full_name, players.full_name),
+                position = COALESCE(excluded.position, players.position),
+                position_group = COALESCE(excluded.position_group, players.position_group),
+                nationality = COALESCE(excluded.nationality, players.nationality),
+                birth_date = COALESCE(excluded.birth_date, players.birth_date),
+                birth_place = COALESCE(excluded.birth_place, players.birth_place),
+                birth_country = COALESCE(excluded.birth_country, players.birth_country),
+                height_inches = COALESCE(excluded.height_inches, players.height_inches),
+                weight_lbs = COALESCE(excluded.weight_lbs, players.weight_lbs),
+                photo_url = COALESCE(excluded.photo_url, players.photo_url),
+                current_team_id = COALESCE(excluded.current_team_id, players.current_team_id),
+                current_league_id = COALESCE(excluded.current_league_id, players.current_league_id),
+                jersey_number = COALESCE(excluded.jersey_number, players.jersey_number),
+                college = COALESCE(excluded.college, players.college),
+                experience_years = COALESCE(excluded.experience_years, players.experience_years),
+                updated_at = NOW()
+        """
+        self.db.execute(query, params)
+        return len(players)
 
     # =========================================================================
     # Two-Phase Seeding: Discovery & Profile Fetch
@@ -433,6 +727,10 @@ class BaseSeeder(ABC):
         - Detects player transfers (team changes)
         - Does NOT fetch full profiles yet
 
+        Optimized with:
+        - Batch ID lookups instead of individual queries
+        - Batch upserts using multi-row INSERT
+
         Args:
             season: Season year
             league_id: Optional league ID for Football
@@ -447,54 +745,72 @@ class BaseSeeder(ABC):
         try:
             # Fetch teams (minimal data)
             teams = await self.fetch_teams(season, league_id=league_id)
-            for team_data in teams:
-                existing = self.db.fetchone(
-                    "SELECT id, profile_fetched_at FROM teams WHERE id = %s",
-                    (team_data["id"],),
+
+            if teams:
+                # Batch fetch existing team IDs and profile status
+                team_ids = [t["id"] for t in teams]
+                existing_teams = self.db.fetchall(
+                    "SELECT id, profile_fetched_at FROM teams WHERE id = ANY(%s)",
+                    (team_ids,),
                 )
+                existing_team_map = {t["id"]: t for t in existing_teams}
 
-                if existing:
-                    result.teams_updated += 1
-                else:
-                    result.teams_new += 1
+                # Categorize teams
+                for team_data in teams:
+                    tid = team_data["id"]
+                    existing = existing_team_map.get(tid)
 
-                # Always upsert (updates basic info, preserves profile data)
-                self.upsert_team(team_data)
+                    if existing:
+                        result.teams_updated += 1
+                    else:
+                        result.teams_new += 1
 
-                # Queue for profile fetch if never fetched
-                if not existing or existing.get("profile_fetched_at") is None:
-                    result.entities_needing_profile.append(("team", team_data["id"]))
+                    # Queue for profile fetch if never fetched
+                    if not existing or existing.get("profile_fetched_at") is None:
+                        result.entities_needing_profile.append(("team", tid))
 
-                result.teams_discovered += 1
+                    result.teams_discovered += 1
+
+                # Batch upsert all teams (reduces N queries to 1)
+                self.batch_upsert_teams(teams)
 
             # Fetch players (minimal data)
             players = await self.fetch_players(season, league_id=league_id)
-            for player_data in players:
-                existing = self.db.fetchone(
-                    "SELECT id, profile_fetched_at, current_team_id FROM players WHERE id = %s",
-                    (player_data["id"],),
+
+            if players:
+                # Batch fetch existing player IDs, profile status, and team
+                player_ids = [p["id"] for p in players]
+                existing_players = self.db.fetchall(
+                    "SELECT id, profile_fetched_at, current_team_id FROM players WHERE id = ANY(%s)",
+                    (player_ids,),
                 )
+                existing_player_map = {p["id"]: p for p in existing_players}
 
-                if existing:
-                    result.players_updated += 1
-                    # Check for transfer
-                    if self.detect_team_changes(
-                        player_data["id"],
-                        player_data.get("current_team_id"),
-                        season_id,
-                    ):
-                        result.players_transferred += 1
-                else:
-                    result.players_new += 1
+                # Categorize players and detect transfers
+                for player_data in players:
+                    pid = player_data["id"]
+                    existing = existing_player_map.get(pid)
 
-                # Always upsert
-                self.upsert_player(player_data)
+                    if existing:
+                        result.players_updated += 1
+                        # Check for transfer
+                        if self.detect_team_changes(
+                            pid,
+                            player_data.get("current_team_id"),
+                            season_id,
+                        ):
+                            result.players_transferred += 1
+                    else:
+                        result.players_new += 1
 
-                # Queue for profile fetch if never fetched
-                if not existing or existing.get("profile_fetched_at") is None:
-                    result.entities_needing_profile.append(("player", player_data["id"]))
+                    # Queue for profile fetch if never fetched
+                    if not existing or existing.get("profile_fetched_at") is None:
+                        result.entities_needing_profile.append(("player", pid))
 
-                result.players_discovered += 1
+                    result.players_discovered += 1
+
+                # Batch upsert all players (reduces N queries to 1)
+                self.batch_upsert_players(players)
 
             self._complete_sync(
                 sync_id,
@@ -523,6 +839,7 @@ class BaseSeeder(ABC):
     async def run_profile_fetch_phase(
         self,
         entities: list[tuple[str, int]],
+        batch_size: int = 10,
     ) -> int:
         """
         Phase 2: Profile Fetch - Fetch full profiles for new entities only.
@@ -531,9 +848,11 @@ class BaseSeeder(ABC):
         - Fetches complete profile data (photos, venue details, bio)
         - Only for entities in the provided list
         - Marks profile_fetched_at after successful fetch
+        - Uses parallel batching for efficiency
 
         Args:
             entities: List of (entity_type, entity_id) tuples to fetch
+            batch_size: Number of concurrent requests per batch (default 10)
 
         Returns:
             Number of profiles fetched
@@ -546,21 +865,41 @@ class BaseSeeder(ABC):
         fetched = 0
 
         try:
-            for entity_type, entity_id in entities:
-                try:
-                    if entity_type == "team":
-                        profile_data = await self.fetch_team_profile(entity_id)
-                        if profile_data:
-                            self.upsert_team(profile_data, mark_profile_fetched=True)
-                            fetched += 1
-                    elif entity_type == "player":
-                        profile_data = await self.fetch_player_profile(entity_id)
-                        if profile_data:
-                            self.upsert_player(profile_data, mark_profile_fetched=True)
-                            fetched += 1
-                except Exception as e:
-                    logger.warning("Failed to fetch profile for %s %d: %s", entity_type, entity_id, e)
-                    continue
+            # Split entities by type for parallel processing
+            teams = [(et, eid) for et, eid in entities if et == "team"]
+            players = [(et, eid) for et, eid in entities if et == "player"]
+
+            async def fetch_team_profile_and_upsert(entity: tuple[str, int]) -> bool:
+                _, entity_id = entity
+                profile_data = await self.fetch_team_profile(entity_id)
+                if profile_data:
+                    self.upsert_team(profile_data, mark_profile_fetched=True)
+                    return True
+                return False
+
+            async def fetch_player_profile_and_upsert(entity: tuple[str, int]) -> bool:
+                _, entity_id = entity
+                profile_data = await self.fetch_player_profile(entity_id)
+                if profile_data:
+                    self.upsert_player(profile_data, mark_profile_fetched=True)
+                    return True
+                return False
+
+            # Fetch team profiles in parallel batches
+            if teams:
+                logger.info(f"Fetching {len(teams)} team profiles in batches of {batch_size}")
+                team_results = await run_parallel_batches(
+                    teams, fetch_team_profile_and_upsert, batch_size=batch_size
+                )
+                fetched += sum(1 for _, result, err in team_results if result and not err)
+
+            # Fetch player profiles in parallel batches
+            if players:
+                logger.info(f"Fetching {len(players)} player profiles in batches of {batch_size}")
+                player_results = await run_parallel_batches(
+                    players, fetch_player_profile_and_upsert, batch_size=batch_size
+                )
+                fetched += sum(1 for _, result, err in player_results if result and not err)
 
             self._complete_sync(sync_id, len(entities), fetched, 0)
             logger.info("Profile fetch complete: %d/%d entities", fetched, len(entities))
@@ -575,6 +914,7 @@ class BaseSeeder(ABC):
         season: int,
         league_id: Optional[int] = None,
         skip_profiles: bool = False,
+        skip_percentiles: bool = False,
     ) -> dict[str, Any]:
         """
         Run the complete two-phase seeding process.
@@ -582,11 +922,13 @@ class BaseSeeder(ABC):
         Phase 1: Discovery - Find all entities, detect changes
         Phase 2: Profile Fetch - Get full profiles for new entities
         Phase 3: Stats Update - Update statistics
+        Phase 4: Percentile Recalculation - Recalculate all percentiles
 
         Args:
             season: Season year
             league_id: Optional league ID (for Football)
             skip_profiles: If True, skip profile fetch phase
+            skip_percentiles: If True, skip percentile recalculation
 
         Returns:
             Summary of seeding results
@@ -605,6 +947,12 @@ class BaseSeeder(ABC):
         player_stats = await self.seed_player_stats(season)
         team_stats = await self.seed_team_stats(season)
 
+        # Phase 4: Percentile Recalculation (invalidate and recalculate)
+        percentiles = {"players": 0, "teams": 0}
+        if not skip_percentiles and (player_stats > 0 or team_stats > 0):
+            logger.info(f"Recalculating percentiles for {self.sport_id} {season}")
+            percentiles = self.recalculate_percentiles(season)
+
         return {
             "discovery": {
                 "teams_discovered": discovery.teams_discovered,
@@ -616,6 +964,7 @@ class BaseSeeder(ABC):
             "profiles_fetched": profiles_fetched,
             "player_stats": player_stats,
             "team_stats": team_stats,
+            "percentiles_recalculated": percentiles,
         }
 
     # =========================================================================
@@ -799,6 +1148,8 @@ class BaseSeeder(ABC):
         """
         Seed all teams for a season.
 
+        Uses batch upsert for efficiency (reduces N queries to 1).
+
         Args:
             season: Season year
 
@@ -810,17 +1161,24 @@ class BaseSeeder(ABC):
 
         try:
             teams = await self.fetch_teams(season)
-            inserted = 0
-            updated = 0
 
-            for team_data in teams:
-                existing = self.db.get_team(team_data["id"], self.sport_id)
-                self.upsert_team(team_data)
+            if not teams:
+                self._complete_sync(sync_id, 0, 0, 0)
+                return 0
 
-                if existing:
-                    updated += 1
-                else:
-                    inserted += 1
+            # Batch fetch existing team IDs for counting
+            team_ids = [t["id"] for t in teams]
+            existing_teams = self.db.fetchall(
+                "SELECT id FROM teams WHERE id = ANY(%s)",
+                (team_ids,),
+            )
+            existing_ids = {t["id"] for t in existing_teams}
+
+            inserted = sum(1 for t in teams if t["id"] not in existing_ids)
+            updated = len(teams) - inserted
+
+            # Batch upsert all teams
+            self.batch_upsert_teams(teams)
 
             self._complete_sync(sync_id, len(teams), inserted, updated)
             logger.info(
@@ -841,6 +1199,8 @@ class BaseSeeder(ABC):
         """
         Seed all players for a season.
 
+        Uses batch upsert for efficiency (reduces N queries to 1).
+
         Args:
             season: Season year
 
@@ -852,17 +1212,24 @@ class BaseSeeder(ABC):
 
         try:
             players = await self.fetch_players(season)
-            inserted = 0
-            updated = 0
 
-            for player_data in players:
-                existing = self.db.get_player(player_data["id"], self.sport_id)
-                self.upsert_player(player_data)
+            if not players:
+                self._complete_sync(sync_id, 0, 0, 0)
+                return 0
 
-                if existing:
-                    updated += 1
-                else:
-                    inserted += 1
+            # Batch fetch existing player IDs for counting
+            player_ids = [p["id"] for p in players]
+            existing_players = self.db.fetchall(
+                "SELECT id FROM players WHERE id = ANY(%s)",
+                (player_ids,),
+            )
+            existing_ids = {p["id"] for p in existing_players}
+
+            inserted = sum(1 for p in players if p["id"] not in existing_ids)
+            updated = len(players) - inserted
+
+            # Batch upsert all players
+            self.batch_upsert_players(players)
 
             self._complete_sync(sync_id, len(players), inserted, updated)
             logger.info(
@@ -883,6 +1250,7 @@ class BaseSeeder(ABC):
         self,
         season: int,
         player_ids: Optional[list[int]] = None,
+        batch_size: int = 10,
     ) -> int:
         """
         Seed player statistics for a season.
@@ -890,6 +1258,7 @@ class BaseSeeder(ABC):
         Args:
             season: Season year
             player_ids: Optional list of specific player IDs to seed
+            batch_size: Number of concurrent requests per batch (default 10)
 
         Returns:
             Number of stat records seeded
@@ -901,7 +1270,7 @@ class BaseSeeder(ABC):
             # Get players to process
             if player_ids:
                 players = [
-                    {"id": pid}
+                    {"id": pid, "current_team_id": None}
                     for pid in player_ids
                     if self.db.get_player(pid, self.sport_id)
                 ]
@@ -911,8 +1280,7 @@ class BaseSeeder(ABC):
                     (self.sport_id,),
                 )
 
-            processed = 0
-            for player in players:
+            async def fetch_and_upsert_player_stats(player: dict) -> bool:
                 player_id = player["id"]
                 team_id = player.get("current_team_id")
 
@@ -923,7 +1291,14 @@ class BaseSeeder(ABC):
                     )
                     if stats:  # May be None if no valid league stats found
                         self.upsert_player_stats(stats)
-                        processed += 1
+                        return True
+                return False
+
+            logger.info(f"Fetching stats for {len(players)} players in batches of {batch_size}")
+            results = await run_parallel_batches(
+                list(players), fetch_and_upsert_player_stats, batch_size=batch_size
+            )
+            processed = sum(1 for _, result, err in results if result and not err)
 
             self._complete_sync(sync_id, len(players), processed, 0)
             logger.info(
@@ -938,12 +1313,13 @@ class BaseSeeder(ABC):
             self._fail_sync(sync_id, str(e))
             raise
 
-    async def seed_team_stats(self, season: int) -> int:
+    async def seed_team_stats(self, season: int, batch_size: int = 10) -> int:
         """
         Seed team statistics for a season.
 
         Args:
             season: Season year
+            batch_size: Number of concurrent requests per batch (default 10)
 
         Returns:
             Number of stat records seeded
@@ -957,15 +1333,20 @@ class BaseSeeder(ABC):
                 (self.sport_id,),
             )
 
-            processed = 0
-            for team in teams:
+            async def fetch_and_upsert_team_stats(team: dict) -> bool:
                 team_id = team["id"]
-
                 raw_stats = await self.fetch_team_stats(team_id, season)
                 if raw_stats:
                     stats = self.transform_team_stats(raw_stats, team_id, season_id)
                     self.upsert_team_stats(stats)
-                    processed += 1
+                    return True
+                return False
+
+            logger.info(f"Fetching stats for {len(teams)} teams in batches of {batch_size}")
+            results = await run_parallel_batches(
+                list(teams), fetch_and_upsert_team_stats, batch_size=batch_size
+            )
+            processed = sum(1 for _, result, err in results if result and not err)
 
             self._complete_sync(sync_id, len(teams), processed, 0)
             logger.info(

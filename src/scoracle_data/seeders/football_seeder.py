@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import time
+from datetime import datetime
 from typing import Any, Optional
 
 from .base import BaseSeeder
@@ -91,6 +92,8 @@ class FootballSeeder(BaseSeeder):
         league_ids = []
 
         for league in self.leagues:
+            # Convert integers to booleans for PostgreSQL
+            include_in_pctile = bool(league.get("include_in_percentiles", 0))
             self.db.execute(
                 """
                 INSERT INTO leagues (id, sport_id, name, country, priority_tier, include_in_percentiles, is_active)
@@ -108,7 +111,7 @@ class FootballSeeder(BaseSeeder):
                     league["name"],
                     league["country"],
                     league.get("priority_tier", 0),
-                    league.get("include_in_percentiles", 0),
+                    include_in_pctile,
                 ),
             )
             league_ids.append(league["id"])
@@ -385,21 +388,22 @@ class FootballSeeder(BaseSeeder):
             team = await self.api.get_team_profile(str(team_id), "FOOTBALL")
 
             if team:
-                venue = team.get("venue", {}) if isinstance(team.get("venue"), dict) else {}
-
+                # api_client already flattens venue data with venue_ prefix
                 return {
                     "id": team["id"],
                     "name": team["name"],
                     "abbreviation": team.get("code") or team.get("abbreviation"),
                     "logo_url": team.get("logo_url") or team.get("logo"),
                     "country": team.get("country"),
-                    "city": venue.get("city"),
+                    "city": team.get("venue_city"),  # Use venue city as team city
                     "founded": team.get("founded"),
-                    "venue_name": venue.get("name"),
-                    "venue_city": venue.get("city"),
-                    "venue_capacity": venue.get("capacity"),
-                    "venue_surface": venue.get("surface"),
-                    "venue_image": venue.get("image"),
+                    "is_national": bool(team.get("national", False)),
+                    "venue_name": team.get("venue_name"),
+                    "venue_address": team.get("venue_address"),
+                    "venue_city": team.get("venue_city"),
+                    "venue_capacity": team.get("venue_capacity"),
+                    "venue_surface": team.get("venue_surface"),
+                    "venue_image": team.get("venue_image"),
                 }
 
             return None
@@ -449,6 +453,7 @@ class FootballSeeder(BaseSeeder):
                     "nationality": player_data.get("nationality"),
                     "birth_date": player_data.get("birth_date") or birth.get("date"),
                     "birth_place": birth.get("place"),
+                    "birth_country": birth.get("country"),
                     "height_inches": self._parse_height(player_data),
                     "weight_lbs": self._parse_weight(player_data),
                     "photo_url": player_data.get("photo_url") or player_data.get("photo"),
@@ -563,6 +568,9 @@ class FootballSeeder(BaseSeeder):
         appearances = games.get("appearences", 0) or games.get("appearances", 0) or 0
         starts = games.get("lineups", 0) or 0
         minutes = games.get("minutes", 0) or 0
+        rating_str = games.get("rating")
+        rating = float(rating_str) if rating_str else 0.0
+        is_captain = bool(games.get("captain", False))
 
         # Goals & Assists
         goals_data = stats.get("goals", {}) or {}
@@ -605,21 +613,30 @@ class FootballSeeder(BaseSeeder):
         cards = stats.get("cards", {}) or {}
         yellows = cards.get("yellow", 0) or 0
         reds = cards.get("red", 0) or 0
+        second_yellows = cards.get("yellowred", 0) or 0
 
         # Penalties
         penalty = stats.get("penalty", {}) or {}
         pen_won = penalty.get("won", 0) or 0
         pen_scored = penalty.get("scored", 0) or 0
         pen_missed = penalty.get("missed", 0) or 0
+        pen_conceded = penalty.get("commited", 0) or 0  # Note: API typo "commited"
 
         # Goalkeeper stats
         gk = stats.get("goals", {}) or {}
         gk_conceded = gk.get("conceded", 0) or 0
         gk_saves = gk.get("saves", 0) or 0
 
+        # Substitutes info
+        subs = stats.get("substitutes", {}) or {}
+        bench_apps = subs.get("bench", 0) or 0
+        subs_in = subs.get("in", 0) or 0
+        subs_out = subs.get("out", 0) or 0
+
         # Calculate per-90 stats
         minutes_played = max(minutes, 1)
         per_90_factor = 90 / minutes_played if minutes_played > 90 else 1
+        min_90_threshold = minutes >= 90
 
         return {
             "player_id": player_id,
@@ -628,39 +645,55 @@ class FootballSeeder(BaseSeeder):
             "league_id": league_id,
             "appearances": appearances,
             "starts": starts,
-            "bench_appearances": max(0, appearances - starts),
+            "bench_appearances": bench_apps if bench_apps else max(0, appearances - starts),
             "minutes_played": minutes,
+            "rating": rating,
+            "is_captain": is_captain,
+            "subs_in": subs_in,
+            "subs_out": subs_out,
             "goals": goals,
             "assists": assists,
             "goals_assists": goals + assists,
-            "goals_per_90": round(goals * per_90_factor, 2) if minutes >= 90 else 0,
-            "assists_per_90": round(assists * per_90_factor, 2) if minutes >= 90 else 0,
+            "goals_per_90": round(goals * per_90_factor, 2) if min_90_threshold else 0,
+            "assists_per_90": round(assists * per_90_factor, 2) if min_90_threshold else 0,
             "shots_total": shots_total,
             "shots_on_target": shots_on,
             "shot_accuracy": self._safe_pct(shots_on, shots_total),
+            "shots_per_90": round(shots_total * per_90_factor, 2) if min_90_threshold else 0,
+            "goals_per_shot": self._safe_pct(goals, shots_total) / 100 if shots_total else 0,
+            "goals_per_shot_on_target": self._safe_pct(goals, shots_on) / 100 if shots_on else 0,
             "passes_total": passes_total,
             "passes_accurate": int(passes_total * (passes_acc / 100)) if passes_acc else 0,
             "pass_accuracy": passes_acc,
+            "passes_per_90": round(passes_total * per_90_factor, 2) if min_90_threshold else 0,
             "key_passes": key_passes,
+            "key_passes_per_90": round(key_passes * per_90_factor, 2) if min_90_threshold else 0,
             "dribbles_attempted": dribbles_attempted,
             "dribbles_successful": dribbles_success,
             "dribble_success_rate": self._safe_pct(dribbles_success, dribbles_attempted),
+            "dribbles_per_90": round(dribbles_success * per_90_factor, 2) if min_90_threshold else 0,
             "duels_total": duels_total,
             "duels_won": duels_won,
             "duel_success_rate": self._safe_pct(duels_won, duels_total),
             "tackles": tackles_total,
+            "tackles_per_90": round(tackles_total * per_90_factor, 2) if min_90_threshold else 0,
             "interceptions": interceptions,
+            "interceptions_per_90": round(interceptions * per_90_factor, 2) if min_90_threshold else 0,
             "blocks": blocks,
             "fouls_committed": fouls_committed,
             "fouls_drawn": fouls_drawn,
             "yellow_cards": yellows,
             "red_cards": reds,
+            "second_yellow_cards": second_yellows,
             "penalties_won": pen_won,
             "penalties_scored": pen_scored,
             "penalties_missed": pen_missed,
+            "penalties_conceded": pen_conceded,
             "saves": gk_saves,
+            "save_percentage": self._safe_pct(gk_saves, gk_saves + gk_conceded) if gk_saves else 0,
             "goals_conceded": gk_conceded,
-            "updated_at": int(time.time()),
+            "goals_conceded_per_90": round(gk_conceded * per_90_factor, 2) if min_90_threshold and gk_conceded else 0,
+            "updated_at": datetime.now(),
         }
 
     def transform_team_stats(
@@ -731,7 +764,7 @@ class FootballSeeder(BaseSeeder):
             "failed_to_score": failed_to_score.get("total", 0) or 0,
             "form": stats.get("form", ""),
             "avg_possession": self._extract_avg_possession(stats),
-            "updated_at": int(time.time()),
+            "updated_at": datetime.now(),
         }
 
     # =========================================================================
@@ -745,7 +778,9 @@ class FootballSeeder(BaseSeeder):
             columns=FOOTBALL_PLAYER_STATS_COLUMNS,
             conflict_keys=["player_id", "season_id", "league_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in FOOTBALL_PLAYER_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     def upsert_team_stats(self, stats: dict[str, Any]) -> None:
         """Insert or update Football team statistics."""
@@ -754,7 +789,9 @@ class FootballSeeder(BaseSeeder):
             columns=FOOTBALL_TEAM_STATS_COLUMNS,
             conflict_keys=["team_id", "season_id", "league_id"],
         )
-        self.db.execute(query, stats)
+        # Convert dict to tuple in column order for %s placeholders
+        params = tuple(stats.get(col) for col in FOOTBALL_TEAM_STATS_COLUMNS)
+        self.db.execute(query, params)
 
     # =========================================================================
     # Helper Methods

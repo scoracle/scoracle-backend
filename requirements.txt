@@ -1,5 +1,9 @@
-﻿httpx>=0.25.0
+# Install the package itself
+-e .
+
+httpx>=0.25.0
 pydantic>=2.4.2
+pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 
 # Postgres / Neon driver (required for pg_connection.PostgresDB)

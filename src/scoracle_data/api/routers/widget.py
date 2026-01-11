@@ -287,7 +287,7 @@ def _get_team_info(db, team_id: int, sport: str) -> dict[str, Any] | None:
 # STATS ENDPOINT
 # =============================================================================
 
-@router.get("/stats/{entity_type}/{entity_id}")
+@router.get("/stats/{entity_type}/{entity_id}", response_model=None)
 async def get_entity_stats(
     entity_type: EntityType,
     entity_id: int,
@@ -406,7 +406,7 @@ def _get_stats(
 # SEASONS ENDPOINT
 # =============================================================================
 
-@router.get("/stats/{entity_type}/{entity_id}/seasons")
+@router.get("/stats/{entity_type}/{entity_id}/seasons", response_model=None)
 async def get_available_seasons(
     entity_type: EntityType,
     entity_id: int,
@@ -466,7 +466,7 @@ async def get_available_seasons(
 # UNIFIED PROFILE ENDPOINT (info + stats + percentiles in one call)
 # =============================================================================
 
-@router.get("/profile/{entity_type}/{entity_id}")
+@router.get("/profile/{entity_type}/{entity_id}", response_model=None)
 async def get_entity_profile(
     entity_type: EntityType,
     entity_id: int,

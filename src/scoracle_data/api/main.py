@@ -25,17 +25,14 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import teams, players, intel, entity
+from .routers import intel, news, widget
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
+from .errors import APIError, api_error_handler
+from .rate_limit import RateLimitMiddleware, get_rate_limiter
+from .types import CURRENT_SEASONS, Sport
+from ..config import get_settings
 
 logger = logging.getLogger(__name__)
-
-# Current season years by sport (update annually)
-CURRENT_SEASONS = {
-    "NBA": 2025,
-    "NFL": 2025,
-    "FOOTBALL": 2024,
-}
 
 
 class MSGSpecResponse(Response):
@@ -63,76 +60,83 @@ async def warm_cache() -> None:
     Pre-populate cache with frequently accessed entities.
 
     Called at startup to eliminate cold-start latency for popular requests.
+    Warms info and stats for active teams and top players.
+
+    Uses parallel processing for all sports to speed up startup.
     """
     from .dependencies import get_db
+    from .types import PLAYER_STATS_TABLES
 
     logger.info("Starting cache warming...")
-    cache = get_cache()
-    db = get_db()
 
-    # Sports to warm
-    sports = ["NBA", "NFL", "FOOTBALL"]
-    warmed_count = 0
+    async def warm_sport(sport: str) -> int:
+        """Warm cache for a single sport. Returns count of entries warmed."""
+        cache = get_cache()
+        db = get_db()
+        count = 0
 
-    for sport in sports:
         try:
-            # Get current season
             current_season = db.get_current_season(sport)
             if not current_season:
-                continue
+                return 0
 
             season_year = current_season["season_year"]
+            season_id = db.get_season_id(sport, season_year)
+            if not season_id:
+                return 0
 
-            # Warm team data (all teams per sport - usually 30-32)
-            teams_query = db.fetchall(
-                "SELECT id FROM teams WHERE sport_id = %s AND is_active = true LIMIT 50",
+            # Warm team info (all active teams)
+            teams = db.fetchall(
+                "SELECT * FROM teams WHERE sport_id = %s AND is_active = true LIMIT 50",
                 (sport,),
             )
+            for team in teams:
+                team_data = dict(team)
+                if team_data.get("created_at"):
+                    team_data["created_at"] = str(team_data["created_at"])
+                if team_data.get("updated_at"):
+                    team_data["updated_at"] = str(team_data["updated_at"])
+                cache.set(team_data, "info", "team", team["id"], sport, ttl=TTL_ENTITY_INFO)
+                count += 1
 
-            for team in teams_query:
-                team_id = team["id"]
-                # Warm team profile
-                profile = db.get_team_profile_optimized(team_id, sport, season_year)
-                if profile:
-                    cache.set(profile, "team_profile", team_id, sport, season_year, ttl=TTL_CURRENT_SEASON)
-                    warmed_count += 1
-
-            # Warm top players (limit to reduce startup time)
-            table_map = {
-                "NBA": "nba_player_stats",
-                "NFL": "nfl_player_stats",
-                "FOOTBALL": "football_player_stats",
-            }
-            stats_table = table_map.get(sport)
+            # Warm player info for players with stats
+            stats_table = PLAYER_STATS_TABLES.get(sport)
 
             if stats_table:
-                # Get season_id first
-                season_id = db.get_season_id(sport, season_year)
-                if season_id:
-                    players_query = db.fetchall(
-                        f"""
-                        SELECT DISTINCT p.id
-                        FROM players p
-                        JOIN {stats_table} s ON s.player_id = p.id
-                        WHERE p.sport_id = %s AND s.season_id = %s AND p.is_active = true
-                        LIMIT 100
-                        """,
-                        (sport, season_id),
-                    )
+                players = db.fetchall(
+                    f"""
+                    SELECT p.*
+                    FROM players p
+                    JOIN {stats_table} s ON s.player_id = p.id
+                    WHERE p.sport_id = %s AND s.season_id = %s AND p.is_active = true
+                    LIMIT 100
+                    """,
+                    (sport, season_id),
+                )
+                for player in players:
+                    player_data = dict(player)
+                    if player_data.get("birth_date"):
+                        player_data["birth_date"] = str(player_data["birth_date"])
+                    if player_data.get("created_at"):
+                        player_data["created_at"] = str(player_data["created_at"])
+                    if player_data.get("updated_at"):
+                        player_data["updated_at"] = str(player_data["updated_at"])
+                    cache.set(player_data, "info", "player", player["id"], sport, ttl=TTL_ENTITY_INFO)
+                    count += 1
 
-                    for player in players_query:
-                        player_id = player["id"]
-                        profile = db.get_player_profile_optimized(player_id, sport, season_year)
-                        if profile:
-                            cache.set(profile, "player_profile", player_id, sport, season_year, ttl=TTL_CURRENT_SEASON)
-                            warmed_count += 1
-
-            logger.info(f"Warmed {sport} cache entries")
+            logger.info(f"Warmed {count} {sport} cache entries")
+            return count
 
         except Exception as e:
             logger.warning(f"Cache warming error for {sport}: {e}")
+            return 0
 
-    logger.info(f"Cache warming complete: {warmed_count} entries cached")
+    # Warm all sports in parallel using asyncio.gather
+    # Since DB uses connection pooling, concurrent queries are efficient
+    results = await asyncio.gather(*[warm_sport(sport_enum.value) for sport_enum in Sport])
+
+    total_warmed = sum(results)
+    logger.info(f"Cache warming complete: {total_warmed} entries cached")
 
 
 async def background_cache_refresh() -> None:
@@ -165,7 +169,7 @@ async def lifespan(app: FastAPI):
     Manage application lifecycle.
 
     Startup:
-    - Initialize async database pool
+    - Initialize database connection pool (pre-warm connections)
     - Warm the cache with popular entities
 
     Shutdown:
@@ -174,6 +178,18 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting Scoracle Data API...")
+
+    # Pre-warm database connection pool
+    # This ensures connections are established before first request
+    try:
+        from .dependencies import get_db
+        db = get_db()
+        # Execute a simple query to establish connection(s)
+        db.fetchone("SELECT 1")
+        logger.info("Database connection pool initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        # Don't fail startup, let requests handle connection errors
 
     # Start background refresh task
     refresh_task = asyncio.create_task(background_cache_refresh())
@@ -191,12 +207,13 @@ async def lifespan(app: FastAPI):
     except asyncio.CancelledError:
         pass
 
-    # Close async database if initialized
+    # Close database connections
     try:
-        from ..pg_async import close_async_db
-        await close_async_db()
-    except Exception:
-        pass
+        from .dependencies import close_db, close_async_db
+        close_db()  # Close sync DB pool
+        await close_async_db()  # Close async DB pool if initialized
+    except Exception as e:
+        logger.warning(f"Error closing database connections: {e}")
 
 
 def get_cache_control_header(
@@ -252,17 +269,21 @@ def create_app() -> FastAPI:
     )
 
     # CORS middleware - allows web clients to access the API
+    settings = get_settings()
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # TODO: Configure for production with specific origins
-        allow_methods=["GET", "HEAD", "OPTIONS"],
-        allow_headers=["*"],
-        allow_credentials=False,
-        expose_headers=["X-Process-Time", "X-Cache", "Link"],
+        allow_origins=settings.cors_origins,
+        allow_methods=settings.cors_allow_methods,
+        allow_headers=settings.cors_allow_headers,
+        allow_credentials=settings.cors_allow_credentials,
+        expose_headers=settings.cors_expose_headers,
     )
 
     # GZip compression middleware - compresses responses > 1KB
     app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+    # Rate limiting middleware - protects API from abuse
+    app.add_middleware(RateLimitMiddleware)
 
     # Request timing and caching middleware
     @app.middleware("http")
@@ -289,17 +310,22 @@ def create_app() -> FastAPI:
 
         return response
 
+    # Register custom API error handler for consistent error responses
+    app.add_exception_handler(APIError, api_error_handler)
+
     # Global exception handler
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        """Handle unexpected exceptions."""
+        """Handle unexpected exceptions with consistent format."""
         logger.error(f"Unhandled exception: {exc}", exc_info=True)
         return JSONResponse(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
             content={
-                "error": "Internal server error",
-                "detail": str(exc) if app.debug else "An error occurred",
-                "path": str(request.url.path),
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An internal error occurred",
+                    "detail": str(exc) if settings.debug else None,
+                }
             },
         )
 
@@ -344,6 +370,17 @@ def create_app() -> FastAPI:
             "timestamp": datetime.utcnow().isoformat(),
         }
 
+    @app.get("/health/rate-limit", tags=["health"])
+    async def health_check_rate_limit():
+        """Rate limiter status with detailed stats."""
+        limiter = get_rate_limiter()
+        return {
+            "status": "healthy",
+            "enabled": settings.rate_limit_enabled,
+            "rate_limit": limiter.get_stats(),
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
     @app.get("/", tags=["root"])
     async def root():
         """Root endpoint with API information."""
@@ -364,11 +401,12 @@ def create_app() -> FastAPI:
         }
 
     # Include routers
-    app.include_router(entity.router, prefix="/api/v1/entity", tags=["entity"])
+    # Widget endpoints - primary API for frontend
+    app.include_router(widget.router, prefix="/api/v1/widget", tags=["widget"])
+    # Intel endpoints - external data sources (requires API keys)
     app.include_router(intel.router, prefix="/api/v1/intel", tags=["intel"])
-    # Legacy endpoints (keeping for backwards compatibility)
-    app.include_router(teams.router, prefix="/api/v1/teams", tags=["teams"])
-    app.include_router(players.router, prefix="/api/v1/players", tags=["players"])
+    # News endpoint - Google News RSS (free, no API key)
+    app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
 
     return app
 

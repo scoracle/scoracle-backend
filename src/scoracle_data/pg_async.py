@@ -39,10 +39,10 @@ class AsyncPostgresDB:
             min_pool_size: Minimum connections to keep in pool.
             max_pool_size: Maximum connections in pool.
         """
-        self.connection_string = connection_string or os.environ.get("DATABASE_URL")
+        self.connection_string = connection_string or os.environ.get("DATABASE_URL") or os.environ.get("NEON_DATABASE_URL")
         if not self.connection_string:
             raise ValueError(
-                "DATABASE_URL environment variable required or connection_string must be provided"
+                "DATABASE_URL or NEON_DATABASE_URL environment variable required or connection_string must be provided"
             )
 
         self._max_pool_size = max_pool_size or int(os.environ.get("DATABASE_POOL_SIZE", 10))

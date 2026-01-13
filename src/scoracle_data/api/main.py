@@ -184,9 +184,12 @@ async def lifespan(app: FastAPI):
     try:
         from .dependencies import get_db
         db = get_db()
-        # Execute a simple query to establish connection(s)
+        # Explicitly open the pool to establish min_size connections
+        db.open()
+        logger.info(f"Database connection pool opened (min_size={db._min_pool_size}, max_size={db._max_pool_size})")
+        # Verify with a test query
         db.fetchone("SELECT 1")
-        logger.info("Database connection pool initialized")
+        logger.info("Database connection pool initialized and verified")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # Don't fail startup, let requests handle connection errors

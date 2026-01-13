@@ -55,6 +55,16 @@ class PostgresDB:
             kwargs={"row_factory": dict_row},
         )
 
+    def open(self) -> None:
+        """
+        Explicitly open the connection pool.
+
+        This establishes the minimum number of connections immediately,
+        rather than waiting for the first request (lazy initialization).
+        Call this at application startup to ensure the pool is ready.
+        """
+        self._pool.open()
+
     @contextmanager
     def get_connection(self) -> Iterator[psycopg.Connection]:
         """Get a connection from the pool."""

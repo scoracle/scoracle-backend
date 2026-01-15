@@ -328,13 +328,28 @@ class FootballSeeder(BaseSeeder):
                     if not players:
                         break
 
-                    for player in players:
-                        player_id = player["id"]
-                        if player_id in seen_ids:
+                    for item in players:
+                        # Football API returns {"player": {...}, "statistics": [...]}
+                        # Extract player data from nested structure
+                        player = item.get("player", item) if isinstance(item, dict) else item
+                        stats_list = item.get("statistics", []) if isinstance(item, dict) else []
+
+                        player_id = player.get("id")
+                        if not player_id or player_id in seen_ids:
                             continue
 
                         seen_ids.add(player_id)
-                        team_data = player.get("team") or player.get("statistics", [{}])[0].get("team") or {}
+
+                        # Get team from statistics array (first entry)
+                        team_data = {}
+                        position = player.get("position")
+                        if stats_list and isinstance(stats_list, list) and len(stats_list) > 0:
+                            first_stat = stats_list[0]
+                            team_data = first_stat.get("team", {}) or {}
+                            # Position might be in games section of stats
+                            games = first_stat.get("games", {}) or {}
+                            position = position or games.get("position")
+
                         birth = player.get("birth", {}) or {}
 
                         all_players.append({
@@ -342,8 +357,8 @@ class FootballSeeder(BaseSeeder):
                             "first_name": player.get("first_name") or player.get("firstname"),
                             "last_name": player.get("last_name") or player.get("lastname"),
                             "full_name": self._build_full_name(player),
-                            "position": player.get("position"),
-                            "position_group": self._get_position_group(player.get("position")),
+                            "position": position,
+                            "position_group": self._get_position_group(position),
                             "nationality": player.get("nationality"),
                             "birth_date": player.get("birth_date") or birth.get("date"),
                             "birth_place": birth.get("place"),

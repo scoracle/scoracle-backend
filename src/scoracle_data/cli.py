@@ -47,10 +47,13 @@ ALL_SPORTS = ["NBA", "NFL", "FOOTBALL"]
 
 
 def get_db():
-    """Get database connection in write mode."""
-    from .connection import StatsDB, DEFAULT_DB_PATH
+    """Get database connection in write mode.
 
-    return StatsDB(db_path=DEFAULT_DB_PATH, read_only=False)
+    Uses PostgreSQL if DATABASE_URL or NEON_DATABASE_URL is set,
+    otherwise falls back to SQLite for local development.
+    """
+    from .pg_connection import get_db as pg_get_db
+    return pg_get_db()
 
 
 async def get_api_service():

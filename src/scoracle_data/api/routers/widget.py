@@ -195,8 +195,8 @@ def _get_player_info(db, player_id: int, sport: str) -> dict[str, Any] | None:
             t.logo_url as team_logo, t.conference, t.division, t.city as team_city,
             l.id as league_id, l.name as league_name, l.country as league_country, l.logo_url as league_logo
         FROM players p
-        LEFT JOIN teams t ON t.id = p.current_team_id
-        LEFT JOIN leagues l ON l.id = p.current_league_id
+        LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
+        LEFT JOIN leagues l ON l.id = p.current_league_id AND l.sport_id = p.sport_id
         WHERE p.id = %s AND p.sport_id = %s
         """,
         (player_id, sport),
@@ -568,8 +568,8 @@ def _get_player_profile(
             -- Stats (all columns)
             row_to_json(s.*) as stats_json
         FROM players p
-        LEFT JOIN teams t ON t.id = p.current_team_id
-        LEFT JOIN leagues l ON l.id = p.current_league_id
+        LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
+        LEFT JOIN leagues l ON l.id = p.current_league_id AND l.sport_id = p.sport_id
         LEFT JOIN {stats_table} s ON s.player_id = p.id AND s.season_id = %s
         WHERE p.id = %s AND p.sport_id = %s
         """,

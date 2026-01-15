@@ -40,17 +40,17 @@ class NBASeeder(BaseSeeder):
     async def fetch_teams(
         self,
         season: int,
-        league: Optional[str] = None,
+        league_id: Optional[int] = None,
     ) -> list[dict[str, Any]]:
         """Fetch NBA teams from API-Sports.
 
         Args:
             season: Season year
-            league: League filter - "standard" for NBA teams only (30 teams),
-                   None returns all teams including G-League/historical (66+ teams)
+            league_id: Ignored for NBA (included for interface compatibility)
+                      NBA uses "standard" league by default
         """
         # Use "standard" to get NBA teams, then filter by nbaFranchise=True
-        teams = await self.api.list_teams("NBA", league=league or "standard")
+        teams = await self.api.list_teams("NBA", league="standard")
 
         result = []
         for team in teams:

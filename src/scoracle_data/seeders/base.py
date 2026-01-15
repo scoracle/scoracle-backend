@@ -333,7 +333,7 @@ class BaseSeeder(ABC):
                 profile_fetched_at, updated_at
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(id, sport_id) DO UPDATE SET
                 name = COALESCE(excluded.name, teams.name),
                 abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
                 logo_url = COALESCE(excluded.logo_url, teams.logo_url),
@@ -404,7 +404,7 @@ class BaseSeeder(ABC):
                 jersey_number, college, experience_years, profile_fetched_at, updated_at
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(id, sport_id) DO UPDATE SET
                 first_name = COALESCE(excluded.first_name, players.first_name),
                 last_name = COALESCE(excluded.last_name, players.last_name),
                 full_name = COALESCE(excluded.full_name, players.full_name),
@@ -518,7 +518,7 @@ class BaseSeeder(ABC):
                 updated_at
             )
             VALUES {", ".join(placeholders)}
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(id, sport_id) DO UPDATE SET
                 name = COALESCE(excluded.name, teams.name),
                 abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
                 logo_url = COALESCE(excluded.logo_url, teams.logo_url),
@@ -604,7 +604,7 @@ class BaseSeeder(ABC):
                 jersey_number, college, experience_years, updated_at
             )
             VALUES {", ".join(placeholders)}
-            ON CONFLICT(id) DO UPDATE SET
+            ON CONFLICT(id, sport_id) DO UPDATE SET
                 first_name = COALESCE(excluded.first_name, players.first_name),
                 last_name = COALESCE(excluded.last_name, players.last_name),
                 full_name = COALESCE(excluded.full_name, players.full_name),

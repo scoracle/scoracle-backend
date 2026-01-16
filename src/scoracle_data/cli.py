@@ -19,6 +19,14 @@ Usage:
     python -m backend.app.statsdb.cli fixtures pending
     python -m backend.app.statsdb.cli fixtures run-scheduler
     python -m backend.app.statsdb.cli fixtures seed 12345
+
+    # ML job commands
+    python -m backend.app.statsdb.cli ml scan --sport FOOTBALL
+    python -m backend.app.statsdb.cli ml predict --sport NBA
+    python -m backend.app.statsdb.cli ml vibe --entity-type player
+    python -m backend.app.statsdb.cli ml run-all
+    python -m backend.app.statsdb.cli ml status
+    python -m backend.app.statsdb.cli ml history --job mention_scan
 """
 
 from __future__ import annotations
@@ -1191,6 +1199,299 @@ def cmd_fixtures_reset(args: argparse.Namespace) -> int:
         db.close()
 
 
+# =============================================================================
+# ML JOB COMMANDS
+# =============================================================================
+
+def cmd_ml(args: argparse.Namespace) -> int:
+    """Route ML subcommands."""
+    subcommand = args.ml_command
+
+    if subcommand == "scan":
+        return asyncio.run(cmd_ml_scan_async(args))
+    elif subcommand == "predict":
+        return asyncio.run(cmd_ml_predict_async(args))
+    elif subcommand == "vibe":
+        return asyncio.run(cmd_ml_vibe_async(args))
+    elif subcommand == "run-all":
+        return asyncio.run(cmd_ml_run_all_async(args))
+    elif subcommand == "status":
+        return cmd_ml_status(args)
+    elif subcommand == "history":
+        return cmd_ml_history(args)
+    elif subcommand == "scheduler":
+        return asyncio.run(cmd_ml_scheduler_async(args))
+    else:
+        logger.error("Unknown ML subcommand: %s", subcommand)
+        return 1
+
+
+async def cmd_ml_scan_async(args: argparse.Namespace) -> int:
+    """Run mention scanner job."""
+    from .ml.jobs import MentionScanner
+
+    db = get_pg_db()
+
+    try:
+        scanner = MentionScanner(db)
+        logger.info("Running mention scanner...")
+
+        results = await scanner.scan_all_sources(args.sport)
+
+        print(f"\nMention Scan Results")
+        print("=" * 50)
+
+        total_found = 0
+        total_stored = 0
+
+        for source, result in results.items():
+            print(f"\n  {source.upper()}")
+            print(f"    Found:  {result.mentions_found}")
+            print(f"    Stored: {result.mentions_stored}")
+            print(f"    Time:   {result.duration_seconds:.1f}s")
+            if result.errors:
+                print(f"    Errors: {len(result.errors)}")
+                for err in result.errors[:3]:
+                    print(f"      - {err[:60]}")
+
+            total_found += result.mentions_found
+            total_stored += result.mentions_stored
+
+        print(f"\n  Total: {total_stored} stored / {total_found} found")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Mention scan failed: %s", e)
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_ml_predict_async(args: argparse.Namespace) -> int:
+    """Run prediction refresh job."""
+    from .ml.jobs import PredictionRefreshJob
+
+    db = get_pg_db()
+
+    try:
+        job = PredictionRefreshJob(db)
+        logger.info("Running prediction refresh...")
+
+        result = job.run(args.sport)
+
+        print(f"\nPrediction Refresh Results")
+        print("=" * 50)
+        print(f"  Predictions created:  {result.predictions_created}")
+        print(f"  Predictions updated:  {result.predictions_updated}")
+        print(f"  Transfer links:       {result.links_updated}")
+        print(f"  Duration:             {result.duration_seconds:.1f}s")
+
+        if result.errors:
+            print(f"\n  Errors: {len(result.errors)}")
+            for err in result.errors[:5]:
+                print(f"    - {err[:70]}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Prediction refresh failed: %s", e)
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_ml_vibe_async(args: argparse.Namespace) -> int:
+    """Run vibe calculator job."""
+    from .ml.jobs import VibeCalculatorJob
+    from .ml.jobs.vibe_calculator import SentimentSampler
+
+    db = get_pg_db()
+
+    try:
+        # First sample sentiment from mentions
+        sampler = SentimentSampler(db)
+        samples_created = sampler.sample_from_mentions()
+        logger.info(f"Created {samples_created} sentiment samples")
+
+        # Then calculate vibe scores
+        job = VibeCalculatorJob(db)
+        logger.info("Calculating vibe scores...")
+
+        result = job.run(args.entity_type, args.sport)
+
+        print(f"\nVibe Calculation Results")
+        print("=" * 50)
+        print(f"  Sentiment samples:    {samples_created}")
+        print(f"  Entities created:     {result.entities_created}")
+        print(f"  Entities updated:     {result.entities_updated}")
+        print(f"  Samples processed:    {result.samples_processed}")
+        print(f"  Duration:             {result.duration_seconds:.1f}s")
+
+        if result.errors:
+            print(f"\n  Errors: {len(result.errors)}")
+            for err in result.errors[:5]:
+                print(f"    - {err[:70]}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Vibe calculation failed: %s", e)
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_ml_run_all_async(args: argparse.Namespace) -> int:
+    """Run all ML jobs."""
+    from .ml.jobs import MLJobScheduler
+
+    db = get_pg_db()
+
+    try:
+        scheduler = MLJobScheduler(db)
+        logger.info("Running all ML jobs...")
+
+        results = await scheduler.run_all_jobs(sport_id=args.sport)
+
+        print(f"\nML Job Results")
+        print("=" * 60)
+
+        for job_name, result in results.items():
+            status_emoji = "✓" if result.status.value == "completed" else "✗"
+            print(f"\n  {status_emoji} {job_name}")
+            print(f"    Status:    {result.status.value}")
+            print(f"    Processed: {result.items_processed}")
+            print(f"    Duration:  {result.duration_seconds:.1f}s")
+            if result.errors:
+                print(f"    Errors:    {len(result.errors)}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("ML jobs failed: %s", e)
+        import traceback
+        traceback.print_exc()
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_ml_status(args: argparse.Namespace) -> int:
+    """Show ML job status."""
+    from .ml.jobs import MLJobScheduler
+
+    db = get_pg_db()
+
+    try:
+        scheduler = MLJobScheduler(db)
+        stats = scheduler.get_job_stats()
+
+        print(f"\nML Job Status (Last 7 Days)")
+        print("=" * 80)
+        print(f"{'Job':<20} {'Enabled':<8} {'Interval':<10} {'Runs':<8} {'Success':<8} {'Failed':<8} {'Avg Time':<10}")
+        print("-" * 80)
+
+        for job_name, stat in stats.items():
+            enabled = "Yes" if stat["enabled"] else "No"
+            interval = f"{stat['interval_minutes']}m"
+            runs = stat["total_runs"]
+            success = stat["successful"]
+            failed = stat["failed"]
+            avg_time = f"{stat['avg_duration_seconds']:.1f}s"
+
+            print(f"{job_name:<20} {enabled:<8} {interval:<10} {runs:<8} {success:<8} {failed:<8} {avg_time:<10}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get ML status: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+def cmd_ml_history(args: argparse.Namespace) -> int:
+    """Show ML job history."""
+    from .ml.jobs import MLJobScheduler
+
+    db = get_pg_db()
+
+    try:
+        scheduler = MLJobScheduler(db)
+        history = scheduler.get_job_history(
+            job_name=args.job,
+            limit=args.limit or 20,
+        )
+
+        print(f"\nML Job History")
+        if args.job:
+            print(f"Job: {args.job}")
+        print("=" * 90)
+        print(f"{'Job':<20} {'Status':<12} {'Started':<20} {'Duration':<10} {'Items':<8}")
+        print("-" * 90)
+
+        for run in history:
+            started = run["started_at"].strftime("%Y-%m-%d %H:%M") if run["started_at"] else "N/A"
+            duration = f"{run['duration_seconds']:.1f}s" if run["duration_seconds"] else "N/A"
+            items = run["items_processed"] or 0
+
+            print(f"{run['job_name']:<20} {run['status']:<12} {started:<20} {duration:<10} {items:<8}")
+
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get ML history: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
+async def cmd_ml_scheduler_async(args: argparse.Namespace) -> int:
+    """Start the ML job scheduler (daemon mode)."""
+    from .ml.jobs import MLJobScheduler
+
+    db = get_pg_db()
+
+    try:
+        scheduler = MLJobScheduler(db)
+
+        print("Starting ML Job Scheduler")
+        print("=" * 50)
+        print("Press Ctrl+C to stop\n")
+
+        # Show enabled jobs
+        for job_name, job_config in scheduler.jobs.items():
+            if job_config.enabled:
+                print(f"  {job_name}: every {job_config.interval_minutes} minutes")
+
+        print()
+
+        await scheduler.start()
+
+        # Run until interrupted
+        try:
+            while True:
+                await asyncio.sleep(60)
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            await scheduler.stop()
+
+        return 0
+
+    except Exception as e:
+        logger.error("Scheduler failed: %s", e)
+        return 1
+    finally:
+        db.close()
+
+
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -1413,6 +1714,71 @@ def main() -> int:
     )
     fixtures_reset_parser.add_argument("fixture_id", type=int, help="Fixture ID to reset")
 
+    # ==========================================================================
+    # ML commands (machine learning jobs)
+    # ==========================================================================
+    ml_parser = subparsers.add_parser(
+        "ml",
+        help="Run ML jobs (mention scanning, predictions, vibe scores)",
+    )
+    ml_subparsers = ml_parser.add_subparsers(
+        dest="ml_command",
+        help="ML subcommands",
+    )
+
+    # ml scan
+    ml_scan_parser = ml_subparsers.add_parser(
+        "scan",
+        help="Scan news/social for transfer mentions",
+    )
+    ml_scan_parser.add_argument("--sport", help="Filter by sport (NBA, NFL, FOOTBALL)")
+
+    # ml predict
+    ml_predict_parser = ml_subparsers.add_parser(
+        "predict",
+        help="Refresh transfer predictions",
+    )
+    ml_predict_parser.add_argument("--sport", help="Filter by sport")
+
+    # ml vibe
+    ml_vibe_parser = ml_subparsers.add_parser(
+        "vibe",
+        help="Calculate vibe scores from sentiment",
+    )
+    ml_vibe_parser.add_argument("--sport", help="Filter by sport")
+    ml_vibe_parser.add_argument(
+        "--entity-type",
+        choices=["player", "team"],
+        help="Filter by entity type",
+    )
+
+    # ml run-all
+    ml_run_all_parser = ml_subparsers.add_parser(
+        "run-all",
+        help="Run all ML jobs",
+    )
+    ml_run_all_parser.add_argument("--sport", help="Filter by sport")
+
+    # ml status
+    ml_status_parser = ml_subparsers.add_parser(
+        "status",
+        help="Show ML job status and statistics",
+    )
+
+    # ml history
+    ml_history_parser = ml_subparsers.add_parser(
+        "history",
+        help="Show ML job run history",
+    )
+    ml_history_parser.add_argument("--job", help="Filter by job name")
+    ml_history_parser.add_argument("--limit", type=int, default=20, help="Max entries to show")
+
+    # ml scheduler
+    ml_scheduler_parser = ml_subparsers.add_parser(
+        "scheduler",
+        help="Start the ML job scheduler (daemon mode)",
+    )
+
     args = parser.parse_args()
 
     if not args.command:
@@ -1432,6 +1798,7 @@ def main() -> int:
         "export-profiles": cmd_export_profiles,
         "query": cmd_query,
         "fixtures": cmd_fixtures,
+        "ml": cmd_ml,
     }
 
     cmd_func = commands.get(args.command)

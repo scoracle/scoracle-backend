@@ -1,8 +1,15 @@
 """
 PostgreSQL-native percentile calculator using window functions.
 
-Uses PERCENT_RANK() for efficient batch calculations, providing
-10-50x performance improvement over Python-based calculations.
+DEPRECATED: Use PythonPercentileCalculator instead.
+This module is kept for reference only. The pure Python calculator
+provides database-agnostic percentile calculation with comparable
+performance and better maintainability.
+
+Reason for deprecation:
+- All business logic should live in Python (version controlled)
+- Database should be pure storage (portable across backends)
+- Pure Python approach is easier to test and maintain
 """
 
 from __future__ import annotations

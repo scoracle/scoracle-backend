@@ -1,8 +1,13 @@
 """
 Percentile calculation engine for sports statistics.
 
-Calculates percentile ranks within comparison groups and caches
-results for fast retrieval.
+DEPRECATED: Use PythonPercentileCalculator instead.
+This module was the original SQLite-based calculator. It has been
+superseded by PythonPercentileCalculator which provides:
+- Database-agnostic operation
+- Top 5 Leagues comparison for FOOTBALL
+- Per-36/per-90 normalized stat computation
+- Archive functionality for historical preservation
 """
 
 from __future__ import annotations

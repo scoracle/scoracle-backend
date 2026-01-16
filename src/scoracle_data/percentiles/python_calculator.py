@@ -462,7 +462,7 @@ class PythonPercentileCalculator:
     # =========================================================================
 
     def _write_percentile_results(self, results: list[PercentileResult]) -> None:
-        """Write percentile results to the cache table."""
+        """Write percentile results to the cache table using batch inserts."""
         if not results:
             return
 
@@ -470,39 +470,47 @@ class PythonPercentileCalculator:
 
         now = datetime.now(timezone.utc)
 
-        # Use batch insert with ON CONFLICT
-        for result in results:
-            self.db.execute(
-                """
-                INSERT INTO percentile_cache (
-                    entity_type, entity_id, sport_id, season_id, stat_category,
-                    stat_value, percentile, rank, sample_size, comparison_group,
-                    calculated_at
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
-                DO UPDATE SET
-                    stat_value = EXCLUDED.stat_value,
-                    percentile = EXCLUDED.percentile,
-                    rank = EXCLUDED.rank,
-                    sample_size = EXCLUDED.sample_size,
-                    comparison_group = EXCLUDED.comparison_group,
-                    calculated_at = EXCLUDED.calculated_at
-                """,
-                (
-                    result.entity_type,
-                    result.entity_id,
-                    result.sport_id,
-                    result.season_id,
-                    result.stat_category,
-                    result.stat_value,
-                    result.percentile,
-                    result.rank,
-                    result.sample_size,
-                    result.comparison_group,
-                    now,
-                ),
+        # Build batch of tuples for executemany
+        values = [
+            (
+                r.entity_type,
+                r.entity_id,
+                r.sport_id,
+                r.season_id,
+                r.stat_category,
+                r.stat_value,
+                r.percentile,
+                r.rank,
+                r.sample_size,
+                r.comparison_group,
+                now,
             )
+            for r in results
+        ]
+
+        # Use executemany for batch insert (much faster than individual inserts)
+        # Process in chunks of 1000 to avoid memory issues
+        chunk_size = 1000
+        query = """
+            INSERT INTO percentile_cache (
+                entity_type, entity_id, sport_id, season_id, stat_category,
+                stat_value, percentile, rank, sample_size, comparison_group,
+                calculated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+            DO UPDATE SET
+                stat_value = EXCLUDED.stat_value,
+                percentile = EXCLUDED.percentile,
+                rank = EXCLUDED.rank,
+                sample_size = EXCLUDED.sample_size,
+                comparison_group = EXCLUDED.comparison_group,
+                calculated_at = EXCLUDED.calculated_at
+        """
+
+        for i in range(0, len(values), chunk_size):
+            chunk = values[i:i + chunk_size]
+            self.db.executemany(query, chunk)
 
     # =========================================================================
     # Main Entry Points

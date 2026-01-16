@@ -553,8 +553,8 @@ def cmd_diff(args: argparse.Namespace) -> int:
 
 
 def cmd_percentiles(args: argparse.Namespace) -> int:
-    """Recalculate percentiles."""
-    from .percentiles import PercentileCalculator
+    """Recalculate or archive percentiles using pure Python calculator."""
+    from .percentiles.python_calculator import PythonPercentileCalculator
 
     db = get_db()
 
@@ -562,11 +562,31 @@ def cmd_percentiles(args: argparse.Namespace) -> int:
         logger.error("Database not initialized. Run 'init' first.")
         return 1
 
-    calculator = PercentileCalculator(db)
+    calculator = PythonPercentileCalculator(db)
 
     sports = [args.sport.upper()] if args.sport else ALL_SPORTS
     season = args.season or 2025
 
+    # Handle archive subcommand
+    if hasattr(args, 'percentiles_command') and args.percentiles_command == 'archive':
+        for sport_id in sports:
+            logger.info("Archiving percentiles for %s %d...", sport_id, season)
+            try:
+                count = calculator.archive_season(
+                    sport_id, season, is_final=args.final
+                )
+                logger.info(
+                    "%s archived: %d records (final=%s)",
+                    sport_id, count, args.final
+                )
+            except Exception as e:
+                logger.error("Failed to archive percentiles for %s: %s", sport_id, e)
+                import traceback
+                traceback.print_exc()
+        db.close()
+        return 0
+
+    # Default: recalculate percentiles
     for sport_id in sports:
         logger.info("Calculating percentiles for %s %d...", sport_id, season)
         try:
@@ -579,6 +599,8 @@ def cmd_percentiles(args: argparse.Namespace) -> int:
             )
         except Exception as e:
             logger.error("Failed to calculate percentiles for %s: %s", sport_id, e)
+            import traceback
+            traceback.print_exc()
 
     db.close()
     return 0
@@ -1232,8 +1254,38 @@ def main() -> int:
     diff_parser.add_argument("--season", type=int, help="Season year")
     diff_parser.add_argument("--league", type=int, help="League ID (required for FOOTBALL)")
 
-    # percentiles command
-    pct_parser = subparsers.add_parser("percentiles", help="Recalculate percentiles")
+    # percentiles command with subcommands
+    pct_parser = subparsers.add_parser(
+        "percentiles",
+        help="Recalculate or archive percentiles",
+    )
+    pct_subparsers = pct_parser.add_subparsers(
+        dest="percentiles_command",
+        help="Percentile subcommands",
+    )
+
+    # percentiles recalc (default behavior)
+    pct_recalc = pct_subparsers.add_parser(
+        "recalc",
+        help="Recalculate percentiles for a sport/season",
+    )
+    pct_recalc.add_argument("--sport", help="Sport (default: all)")
+    pct_recalc.add_argument("--season", type=int, help="Season year")
+
+    # percentiles archive (end of season)
+    pct_archive = pct_subparsers.add_parser(
+        "archive",
+        help="Archive current percentiles for historical preservation",
+    )
+    pct_archive.add_argument("--sport", help="Sport (default: all)")
+    pct_archive.add_argument("--season", type=int, help="Season year")
+    pct_archive.add_argument(
+        "--final",
+        action="store_true",
+        help="Mark as final end-of-season snapshot",
+    )
+
+    # Keep backwards compatibility: percentiles --sport --season
     pct_parser.add_argument("--sport", help="Sport (default: all)")
     pct_parser.add_argument("--season", type=int, help="Season year")
 

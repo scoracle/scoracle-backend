@@ -169,10 +169,16 @@ def export_nfl_teams(db) -> list[dict]:
 
 
 def export_football_players(db) -> list[dict]:
-    """Export Football player profiles (with league info)."""
+    """Export Football player profiles (with league info).
+
+    Note: Uses first_name + last_name instead of full_name because
+    API-Sports returns abbreviated names like "C. Palmer" in full_name.
+    """
     rows = db.fetchall("""
         SELECT
-            p.id, p.full_name as name, p.position,
+            p.id,
+            COALESCE(NULLIF(TRIM(CONCAT(p.first_name, ' ', p.last_name)), ''), p.full_name) as name,
+            p.position,
             p.current_league_id as league_id,
             t.name as team_name, t.abbreviation as team_abbr,
             l.name as league_name
@@ -236,62 +242,71 @@ def export_football_teams(db) -> list[dict]:
     return entities
 
 
-def export_entities_minimal(output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict:
-    """Export all profiles to JSON for frontend autocomplete."""
+def export_sport_specific(output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict:
+    """
+    Export profiles to sport-specific JSON files for frontend autocomplete.
+
+    Generates separate files per sport to prevent cross-sport ID collisions.
+    No combined file is generated to avoid downstream issues.
+    """
     db = get_postgres_db()
-
-    entities = []
-
-    # Export all sports
-    entities.extend(export_nba_players(db))
-    entities.extend(export_nba_teams(db))
-    entities.extend(export_nfl_players(db))
-    entities.extend(export_nfl_teams(db))
-    entities.extend(export_football_players(db))
-    entities.extend(export_football_teams(db))
-
-    # Build output structure
-    output = {
-        "version": "2.0",
-        "generated_at": datetime.now().isoformat(),
-        "counts": {
-            "total": len(entities),
-            "nba_players": sum(1 for e in entities if e["sport"] == "NBA" and e["type"] == "player"),
-            "nba_teams": sum(1 for e in entities if e["sport"] == "NBA" and e["type"] == "team"),
-            "nfl_players": sum(1 for e in entities if e["sport"] == "NFL" and e["type"] == "player"),
-            "nfl_teams": sum(1 for e in entities if e["sport"] == "NFL" and e["type"] == "team"),
-            "football_players": sum(1 for e in entities if e["sport"] == "FOOTBALL" and e["type"] == "player"),
-            "football_teams": sum(1 for e in entities if e["sport"] == "FOOTBALL" and e["type"] == "team"),
-        },
-        "entities": entities,
-    }
 
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Write combined output
-    output_path = output_dir / "entities_minimal.json"
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+    generated_at = datetime.now().isoformat()
+    counts = {}
 
-    logger.info(f"Exported {len(entities)} total entities to {output_path}")
+    # Export NBA
+    nba_entities = export_nba_players(db) + export_nba_teams(db)
+    nba_output = {
+        "version": "2.0",
+        "generated_at": generated_at,
+        "sport": "NBA",
+        "count": len(nba_entities),
+        "entities": nba_entities,
+    }
+    nba_path = output_dir / "nba_entities.json"
+    with open(nba_path, "w", encoding="utf-8") as f:
+        json.dump(nba_output, f, indent=2, ensure_ascii=False)
+    logger.info(f"Exported {len(nba_entities)} NBA entities to {nba_path}")
+    counts["nba"] = len(nba_entities)
 
-    # Also write sport-specific files for optional separate loading
-    for sport in ["NBA", "NFL", "FOOTBALL"]:
-        sport_entities = [e for e in entities if e["sport"] == sport]
-        sport_output = {
-            "version": "2.0",
-            "generated_at": output["generated_at"],
-            "sport": sport,
-            "count": len(sport_entities),
-            "entities": sport_entities,
-        }
-        sport_path = output_dir / f"{sport.lower()}_entities.json"
-        with open(sport_path, "w", encoding="utf-8") as f:
-            json.dump(sport_output, f, indent=2, ensure_ascii=False)
-        logger.info(f"Exported {len(sport_entities)} {sport} entities to {sport_path}")
+    # Export NFL
+    nfl_entities = export_nfl_players(db) + export_nfl_teams(db)
+    nfl_output = {
+        "version": "2.0",
+        "generated_at": generated_at,
+        "sport": "NFL",
+        "count": len(nfl_entities),
+        "entities": nfl_entities,
+    }
+    nfl_path = output_dir / "nfl_entities.json"
+    with open(nfl_path, "w", encoding="utf-8") as f:
+        json.dump(nfl_output, f, indent=2, ensure_ascii=False)
+    logger.info(f"Exported {len(nfl_entities)} NFL entities to {nfl_path}")
+    counts["nfl"] = len(nfl_entities)
 
-    return output
+    # Export FOOTBALL
+    football_entities = export_football_players(db) + export_football_teams(db)
+    football_output = {
+        "version": "2.0",
+        "generated_at": generated_at,
+        "sport": "FOOTBALL",
+        "count": len(football_entities),
+        "entities": football_entities,
+    }
+    football_path = output_dir / "football_entities.json"
+    with open(football_path, "w", encoding="utf-8") as f:
+        json.dump(football_output, f, indent=2, ensure_ascii=False)
+    logger.info(f"Exported {len(football_entities)} FOOTBALL entities to {football_path}")
+    counts["football"] = len(football_entities)
+
+    return {
+        "generated_at": generated_at,
+        "counts": counts,
+        "total": sum(counts.values()),
+    }
 
 
 def main():
@@ -304,9 +319,10 @@ def main():
     )
     args = parser.parse_args()
 
-    result = export_entities_minimal(args.output)
-    print(f"\nExport complete! Total entities: {result['counts']['total']}")
-    print(f"Output: {args.output / 'entities_minimal.json'}")
+    result = export_sport_specific(args.output)
+    print(f"\nExport complete! Total entities: {result['total']}")
+    print(f"Files: nba_entities.json, nfl_entities.json, football_entities.json")
+    print(f"Output directory: {args.output}")
 
 
 if __name__ == "__main__":

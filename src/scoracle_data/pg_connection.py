@@ -22,7 +22,18 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from .api.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+# Sport-specific table mappings (defined here to avoid circular imports with api.types)
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
 
 
 class PostgresDB:
@@ -47,10 +58,15 @@ class PostgresDB:
             min_pool_size: Minimum connections to keep in pool.
             max_pool_size: Maximum connections in pool. Defaults to DATABASE_POOL_SIZE env var or 10.
         """
-        self.connection_string = connection_string or os.environ.get("DATABASE_URL") or os.environ.get("NEON_DATABASE_URL")
+        self.connection_string = (
+            connection_string
+            or os.environ.get("NEON_DATABASE_URL_V2")  # New sport-specific schema
+            or os.environ.get("DATABASE_URL")
+            or os.environ.get("NEON_DATABASE_URL")
+        )
         if not self.connection_string:
             raise ValueError(
-                "DATABASE_URL or NEON_DATABASE_URL environment variable required or connection_string must be provided"
+                "NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL environment variable required"
             )
 
         self._max_pool_size = max_pool_size or int(os.environ.get("DATABASE_POOL_SIZE", 10))
@@ -438,12 +454,14 @@ class PostgresDB:
 
         # Build player json based on sport-specific columns
         if sport_id == "FOOTBALL":
+            # FOOTBALL: use first_name + last_name instead of full_name because
+            # API-Sports returns abbreviated names like "C. Palmer" in full_name
             player_json = """
                 json_build_object(
                     'id', pl.id,
                     'first_name', pl.first_name,
                     'last_name', pl.last_name,
-                    'full_name', pl.full_name,
+                    'full_name', COALESCE(NULLIF(TRIM(CONCAT(pl.first_name, ' ', pl.last_name)), ''), pl.full_name),
                     'position', pl.position,
                     'position_group', pl.position_group,
                     'nationality', pl.nationality,

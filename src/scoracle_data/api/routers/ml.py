@@ -9,6 +9,9 @@ Endpoints:
 - GET /vibe/trending/{sport} - Trending vibe changes
 - GET /similar/{entity_type}/{entity_id} - Similar entities
 - GET /similar/compare/{entity_type}/{id1}/{id2} - Compare two entities
+- GET /predictions/{entity_type}/{entity_id}/next - Next game performance prediction
+- GET /predictions/{entity_type}/{entity_id}/game/{game_id} - Specific game prediction
+- GET /predictions/accuracy/{model_version} - Model accuracy metrics
 
 Performance Features:
 - Caching with configurable TTLs
@@ -34,6 +37,7 @@ router = APIRouter()
 TTL_TRANSFER_PREDICTIONS = 1800  # 30 minutes
 TTL_VIBE_SCORE = 3600  # 1 hour
 TTL_SIMILARITY = 86400  # 24 hours
+TTL_PERFORMANCE_PREDICTION = 3600  # 1 hour
 
 
 # =============================================================================
@@ -175,6 +179,46 @@ class EntityComparisonResponse(BaseModel):
     similarity_score: float
     shared_traits: list[str]
     key_differences: list[str]
+
+
+class StatPredictionResponse(BaseModel):
+    """Prediction for a single statistic."""
+
+    stat_name: str
+    predicted_value: float
+    confidence_lower: float
+    confidence_upper: float
+    historical_avg: float
+
+
+class PerformancePredictionResponse(BaseModel):
+    """Performance prediction for an upcoming game."""
+
+    entity_id: int
+    entity_name: str
+    entity_type: str
+    opponent_id: int | None
+    opponent_name: str | None
+    game_date: str
+    sport: str
+    predictions: dict[str, StatPredictionResponse]
+    confidence_score: float = Field(ge=0, le=1)
+    context_factors: dict[str, Any]
+    key_factors: list[str]
+    model_version: str
+    last_updated: datetime
+
+
+class ModelAccuracyResponse(BaseModel):
+    """Model accuracy metrics."""
+
+    model_type: str
+    model_version: str
+    sport: str | None
+    metrics: dict[str, float]
+    sample_size: int
+    period_start: str | None
+    period_end: str | None
 
 
 # =============================================================================
@@ -793,3 +837,372 @@ def _get_top_factors(link: tuple) -> list[str]:
         factors.append("Recent Activity")
 
     return factors[:3]
+
+
+# =============================================================================
+# Performance Prediction Endpoints
+# =============================================================================
+
+
+@router.get("/predictions/{entity_type}/{entity_id}/next", response_model=PerformancePredictionResponse)
+async def get_next_game_prediction(
+    entity_type: str,
+    entity_id: int,
+    db: DBDependency,
+) -> PerformancePredictionResponse:
+    """
+    Get performance prediction for entity's next scheduled game.
+
+    Returns projected statistics with confidence intervals
+    based on recent performance, opponent strength, and context.
+    """
+    if entity_type not in ("player", "team"):
+        raise NotFoundError(f"Invalid entity type: {entity_type}")
+
+    cache = get_cache()
+    cache_key = f"ml:performance:next:{entity_type}:{entity_id}"
+
+    cached = await cache.get(cache_key)
+    if cached:
+        return PerformancePredictionResponse(**cached)
+
+    # Get entity info
+    if entity_type == "player":
+        entity_row = db.fetch_one(
+            """
+            SELECT p.id, p.name, s.name as sport, p.position,
+                   t.id as team_id, t.name as team_name
+            FROM players p
+            JOIN sports s ON p.sport_id = s.id
+            LEFT JOIN player_teams pt ON p.id = pt.player_id AND pt.is_current = TRUE
+            LEFT JOIN teams t ON pt.team_id = t.id
+            WHERE p.id = %s
+            """,
+            (entity_id,),
+        )
+    else:
+        entity_row = db.fetch_one(
+            """
+            SELECT t.id, t.name, s.name as sport, NULL as position,
+                   t.id as team_id, t.name as team_name
+            FROM teams t
+            JOIN sports s ON t.sport_id = s.id
+            WHERE t.id = %s
+            """,
+            (entity_id,),
+        )
+
+    if not entity_row:
+        raise NotFoundError(f"{entity_type.title()} with ID {entity_id} not found")
+
+    entity_name = entity_row[1]
+    sport = entity_row[2]
+    position = entity_row[3]
+
+    # Check for existing prediction in database
+    pred_row = db.fetch_one(
+        """
+        SELECT
+            pp.opponent_id, pp.opponent_name, pp.game_date,
+            pp.predictions, pp.confidence_intervals, pp.confidence_score,
+            pp.context_factors, pp.model_version, pp.predicted_at
+        FROM performance_predictions pp
+        WHERE pp.entity_type = %s AND pp.entity_id = %s
+        AND pp.game_date >= CURRENT_DATE
+        ORDER BY pp.game_date ASC
+        LIMIT 1
+        """,
+        (entity_type, entity_id),
+    )
+
+    if pred_row:
+        # Use stored prediction
+        predictions_data = pred_row[3] or {}
+        confidence_intervals = pred_row[4] or {}
+
+        predictions = {}
+        for stat_name, value in predictions_data.items():
+            ci = confidence_intervals.get(stat_name, [value * 0.8, value * 1.2])
+            predictions[stat_name] = StatPredictionResponse(
+                stat_name=stat_name,
+                predicted_value=round(value, 1),
+                confidence_lower=round(ci[0], 1) if isinstance(ci, list) else round(value * 0.8, 1),
+                confidence_upper=round(ci[1], 1) if isinstance(ci, list) else round(value * 1.2, 1),
+                historical_avg=round(value, 1),  # Placeholder
+            )
+
+        context_factors = pred_row[6] or {}
+        key_factors = _get_performance_factors(context_factors)
+
+        result = PerformancePredictionResponse(
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_type=entity_type,
+            opponent_id=pred_row[0],
+            opponent_name=pred_row[1],
+            game_date=str(pred_row[2]),
+            sport=sport,
+            predictions=predictions,
+            confidence_score=pred_row[5] or 0.7,
+            context_factors=context_factors,
+            key_factors=key_factors,
+            model_version=pred_row[7] or "v1.0.0",
+            last_updated=pred_row[8],
+        )
+    else:
+        # Generate heuristic prediction from recent stats
+        predictions, confidence, context = _generate_heuristic_prediction(
+            db, entity_type, entity_id, sport, position
+        )
+
+        result = PerformancePredictionResponse(
+            entity_id=entity_id,
+            entity_name=entity_name,
+            entity_type=entity_type,
+            opponent_id=None,
+            opponent_name="TBD",
+            game_date="TBD",
+            sport=sport,
+            predictions=predictions,
+            confidence_score=confidence,
+            context_factors=context,
+            key_factors=_get_performance_factors(context),
+            model_version="v1.0.0-heuristic",
+            last_updated=datetime.now(),
+        )
+
+    await cache.set(cache_key, result.model_dump(), ttl=TTL_PERFORMANCE_PREDICTION)
+    return result
+
+
+@router.get("/predictions/{entity_type}/{entity_id}/game/{game_id}", response_model=PerformancePredictionResponse)
+async def get_specific_game_prediction(
+    entity_type: str,
+    entity_id: int,
+    game_id: int,
+    db: DBDependency,
+) -> PerformancePredictionResponse:
+    """
+    Get performance prediction for a specific game.
+
+    Returns projected statistics for the specified game
+    with opponent-adjusted predictions.
+    """
+    if entity_type not in ("player", "team"):
+        raise NotFoundError(f"Invalid entity type: {entity_type}")
+
+    # Get prediction for specific game
+    pred_row = db.fetch_one(
+        """
+        SELECT
+            pp.entity_name, pp.opponent_id, pp.opponent_name, pp.game_date,
+            pp.sport, pp.predictions, pp.confidence_intervals, pp.confidence_score,
+            pp.context_factors, pp.model_version, pp.predicted_at
+        FROM performance_predictions pp
+        WHERE pp.entity_type = %s AND pp.entity_id = %s AND pp.id = %s
+        """,
+        (entity_type, entity_id, game_id),
+    )
+
+    if not pred_row:
+        raise NotFoundError(f"Prediction for game {game_id} not found")
+
+    predictions_data = pred_row[5] or {}
+    confidence_intervals = pred_row[6] or {}
+
+    predictions = {}
+    for stat_name, value in predictions_data.items():
+        ci = confidence_intervals.get(stat_name, [value * 0.8, value * 1.2])
+        predictions[stat_name] = StatPredictionResponse(
+            stat_name=stat_name,
+            predicted_value=round(value, 1),
+            confidence_lower=round(ci[0], 1) if isinstance(ci, list) else round(value * 0.8, 1),
+            confidence_upper=round(ci[1], 1) if isinstance(ci, list) else round(value * 1.2, 1),
+            historical_avg=round(value, 1),
+        )
+
+    context_factors = pred_row[8] or {}
+
+    return PerformancePredictionResponse(
+        entity_id=entity_id,
+        entity_name=pred_row[0],
+        entity_type=entity_type,
+        opponent_id=pred_row[1],
+        opponent_name=pred_row[2],
+        game_date=str(pred_row[3]),
+        sport=pred_row[4],
+        predictions=predictions,
+        confidence_score=pred_row[7] or 0.7,
+        context_factors=context_factors,
+        key_factors=_get_performance_factors(context_factors),
+        model_version=pred_row[9] or "v1.0.0",
+        last_updated=pred_row[10],
+    )
+
+
+@router.get("/predictions/accuracy/{model_version}", response_model=ModelAccuracyResponse)
+async def get_model_accuracy(
+    model_version: str,
+    db: DBDependency,
+    sport: Annotated[str | None, Query(description="Sport filter")] = None,
+    model_type: Annotated[str, Query(description="Model type")] = "performance",
+) -> ModelAccuracyResponse:
+    """
+    Get accuracy metrics for a model version.
+
+    Returns MAE, RMSE, and within-range percentage
+    for the specified model.
+    """
+    query = """
+        SELECT
+            model_type, model_version, sport,
+            mae, rmse, mape, within_range_pct,
+            sample_size, period_start, period_end
+        FROM prediction_accuracy
+        WHERE model_version = %s AND model_type = %s
+    """
+    params: list[Any] = [model_version, model_type]
+
+    if sport:
+        query += " AND LOWER(sport) = LOWER(%s)"
+        params.append(sport)
+
+    query += " ORDER BY calculated_at DESC LIMIT 1"
+
+    row = db.fetch_one(query, tuple(params))
+
+    if not row:
+        # Return placeholder if no accuracy data
+        return ModelAccuracyResponse(
+            model_type=model_type,
+            model_version=model_version,
+            sport=sport,
+            metrics={
+                "mae": 0.0,
+                "rmse": 0.0,
+                "mape": 0.0,
+                "within_range_pct": 0.0,
+            },
+            sample_size=0,
+            period_start=None,
+            period_end=None,
+        )
+
+    return ModelAccuracyResponse(
+        model_type=row[0],
+        model_version=row[1],
+        sport=row[2],
+        metrics={
+            "mae": row[3] or 0.0,
+            "rmse": row[4] or 0.0,
+            "mape": row[5] or 0.0,
+            "within_range_pct": row[6] or 0.0,
+        },
+        sample_size=row[7] or 0,
+        period_start=str(row[8]) if row[8] else None,
+        period_end=str(row[9]) if row[9] else None,
+    )
+
+
+def _get_performance_factors(context: dict[str, Any]) -> list[str]:
+    """Extract key factors from context."""
+    factors = []
+
+    rest_days = context.get("rest_days")
+    if rest_days is not None:
+        if rest_days == 0:
+            factors.append("Back-to-back game")
+        elif rest_days >= 3:
+            factors.append("Well rested")
+
+    is_home = context.get("is_home")
+    if is_home is not None:
+        factors.append("Home game" if is_home else "Road game")
+
+    opp_def = context.get("opponent_defensive_rating")
+    if opp_def:
+        if opp_def > 115:
+            factors.append("Weak opponent defense")
+        elif opp_def < 105:
+            factors.append("Strong opponent defense")
+
+    return factors[:4] if factors else ["Based on season averages"]
+
+
+def _generate_heuristic_prediction(
+    db: DBDependency,
+    entity_type: str,
+    entity_id: int,
+    sport: str,
+    position: str | None,
+) -> tuple[dict[str, StatPredictionResponse], float, dict[str, Any]]:
+    """Generate heuristic prediction from recent stats."""
+    sport_lower = sport.lower()
+
+    # Determine stats table and columns based on sport
+    if sport_lower == "nba":
+        if entity_type == "player":
+            stats_table = "nba_player_stats"
+            stat_cols = ["ppg", "rpg", "apg", "spg", "bpg"]
+        else:
+            stats_table = "nba_team_stats"
+            stat_cols = ["ppg", "rpg", "apg", "fg_pct", "fg3_pct"]
+    elif sport_lower == "nfl":
+        if entity_type == "player":
+            stats_table = "nfl_player_stats"
+            # Simplified - would be position-specific in production
+            stat_cols = ["pass_yds", "pass_td", "rush_yds", "rec_yds"]
+        else:
+            stats_table = "nfl_team_stats"
+            stat_cols = ["points_for", "total_yards", "turnovers"]
+    elif sport_lower == "football":
+        if entity_type == "player":
+            stats_table = "football_player_stats"
+            stat_cols = ["goals", "assists", "shots", "key_passes"]
+        else:
+            stats_table = "football_team_stats"
+            stat_cols = ["goals_for", "goals_against", "shots_pg"]
+    else:
+        # Default fallback
+        return {}, 0.5, {}
+
+    # Get recent stats
+    id_col = "player_id" if entity_type == "player" else "team_id"
+
+    # Build query for available columns
+    col_list = ", ".join(stat_cols)
+    row = db.fetch_one(
+        f"""
+        SELECT {col_list}
+        FROM {stats_table}
+        WHERE {id_col} = %s
+        ORDER BY season_id DESC
+        LIMIT 1
+        """,
+        (entity_id,),
+    )
+
+    predictions = {}
+    if row:
+        for i, stat_name in enumerate(stat_cols):
+            if i < len(row) and row[i] is not None:
+                val = float(row[i])
+                std = val * 0.2  # Estimate 20% variance
+
+                predictions[stat_name] = StatPredictionResponse(
+                    stat_name=stat_name,
+                    predicted_value=round(val, 1),
+                    confidence_lower=round(max(0, val - 1.5 * std), 1),
+                    confidence_upper=round(val + 1.5 * std, 1),
+                    historical_avg=round(val, 1),
+                )
+
+    context = {
+        "rest_days": 2,
+        "is_home": True,
+        "based_on": "season_averages",
+    }
+
+    confidence = 0.6 if predictions else 0.3
+
+    return predictions, confidence, context

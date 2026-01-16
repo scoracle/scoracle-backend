@@ -378,6 +378,9 @@ class PostgresPercentileCalculator:
         Calculate percentiles for all players in a season using native SQL.
 
         Uses PERCENT_RANK() window function for efficient batch calculation.
+        - NBA: Compares across all players by position group
+        - FOOTBALL: Compares across Top 5 Leagues by position group
+        - NFL: Compares by position-specific stat categories
 
         Args:
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
@@ -395,6 +398,12 @@ class PostgresPercentileCalculator:
         categories = get_stat_categories(sport_id, "player", position_group)
         min_sample = get_min_sample_size(sport_id, "player")
 
+        # Get season year for comparison group label
+        season_result = self.db.fetchone(
+            "SELECT season_year FROM seasons WHERE id = %s", (season_id,)
+        )
+        season_year = season_result["season_year"] if season_result else season_id
+
         total_created = 0
 
         for stat_name in categories:
@@ -408,74 +417,129 @@ class PostgresPercentileCalculator:
                 position_params = [position_group]
 
             try:
-                query = f"""
-                    WITH stat_distribution AS (
+                # FOOTBALL: Compare across Top 5 Leagues (filter by include_in_percentiles)
+                if sport_id == "FOOTBALL":
+                    query = f"""
+                        WITH deduped_stats AS (
+                            SELECT DISTINCT ON (player_id)
+                                player_id, league_id, {stat_name}
+                            FROM {table}
+                            WHERE season_id = %s AND {stat_name} IS NOT NULL
+                            ORDER BY player_id, id DESC
+                        ),
+                        stat_distribution AS (
+                            SELECT
+                                p.id as player_id,
+                                p.position_group,
+                                ds.{stat_name} as stat_value,
+                                COUNT(*) OVER (PARTITION BY p.position_group) as sample_size
+                            FROM deduped_stats ds
+                            JOIN players p ON ds.player_id = p.id AND p.sport_id = %s
+                            JOIN leagues l ON ds.league_id = l.id AND l.include_in_percentiles = true
+                            WHERE ds.{stat_name} IS NOT NULL
+                              {position_filter}
+                        ),
+                        ranked_stats AS (
+                            SELECT
+                                player_id,
+                                position_group,
+                                stat_value,
+                                sample_size,
+                                ROUND(((1 - PERCENT_RANK() OVER (
+                                    PARTITION BY position_group
+                                    ORDER BY stat_value {order_direction}
+                                )) * 100)::numeric, 1) as percentile,
+                                RANK() OVER (
+                                    PARTITION BY position_group
+                                    ORDER BY stat_value {order_direction}
+                                ) as rank
+                            FROM stat_distribution
+                            WHERE sample_size >= %s
+                        )
+                        INSERT INTO percentile_cache (
+                            entity_type, entity_id, sport_id, season_id, stat_category,
+                            stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                        )
                         SELECT
-                            p.id as player_id,
-                            p.position_group,
-                            s.{stat_name} as stat_value,
-                            COUNT(*) OVER (PARTITION BY p.position_group) as sample_size
-                        FROM {table} s
-                        JOIN players p ON s.player_id = p.id
-                        WHERE s.season_id = %s
-                          AND p.sport_id = %s
-                          AND s.{stat_name} IS NOT NULL
-                          {position_filter}
-                    ),
-                    ranked_stats AS (
+                            'player', player_id, %s, %s, %s,
+                            stat_value, percentile, rank, sample_size,
+                            'Top 5 Leagues ' || position_group || ' ' || %s::text,
+                            NOW()
+                        FROM ranked_stats
+                        ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                        DO UPDATE SET
+                            stat_value = EXCLUDED.stat_value,
+                            percentile = EXCLUDED.percentile,
+                            rank = EXCLUDED.rank,
+                            sample_size = EXCLUDED.sample_size,
+                            comparison_group = EXCLUDED.comparison_group,
+                            calculated_at = EXCLUDED.calculated_at
+                    """
+                    params = [
+                        season_id, sport_id, *position_params, min_sample,
+                        sport_id, season_id, stat_name, season_year,
+                    ]
+                else:
+                    # NBA/NFL: Standard calculation with deduplication
+                    query = f"""
+                        WITH deduped_stats AS (
+                            SELECT DISTINCT ON (player_id)
+                                player_id, {stat_name}
+                            FROM {table}
+                            WHERE season_id = %s AND {stat_name} IS NOT NULL
+                            ORDER BY player_id, id DESC
+                        ),
+                        stat_distribution AS (
+                            SELECT
+                                p.id as player_id,
+                                p.position_group,
+                                ds.{stat_name} as stat_value,
+                                COUNT(*) OVER (PARTITION BY p.position_group) as sample_size
+                            FROM deduped_stats ds
+                            JOIN players p ON ds.player_id = p.id AND p.sport_id = %s
+                            WHERE ds.{stat_name} IS NOT NULL
+                              {position_filter}
+                        ),
+                        ranked_stats AS (
+                            SELECT
+                                player_id,
+                                position_group,
+                                stat_value,
+                                sample_size,
+                                ROUND(((1 - PERCENT_RANK() OVER (
+                                    PARTITION BY position_group
+                                    ORDER BY stat_value {order_direction}
+                                )) * 100)::numeric, 1) as percentile,
+                                RANK() OVER (
+                                    PARTITION BY position_group
+                                    ORDER BY stat_value {order_direction}
+                                ) as rank
+                            FROM stat_distribution
+                            WHERE sample_size >= %s
+                        )
+                        INSERT INTO percentile_cache (
+                            entity_type, entity_id, sport_id, season_id, stat_category,
+                            stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                        )
                         SELECT
-                            player_id,
-                            position_group,
-                            stat_value,
-                            sample_size,
-                            ROUND((PERCENT_RANK() OVER (
-                                PARTITION BY position_group
-                                ORDER BY stat_value {order_direction}
-                            ) * 100)::numeric, 1) as percentile,
-                            RANK() OVER (
-                                PARTITION BY position_group
-                                ORDER BY stat_value {order_direction}
-                            ) as rank
-                        FROM stat_distribution
-                        WHERE sample_size >= %s
-                    )
-                    INSERT INTO percentile_cache (
-                        entity_type, entity_id, sport_id, season_id, stat_category,
-                        stat_value, percentile, rank, sample_size, comparison_group, calculated_at
-                    )
-                    SELECT
-                        'player',
-                        player_id,
-                        %s,
-                        %s,
-                        %s,
-                        stat_value,
-                        percentile,
-                        rank,
-                        sample_size,
-                        position_group || ' ' || %s::text,
-                        NOW()
-                    FROM ranked_stats
-                    ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
-                    DO UPDATE SET
-                        stat_value = EXCLUDED.stat_value,
-                        percentile = EXCLUDED.percentile,
-                        rank = EXCLUDED.rank,
-                        sample_size = EXCLUDED.sample_size,
-                        comparison_group = EXCLUDED.comparison_group,
-                        calculated_at = EXCLUDED.calculated_at
-                """
-
-                params = [
-                    season_id,
-                    sport_id,
-                    *position_params,
-                    min_sample,
-                    sport_id,
-                    season_id,
-                    stat_name,
-                    season_id,  # For comparison group string
-                ]
+                            'player', player_id, %s, %s, %s,
+                            stat_value, percentile, rank, sample_size,
+                            position_group || ' ' || %s::text,
+                            NOW()
+                        FROM ranked_stats
+                        ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                        DO UPDATE SET
+                            stat_value = EXCLUDED.stat_value,
+                            percentile = EXCLUDED.percentile,
+                            rank = EXCLUDED.rank,
+                            sample_size = EXCLUDED.sample_size,
+                            comparison_group = EXCLUDED.comparison_group,
+                            calculated_at = EXCLUDED.calculated_at
+                    """
+                    params = [
+                        season_id, sport_id, *position_params, min_sample,
+                        sport_id, season_id, stat_name, season_year,
+                    ]
 
                 self.db.execute(query, tuple(params))
                 total_created += 1
@@ -503,10 +567,13 @@ class PostgresPercentileCalculator:
         """
         Calculate percentiles for all teams in a season using native SQL.
 
+        - NBA/NFL: Compares all teams in the league
+        - FOOTBALL: Compares across Top 5 Leagues (rate-based stats are comparable)
+
         Args:
             sport_id: Sport identifier
             season_id: Season ID
-            league_id: Optional league filter (for FOOTBALL)
+            league_id: Optional league filter (deprecated for FOOTBALL)
 
         Returns:
             Number of percentile records created/updated
@@ -518,97 +585,120 @@ class PostgresPercentileCalculator:
         categories = get_stat_categories(sport_id, "team")
         min_sample = get_min_sample_size(sport_id, "team")
 
+        # Get season year for comparison group label
+        season_result = self.db.fetchone(
+            "SELECT season_year FROM seasons WHERE id = %s", (season_id,)
+        )
+        season_year = season_result["season_year"] if season_result else season_id
+
         total_created = 0
-
-        # For football, partition by league; otherwise by sport/season
-        if sport_id == "FOOTBALL":
-            partition_clause = "PARTITION BY s.league_id"
-            comparison_group_expr = "l.name"
-            league_join = "LEFT JOIN leagues l ON s.league_id = l.id"
-        else:
-            partition_clause = ""
-            comparison_group_expr = f"'{sport_id} Teams'"
-            league_join = ""
-
-        league_filter = ""
-        league_params: list = []
-        if league_id:
-            league_filter = "AND s.league_id = %s"
-            league_params = [league_id]
 
         for stat_name in categories:
             order_direction = "ASC" if is_inverse_stat(stat_name) else "DESC"
 
             try:
-                query = f"""
-                    WITH stat_distribution AS (
+                if sport_id == "FOOTBALL":
+                    # FOOTBALL: Compare across ALL Top 5 Leagues (no partition)
+                    query = f"""
+                        WITH stat_distribution AS (
+                            SELECT
+                                t.id as team_id,
+                                s.{stat_name} as stat_value,
+                                COUNT(*) OVER () as sample_size
+                            FROM {table} s
+                            JOIN teams t ON s.team_id = t.id AND t.sport_id = %s
+                            JOIN leagues l ON s.league_id = l.id AND l.include_in_percentiles = true
+                            WHERE s.season_id = %s
+                              AND s.{stat_name} IS NOT NULL
+                        ),
+                        ranked_stats AS (
+                            SELECT
+                                team_id,
+                                stat_value,
+                                sample_size,
+                                ROUND(((1 - PERCENT_RANK() OVER (
+                                    ORDER BY stat_value {order_direction}
+                                )) * 100)::numeric, 1) as percentile,
+                                RANK() OVER (
+                                    ORDER BY stat_value {order_direction}
+                                ) as rank
+                            FROM stat_distribution
+                            WHERE sample_size >= %s
+                        )
+                        INSERT INTO percentile_cache (
+                            entity_type, entity_id, sport_id, season_id, stat_category,
+                            stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                        )
                         SELECT
-                            t.id as team_id,
-                            s.{stat_name} as stat_value,
-                            {'s.league_id,' if sport_id == 'FOOTBALL' else ''}
-                            COUNT(*) OVER ({partition_clause}) as sample_size
-                        FROM {table} s
-                        JOIN teams t ON s.team_id = t.id
-                        {league_join}
-                        WHERE s.season_id = %s
-                          AND t.sport_id = %s
-                          AND s.{stat_name} IS NOT NULL
-                          {league_filter}
-                    ),
-                    ranked_stats AS (
+                            'team', team_id, %s, %s, %s,
+                            stat_value, percentile, rank, sample_size,
+                            'Top 5 Leagues ' || %s::text,
+                            NOW()
+                        FROM ranked_stats
+                        ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                        DO UPDATE SET
+                            stat_value = EXCLUDED.stat_value,
+                            percentile = EXCLUDED.percentile,
+                            rank = EXCLUDED.rank,
+                            sample_size = EXCLUDED.sample_size,
+                            comparison_group = EXCLUDED.comparison_group,
+                            calculated_at = EXCLUDED.calculated_at
+                    """
+                    params = [
+                        sport_id, season_id, min_sample,
+                        sport_id, season_id, stat_name, season_year,
+                    ]
+                else:
+                    # NBA/NFL: Compare all teams in the sport
+                    query = f"""
+                        WITH stat_distribution AS (
+                            SELECT
+                                t.id as team_id,
+                                s.{stat_name} as stat_value,
+                                COUNT(*) OVER () as sample_size
+                            FROM {table} s
+                            JOIN teams t ON s.team_id = t.id
+                            WHERE s.season_id = %s
+                              AND t.sport_id = %s
+                              AND s.{stat_name} IS NOT NULL
+                        ),
+                        ranked_stats AS (
+                            SELECT
+                                team_id,
+                                stat_value,
+                                sample_size,
+                                ROUND(((1 - PERCENT_RANK() OVER (
+                                    ORDER BY stat_value {order_direction}
+                                )) * 100)::numeric, 1) as percentile,
+                                RANK() OVER (
+                                    ORDER BY stat_value {order_direction}
+                                ) as rank
+                            FROM stat_distribution
+                            WHERE sample_size >= %s
+                        )
+                        INSERT INTO percentile_cache (
+                            entity_type, entity_id, sport_id, season_id, stat_category,
+                            stat_value, percentile, rank, sample_size, comparison_group, calculated_at
+                        )
                         SELECT
-                            team_id,
-                            stat_value,
-                            sample_size,
-                            {'league_id,' if sport_id == 'FOOTBALL' else ''}
-                            ROUND((PERCENT_RANK() OVER (
-                                {partition_clause}
-                                ORDER BY stat_value {order_direction}
-                            ) * 100)::numeric, 1) as percentile,
-                            RANK() OVER (
-                                {partition_clause}
-                                ORDER BY stat_value {order_direction}
-                            ) as rank
-                        FROM stat_distribution
-                        WHERE sample_size >= %s
-                    )
-                    INSERT INTO percentile_cache (
-                        entity_type, entity_id, sport_id, season_id, stat_category,
-                        stat_value, percentile, rank, sample_size, comparison_group, calculated_at
-                    )
-                    SELECT
-                        'team',
-                        rs.team_id,
-                        %s,
-                        %s,
-                        %s,
-                        rs.stat_value,
-                        rs.percentile,
-                        rs.rank,
-                        rs.sample_size,
-                        {comparison_group_expr if sport_id != 'FOOTBALL' else 'l.name'},
-                        NOW()
-                    FROM ranked_stats rs
-                    {'LEFT JOIN leagues l ON rs.league_id = l.id' if sport_id == 'FOOTBALL' else ''}
-                    ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
-                    DO UPDATE SET
-                        stat_value = EXCLUDED.stat_value,
-                        percentile = EXCLUDED.percentile,
-                        rank = EXCLUDED.rank,
-                        sample_size = EXCLUDED.sample_size,
-                        comparison_group = EXCLUDED.comparison_group,
-                        calculated_at = EXCLUDED.calculated_at
-                """
-
-                params = [
-                    season_id,
-                    sport_id,
-                    *league_params,
-                    min_sample,
-                    sport_id,
-                    season_id,
-                    stat_name,
-                ]
+                            'team', team_id, %s, %s, %s,
+                            stat_value, percentile, rank, sample_size,
+                            %s || ' Teams ' || %s::text,
+                            NOW()
+                        FROM ranked_stats
+                        ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
+                        DO UPDATE SET
+                            stat_value = EXCLUDED.stat_value,
+                            percentile = EXCLUDED.percentile,
+                            rank = EXCLUDED.rank,
+                            sample_size = EXCLUDED.sample_size,
+                            comparison_group = EXCLUDED.comparison_group,
+                            calculated_at = EXCLUDED.calculated_at
+                    """
+                    params = [
+                        season_id, sport_id, min_sample,
+                        sport_id, season_id, stat_name, sport_id, season_year,
+                    ]
 
                 self.db.execute(query, tuple(params))
                 total_created += 1
@@ -630,23 +720,29 @@ class PostgresPercentileCalculator:
         self,
         sport_id: str,
         season_year: int,
-        use_optimized: bool = True,
+        use_optimized: bool = False,
     ) -> dict[str, int]:
         """
         Recalculate all percentiles for a sport and season.
 
         This is the main entry point for batch recalculation.
 
+        Methodology:
+        - NBA: Per-36 stats, compared by position group
+        - FOOTBALL: Per-90 stats, compared across Top 5 Leagues by position
+        - NFL: Position-specific stats
+
         Args:
             sport_id: Sport identifier
             season_year: Season year
-            use_optimized: If True, use single-query optimization (default)
+            use_optimized: If True, use single-query optimization (deprecated)
 
         Returns:
             Summary with player and team counts
         """
         season_id = self.db.get_season_id(sport_id, season_year)
         if not season_id:
+            logger.warning("No season found for %s %d", sport_id, season_year)
             return {"players": 0, "teams": 0}
 
         # Clear existing cache for this sport/season
@@ -655,17 +751,12 @@ class PostgresPercentileCalculator:
             (sport_id, season_id),
         )
 
-        # Calculate player percentiles (optimized = 1 query, legacy = 12 queries)
-        if use_optimized:
-            player_count = self.calculate_all_player_percentiles_optimized(sport_id, season_id)
-        else:
-            player_count = self.calculate_all_player_percentiles(sport_id, season_id)
+        # Calculate player percentiles using per-stat method (correct logic)
+        # The optimized methods have outdated logic, so always use legacy
+        player_count = self.calculate_all_player_percentiles(sport_id, season_id)
 
-        # Calculate team percentiles (optimized = 1 query, legacy = 10 queries)
-        if use_optimized:
-            team_count = self.calculate_all_team_percentiles_optimized(sport_id, season_id)
-        else:
-            team_count = self.calculate_all_team_percentiles(sport_id, season_id)
+        # Calculate team percentiles
+        team_count = self.calculate_all_team_percentiles(sport_id, season_id)
 
         logger.info(
             "Recalculated percentiles for %s %d: %d player records, %d team records",

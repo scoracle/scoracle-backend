@@ -244,6 +244,15 @@ def _get_player_info(db, player_id: int, sport: str) -> dict[str, Any] | None:
 
     data = dict(row)
 
+    # For FOOTBALL: use first_name + last_name as full_name since API returns abbreviated names
+    # e.g., "C. Palmer" instead of "Cole Palmer"
+    if has_leagues:  # FOOTBALL
+        first = data.get("first_name") or ""
+        last = data.get("last_name") or ""
+        combined = f"{first} {last}".strip()
+        if combined:
+            data["full_name"] = combined
+
     # Build nested team object
     team = None
     if data.get("team_id"):
@@ -675,6 +684,15 @@ def _get_player_profile(
         return None
 
     data = dict(row)
+
+    # For FOOTBALL: use first_name + last_name as full_name since API returns abbreviated names
+    # e.g., "C. Palmer" instead of "Cole Palmer"
+    if has_leagues:  # FOOTBALL
+        first = data.get("first_name") or ""
+        last = data.get("last_name") or ""
+        combined = f"{first} {last}".strip()
+        if combined:
+            data["full_name"] = combined
 
     # Build nested team object
     team = None

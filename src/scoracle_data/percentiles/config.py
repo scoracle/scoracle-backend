@@ -95,38 +95,37 @@ PERCENTILE_CATEGORIES: dict[str, dict[str, list[str]]] = {
     },
     "FOOTBALL": {
         "player": [
-            "goals",
-            "assists",
-            "goals_assists",
+            # Per-90 normalized stats (industry standard for fair comparison)
             "goals_per_90",
             "assists_per_90",
+            "key_passes_per_90",
+            "shots_per_90",
+            "tackles_per_90",
+            "interceptions_per_90",
+            # Rate-based stats (already normalized)
             "shot_accuracy",
             "pass_accuracy",
-            "key_passes",
             "dribble_success_rate",
             "duel_success_rate",
-            "tackles",
-            "interceptions",
+            # Playing time
             "minutes_played",
         ],
         # Goalkeeper specific
         "player_goalkeeper": [
-            "saves",
             "save_percentage",
-            "goals_conceded",
             "goals_conceded_per_90",
             "clean_sheets",
         ],
         "team": [
-            "points",
-            "win_pct",
-            "goals_for",
-            "goals_against",
-            "goal_difference",
+            # Rate-based stats (comparable across leagues)
+            "points_per_game",
             "goals_per_game",
             "goals_conceded_per_game",
+            "goal_difference",
             "clean_sheets",
             "avg_possession",
+            "shot_accuracy",
+            "pass_accuracy",
         ],
     },
 }
@@ -158,6 +157,7 @@ INVERSE_STATS = {
     "fumbles_lost",
     "goals_conceded",
     "goals_conceded_per_90",
+    "goals_conceded_per_game",
     "goals_against",
     "opponent_ppg",
     "yards_allowed",

@@ -38,7 +38,11 @@ class SportConfig:
     # Current season (update annually)
     current_season: int
 
-    # Database tables
+    # Database tables - Profiles (sport-specific, v4.0 schema)
+    player_profile_table: str
+    team_profile_table: str
+
+    # Database tables - Stats
     player_stats_table: str
     team_stats_table: str
 
@@ -47,6 +51,9 @@ class SportConfig:
 
     # Season label format
     season_label_format: str = "{year}"  # e.g., "2024-25" for NBA
+
+    # Whether this sport uses league_id in player profiles
+    has_league_in_profiles: bool = False
 
     def get_season_label(self, year: int) -> str:
         """Generate human-readable season label."""
@@ -69,6 +76,8 @@ SPORT_REGISTRY: dict[str, SportConfig] = {
         name="National Basketball Association",
         api_base_url="https://v2.nba.api-sports.io",
         current_season=2025,
+        player_profile_table="nba_player_profiles",
+        team_profile_table="nba_team_profiles",
         player_stats_table="nba_player_stats",
         team_stats_table="nba_team_stats",
         season_label_format="{year}-{next_year_short}",
@@ -78,6 +87,8 @@ SPORT_REGISTRY: dict[str, SportConfig] = {
         name="National Football League",
         api_base_url="https://v1.american-football.api-sports.io",
         current_season=2025,
+        player_profile_table="nfl_player_profiles",
+        team_profile_table="nfl_team_profiles",
         player_stats_table="nfl_player_stats",
         team_stats_table="nfl_team_stats",
         default_league_id=1,
@@ -87,9 +98,12 @@ SPORT_REGISTRY: dict[str, SportConfig] = {
         name="Football (Soccer)",
         api_base_url="https://v3.football.api-sports.io",
         current_season=2024,
+        player_profile_table="football_player_profiles",
+        team_profile_table="football_team_profiles",
         player_stats_table="football_player_stats",
         team_stats_table="football_team_stats",
         default_league_id=39,  # Premier League
+        has_league_in_profiles=True,
     ),
 }
 
@@ -129,5 +143,15 @@ PLAYER_STATS_TABLES = {
 
 TEAM_STATS_TABLES = {
     sport_id: config.team_stats_table
+    for sport_id, config in SPORT_REGISTRY.items()
+}
+
+PLAYER_PROFILE_TABLES = {
+    sport_id: config.player_profile_table
+    for sport_id, config in SPORT_REGISTRY.items()
+}
+
+TEAM_PROFILE_TABLES = {
+    sport_id: config.team_profile_table
     for sport_id, config in SPORT_REGISTRY.items()
 }

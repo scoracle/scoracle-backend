@@ -671,6 +671,35 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_profiles(args: argparse.Namespace) -> int:
+    """Export player/team profiles for frontend autocomplete."""
+    from pathlib import Path
+
+    # Import the export function from scripts
+    try:
+        from scripts.export_profiles import export_entities_minimal, DEFAULT_OUTPUT_DIR
+    except ImportError:
+        # Fallback: try relative import
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
+        from export_profiles import export_entities_minimal, DEFAULT_OUTPUT_DIR
+
+    output_dir = Path(args.output) if args.output else DEFAULT_OUTPUT_DIR
+
+    try:
+        result = export_entities_minimal(output_dir)
+        print(f"\nExport complete!")
+        print(f"Total entities: {result['counts']['total']}")
+        print(f"  NBA: {result['counts']['nba_players']} players, {result['counts']['nba_teams']} teams")
+        print(f"  NFL: {result['counts']['nfl_players']} players, {result['counts']['nfl_teams']} teams")
+        print(f"  FOOTBALL: {result['counts']['football_players']} players, {result['counts']['football_teams']} teams")
+        print(f"\nOutput: {output_dir / 'entities_minimal.json'}")
+        return 0
+    except Exception as e:
+        logger.error("Export failed: %s", e)
+        return 1
+
+
 def cmd_query(args: argparse.Namespace) -> int:
     """Run a query against the database."""
     db = get_db()
@@ -1215,6 +1244,16 @@ def main() -> int:
     export_parser.add_argument("--sport", help="Sport to export")
     export_parser.add_argument("--season", type=int, help="Season year")
 
+    # export-profiles command (for frontend autocomplete)
+    export_profiles_parser = subparsers.add_parser(
+        "export-profiles",
+        help="Export player/team profiles for frontend autocomplete"
+    )
+    export_profiles_parser.add_argument(
+        "--output", "-o",
+        help="Output directory (default: exports/)"
+    )
+
     # query command
     query_parser = subparsers.add_parser("query", help="Run queries")
     query_parser.add_argument("type", choices=["leaders", "standings", "profile"])
@@ -1338,6 +1377,7 @@ def main() -> int:
         "diff": cmd_diff,
         "percentiles": cmd_percentiles,
         "export": cmd_export,
+        "export-profiles": cmd_export_profiles,
         "query": cmd_query,
         "fixtures": cmd_fixtures,
     }

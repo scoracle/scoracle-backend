@@ -25,7 +25,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import intel, news, widget
+from .routers import intel, ml, news, widget
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
@@ -410,6 +410,8 @@ def create_app() -> FastAPI:
     app.include_router(intel.router, prefix="/api/v1/intel", tags=["intel"])
     # News endpoint - Google News RSS (free, no API key)
     app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
+    # ML endpoints - transfer predictions, vibe scores, similarity
+    app.include_router(ml.router, prefix="/api/v1/ml", tags=["ml"])
 
     return app
 

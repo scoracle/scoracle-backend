@@ -3,6 +3,13 @@ PostgreSQL connection manager for Neon.
 
 Provides a unified interface matching StatsDB but using PostgreSQL via psycopg3.
 Supports connection pooling for production workloads.
+
+Sport-Specific Tables (v4.0):
+  Player and team profiles are stored in sport-specific tables:
+  - nba_player_profiles, nfl_player_profiles, football_player_profiles
+  - nba_team_profiles, nfl_team_profiles, football_team_profiles
+
+  This prevents cross-sport ID collisions (API-Sports reuses IDs across sports).
 """
 
 from __future__ import annotations
@@ -14,6 +21,8 @@ from typing import Any, Iterator, Optional
 import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+
+from .api.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 
 class PostgresDB:
@@ -163,17 +172,23 @@ class PostgresDB:
         )
 
     def get_player(self, player_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get player info by ID."""
+        """Get player info by ID from sport-specific table."""
+        table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not table:
+            return None
         return self.fetchone(
-            "SELECT * FROM players WHERE id = %s AND sport_id = %s",
-            (player_id, sport_id),
+            f"SELECT * FROM {table} WHERE id = %s",
+            (player_id,),
         )
 
     def get_team(self, team_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get team info by ID."""
+        """Get team info by ID from sport-specific table."""
+        table = TEAM_PROFILE_TABLES.get(sport_id)
+        if not table:
+            return None
         return self.fetchone(
-            "SELECT * FROM teams WHERE id = %s AND sport_id = %s",
-            (team_id, sport_id),
+            f"SELECT * FROM {table} WHERE id = %s",
+            (team_id,),
         )
 
     def get_player_stats(
@@ -273,7 +288,7 @@ class PostgresDB:
         """
         Get complete team profile in a single optimized query.
 
-        Combines team info, stats, and percentiles using JOINs for better performance.
+        Combines team info from sport-specific table, stats, and percentiles using JOINs.
 
         Args:
             team_id: Team ID
@@ -287,23 +302,44 @@ class PostgresDB:
         if not season_id:
             return None
 
-        # Determine stats table based on sport
-        table_map = {
+        # Determine tables based on sport
+        team_table = TEAM_PROFILE_TABLES.get(sport_id)
+        stats_table_map = {
             "NBA": "nba_team_stats",
             "NFL": "nfl_team_stats",
             "FOOTBALL": "football_team_stats",
         }
-        stats_table = table_map.get(sport_id)
-        if not stats_table:
+        stats_table = stats_table_map.get(sport_id)
+        if not team_table or not stats_table:
             return None
 
-        # Single query with JOINs and aggregation
-        query = f"""
-            SELECT
+        # Build team json based on sport-specific columns
+        if sport_id == "FOOTBALL":
+            team_json = """
                 json_build_object(
                     'id', t.id,
-                    'sport_id', t.sport_id,
                     'league_id', t.league_id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'is_national', t.is_national,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+        else:
+            # NBA/NFL have conference/division
+            team_json = """
+                json_build_object(
+                    'id', t.id,
                     'name', t.name,
                     'abbreviation', t.abbreviation,
                     'logo_url', t.logo_url,
@@ -319,7 +355,13 @@ class PostgresDB:
                     'venue_image', t.venue_image,
                     'profile_fetched_at', t.profile_fetched_at,
                     'is_active', t.is_active
-                ) as team,
+                )
+            """
+
+        # Single query with JOINs and aggregation
+        query = f"""
+            SELECT
+                {team_json} as team,
                 row_to_json(s.*) as stats,
                 COALESCE(
                     json_agg(
@@ -335,17 +377,17 @@ class PostgresDB:
                     ) FILTER (WHERE p.id IS NOT NULL),
                     '[]'::json
                 ) as percentiles
-            FROM teams t
+            FROM {team_table} t
             LEFT JOIN {stats_table} s ON s.team_id = t.id AND s.season_id = %s
             LEFT JOIN percentile_cache p ON p.entity_type = 'team'
                 AND p.entity_id = t.id
-                AND p.sport_id = t.sport_id
+                AND p.sport_id = %s
                 AND p.season_id = %s
-            WHERE t.id = %s AND t.sport_id = %s
+            WHERE t.id = %s
             GROUP BY t.id, s.*
         """
 
-        result = self.fetchone(query, (season_id, season_id, team_id, sport_id))
+        result = self.fetchone(query, (season_id, sport_id, season_id, team_id))
 
         if not result:
             return None
@@ -368,7 +410,7 @@ class PostgresDB:
         """
         Get complete player profile in a single optimized query.
 
-        Combines player info, team info, stats, and percentiles using JOINs for better performance.
+        Combines player info from sport-specific table, team info, stats, and percentiles using JOINs.
 
         Args:
             player_id: Player ID
@@ -382,22 +424,23 @@ class PostgresDB:
         if not season_id:
             return None
 
-        # Determine stats table based on sport
-        table_map = {
+        # Determine tables based on sport
+        player_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        team_table = TEAM_PROFILE_TABLES.get(sport_id)
+        stats_table_map = {
             "NBA": "nba_player_stats",
             "NFL": "nfl_player_stats",
             "FOOTBALL": "football_player_stats",
         }
-        stats_table = table_map.get(sport_id)
-        if not stats_table:
+        stats_table = stats_table_map.get(sport_id)
+        if not player_table or not team_table or not stats_table:
             return None
 
-        # Single query with JOINs and aggregation
-        query = f"""
-            SELECT
+        # Build player json based on sport-specific columns
+        if sport_id == "FOOTBALL":
+            player_json = """
                 json_build_object(
                     'id', pl.id,
-                    'sport_id', pl.sport_id,
                     'first_name', pl.first_name,
                     'last_name', pl.last_name,
                     'full_name', pl.full_name,
@@ -406,38 +449,89 @@ class PostgresDB:
                     'nationality', pl.nationality,
                     'birth_date', pl.birth_date,
                     'birth_place', pl.birth_place,
+                    'birth_country', pl.birth_country,
                     'height_inches', pl.height_inches,
                     'weight_lbs', pl.weight_lbs,
                     'photo_url', pl.photo_url,
                     'current_team_id', pl.current_team_id,
                     'current_league_id', pl.current_league_id,
                     'jersey_number', pl.jersey_number,
+                    'profile_fetched_at', pl.profile_fetched_at,
+                    'is_active', pl.is_active
+                )
+            """
+            team_json = """
+                json_build_object(
+                    'id', t.id,
+                    'league_id', t.league_id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'is_national', t.is_national,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+        else:
+            # NBA/NFL have college/experience_years for players, conference/division for teams
+            player_json = """
+                json_build_object(
+                    'id', pl.id,
+                    'first_name', pl.first_name,
+                    'last_name', pl.last_name,
+                    'full_name', pl.full_name,
+                    'position', pl.position,
+                    'position_group', pl.position_group,
+                    'nationality', pl.nationality,
+                    'birth_date', pl.birth_date,
+                    'birth_place', pl.birth_place,
+                    'birth_country', pl.birth_country,
+                    'height_inches', pl.height_inches,
+                    'weight_lbs', pl.weight_lbs,
+                    'photo_url', pl.photo_url,
+                    'current_team_id', pl.current_team_id,
+                    'jersey_number', pl.jersey_number,
                     'college', pl.college,
                     'experience_years', pl.experience_years,
                     'profile_fetched_at', pl.profile_fetched_at,
                     'is_active', pl.is_active
-                ) as player,
+                )
+            """
+            team_json = """
+                json_build_object(
+                    'id', t.id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'conference', t.conference,
+                    'division', t.division,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+
+        # Single query with JOINs and aggregation (no cross-sport join possible now)
+        query = f"""
+            SELECT
+                {player_json} as player,
                 CASE WHEN t.id IS NOT NULL THEN
-                    json_build_object(
-                        'id', t.id,
-                        'sport_id', t.sport_id,
-                        'league_id', t.league_id,
-                        'name', t.name,
-                        'abbreviation', t.abbreviation,
-                        'logo_url', t.logo_url,
-                        'conference', t.conference,
-                        'division', t.division,
-                        'country', t.country,
-                        'city', t.city,
-                        'founded', t.founded,
-                        'venue_name', t.venue_name,
-                        'venue_city', t.venue_city,
-                        'venue_capacity', t.venue_capacity,
-                        'venue_surface', t.venue_surface,
-                        'venue_image', t.venue_image,
-                        'profile_fetched_at', t.profile_fetched_at,
-                        'is_active', t.is_active
-                    )
+                    {team_json}
                 ELSE NULL END as team,
                 row_to_json(s.*) as stats,
                 COALESCE(
@@ -454,18 +548,18 @@ class PostgresDB:
                     ) FILTER (WHERE p.id IS NOT NULL),
                     '[]'::json
                 ) as percentiles
-            FROM players pl
-            LEFT JOIN teams t ON pl.current_team_id = t.id AND t.sport_id = pl.sport_id
+            FROM {player_table} pl
+            LEFT JOIN {team_table} t ON pl.current_team_id = t.id
             LEFT JOIN {stats_table} s ON s.player_id = pl.id AND s.season_id = %s
             LEFT JOIN percentile_cache p ON p.entity_type = 'player'
                 AND p.entity_id = pl.id
-                AND p.sport_id = pl.sport_id
+                AND p.sport_id = %s
                 AND p.season_id = %s
-            WHERE pl.id = %s AND pl.sport_id = %s
+            WHERE pl.id = %s
             GROUP BY pl.id, t.id, s.*
         """
 
-        result = self.fetchone(query, (season_id, season_id, player_id, sport_id))
+        result = self.fetchone(query, (season_id, sport_id, season_id, player_id))
 
         if not result:
             return None

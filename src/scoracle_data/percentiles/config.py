@@ -14,16 +14,19 @@ from typing import Optional
 PERCENTILE_CATEGORIES: dict[str, dict[str, list[str]]] = {
     "NBA": {
         "player": [
-            "points_per_game",
-            "rebounds_per_game",
-            "assists_per_game",
-            "steals_per_game",
-            "blocks_per_game",
+            # Per-36 normalized stats (industry standard for fair comparison)
+            "points_per_36",
+            "rebounds_per_36",
+            "assists_per_36",
+            "steals_per_36",
+            "blocks_per_36",
+            # Shooting efficiency (already rate-based)
             "fg_pct",
             "tp_pct",
             "ft_pct",
-            "efficiency",
             "true_shooting_pct",
+            # Advanced
+            "efficiency",
             "plus_minus_per_game",
             "minutes_per_game",
         ],
@@ -147,6 +150,7 @@ MIN_SAMPLE_SIZES = {
 # Stats where higher is worse (for inverse percentile calculation)
 INVERSE_STATS = {
     "turnovers_per_game",
+    "turnovers_per_36",
     "fouls_per_game",
     "interceptions",  # For QBs, not defensive players
     "sacks_taken",
@@ -237,6 +241,7 @@ STAT_CATEGORY_MAPPINGS: dict[str, dict[str, dict[str, dict]]] = {
             "scoring": {
                 "label": "Scoring",
                 "stats": [
+                    {"key": "points_per_36", "label": "Points/36"},
                     {"key": "points_per_game", "label": "Points/Game"},
                     {"key": "fg_pct", "label": "FG%"},
                     {"key": "tp_pct", "label": "3PT%"},
@@ -248,10 +253,13 @@ STAT_CATEGORY_MAPPINGS: dict[str, dict[str, dict[str, dict]]] = {
             "possession": {
                 "label": "Possession",
                 "stats": [
+                    {"key": "assists_per_36", "label": "Assists/36"},
                     {"key": "assists_per_game", "label": "Assists/Game"},
+                    {"key": "rebounds_per_36", "label": "Rebounds/36"},
                     {"key": "rebounds_per_game", "label": "Rebounds/Game"},
                     {"key": "offensive_rebounds", "label": "Off Rebounds"},
                     {"key": "defensive_rebounds", "label": "Def Rebounds"},
+                    {"key": "turnovers_per_36", "label": "Turnovers/36"},
                     {"key": "turnovers_per_game", "label": "Turnovers/Game"},
                     {"key": "assist_turnover_ratio", "label": "AST/TO Ratio"},
                 ],
@@ -259,7 +267,9 @@ STAT_CATEGORY_MAPPINGS: dict[str, dict[str, dict[str, dict]]] = {
             "defense": {
                 "label": "Defense",
                 "stats": [
+                    {"key": "steals_per_36", "label": "Steals/36"},
                     {"key": "steals_per_game", "label": "Steals/Game"},
+                    {"key": "blocks_per_36", "label": "Blocks/36"},
                     {"key": "blocks_per_game", "label": "Blocks/Game"},
                 ],
             },

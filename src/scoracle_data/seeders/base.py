@@ -12,6 +12,13 @@ Two-Phase Seeding Architecture:
 Parallelization:
   Uses asyncio.gather with configurable batch sizes to parallelize
   API calls while respecting rate limits.
+
+Sport-Specific Tables (v4.0):
+  Player profiles are stored in sport-specific tables:
+  - nba_player_profiles, nfl_player_profiles, football_player_profiles
+  - nba_team_profiles, nfl_team_profiles, football_team_profiles
+
+  This prevents cross-sport ID collisions (e.g., API-Sports reuses IDs across sports).
 """
 
 from __future__ import annotations
@@ -22,6 +29,8 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, TypeVar
+
+from ..api.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
@@ -308,72 +317,125 @@ class BaseSeeder(ABC):
     # Team Management
     # =========================================================================
 
+    def _get_team_table(self) -> str:
+        """Get the sport-specific team profile table name."""
+        return TEAM_PROFILE_TABLES.get(self.sport_id, f"{self.sport_id.lower()}_team_profiles")
+
+    def _get_player_table(self) -> str:
+        """Get the sport-specific player profile table name."""
+        return PLAYER_PROFILE_TABLES.get(self.sport_id, f"{self.sport_id.lower()}_player_profiles")
+
     def upsert_team(self, team_data: dict[str, Any], mark_profile_fetched: bool = False) -> int:
         """
-        Insert or update a team record.
+        Insert or update a team record in sport-specific table.
 
         Args:
-            team_data: Team data matching TeamModel schema
+            team_data: Team data matching sport-specific TeamProfile schema
             mark_profile_fetched: If True, set profile_fetched_at to now
 
         Returns:
             Team ID
         """
-        # For PostgreSQL TIMESTAMPTZ, use NOW() for profile_fetched_at when marking
-        # Otherwise pass NULL or existing value
+        table = self._get_team_table()
         profile_fetched_clause = "NOW()" if mark_profile_fetched else "%s"
         profile_fetched_param = [] if mark_profile_fetched else [team_data.get("profile_fetched_at")]
 
-        self.db.execute(
-            f"""
-            INSERT INTO teams (
-                id, sport_id, league_id, name, abbreviation, logo_url,
-                conference, division, country, city, founded, is_national,
-                venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
-                profile_fetched_at, updated_at
+        # Build query based on sport (FOOTBALL has league_id FK, others have conference/division)
+        if self.sport_id == "FOOTBALL":
+            self.db.execute(
+                f"""
+                INSERT INTO {table} (
+                    id, name, abbreviation, country, city, league_id,
+                    logo_url, founded, is_national,
+                    venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
+                    profile_fetched_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+                ON CONFLICT(id) DO UPDATE SET
+                    name = COALESCE(excluded.name, {table}.name),
+                    abbreviation = COALESCE(excluded.abbreviation, {table}.abbreviation),
+                    country = COALESCE(excluded.country, {table}.country),
+                    city = COALESCE(excluded.city, {table}.city),
+                    league_id = COALESCE(excluded.league_id, {table}.league_id),
+                    logo_url = COALESCE(excluded.logo_url, {table}.logo_url),
+                    founded = COALESCE(excluded.founded, {table}.founded),
+                    is_national = COALESCE(excluded.is_national, {table}.is_national),
+                    venue_name = COALESCE(excluded.venue_name, {table}.venue_name),
+                    venue_address = COALESCE(excluded.venue_address, {table}.venue_address),
+                    venue_city = COALESCE(excluded.venue_city, {table}.venue_city),
+                    venue_capacity = COALESCE(excluded.venue_capacity, {table}.venue_capacity),
+                    venue_surface = COALESCE(excluded.venue_surface, {table}.venue_surface),
+                    venue_image = COALESCE(excluded.venue_image, {table}.venue_image),
+                    profile_fetched_at = COALESCE(excluded.profile_fetched_at, {table}.profile_fetched_at),
+                    updated_at = NOW()
+                """,
+                (
+                    team_data["id"],
+                    team_data["name"],
+                    team_data.get("abbreviation"),
+                    team_data.get("country"),
+                    team_data.get("city"),
+                    team_data.get("league_id"),
+                    team_data.get("logo_url"),
+                    team_data.get("founded"),
+                    team_data.get("is_national", False),
+                    team_data.get("venue_name"),
+                    team_data.get("venue_address"),
+                    team_data.get("venue_city"),
+                    team_data.get("venue_capacity"),
+                    team_data.get("venue_surface"),
+                    team_data.get("venue_image"),
+                    *profile_fetched_param,
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
-            ON CONFLICT(id, sport_id) DO UPDATE SET
-                name = COALESCE(excluded.name, teams.name),
-                abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
-                logo_url = COALESCE(excluded.logo_url, teams.logo_url),
-                conference = COALESCE(excluded.conference, teams.conference),
-                division = COALESCE(excluded.division, teams.division),
-                country = COALESCE(excluded.country, teams.country),
-                city = COALESCE(excluded.city, teams.city),
-                founded = COALESCE(excluded.founded, teams.founded),
-                is_national = COALESCE(excluded.is_national, teams.is_national),
-                venue_name = COALESCE(excluded.venue_name, teams.venue_name),
-                venue_address = COALESCE(excluded.venue_address, teams.venue_address),
-                venue_city = COALESCE(excluded.venue_city, teams.venue_city),
-                venue_capacity = COALESCE(excluded.venue_capacity, teams.venue_capacity),
-                venue_surface = COALESCE(excluded.venue_surface, teams.venue_surface),
-                venue_image = COALESCE(excluded.venue_image, teams.venue_image),
-                profile_fetched_at = COALESCE(excluded.profile_fetched_at, teams.profile_fetched_at),
-                updated_at = NOW()
-            """,
-            (
-                team_data["id"],
-                self.sport_id,
-                team_data.get("league_id"),
-                team_data["name"],
-                team_data.get("abbreviation"),
-                team_data.get("logo_url"),
-                team_data.get("conference"),
-                team_data.get("division"),
-                team_data.get("country"),
-                team_data.get("city"),
-                team_data.get("founded"),
-                team_data.get("is_national", False),
-                team_data.get("venue_name"),
-                team_data.get("venue_address"),
-                team_data.get("venue_city"),
-                team_data.get("venue_capacity"),
-                team_data.get("venue_surface"),
-                team_data.get("venue_image"),
-                *profile_fetched_param,
-            ),
-        )
+        else:
+            # NBA/NFL have conference/division instead of league_id
+            self.db.execute(
+                f"""
+                INSERT INTO {table} (
+                    id, name, abbreviation, conference, division, city, country,
+                    logo_url, founded,
+                    venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
+                    profile_fetched_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+                ON CONFLICT(id) DO UPDATE SET
+                    name = COALESCE(excluded.name, {table}.name),
+                    abbreviation = COALESCE(excluded.abbreviation, {table}.abbreviation),
+                    conference = COALESCE(excluded.conference, {table}.conference),
+                    division = COALESCE(excluded.division, {table}.division),
+                    city = COALESCE(excluded.city, {table}.city),
+                    country = COALESCE(excluded.country, {table}.country),
+                    logo_url = COALESCE(excluded.logo_url, {table}.logo_url),
+                    founded = COALESCE(excluded.founded, {table}.founded),
+                    venue_name = COALESCE(excluded.venue_name, {table}.venue_name),
+                    venue_address = COALESCE(excluded.venue_address, {table}.venue_address),
+                    venue_city = COALESCE(excluded.venue_city, {table}.venue_city),
+                    venue_capacity = COALESCE(excluded.venue_capacity, {table}.venue_capacity),
+                    venue_surface = COALESCE(excluded.venue_surface, {table}.venue_surface),
+                    venue_image = COALESCE(excluded.venue_image, {table}.venue_image),
+                    profile_fetched_at = COALESCE(excluded.profile_fetched_at, {table}.profile_fetched_at),
+                    updated_at = NOW()
+                """,
+                (
+                    team_data["id"],
+                    team_data["name"],
+                    team_data.get("abbreviation"),
+                    team_data.get("conference"),
+                    team_data.get("division"),
+                    team_data.get("city"),
+                    team_data.get("country"),
+                    team_data.get("logo_url"),
+                    team_data.get("founded"),
+                    team_data.get("venue_name"),
+                    team_data.get("venue_address"),
+                    team_data.get("venue_city"),
+                    team_data.get("venue_capacity"),
+                    team_data.get("venue_surface"),
+                    team_data.get("venue_image"),
+                    *profile_fetched_param,
+                ),
+            )
         return team_data["id"]
 
     # =========================================================================
@@ -382,72 +444,121 @@ class BaseSeeder(ABC):
 
     def upsert_player(self, player_data: dict[str, Any], mark_profile_fetched: bool = False) -> int:
         """
-        Insert or update a player record.
+        Insert or update a player record in sport-specific table.
 
         Args:
-            player_data: Player data matching PlayerModel schema
+            player_data: Player data matching sport-specific PlayerProfile schema
             mark_profile_fetched: If True, set profile_fetched_at to now
 
         Returns:
             Player ID
         """
-        # For PostgreSQL TIMESTAMPTZ, use NOW() for profile_fetched_at when marking
+        table = self._get_player_table()
         profile_fetched_clause = "NOW()" if mark_profile_fetched else "%s"
         profile_fetched_param = [] if mark_profile_fetched else [player_data.get("profile_fetched_at")]
 
-        self.db.execute(
-            f"""
-            INSERT INTO players (
-                id, sport_id, first_name, last_name, full_name,
-                position, position_group, nationality, birth_date, birth_place, birth_country,
-                height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
-                jersey_number, college, experience_years, profile_fetched_at, updated_at
+        # Build query based on sport (FOOTBALL has current_league_id, NBA/NFL have college/experience)
+        if self.sport_id == "FOOTBALL":
+            self.db.execute(
+                f"""
+                INSERT INTO {table} (
+                    id, first_name, last_name, full_name,
+                    position, position_group, nationality, birth_date, birth_place, birth_country,
+                    height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
+                    jersey_number, profile_fetched_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+                ON CONFLICT(id) DO UPDATE SET
+                    first_name = COALESCE(excluded.first_name, {table}.first_name),
+                    last_name = COALESCE(excluded.last_name, {table}.last_name),
+                    full_name = COALESCE(excluded.full_name, {table}.full_name),
+                    position = COALESCE(excluded.position, {table}.position),
+                    position_group = COALESCE(excluded.position_group, {table}.position_group),
+                    nationality = COALESCE(excluded.nationality, {table}.nationality),
+                    birth_date = COALESCE(excluded.birth_date, {table}.birth_date),
+                    birth_place = COALESCE(excluded.birth_place, {table}.birth_place),
+                    birth_country = COALESCE(excluded.birth_country, {table}.birth_country),
+                    height_inches = COALESCE(excluded.height_inches, {table}.height_inches),
+                    weight_lbs = COALESCE(excluded.weight_lbs, {table}.weight_lbs),
+                    photo_url = COALESCE(excluded.photo_url, {table}.photo_url),
+                    current_team_id = COALESCE(excluded.current_team_id, {table}.current_team_id),
+                    current_league_id = COALESCE(excluded.current_league_id, {table}.current_league_id),
+                    jersey_number = COALESCE(excluded.jersey_number, {table}.jersey_number),
+                    profile_fetched_at = COALESCE(excluded.profile_fetched_at, {table}.profile_fetched_at),
+                    updated_at = NOW()
+                """,
+                (
+                    player_data["id"],
+                    player_data.get("first_name"),
+                    player_data.get("last_name"),
+                    player_data["full_name"],
+                    player_data.get("position"),
+                    player_data.get("position_group"),
+                    player_data.get("nationality"),
+                    player_data.get("birth_date"),
+                    player_data.get("birth_place"),
+                    player_data.get("birth_country"),
+                    player_data.get("height_inches"),
+                    player_data.get("weight_lbs"),
+                    player_data.get("photo_url"),
+                    player_data.get("current_team_id"),
+                    player_data.get("current_league_id"),
+                    player_data.get("jersey_number"),
+                    *profile_fetched_param,
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
-            ON CONFLICT(id, sport_id) DO UPDATE SET
-                first_name = COALESCE(excluded.first_name, players.first_name),
-                last_name = COALESCE(excluded.last_name, players.last_name),
-                full_name = COALESCE(excluded.full_name, players.full_name),
-                position = COALESCE(excluded.position, players.position),
-                position_group = COALESCE(excluded.position_group, players.position_group),
-                nationality = COALESCE(excluded.nationality, players.nationality),
-                birth_date = COALESCE(excluded.birth_date, players.birth_date),
-                birth_place = COALESCE(excluded.birth_place, players.birth_place),
-                birth_country = COALESCE(excluded.birth_country, players.birth_country),
-                height_inches = COALESCE(excluded.height_inches, players.height_inches),
-                weight_lbs = COALESCE(excluded.weight_lbs, players.weight_lbs),
-                photo_url = COALESCE(excluded.photo_url, players.photo_url),
-                current_team_id = COALESCE(excluded.current_team_id, players.current_team_id),
-                current_league_id = COALESCE(excluded.current_league_id, players.current_league_id),
-                jersey_number = COALESCE(excluded.jersey_number, players.jersey_number),
-                college = COALESCE(excluded.college, players.college),
-                experience_years = COALESCE(excluded.experience_years, players.experience_years),
-                profile_fetched_at = COALESCE(excluded.profile_fetched_at, players.profile_fetched_at),
-                updated_at = NOW()
-            """,
-            (
-                player_data["id"],
-                self.sport_id,
-                player_data.get("first_name"),
-                player_data.get("last_name"),
-                player_data["full_name"],
-                player_data.get("position"),
-                player_data.get("position_group"),
-                player_data.get("nationality"),
-                player_data.get("birth_date"),
-                player_data.get("birth_place"),
-                player_data.get("birth_country"),
-                player_data.get("height_inches"),
-                player_data.get("weight_lbs"),
-                player_data.get("photo_url"),
-                player_data.get("current_team_id"),
-                player_data.get("current_league_id"),
-                player_data.get("jersey_number"),
-                player_data.get("college"),
-                player_data.get("experience_years"),
-                *profile_fetched_param,
-            ),
-        )
+        else:
+            # NBA/NFL have college and experience_years
+            self.db.execute(
+                f"""
+                INSERT INTO {table} (
+                    id, first_name, last_name, full_name,
+                    position, position_group, nationality, birth_date, birth_place, birth_country,
+                    height_inches, weight_lbs, photo_url, current_team_id,
+                    jersey_number, college, experience_years, profile_fetched_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, {profile_fetched_clause}, NOW())
+                ON CONFLICT(id) DO UPDATE SET
+                    first_name = COALESCE(excluded.first_name, {table}.first_name),
+                    last_name = COALESCE(excluded.last_name, {table}.last_name),
+                    full_name = COALESCE(excluded.full_name, {table}.full_name),
+                    position = COALESCE(excluded.position, {table}.position),
+                    position_group = COALESCE(excluded.position_group, {table}.position_group),
+                    nationality = COALESCE(excluded.nationality, {table}.nationality),
+                    birth_date = COALESCE(excluded.birth_date, {table}.birth_date),
+                    birth_place = COALESCE(excluded.birth_place, {table}.birth_place),
+                    birth_country = COALESCE(excluded.birth_country, {table}.birth_country),
+                    height_inches = COALESCE(excluded.height_inches, {table}.height_inches),
+                    weight_lbs = COALESCE(excluded.weight_lbs, {table}.weight_lbs),
+                    photo_url = COALESCE(excluded.photo_url, {table}.photo_url),
+                    current_team_id = COALESCE(excluded.current_team_id, {table}.current_team_id),
+                    jersey_number = COALESCE(excluded.jersey_number, {table}.jersey_number),
+                    college = COALESCE(excluded.college, {table}.college),
+                    experience_years = COALESCE(excluded.experience_years, {table}.experience_years),
+                    profile_fetched_at = COALESCE(excluded.profile_fetched_at, {table}.profile_fetched_at),
+                    updated_at = NOW()
+                """,
+                (
+                    player_data["id"],
+                    player_data.get("first_name"),
+                    player_data.get("last_name"),
+                    player_data["full_name"],
+                    player_data.get("position"),
+                    player_data.get("position_group"),
+                    player_data.get("nationality"),
+                    player_data.get("birth_date"),
+                    player_data.get("birth_place"),
+                    player_data.get("birth_country"),
+                    player_data.get("height_inches"),
+                    player_data.get("weight_lbs"),
+                    player_data.get("photo_url"),
+                    player_data.get("current_team_id"),
+                    player_data.get("jersey_number"),
+                    player_data.get("college"),
+                    player_data.get("experience_years"),
+                    *profile_fetched_param,
+                ),
+            )
         return player_data["id"]
 
     # =========================================================================
@@ -478,64 +589,111 @@ class BaseSeeder(ABC):
         return total
 
     def _batch_upsert_teams_chunk(self, teams: list[dict[str, Any]]) -> int:
-        """Execute a single batch upsert for teams."""
+        """Execute a single batch upsert for teams into sport-specific table."""
         if not teams:
             return 0
 
-        # Build VALUES clause with placeholders
-        placeholders = []
-        params = []
-        for team in teams:
-            placeholders.append(
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
-            )
-            params.extend([
-                team["id"],
-                self.sport_id,
-                team.get("league_id"),
-                team["name"],
-                team.get("abbreviation"),
-                team.get("logo_url"),
-                team.get("conference"),
-                team.get("division"),
-                team.get("country"),
-                team.get("city"),
-                team.get("founded"),
-                team.get("is_national", False),
-                team.get("venue_name"),
-                team.get("venue_address"),
-                team.get("venue_city"),
-                team.get("venue_capacity"),
-                team.get("venue_surface"),
-                team.get("venue_image"),
-            ])
+        table = self._get_team_table()
 
-        query = f"""
-            INSERT INTO teams (
-                id, sport_id, league_id, name, abbreviation, logo_url,
-                conference, division, country, city, founded, is_national,
-                venue_name, venue_address, venue_city, venue_capacity, venue_surface, venue_image,
-                updated_at
-            )
-            VALUES {", ".join(placeholders)}
-            ON CONFLICT(id, sport_id) DO UPDATE SET
-                name = COALESCE(excluded.name, teams.name),
-                abbreviation = COALESCE(excluded.abbreviation, teams.abbreviation),
-                logo_url = COALESCE(excluded.logo_url, teams.logo_url),
-                conference = COALESCE(excluded.conference, teams.conference),
-                division = COALESCE(excluded.division, teams.division),
-                country = COALESCE(excluded.country, teams.country),
-                city = COALESCE(excluded.city, teams.city),
-                founded = COALESCE(excluded.founded, teams.founded),
-                is_national = COALESCE(excluded.is_national, teams.is_national),
-                venue_name = COALESCE(excluded.venue_name, teams.venue_name),
-                venue_address = COALESCE(excluded.venue_address, teams.venue_address),
-                venue_city = COALESCE(excluded.venue_city, teams.venue_city),
-                venue_capacity = COALESCE(excluded.venue_capacity, teams.venue_capacity),
-                venue_surface = COALESCE(excluded.venue_surface, teams.venue_surface),
-                venue_image = COALESCE(excluded.venue_image, teams.venue_image),
-                updated_at = NOW()
-        """
+        if self.sport_id == "FOOTBALL":
+            # FOOTBALL: has league_id, no conference/division
+            placeholders = []
+            params = []
+            for team in teams:
+                placeholders.append(
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+                )
+                params.extend([
+                    team["id"],
+                    team["name"],
+                    team.get("abbreviation"),
+                    team.get("country"),
+                    team.get("city"),
+                    team.get("league_id"),
+                    team.get("logo_url"),
+                    team.get("founded"),
+                    team.get("is_national", False),
+                    team.get("venue_name"),
+                    team.get("venue_address"),
+                    team.get("venue_city"),
+                    team.get("venue_capacity"),
+                    team.get("venue_surface"),
+                ])
+
+            query = f"""
+                INSERT INTO {table} (
+                    id, name, abbreviation, country, city, league_id,
+                    logo_url, founded, is_national,
+                    venue_name, venue_address, venue_city, venue_capacity, venue_surface,
+                    updated_at
+                )
+                VALUES {", ".join(placeholders)}
+                ON CONFLICT(id) DO UPDATE SET
+                    name = COALESCE(excluded.name, {table}.name),
+                    abbreviation = COALESCE(excluded.abbreviation, {table}.abbreviation),
+                    country = COALESCE(excluded.country, {table}.country),
+                    city = COALESCE(excluded.city, {table}.city),
+                    league_id = COALESCE(excluded.league_id, {table}.league_id),
+                    logo_url = COALESCE(excluded.logo_url, {table}.logo_url),
+                    founded = COALESCE(excluded.founded, {table}.founded),
+                    is_national = COALESCE(excluded.is_national, {table}.is_national),
+                    venue_name = COALESCE(excluded.venue_name, {table}.venue_name),
+                    venue_address = COALESCE(excluded.venue_address, {table}.venue_address),
+                    venue_city = COALESCE(excluded.venue_city, {table}.venue_city),
+                    venue_capacity = COALESCE(excluded.venue_capacity, {table}.venue_capacity),
+                    venue_surface = COALESCE(excluded.venue_surface, {table}.venue_surface),
+                    updated_at = NOW()
+            """
+        else:
+            # NBA/NFL: have conference/division, no league_id
+            placeholders = []
+            params = []
+            for team in teams:
+                placeholders.append(
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+                )
+                params.extend([
+                    team["id"],
+                    team["name"],
+                    team.get("abbreviation"),
+                    team.get("conference"),
+                    team.get("division"),
+                    team.get("city"),
+                    team.get("country"),
+                    team.get("logo_url"),
+                    team.get("founded"),
+                    team.get("venue_name"),
+                    team.get("venue_address"),
+                    team.get("venue_city"),
+                    team.get("venue_capacity"),
+                    team.get("venue_surface"),
+                ])
+
+            query = f"""
+                INSERT INTO {table} (
+                    id, name, abbreviation, conference, division, city, country,
+                    logo_url, founded,
+                    venue_name, venue_address, venue_city, venue_capacity, venue_surface,
+                    updated_at
+                )
+                VALUES {", ".join(placeholders)}
+                ON CONFLICT(id) DO UPDATE SET
+                    name = COALESCE(excluded.name, {table}.name),
+                    abbreviation = COALESCE(excluded.abbreviation, {table}.abbreviation),
+                    conference = COALESCE(excluded.conference, {table}.conference),
+                    division = COALESCE(excluded.division, {table}.division),
+                    city = COALESCE(excluded.city, {table}.city),
+                    country = COALESCE(excluded.country, {table}.country),
+                    logo_url = COALESCE(excluded.logo_url, {table}.logo_url),
+                    founded = COALESCE(excluded.founded, {table}.founded),
+                    venue_name = COALESCE(excluded.venue_name, {table}.venue_name),
+                    venue_address = COALESCE(excluded.venue_address, {table}.venue_address),
+                    venue_city = COALESCE(excluded.venue_city, {table}.venue_city),
+                    venue_capacity = COALESCE(excluded.venue_capacity, {table}.venue_capacity),
+                    venue_surface = COALESCE(excluded.venue_surface, {table}.venue_surface),
+                    updated_at = NOW()
+            """
+
         self.db.execute(query, params)
         return len(teams)
 
@@ -563,67 +721,121 @@ class BaseSeeder(ABC):
         return total
 
     def _batch_upsert_players_chunk(self, players: list[dict[str, Any]]) -> int:
-        """Execute a single batch upsert for players."""
+        """Execute a single batch upsert for players into sport-specific table."""
         if not players:
             return 0
 
-        # Build VALUES clause with placeholders
-        placeholders = []
-        params = []
-        for player in players:
-            placeholders.append(
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
-            )
-            params.extend([
-                player["id"],
-                self.sport_id,
-                player.get("first_name"),
-                player.get("last_name"),
-                player["full_name"],
-                player.get("position"),
-                player.get("position_group"),
-                player.get("nationality"),
-                player.get("birth_date"),
-                player.get("birth_place"),
-                player.get("birth_country"),
-                player.get("height_inches"),
-                player.get("weight_lbs"),
-                player.get("photo_url"),
-                player.get("current_team_id"),
-                player.get("current_league_id"),
-                player.get("jersey_number"),
-                player.get("college"),
-                player.get("experience_years"),
-            ])
+        table = self._get_player_table()
 
-        query = f"""
-            INSERT INTO players (
-                id, sport_id, first_name, last_name, full_name,
-                position, position_group, nationality, birth_date, birth_place, birth_country,
-                height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
-                jersey_number, college, experience_years, updated_at
-            )
-            VALUES {", ".join(placeholders)}
-            ON CONFLICT(id, sport_id) DO UPDATE SET
-                first_name = COALESCE(excluded.first_name, players.first_name),
-                last_name = COALESCE(excluded.last_name, players.last_name),
-                full_name = COALESCE(excluded.full_name, players.full_name),
-                position = COALESCE(excluded.position, players.position),
-                position_group = COALESCE(excluded.position_group, players.position_group),
-                nationality = COALESCE(excluded.nationality, players.nationality),
-                birth_date = COALESCE(excluded.birth_date, players.birth_date),
-                birth_place = COALESCE(excluded.birth_place, players.birth_place),
-                birth_country = COALESCE(excluded.birth_country, players.birth_country),
-                height_inches = COALESCE(excluded.height_inches, players.height_inches),
-                weight_lbs = COALESCE(excluded.weight_lbs, players.weight_lbs),
-                photo_url = COALESCE(excluded.photo_url, players.photo_url),
-                current_team_id = COALESCE(excluded.current_team_id, players.current_team_id),
-                current_league_id = COALESCE(excluded.current_league_id, players.current_league_id),
-                jersey_number = COALESCE(excluded.jersey_number, players.jersey_number),
-                college = COALESCE(excluded.college, players.college),
-                experience_years = COALESCE(excluded.experience_years, players.experience_years),
-                updated_at = NOW()
-        """
+        if self.sport_id == "FOOTBALL":
+            # FOOTBALL: has current_league_id, no college/experience
+            placeholders = []
+            params = []
+            for player in players:
+                placeholders.append(
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+                )
+                params.extend([
+                    player["id"],
+                    player.get("first_name"),
+                    player.get("last_name"),
+                    player["full_name"],
+                    player.get("position"),
+                    player.get("position_group"),
+                    player.get("nationality"),
+                    player.get("birth_date"),
+                    player.get("birth_place"),
+                    player.get("birth_country"),
+                    player.get("height_inches"),
+                    player.get("weight_lbs"),
+                    player.get("photo_url"),
+                    player.get("current_team_id"),
+                    player.get("current_league_id"),
+                    player.get("jersey_number"),
+                ])
+
+            query = f"""
+                INSERT INTO {table} (
+                    id, first_name, last_name, full_name,
+                    position, position_group, nationality, birth_date, birth_place, birth_country,
+                    height_inches, weight_lbs, photo_url, current_team_id, current_league_id,
+                    jersey_number, updated_at
+                )
+                VALUES {", ".join(placeholders)}
+                ON CONFLICT(id) DO UPDATE SET
+                    first_name = COALESCE(excluded.first_name, {table}.first_name),
+                    last_name = COALESCE(excluded.last_name, {table}.last_name),
+                    full_name = COALESCE(excluded.full_name, {table}.full_name),
+                    position = COALESCE(excluded.position, {table}.position),
+                    position_group = COALESCE(excluded.position_group, {table}.position_group),
+                    nationality = COALESCE(excluded.nationality, {table}.nationality),
+                    birth_date = COALESCE(excluded.birth_date, {table}.birth_date),
+                    birth_place = COALESCE(excluded.birth_place, {table}.birth_place),
+                    birth_country = COALESCE(excluded.birth_country, {table}.birth_country),
+                    height_inches = COALESCE(excluded.height_inches, {table}.height_inches),
+                    weight_lbs = COALESCE(excluded.weight_lbs, {table}.weight_lbs),
+                    photo_url = COALESCE(excluded.photo_url, {table}.photo_url),
+                    current_team_id = COALESCE(excluded.current_team_id, {table}.current_team_id),
+                    current_league_id = COALESCE(excluded.current_league_id, {table}.current_league_id),
+                    jersey_number = COALESCE(excluded.jersey_number, {table}.jersey_number),
+                    updated_at = NOW()
+            """
+        else:
+            # NBA/NFL: have college/experience_years, no current_league_id
+            placeholders = []
+            params = []
+            for player in players:
+                placeholders.append(
+                    "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())"
+                )
+                params.extend([
+                    player["id"],
+                    player.get("first_name"),
+                    player.get("last_name"),
+                    player["full_name"],
+                    player.get("position"),
+                    player.get("position_group"),
+                    player.get("nationality"),
+                    player.get("birth_date"),
+                    player.get("birth_place"),
+                    player.get("birth_country"),
+                    player.get("height_inches"),
+                    player.get("weight_lbs"),
+                    player.get("photo_url"),
+                    player.get("current_team_id"),
+                    player.get("jersey_number"),
+                    player.get("college"),
+                    player.get("experience_years"),
+                ])
+
+            query = f"""
+                INSERT INTO {table} (
+                    id, first_name, last_name, full_name,
+                    position, position_group, nationality, birth_date, birth_place, birth_country,
+                    height_inches, weight_lbs, photo_url, current_team_id,
+                    jersey_number, college, experience_years, updated_at
+                )
+                VALUES {", ".join(placeholders)}
+                ON CONFLICT(id) DO UPDATE SET
+                    first_name = COALESCE(excluded.first_name, {table}.first_name),
+                    last_name = COALESCE(excluded.last_name, {table}.last_name),
+                    full_name = COALESCE(excluded.full_name, {table}.full_name),
+                    position = COALESCE(excluded.position, {table}.position),
+                    position_group = COALESCE(excluded.position_group, {table}.position_group),
+                    nationality = COALESCE(excluded.nationality, {table}.nationality),
+                    birth_date = COALESCE(excluded.birth_date, {table}.birth_date),
+                    birth_place = COALESCE(excluded.birth_place, {table}.birth_place),
+                    birth_country = COALESCE(excluded.birth_country, {table}.birth_country),
+                    height_inches = COALESCE(excluded.height_inches, {table}.height_inches),
+                    weight_lbs = COALESCE(excluded.weight_lbs, {table}.weight_lbs),
+                    photo_url = COALESCE(excluded.photo_url, {table}.photo_url),
+                    current_team_id = COALESCE(excluded.current_team_id, {table}.current_team_id),
+                    jersey_number = COALESCE(excluded.jersey_number, {table}.jersey_number),
+                    college = COALESCE(excluded.college, {table}.college),
+                    experience_years = COALESCE(excluded.experience_years, {table}.experience_years),
+                    updated_at = NOW()
+            """
+
         self.db.execute(query, params)
         return len(players)
 
@@ -633,7 +845,7 @@ class BaseSeeder(ABC):
 
     def get_entities_needing_profile(self, entity_type: str) -> list[int]:
         """
-        Get entities that need their profile fetched.
+        Get entities that need their profile fetched from sport-specific table.
 
         Args:
             entity_type: 'team' or 'player'
@@ -641,22 +853,22 @@ class BaseSeeder(ABC):
         Returns:
             List of entity IDs needing profile fetch
         """
-        table = "teams" if entity_type == "team" else "players"
+        table = self._get_team_table() if entity_type == "team" else self._get_player_table()
         result = self.db.fetchall(
-            f"SELECT id FROM {table} WHERE sport_id = %s AND profile_fetched_at IS NULL",
-            (self.sport_id,),
+            f"SELECT id FROM {table} WHERE profile_fetched_at IS NULL",
+            (),
         )
         return [r["id"] for r in result]
 
     def mark_profile_fetched(self, entity_type: str, entity_id: int) -> None:
         """
-        Mark an entity's profile as fetched.
+        Mark an entity's profile as fetched in sport-specific table.
 
         Args:
             entity_type: 'team' or 'player'
             entity_id: Entity ID
         """
-        table = "teams" if entity_type == "team" else "players"
+        table = self._get_team_table() if entity_type == "team" else self._get_player_table()
         self.db.execute(
             f"UPDATE {table} SET profile_fetched_at = NOW() WHERE id = %s",
             (entity_id,),
@@ -674,8 +886,9 @@ class BaseSeeder(ABC):
         Returns:
             True if player changed teams (transfer detected)
         """
+        table = self._get_player_table()
         existing = self.db.fetchone(
-            "SELECT current_team_id FROM players WHERE id = %s",
+            f"SELECT current_team_id FROM {table} WHERE id = %s",
             (player_id,),
         )
 
@@ -745,12 +958,14 @@ class BaseSeeder(ABC):
         try:
             # Fetch teams (minimal data)
             teams = await self.fetch_teams(season, league_id=league_id)
+            team_table = self._get_team_table()
+            player_table = self._get_player_table()
 
             if teams:
-                # Batch fetch existing team IDs and profile status
+                # Batch fetch existing team IDs and profile status from sport-specific table
                 team_ids = [t["id"] for t in teams]
                 existing_teams = self.db.fetchall(
-                    "SELECT id, profile_fetched_at FROM teams WHERE id = ANY(%s)",
+                    f"SELECT id, profile_fetched_at FROM {team_table} WHERE id = ANY(%s)",
                     (team_ids,),
                 )
                 existing_team_map = {t["id"]: t for t in existing_teams}
@@ -778,10 +993,10 @@ class BaseSeeder(ABC):
             players = await self.fetch_players(season, league_id=league_id)
 
             if players:
-                # Batch fetch existing player IDs, profile status, and team
+                # Batch fetch existing player IDs, profile status, and team from sport-specific table
                 player_ids = [p["id"] for p in players]
                 existing_players = self.db.fetchall(
-                    "SELECT id, profile_fetched_at, current_team_id FROM players WHERE id = ANY(%s)",
+                    f"SELECT id, profile_fetched_at, current_team_id FROM {player_table} WHERE id = ANY(%s)",
                     (player_ids,),
                 )
                 existing_player_map = {p["id"]: p for p in existing_players}
@@ -1161,15 +1376,16 @@ class BaseSeeder(ABC):
 
         try:
             teams = await self.fetch_teams(season)
+            team_table = self._get_team_table()
 
             if not teams:
                 self._complete_sync(sync_id, 0, 0, 0)
                 return 0
 
-            # Batch fetch existing team IDs for counting
+            # Batch fetch existing team IDs for counting from sport-specific table
             team_ids = [t["id"] for t in teams]
             existing_teams = self.db.fetchall(
-                "SELECT id FROM teams WHERE id = ANY(%s)",
+                f"SELECT id FROM {team_table} WHERE id = ANY(%s)",
                 (team_ids,),
             )
             existing_ids = {t["id"] for t in existing_teams}
@@ -1212,15 +1428,16 @@ class BaseSeeder(ABC):
 
         try:
             players = await self.fetch_players(season)
+            player_table = self._get_player_table()
 
             if not players:
                 self._complete_sync(sync_id, 0, 0, 0)
                 return 0
 
-            # Batch fetch existing player IDs for counting
+            # Batch fetch existing player IDs for counting from sport-specific table
             player_ids = [p["id"] for p in players]
             existing_players = self.db.fetchall(
-                "SELECT id FROM players WHERE id = ANY(%s)",
+                f"SELECT id FROM {player_table} WHERE id = ANY(%s)",
                 (player_ids,),
             )
             existing_ids = {p["id"] for p in existing_players}
@@ -1267,17 +1484,24 @@ class BaseSeeder(ABC):
         sync_id = self._start_sync("full", "player_stats", season_id)
 
         try:
-            # Get players to process
+            # Get players to process from sport-specific table
+            player_table = self._get_player_table()
             if player_ids:
+                # Verify players exist in sport-specific table
+                existing = self.db.fetchall(
+                    f"SELECT id FROM {player_table} WHERE id = ANY(%s)",
+                    (player_ids,),
+                )
+                existing_ids = {p["id"] for p in existing}
                 players = [
                     {"id": pid, "current_team_id": None}
                     for pid in player_ids
-                    if self.db.get_player(pid, self.sport_id)
+                    if pid in existing_ids
                 ]
             else:
                 players = self.db.fetchall(
-                    "SELECT id, current_team_id FROM players WHERE sport_id = %s",
-                    (self.sport_id,),
+                    f"SELECT id, current_team_id FROM {player_table}",
+                    (),
                 )
 
             async def fetch_and_upsert_player_stats(player: dict) -> bool:
@@ -1328,9 +1552,11 @@ class BaseSeeder(ABC):
         sync_id = self._start_sync("full", "team_stats", season_id)
 
         try:
+            # Get teams from sport-specific table
+            team_table = self._get_team_table()
             teams = self.db.fetchall(
-                "SELECT id FROM teams WHERE sport_id = %s",
-                (self.sport_id,),
+                f"SELECT id FROM {team_table}",
+                (),
             )
 
             async def fetch_and_upsert_team_stats(team: dict) -> bool:

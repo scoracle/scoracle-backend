@@ -1,5 +1,5 @@
 """API routers module."""
 
-from . import intel, news, widget
+from . import intel, ml, news, widget
 
-__all__ = ["intel", "news", "widget"]
+__all__ = ["intel", "ml", "news", "widget"]

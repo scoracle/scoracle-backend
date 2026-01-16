@@ -160,13 +160,14 @@ class FootballSeeder(BaseSeeder):
 
         try:
             # Query players with their current_league_id for API filtering
+            # Uses sport-specific table (football_player_profiles)
+            player_table = self._get_player_table()
             players = self.db.fetchall(
-                """
+                f"""
                 SELECT id, current_team_id, current_league_id
-                FROM players
-                WHERE sport_id = %s
+                FROM {player_table}
                 """,
-                (self.sport_id,),
+                (),
             )
 
             # Build set of known league IDs

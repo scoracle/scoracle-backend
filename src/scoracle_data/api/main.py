@@ -65,7 +65,7 @@ async def warm_cache() -> None:
     Uses parallel processing for all sports to speed up startup.
     """
     from .dependencies import get_db
-    from .types import PLAYER_STATS_TABLES
+    from .types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
     logger.info("Starting cache warming...")
 
@@ -85,10 +85,19 @@ async def warm_cache() -> None:
             if not season_id:
                 return 0
 
-            # Warm team info (all active teams)
+            # Get sport-specific table names
+            team_table = TEAM_PROFILE_TABLES.get(sport)
+            player_table = PLAYER_PROFILE_TABLES.get(sport)
+            stats_table = PLAYER_STATS_TABLES.get(sport)
+
+            if not team_table or not player_table:
+                logger.warning(f"No profile tables configured for sport {sport}")
+                return 0
+
+            # Warm team info (all active teams) from sport-specific table
             teams = db.fetchall(
-                "SELECT * FROM teams WHERE sport_id = %s AND is_active = true LIMIT 50",
-                (sport,),
+                f"SELECT * FROM {team_table} WHERE is_active = true LIMIT 50",
+                (),
             )
             for team in teams:
                 team_data = dict(team)
@@ -99,19 +108,17 @@ async def warm_cache() -> None:
                 cache.set(team_data, "info", "team", team["id"], sport, ttl=TTL_ENTITY_INFO)
                 count += 1
 
-            # Warm player info for players with stats
-            stats_table = PLAYER_STATS_TABLES.get(sport)
-
+            # Warm player info for players with stats from sport-specific tables
             if stats_table:
                 players = db.fetchall(
                     f"""
                     SELECT p.*
-                    FROM players p
+                    FROM {player_table} p
                     JOIN {stats_table} s ON s.player_id = p.id
-                    WHERE p.sport_id = %s AND s.season_id = %s AND p.is_active = true
+                    WHERE s.season_id = %s AND p.is_active = true
                     LIMIT 100
                     """,
-                    (sport, season_id),
+                    (season_id,),
                 )
                 for player in players:
                     player_data = dict(player)

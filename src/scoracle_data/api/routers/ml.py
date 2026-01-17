@@ -241,7 +241,7 @@ async def get_team_transfer_predictions(
     cache = get_cache()
     cache_key = f"ml:transfers:team:{team_id}:{sport or 'all'}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return TeamTransferPredictions(**cached)
 
@@ -325,7 +325,7 @@ async def get_team_transfer_predictions(
         last_updated=datetime.now(),
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
     return result
 
 
@@ -342,7 +342,7 @@ async def get_player_transfer_predictions(
     cache = get_cache()
     cache_key = f"ml:transfers:player:{player_id}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return PlayerTransferOutlook(**cached)
 
@@ -397,7 +397,7 @@ async def get_player_transfer_predictions(
         last_updated=datetime.now(),
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
     return result
 
 
@@ -416,7 +416,7 @@ async def get_trending_transfers(
     cache = get_cache()
     cache_key = f"ml:transfers:trending:{sport}:{limit}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return TrendingTransfers(**cached)
 
@@ -462,7 +462,7 @@ async def get_trending_transfers(
         last_updated=datetime.now(),
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_TRANSFER_PREDICTIONS)
     return result
 
 
@@ -489,7 +489,7 @@ async def get_vibe_score(
     cache = get_cache()
     cache_key = f"ml:vibe:{entity_type}:{entity_id}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return VibeScoreResponse(**cached)
 
@@ -573,7 +573,7 @@ async def get_vibe_score(
         last_updated=vibe_row[11],
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
     return result
 
 
@@ -592,7 +592,7 @@ async def get_trending_vibes(
     cache = get_cache()
     cache_key = f"ml:vibe:trending:{sport}:{limit}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return TrendingVibes(**cached)
 
@@ -643,7 +643,7 @@ async def get_trending_vibes(
         last_updated=datetime.now(),
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
     return result
 
 
@@ -671,7 +671,7 @@ async def get_similar_entities(
     cache = get_cache()
     cache_key = f"ml:similar:{entity_type}:{entity_id}:{limit}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return SimilarEntitiesResponse(**cached)
 
@@ -720,7 +720,7 @@ async def get_similar_entities(
         similar_entities=similar,
     )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_SIMILARITY)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_SIMILARITY)
     return result
 
 
@@ -862,7 +862,7 @@ async def get_next_game_prediction(
     cache = get_cache()
     cache_key = f"ml:performance:next:{entity_type}:{entity_id}"
 
-    cached = await cache.get(cache_key)
+    cached = cache.get(cache_key)
     if cached:
         return PerformancePredictionResponse(**cached)
 
@@ -971,7 +971,7 @@ async def get_next_game_prediction(
             last_updated=datetime.now(),
         )
 
-    await cache.set(cache_key, result.model_dump(), ttl=TTL_PERFORMANCE_PREDICTION)
+    cache.set(cache_key, result.model_dump(), ttl=TTL_PERFORMANCE_PREDICTION)
     return result
 
 

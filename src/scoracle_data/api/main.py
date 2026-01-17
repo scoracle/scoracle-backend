@@ -187,16 +187,31 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Scoracle Data API...")
 
     # Pre-warm database connection pool
-    # This ensures connections are established before first request
+    # This ensures ALL min_size connections are established before first request
     try:
         from .dependencies import get_db
         db = get_db()
         # Explicitly open the pool to establish min_size connections
         db.open()
         logger.info(f"Database connection pool opened (min_size={db._min_pool_size}, max_size={db._max_pool_size})")
-        # Verify with a test query
-        db.fetchone("SELECT 1")
-        logger.info("Database connection pool initialized and verified")
+
+        # Warm ALL connections in the pool by running concurrent queries
+        # This ensures the pool is fully ready, not just one connection
+        import concurrent.futures
+        def warm_connection(i: int) -> bool:
+            try:
+                db.fetchone("SELECT 1")
+                return True
+            except Exception as e:
+                logger.warning(f"Connection {i} warm-up failed: {e}")
+                return False
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=db._min_pool_size) as executor:
+            futures = [executor.submit(warm_connection, i) for i in range(db._min_pool_size)]
+            results = [f.result(timeout=5) for f in futures]
+            successful = sum(results)
+            logger.info(f"Database connection pool fully warmed: {successful}/{db._min_pool_size} connections ready")
+
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         # Don't fail startup, let requests handle connection errors
@@ -205,6 +220,7 @@ async def lifespan(app: FastAPI):
     refresh_task = asyncio.create_task(background_cache_refresh())
 
     # Warm cache in background (don't block startup)
+    # Cache warming now won't compete with uninitialized connections
     asyncio.create_task(warm_cache())
 
     yield

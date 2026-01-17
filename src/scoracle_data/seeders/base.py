@@ -236,6 +236,7 @@ class BaseSeeder(ABC):
         Recalculate all percentiles for this sport and season.
 
         This ensures the percentile_cache is up-to-date after stats updates.
+        Uses the pure Python calculator for database-agnostic operation.
 
         Args:
             season_year: Season year
@@ -244,8 +245,8 @@ class BaseSeeder(ABC):
             Dict with player and team counts
         """
         try:
-            from ..percentiles.pg_calculator import PostgresPercentileCalculator
-            calculator = PostgresPercentileCalculator(self.db)
+            from ..percentiles.python_calculator import PythonPercentileCalculator
+            calculator = PythonPercentileCalculator(self.db)
             return calculator.recalculate_all_percentiles(self.sport_id, season_year)
         except ImportError:
             logger.warning("Percentile calculator not available")

@@ -477,6 +477,118 @@ def _get_stats(
 
 
 # =============================================================================
+# PERCENTILES ENDPOINT
+# =============================================================================
+
+@router.get("/percentiles/{entity_type}/{entity_id}", response_model=None)
+async def get_entity_percentiles(
+    entity_type: EntityType,
+    entity_id: int,
+    sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
+    season: Annotated[int | None, Query(description="Season year (defaults to current)")] = None,
+    league_id: Annotated[int | None, Query(description="League ID (for FOOTBALL)")] = None,
+    category: Annotated[str | None, Query(description="Filter by category: scoring, defense, possession, etc.")] = None,
+    response: Response = None,
+    db: DBDependency = None,
+    if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
+) -> dict[str, Any] | Response:
+    """
+    Get percentile rankings for an entity's statistics.
+
+    Returns ALL percentiles from the percentile_cache table where
+    stat_value is non-zero and non-null. Frontend decides which to display.
+
+    Percentiles are calculated against other entities of the same type
+    within the same position group (for players) or league (for teams).
+
+    Supports optional category filtering and conditional requests via ETag.
+    """
+    # Validate and normalize season
+    season = _validate_season(season, sport.value)
+
+    # Cache lookup
+    cache = get_cache()
+    cache_key = ("percentiles", entity_type.value, entity_id, sport.value, season, league_id, category)
+    ttl = _get_stats_ttl(sport.value, season)
+
+    cached = cache.get(*cache_key)
+    if cached:
+        etag = _compute_etag(cached)
+        if _check_etag_match(if_none_match, etag):
+            return Response(status_code=HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
+        _set_cache_headers(response, ttl, cache_hit=True)
+        _set_etag_headers(response, etag, ttl)
+        return cached
+
+    # Get season ID
+    season_row = db.fetchone(
+        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
+        (sport.value, season),
+    )
+    if not season_row:
+        raise NotFoundError(resource="Season", identifier=season, context=sport.value)
+
+    season_id = season_row["id"]
+
+    # Query percentile cache - filter out NULL and 0 values
+    percentile_rows = db.fetchall(
+        """
+        SELECT stat_category, stat_value, percentile, rank, sample_size, comparison_group
+        FROM percentile_cache
+        WHERE entity_type = %s
+          AND entity_id = %s
+          AND sport_id = %s
+          AND season_id = %s
+          AND stat_value IS NOT NULL
+          AND stat_value != 0
+        ORDER BY stat_category
+        """,
+        (entity_type.value, entity_id, sport.value, season_id),
+    )
+
+    if not percentile_rows:
+        raise NotFoundError(
+            resource=f"{entity_type.value.title()} percentiles",
+            identifier=entity_id,
+            context=f"{sport.value} {season}",
+        )
+
+    percentiles = [dict(r) for r in percentile_rows]
+
+    # Optional category filter
+    if category:
+        from ...percentiles.config import STAT_CATEGORY_MAPPINGS
+        category_config = STAT_CATEGORY_MAPPINGS.get(sport.value, {}).get(entity_type.value, {}).get(category)
+        if category_config:
+            stat_keys = {s["key"] for s in category_config.get("stats", [])}
+            percentiles = [p for p in percentiles if p["stat_category"] in stat_keys]
+
+    # Format response - use column name as label (frontend handles display formatting)
+    for p in percentiles:
+        p["label"] = p["stat_category"]
+        # Rename stat_value to value for cleaner API
+        p["value"] = p.pop("stat_value")
+
+    result = {
+        "entity_id": entity_id,
+        "entity_type": entity_type.value,
+        "sport": sport.value,
+        "season": season,
+        "percentiles": percentiles,
+    }
+
+    if league_id:
+        result["league_id"] = league_id
+
+    # Cache and return
+    cache.set(result, *cache_key, ttl=ttl)
+    etag = _compute_etag(result)
+    _set_cache_headers(response, ttl, cache_hit=False)
+    _set_etag_headers(response, etag, ttl)
+    return result
+
+
+# =============================================================================
 # SEASONS ENDPOINT
 # =============================================================================
 

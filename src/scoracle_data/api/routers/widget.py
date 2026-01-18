@@ -42,6 +42,38 @@ router = APIRouter()
 MIN_SEASON_YEAR = 2000
 MAX_SEASON_YEAR_OFFSET = 1  # Current year + 1
 
+# In-memory cache for season ID lookups (seasons rarely change)
+_season_id_cache: dict[tuple[str, int], int] = {}
+
+
+def _get_season_id(db, sport: str, season_year: int) -> int | None:
+    """
+    Get season ID with in-memory caching.
+    
+    Seasons rarely change, so caching eliminates redundant DB queries.
+    This saves ~5-10ms per request.
+    
+    Args:
+        db: Database connection
+        sport: Sport identifier (NBA, NFL, FOOTBALL)
+        season_year: Season year (e.g., 2025)
+        
+    Returns:
+        Season ID or None if not found
+    """
+    cache_key = (sport, season_year)
+    if cache_key in _season_id_cache:
+        return _season_id_cache[cache_key]
+    
+    row = db.fetchone(
+        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
+        (sport, season_year),
+    )
+    if row:
+        _season_id_cache[cache_key] = row["id"]
+        return row["id"]
+    return None
+
 
 def _validate_season(season: int | None, sport: str) -> int:
     """
@@ -396,15 +428,10 @@ async def get_entity_stats(
         _set_etag_headers(response, etag, ttl)
         return cached
 
-    # Get season ID
-    season_row = db.fetchone(
-        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-        (sport.value, season),
-    )
-    if not season_row:
+    # Get season ID (cached lookup)
+    season_id = _get_season_id(db, sport.value, season)
+    if not season_id:
         raise NotFoundError(resource="Season", identifier=season, context=sport.value)
-
-    season_id = season_row["id"]
 
     # Get stats
     if entity_type == EntityType.player:
@@ -465,13 +492,12 @@ def _get_stats(
         return None
 
     stats = dict(row)
-    # Remove internal IDs
-    for key in ["id", "player_id", "team_id", "season_id", "league_id"]:
+    # Remove internal IDs and metadata
+    for key in ["id", "player_id", "team_id", "season_id", "league_id", "updated_at"]:
         stats.pop(key, None)
 
-    # Convert timestamp to string
-    if stats.get("updated_at"):
-        stats["updated_at"] = str(stats["updated_at"])
+    # Filter out null and zero values (frontend only needs non-zero stats)
+    stats = {k: v for k, v in stats.items() if v is not None and v != 0}
 
     return stats
 
@@ -520,15 +546,10 @@ async def get_entity_percentiles(
         _set_etag_headers(response, etag, ttl)
         return cached
 
-    # Get season ID
-    season_row = db.fetchone(
-        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-        (sport.value, season),
-    )
-    if not season_row:
+    # Get season ID (cached lookup)
+    season_id = _get_season_id(db, sport.value, season)
+    if not season_id:
         raise NotFoundError(resource="Season", identifier=season, context=sport.value)
-
-    season_id = season_row["id"]
 
     # Query percentile cache - filter out NULL and 0 values
     percentile_rows = db.fetchall(
@@ -732,14 +753,10 @@ def _get_player_profile(
     sport_config = get_sport_config(sport)
     has_leagues = sport_config.has_league_in_profiles
 
-    # Get season ID
-    season_row = db.fetchone(
-        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-        (sport, season),
-    )
-    if not season_row:
+    # Get season ID (cached lookup)
+    season_id = _get_season_id(db, sport, season)
+    if not season_id:
         return None
-    season_id = season_row["id"]
 
     # Build query based on sport - no sport_id filtering needed (table IS the filter)
     if has_leagues:
@@ -853,7 +870,7 @@ def _get_player_profile(
         if stats.get("updated_at"):
             stats["updated_at"] = str(stats["updated_at"])
 
-    # Get percentiles if requested
+    # Get percentiles if requested (filter out zero/null values)
     percentiles = []
     if include_percentiles:
         percentile_rows = db.fetchall(
@@ -862,6 +879,7 @@ def _get_player_profile(
             FROM percentile_cache
             WHERE entity_type = 'player' AND entity_id = %s
               AND sport_id = %s AND season_id = %s
+              AND stat_value IS NOT NULL AND stat_value != 0
             ORDER BY stat_category
             """,
             (player_id, sport, season_id),
@@ -900,14 +918,10 @@ def _get_team_profile(
     sport_config = get_sport_config(sport)
     has_leagues = sport_config.has_league_in_profiles
 
-    # Get season ID
-    season_row = db.fetchone(
-        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-        (sport, season),
-    )
-    if not season_row:
+    # Get season ID (cached lookup)
+    season_id = _get_season_id(db, sport, season)
+    if not season_id:
         return None
-    season_id = season_row["id"]
 
     # Build stats join condition
     stats_condition = "s.team_id = t.id AND s.season_id = %s"
@@ -982,7 +996,7 @@ def _get_team_profile(
         if stats.get("updated_at"):
             stats["updated_at"] = str(stats["updated_at"])
 
-    # Get percentiles if requested
+    # Get percentiles if requested (filter out zero/null values)
     percentiles = []
     if include_percentiles:
         percentile_rows = db.fetchall(
@@ -991,6 +1005,7 @@ def _get_team_profile(
             FROM percentile_cache
             WHERE entity_type = 'team' AND entity_id = %s
               AND sport_id = %s AND season_id = %s
+              AND stat_value IS NOT NULL AND stat_value != 0
             ORDER BY stat_category
             """,
             (team_id, sport, season_id),

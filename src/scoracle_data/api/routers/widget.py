@@ -3,13 +3,15 @@ Widget router - serves entity info and stats for frontend widgets.
 
 Endpoints:
 - GET /info/{entity_type}/{entity_id} - Basic entity info from players/teams tables
-- GET /stats/{entity_type}/{entity_id} - Stats from sport-specific stats tables
+- GET /stats/{entity_type}/{entity_id} - Stats + percentiles from sport-specific stats tables
 - GET /stats/{entity_type}/{entity_id}/seasons - Available seasons for an entity
+- GET /profile/{entity_type}/{entity_id} - Unified endpoint (info + stats + percentiles)
 
 Performance Features:
 - In-memory caching with TTLs
 - ETag support for conditional requests (304 Not Modified)
-- Unified profile endpoint to reduce API calls
+- Percentiles embedded as JSONB in stats tables (no separate query needed)
+- Season ID caching to eliminate redundant lookups
 """
 
 import hashlib
@@ -433,13 +435,13 @@ async def get_entity_stats(
     if not season_id:
         raise NotFoundError(resource="Season", identifier=season, context=sport.value)
 
-    # Get stats
+    # Get stats (includes percentiles as JSONB)
     if entity_type == EntityType.player:
-        stats = _get_stats(db, PLAYER_STATS_TABLES, sport.value, "player_id", entity_id, season_id, league_id)
+        stats_data = _get_stats(db, PLAYER_STATS_TABLES, sport.value, "player_id", entity_id, season_id, league_id)
     else:
-        stats = _get_stats(db, TEAM_STATS_TABLES, sport.value, "team_id", entity_id, season_id, league_id)
+        stats_data = _get_stats(db, TEAM_STATS_TABLES, sport.value, "team_id", entity_id, season_id, league_id)
 
-    if not stats:
+    if not stats_data:
         raise NotFoundError(
             resource=f"{entity_type.value.title()} stats",
             identifier=entity_id,
@@ -451,7 +453,9 @@ async def get_entity_stats(
         "entity_type": entity_type.value,
         "sport": sport.value,
         "season": season,
-        "stats": stats,
+        "stats": stats_data["stats"],
+        "percentiles": stats_data["percentiles"],
+        "percentile_metadata": stats_data["percentile_metadata"],
     }
     if league_id:
         result["league_id"] = league_id
@@ -472,7 +476,14 @@ def _get_stats(
     season_id: int,
     league_id: int | None,
 ) -> dict[str, Any] | None:
-    """Fetch stats from sport-specific table."""
+    """
+    Fetch stats from sport-specific table.
+    
+    Returns a dict with:
+    - stats: All non-zero stat values
+    - percentiles: JSONB percentile data (if available)
+    - percentile_metadata: Position group and sample size
+    """
     table = table_map.get(sport)
     if not table:
         return None
@@ -491,122 +502,33 @@ def _get_stats(
     if not row:
         return None
 
-    stats = dict(row)
+    data = dict(row)
+    
+    # Extract percentile data (stored as JSONB in stats table)
+    percentiles = data.pop("percentiles", None) or {}
+    percentile_position_group = data.pop("percentile_position_group", None)
+    percentile_sample_size = data.pop("percentile_sample_size", None)
+    
     # Remove internal IDs and metadata
     for key in ["id", "player_id", "team_id", "season_id", "league_id", "updated_at"]:
-        stats.pop(key, None)
+        data.pop(key, None)
 
     # Filter out null and zero values (frontend only needs non-zero stats)
-    stats = {k: v for k, v in stats.items() if v is not None and v != 0}
+    stats = {k: v for k, v in data.items() if v is not None and v != 0}
+    
+    # Build percentile metadata (only if percentiles exist)
+    percentile_metadata = None
+    if percentiles:
+        percentile_metadata = {
+            "position_group": percentile_position_group,
+            "sample_size": percentile_sample_size,
+        }
 
-    return stats
-
-
-# =============================================================================
-# PERCENTILES ENDPOINT
-# =============================================================================
-
-@router.get("/percentiles/{entity_type}/{entity_id}", response_model=None)
-async def get_entity_percentiles(
-    entity_type: EntityType,
-    entity_id: int,
-    sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
-    season: Annotated[int | None, Query(description="Season year (defaults to current)")] = None,
-    league_id: Annotated[int | None, Query(description="League ID (for FOOTBALL)")] = None,
-    category: Annotated[str | None, Query(description="Filter by category: scoring, defense, possession, etc.")] = None,
-    response: Response = None,
-    db: DBDependency = None,
-    if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
-) -> dict[str, Any] | Response:
-    """
-    Get percentile rankings for an entity's statistics.
-
-    Returns ALL percentiles from the percentile_cache table where
-    stat_value is non-zero and non-null. Frontend decides which to display.
-
-    Percentiles are calculated against other entities of the same type
-    within the same position group (for players) or league (for teams).
-
-    Supports optional category filtering and conditional requests via ETag.
-    """
-    # Validate and normalize season
-    season = _validate_season(season, sport.value)
-
-    # Cache lookup
-    cache = get_cache()
-    cache_key = ("percentiles", entity_type.value, entity_id, sport.value, season, league_id, category)
-    ttl = _get_stats_ttl(sport.value, season)
-
-    cached = cache.get(*cache_key)
-    if cached:
-        etag = _compute_etag(cached)
-        if _check_etag_match(if_none_match, etag):
-            return Response(status_code=HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
-        _set_cache_headers(response, ttl, cache_hit=True)
-        _set_etag_headers(response, etag, ttl)
-        return cached
-
-    # Get season ID (cached lookup)
-    season_id = _get_season_id(db, sport.value, season)
-    if not season_id:
-        raise NotFoundError(resource="Season", identifier=season, context=sport.value)
-
-    # Query percentile cache - filter out NULL and 0 values
-    percentile_rows = db.fetchall(
-        """
-        SELECT stat_category, stat_value, percentile, rank, sample_size, comparison_group
-        FROM percentile_cache
-        WHERE entity_type = %s
-          AND entity_id = %s
-          AND sport_id = %s
-          AND season_id = %s
-          AND stat_value IS NOT NULL
-          AND stat_value != 0
-        ORDER BY stat_category
-        """,
-        (entity_type.value, entity_id, sport.value, season_id),
-    )
-
-    if not percentile_rows:
-        raise NotFoundError(
-            resource=f"{entity_type.value.title()} percentiles",
-            identifier=entity_id,
-            context=f"{sport.value} {season}",
-        )
-
-    percentiles = [dict(r) for r in percentile_rows]
-
-    # Optional category filter
-    if category:
-        from ...percentiles.config import STAT_CATEGORY_MAPPINGS
-        category_config = STAT_CATEGORY_MAPPINGS.get(sport.value, {}).get(entity_type.value, {}).get(category)
-        if category_config:
-            stat_keys = {s["key"] for s in category_config.get("stats", [])}
-            percentiles = [p for p in percentiles if p["stat_category"] in stat_keys]
-
-    # Format response - use column name as label (frontend handles display formatting)
-    for p in percentiles:
-        p["label"] = p["stat_category"]
-        # Rename stat_value to value for cleaner API
-        p["value"] = p.pop("stat_value")
-
-    result = {
-        "entity_id": entity_id,
-        "entity_type": entity_type.value,
-        "sport": sport.value,
-        "season": season,
+    return {
+        "stats": stats,
         "percentiles": percentiles,
+        "percentile_metadata": percentile_metadata,
     }
-
-    if league_id:
-        result["league_id"] = league_id
-
-    # Cache and return
-    cache.set(result, *cache_key, ttl=ttl)
-    etag = _compute_etag(result)
-    _set_cache_headers(response, ttl, cache_hit=False)
-    _set_etag_headers(response, etag, ttl)
-    return result
 
 
 # =============================================================================

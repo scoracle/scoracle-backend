@@ -235,7 +235,7 @@ class BaseSeeder(ABC):
         """
         Recalculate all percentiles for this sport and season.
 
-        This ensures the percentile_cache is up-to-date after stats updates.
+        Writes percentiles as JSONB directly to the stats tables.
         Uses the pure Python calculator for database-agnostic operation.
 
         Args:

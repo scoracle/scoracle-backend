@@ -10,13 +10,19 @@ Methodology:
 - NBA: Per-36 minute stats, compared by position group
 - FOOTBALL: Per-90 minute stats, compared across Top 5 Leagues by position
 - NFL: Position-specific stat categories
+
+Output:
+- Percentiles are stored as JSONB directly in stats tables
+- No separate percentile_cache table needed
+- Single /stats endpoint serves both stats and percentiles
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from .config import (
@@ -97,9 +103,10 @@ class PythonPercentileCalculator:
         ("FOOTBALL", "team"): "football_team_stats",
     }
     
-    # Columns to exclude from percentile calculation (internal IDs and metadata)
+    # Columns to exclude from percentile calculation (internal IDs, metadata, and percentile columns)
     EXCLUDED_COLUMNS = {
-        "id", "player_id", "team_id", "season_id", "league_id", "updated_at"
+        "id", "player_id", "team_id", "season_id", "league_id", "updated_at",
+        "percentiles", "percentile_position_group", "percentile_sample_size"
     }
 
     def __init__(self, db: Any):
@@ -352,13 +359,15 @@ class PythonPercentileCalculator:
         
         Calculates percentiles for ALL numeric stat columns (not just a curated subset).
         Filters out zero and null values. Groups players by position for fair comparison.
+        
+        Writes results as JSONB directly to stats tables.
 
         Args:
             sport_id: Sport identifier
             season_id: Season ID
 
         Returns:
-            Number of percentile records created
+            Number of players updated with percentiles
         """
         stats = self._fetch_player_stats(sport_id, season_id)
         if not stats:
@@ -372,9 +381,11 @@ class PythonPercentileCalculator:
             return 0
             
         min_sample = get_min_sample_size(sport_id, "player")
-        season_year = self._get_season_year(season_id)
 
-        results: list[PercentileResult] = []
+        # Accumulate percentiles per player: {player_id: {stat_name: percentile}}
+        player_percentiles: dict[int, dict[str, float]] = {}
+        player_positions: dict[int, str] = {}
+        player_sample_sizes: dict[int, int] = {}
 
         for stat_name in categories:
             is_inverse = stat_name in INVERSE_STATS
@@ -384,6 +395,10 @@ class PythonPercentileCalculator:
 
             for row in stats:
                 position = row.get("position_group") or "Unknown"
+                player_id = row["player_id"]
+
+                # Track position for each player
+                player_positions[player_id] = position
 
                 # Compute or fetch the stat value
                 value = self.compute_normalized_stat(stat_name, row, sport_id)
@@ -394,7 +409,7 @@ class PythonPercentileCalculator:
 
                 if position not in position_groups:
                     position_groups[position] = []
-                position_groups[position].append((row["player_id"], value))
+                position_groups[position].append((player_id, value))
 
             # Calculate percentiles within each position group
             for position, player_values in position_groups.items():
@@ -406,39 +421,41 @@ class PythonPercentileCalculator:
                     continue
 
                 all_values = [v for _, v in player_values]
+                sample_size = len(all_values)
 
                 for player_id, value in player_values:
-                    percentile, rank = self.calculate_percentile(
+                    percentile, _ = self.calculate_percentile(
                         all_values, value, inverse=is_inverse
                     )
 
-                    # Build comparison group name
-                    if sport_id == "FOOTBALL":
-                        comparison_group = f"Top 5 Leagues {position} {season_year}"
-                    else:
-                        comparison_group = f"{position} {season_year}"
+                    # Initialize player's percentile dict if needed
+                    if player_id not in player_percentiles:
+                        player_percentiles[player_id] = {}
+                    
+                    # Store percentile (rounded to 1 decimal)
+                    player_percentiles[player_id][stat_name] = round(percentile, 1)
+                    
+                    # Track sample size (use max across all stats)
+                    player_sample_sizes[player_id] = max(
+                        player_sample_sizes.get(player_id, 0), 
+                        sample_size
+                    )
 
-                    results.append(PercentileResult(
-                        entity_type="player",
-                        entity_id=player_id,
-                        sport_id=sport_id,
-                        season_id=season_id,
-                        stat_category=stat_name,
-                        stat_value=value,
-                        percentile=percentile,
-                        rank=rank,
-                        sample_size=len(all_values),
-                        comparison_group=comparison_group,
-                    ))
-
-        # Batch write results
-        self._write_percentile_results(results)
+        # Write percentiles to stats table as JSONB
+        self._update_stats_with_percentiles(
+            sport_id=sport_id,
+            entity_type="player",
+            season_id=season_id,
+            percentile_data=player_percentiles,
+            position_groups=player_positions,
+            sample_sizes=player_sample_sizes,
+        )
 
         logger.info(
-            "Calculated %d player percentile records for %s (%d stat categories)",
-            len(results), sport_id, len(categories)
+            "Updated %d players with percentiles for %s (%d stat categories)",
+            len(player_percentiles), sport_id, len(categories)
         )
-        return len(results)
+        return len(player_percentiles)
 
     # =========================================================================
     # Team Percentile Calculation
@@ -454,6 +471,8 @@ class PythonPercentileCalculator:
         
         Calculates percentiles for ALL numeric stat columns (not just a curated subset).
         Filters out zero and null values.
+        
+        Writes results as JSONB directly to stats tables.
 
         For FOOTBALL, teams are compared across all Top 5 Leagues.
         For NBA/NFL, teams are compared within the league.
@@ -463,7 +482,7 @@ class PythonPercentileCalculator:
             season_id: Season ID
 
         Returns:
-            Number of percentile records created
+            Number of teams updated with percentiles
         """
         stats = self._fetch_team_stats(sport_id, season_id)
         if not stats:
@@ -477,9 +496,10 @@ class PythonPercentileCalculator:
             return 0
             
         min_sample = get_min_sample_size(sport_id, "team")
-        season_year = self._get_season_year(season_id)
 
-        results: list[PercentileResult] = []
+        # Accumulate percentiles per team: {team_id: {stat_name: percentile}}
+        team_percentiles: dict[int, dict[str, float]] = {}
+        team_sample_sizes: dict[int, int] = {}
 
         for stat_name in categories:
             is_inverse = stat_name in INVERSE_STATS
@@ -504,94 +524,114 @@ class PythonPercentileCalculator:
                 continue
 
             all_values = [v for _, v in team_values]
+            sample_size = len(all_values)
 
             for team_id, value in team_values:
-                percentile, rank = self.calculate_percentile(
+                percentile, _ = self.calculate_percentile(
                     all_values, value, inverse=is_inverse
                 )
 
-                # Build comparison group name
-                if sport_id == "FOOTBALL":
-                    comparison_group = f"Top 5 Leagues {season_year}"
-                else:
-                    comparison_group = f"{sport_id} Teams {season_year}"
+                # Initialize team's percentile dict if needed
+                if team_id not in team_percentiles:
+                    team_percentiles[team_id] = {}
+                
+                # Store percentile (rounded to 1 decimal)
+                team_percentiles[team_id][stat_name] = round(percentile, 1)
+                
+                # Track sample size (use max across all stats)
+                team_sample_sizes[team_id] = max(
+                    team_sample_sizes.get(team_id, 0),
+                    sample_size
+                )
 
-                results.append(PercentileResult(
-                    entity_type="team",
-                    entity_id=team_id,
-                    sport_id=sport_id,
-                    season_id=season_id,
-                    stat_category=stat_name,
-                    stat_value=value,
-                    percentile=percentile,
-                    rank=rank,
-                    sample_size=len(all_values),
-                    comparison_group=comparison_group,
-                ))
-
-        # Batch write results
-        self._write_percentile_results(results)
+        # Write percentiles to stats table as JSONB
+        self._update_stats_with_percentiles(
+            sport_id=sport_id,
+            entity_type="team",
+            season_id=season_id,
+            percentile_data=team_percentiles,
+            position_groups={},  # Teams don't have position groups
+            sample_sizes=team_sample_sizes,
+        )
 
         logger.info(
-            "Calculated %d team percentile records for %s (%d stat categories)",
-            len(results), sport_id, len(categories)
+            "Updated %d teams with percentiles for %s (%d stat categories)",
+            len(team_percentiles), sport_id, len(categories)
         )
-        return len(results)
+        return len(team_percentiles)
 
     # =========================================================================
-    # Database Writing
+    # Database Writing - JSONB to Stats Tables
     # =========================================================================
 
-    def _write_percentile_results(self, results: list[PercentileResult]) -> None:
-        """Write percentile results to the cache table using batch inserts."""
-        if not results:
-            return
-
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
-
-        # Build batch of tuples for executemany
-        values = [
-            (
-                r.entity_type,
-                r.entity_id,
-                r.sport_id,
-                r.season_id,
-                r.stat_category,
-                r.stat_value,
-                r.percentile,
-                r.rank,
-                r.sample_size,
-                r.comparison_group,
-                now,
-            )
-            for r in results
-        ]
-
-        # Use executemany for batch insert (much faster than individual inserts)
-        # Process in chunks of 1000 to avoid memory issues
-        chunk_size = 1000
-        query = """
-            INSERT INTO percentile_cache (
-                entity_type, entity_id, sport_id, season_id, stat_category,
-                stat_value, percentile, rank, sample_size, comparison_group,
-                calculated_at
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category)
-            DO UPDATE SET
-                stat_value = EXCLUDED.stat_value,
-                percentile = EXCLUDED.percentile,
-                rank = EXCLUDED.rank,
-                sample_size = EXCLUDED.sample_size,
-                comparison_group = EXCLUDED.comparison_group,
-                calculated_at = EXCLUDED.calculated_at
+    def _update_stats_with_percentiles(
+        self,
+        sport_id: str,
+        entity_type: str,
+        season_id: int,
+        percentile_data: dict[int, dict[str, float]],
+        position_groups: dict[int, str],
+        sample_sizes: dict[int, int],
+    ) -> None:
         """
-
-        for i in range(0, len(values), chunk_size):
-            chunk = values[i:i + chunk_size]
+        Update stats tables with JSONB percentiles.
+        
+        Writes percentiles directly to the stats table as a JSONB column,
+        eliminating the need for a separate percentile_cache table.
+        
+        Args:
+            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
+            entity_type: 'player' or 'team'
+            season_id: Season ID
+            percentile_data: {entity_id: {stat_name: percentile_value}}
+            position_groups: {entity_id: position_group} (players only)
+            sample_sizes: {entity_id: sample_size}
+        """
+        if not percentile_data:
+            return
+        
+        table = self.STATS_TABLE_MAP.get((sport_id, entity_type))
+        if not table:
+            logger.warning("No stats table found for %s %s", sport_id, entity_type)
+            return
+        
+        id_column = "player_id" if entity_type == "player" else "team_id"
+        
+        # Build batch update values
+        # For players: include position_group
+        # For teams: position_group is NULL
+        updates = []
+        for entity_id, percentiles in percentile_data.items():
+            position_group = position_groups.get(entity_id) if entity_type == "player" else None
+            sample_size = sample_sizes.get(entity_id)
+            
+            updates.append((
+                json.dumps(percentiles),
+                position_group,
+                sample_size,
+                entity_id,
+                season_id,
+            ))
+        
+        # Batch update using executemany
+        query = f"""
+            UPDATE {table}
+            SET percentiles = %s,
+                percentile_position_group = %s,
+                percentile_sample_size = %s
+            WHERE {id_column} = %s AND season_id = %s
+        """
+        
+        # Process in chunks to avoid memory issues
+        chunk_size = 500
+        for i in range(0, len(updates), chunk_size):
+            chunk = updates[i:i + chunk_size]
             self.db.executemany(query, chunk)
+        
+        logger.debug(
+            "Updated %d %s records with percentiles in %s",
+            len(updates), entity_type, table
+        )
 
     # =========================================================================
     # Main Entry Points
@@ -606,6 +646,7 @@ class PythonPercentileCalculator:
         Recalculate all percentiles for a sport and season.
 
         This is the main entry point for batch recalculation.
+        Writes percentiles as JSONB directly to stats tables.
 
         Args:
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
@@ -625,20 +666,14 @@ class PythonPercentileCalculator:
 
         season_id = result["id"]
 
-        # Clear existing cache for this sport/season
-        self.db.execute(
-            "DELETE FROM percentile_cache WHERE sport_id = %s AND season_id = %s",
-            (sport_id, season_id),
-        )
-
-        # Calculate player percentiles
+        # Calculate player percentiles (writes to stats table as JSONB)
         player_count = self.calculate_all_player_percentiles(sport_id, season_id)
 
-        # Calculate team percentiles
+        # Calculate team percentiles (writes to stats table as JSONB)
         team_count = self.calculate_all_team_percentiles(sport_id, season_id)
 
         logger.info(
-            "Recalculated percentiles for %s %d: %d player records, %d team records",
+            "Recalculated percentiles for %s %d: %d players, %d teams updated",
             sport_id, season_year, player_count, team_count
         )
 

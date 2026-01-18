@@ -25,10 +25,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
-from .config import (
-    INVERSE_STATS,
-    get_min_sample_size,
-)
+from .config import INVERSE_STATS
 
 if TYPE_CHECKING:
     pass
@@ -379,8 +376,6 @@ class PythonPercentileCalculator:
         if not categories:
             logger.warning("No numeric columns found for %s player stats", sport_id)
             return 0
-            
-        min_sample = get_min_sample_size(sport_id, "player")
 
         # Accumulate percentiles per player: {player_id: {stat_name: percentile}}
         player_percentiles: dict[int, dict[str, float]] = {}
@@ -413,13 +408,8 @@ class PythonPercentileCalculator:
 
             # Calculate percentiles within each position group
             for position, player_values in position_groups.items():
-                if len(player_values) < min_sample:
-                    logger.debug(
-                        "Skipping %s/%s: only %d players (need %d)",
-                        stat_name, position, len(player_values), min_sample
-                    )
-                    continue
-
+                # Always calculate percentiles regardless of sample size
+                # The API adds a small_sample_warning flag when sample_size < 20
                 all_values = [v for _, v in player_values]
                 sample_size = len(all_values)
 
@@ -494,8 +484,6 @@ class PythonPercentileCalculator:
         if not categories:
             logger.warning("No numeric columns found for %s team stats", sport_id)
             return 0
-            
-        min_sample = get_min_sample_size(sport_id, "team")
 
         # Accumulate percentiles per team: {team_id: {stat_name: percentile}}
         team_percentiles: dict[int, dict[str, float]] = {}
@@ -516,13 +504,8 @@ class PythonPercentileCalculator:
                     
                 team_values.append((row["team_id"], value))
 
-            if len(team_values) < min_sample:
-                logger.debug(
-                    "Skipping team %s: only %d teams (need %d)",
-                    stat_name, len(team_values), min_sample
-                )
-                continue
-
+            # Always calculate percentiles regardless of sample size
+            # The API adds a small_sample_warning flag when sample_size < 20
             all_values = [v for _, v in team_values]
             sample_size = len(all_values)
 

@@ -1,21 +1,108 @@
-# Stats API Documentation
+# Widget API Documentation
 
-This document describes the unified stats endpoint that serves both raw statistics and percentile rankings.
+This document describes the widget endpoints that serve entity profiles and statistics.
 
 ## Overview
 
-The `/api/v1/widget/stats` endpoint now serves **both raw stats and percentiles** in a single response. This eliminates the need for multiple API calls and simplifies frontend integration.
+The widget API provides two main endpoints:
 
-### Key Changes
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/v1/widget/profile` | Entity info from profile tables (name, photo, team, etc.) |
+| `/api/v1/widget/stats` | Stats + percentiles from stats tables |
 
-- **Single endpoint** for stats + percentiles (no separate `/percentiles` endpoint)
+### Key Features
+
+- **Separate endpoints** for profile and stats (clean data separation)
 - **Percentiles stored as JSONB** directly in stats tables
 - **Zero/null values filtered** - only non-zero stats are returned
 - **Per-36 (NBA) and Per-90 (Football)** stats included with percentile rankings
+- **Small sample warning** - flag indicates when percentile comparison group is small
 
 ---
 
-## Endpoint
+## Profile Endpoint
+
+### `GET /api/v1/widget/profile/{entity_type}/{entity_id}`
+
+Returns entity profile information (name, photo, team affiliation, etc.).
+
+### Path Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `entity_type` | string | `player` or `team` |
+| `entity_id` | integer | The player or team ID |
+
+### Query Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `sport` | string | **Yes** | `NBA`, `NFL`, or `FOOTBALL` |
+
+### Response Example (NBA Player)
+
+```json
+{
+  "id": 237,
+  "sport_id": "NBA",
+  "first_name": "LeBron",
+  "last_name": "James",
+  "full_name": "LeBron James",
+  "position": "F",
+  "position_group": "Forward",
+  "nationality": "USA",
+  "birth_date": "1984-12-30",
+  "height_inches": 81,
+  "weight_lbs": 250,
+  "photo_url": "https://...",
+  "current_team_id": 17,
+  "jersey_number": 23,
+  "college": "None",
+  "experience_years": 21,
+  "is_active": true,
+  "team": {
+    "id": 17,
+    "name": "Los Angeles Lakers",
+    "abbreviation": "LAL",
+    "logo_url": "https://...",
+    "conference": "West",
+    "division": "Pacific",
+    "city": "Los Angeles"
+  },
+  "league": null
+}
+```
+
+### Response Example (Football Team)
+
+```json
+{
+  "id": 33,
+  "sport_id": "FOOTBALL",
+  "league_id": 39,
+  "name": "Manchester United",
+  "abbreviation": "MUN",
+  "logo_url": "https://...",
+  "country": "England",
+  "city": "Manchester",
+  "founded": 1878,
+  "is_national": false,
+  "venue_name": "Old Trafford",
+  "venue_capacity": 74310,
+  "is_active": true,
+  "league": {
+    "id": 39,
+    "name": "Premier League",
+    "country": "England",
+    "logo_url": "https://..."
+  }
+}
+```
+
+---
+
+## Stats Endpoint
 
 ### `GET /api/v1/widget/stats/{entity_type}/{entity_id}`
 
@@ -66,7 +153,8 @@ Returns statistics and percentile rankings for a player or team.
   },
   "percentile_metadata": {
     "position_group": "Guard",
-    "sample_size": 150
+    "sample_size": 150,
+    "small_sample_warning": false
   }
 }
 ```
@@ -124,8 +212,11 @@ Contains percentile rankings for each stat (0-100 scale):
 |-------|------|-------------|
 | `position_group` | string | Position group used for comparison (e.g., "Guard", "Forward") |
 | `sample_size` | integer | Number of entities in the comparison group |
+| `small_sample_warning` | boolean | `true` if sample_size < 20 (percentiles may be less reliable) |
 
-**Note:** For teams, `position_group` is `null` as teams are compared across the entire league.
+**Notes:**
+- For teams, `position_group` is `null` as teams are compared across the entire league.
+- When `small_sample_warning` is `true`, consider displaying a visual indicator to users that the percentile comparison group is small and rankings may be less meaningful.
 
 ---
 
@@ -251,21 +342,25 @@ Percentiles are calculated within meaningful comparison groups:
 
 ## Migration Notes
 
-### Breaking Changes
+### Breaking Changes from Previous Versions
 
-1. **`/percentiles` endpoint removed** - Use `/stats` instead
-2. **Response structure changed** - `stats` is now a nested object, with `percentiles` and `percentile_metadata` as siblings
+1. **`/info` endpoint removed** - Use `/profile` instead
+2. **`/percentiles` endpoint removed** - Use `/stats` instead (percentiles included in response)
+3. **Old unified `/profile` removed** - The old `/profile` returned info + stats + percentiles combined; now `/profile` returns entity info only
+4. **New `small_sample_warning` field** - Added to `percentile_metadata`
 
-### Before (Old API)
+### Current API Pattern
 ```javascript
-// Had to make 2 calls
+// Get entity profile (name, photo, team, etc.)
+const profileResponse = await fetch('/api/v1/widget/profile/player/237?sport=NBA');
+const profile = await profileResponse.json();
+
+// Get entity stats + percentiles
 const statsResponse = await fetch('/api/v1/widget/stats/player/237?sport=NBA');
-const percentilesResponse = await fetch('/api/v1/widget/percentiles/player/237?sport=NBA');
-```
+const { stats, percentiles, percentile_metadata } = await statsResponse.json();
 
-### After (New API)
-```javascript
-// Single call gets everything
-const response = await fetch('/api/v1/widget/stats/player/237?sport=NBA');
-const { stats, percentiles, percentile_metadata } = await response.json();
+// Check for small sample warning
+if (percentile_metadata?.small_sample_warning) {
+  console.warn('Percentiles based on small comparison group');
+}
 ```

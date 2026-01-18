@@ -131,6 +131,8 @@ PERCENTILE_CATEGORIES: dict[str, dict[str, list[str]]] = {
 }
 
 # Minimum sample sizes for meaningful percentiles
+# Note: These are no longer used to EXCLUDE data - percentiles are always calculated.
+# They are kept for reference and potential future use.
 MIN_SAMPLE_SIZES = {
     "NBA": {
         "player": 50,  # At least 50 players in comparison group
@@ -145,6 +147,10 @@ MIN_SAMPLE_SIZES = {
         "team": 15,     # Per league
     },
 }
+
+# Threshold for small sample warning flag in API responses
+# When sample_size < this value, percentile_metadata.small_sample_warning = true
+SMALL_SAMPLE_WARNING_THRESHOLD = 20
 
 # Stats where higher is worse (for inverse percentile calculation)
 INVERSE_STATS = {

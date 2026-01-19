@@ -12,6 +12,11 @@ Sport-specific database schema with dedicated tables for each sport:
 - **NFL** - American football with position-specific stat groupings
 - **Football (Soccer)** - European leagues with per-90 minute normalization
 
+Each sport is configured via TOML files in `sports/{sport}/config.toml`, enabling:
+- Independent data providers per sport
+- Sport-specific position groups for percentile comparison
+- Customizable normalization (per-36, per-90, per-game)
+
 ### Machine Learning
 
 TensorFlow-powered predictive analytics:
@@ -38,28 +43,54 @@ FastAPI server with optimizations:
 - Two-tier caching (L1 in-memory + L2 Redis)
 - Background cache warming every 30 minutes
 - GZIP compression for responses >1KB
+- Rate limiting with configurable limits
 
 ## API Endpoints
 
-### Widget (`/api/v1/widget`)
+### Profile (`/api/v1/profile/{type}/{id}`)
 
-Entity info and statistics for frontend widgets.
+Entity profiles with biographical data and photos.
+
+```
+GET /api/v1/profile/player/123?sport=NBA
+GET /api/v1/profile/team/456?sport=NFL
+```
+
+### Stats (`/api/v1/stats/{type}/{id}`)
+
+Entity statistics with percentile rankings.
+
+```
+GET /api/v1/stats/player/123?sport=NBA&season=2024-25
+GET /api/v1/stats/team/456?sport=FOOTBALL
+```
+
+### News (`/api/v1/news/{type}/{id}`)
+
+Unified news from Google News RSS and NewsAPI.
+
+```
+GET /api/v1/news/player/123?sport=NBA&limit=10
+GET /api/v1/news/team/456?sport=NFL&source=both
+```
+
+Parameters:
+- `source`: `rss` (default, free), `api` (NewsAPI), or `both` (merged)
+
+### Twitter (`/api/v1/twitter/journalist-feed`)
+
+Curated journalist feed from X/Twitter Lists.
+
+```
+GET /api/v1/twitter/journalist-feed?q=LeBron&sport=NBA
+```
 
 ### ML (`/api/v1/ml`)
 
-- Transfer predictions and trending transfers
-- Vibe scores (sentiment analysis)
-- Entity similarity and comparisons
-- Game performance predictions
-- Model accuracy metrics
-
-### Intel (`/api/v1/intel`)
-
-External data sources integration (requires API keys).
-
-### News (`/api/v1/news`)
-
-Google News RSS feeds for players and teams.
+- `GET /ml/transfers/trending` - Trending transfer predictions
+- `GET /ml/vibe/{type}/{id}` - Entity vibe score
+- `GET /ml/similar/{type}/{id}` - Similar entities
+- `GET /ml/predictions/{type}/{id}` - Performance predictions
 
 ### Health Checks
 
@@ -111,7 +142,9 @@ Required:
 Optional:
 
 - `REDIS_URL` - For distributed caching
-- External service API keys for Intel endpoints
+- `NEWS_API_KEY` - NewsAPI.org for enhanced news
+- `TWITTER_BEARER_TOKEN` - X/Twitter API for journalist feed
+- `TWITTER_JOURNALIST_LIST_ID` - Curated journalist X List ID
 
 ### Quick Start
 
@@ -138,24 +171,45 @@ Small dataset fixture for quick validation without API calls:
 
 ## Architecture
 
-```text
+```
 src/scoracle_data/
-├── api/                # FastAPI application
-│   ├── main.py         # App entry, middleware, caching
-│   ├── types.py        # Sport registry and configuration
-│   └── routers/        # Endpoint handlers (widget, ml, intel, news)
-├── ml/                 # Machine learning models
-│   ├── models/         # TensorFlow model implementations
-│   └── config.py       # ML configuration and source credibility tiers
-├── percentiles/        # Percentile calculation engine
-│   ├── python_calculator.py  # Pure Python calculator (active)
-│   └── config.py       # Stat categories, min samples, inverse stats
-├── seeders/            # Data population from API-Sports
-├── migrations/         # Database schema migrations
-├── external/           # External data sources (news, social)
-├── queries/            # Query builders
-├── models.py           # Pydantic models
-└── cli.py              # Command-line interface
+├── core/                   # Centralized configuration
+│   ├── config.py           # Settings (pydantic-settings)
+│   ├── models.py           # Response models
+│   └── types.py            # Sport, EntityType enums
+├── db/                     # Database layer
+│   └── __init__.py         # PostgresDB, repositories
+├── services/               # Business logic services
+│   ├── news/               # Unified NewsService (RSS + NewsAPI)
+│   ├── twitter/            # TwitterService for journalist feed
+│   └── percentiles/        # PercentileService wrapper
+├── sports/                 # Sport-specific configuration
+│   ├── registry.py         # TOML config loader
+│   ├── nba/config.toml     # NBA: API-Sports, per-36, position groups
+│   ├── nfl/config.toml     # NFL: API-Sports, per-game, positions
+│   └── football/config.toml # Football: API-Sports, per-90, Top 5 leagues
+├── providers/              # Data provider abstraction
+│   ├── base.py             # DataProviderProtocol
+│   └── api_sports.py       # API-Sports implementation
+├── api/                    # FastAPI application
+│   ├── main.py             # App entry, middleware, caching
+│   └── routers/            # Endpoint handlers
+│       ├── profile.py      # GET /profile/{type}/{id}
+│       ├── stats.py        # GET /stats/{type}/{id}
+│       ├── news.py         # GET /news/{type}/{id}
+│       ├── twitter.py      # GET /twitter/journalist-feed
+│       └── ml.py           # ML endpoints
+├── ml/                     # Machine learning models
+│   ├── models/             # TensorFlow implementations
+│   ├── jobs/               # Background ML jobs
+│   └── config.py           # ML configuration
+├── percentiles/            # Percentile calculation engine
+│   ├── python_calculator.py # Pure Python calculator
+│   └── config.py           # Stat categories, inverse stats
+├── seeders/                # Data population from API-Sports
+├── migrations/             # Database schema migrations
+├── external/               # External API clients (Twitter, News)
+└── cli.py                  # Command-line interface
 ```
 
 ## Database Schema
@@ -164,8 +218,8 @@ src/scoracle_data/
 
 Each sport has dedicated tables to prevent ID collisions:
 
-- `{sport}_player_profiles` / `{sport}_team_profiles`
-- `{sport}_player_stats` / `{sport}_team_stats`
+- `{sport}_players` / `{sport}_teams` - Profile tables
+- `{sport}_player_stats` / `{sport}_team_stats` - Statistics tables
 
 ### ML Tables
 
@@ -178,7 +232,6 @@ Each sport has dedicated tables to prevent ID collisions:
 ### Core Tables
 
 - `sports`, `seasons`, `leagues`
-- `players`, `teams`
 - `percentile_archive`, `fixtures_schedule`
 
 ## Documentation

@@ -1,0 +1,344 @@
+# NBA Sport Configuration
+# Defines field mappings, provider configurations, and sport-specific settings
+
+sport_id: NBA
+display_name: "National Basketball Association"
+season_format: "YYYY-YY"  # e.g., "2024-25"
+
+# =============================================================================
+# Provider Configurations
+# =============================================================================
+providers:
+  api_sports:
+    base_url: "https://v2.nba.api-sports.io"
+    league: "standard"
+    
+    # -------------------------------------------------------------------------
+    # Team Discovery (minimal fields for roster fetch)
+    # -------------------------------------------------------------------------
+    team_discovery:
+      id: "id"
+      name: "name"
+      # Try multiple paths in order, use first non-null
+      abbreviation:
+        - "code"
+        - "nickname"
+        - "name"
+      logo_url: "logo"
+      # For filtering - only include NBA franchises
+      _filter_field: "nbaFranchise"
+      _filter_value: true
+    
+    # -------------------------------------------------------------------------
+    # Team Profile (full details)
+    # -------------------------------------------------------------------------
+    team_profile:
+      id: "id"
+      name: "name"
+      abbreviation:
+        - "code"
+        - "nickname"
+      logo_url: "logo"
+      conference: 
+        - "conference"
+        - "leagues.standard.conference"
+      division:
+        - "division"
+        - "leagues.standard.division"
+      city: "city"
+      country: "country"
+      founded: "founded"
+      # Venue info - may be nested dict or flat
+      venue_name:
+        - "venue.name"
+        - "arena"
+      venue_city:
+        - "venue.city"
+        - "city"
+      venue_capacity: "venue.capacity"
+      venue_surface: "venue.surface"
+      venue_image: "venue.image"
+    
+    # -------------------------------------------------------------------------
+    # Player Discovery (minimal fields from roster)
+    # -------------------------------------------------------------------------
+    player_discovery:
+      id: "id"
+      first_name:
+        - "first_name"
+        - "firstname"
+      last_name:
+        - "last_name"
+        - "lastname"
+      full_name: "name"
+      position: "position"
+      jersey_number: "jersey"
+      photo_url: "photo_url"
+      # Team ID comes from fetch context, not API response
+      current_team_id: "_context.team_id"
+    
+    # -------------------------------------------------------------------------
+    # Player Profile (full biographical data)
+    # -------------------------------------------------------------------------
+    player_profile:
+      id: "id"
+      first_name:
+        - "first_name"
+        - "firstname"
+      last_name:
+        - "last_name"
+        - "lastname"
+      full_name: "name"
+      # Position from nested leagues structure
+      position:
+        - "position"
+        - "leagues.standard.pos"
+      jersey_number:
+        - "jersey"
+        - "leagues.standard.jersey"
+      # Birth info
+      birth_date:
+        - "birth_date"
+        - "birth.date"
+      birth_country:
+        - "nationality"
+        - "birth.country"
+      birth_place: "birth.place"
+      # Physical attributes (raw - transform later)
+      height: "height"
+      weight: "weight"
+      photo_url: "photo_url"
+      # Team info
+      current_team_id: "team.id"
+      # Career info
+      college: "college"
+      nba_start_year: "nba.start"
+      affiliation: "affiliation"
+    
+    # -------------------------------------------------------------------------
+    # Player Stats (aggregated from game logs)
+    # -------------------------------------------------------------------------
+    player_stats:
+      # These map API game log fields to our canonical names
+      # Aggregation happens in the provider
+      minutes: "min"
+      points: "points"
+      fgm: "fgm"
+      fga: "fga"
+      tpm: "tpm"
+      tpa: "tpa"
+      ftm: "ftm"
+      fta: "fta"
+      offensive_rebounds: "offReb"
+      defensive_rebounds: "defReb"
+      total_rebounds: "totReb"
+      assists: "assists"
+      turnovers: "turnovers"
+      steals: "steals"
+      blocks: "blocks"
+      personal_fouls: "pFouls"
+      plus_minus: "plusMinus"
+    
+    # -------------------------------------------------------------------------
+    # Team Stats (from standings + team statistics)
+    # -------------------------------------------------------------------------
+    team_stats:
+      # From standings endpoint
+      home_wins: "win.home"
+      away_wins: "win.away"
+      home_losses: "loss.home"
+      away_losses: "loss.away"
+      # From team statistics endpoint (optional)
+      total_points: "_team_stats.points"
+      total_games: "_team_stats.games"
+
+# =============================================================================
+# Stat Aggregation Rules
+# =============================================================================
+# Defines how to aggregate game-level stats to season totals
+stat_aggregations:
+  # Count fields
+  games_played: "count"
+  games_started: "count_where:started=true"
+  
+  # Sum fields
+  minutes_total: "sum:minutes"
+  points_total: "sum:points"
+  fgm: "sum"
+  fga: "sum"
+  tpm: "sum"
+  tpa: "sum"
+  ftm: "sum"
+  fta: "sum"
+  offensive_rebounds: "sum"
+  defensive_rebounds: "sum"
+  assists: "sum"
+  turnovers: "sum"
+  steals: "sum"
+  blocks: "sum"
+  personal_fouls: "sum"
+  plus_minus: "sum"
+
+# =============================================================================
+# Position Groups
+# =============================================================================
+position_groups:
+  G: "Guard"
+  PG: "Guard"
+  SG: "Guard"
+  F: "Forward"
+  SF: "Forward"
+  PF: "Forward"
+  C: "Center"
+  G-F: "Guard"
+  F-G: "Guard"
+  F-C: "Forward"
+  C-F: "Forward"
+
+# =============================================================================
+# Entity Filters
+# =============================================================================
+filters:
+  teams:
+    # Only include actual NBA franchises (excludes international teams)
+    nbaFranchise: true
+
+# =============================================================================
+# Column Definitions
+# =============================================================================
+# These define what columns exist in the database tables
+# Used by repositories for dynamic query building
+
+columns:
+  player_profile:
+    - id
+    - first_name
+    - last_name
+    - full_name
+    - position
+    - position_group
+    - nationality
+    - birth_date
+    - birth_place
+    - birth_country
+    - height_inches
+    - weight_lbs
+    - photo_url
+    - current_team_id
+    - jersey_number
+    - college
+    - experience_years
+    - profile_fetched_at
+    - updated_at
+    - raw_response
+  
+  team_profile:
+    - id
+    - name
+    - abbreviation
+    - conference
+    - division
+    - city
+    - country
+    - logo_url
+    - founded
+    - venue_name
+    - venue_address
+    - venue_city
+    - venue_capacity
+    - venue_surface
+    - venue_image
+    - profile_fetched_at
+    - updated_at
+    - raw_response
+  
+  player_stats:
+    - player_id
+    - season_id
+    - team_id
+    - games_played
+    - games_started
+    - minutes_total
+    - minutes_per_game
+    - points_total
+    - points_per_game
+    - fgm
+    - fga
+    - fg_pct
+    - tpm
+    - tpa
+    - tp_pct
+    - ftm
+    - fta
+    - ft_pct
+    - offensive_rebounds
+    - defensive_rebounds
+    - total_rebounds
+    - rebounds_per_game
+    - assists
+    - assists_per_game
+    - turnovers
+    - turnovers_per_game
+    - steals
+    - steals_per_game
+    - blocks
+    - blocks_per_game
+    - personal_fouls
+    - fouls_per_game
+    - plus_minus
+    - plus_minus_per_game
+    # Advanced stats (calculated in post-processing)
+    - efficiency
+    - true_shooting_pct
+    - effective_fg_pct
+    - assist_turnover_ratio
+    - updated_at
+    - raw_response
+  
+  team_stats:
+    - team_id
+    - season_id
+    - games_played
+    - wins
+    - losses
+    - win_pct
+    - home_wins
+    - home_losses
+    - away_wins
+    - away_losses
+    - points_per_game
+    - opponent_ppg
+    - updated_at
+    - raw_response
+
+# =============================================================================
+# Transforms
+# =============================================================================
+# Field transformations applied during mapping
+# These reference functions in scoracle_data.seeders.utils
+
+transforms:
+  # Height conversion (API returns various formats)
+  height_inches:
+    source: "height"
+    function: "parse_height_to_inches"
+  
+  # Weight conversion
+  weight_lbs:
+    source: "weight"
+    function: "parse_weight_to_lbs"
+  
+  # Position group derivation
+  position_group:
+    source: "position"
+    function: "get_nba_position_group"
+  
+  # Experience years calculation
+  experience_years:
+    source: "nba_start_year"
+    function: "calculate_experience_years"
+  
+  # Full name building
+  full_name:
+    sources: ["first_name", "last_name"]
+    function: "build_full_name"

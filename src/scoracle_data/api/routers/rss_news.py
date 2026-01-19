@@ -1,12 +1,13 @@
 """
-News router with Google News RSS as free fallback.
+RSS News router - serves news via Google News RSS feed.
 
-This router provides news endpoints that use:
-1. NewsAPI (if configured) - better quality, requires API key
-2. Google News RSS (fallback) - free, no API key required
+Endpoints:
+- GET / - Get aggregated news for a sport
+- GET /{entity_name} - Get news about a specific entity (player/team)
+- GET /status - Check RSS news service status
 
-The /intel/news endpoint in intel.py remains unchanged for direct NewsAPI access.
-This router adds entity-specific and sport-wide news endpoints.
+This router uses Google News RSS which is free and requires no API key.
+For NewsAPI access, use the /api-news endpoint instead.
 """
 
 import logging
@@ -17,7 +18,7 @@ from fastapi import APIRouter, Query, Response
 from fastapi.responses import JSONResponse
 
 from ..cache import get_cache
-from ...external import NewsClient, GoogleNewsClient
+from ...external import GoogleNewsClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,17 +35,8 @@ class Sport(str, Enum):
     FOOTBALL = "FOOTBALL"
 
 
-# Lazy-initialized clients
-_news_client: NewsClient | None = None
+# Lazy-initialized client
 _google_news_client: GoogleNewsClient | None = None
-
-
-def get_news_client() -> NewsClient:
-    """Get or create NewsAPI client."""
-    global _news_client
-    if _news_client is None:
-        _news_client = NewsClient()
-    return _news_client
 
 
 def get_google_news_client() -> GoogleNewsClient:
@@ -53,6 +45,21 @@ def get_google_news_client() -> GoogleNewsClient:
     if _google_news_client is None:
         _google_news_client = GoogleNewsClient()
     return _google_news_client
+
+
+@router.get("/status")
+async def get_rss_news_status():
+    """
+    Check RSS News service status.
+
+    Google News RSS is always available (no API key required).
+    """
+    return {
+        "service": "google_news_rss",
+        "configured": True,
+        "rate_limit": "Self-limited (respectful crawling)",
+        "note": "No API key required. Free service via Google News RSS feeds.",
+    }
 
 
 @router.get("/{entity_name}")
@@ -66,7 +73,7 @@ async def get_entity_news(
     """
     Get news articles about a specific entity (player or team).
 
-    Uses NewsAPI if configured, falls back to Google News RSS (free).
+    Uses Google News RSS feed (free, no API key required).
 
     Args:
         entity_name: Player or team name
@@ -75,10 +82,10 @@ async def get_entity_news(
         limit: Maximum articles to return
 
     Returns:
-        Dictionary with articles and metadata including source info
+        Dictionary with articles and metadata
     """
     cache = get_cache()
-    cache_key = ("news", entity_name, sport.value if sport else None, limit)
+    cache_key = ("rss_news", "entity", entity_name, sport.value if sport else None, limit)
 
     # Check cache
     cached = cache.get(*cache_key)
@@ -89,27 +96,6 @@ async def get_entity_news(
 
     response.headers["X-Cache"] = "MISS"
 
-    # Try NewsAPI first (better quality)
-    news_client = get_news_client()
-    if news_client.is_configured():
-        try:
-            result = await news_client.search(
-                query=entity_name,
-                sport=sport.value if sport else None,
-                days=7,
-                limit=limit,
-            )
-            result["provider"] = "newsapi"
-
-            # Cache and return
-            cache.set(result, *cache_key, ttl=NEWS_CACHE_TTL)
-            response.headers["Cache-Control"] = f"public, max-age={NEWS_CACHE_TTL}"
-            return result
-
-        except Exception as e:
-            logger.warning(f"NewsAPI failed, falling back to Google News: {e}")
-
-    # Fallback to Google News RSS (free)
     google_client = get_google_news_client()
     try:
         result = await google_client.search(
@@ -126,13 +112,13 @@ async def get_entity_news(
         return result
 
     except Exception as e:
-        logger.error(f"Google News RSS also failed: {e}")
+        logger.error(f"Google News RSS failed: {e}")
         return JSONResponse(
             status_code=503,
             content={
                 "error": {
                     "code": "NEWS_UNAVAILABLE",
-                    "message": "News services temporarily unavailable",
+                    "message": "Google News RSS temporarily unavailable",
                 }
             },
         )
@@ -147,7 +133,7 @@ async def get_sport_news(
     """
     Get aggregated news for a sport.
 
-    Returns recent news about the sport in general.
+    Returns recent news about the sport in general via Google News RSS.
 
     Args:
         sport: Sport identifier (NBA, NFL, FOOTBALL)
@@ -157,7 +143,7 @@ async def get_sport_news(
         Dictionary with articles and metadata
     """
     cache = get_cache()
-    cache_key = ("sport_news", sport.value, limit)
+    cache_key = ("rss_news", "sport", sport.value, limit)
 
     # Check cache
     cached = cache.get(*cache_key)
@@ -168,7 +154,6 @@ async def get_sport_news(
 
     response.headers["X-Cache"] = "MISS"
 
-    # Use Google News for sport-wide news (free, no API limit concerns)
     google_client = get_google_news_client()
     try:
         result = await google_client.search_sport(
@@ -189,7 +174,7 @@ async def get_sport_news(
             content={
                 "error": {
                     "code": "NEWS_UNAVAILABLE",
-                    "message": "News services temporarily unavailable",
+                    "message": "Google News RSS temporarily unavailable",
                 }
             },
         )

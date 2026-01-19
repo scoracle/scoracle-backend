@@ -76,9 +76,10 @@ class VibeCalculatorJob:
         self.decay_per_day = self.config.get("decay_per_day", 0.9)
 
         # Source weights
+        # Note: Reddit weight set to 0 (soft deprecated - removed from API)
         self.source_weights = self.config.get("source_weights", {
             "twitter": 1.0,
-            "reddit": 0.8,
+            "reddit": 0.0,  # Deprecated - Reddit removed from API
             "news": 0.9,
         })
 

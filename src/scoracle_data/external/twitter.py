@@ -216,3 +216,89 @@ class TwitterClient(BaseExternalClient):
                 "oldest_id": meta.get("oldest_id"),
             },
         }
+
+    async def get_list_tweets(
+        self,
+        list_id: str,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        """
+        Fetch recent tweets from a curated X List.
+
+        Uses GET /2/lists/{id}/tweets endpoint.
+        Rate limit: 900 requests per 15 minutes.
+
+        Args:
+            list_id: The X List ID
+            limit: Maximum tweets to return (1-100)
+
+        Returns:
+            Dictionary with tweets and metadata
+        """
+        if not self.is_configured():
+            raise ExternalAPIError(
+                "Twitter API not configured. Set TWITTER_BEARER_TOKEN environment variable.",
+                code="SERVICE_UNAVAILABLE",
+                status_code=503,
+            )
+
+        limit = min(max(1, limit), 100)  # Clamp to 1-100
+
+        params = {
+            "max_results": limit,
+            "tweet.fields": "created_at,public_metrics,author_id",
+            "user.fields": "username,name,verified,profile_image_url",
+            "expansions": "author_id",
+        }
+
+        try:
+            response = await self.get(f"/lists/{list_id}/tweets", params=params)
+        except ExternalAPIError:
+            raise
+        except Exception as e:
+            logger.error(f"Twitter List fetch failed: {e}")
+            raise ExternalAPIError(f"Twitter List fetch failed: {str(e)}")
+
+        # Build users map for author lookup
+        users_map = {}
+        includes = response.get("includes", {})
+        for user in includes.get("users", []):
+            users_map[user["id"]] = user
+
+        # Parse tweets
+        tweets = []
+        for tweet_data in response.get("data", []):
+            try:
+                tweet = self._parse_tweet(tweet_data, users_map)
+                tweets.append({
+                    "id": tweet.id,
+                    "text": tweet.text,
+                    "author": {
+                        "username": tweet.author.username,
+                        "name": tweet.author.name,
+                        "verified": tweet.author.verified,
+                        "profile_image_url": tweet.author.profile_image_url,
+                    },
+                    "created_at": tweet.created_at,
+                    "metrics": {
+                        "likes": tweet.metrics.likes,
+                        "retweets": tweet.metrics.retweets,
+                        "replies": tweet.metrics.replies,
+                    },
+                    "url": tweet.url,
+                })
+            except Exception as e:
+                logger.warning(f"Failed to parse tweet: {e}")
+                continue
+
+        meta = response.get("meta", {})
+
+        return {
+            "list_id": list_id,
+            "tweets": tweets,
+            "meta": {
+                "result_count": meta.get("result_count", len(tweets)),
+                "newest_id": meta.get("newest_id"),
+                "oldest_id": meta.get("oldest_id"),
+            },
+        }

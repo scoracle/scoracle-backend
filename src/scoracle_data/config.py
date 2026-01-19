@@ -109,6 +109,14 @@ class Settings(BaseSettings):
         default=None,
         description="Twitter API v2 bearer token",
     )
+    twitter_journalist_list_id: Optional[str] = Field(
+        default=None,
+        description="X List ID containing trusted sports journalists",
+    )
+    twitter_feed_cache_ttl: int = Field(
+        default=3600,
+        description="TTL for cached journalist feed in seconds (default: 1 hour)",
+    )
     news_api_key: Optional[str] = Field(
         default=None,
         description="NewsAPI.org API key",

@@ -25,7 +25,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import intel, ml, news, widget
+from .routers import api_news, ml, profile, rss_news, stats, twitter
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
@@ -427,12 +427,16 @@ def create_app() -> FastAPI:
         }
 
     # Include routers
-    # Widget endpoints - primary API for frontend
-    app.include_router(widget.router, prefix="/api/v1/widget", tags=["widget"])
-    # Intel endpoints - external data sources (requires API keys)
-    app.include_router(intel.router, prefix="/api/v1/intel", tags=["intel"])
-    # News endpoint - Google News RSS (free, no API key)
-    app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
+    # Profile endpoints - entity profiles (name, photo, team, etc.)
+    app.include_router(profile.router, prefix="/api/v1/profile", tags=["profile"])
+    # Stats endpoints - entity statistics and percentiles
+    app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])
+    # Twitter endpoints - curated journalist feed
+    app.include_router(twitter.router, prefix="/api/v1/twitter", tags=["twitter"])
+    # RSS News endpoint - Google News RSS (free, no API key)
+    app.include_router(rss_news.router, prefix="/api/v1/rss-news", tags=["rss-news"])
+    # API News endpoint - NewsAPI.org (requires API key)
+    app.include_router(api_news.router, prefix="/api/v1/api-news", tags=["api-news"])
     # ML endpoints - transfer predictions, vibe scores, similarity
     app.include_router(ml.router, prefix="/api/v1/ml", tags=["ml"])
 

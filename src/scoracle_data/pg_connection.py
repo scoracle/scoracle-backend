@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
 import psycopg
+from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
@@ -34,6 +35,20 @@ TEAM_PROFILE_TABLES = {
     "NFL": "nfl_team_profiles",
     "FOOTBALL": "football_team_profiles",
 }
+
+
+def _check_connection(conn: psycopg.Connection) -> None:
+    """
+    Health check callback for connection pool.
+
+    Validates that a connection is still alive before handing it out.
+    Raises an exception if the connection is dead, causing the pool
+    to discard it and create a new one.
+
+    This is critical for serverless databases like Neon that close
+    idle SSL connections unexpectedly.
+    """
+    conn.execute(sql.SQL("SELECT 1"))
 
 
 class PostgresDB:
@@ -72,12 +87,20 @@ class PostgresDB:
         self._max_pool_size = max_pool_size or int(os.environ.get("DATABASE_POOL_SIZE", 10))
         self._min_pool_size = min_pool_size
 
-        # Initialize connection pool
+        # Initialize connection pool with health checks for serverless databases (Neon)
+        # - check: validates connection is alive before use (handles SSL disconnects)
+        # - max_idle: close connections idle longer than 5 minutes
+        # - max_lifetime: force refresh connections after 1 hour
+        # - reconnect_timeout: time to wait for reconnection on pool exhaustion
         self._pool = ConnectionPool(
             self.connection_string,
             min_size=self._min_pool_size,
             max_size=self._max_pool_size,
             kwargs={"row_factory": dict_row},
+            check=_check_connection,
+            max_idle=300,         # 5 minutes - close idle connections
+            max_lifetime=3600,    # 1 hour - force refresh old connections
+            reconnect_timeout=60, # 1 minute - time to wait for reconnection
         )
 
     def open(self) -> None:

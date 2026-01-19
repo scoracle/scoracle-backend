@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from ..pg_connection import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+
 if TYPE_CHECKING:
     from ..connection import StatsDB
 
@@ -84,11 +86,14 @@ class PlayerQueries:
             "FOOTBALL": "football_player_stats",
         }
 
-        table = table_map.get(sport_id)
-        if not table:
+        stats_table = table_map.get(sport_id)
+        player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not player_profile_table or not team_profile_table:
             return []
 
-        # Build query
+        # Build query using sport-specific profile tables
         if position_group:
             query = f"""
                 SELECT
@@ -97,17 +102,16 @@ class PlayerQueries:
                     p.position,
                     t.name as team_name,
                     s.{stat_name} as stat_value
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id
-                LEFT JOIN teams t ON p.current_team_id = t.id
+                FROM {stats_table} s
+                JOIN {player_profile_table} p ON s.player_id = p.id
+                LEFT JOIN {team_profile_table} t ON p.current_team_id = t.id
                 WHERE s.season_id = %s
-                  AND p.sport_id = %s
                   AND p.position_group = %s
                   AND s.{stat_name} IS NOT NULL
                 ORDER BY s.{stat_name} DESC
                 LIMIT %s
             """
-            params = (season_id, sport_id, position_group, limit)
+            params = (season_id, position_group, limit)
         else:
             query = f"""
                 SELECT
@@ -116,16 +120,15 @@ class PlayerQueries:
                     p.position,
                     t.name as team_name,
                     s.{stat_name} as stat_value
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id
-                LEFT JOIN teams t ON p.current_team_id = t.id
+                FROM {stats_table} s
+                JOIN {player_profile_table} p ON s.player_id = p.id
+                LEFT JOIN {team_profile_table} t ON p.current_team_id = t.id
                 WHERE s.season_id = %s
-                  AND p.sport_id = %s
                   AND s.{stat_name} IS NOT NULL
                 ORDER BY s.{stat_name} DESC
                 LIMIT %s
             """
-            params = (season_id, sport_id, limit)
+            params = (season_id, limit)
 
         rows = self.db.fetchall(query, params)
 
@@ -191,13 +194,16 @@ class PlayerQueries:
             "FOOTBALL": "football_player_stats",
         }
 
-        table = table_map.get(sport_id)
-        if not table:
+        stats_table = table_map.get(sport_id)
+        player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not player_profile_table or not team_profile_table:
             return []
 
-        # Build WHERE conditions
-        conditions = ["s.season_id = %s", "p.sport_id = %s"]
-        params: list[Any] = [season_id, sport_id]
+        # Build WHERE conditions (no sport_id filter needed - tables are sport-specific)
+        conditions = ["s.season_id = %s"]
+        params: list[Any] = [season_id]
 
         for stat_name, (operator, value) in filters.items():
             if operator in (">=", "<=", ">", "<", "="):
@@ -213,9 +219,9 @@ class PlayerQueries:
                 p.position,
                 t.name as team_name,
                 s.*
-            FROM {table} s
-            JOIN players p ON s.player_id = p.id
-            LEFT JOIN teams t ON p.current_team_id = t.id
+            FROM {stats_table} s
+            JOIN {player_profile_table} p ON s.player_id = p.id
+            LEFT JOIN {team_profile_table} t ON p.current_team_id = t.id
             WHERE {' AND '.join(conditions)}
             LIMIT %s
         """

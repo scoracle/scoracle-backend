@@ -35,6 +35,14 @@ if TYPE_CHECKING:
 
 from .post_match_seeder import PostMatchSeeder, PostMatchResult
 
+# Sport-specific team profile table mappings for fixture queries
+# These are needed because fixtures can reference teams from any sport
+TEAM_PROFILE_TABLES_FOR_FIXTURES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 logger = logging.getLogger(__name__)
 
 
@@ -280,6 +288,8 @@ class SchedulerService:
         Returns:
             List of upcoming fixture details
         """
+        # Use COALESCE to get team names from sport-specific profile tables
+        # This handles fixtures from any sport (NBA, NFL, FOOTBALL)
         query = """
             SELECT
                 f.id,
@@ -288,12 +298,16 @@ class SchedulerService:
                 f.start_time,
                 f.seed_delay_hours,
                 f.status,
-                ht.name as home_team_name,
-                at.name as away_team_name,
+                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
+                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
                 s.season_year
             FROM fixtures f
-            JOIN teams ht ON ht.id = f.home_team_id
-            JOIN teams at ON at.id = f.away_team_id
+            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
+            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
             JOIN seasons s ON s.id = f.season_id
             WHERE f.status = 'scheduled'
               AND f.start_time BETWEEN NOW() AND NOW() + (%s || ' hours')::INTERVAL
@@ -332,6 +346,7 @@ class SchedulerService:
         Returns:
             List of recently seeded fixture details
         """
+        # Use COALESCE to get team names from sport-specific profile tables
         query = """
             SELECT
                 f.id,
@@ -340,12 +355,16 @@ class SchedulerService:
                 f.start_time,
                 f.seeded_at,
                 f.status,
-                ht.name as home_team_name,
-                at.name as away_team_name,
+                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
+                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
                 s.season_year
             FROM fixtures f
-            JOIN teams ht ON ht.id = f.home_team_id
-            JOIN teams at ON at.id = f.away_team_id
+            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
+            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
             JOIN seasons s ON s.id = f.season_id
             WHERE f.status = 'seeded'
               AND f.seeded_at >= NOW() - (%s || ' hours')::INTERVAL
@@ -382,6 +401,7 @@ class SchedulerService:
         Returns:
             List of failed fixture details
         """
+        # Use COALESCE to get team names from sport-specific profile tables
         query = """
             SELECT
                 f.id,
@@ -391,12 +411,16 @@ class SchedulerService:
                 f.status,
                 f.seed_attempts,
                 f.last_seed_error,
-                ht.name as home_team_name,
-                at.name as away_team_name,
+                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
+                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
                 s.season_year
             FROM fixtures f
-            JOIN teams ht ON ht.id = f.home_team_id
-            JOIN teams at ON at.id = f.away_team_id
+            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
+            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
+            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
+            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
             JOIN seasons s ON s.id = f.season_id
             WHERE f.seed_attempts > 0
               AND f.status != 'seeded'

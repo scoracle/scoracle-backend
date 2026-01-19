@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 from .config import INVERSE_STATS
+from ..pg_connection import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 if TYPE_CHECKING:
     pass
@@ -275,64 +276,82 @@ class PythonPercentileCalculator:
         sport_id: str,
         season_id: int,
     ) -> list[dict[str, Any]]:
-        """Fetch all player stats with position info."""
-        table = self.STATS_TABLE_MAP.get((sport_id, "player"))
-        if not table:
+        """Fetch all player stats with position info from sport-specific tables."""
+        stats_table = self.STATS_TABLE_MAP.get((sport_id, "player"))
+        profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not profile_table:
+            logger.warning("No tables configured for %s player stats", sport_id)
             return []
 
-        # FOOTBALL: Filter to Top 5 Leagues
+        # FOOTBALL: Filter to Top 5 Leagues (include_in_percentiles = true)
         if sport_id == "FOOTBALL":
             query = f"""
                 SELECT DISTINCT ON (s.player_id)
                     s.*, p.id as player_id, p.position_group, p.full_name, s.league_id
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id AND p.sport_id = %s
+                FROM {stats_table} s
+                JOIN {profile_table} p ON s.player_id = p.id
                 JOIN leagues l ON s.league_id = l.id
                 WHERE s.season_id = %s
                   AND l.include_in_percentiles = true
                 ORDER BY s.player_id, s.id DESC
             """
+            results = self.db.fetchall(query, (season_id,))
         else:
             query = f"""
                 SELECT DISTINCT ON (s.player_id)
                     s.*, p.id as player_id, p.position_group, p.full_name
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id AND p.sport_id = %s
+                FROM {stats_table} s
+                JOIN {profile_table} p ON s.player_id = p.id
                 WHERE s.season_id = %s
                 ORDER BY s.player_id, s.id DESC
             """
-
-        return self.db.fetchall(query, (sport_id, season_id))
+            results = self.db.fetchall(query, (season_id,))
+        
+        logger.info(
+            "Fetched %d player stats for %s (season_id=%d, stats_table=%s, profile_table=%s)",
+            len(results), sport_id, season_id, stats_table, profile_table
+        )
+        return results
 
     def _fetch_team_stats(
         self,
         sport_id: str,
         season_id: int,
     ) -> list[dict[str, Any]]:
-        """Fetch all team stats."""
-        table = self.STATS_TABLE_MAP.get((sport_id, "team"))
-        if not table:
+        """Fetch all team stats from sport-specific tables."""
+        stats_table = self.STATS_TABLE_MAP.get((sport_id, "team"))
+        profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not profile_table:
+            logger.warning("No tables configured for %s team stats", sport_id)
             return []
 
-        # FOOTBALL: Filter to Top 5 Leagues
+        # FOOTBALL: Filter to Top 5 Leagues (include_in_percentiles = true)
         if sport_id == "FOOTBALL":
             query = f"""
                 SELECT s.*, t.id as team_id, t.name as team_name, s.league_id
-                FROM {table} s
-                JOIN teams t ON s.team_id = t.id AND t.sport_id = %s
+                FROM {stats_table} s
+                JOIN {profile_table} t ON s.team_id = t.id
                 JOIN leagues l ON s.league_id = l.id
                 WHERE s.season_id = %s
                   AND l.include_in_percentiles = true
             """
+            results = self.db.fetchall(query, (season_id,))
         else:
             query = f"""
                 SELECT s.*, t.id as team_id, t.name as team_name
-                FROM {table} s
-                JOIN teams t ON s.team_id = t.id AND t.sport_id = %s
+                FROM {stats_table} s
+                JOIN {profile_table} t ON s.team_id = t.id
                 WHERE s.season_id = %s
             """
-
-        return self.db.fetchall(query, (sport_id, season_id))
+            results = self.db.fetchall(query, (season_id,))
+        
+        logger.info(
+            "Fetched %d team stats for %s (season_id=%d, stats_table=%s, profile_table=%s)",
+            len(results), sport_id, season_id, stats_table, profile_table
+        )
+        return results
 
     def _get_season_year(self, season_id: int) -> int:
         """Get the year for a season ID."""

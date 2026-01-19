@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
+from ..pg_connection import TEAM_PROFILE_TABLES
+
 if TYPE_CHECKING:
     from ..connection import StatsDB
 
@@ -71,17 +73,19 @@ class TeamQueries:
         if not season_id:
             return []
 
-        table_map = {
+        stats_table_map = {
             "NBA": "nba_team_stats",
             "NFL": "nfl_team_stats",
             "FOOTBALL": "football_team_stats",
         }
 
-        table = table_map.get(sport_id)
-        if not table:
+        stats_table = stats_table_map.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not team_profile_table:
             return []
 
-        # Build query based on sport
+        # Build query based on sport (using sport-specific profile tables)
         if sport_id == "FOOTBALL":
             conditions = ["s.season_id = %s"]
             params: list[Any] = [season_id]
@@ -105,16 +109,16 @@ class TeamQueries:
                     s.goals_against,
                     s.goal_difference,
                     s.league_position as rank
-                FROM {table} s
-                JOIN teams t ON s.team_id = t.id
+                FROM {stats_table} s
+                JOIN {team_profile_table} t ON s.team_id = t.id
                 LEFT JOIN leagues l ON s.league_id = l.id
                 WHERE {' AND '.join(conditions)}
                 ORDER BY s.points DESC, s.goal_difference DESC, s.goals_for DESC
             """
         else:
-            # NBA/NFL
-            conditions = ["s.season_id = %s", "t.sport_id = %s"]
-            params = [season_id, sport_id]
+            # NBA/NFL (no sport_id filter needed - tables are sport-specific)
+            conditions = ["s.season_id = %s"]
+            params = [season_id]
 
             if conference:
                 conditions.append("t.conference = %s")
@@ -139,8 +143,8 @@ class TeamQueries:
                     s.points_per_game,
                     s.opponent_ppg,
                     s.point_differential
-                FROM {table} s
-                JOIN teams t ON s.team_id = t.id
+                FROM {stats_table} s
+                JOIN {team_profile_table} t ON s.team_id = t.id
                 WHERE {' AND '.join(conditions)}
                 ORDER BY s.win_pct DESC, s.point_differential DESC
             """
@@ -178,14 +182,16 @@ class TeamQueries:
         if not season_id:
             return []
 
-        table_map = {
+        stats_table_map = {
             "NBA": "nba_team_stats",
             "NFL": "nfl_team_stats",
             "FOOTBALL": "football_team_stats",
         }
 
-        table = table_map.get(sport_id)
-        if not table:
+        stats_table = stats_table_map.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not team_profile_table:
             return []
 
         order = "ASC" if ascending else "DESC"
@@ -203,8 +209,8 @@ class TeamQueries:
                 t.name,
                 t.logo_url,
                 s.{stat_name} as stat_value
-            FROM {table} s
-            JOIN teams t ON s.team_id = t.id
+            FROM {stats_table} s
+            JOIN {team_profile_table} t ON s.team_id = t.id
             WHERE {' AND '.join(conditions)}
             ORDER BY s.{stat_name} {order}
         """

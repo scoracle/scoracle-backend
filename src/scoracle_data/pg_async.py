@@ -16,6 +16,19 @@ import psycopg
 from psycopg.rows import dict_row
 from psycopg_pool import AsyncConnectionPool
 
+# Sport-specific profile table mappings
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 
 class AsyncPostgresDB:
     """
@@ -225,26 +238,50 @@ class AsyncPostgresDB:
         Get complete team profile in a single optimized query.
 
         Combines team info, stats, and percentiles using JOINs.
+        Uses sport-specific profile tables.
         """
         season_id = await self.get_season_id(sport_id, season_year)
         if not season_id:
             return None
 
-        table_map = {
+        stats_table_map = {
             "NBA": "nba_team_stats",
             "NFL": "nfl_team_stats",
             "FOOTBALL": "football_team_stats",
         }
-        stats_table = table_map.get(sport_id)
-        if not stats_table:
+        stats_table = stats_table_map.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not team_profile_table:
             return None
 
-        query = f"""
-            SELECT
+        # Build team json based on sport-specific columns
+        if sport_id == "FOOTBALL":
+            team_json = """
                 json_build_object(
                     'id', t.id,
-                    'sport_id', t.sport_id,
                     'league_id', t.league_id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'is_national', t.is_national,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+        else:
+            # NBA/NFL have conference/division
+            team_json = """
+                json_build_object(
+                    'id', t.id,
                     'name', t.name,
                     'abbreviation', t.abbreviation,
                     'logo_url', t.logo_url,
@@ -260,7 +297,12 @@ class AsyncPostgresDB:
                     'venue_image', t.venue_image,
                     'profile_fetched_at', t.profile_fetched_at,
                     'is_active', t.is_active
-                ) as team,
+                )
+            """
+
+        query = f"""
+            SELECT
+                {team_json} as team,
                 row_to_json(s.*) as stats,
                 COALESCE(
                     json_agg(
@@ -276,17 +318,17 @@ class AsyncPostgresDB:
                     ) FILTER (WHERE p.id IS NOT NULL),
                     '[]'::json
                 ) as percentiles
-            FROM teams t
+            FROM {team_profile_table} t
             LEFT JOIN {stats_table} s ON s.team_id = t.id AND s.season_id = %s
             LEFT JOIN percentile_cache p ON p.entity_type = 'team'
                 AND p.entity_id = t.id
-                AND p.sport_id = t.sport_id
+                AND p.sport_id = %s
                 AND p.season_id = %s
-            WHERE t.id = %s AND t.sport_id = %s
+            WHERE t.id = %s
             GROUP BY t.id, s.*
         """
 
-        result = await self.fetchone(query, (season_id, season_id, team_id, sport_id))
+        result = await self.fetchone(query, (season_id, sport_id, season_id, team_id))
 
         if not result:
             return None
@@ -307,25 +349,73 @@ class AsyncPostgresDB:
         Get complete player profile in a single optimized query.
 
         Combines player info, team info, stats, and percentiles using JOINs.
+        Uses sport-specific profile tables.
         """
         season_id = await self.get_season_id(sport_id, season_year)
         if not season_id:
             return None
 
-        table_map = {
+        stats_table_map = {
             "NBA": "nba_player_stats",
             "NFL": "nfl_player_stats",
             "FOOTBALL": "football_player_stats",
         }
-        stats_table = table_map.get(sport_id)
-        if not stats_table:
+        stats_table = stats_table_map.get(sport_id)
+        player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
+        
+        if not stats_table or not player_profile_table or not team_profile_table:
             return None
 
-        query = f"""
-            SELECT
+        # Build player and team json based on sport-specific columns
+        if sport_id == "FOOTBALL":
+            player_json = """
                 json_build_object(
                     'id', pl.id,
-                    'sport_id', pl.sport_id,
+                    'first_name', pl.first_name,
+                    'last_name', pl.last_name,
+                    'full_name', COALESCE(NULLIF(TRIM(CONCAT(pl.first_name, ' ', pl.last_name)), ''), pl.full_name),
+                    'position', pl.position,
+                    'position_group', pl.position_group,
+                    'nationality', pl.nationality,
+                    'birth_date', pl.birth_date,
+                    'birth_place', pl.birth_place,
+                    'birth_country', pl.birth_country,
+                    'height_inches', pl.height_inches,
+                    'weight_lbs', pl.weight_lbs,
+                    'photo_url', pl.photo_url,
+                    'current_team_id', pl.current_team_id,
+                    'current_league_id', pl.current_league_id,
+                    'jersey_number', pl.jersey_number,
+                    'profile_fetched_at', pl.profile_fetched_at,
+                    'is_active', pl.is_active
+                )
+            """
+            team_json = """
+                json_build_object(
+                    'id', t.id,
+                    'league_id', t.league_id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'is_national', t.is_national,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+        else:
+            # NBA/NFL have college/experience_years for players, conference/division for teams
+            player_json = """
+                json_build_object(
+                    'id', pl.id,
                     'first_name', pl.first_name,
                     'last_name', pl.last_name,
                     'full_name', pl.full_name,
@@ -334,38 +424,44 @@ class AsyncPostgresDB:
                     'nationality', pl.nationality,
                     'birth_date', pl.birth_date,
                     'birth_place', pl.birth_place,
+                    'birth_country', pl.birth_country,
                     'height_inches', pl.height_inches,
                     'weight_lbs', pl.weight_lbs,
                     'photo_url', pl.photo_url,
                     'current_team_id', pl.current_team_id,
-                    'current_league_id', pl.current_league_id,
                     'jersey_number', pl.jersey_number,
                     'college', pl.college,
                     'experience_years', pl.experience_years,
                     'profile_fetched_at', pl.profile_fetched_at,
                     'is_active', pl.is_active
-                ) as player,
+                )
+            """
+            team_json = """
+                json_build_object(
+                    'id', t.id,
+                    'name', t.name,
+                    'abbreviation', t.abbreviation,
+                    'logo_url', t.logo_url,
+                    'conference', t.conference,
+                    'division', t.division,
+                    'country', t.country,
+                    'city', t.city,
+                    'founded', t.founded,
+                    'venue_name', t.venue_name,
+                    'venue_city', t.venue_city,
+                    'venue_capacity', t.venue_capacity,
+                    'venue_surface', t.venue_surface,
+                    'venue_image', t.venue_image,
+                    'profile_fetched_at', t.profile_fetched_at,
+                    'is_active', t.is_active
+                )
+            """
+
+        query = f"""
+            SELECT
+                {player_json} as player,
                 CASE WHEN t.id IS NOT NULL THEN
-                    json_build_object(
-                        'id', t.id,
-                        'sport_id', t.sport_id,
-                        'league_id', t.league_id,
-                        'name', t.name,
-                        'abbreviation', t.abbreviation,
-                        'logo_url', t.logo_url,
-                        'conference', t.conference,
-                        'division', t.division,
-                        'country', t.country,
-                        'city', t.city,
-                        'founded', t.founded,
-                        'venue_name', t.venue_name,
-                        'venue_city', t.venue_city,
-                        'venue_capacity', t.venue_capacity,
-                        'venue_surface', t.venue_surface,
-                        'venue_image', t.venue_image,
-                        'profile_fetched_at', t.profile_fetched_at,
-                        'is_active', t.is_active
-                    )
+                    {team_json}
                 ELSE NULL END as team,
                 row_to_json(s.*) as stats,
                 COALESCE(
@@ -382,18 +478,18 @@ class AsyncPostgresDB:
                     ) FILTER (WHERE p.id IS NOT NULL),
                     '[]'::json
                 ) as percentiles
-            FROM players pl
-            LEFT JOIN teams t ON pl.current_team_id = t.id AND t.sport_id = pl.sport_id
+            FROM {player_profile_table} pl
+            LEFT JOIN {team_profile_table} t ON pl.current_team_id = t.id
             LEFT JOIN {stats_table} s ON s.player_id = pl.id AND s.season_id = %s
             LEFT JOIN percentile_cache p ON p.entity_type = 'player'
                 AND p.entity_id = pl.id
-                AND p.sport_id = pl.sport_id
+                AND p.sport_id = %s
                 AND p.season_id = %s
-            WHERE pl.id = %s AND pl.sport_id = %s
+            WHERE pl.id = %s
             GROUP BY pl.id, t.id, s.*
         """
 
-        result = await self.fetchone(query, (season_id, season_id, player_id, sport_id))
+        result = await self.fetchone(query, (season_id, sport_id, season_id, player_id))
 
         if not result:
             return None

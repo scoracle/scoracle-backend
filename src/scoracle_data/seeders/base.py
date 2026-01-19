@@ -34,7 +34,7 @@ from ..api.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
-    from ...services.apisports import ApiSportsService
+    from ..providers import DataProviderProtocol
 
 logger = logging.getLogger(__name__)
 

@@ -1,19 +1,19 @@
 """
 API client interface and implementations for statsdb.
 
-This module provides a clean abstraction over the API-Sports client,
-allowing statsdb to work both:
-1. Within Scoracle (using app.services.apisports)
-2. Standalone in scoracle-data (using built-in httpx client)
+This module provides a clean abstraction over the API-Sports client.
 
 Usage:
-    # In Scoracle
-    from scoracle_data.api_client import get_api_client
-    client = get_api_client()  # Uses apisports_service if available
-
-    # In scoracle-data (standalone)
-    from scoracle_data.api_client import StandaloneApiClient
+    from scoracle_data.api_client import get_api_client, StandaloneApiClient
+    
+    # Get the default client (auto-configured from environment)
+    client = get_api_client()
+    
+    # Or create with explicit config
     client = StandaloneApiClient(api_key="your_key")
+    
+    # Fetch data
+    teams = await client.list_teams("NBA", season="2024")
 """
 from __future__ import annotations
 
@@ -388,16 +388,8 @@ def get_api_client() -> ApiClientProtocol:
     if _api_client is not None:
         return _api_client
 
-    # Try to import Scoracle's apisports_service
-    try:
-        from ..services.apisports import apisports_service
-        _api_client = apisports_service
-        logger.debug("Using Scoracle apisports_service")
-        return _api_client
-    except ImportError:
-        pass
-
-    # Fall back to standalone client
+    # Note: Previously tried to import Scoracle's apisports_service here,
+    # but scoracle-data is now a standalone package. Use the standalone client.
     _api_client = StandaloneApiClient()
     logger.debug("Using standalone API client")
     return _api_client

@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
-    from ...services.apisports import ApiSportsService
+    from ..providers import DataProviderProtocol
 
 logger = logging.getLogger(__name__)
 

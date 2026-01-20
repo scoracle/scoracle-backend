@@ -245,12 +245,11 @@ async def get_team_transfer_predictions(
     if cached:
         return TeamTransferPredictions(**cached)
 
-    # Get team info
+    # Get team info ('teams' is a view aggregating sport-specific tables)
     team_row = db.fetch_one(
         """
-        SELECT t.id, t.name, s.name as sport_name
+        SELECT t.id, t.name, t.sport_id as sport_name
         FROM teams t
-        JOIN sports s ON t.sport_id = s.id
         WHERE t.id = %s
         """,
         (team_id,),
@@ -346,15 +345,13 @@ async def get_player_transfer_predictions(
     if cached:
         return PlayerTransferOutlook(**cached)
 
-    # Get player info
+    # Get player info ('players' is a view aggregating sport-specific tables)
     player_row = db.fetch_one(
         """
-        SELECT p.id, p.name, s.name as sport,
+        SELECT p.id, p.name, p.sport_id as sport,
                t.name as team_name
         FROM players p
-        JOIN sports s ON p.sport_id = s.id
-        LEFT JOIN player_teams pt ON p.id = pt.player_id AND pt.is_current = TRUE
-        LEFT JOIN teams t ON pt.team_id = t.id
+        LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
         WHERE p.id = %s
         """,
         (player_id,),
@@ -866,16 +863,14 @@ async def get_next_game_prediction(
     if cached:
         return PerformancePredictionResponse(**cached)
 
-    # Get entity info
+    # Get entity info ('players'/'teams' are views aggregating sport-specific tables)
     if entity_type == "player":
         entity_row = db.fetch_one(
             """
-            SELECT p.id, p.name, s.name as sport, p.position,
+            SELECT p.id, p.name, p.sport_id as sport, p.position,
                    t.id as team_id, t.name as team_name
             FROM players p
-            JOIN sports s ON p.sport_id = s.id
-            LEFT JOIN player_teams pt ON p.id = pt.player_id AND pt.is_current = TRUE
-            LEFT JOIN teams t ON pt.team_id = t.id
+            LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
             WHERE p.id = %s
             """,
             (entity_id,),
@@ -883,10 +878,9 @@ async def get_next_game_prediction(
     else:
         entity_row = db.fetch_one(
             """
-            SELECT t.id, t.name, s.name as sport, NULL as position,
+            SELECT t.id, t.name, t.sport_id as sport, NULL as position,
                    t.id as team_id, t.name as team_name
             FROM teams t
-            JOIN sports s ON t.sport_id = s.id
             WHERE t.id = %s
             """,
             (entity_id,),

@@ -21,9 +21,6 @@ Usage:
 # Connection management
 from ..pg_connection import PostgresDB
 
-# Async connection
-from ..pg_async import AsyncDB
-
 # Schema management
 from ..schema import init_database, run_migrations, get_schema_version, get_table_counts
 
@@ -67,8 +64,6 @@ __all__ = [
     "PostgresDB",
     "get_db",
     "close_db",
-    # Async
-    "AsyncDB",
     # Schema
     "init_database",
     "run_migrations",

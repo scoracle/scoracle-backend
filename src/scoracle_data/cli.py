@@ -83,17 +83,9 @@ def cmd_seed_small(args: argparse.Namespace) -> int:
     result = seed_small_dataset(fixture_path=args.fixture)
     summary = result.get("summary", {})
 
-    # Best-effort backend reporting
-    backend = "postgres" if (os.getenv("DATABASE_URL") or os.getenv("NEON_DATABASE_URL")) else "sqlite"
-
     print("\nSmall dataset seeding complete")
     print("=" * 50)
-    print(f"Backend: {backend}")
-    if backend == "sqlite":
-        from .connection import DEFAULT_DB_PATH
-        print(f"SQLite path: {DEFAULT_DB_PATH}")
-    else:
-        print("Postgres URL: DATABASE_URL/NEON_DATABASE_URL")
+    print("Backend: PostgreSQL")
     print(f"Teams upserted: {summary.get('teams', 0)}")
     print(f"Players upserted: {summary.get('players', 0)}")
 
@@ -109,7 +101,7 @@ def cmd_init(args: argparse.Namespace) -> int:
     try:
         logger.info("Initializing stats database...")
         init_database(db)
-        logger.info("Database initialized successfully at %s", db.db_path)
+        logger.info("Database initialized successfully")
         return 0
     except Exception as e:
         logger.error("Failed to initialize database: %s", e)
@@ -125,12 +117,8 @@ def cmd_status(args: argparse.Namespace) -> int:
     db = get_db()
 
     try:
-        if not db.exists():
-            logger.info("Database does not exist at %s", db.db_path)
-            return 1
-
         if not db.is_initialized():
-            logger.info("Database exists but is not initialized")
+            logger.info("Database is not initialized")
             return 1
 
         version = get_schema_version(db)
@@ -138,27 +126,26 @@ def cmd_status(args: argparse.Namespace) -> int:
 
         print(f"\nStats Database Status")
         print(f"=" * 50)
-        print(f"Location: {db.db_path}")
+        print(f"Backend: PostgreSQL")
         print(f"Schema Version: {version}")
         print(f"Last Full Sync: {db.get_meta('last_full_sync') or 'Never'}")
         print(f"Last Incremental: {db.get_meta('last_incremental_sync') or 'Never'}")
         print()
         print("Table Counts:")
         for table, count in sorted(counts.items()):
-            if not table.startswith("sqlite_"):
-                print(f"  {table}: {count:,}")
+            print(f"  {table}: {count:,}")
 
-        # Show sports summary
+        # Show sports summary using the unified views
         print()
         print("Sports Summary:")
-        sports = db.fetchall("SELECT * FROM sports WHERE is_active = 1")
+        sports = db.fetchall("SELECT * FROM sports WHERE is_active = true")
         for sport in sports:
             players = db.fetchone(
-                "SELECT COUNT(*) as count FROM players WHERE sport_id = ?",
+                "SELECT COUNT(*) as count FROM players WHERE sport_id = %s",
                 (sport["id"],),
             )
             teams = db.fetchone(
-                "SELECT COUNT(*) as count FROM teams WHERE sport_id = ?",
+                "SELECT COUNT(*) as count FROM teams WHERE sport_id = %s",
                 (sport["id"],),
             )
             print(f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams")

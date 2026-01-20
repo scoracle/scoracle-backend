@@ -2,6 +2,8 @@
 
 Data seeding, statistics management, and machine learning backend for Scoracle.
 
+**Database:** PostgreSQL (Neon) only. SQLite is no longer supported.
+
 ## Features
 
 ### Multi-Sport Support
@@ -136,7 +138,8 @@ diff                    # Detect trades/transfers between rosters
 
 Required:
 
-- `DATABASE_URL` (or `NEON_DATABASE_URL`) - PostgreSQL connection string
+- `NEON_DATABASE_URL_V2` - PostgreSQL connection string (recommended for v4.0 schema)
+  - Fallback order: `NEON_DATABASE_URL_V2` > `DATABASE_URL` > `NEON_DATABASE_URL`
 - `API_SPORTS_KEY` - API-Sports authentication
 
 Optional:
@@ -176,9 +179,11 @@ src/scoracle_data/
 ├── core/                   # Centralized configuration
 │   ├── config.py           # Settings (pydantic-settings)
 │   ├── models.py           # Response models
-│   └── types.py            # Sport, EntityType enums
+│   └── types.py            # Sport registry, table mappings (single source of truth)
 ├── db/                     # Database layer
-│   └── __init__.py         # PostgresDB, repositories
+│   └── __init__.py         # PostgresDB, repositories, get_db()
+├── pg_connection.py        # PostgreSQL connection with Neon pooling
+├── connection.py           # Backward-compatible StatsDB alias
 ├── services/               # Business logic services
 │   ├── news/               # Unified NewsService (RSS + NewsAPI)
 │   ├── twitter/            # TwitterService for journalist feed
@@ -216,10 +221,26 @@ src/scoracle_data/
 
 ### Sport-Specific Tables (v4.0)
 
-Each sport has dedicated tables to prevent ID collisions:
+Each sport has dedicated tables to prevent cross-sport ID collisions:
 
-- `{sport}_players` / `{sport}_teams` - Profile tables
-- `{sport}_player_stats` / `{sport}_team_stats` - Statistics tables
+**Profile Tables:**
+- `nba_player_profiles` / `nba_team_profiles`
+- `nfl_player_profiles` / `nfl_team_profiles`
+- `football_player_profiles` / `football_team_profiles`
+
+**Stats Tables:**
+- `nba_player_stats` / `nba_team_stats`
+- `nfl_player_stats` / `nfl_team_stats`
+- `football_player_stats` / `football_team_stats`
+
+### Unified Views
+
+For backward compatibility, views aggregate all sport-specific profile tables:
+
+- `players` - View combining all `*_player_profiles` tables with `sport_id` column
+- `teams` - View combining all `*_team_profiles` tables with `sport_id` column
+
+These views allow legacy queries like `SELECT * FROM players WHERE sport_id = 'NBA'` to work seamlessly.
 
 ### ML Tables
 

@@ -20,6 +20,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Path, Query, Response
 
 from ..cache import get_cache
+from ..dependencies import DBDependency
 from ..errors import NotFoundError
 from ...core.types import get_sport_config
 from ...services.news import get_news_service
@@ -61,13 +62,14 @@ async def get_entity_news(
     entity_type: Annotated[EntityType, Path(description="Entity type (player or team)")],
     entity_id: Annotated[int, Path(description="Entity ID from database")],
     sport: Annotated[Sport, Query(description="Sport context for better filtering")],
+    response: Response,
+    db: DBDependency,
     team: Annotated[str | None, Query(description="Team name for player context")] = None,
     limit: Annotated[int, Query(ge=1, le=50, description="Max results")] = 10,
     source: Annotated[
         Literal["rss", "api", "both"], 
         Query(description="News source preference")
     ] = "rss",
-    response: Response = None,
 ) -> dict:
     """
     Get news articles about a specific entity (player or team).
@@ -92,18 +94,12 @@ async def get_entity_news(
         GET /news/player/123?sport=NBA&limit=10
         GET /news/team/456?sport=NFL&source=both
     """
-    # Get entity name from database
-    # For now, we need to look up the entity
-    from ...pg_connection import get_postgres_db
-    
-    db = get_postgres_db()
-    
     # Get sport configuration for correct table names
     sport_config = get_sport_config(sport.value)
     
     if entity_type == EntityType.PLAYER:
         table = sport_config.player_profile_table
-        result = db.execute(
+        result = db.fetchone(
             f"SELECT full_name, current_team_id FROM {table} WHERE id = %s",
             (entity_id,)
         )
@@ -112,19 +108,19 @@ async def get_entity_news(
                 resource="player",
                 identifier=str(entity_id),
             )
-        entity_name = result[0]["full_name"]
+        entity_name = result["full_name"]
         # Get team name if not provided
-        if not team and result[0].get("current_team_id"):
+        if not team and result.get("current_team_id"):
             team_table = sport_config.team_profile_table
-            team_result = db.execute(
+            team_result = db.fetchone(
                 f"SELECT name FROM {team_table} WHERE id = %s",
-                (result[0]["current_team_id"],)
+                (result["current_team_id"],)
             )
             if team_result:
-                team = team_result[0]["name"]
+                team = team_result["name"]
     else:
         table = sport_config.team_profile_table
-        result = db.execute(
+        result = db.fetchone(
             f"SELECT name FROM {table} WHERE id = %s",
             (entity_id,)
         )
@@ -133,7 +129,7 @@ async def get_entity_news(
                 resource="team",
                 identifier=str(entity_id),
             )
-        entity_name = result[0]["name"]
+        entity_name = result["name"]
     
     # Check cache
     cache = get_cache()

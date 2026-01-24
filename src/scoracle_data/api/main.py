@@ -320,16 +320,20 @@ def create_app() -> FastAPI:
         process_time = (time.time() - start_time) * 1000  # Convert to ms
         response.headers["X-Process-Time"] = f"{process_time:.2f}ms"
 
-        # Add default cache headers for GET requests
+        # Add default cache headers for GET requests (only for successful responses)
         if request.method == "GET" and "Cache-Control" not in response.headers:
             # Check if this is an API endpoint
             path = request.url.path
             if path.startswith("/api/"):
-                # Extract season from query params if present
-                season = request.query_params.get("season")
-                sport = request.query_params.get("sport")
-                season_year = int(season) if season else None
-                response.headers["Cache-Control"] = get_cache_control_header(season_year, sport)
+                # Don't cache error responses (4xx, 5xx)
+                if response.status_code >= 400:
+                    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                else:
+                    # Extract season from query params if present
+                    season = request.query_params.get("season")
+                    sport = request.query_params.get("sport")
+                    season_year = int(season) if season else None
+                    response.headers["Cache-Control"] = get_cache_control_header(season_year, sport)
 
         # Add Vary header for proper CDN caching
         response.headers["Vary"] = "Accept-Encoding"

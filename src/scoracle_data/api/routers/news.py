@@ -14,7 +14,6 @@ Twitter is served separately via /twitter for lazy loading.
 """
 
 import logging
-from enum import Enum
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Path, Query, Response
@@ -22,7 +21,7 @@ from fastapi import APIRouter, Path, Query, Response
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ...core.types import get_sport_config
+from ..types import EntityType, Sport, get_sport_config
 from ...services.news import get_news_service
 
 logger = logging.getLogger(__name__)
@@ -31,19 +30,6 @@ router = APIRouter()
 
 # Cache TTL for news (10 minutes - news is time-sensitive)
 NEWS_CACHE_TTL = 600
-
-
-class EntityType(str, Enum):
-    """Supported entity types."""
-    PLAYER = "player"
-    TEAM = "team"
-
-
-class Sport(str, Enum):
-    """Supported sports."""
-    NBA = "NBA"
-    NFL = "NFL"
-    FOOTBALL = "FOOTBALL"
 
 
 @router.get("/status")
@@ -97,7 +83,7 @@ async def get_entity_news(
     # Get sport configuration for correct table names
     sport_config = get_sport_config(sport.value)
     
-    if entity_type == EntityType.PLAYER:
+    if entity_type == EntityType.player:
         table = sport_config.player_profile_table
         result = db.fetchone(
             f"SELECT full_name, current_team_id FROM {table} WHERE id = %s",

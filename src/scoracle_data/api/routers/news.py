@@ -21,6 +21,7 @@ from fastapi import APIRouter, Path, Query, Response
 
 from ..cache import get_cache
 from ..errors import NotFoundError
+from ...core.types import get_sport_config
 from ...services.news import get_news_service
 
 logger = logging.getLogger(__name__)
@@ -97,22 +98,24 @@ async def get_entity_news(
     
     db = get_postgres_db()
     
+    # Get sport configuration for correct table names
+    sport_config = get_sport_config(sport.value)
+    
     if entity_type == EntityType.PLAYER:
-        table = f"{sport.value.lower()}_players"
+        table = sport_config.player_profile_table
         result = db.execute(
             f"SELECT full_name, current_team_id FROM {table} WHERE id = %s",
             (entity_id,)
         )
         if not result:
             raise NotFoundError(
-                resource_type="player",
-                resource_id=str(entity_id),
-                message=f"Player {entity_id} not found in {sport.value}",
+                resource="player",
+                identifier=str(entity_id),
             )
         entity_name = result[0]["full_name"]
         # Get team name if not provided
         if not team and result[0].get("current_team_id"):
-            team_table = f"{sport.value.lower()}_teams"
+            team_table = sport_config.team_profile_table
             team_result = db.execute(
                 f"SELECT name FROM {team_table} WHERE id = %s",
                 (result[0]["current_team_id"],)
@@ -120,16 +123,15 @@ async def get_entity_news(
             if team_result:
                 team = team_result[0]["name"]
     else:
-        table = f"{sport.value.lower()}_teams"
+        table = sport_config.team_profile_table
         result = db.execute(
             f"SELECT name FROM {table} WHERE id = %s",
             (entity_id,)
         )
         if not result:
             raise NotFoundError(
-                resource_type="team",
-                resource_id=str(entity_id),
-                message=f"Team {entity_id} not found in {sport.value}",
+                resource="team",
+                identifier=str(entity_id),
             )
         entity_name = result[0]["name"]
     

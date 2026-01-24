@@ -31,11 +31,23 @@ def _normalize(text: str) -> str:
     return text.lower().strip() if text else ""
 
 
-def _name_in_text(name: str, text: str) -> bool:
+def _name_in_text(
+    name: str,
+    text: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    team: str | None = None,
+) -> bool:
     """
-    Check if entity name appears in text using word boundary matching.
+    Check if entity name appears in text with stricter matching.
 
-    Handles cases like "LeBron James" in "LeBron James leads Lakers".
+    Requires either:
+    - Exact full name match, OR
+    - BOTH first AND last name present, OR
+    - Name part (first OR last) + team name (provides context to reduce false positives)
+
+    This prevents false positives like "Gabriel" matching any player named Gabriel,
+    while still matching "Gabriel scores for Arsenal" when searching for Gabriel Jesus.
     """
     if not name or not text:
         return False
@@ -43,19 +55,55 @@ def _name_in_text(name: str, text: str) -> bool:
     name_lower = _normalize(name)
     text_lower = _normalize(text)
 
-    # Try exact match first
+    # Exact full name match
     if name_lower in text_lower:
         return True
 
-    # Try individual name parts (for "LeBron James" -> "LeBron" or "James")
+    # For multi-part names, check partial matches
     name_parts = name_lower.split()
-    for part in name_parts:
-        if len(part) > 2:  # Skip very short parts
-            pattern = rf'\b{re.escape(part)}\b'
-            if re.search(pattern, text_lower):
+    if len(name_parts) >= 2:
+        fn = _normalize(first_name) if first_name else name_parts[0]
+        ln = _normalize(last_name) if last_name else name_parts[-1]
+
+        # Word boundary matches for first/last names
+        fn_match = re.search(rf'\b{re.escape(fn)}\b', text_lower) if len(fn) > 1 else None
+        ln_match = re.search(rf'\b{re.escape(ln)}\b', text_lower) if len(ln) > 1 else None
+
+        # BOTH first AND last name present
+        if fn_match and ln_match:
+            return True
+
+        # Name part + team match (provides context to avoid false positives)
+        if team and (fn_match or ln_match):
+            team_lower = _normalize(team)
+            if team_lower in text_lower:
                 return True
 
     return False
+
+
+def _build_search_name(
+    full_name: str,
+    first_name: str | None,
+    last_name: str | None,
+) -> str:
+    """
+    Build effective search name - shorten very long names.
+
+    Brazilian players often have 4+ part names like "Vinicius Jose Paixao de Oliveira Junior".
+    For these, use just first + last name for better search results.
+    """
+    parts = full_name.split()
+
+    # Long names (Brazilian): use first + last
+    if len(parts) >= 4 and first_name and last_name:
+        return f"{first_name} {last_name}"
+
+    # Names ending in Jr/Junior: use first + suffix
+    if len(parts) >= 3 and parts[-1].lower() in ('jr', 'jr.', 'junior', 'ii', 'iii'):
+        return f"{parts[0]} {parts[-1]}"
+
+    return full_name
 
 
 def _parse_pub_date(date_str: str) -> datetime | None:
@@ -230,6 +278,8 @@ class GoogleNewsClient:
         sport: str | None = None,
         team: str | None = None,
         limit: int = DEFAULT_LIMIT,
+        first_name: str | None = None,
+        last_name: str | None = None,
     ) -> dict[str, Any]:
         """
         Search for news articles about a sports entity.
@@ -241,21 +291,26 @@ class GoogleNewsClient:
             sport: Optional sport context (NBA, NFL, FOOTBALL)
             team: Optional team name for additional context
             limit: Maximum number of results (1-50)
+            first_name: Entity's first name (for stricter filtering)
+            last_name: Entity's last name (for stricter filtering)
 
         Returns:
             Dictionary with articles and metadata
         """
         limit = min(max(1, limit), MAX_LIMIT)
 
+        # Build effective search name (shorten long names)
+        effective_name = _build_search_name(query, first_name, last_name)
+
         # Build search query with sport context
-        search_query = query
+        search_query = effective_name
         if sport:
             sport_terms = {
                 "NBA": "NBA basketball",
                 "NFL": "NFL football",
                 "FOOTBALL": "soccer football",
             }
-            search_query = f"{query} {sport_terms.get(sport.upper(), sport)}"
+            search_query = f"{effective_name} {sport_terms.get(sport.upper(), sport)}"
 
         # Try escalating time windows until we get enough results
         all_articles = []
@@ -263,10 +318,10 @@ class GoogleNewsClient:
         for hours in TIME_WINDOWS:
             articles = await self._fetch_rss(search_query, hours_back=hours)
 
-            # Filter to articles that actually mention the entity
+            # Filter to articles that actually mention the entity (stricter matching)
             filtered = [
                 a for a in articles
-                if _name_in_text(query, a.get("title", ""))
+                if _name_in_text(query, a.get("title", ""), first_name, last_name, team)
             ]
 
             all_articles.extend(filtered)

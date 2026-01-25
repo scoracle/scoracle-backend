@@ -23,6 +23,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Sport-specific table mappings to avoid cross-sport data contamination
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 
 class PercentileCalculator:
     """
@@ -307,10 +320,14 @@ class PercentileCalculator:
             (sport_id, season_id),
         )
 
-        # Recalculate for all players
+        # Recalculate for all players using sport-specific table
+        player_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not player_table:
+            logger.error("Unknown sport_id: %s", sport_id)
+            return {"players": 0, "teams": 0}
+
         players = self.db.fetchall(
-            "SELECT id, position_group FROM players WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT id, position_group FROM {player_table}",
         )
 
         player_count = 0
@@ -328,10 +345,10 @@ class PercentileCalculator:
             except Exception as e:
                 logger.warning("Failed to calculate percentiles for player %d: %s", player["id"], e)
 
-        # Recalculate for all teams
+        # Recalculate for all teams using sport-specific table
+        team_table = TEAM_PROFILE_TABLES.get(sport_id)
         teams = self.db.fetchall(
-            "SELECT id, league_id FROM teams WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT id, league_id FROM {team_table}",
         )
 
         team_count = 0
@@ -371,39 +388,37 @@ class PercentileCalculator:
         position_group: Optional[str] = None,
     ) -> list[float]:
         """Get all values for a stat within the comparison group."""
-        # Determine the correct table
-        table_map = {
+        # Determine the correct tables (using sport-specific profile tables)
+        stats_table_map = {
             "NBA": "nba_player_stats",
             "NFL": self._get_nfl_stat_table(stat_name),
             "FOOTBALL": "football_player_stats",
         }
 
-        table = table_map.get(sport_id)
-        if not table:
+        stats_table = stats_table_map.get(sport_id)
+        profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not stats_table or not profile_table:
             return []
 
-        # Build query with optional position filter
+        # Build query with optional position filter (using sport-specific profile table)
         if position_group:
             query = f"""
                 SELECT s.{stat_name}
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id
+                FROM {stats_table} s
+                JOIN {profile_table} p ON s.player_id = p.id
                 WHERE s.season_id = ?
-                  AND p.sport_id = ?
                   AND p.position_group = ?
                   AND s.{stat_name} IS NOT NULL
             """
-            params = (season_id, sport_id, position_group)
+            params = (season_id, position_group)
         else:
             query = f"""
                 SELECT s.{stat_name}
-                FROM {table} s
-                JOIN players p ON s.player_id = p.id
+                FROM {stats_table} s
                 WHERE s.season_id = ?
-                  AND p.sport_id = ?
                   AND s.{stat_name} IS NOT NULL
             """
-            params = (season_id, sport_id)
+            params = (season_id,)
 
         try:
             rows = self.db.fetchall(query, params)

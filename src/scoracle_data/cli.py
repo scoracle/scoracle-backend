@@ -53,6 +53,19 @@ logger = logging.getLogger("statsdb.cli")
 # Keep in sync with SPORT_REGISTRY in api/types.py
 ALL_SPORTS = ["NBA", "NFL", "FOOTBALL"]
 
+# Sport-specific table mappings to avoid cross-sport data contamination
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 
 def get_db():
     """Get database connection in write mode.
@@ -135,20 +148,21 @@ def cmd_status(args: argparse.Namespace) -> int:
         for table, count in sorted(counts.items()):
             print(f"  {table}: {count:,}")
 
-        # Show sports summary using the unified views
+        # Show sports summary using sport-specific tables
         print()
         print("Sports Summary:")
         sports = db.fetchall("SELECT * FROM sports WHERE is_active = true")
         for sport in sports:
-            players = db.fetchone(
-                "SELECT COUNT(*) as count FROM players WHERE sport_id = %s",
-                (sport["id"],),
-            )
-            teams = db.fetchone(
-                "SELECT COUNT(*) as count FROM teams WHERE sport_id = %s",
-                (sport["id"],),
-            )
-            print(f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams")
+            player_table = PLAYER_PROFILE_TABLES.get(sport["id"])
+            team_table = TEAM_PROFILE_TABLES.get(sport["id"])
+            if player_table and team_table:
+                players = db.fetchone(
+                    f"SELECT COUNT(*) as count FROM {player_table}",
+                )
+                teams = db.fetchone(
+                    f"SELECT COUNT(*) as count FROM {team_table}",
+                )
+                print(f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams")
 
         return 0
 
@@ -626,10 +640,14 @@ def cmd_export(args: argparse.Namespace) -> int:
             logger.warning("No data for %s %d", sport_id, season)
             continue
 
-        # Export players with stats
+        # Export players with stats using sport-specific table
+        player_table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not player_table:
+            logger.warning("Unknown sport_id: %s", sport_id)
+            continue
+
         players = db.fetchall(
-            "SELECT * FROM players WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT * FROM {player_table}",
         )
 
         player_data = []
@@ -642,10 +660,10 @@ def cmd_export(args: argparse.Namespace) -> int:
                 "percentiles": percentiles,
             })
 
-        # Export teams with stats
+        # Export teams with stats using sport-specific table
+        team_table = TEAM_PROFILE_TABLES.get(sport_id)
         teams = db.fetchall(
-            "SELECT * FROM teams WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT * FROM {team_table}",
         )
 
         team_data = []

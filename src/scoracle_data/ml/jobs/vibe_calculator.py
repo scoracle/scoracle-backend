@@ -15,6 +15,19 @@ from ..config import get_vibe_label
 
 logger = logging.getLogger(__name__)
 
+# Sport-specific table mappings to avoid cross-sport data contamination
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 
 @dataclass
 class VibeUpdate:
@@ -137,6 +150,7 @@ class VibeCalculatorJob:
         self,
         entity_type: str,
         entity_id: int,
+        sport_id: str,
         force_refresh: bool = False,
     ) -> VibeUpdate | None:
         """
@@ -145,6 +159,7 @@ class VibeCalculatorJob:
         Args:
             entity_type: player or team
             entity_id: Entity ID
+            sport_id: Sport identifier (NBA, NFL, FOOTBALL) - required to avoid cross-sport contamination
             force_refresh: Recalculate even if recent score exists
 
         Returns:
@@ -166,7 +181,7 @@ class VibeCalculatorJob:
         entity = {
             "entity_type": entity_type,
             "entity_id": entity_id,
-            "entity_name": self._get_entity_name(entity_type, entity_id),
+            "entity_name": self._get_entity_name(entity_type, entity_id, sport_id),
         }
 
         return self._calculate_vibe(entity)
@@ -373,17 +388,35 @@ class VibeCalculatorJob:
             )
             return True
 
-    def _get_entity_name(self, entity_type: str, entity_id: int) -> str:
-        """Get entity name from database."""
+    def _get_entity_name(self, entity_type: str, entity_id: int, sport_id: str) -> str:
+        """
+        Get entity name from database using sport-specific tables.
+
+        Args:
+            entity_type: player or team
+            entity_id: Entity ID
+            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
+
+        Returns:
+            Entity name or fallback string if not found
+        """
         if entity_type == "player":
+            table = PLAYER_PROFILE_TABLES.get(sport_id)
+            if not table:
+                logger.warning("Unknown sport_id for player lookup: %s", sport_id)
+                return f"player_{entity_id}"
             result = self.db.fetchone(
-                "SELECT full_name FROM players WHERE id = %s",
+                f"SELECT full_name FROM {table} WHERE id = %s",
                 (entity_id,),
             )
             return result["full_name"] if result else f"player_{entity_id}"
         else:
+            table = TEAM_PROFILE_TABLES.get(sport_id)
+            if not table:
+                logger.warning("Unknown sport_id for team lookup: %s", sport_id)
+                return f"team_{entity_id}"
             result = self.db.fetchone(
-                "SELECT name FROM teams WHERE id = %s",
+                f"SELECT name FROM {table} WHERE id = %s",
                 (entity_id,),
             )
             return result["name"] if result else f"team_{entity_id}"

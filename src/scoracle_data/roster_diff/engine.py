@@ -26,6 +26,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Sport-specific table mappings to avoid cross-sport data contamination
+PLAYER_PROFILE_TABLES = {
+    "NBA": "nba_player_profiles",
+    "NFL": "nfl_player_profiles",
+    "FOOTBALL": "football_player_profiles",
+}
+
+TEAM_PROFILE_TABLES = {
+    "NBA": "nba_team_profiles",
+    "NFL": "nfl_team_profiles",
+    "FOOTBALL": "football_team_profiles",
+}
+
 
 @dataclass
 class DiffResult:
@@ -442,15 +455,19 @@ class RosterDiffEngine:
         sport_id: str,
         league_id: Optional[int],
     ) -> list[dict[str, Any]]:
-        """Get players from database."""
+        """Get players from database using sport-specific table."""
+        table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning("Unknown sport_id for player lookup: %s", sport_id)
+            return []
+
         if league_id:
             return self.db.fetchall(
-                "SELECT id, current_team_id, is_active FROM players WHERE sport_id = ? AND current_league_id = ?",
-                (sport_id, league_id),
+                f"SELECT id, current_team_id, is_active FROM {table} WHERE current_league_id = ?",
+                (league_id,),
             )
         return self.db.fetchall(
-            "SELECT id, current_team_id, is_active FROM players WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT id, current_team_id, is_active FROM {table}",
         )
 
     def _get_db_teams(
@@ -458,15 +475,19 @@ class RosterDiffEngine:
         sport_id: str,
         league_id: Optional[int],
     ) -> list[dict[str, Any]]:
-        """Get teams from database."""
+        """Get teams from database using sport-specific table."""
+        table = TEAM_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning("Unknown sport_id for team lookup: %s", sport_id)
+            return []
+
         if league_id:
             return self.db.fetchall(
-                "SELECT id FROM teams WHERE sport_id = ? AND league_id = ?",
-                (sport_id, league_id),
+                f"SELECT id FROM {table} WHERE league_id = ?",
+                (league_id,),
             )
         return self.db.fetchall(
-            "SELECT id FROM teams WHERE sport_id = ?",
-            (sport_id,),
+            f"SELECT id FROM {table}",
         )
 
     def _insert_player(

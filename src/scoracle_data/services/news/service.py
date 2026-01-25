@@ -79,10 +79,12 @@ class NewsService:
         team: str | None = None,
         limit: int = 10,
         prefer_source: Literal["rss", "api", "both"] = "rss",
+        first_name: str | None = None,
+        last_name: str | None = None,
     ) -> dict:
         """
         Get news about a specific entity (player or team).
-        
+
         Args:
             entity_name: Player or team name
             sport: Optional sport context (NBA, NFL, FOOTBALL)
@@ -92,7 +94,9 @@ class NewsService:
                 - "rss": Use Google News RSS only (default)
                 - "api": Use NewsAPI only (requires config)
                 - "both": Try both, merge and dedupe
-        
+            first_name: Entity's first name (for stricter filtering)
+            last_name: Entity's last name (for stricter filtering)
+
         Returns:
             Dictionary with articles and metadata
         """
@@ -104,12 +108,16 @@ class NewsService:
                     message="NewsAPI not configured",
                 )
             return await self._fetch_from_newsapi(entity_name, sport, limit)
-        
+
         if prefer_source == "both":
-            return await self._fetch_from_both(entity_name, sport, team, limit)
-        
+            return await self._fetch_from_both(
+                entity_name, sport, team, limit, first_name, last_name
+            )
+
         # Default: RSS only
-        return await self._fetch_from_rss(entity_name, sport, team, limit)
+        return await self._fetch_from_rss(
+            entity_name, sport, team, limit, first_name, last_name
+        )
     
     async def _fetch_from_rss(
         self,
@@ -117,6 +125,8 @@ class NewsService:
         sport: str | None,
         team: str | None,
         limit: int,
+        first_name: str | None = None,
+        last_name: str | None = None,
     ) -> dict:
         """Fetch news from Google News RSS."""
         try:
@@ -125,6 +135,8 @@ class NewsService:
                 sport=sport,
                 team=team,
                 limit=limit,
+                first_name=first_name,
+                last_name=last_name,
             )
             result["provider"] = "google_news_rss"
             return result
@@ -162,9 +174,13 @@ class NewsService:
         sport: str | None,
         team: str | None,
         limit: int,
+        first_name: str | None = None,
+        last_name: str | None = None,
     ) -> dict:
         """Fetch from both sources, merge and dedupe."""
-        rss_result = await self._fetch_from_rss(query, sport, team, limit * 2)
+        rss_result = await self._fetch_from_rss(
+            query, sport, team, limit * 2, first_name, last_name
+        )
         
         if not self.has_newsapi:
             # Just return RSS if NewsAPI not available

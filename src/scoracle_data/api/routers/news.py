@@ -82,11 +82,15 @@ async def get_entity_news(
     """
     # Get sport configuration for correct table names
     sport_config = get_sport_config(sport.value)
-    
+
+    # Track name components for stricter filtering
+    first_name: str | None = None
+    last_name: str | None = None
+
     if entity_type == EntityType.player:
         table = sport_config.player_profile_table
         result = db.fetchone(
-            f"SELECT full_name, current_team_id FROM {table} WHERE id = %s",
+            f"SELECT full_name, first_name, last_name, current_team_id FROM {table} WHERE id = %s",
             (entity_id,)
         )
         if not result:
@@ -95,6 +99,8 @@ async def get_entity_news(
                 identifier=str(entity_id),
             )
         entity_name = result["full_name"]
+        first_name = result.get("first_name")
+        last_name = result.get("last_name")
         # Get team name if not provided
         if not team and result.get("current_team_id"):
             team_table = sport_config.team_profile_table
@@ -137,6 +143,8 @@ async def get_entity_news(
         team=team,
         limit=limit,
         prefer_source=source,
+        first_name=first_name,
+        last_name=last_name,
     )
     
     # Add entity info to response

@@ -19,7 +19,7 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-from scoracle_data.pg_connection import get_postgres_db
+from scoracle_data.pg_connection import PostgresDB, get_postgres_db
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -242,14 +242,21 @@ def export_football_teams(db) -> list[dict]:
     return entities
 
 
-def export_sport_specific(output_dir: Path = DEFAULT_OUTPUT_DIR) -> dict:
+def export_sport_specific(output_dir: Path = DEFAULT_OUTPUT_DIR, db_url: str = None) -> dict:
     """
     Export profiles to sport-specific JSON files for frontend autocomplete.
 
     Generates separate files per sport to prevent cross-sport ID collisions.
     No combined file is generated to avoid downstream issues.
+
+    Args:
+        output_dir: Output directory for JSON files
+        db_url: Optional database URL. If not provided, uses default from environment.
     """
-    db = get_postgres_db()
+    if db_url:
+        db = PostgresDB(connection_string=db_url)
+    else:
+        db = get_postgres_db()
 
     # Ensure output directory exists
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -317,9 +324,15 @@ def main():
         default=DEFAULT_OUTPUT_DIR,
         help=f"Output directory (default: {DEFAULT_OUTPUT_DIR})"
     )
+    parser.add_argument(
+        "--db-url",
+        type=str,
+        default=None,
+        help="Database URL to use (overrides environment variable)"
+    )
     args = parser.parse_args()
 
-    result = export_sport_specific(args.output)
+    result = export_sport_specific(args.output, db_url=args.db_url)
     print(f"\nExport complete! Total entities: {result['total']}")
     print(f"Files: nba_entities.json, nfl_entities.json, football_entities.json")
     print(f"Output directory: {args.output}")

@@ -18,6 +18,11 @@ import os
 from contextlib import contextmanager
 from typing import Any, Iterator, Optional
 
+from dotenv import load_dotenv
+
+# Load .env file into os.environ before accessing environment variables
+load_dotenv()
+
 import psycopg
 from psycopg import sql
 from psycopg.rows import dict_row

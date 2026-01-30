@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "generated_at": "2026-01-16T14:03:48.798635",
+  "generated_at": "2026-01-30T08:43:48.938040",
   "sport": "NBA",
   "count": 642,
   "entities": [
@@ -12,8 +12,8 @@
       "name": "Kessler Edwards",
       "normalized": "kessler edwards",
       "tokens": [
-        "kessler",
-        "edwards"
+        "edwards",
+        "kessler"
       ],
       "meta": {
         "position": "F",
@@ -46,8 +46,8 @@
       "name": "T.J. McConnell",
       "normalized": "t.j. mcconnell",
       "tokens": [
-        "mcconnell",
-        "t.j."
+        "t.j.",
+        "mcconnell"
       ],
       "meta": {
         "position": "G",
@@ -63,9 +63,9 @@
       "name": "TyTy Washington Jr.",
       "normalized": "tyty washington jr.",
       "tokens": [
+        "jr.",
         "washington",
-        "tyty",
-        "jr."
+        "tyty"
       ],
       "meta": {
         "position": "G",
@@ -81,8 +81,8 @@
       "name": "Jordan Miller",
       "normalized": "jordan miller",
       "tokens": [
-        "jordan",
-        "miller"
+        "miller",
+        "jordan"
       ],
       "meta": {
         "position": "G",
@@ -115,8 +115,8 @@
       "name": "K. Sanders",
       "normalized": "k. sanders",
       "tokens": [
-        "k.",
-        "sanders"
+        "sanders",
+        "k."
       ],
       "meta": {
         "position": null,
@@ -132,8 +132,8 @@
       "name": "J. Telfort",
       "normalized": "j. telfort",
       "tokens": [
-        "j.",
-        "telfort"
+        "telfort",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -149,9 +149,9 @@
       "name": "Y. Konan Niederhauser",
       "normalized": "y. konan niederhauser",
       "tokens": [
-        "y.",
+        "konan",
         "niederhauser",
-        "konan"
+        "y."
       ],
       "meta": {
         "position": null,
@@ -201,8 +201,8 @@
       "name": "Kylor Kelley",
       "normalized": "kylor kelley",
       "tokens": [
-        "kylor",
-        "kelley"
+        "kelley",
+        "kylor"
       ],
       "meta": {
         "position": null,
@@ -235,8 +235,8 @@
       "name": "Bronny James",
       "normalized": "bronny james",
       "tokens": [
-        "bronny",
-        "james"
+        "james",
+        "bronny"
       ],
       "meta": {
         "position": "G",
@@ -252,8 +252,8 @@
       "name": "Dalton Knecht",
       "normalized": "dalton knecht",
       "tokens": [
-        "knecht",
-        "dalton"
+        "dalton",
+        "knecht"
       ],
       "meta": {
         "position": "G",
@@ -286,8 +286,8 @@
       "name": "Ja Morant",
       "normalized": "ja morant",
       "tokens": [
-        "ja",
-        "morant"
+        "morant",
+        "ja"
       ],
       "meta": {
         "position": "G",
@@ -303,8 +303,8 @@
       "name": "John Konchar",
       "normalized": "john konchar",
       "tokens": [
-        "konchar",
-        "john"
+        "john",
+        "konchar"
       ],
       "meta": {
         "position": "G",
@@ -354,8 +354,8 @@
       "name": "Jaylen Wells",
       "normalized": "jaylen wells",
       "tokens": [
-        "jaylen",
-        "wells"
+        "wells",
+        "jaylen"
       ],
       "meta": {
         "position": "F",
@@ -405,8 +405,8 @@
       "name": "C. Coward",
       "normalized": "c. coward",
       "tokens": [
-        "coward",
-        "c."
+        "c.",
+        "coward"
       ],
       "meta": {
         "position": null,
@@ -422,8 +422,8 @@
       "name": "Pelle Larsson",
       "normalized": "pelle larsson",
       "tokens": [
-        "larsson",
-        "pelle"
+        "pelle",
+        "larsson"
       ],
       "meta": {
         "position": "G",
@@ -456,8 +456,8 @@
       "name": "G. Madsen",
       "normalized": "g. madsen",
       "tokens": [
-        "g.",
-        "madsen"
+        "madsen",
+        "g."
       ],
       "meta": {
         "position": null,
@@ -473,8 +473,8 @@
       "name": "K. Jakucionis",
       "normalized": "k. jakucionis",
       "tokens": [
-        "k.",
-        "jakucionis"
+        "jakucionis",
+        "k."
       ],
       "meta": {
         "position": null,
@@ -490,8 +490,8 @@
       "name": "M. Gardner",
       "normalized": "m. gardner",
       "tokens": [
-        "gardner",
-        "m."
+        "m.",
+        "gardner"
       ],
       "meta": {
         "position": null,
@@ -507,8 +507,8 @@
       "name": "D. Dainja",
       "normalized": "d. dainja",
       "tokens": [
-        "dainja",
-        "d."
+        "d.",
+        "dainja"
       ],
       "meta": {
         "position": null,
@@ -524,8 +524,8 @@
       "name": "V. Goldin",
       "normalized": "v. goldin",
       "tokens": [
-        "goldin",
-        "v."
+        "v.",
+        "goldin"
       ],
       "meta": {
         "position": null,
@@ -558,8 +558,8 @@
       "name": "Myles Turner",
       "normalized": "myles turner",
       "tokens": [
-        "turner",
-        "myles"
+        "myles",
+        "turner"
       ],
       "meta": {
         "position": "C-F",
@@ -592,8 +592,8 @@
       "name": "Pete Nance",
       "normalized": "pete nance",
       "tokens": [
-        "nance",
-        "pete"
+        "pete",
+        "nance"
       ],
       "meta": {
         "position": "F",
@@ -643,8 +643,8 @@
       "name": "Branden Carlson",
       "normalized": "branden carlson",
       "tokens": [
-        "carlson",
-        "branden"
+        "branden",
+        "carlson"
       ],
       "meta": {
         "position": "C",
@@ -660,8 +660,8 @@
       "name": "Walker Kessler",
       "normalized": "walker kessler",
       "tokens": [
-        "kessler",
-        "walker"
+        "walker",
+        "kessler"
       ],
       "meta": {
         "position": "C",
@@ -694,8 +694,8 @@
       "name": "Naz Reid",
       "normalized": "naz reid",
       "tokens": [
-        "naz",
-        "reid"
+        "reid",
+        "naz"
       ],
       "meta": {
         "position": "C-F",
@@ -729,8 +729,8 @@
       "normalized": "jeremiah robinson-earl",
       "tokens": [
         "robinson",
-        "earl",
-        "jeremiah"
+        "jeremiah",
+        "earl"
       ],
       "meta": {
         "position": "F",
@@ -746,8 +746,8 @@
       "name": "Jimmy Butler",
       "normalized": "jimmy butler",
       "tokens": [
-        "jimmy",
-        "butler"
+        "butler",
+        "jimmy"
       ],
       "meta": {
         "position": "Attacker",
@@ -763,8 +763,8 @@
       "name": "Draymond Green",
       "normalized": "draymond green",
       "tokens": [
-        "green",
-        "draymond"
+        "draymond",
+        "green"
       ],
       "meta": {
         "position": "F",
@@ -831,8 +831,8 @@
       "name": "Nikola Jovic",
       "normalized": "nikola jovic",
       "tokens": [
-        "jovic",
-        "nikola"
+        "nikola",
+        "jovic"
       ],
       "meta": {
         "position": "F",
@@ -882,9 +882,9 @@
       "name": "Jamie Jr. Jaquez",
       "normalized": "jamie jr. jaquez",
       "tokens": [
-        "jamie",
+        "jr.",
         "jaquez",
-        "jr."
+        "jamie"
       ],
       "meta": {
         "position": "G",
@@ -952,8 +952,8 @@
       "normalized": "gary trent jr.",
       "tokens": [
         "jr.",
-        "trent",
-        "gary"
+        "gary",
+        "trent"
       ],
       "meta": {
         "position": "G-F",
@@ -969,9 +969,9 @@
       "name": "Andre Jr. Jackson",
       "normalized": "andre jr. jackson",
       "tokens": [
-        "andre",
         "jackson",
-        "jr."
+        "jr.",
+        "andre"
       ],
       "meta": {
         "position": "G",
@@ -987,8 +987,8 @@
       "name": "Z. Austin",
       "normalized": "z. austin",
       "tokens": [
-        "austin",
-        "z."
+        "z.",
+        "austin"
       ],
       "meta": {
         "position": null,
@@ -1004,8 +1004,8 @@
       "name": "C. Youngblood",
       "normalized": "c. youngblood",
       "tokens": [
-        "youngblood",
-        "c."
+        "c.",
+        "youngblood"
       ],
       "meta": {
         "position": null,
@@ -1038,8 +1038,8 @@
       "name": "Quentin Grimes",
       "normalized": "quentin grimes",
       "tokens": [
-        "quentin",
-        "grimes"
+        "grimes",
+        "quentin"
       ],
       "meta": {
         "position": "G",
@@ -1072,8 +1072,8 @@
       "name": "Trendon Watford",
       "normalized": "trendon watford",
       "tokens": [
-        "watford",
-        "trendon"
+        "trendon",
+        "watford"
       ],
       "meta": {
         "position": "F",
@@ -1123,8 +1123,8 @@
       "name": "Dominick Barlow",
       "normalized": "dominick barlow",
       "tokens": [
-        "dominick",
-        "barlow"
+        "barlow",
+        "dominick"
       ],
       "meta": {
         "position": "F",
@@ -1157,8 +1157,8 @@
       "name": "Adem Bona",
       "normalized": "adem bona",
       "tokens": [
-        "adem",
-        "bona"
+        "bona",
+        "adem"
       ],
       "meta": {
         "position": "C",
@@ -1191,8 +1191,8 @@
       "name": "D. Cardwell",
       "normalized": "d. cardwell",
       "tokens": [
-        "cardwell",
-        "d."
+        "d.",
+        "cardwell"
       ],
       "meta": {
         "position": null,
@@ -1242,8 +1242,8 @@
       "name": "Dennis Schroder",
       "normalized": "dennis schroder",
       "tokens": [
-        "dennis",
-        "schroder"
+        "schroder",
+        "dennis"
       ],
       "meta": {
         "position": "G",
@@ -1259,8 +1259,8 @@
       "name": "Zach LaVine",
       "normalized": "zach lavine",
       "tokens": [
-        "lavine",
-        "zach"
+        "zach",
+        "lavine"
       ],
       "meta": {
         "position": "G-F",
@@ -1276,8 +1276,8 @@
       "name": "Doug McDermott",
       "normalized": "doug mcdermott",
       "tokens": [
-        "mcdermott",
-        "doug"
+        "doug",
+        "mcdermott"
       ],
       "meta": {
         "position": "F",
@@ -1293,8 +1293,8 @@
       "name": "De'Aaron Fox",
       "normalized": "de'aaron fox",
       "tokens": [
-        "deaaron",
-        "fox"
+        "fox",
+        "deaaron"
       ],
       "meta": {
         "position": "G",
@@ -1327,8 +1327,8 @@
       "name": "Keldon Johnson",
       "normalized": "keldon johnson",
       "tokens": [
-        "johnson",
-        "keldon"
+        "keldon",
+        "johnson"
       ],
       "meta": {
         "position": "F-G",
@@ -1361,9 +1361,9 @@
       "name": "Lindy Waters III",
       "normalized": "lindy waters iii",
       "tokens": [
+        "lindy",
         "iii",
-        "waters",
-        "lindy"
+        "waters"
       ],
       "meta": {
         "position": "F",
@@ -1413,8 +1413,8 @@
       "name": "Trayce JacksonDavis",
       "normalized": "trayce jacksondavis",
       "tokens": [
-        "trayce",
-        "jacksondavis"
+        "jacksondavis",
+        "trayce"
       ],
       "meta": {
         "position": "F",
@@ -1464,8 +1464,8 @@
       "name": "Precious Achiuwa",
       "normalized": "precious achiuwa",
       "tokens": [
-        "precious",
-        "achiuwa"
+        "achiuwa",
+        "precious"
       ],
       "meta": {
         "position": "F",
@@ -1481,8 +1481,8 @@
       "name": "Chuma Okeke",
       "normalized": "chuma okeke",
       "tokens": [
-        "chuma",
-        "okeke"
+        "okeke",
+        "chuma"
       ],
       "meta": {
         "position": "F",
@@ -1498,8 +1498,8 @@
       "name": "Matt Ryan",
       "normalized": "matt ryan",
       "tokens": [
-        "matt",
-        "ryan"
+        "ryan",
+        "matt"
       ],
       "meta": {
         "position": "F",
@@ -1532,8 +1532,8 @@
       "name": "Trey Jemison",
       "normalized": "trey jemison",
       "tokens": [
-        "jemison",
-        "trey"
+        "trey",
+        "jemison"
       ],
       "meta": {
         "position": "C",
@@ -1549,8 +1549,8 @@
       "name": "Pacome Dadiet",
       "normalized": "pacome dadiet",
       "tokens": [
-        "pacome",
-        "dadiet"
+        "dadiet",
+        "pacome"
       ],
       "meta": {
         "position": "G",
@@ -1583,8 +1583,8 @@
       "name": "Alex Caruso",
       "normalized": "alex caruso",
       "tokens": [
-        "alex",
-        "caruso"
+        "caruso",
+        "alex"
       ],
       "meta": {
         "position": "Midfielder",
@@ -1617,8 +1617,8 @@
       "name": "K. Brea",
       "normalized": "k. brea",
       "tokens": [
-        "k.",
-        "brea"
+        "brea",
+        "k."
       ],
       "meta": {
         "position": null,
@@ -1634,8 +1634,8 @@
       "name": "Blake Wesley",
       "normalized": "blake wesley",
       "tokens": [
-        "blake",
-        "wesley"
+        "wesley",
+        "blake"
       ],
       "meta": {
         "position": "G",
@@ -1651,8 +1651,8 @@
       "name": "Toumani Camara",
       "normalized": "toumani camara",
       "tokens": [
-        "toumani",
-        "camara"
+        "camara",
+        "toumani"
       ],
       "meta": {
         "position": "F",
@@ -1685,8 +1685,8 @@
       "name": "Duop Reath",
       "normalized": "duop reath",
       "tokens": [
-        "reath",
-        "duop"
+        "duop",
+        "reath"
       ],
       "meta": {
         "position": "C",
@@ -1736,8 +1736,8 @@
       "name": "Terence Davis",
       "normalized": "terence davis",
       "tokens": [
-        "davis",
-        "terence"
+        "terence",
+        "davis"
       ],
       "meta": {
         "position": "G",
@@ -1787,8 +1787,8 @@
       "name": "M. Raynaud",
       "normalized": "m. raynaud",
       "tokens": [
-        "raynaud",
-        "m."
+        "m.",
+        "raynaud"
       ],
       "meta": {
         "position": null,
@@ -1804,8 +1804,8 @@
       "name": "Kyle Filipowski",
       "normalized": "kyle filipowski",
       "tokens": [
-        "kyle",
-        "filipowski"
+        "filipowski",
+        "kyle"
       ],
       "meta": {
         "position": "F",
@@ -1838,8 +1838,8 @@
       "name": "S. Crowl",
       "normalized": "s. crowl",
       "tokens": [
-        "s.",
-        "crowl"
+        "crowl",
+        "s."
       ],
       "meta": {
         "position": null,
@@ -1872,8 +1872,8 @@
       "name": "AJ Johnson",
       "normalized": "aj johnson",
       "tokens": [
-        "johnson",
-        "aj"
+        "aj",
+        "johnson"
       ],
       "meta": {
         "position": "G",
@@ -1889,8 +1889,8 @@
       "name": "Dillon Jones",
       "normalized": "dillon jones",
       "tokens": [
-        "jones",
-        "dillon"
+        "dillon",
+        "jones"
       ],
       "meta": {
         "position": "F",
@@ -1940,8 +1940,8 @@
       "name": "Alex Sarr",
       "normalized": "alex sarr",
       "tokens": [
-        "alex",
-        "sarr"
+        "sarr",
+        "alex"
       ],
       "meta": {
         "position": "PF",
@@ -1957,8 +1957,8 @@
       "name": "K. Richmond",
       "normalized": "k. richmond",
       "tokens": [
-        "k.",
-        "richmond"
+        "richmond",
+        "k."
       ],
       "meta": {
         "position": null,
@@ -1974,8 +1974,8 @@
       "name": "J. Watkins",
       "normalized": "j. watkins",
       "tokens": [
-        "watkins",
-        "j."
+        "j.",
+        "watkins"
       ],
       "meta": {
         "position": null,
@@ -2008,8 +2008,8 @@
       "name": "T. Johnson",
       "normalized": "t. johnson",
       "tokens": [
-        "johnson",
-        "t."
+        "t.",
+        "johnson"
       ],
       "meta": {
         "position": null,
@@ -2076,8 +2076,8 @@
       "name": "Amir Coffey",
       "normalized": "amir coffey",
       "tokens": [
-        "coffey",
-        "amir"
+        "amir",
+        "coffey"
       ],
       "meta": {
         "position": "G-F",
@@ -2110,8 +2110,8 @@
       "name": "Jaylon Tyson",
       "normalized": "jaylon tyson",
       "tokens": [
-        "tyson",
-        "jaylon"
+        "jaylon",
+        "tyson"
       ],
       "meta": {
         "position": "F",
@@ -2161,8 +2161,8 @@
       "name": "C. Johnson",
       "normalized": "c. johnson",
       "tokens": [
-        "johnson",
-        "c."
+        "c.",
+        "johnson"
       ],
       "meta": {
         "position": null,
@@ -2178,8 +2178,8 @@
       "name": "N. Tomlin",
       "normalized": "n. tomlin",
       "tokens": [
-        "n.",
-        "tomlin"
+        "tomlin",
+        "n."
       ],
       "meta": {
         "position": null,
@@ -2195,8 +2195,8 @@
       "name": "C. Matthews",
       "normalized": "c. matthews",
       "tokens": [
-        "matthews",
-        "c."
+        "c.",
+        "matthews"
       ],
       "meta": {
         "position": null,
@@ -2212,8 +2212,8 @@
       "name": "Kevin Durant",
       "normalized": "kevin durant",
       "tokens": [
-        "durant",
-        "kevin"
+        "kevin",
+        "durant"
       ],
       "meta": {
         "position": "Attacker",
@@ -2246,8 +2246,8 @@
       "name": "Steven Adams",
       "normalized": "steven adams",
       "tokens": [
-        "steven",
-        "adams"
+        "adams",
+        "steven"
       ],
       "meta": {
         "position": "C",
@@ -2280,8 +2280,8 @@
       "name": "Pascal Siakam",
       "normalized": "pascal siakam",
       "tokens": [
-        "pascal",
-        "siakam"
+        "siakam",
+        "pascal"
       ],
       "meta": {
         "position": "F",
@@ -2314,8 +2314,8 @@
       "name": "Cody Martin",
       "normalized": "cody martin",
       "tokens": [
-        "cody",
-        "martin"
+        "martin",
+        "cody"
       ],
       "meta": {
         "position": "F",
@@ -2331,8 +2331,8 @@
       "name": "Andrew Nembhard",
       "normalized": "andrew nembhard",
       "tokens": [
-        "andrew",
-        "nembhard"
+        "nembhard",
+        "andrew"
       ],
       "meta": {
         "position": "G-F",
@@ -2365,8 +2365,8 @@
       "name": "Jarace Walker",
       "normalized": "jarace walker",
       "tokens": [
-        "jarace",
-        "walker"
+        "walker",
+        "jarace"
       ],
       "meta": {
         "position": "F",
@@ -2382,8 +2382,8 @@
       "name": "Jalen Slawson",
       "normalized": "jalen slawson",
       "tokens": [
-        "slawson",
-        "jalen"
+        "jalen",
+        "slawson"
       ],
       "meta": {
         "position": "F",
@@ -2416,8 +2416,8 @@
       "name": "Jordan Clarkson",
       "normalized": "jordan clarkson",
       "tokens": [
-        "jordan",
-        "clarkson"
+        "clarkson",
+        "jordan"
       ],
       "meta": {
         "position": "Midfielder",
@@ -2433,8 +2433,8 @@
       "name": "Royce O'Neale",
       "normalized": "royce o'neale",
       "tokens": [
-        "royce",
-        "oneale"
+        "oneale",
+        "royce"
       ],
       "meta": {
         "position": "Goalkeeper",
@@ -2450,8 +2450,8 @@
       "name": "Joe Ingles",
       "normalized": "joe ingles",
       "tokens": [
-        "joe",
-        "ingles"
+        "ingles",
+        "joe"
       ],
       "meta": {
         "position": "F-G",
@@ -2467,8 +2467,8 @@
       "name": "Mike Conley",
       "normalized": "mike conley",
       "tokens": [
-        "mike",
-        "conley"
+        "conley",
+        "mike"
       ],
       "meta": {
         "position": "G",
@@ -2501,8 +2501,8 @@
       "name": "Julius Randle",
       "normalized": "julius randle",
       "tokens": [
-        "julius",
-        "randle"
+        "randle",
+        "julius"
       ],
       "meta": {
         "position": "F-C",
@@ -2518,8 +2518,8 @@
       "name": "Obi Toppin",
       "normalized": "obi toppin",
       "tokens": [
-        "toppin",
-        "obi"
+        "obi",
+        "toppin"
       ],
       "meta": {
         "position": "F",
@@ -2535,8 +2535,8 @@
       "name": "Aaron Nesmith",
       "normalized": "aaron nesmith",
       "tokens": [
-        "nesmith",
-        "aaron"
+        "aaron",
+        "nesmith"
       ],
       "meta": {
         "position": "G-F",
@@ -2552,8 +2552,8 @@
       "name": "Jay Huff",
       "normalized": "jay huff",
       "tokens": [
-        "jay",
-        "huff"
+        "huff",
+        "jay"
       ],
       "meta": {
         "position": "F",
@@ -2569,8 +2569,8 @@
       "name": "Mac McClung",
       "normalized": "mac mcclung",
       "tokens": [
-        "mcclung",
-        "mac"
+        "mac",
+        "mcclung"
       ],
       "meta": {
         "position": "G",
@@ -2586,8 +2586,8 @@
       "name": "Ethan Thompson",
       "normalized": "ethan thompson",
       "tokens": [
-        "ethan",
-        "thompson"
+        "thompson",
+        "ethan"
       ],
       "meta": {
         "position": "G",
@@ -2620,8 +2620,8 @@
       "name": "Adou Thiero",
       "normalized": "adou thiero",
       "tokens": [
-        "adou",
-        "thiero"
+        "thiero",
+        "adou"
       ],
       "meta": {
         "position": null,
@@ -2654,8 +2654,8 @@
       "name": "Zach Edey",
       "normalized": "zach edey",
       "tokens": [
-        "edey",
-        "zach"
+        "zach",
+        "edey"
       ],
       "meta": {
         "position": "C",
@@ -2671,8 +2671,8 @@
       "name": "Cam Spencer",
       "normalized": "cam spencer",
       "tokens": [
-        "spencer",
-        "cam"
+        "cam",
+        "spencer"
       ],
       "meta": {
         "position": "G",
@@ -2688,8 +2688,8 @@
       "name": "Giannis Antetokounmpo",
       "normalized": "giannis antetokounmpo",
       "tokens": [
-        "giannis",
-        "antetokounmpo"
+        "antetokounmpo",
+        "giannis"
       ],
       "meta": {
         "position": "Midfielder",
@@ -2705,8 +2705,8 @@
       "name": "Gary Harris",
       "normalized": "gary harris",
       "tokens": [
-        "harris",
-        "gary"
+        "gary",
+        "harris"
       ],
       "meta": {
         "position": "G",
@@ -2722,8 +2722,8 @@
       "name": "Anthony Edwards",
       "normalized": "anthony edwards",
       "tokens": [
-        "anthony",
-        "edwards"
+        "edwards",
+        "anthony"
       ],
       "meta": {
         "position": "G",
@@ -2739,8 +2739,8 @@
       "name": "Tyler Kolek",
       "normalized": "tyler kolek",
       "tokens": [
-        "tyler",
-        "kolek"
+        "kolek",
+        "tyler"
       ],
       "meta": {
         "position": "G",
@@ -2756,9 +2756,9 @@
       "name": "Kevin Jr. McCullar",
       "normalized": "kevin jr. mccullar",
       "tokens": [
-        "mccullar",
+        "jr.",
         "kevin",
-        "jr."
+        "mccullar"
       ],
       "meta": {
         "position": "F",
@@ -2791,8 +2791,8 @@
       "name": "A. O'Connell",
       "normalized": "a. o'connell",
       "tokens": [
-        "oconnell",
-        "a."
+        "a.",
+        "oconnell"
       ],
       "meta": {
         "position": null,
@@ -2825,9 +2825,9 @@
       "name": "Shai Gilgeous-Alexander",
       "normalized": "shai gilgeous-alexander",
       "tokens": [
-        "alexander",
+        "gilgeous",
         "shai",
-        "gilgeous"
+        "alexander"
       ],
       "meta": {
         "position": "Defender",
@@ -2843,8 +2843,8 @@
       "name": "Isaiah Joe",
       "normalized": "isaiah joe",
       "tokens": [
-        "joe",
-        "isaiah"
+        "isaiah",
+        "joe"
       ],
       "meta": {
         "position": "G",
@@ -2860,8 +2860,8 @@
       "name": "Aaron Wiggins",
       "normalized": "aaron wiggins",
       "tokens": [
-        "wiggins",
-        "aaron"
+        "aaron",
+        "wiggins"
       ],
       "meta": {
         "position": "G",
@@ -2877,8 +2877,8 @@
       "name": "Chet Holmgren",
       "normalized": "chet holmgren",
       "tokens": [
-        "holmgren",
-        "chet"
+        "chet",
+        "holmgren"
       ],
       "meta": {
         "position": "C-F",
@@ -2911,8 +2911,8 @@
       "name": "Jaylin Williams",
       "normalized": "jaylin williams",
       "tokens": [
-        "williams",
-        "jaylin"
+        "jaylin",
+        "williams"
       ],
       "meta": {
         "position": "F",
@@ -2928,8 +2928,8 @@
       "name": "Ousmane Dieng",
       "normalized": "ousmane dieng",
       "tokens": [
-        "ousmane",
-        "dieng"
+        "dieng",
+        "ousmane"
       ],
       "meta": {
         "position": "F",
@@ -2945,8 +2945,8 @@
       "name": "Buddy Boeheim",
       "normalized": "buddy boeheim",
       "tokens": [
-        "buddy",
-        "boeheim"
+        "boeheim",
+        "buddy"
       ],
       "meta": {
         "position": "F",
@@ -2962,8 +2962,8 @@
       "name": "Jazian Gortman",
       "normalized": "jazian gortman",
       "tokens": [
-        "jazian",
-        "gortman"
+        "gortman",
+        "jazian"
       ],
       "meta": {
         "position": "G",
@@ -3030,8 +3030,8 @@
       "name": "Mo Bamba",
       "normalized": "mo bamba",
       "tokens": [
-        "bamba",
-        "mo"
+        "mo",
+        "bamba"
       ],
       "meta": {
         "position": "C",
@@ -3047,8 +3047,8 @@
       "name": "RJ Barrett",
       "normalized": "rj barrett",
       "tokens": [
-        "rj",
-        "barrett"
+        "barrett",
+        "rj"
       ],
       "meta": {
         "position": "F-G",
@@ -3064,8 +3064,8 @@
       "name": "Immanuel Quickley",
       "normalized": "immanuel quickley",
       "tokens": [
-        "quickley",
-        "immanuel"
+        "immanuel",
+        "quickley"
       ],
       "meta": {
         "position": "G",
@@ -3081,8 +3081,8 @@
       "name": "Ochai Agbaji",
       "normalized": "ochai agbaji",
       "tokens": [
-        "agbaji",
-        "ochai"
+        "ochai",
+        "agbaji"
       ],
       "meta": {
         "position": "G",
@@ -3149,8 +3149,8 @@
       "name": "J. Tonje",
       "normalized": "j. tonje",
       "tokens": [
-        "j.",
-        "tonje"
+        "tonje",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -3166,8 +3166,8 @@
       "name": "N. Essengue",
       "normalized": "n. essengue",
       "tokens": [
-        "essengue",
-        "n."
+        "n.",
+        "essengue"
       ],
       "meta": {
         "position": null,
@@ -3183,8 +3183,8 @@
       "name": "Amen Thompson",
       "normalized": "amen thompson",
       "tokens": [
-        "amen",
-        "thompson"
+        "thompson",
+        "amen"
       ],
       "meta": {
         "position": "F",
@@ -3200,8 +3200,8 @@
       "name": "Aaron Holiday",
       "normalized": "aaron holiday",
       "tokens": [
-        "holiday",
-        "aaron"
+        "aaron",
+        "holiday"
       ],
       "meta": {
         "position": "G",
@@ -3217,8 +3217,8 @@
       "name": "Seth Curry",
       "normalized": "seth curry",
       "tokens": [
-        "curry",
-        "seth"
+        "seth",
+        "curry"
       ],
       "meta": {
         "position": "G",
@@ -3234,8 +3234,8 @@
       "name": "Josh Okogie",
       "normalized": "josh okogie",
       "tokens": [
-        "okogie",
-        "josh"
+        "josh",
+        "okogie"
       ],
       "meta": {
         "position": "G",
@@ -3319,9 +3319,9 @@
       "name": "Trey Murphy III",
       "normalized": "trey murphy iii",
       "tokens": [
+        "trey",
         "iii",
-        "murphy",
-        "trey"
+        "murphy"
       ],
       "meta": {
         "position": "F",
@@ -3354,8 +3354,8 @@
       "name": "Bryce McGowens",
       "normalized": "bryce mcgowens",
       "tokens": [
-        "bryce",
-        "mcgowens"
+        "mcgowens",
+        "bryce"
       ],
       "meta": {
         "position": "G",
@@ -3388,8 +3388,8 @@
       "name": "Jordan Hawkins",
       "normalized": "jordan hawkins",
       "tokens": [
-        "jordan",
-        "hawkins"
+        "hawkins",
+        "jordan"
       ],
       "meta": {
         "position": "G",
@@ -3405,8 +3405,8 @@
       "name": "Trey Alexander",
       "normalized": "trey alexander",
       "tokens": [
-        "alexander",
-        "trey"
+        "trey",
+        "alexander"
       ],
       "meta": {
         "position": "G",
@@ -3422,8 +3422,8 @@
       "name": "Yves Missi",
       "normalized": "yves missi",
       "tokens": [
-        "yves",
-        "missi"
+        "missi",
+        "yves"
       ],
       "meta": {
         "position": "C",
@@ -3440,8 +3440,8 @@
       "normalized": "kentavious caldwell-pope",
       "tokens": [
         "kentavious",
-        "pope",
-        "caldwell"
+        "caldwell",
+        "pope"
       ],
       "meta": {
         "position": "G",
@@ -3474,8 +3474,8 @@
       "name": "Jaden Springer",
       "normalized": "jaden springer",
       "tokens": [
-        "jaden",
-        "springer"
+        "springer",
+        "jaden"
       ],
       "meta": {
         "position": "G",
@@ -3559,8 +3559,8 @@
       "name": "Desmond Bane",
       "normalized": "desmond bane",
       "tokens": [
-        "desmond",
-        "bane"
+        "bane",
+        "desmond"
       ],
       "meta": {
         "position": "G",
@@ -3627,8 +3627,8 @@
       "name": "Miles McBride",
       "normalized": "miles mcbride",
       "tokens": [
-        "miles",
-        "mcbride"
+        "mcbride",
+        "miles"
       ],
       "meta": {
         "position": "G",
@@ -3644,8 +3644,8 @@
       "name": "Alex Len",
       "normalized": "alex len",
       "tokens": [
-        "alex",
-        "len"
+        "len",
+        "alex"
       ],
       "meta": {
         "position": "C",
@@ -3661,8 +3661,8 @@
       "name": "Kenrich Williams",
       "normalized": "kenrich williams",
       "tokens": [
-        "williams",
-        "kenrich"
+        "kenrich",
+        "williams"
       ],
       "meta": {
         "position": "G-F",
@@ -3746,9 +3746,9 @@
       "name": "Wendell Carter Jr.",
       "normalized": "wendell carter jr.",
       "tokens": [
-        "carter",
+        "jr.",
         "wendell",
-        "jr."
+        "carter"
       ],
       "meta": {
         "position": "C-F",
@@ -3781,8 +3781,8 @@
       "name": "C. Huntley",
       "normalized": "c. huntley",
       "tokens": [
-        "huntley",
-        "c."
+        "c.",
+        "huntley"
       ],
       "meta": {
         "position": null,
@@ -3815,8 +3815,8 @@
       "name": "Keon Ellis",
       "normalized": "keon ellis",
       "tokens": [
-        "ellis",
-        "keon"
+        "keon",
+        "ellis"
       ],
       "meta": {
         "position": "G",
@@ -3832,8 +3832,8 @@
       "name": "Daeqwon Plowden",
       "normalized": "daeqwon plowden",
       "tokens": [
-        "daeqwon",
-        "plowden"
+        "plowden",
+        "daeqwon"
       ],
       "meta": {
         "position": "G-F",
@@ -3883,8 +3883,8 @@
       "name": "Malik Monk",
       "normalized": "malik monk",
       "tokens": [
-        "monk",
-        "malik"
+        "malik",
+        "monk"
       ],
       "meta": {
         "position": "G",
@@ -3900,8 +3900,8 @@
       "name": "Jerami Grant",
       "normalized": "jerami grant",
       "tokens": [
-        "jerami",
-        "grant"
+        "grant",
+        "jerami"
       ],
       "meta": {
         "position": "F",
@@ -3934,8 +3934,8 @@
       "name": "Charles Bassey",
       "normalized": "charles bassey",
       "tokens": [
-        "bassey",
-        "charles"
+        "charles",
+        "bassey"
       ],
       "meta": {
         "position": "C-F",
@@ -3968,8 +3968,8 @@
       "name": "Vit Krejci",
       "normalized": "vit krejci",
       "tokens": [
-        "vit",
-        "krejci"
+        "krejci",
+        "vit"
       ],
       "meta": {
         "position": "G",
@@ -3985,8 +3985,8 @@
       "name": "Jalen Johnson",
       "normalized": "jalen johnson",
       "tokens": [
-        "johnson",
-        "jalen"
+        "jalen",
+        "johnson"
       ],
       "meta": {
         "position": "F",
@@ -4019,8 +4019,8 @@
       "name": "Dyson Daniels",
       "normalized": "dyson daniels",
       "tokens": [
-        "daniels",
-        "dyson"
+        "dyson",
+        "daniels"
       ],
       "meta": {
         "position": "Midfielder",
@@ -4036,8 +4036,8 @@
       "name": "Caleb Houstan",
       "normalized": "caleb houstan",
       "tokens": [
-        "caleb",
-        "houstan"
+        "houstan",
+        "caleb"
       ],
       "meta": {
         "position": "G",
@@ -4053,8 +4053,8 @@
       "name": "Mouhamed Gueye",
       "normalized": "mouhamed gueye",
       "tokens": [
-        "mouhamed",
-        "gueye"
+        "gueye",
+        "mouhamed"
       ],
       "meta": {
         "position": "F",
@@ -4070,8 +4070,8 @@
       "name": "Jacob Toppin",
       "normalized": "jacob toppin",
       "tokens": [
-        "toppin",
-        "jacob"
+        "jacob",
+        "toppin"
       ],
       "meta": {
         "position": "F",
@@ -4138,8 +4138,8 @@
       "name": "E. N'Diaye",
       "normalized": "e. n'diaye",
       "tokens": [
-        "e.",
-        "ndiaye"
+        "ndiaye",
+        "e."
       ],
       "meta": {
         "position": null,
@@ -4155,8 +4155,8 @@
       "name": "A. Newell",
       "normalized": "a. newell",
       "tokens": [
-        "newell",
-        "a."
+        "a.",
+        "newell"
       ],
       "meta": {
         "position": null,
@@ -4206,8 +4206,8 @@
       "name": "Keaton Wallace",
       "normalized": "keaton wallace",
       "tokens": [
-        "wallace",
-        "keaton"
+        "keaton",
+        "wallace"
       ],
       "meta": {
         "position": null,
@@ -4223,8 +4223,8 @@
       "name": "Jaylen Brown",
       "normalized": "jaylen brown",
       "tokens": [
-        "jaylen",
-        "brown"
+        "brown",
+        "jaylen"
       ],
       "meta": {
         "position": "G-F",
@@ -4291,8 +4291,8 @@
       "name": "Xavier Tillman",
       "normalized": "xavier tillman",
       "tokens": [
-        "tillman",
-        "xavier"
+        "xavier",
+        "tillman"
       ],
       "meta": {
         "position": "F",
@@ -4308,8 +4308,8 @@
       "name": "Luka Garza",
       "normalized": "luka garza",
       "tokens": [
-        "luka",
-        "garza"
+        "garza",
+        "luka"
       ],
       "meta": {
         "position": "Midfielder",
@@ -4394,9 +4394,9 @@
       "name": "Ron Harper Jr.",
       "normalized": "ron harper jr.",
       "tokens": [
+        "harper",
         "jr.",
-        "ron",
-        "harper"
+        "ron"
       ],
       "meta": {
         "position": "F",
@@ -4429,8 +4429,8 @@
       "name": "Baylor Scheierman",
       "normalized": "baylor scheierman",
       "tokens": [
-        "baylor",
-        "scheierman"
+        "scheierman",
+        "baylor"
       ],
       "meta": {
         "position": "F",
@@ -4463,8 +4463,8 @@
       "name": "Gonzalez Hugo",
       "normalized": "gonzalez hugo",
       "tokens": [
-        "hugo",
-        "gonzalez"
+        "gonzalez",
+        "hugo"
       ],
       "meta": {
         "position": "PF",
@@ -4480,9 +4480,9 @@
       "name": "R. Luis Jr.",
       "normalized": "r. luis jr.",
       "tokens": [
+        "jr.",
         "luis",
-        "r.",
-        "jr."
+        "r."
       ],
       "meta": {
         "position": null,
@@ -4498,8 +4498,8 @@
       "name": "M. Shulga",
       "normalized": "m. shulga",
       "tokens": [
-        "shulga",
-        "m."
+        "m.",
+        "shulga"
       ],
       "meta": {
         "position": null,
@@ -4532,8 +4532,8 @@
       "name": "Terance Mann",
       "normalized": "terance mann",
       "tokens": [
-        "mann",
-        "terance"
+        "terance",
+        "mann"
       ],
       "meta": {
         "position": "G-F",
@@ -4566,8 +4566,8 @@
       "name": "Ziaire Williams",
       "normalized": "ziaire williams",
       "tokens": [
-        "williams",
-        "ziaire"
+        "ziaire",
+        "williams"
       ],
       "meta": {
         "position": "Attacker",
@@ -4583,8 +4583,8 @@
       "name": "Cam Thomas",
       "normalized": "cam thomas",
       "tokens": [
-        "thomas",
-        "cam"
+        "cam",
+        "thomas"
       ],
       "meta": {
         "position": "Defender",
@@ -4634,8 +4634,8 @@
       "name": "Tyrese Martin",
       "normalized": "tyrese martin",
       "tokens": [
-        "tyrese",
-        "martin"
+        "martin",
+        "tyrese"
       ],
       "meta": {
         "position": "G",
@@ -4651,8 +4651,8 @@
       "name": "Kobe Bufkin",
       "normalized": "kobe bufkin",
       "tokens": [
-        "kobe",
-        "bufkin"
+        "bufkin",
+        "kobe"
       ],
       "meta": {
         "position": "G",
@@ -4702,8 +4702,8 @@
       "name": "Jalen Wilson",
       "normalized": "jalen wilson",
       "tokens": [
-        "wilson",
-        "jalen"
+        "jalen",
+        "wilson"
       ],
       "meta": {
         "position": "F",
@@ -4719,8 +4719,8 @@
       "name": "Drew Timme",
       "normalized": "drew timme",
       "tokens": [
-        "timme",
-        "drew"
+        "drew",
+        "timme"
       ],
       "meta": {
         "position": "F",
@@ -4736,8 +4736,8 @@
       "name": "Day'Ron Sharpe",
       "normalized": "day'ron sharpe",
       "tokens": [
-        "dayron",
-        "sharpe"
+        "sharpe",
+        "dayron"
       ],
       "meta": {
         "position": "C",
@@ -4839,8 +4839,8 @@
       "name": "Anfernee Simons",
       "normalized": "anfernee simons",
       "tokens": [
-        "simons",
-        "anfernee"
+        "anfernee",
+        "simons"
       ],
       "meta": {
         "position": "G",
@@ -4890,8 +4890,8 @@
       "name": "D. Wolf",
       "normalized": "d. wolf",
       "tokens": [
-        "wolf",
-        "d."
+        "d.",
+        "wolf"
       ],
       "meta": {
         "position": null,
@@ -4958,8 +4958,8 @@
       "name": "Miles Bridges",
       "normalized": "miles bridges",
       "tokens": [
-        "miles",
-        "bridges"
+        "bridges",
+        "miles"
       ],
       "meta": {
         "position": "F",
@@ -4975,8 +4975,8 @@
       "name": "Grant Williams",
       "normalized": "grant williams",
       "tokens": [
-        "grant",
-        "williams"
+        "williams",
+        "grant"
       ],
       "meta": {
         "position": "F",
@@ -4992,8 +4992,8 @@
       "name": "Tre Mann",
       "normalized": "tre mann",
       "tokens": [
-        "mann",
-        "tre"
+        "tre",
+        "mann"
       ],
       "meta": {
         "position": "G",
@@ -5026,8 +5026,8 @@
       "name": "Brandon Miller",
       "normalized": "brandon miller",
       "tokens": [
-        "brandon",
-        "miller"
+        "miller",
+        "brandon"
       ],
       "meta": {
         "position": "F",
@@ -5043,8 +5043,8 @@
       "name": "Drew Peterson",
       "normalized": "drew peterson",
       "tokens": [
-        "peterson",
-        "drew"
+        "drew",
+        "peterson"
       ],
       "meta": {
         "position": "F",
@@ -5094,8 +5094,8 @@
       "name": "K.J. Simpson",
       "normalized": "k.j. simpson",
       "tokens": [
-        "simpson",
-        "k.j."
+        "k.j.",
+        "simpson"
       ],
       "meta": {
         "position": "G",
@@ -5145,8 +5145,8 @@
       "name": "D. Rodman",
       "normalized": "d. rodman",
       "tokens": [
-        "rodman",
-        "d."
+        "d.",
+        "rodman"
       ],
       "meta": {
         "position": null,
@@ -5162,8 +5162,8 @@
       "name": "S. James",
       "normalized": "s. james",
       "tokens": [
-        "s.",
-        "james"
+        "james",
+        "s."
       ],
       "meta": {
         "position": null,
@@ -5213,8 +5213,8 @@
       "name": "K. Knueppel",
       "normalized": "k. knueppel",
       "tokens": [
-        "knueppel",
-        "k."
+        "k.",
+        "knueppel"
       ],
       "meta": {
         "position": null,
@@ -5230,8 +5230,8 @@
       "name": "Mason Plumlee",
       "normalized": "mason plumlee",
       "tokens": [
-        "plumlee",
-        "mason"
+        "mason",
+        "plumlee"
       ],
       "meta": {
         "position": "F-C",
@@ -5247,8 +5247,8 @@
       "name": "Zach Collins",
       "normalized": "zach collins",
       "tokens": [
-        "collins",
-        "zach"
+        "zach",
+        "collins"
       ],
       "meta": {
         "position": "Attacker",
@@ -5281,8 +5281,8 @@
       "name": "Isaac Okoro",
       "normalized": "isaac okoro",
       "tokens": [
-        "okoro",
-        "isaac"
+        "isaac",
+        "okoro"
       ],
       "meta": {
         "position": "F-G",
@@ -5298,8 +5298,8 @@
       "name": "Patrick Williams",
       "normalized": "patrick williams",
       "tokens": [
-        "williams",
-        "patrick"
+        "patrick",
+        "williams"
       ],
       "meta": {
         "position": "F",
@@ -5366,8 +5366,8 @@
       "name": "Josh Giddey",
       "normalized": "josh giddey",
       "tokens": [
-        "giddey",
-        "josh"
+        "josh",
+        "giddey"
       ],
       "meta": {
         "position": "G",
@@ -5417,8 +5417,8 @@
       "name": "Julian Phillips",
       "normalized": "julian phillips",
       "tokens": [
-        "phillips",
-        "julian"
+        "julian",
+        "phillips"
       ],
       "meta": {
         "position": "F",
@@ -5468,8 +5468,8 @@
       "name": "Trentyn Flowers",
       "normalized": "trentyn flowers",
       "tokens": [
-        "trentyn",
-        "flowers"
+        "flowers",
+        "trentyn"
       ],
       "meta": {
         "position": "G",
@@ -5485,8 +5485,8 @@
       "name": "Yuki Kawamura",
       "normalized": "yuki kawamura",
       "tokens": [
-        "kawamura",
-        "yuki"
+        "yuki",
+        "kawamura"
       ],
       "meta": {
         "position": "G",
@@ -5502,8 +5502,8 @@
       "name": "Nikola Vucevic",
       "normalized": "nikola vucevic",
       "tokens": [
-        "vucevic",
-        "nikola"
+        "nikola",
+        "vucevic"
       ],
       "meta": {
         "position": "C",
@@ -5536,8 +5536,8 @@
       "name": "Dean Wade",
       "normalized": "dean wade",
       "tokens": [
-        "wade",
-        "dean"
+        "dean",
+        "wade"
       ],
       "meta": {
         "position": "F-C",
@@ -5553,8 +5553,8 @@
       "name": "Killian Hayes",
       "normalized": "killian hayes",
       "tokens": [
-        "killian",
-        "hayes"
+        "hayes",
+        "killian"
       ],
       "meta": {
         "position": "G",
@@ -5570,8 +5570,8 @@
       "name": "Sam Merrill",
       "normalized": "sam merrill",
       "tokens": [
-        "merrill",
-        "sam"
+        "sam",
+        "merrill"
       ],
       "meta": {
         "position": "G",
@@ -5587,8 +5587,8 @@
       "name": "Evan Mobley",
       "normalized": "evan mobley",
       "tokens": [
-        "evan",
-        "mobley"
+        "mobley",
+        "evan"
       ],
       "meta": {
         "position": "C",
@@ -5621,9 +5621,9 @@
       "name": "Craig Jr. Porter",
       "normalized": "craig jr. porter",
       "tokens": [
-        "craig",
         "porter",
-        "jr."
+        "jr.",
+        "craig"
       ],
       "meta": {
         "position": "G",
@@ -5673,8 +5673,8 @@
       "name": "Pat Connaughton",
       "normalized": "pat connaughton",
       "tokens": [
-        "connaughton",
-        "pat"
+        "pat",
+        "connaughton"
       ],
       "meta": {
         "position": "G",
@@ -5690,8 +5690,8 @@
       "name": "Josh Green",
       "normalized": "josh green",
       "tokens": [
-        "green",
-        "josh"
+        "josh",
+        "green"
       ],
       "meta": {
         "position": "G",
@@ -5724,8 +5724,8 @@
       "name": "Coby White",
       "normalized": "coby white",
       "tokens": [
-        "white",
-        "coby"
+        "coby",
+        "white"
       ],
       "meta": {
         "position": "G",
@@ -5742,8 +5742,8 @@
       "normalized": "larry nance jr.",
       "tokens": [
         "larry",
-        "nance",
-        "jr."
+        "jr.",
+        "nance"
       ],
       "meta": {
         "position": "F-C",
@@ -5793,8 +5793,8 @@
       "name": "Jarrett Allen",
       "normalized": "jarrett allen",
       "tokens": [
-        "allen",
-        "jarrett"
+        "jarrett",
+        "allen"
       ],
       "meta": {
         "position": "C",
@@ -5810,8 +5810,8 @@
       "name": "Darius Garland",
       "normalized": "darius garland",
       "tokens": [
-        "garland",
-        "darius"
+        "darius",
+        "garland"
       ],
       "meta": {
         "position": "G",
@@ -5844,9 +5844,9 @@
       "name": "Dennis Smith Jr.",
       "normalized": "dennis smith jr.",
       "tokens": [
+        "jr.",
         "dennis",
-        "smith",
-        "jr."
+        "smith"
       ],
       "meta": {
         "position": "Midfielder",
@@ -5862,8 +5862,8 @@
       "name": "Caleb Martin",
       "normalized": "caleb martin",
       "tokens": [
-        "caleb",
-        "martin"
+        "martin",
+        "caleb"
       ],
       "meta": {
         "position": "F",
@@ -5879,8 +5879,8 @@
       "name": "P.J. Washington",
       "normalized": "p.j. washington",
       "tokens": [
-        "washington",
-        "p.j."
+        "p.j.",
+        "washington"
       ],
       "meta": {
         "position": "F",
@@ -5999,8 +5999,8 @@
       "name": "M. Cleveland",
       "normalized": "m. cleveland",
       "tokens": [
-        "cleveland",
-        "m."
+        "m.",
+        "cleveland"
       ],
       "meta": {
         "position": null,
@@ -6067,8 +6067,8 @@
       "name": "C. Flagg",
       "normalized": "c. flagg",
       "tokens": [
-        "flagg",
-        "c."
+        "c.",
+        "flagg"
       ],
       "meta": {
         "position": null,
@@ -6084,8 +6084,8 @@
       "name": "Klay Thompson",
       "normalized": "klay thompson",
       "tokens": [
-        "klay",
-        "thompson"
+        "thompson",
+        "klay"
       ],
       "meta": {
         "position": "G",
@@ -6101,8 +6101,8 @@
       "name": "Zeke Nnaji",
       "normalized": "zeke nnaji",
       "tokens": [
-        "zeke",
-        "nnaji"
+        "nnaji",
+        "zeke"
       ],
       "meta": {
         "position": "F-C",
@@ -6118,8 +6118,8 @@
       "name": "Christian Braun",
       "normalized": "christian braun",
       "tokens": [
-        "christian",
-        "braun"
+        "braun",
+        "christian"
       ],
       "meta": {
         "position": "G",
@@ -6152,8 +6152,8 @@
       "name": "Jalen Pickett",
       "normalized": "jalen pickett",
       "tokens": [
-        "pickett",
-        "jalen"
+        "jalen",
+        "pickett"
       ],
       "meta": {
         "position": "G",
@@ -6204,8 +6204,8 @@
       "normalized": "daron ii holmes",
       "tokens": [
         "daron",
-        "ii",
-        "holmes"
+        "holmes",
+        "ii"
       ],
       "meta": {
         "position": "C",
@@ -6221,8 +6221,8 @@
       "name": "Spencer Jones",
       "normalized": "spencer jones",
       "tokens": [
-        "spencer",
-        "jones"
+        "jones",
+        "spencer"
       ],
       "meta": {
         "position": "F",
@@ -6255,8 +6255,8 @@
       "name": "Tamar Bates",
       "normalized": "tamar bates",
       "tokens": [
-        "tamar",
-        "bates"
+        "bates",
+        "tamar"
       ],
       "meta": {
         "position": null,
@@ -6272,8 +6272,8 @@
       "name": "Curtis Jones",
       "normalized": "curtis jones",
       "tokens": [
-        "jones",
-        "curtis"
+        "curtis",
+        "jones"
       ],
       "meta": {
         "position": null,
@@ -6289,8 +6289,8 @@
       "name": "Caris LeVert",
       "normalized": "caris levert",
       "tokens": [
-        "caris",
-        "levert"
+        "levert",
+        "caris"
       ],
       "meta": {
         "position": "Defender",
@@ -6323,8 +6323,8 @@
       "name": "Javonte Green",
       "normalized": "javonte green",
       "tokens": [
-        "javonte",
-        "green"
+        "green",
+        "javonte"
       ],
       "meta": {
         "position": "G-F",
@@ -6340,8 +6340,8 @@
       "name": "Isaiah Stewart",
       "normalized": "isaiah stewart",
       "tokens": [
-        "stewart",
-        "isaiah"
+        "isaiah",
+        "stewart"
       ],
       "meta": {
         "position": "F-C",
@@ -6374,8 +6374,8 @@
       "name": "Jaden Ivey",
       "normalized": "jaden ivey",
       "tokens": [
-        "ivey",
-        "jaden"
+        "jaden",
+        "ivey"
       ],
       "meta": {
         "position": "G",
@@ -6391,8 +6391,8 @@
       "name": "Jalen Duren",
       "normalized": "jalen duren",
       "tokens": [
-        "duren",
-        "jalen"
+        "jalen",
+        "duren"
       ],
       "meta": {
         "position": "C",
@@ -6442,8 +6442,8 @@
       "name": "Colby Jones",
       "normalized": "colby jones",
       "tokens": [
-        "colby",
-        "jones"
+        "jones",
+        "colby"
       ],
       "meta": {
         "position": "G",
@@ -6459,8 +6459,8 @@
       "name": "Charles Bediako",
       "normalized": "charles bediako",
       "tokens": [
-        "bediako",
-        "charles"
+        "charles",
+        "bediako"
       ],
       "meta": {
         "position": "C",
@@ -6545,8 +6545,8 @@
       "name": "C. Lanier",
       "normalized": "c. lanier",
       "tokens": [
-        "lanier",
-        "c."
+        "c.",
+        "lanier"
       ],
       "meta": {
         "position": null,
@@ -6562,8 +6562,8 @@
       "name": "Tobias Harris",
       "normalized": "tobias harris",
       "tokens": [
-        "harris",
-        "tobias"
+        "tobias",
+        "harris"
       ],
       "meta": {
         "position": "F",
@@ -6630,8 +6630,8 @@
       "name": "Pat Spencer",
       "normalized": "pat spencer",
       "tokens": [
-        "spencer",
-        "pat"
+        "pat",
+        "spencer"
       ],
       "meta": {
         "position": "G",
@@ -6715,8 +6715,8 @@
       "name": "Daniel Gafford",
       "normalized": "daniel gafford",
       "tokens": [
-        "daniel",
-        "gafford"
+        "gafford",
+        "daniel"
       ],
       "meta": {
         "position": "F-C",
@@ -6749,8 +6749,8 @@
       "name": "Buddy Hield",
       "normalized": "buddy hield",
       "tokens": [
-        "buddy",
-        "hield"
+        "hield",
+        "buddy"
       ],
       "meta": {
         "position": "G",
@@ -6766,9 +6766,9 @@
       "name": "Tim Hardaway Jr.",
       "normalized": "tim hardaway jr.",
       "tokens": [
-        "tim",
         "jr.",
-        "hardaway"
+        "hardaway",
+        "tim"
       ],
       "meta": {
         "position": "G-F",
@@ -6784,9 +6784,9 @@
       "name": "Gary Payton II",
       "normalized": "gary payton ii",
       "tokens": [
+        "gary",
         "ii",
-        "payton",
-        "gary"
+        "payton"
       ],
       "meta": {
         "position": "G",
@@ -6870,8 +6870,8 @@
       "name": "Jackson Rowe",
       "normalized": "jackson rowe",
       "tokens": [
-        "rowe",
-        "jackson"
+        "jackson",
+        "rowe"
       ],
       "meta": {
         "position": "F",
@@ -6904,8 +6904,8 @@
       "name": "L.J. Cryer",
       "normalized": "l.j. cryer",
       "tokens": [
-        "cryer",
-        "l.j."
+        "l.j.",
+        "cryer"
       ],
       "meta": {
         "position": null,
@@ -6921,8 +6921,8 @@
       "name": "W. Richard",
       "normalized": "w. richard",
       "tokens": [
-        "richard",
-        "w."
+        "w.",
+        "richard"
       ],
       "meta": {
         "position": null,
@@ -6972,9 +6972,9 @@
       "name": "Dorian Finney-Smith",
       "normalized": "dorian finney-smith",
       "tokens": [
+        "finney",
         "dorian",
-        "smith",
-        "finney"
+        "smith"
       ],
       "meta": {
         "position": "Defender",
@@ -6990,8 +6990,8 @@
       "name": "Kevon Harris",
       "normalized": "kevon harris",
       "tokens": [
-        "harris",
-        "kevon"
+        "kevon",
+        "harris"
       ],
       "meta": {
         "position": "G",
@@ -7007,8 +7007,8 @@
       "name": "Alperen Sengun",
       "normalized": "alperen sengun",
       "tokens": [
-        "sengun",
-        "alperen"
+        "alperen",
+        "sengun"
       ],
       "meta": {
         "position": "C",
@@ -7025,8 +7025,8 @@
       "normalized": "jabari smith jr.",
       "tokens": [
         "jr.",
-        "smith",
-        "jabari"
+        "jabari",
+        "smith"
       ],
       "meta": {
         "position": "F",
@@ -7042,8 +7042,8 @@
       "name": "Tari Eason",
       "normalized": "tari eason",
       "tokens": [
-        "eason",
-        "tari"
+        "tari",
+        "eason"
       ],
       "meta": {
         "position": "F",
@@ -7076,8 +7076,8 @@
       "name": "Reed Sheppard",
       "normalized": "reed sheppard",
       "tokens": [
-        "reed",
-        "sheppard"
+        "sheppard",
+        "reed"
       ],
       "meta": {
         "position": "G",
@@ -7110,8 +7110,8 @@
       "name": "Bennedict Mathurin",
       "normalized": "bennedict mathurin",
       "tokens": [
-        "bennedict",
-        "mathurin"
+        "mathurin",
+        "bennedict"
       ],
       "meta": {
         "position": "G-F",
@@ -7127,8 +7127,8 @@
       "name": "Quenton Jackson",
       "normalized": "quenton jackson",
       "tokens": [
-        "quenton",
-        "jackson"
+        "jackson",
+        "quenton"
       ],
       "meta": {
         "position": "G",
@@ -7144,8 +7144,8 @@
       "name": "Gabe McGlothan",
       "normalized": "gabe mcglothan",
       "tokens": [
-        "mcglothan",
-        "gabe"
+        "gabe",
+        "mcglothan"
       ],
       "meta": {
         "position": "F",
@@ -7178,8 +7178,8 @@
       "name": "RayJ Dennis",
       "normalized": "rayj dennis",
       "tokens": [
-        "dennis",
-        "rayj"
+        "rayj",
+        "dennis"
       ],
       "meta": {
         "position": "F",
@@ -7246,8 +7246,8 @@
       "name": "Jason Preston",
       "normalized": "jason preston",
       "tokens": [
-        "preston",
-        "jason"
+        "jason",
+        "preston"
       ],
       "meta": {
         "position": "G",
@@ -7281,8 +7281,8 @@
       "name": "Kobe Brown",
       "normalized": "kobe brown",
       "tokens": [
-        "kobe",
-        "brown"
+        "brown",
+        "kobe"
       ],
       "meta": {
         "position": "G",
@@ -7315,8 +7315,8 @@
       "name": "Bogdan Bogdanovic",
       "normalized": "bogdan bogdanovic",
       "tokens": [
-        "bogdanovic",
-        "bogdan"
+        "bogdan",
+        "bogdanovic"
       ],
       "meta": {
         "position": "G",
@@ -7332,8 +7332,8 @@
       "name": "Gabe Vincent",
       "normalized": "gabe vincent",
       "tokens": [
-        "vincent",
-        "gabe"
+        "gabe",
+        "vincent"
       ],
       "meta": {
         "position": "G",
@@ -7383,8 +7383,8 @@
       "name": "Jeenathan Williams",
       "normalized": "jeenathan williams",
       "tokens": [
-        "williams",
-        "jeenathan"
+        "jeenathan",
+        "williams"
       ],
       "meta": {
         "position": "G",
@@ -7400,8 +7400,8 @@
       "name": "Tevian Jones",
       "normalized": "tevian jones",
       "tokens": [
-        "jones",
-        "tevian"
+        "tevian",
+        "jones"
       ],
       "meta": {
         "position": "G",
@@ -7417,9 +7417,9 @@
       "name": "Nick Jr. Smith",
       "normalized": "nick jr. smith",
       "tokens": [
-        "smith",
+        "jr.",
         "nick",
-        "jr."
+        "smith"
       ],
       "meta": {
         "position": "G",
@@ -7452,8 +7452,8 @@
       "name": "Chris Manon",
       "normalized": "chris manon",
       "tokens": [
-        "chris",
-        "manon"
+        "manon",
+        "chris"
       ],
       "meta": {
         "position": null,
@@ -7486,9 +7486,9 @@
       "name": "Jaren Jackson Jr.",
       "normalized": "jaren jackson jr.",
       "tokens": [
-        "jaren",
         "jackson",
-        "jr."
+        "jr.",
+        "jaren"
       ],
       "meta": {
         "position": "F-C",
@@ -7538,8 +7538,8 @@
       "name": "Cameron Payne",
       "normalized": "cameron payne",
       "tokens": [
-        "cameron",
-        "payne"
+        "payne",
+        "cameron"
       ],
       "meta": {
         "position": "G",
@@ -7555,8 +7555,8 @@
       "name": "Monte Morris",
       "normalized": "monte morris",
       "tokens": [
-        "morris",
-        "monte"
+        "monte",
+        "morris"
       ],
       "meta": {
         "position": "G",
@@ -7623,8 +7623,8 @@
       "name": "Kawhi Leonard",
       "normalized": "kawhi leonard",
       "tokens": [
-        "kawhi",
-        "leonard"
+        "leonard",
+        "kawhi"
       ],
       "meta": {
         "position": "F",
@@ -7641,8 +7641,8 @@
       "normalized": "derrick jones jr.",
       "tokens": [
         "derrick",
-        "jones",
-        "jr."
+        "jr.",
+        "jones"
       ],
       "meta": {
         "position": "F",
@@ -7658,8 +7658,8 @@
       "name": "Jarred Vanderbilt",
       "normalized": "jarred vanderbilt",
       "tokens": [
-        "vanderbilt",
-        "jarred"
+        "jarred",
+        "vanderbilt"
       ],
       "meta": {
         "position": "F",
@@ -7675,8 +7675,8 @@
       "name": "Austin Reaves",
       "normalized": "austin reaves",
       "tokens": [
-        "austin",
-        "reaves"
+        "reaves",
+        "austin"
       ],
       "meta": {
         "position": "G",
@@ -7709,8 +7709,8 @@
       "name": "Jock Landale",
       "normalized": "jock landale",
       "tokens": [
-        "landale",
-        "jock"
+        "jock",
+        "landale"
       ],
       "meta": {
         "position": "C",
@@ -7743,8 +7743,8 @@
       "name": "Brandon Clarke",
       "normalized": "brandon clarke",
       "tokens": [
-        "brandon",
-        "clarke"
+        "clarke",
+        "brandon"
       ],
       "meta": {
         "position": "F",
@@ -7760,8 +7760,8 @@
       "name": "Santi Aldama",
       "normalized": "santi aldama",
       "tokens": [
-        "santi",
-        "aldama"
+        "aldama",
+        "santi"
       ],
       "meta": {
         "position": "F-C",
@@ -7778,8 +7778,8 @@
       "normalized": "scotty pippen jr.",
       "tokens": [
         "pippen",
-        "scotty",
-        "jr."
+        "jr.",
+        "scotty"
       ],
       "meta": {
         "position": "G",
@@ -7795,9 +7795,9 @@
       "name": "Vince Williams Jr.",
       "normalized": "vince williams jr.",
       "tokens": [
+        "jr.",
         "vince",
-        "williams",
-        "jr."
+        "williams"
       ],
       "meta": {
         "position": "G",
@@ -7814,8 +7814,8 @@
       "normalized": "kevin porter jr.",
       "tokens": [
         "porter",
-        "kevin",
-        "jr."
+        "jr.",
+        "kevin"
       ],
       "meta": {
         "position": "G-F",
@@ -7848,8 +7848,8 @@
       "name": "Jericho Sims",
       "normalized": "jericho sims",
       "tokens": [
-        "jericho",
-        "sims"
+        "sims",
+        "jericho"
       ],
       "meta": {
         "position": "C",
@@ -7882,8 +7882,8 @@
       "name": "Ryan Rollins",
       "normalized": "ryan rollins",
       "tokens": [
-        "rollins",
-        "ryan"
+        "ryan",
+        "rollins"
       ],
       "meta": {
         "position": "G",
@@ -7916,8 +7916,8 @@
       "name": "Cormac Ryan",
       "normalized": "cormac ryan",
       "tokens": [
-        "cormac",
-        "ryan"
+        "ryan",
+        "cormac"
       ],
       "meta": {
         "position": "G",
@@ -7950,8 +7950,8 @@
       "name": "Thanasis Antetokounmpo",
       "normalized": "thanasis antetokounmpo",
       "tokens": [
-        "thanasis",
-        "antetokounmpo"
+        "antetokounmpo",
+        "thanasis"
       ],
       "meta": {
         "position": "F",
@@ -7984,8 +7984,8 @@
       "name": "Bones Hyland",
       "normalized": "bones hyland",
       "tokens": [
-        "hyland",
-        "bones"
+        "bones",
+        "hyland"
       ],
       "meta": {
         "position": "G",
@@ -8018,8 +8018,8 @@
       "name": "Jules Bernard",
       "normalized": "jules bernard",
       "tokens": [
-        "bernard",
-        "jules"
+        "jules",
+        "bernard"
       ],
       "meta": {
         "position": "G",
@@ -8052,8 +8052,8 @@
       "name": "Leonard Miller",
       "normalized": "leonard miller",
       "tokens": [
-        "miller",
-        "leonard"
+        "leonard",
+        "miller"
       ],
       "meta": {
         "position": "F",
@@ -8086,8 +8086,8 @@
       "name": "Tristen Newton",
       "normalized": "tristen newton",
       "tokens": [
-        "newton",
-        "tristen"
+        "tristen",
+        "newton"
       ],
       "meta": {
         "position": "G",
@@ -8103,8 +8103,8 @@
       "name": "Zyon Pullin",
       "normalized": "zyon pullin",
       "tokens": [
-        "zyon",
-        "pullin"
+        "pullin",
+        "zyon"
       ],
       "meta": {
         "position": "G",
@@ -8137,9 +8137,9 @@
       "name": "Terrence Jr. Shannon",
       "normalized": "terrence jr. shannon",
       "tokens": [
-        "shannon",
+        "jr.",
         "terrence",
-        "jr."
+        "shannon"
       ],
       "meta": {
         "position": "G",
@@ -8172,8 +8172,8 @@
       "name": "J. Beringer",
       "normalized": "j. beringer",
       "tokens": [
-        "j.",
-        "beringer"
+        "beringer",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -8189,8 +8189,8 @@
       "name": "C. Shumate",
       "normalized": "c. shumate",
       "tokens": [
-        "shumate",
-        "c."
+        "c.",
+        "shumate"
       ],
       "meta": {
         "position": null,
@@ -8223,8 +8223,8 @@
       "name": "H. Dickinson",
       "normalized": "h. dickinson",
       "tokens": [
-        "h.",
-        "dickinson"
+        "dickinson",
+        "h."
       ],
       "meta": {
         "position": null,
@@ -8240,8 +8240,8 @@
       "name": "J. Fears",
       "normalized": "j. fears",
       "tokens": [
-        "j.",
-        "fears"
+        "fears",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -8292,8 +8292,8 @@
       "name": "Malcolm Brogdon",
       "normalized": "malcolm brogdon",
       "tokens": [
-        "brogdon",
-        "malcolm"
+        "malcolm",
+        "brogdon"
       ],
       "meta": {
         "position": "G",
@@ -8309,8 +8309,8 @@
       "name": "Josh Hart",
       "normalized": "josh hart",
       "tokens": [
-        "hart",
-        "josh"
+        "josh",
+        "hart"
       ],
       "meta": {
         "position": "Attacker",
@@ -8377,8 +8377,8 @@
       "name": "Alex Morales",
       "normalized": "alex morales",
       "tokens": [
-        "alex",
-        "morales"
+        "morales",
+        "alex"
       ],
       "meta": {
         "position": "G",
@@ -8394,8 +8394,8 @@
       "name": "Colin Castleton",
       "normalized": "colin castleton",
       "tokens": [
-        "castleton",
-        "colin"
+        "colin",
+        "castleton"
       ],
       "meta": {
         "position": "C",
@@ -8428,8 +8428,8 @@
       "name": "Jett Howard",
       "normalized": "jett howard",
       "tokens": [
-        "jett",
-        "howard"
+        "howard",
+        "jett"
       ],
       "meta": {
         "position": "G",
@@ -8462,9 +8462,9 @@
       "name": "Tristan Silva da",
       "normalized": "tristan silva da",
       "tokens": [
-        "da",
+        "silva",
         "tristan",
-        "silva"
+        "da"
       ],
       "meta": {
         "position": "F",
@@ -8480,8 +8480,8 @@
       "name": "N. Penda",
       "normalized": "n. penda",
       "tokens": [
-        "penda",
-        "n."
+        "n.",
+        "penda"
       ],
       "meta": {
         "position": null,
@@ -8497,8 +8497,8 @@
       "name": "J. Richardson",
       "normalized": "j. richardson",
       "tokens": [
-        "j.",
-        "richardson"
+        "richardson",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -8514,9 +8514,9 @@
       "name": "Kelly Oubre Jr.",
       "normalized": "kelly oubre jr.",
       "tokens": [
-        "oubre",
+        "jr.",
         "kelly",
-        "jr."
+        "oubre"
       ],
       "meta": {
         "position": "Midfielder",
@@ -8549,8 +8549,8 @@
       "name": "H. Sallis",
       "normalized": "h. sallis",
       "tokens": [
-        "h.",
-        "sallis"
+        "sallis",
+        "h."
       ],
       "meta": {
         "position": null,
@@ -8566,8 +8566,8 @@
       "name": "V. Edgecombe",
       "normalized": "v. edgecombe",
       "tokens": [
-        "v.",
-        "edgecombe"
+        "edgecombe",
+        "v."
       ],
       "meta": {
         "position": null,
@@ -8583,8 +8583,8 @@
       "name": "J. Broome",
       "normalized": "j. broome",
       "tokens": [
-        "j.",
-        "broome"
+        "broome",
+        "j."
       ],
       "meta": {
         "position": null,
@@ -8600,8 +8600,8 @@
       "name": "S. Thomas",
       "normalized": "s. thomas",
       "tokens": [
-        "s.",
-        "thomas"
+        "thomas",
+        "s."
       ],
       "meta": {
         "position": null,
@@ -8617,8 +8617,8 @@
       "name": "Donte DiVincenzo",
       "normalized": "donte divincenzo",
       "tokens": [
-        "donte",
-        "divincenzo"
+        "divincenzo",
+        "donte"
       ],
       "meta": {
         "position": "G",
@@ -8634,8 +8634,8 @@
       "name": "O.G. Anunoby",
       "normalized": "o.g. anunoby",
       "tokens": [
-        "anunoby",
-        "o.g."
+        "o.g.",
+        "anunoby"
       ],
       "meta": {
         "position": "F",
@@ -8668,8 +8668,8 @@
       "name": "Jalen Brunson",
       "normalized": "jalen brunson",
       "tokens": [
-        "brunson",
-        "jalen"
+        "jalen",
+        "brunson"
       ],
       "meta": {
         "position": "G",
@@ -8685,8 +8685,8 @@
       "name": "Mitchell Robinson",
       "normalized": "mitchell robinson",
       "tokens": [
-        "robinson",
-        "mitchell"
+        "mitchell",
+        "robinson"
       ],
       "meta": {
         "position": "C-F",
@@ -8702,8 +8702,8 @@
       "name": "Landry Shamet",
       "normalized": "landry shamet",
       "tokens": [
-        "shamet",
-        "landry"
+        "landry",
+        "shamet"
       ],
       "meta": {
         "position": "G",
@@ -8736,8 +8736,8 @@
       "name": "Paolo Banchero",
       "normalized": "paolo banchero",
       "tokens": [
-        "banchero",
-        "paolo"
+        "paolo",
+        "banchero"
       ],
       "meta": {
         "position": "F",
@@ -8787,8 +8787,8 @@
       "name": "Nigel Hayes",
       "normalized": "nigel hayes",
       "tokens": [
-        "nigel",
-        "hayes"
+        "hayes",
+        "nigel"
       ],
       "meta": {
         "position": "Midfielder",
@@ -8821,8 +8821,8 @@
       "name": "Nick Richards",
       "normalized": "nick richards",
       "tokens": [
-        "richards",
-        "nick"
+        "nick",
+        "richards"
       ],
       "meta": {
         "position": "C",
@@ -8856,8 +8856,8 @@
       "normalized": "david duke jr.",
       "tokens": [
         "jr.",
-        "david",
-        "duke"
+        "duke",
+        "david"
       ],
       "meta": {
         "position": "G",
@@ -8873,8 +8873,8 @@
       "name": "Isaiah Livers",
       "normalized": "isaiah livers",
       "tokens": [
-        "livers",
-        "isaiah"
+        "isaiah",
+        "livers"
       ],
       "meta": {
         "position": "F",
@@ -8890,8 +8890,8 @@
       "name": "Jordan Goodwin",
       "normalized": "jordan goodwin",
       "tokens": [
-        "goodwin",
-        "jordan"
+        "jordan",
+        "goodwin"
       ],
       "meta": {
         "position": "G",
@@ -8941,8 +8941,8 @@
       "name": "Ryan Dunn",
       "normalized": "ryan dunn",
       "tokens": [
-        "dunn",
-        "ryan"
+        "ryan",
+        "dunn"
       ],
       "meta": {
         "position": "F",
@@ -8992,8 +8992,8 @@
       "name": "K. Maluach",
       "normalized": "k. maluach",
       "tokens": [
-        "k.",
-        "maluach"
+        "maluach",
+        "k."
       ],
       "meta": {
         "position": null,
@@ -9009,8 +9009,8 @@
       "name": "Robert Williams III",
       "normalized": "robert williams iii",
       "tokens": [
-        "iii",
         "williams",
+        "iii",
         "robert"
       ],
       "meta": {
@@ -9027,8 +9027,8 @@
       "name": "Deni Avdija",
       "normalized": "deni avdija",
       "tokens": [
-        "deni",
-        "avdija"
+        "avdija",
+        "deni"
       ],
       "meta": {
         "position": "F",
@@ -9044,8 +9044,8 @@
       "name": "Shaedon Sharpe",
       "normalized": "shaedon sharpe",
       "tokens": [
-        "shaedon",
-        "sharpe"
+        "sharpe",
+        "shaedon"
       ],
       "meta": {
         "position": "G",
@@ -9095,8 +9095,8 @@
       "name": "C. Love",
       "normalized": "c. love",
       "tokens": [
-        "love",
-        "c."
+        "c.",
+        "love"
       ],
       "meta": {
         "position": null,
@@ -9129,8 +9129,8 @@
       "name": "Jrue Holiday",
       "normalized": "jrue holiday",
       "tokens": [
-        "holiday",
-        "jrue"
+        "jrue",
+        "holiday"
       ],
       "meta": {
         "position": "G",
@@ -9146,8 +9146,8 @@
       "name": "M. Mascari",
       "normalized": "m. mascari",
       "tokens": [
-        "mascari",
-        "m."
+        "m.",
+        "mascari"
       ],
       "meta": {
         "position": null,
@@ -9180,8 +9180,8 @@
       "name": "Jeremy Sochan",
       "normalized": "jeremy sochan",
       "tokens": [
-        "jeremy",
-        "sochan"
+        "sochan",
+        "jeremy"
       ],
       "meta": {
         "position": "F",
@@ -9316,8 +9316,8 @@
       "name": "C. Bryant",
       "normalized": "c. bryant",
       "tokens": [
-        "bryant",
-        "c."
+        "c.",
+        "bryant"
       ],
       "meta": {
         "position": null,
@@ -9333,8 +9333,8 @@
       "name": "A.J. Lawson",
       "normalized": "a.j. lawson",
       "tokens": [
-        "lawson",
-        "a.j."
+        "a.j.",
+        "lawson"
       ],
       "meta": {
         "position": "G",
@@ -9401,8 +9401,8 @@
       "name": "Jamison Battle",
       "normalized": "jamison battle",
       "tokens": [
-        "battle",
-        "jamison"
+        "jamison",
+        "battle"
       ],
       "meta": {
         "position": "F",
@@ -9435,8 +9435,8 @@
       "name": "Jamal Shead",
       "normalized": "jamal shead",
       "tokens": [
-        "jamal",
-        "shead"
+        "shead",
+        "jamal"
       ],
       "meta": {
         "position": "G",
@@ -9469,8 +9469,8 @@
       "name": "C. Hepburn",
       "normalized": "c. hepburn",
       "tokens": [
-        "hepburn",
-        "c."
+        "c.",
+        "hepburn"
       ],
       "meta": {
         "position": null,
@@ -9486,9 +9486,9 @@
       "name": "C. Murray-Boyles",
       "normalized": "c. murray-boyles",
       "tokens": [
+        "c.",
         "boyles",
-        "murray",
-        "c."
+        "murray"
       ],
       "meta": {
         "position": null,
@@ -9521,8 +9521,8 @@
       "name": "Taylor Hendricks",
       "normalized": "taylor hendricks",
       "tokens": [
-        "taylor",
-        "hendricks"
+        "hendricks",
+        "taylor"
       ],
       "meta": {
         "position": "F",
@@ -9538,8 +9538,8 @@
       "name": "Brice Sensabaugh",
       "normalized": "brice sensabaugh",
       "tokens": [
-        "sensabaugh",
-        "brice"
+        "brice",
+        "sensabaugh"
       ],
       "meta": {
         "position": "F",
@@ -9555,8 +9555,8 @@
       "name": "Jalen Green",
       "normalized": "jalen green",
       "tokens": [
-        "green",
-        "jalen"
+        "jalen",
+        "green"
       ],
       "meta": {
         "position": "G",
@@ -9606,8 +9606,8 @@
       "name": "Dario Saric",
       "normalized": "dario saric",
       "tokens": [
-        "saric",
-        "dario"
+        "dario",
+        "saric"
       ],
       "meta": {
         "position": "F-C",
@@ -9657,8 +9657,8 @@
       "name": "Garrett Temple",
       "normalized": "garrett temple",
       "tokens": [
-        "temple",
-        "garrett"
+        "garrett",
+        "temple"
       ],
       "meta": {
         "position": "G-F",
@@ -9742,9 +9742,9 @@
       "name": "W. Clayton Jr.",
       "normalized": "w. clayton jr.",
       "tokens": [
-        "clayton",
+        "jr.",
         "w.",
-        "jr."
+        "clayton"
       ],
       "meta": {
         "position": null,
@@ -9794,8 +9794,8 @@
       "name": "Jusuf Nurkic",
       "normalized": "jusuf nurkic",
       "tokens": [
-        "jusuf",
-        "nurkic"
+        "nurkic",
+        "jusuf"
       ],
       "meta": {
         "position": "C",
@@ -9812,8 +9812,8 @@
       "normalized": "marvin bagley iii",
       "tokens": [
         "bagley",
-        "marvin",
-        "iii"
+        "iii",
+        "marvin"
       ],
       "meta": {
         "position": "Attacker",
@@ -9897,8 +9897,8 @@
       "name": "Cam Whitmore",
       "normalized": "cam whitmore",
       "tokens": [
-        "whitmore",
-        "cam"
+        "cam",
+        "whitmore"
       ],
       "meta": {
         "position": "F",
@@ -9931,9 +9931,9 @@
       "name": "Michael Porter Jr.",
       "normalized": "michael porter jr.",
       "tokens": [
-        "michael",
         "porter",
-        "jr."
+        "jr.",
+        "michael"
       ],
       "meta": {
         "position": "F",
@@ -9949,8 +9949,8 @@
       "name": "Collin Sexton",
       "normalized": "collin sexton",
       "tokens": [
-        "collin",
-        "sexton"
+        "sexton",
+        "collin"
       ],
       "meta": {
         "position": "G",
@@ -9966,8 +9966,8 @@
       "name": "Lonzo Ball",
       "normalized": "lonzo ball",
       "tokens": [
-        "lonzo",
-        "ball"
+        "ball",
+        "lonzo"
       ],
       "meta": {
         "position": "G",
@@ -9983,8 +9983,8 @@
       "name": "De'Andre Hunter",
       "normalized": "de'andre hunter",
       "tokens": [
-        "hunter",
-        "deandre"
+        "deandre",
+        "hunter"
       ],
       "meta": {
         "position": "F-G",
@@ -10051,8 +10051,8 @@
       "name": "Jonas Valanciunas",
       "normalized": "jonas valanciunas",
       "tokens": [
-        "jonas",
-        "valanciunas"
+        "valanciunas",
+        "jonas"
       ],
       "meta": {
         "position": "C",
@@ -10068,8 +10068,8 @@
       "name": "Nikola Jokic",
       "normalized": "nikola jokic",
       "tokens": [
-        "nikola",
-        "jokic"
+        "jokic",
+        "nikola"
       ],
       "meta": {
         "position": "C",
@@ -10085,8 +10085,8 @@
       "name": "Aaron Gordon",
       "normalized": "aaron gordon",
       "tokens": [
-        "gordon",
-        "aaron"
+        "aaron",
+        "gordon"
       ],
       "meta": {
         "position": "F",
@@ -10119,8 +10119,8 @@
       "name": "Isaiah Jackson",
       "normalized": "isaiah jackson",
       "tokens": [
-        "isaiah",
-        "jackson"
+        "jackson",
+        "isaiah"
       ],
       "meta": {
         "position": "F",
@@ -10204,8 +10204,8 @@
       "name": "Alize Johnson",
       "normalized": "alize johnson",
       "tokens": [
-        "johnson",
-        "alize"
+        "alize",
+        "johnson"
       ],
       "meta": {
         "position": "F",
@@ -10221,8 +10221,8 @@
       "name": "Guerschon Yabusele",
       "normalized": "guerschon yabusele",
       "tokens": [
-        "yabusele",
-        "guerschon"
+        "guerschon",
+        "yabusele"
       ],
       "meta": {
         "position": "F",
@@ -10238,8 +10238,8 @@
       "name": "Mikal Bridges",
       "normalized": "mikal bridges",
       "tokens": [
-        "bridges",
-        "mikal"
+        "mikal",
+        "bridges"
       ],
       "meta": {
         "position": "F",
@@ -10255,8 +10255,8 @@
       "name": "Andre Drummond",
       "normalized": "andre drummond",
       "tokens": [
-        "andre",
-        "drummond"
+        "drummond",
+        "andre"
       ],
       "meta": {
         "position": "C",
@@ -10272,8 +10272,8 @@
       "name": "Joel Embiid",
       "normalized": "joel embiid",
       "tokens": [
-        "joel",
-        "embiid"
+        "embiid",
+        "joel"
       ],
       "meta": {
         "position": "C-F",
@@ -10289,8 +10289,8 @@
       "name": "Kyle Lowry",
       "normalized": "kyle lowry",
       "tokens": [
-        "lowry",
-        "kyle"
+        "kyle",
+        "lowry"
       ],
       "meta": {
         "position": "G",
@@ -10323,8 +10323,8 @@
       "name": "Matisse Thybulle",
       "normalized": "matisse thybulle",
       "tokens": [
-        "thybulle",
-        "matisse"
+        "matisse",
+        "thybulle"
       ],
       "meta": {
         "position": "G-F",
@@ -10391,8 +10391,8 @@
       "name": "Justin Champagnie",
       "normalized": "justin champagnie",
       "tokens": [
-        "champagnie",
-        "justin"
+        "justin",
+        "champagnie"
       ],
       "meta": {
         "position": "G-F",
@@ -10408,8 +10408,8 @@
       "name": "Lauri Markkanen",
       "normalized": "lauri markkanen",
       "tokens": [
-        "lauri",
-        "markkanen"
+        "markkanen",
+        "lauri"
       ],
       "meta": {
         "position": "F-C",
@@ -10442,9 +10442,9 @@
       "name": "Golden State Warriors",
       "normalized": "golden state warriors",
       "tokens": [
-        "golden",
+        "state",
         "warriors",
-        "state"
+        "golden"
       ],
       "meta": {
         "abbreviation": "GSW",
@@ -10460,8 +10460,8 @@
       "name": "Sacramento Kings",
       "normalized": "sacramento kings",
       "tokens": [
-        "sacramento",
-        "kings"
+        "kings",
+        "sacramento"
       ],
       "meta": {
         "abbreviation": "SAC",
@@ -10477,8 +10477,8 @@
       "name": "Houston Rockets",
       "normalized": "houston rockets",
       "tokens": [
-        "rockets",
-        "houston"
+        "houston",
+        "rockets"
       ],
       "meta": {
         "abbreviation": "HOU",
@@ -10562,9 +10562,9 @@
       "name": "Los Angeles Lakers",
       "normalized": "los angeles lakers",
       "tokens": [
-        "los",
+        "angeles",
         "lakers",
-        "angeles"
+        "los"
       ],
       "meta": {
         "abbreviation": "LAL",
@@ -10597,8 +10597,8 @@
       "name": "Orlando Magic",
       "normalized": "orlando magic",
       "tokens": [
-        "magic",
-        "orlando"
+        "orlando",
+        "magic"
       ],
       "meta": {
         "abbreviation": "ORL",
@@ -10614,8 +10614,8 @@
       "name": "Phoenix Suns",
       "normalized": "phoenix suns",
       "tokens": [
-        "suns",
-        "phoenix"
+        "phoenix",
+        "suns"
       ],
       "meta": {
         "abbreviation": "PHX",
@@ -10684,10 +10684,10 @@
       "name": "Home Team Stephen A",
       "normalized": "home team stephen a",
       "tokens": [
+        "home",
         "team",
-        "a",
         "stephen",
-        "home"
+        "a"
       ],
       "meta": {
         "abbreviation": "SAS",
@@ -10771,8 +10771,8 @@
       "name": "Charlotte Hornets",
       "normalized": "charlotte hornets",
       "tokens": [
-        "charlotte",
-        "hornets"
+        "hornets",
+        "charlotte"
       ],
       "meta": {
         "abbreviation": "CHA",
@@ -10788,8 +10788,8 @@
       "name": "Cleveland Cavaliers",
       "normalized": "cleveland cavaliers",
       "tokens": [
-        "cleveland",
-        "cavaliers"
+        "cavaliers",
+        "cleveland"
       ],
       "meta": {
         "abbreviation": "CLE",
@@ -10805,8 +10805,8 @@
       "name": "Atlanta Hawks",
       "normalized": "atlanta hawks",
       "tokens": [
-        "hawks",
-        "atlanta"
+        "atlanta",
+        "hawks"
       ],
       "meta": {
         "abbreviation": "ATL",
@@ -10839,9 +10839,9 @@
       "name": "New Orleans Pelicans",
       "normalized": "new orleans pelicans",
       "tokens": [
-        "orleans",
+        "pelicans",
         "new",
-        "pelicans"
+        "orleans"
       ],
       "meta": {
         "abbreviation": "NOP",
@@ -10875,8 +10875,8 @@
       "normalized": "oklahoma city thunder",
       "tokens": [
         "thunder",
-        "oklahoma",
-        "city"
+        "city",
+        "oklahoma"
       ],
       "meta": {
         "abbreviation": "OKC",
@@ -10892,8 +10892,8 @@
       "name": "Milwaukee Bucks",
       "normalized": "milwaukee bucks",
       "tokens": [
-        "milwaukee",
-        "bucks"
+        "bucks",
+        "milwaukee"
       ],
       "meta": {
         "abbreviation": "MIL",
@@ -10909,9 +10909,9 @@
       "name": "New York Knicks",
       "normalized": "new york knicks",
       "tokens": [
+        "knicks",
         "new",
-        "york",
-        "knicks"
+        "york"
       ],
       "meta": {
         "abbreviation": "NYK",
@@ -10961,8 +10961,8 @@
       "name": "Miami Heat",
       "normalized": "miami heat",
       "tokens": [
-        "miami",
-        "heat"
+        "heat",
+        "miami"
       ],
       "meta": {
         "abbreviation": "MIA",

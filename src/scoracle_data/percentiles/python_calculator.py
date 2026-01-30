@@ -42,23 +42,59 @@ logger = logging.getLogger(__name__)
 # Formula: (total_stat / minutes_total) * 36
 # Minimum: 100 minutes to avoid small sample noise
 NBA_PER36_STATS = {
-    "points_per_36": {"raw": "points_total", "minutes": "minutes_total", "min_minutes": 100},
-    "rebounds_per_36": {"raw": "total_rebounds", "minutes": "minutes_total", "min_minutes": 100},
-    "assists_per_36": {"raw": "assists", "minutes": "minutes_total", "min_minutes": 100},
+    "points_per_36": {
+        "raw": "points_total",
+        "minutes": "minutes_total",
+        "min_minutes": 100,
+    },
+    "rebounds_per_36": {
+        "raw": "total_rebounds",
+        "minutes": "minutes_total",
+        "min_minutes": 100,
+    },
+    "assists_per_36": {
+        "raw": "assists",
+        "minutes": "minutes_total",
+        "min_minutes": 100,
+    },
     "steals_per_36": {"raw": "steals", "minutes": "minutes_total", "min_minutes": 100},
     "blocks_per_36": {"raw": "blocks", "minutes": "minutes_total", "min_minutes": 100},
-    "turnovers_per_36": {"raw": "turnovers", "minutes": "minutes_total", "min_minutes": 100},
+    "turnovers_per_36": {
+        "raw": "turnovers",
+        "minutes": "minutes_total",
+        "min_minutes": 100,
+    },
 }
 
 # FOOTBALL: Per-90 minute stats (already in database, but we can recompute if needed)
 # These are already computed by the seeder, so we just read them
 FOOTBALL_PER90_STATS = {
     "goals_per_90": {"raw": "goals", "minutes": "minutes_played", "min_minutes": 450},
-    "assists_per_90": {"raw": "assists", "minutes": "minutes_played", "min_minutes": 450},
-    "key_passes_per_90": {"raw": "key_passes", "minutes": "minutes_played", "min_minutes": 450},
-    "shots_per_90": {"raw": "shots_total", "minutes": "minutes_played", "min_minutes": 450},
-    "tackles_per_90": {"raw": "tackles", "minutes": "minutes_played", "min_minutes": 450},
-    "interceptions_per_90": {"raw": "interceptions", "minutes": "minutes_played", "min_minutes": 450},
+    "assists_per_90": {
+        "raw": "assists",
+        "minutes": "minutes_played",
+        "min_minutes": 450,
+    },
+    "key_passes_per_90": {
+        "raw": "key_passes",
+        "minutes": "minutes_played",
+        "min_minutes": 450,
+    },
+    "shots_per_90": {
+        "raw": "shots_total",
+        "minutes": "minutes_played",
+        "min_minutes": 450,
+    },
+    "tackles_per_90": {
+        "raw": "tackles",
+        "minutes": "minutes_played",
+        "min_minutes": 450,
+    },
+    "interceptions_per_90": {
+        "raw": "interceptions",
+        "minutes": "minutes_played",
+        "min_minutes": 450,
+    },
 }
 
 # Top 5 European Leagues for FOOTBALL comparison
@@ -68,6 +104,7 @@ TOP_5_LEAGUE_IDS = {39, 140, 78, 135, 61}  # EPL, La Liga, Bundesliga, Serie A, 
 @dataclass
 class PercentileResult:
     """Result of a percentile calculation."""
+
     entity_type: str
     entity_id: int
     sport_id: str
@@ -86,7 +123,7 @@ class PythonPercentileCalculator:
 
     Fetches raw data from database, computes all derived stats and percentiles
     in Python, then writes results back to the database.
-    
+
     Key design principle: ALL numeric stats are calculated, not just a curated subset.
     The frontend decides which stats to display. This keeps the backend DB-agnostic
     and ensures all data is available for analysis.
@@ -100,11 +137,18 @@ class PythonPercentileCalculator:
         ("FOOTBALL", "player"): "football_player_stats",
         ("FOOTBALL", "team"): "football_team_stats",
     }
-    
+
     # Columns to exclude from percentile calculation (internal IDs, metadata, and percentile columns)
     EXCLUDED_COLUMNS = {
-        "id", "player_id", "team_id", "season_id", "league_id", "updated_at",
-        "percentiles", "percentile_position_group", "percentile_sample_size"
+        "id",
+        "player_id",
+        "team_id",
+        "season_id",
+        "league_id",
+        "updated_at",
+        "percentiles",
+        "percentile_position_group",
+        "percentile_sample_size",
     }
 
     def __init__(self, db: Any):
@@ -121,51 +165,60 @@ class PythonPercentileCalculator:
     # Dynamic Column Discovery
     # =========================================================================
 
-    def _get_all_numeric_stat_columns(self, sport_id: str, entity_type: str) -> list[str]:
+    def _get_all_numeric_stat_columns(
+        self, sport_id: str, entity_type: str
+    ) -> list[str]:
         """
         Dynamically discover ALL numeric stat columns from the stats table.
-        
+
         This allows percentiles to be calculated for ALL stats without
         maintaining a curated list. The frontend decides what to display.
-        
+
         Args:
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
             entity_type: 'player' or 'team'
-            
+
         Returns:
             List of all numeric column names (excluding internal IDs)
         """
         cache_key = (sport_id, entity_type)
         if cache_key in self._column_cache:
             return self._column_cache[cache_key]
-        
+
         table = self.STATS_TABLE_MAP.get((sport_id, entity_type))
         if not table:
             return []
-        
+
         # Query information_schema for numeric columns
-        result = self.db.fetchall("""
+        result = self.db.fetchall(
+            """
             SELECT column_name 
             FROM information_schema.columns 
             WHERE table_name = %s 
               AND data_type IN ('integer', 'real', 'numeric', 'double precision', 'smallint', 'bigint')
             ORDER BY ordinal_position
-        """, (table,))
-        
+        """,
+            (table,),
+        )
+
         # Filter out excluded columns (IDs, metadata)
         columns = [
-            r["column_name"] for r in result 
+            r["column_name"]
+            for r in result
             if r["column_name"] not in self.EXCLUDED_COLUMNS
         ]
-        
+
         # Cache the result
         self._column_cache[cache_key] = columns
-        
+
         logger.debug(
             "Discovered %d numeric columns for %s %s: %s",
-            len(columns), sport_id, entity_type, columns[:5]  # Log first 5
+            len(columns),
+            sport_id,
+            entity_type,
+            columns[:5],  # Log first 5
         )
-        
+
         return columns
 
     # =========================================================================
@@ -279,7 +332,7 @@ class PythonPercentileCalculator:
         """Fetch all player stats with position info from sport-specific tables."""
         stats_table = self.STATS_TABLE_MAP.get((sport_id, "player"))
         profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
-        
+
         if not stats_table or not profile_table:
             logger.warning("No tables configured for %s player stats", sport_id)
             return []
@@ -307,10 +360,14 @@ class PythonPercentileCalculator:
                 ORDER BY s.player_id, s.id DESC
             """
             results = self.db.fetchall(query, (season_id,))
-        
+
         logger.info(
             "Fetched %d player stats for %s (season_id=%d, stats_table=%s, profile_table=%s)",
-            len(results), sport_id, season_id, stats_table, profile_table
+            len(results),
+            sport_id,
+            season_id,
+            stats_table,
+            profile_table,
         )
         return results
 
@@ -322,7 +379,7 @@ class PythonPercentileCalculator:
         """Fetch all team stats from sport-specific tables."""
         stats_table = self.STATS_TABLE_MAP.get((sport_id, "team"))
         profile_table = TEAM_PROFILE_TABLES.get(sport_id)
-        
+
         if not stats_table or not profile_table:
             logger.warning("No tables configured for %s team stats", sport_id)
             return []
@@ -346,18 +403,21 @@ class PythonPercentileCalculator:
                 WHERE s.season_id = %s
             """
             results = self.db.fetchall(query, (season_id,))
-        
+
         logger.info(
             "Fetched %d team stats for %s (season_id=%d, stats_table=%s, profile_table=%s)",
-            len(results), sport_id, season_id, stats_table, profile_table
+            len(results),
+            sport_id,
+            season_id,
+            stats_table,
+            profile_table,
         )
         return results
 
     def _get_season_year(self, season_id: int) -> int:
         """Get the year for a season ID."""
         result = self.db.fetchone(
-            "SELECT season_year FROM seasons WHERE id = %s",
-            (season_id,)
+            "SELECT season_year FROM seasons WHERE id = %s", (season_id,)
         )
         return result["season_year"] if result else season_id
 
@@ -372,10 +432,10 @@ class PythonPercentileCalculator:
     ) -> int:
         """
         Calculate percentiles for ALL players in a sport/season.
-        
+
         Calculates percentiles for ALL numeric stat columns (not just a curated subset).
         Filters out zero and null values. Groups players by position for fair comparison.
-        
+
         Writes results as JSONB directly to stats tables.
 
         Args:
@@ -387,7 +447,9 @@ class PythonPercentileCalculator:
         """
         stats = self._fetch_player_stats(sport_id, season_id)
         if not stats:
-            logger.warning("No player stats found for %s season %d", sport_id, season_id)
+            logger.warning(
+                "No player stats found for %s season %d", sport_id, season_id
+            )
             return 0
 
         # Get ALL numeric columns dynamically (not curated subset)
@@ -416,7 +478,7 @@ class PythonPercentileCalculator:
 
                 # Compute or fetch the stat value
                 value = self.compute_normalized_stat(stat_name, row, sport_id)
-                
+
                 # Filter out None and zero values
                 if value is None or value == 0:
                     continue
@@ -440,14 +502,13 @@ class PythonPercentileCalculator:
                     # Initialize player's percentile dict if needed
                     if player_id not in player_percentiles:
                         player_percentiles[player_id] = {}
-                    
+
                     # Store percentile (rounded to 1 decimal)
                     player_percentiles[player_id][stat_name] = round(percentile, 1)
-                    
+
                     # Track sample size (use max across all stats)
                     player_sample_sizes[player_id] = max(
-                        player_sample_sizes.get(player_id, 0), 
-                        sample_size
+                        player_sample_sizes.get(player_id, 0), sample_size
                     )
 
         # Write percentiles to stats table as JSONB
@@ -462,7 +523,9 @@ class PythonPercentileCalculator:
 
         logger.info(
             "Updated %d players with percentiles for %s (%d stat categories)",
-            len(player_percentiles), sport_id, len(categories)
+            len(player_percentiles),
+            sport_id,
+            len(categories),
         )
         return len(player_percentiles)
 
@@ -477,10 +540,10 @@ class PythonPercentileCalculator:
     ) -> int:
         """
         Calculate percentiles for ALL teams in a sport/season.
-        
+
         Calculates percentiles for ALL numeric stat columns (not just a curated subset).
         Filters out zero and null values.
-        
+
         Writes results as JSONB directly to stats tables.
 
         For FOOTBALL, teams are compared across all Top 5 Leagues.
@@ -516,11 +579,11 @@ class PythonPercentileCalculator:
 
             for row in stats:
                 value = row.get(stat_name)
-                
+
                 # Filter out None and zero values
                 if value is None or value == 0:
                     continue
-                    
+
                 team_values.append((row["team_id"], value))
 
             # Always calculate percentiles regardless of sample size
@@ -536,14 +599,13 @@ class PythonPercentileCalculator:
                 # Initialize team's percentile dict if needed
                 if team_id not in team_percentiles:
                     team_percentiles[team_id] = {}
-                
+
                 # Store percentile (rounded to 1 decimal)
                 team_percentiles[team_id][stat_name] = round(percentile, 1)
-                
+
                 # Track sample size (use max across all stats)
                 team_sample_sizes[team_id] = max(
-                    team_sample_sizes.get(team_id, 0),
-                    sample_size
+                    team_sample_sizes.get(team_id, 0), sample_size
                 )
 
         # Write percentiles to stats table as JSONB
@@ -558,7 +620,9 @@ class PythonPercentileCalculator:
 
         logger.info(
             "Updated %d teams with percentiles for %s (%d stat categories)",
-            len(team_percentiles), sport_id, len(categories)
+            len(team_percentiles),
+            sport_id,
+            len(categories),
         )
         return len(team_percentiles)
 
@@ -577,10 +641,10 @@ class PythonPercentileCalculator:
     ) -> None:
         """
         Update stats tables with JSONB percentiles.
-        
+
         Writes percentiles directly to the stats table as a JSONB column,
         eliminating the need for a separate percentile_cache table.
-        
+
         Args:
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
             entity_type: 'player' or 'team'
@@ -591,30 +655,34 @@ class PythonPercentileCalculator:
         """
         if not percentile_data:
             return
-        
+
         table = self.STATS_TABLE_MAP.get((sport_id, entity_type))
         if not table:
             logger.warning("No stats table found for %s %s", sport_id, entity_type)
             return
-        
+
         id_column = "player_id" if entity_type == "player" else "team_id"
-        
+
         # Build batch update values
         # For players: include position_group
         # For teams: position_group is NULL
         updates = []
         for entity_id, percentiles in percentile_data.items():
-            position_group = position_groups.get(entity_id) if entity_type == "player" else None
+            position_group = (
+                position_groups.get(entity_id) if entity_type == "player" else None
+            )
             sample_size = sample_sizes.get(entity_id)
-            
-            updates.append((
-                json.dumps(percentiles),
-                position_group,
-                sample_size,
-                entity_id,
-                season_id,
-            ))
-        
+
+            updates.append(
+                (
+                    json.dumps(percentiles),
+                    position_group,
+                    sample_size,
+                    entity_id,
+                    season_id,
+                )
+            )
+
         # Batch update using executemany
         query = f"""
             UPDATE {table}
@@ -623,16 +691,18 @@ class PythonPercentileCalculator:
                 percentile_sample_size = %s
             WHERE {id_column} = %s AND season_id = %s
         """
-        
+
         # Process in chunks to avoid memory issues
         chunk_size = 500
         for i in range(0, len(updates), chunk_size):
-            chunk = updates[i:i + chunk_size]
+            chunk = updates[i : i + chunk_size]
             self.db.executemany(query, chunk)
-        
+
         logger.debug(
             "Updated %d %s records with percentiles in %s",
-            len(updates), entity_type, table
+            len(updates),
+            entity_type,
+            table,
         )
 
     # =========================================================================
@@ -660,7 +730,7 @@ class PythonPercentileCalculator:
         # Get season ID from year
         result = self.db.fetchone(
             "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-            (sport_id, season_year)
+            (sport_id, season_year),
         )
         if not result:
             logger.warning("No season found for %s %d", sport_id, season_year)
@@ -676,8 +746,38 @@ class PythonPercentileCalculator:
 
         logger.info(
             "Recalculated percentiles for %s %d: %d players, %d teams updated",
-            sport_id, season_year, player_count, team_count
+            sport_id,
+            season_year,
+            player_count,
+            team_count,
         )
+
+        # Chain: Calculate similarities after percentiles are computed
+        # This uses the freshly computed percentiles to find similar entities
+        try:
+            from ..similarity import SimilarityCalculator
+
+            similarity_calc = SimilarityCalculator(self.db)
+            similarity_result = similarity_calc.calculate_all_for_sport(
+                sport_id=sport_id,
+                season_year=season_year,
+                limit=5,
+            )
+            logger.info(
+                "Chained similarity calculation for %s %d: %d players, %d teams",
+                sport_id,
+                season_year,
+                similarity_result.get("players", 0),
+                similarity_result.get("teams", 0),
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to calculate similarities for %s %d: %s",
+                sport_id,
+                season_year,
+                e,
+            )
+            # Don't fail the percentile calculation if similarity fails
 
         return {"players": player_count, "teams": team_count}
 
@@ -706,7 +806,7 @@ class PythonPercentileCalculator:
         """
         result = self.db.fetchone(
             "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-            (sport_id, season_year)
+            (sport_id, season_year),
         )
         if not result:
             logger.warning("No season found for %s %d", sport_id, season_year)
@@ -749,7 +849,10 @@ class PythonPercentileCalculator:
         count = count_result["count"] if count_result else 0
         logger.info(
             "Archived %d percentile records for %s %d (final=%s)",
-            count, sport_id, season_year, is_final
+            count,
+            sport_id,
+            season_year,
+            is_final,
         )
 
         return count

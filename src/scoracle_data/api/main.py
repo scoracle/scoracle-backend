@@ -25,7 +25,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import ml, news, profile, stats, twitter
+from .routers import ml, news, profile, similarity, stats, twitter
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
@@ -105,7 +105,9 @@ async def warm_cache() -> None:
                     team_data["created_at"] = str(team_data["created_at"])
                 if team_data.get("updated_at"):
                     team_data["updated_at"] = str(team_data["updated_at"])
-                cache.set(team_data, "info", "team", team["id"], sport, ttl=TTL_ENTITY_INFO)
+                cache.set(
+                    team_data, "info", "team", team["id"], sport, ttl=TTL_ENTITY_INFO
+                )
                 count += 1
 
             # Warm player info for players with stats from sport-specific tables
@@ -128,7 +130,14 @@ async def warm_cache() -> None:
                         player_data["created_at"] = str(player_data["created_at"])
                     if player_data.get("updated_at"):
                         player_data["updated_at"] = str(player_data["updated_at"])
-                    cache.set(player_data, "info", "player", player["id"], sport, ttl=TTL_ENTITY_INFO)
+                    cache.set(
+                        player_data,
+                        "info",
+                        "player",
+                        player["id"],
+                        sport,
+                        ttl=TTL_ENTITY_INFO,
+                    )
                     count += 1
 
             logger.info(f"Warmed {count} {sport} cache entries")
@@ -140,7 +149,9 @@ async def warm_cache() -> None:
 
     # Warm all sports in parallel using asyncio.gather
     # Since DB uses connection pooling, concurrent queries are efficient
-    results = await asyncio.gather(*[warm_sport(sport_enum.value) for sport_enum in Sport])
+    results = await asyncio.gather(
+        *[warm_sport(sport_enum.value) for sport_enum in Sport]
+    )
 
     total_warmed = sum(results)
     logger.info(f"Cache warming complete: {total_warmed} entries cached")
@@ -190,14 +201,18 @@ async def lifespan(app: FastAPI):
     # This ensures ALL min_size connections are established before first request
     try:
         from .dependencies import get_db
+
         db = get_db()
         # Explicitly open the pool to establish min_size connections
         db.open()
-        logger.info(f"Database connection pool opened (min_size={db._min_pool_size}, max_size={db._max_pool_size})")
+        logger.info(
+            f"Database connection pool opened (min_size={db._min_pool_size}, max_size={db._max_pool_size})"
+        )
 
         # Warm ALL connections in the pool by running concurrent queries
         # This ensures the pool is fully ready, not just one connection
         import concurrent.futures
+
         def warm_connection(i: int) -> bool:
             try:
                 db.fetchone("SELECT 1")
@@ -206,11 +221,17 @@ async def lifespan(app: FastAPI):
                 logger.warning(f"Connection {i} warm-up failed: {e}")
                 return False
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=db._min_pool_size) as executor:
-            futures = [executor.submit(warm_connection, i) for i in range(db._min_pool_size)]
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=db._min_pool_size
+        ) as executor:
+            futures = [
+                executor.submit(warm_connection, i) for i in range(db._min_pool_size)
+            ]
             results = [f.result(timeout=5) for f in futures]
             successful = sum(results)
-            logger.info(f"Database connection pool fully warmed: {successful}/{db._min_pool_size} connections ready")
+            logger.info(
+                f"Database connection pool fully warmed: {successful}/{db._min_pool_size} connections ready"
+            )
 
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
@@ -236,6 +257,7 @@ async def lifespan(app: FastAPI):
     # Close database connections
     try:
         from .dependencies import close_db, close_async_db
+
         close_db()  # Close sync DB pool
         await close_async_db()  # Close async DB pool if initialized
     except Exception as e:
@@ -327,13 +349,17 @@ def create_app() -> FastAPI:
             if path.startswith("/api/"):
                 # Don't cache error responses (4xx, 5xx)
                 if response.status_code >= 400:
-                    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                    response.headers["Cache-Control"] = (
+                        "no-cache, no-store, must-revalidate"
+                    )
                 else:
                     # Extract season from query params if present
                     season = request.query_params.get("season")
                     sport = request.query_params.get("sport")
                     season_year = int(season) if season else None
-                    response.headers["Cache-Control"] = get_cache_control_header(season_year, sport)
+                    response.headers["Cache-Control"] = get_cache_control_header(
+                        season_year, sport
+                    )
 
         # Add Vary header for proper CDN caching
         response.headers["Vary"] = "Accept-Encoding"
@@ -439,8 +465,12 @@ def create_app() -> FastAPI:
     app.include_router(twitter.router, prefix="/api/v1/twitter", tags=["twitter"])
     # Unified News endpoint - entity-specific news from RSS + NewsAPI
     app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
-    # ML endpoints - transfer predictions, vibe scores, similarity
+    # ML endpoints - transfer predictions, vibe scores, performance predictions
     app.include_router(ml.router, prefix="/api/v1/ml", tags=["ml"])
+    # Similarity endpoints - percentile-based entity similarity
+    app.include_router(
+        similarity.router, prefix="/api/v1/similarity", tags=["similarity"]
+    )
 
     return app
 

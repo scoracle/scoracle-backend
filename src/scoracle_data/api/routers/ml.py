@@ -7,11 +7,12 @@ Endpoints:
 - GET /transfers/trending - Trending transfer rumors
 - GET /vibe/{entity_type}/{entity_id} - Vibe score for an entity
 - GET /vibe/trending/{sport} - Trending vibe changes
-- GET /similar/{entity_type}/{entity_id} - Similar entities
-- GET /similar/compare/{entity_type}/{id1}/{id2} - Compare two entities
 - GET /predictions/{entity_type}/{entity_id}/next - Next game performance prediction
 - GET /predictions/{entity_type}/{entity_id}/game/{game_id} - Specific game prediction
 - GET /predictions/accuracy/{model_version} - Model accuracy metrics
+
+NOTE: Similarity endpoints have been moved to /api/v1/similarity
+      See routers/similarity.py for the new percentile-based similarity feature.
 
 Performance Features:
 - Caching with configurable TTLs
@@ -36,7 +37,6 @@ router = APIRouter()
 # Cache TTLs
 TTL_TRANSFER_PREDICTIONS = 1800  # 30 minutes
 TTL_VIBE_SCORE = 3600  # 1 hour
-TTL_SIMILARITY = 86400  # 24 hours
 TTL_PERFORMANCE_PREDICTION = 3600  # 1 hour
 
 
@@ -148,37 +148,6 @@ class TrendingVibes(BaseModel):
     sport: str
     trending: list[TrendingVibe]
     last_updated: datetime
-
-
-class SimilarEntityResponse(BaseModel):
-    """A similar entity."""
-
-    entity_id: int
-    entity_name: str
-    similarity_score: float
-    similarity_label: str
-    shared_traits: list[str]
-    key_differences: list[str]
-
-
-class SimilarEntitiesResponse(BaseModel):
-    """Similar entities for a source entity."""
-
-    entity_id: int
-    entity_name: str
-    entity_type: str
-    sport: str
-    similar_entities: list[SimilarEntityResponse]
-
-
-class EntityComparisonResponse(BaseModel):
-    """Comparison between two entities."""
-
-    entity_1: dict[str, Any]
-    entity_2: dict[str, Any]
-    similarity_score: float
-    shared_traits: list[str]
-    key_differences: list[str]
 
 
 class StatPredictionResponse(BaseModel):
@@ -293,20 +262,22 @@ async def get_team_transfer_predictions(
         probability = link[4] or 0.0
         confidence_range = 0.1 + 0.1 * (1 - probability)
 
-        predictions.append(TransferTarget(
-            player_id=link[1],
-            player_name=link[2],
-            current_team=link[3],
-            probability=probability,
-            confidence_interval=(
-                max(0, probability - confidence_range),
-                min(1, probability + confidence_range),
-            ),
-            trend=link[6] or "stable",
-            trend_change_7d=link[7] or 0.0,
-            top_factors=_get_top_factors(link),
-            recent_headlines=[h[0] for h in headlines],
-        ))
+        predictions.append(
+            TransferTarget(
+                player_id=link[1],
+                player_name=link[2],
+                current_team=link[3],
+                probability=probability,
+                confidence_interval=(
+                    max(0, probability - confidence_range),
+                    min(1, probability + confidence_range),
+                ),
+                trend=link[6] or "stable",
+                trend_change_7d=link[7] or 0.0,
+                top_factors=_get_top_factors(link),
+                recent_headlines=[h[0] for h in headlines],
+            )
+        )
 
     # Determine transfer window status
     now = datetime.now()
@@ -328,7 +299,9 @@ async def get_team_transfer_predictions(
     return result
 
 
-@router.get("/transfers/predictions/player/{player_id}", response_model=PlayerTransferOutlook)
+@router.get(
+    "/transfers/predictions/player/{player_id}", response_model=PlayerTransferOutlook
+)
 async def get_player_transfer_predictions(
     player_id: int,
     db: DBDependency,
@@ -548,11 +521,17 @@ async def get_vibe_score(
 
     breakdown = {}
     if vibe_row[3] is not None:
-        breakdown["twitter"] = VibeBreakdown(score=vibe_row[3], sample_size=vibe_row[4] or 0)
+        breakdown["twitter"] = VibeBreakdown(
+            score=vibe_row[3], sample_size=vibe_row[4] or 0
+        )
     if vibe_row[5] is not None:
-        breakdown["news"] = VibeBreakdown(score=vibe_row[5], sample_size=vibe_row[6] or 0)
+        breakdown["news"] = VibeBreakdown(
+            score=vibe_row[5], sample_size=vibe_row[6] or 0
+        )
     if vibe_row[7] is not None:
-        breakdown["reddit"] = VibeBreakdown(score=vibe_row[7], sample_size=vibe_row[8] or 0)
+        breakdown["reddit"] = VibeBreakdown(
+            score=vibe_row[7], sample_size=vibe_row[8] or 0
+        )
 
     result = VibeScoreResponse(
         entity_id=entity_id,
@@ -629,7 +608,11 @@ async def get_trending_vibes(
             entity_type=row[2],
             current_score=row[3],
             change_7d=row[4] or 0.0,
-            direction="up" if (row[4] or 0) > 0 else "down" if (row[4] or 0) < 0 else "stable",
+            direction="up"
+            if (row[4] or 0) > 0
+            else "down"
+            if (row[4] or 0) < 0
+            else "stable",
         )
         for row in rows
     ]
@@ -642,132 +625,6 @@ async def get_trending_vibes(
 
     cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
     return result
-
-
-# =============================================================================
-# Similarity Endpoints
-# =============================================================================
-
-
-@router.get("/similar/{entity_type}/{entity_id}", response_model=SimilarEntitiesResponse)
-async def get_similar_entities(
-    entity_type: str,
-    entity_id: int,
-    db: DBDependency,
-    limit: Annotated[int, Query(ge=1, le=10)] = 3,
-) -> SimilarEntitiesResponse:
-    """
-    Get similar entities (players similar to a player, teams to a team).
-
-    Returns the most statistically similar entities based on
-    performance metrics and playing style.
-    """
-    if entity_type not in ("player", "team"):
-        raise NotFoundError(f"Invalid entity type: {entity_type}")
-
-    cache = get_cache()
-    cache_key = f"ml:similar:{entity_type}:{entity_id}:{limit}"
-
-    cached = cache.get(cache_key)
-    if cached:
-        return SimilarEntitiesResponse(**cached)
-
-    # Get pre-computed similarities
-    rows = db.fetch_all(
-        """
-        SELECT
-            es.entity_name, es.similar_entity_id, es.similar_entity_name,
-            es.sport, es.similarity_score, es.shared_traits, es.key_differences
-        FROM entity_similarities es
-        WHERE es.entity_type = %s AND es.entity_id = %s
-        ORDER BY es.rank
-        LIMIT %s
-        """,
-        (entity_type, entity_id, limit),
-    )
-
-    if not rows:
-        # Return empty if no pre-computed similarities
-        entity_name = _get_entity_name(db, entity_type, entity_id)
-        return SimilarEntitiesResponse(
-            entity_id=entity_id,
-            entity_name=entity_name,
-            entity_type=entity_type,
-            sport="unknown",
-            similar_entities=[],
-        )
-
-    similar = [
-        SimilarEntityResponse(
-            entity_id=row[1],
-            entity_name=row[2],
-            similarity_score=row[4],
-            similarity_label=_get_similarity_label(row[4]),
-            shared_traits=row[5] or [],
-            key_differences=row[6] or [],
-        )
-        for row in rows
-    ]
-
-    result = SimilarEntitiesResponse(
-        entity_id=entity_id,
-        entity_name=rows[0][0],
-        entity_type=entity_type,
-        sport=rows[0][3],
-        similar_entities=similar,
-    )
-
-    cache.set(cache_key, result.model_dump(), ttl=TTL_SIMILARITY)
-    return result
-
-
-@router.get("/similar/compare/{entity_type}/{entity_id_1}/{entity_id_2}", response_model=EntityComparisonResponse)
-async def compare_entities(
-    entity_type: str,
-    entity_id_1: int,
-    entity_id_2: int,
-    db: DBDependency,
-) -> EntityComparisonResponse:
-    """
-    Compare two specific entities directly.
-
-    Returns detailed comparison including similarity score,
-    shared traits, and key differences.
-    """
-    if entity_type not in ("player", "team"):
-        raise NotFoundError(f"Invalid entity type: {entity_type}")
-
-    # Get entity names
-    name1 = _get_entity_name(db, entity_type, entity_id_1)
-    name2 = _get_entity_name(db, entity_type, entity_id_2)
-
-    # Check for pre-computed comparison
-    row = db.fetch_one(
-        """
-        SELECT similarity_score, shared_traits, key_differences
-        FROM entity_similarities
-        WHERE entity_type = %s AND entity_id = %s AND similar_entity_id = %s
-        """,
-        (entity_type, entity_id_1, entity_id_2),
-    )
-
-    if row:
-        return EntityComparisonResponse(
-            entity_1={"id": entity_id_1, "name": name1},
-            entity_2={"id": entity_id_2, "name": name2},
-            similarity_score=row[0],
-            shared_traits=row[1] or [],
-            key_differences=row[2] or [],
-        )
-
-    # Return basic comparison if no pre-computed data
-    return EntityComparisonResponse(
-        entity_1={"id": entity_id_1, "name": name1},
-        entity_2={"id": entity_id_2, "name": name2},
-        similarity_score=0.0,
-        shared_traits=[],
-        key_differences=["Comparison not yet computed"],
-    )
 
 
 # =============================================================================
@@ -800,18 +657,6 @@ def _get_vibe_label(score: float) -> str:
         return "Crisis"
 
 
-def _get_similarity_label(score: float) -> str:
-    """Convert similarity score to label."""
-    if score >= 0.9:
-        return "Very Similar"
-    elif score >= 0.8:
-        return "Similar"
-    elif score >= 0.7:
-        return "Somewhat Similar"
-    else:
-        return "Different"
-
-
 def _get_top_factors(link: tuple) -> list[str]:
     """Extract top factors from a transfer link row."""
     factors = []
@@ -841,7 +686,10 @@ def _get_top_factors(link: tuple) -> list[str]:
 # =============================================================================
 
 
-@router.get("/predictions/{entity_type}/{entity_id}/next", response_model=PerformancePredictionResponse)
+@router.get(
+    "/predictions/{entity_type}/{entity_id}/next",
+    response_model=PerformancePredictionResponse,
+)
 async def get_next_game_prediction(
     entity_type: str,
     entity_id: int,
@@ -920,8 +768,12 @@ async def get_next_game_prediction(
             predictions[stat_name] = StatPredictionResponse(
                 stat_name=stat_name,
                 predicted_value=round(value, 1),
-                confidence_lower=round(ci[0], 1) if isinstance(ci, list) else round(value * 0.8, 1),
-                confidence_upper=round(ci[1], 1) if isinstance(ci, list) else round(value * 1.2, 1),
+                confidence_lower=round(ci[0], 1)
+                if isinstance(ci, list)
+                else round(value * 0.8, 1),
+                confidence_upper=round(ci[1], 1)
+                if isinstance(ci, list)
+                else round(value * 1.2, 1),
                 historical_avg=round(value, 1),  # Placeholder
             )
 
@@ -969,7 +821,10 @@ async def get_next_game_prediction(
     return result
 
 
-@router.get("/predictions/{entity_type}/{entity_id}/game/{game_id}", response_model=PerformancePredictionResponse)
+@router.get(
+    "/predictions/{entity_type}/{entity_id}/game/{game_id}",
+    response_model=PerformancePredictionResponse,
+)
 async def get_specific_game_prediction(
     entity_type: str,
     entity_id: int,
@@ -1010,8 +865,12 @@ async def get_specific_game_prediction(
         predictions[stat_name] = StatPredictionResponse(
             stat_name=stat_name,
             predicted_value=round(value, 1),
-            confidence_lower=round(ci[0], 1) if isinstance(ci, list) else round(value * 0.8, 1),
-            confidence_upper=round(ci[1], 1) if isinstance(ci, list) else round(value * 1.2, 1),
+            confidence_lower=round(ci[0], 1)
+            if isinstance(ci, list)
+            else round(value * 0.8, 1),
+            confidence_upper=round(ci[1], 1)
+            if isinstance(ci, list)
+            else round(value * 1.2, 1),
             historical_avg=round(value, 1),
         )
 
@@ -1034,7 +893,9 @@ async def get_specific_game_prediction(
     )
 
 
-@router.get("/predictions/accuracy/{model_version}", response_model=ModelAccuracyResponse)
+@router.get(
+    "/predictions/accuracy/{model_version}", response_model=ModelAccuracyResponse
+)
 async def get_model_accuracy(
     model_version: str,
     db: DBDependency,

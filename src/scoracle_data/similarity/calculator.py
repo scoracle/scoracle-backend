@@ -78,10 +78,14 @@ class SimilarityCalculator:
     # Core Similarity Computation
     # =========================================================================
 
+    # Minimum number of common stats required for meaningful similarity
+    MIN_COMMON_STATS = 5
+
     def compute_cosine_similarity(
         self,
         vec1: dict[str, float],
         vec2: dict[str, float],
+        min_common_stats: int | None = None,
     ) -> float:
         """
         Compute cosine similarity between two percentile dicts.
@@ -89,17 +93,27 @@ class SimilarityCalculator:
         Only uses stats that both entities have (intersection of keys).
         Returns value between 0.0 (completely different) and 1.0 (identical).
 
+        IMPORTANT: Requires a minimum number of common stats to avoid
+        misleading high scores from low-dimensional comparisons.
+        With only 1-2 common stats, cosine similarity is unreliable.
+
         Args:
             vec1: First entity's percentiles {stat_name: percentile_value}
             vec2: Second entity's percentiles {stat_name: percentile_value}
+            min_common_stats: Minimum common stats required (default: MIN_COMMON_STATS)
 
         Returns:
-            Cosine similarity score (0.0 to 1.0)
+            Cosine similarity score (0.0 to 1.0), or 0.0 if insufficient common stats
         """
+        min_stats = (
+            min_common_stats if min_common_stats is not None else self.MIN_COMMON_STATS
+        )
+
         # Find common stats
         common_keys = set(vec1.keys()) & set(vec2.keys())
 
-        if not common_keys:
+        # Require minimum number of common stats for meaningful comparison
+        if len(common_keys) < min_stats:
             return 0.0
 
         # Extract values for common stats

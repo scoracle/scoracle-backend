@@ -34,8 +34,50 @@ from typing import Any
 # Add src to path for imports
 sys.path.insert(0, "src")
 
-from scoracle_data.connection import get_db
-from scoracle_data.seeders.utils import DataParsers, StatCalculators
+from scoracle_data.pg_connection import get_db
+
+
+# ---------------------------------------------------------------------------
+# Stat calculation helpers (previously in seeders.utils, inlined here to
+# remove the dependency on the deleted legacy seeder utilities module).
+# ---------------------------------------------------------------------------
+
+class DataParsers:
+    @staticmethod
+    def safe_percentage(made: int, attempted: int, decimals: int = 1) -> float:
+        if not attempted or attempted == 0:
+            return 0.0
+        return round((made / attempted) * 100, decimals)
+
+
+class StatCalculators:
+    @staticmethod
+    def calculate_nba_efficiency(
+        points: int, rebounds: int, assists: int, steals: int, blocks: int,
+        fgm: int, fga: int, ftm: int, fta: int, turnovers: int, games: int,
+    ) -> float:
+        if games == 0:
+            return 0.0
+        efficiency = (
+            points + rebounds + assists + steals + blocks
+            - (fga - fgm) - (fta - ftm) - turnovers
+        )
+        return round(efficiency / games, 1)
+
+    @staticmethod
+    def calculate_true_shooting_pct(points: int, fga: int, fta: int) -> float:
+        if not points or (not fga and not fta):
+            return 0.0
+        tsa = fga + (0.44 * fta)
+        if tsa == 0:
+            return 0.0
+        return round((points / (2 * tsa)) * 100, 1)
+
+    @staticmethod
+    def calculate_effective_fg_pct(fgm: int, tpm: int, fga: int) -> float:
+        if not fga:
+            return 0.0
+        return round(((fgm + 0.5 * tpm) / fga) * 100, 1)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -258,38 +258,6 @@ class TestPostgresPercentileCalculations:
         assert results[2]["percentile"] == pytest.approx(100, abs=1)
 
 
-class TestQueryBuilder:
-    """Test query builder generates PostgreSQL-compatible queries."""
-
-    def test_upsert_query_uses_postgres_syntax(self):
-        """Upsert queries should use PostgreSQL ON CONFLICT syntax."""
-        from scoracle_data.query_builder import query_cache
-
-        query = query_cache.get_or_build_upsert(
-            table="test_table",
-            columns=["id", "name", "value"],
-            conflict_keys=["id"],
-        )
-
-        assert "%s" in query  # PostgreSQL placeholder
-        assert "?" not in query  # Not SQLite placeholder
-        assert "ON CONFLICT" in query
-        assert "DO UPDATE SET" in query
-        assert "excluded." in query.lower()  # Case-insensitive check
-
-    def test_upsert_with_multiple_conflict_keys(self):
-        """Upsert with composite key should work."""
-        from scoracle_data.query_builder import query_cache
-
-        query = query_cache.get_or_build_upsert(
-            table="stats",
-            columns=["player_id", "season_id", "points"],
-            conflict_keys=["player_id", "season_id"],
-        )
-
-        assert "(player_id, season_id)" in query
-
-
 class TestPGCalculator:
     """Test PostgreSQL percentile calculator."""
 

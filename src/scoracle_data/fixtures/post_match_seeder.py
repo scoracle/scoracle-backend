@@ -278,18 +278,18 @@ class PostMatchSeeder:
         return results
 
     def _get_sport_seeder(self, sport_id: str):
-        """Get the appropriate seeder for a sport."""
-        from ..seeders import NBASeeder, NFLSeeder, FootballSeeder
+        """Get the appropriate seed runner for a sport."""
+        from ..seeders import NBASeedRunner, NFLSeedRunner, FootballSeedRunner
 
-        seeder_map = {
-            "NBA": NBASeeder,
-            "NFL": NFLSeeder,
-            "FOOTBALL": FootballSeeder,
+        runner_map = {
+            "NBA": NBASeedRunner,
+            "NFL": NFLSeedRunner,
+            "FOOTBALL": FootballSeedRunner,
         }
 
-        seeder_class = seeder_map.get(sport_id)
-        if seeder_class:
-            return seeder_class(self.db, self.api)
+        runner_class = runner_map.get(sport_id)
+        if runner_class:
+            return runner_class(self.db, self.api)
         return None
 
     async def _get_team_roster(

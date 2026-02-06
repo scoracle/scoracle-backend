@@ -1,34 +1,26 @@
 """
 Scoracle Stats Database Module
 
-A comprehensive local database system for storing and analyzing sports statistics
-from API-Sports. Supports percentile calculations, historical data, and
-multi-sport extensibility.
+A comprehensive database system for storing and analyzing sports statistics.
+Supports percentile calculations, historical data, and multi-sport extensibility.
 
 Key Features:
-- Local-first architecture (<10ms query times)
-- Two-phase seeding (discovery -> profile fetch -> stats)
-- Tiered coverage (priority vs non-priority leagues)
+- PostgreSQL backend (Neon serverless) with connection pooling
+- Provider-specific seeders (BallDontLie for NBA/NFL, SportMonks for Football)
+- Centralized sport config in core.types.SPORT_REGISTRY
+- Per-position percentile calculations with JSONB storage
 - Roster diff engine for trade/transfer detection
-- EntityRepository for unified profile access
 
 Usage:
-    from scoracle_data import StatsDB, get_stats_db, EntityRepository
+    from scoracle_data import StatsDB, get_stats_db
+    from scoracle_data.services.profiles import get_player_profile
 
-    # Get database instance
     db = get_stats_db()
-
-    # Get entity repository for profile access
-    repo = EntityRepository(db)
-    profile = repo.get_player_profile(player_id=123, sport_id="NBA")
-
-    # Search entities
-    results = repo.search_entities("Curry", sport_id="NBA")
+    profile = get_player_profile(db, player_id=123, sport="NBA")
 """
 
 from .connection import StatsDB, get_stats_db
 from .schema import init_database, run_migrations
-from .entity_repository import EntityRepository, get_entity_repository
 from .api_client import (
     ApiClientProtocol,
     StandaloneApiClient,
@@ -51,9 +43,6 @@ __all__ = [
     # Schema
     "init_database",
     "run_migrations",
-    # Repository
-    "EntityRepository",
-    "get_entity_repository",
     # API Client
     "ApiClientProtocol",
     "StandaloneApiClient",

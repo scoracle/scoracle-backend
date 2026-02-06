@@ -788,6 +788,9 @@ class PythonPercentileCalculator:
         """
         Archive current percentiles to the percentile_archive table.
 
+        Reads percentiles from the JSONB column in sport-specific stats tables
+        and writes individual rows to percentile_archive for historical queries.
+
         Use this at end of season to preserve historical data.
 
         Args:
@@ -807,46 +810,88 @@ class PythonPercentileCalculator:
             return 0
 
         season_id = result["id"]
+        archived_at = int(time.time())
+        total_count = 0
 
-        # Copy from cache to archive
-        self.db.execute(
-            """
-            INSERT INTO percentile_archive (
-                entity_type, entity_id, sport_id, season_id, stat_category,
-                stat_value, percentile, rank, sample_size, comparison_group,
-                calculated_at, archived_at, is_final
+        # Archive both player and team percentiles from JSONB stats tables
+        for entity_type in ("player", "team"):
+            table = self.STATS_TABLE_MAP.get((sport_id, entity_type))
+            if not table:
+                continue
+
+            id_column = "player_id" if entity_type == "player" else "team_id"
+
+            # Fetch all rows that have JSONB percentiles for this season
+            rows = self.db.fetchall(
+                f"SELECT {id_column}, percentiles, percentile_position_group, "
+                f"percentile_sample_size FROM {table} "
+                f"WHERE season_id = %s AND percentiles IS NOT NULL",
+                (season_id,),
             )
-            SELECT
-                entity_type, entity_id, sport_id, season_id, stat_category,
-                stat_value, percentile, rank, sample_size, comparison_group,
-                calculated_at, %s, %s
-            FROM percentile_cache
-            WHERE sport_id = %s AND season_id = %s
-            ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category, archived_at)
-            DO NOTHING
-            """,
-            (int(time.time()), is_final, sport_id, season_id),
-        )
 
-        # Get count of archived records
-        count_result = self.db.fetchone(
-            """
-            SELECT COUNT(*) as count FROM percentile_archive
-            WHERE sport_id = %s AND season_id = %s AND archived_at = (
-                SELECT MAX(archived_at) FROM percentile_archive
-                WHERE sport_id = %s AND season_id = %s
-            )
-            """,
-            (sport_id, season_id, sport_id, season_id),
-        )
+            if not rows:
+                continue
 
-        count = count_result["count"] if count_result else 0
+            # Unflatten JSONB into individual archive rows
+            archive_rows = []
+            for row in rows:
+                entity_id = row[id_column]
+                percentiles_raw = row["percentiles"]
+
+                # Handle both dict and JSON string
+                if isinstance(percentiles_raw, str):
+                    try:
+                        percentiles = json.loads(percentiles_raw)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                elif isinstance(percentiles_raw, dict):
+                    percentiles = percentiles_raw
+                else:
+                    continue
+
+                comparison_group = row.get("percentile_position_group")
+                sample_size = row.get("percentile_sample_size")
+
+                for stat_category, percentile_value in percentiles.items():
+                    archive_rows.append((
+                        entity_type,
+                        entity_id,
+                        sport_id,
+                        season_id,
+                        stat_category,
+                        None,  # stat_value not stored in JSONB percentiles
+                        percentile_value,
+                        None,  # rank not stored in JSONB percentiles
+                        sample_size,
+                        comparison_group,
+                        archived_at,
+                        archived_at,
+                        is_final,
+                    ))
+
+            if archive_rows:
+                # Batch insert into archive
+                self.db.executemany(
+                    """
+                    INSERT INTO percentile_archive (
+                        entity_type, entity_id, sport_id, season_id, stat_category,
+                        stat_value, percentile, rank, sample_size, comparison_group,
+                        calculated_at, archived_at, is_final
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (entity_type, entity_id, sport_id, season_id, stat_category, archived_at)
+                    DO NOTHING
+                    """,
+                    archive_rows,
+                )
+                total_count += len(archive_rows)
+
         logger.info(
             "Archived %d percentile records for %s %d (final=%s)",
-            count,
+            total_count,
             sport_id,
             season_year,
             is_final,
         )
 
-        return count
+        return total_count

@@ -249,19 +249,38 @@ Created three new service files, extracting all SQL from the ML router:
 
 ---
 
+## Phase 8: Database Cleanup + Bug Fix
+
+### Migration 017: Drop Unused Objects
+
+Created `migrations/017_drop_unused_objects.sql` to drop:
+- All 9 materialized views from migration 009 (never queried by application)
+- `refresh_all_materialized_views()` function from migration 009
+- `percentile_cache` table and all its indexes (migrations 007, 008, 010)
+
+**Intentionally kept:** `players` and `teams` UNION views (migration 016) — still used by
+`ml/jobs/vibe_calculator.py` and `ml/jobs/prediction_refresh.py`.
+
+### Bug Fix: archive_season_percentiles
+
+Rewrote `PythonPercentileCalculator.archive_season()` to source percentiles from JSONB
+in sport-specific stats tables instead of the deleted `percentile_cache` table. The method
+now iterates player and team stats tables, unflattens JSONB percentiles into individual
+archive rows, and batch-inserts via `executemany`.
+
+---
+
 ## Remaining Work
 
-### Database Cleanup (SQL migrations needed)
+### Future Refactors
 
-- Drop unused materialized views created by migration 009
-- Drop deprecated cross-sport UNION views from migration 016
-- Drop stale indexes on legacy `players` / `teams` tables
+- Migrate `ml/jobs/vibe_calculator.py` and `ml/jobs/prediction_refresh.py` to use
+  sport-specific tables directly, then drop `players`/`teams` UNION views (migration 016)
 
-### Known Pre-existing Issues
+### Known LSP Warnings (not bugs)
 
 | Issue | Location | Impact |
 |-------|----------|--------|
-| `archive_season_percentiles` references `percentile_cache` table | `percentiles/python_calculator.py:823` | End-of-season archive would fail; needs rewrite to source from JSONB stats |
 | FastAPI `add_exception_handler` type mismatch | `api/main.py:373` | LSP warning only, runtime works fine |
 | psycopg `Composed` type strictness | `roster_diff/engine.py`, `pg_connection.py` | LSP warnings, runtime works fine |
 

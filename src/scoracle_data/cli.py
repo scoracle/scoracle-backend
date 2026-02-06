@@ -1497,109 +1497,10 @@ async def cmd_ml_scheduler_async(args: argparse.Namespace) -> int:
         db.close()
 
 
-# =============================================================================
-# NEW: PROVIDER-AGNOSTIC SEEDING COMMANDS
-# =============================================================================
 
-async def cmd_seed_generic_async(args: argparse.Namespace) -> int:
-    """Run provider-agnostic seeding using new architecture."""
-    from .providers import get_provider
-    from .repositories import get_repositories
-    from .seeders import GenericSeeder
-
-    db = get_db()
-    
-    # Initialize database if needed
-    if not db.is_initialized():
-        from .schema import init_database
-        logger.info("Database not initialized, running initialization...")
-        init_database(db)
-    
-    sport = args.sport.upper()
-    season = args.season or 2025
-    provider_name = args.provider or "api_sports"
-    
-    # Validate FOOTBALL requires league_id
-    if sport == "FOOTBALL" and not args.league_id:
-        logger.error("FOOTBALL requires --league-id parameter")
-        return 1
-    
-    logger.info(f"Using provider: {provider_name}")
-    
-    try:
-        # Get provider and repositories
-        provider = get_provider(provider_name)
-        repos = get_repositories(db)
-        
-        # Create seeder
-        seeder = GenericSeeder(
-            sport=sport,
-            provider=provider,
-            repos=repos,
-            db=db,
-        )
-        
-        if args.debug:
-            # Debug mode: limited data
-            logger.info(f"Running debug seeding for {sport} {season}...")
-            result = await seeder.seed_debug(
-                season,
-                league_id=args.league_id,
-                max_teams=5,
-                max_players=25,
-            )
-        else:
-            # Full seeding
-            logger.info(f"Running two-phase seeding for {sport} {season}...")
-            result = await seeder.seed_two_phase(
-                season,
-                league_id=args.league_id,
-                skip_profiles=args.skip_profiles,
-                skip_stats=args.skip_stats,
-                batch_size=args.batch_size,
-            )
-        
-        # Print results
-        print(f"\n{sport} Seeding Complete")
-        print("=" * 50)
-        print(f"  Provider:          {provider_name}")
-        print(f"  Season:            {season}")
-        print(f"  Duration:          {result.duration_seconds:.1f}s")
-        print()
-        print("Discovery:")
-        print(f"  Teams discovered:  {result.discovery.teams_discovered}")
-        print(f"  Teams new:         {result.discovery.teams_new}")
-        print(f"  Players discovered:{result.discovery.players_discovered}")
-        print(f"  Players new:       {result.discovery.players_new}")
-        print()
-        print("Updates:")
-        print(f"  Profiles fetched:  {result.profiles_fetched}")
-        print(f"  Player stats:      {result.player_stats_updated}")
-        print(f"  Team stats:        {result.team_stats_updated}")
-        
-        if result.errors:
-            print(f"\nErrors: {len(result.errors)}")
-            for err in result.errors[:5]:
-                print(f"  - {err}")
-        
-        # Remind about post-processing
-        print(f"\nRemember to run post-processing:")
-        print(f"  python -m scoracle_data.cli calculate-stats --sport {sport} --season {season}")
-        
-        return 0
-        
-    except Exception as e:
-        logger.error(f"Seeding failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
-def cmd_seed_generic(args: argparse.Namespace) -> int:
-    """Wrapper to run async seed-generic command."""
-    return asyncio.run(cmd_seed_generic_async(args))
+# NOTE: The old cmd_seed_generic (provider-agnostic GenericSeeder) has been removed.
+# It depended on the deleted DataProviderProtocol/GenericSeeder framework.
+# New provider-specific seeding should use the BallDontLie/SportMonks clients directly.
 
 
 def cmd_calculate_stats(args: argparse.Namespace) -> int:
@@ -1956,46 +1857,7 @@ def main() -> int:
         help="Start the ML job scheduler (daemon mode)",
     )
 
-    # ==========================================================================
-    # NEW: Provider-agnostic seeding (seed-generic)
-    # ==========================================================================
-    seed_generic_parser = subparsers.add_parser(
-        "seed-generic",
-        help="Provider-agnostic seeding (recommended for new code)",
-    )
-    seed_generic_parser.add_argument(
-        "--sport", 
-        required=True,
-        help="Sport to seed (NBA, NFL, FOOTBALL)"
-    )
-    seed_generic_parser.add_argument("--season", type=int, help="Season year to seed")
-    seed_generic_parser.add_argument("--league-id", type=int, help="League ID (required for FOOTBALL)")
-    seed_generic_parser.add_argument(
-        "--provider",
-        default="api_sports",
-        help="Data provider to use (default: api_sports)"
-    )
-    seed_generic_parser.add_argument(
-        "--skip-profiles",
-        action="store_true",
-        help="Skip profile fetch phase"
-    )
-    seed_generic_parser.add_argument(
-        "--skip-stats",
-        action="store_true",
-        help="Skip stats update phase"
-    )
-    seed_generic_parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Run in debug mode (limited data)"
-    )
-    seed_generic_parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=10,
-        help="Batch size for parallel requests (default: 10)"
-    )
+    # NOTE: seed-generic command removed (GenericSeeder framework deleted)
 
     # ==========================================================================
     # NEW: Calculate advanced stats (post-processing)
@@ -2031,7 +1893,7 @@ def main() -> int:
         "seed-2phase": cmd_seed_2phase,
         "seed-debug": cmd_seed_debug,
         "seed-small": cmd_seed_small,
-        "seed-generic": cmd_seed_generic,
+
         "calculate-stats": cmd_calculate_stats,
         "diff": cmd_diff,
         "percentiles": cmd_percentiles,

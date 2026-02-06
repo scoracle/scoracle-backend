@@ -213,13 +213,31 @@ class PostgresPlayerRepository(PlayerRepository):
         results = self.db.fetchall(f"SELECT id FROM {table}", ())
         return [r["id"] for r in results]
     
+    # Allowlist of valid JSONB path operators for extract_raw_field
+    _VALID_JSON_PATH_RE = __import__("re").compile(
+        r"^(->>?\s*'[a-zA-Z_][a-zA-Z0-9_]*')+$"
+    )
+
     def extract_raw_field(
         self,
         sport: str,
         player_id: int,
         json_path: str,
     ) -> Any:
-        """Extract a field from stored raw_response JSONB."""
+        """Extract a field from stored raw_response JSONB.
+
+        Args:
+            sport: Sport identifier
+            player_id: Player ID
+            json_path: JSONB path expression (e.g. "->>'country'" or "->'birth'->>'date'").
+                Must match the pattern: one or more ->> or -> operators with single-quoted
+                alphanumeric field names. Rejects anything else to prevent SQL injection.
+        """
+        if not self._VALID_JSON_PATH_RE.match(json_path):
+            raise ValueError(
+                f"Invalid json_path: {json_path!r}. "
+                "Must be JSONB operators like \"->>'field'\" or \"->'obj'->>'field'\"."
+            )
         table = self._get_table(sport)
         result = self.db.fetchone(
             f"SELECT raw_response{json_path} as value FROM {table} WHERE id = %s",

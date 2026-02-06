@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         description="Allowed CORS origins. Set to ['*'] for development.",
     )
     cors_allow_methods: list[str] = ["GET", "HEAD", "OPTIONS"]
-    cors_allow_headers: list[str] = ["*"]
+    cors_allow_headers: list[str] = ["Accept", "Accept-Encoding", "Content-Type", "If-None-Match", "Cache-Control"]
     cors_allow_credentials: bool = False
     cors_expose_headers: list[str] = ["X-Process-Time", "X-Cache", "Link"]
 

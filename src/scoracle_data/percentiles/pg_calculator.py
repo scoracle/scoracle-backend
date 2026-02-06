@@ -15,6 +15,7 @@ Reason for deprecation:
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Optional
 
 from .config import (
@@ -28,6 +29,20 @@ if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
+
+# Regex to validate that a stat_name is a safe SQL column identifier.
+# Only allows lowercase letters, digits, and underscores (standard PostgreSQL column names).
+_VALID_COLUMN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _validate_column_name(name: str) -> str:
+    """Validate that a string is a safe SQL column identifier.
+
+    Raises ValueError if the name contains characters that could enable SQL injection.
+    """
+    if not _VALID_COLUMN_NAME_RE.match(name):
+        raise ValueError(f"Invalid column name: {name!r}. Must match [a-z][a-z0-9_]*")
+    return name
 
 
 class PostgresPercentileCalculator:
@@ -96,6 +111,10 @@ class PostgresPercentileCalculator:
         if position_group:
             position_filter = "AND p.position_group = %s"
             position_params = [position_group]
+
+        # Validate all stat names are safe column identifiers before building SQL
+        for stat_name in categories:
+            _validate_column_name(stat_name)
 
         # Build the multi-stat SELECT with all percentile calculations
         stat_selects = []
@@ -256,6 +275,10 @@ class PostgresPercentileCalculator:
             league_filter = "AND s.league_id = %s"
             league_params = [league_id]
 
+        # Validate all stat names are safe column identifiers before building SQL
+        for stat_name in categories:
+            _validate_column_name(stat_name)
+
         # Build multi-stat SELECT
         stat_selects = []
         for stat_name in categories:
@@ -410,6 +433,10 @@ class PostgresPercentileCalculator:
             "SELECT season_year FROM seasons WHERE id = %s", (season_id,)
         )
         season_year = season_result["season_year"] if season_result else season_id
+
+        # Validate all stat names are safe column identifiers before building SQL
+        for stat_name in categories:
+            _validate_column_name(stat_name)
 
         total_created = 0
 
@@ -597,6 +624,10 @@ class PostgresPercentileCalculator:
             "SELECT season_year FROM seasons WHERE id = %s", (season_id,)
         )
         season_year = season_result["season_year"] if season_result else season_id
+
+        # Validate all stat names are safe column identifiers before building SQL
+        for stat_name in categories:
+            _validate_column_name(stat_name)
 
         total_created = 0
 
@@ -804,6 +835,7 @@ class PostgresPercentileCalculator:
         if not table:
             return None
 
+        _validate_column_name(stat_name)
         order_direction = "ASC" if is_inverse_stat(stat_name) else "DESC"
 
         query = f"""
@@ -868,6 +900,7 @@ class PostgresPercentileCalculator:
         if not table:
             return None
 
+        _validate_column_name(stat_name)
         order_direction = "ASC" if is_inverse_stat(stat_name) else "DESC"
 
         # Build partition clause based on sport

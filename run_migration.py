@@ -2,32 +2,45 @@
 """Run database migrations."""
 
 import asyncio
-import asyncpg
+import os
 import sys
 from pathlib import Path
 
-DATABASE_URL = "postgresql://neondb_owner:npg_7x0jtQPmfWZq@ep-noisy-frost-aemyfaig-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require"
+import asyncpg
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 async def run_migration():
     """Run the initial schema migration."""
+    database_url = (
+        os.environ.get("NEON_DATABASE_URL_V2")
+        or os.environ.get("DATABASE_URL")
+        or os.environ.get("NEON_DATABASE_URL")
+    )
+
+    if not database_url:
+        print("ERROR: No database URL found. Set NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL.")
+        sys.exit(1)
+
     migration_file = Path(__file__).parent / "migrations" / "001_initial_schema.sql"
-    
+
     if not migration_file.exists():
         print(f"ERROR: Migration file not found: {migration_file}")
         sys.exit(1)
-    
+
     print(f"Reading migration: {migration_file}")
     sql = migration_file.read_text()
-    
+
     print("Connecting to database...")
-    conn = await asyncpg.connect(DATABASE_URL)
-    
+    conn = await asyncpg.connect(database_url)
+
     try:
         print("Running migration...")
         await conn.execute(sql)
         print("Migration completed successfully!")
-        
+
         # Verify tables were created
         result = await conn.fetch("""
             SELECT table_name 
@@ -35,11 +48,11 @@ async def run_migration():
             WHERE table_schema = 'public' 
             ORDER BY table_name
         """)
-        
+
         print(f"\nCreated {len(result)} tables:")
         for row in result:
             print(f"  - {row['table_name']}")
-            
+
     finally:
         await conn.close()
 

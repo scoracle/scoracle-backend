@@ -256,10 +256,9 @@ async def lifespan(app: FastAPI):
 
     # Close database connections
     try:
-        from .dependencies import close_db, close_async_db
+        from .dependencies import close_db
 
         close_db()  # Close sync DB pool
-        await close_async_db()  # Close async DB pool if initialized
     except Exception as e:
         logger.warning(f"Error closing database connections: {e}")
 
@@ -374,13 +373,15 @@ def create_app() -> FastAPI:
     async def global_exception_handler(request: Request, exc: Exception):
         """Handle unexpected exceptions with consistent format."""
         logger.error(f"Unhandled exception: {exc}", exc_info=True)
+        # Never leak exception details in production, regardless of DEBUG flag
+        show_detail = settings.debug and settings.environment != "production"
         return JSONResponse(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "error": {
                     "code": "INTERNAL_ERROR",
                     "message": "An internal error occurred",
-                    "detail": str(exc) if settings.debug else None,
+                    "detail": str(exc) if show_detail else None,
                 }
             },
         )
@@ -405,12 +406,13 @@ def create_app() -> FastAPI:
                 "timestamp": datetime.utcnow().isoformat(),
             }
         except Exception as e:
+            logger.error(f"Database health check failed: {e}")
             return JSONResponse(
                 status_code=503,
                 content={
                     "status": "unhealthy",
                     "database": "disconnected",
-                    "error": str(e),
+                    "error": "Database connection check failed",
                     "timestamp": datetime.utcnow().isoformat(),
                 },
             )

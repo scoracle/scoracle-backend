@@ -5,6 +5,7 @@ Uses a sliding window algorithm with in-memory storage.
 Configurable via settings: rate_limit_enabled, rate_limit_requests, rate_limit_window.
 """
 
+import os
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -16,6 +17,27 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from ..config import get_settings
+
+# Maximum number of client entries stored in memory to prevent unbounded growth.
+# An attacker spoofing IPs could otherwise exhaust memory.
+_MAX_STORAGE_ENTRIES = 10_000
+
+# Trusted proxy IPs/CIDRs. When set, only trust X-Forwarded-For from these sources.
+# Railway, Render, and most PaaS platforms set this header correctly.
+_TRUSTED_PROXIES: set[str] | None = None
+
+
+def _get_trusted_proxies() -> set[str] | None:
+    """Load trusted proxy list from environment (comma-separated IPs)."""
+    global _TRUSTED_PROXIES
+    if _TRUSTED_PROXIES is None:
+        raw = os.environ.get("TRUSTED_PROXY_IPS", "")
+        if raw.strip():
+            _TRUSTED_PROXIES = {ip.strip() for ip in raw.split(",") if ip.strip()}
+        else:
+            # Empty set means "trust no proxies" — use direct client IP
+            _TRUSTED_PROXIES = set()
+    return _TRUSTED_PROXIES if _TRUSTED_PROXIES else None
 
 
 @dataclass
@@ -52,6 +74,12 @@ class RateLimiter:
         window_start = now - self.window_seconds
 
         with self._lock:
+            # Prevent unbounded memory growth from IP spoofing attacks.
+            # If storage exceeds the cap, evict all expired entries first,
+            # then allow the new entry (degraded but safe).
+            if len(self._storage) >= _MAX_STORAGE_ENTRIES:
+                self._cleanup_expired_locked(now)
+
             entry = self._storage[client_id]
 
             # Remove timestamps outside the window
@@ -72,6 +100,17 @@ class RateLimiter:
             # Record this request
             entry.timestamps.append(now)
             return True, remaining - 1, reset_time
+
+    def _cleanup_expired_locked(self, now: float) -> None:
+        """Remove expired entries while already holding the lock."""
+        window_start = now - self.window_seconds
+        expired_keys = []
+        for key, entry in self._storage.items():
+            entry.timestamps = [ts for ts in entry.timestamps if ts > window_start]
+            if not entry.timestamps:
+                expired_keys.append(key)
+        for key in expired_keys:
+            del self._storage[key]
 
     def cleanup(self) -> int:
         """
@@ -129,22 +168,25 @@ def get_rate_limiter() -> RateLimiter:
 
 def get_client_ip(request: Request) -> str:
     """
-    Extract client IP from request, considering proxy headers.
+    Extract client IP from request, with proxy header trust verification.
 
-    Checks X-Forwarded-For first (for reverse proxy setups),
-    then falls back to direct client IP.
+    Only trusts X-Forwarded-For when the direct connection comes from a
+    trusted proxy (configured via TRUSTED_PROXY_IPS env var). This prevents
+    attackers from spoofing their IP to bypass rate limiting.
+
+    When TRUSTED_PROXY_IPS is not set, always uses the direct connection IP.
     """
-    # Check for forwarded IP (reverse proxy)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # Take the first IP in the chain (original client)
-        return forwarded.split(",")[0].strip()
+    direct_ip = request.client.host if request.client else "unknown"
 
-    # Fall back to direct connection IP
-    if request.client:
-        return request.client.host
+    # Only trust X-Forwarded-For from known reverse proxies
+    trusted = _get_trusted_proxies()
+    if trusted and direct_ip in trusted:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # Take the first IP in the chain (original client)
+            return forwarded.split(",")[0].strip()
 
-    return "unknown"
+    return direct_ip
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

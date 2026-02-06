@@ -29,6 +29,7 @@ from pydantic import BaseModel, Field
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
+from ..types import EntityType
 
 logger = logging.getLogger(__name__)
 
@@ -443,7 +444,7 @@ async def get_trending_transfers(
 
 @router.get("/vibe/{entity_type}/{entity_id}", response_model=VibeScoreResponse)
 async def get_vibe_score(
-    entity_type: str,
+    entity_type: EntityType,
     entity_id: int,
     db: DBDependency,
 ) -> VibeScoreResponse:
@@ -453,8 +454,6 @@ async def get_vibe_score(
     Returns the aggregated sentiment score across Twitter,
     news, and Reddit along with trend data.
     """
-    if entity_type not in ("player", "team"):
-        raise NotFoundError(f"Invalid entity type: {entity_type}")
 
     cache = get_cache()
     cache_key = f"ml:vibe:{entity_type}:{entity_id}"
@@ -691,7 +690,7 @@ def _get_top_factors(link: tuple) -> list[str]:
     response_model=PerformancePredictionResponse,
 )
 async def get_next_game_prediction(
-    entity_type: str,
+    entity_type: EntityType,
     entity_id: int,
     db: DBDependency,
 ) -> PerformancePredictionResponse:
@@ -701,8 +700,6 @@ async def get_next_game_prediction(
     Returns projected statistics with confidence intervals
     based on recent performance, opponent strength, and context.
     """
-    if entity_type not in ("player", "team"):
-        raise NotFoundError(f"Invalid entity type: {entity_type}")
 
     cache = get_cache()
     cache_key = f"ml:performance:next:{entity_type}:{entity_id}"
@@ -826,7 +823,7 @@ async def get_next_game_prediction(
     response_model=PerformancePredictionResponse,
 )
 async def get_specific_game_prediction(
-    entity_type: str,
+    entity_type: EntityType,
     entity_id: int,
     game_id: int,
     db: DBDependency,
@@ -837,8 +834,6 @@ async def get_specific_game_prediction(
     Returns projected statistics for the specified game
     with opponent-adjusted predictions.
     """
-    if entity_type not in ("player", "team"):
-        raise NotFoundError(f"Invalid entity type: {entity_type}")
 
     # Get prediction for specific game
     pred_row = db.fetch_one(

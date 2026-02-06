@@ -78,6 +78,11 @@ class PostgresDB:
                 "NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL environment variable required"
             )
 
+        # Enforce SSL for all database connections (critical for Neon serverless)
+        if "sslmode" not in self.connection_string:
+            separator = "&" if "?" in self.connection_string else "?"
+            self.connection_string += f"{separator}sslmode=require"
+
         self._max_pool_size = max_pool_size or int(os.environ.get("DATABASE_POOL_SIZE", 10))
         self._min_pool_size = min_pool_size
 

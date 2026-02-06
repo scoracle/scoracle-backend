@@ -21,8 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from ..connection import StatsDB
-    from ..providers import DataProviderProtocol
+    from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +104,8 @@ class RosterDiffEngine:
 
     def __init__(
         self,
-        db: "StatsDB",
-        api_service: "ApiSportsService",
+        db: "PostgresDB",
+        api_service: Any,
     ):
         """
         Initialize the RosterDiffEngine.

@@ -7,7 +7,7 @@ Provides access to curated journalist feeds with smart caching.
 import logging
 from dataclasses import dataclass
 
-from ...config import get_settings
+from ...core.config import get_settings
 from ...external import TwitterClient
 
 logger = logging.getLogger(__name__)

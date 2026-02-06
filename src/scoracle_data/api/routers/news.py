@@ -21,7 +21,7 @@ from fastapi import APIRouter, Path, Query, Response
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ..types import EntityType, Sport, get_sport_config
+from ...core.types import EntityType, Sport, get_sport_config
 from ...services.news import get_news_service
 
 logger = logging.getLogger(__name__)

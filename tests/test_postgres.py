@@ -258,8 +258,8 @@ class TestPostgresPercentileCalculations:
         assert results[2]["percentile"] == pytest.approx(100, abs=1)
 
 
-class TestPGCalculator:
-    """Test PostgreSQL percentile calculator."""
+class TestPythonPercentileCalculator:
+    """Test Python percentile calculator (primary calculator)."""
 
     @pytest.fixture
     def db(self):
@@ -271,24 +271,22 @@ class TestPGCalculator:
 
     def test_calculator_initialization(self, db):
         """Calculator should initialize with database connection."""
-        from scoracle_data.percentiles.pg_calculator import PostgresPercentileCalculator
+        from scoracle_data.percentiles import PythonPercentileCalculator
 
-        calc = PostgresPercentileCalculator(db)
+        calc = PythonPercentileCalculator(db)
         assert calc is not None
         assert calc.db == db
 
     def test_calculator_has_required_methods(self, db):
         """Calculator should have required methods."""
-        from scoracle_data.percentiles.pg_calculator import PostgresPercentileCalculator
+        from scoracle_data.percentiles import PythonPercentileCalculator
 
-        calc = PostgresPercentileCalculator(db)
+        calc = PythonPercentileCalculator(db)
 
         # Should have key methods for percentile calculation
         assert hasattr(calc, "calculate_all_player_percentiles")
         assert hasattr(calc, "calculate_all_team_percentiles")
         assert hasattr(calc, "recalculate_all_percentiles")
-        assert hasattr(calc, "get_player_percentiles")
-        assert hasattr(calc, "get_team_percentiles")
 
 
 class TestSchemaCompatibility:

@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-from ..core.types import STATS_TABLE_MAP, PROFILE_TABLE_MAP
+from ..core.types import STATS_TABLE_MAP, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 
 @dataclass
@@ -242,7 +242,10 @@ class SimilarityCalculator:
             List of dicts with entity_id, entity_name, percentiles
         """
         stats_table = STATS_TABLE_MAP.get((sport_id, entity_type))
-        profile_table = PROFILE_TABLE_MAP.get((sport_id, entity_type))
+        profile_table = (
+            PLAYER_PROFILE_TABLES.get(sport_id) if entity_type == "player"
+            else TEAM_PROFILE_TABLES.get(sport_id)
+        )
 
         if not stats_table or not profile_table:
             logger.warning("No tables configured for %s %s", sport_id, entity_type)

@@ -8,7 +8,7 @@ All sport-specific provider clients inherit from BaseApiClient.
 import asyncio
 import logging
 import time
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 

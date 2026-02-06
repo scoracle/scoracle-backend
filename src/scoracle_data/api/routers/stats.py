@@ -24,7 +24,7 @@ from starlette.status import HTTP_304_NOT_MODIFIED
 from ..cache import get_cache, TTL_CURRENT_SEASON
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ..types import EntityType, Sport
+from ...core.types import EntityType, Sport
 from ._utils import (
     get_season_id,
     validate_season,

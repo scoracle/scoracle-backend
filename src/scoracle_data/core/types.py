@@ -135,11 +135,6 @@ def get_sport_config(sport: str | Sport) -> SportConfig:
 # These are provided for backwards compatibility with existing code.
 # New code should use SPORT_REGISTRY or get_sport_config() directly.
 
-CURRENT_SEASONS = {
-    sport_id: config.current_season
-    for sport_id, config in SPORT_REGISTRY.items()
-}
-
 PLAYER_STATS_TABLES = {
     sport_id: config.player_stats_table
     for sport_id, config in SPORT_REGISTRY.items()
@@ -163,9 +158,6 @@ TEAM_PROFILE_TABLES = {
 # Composite (sport, entity_type) -> table name lookups.
 # Used by percentiles, similarity, and ML modules.
 STATS_TABLE_MAP: dict[tuple[str, str], str] = {}
-PROFILE_TABLE_MAP: dict[tuple[str, str], str] = {}
 for _sid, _cfg in SPORT_REGISTRY.items():
     STATS_TABLE_MAP[(_sid, "player")] = _cfg.player_stats_table
     STATS_TABLE_MAP[(_sid, "team")] = _cfg.team_stats_table
-    PROFILE_TABLE_MAP[(_sid, "player")] = _cfg.player_profile_table
-    PROFILE_TABLE_MAP[(_sid, "team")] = _cfg.team_profile_table

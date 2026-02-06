@@ -16,7 +16,7 @@ from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from ..config import get_settings
+from ..core.config import get_settings
 
 # Maximum number of client entries stored in memory to prevent unbounded growth.
 # An attacker spoofing IPs could otherwise exhaust memory.

@@ -23,7 +23,7 @@ from starlette.status import HTTP_304_NOT_MODIFIED
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ..types import EntityType, Sport
+from ...core.types import EntityType, Sport
 from ._utils import (
     set_cache_headers,
     compute_etag,

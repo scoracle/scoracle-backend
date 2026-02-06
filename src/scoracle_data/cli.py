@@ -37,7 +37,6 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 # Configure logging
 logging.basicConfig(
@@ -59,13 +58,9 @@ ALL_SPORTS = [s.value for s in Sport]
 
 
 def get_db():
-    """Get database connection in write mode.
-
-    Uses PostgreSQL if DATABASE_URL or NEON_DATABASE_URL is set,
-    otherwise falls back to SQLite for local development.
-    """
-    from .pg_connection import get_db as pg_get_db
-    return pg_get_db()
+    """Get the singleton database connection."""
+    from .pg_connection import get_db as _get_db
+    return _get_db()
 
 
 async def _get_legacy_api_client():
@@ -432,7 +427,8 @@ def cmd_export(args: argparse.Namespace) -> int:
         player_data = []
         for player in players:
             stats = db.get_player_stats(player["id"], sport_id, season)
-            percentiles = db.get_percentiles("player", player["id"], sport_id, season)
+            # Percentiles are stored as JSONB in the stats row
+            percentiles = stats.get("percentiles") if stats else None
             player_data.append({
                 "player": dict(player),
                 "stats": stats,
@@ -448,7 +444,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         team_data = []
         for team in teams:
             stats = db.get_team_stats(team["id"], sport_id, season)
-            percentiles = db.get_percentiles("team", team["id"], sport_id, season)
+            percentiles = stats.get("percentiles") if stats else None
             team_data.append({
                 "team": dict(team),
                 "stats": stats,
@@ -491,17 +487,17 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
 
     # Import the export function from scripts
     try:
-        from scripts.export_profiles import export_entities_minimal, DEFAULT_OUTPUT_DIR
+        from scripts.export_profiles import export_sport_specific, DEFAULT_OUTPUT_DIR
     except ImportError:
         # Fallback: try relative import
         import sys
         sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-        from export_profiles import export_entities_minimal, DEFAULT_OUTPUT_DIR
+        from export_profiles import export_sport_specific, DEFAULT_OUTPUT_DIR
 
     output_dir = Path(args.output) if args.output else DEFAULT_OUTPUT_DIR
 
     try:
-        result = export_entities_minimal(output_dir)
+        result = export_sport_specific(output_dir)
         print(f"\nExport complete!")
         print(f"Total entities: {result['counts']['total']}")
         print(f"  NBA: {result['counts']['nba_players']} players, {result['counts']['nba_teams']} teams")
@@ -595,9 +591,8 @@ def cmd_query(args: argparse.Namespace) -> int:
 # =============================================================================
 
 def get_pg_db():
-    """Get PostgreSQL database connection for fixture operations."""
-    from .pg_connection import PostgresDB
-    return PostgresDB()
+    """Get PostgreSQL database connection for fixture/ML operations."""
+    return get_db()
 
 
 def cmd_fixtures(args: argparse.Namespace) -> int:

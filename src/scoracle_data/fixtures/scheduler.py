@@ -35,14 +35,6 @@ if TYPE_CHECKING:
 
 from .post_match_seeder import PostMatchSeeder, PostMatchResult
 
-# Sport-specific team profile table mappings for fixture queries
-# These are needed because fixtures can reference teams from any sport
-TEAM_PROFILE_TABLES_FOR_FIXTURES = {
-    "NBA": "nba_team_profiles",
-    "NFL": "nfl_team_profiles",
-    "FOOTBALL": "football_team_profiles",
-}
-
 logger = logging.getLogger(__name__)
 
 

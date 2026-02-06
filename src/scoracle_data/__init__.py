@@ -12,22 +12,16 @@ Key Features:
 - Roster diff engine for trade/transfer detection
 
 Usage:
-    from scoracle_data import StatsDB, get_stats_db
+    from scoracle_data.pg_connection import PostgresDB, get_db
     from scoracle_data.services.profiles import get_player_profile
 
-    db = get_stats_db()
+    db = get_db()
     profile = get_player_profile(db, player_id=123, sport="NBA")
 """
 
-from .connection import StatsDB, get_stats_db
+from .pg_connection import PostgresDB, get_db
 from .schema import init_database, run_migrations
-from .api_client import (
-    ApiClientProtocol,
-    StandaloneApiClient,
-    get_api_client,
-    set_api_client,
-)
-from .models import (
+from .core.models import (
     PlayerProfile,
     TeamProfile,
     PlayerModel,
@@ -38,16 +32,11 @@ from .models import (
 
 __all__ = [
     # Connection
-    "StatsDB",
-    "get_stats_db",
+    "PostgresDB",
+    "get_db",
     # Schema
     "init_database",
     "run_migrations",
-    # API Client
-    "ApiClientProtocol",
-    "StandaloneApiClient",
-    "get_api_client",
-    "set_api_client",
     # Models
     "PlayerProfile",
     "TeamProfile",

@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import Response
 
-from ..types import CURRENT_SEASONS
+from ...core.types import get_sport_config
 
 # Season validation constants
 MIN_SEASON_YEAR = 2000
@@ -22,6 +22,12 @@ MAX_SEASON_YEAR_OFFSET = 1  # Current year + 1
 
 # In-memory cache for season ID lookups (seasons rarely change)
 _season_id_cache: dict[tuple[str, int], int] = {}
+
+
+def _get_current_season(sport: str) -> int:
+    """Get current season for a sport from SPORT_REGISTRY."""
+    cfg = get_sport_config(sport)
+    return cfg.current_season if cfg else datetime.now().year
 
 
 def get_season_id(db, sport: str, season_year: int) -> int | None:
@@ -70,7 +76,7 @@ def validate_season(season: int | None, sport: str) -> int:
     from ..errors import ValidationError
 
     if season is None:
-        return CURRENT_SEASONS.get(sport, datetime.now().year)
+        return _get_current_season(sport)
 
     current_year = datetime.now().year
     max_season = current_year + MAX_SEASON_YEAR_OFFSET
@@ -145,5 +151,5 @@ def get_stats_ttl(sport: str, season: int) -> int:
     """Get cache TTL based on whether season is current or historical."""
     from ..cache import TTL_CURRENT_SEASON, TTL_HISTORICAL
 
-    current = CURRENT_SEASONS.get(sport, 2025)
+    current = _get_current_season(sport)
     return TTL_CURRENT_SEASON if season >= current else TTL_HISTORICAL

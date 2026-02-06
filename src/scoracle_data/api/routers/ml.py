@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ..types import EntityType
+from ...core.types import EntityType
 from ...core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 logger = logging.getLogger(__name__)

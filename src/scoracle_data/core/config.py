@@ -161,40 +161,9 @@ class Settings(BaseSettings):
     current_season_nfl: int = 2025
     current_season_football: int = 2024
 
-    @computed_field
-    @property
-    def current_seasons(self) -> dict[str, int]:
-        """Get current seasons by sport."""
-        return {
-            "NBA": self.current_season_nba,
-            "NFL": self.current_season_nfl,
-            "FOOTBALL": self.current_season_football,
-        }
-
-    # ==========================================================================
-    # API-Sports Configuration
-    # ==========================================================================
-    @computed_field
-    @property
-    def sport_configs(self) -> dict[str, dict]:
-        """Get API-Sports configurations for each sport."""
-        return {
-            "NBA": {
-                "base_url": "https://v2.nba.api-sports.io",
-                "league": "standard",
-                "current_season": self.current_season_nba,
-            },
-            "NFL": {
-                "base_url": "https://v1.american-football.api-sports.io",
-                "league": 1,
-                "current_season": self.current_season_nfl,
-            },
-            "FOOTBALL": {
-                "base_url": "https://v3.football.api-sports.io",
-                "league": 39,  # Premier League default
-                "current_season": self.current_season_football,
-            },
-        }
+    # NOTE: current_seasons and sport_configs computed properties were removed.
+    # Use core.types.SPORT_REGISTRY / get_sport_config() for sport metadata.
+    # The current_season_* fields above are kept for env-var overridability.
 
 
 @lru_cache

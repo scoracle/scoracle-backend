@@ -20,7 +20,7 @@ from fastapi import APIRouter, Query, Response
 
 from ..cache import get_cache
 from ..errors import ServiceUnavailableError, ExternalServiceError, RateLimitedError
-from ...config import get_settings
+from ...core.config import get_settings
 from ...external import TwitterClient, ExternalAPIError, RateLimitError
 
 logger = logging.getLogger(__name__)

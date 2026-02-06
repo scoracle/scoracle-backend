@@ -29,8 +29,8 @@ from .routers import ml, news, profile, similarity, stats, twitter
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
-from .types import CURRENT_SEASONS, Sport
-from ..config import get_settings
+from ..core.types import Sport, get_sport_config
+from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +65,7 @@ async def warm_cache() -> None:
     Uses parallel processing for all sports to speed up startup.
     """
     from .dependencies import get_db
-    from .types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+        from ..core.types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
     logger.info("Starting cache warming...")
 
@@ -76,11 +76,14 @@ async def warm_cache() -> None:
         count = 0
 
         try:
-            current_season = db.get_current_season(sport)
-            if not current_season:
+            current_season_row = db.fetchone(
+                "SELECT * FROM seasons WHERE sport_id = %s AND is_current = true",
+                (sport,),
+            )
+            if not current_season_row:
                 return 0
 
-            season_year = current_season["season_year"]
+            season_year = current_season_row["season_year"]
             season_id = db.get_season_id(sport, season_year)
             if not season_id:
                 return 0
@@ -283,7 +286,8 @@ def get_cache_control_header(
         # Entity info rarely changes - cache for 24 hours
         max_age = TTL_ENTITY_INFO
     elif season_year and sport:
-        current = CURRENT_SEASONS.get(sport, 2025)
+        cfg = get_sport_config(sport)
+        current = cfg.current_season if cfg else 2025
         if season_year < current:
             # Historical data - cache for 24 hours
             max_age = TTL_HISTORICAL

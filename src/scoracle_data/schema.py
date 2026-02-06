@@ -8,7 +8,6 @@ PostgreSQL-only implementation.
 from __future__ import annotations
 
 import logging
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -113,19 +112,6 @@ def get_schema_version(db: "PostgresDB") -> str:
 
     result = db.get_meta("schema_version")
     return result or "unknown"
-
-
-def get_table_info(db: "PostgresDB", table_name: str) -> list[dict]:
-    """Get column information for a table."""
-    return db.fetchall(
-        """
-        SELECT column_name, data_type, is_nullable
-        FROM information_schema.columns
-        WHERE table_name = %s AND table_schema = 'public'
-        ORDER BY ordinal_position
-        """,
-        (table_name,),
-    )
 
 
 def list_tables(db: "PostgresDB") -> list[str]:

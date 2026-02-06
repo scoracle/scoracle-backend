@@ -23,24 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# Table mappings for fetching percentiles
-STATS_TABLE_MAP = {
-    ("NBA", "player"): "nba_player_stats",
-    ("NBA", "team"): "nba_team_stats",
-    ("NFL", "player"): "nfl_player_stats",
-    ("NFL", "team"): "nfl_team_stats",
-    ("FOOTBALL", "player"): "football_player_stats",
-    ("FOOTBALL", "team"): "football_team_stats",
-}
-
-PROFILE_TABLE_MAP = {
-    ("NBA", "player"): "nba_player_profiles",
-    ("NBA", "team"): "nba_team_profiles",
-    ("NFL", "player"): "nfl_player_profiles",
-    ("NFL", "team"): "nfl_team_profiles",
-    ("FOOTBALL", "player"): "football_player_profiles",
-    ("FOOTBALL", "team"): "football_team_profiles",
-}
+from ..core.types import STATS_TABLE_MAP, PROFILE_TABLE_MAP
 
 
 @dataclass

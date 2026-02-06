@@ -129,14 +129,8 @@ class PythonPercentileCalculator:
     and ensures all data is available for analysis.
     """
 
-    STATS_TABLE_MAP = {
-        ("NBA", "player"): "nba_player_stats",
-        ("NBA", "team"): "nba_team_stats",
-        ("NFL", "player"): "nfl_player_stats",
-        ("NFL", "team"): "nfl_team_stats",
-        ("FOOTBALL", "player"): "football_player_stats",
-        ("FOOTBALL", "team"): "football_team_stats",
-    }
+    # Import centralized table lookup from core.types
+    from ..core.types import STATS_TABLE_MAP
 
     # Columns to exclude from percentile calculation (internal IDs, metadata, and percentile columns)
     EXCLUDED_COLUMNS = {

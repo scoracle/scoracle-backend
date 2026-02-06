@@ -26,18 +26,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Sport-specific table mappings to avoid cross-sport data contamination
-PLAYER_PROFILE_TABLES = {
-    "NBA": "nba_player_profiles",
-    "NFL": "nfl_player_profiles",
-    "FOOTBALL": "football_player_profiles",
-}
-
-TEAM_PROFILE_TABLES = {
-    "NBA": "nba_team_profiles",
-    "NFL": "nfl_team_profiles",
-    "FOOTBALL": "football_team_profiles",
-}
+from ..core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 
 @dataclass

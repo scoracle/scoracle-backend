@@ -379,16 +379,9 @@ class DataLoader:
         Returns:
             Dict of statistics or None
         """
-        sport_lower = sport.lower()
+        from ...core.types import PLAYER_STATS_TABLES
 
-        # Build table name based on sport
-        table_map = {
-            "nba": "nba_player_stats",
-            "nfl": "nfl_player_stats",
-            "football": "football_player_stats",
-        }
-
-        table = table_map.get(sport_lower)
+        table = PLAYER_STATS_TABLES.get(sport.upper())
         if not table:
             return None
 
@@ -432,15 +425,9 @@ class DataLoader:
         Returns:
             Dict of statistics or None
         """
-        sport_lower = sport.lower()
+        from ...core.types import TEAM_STATS_TABLES
 
-        table_map = {
-            "nba": "nba_team_stats",
-            "nfl": "nfl_team_stats",
-            "football": "football_team_stats",
-        }
-
-        table = table_map.get(sport_lower)
+        table = TEAM_STATS_TABLES.get(sport.upper())
         if not table:
             return None
 

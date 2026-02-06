@@ -159,3 +159,13 @@ TEAM_PROFILE_TABLES = {
     sport_id: config.team_profile_table
     for sport_id, config in SPORT_REGISTRY.items()
 }
+
+# Composite (sport, entity_type) -> table name lookups.
+# Used by percentiles, similarity, and ML modules.
+STATS_TABLE_MAP: dict[tuple[str, str], str] = {}
+PROFILE_TABLE_MAP: dict[tuple[str, str], str] = {}
+for _sid, _cfg in SPORT_REGISTRY.items():
+    STATS_TABLE_MAP[(_sid, "player")] = _cfg.player_stats_table
+    STATS_TABLE_MAP[(_sid, "team")] = _cfg.team_stats_table
+    PROFILE_TABLE_MAP[(_sid, "player")] = _cfg.player_profile_table
+    PROFILE_TABLE_MAP[(_sid, "team")] = _cfg.team_profile_table

@@ -28,7 +28,12 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from .core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+from .core.types import (
+    PLAYER_PROFILE_TABLES,
+    PLAYER_STATS_TABLES,
+    TEAM_PROFILE_TABLES,
+    TEAM_STATS_TABLES,
+)
 
 
 def _check_connection(conn: psycopg.Connection) -> None:
@@ -250,13 +255,7 @@ class PostgresDB:
         if not season_id:
             return None
 
-        table_map = {
-            "NBA": "nba_player_stats",
-            "NFL": "nfl_player_stats",  # Unified table in PostgreSQL
-            "FOOTBALL": "football_player_stats",
-        }
-
-        table = table_map.get(sport_id)
+        table = PLAYER_STATS_TABLES.get(sport_id)
         if not table:
             return None
 
@@ -276,13 +275,7 @@ class PostgresDB:
         if not season_id:
             return None
 
-        table_map = {
-            "NBA": "nba_team_stats",
-            "NFL": "nfl_team_stats",
-            "FOOTBALL": "football_team_stats",
-        }
-
-        table = table_map.get(sport_id)
+        table = TEAM_STATS_TABLES.get(sport_id)
         if not table:
             return None
 
@@ -342,12 +335,7 @@ class PostgresDB:
 
         # Determine tables based on sport
         team_table = TEAM_PROFILE_TABLES.get(sport_id)
-        stats_table_map = {
-            "NBA": "nba_team_stats",
-            "NFL": "nfl_team_stats",
-            "FOOTBALL": "football_team_stats",
-        }
-        stats_table = stats_table_map.get(sport_id)
+        stats_table = TEAM_STATS_TABLES.get(sport_id)
         if not team_table or not stats_table:
             return None
 
@@ -465,12 +453,7 @@ class PostgresDB:
         # Determine tables based on sport
         player_table = PLAYER_PROFILE_TABLES.get(sport_id)
         team_table = TEAM_PROFILE_TABLES.get(sport_id)
-        stats_table_map = {
-            "NBA": "nba_player_stats",
-            "NFL": "nfl_player_stats",
-            "FOOTBALL": "football_player_stats",
-        }
-        stats_table = stats_table_map.get(sport_id)
+        stats_table = PLAYER_STATS_TABLES.get(sport_id)
         if not player_table or not team_table or not stats_table:
             return None
 

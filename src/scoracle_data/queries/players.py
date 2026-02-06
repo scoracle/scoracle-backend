@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..pg_connection import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+from ..core.types import PLAYER_PROFILE_TABLES, PLAYER_STATS_TABLES, TEAM_PROFILE_TABLES
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
@@ -79,14 +79,11 @@ class PlayerQueries:
         if not season_id:
             return []
 
-        # Determine table
-        table_map = {
-            "NBA": "nba_player_stats",
-            "NFL": self._get_nfl_table_for_stat(stat_name),
-            "FOOTBALL": "football_player_stats",
-        }
-
-        stats_table = table_map.get(sport_id)
+        # Determine table (NFL may use position-specific table)
+        if sport_id == "NFL":
+            stats_table = self._get_nfl_table_for_stat(stat_name)
+        else:
+            stats_table = PLAYER_STATS_TABLES.get(sport_id)
         player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
         team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
         
@@ -189,12 +186,7 @@ class PlayerQueries:
         if not season_id:
             return []
 
-        table_map = {
-            "NBA": "nba_player_stats",
-            "FOOTBALL": "football_player_stats",
-        }
-
-        stats_table = table_map.get(sport_id)
+        stats_table = PLAYER_STATS_TABLES.get(sport_id)
         player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
         team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
         

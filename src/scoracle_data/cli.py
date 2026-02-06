@@ -49,22 +49,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("statsdb.cli")
 
-# All supported sports - derived from api.types.Sport enum
-# Keep in sync with SPORT_REGISTRY in api/types.py
-ALL_SPORTS = ["NBA", "NFL", "FOOTBALL"]
+from .core.types import (
+    Sport,
+    PLAYER_PROFILE_TABLES,
+    PLAYER_STATS_TABLES,
+    TEAM_PROFILE_TABLES,
+    TEAM_STATS_TABLES,
+)
 
-# Sport-specific table mappings to avoid cross-sport data contamination
-PLAYER_PROFILE_TABLES = {
-    "NBA": "nba_player_profiles",
-    "NFL": "nfl_player_profiles",
-    "FOOTBALL": "football_player_profiles",
-}
-
-TEAM_PROFILE_TABLES = {
-    "NBA": "nba_team_profiles",
-    "NFL": "nfl_team_profiles",
-    "FOOTBALL": "football_team_profiles",
-}
+ALL_SPORTS = [s.value for s in Sport]
 
 
 def get_db():
@@ -91,16 +84,8 @@ async def get_api_service():
 
 def cmd_seed_small(args: argparse.Namespace) -> int:
     """Seed a tiny JSON fixture (one team/player per sport) for quick DB validation."""
-    from .seeders.small_dataset_seeder import seed_small_dataset
-
-    result = seed_small_dataset(fixture_path=args.fixture)
-    summary = result.get("summary", {})
-
-    print("\nSmall dataset seeding complete")
-    print("=" * 50)
-    print("Backend: PostgreSQL")
-    print(f"Teams upserted: {summary.get('teams', 0)}")
-    print(f"Players upserted: {summary.get('players', 0)}")
+    print("ERROR: seed-small command has been removed (small_dataset_seeder deleted).")
+    print("Use 'seed --sport NBA --debug' for quick validation instead.")
 
     return 0
 

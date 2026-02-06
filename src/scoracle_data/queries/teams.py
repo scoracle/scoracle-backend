@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..pg_connection import TEAM_PROFILE_TABLES
+from ..core.types import TEAM_PROFILE_TABLES, TEAM_STATS_TABLES
 
 if TYPE_CHECKING:
     from ..connection import StatsDB
@@ -73,13 +73,7 @@ class TeamQueries:
         if not season_id:
             return []
 
-        stats_table_map = {
-            "NBA": "nba_team_stats",
-            "NFL": "nfl_team_stats",
-            "FOOTBALL": "football_team_stats",
-        }
-
-        stats_table = stats_table_map.get(sport_id)
+        stats_table = TEAM_STATS_TABLES.get(sport_id)
         team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
         
         if not stats_table or not team_profile_table:
@@ -182,13 +176,7 @@ class TeamQueries:
         if not season_id:
             return []
 
-        stats_table_map = {
-            "NBA": "nba_team_stats",
-            "NFL": "nfl_team_stats",
-            "FOOTBALL": "football_team_stats",
-        }
-
-        stats_table = stats_table_map.get(sport_id)
+        stats_table = TEAM_STATS_TABLES.get(sport_id)
         team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
         
         if not stats_table or not team_profile_table:

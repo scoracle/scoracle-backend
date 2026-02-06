@@ -23,18 +23,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Sport-specific table mappings to avoid cross-sport data contamination
-PLAYER_PROFILE_TABLES = {
-    "NBA": "nba_player_profiles",
-    "NFL": "nfl_player_profiles",
-    "FOOTBALL": "football_player_profiles",
-}
-
-TEAM_PROFILE_TABLES = {
-    "NBA": "nba_team_profiles",
-    "NFL": "nfl_team_profiles",
-    "FOOTBALL": "football_team_profiles",
-}
+from ..core.types import (
+    PLAYER_PROFILE_TABLES,
+    PLAYER_STATS_TABLES,
+    TEAM_PROFILE_TABLES,
+    TEAM_STATS_TABLES,
+)
 
 
 class PercentileCalculator:
@@ -389,13 +383,11 @@ class PercentileCalculator:
     ) -> list[float]:
         """Get all values for a stat within the comparison group."""
         # Determine the correct tables (using sport-specific profile tables)
-        stats_table_map = {
-            "NBA": "nba_player_stats",
-            "NFL": self._get_nfl_stat_table(stat_name),
-            "FOOTBALL": "football_player_stats",
-        }
-
-        stats_table = stats_table_map.get(sport_id)
+        # NFL may use a position-specific table based on stat name
+        if sport_id == "NFL":
+            stats_table = self._get_nfl_stat_table(stat_name)
+        else:
+            stats_table = PLAYER_STATS_TABLES.get(sport_id)
         profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
         if not stats_table or not profile_table:
             return []
@@ -435,13 +427,7 @@ class PercentileCalculator:
         league_id: Optional[int] = None,
     ) -> list[float]:
         """Get all values for a team stat within the comparison group."""
-        table_map = {
-            "NBA": "nba_team_stats",
-            "NFL": "nfl_team_stats",
-            "FOOTBALL": "football_team_stats",
-        }
-
-        table = table_map.get(sport_id)
+        table = TEAM_STATS_TABLES.get(sport_id)
         if not table:
             return []
 

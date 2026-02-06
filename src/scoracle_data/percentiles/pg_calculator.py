@@ -53,14 +53,8 @@ class PostgresPercentileCalculator:
     to perform batch calculations efficiently in a single query.
     """
 
-    STATS_TABLE_MAP = {
-        ("NBA", "player"): "nba_player_stats",
-        ("NBA", "team"): "nba_team_stats",
-        ("NFL", "player"): "nfl_player_stats",
-        ("NFL", "team"): "nfl_team_stats",
-        ("FOOTBALL", "player"): "football_player_stats",
-        ("FOOTBALL", "team"): "football_team_stats",
-    }
+    # Import centralized table lookup from core.types
+    from ..core.types import STATS_TABLE_MAP
 
     def __init__(self, db: "PostgresDB"):
         """

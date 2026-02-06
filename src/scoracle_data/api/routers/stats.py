@@ -135,20 +135,21 @@ def _get_stats(
     - percentiles: JSONB percentile data (if available)
     - percentile_metadata: Position group and sample size
     """
+    from psycopg import sql
+
     table = table_map.get(sport)
     if not table:
         return None
 
+    tbl = sql.Identifier(table)
+    col = sql.Identifier(id_column)
+
     if sport == "FOOTBALL" and league_id:
-        row = db.fetchone(
-            f"SELECT * FROM {table} WHERE {id_column} = %s AND season_id = %s AND league_id = %s",
-            (entity_id, season_id, league_id),
-        )
+        query = sql.SQL("SELECT * FROM {} WHERE {} = %s AND season_id = %s AND league_id = %s").format(tbl, col)
+        row = db.fetchone(query, (entity_id, season_id, league_id))
     else:
-        row = db.fetchone(
-            f"SELECT * FROM {table} WHERE {id_column} = %s AND season_id = %s",
-            (entity_id, season_id),
-        )
+        query = sql.SQL("SELECT * FROM {} WHERE {} = %s AND season_id = %s").format(tbl, col)
+        row = db.fetchone(query, (entity_id, season_id))
 
     if not row:
         return None

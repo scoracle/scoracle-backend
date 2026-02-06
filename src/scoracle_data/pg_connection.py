@@ -166,7 +166,7 @@ class PostgresDB:
                 cur.execute(sql)
             conn.commit()
 
-    def fetchone(self, query: str, params: tuple = ()) -> Optional[dict[str, Any]]:
+    def fetchone(self, query: str | sql.Composed, params: tuple = ()) -> Optional[dict[str, Any]]:
         """Execute a query and fetch one result as a dict."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
@@ -174,7 +174,7 @@ class PostgresDB:
                 row = cur.fetchone()
                 return dict(row) if row else None
 
-    def fetchall(self, query: str, params: tuple = ()) -> list[dict[str, Any]]:
+    def fetchall(self, query: str | sql.Composed, params: tuple = ()) -> list[dict[str, Any]]:
         """Execute a query and fetch all results as dicts."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
@@ -219,20 +219,16 @@ class PostgresDB:
         table = PLAYER_PROFILE_TABLES.get(sport_id)
         if not table:
             return None
-        return self.fetchone(
-            f"SELECT * FROM {table} WHERE id = %s",
-            (player_id,),
-        )
+        query = sql.SQL("SELECT * FROM {} WHERE id = %s").format(sql.Identifier(table))
+        return self.fetchone(query, (player_id,))
 
     def get_team(self, team_id: int, sport_id: str) -> Optional[dict[str, Any]]:
         """Get team info by ID from sport-specific table."""
         table = TEAM_PROFILE_TABLES.get(sport_id)
         if not table:
             return None
-        return self.fetchone(
-            f"SELECT * FROM {table} WHERE id = %s",
-            (team_id,),
-        )
+        query = sql.SQL("SELECT * FROM {} WHERE id = %s").format(sql.Identifier(table))
+        return self.fetchone(query, (team_id,))
 
     def get_player_stats(
         self,
@@ -259,10 +255,10 @@ class PostgresDB:
         if not table:
             return None
 
-        return self.fetchone(
-            f"SELECT * FROM {table} WHERE player_id = %s AND season_id = %s",
-            (player_id, season_id),
+        query = sql.SQL("SELECT * FROM {} WHERE player_id = %s AND season_id = %s").format(
+            sql.Identifier(table)
         )
+        return self.fetchone(query, (player_id, season_id))
 
     def get_team_stats(
         self,
@@ -279,10 +275,10 @@ class PostgresDB:
         if not table:
             return None
 
-        return self.fetchone(
-            f"SELECT * FROM {table} WHERE team_id = %s AND season_id = %s",
-            (team_id, season_id),
+        query = sql.SQL("SELECT * FROM {} WHERE team_id = %s AND season_id = %s").format(
+            sql.Identifier(table)
         )
+        return self.fetchone(query, (team_id, season_id))
 
     def get_percentiles(
         self,

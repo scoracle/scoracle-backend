@@ -3,8 +3,8 @@
 ## Overview
 
 A multi-phase restructure of the scoracle-data backend covering security hardening,
-code consolidation, cache performance, structural improvements, and dead code removal.
-16 commits total, ~10,000 lines of dead code removed.
+code consolidation, cache performance, structural improvements, dead code removal,
+and service layer extraction. 18 commits total, ~12,000+ lines of dead code removed.
 
 ---
 
@@ -158,6 +158,81 @@ Updated `__init__.py` to remove `EntityRepository` export.
 
 ---
 
+## Phase 6: Dead Code Sweep + Layer Simplification
+
+**Commit:** `7080925`
+
+### Tier 1 — Safe Deletions (~3,500 lines)
+
+| Deleted | Lines | Why |
+|---------|-------|-----|
+| `repositories/` directory | ~400 | Broken imports (`base.py` deleted in 2e), classes never instantiated |
+| `db/__init__.py` | ~100 | Facade importing nonexistent symbols from repositories |
+| `aggregators/` directory | ~300 | `NBAStatsAggregator` never imported anywhere |
+| `api/pagination.py` | ~50 | Never imported by any router |
+| `percentiles/calculator.py` | 565 | Deprecated SQLite-based calculator |
+| `percentiles/pg_calculator.py` | 1,016 | Deprecated PostgreSQL calculator (replaced by `python_calculator.py`) |
+| `ml/training/` | ~20 | Empty placeholder package |
+| `external/reddit.py` | 211 | Soft-deprecated, never called |
+| `ml/pipelines/data_loaders.py` | 653 | Queried non-existent generic tables |
+
+Additional cleanups:
+- Fixed `export-profiles` CLI command (import `export_sport_specific` not `export_entities_minimal`)
+- Removed dead `sport_configs`/`current_seasons` computed properties from `core/config.py`
+- Removed unused functions: `close_postgres_db`, `get_table_info`, `compare_players`, `search_players_by_stats`, `get_stat_rankings`, `compare_teams`
+- Fixed unused imports in `cli.py`, `providers/http.py`, `core/models.py`
+- Updated `tests/test_postgres.py` — replaced `TestPGCalculator` with `TestPythonPercentileCalculator`
+
+### Tier 2 — Simplify Layers (~800 lines)
+
+- Removed ~346 lines of stale `pg_connection.py` query methods (`get_current_season`, `get_percentiles`, `get_team_profile_optimized`, `get_player_profile_optimized`)
+- Updated callers to get percentiles from stats JSONB instead of `percentile_cache` table
+- Consolidated `get_db()` — removed `get_pg_db()` that created uncached instances
+- Deleted 4 backward-compat shim files: `config.py`, `connection.py`, `models.py`, `api/types.py`
+- Updated all consumers to import from canonical locations (`core.config`, `core.types`, `pg_connection`)
+- Removed `CURRENT_SEASONS` dict (consumers use `get_sport_config().current_season`)
+- Removed `PROFILE_TABLE_MAP` dict (consumer uses individual table dicts)
+- Removed hardcoded `TEAM_PROFILE_TABLES_FOR_FIXTURES` duplicate from `fixtures/scheduler.py`
+- Cleaned `__init__.py` re-exports
+
+---
+
+## Phase 7: Tier 3 Refactors — Service Extraction + Final Cleanup
+
+**Commit:** `505d5ef`
+
+### ML Service Layer Extraction
+
+Created three new service files, extracting all SQL from the ML router:
+
+| File | Lines | Functions |
+|------|-------|-----------|
+| `services/transfers.py` | 175 | `find_player`, `find_team`, `get_team_transfer_links`, `get_transfer_headlines`, `get_player_transfer_links`, `get_trending_transfer_links` |
+| `services/vibes.py` | 151 | `get_latest_vibe`, `get_previous_vibe`, `get_trending_vibes`, `get_entity_name` |
+| `services/predictions.py` | 147 | `get_next_prediction`, `get_specific_prediction`, `get_model_accuracy`, `get_recent_stats` |
+
+### Router Rewrites
+
+- **`api/routers/ml.py`** — zero direct DB access, delegates to services (877 lines, was 1,072)
+- **`api/routers/twitter.py`** — delegates to `TwitterService` (137 lines)
+
+### Engine + Seeder Rewrites
+
+- **`roster_diff/engine.py`** (547 lines) — PostgreSQL + provider clients, sport-specific tables, `ON CONFLICT DO NOTHING` syntax
+- **`fixtures/post_match_seeder.py`** (416 lines) — new seed runner API, `PythonPercentileCalculator`
+
+### BaseSeedRunner Deduplication
+
+- Created `seeders/base.py` (130 lines) with `BaseSeedRunner` (ABC) and `BallDontLieSeedRunner`
+- Updated `seed_nba.py`, `seed_nfl.py`, `seed_football.py` to inherit shared orchestration
+
+### api_client.py Deletion
+
+- Deleted `api_client.py` (401 lines) — all consumers migrated to provider clients
+- Updated `cli.py` diff/fixtures commands to use `_get_provider_client(sport_id)`
+
+---
+
 ## Architecture Decisions
 
 | Decision | Choice | Alternative Rejected |
@@ -166,26 +241,29 @@ Updated `__init__.py` to remove `EntityRepository` export.
 | DB driver | psycopg3 everywhere (sync) | asyncpg (was in seeders but never installed) |
 | Providers | Concrete classes per API | Generic `DataProviderProtocol` |
 | Config | Python `SPORT_REGISTRY` in `core/types.py` | TOML/YAML files |
-| Seeders | Per-sport concrete seed runners | Generic seeder framework |
+| Seeders | `BaseSeedRunner` ABC + per-sport runners | Generic seeder framework |
 | Cache keys | Structured `profile:player:123:NBA` | MD5 hashes |
 | Dynamic SQL | `psycopg.sql.Identifier()` | f-string table injection |
+| ML services | Thin service functions per domain (transfers/vibes/predictions) | Monolithic router with inline SQL |
+| Router pattern | Routers delegate to services, zero direct DB access | SQL in route handlers |
 
 ---
 
 ## Remaining Work
-
-### Files Deliberately Kept
-
-| File | Lines | Reason |
-|------|-------|--------|
-| `connection.py` | 45 | Thin alias layer (`StatsDB = PostgresDB`), referenced by 6+ TYPE_CHECKING imports |
-| `api_client.py` | 402 | Still used by `diff`, `fixtures`, and `ml` CLI commands via legacy API-Sports interface |
 
 ### Database Cleanup (SQL migrations needed)
 
 - Drop unused materialized views created by migration 009
 - Drop deprecated cross-sport UNION views from migration 016
 - Drop stale indexes on legacy `players` / `teams` tables
+
+### Known Pre-existing Issues
+
+| Issue | Location | Impact |
+|-------|----------|--------|
+| `archive_season_percentiles` references `percentile_cache` table | `percentiles/python_calculator.py:823` | End-of-season archive would fail; needs rewrite to source from JSONB stats |
+| FastAPI `add_exception_handler` type mismatch | `api/main.py:373` | LSP warning only, runtime works fine |
+| psycopg `Composed` type strictness | `roster_diff/engine.py`, `pg_connection.py` | LSP warnings, runtime works fine |
 
 ---
 

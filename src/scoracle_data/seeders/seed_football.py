@@ -13,6 +13,7 @@ from typing import Any, TYPE_CHECKING
 
 from ..core.types import get_sport_config
 from ..providers.sportmonks import SportMonksClient
+from .base import BaseSeedRunner
 from .common import SeedResult
 
 if TYPE_CHECKING:
@@ -46,28 +47,13 @@ PREMIER_LEAGUE_SEASONS = {
 }
 
 
-class FootballSeedRunner:
+class FootballSeedRunner(BaseSeedRunner):
     """Seeds Football data from SportMonks into PostgreSQL via psycopg."""
 
     def __init__(self, db: "PostgresDB", client: SportMonksClient):
-        self.db = db
-        self.client = client
+        super().__init__(db, client)
 
-    # -- Teams ----------------------------------------------------------------
-
-    async def seed_teams(self, season_id: int) -> SeedResult:
-        logger.info(f"Seeding teams for season {season_id}...")
-        result = SeedResult()
-        try:
-            teams = await self.client.get_teams_by_season(season_id)
-            for team in teams:
-                self._upsert_team(team)
-                result.teams_upserted += 1
-            logger.info(f"Upserted {result.teams_upserted} teams")
-        except Exception as e:
-            result.errors.append(f"Error seeding teams: {e}")
-            logger.error(result.errors[-1])
-        return result
+    # -- Upsert: Teams -------------------------------------------------------
 
     def _upsert_team(self, team: dict[str, Any]) -> None:
         venue = team.get("venue") or {}
@@ -87,31 +73,7 @@ class FootballSeedRunner:
             venue.get("name"), venue.get("capacity"), team.get("founded"),
         ))
 
-    # -- Players --------------------------------------------------------------
-
-    async def seed_players(self, season_id: int, team_ids: list[int] | None = None) -> SeedResult:
-        logger.info(f"Seeding players for season {season_id}...")
-        result = SeedResult()
-        try:
-            if team_ids is None:
-                teams = await self.client.get_teams_by_season(season_id)
-                team_ids = [t["id"] for t in teams]
-
-            for team_id in team_ids:
-                try:
-                    squad = await self.client.get_squad(season_id, team_id)
-                    for player_data in squad:
-                        player = player_data.get("player", player_data)
-                        self._upsert_player(player)
-                        result.players_upserted += 1
-                except Exception as e:
-                    result.errors.append(f"Error seeding squad for team {team_id}: {e}")
-                    logger.warning(result.errors[-1])
-            logger.info(f"Upserted {result.players_upserted} players")
-        except Exception as e:
-            result.errors.append(f"Error seeding players: {e}")
-            logger.error(result.errors[-1])
-        return result
+    # -- Upsert: Players -----------------------------------------------------
 
     def _upsert_player(self, player: dict[str, Any]) -> None:
         dob = None
@@ -144,6 +106,48 @@ class FootballSeedRunner:
             player.get("position_id"), player.get("height"), player.get("weight"),
             dob, player.get("image_path"),
         ))
+
+    # -- Teams (orchestration) -----------------------------------------------
+
+    async def seed_teams(self, season_id: int) -> SeedResult:
+        logger.info(f"Seeding teams for season {season_id}...")
+        result = SeedResult()
+        try:
+            teams = await self.client.get_teams_by_season(season_id)
+            for team in teams:
+                self._upsert_team(team)
+                result.teams_upserted += 1
+            logger.info(f"Upserted {result.teams_upserted} teams")
+        except Exception as e:
+            result.errors.append(f"Error seeding teams: {e}")
+            logger.error(result.errors[-1])
+        return result
+
+    # -- Players (orchestration) ---------------------------------------------
+
+    async def seed_players(self, season_id: int, team_ids: list[int] | None = None) -> SeedResult:
+        logger.info(f"Seeding players for season {season_id}...")
+        result = SeedResult()
+        try:
+            if team_ids is None:
+                teams = await self.client.get_teams_by_season(season_id)
+                team_ids = [t["id"] for t in teams]
+
+            for team_id in team_ids:
+                try:
+                    squad = await self.client.get_squad(season_id, team_id)
+                    for player_data in squad:
+                        player = player_data.get("player", player_data)
+                        self._upsert_player(player)
+                        result.players_upserted += 1
+                except Exception as e:
+                    result.errors.append(f"Error seeding squad for team {team_id}: {e}")
+                    logger.warning(result.errors[-1])
+            logger.info(f"Upserted {result.players_upserted} players")
+        except Exception as e:
+            result.errors.append(f"Error seeding players: {e}")
+            logger.error(result.errors[-1])
+        return result
 
     # -- Player Stats ---------------------------------------------------------
 
@@ -180,14 +184,9 @@ class FootballSeedRunner:
         if not player_id:
             return
 
-        # Ensure player exists
-        exists = self.db.fetchone(
-            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = %s", (player_id,),
+        self._ensure_player_exists(
+            PLAYER_TABLE, player_id, stats_data.get("player", {}),
         )
-        if not exists:
-            player = stats_data.get("player", {})
-            if player:
-                self._upsert_player(player)
 
         raw_json = json.dumps(stats_data)
 

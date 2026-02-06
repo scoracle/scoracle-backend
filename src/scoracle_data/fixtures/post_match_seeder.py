@@ -2,27 +2,28 @@
 Post-match seeder for targeted stat updates.
 
 After a match completes (+ seed delay), this seeder:
-1. Fetches rosters for both teams
-2. Fetches updated stats for all players who participated
-3. Batch upserts player stats
-4. Updates team stats
-5. Recalculates percentiles (optional)
-6. Marks fixture as seeded
+1. Delegates to the sport-specific seed runner to refresh player stats
+2. Delegates to the sport-specific seed runner to refresh team stats
+3. Recalculates percentiles (optional)
+4. Marks fixture as seeded
 
-This is much more efficient than full-league seeding since it only
-updates ~40-50 players (both team rosters) per match.
+Uses the existing seed runner public API (seed_player_stats / seed_team_stats)
+which fetches full-season data from the provider.  This is less targeted than
+per-player fetching but uses methods that actually exist on the runners and
+keeps the post-match seeder thin.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
+from ..core.types import PLAYER_PROFILE_TABLES
+
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
-    from ..api_client import StandaloneApiClient
 
 logger = logging.getLogger(__name__)
 
@@ -62,22 +63,27 @@ class PostMatchSeeder:
 
     Designed for schedule-driven seeding where stats are updated
     after each match completes, rather than bulk updates.
+
+    Uses the sport-specific seed runners (NBASeedRunner, NFLSeedRunner,
+    FootballSeedRunner) which take (db, provider_client) in their
+    constructors.
     """
 
     def __init__(
         self,
         db: "PostgresDB",
-        api: "StandaloneApiClient",
+        provider_client: Any,
     ):
         """
         Initialize the seeder.
 
         Args:
             db: PostgreSQL database connection
-            api: API-Sports client for fetching stats
+            provider_client: Provider-specific API client (e.g. BallDontLieNBA,
+                BallDontLieNFL, SportMonksClient)
         """
         self.db = db
-        self.api = api
+        self.provider_client = provider_client
 
     async def seed_fixture(
         self,
@@ -86,6 +92,11 @@ class PostMatchSeeder:
     ) -> PostMatchResult:
         """
         Seed stats for a specific fixture.
+
+        Fetches the fixture row (with season info), determines the sport,
+        instantiates the matching seed runner, and calls its
+        ``seed_player_stats`` / ``seed_team_stats`` methods which refresh
+        full-season data from the upstream provider.
 
         Args:
             fixture_id: Fixture ID to seed
@@ -128,82 +139,49 @@ class PostMatchSeeder:
         )
 
         try:
-            # Get the appropriate seeder for this sport
-            seeder = self._get_sport_seeder(fixture["sport_id"])
-            if not seeder:
-                raise ValueError(f"No seeder available for sport: {fixture['sport_id']}")
+            sport_id = fixture["sport_id"]
+            seed_runner = self._make_seed_runner(sport_id)
+            if not seed_runner:
+                raise ValueError(f"No seeder available for sport: {sport_id}")
 
-            # Get rosters for both teams
-            home_roster = await self._get_team_roster(
-                fixture["sport_id"],
-                fixture["home_team_id"],
-                fixture["season_year"],
+            # Log roster sizes for observability (non-critical)
+            try:
+                home_roster = self._get_team_roster(sport_id, fixture["home_team_id"])
+                away_roster = self._get_team_roster(sport_id, fixture["away_team_id"])
+                logger.info(
+                    f"Fixture {fixture_id}: "
+                    f"{len(home_roster)} home + {len(away_roster)} away players in DB"
+                )
+            except Exception:
+                logger.debug(f"Fixture {fixture_id}: roster lookup skipped")
+
+            # -- Player stats (full-season refresh) ---------------------------
+            player_result = await self._seed_player_stats(
+                seed_runner, sport_id, fixture,
             )
-            away_roster = await self._get_team_roster(
-                fixture["sport_id"],
-                fixture["away_team_id"],
-                fixture["season_year"],
-            )
-
-            all_players = home_roster + away_roster
-            logger.info(
-                f"Fixture {fixture_id}: Found {len(home_roster)} home + {len(away_roster)} away players"
-            )
-
-            # Fetch and update player stats
-            player_stats_to_upsert = []
-            for player in all_players:
-                try:
-                    raw_stats = await seeder.fetch_player_stats(
-                        player["id"],
-                        fixture["season_year"],
-                        league_id=fixture.get("league_id"),
-                    )
-                    if raw_stats:
-                        transformed = seeder.transform_player_stats(
-                            raw_stats,
-                            player["id"],
-                            fixture["season_id"],
-                            player.get("team_id"),
-                        )
-                        if transformed:
-                            player_stats_to_upsert.append(transformed)
-                except Exception as e:
-                    logger.debug(f"Failed to fetch stats for player {player['id']}: {e}")
-
-            # Batch upsert player stats
-            if player_stats_to_upsert:
-                result.players_updated = self._batch_upsert_player_stats(
-                    seeder,
-                    player_stats_to_upsert,
+            result.players_updated = player_result.player_stats_upserted
+            if player_result.errors:
+                logger.warning(
+                    f"Fixture {fixture_id}: player stats errors: {player_result.errors}"
                 )
 
-            # Update team stats for both teams
-            for team_id in [fixture["home_team_id"], fixture["away_team_id"]]:
-                try:
-                    raw_stats = await seeder.fetch_team_stats(
-                        team_id,
-                        fixture["season_year"],
-                        league_id=fixture.get("league_id"),
-                    )
-                    if raw_stats:
-                        transformed = seeder.transform_team_stats(
-                            raw_stats,
-                            team_id,
-                            fixture["season_id"],
-                        )
-                        seeder.upsert_team_stats(transformed)
-                        result.teams_updated += 1
-                except Exception as e:
-                    logger.warning(f"Failed to update team stats for {team_id}: {e}")
+            # -- Team stats (full-season refresh) -----------------------------
+            team_result = await self._seed_team_stats(
+                seed_runner, sport_id, fixture,
+            )
+            result.teams_updated = team_result.team_stats_upserted
+            if team_result.errors:
+                logger.warning(
+                    f"Fixture {fixture_id}: team stats errors: {team_result.errors}"
+                )
 
-            # Recalculate percentiles if requested
+            # -- Percentile recalculation -------------------------------------
             if recalculate_percentiles and result.players_updated > 0:
                 try:
-                    from ..percentiles.pg_calculator import PostgresPercentileCalculator
-                    calculator = PostgresPercentileCalculator(self.db)
+                    from ..percentiles.python_calculator import PythonPercentileCalculator
+                    calculator = PythonPercentileCalculator(self.db)
                     calculator.recalculate_all_percentiles(
-                        fixture["sport_id"],
+                        sport_id,
                         fixture["season_year"],
                     )
                     result.percentiles_recalculated = True
@@ -277,100 +255,119 @@ class PostMatchSeeder:
 
         return results
 
+    # -- Internals ------------------------------------------------------------
+
     def _get_sport_seeder(self, sport_id: str):
-        """Get the appropriate seed runner for a sport."""
+        """
+        Return an instantiated seed runner for *sport_id*.
+
+        Each runner takes ``(db, client)`` — we import lazily so that
+        provider-specific dependencies aren't required at import time.
+        """
         from ..seeders import NBASeedRunner, NFLSeedRunner, FootballSeedRunner
 
-        runner_map = {
+        runner_map: dict[str, type] = {
             "NBA": NBASeedRunner,
             "NFL": NFLSeedRunner,
             "FOOTBALL": FootballSeedRunner,
         }
 
         runner_class = runner_map.get(sport_id)
-        if runner_class:
-            return runner_class(self.db, self.api)
-        return None
+        if runner_class is None:
+            return None
+        return runner_class(self.db, self.provider_client)
 
-    async def _get_team_roster(
+    _make_seed_runner = _get_sport_seeder  # alias for clarity
+
+    def _get_team_roster(
         self,
         sport_id: str,
         team_id: int,
-        season_year: int,
     ) -> list[dict[str, Any]]:
         """
-        Get the roster for a team.
-
-        First tries the database, falls back to API if needed.
+        Get roster for a team from the sport-specific player profile table.
         """
-        # Try database first
-        players = self.db.fetchall(
-            """
-            SELECT id, full_name, position, current_team_id as team_id
-            FROM players
-            WHERE current_team_id = %s AND sport_id = %s
-            """,
-            (team_id, sport_id),
-        )
-
-        if players:
-            return [dict(p) for p in players]
-
-        # Fall back to API
-        try:
-            api_players = await self.api.list_players(
-                sport_id,
-                season=str(season_year),
-                team_id=team_id,
-            )
-            return [
-                {
-                    "id": p.get("id"),
-                    "full_name": p.get("name") or f"{p.get('firstname', '')} {p.get('lastname', '')}".strip(),
-                    "team_id": team_id,
-                }
-                for p in api_players
-                if p.get("id")
-            ]
-        except Exception as e:
-            logger.warning(f"Failed to fetch roster for team {team_id}: {e}")
+        table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning(f"No player profile table for sport {sport_id}")
             return []
 
-    def _batch_upsert_player_stats(
-        self,
-        seeder,
-        stats_list: list[dict[str, Any]],
-    ) -> int:
-        """
-        Batch upsert player stats.
+        players = self.db.fetchall(
+            f"SELECT id, team_id FROM {table} WHERE team_id = %s",
+            (team_id,),
+        )
+        return [dict(p) for p in players] if players else []
 
-        Uses the seeder's upsert method but batches the operations.
+    async def _seed_player_stats(self, seed_runner, sport_id: str, fixture: dict):
         """
-        count = 0
-        for stats in stats_list:
-            try:
-                seeder.upsert_player_stats(stats)
-                count += 1
-            except Exception as e:
-                logger.debug(f"Failed to upsert stats: {e}")
-        return count
+        Call the correct ``seed_player_stats`` overload for *sport_id*.
+
+        Signatures:
+            NBA:      seed_player_stats(season, season_type="regular")
+            NFL:      seed_player_stats(season, postseason=False)
+            FOOTBALL: seed_player_stats(season_id, league_id, season_year)
+        """
+        from ..seeders.common import SeedResult
+
+        season_year = fixture["season_year"]
+
+        if sport_id == "NBA":
+            return await seed_runner.seed_player_stats(season_year)
+        elif sport_id == "NFL":
+            return await seed_runner.seed_player_stats(season_year)
+        elif sport_id == "FOOTBALL":
+            return await seed_runner.seed_player_stats(
+                fixture["season_id"],
+                fixture["league_id"],
+                season_year,
+            )
+        else:
+            logger.warning(f"Unknown sport_id for player stats: {sport_id}")
+            return SeedResult()
+
+    async def _seed_team_stats(self, seed_runner, sport_id: str, fixture: dict):
+        """
+        Call the correct ``seed_team_stats`` overload for *sport_id*.
+
+        Signatures:
+            NBA:      seed_team_stats(season, season_type="regular")
+            NFL:      seed_team_stats(season, postseason=False)
+            FOOTBALL: seed_team_stats(season_id, league_id, season_year)
+        """
+        from ..seeders.common import SeedResult
+
+        season_year = fixture["season_year"]
+
+        if sport_id == "NBA":
+            return await seed_runner.seed_team_stats(season_year)
+        elif sport_id == "NFL":
+            return await seed_runner.seed_team_stats(season_year)
+        elif sport_id == "FOOTBALL":
+            return await seed_runner.seed_team_stats(
+                fixture["season_id"],
+                fixture["league_id"],
+                season_year,
+            )
+        else:
+            logger.warning(f"Unknown sport_id for team stats: {sport_id}")
+            return SeedResult()
 
 
 class PostMatchSeederByMatch:
     """
-    Alternative seeder that fetches stats by match/fixture ID from API-Sports.
+    Alternative seeder that fetches stats by match/fixture ID from the provider.
 
-    Some API-Sports endpoints support fetching stats by fixture ID,
+    Some API endpoints support fetching stats by fixture ID,
     which can be more efficient than fetching by player.
     """
 
     def __init__(
         self,
         db: "PostgresDB",
-        api: "StandaloneApiClient",
+        provider_client: Any,
     ):
         self.db = db
-        self.api = api
+        self.provider_client = provider_client
 
     async def seed_by_external_fixture_id(
         self,
@@ -378,13 +375,13 @@ class PostMatchSeederByMatch:
         sport_id: str,
     ) -> PostMatchResult:
         """
-        Seed stats using the external fixture ID from API-Sports.
+        Seed stats using the external fixture ID from the provider API.
 
         This method fetches all player statistics for a match in a single API call,
         which is more efficient than fetching per-player.
 
         Args:
-            external_fixture_id: The fixture ID from API-Sports
+            external_fixture_id: The fixture ID from the provider API
             sport_id: Sport identifier
 
         Returns:
@@ -414,7 +411,6 @@ class PostMatchSeederByMatch:
                 error=f"Fixture with external_id {external_fixture_id} not found",
             )
 
-        # For now, delegate to the standard seeder
-        # In the future, this could use fixture-specific API endpoints
-        seeder = PostMatchSeeder(self.db, self.api)
+        # Delegate to the standard seeder
+        seeder = PostMatchSeeder(self.db, self.provider_client)
         return await seeder.seed_fixture(fixture["id"])

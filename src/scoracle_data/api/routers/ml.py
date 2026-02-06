@@ -29,57 +29,29 @@ from pydantic import BaseModel, Field
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ...core.types import EntityType
-from ...core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+from ...core.types import EntityType, PLAYER_STATS_TABLES, TEAM_STATS_TABLES
+from ...services.transfers import (
+    find_player,
+    find_team,
+    get_team_transfer_links,
+    get_transfer_headlines,
+    get_player_transfer_links,
+    get_trending_transfer_links,
+)
+from ...services.vibes import (
+    get_latest_vibe,
+    get_previous_vibe,
+    get_trending_vibes as fetch_trending_vibes,
+    get_entity_name,
+)
+from ...services.predictions import (
+    get_next_prediction,
+    get_specific_prediction,
+    get_model_accuracy as fetch_model_accuracy,
+    get_recent_stats,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _find_player(db: DBDependency, player_id: int) -> tuple | None:
-    """Look up a player across all sport-specific profile tables.
-
-    Returns (id, name, sport, position, team_id, team_name) or None.
-    Uses sport-specific tables instead of the deprecated cross-sport UNION views.
-    """
-    for sport_id, profile_table in PLAYER_PROFILE_TABLES.items():
-        team_table = TEAM_PROFILE_TABLES[sport_id]
-        row = db.fetch_one(
-            f"""
-            SELECT p.id,
-                   COALESCE(p.full_name, p.first_name || ' ' || p.last_name) as name,
-                   '{sport_id}' as sport,
-                   p.position,
-                   t.id as team_id,
-                   t.name as team_name
-            FROM {profile_table} p
-            LEFT JOIN {team_table} t ON t.id = p.team_id
-            WHERE p.id = %s
-            """,
-            (player_id,),
-        )
-        if row:
-            return row
-    return None
-
-
-def _find_team(db: DBDependency, team_id: int) -> tuple | None:
-    """Look up a team across all sport-specific profile tables.
-
-    Returns (id, name, sport) or None.
-    Uses sport-specific tables instead of the deprecated cross-sport UNION views.
-    """
-    for sport_id, team_table in TEAM_PROFILE_TABLES.items():
-        row = db.fetch_one(
-            f"""
-            SELECT t.id, t.name, '{sport_id}' as sport
-            FROM {team_table} t
-            WHERE t.id = %s
-            """,
-            (team_id,),
-        )
-        if row:
-            return row
-    return None
 
 router = APIRouter()
 
@@ -263,61 +235,36 @@ async def get_team_transfer_predictions(
     if cached:
         return TeamTransferPredictions(**cached)
 
-    # Look up team from sport-specific profile tables
-    team_row = _find_team(db, team_id)
-
+    team_row = find_team(db, team_id)
     if not team_row:
-        raise NotFoundError(f"Team with ID {team_id} not found")
+        raise NotFoundError("Team", team_id)
 
-    team_name = team_row[1]
-    sport_name = sport or team_row[2]
+    team_name = team_row["name"]
+    sport_name = sport or team_row["sport"]
 
-    # Get transfer links for this team
-    links = db.fetch_all(
-        """
-        SELECT
-            tl.id, tl.player_id, tl.player_name, tl.player_current_team,
-            tl.current_probability, tl.previous_probability,
-            tl.trend_direction, tl.trend_change_7d,
-            tl.total_mentions, tl.tier_1_mentions
-        FROM transfer_links tl
-        WHERE tl.team_id = %s AND tl.is_active = TRUE
-        ORDER BY tl.current_probability DESC NULLS LAST
-        LIMIT 20
-        """,
-        (team_id,),
-    )
+    links = get_team_transfer_links(db, team_id)
 
     predictions = []
     for link in links:
-        # Get recent headlines
-        headlines = db.fetch_all(
-            """
-            SELECT headline FROM transfer_mentions
-            WHERE transfer_link_id = %s
-            ORDER BY mentioned_at DESC
-            LIMIT 3
-            """,
-            (link[0],),
-        )
+        headlines = get_transfer_headlines(db, link["id"])
 
-        probability = link[4] or 0.0
+        probability = link["current_probability"] or 0.0
         confidence_range = 0.1 + 0.1 * (1 - probability)
 
         predictions.append(
             TransferTarget(
-                player_id=link[1],
-                player_name=link[2],
-                current_team=link[3],
+                player_id=link["player_id"],
+                player_name=link["player_name"],
+                current_team=link["player_current_team"],
                 probability=probability,
                 confidence_interval=(
                     max(0, probability - confidence_range),
                     min(1, probability + confidence_range),
                 ),
-                trend=link[6] or "stable",
-                trend_change_7d=link[7] or 0.0,
+                trend=link["trend_direction"] or "stable",
+                trend_change_7d=link["trend_change_7d"] or 0.0,
                 top_factors=_get_top_factors(link),
-                recent_headlines=[h[0] for h in headlines],
+                recent_headlines=[h["headline"] for h in headlines],
             )
         )
 
@@ -360,42 +307,29 @@ async def get_player_transfer_predictions(
     if cached:
         return PlayerTransferOutlook(**cached)
 
-    # Look up player from sport-specific profile tables
-    player_row = _find_player(db, player_id)
-
+    player_row = find_player(db, player_id)
     if not player_row:
-        raise NotFoundError(f"Player with ID {player_id} not found")
+        raise NotFoundError("Player", player_id)
 
-    # Get linked teams
-    links = db.fetch_all(
-        """
-        SELECT
-            tl.team_id, tl.team_name, tl.current_probability,
-            tl.trend_direction, tl.trend_change_7d, tl.total_mentions
-        FROM transfer_links tl
-        WHERE tl.player_id = %s AND tl.is_active = TRUE
-        ORDER BY tl.current_probability DESC NULLS LAST
-        """,
-        (player_id,),
-    )
+    links = get_player_transfer_links(db, player_id)
 
     linked_teams = [
         {
-            "team_id": link[0],
-            "team_name": link[1],
-            "probability": link[2] or 0.0,
-            "trend": link[3] or "stable",
-            "trend_change_7d": link[4] or 0.0,
-            "total_mentions": link[5],
+            "team_id": link["team_id"],
+            "team_name": link["team_name"],
+            "probability": link["current_probability"] or 0.0,
+            "trend": link["trend_direction"] or "stable",
+            "trend_change_7d": link["trend_change_7d"] or 0.0,
+            "total_mentions": link["total_mentions"],
         }
         for link in links
     ]
 
     result = PlayerTransferOutlook(
         player_id=player_id,
-        player_name=player_row[1],
-        current_team=player_row[3],
-        sport=player_row[2],
+        player_name=player_row["name"],
+        current_team=player_row["position"],
+        sport=player_row["sport"],
         linked_teams=linked_teams,
         last_updated=datetime.now(),
     )
@@ -423,38 +357,17 @@ async def get_trending_transfers(
     if cached:
         return TrendingTransfers(**cached)
 
-    # Get trending links
-    links = db.fetch_all(
-        """
-        SELECT
-            tl.player_name, tl.player_current_team, tl.team_name,
-            tl.current_probability, tl.trend_direction,
-            (SELECT COUNT(*) FROM transfer_mentions tm
-             WHERE tm.transfer_link_id = tl.id
-             AND tm.mentioned_at >= NOW() - INTERVAL '24 hours') as mentions_24h,
-            (SELECT source_name FROM transfer_mentions tm
-             WHERE tm.transfer_link_id = tl.id
-             ORDER BY tm.source_tier ASC, tm.mentioned_at DESC
-             LIMIT 1) as top_source
-        FROM transfer_links tl
-        WHERE LOWER(tl.sport) = LOWER(%s) AND tl.is_active = TRUE
-        ORDER BY
-            (tl.tier_1_mentions * 3 + tl.tier_2_mentions * 2 + tl.total_mentions) DESC,
-            tl.current_probability DESC NULLS LAST
-        LIMIT %s
-        """,
-        (sport, limit),
-    )
+    links = get_trending_transfer_links(db, sport, limit)
 
     transfers = [
         TrendingTransfer(
-            player_name=link[0],
-            current_team=link[1],
-            linked_team=link[2],
-            probability=link[3] or 0.0,
-            trend=link[4] or "stable",
-            mention_count_24h=link[5] or 0,
-            top_source=link[6],
+            player_name=link["player_name"],
+            current_team=link["player_current_team"],
+            linked_team=link["team_name"],
+            probability=link["current_probability"] or 0.0,
+            trend=link["trend_direction"] or "stable",
+            mention_count_24h=link["mentions_24h"] or 0,
+            top_source=link["top_source"],
         )
         for link in links
     ]
@@ -494,27 +407,11 @@ async def get_vibe_score(
     if cached:
         return VibeScoreResponse(**cached)
 
-    # Get latest vibe score
-    vibe_row = db.fetch_one(
-        """
-        SELECT
-            vs.entity_name, vs.sport, vs.overall_score,
-            vs.twitter_score, vs.twitter_sample_size,
-            vs.news_score, vs.news_sample_size,
-            vs.reddit_score, vs.reddit_sample_size,
-            vs.positive_themes, vs.negative_themes,
-            vs.calculated_at
-        FROM vibe_scores vs
-        WHERE vs.entity_type = %s AND vs.entity_id = %s
-        ORDER BY vs.calculated_at DESC
-        LIMIT 1
-        """,
-        (entity_type, entity_id),
-    )
+    vibe_row = get_latest_vibe(db, entity_type, entity_id)
 
     if not vibe_row:
         # Return neutral score if no data
-        entity_name = _get_entity_name(db, entity_type, entity_id)
+        entity_name = get_entity_name(db, entity_type, entity_id)
         return VibeScoreResponse(
             entity_id=entity_id,
             entity_name=entity_name,
@@ -529,55 +426,50 @@ async def get_vibe_score(
         )
 
     # Get previous score for trend
-    prev_row = db.fetch_one(
-        """
-        SELECT overall_score
-        FROM vibe_scores
-        WHERE entity_type = %s AND entity_id = %s
-        AND calculated_at < %s
-        ORDER BY calculated_at DESC
-        LIMIT 1
-        """,
-        (entity_type, entity_id, vibe_row[11]),
+    prev_row = get_previous_vibe(
+        db, entity_type, entity_id, vibe_row["calculated_at"]
     )
 
     change_7d = 0.0
     direction = "stable"
     if prev_row:
-        change_7d = vibe_row[2] - prev_row[0]
+        change_7d = vibe_row["overall_score"] - prev_row["overall_score"]
         if change_7d > 3:
             direction = "up"
         elif change_7d < -3:
             direction = "down"
 
     breakdown = {}
-    if vibe_row[3] is not None:
+    if vibe_row["twitter_score"] is not None:
         breakdown["twitter"] = VibeBreakdown(
-            score=vibe_row[3], sample_size=vibe_row[4] or 0
+            score=vibe_row["twitter_score"],
+            sample_size=vibe_row["twitter_sample_size"] or 0,
         )
-    if vibe_row[5] is not None:
+    if vibe_row["news_score"] is not None:
         breakdown["news"] = VibeBreakdown(
-            score=vibe_row[5], sample_size=vibe_row[6] or 0
+            score=vibe_row["news_score"],
+            sample_size=vibe_row["news_sample_size"] or 0,
         )
-    if vibe_row[7] is not None:
+    if vibe_row["reddit_score"] is not None:
         breakdown["reddit"] = VibeBreakdown(
-            score=vibe_row[7], sample_size=vibe_row[8] or 0
+            score=vibe_row["reddit_score"],
+            sample_size=vibe_row["reddit_sample_size"] or 0,
         )
 
     result = VibeScoreResponse(
         entity_id=entity_id,
-        entity_name=vibe_row[0],
+        entity_name=vibe_row["entity_name"],
         entity_type=entity_type,
-        sport=vibe_row[1],
-        vibe_score=vibe_row[2],
-        vibe_label=_get_vibe_label(vibe_row[2]),
+        sport=vibe_row["sport"],
+        vibe_score=vibe_row["overall_score"],
+        vibe_label=_get_vibe_label(vibe_row["overall_score"]),
         breakdown=breakdown,
         trend=VibeTrend(direction=direction, change_7d=change_7d),
         themes={
-            "positive": vibe_row[9] or [],
-            "negative": vibe_row[10] or [],
+            "positive": vibe_row["positive_themes"] or [],
+            "negative": vibe_row["negative_themes"] or [],
         },
-        last_updated=vibe_row[11],
+        last_updated=vibe_row["calculated_at"],
     )
 
     cache.set(cache_key, result.model_dump(), ttl=TTL_VIBE_SCORE)
@@ -585,7 +477,7 @@ async def get_vibe_score(
 
 
 @router.get("/vibe/trending/{sport}", response_model=TrendingVibes)
-async def get_trending_vibes(
+async def get_trending_vibes_endpoint(
     sport: str,
     db: DBDependency,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
@@ -603,46 +495,19 @@ async def get_trending_vibes(
     if cached:
         return TrendingVibes(**cached)
 
-    # Get entities with biggest changes
-    rows = db.fetch_all(
-        """
-        WITH latest_scores AS (
-            SELECT DISTINCT ON (entity_type, entity_id)
-                entity_id, entity_name, entity_type, overall_score, calculated_at
-            FROM vibe_scores
-            WHERE LOWER(sport) = LOWER(%s)
-            ORDER BY entity_type, entity_id, calculated_at DESC
-        ),
-        previous_scores AS (
-            SELECT DISTINCT ON (entity_type, entity_id)
-                entity_id, entity_type, overall_score
-            FROM vibe_scores
-            WHERE LOWER(sport) = LOWER(%s)
-            AND calculated_at < NOW() - INTERVAL '7 days'
-            ORDER BY entity_type, entity_id, calculated_at DESC
-        )
-        SELECT
-            l.entity_id, l.entity_name, l.entity_type,
-            l.overall_score, (l.overall_score - COALESCE(p.overall_score, l.overall_score)) as change
-        FROM latest_scores l
-        LEFT JOIN previous_scores p ON l.entity_id = p.entity_id AND l.entity_type = p.entity_type
-        ORDER BY ABS(l.overall_score - COALESCE(p.overall_score, l.overall_score)) DESC
-        LIMIT %s
-        """,
-        (sport, sport, limit),
-    )
+    rows = fetch_trending_vibes(db, sport, limit)
 
     trending = [
         TrendingVibe(
-            entity_id=row[0],
-            entity_name=row[1],
-            entity_type=row[2],
-            current_score=row[3],
-            change_7d=row[4] or 0.0,
+            entity_id=row["entity_id"],
+            entity_name=row["entity_name"],
+            entity_type=row["entity_type"],
+            current_score=row["overall_score"],
+            change_7d=row["change"] or 0.0,
             direction="up"
-            if (row[4] or 0) > 0
+            if (row["change"] or 0) > 0
             else "down"
-            if (row[4] or 0) < 0
+            if (row["change"] or 0) < 0
             else "stable",
         )
         for row in rows
@@ -663,13 +528,6 @@ async def get_trending_vibes(
 # =============================================================================
 
 
-def _get_entity_name(db: DBDependency, entity_type: str, entity_id: int) -> str:
-    """Get entity name from database."""
-    table = "players" if entity_type == "player" else "teams"
-    row = db.fetch_one(f"SELECT name FROM {table} WHERE id = %s", (entity_id,))
-    return row[0] if row else "Unknown"
-
-
 def _get_vibe_label(score: float) -> str:
     """Convert vibe score to label."""
     if score >= 90:
@@ -688,21 +546,19 @@ def _get_vibe_label(score: float) -> str:
         return "Crisis"
 
 
-def _get_top_factors(link: tuple) -> list[str]:
+def _get_top_factors(link: dict[str, Any]) -> list[str]:
     """Extract top factors from a transfer link row."""
     factors = []
 
-    # link indices: tier_1_mentions=8
-    tier_1 = link[9] if len(link) > 9 else 0
-
+    tier_1 = link.get("tier_1_mentions", 0)
     if tier_1 and tier_1 > 0:
         factors.append("Tier 1 Sources")
 
-    total = link[8] if len(link) > 8 else 0
+    total = link.get("total_mentions", 0)
     if total and total > 10:
         factors.append("High Mention Volume")
 
-    trend = link[6] if len(link) > 6 else "stable"
+    trend = link.get("trend_direction", "stable")
     if trend == "up":
         factors.append("Trending Up")
 
@@ -710,6 +566,31 @@ def _get_top_factors(link: tuple) -> list[str]:
         factors.append("Recent Activity")
 
     return factors[:3]
+
+
+def _get_performance_factors(context: dict[str, Any]) -> list[str]:
+    """Extract key factors from context."""
+    factors = []
+
+    rest_days = context.get("rest_days")
+    if rest_days is not None:
+        if rest_days == 0:
+            factors.append("Back-to-back game")
+        elif rest_days >= 3:
+            factors.append("Well rested")
+
+    is_home = context.get("is_home")
+    if is_home is not None:
+        factors.append("Home game" if is_home else "Road game")
+
+    opp_def = context.get("opponent_defensive_rating")
+    if opp_def:
+        if opp_def > 115:
+            factors.append("Weak opponent defense")
+        elif opp_def < 105:
+            factors.append("Strong opponent defense")
+
+    return factors[:4] if factors else ["Based on season averages"]
 
 
 # =============================================================================
@@ -742,39 +623,27 @@ async def get_next_game_prediction(
 
     # Look up entity from sport-specific profile tables
     if entity_type == "player":
-        entity_row = _find_player(db, entity_id)
+        entity_row = find_player(db, entity_id)
+        if not entity_row:
+            raise NotFoundError(entity_type.title(), entity_id)
+        entity_name = entity_row["name"]
+        sport = entity_row["sport"]
+        position = entity_row["position"]
     else:
-        team_row = _find_team(db, entity_id)
-        # Reshape to match expected (id, name, sport, position, team_id, team_name)
-        entity_row = (*team_row, None, team_row[0], team_row[1]) if team_row else None
-
-    if not entity_row:
-        raise NotFoundError(f"{entity_type.title()} with ID {entity_id} not found")
-
-    entity_name = entity_row[1]
-    sport = entity_row[2]
-    position = entity_row[3]
+        team_row = find_team(db, entity_id)
+        if not team_row:
+            raise NotFoundError(entity_type.title(), entity_id)
+        entity_name = team_row["name"]
+        sport = team_row["sport"]
+        position = None
 
     # Check for existing prediction in database
-    pred_row = db.fetch_one(
-        """
-        SELECT
-            pp.opponent_id, pp.opponent_name, pp.game_date,
-            pp.predictions, pp.confidence_intervals, pp.confidence_score,
-            pp.context_factors, pp.model_version, pp.predicted_at
-        FROM performance_predictions pp
-        WHERE pp.entity_type = %s AND pp.entity_id = %s
-        AND pp.game_date >= CURRENT_DATE
-        ORDER BY pp.game_date ASC
-        LIMIT 1
-        """,
-        (entity_type, entity_id),
-    )
+    pred_row = get_next_prediction(db, entity_type, entity_id)
 
     if pred_row:
         # Use stored prediction
-        predictions_data = pred_row[3] or {}
-        confidence_intervals = pred_row[4] or {}
+        predictions_data = pred_row["predictions"] or {}
+        confidence_intervals = pred_row["confidence_intervals"] or {}
 
         predictions = {}
         for stat_name, value in predictions_data.items():
@@ -791,23 +660,23 @@ async def get_next_game_prediction(
                 historical_avg=round(value, 1),  # Placeholder
             )
 
-        context_factors = pred_row[6] or {}
+        context_factors = pred_row["context_factors"] or {}
         key_factors = _get_performance_factors(context_factors)
 
         result = PerformancePredictionResponse(
             entity_id=entity_id,
             entity_name=entity_name,
             entity_type=entity_type,
-            opponent_id=pred_row[0],
-            opponent_name=pred_row[1],
-            game_date=str(pred_row[2]),
+            opponent_id=pred_row["opponent_id"],
+            opponent_name=pred_row["opponent_name"],
+            game_date=str(pred_row["game_date"]),
             sport=sport,
             predictions=predictions,
-            confidence_score=pred_row[5] or 0.7,
+            confidence_score=pred_row["confidence_score"] or 0.7,
             context_factors=context_factors,
             key_factors=key_factors,
-            model_version=pred_row[7] or "v1.0.0",
-            last_updated=pred_row[8],
+            model_version=pred_row["model_version"] or "v1.0.0",
+            last_updated=pred_row["predicted_at"],
         )
     else:
         # Generate heuristic prediction from recent stats
@@ -852,24 +721,13 @@ async def get_specific_game_prediction(
     with opponent-adjusted predictions.
     """
 
-    # Get prediction for specific game
-    pred_row = db.fetch_one(
-        """
-        SELECT
-            pp.entity_name, pp.opponent_id, pp.opponent_name, pp.game_date,
-            pp.sport, pp.predictions, pp.confidence_intervals, pp.confidence_score,
-            pp.context_factors, pp.model_version, pp.predicted_at
-        FROM performance_predictions pp
-        WHERE pp.entity_type = %s AND pp.entity_id = %s AND pp.id = %s
-        """,
-        (entity_type, entity_id, game_id),
-    )
+    pred_row = get_specific_prediction(db, entity_type, entity_id, game_id)
 
     if not pred_row:
-        raise NotFoundError(f"Prediction for game {game_id} not found")
+        raise NotFoundError("Prediction", game_id)
 
-    predictions_data = pred_row[5] or {}
-    confidence_intervals = pred_row[6] or {}
+    predictions_data = pred_row["predictions"] or {}
+    confidence_intervals = pred_row["confidence_intervals"] or {}
 
     predictions = {}
     for stat_name, value in predictions_data.items():
@@ -886,29 +744,29 @@ async def get_specific_game_prediction(
             historical_avg=round(value, 1),
         )
 
-    context_factors = pred_row[8] or {}
+    context_factors = pred_row["context_factors"] or {}
 
     return PerformancePredictionResponse(
         entity_id=entity_id,
-        entity_name=pred_row[0],
+        entity_name=pred_row["entity_name"],
         entity_type=entity_type,
-        opponent_id=pred_row[1],
-        opponent_name=pred_row[2],
-        game_date=str(pred_row[3]),
-        sport=pred_row[4],
+        opponent_id=pred_row["opponent_id"],
+        opponent_name=pred_row["opponent_name"],
+        game_date=str(pred_row["game_date"]),
+        sport=pred_row["sport"],
         predictions=predictions,
-        confidence_score=pred_row[7] or 0.7,
+        confidence_score=pred_row["confidence_score"] or 0.7,
         context_factors=context_factors,
         key_factors=_get_performance_factors(context_factors),
-        model_version=pred_row[9] or "v1.0.0",
-        last_updated=pred_row[10],
+        model_version=pred_row["model_version"] or "v1.0.0",
+        last_updated=pred_row["predicted_at"],
     )
 
 
 @router.get(
     "/predictions/accuracy/{model_version}", response_model=ModelAccuracyResponse
 )
-async def get_model_accuracy(
+async def get_model_accuracy_endpoint(
     model_version: str,
     db: DBDependency,
     sport: Annotated[str | None, Query(description="Sport filter")] = None,
@@ -920,23 +778,7 @@ async def get_model_accuracy(
     Returns MAE, RMSE, and within-range percentage
     for the specified model.
     """
-    query = """
-        SELECT
-            model_type, model_version, sport,
-            mae, rmse, mape, within_range_pct,
-            sample_size, period_start, period_end
-        FROM prediction_accuracy
-        WHERE model_version = %s AND model_type = %s
-    """
-    params: list[Any] = [model_version, model_type]
-
-    if sport:
-        query += " AND LOWER(sport) = LOWER(%s)"
-        params.append(sport)
-
-    query += " ORDER BY calculated_at DESC LIMIT 1"
-
-    row = db.fetch_one(query, tuple(params))
+    row = fetch_model_accuracy(db, model_version, model_type, sport)
 
     if not row:
         # Return placeholder if no accuracy data
@@ -956,44 +798,30 @@ async def get_model_accuracy(
         )
 
     return ModelAccuracyResponse(
-        model_type=row[0],
-        model_version=row[1],
-        sport=row[2],
+        model_type=row["model_type"],
+        model_version=row["model_version"],
+        sport=row["sport"],
         metrics={
-            "mae": row[3] or 0.0,
-            "rmse": row[4] or 0.0,
-            "mape": row[5] or 0.0,
-            "within_range_pct": row[6] or 0.0,
+            "mae": row["mae"] or 0.0,
+            "rmse": row["rmse"] or 0.0,
+            "mape": row["mape"] or 0.0,
+            "within_range_pct": row["within_range_pct"] or 0.0,
         },
-        sample_size=row[7] or 0,
-        period_start=str(row[8]) if row[8] else None,
-        period_end=str(row[9]) if row[9] else None,
+        sample_size=row["sample_size"] or 0,
+        period_start=str(row["period_start"]) if row["period_start"] else None,
+        period_end=str(row["period_end"]) if row["period_end"] else None,
     )
 
 
-def _get_performance_factors(context: dict[str, Any]) -> list[str]:
-    """Extract key factors from context."""
-    factors = []
-
-    rest_days = context.get("rest_days")
-    if rest_days is not None:
-        if rest_days == 0:
-            factors.append("Back-to-back game")
-        elif rest_days >= 3:
-            factors.append("Well rested")
-
-    is_home = context.get("is_home")
-    if is_home is not None:
-        factors.append("Home game" if is_home else "Road game")
-
-    opp_def = context.get("opponent_defensive_rating")
-    if opp_def:
-        if opp_def > 115:
-            factors.append("Weak opponent defense")
-        elif opp_def < 105:
-            factors.append("Strong opponent defense")
-
-    return factors[:4] if factors else ["Based on season averages"]
+# Sport-specific stat column definitions (display logic for heuristic predictions)
+_SPORT_STAT_COLS: dict[tuple[str, str], list[str]] = {
+    ("NBA", "player"): ["ppg", "rpg", "apg", "spg", "bpg"],
+    ("NBA", "team"): ["ppg", "rpg", "apg", "fg_pct", "fg3_pct"],
+    ("NFL", "player"): ["pass_yds", "pass_td", "rush_yds", "rec_yds"],
+    ("NFL", "team"): ["points_for", "total_yards", "turnovers"],
+    ("FOOTBALL", "player"): ["goals", "assists", "shots", "key_passes"],
+    ("FOOTBALL", "team"): ["goals_for", "goals_against", "shots_pg"],
+}
 
 
 def _generate_heuristic_prediction(
@@ -1005,7 +833,6 @@ def _generate_heuristic_prediction(
 ) -> tuple[dict[str, StatPredictionResponse], float, dict[str, Any]]:
     """Generate heuristic prediction from recent stats."""
     sport_upper = sport.upper()
-    from ...core.types import PLAYER_STATS_TABLES, TEAM_STATS_TABLES
 
     # Determine stats table from centralized registry
     if entity_type == "player":
@@ -1016,40 +843,19 @@ def _generate_heuristic_prediction(
     if not stats_table:
         return {}, 0.5, {}
 
-    # Determine sport-specific stat columns
-    _SPORT_STAT_COLS = {
-        ("NBA", "player"): ["ppg", "rpg", "apg", "spg", "bpg"],
-        ("NBA", "team"): ["ppg", "rpg", "apg", "fg_pct", "fg3_pct"],
-        ("NFL", "player"): ["pass_yds", "pass_td", "rush_yds", "rec_yds"],
-        ("NFL", "team"): ["points_for", "total_yards", "turnovers"],
-        ("FOOTBALL", "player"): ["goals", "assists", "shots", "key_passes"],
-        ("FOOTBALL", "team"): ["goals_for", "goals_against", "shots_pg"],
-    }
     stat_cols = _SPORT_STAT_COLS.get((sport_upper, entity_type))
     if not stat_cols:
         return {}, 0.5, {}
 
-    # Get recent stats
-    id_col = "player_id" if entity_type == "player" else "team_id"
-
-    # Build query for available columns
-    col_list = ", ".join(stat_cols)
-    row = db.fetch_one(
-        f"""
-        SELECT {col_list}
-        FROM {stats_table}
-        WHERE {id_col} = %s
-        ORDER BY season_id DESC
-        LIMIT 1
-        """,
-        (entity_id,),
-    )
+    # Get recent stats via service
+    row = get_recent_stats(db, entity_type, entity_id, sport, stats_table, stat_cols)
 
     predictions = {}
     if row:
-        for i, stat_name in enumerate(stat_cols):
-            if i < len(row) and row[i] is not None:
-                val = float(row[i])
+        for stat_name in stat_cols:
+            val = row.get(stat_name)
+            if val is not None:
+                val = float(val)
                 std = val * 0.2  # Estimate 20% variance
 
                 predictions[stat_name] = StatPredictionResponse(

@@ -5,11 +5,7 @@ Endpoints:
 - GET /journalist-feed - Search trusted journalist tweets for team/player mentions
 - GET /status - Check Twitter API configuration status
 
-Strategy:
-- Fetches tweets from a curated X List of trusted sports journalists
-- Caches the full feed (1 hour TTL) to minimize API calls
-- Filters cached feed client-side for each search query
-- This approach is optimal for X API Free tier (limited read quota)
+Delegates to TwitterService for feed fetching, caching, and filtering.
 """
 
 import logging
@@ -18,10 +14,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
-from ..cache import get_cache
 from ..errors import ServiceUnavailableError, ExternalServiceError, RateLimitedError
-from ...core.config import get_settings
-from ...external import TwitterClient, ExternalAPIError, RateLimitError
+from ...external import ExternalAPIError, RateLimitError
+from ...services.twitter import get_twitter_service
 
 logger = logging.getLogger(__name__)
 
@@ -33,18 +28,6 @@ class Sport(str, Enum):
     NBA = "NBA"
     NFL = "NFL"
     FOOTBALL = "FOOTBALL"
-
-
-# Lazy-initialized client
-_twitter_client: TwitterClient | None = None
-
-
-def get_twitter_client() -> TwitterClient:
-    """Get or create Twitter client."""
-    global _twitter_client
-    if _twitter_client is None:
-        _twitter_client = TwitterClient()
-    return _twitter_client
 
 
 def _handle_external_error(e: Exception, service: str) -> None:
@@ -92,65 +75,50 @@ async def get_journalist_feed(
 
     **Rate limit:** Shared feed fetched at most once per hour.
     """
-    settings = get_settings()
-    client = get_twitter_client()
+    service = get_twitter_service()
 
-    # Check configuration
-    if not client.is_configured():
+    # Check configuration — raise HTTP errors for backward compatibility.
+    # The service exposes is_configured and list_id so we can give specific messages.
+    if not service.is_configured:
+        if not service.list_id:
+            raise ServiceUnavailableError(
+                service="Twitter",
+                message="Twitter journalist list not configured. Set TWITTER_JOURNALIST_LIST_ID.",
+            )
         raise ServiceUnavailableError(
             service="Twitter",
             message="Twitter API not configured. Set TWITTER_BEARER_TOKEN.",
         )
 
-    list_id = settings.twitter_journalist_list_id
-    if not list_id:
-        raise ServiceUnavailableError(
+    sport_value = sport.value if sport else None
+
+    try:
+        result = await service.get_journalist_feed(
+            query=q,
+            sport=sport_value,
+            limit=limit,
+        )
+    except Exception as e:
+        _handle_external_error(e, "Twitter")
+        return  # unreachable; _handle_external_error always raises
+
+    # The service returns error dicts on internal failures instead of raising.
+    # Re-raise as HTTP errors for backward compatibility.
+    if "error" in result:
+        raise ExternalServiceError(
             service="Twitter",
-            message="Twitter journalist list not configured. Set TWITTER_JOURNALIST_LIST_ID.",
+            message=result["error"],
         )
 
-    cache = get_cache()
-    cache_ttl = settings.twitter_feed_cache_ttl
+    # Set cache headers from result metadata
+    meta = result.get("meta", {})
+    _set_cache_headers(
+        response,
+        cache_hit=meta.get("feed_cached", False),
+        ttl=service.cache_ttl,
+    )
 
-    # Cache key for the FULL journalist feed (not per-query)
-    feed_cache_key = ("twitter", "journalist-feed", list_id)
-
-    # Check if full feed is cached
-    cached_feed = cache.get(*feed_cache_key)
-    feed_from_cache = cached_feed is not None
-
-    if not cached_feed:
-        # Fetch from X API
-        try:
-            cached_feed = await client.get_list_tweets(list_id, limit=100)
-            cache.set(cached_feed, *feed_cache_key, ttl=cache_ttl)
-        except Exception as e:
-            _handle_external_error(e, "Twitter")
-
-    # Filter cached feed for query matches (case-insensitive)
-    query_lower = q.lower()
-    all_tweets = cached_feed.get("tweets", [])
-    filtered_tweets = [
-        tweet for tweet in all_tweets
-        if query_lower in tweet.get("text", "").lower()
-    ]
-
-    # Apply limit to filtered results
-    filtered_tweets = filtered_tweets[:limit]
-
-    _set_cache_headers(response, cache_hit=feed_from_cache, ttl=cache_ttl)
-
-    return {
-        "query": q,
-        "sport": sport.value if sport else None,
-        "tweets": filtered_tweets,
-        "meta": {
-            "result_count": len(filtered_tweets),
-            "feed_cached": feed_from_cache,
-            "feed_size": len(all_tweets),
-            "cache_ttl_seconds": cache_ttl,
-        },
-    }
+    return result
 
 
 @router.get("/status")
@@ -160,15 +128,10 @@ async def get_twitter_status():
 
     Returns configuration state and rate limit info for debugging.
     """
-    settings = get_settings()
-    client = get_twitter_client()
-
-    return {
-        "service": "twitter",
-        "configured": client.is_configured(),
-        "journalist_list_configured": bool(settings.twitter_journalist_list_id),
-        "journalist_list_id": settings.twitter_journalist_list_id,
-        "feed_cache_ttl_seconds": settings.twitter_feed_cache_ttl,
-        "rate_limit": "900 requests / 15 min (List endpoint)",
-        "note": "Only journalist-feed endpoint available. Generic search removed to ensure content quality.",
-    }
+    service = get_twitter_service()
+    status = service.get_status()
+    status["note"] = (
+        "Only journalist-feed endpoint available. "
+        "Generic search removed to ensure content quality."
+    )
+    return status

@@ -63,16 +63,6 @@ def get_db():
     return _get_db()
 
 
-async def _get_legacy_api_client():
-    """Get legacy API-Sports client for diff/fixtures/ml commands.
-
-    These commands still use the old api_client.py interface.
-    Seed commands have been migrated to the new provider clients.
-    """
-    from .api_client import get_api_client
-    return get_api_client()
-
-
 def _get_provider_client(sport_id: str):
     """Create a provider client for the given sport.
 
@@ -273,18 +263,19 @@ async def cmd_diff_async(args: argparse.Namespace) -> int:
     from .roster_diff import RosterDiffEngine
 
     db = get_db()
-    api = await _get_legacy_api_client()
 
     if not db.is_initialized():
         logger.error("Database not initialized. Run 'init' first.")
         return 1
 
-    engine = RosterDiffEngine(db, api)
     season = args.season or 2025
 
     try:
         if args.all:
-            # Run all priority diffs
+            # Run all priority diffs — need a provider per sport
+            # Use NBA provider as default for run_all (it creates per-sport internally)
+            client = _get_provider_client("NBA")
+            engine = RosterDiffEngine(db, client)
             results = await engine.run_all_priority_diffs(season)
             total_new = sum(len(r.new_players) for r in results)
             total_transfers = sum(len(r.transferred_players) for r in results)
@@ -307,6 +298,8 @@ async def cmd_diff_async(args: argparse.Namespace) -> int:
                 logger.error("FOOTBALL requires --league parameter")
                 return 1
 
+            client = _get_provider_client(sport_id)
+            engine = RosterDiffEngine(db, client)
             result = await engine.run_diff(sport_id, season, league_id)
             logger.info("Diff result: %s", result.to_dict())
 
@@ -873,10 +866,16 @@ async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
     from .fixtures import PostMatchSeeder
 
     db = get_pg_db()
-    api = await _get_legacy_api_client()
+
+    # Determine sport from fixture to create appropriate provider client
+    fixture = db.fetchone(
+        "SELECT sport_id FROM fixtures WHERE id = %s", (args.fixture_id,)
+    )
+    sport_id = fixture["sport_id"] if fixture else "NBA"
+    client = _get_provider_client(sport_id)
 
     try:
-        seeder = PostMatchSeeder(db, api)
+        seeder = PostMatchSeeder(db, client)
         fixture_id = args.fixture_id
 
         logger.info("Seeding fixture %d...", fixture_id)
@@ -912,12 +911,14 @@ async def cmd_fixtures_run_scheduler_async(args: argparse.Namespace) -> int:
     from .fixtures import SchedulerService
 
     db = get_pg_db()
-    api = await _get_legacy_api_client()
+    # Scheduler creates per-fixture provider clients as needed
+    sport_id = (args.sport or "NBA").upper()
+    client = _get_provider_client(sport_id)
 
     try:
         scheduler = SchedulerService(
             db,
-            api,
+            client,
             max_fixtures_per_run=args.max or 10,
             max_retries=args.max_retries or 3,
         )

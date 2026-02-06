@@ -65,7 +65,7 @@ async def warm_cache() -> None:
     Uses parallel processing for all sports to speed up startup.
     """
     from .dependencies import get_db
-        from ..core.types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+    from ..core.types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
     logger.info("Starting cache warming...")
 

@@ -9,7 +9,7 @@ Features:
 - Detects new players (need profile fetch)
 - Detects team changes (trades/transfers)
 - Detects departures (players no longer on any roster)
-- Records transfer history in player_teams table
+- Updates player's current team in sport-specific profile table
 - Minimal API calls (one roster fetch per league/sport)
 """
 
@@ -20,12 +20,23 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Optional
 
+from psycopg import sql
+
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
 
 from ..core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
+
+# Hardcoded priority Football leagues for run_all_priority_diffs
+_PRIORITY_FOOTBALL_LEAGUES: list[int] = [
+    39,   # Premier League (England)
+    140,  # La Liga (Spain)
+    135,  # Serie A (Italy)
+    78,   # Bundesliga (Germany)
+    61,   # Ligue 1 (France)
+]
 
 
 @dataclass
@@ -90,7 +101,7 @@ class RosterDiffEngine:
     Engine for detecting roster changes between API and local database.
 
     Usage:
-        engine = RosterDiffEngine(db, api_service)
+        engine = RosterDiffEngine(db, provider_client)
         result = await engine.run_diff("FOOTBALL", league_id=39, season=2024)
 
         if result.new_players:
@@ -105,17 +116,18 @@ class RosterDiffEngine:
     def __init__(
         self,
         db: "PostgresDB",
-        api_service: Any,
+        api: Any,
     ):
         """
         Initialize the RosterDiffEngine.
 
         Args:
-            db: StatsDB connection
-            api_service: API-Sports service for fetching rosters
+            db: PostgresDB connection (Neon / psycopg pool).
+            api: Provider client — one of BallDontLieNBA, BallDontLieNFL,
+                 or SportMonksClient.
         """
         self.db = db
-        self.api = api_service
+        self.api = api
 
     async def run_diff(
         self,
@@ -150,7 +162,7 @@ class RosterDiffEngine:
                 return result
 
             # Fetch current roster from API
-            api_players = await self._fetch_api_roster(sport_id, season, league_id)
+            api_players = await self._fetch_api_roster(sport_id, season_id, league_id)
             result.total_players_checked = len(api_players)
 
             # Build lookup map: player_id -> team_id
@@ -186,12 +198,11 @@ class RosterDiffEngine:
                         result.transferred_players.append(
                             (player_id, db_team_id or 0, api_team_id or 0)
                         )
-                        # Update player's current team and record transfer
+                        # Update player's current team in profile table
                         self._record_transfer(
                             player_id,
-                            db_team_id,
-                            api_team_id,
-                            season_id,
+                            to_team_id=api_team_id,
+                            sport_id=sport_id,
                         )
 
             # Detect departures (players no longer in API roster)
@@ -205,7 +216,7 @@ class RosterDiffEngine:
                         # They might just be on injury reserve or similar
 
             # Check for new teams as well
-            api_teams = await self._fetch_api_teams(sport_id, season, league_id)
+            api_teams = await self._fetch_api_teams(sport_id, season_id, league_id)
             result.total_teams_checked = len(api_teams)
 
             db_teams = self._get_db_teams(sport_id, league_id)
@@ -256,19 +267,7 @@ class RosterDiffEngine:
         Returns:
             List of DiffResults
         """
-        results = []
-
-        # Get priority Football leagues
-        football_leagues = self.db.fetchall(
-            "SELECT id FROM leagues WHERE sport_id = 'FOOTBALL' AND priority_tier = 1"
-        )
-
-        for league in football_leagues:
-            try:
-                result = await self.run_diff("FOOTBALL", season, league["id"])
-                results.append(result)
-            except Exception as e:
-                logger.error("Diff failed for FOOTBALL league %d: %s", league["id"], e)
+        results: list[DiffResult] = []
 
         # Run for NBA
         try:
@@ -284,6 +283,14 @@ class RosterDiffEngine:
         except Exception as e:
             logger.error("Diff failed for NFL: %s", e)
 
+        # Run for priority Football leagues
+        for league_id in _PRIORITY_FOOTBALL_LEAGUES:
+            try:
+                result = await self.run_diff("FOOTBALL", season, league_id)
+                results.append(result)
+            except Exception as e:
+                logger.error("Diff failed for FOOTBALL league %d: %s", league_id, e)
+
         return results
 
     # =========================================================================
@@ -293,144 +300,100 @@ class RosterDiffEngine:
     async def _fetch_api_roster(
         self,
         sport_id: str,
-        season: int,
+        season_id: int,
         league_id: Optional[int],
     ) -> list[dict[str, Any]]:
         """Fetch current roster from API."""
         if sport_id == "FOOTBALL":
             if not league_id:
                 raise ValueError("league_id required for FOOTBALL")
-            return await self._fetch_football_roster(league_id, season)
+            return await self._fetch_football_roster(season_id, league_id)
         elif sport_id == "NBA":
-            return await self._fetch_nba_roster(season)
+            return await self._fetch_nba_roster()
         elif sport_id == "NFL":
-            return await self._fetch_nfl_roster(season)
+            return await self._fetch_nfl_roster()
         else:
             raise ValueError(f"Unknown sport: {sport_id}")
 
     async def _fetch_football_roster(
         self,
+        season_id: int,
         league_id: int,
-        season: int,
     ) -> list[dict[str, Any]]:
-        """Fetch Football roster for a league."""
-        all_players = []
-        page = 1
-        max_pages = 100
+        """
+        Fetch Football roster for a league via SportMonks.
 
-        while page <= max_pages:
-            players = await self.api.list_players(
-                sport="FOOTBALL",
-                league=league_id,
-                season=season,
-                page=page,
-            )
+        SportMonks exposes squads per team, so we first fetch all teams in the
+        season, then fetch each team's squad.
+        """
+        all_players: list[dict[str, Any]] = []
 
-            if not players:
-                break
+        # Get all teams in this season first
+        teams = await self.api.get_teams_by_season(season_id)
 
-            for player in players:
-                team_data = player.get("team") or player.get("statistics", [{}])[0].get("team") or {}
+        for team in teams:
+            team_id = team["id"]
+            squad = await self.api.get_squad(season_id, team_id)
+
+            for entry in squad:
+                # Squad entries contain a player sub-object
+                player = entry.get("player") or entry
                 all_players.append({
-                    "id": player["id"],
+                    "id": player.get("id") or entry.get("player_id"),
                     "full_name": self._build_full_name(player),
-                    "current_team_id": team_data.get("id") if isinstance(team_data, dict) else None,
-                    "position": player.get("position"),
+                    "current_team_id": team_id,
+                    "position": player.get("position") or entry.get("position_id"),
                 })
-
-            if len(players) < 20:
-                break
-
-            page += 1
 
         return all_players
 
-    async def _fetch_nba_roster(self, season: int) -> list[dict[str, Any]]:
-        """Fetch NBA roster."""
-        all_players = []
-        page = 1
-        max_pages = 50
+    async def _fetch_nba_roster(self) -> list[dict[str, Any]]:
+        """Fetch NBA roster via BallDontLie (cursor-based async iterator)."""
+        all_players: list[dict[str, Any]] = []
 
-        while page <= max_pages:
-            players = await self.api.list_players(
-                sport="NBA",
-                season=season,
-                page=page,
-            )
-
-            if not players:
-                break
-
-            for player in players:
-                team = player.get("team") or {}
-                all_players.append({
-                    "id": player["id"],
-                    "full_name": self._build_full_name(player),
-                    "current_team_id": team.get("id") if isinstance(team, dict) else None,
-                    "position": player.get("position"),
-                })
-
-            page += 1
-
-            if page > max_pages:
-                break
+        async for player in self.api.get_players():
+            team = player.get("team") or {}
+            all_players.append({
+                "id": player["id"],
+                "full_name": self._build_full_name(player),
+                "current_team_id": team.get("id") if isinstance(team, dict) else None,
+                "position": player.get("position"),
+            })
 
         return all_players
 
-    async def _fetch_nfl_roster(self, season: int) -> list[dict[str, Any]]:
-        """Fetch NFL roster."""
-        all_players = []
-        page = 1
-        max_pages = 100
+    async def _fetch_nfl_roster(self) -> list[dict[str, Any]]:
+        """Fetch NFL roster via BallDontLie (cursor-based async iterator)."""
+        all_players: list[dict[str, Any]] = []
 
-        while page <= max_pages:
-            players = await self.api.list_players(
-                sport="NFL",
-                season=season,
-                page=page,
-            )
-
-            if not players:
-                break
-
-            for player in players:
-                team = player.get("team") or {}
-                all_players.append({
-                    "id": player["id"],
-                    "full_name": self._build_full_name(player),
-                    "current_team_id": team.get("id") if isinstance(team, dict) else None,
-                    "position": player.get("position"),
-                })
-
-            page += 1
-
-            if page > max_pages:
-                break
+        async for player in self.api.get_players():
+            team = player.get("team") or {}
+            all_players.append({
+                "id": player["id"],
+                "full_name": self._build_full_name(player),
+                "current_team_id": team.get("id") if isinstance(team, dict) else None,
+                "position": player.get("position"),
+            })
 
         return all_players
 
     async def _fetch_api_teams(
         self,
         sport_id: str,
-        season: int,
+        season_id: int,
         league_id: Optional[int],
     ) -> list[dict[str, Any]]:
         """Fetch teams from API."""
         if sport_id == "FOOTBALL":
-            teams = await self.api.list_teams(
-                sport="FOOTBALL",
-                league=league_id,
-                season=season,
-            )
-        elif sport_id == "NBA":
-            teams = await self.api.list_teams(sport="NBA", season=season)
-        elif sport_id == "NFL":
-            teams = await self.api.list_teams(sport="NFL", season=season)
+            teams = await self.api.get_teams_by_season(season_id)
+        elif sport_id in ("NBA", "NFL"):
+            # BallDontLie: get_teams() returns full list directly
+            teams = await self.api.get_teams()
         else:
             return []
 
         return [
-            {"id": t["id"], "name": t["name"]}
+            {"id": t["id"], "name": t.get("name", t.get("full_name", "Unknown"))}
             for t in teams
         ]
 
@@ -450,13 +413,15 @@ class RosterDiffEngine:
             return []
 
         if league_id:
-            return self.db.fetchall(
-                f"SELECT id, current_team_id, is_active FROM {table} WHERE current_league_id = ?",
-                (league_id,),
-            )
-        return self.db.fetchall(
-            f"SELECT id, current_team_id, is_active FROM {table}",
-        )
+            query = sql.SQL(
+                "SELECT id, current_team_id, is_active FROM {} WHERE current_league_id = %s"
+            ).format(sql.Identifier(table))
+            return self.db.fetchall(query, (league_id,))
+
+        query = sql.SQL(
+            "SELECT id, current_team_id, is_active FROM {}"
+        ).format(sql.Identifier(table))
+        return self.db.fetchall(query)
 
     def _get_db_teams(
         self,
@@ -470,13 +435,13 @@ class RosterDiffEngine:
             return []
 
         if league_id:
-            return self.db.fetchall(
-                f"SELECT id FROM {table} WHERE league_id = ?",
-                (league_id,),
-            )
-        return self.db.fetchall(
-            f"SELECT id FROM {table}",
-        )
+            query = sql.SQL(
+                "SELECT id FROM {} WHERE league_id = %s"
+            ).format(sql.Identifier(table))
+            return self.db.fetchall(query, (league_id,))
+
+        query = sql.SQL("SELECT id FROM {}").format(sql.Identifier(table))
+        return self.db.fetchall(query)
 
     def _insert_player(
         self,
@@ -484,24 +449,31 @@ class RosterDiffEngine:
         sport_id: str,
         league_id: Optional[int],
     ) -> None:
-        """Insert a new player record."""
-        self.db.execute(
+        """Insert a new player record into the sport-specific profile table."""
+        table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning("Unknown sport_id for player insert: %s", sport_id)
+            return
+
+        query = sql.SQL(
             """
-            INSERT OR IGNORE INTO players (
-                id, sport_id, full_name, current_team_id, current_league_id,
+            INSERT INTO {table} (
+                id, full_name, current_team_id, current_league_id,
                 position, is_active, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
-            """,
+            VALUES (%s, %s, %s, %s, %s, TRUE, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+            """
+        ).format(table=sql.Identifier(table))
+
+        self.db.execute(
+            query,
             (
                 player_data["id"],
-                sport_id,
                 player_data.get("full_name", "Unknown"),
                 player_data.get("current_team_id"),
                 league_id,
                 player_data.get("position"),
-                int(time.time()),
-                int(time.time()),
             ),
         )
 
@@ -511,71 +483,57 @@ class RosterDiffEngine:
         sport_id: str,
         league_id: Optional[int],
     ) -> None:
-        """Insert a new team record."""
-        self.db.execute(
+        """Insert a new team record into the sport-specific profile table."""
+        table = TEAM_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning("Unknown sport_id for team insert: %s", sport_id)
+            return
+
+        query = sql.SQL(
             """
-            INSERT OR IGNORE INTO teams (
-                id, sport_id, league_id, name, is_active, created_at, updated_at
+            INSERT INTO {table} (
+                id, league_id, name, is_active, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, 1, ?, ?)
-            """,
+            VALUES (%s, %s, %s, TRUE, NOW(), NOW())
+            ON CONFLICT (id) DO NOTHING
+            """
+        ).format(table=sql.Identifier(table))
+
+        self.db.execute(
+            query,
             (
                 team_data["id"],
-                sport_id,
                 league_id,
                 team_data.get("name", "Unknown"),
-                int(time.time()),
-                int(time.time()),
             ),
         )
 
     def _record_transfer(
         self,
         player_id: int,
-        from_team_id: Optional[int],
         to_team_id: Optional[int],
-        season_id: int,
+        sport_id: str,
     ) -> None:
-        """Record a player transfer in the database."""
-        now = int(time.time())
+        """
+        Record a player transfer by updating their current team in the
+        sport-specific profile table.
+        """
+        table = PLAYER_PROFILE_TABLES.get(sport_id)
+        if not table:
+            logger.warning("Unknown sport_id for transfer: %s", sport_id)
+            return
 
-        # Close previous team assignment
-        if from_team_id:
-            self.db.execute(
-                """
-                UPDATE player_teams
-                SET end_date = date('now'), is_current = 0
-                WHERE player_id = ? AND team_id = ? AND is_current = 1
-                """,
-                (player_id, from_team_id),
-            )
+        query = sql.SQL(
+            "UPDATE {table} SET current_team_id = %s, updated_at = NOW() WHERE id = %s"
+        ).format(table=sql.Identifier(table))
 
-        # Create new team assignment
-        if to_team_id:
-            self.db.execute(
-                """
-                INSERT OR IGNORE INTO player_teams
-                (player_id, team_id, season_id, start_date, is_current, detected_at)
-                VALUES (?, ?, ?, date('now'), 1, ?)
-                """,
-                (player_id, to_team_id, season_id, now),
-            )
-
-        # Update player's current team
-        self.db.execute(
-            """
-            UPDATE players
-            SET current_team_id = ?, updated_at = ?
-            WHERE id = ?
-            """,
-            (to_team_id, now, player_id),
-        )
+        self.db.execute(query, (to_team_id, player_id))
 
         logger.info(
-            "Recorded transfer: player %d from team %s to team %s",
+            "Recorded transfer: player %d → team %s (table=%s)",
             player_id,
-            from_team_id,
             to_team_id,
+            table,
         )
 
     # =========================================================================

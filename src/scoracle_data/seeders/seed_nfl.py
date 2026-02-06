@@ -12,6 +12,7 @@ from typing import Any, TYPE_CHECKING
 
 from ..core.types import get_sport_config
 from ..providers.balldontlie_nfl import BallDontLieNFL
+from .base import BallDontLieSeedRunner
 from .common import SeedResult
 
 if TYPE_CHECKING:
@@ -26,28 +27,17 @@ PLAYER_STATS_TABLE = _cfg.player_stats_table
 TEAM_STATS_TABLE = _cfg.team_stats_table
 
 
-class NFLSeedRunner:
+class NFLSeedRunner(BallDontLieSeedRunner):
     """Seeds NFL data from BallDontLie into PostgreSQL via psycopg."""
 
     def __init__(self, db: "PostgresDB", client: BallDontLieNFL):
-        self.db = db
-        self.client = client
+        super().__init__(db, client)
 
-    # -- Teams ----------------------------------------------------------------
+    @property
+    def _sport_label(self) -> str:
+        return "NFL"
 
-    async def seed_teams(self) -> SeedResult:
-        logger.info("Seeding NFL teams...")
-        result = SeedResult()
-        try:
-            teams = await self.client.get_teams()
-            for team in teams:
-                self._upsert_team(team)
-                result.teams_upserted += 1
-            logger.info(f"Upserted {result.teams_upserted} teams")
-        except Exception as e:
-            result.errors.append(f"Error seeding teams: {e}")
-            logger.error(result.errors[-1])
-        return result
+    # -- Upsert: Teams -------------------------------------------------------
 
     def _upsert_team(self, team: dict[str, Any]) -> None:
         self.db.execute(f"""
@@ -65,27 +55,7 @@ class NFLSeedRunner:
             team.get("conference"), team.get("division"),
         ))
 
-    # -- Players --------------------------------------------------------------
-
-    async def seed_players(self) -> SeedResult:
-        logger.info("Seeding NFL players...")
-        result = SeedResult()
-        try:
-            count = 0
-            async for player in self.client.get_players():
-                try:
-                    self._upsert_player(player)
-                    result.players_upserted += 1
-                    count += 1
-                    if count % 100 == 0:
-                        logger.info(f"Processed {count} players...")
-                except Exception as e:
-                    result.errors.append(f"Error upserting player {player.get('id')}: {e}")
-            logger.info(f"Upserted {result.players_upserted} players")
-        except Exception as e:
-            result.errors.append(f"Error seeding players: {e}")
-            logger.error(result.errors[-1])
-        return result
+    # -- Upsert: Players -----------------------------------------------------
 
     def _upsert_player(self, player: dict[str, Any]) -> None:
         team = player.get("team") or {}
@@ -143,11 +113,7 @@ class NFLSeedRunner:
         if not player_id:
             return
 
-        exists = self.db.fetchone(
-            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = %s", (player_id,),
-        )
-        if not exists:
-            self._upsert_player(player)
+        self._ensure_player_exists(PLAYER_TABLE, player_id, player)
 
         raw_json = json.dumps(stats_data)
 

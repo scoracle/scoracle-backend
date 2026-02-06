@@ -31,7 +31,6 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
-    from ..api_client import StandaloneApiClient
 
 from .post_match_seeder import PostMatchSeeder, PostMatchResult
 
@@ -86,7 +85,7 @@ class SchedulerService:
     def __init__(
         self,
         db: "PostgresDB",
-        api: "StandaloneApiClient",
+        api: Any,
         max_fixtures_per_run: int = 10,
         max_retries: int = 3,
     ):

@@ -9,7 +9,6 @@ Since data updates at most once daily, we use aggressive TTLs:
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -67,7 +66,9 @@ class CacheBackend(ABC):
 
 
 class InMemoryBackend(CacheBackend):
-    """Thread-safe in-memory cache backend."""
+    """Thread-safe in-memory cache backend with max-size eviction."""
+
+    MAX_ENTRIES = 10_000  # Prevent unbounded memory growth
 
     def __init__(self):
         self._cache: dict[str, tuple[Any, datetime]] = {}
@@ -86,7 +87,21 @@ class InMemoryBackend(CacheBackend):
     def set(self, key: str, value: Any, ttl: int) -> None:
         expiry = datetime.utcnow() + timedelta(seconds=ttl)
         with self._lock:
+            # Evict expired entries if at capacity
+            if len(self._cache) >= self.MAX_ENTRIES and key not in self._cache:
+                self._evict_expired_locked()
+                # If still at capacity after evicting expired, drop oldest entry
+                if len(self._cache) >= self.MAX_ENTRIES:
+                    oldest_key = next(iter(self._cache))
+                    del self._cache[oldest_key]
             self._cache[key] = (value, expiry)
+
+    def _evict_expired_locked(self) -> None:
+        """Remove expired entries (caller must hold lock)."""
+        now = datetime.utcnow()
+        expired = [k for k, (_, exp) in self._cache.items() if now >= exp]
+        for k in expired:
+            del self._cache[k]
 
     def delete(self, key: str) -> None:
         with self._lock:
@@ -243,15 +258,23 @@ class HybridCache:
                 logger.info("Redis unavailable, using in-memory cache")
                 self._primary = InMemoryBackend()
                 self._using_redis = False
+                # L1 only adds value over a network hop — disable when primary is in-memory
+                self.enable_l1_cache = False
         else:
             logger.info("No REDIS_URL configured, using in-memory cache")
             self._primary = InMemoryBackend()
             self._using_redis = False
+            # L1 only adds value over a network hop — disable when primary is in-memory
+            self.enable_l1_cache = False
 
     def _make_key(self, *args) -> str:
-        """Create cache key from arguments."""
-        key_str = "|".join(str(arg) for arg in args)
-        return hashlib.md5(key_str.encode()).hexdigest()
+        """Create structured cache key from arguments.
+
+        Uses colon-delimited human-readable keys (e.g. "stats:NBA:player:123:2025")
+        instead of MD5 hashes. This enables pattern-based invalidation by sport,
+        entity type, or season.
+        """
+        return ":".join(str(arg) for arg in args)
 
     def get(self, *args) -> Optional[Any]:
         """
@@ -334,9 +357,10 @@ class HybridCache:
 
     def invalidate_stats_cache(self, sport_id: str, season: int | None = None) -> int:
         """
-        Invalidate all stats cache entries for a sport (and optionally season).
+        Invalidate stats cache entries for a sport (and optionally season).
 
-        Called after stats are updated to ensure fresh data is served.
+        With structured keys (e.g. "stats:NBA:player:123:2025"), we can
+        selectively invalidate only the affected sport/season.
 
         Args:
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
@@ -345,31 +369,12 @@ class HybridCache:
         Returns:
             Number of entries invalidated
         """
-        # Pattern matches: stats|{entity_type}|{entity_id}|{sport}|{season}|...
-        # Since we use MD5 hashing, we need to delete all and let them re-cache
-        # For in-memory cache, we can clear all stats entries
-        count = 0
+        if season:
+            pattern = f"*:{sport_id}:*:{season}*"
+        else:
+            pattern = f"*:{sport_id}:*"
 
-        # Clear from both L1 and primary
-        if hasattr(self._l1, '_cache'):
-            with self._l1._lock:
-                keys_to_delete = []
-                for key in list(self._l1._cache.keys()):
-                    # We can't easily filter MD5 keys, so clear all stats
-                    keys_to_delete.append(key)
-                for key in keys_to_delete:
-                    self._l1._cache.pop(key, None)
-                    count += 1
-
-        if isinstance(self._primary, InMemoryBackend):
-            with self._primary._lock:
-                keys_to_delete = []
-                for key in list(self._primary._cache.keys()):
-                    keys_to_delete.append(key)
-                for key in keys_to_delete:
-                    self._primary._cache.pop(key, None)
-                    count += 1
-
+        count = self.invalidate_by_pattern(pattern)
         logger.info(f"Invalidated {count} cache entries for {sport_id} stats refresh")
         return count
 

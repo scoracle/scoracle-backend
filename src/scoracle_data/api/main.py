@@ -106,7 +106,7 @@ async def warm_cache() -> None:
                 if team_data.get("updated_at"):
                     team_data["updated_at"] = str(team_data["updated_at"])
                 cache.set(
-                    team_data, "info", "team", team["id"], sport, ttl=TTL_ENTITY_INFO
+                    team_data, "profile", "team", team["id"], sport, ttl=TTL_ENTITY_INFO
                 )
                 count += 1
 
@@ -132,7 +132,7 @@ async def warm_cache() -> None:
                         player_data["updated_at"] = str(player_data["updated_at"])
                     cache.set(
                         player_data,
-                        "info",
+                        "profile",
                         "player",
                         player["id"],
                         sport,

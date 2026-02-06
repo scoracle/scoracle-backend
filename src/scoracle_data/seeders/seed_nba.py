@@ -1,18 +1,21 @@
-"""NBA seeder — seeds NBA data from BallDontLie API into Neon PostgreSQL.
+"""NBA seeder — seeds NBA data from BallDontLie API into PostgreSQL.
 
 Uses the canonical BallDontLieNBA provider client and centralized table
 names from core.types.SPORT_REGISTRY.
+
+DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
 """
 
 import json
 import logging
-from typing import Any
-
-import asyncpg
+from typing import Any, TYPE_CHECKING
 
 from ..core.types import get_sport_config
 from ..providers.balldontlie_nba import BallDontLieNBA
 from .common import SeedResult
+
+if TYPE_CHECKING:
+    from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,9 @@ TEAM_STATS_TABLE = _cfg.team_stats_table
 
 
 class NBASeedRunner:
-    """Seeds NBA data from BallDontLie into asyncpg connection."""
+    """Seeds NBA data from BallDontLie into PostgreSQL via psycopg."""
 
-    def __init__(self, db: asyncpg.Connection, client: BallDontLieNBA):
+    def __init__(self, db: "PostgresDB", client: BallDontLieNBA):
         self.db = db
         self.client = client
 
@@ -39,7 +42,7 @@ class NBASeedRunner:
         try:
             teams = await self.client.get_teams()
             for team in teams:
-                await self._upsert_team(team)
+                self._upsert_team(team)
                 result.teams_upserted += 1
             logger.info(f"Upserted {result.teams_upserted} teams")
         except Exception as e:
@@ -48,11 +51,11 @@ class NBASeedRunner:
             result.errors.append(error_msg)
         return result
 
-    async def _upsert_team(self, team: dict[str, Any]) -> None:
-        await self.db.execute(f"""
+    def _upsert_team(self, team: dict[str, Any]) -> None:
+        self.db.execute(f"""
             INSERT INTO {TEAM_TABLE} (
                 id, name, full_name, abbreviation, city, conference, division
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 full_name = EXCLUDED.full_name,
@@ -61,7 +64,7 @@ class NBASeedRunner:
                 conference = EXCLUDED.conference,
                 division = EXCLUDED.division,
                 updated_at = NOW()
-        """,
+        """, (
             team["id"],
             team.get("name"),
             team.get("full_name"),
@@ -69,7 +72,7 @@ class NBASeedRunner:
             team.get("city"),
             team.get("conference"),
             team.get("division"),
-        )
+        ))
 
     # -- Players --------------------------------------------------------------
 
@@ -81,7 +84,7 @@ class NBASeedRunner:
             count = 0
             async for player in self.client.get_players():
                 try:
-                    await self._upsert_player(player)
+                    self._upsert_player(player)
                     result.players_upserted += 1
                     count += 1
                     if count % 100 == 0:
@@ -95,15 +98,15 @@ class NBASeedRunner:
             result.errors.append(error_msg)
         return result
 
-    async def _upsert_player(self, player: dict[str, Any]) -> None:
+    def _upsert_player(self, player: dict[str, Any]) -> None:
         team = player.get("team") or {}
         team_id = team.get("id") if team else None
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_TABLE} (
                 id, first_name, last_name, position, height, weight,
                 jersey_number, college, country, draft_year, draft_round,
                 draft_number, team_id
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name,
@@ -118,7 +121,7 @@ class NBASeedRunner:
                 draft_number = EXCLUDED.draft_number,
                 team_id = EXCLUDED.team_id,
                 updated_at = NOW()
-        """,
+        """, (
             player["id"],
             player.get("first_name"),
             player.get("last_name"),
@@ -132,7 +135,7 @@ class NBASeedRunner:
             player.get("draft_round"),
             player.get("draft_number"),
             team_id,
-        )
+        ))
 
     # -- Player Stats ---------------------------------------------------------
 
@@ -144,7 +147,7 @@ class NBASeedRunner:
             count = 0
             async for stats in self.client.get_all_season_averages(season, season_type):
                 try:
-                    await self._upsert_player_stats(stats, season, season_type)
+                    self._upsert_player_stats(stats, season, season_type)
                     result.player_stats_upserted += 1
                     count += 1
                     if count % 50 == 0:
@@ -159,7 +162,7 @@ class NBASeedRunner:
             result.errors.append(error_msg)
         return result
 
-    async def _upsert_player_stats(
+    def _upsert_player_stats(
         self, stats_data: dict[str, Any], season: int, season_type: str,
     ) -> None:
         player = stats_data.get("player", {})
@@ -168,16 +171,16 @@ class NBASeedRunner:
             return
 
         # Ensure the player exists
-        exists = await self.db.fetchval(
-            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = $1", player_id,
+        exists = self.db.fetchone(
+            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = %s", (player_id,),
         )
         if not exists:
-            await self._upsert_player(player)
+            self._upsert_player(player)
 
         s = stats_data.get("stats", {})
         raw_json = json.dumps(stats_data)
 
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_STATS_TABLE} (
                 player_id, season, season_type, games_played, minutes,
                 pts, reb, ast, stl, blk,
@@ -185,9 +188,9 @@ class NBASeedRunner:
                 fg3m, fg3a, ftm, fta, oreb, dreb,
                 turnover, pf, plus_minus, raw_json
             ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
-                $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
-                $22,$23,$24,$25
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s
             )
             ON CONFLICT (player_id, season, season_type) DO UPDATE SET
                 games_played = EXCLUDED.games_played, minutes = EXCLUDED.minutes,
@@ -201,7 +204,7 @@ class NBASeedRunner:
                 turnover = EXCLUDED.turnover, pf = EXCLUDED.pf,
                 plus_minus = EXCLUDED.plus_minus, raw_json = EXCLUDED.raw_json,
                 updated_at = NOW()
-        """,
+        """, (
             player_id, season, season_type,
             s.get("gp"), s.get("min"),
             s.get("pts"), s.get("reb"), s.get("ast"), s.get("stl"), s.get("blk"),
@@ -210,7 +213,7 @@ class NBASeedRunner:
             s.get("ftm"), s.get("fta"), s.get("oreb"), s.get("dreb"),
             s.get("tov"), s.get("pf"), s.get("plus_minus"),
             raw_json,
-        )
+        ))
 
     # -- Team Stats -----------------------------------------------------------
 
@@ -222,7 +225,7 @@ class NBASeedRunner:
             stats_list = await self.client.get_team_season_averages(season, season_type)
             for stats in stats_list:
                 try:
-                    await self._upsert_team_stats(stats, season, season_type)
+                    self._upsert_team_stats(stats, season, season_type)
                     result.team_stats_upserted += 1
                 except Exception as e:
                     tid = stats.get("team", {}).get("id")
@@ -234,7 +237,7 @@ class NBASeedRunner:
             result.errors.append(error_msg)
         return result
 
-    async def _upsert_team_stats(
+    def _upsert_team_stats(
         self, stats_data: dict[str, Any], season: int, season_type: str,
     ) -> None:
         team = stats_data.get("team", {})
@@ -243,11 +246,11 @@ class NBASeedRunner:
             return
         s = stats_data.get("stats", {})
         raw_json = json.dumps(stats_data)
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {TEAM_STATS_TABLE} (
                 team_id, season, season_type, wins, losses, games_played,
                 pts, reb, ast, fg_pct, fg3_pct, ft_pct, raw_json
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (team_id, season, season_type) DO UPDATE SET
                 wins = EXCLUDED.wins, losses = EXCLUDED.losses,
                 games_played = EXCLUDED.games_played,
@@ -255,13 +258,13 @@ class NBASeedRunner:
                 fg_pct = EXCLUDED.fg_pct, fg3_pct = EXCLUDED.fg3_pct,
                 ft_pct = EXCLUDED.ft_pct, raw_json = EXCLUDED.raw_json,
                 updated_at = NOW()
-        """,
+        """, (
             team_id, season, season_type,
             s.get("w"), s.get("l"), s.get("gp"),
             s.get("pts"), s.get("reb"), s.get("ast"),
             s.get("fg_pct"), s.get("fg3_pct"), s.get("ft_pct"),
             raw_json,
-        )
+        ))
 
     # -- Full Seed ------------------------------------------------------------
 

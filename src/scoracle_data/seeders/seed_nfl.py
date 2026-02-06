@@ -1,18 +1,21 @@
-"""NFL seeder — seeds NFL data from BallDontLie API into Neon PostgreSQL.
+"""NFL seeder — seeds NFL data from BallDontLie API into PostgreSQL.
 
 Uses the canonical BallDontLieNFL provider client and centralized table
 names from core.types.SPORT_REGISTRY.
+
+DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
 """
 
 import json
 import logging
-from typing import Any
-
-import asyncpg
+from typing import Any, TYPE_CHECKING
 
 from ..core.types import get_sport_config
 from ..providers.balldontlie_nfl import BallDontLieNFL
 from .common import SeedResult
+
+if TYPE_CHECKING:
+    from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +27,9 @@ TEAM_STATS_TABLE = _cfg.team_stats_table
 
 
 class NFLSeedRunner:
-    """Seeds NFL data from BallDontLie into asyncpg connection."""
+    """Seeds NFL data from BallDontLie into PostgreSQL via psycopg."""
 
-    def __init__(self, db: asyncpg.Connection, client: BallDontLieNFL):
+    def __init__(self, db: "PostgresDB", client: BallDontLieNFL):
         self.db = db
         self.client = client
 
@@ -38,7 +41,7 @@ class NFLSeedRunner:
         try:
             teams = await self.client.get_teams()
             for team in teams:
-                await self._upsert_team(team)
+                self._upsert_team(team)
                 result.teams_upserted += 1
             logger.info(f"Upserted {result.teams_upserted} teams")
         except Exception as e:
@@ -46,21 +49,21 @@ class NFLSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_team(self, team: dict[str, Any]) -> None:
-        await self.db.execute(f"""
+    def _upsert_team(self, team: dict[str, Any]) -> None:
+        self.db.execute(f"""
             INSERT INTO {TEAM_TABLE} (
                 id, name, full_name, abbreviation, location, conference, division
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name, full_name = EXCLUDED.full_name,
                 abbreviation = EXCLUDED.abbreviation, location = EXCLUDED.location,
                 conference = EXCLUDED.conference, division = EXCLUDED.division,
                 updated_at = NOW()
-        """,
+        """, (
             team["id"], team.get("name"), team.get("full_name"),
             team.get("abbreviation"), team.get("location"),
             team.get("conference"), team.get("division"),
-        )
+        ))
 
     # -- Players --------------------------------------------------------------
 
@@ -71,7 +74,7 @@ class NFLSeedRunner:
             count = 0
             async for player in self.client.get_players():
                 try:
-                    await self._upsert_player(player)
+                    self._upsert_player(player)
                     result.players_upserted += 1
                     count += 1
                     if count % 100 == 0:
@@ -84,14 +87,14 @@ class NFLSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_player(self, player: dict[str, Any]) -> None:
+    def _upsert_player(self, player: dict[str, Any]) -> None:
         team = player.get("team") or {}
         team_id = team.get("id") if team else None
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_TABLE} (
                 id, first_name, last_name, position, position_abbreviation,
                 height, weight, jersey_number, college, experience, age, team_id
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (id) DO UPDATE SET
                 first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
                 position = EXCLUDED.position,
@@ -100,13 +103,13 @@ class NFLSeedRunner:
                 jersey_number = EXCLUDED.jersey_number, college = EXCLUDED.college,
                 experience = EXCLUDED.experience, age = EXCLUDED.age,
                 team_id = EXCLUDED.team_id, updated_at = NOW()
-        """,
+        """, (
             player["id"], player.get("first_name"), player.get("last_name"),
             player.get("position"), player.get("position_abbreviation"),
             player.get("height"), player.get("weight"),
             player.get("jersey_number"), player.get("college"),
             player.get("experience"), player.get("age"), team_id,
-        )
+        ))
 
     # -- Player Stats ---------------------------------------------------------
 
@@ -118,7 +121,7 @@ class NFLSeedRunner:
             count = 0
             async for stats in self.client.get_season_stats(season, postseason):
                 try:
-                    await self._upsert_player_stats(stats, season, postseason)
+                    self._upsert_player_stats(stats, season, postseason)
                     result.player_stats_upserted += 1
                     count += 1
                     if count % 50 == 0:
@@ -132,7 +135,7 @@ class NFLSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_player_stats(
+    def _upsert_player_stats(
         self, stats_data: dict[str, Any], season: int, postseason: bool,
     ) -> None:
         player = stats_data.get("player", {})
@@ -140,15 +143,15 @@ class NFLSeedRunner:
         if not player_id:
             return
 
-        exists = await self.db.fetchval(
-            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = $1", player_id,
+        exists = self.db.fetchone(
+            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = %s", (player_id,),
         )
         if not exists:
-            await self._upsert_player(player)
+            self._upsert_player(player)
 
         raw_json = json.dumps(stats_data)
 
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_STATS_TABLE} (
                 player_id, season, postseason, games_played,
                 passing_completions, passing_attempts, passing_yards,
@@ -168,10 +171,10 @@ class NFLSeedRunner:
                 punt_returner_returns, punt_returner_return_yards, punt_return_touchdowns,
                 raw_json
             ) VALUES (
-                $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,
-                $13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,
-                $26,$27,$28,$29,$30,$31,$32,$33,$34,
-                $35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s
             )
             ON CONFLICT (player_id, season, postseason) DO UPDATE SET
                 games_played = EXCLUDED.games_played,
@@ -216,7 +219,7 @@ class NFLSeedRunner:
                 punt_returner_return_yards = EXCLUDED.punt_returner_return_yards,
                 punt_return_touchdowns = EXCLUDED.punt_return_touchdowns,
                 raw_json = EXCLUDED.raw_json, updated_at = NOW()
-        """,
+        """, (
             player_id, season, postseason, stats_data.get("games_played"),
             stats_data.get("passing_completions"), stats_data.get("passing_attempts"),
             stats_data.get("passing_yards"), stats_data.get("passing_touchdowns"),
@@ -240,7 +243,7 @@ class NFLSeedRunner:
             stats_data.get("kick_return_touchdowns"), stats_data.get("punt_returner_returns"),
             stats_data.get("punt_returner_return_yards"), stats_data.get("punt_return_touchdowns"),
             raw_json,
-        )
+        ))
 
     # -- Team Stats -----------------------------------------------------------
 
@@ -252,7 +255,7 @@ class NFLSeedRunner:
             stats_list = await self.client.get_team_season_stats(season, postseason)
             for stats in stats_list:
                 try:
-                    await self._upsert_team_stats(stats, season, postseason)
+                    self._upsert_team_stats(stats, season, postseason)
                     result.team_stats_upserted += 1
                 except Exception as e:
                     tid = stats.get("team", {}).get("id")
@@ -263,7 +266,7 @@ class NFLSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_team_stats(
+    def _upsert_team_stats(
         self, stats_data: dict[str, Any], season: int, postseason: bool,
     ) -> None:
         team = stats_data.get("team", {})
@@ -271,22 +274,22 @@ class NFLSeedRunner:
         if not team_id:
             return
         raw_json = json.dumps(stats_data)
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {TEAM_STATS_TABLE} (
                 team_id, season, postseason, wins, losses, ties,
                 points_for, points_against, point_differential, raw_json
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (team_id, season, postseason) DO UPDATE SET
                 wins = EXCLUDED.wins, losses = EXCLUDED.losses, ties = EXCLUDED.ties,
                 points_for = EXCLUDED.points_for, points_against = EXCLUDED.points_against,
                 point_differential = EXCLUDED.point_differential,
                 raw_json = EXCLUDED.raw_json, updated_at = NOW()
-        """,
+        """, (
             team_id, season, postseason,
             stats_data.get("wins"), stats_data.get("losses"), stats_data.get("ties"),
             stats_data.get("points_for"), stats_data.get("points_against"),
             stats_data.get("point_differential"), raw_json,
-        )
+        ))
 
     # -- Full Seed ------------------------------------------------------------
 

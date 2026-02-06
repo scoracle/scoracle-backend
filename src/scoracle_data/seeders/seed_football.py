@@ -1,19 +1,22 @@
-"""Football seeder — seeds Football (Soccer) data from SportMonks API into Neon PostgreSQL.
+"""Football seeder — seeds Football (Soccer) data from SportMonks API into PostgreSQL.
 
 Uses the canonical SportMonksClient provider and centralized table
 names from core.types.SPORT_REGISTRY.
+
+DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
 """
 
 import json
 import logging
 from datetime import datetime
-from typing import Any
-
-import asyncpg
+from typing import Any, TYPE_CHECKING
 
 from ..core.types import get_sport_config
 from ..providers.sportmonks import SportMonksClient
 from .common import SeedResult
+
+if TYPE_CHECKING:
+    from ..pg_connection import PostgresDB
 
 logger = logging.getLogger(__name__)
 
@@ -44,9 +47,9 @@ PREMIER_LEAGUE_SEASONS = {
 
 
 class FootballSeedRunner:
-    """Seeds Football data from SportMonks into asyncpg connection."""
+    """Seeds Football data from SportMonks into PostgreSQL via psycopg."""
 
-    def __init__(self, db: asyncpg.Connection, client: SportMonksClient):
+    def __init__(self, db: "PostgresDB", client: SportMonksClient):
         self.db = db
         self.client = client
 
@@ -58,7 +61,7 @@ class FootballSeedRunner:
         try:
             teams = await self.client.get_teams_by_season(season_id)
             for team in teams:
-                await self._upsert_team(team)
+                self._upsert_team(team)
                 result.teams_upserted += 1
             logger.info(f"Upserted {result.teams_upserted} teams")
         except Exception as e:
@@ -66,23 +69,23 @@ class FootballSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_team(self, team: dict[str, Any]) -> None:
+    def _upsert_team(self, team: dict[str, Any]) -> None:
         venue = team.get("venue") or {}
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {TEAM_TABLE} (
                 id, name, short_code, country, logo_url,
                 venue_name, venue_capacity, founded
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name, short_code = EXCLUDED.short_code,
                 country = EXCLUDED.country, logo_url = EXCLUDED.logo_url,
                 venue_name = EXCLUDED.venue_name, venue_capacity = EXCLUDED.venue_capacity,
                 founded = EXCLUDED.founded, updated_at = NOW()
-        """,
+        """, (
             team["id"], team.get("name"), team.get("short_code"),
             team.get("country"), team.get("image_path"),
             venue.get("name"), venue.get("capacity"), team.get("founded"),
-        )
+        ))
 
     # -- Players --------------------------------------------------------------
 
@@ -99,7 +102,7 @@ class FootballSeedRunner:
                     squad = await self.client.get_squad(season_id, team_id)
                     for player_data in squad:
                         player = player_data.get("player", player_data)
-                        await self._upsert_player(player)
+                        self._upsert_player(player)
                         result.players_upserted += 1
                 except Exception as e:
                     result.errors.append(f"Error seeding squad for team {team_id}: {e}")
@@ -110,7 +113,7 @@ class FootballSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_player(self, player: dict[str, Any]) -> None:
+    def _upsert_player(self, player: dict[str, Any]) -> None:
         dob = None
         dob_str = player.get("date_of_birth")
         if dob_str:
@@ -119,12 +122,12 @@ class FootballSeedRunner:
             except ValueError:
                 pass
 
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_TABLE} (
                 id, common_name, first_name, last_name, display_name,
                 nationality, nationality_id, position, detailed_position,
                 position_id, height, weight, date_of_birth, image_url
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (id) DO UPDATE SET
                 common_name = EXCLUDED.common_name, first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name, display_name = EXCLUDED.display_name,
@@ -133,14 +136,14 @@ class FootballSeedRunner:
                 position_id = EXCLUDED.position_id, height = EXCLUDED.height,
                 weight = EXCLUDED.weight, date_of_birth = EXCLUDED.date_of_birth,
                 image_url = EXCLUDED.image_url, updated_at = NOW()
-        """,
+        """, (
             player["id"], player.get("common_name"), player.get("firstname"),
             player.get("lastname"), player.get("display_name"),
             player.get("nationality"), player.get("nationality_id"),
             player.get("position"), player.get("detailed_position"),
             player.get("position_id"), player.get("height"), player.get("weight"),
             dob, player.get("image_path"),
-        )
+        ))
 
     # -- Player Stats ---------------------------------------------------------
 
@@ -153,7 +156,7 @@ class FootballSeedRunner:
             count = 0
             async for stats in self.client.iterate_season_player_statistics(season_id):
                 try:
-                    await self._upsert_player_stats(stats, league_id, season_year, season_id)
+                    self._upsert_player_stats(stats, league_id, season_year, season_id)
                     result.player_stats_upserted += 1
                     count += 1
                     if count % 50 == 0:
@@ -168,7 +171,7 @@ class FootballSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_player_stats(
+    def _upsert_player_stats(
         self, stats_data: dict[str, Any],
         league_id: int, season_year: int, season_id: int,
     ) -> None:
@@ -178,13 +181,13 @@ class FootballSeedRunner:
             return
 
         # Ensure player exists
-        exists = await self.db.fetchval(
-            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = $1", player_id,
+        exists = self.db.fetchone(
+            f"SELECT 1 FROM {PLAYER_TABLE} WHERE id = %s", (player_id,),
         )
         if not exists:
             player = stats_data.get("player", {})
             if player:
-                await self._upsert_player(player)
+                self._upsert_player(player)
 
         raw_json = json.dumps(stats_data)
 
@@ -205,11 +208,11 @@ class FootballSeedRunner:
         assists = get_stat(79)
         minutes = get_stat(119)
 
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {PLAYER_STATS_TABLE} (
                 player_id, team_id, league_id, season, sportmonks_season_id,
                 appearances, minutes_played, goals, assists, raw_json
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (player_id, league_id, season) DO UPDATE SET
                 team_id = EXCLUDED.team_id,
                 sportmonks_season_id = EXCLUDED.sportmonks_season_id,
@@ -217,10 +220,10 @@ class FootballSeedRunner:
                 minutes_played = EXCLUDED.minutes_played,
                 goals = EXCLUDED.goals, assists = EXCLUDED.assists,
                 raw_json = EXCLUDED.raw_json, updated_at = NOW()
-        """,
+        """, (
             player_id, team_id, league_id, season_year, season_id,
             appearances, minutes, goals, assists, raw_json,
-        )
+        ))
 
     # -- Team Stats (Standings) -----------------------------------------------
 
@@ -233,7 +236,7 @@ class FootballSeedRunner:
             standings = await self.client.get_standings(season_id)
             for standing in standings:
                 try:
-                    await self._upsert_team_stats(standing, league_id, season_year, season_id)
+                    self._upsert_team_stats(standing, league_id, season_year, season_id)
                     result.team_stats_upserted += 1
                 except Exception as e:
                     tid = standing.get("participant", {}).get("id")
@@ -245,7 +248,7 @@ class FootballSeedRunner:
             logger.error(result.errors[-1])
         return result
 
-    async def _upsert_team_stats(
+    def _upsert_team_stats(
         self, standing: dict[str, Any],
         league_id: int, season_year: int, season_id: int,
     ) -> None:
@@ -254,12 +257,12 @@ class FootballSeedRunner:
         if not team_id:
             return
         raw_json = json.dumps(standing)
-        await self.db.execute(f"""
+        self.db.execute(f"""
             INSERT INTO {TEAM_STATS_TABLE} (
                 team_id, league_id, season, sportmonks_season_id,
                 wins, draws, losses, goals_for, goals_against,
                 goal_difference, points, position, form, raw_json
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT (team_id, league_id, season) DO UPDATE SET
                 sportmonks_season_id = EXCLUDED.sportmonks_season_id,
                 wins = EXCLUDED.wins, draws = EXCLUDED.draws, losses = EXCLUDED.losses,
@@ -267,13 +270,13 @@ class FootballSeedRunner:
                 goal_difference = EXCLUDED.goal_difference, points = EXCLUDED.points,
                 position = EXCLUDED.position, form = EXCLUDED.form,
                 raw_json = EXCLUDED.raw_json, updated_at = NOW()
-        """,
+        """, (
             team_id, league_id, season_year, season_id,
             standing.get("won"), standing.get("draw"), standing.get("lost"),
             standing.get("goals_for"), standing.get("goals_against"),
             standing.get("goal_difference"), standing.get("points"),
             standing.get("position"), standing.get("form"), raw_json,
-        )
+        ))
 
     # -- Full Seed ------------------------------------------------------------
 

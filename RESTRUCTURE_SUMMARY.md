@@ -3,7 +3,8 @@
 ## Overview
 
 A multi-phase restructure of the scoracle-data backend covering security hardening,
-code consolidation, cache performance, and structural improvements. 12 commits total.
+code consolidation, cache performance, structural improvements, and dead code removal.
+16 commits total, ~10,000 lines of dead code removed.
 
 ---
 
@@ -83,7 +84,7 @@ sport-specific profile tables instead of deprecated UNION views.
 | Fix | Impact |
 |-----|--------|
 | Cache warming key mismatch (`"info"` vs `"profile"`) | Warmed entries now actually get cache hits |
-| MD5 cache keys → structured colon-delimited keys | Debuggable, pattern-matchable invalidation |
+| MD5 cache keys -> structured colon-delimited keys | Debuggable, pattern-matchable invalidation |
 | `MAX_ENTRIES=10_000` with LRU eviction | Prevents unbounded memory growth |
 | Auto-disable L1 when Redis unavailable | L1 only helps over network hop; pointless alone |
 
@@ -116,11 +117,53 @@ gaps, SQLite-era no-ops, and the active PostgreSQL schema (migrations 007+).
 
 ---
 
+## Phase 5: CLI Rewire + Dead Code Sweep
+
+### 5a: Rewire CLI Seed Commands
+**Commit:** `cc79e17`
+
+- Rewrote seed runners (`seed_nba.py`, `seed_nfl.py`, `seed_football.py`) from asyncpg to
+  psycopg — eliminates the asyncpg dependency that was never installed
+- Rewired `cli.py` `cmd_seed` to use `NBASeedRunner` / `NFLSeedRunner` / `FootballSeedRunner`
+  with canonical provider clients (`BallDontLieNBA`, `BallDontLieNFL`, `SportMonksClient`)
+- Removed `cmd_seed_debug`, `cmd_seed_small`, `cmd_seed_2phase` (superseded by `cmd_seed`)
+- Provider API keys read from `BALLDONTLIE_API_KEY` / `SPORTMONKS_API_TOKEN` env vars
+
+### 5b: Delete Legacy Seeders (4,635 lines)
+**Commit:** `e6fe6ec`
+
+Deleted:
+- `seeders/base.py` (1,625 lines) — abstract BaseSeeder framework
+- `seeders/nba_seeder.py` (605 lines) — legacy NBA seeder
+- `seeders/nfl_seeder.py` (624 lines) — legacy NFL seeder
+- `seeders/football_seeder.py` (938 lines) — legacy Football seeder
+- `seeders/utils.py` (433 lines) — DataParsers/StatCalculators/PositionMappers
+- `query_builder.py` (367 lines) — cached upsert query builder
+
+Updated consumers:
+- `fixtures/post_match_seeder.py` — import `NBASeedRunner` instead of `NBASeeder`
+- `scripts/calculate_advanced_stats.py` — inlined needed stat helpers, import from `pg_connection`
+- `tests/test_postgres.py` — removed `TestQueryBuilder` class
+
+### 5c: Delete Obsolete Scripts and Entity Repository (1,647 lines)
+**Commit:** `adbc710`
+
+Deleted:
+- `scripts/seed_production.py` (442 lines) — used legacy seeders
+- `scripts/migrate_to_neon.py` (276 lines) — one-time migration, completed
+- `scripts/upgrade_to_v4_schema.py` (322 lines) — one-time migration, completed
+- `entity_repository.py` (587 lines) — never instantiated outside `__init__.py`
+
+Updated `__init__.py` to remove `EntityRepository` export.
+
+---
+
 ## Architecture Decisions
 
 | Decision | Choice | Alternative Rejected |
 |----------|--------|---------------------|
 | Database | Single Neon DB with sport-prefixed tables | Per-sport databases |
+| DB driver | psycopg3 everywhere (sync) | asyncpg (was in seeders but never installed) |
 | Providers | Concrete classes per API | Generic `DataProviderProtocol` |
 | Config | Python `SPORT_REGISTRY` in `core/types.py` | TOML/YAML files |
 | Seeders | Per-sport concrete seed runners | Generic seeder framework |
@@ -131,25 +174,12 @@ gaps, SQLite-era no-ops, and the active PostgreSQL schema (migrations 007+).
 
 ## Remaining Work
 
-### Blocked: Dead Code Sweep (~3,370 lines)
+### Files Deliberately Kept
 
-The following files are still imported by legacy CLI seed commands (`cli.py`) and
-cannot be deleted until the CLI is rewired to use the new asyncpg-based seed runners:
-
-| File | Lines | Blocked By |
-|------|-------|------------|
-| `seeders/base.py` | ~1,200 | CLI `cmd_seed` / `cmd_seed_2phase` / `cmd_seed_debug` |
-| `seeders/nba_seeder.py` | 606 | CLI `NBASeeder` import |
-| `seeders/nfl_seeder.py` | 625 | CLI `NFLSeeder` import |
-| `seeders/football_seeder.py` | 939 | CLI `FootballSeeder` import |
-| `seeders/utils.py` | 434 | Used by all legacy seeders |
-| `query_builder.py` | 368 | Used by all legacy seeders |
-| `api_client.py` | 402 | CLI `get_api_client` import |
-| `connection.py` | 45 | CLI and scripts `get_db` import |
-| `entity_repository.py` | 588 | Package `__init__.py` re-export |
-
-**To unblock:** Rewire CLI seed commands to use `NBASeedRunner` / `NFLSeedRunner` /
-`FootballSeedRunner` (requires psycopg → asyncpg migration in the CLI layer).
+| File | Lines | Reason |
+|------|-------|--------|
+| `connection.py` | 45 | Thin alias layer (`StatsDB = PostgresDB`), referenced by 6+ TYPE_CHECKING imports |
+| `api_client.py` | 402 | Still used by `diff`, `fixtures`, and `ml` CLI commands via legacy API-Sports interface |
 
 ### Database Cleanup (SQL migrations needed)
 
@@ -197,14 +227,4 @@ reverse proxy).
 ```bash
 # In Railway environment variables:
 TRUSTED_PROXY_IPS=10.0.0.0/8,172.16.0.0/12
-```
-
----
-
-## Git State
-
-12 commits ahead of `origin/main`. Push manually (HTTPS auth required):
-
-```bash
-git push origin main
 ```

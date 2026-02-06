@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from .base import BaseExternalClient, ExternalAPIError
+from ..core.http import BaseApiClient, ExternalAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +41,15 @@ class Tweet:
     url: str
 
 
-class TwitterClient(BaseExternalClient):
+class TwitterClient(BaseApiClient):
     """
     Twitter/X API v2 client.
 
     Uses the recent search endpoint to find tweets about players/teams.
     Rate limit: 450 requests per 15 minutes (Essential tier).
     """
+
+    BASE_URL = "https://api.twitter.com/2"
 
     def __init__(self, bearer_token: str | None = None):
         """
@@ -57,16 +59,13 @@ class TwitterClient(BaseExternalClient):
             bearer_token: Twitter API v2 bearer token. If None, reads from
                           TWITTER_BEARER_TOKEN environment variable.
         """
-        super().__init__(
-            base_url="https://api.twitter.com/2",
-            rate_limit=(450, 900),  # 450 requests per 15 minutes
-            timeout=15.0,
-        )
         self.bearer_token = bearer_token or os.getenv("TWITTER_BEARER_TOKEN", "")
-
-    def _get_auth_headers(self) -> dict[str, str]:
-        """Return Bearer token auth header."""
-        return {"Authorization": f"Bearer {self.bearer_token}"}
+        super().__init__(
+            headers={"Authorization": f"Bearer {self.bearer_token}"},
+            requests_per_minute=30,  # 450 per 15 min
+            timeout=15.0,
+            follow_redirects=True,
+        )
 
     def is_configured(self) -> bool:
         """Check if bearer token is configured."""
@@ -165,7 +164,7 @@ class TwitterClient(BaseExternalClient):
         }
 
         try:
-            response = await self.get("/tweets/search/recent", params=params)
+            response = await self._get("/tweets/search/recent", params=params)
         except ExternalAPIError:
             raise
         except Exception as e:
@@ -252,7 +251,7 @@ class TwitterClient(BaseExternalClient):
         }
 
         try:
-            response = await self.get(f"/lists/{list_id}/tweets", params=params)
+            response = await self._get(f"/lists/{list_id}/tweets", params=params)
         except ExternalAPIError:
             raise
         except Exception as e:

@@ -1,7 +1,9 @@
 """
-Model Registry for ML Models
+Model Registry for ML Models  [NOT YET INTEGRATED]
 
 Manages model loading, versioning, and lifecycle.
+
+This module is scaffolding -- not called by any production code path.
 """
 
 import logging

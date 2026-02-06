@@ -14,16 +14,24 @@ import logging
 import os
 import threading
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# TTL constants (in seconds) - optimized for once-daily data updates
-TTL_HISTORICAL = 86400  # 24 hours for historical/past season data
-TTL_CURRENT_SEASON = 3600  # 1 hour for current season data
-TTL_ENTITY_INFO = 86400  # 24 hours for player/team basic info
-TTL_DEFAULT = 3600  # 1 hour default
+# ---------------------------------------------------------------------------
+# TTL constants (seconds) -- single source of truth for all cache durations.
+# Optimized for once-daily data updates.
+# ---------------------------------------------------------------------------
+TTL_HISTORICAL = 86400          # 24h -- past season data (never changes)
+TTL_CURRENT_SEASON = 3600       # 1h  -- current season stats/profiles
+TTL_ENTITY_INFO = 86400         # 24h -- player/team basic info
+TTL_DEFAULT = 3600              # 1h  -- fallback
+TTL_NEWS = 600                  # 10m -- news articles (high churn)
+TTL_TRANSFER_PREDICTIONS = 1800 # 30m -- ML transfer predictions
+TTL_VIBE_SCORE = 3600           # 1h  -- ML vibe/sentiment scores
+TTL_PERFORMANCE_PREDICTION = 3600  # 1h -- ML performance predictions
+TTL_SIMILARITY = 3600           # 1h  -- entity similarity (nightly batch)
 
 
 class CacheBackend(ABC):
@@ -78,14 +86,14 @@ class InMemoryBackend(CacheBackend):
         with self._lock:
             if key in self._cache:
                 value, expiry = self._cache[key]
-                if datetime.utcnow() < expiry:
+                if datetime.now(tz=timezone.utc) < expiry:
                     return value
                 else:
                     del self._cache[key]
         return None
 
     def set(self, key: str, value: Any, ttl: int) -> None:
-        expiry = datetime.utcnow() + timedelta(seconds=ttl)
+        expiry = datetime.now(tz=timezone.utc) + timedelta(seconds=ttl)
         with self._lock:
             # Evict expired entries if at capacity
             if len(self._cache) >= self.MAX_ENTRIES and key not in self._cache:
@@ -98,7 +106,7 @@ class InMemoryBackend(CacheBackend):
 
     def _evict_expired_locked(self) -> None:
         """Remove expired entries (caller must hold lock)."""
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         expired = [k for k, (_, exp) in self._cache.items() if now >= exp]
         for k in expired:
             del self._cache[k]
@@ -119,19 +127,19 @@ class InMemoryBackend(CacheBackend):
         with self._lock:
             if key in self._cache:
                 _, expiry = self._cache[key]
-                return datetime.utcnow() < expiry
+                return datetime.now(tz=timezone.utc) < expiry
             return False
 
     def keys(self, pattern: str = "*") -> list[str]:
         import fnmatch
         with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(tz=timezone.utc)
             return [k for k, (_, exp) in self._cache.items()
                     if now < exp and fnmatch.fnmatch(k, pattern)]
 
     def cleanup_expired(self) -> int:
         """Remove all expired entries. Returns count of removed entries."""
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         removed = 0
         with self._lock:
             expired_keys = [
@@ -410,37 +418,8 @@ class HybridCache:
         self._l1.cleanup_expired()
 
 
-class SimpleCache:
-    """
-    Backwards-compatible wrapper around HybridCache.
+# Global cache instance
 
-    Maintains the same interface as the original SimpleCache for existing code.
-    """
-
-    def __init__(self, default_ttl: int = TTL_DEFAULT):
-        self._hybrid = HybridCache(default_ttl=default_ttl)
-        self.default_ttl = default_ttl
-
-    def _make_key(self, *args) -> str:
-        return self._hybrid._make_key(*args)
-
-    def get(self, *args) -> Optional[Any]:
-        return self._hybrid.get(*args)
-
-    def set(self, value: Any, *args, ttl: Optional[int] = None) -> None:
-        self._hybrid.set(value, *args, ttl=ttl)
-
-    def clear(self) -> None:
-        self._hybrid.clear()
-
-    def size(self) -> int:
-        return self._hybrid.size()
-
-    def cleanup_expired(self) -> None:
-        self._hybrid.cleanup_expired()
-
-
-# Global cache instance - now uses HybridCache with 1-hour default
 _cache: Optional[HybridCache] = None
 
 

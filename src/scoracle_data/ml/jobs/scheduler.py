@@ -7,7 +7,7 @@ Orchestrates ML background jobs with scheduling and logging.
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Callable
 
@@ -175,7 +175,7 @@ class MLJobScheduler:
             return JobResult(
                 job_name=job_name,
                 status=JobStatus.FAILED,
-                started_at=datetime.utcnow(),
+                started_at=datetime.now(tz=timezone.utc),
                 errors=[f"Unknown job: {job_name}"],
             )
 
@@ -224,7 +224,7 @@ class MLJobScheduler:
         if not last_run:
             return True
 
-        elapsed = (datetime.utcnow() - last_run).total_seconds() / 60
+        elapsed = (datetime.now(tz=timezone.utc) - last_run).total_seconds() / 60
         return elapsed >= job_config.interval_minutes
 
     def _get_last_run(self, job_name: str) -> datetime | None:
@@ -247,7 +247,7 @@ class MLJobScheduler:
         **kwargs,
     ) -> JobResult:
         """Execute a job and record the result."""
-        started_at = datetime.utcnow()
+        started_at = datetime.now(tz=timezone.utc)
         result = JobResult(
             job_name=job_name,
             status=JobStatus.RUNNING,
@@ -285,7 +285,7 @@ class MLJobScheduler:
             result.errors.append(str(e))
             logger.error(f"Job {job_name} failed: {e}")
 
-        result.completed_at = datetime.utcnow()
+        result.completed_at = datetime.now(tz=timezone.utc)
         result.duration_seconds = (result.completed_at - started_at).total_seconds()
 
         # Record the run

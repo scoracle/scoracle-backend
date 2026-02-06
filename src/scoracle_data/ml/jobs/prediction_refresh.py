@@ -8,7 +8,7 @@ Runs periodically to update prediction scores.
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..config import ML_CONFIG, TIER_WEIGHTS
@@ -117,7 +117,7 @@ class PredictionRefreshJob:
 
     def _get_mention_pairs(self, sport_id: str | None) -> list[dict]:
         """Get all player-team pairs with sufficient recent mentions."""
-        cutoff = datetime.utcnow() - timedelta(hours=self.mention_window_hours)
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=self.mention_window_hours)
 
         query = """
             SELECT
@@ -178,7 +178,7 @@ class PredictionRefreshJob:
         # Calculate weighted score
         total_weight = 0.0
         weighted_sum = 0.0
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
 
         for mention in mentions:
             # Tier weight (higher tier = higher weight)

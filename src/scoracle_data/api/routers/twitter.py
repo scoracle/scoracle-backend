@@ -9,25 +9,19 @@ Delegates to TwitterService for feed fetching, caching, and filtering.
 """
 
 import logging
-from enum import Enum
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
 
 from ..errors import ServiceUnavailableError, ExternalServiceError, RateLimitedError
-from ...external import ExternalAPIError, RateLimitError
+from ...core.http import ExternalAPIError, RateLimitError
+from ...core.types import Sport
 from ...services.twitter import get_twitter_service
+from ._utils import set_cache_headers
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class Sport(str, Enum):
-    """Supported sports."""
-    NBA = "NBA"
-    NFL = "NFL"
-    FOOTBALL = "FOOTBALL"
 
 
 def _handle_external_error(e: Exception, service: str) -> None:
@@ -48,18 +42,16 @@ def _handle_external_error(e: Exception, service: str) -> None:
         )
 
 
-def _set_cache_headers(response: Response, cache_hit: bool, ttl: int) -> None:
-    """Set cache headers for external API responses."""
-    response.headers["X-Cache"] = "HIT" if cache_hit else "MISS"
-    response.headers["Cache-Control"] = f"public, max-age={ttl}"
+
+# Cache headers use shared set_cache_headers from _utils
 
 
 @router.get("/journalist-feed")
 async def get_journalist_feed(
     q: Annotated[str, Query(min_length=1, max_length=200, description="Search query (player/team name)")],
+    response: Response,
     sport: Annotated[Sport | None, Query(description="Sport for context (not used for filtering, metadata only)")] = None,
     limit: Annotated[int, Query(ge=1, le=50, description="Max results to return")] = 10,
-    response: Response = None,
 ):
     """
     Search trusted journalist feed for mentions of a player or team.
@@ -112,10 +104,10 @@ async def get_journalist_feed(
 
     # Set cache headers from result metadata
     meta = result.get("meta", {})
-    _set_cache_headers(
+    set_cache_headers(
         response,
-        cache_hit=meta.get("feed_cached", False),
         ttl=service.cache_ttl,
+        cache_hit=meta.get("feed_cached", False),
     )
 
     return result

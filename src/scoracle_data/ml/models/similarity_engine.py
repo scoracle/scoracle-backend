@@ -1,8 +1,12 @@
 """
-Entity Similarity Engine
+Entity Similarity Engine  [NOT YET INTEGRATED]
 
 Uses embeddings and statistical features to find
 similar players and teams within the same sport.
+
+This module is scaffolding -- not called by any production code path.
+Active similarity is handled by similarity/calculator.py using cosine
+similarity on percentile vectors.
 """
 
 from dataclasses import dataclass

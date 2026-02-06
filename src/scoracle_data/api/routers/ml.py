@@ -26,8 +26,9 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
 
-from ..cache import get_cache
+from ..cache import get_cache, TTL_TRANSFER_PREDICTIONS, TTL_VIBE_SCORE, TTL_PERFORMANCE_PREDICTION
 from ..dependencies import DBDependency
+from ...ml.config import get_vibe_label as _get_vibe_label
 from ..errors import NotFoundError
 from ...core.types import EntityType, PLAYER_STATS_TABLES, TEAM_STATS_TABLES
 from ...services.transfers import (
@@ -55,10 +56,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Cache TTLs
-TTL_TRANSFER_PREDICTIONS = 1800  # 30 minutes
-TTL_VIBE_SCORE = 3600  # 1 hour
-TTL_PERFORMANCE_PREDICTION = 3600  # 1 hour
+# TTL constants imported from api.cache (single source of truth)
 
 
 # =============================================================================
@@ -528,22 +526,8 @@ async def get_trending_vibes_endpoint(
 # =============================================================================
 
 
-def _get_vibe_label(score: float) -> str:
-    """Convert vibe score to label."""
-    if score >= 90:
-        return "Elite"
-    elif score >= 75:
-        return "Positive"
-    elif score >= 60:
-        return "Neutral-Positive"
-    elif score >= 40:
-        return "Neutral"
-    elif score >= 25:
-        return "Neutral-Negative"
-    elif score >= 10:
-        return "Negative"
-    else:
-        return "Crisis"
+
+# _get_vibe_label is imported from ml.config at the top of this file
 
 
 def _get_top_factors(link: dict[str, Any]) -> list[str]:

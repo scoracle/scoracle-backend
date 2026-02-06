@@ -2,10 +2,10 @@
 
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from .base import BaseExternalClient, ExternalAPIError
+from ..core.http import BaseApiClient, ExternalAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +18,14 @@ SPORT_DOMAINS = {
 }
 
 
-class NewsClient(BaseExternalClient):
+class NewsClient(BaseApiClient):
     """
     NewsAPI.org client for fetching news articles.
 
     Rate limit: 100 requests per day (free tier), 1000/day (paid).
     """
+
+    BASE_URL = "https://newsapi.org/v2"
 
     def __init__(self, api_key: str | None = None):
         """
@@ -33,16 +35,13 @@ class NewsClient(BaseExternalClient):
             api_key: NewsAPI.org API key. If None, reads from
                      NEWS_API_KEY environment variable.
         """
-        super().__init__(
-            base_url="https://newsapi.org/v2",
-            rate_limit=(100, 86400),  # 100 requests per day (free tier)
-            timeout=15.0,
-        )
         self.api_key = api_key or os.getenv("NEWS_API_KEY", "")
-
-    def _get_auth_headers(self) -> dict[str, str]:
-        """Return API key header."""
-        return {"X-Api-Key": self.api_key}
+        super().__init__(
+            headers={"X-Api-Key": self.api_key},
+            requests_per_minute=1,  # ~100 per day; conservative self-limit
+            timeout=15.0,
+            follow_redirects=True,
+        )
 
     def is_configured(self) -> bool:
         """Check if API key is configured."""
@@ -76,7 +75,7 @@ class NewsClient(BaseExternalClient):
 
         # Calculate date range
         days = min(max(1, days), 30)  # Free tier limited to 30 days
-        from_date = (datetime.utcnow() - timedelta(days=days)).strftime("%Y-%m-%d")
+        from_date = (datetime.now(tz=timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
         params = {
             "q": query,
@@ -91,7 +90,7 @@ class NewsClient(BaseExternalClient):
             params["domains"] = SPORT_DOMAINS[sport.upper()]
 
         try:
-            response = await self.get("/everything", params=params)
+            response = await self._get("/everything", params=params)
         except ExternalAPIError:
             raise
         except Exception as e:

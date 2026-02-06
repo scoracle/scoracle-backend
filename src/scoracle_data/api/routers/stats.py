@@ -46,10 +46,10 @@ async def get_entity_stats_endpoint(
     entity_type: EntityType,
     entity_id: int,
     sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
+    response: Response,
+    db: DBDependency,
     season: Annotated[int | None, Query(description="Season year (defaults to current)")] = None,
     league_id: Annotated[int | None, Query(description="League ID (for FOOTBALL)")] = None,
-    response: Response = None,
-    db: DBDependency = None,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
 ) -> dict[str, Any] | Response:
     """
@@ -117,8 +117,8 @@ async def get_available_seasons_endpoint(
     entity_type: EntityType,
     entity_id: int,
     sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
-    response: Response = None,
-    db: DBDependency = None,
+    response: Response,
+    db: DBDependency,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
 ) -> dict[str, Any] | Response:
     """

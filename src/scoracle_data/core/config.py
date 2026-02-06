@@ -132,6 +132,7 @@ class Settings(BaseSettings):
 
     # ==========================================================================
     # Caching Configuration
+    # TTL values are centralized in api/cache.py (single source of truth)
     # ==========================================================================
     cache_enabled: bool = True
     cache_backend: str = Field(
@@ -142,9 +143,6 @@ class Settings(BaseSettings):
         default=None,
         description="Redis connection URL (redis://host:port/db)",
     )
-    cache_ttl_current_season: int = Field(default=3600, description="TTL for current season data (seconds)")
-    cache_ttl_historical: int = Field(default=86400, description="TTL for historical data (seconds)")
-    cache_ttl_entity_info: int = Field(default=86400, description="TTL for entity info (seconds)")
     cache_warmup_enabled: bool = Field(default=True, description="Enable cache warming on startup")
 
     # ==========================================================================
@@ -154,16 +152,8 @@ class Settings(BaseSettings):
     rate_limit_requests: int = Field(default=100, description="Requests per window")
     rate_limit_window: int = Field(default=60, description="Window size in seconds")
 
-    # ==========================================================================
-    # Current Seasons (updated annually)
-    # ==========================================================================
-    current_season_nba: int = 2025
-    current_season_nfl: int = 2025
-    current_season_football: int = 2024
-
-    # NOTE: current_seasons and sport_configs computed properties were removed.
-    # Use core.types.SPORT_REGISTRY / get_sport_config() for sport metadata.
-    # The current_season_* fields above are kept for env-var overridability.
+    # NOTE: Current season values are defined in core.types.SPORT_REGISTRY.
+    # Use get_sport_config(sport).current_season for the current season year.
 
 
 @lru_cache

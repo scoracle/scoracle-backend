@@ -20,10 +20,11 @@ from fastapi import APIRouter, Header, Query, Response
 from pydantic import BaseModel, Field
 from starlette.status import HTTP_304_NOT_MODIFIED
 
-from ..cache import get_cache
+from ..cache import get_cache, TTL_SIMILARITY
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
 from ...core.types import EntityType, Sport
+from ...services.vibes import get_entity_name
 from ._utils import (
     set_cache_headers,
     compute_etag,
@@ -36,8 +37,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Cache TTL: 1 hour (safe buffer, data updates once daily)
-TTL_SIMILARITY = 3600
+# TTL_SIMILARITY imported from api.cache (single source of truth)
 
 
 # =============================================================================
@@ -92,27 +92,7 @@ def _get_entity_name(
     db: DBDependency, entity_type: str, entity_id: int, sport: str
 ) -> str:
     """Get entity name from profile table."""
-    if entity_type == "player":
-        table_map = {
-            "NBA": "nba_player_profiles",
-            "NFL": "nfl_player_profiles",
-            "FOOTBALL": "football_player_profiles",
-        }
-        name_col = "full_name"
-    else:
-        table_map = {
-            "NBA": "nba_team_profiles",
-            "NFL": "nfl_team_profiles",
-            "FOOTBALL": "football_team_profiles",
-        }
-        name_col = "name"
-
-    table = table_map.get(sport)
-    if not table:
-        return "Unknown"
-
-    row = db.fetchone(f"SELECT {name_col} FROM {table} WHERE id = %s", (entity_id,))
-    return row[name_col] if row else "Unknown"
+    return get_entity_name(db, entity_type, entity_id, sport=sport)
 
 
 # =============================================================================

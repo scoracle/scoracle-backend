@@ -35,7 +35,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Configure logging
@@ -238,7 +238,7 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
             traceback.print_exc()
 
     # Update metadata
-    db.set_meta("last_full_sync", datetime.utcnow().isoformat())
+    db.set_meta("last_full_sync", datetime.now(tz=timezone.utc).isoformat())
 
     logger.info(
         "Total seeded: %d teams, %d players, %d player stats, %d team stats, %d errors",
@@ -447,7 +447,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         export_data = {
             "sport": sport_id,
             "season": season,
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(tz=timezone.utc).isoformat(),
             "players": player_data,
             "teams": team_data,
         }

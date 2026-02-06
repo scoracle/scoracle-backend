@@ -1,10 +1,12 @@
 """
-Transfer Predictor Model
+Transfer Predictor Model  [NOT YET INTEGRATED]
 
 Multi-input neural network for predicting transfer likelihood:
 - Text embedding branch (for headline/tweet analysis)
 - Numerical features branch (mention stats, source tiers)
 - Historical patterns branch (LSTM for time-series)
+
+This module is scaffolding -- not called by any production code path.
 """
 
 from dataclasses import dataclass

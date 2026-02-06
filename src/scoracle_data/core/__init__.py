@@ -5,11 +5,13 @@ This module provides the foundational components:
 - Configuration management (config.py)
 - Data models (models.py)
 - Type definitions and sport registry (types.py)
+- Shared HTTP client infrastructure (http.py)
 
 Usage:
     from scoracle_data.core import Settings, get_settings
     from scoracle_data.core import Sport, EntityType, get_sport_config
     from scoracle_data.core import PlayerModel, TeamModel
+    from scoracle_data.core.http import BaseApiClient, ExternalAPIError
 """
 
 # Configuration

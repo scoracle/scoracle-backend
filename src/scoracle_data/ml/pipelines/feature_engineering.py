@@ -1,11 +1,14 @@
 """
-Feature Engineering for Scoracle ML
+Feature Engineering for Scoracle ML  [NOT YET INTEGRATED]
 
 Handles:
 - Numerical feature extraction and normalization
 - Time-series feature computation
 - Transfer-specific feature engineering
 - Similarity feature preparation
+
+This module is scaffolding -- only referenced by the unwired
+PredictionService in ml/inference/.
 """
 
 from dataclasses import dataclass, field

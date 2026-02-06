@@ -1,7 +1,10 @@
 """
-Prediction Service for ML Models
+Prediction Service for ML Models  [NOT YET INTEGRATED]
 
 High-level service for running predictions across different models.
+
+This module is scaffolding -- not called by any production code path.
+The API serves predictions via heuristic fallbacks in the service layer.
 """
 
 import logging

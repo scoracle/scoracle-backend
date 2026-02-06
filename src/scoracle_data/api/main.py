@@ -15,7 +15,7 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import msgspec
@@ -394,7 +394,7 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["health"])
     async def health_check():
         """Basic health check endpoint."""
-        return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+        return {"status": "healthy", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
 
     @app.get("/health/db", tags=["health"])
     async def health_check_db():
@@ -407,7 +407,7 @@ def create_app() -> FastAPI:
             return {
                 "status": "healthy",
                 "database": "connected",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(tz=timezone.utc).isoformat(),
             }
         except Exception as e:
             logger.error(f"Database health check failed: {e}")
@@ -417,7 +417,7 @@ def create_app() -> FastAPI:
                     "status": "unhealthy",
                     "database": "disconnected",
                     "error": "Database connection check failed",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(tz=timezone.utc).isoformat(),
                 },
             )
 
@@ -429,7 +429,7 @@ def create_app() -> FastAPI:
         return {
             "status": "healthy",
             "cache": stats,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         }
 
     @app.get("/health/rate-limit", tags=["health"])
@@ -440,7 +440,7 @@ def create_app() -> FastAPI:
             "status": "healthy",
             "enabled": settings.rate_limit_enabled,
             "rate_limit": limiter.get_stats(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
         }
 
     @app.get("/", tags=["root"])

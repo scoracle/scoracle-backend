@@ -15,9 +15,6 @@ from ...external import GoogleNewsClient, NewsClient
 
 logger = logging.getLogger(__name__)
 
-# Cache TTL in seconds
-DEFAULT_CACHE_TTL = 600  # 10 minutes
-
 
 @dataclass
 class NewsArticle:

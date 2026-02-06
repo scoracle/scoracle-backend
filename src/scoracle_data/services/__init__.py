@@ -9,7 +9,12 @@ This module provides business logic services:
 - predictions: Performance prediction queries (ML router backend)
 - news: Unified news service (Google News RSS + NewsAPI fallback)
 - twitter: Twitter/X journalist feed
-- percentiles: Per-36/Per-90 stat calculations
+
+For percentile calculation, use PythonPercentileCalculator directly:
+    from scoracle_data.percentiles import PythonPercentileCalculator
+
+For similarity calculation, use SimilarityCalculator directly:
+    from scoracle_data.similarity import SimilarityCalculator
 
 Usage:
     from scoracle_data.services.profiles import get_player_profile, get_team_profile
@@ -23,7 +28,6 @@ from .profiles import get_player_profile, get_team_profile
 from .stats import get_entity_stats, get_available_seasons
 from .news import NewsService, get_news_service
 from .twitter import TwitterService, get_twitter_service
-from .percentiles import PercentileService, get_percentile_service
 
 __all__ = [
     # Profiles
@@ -38,7 +42,4 @@ __all__ = [
     # Twitter
     "TwitterService",
     "get_twitter_service",
-    # Percentiles
-    "PercentileService",
-    "get_percentile_service",
 ]

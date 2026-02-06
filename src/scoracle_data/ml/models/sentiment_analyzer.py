@@ -1,8 +1,10 @@
 """
-Sentiment Analyzer for Vibe Scores
+Sentiment Analyzer for Vibe Scores  [NOT YET INTEGRATED]
 
 Uses pre-trained transformer models for sentiment analysis
 of sports-related social media and news content.
+
+This module is scaffolding -- not called by any production code path.
 """
 
 from dataclasses import dataclass

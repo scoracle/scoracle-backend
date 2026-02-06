@@ -1,10 +1,13 @@
 """
-Performance Predictor Model
+Performance Predictor Model  [NOT YET INTEGRATED]
 
 Predicts entity performance for upcoming games based on:
 - Historical performance (LSTM for time-series)
 - Opponent strength
 - Contextual factors (rest days, home/away, etc.)
+
+This module is scaffolding -- not called by any production code path.
+The API serves performance predictions via heuristic fallbacks.
 """
 
 from dataclasses import dataclass, field

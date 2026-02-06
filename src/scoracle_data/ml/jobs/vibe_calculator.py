@@ -8,14 +8,13 @@ Aggregates sentiment from multiple sources.
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from ..config import get_vibe_label
+from ...services.vibes import get_entity_name as _get_entity_name_from_db
 
 logger = logging.getLogger(__name__)
-
-from ...core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 
 @dataclass
@@ -181,7 +180,7 @@ class VibeCalculatorJob:
         sport_id: str | None,
     ) -> list[dict]:
         """Get entities with recent sentiment samples."""
-        cutoff = datetime.utcnow() - timedelta(hours=self.window_hours)
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(hours=self.window_hours)
 
         # Build query for entities with samples
         query = """
@@ -195,7 +194,7 @@ class VibeCalculatorJob:
             LEFT JOIN teams t ON ss.entity_type = 'team' AND ss.entity_id = t.id
             WHERE ss.created_at > %s
         """
-        params = [cutoff]
+        params: list[Any] = [cutoff]
 
         if entity_type:
             query += " AND ss.entity_type = %s"
@@ -240,7 +239,7 @@ class VibeCalculatorJob:
             return None
 
         # Calculate weighted average
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         total_weight = 0.0
         weighted_sum = 0.0
         source_sums = {}
@@ -378,37 +377,9 @@ class VibeCalculatorJob:
             return True
 
     def _get_entity_name(self, entity_type: str, entity_id: int, sport_id: str) -> str:
-        """
-        Get entity name from database using sport-specific tables.
-
-        Args:
-            entity_type: player or team
-            entity_id: Entity ID
-            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
-
-        Returns:
-            Entity name or fallback string if not found
-        """
-        if entity_type == "player":
-            table = PLAYER_PROFILE_TABLES.get(sport_id)
-            if not table:
-                logger.warning("Unknown sport_id for player lookup: %s", sport_id)
-                return f"player_{entity_id}"
-            result = self.db.fetchone(
-                f"SELECT full_name FROM {table} WHERE id = %s",
-                (entity_id,),
-            )
-            return result["full_name"] if result else f"player_{entity_id}"
-        else:
-            table = TEAM_PROFILE_TABLES.get(sport_id)
-            if not table:
-                logger.warning("Unknown sport_id for team lookup: %s", sport_id)
-                return f"team_{entity_id}"
-            result = self.db.fetchone(
-                f"SELECT name FROM {table} WHERE id = %s",
-                (entity_id,),
-            )
-            return result["name"] if result else f"team_{entity_id}"
+        """Get entity name from database using sport-specific tables."""
+        name = _get_entity_name_from_db(self.db, entity_type, entity_id, sport=sport_id)
+        return name if name != "Unknown" else f"{entity_type}_{entity_id}"
 
 
 class SentimentSampler:

@@ -116,36 +116,44 @@ def get_trending_vibes(
 
 
 def get_entity_name(
-    db: "PostgresDB", entity_type: str, entity_id: int
+    db: "PostgresDB",
+    entity_type: str,
+    entity_id: int,
+    sport: str | None = None,
 ) -> str:
     """Get entity name from sport-specific profile tables.
 
-    Unlike the original helper that queried non-existent generic 'players' /
-    'teams' tables, this iterates over the sport-specific profile tables
-    defined in PLAYER_PROFILE_TABLES and TEAM_PROFILE_TABLES.
+    If ``sport`` is provided, queries only that sport's table (faster).
+    Otherwise iterates all sport tables until a match is found.
 
     Returns:
         The entity name, or ``"Unknown"`` if not found.
     """
     if entity_type == "player":
-        for _sport_id, profile_table in PLAYER_PROFILE_TABLES.items():
-            row = db.fetchone(
-                f"""
-                SELECT COALESCE(full_name, first_name || ' ' || last_name) as name
-                FROM {profile_table}
-                WHERE id = %s
-                """,
-                (entity_id,),
-            )
-            if row:
-                return row["name"] or "Unknown"
+        tables = PLAYER_PROFILE_TABLES
+        name_col = "full_name"
     else:
-        for _sport_id, team_table in TEAM_PROFILE_TABLES.items():
-            row = db.fetchone(
-                f"SELECT name FROM {team_table} WHERE id = %s",
-                (entity_id,),
-            )
-            if row:
-                return row["name"] or "Unknown"
+        tables = TEAM_PROFILE_TABLES
+        name_col = "name"
+
+    # If sport is known, query only that table
+    if sport:
+        table = tables.get(sport)
+        if not table:
+            return "Unknown"
+        row = db.fetchone(
+            f"SELECT {name_col} FROM {table} WHERE id = %s",
+            (entity_id,),
+        )
+        return row[name_col] if row and row[name_col] else "Unknown"
+
+    # Otherwise iterate all sport tables
+    for _sport_id, table in tables.items():
+        row = db.fetchone(
+            f"SELECT {name_col} FROM {table} WHERE id = %s",
+            (entity_id,),
+        )
+        if row and row[name_col]:
+            return row[name_col]
 
     return "Unknown"

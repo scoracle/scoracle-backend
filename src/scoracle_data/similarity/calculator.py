@@ -279,12 +279,8 @@ class SimilarityCalculator:
         return results
 
     def _get_season_id(self, sport_id: str, season_year: int) -> int | None:
-        """Get season ID from sport and year."""
-        result = self.db.fetchone(
-            "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-            (sport_id, season_year),
-        )
-        return result["id"] if result else None
+        """Get season ID from sport and year. Delegates to PostgresDB."""
+        return self.db.get_season_id(sport_id, season_year)
 
     def _get_season_year(self, season_id: int) -> int | None:
         """Get season year from season ID."""

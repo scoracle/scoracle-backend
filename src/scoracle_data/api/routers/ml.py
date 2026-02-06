@@ -30,8 +30,56 @@ from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
 from ..types import EntityType
+from ...core.types import PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
 
 logger = logging.getLogger(__name__)
+
+
+def _find_player(db: DBDependency, player_id: int) -> tuple | None:
+    """Look up a player across all sport-specific profile tables.
+
+    Returns (id, name, sport, position, team_id, team_name) or None.
+    Uses sport-specific tables instead of the deprecated cross-sport UNION views.
+    """
+    for sport_id, profile_table in PLAYER_PROFILE_TABLES.items():
+        team_table = TEAM_PROFILE_TABLES[sport_id]
+        row = db.fetch_one(
+            f"""
+            SELECT p.id,
+                   COALESCE(p.full_name, p.first_name || ' ' || p.last_name) as name,
+                   '{sport_id}' as sport,
+                   p.position,
+                   t.id as team_id,
+                   t.name as team_name
+            FROM {profile_table} p
+            LEFT JOIN {team_table} t ON t.id = p.team_id
+            WHERE p.id = %s
+            """,
+            (player_id,),
+        )
+        if row:
+            return row
+    return None
+
+
+def _find_team(db: DBDependency, team_id: int) -> tuple | None:
+    """Look up a team across all sport-specific profile tables.
+
+    Returns (id, name, sport) or None.
+    Uses sport-specific tables instead of the deprecated cross-sport UNION views.
+    """
+    for sport_id, team_table in TEAM_PROFILE_TABLES.items():
+        row = db.fetch_one(
+            f"""
+            SELECT t.id, t.name, '{sport_id}' as sport
+            FROM {team_table} t
+            WHERE t.id = %s
+            """,
+            (team_id,),
+        )
+        if row:
+            return row
+    return None
 
 router = APIRouter()
 
@@ -215,15 +263,8 @@ async def get_team_transfer_predictions(
     if cached:
         return TeamTransferPredictions(**cached)
 
-    # Get team info ('teams' is a view aggregating sport-specific tables)
-    team_row = db.fetch_one(
-        """
-        SELECT t.id, t.name, t.sport_id as sport_name
-        FROM teams t
-        WHERE t.id = %s
-        """,
-        (team_id,),
-    )
+    # Look up team from sport-specific profile tables
+    team_row = _find_team(db, team_id)
 
     if not team_row:
         raise NotFoundError(f"Team with ID {team_id} not found")
@@ -319,17 +360,8 @@ async def get_player_transfer_predictions(
     if cached:
         return PlayerTransferOutlook(**cached)
 
-    # Get player info ('players' is a view aggregating sport-specific tables)
-    player_row = db.fetch_one(
-        """
-        SELECT p.id, p.name, p.sport_id as sport,
-               t.name as team_name
-        FROM players p
-        LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
-        WHERE p.id = %s
-        """,
-        (player_id,),
-    )
+    # Look up player from sport-specific profile tables
+    player_row = _find_player(db, player_id)
 
     if not player_row:
         raise NotFoundError(f"Player with ID {player_id} not found")
@@ -708,28 +740,13 @@ async def get_next_game_prediction(
     if cached:
         return PerformancePredictionResponse(**cached)
 
-    # Get entity info ('players'/'teams' are views aggregating sport-specific tables)
+    # Look up entity from sport-specific profile tables
     if entity_type == "player":
-        entity_row = db.fetch_one(
-            """
-            SELECT p.id, p.name, p.sport_id as sport, p.position,
-                   t.id as team_id, t.name as team_name
-            FROM players p
-            LEFT JOIN teams t ON t.id = p.current_team_id AND t.sport_id = p.sport_id
-            WHERE p.id = %s
-            """,
-            (entity_id,),
-        )
+        entity_row = _find_player(db, entity_id)
     else:
-        entity_row = db.fetch_one(
-            """
-            SELECT t.id, t.name, t.sport_id as sport, NULL as position,
-                   t.id as team_id, t.name as team_name
-            FROM teams t
-            WHERE t.id = %s
-            """,
-            (entity_id,),
-        )
+        team_row = _find_team(db, entity_id)
+        # Reshape to match expected (id, name, sport, position, team_id, team_name)
+        entity_row = (*team_row, None, team_row[0], team_row[1]) if team_row else None
 
     if not entity_row:
         raise NotFoundError(f"{entity_type.title()} with ID {entity_id} not found")
@@ -987,33 +1004,29 @@ def _generate_heuristic_prediction(
     position: str | None,
 ) -> tuple[dict[str, StatPredictionResponse], float, dict[str, Any]]:
     """Generate heuristic prediction from recent stats."""
-    sport_lower = sport.lower()
+    sport_upper = sport.upper()
+    from ...core.types import PLAYER_STATS_TABLES, TEAM_STATS_TABLES
 
-    # Determine stats table and columns based on sport
-    if sport_lower == "nba":
-        if entity_type == "player":
-            stats_table = "nba_player_stats"
-            stat_cols = ["ppg", "rpg", "apg", "spg", "bpg"]
-        else:
-            stats_table = "nba_team_stats"
-            stat_cols = ["ppg", "rpg", "apg", "fg_pct", "fg3_pct"]
-    elif sport_lower == "nfl":
-        if entity_type == "player":
-            stats_table = "nfl_player_stats"
-            # Simplified - would be position-specific in production
-            stat_cols = ["pass_yds", "pass_td", "rush_yds", "rec_yds"]
-        else:
-            stats_table = "nfl_team_stats"
-            stat_cols = ["points_for", "total_yards", "turnovers"]
-    elif sport_lower == "football":
-        if entity_type == "player":
-            stats_table = "football_player_stats"
-            stat_cols = ["goals", "assists", "shots", "key_passes"]
-        else:
-            stats_table = "football_team_stats"
-            stat_cols = ["goals_for", "goals_against", "shots_pg"]
+    # Determine stats table from centralized registry
+    if entity_type == "player":
+        stats_table = PLAYER_STATS_TABLES.get(sport_upper)
     else:
-        # Default fallback
+        stats_table = TEAM_STATS_TABLES.get(sport_upper)
+
+    if not stats_table:
+        return {}, 0.5, {}
+
+    # Determine sport-specific stat columns
+    _SPORT_STAT_COLS = {
+        ("NBA", "player"): ["ppg", "rpg", "apg", "spg", "bpg"],
+        ("NBA", "team"): ["ppg", "rpg", "apg", "fg_pct", "fg3_pct"],
+        ("NFL", "player"): ["pass_yds", "pass_td", "rush_yds", "rec_yds"],
+        ("NFL", "team"): ["points_for", "total_yards", "turnovers"],
+        ("FOOTBALL", "player"): ["goals", "assists", "shots", "key_passes"],
+        ("FOOTBALL", "team"): ["goals_for", "goals_against", "shots_pg"],
+    }
+    stat_cols = _SPORT_STAT_COLS.get((sport_upper, entity_type))
+    if not stat_cols:
         return {}, 0.5, {}
 
     # Get recent stats

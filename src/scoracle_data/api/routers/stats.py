@@ -2,17 +2,17 @@
 Stats router - serves entity statistics for frontend widgets.
 
 Endpoints:
-- GET /{entity_type}/{entity_id} - Stats + percentiles from sport-specific stats tables
+- GET /{entity_type}/{entity_id} - Stats + percentiles from unified stats tables
 - GET /{entity_type}/{entity_id}/seasons - Available seasons for an entity
 
 Data:
-- Serves statistics from stats tables (nba_player_stats, nba_team_stats, etc.)
+- Serves statistics from unified tables (player_stats, team_stats) with sport filter
 - Percentiles are embedded as JSONB in stats tables (no separate query needed)
 
 Performance Features:
 - In-memory caching with TTLs
 - ETag support for conditional requests (304 Not Modified)
-- Season ID caching to eliminate redundant lookups
+- Season validation to eliminate redundant lookups
 """
 
 import logging
@@ -48,8 +48,12 @@ async def get_entity_stats_endpoint(
     sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
     response: Response,
     db: DBDependency,
-    season: Annotated[int | None, Query(description="Season year (defaults to current)")] = None,
-    league_id: Annotated[int | None, Query(description="League ID (for FOOTBALL)")] = None,
+    season: Annotated[
+        int | None, Query(description="Season year (defaults to current)")
+    ] = None,
+    league_id: Annotated[
+        int | None, Query(description="League ID (for FOOTBALL)")
+    ] = None,
     if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
 ) -> dict[str, Any] | Response:
     """
@@ -83,7 +87,12 @@ async def get_entity_stats_endpoint(
 
     # Get stats via service layer
     stats_data = get_entity_stats(
-        db, sport.value, entity_type.value, entity_id, season_id, league_id,
+        db,
+        sport.value,
+        entity_type.value,
+        entity_id,
+        season_id,
+        league_id,
     )
 
     if not stats_data:

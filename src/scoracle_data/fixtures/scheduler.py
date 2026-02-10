@@ -237,17 +237,17 @@ class SchedulerService:
         rows = self.db.fetchall(query, tuple(params))
         return [dict(row) for row in rows]
 
-    def get_pending_count(self, sport_id: Optional[str] = None) -> dict[str, int]:
+    def get_pending_count(self, sport: Optional[str] = None) -> dict[str, int]:
         """
         Get count of pending fixtures by sport.
 
         Useful for monitoring and dashboards.
 
         Returns:
-            Dict mapping sport_id to count
+            Dict mapping sport to count
         """
         query = """
-            SELECT sport_id, COUNT(*) as count
+            SELECT sport, COUNT(*) as count
             FROM fixtures
             WHERE (status = 'scheduled' OR status = 'completed')
               AND NOW() >= start_time + (seed_delay_hours || ' hours')::INTERVAL
@@ -255,14 +255,14 @@ class SchedulerService:
         """
         params = [self.max_retries]
 
-        if sport_id:
-            query += " AND sport_id = %s"
-            params.append(sport_id)
+        if sport:
+            query += " AND sport = %s"
+            params.append(sport)
 
-        query += " GROUP BY sport_id"
+        query += " GROUP BY sport"
 
         rows = self.db.fetchall(query, tuple(params))
-        return {row["sport_id"]: row["count"] for row in rows}
+        return {row["sport"]: row["count"] for row in rows}
 
     def get_upcoming_fixtures(
         self,
@@ -441,9 +441,7 @@ class SchedulerService:
         )
         return result is not None
 
-    def get_fixture_status_summary(
-        self, sport_id: Optional[str] = None
-    ) -> dict[str, int]:
+    def get_fixture_status_summary(self, sport: Optional[str] = None) -> dict[str, int]:
         """
         Get count of fixtures by status.
 
@@ -456,11 +454,11 @@ class SchedulerService:
             SELECT status, COUNT(*) as count
             FROM fixtures
         """
-        params = []
+        params: list[Any] = []
 
-        if sport_id:
-            query += " WHERE sport_id = %s"
-            params.append(sport_id)
+        if sport:
+            query += " WHERE sport = %s"
+            params.append(sport)
 
         query += " GROUP BY status ORDER BY status"
 

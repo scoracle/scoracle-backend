@@ -2,16 +2,12 @@
 FastAPI application for Scoracle Data API.
 
 Optimized for high-performance serving with:
-- Async database queries
-- Redis caching with in-memory L1
-- Cache warming on startup
-- Background refresh of stale data
 - HTTP cache headers for CDN/browser caching
-- HTTP/2 Link headers for resource preloading
-- Response streaming for bulk endpoints
+- In-memory + Redis caching with ETag support
+- GZip compression
+- Rate limiting
 """
 
-import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -25,11 +21,11 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import ml, news, profile, similarity, stats, twitter
+from .routers import news, profile, stats, twitter
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
-from ..core.types import Sport, get_sport_config
+from ..core.types import get_sport_config
 from ..core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -53,135 +49,6 @@ class MSGSpecResponse(Response):
         if content is None:
             return b""
         return msgspec.json.encode(content)
-
-
-async def warm_cache() -> None:
-    """
-    Pre-populate cache with frequently accessed entities.
-
-    Called at startup to eliminate cold-start latency for popular requests.
-    Warms info and stats for active teams and top players.
-
-    Uses parallel processing for all sports to speed up startup.
-    """
-    from .dependencies import get_db
-    from ..core.types import PLAYER_STATS_TABLES, PLAYER_PROFILE_TABLES, TEAM_PROFILE_TABLES
-
-    logger.info("Starting cache warming...")
-
-    async def warm_sport(sport: str) -> int:
-        """Warm cache for a single sport. Returns count of entries warmed."""
-        cache = get_cache()
-        db = get_db()
-        count = 0
-
-        try:
-            current_season_row = db.fetchone(
-                "SELECT * FROM seasons WHERE sport_id = %s AND is_current = true",
-                (sport,),
-            )
-            if not current_season_row:
-                return 0
-
-            season_year = current_season_row["season_year"]
-            season_id = db.get_season_id(sport, season_year)
-            if not season_id:
-                return 0
-
-            # Get sport-specific table names
-            team_table = TEAM_PROFILE_TABLES.get(sport)
-            player_table = PLAYER_PROFILE_TABLES.get(sport)
-            stats_table = PLAYER_STATS_TABLES.get(sport)
-
-            if not team_table or not player_table:
-                logger.warning(f"No profile tables configured for sport {sport}")
-                return 0
-
-            # Warm team info (all active teams) from sport-specific table
-            teams = db.fetchall(
-                f"SELECT * FROM {team_table} WHERE is_active = true LIMIT 50",
-                (),
-            )
-            for team in teams:
-                team_data = dict(team)
-                if team_data.get("created_at"):
-                    team_data["created_at"] = str(team_data["created_at"])
-                if team_data.get("updated_at"):
-                    team_data["updated_at"] = str(team_data["updated_at"])
-                cache.set(
-                    team_data, "profile", "team", team["id"], sport, ttl=TTL_ENTITY_INFO
-                )
-                count += 1
-
-            # Warm player info for players with stats from sport-specific tables
-            if stats_table:
-                players = db.fetchall(
-                    f"""
-                    SELECT p.*
-                    FROM {player_table} p
-                    JOIN {stats_table} s ON s.player_id = p.id
-                    WHERE s.season_id = %s AND p.is_active = true
-                    LIMIT 100
-                    """,
-                    (season_id,),
-                )
-                for player in players:
-                    player_data = dict(player)
-                    if player_data.get("birth_date"):
-                        player_data["birth_date"] = str(player_data["birth_date"])
-                    if player_data.get("created_at"):
-                        player_data["created_at"] = str(player_data["created_at"])
-                    if player_data.get("updated_at"):
-                        player_data["updated_at"] = str(player_data["updated_at"])
-                    cache.set(
-                        player_data,
-                        "profile",
-                        "player",
-                        player["id"],
-                        sport,
-                        ttl=TTL_ENTITY_INFO,
-                    )
-                    count += 1
-
-            logger.info(f"Warmed {count} {sport} cache entries")
-            return count
-
-        except Exception as e:
-            logger.warning(f"Cache warming error for {sport}: {e}")
-            return 0
-
-    # Warm all sports in parallel using asyncio.gather
-    # Since DB uses connection pooling, concurrent queries are efficient
-    results = await asyncio.gather(
-        *[warm_sport(sport_enum.value) for sport_enum in Sport]
-    )
-
-    total_warmed = sum(results)
-    logger.info(f"Cache warming complete: {total_warmed} entries cached")
-
-
-async def background_cache_refresh() -> None:
-    """
-    Background task to proactively refresh cache entries before they expire.
-
-    Runs every 30 minutes to refresh data approaching expiration.
-    """
-    while True:
-        try:
-            await asyncio.sleep(1800)  # 30 minutes
-
-            cache = get_cache()
-            logger.debug(f"Background refresh: cache stats = {cache.get_stats()}")
-
-            # Clean up expired entries
-            cache.cleanup_expired()
-
-        except asyncio.CancelledError:
-            logger.info("Background cache refresh task cancelled")
-            break
-        except Exception as e:
-            logger.error(f"Background refresh error: {e}")
-            await asyncio.sleep(60)  # Wait a minute before retrying
 
 
 @asynccontextmanager
@@ -240,22 +107,10 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize database: {e}")
         # Don't fail startup, let requests handle connection errors
 
-    # Start background refresh task
-    refresh_task = asyncio.create_task(background_cache_refresh())
-
-    # Warm cache in background (don't block startup)
-    # Cache warming now won't compete with uninitialized connections
-    asyncio.create_task(warm_cache())
-
     yield
 
     # Shutdown
     logger.info("Shutting down Scoracle Data API...")
-    refresh_task.cancel()
-    try:
-        await refresh_task
-    except asyncio.CancelledError:
-        pass
 
     # Close database connections
     try:
@@ -394,7 +249,10 @@ def create_app() -> FastAPI:
     @app.get("/health", tags=["health"])
     async def health_check():
         """Basic health check endpoint."""
-        return {"status": "healthy", "timestamp": datetime.now(tz=timezone.utc).isoformat()}
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        }
 
     @app.get("/health/db", tags=["health"])
     async def health_check_db():
@@ -471,12 +329,6 @@ def create_app() -> FastAPI:
     app.include_router(twitter.router, prefix="/api/v1/twitter", tags=["twitter"])
     # Unified News endpoint - entity-specific news from RSS + NewsAPI
     app.include_router(news.router, prefix="/api/v1/news", tags=["news"])
-    # ML endpoints - transfer predictions, vibe scores, performance predictions
-    app.include_router(ml.router, prefix="/api/v1/ml", tags=["ml"])
-    # Similarity endpoints - percentile-based entity similarity
-    app.include_router(
-        similarity.router, prefix="/api/v1/similarity", tags=["similarity"]
-    )
 
     return app
 

@@ -32,10 +32,13 @@ def _get_current_season(sport: str) -> int:
 
 def get_season_id(db, sport: str, season_year: int) -> int | None:
     """
-    Get season ID with in-memory caching.
+    Validate that a season year has data, with in-memory caching.
 
-    Seasons rarely change, so caching eliminates redundant DB queries.
-    This saves ~5-10ms per request.
+    In the v5.0 unified schema there is no separate `seasons` table.
+    The season is stored as an integer directly on the stats tables.
+    This function checks whether any stats exist for the sport + season
+    combination and returns the year itself as the "ID" (for backward
+    compatibility with the stats router which passes season_id).
 
     Args:
         db: Database connection
@@ -43,19 +46,27 @@ def get_season_id(db, sport: str, season_year: int) -> int | None:
         season_year: Season year (e.g., 2025)
 
     Returns:
-        Season ID or None if not found
+        The season year if data exists, or None if no stats found
     """
     cache_key = (sport, season_year)
     if cache_key in _season_id_cache:
         return _season_id_cache[cache_key]
 
+    # Check whether any stats rows exist for this sport + season
     row = db.fetchone(
-        "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
+        "SELECT 1 FROM player_stats WHERE sport = %s AND season = %s LIMIT 1",
         (sport, season_year),
     )
+    if not row:
+        # Also check team_stats in case only team data exists
+        row = db.fetchone(
+            "SELECT 1 FROM team_stats WHERE sport = %s AND season = %s LIMIT 1",
+            (sport, season_year),
+        )
+
     if row:
-        _season_id_cache[cache_key] = row["id"]
-        return row["id"]
+        _season_id_cache[cache_key] = season_year
+        return season_year
     return None
 
 
@@ -99,7 +110,9 @@ def validate_season(season: int | None, sport: str) -> int:
 def set_cache_headers(response: Response, ttl: int, cache_hit: bool) -> None:
     """Set standard cache headers."""
     response.headers["X-Cache"] = "HIT" if cache_hit else "MISS"
-    response.headers["Cache-Control"] = f"public, max-age={ttl}, stale-while-revalidate={ttl // 2}"
+    response.headers["Cache-Control"] = (
+        f"public, max-age={ttl}, stale-while-revalidate={ttl // 2}"
+    )
 
 
 def compute_etag(data: Any) -> str:

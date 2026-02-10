@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..core.types import PLAYER_PROFILE_TABLES
+from ..core.types import PLAYERS_TABLE
 
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
@@ -31,8 +31,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PostMatchResult:
     """Result of a post-match seeding operation."""
+
     fixture_id: int
-    sport_id: str
+    sport: str
     home_team_id: int
     away_team_id: int
     players_updated: int = 0
@@ -45,7 +46,7 @@ class PostMatchResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "fixture_id": self.fixture_id,
-            "sport_id": self.sport_id,
+            "sport": self.sport,
             "home_team_id": self.home_team_id,
             "away_team_id": self.away_team_id,
             "players_updated": self.players_updated,
@@ -93,10 +94,10 @@ class PostMatchSeeder:
         """
         Seed stats for a specific fixture.
 
-        Fetches the fixture row (with season info), determines the sport,
-        instantiates the matching seed runner, and calls its
-        ``seed_player_stats`` / ``seed_team_stats`` methods which refresh
-        full-season data from the upstream provider.
+        Fetches the fixture row, determines the sport, instantiates the
+        matching seed runner, and calls its ``seed_player_stats`` /
+        ``seed_team_stats`` methods which refresh full-season data from
+        the upstream provider.
 
         Args:
             fixture_id: Fixture ID to seed
@@ -107,16 +108,13 @@ class PostMatchSeeder:
         """
         start_time = datetime.now()
 
-        # Get fixture details
+        # Get fixture details (unified schema: sport, season — no seasons table)
         fixture = self.db.fetchone(
             """
-            SELECT
-                f.id, f.sport_id, f.league_id, f.season_id,
-                f.home_team_id, f.away_team_id, f.status,
-                s.season_year
-            FROM fixtures f
-            JOIN seasons s ON s.id = f.season_id
-            WHERE f.id = %s
+            SELECT id, sport, league_id, season,
+                   home_team_id, away_team_id, status
+            FROM fixtures
+            WHERE id = %s
             """,
             (fixture_id,),
         )
@@ -124,30 +122,31 @@ class PostMatchSeeder:
         if not fixture:
             return PostMatchResult(
                 fixture_id=fixture_id,
-                sport_id="",
+                sport="",
                 home_team_id=0,
                 away_team_id=0,
                 success=False,
                 error=f"Fixture {fixture_id} not found",
             )
 
+        sport = fixture["sport"]
+
         result = PostMatchResult(
             fixture_id=fixture_id,
-            sport_id=fixture["sport_id"],
+            sport=sport,
             home_team_id=fixture["home_team_id"],
             away_team_id=fixture["away_team_id"],
         )
 
         try:
-            sport_id = fixture["sport_id"]
-            seed_runner = self._make_seed_runner(sport_id)
+            seed_runner = self._make_seed_runner(sport)
             if not seed_runner:
-                raise ValueError(f"No seeder available for sport: {sport_id}")
+                raise ValueError(f"No seeder available for sport: {sport}")
 
             # Log roster sizes for observability (non-critical)
             try:
-                home_roster = self._get_team_roster(sport_id, fixture["home_team_id"])
-                away_roster = self._get_team_roster(sport_id, fixture["away_team_id"])
+                home_roster = self._get_team_roster(sport, fixture["home_team_id"])
+                away_roster = self._get_team_roster(sport, fixture["away_team_id"])
                 logger.info(
                     f"Fixture {fixture_id}: "
                     f"{len(home_roster)} home + {len(away_roster)} away players in DB"
@@ -157,7 +156,9 @@ class PostMatchSeeder:
 
             # -- Player stats (full-season refresh) ---------------------------
             player_result = await self._seed_player_stats(
-                seed_runner, sport_id, fixture,
+                seed_runner,
+                sport,
+                fixture,
             )
             result.players_updated = player_result.player_stats_upserted
             if player_result.errors:
@@ -167,7 +168,9 @@ class PostMatchSeeder:
 
             # -- Team stats (full-season refresh) -----------------------------
             team_result = await self._seed_team_stats(
-                seed_runner, sport_id, fixture,
+                seed_runner,
+                sport,
+                fixture,
             )
             result.teams_updated = team_result.team_stats_upserted
             if team_result.errors:
@@ -178,11 +181,14 @@ class PostMatchSeeder:
             # -- Percentile recalculation -------------------------------------
             if recalculate_percentiles and result.players_updated > 0:
                 try:
-                    from ..percentiles.python_calculator import PythonPercentileCalculator
+                    from ..percentiles.python_calculator import (
+                        PythonPercentileCalculator,
+                    )
+
                     calculator = PythonPercentileCalculator(self.db)
                     calculator.recalculate_all_percentiles(
-                        sport_id,
-                        fixture["season_year"],
+                        sport,
+                        fixture["season"],
                     )
                     result.percentiles_recalculated = True
                 except Exception as e:
@@ -246,7 +252,7 @@ class PostMatchSeeder:
 
         # Process fixtures, but only recalculate percentiles at the end
         for i, fixture_id in enumerate(fixture_ids):
-            is_last = (i == len(fixture_ids) - 1)
+            is_last = i == len(fixture_ids) - 1
             result = await self.seed_fixture(
                 fixture_id,
                 recalculate_percentiles=(recalculate_percentiles and is_last),
@@ -257,14 +263,14 @@ class PostMatchSeeder:
 
     # -- Internals ------------------------------------------------------------
 
-    def _get_sport_seeder(self, sport_id: str):
+    def _get_sport_seeder(self, sport: str):
         """
-        Return an instantiated seed runner for *sport_id*.
+        Return an instantiated seed runner for *sport*.
 
         Each runner takes ``(db, client)`` — we import lazily so that
         provider-specific dependencies aren't required at import time.
         """
-        from ..seeders import NBASeedRunner, NFLSeedRunner, FootballSeedRunner
+        from ..seeders import FootballSeedRunner, NBASeedRunner, NFLSeedRunner
 
         runner_map: dict[str, type] = {
             "NBA": NBASeedRunner,
@@ -272,7 +278,7 @@ class PostMatchSeeder:
             "FOOTBALL": FootballSeedRunner,
         }
 
-        runner_class = runner_map.get(sport_id)
+        runner_class = runner_map.get(sport)
         if runner_class is None:
             return None
         return runner_class(self.db, self.provider_client)
@@ -281,53 +287,81 @@ class PostMatchSeeder:
 
     def _get_team_roster(
         self,
-        sport_id: str,
+        sport: str,
         team_id: int,
     ) -> list[dict[str, Any]]:
-        """
-        Get roster for a team from the sport-specific player profile table.
-        """
-        table = PLAYER_PROFILE_TABLES.get(sport_id)
-        if not table:
-            logger.warning(f"No player profile table for sport {sport_id}")
-            return []
-
+        """Get roster for a team from the unified players table."""
         players = self.db.fetchall(
-            f"SELECT id, team_id FROM {table} WHERE team_id = %s",
-            (team_id,),
+            f"SELECT id, team_id FROM {PLAYERS_TABLE} WHERE team_id = %s AND sport = %s",
+            (team_id, sport),
         )
         return [dict(p) for p in players] if players else []
 
-    async def _seed_player_stats(self, seed_runner, sport_id: str, fixture: dict):
+    @staticmethod
+    def _resolve_sportmonks_season_id(league_id: int, season_year: int) -> int | None:
         """
-        Call the correct ``seed_player_stats`` overload for *sport_id*.
+        Resolve a SportMonks season_id from league_id + season year.
+
+        The FOOTBALL seed runner requires SportMonks-specific season IDs for
+        API calls.  These are stored in seed_football.py config.  Returns
+        None if the mapping is unknown (caller should log and skip).
+        """
+        from ..seeders.seed_football import LEAGUES, PREMIER_LEAGUE_SEASONS
+
+        # Currently only Premier League has season mappings.
+        # For other leagues, the caller would need to extend the config.
+        if league_id == 1:  # Premier League
+            return PREMIER_LEAGUE_SEASONS.get(season_year)
+
+        # TODO: Add season ID mappings for La Liga, Bundesliga, Serie A, Ligue 1
+        logger.warning(
+            f"No SportMonks season_id mapping for league {league_id}, "
+            f"season {season_year}"
+        )
+        return None
+
+    async def _seed_player_stats(self, seed_runner, sport: str, fixture: dict):
+        """
+        Call the correct ``seed_player_stats`` overload for *sport*.
 
         Signatures:
             NBA:      seed_player_stats(season, season_type="regular")
             NFL:      seed_player_stats(season, postseason=False)
-            FOOTBALL: seed_player_stats(season_id, league_id, season_year)
+            FOOTBALL: seed_player_stats(season_id, league_id, season_year, sportmonks_league_id)
         """
         from ..seeders.common import SeedResult
 
-        season_year = fixture["season_year"]
+        season = fixture["season"]
 
-        if sport_id == "NBA":
-            return await seed_runner.seed_player_stats(season_year)
-        elif sport_id == "NFL":
-            return await seed_runner.seed_player_stats(season_year)
-        elif sport_id == "FOOTBALL":
+        if sport == "NBA":
+            return await seed_runner.seed_player_stats(season)
+        elif sport == "NFL":
+            return await seed_runner.seed_player_stats(season)
+        elif sport == "FOOTBALL":
+            league_id = fixture["league_id"]
+            sm_season_id = self._resolve_sportmonks_season_id(league_id, season)
+            if sm_season_id is None:
+                logger.error(
+                    f"Cannot seed FOOTBALL player stats: no SportMonks season_id "
+                    f"for league {league_id}, season {season}"
+                )
+                return SeedResult()
+            from ..seeders.seed_football import LEAGUES
+
+            sm_league_id = int(LEAGUES[league_id]["sportmonks_id"])
             return await seed_runner.seed_player_stats(
-                fixture["season_id"],
-                fixture["league_id"],
-                season_year,
+                sm_season_id,
+                league_id,
+                season,
+                sm_league_id,
             )
         else:
-            logger.warning(f"Unknown sport_id for player stats: {sport_id}")
+            logger.warning(f"Unknown sport for player stats: {sport}")
             return SeedResult()
 
-    async def _seed_team_stats(self, seed_runner, sport_id: str, fixture: dict):
+    async def _seed_team_stats(self, seed_runner, sport: str, fixture: dict):
         """
-        Call the correct ``seed_team_stats`` overload for *sport_id*.
+        Call the correct ``seed_team_stats`` overload for *sport*.
 
         Signatures:
             NBA:      seed_team_stats(season, season_type="regular")
@@ -336,20 +370,28 @@ class PostMatchSeeder:
         """
         from ..seeders.common import SeedResult
 
-        season_year = fixture["season_year"]
+        season = fixture["season"]
 
-        if sport_id == "NBA":
-            return await seed_runner.seed_team_stats(season_year)
-        elif sport_id == "NFL":
-            return await seed_runner.seed_team_stats(season_year)
-        elif sport_id == "FOOTBALL":
+        if sport == "NBA":
+            return await seed_runner.seed_team_stats(season)
+        elif sport == "NFL":
+            return await seed_runner.seed_team_stats(season)
+        elif sport == "FOOTBALL":
+            league_id = fixture["league_id"]
+            sm_season_id = self._resolve_sportmonks_season_id(league_id, season)
+            if sm_season_id is None:
+                logger.error(
+                    f"Cannot seed FOOTBALL team stats: no SportMonks season_id "
+                    f"for league {league_id}, season {season}"
+                )
+                return SeedResult()
             return await seed_runner.seed_team_stats(
-                fixture["season_id"],
-                fixture["league_id"],
-                season_year,
+                sm_season_id,
+                league_id,
+                season,
             )
         else:
-            logger.warning(f"Unknown sport_id for team stats: {sport_id}")
+            logger.warning(f"Unknown sport for team stats: {sport}")
             return SeedResult()
 
 
@@ -372,7 +414,7 @@ class PostMatchSeederByMatch:
     async def seed_by_external_fixture_id(
         self,
         external_fixture_id: int,
-        sport_id: str,
+        sport: str,
     ) -> PostMatchResult:
         """
         Seed stats using the external fixture ID from the provider API.
@@ -382,7 +424,7 @@ class PostMatchSeederByMatch:
 
         Args:
             external_fixture_id: The fixture ID from the provider API
-            sport_id: Sport identifier
+            sport: Sport identifier
 
         Returns:
             PostMatchResult
@@ -390,13 +432,10 @@ class PostMatchSeederByMatch:
         # Get fixture from database by external ID
         fixture = self.db.fetchone(
             """
-            SELECT
-                f.id, f.sport_id, f.league_id, f.season_id,
-                f.home_team_id, f.away_team_id,
-                s.season_year
-            FROM fixtures f
-            JOIN seasons s ON s.id = f.season_id
-            WHERE f.external_id = %s
+            SELECT id, sport, league_id, season,
+                   home_team_id, away_team_id
+            FROM fixtures
+            WHERE external_id = %s
             """,
             (external_fixture_id,),
         )
@@ -404,7 +443,7 @@ class PostMatchSeederByMatch:
         if not fixture:
             return PostMatchResult(
                 fixture_id=0,
-                sport_id=sport_id,
+                sport=sport,
                 home_team_id=0,
                 away_team_id=0,
                 success=False,

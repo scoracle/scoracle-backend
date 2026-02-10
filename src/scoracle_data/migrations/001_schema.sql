@@ -541,3 +541,158 @@ CREATE TABLE IF NOT EXISTS ml_job_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ml_job_runs_recent ON ml_job_runs(job_name, started_at DESC);
+
+-- ============================================================================
+-- PERCENTILE CALCULATION FUNCTIONS
+-- ============================================================================
+-- Postgres-native percentile calculation using percent_rank() window functions.
+-- Operates directly on JSONB stats — no data round-trip to Python.
+--
+-- Usage from Python:
+--   SELECT recalculate_percentiles('NBA', 2025, ARRAY['turnovers_per_36']::text[]);
+
+CREATE OR REPLACE FUNCTION recalculate_percentiles(
+    p_sport TEXT,
+    p_season INTEGER,
+    p_inverse_stats TEXT[] DEFAULT ARRAY[]::TEXT[]
+)
+RETURNS TABLE (players_updated INTEGER, teams_updated INTEGER) AS $$
+DECLARE
+    v_players INTEGER := 0;
+    v_teams INTEGER := 0;
+BEGIN
+    -- ========================================================================
+    -- PLAYER PERCENTILES (partitioned by position for fair comparison)
+    -- ========================================================================
+    WITH stat_keys AS (
+        -- Discover all numeric stat keys present for this sport/season
+        SELECT DISTINCT key
+        FROM player_stats, jsonb_each(stats) AS kv(key, val)
+        WHERE sport = p_sport AND season = p_season
+          AND jsonb_typeof(val) = 'number'
+          AND (val::text)::numeric != 0
+    ),
+    player_positions AS (
+        -- Get position for each player (for position-group partitioning)
+        SELECT ps.player_id, COALESCE(p.position, 'Unknown') AS position
+        FROM player_stats ps
+        JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
+        WHERE ps.sport = p_sport AND ps.season = p_season
+    ),
+    expanded AS (
+        -- Expand JSONB stats into rows: one row per player per stat key
+        SELECT
+            ps.player_id,
+            pp.position,
+            sk.key AS stat_key,
+            (ps.stats->>sk.key)::numeric AS stat_value
+        FROM player_stats ps
+        CROSS JOIN stat_keys sk
+        JOIN player_positions pp ON pp.player_id = ps.player_id
+        WHERE ps.sport = p_sport AND ps.season = p_season
+          AND ps.stats ? sk.key
+          AND (ps.stats->>sk.key)::numeric != 0
+    ),
+    ranked AS (
+        -- Calculate percent_rank within each position group per stat
+        SELECT
+            player_id,
+            position,
+            stat_key,
+            CASE
+                WHEN stat_key = ANY(p_inverse_stats) THEN
+                    round((1.0 - percent_rank() OVER (
+                        PARTITION BY position, stat_key ORDER BY stat_value ASC
+                    ))::numeric * 100, 1)
+                ELSE
+                    round((percent_rank() OVER (
+                        PARTITION BY position, stat_key ORDER BY stat_value ASC
+                    ))::numeric * 100, 1)
+            END AS percentile,
+            count(*) OVER (PARTITION BY position, stat_key) AS sample_size
+        FROM expanded
+    ),
+    aggregated AS (
+        -- Re-aggregate into one JSONB object per player
+        SELECT
+            player_id,
+            position,
+            max(sample_size) AS max_sample_size,
+            jsonb_object_agg(stat_key, percentile)
+                || jsonb_build_object(
+                    '_position_group', position,
+                    '_sample_size', max(sample_size)
+                ) AS percentiles_json
+        FROM ranked
+        GROUP BY player_id, position
+    )
+    UPDATE player_stats ps
+    SET percentiles = agg.percentiles_json,
+        updated_at = NOW()
+    FROM aggregated agg
+    WHERE ps.player_id = agg.player_id
+      AND ps.sport = p_sport
+      AND ps.season = p_season;
+
+    GET DIAGNOSTICS v_players = ROW_COUNT;
+
+    -- ========================================================================
+    -- TEAM PERCENTILES (all teams compared together, no position partitioning)
+    -- ========================================================================
+    WITH stat_keys AS (
+        SELECT DISTINCT key
+        FROM team_stats, jsonb_each(stats) AS kv(key, val)
+        WHERE sport = p_sport AND season = p_season
+          AND jsonb_typeof(val) = 'number'
+          AND (val::text)::numeric != 0
+    ),
+    expanded AS (
+        SELECT
+            ts.team_id,
+            sk.key AS stat_key,
+            (ts.stats->>sk.key)::numeric AS stat_value
+        FROM team_stats ts
+        CROSS JOIN stat_keys sk
+        WHERE ts.sport = p_sport AND ts.season = p_season
+          AND ts.stats ? sk.key
+          AND (ts.stats->>sk.key)::numeric != 0
+    ),
+    ranked AS (
+        SELECT
+            team_id,
+            stat_key,
+            CASE
+                WHEN stat_key = ANY(p_inverse_stats) THEN
+                    round((1.0 - percent_rank() OVER (
+                        PARTITION BY stat_key ORDER BY stat_value ASC
+                    ))::numeric * 100, 1)
+                ELSE
+                    round((percent_rank() OVER (
+                        PARTITION BY stat_key ORDER BY stat_value ASC
+                    ))::numeric * 100, 1)
+            END AS percentile,
+            count(*) OVER (PARTITION BY stat_key) AS sample_size
+        FROM expanded
+    ),
+    aggregated AS (
+        SELECT
+            team_id,
+            jsonb_object_agg(stat_key, percentile)
+                || jsonb_build_object('_sample_size', max(sample_size))
+            AS percentiles_json
+        FROM ranked
+        GROUP BY team_id
+    )
+    UPDATE team_stats ts
+    SET percentiles = agg.percentiles_json,
+        updated_at = NOW()
+    FROM aggregated agg
+    WHERE ts.team_id = agg.team_id
+      AND ts.sport = p_sport
+      AND ts.season = p_season;
+
+    GET DIAGNOSTICS v_teams = ROW_COUNT;
+
+    RETURN QUERY SELECT v_players, v_teams;
+END;
+$$ LANGUAGE plpgsql;

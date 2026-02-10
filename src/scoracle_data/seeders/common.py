@@ -1,8 +1,5 @@
 """
 Shared seeder types used by all sport-specific seeders.
-
-Extracted from the identical SeedResult dataclass that was
-duplicated across packages/scoracle-{nba,nfl,football}/seeder.py.
 """
 
 from dataclasses import dataclass, field
@@ -22,7 +19,8 @@ class SeedResult:
         return SeedResult(
             teams_upserted=self.teams_upserted + other.teams_upserted,
             players_upserted=self.players_upserted + other.players_upserted,
-            player_stats_upserted=self.player_stats_upserted + other.player_stats_upserted,
+            player_stats_upserted=self.player_stats_upserted
+            + other.player_stats_upserted,
             team_stats_upserted=self.team_stats_upserted + other.team_stats_upserted,
             errors=self.errors + other.errors,
         )

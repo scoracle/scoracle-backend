@@ -23,15 +23,11 @@ logger = logging.getLogger(__name__)
 # TTL constants (seconds) -- single source of truth for all cache durations.
 # Optimized for once-daily data updates.
 # ---------------------------------------------------------------------------
-TTL_HISTORICAL = 86400          # 24h -- past season data (never changes)
-TTL_CURRENT_SEASON = 3600       # 1h  -- current season stats/profiles
-TTL_ENTITY_INFO = 86400         # 24h -- player/team basic info
-TTL_DEFAULT = 3600              # 1h  -- fallback
-TTL_NEWS = 600                  # 10m -- news articles (high churn)
-TTL_TRANSFER_PREDICTIONS = 1800 # 30m -- ML transfer predictions
-TTL_VIBE_SCORE = 3600           # 1h  -- ML vibe/sentiment scores
-TTL_PERFORMANCE_PREDICTION = 3600  # 1h -- ML performance predictions
-TTL_SIMILARITY = 3600           # 1h  -- entity similarity (nightly batch)
+TTL_HISTORICAL = 86400  # 24h -- past season data (never changes)
+TTL_CURRENT_SEASON = 3600  # 1h  -- current season stats/profiles
+TTL_ENTITY_INFO = 86400  # 24h -- player/team basic info
+TTL_DEFAULT = 3600  # 1h  -- fallback
+TTL_NEWS = 600  # 10m -- news articles (high churn)
 
 
 class CacheBackend(ABC):
@@ -132,10 +128,14 @@ class InMemoryBackend(CacheBackend):
 
     def keys(self, pattern: str = "*") -> list[str]:
         import fnmatch
+
         with self._lock:
             now = datetime.now(tz=timezone.utc)
-            return [k for k, (_, exp) in self._cache.items()
-                    if now < exp and fnmatch.fnmatch(k, pattern)]
+            return [
+                k
+                for k, (_, exp) in self._cache.items()
+                if now < exp and fnmatch.fnmatch(k, pattern)
+            ]
 
     def cleanup_expired(self) -> int:
         """Remove all expired entries. Returns count of removed entries."""
@@ -143,8 +143,7 @@ class InMemoryBackend(CacheBackend):
         removed = 0
         with self._lock:
             expired_keys = [
-                key for key, (_, expiry) in self._cache.items()
-                if now >= expiry
+                key for key, (_, expiry) in self._cache.items() if now >= expiry
             ]
             for key in expired_keys:
                 del self._cache[key]
@@ -158,6 +157,7 @@ class RedisBackend(CacheBackend):
     def __init__(self, url: str, prefix: str = "scoracle:"):
         try:
             import redis
+
             self._redis = redis.from_url(url, decode_responses=False)
             self._prefix = prefix
             # Test connection
@@ -181,11 +181,7 @@ class RedisBackend(CacheBackend):
 
     def set(self, key: str, value: Any, ttl: int) -> None:
         try:
-            self._redis.setex(
-                self._key(key),
-                ttl,
-                json.dumps(value, default=str)
-            )
+            self._redis.setex(self._key(key), ttl, json.dumps(value, default=str))
         except Exception as e:
             logger.warning(f"Redis set error: {e}")
 
@@ -220,8 +216,10 @@ class RedisBackend(CacheBackend):
         try:
             prefix_len = len(self._prefix)
             keys = self._redis.keys(f"{self._prefix}{pattern}")
-            return [k.decode()[prefix_len:] if isinstance(k, bytes) else k[prefix_len:]
-                    for k in keys]
+            return [
+                k.decode()[prefix_len:] if isinstance(k, bytes) else k[prefix_len:]
+                for k in keys
+            ]
         except Exception as e:
             logger.warning(f"Redis keys error: {e}")
             return []

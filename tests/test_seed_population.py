@@ -25,20 +25,20 @@ def test_seed_small_dataset_inserts_entities(neon_url):
     assert result["summary"]["players"] >= 1
 
     # Verify teams exist in DB
-    teams = db.fetchall("SELECT id, sport_id, name FROM teams WHERE id IN (10, 29, 49)")
+    teams = db.fetchall("SELECT id, sport, name FROM teams WHERE id IN (10, 29, 49)")
     ids = {t["id"] for t in teams}
     assert {10, 29, 49}.intersection(ids)
 
     # Verify players exist in DB
     players = db.fetchall(
-        "SELECT id, sport_id, full_name, current_team_id FROM players WHERE id IN (2801, 2076, 152982)"
+        "SELECT id, sport, name, team_id FROM players WHERE id IN (2801, 2076, 152982)"
     )
     pids = {p["id"] for p in players}
     assert {2801, 2076, 152982}.intersection(pids)
 
     # Football player should have first/last name populated from fixture
     football_player = db.fetchone(
-        "SELECT first_name, last_name, full_name FROM players WHERE id = 152982 AND sport_id = %s",
+        "SELECT first_name, last_name, name FROM players WHERE id = 152982 AND sport = %s",
         ("FOOTBALL",),
     )
     assert football_player is not None
@@ -46,7 +46,9 @@ def test_seed_small_dataset_inserts_entities(neon_url):
     assert football_player["last_name"] == "Palmer"
 
     # Verify meta entry exists and contains expected structure
-    meta_row = db.fetchone("SELECT value FROM meta WHERE key = %s", ("small_dataset_endpoints",))
+    meta_row = db.fetchone(
+        "SELECT value FROM meta WHERE key = %s", ("small_dataset_endpoints",)
+    )
     assert meta_row is not None
     endpoints = json.loads(meta_row["value"])
     assert "NBA" in endpoints and "NFL" in endpoints and "FOOTBALL" in endpoints

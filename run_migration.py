@@ -21,10 +21,18 @@ async def run_migration():
     )
 
     if not database_url:
-        print("ERROR: No database URL found. Set NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL.")
+        print(
+            "ERROR: No database URL found. Set NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL."
+        )
         sys.exit(1)
 
-    migration_file = Path(__file__).parent / "migrations" / "001_initial_schema.sql"
+    migration_file = (
+        Path(__file__).parent
+        / "src"
+        / "scoracle_data"
+        / "migrations"
+        / "001_schema.sql"
+    )
 
     if not migration_file.exists():
         print(f"ERROR: Migration file not found: {migration_file}")

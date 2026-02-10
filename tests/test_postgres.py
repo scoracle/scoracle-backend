@@ -27,7 +27,7 @@ if os.path.exists(_env_file):
 # Skip all tests if DATABASE_URL is not set
 pytestmark = pytest.mark.skipif(
     not os.getenv("DATABASE_URL") and not os.getenv("NEON_DATABASE_URL"),
-    reason="DATABASE_URL environment variable not set"
+    reason="DATABASE_URL environment variable not set",
 )
 
 
@@ -80,6 +80,7 @@ class TestPostgresDBQueries:
     def db(self):
         """Create a database connection for tests."""
         from scoracle_data.pg_connection import PostgresDB
+
         db = PostgresDB()
         yield db
         db.close()
@@ -117,7 +118,7 @@ class TestPostgresDBQueries:
 
         result = db.fetchone(
             "INSERT INTO test_returning (value) VALUES (%s) RETURNING id, value",
-            ("test_value",)
+            ("test_value",),
         )
         assert result is not None
         assert result["id"] == 1
@@ -131,6 +132,7 @@ class TestPostgresDBUpsert:
     def db(self):
         """Create a database connection and temp table."""
         from scoracle_data.pg_connection import PostgresDB
+
         db = PostgresDB()
 
         # Drop and create temp table for upsert tests
@@ -149,26 +151,32 @@ class TestPostgresDBUpsert:
     def test_insert_on_conflict_do_update(self, db):
         """ON CONFLICT DO UPDATE should work."""
         # First insert
-        db.execute("""
+        db.execute(
+            """
             INSERT INTO test_upsert (id, name, value)
             VALUES (%s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 value = EXCLUDED.value
-        """, (1, "first", 100))
+        """,
+            (1, "first", 100),
+        )
 
         result = db.fetchone("SELECT * FROM test_upsert WHERE id = %s", (1,))
         assert result["name"] == "first"
         assert result["value"] == 100
 
         # Update via upsert
-        db.execute("""
+        db.execute(
+            """
             INSERT INTO test_upsert (id, name, value)
             VALUES (%s, %s, %s)
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
                 value = EXCLUDED.value
-        """, (1, "updated", 200))
+        """,
+            (1, "updated", 200),
+        )
 
         result = db.fetchone("SELECT * FROM test_upsert WHERE id = %s", (1,))
         assert result["name"] == "updated"
@@ -177,16 +185,18 @@ class TestPostgresDBUpsert:
     def test_insert_on_conflict_do_nothing(self, db):
         """ON CONFLICT DO NOTHING should work."""
         db.execute(
-            "INSERT INTO test_upsert (id, name) VALUES (%s, %s)",
-            (1, "original")
+            "INSERT INTO test_upsert (id, name) VALUES (%s, %s)", (1, "original")
         )
 
         # This should not raise and should not update
-        db.execute("""
+        db.execute(
+            """
             INSERT INTO test_upsert (id, name)
             VALUES (%s, %s)
             ON CONFLICT (id) DO NOTHING
-        """, (1, "duplicate"))
+        """,
+            (1, "duplicate"),
+        )
 
         result = db.fetchone("SELECT * FROM test_upsert WHERE id = %s", (1,))
         assert result["name"] == "original"
@@ -199,6 +209,7 @@ class TestPostgresPercentileCalculations:
     def db(self):
         """Create a database connection with test data."""
         from scoracle_data.pg_connection import PostgresDB
+
         db = PostgresDB()
 
         # Drop and create temp table with sample data
@@ -215,7 +226,7 @@ class TestPostgresPercentileCalculations:
         for i in range(1, 101):
             db.execute(
                 "INSERT INTO test_stats (player_id, stat_value) VALUES (%s, %s)",
-                (i, float(i))
+                (i, float(i)),
             )
 
         yield db
@@ -265,6 +276,7 @@ class TestPythonPercentileCalculator:
     def db(self):
         """Create a database connection."""
         from scoracle_data.pg_connection import PostgresDB
+
         db = PostgresDB()
         yield db
         db.close()
@@ -283,10 +295,9 @@ class TestPythonPercentileCalculator:
 
         calc = PythonPercentileCalculator(db)
 
-        # Should have key methods for percentile calculation
-        assert hasattr(calc, "calculate_all_player_percentiles")
-        assert hasattr(calc, "calculate_all_team_percentiles")
+        # Should have key methods for percentile calculation and archiving
         assert hasattr(calc, "recalculate_all_percentiles")
+        assert hasattr(calc, "archive_season")
 
 
 class TestSchemaCompatibility:
@@ -296,6 +307,7 @@ class TestSchemaCompatibility:
     def db(self):
         """Create a database connection."""
         from scoracle_data.pg_connection import PostgresDB
+
         db = PostgresDB()
         yield db
         db.close()
@@ -314,18 +326,13 @@ class TestSchemaCompatibility:
         required_tables = {
             "meta",
             "sports",
-            "seasons",
             "leagues",
             "teams",
             "players",
-            "nba_player_stats",
-            "nba_team_stats",
-            "nfl_player_stats",
-            "nfl_team_stats",
-            "football_player_stats",
-            "football_team_stats",
-            "percentile_cache",
-            "sync_log",
+            "player_stats",
+            "team_stats",
+            "fixtures",
+            "percentile_archive",
         }
 
         missing = required_tables - table_names
@@ -349,7 +356,7 @@ class TestSchemaCompatibility:
         result = db.fetchone("""
             SELECT column_default
             FROM information_schema.columns
-            WHERE table_name = 'seasons'
+            WHERE table_name = 'fixtures'
             AND column_name = 'id'
         """)
 

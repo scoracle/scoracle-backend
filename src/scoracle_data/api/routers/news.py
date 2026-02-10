@@ -21,7 +21,7 @@ from fastapi import APIRouter, Path, Query, Response
 from ..cache import get_cache
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
-from ...core.types import EntityType, Sport, get_sport_config
+from ...core.types import EntityType, PLAYERS_TABLE, Sport, TEAMS_TABLE
 from ...services.news import get_news_service
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ NEWS_CACHE_TTL = 600
 async def get_news_status():
     """
     Check news services status.
-    
+
     Returns configuration state for both RSS and NewsAPI.
     """
     service = get_news_service()
@@ -45,23 +45,26 @@ async def get_news_status():
 
 @router.get("/{entity_type}/{entity_id}")
 async def get_entity_news(
-    entity_type: Annotated[EntityType, Path(description="Entity type (player or team)")],
+    entity_type: Annotated[
+        EntityType, Path(description="Entity type (player or team)")
+    ],
     entity_id: Annotated[int, Path(description="Entity ID from database")],
     sport: Annotated[Sport, Query(description="Sport context for better filtering")],
     response: Response,
     db: DBDependency,
-    team: Annotated[str | None, Query(description="Team name for player context")] = None,
+    team: Annotated[
+        str | None, Query(description="Team name for player context")
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=50, description="Max results")] = 10,
     source: Annotated[
-        Literal["rss", "api", "both"], 
-        Query(description="News source preference")
+        Literal["rss", "api", "both"], Query(description="News source preference")
     ] = "rss",
 ) -> dict:
     """
     Get news articles about a specific entity (player or team).
-    
+
     Uses the unified NewsService which combines Google News RSS and NewsAPI.
-    
+
     Args:
         entity_type: "player" or "team"
         entity_id: Entity ID from database
@@ -72,49 +75,44 @@ async def get_entity_news(
             - "rss": Google News RSS only (default, free)
             - "api": NewsAPI only (requires key)
             - "both": Try both, merge and dedupe
-    
+
     Returns:
         Dictionary with articles and metadata
-    
+
     Example:
         GET /news/player/123?sport=NBA&limit=10
         GET /news/team/456?sport=NFL&source=both
     """
-    # Get sport configuration for correct table names
-    sport_config = get_sport_config(sport.value)
-
     # Track name components for stricter filtering
     first_name: str | None = None
     last_name: str | None = None
 
     if entity_type == EntityType.player:
-        table = sport_config.player_profile_table
         result = db.fetchone(
-            f"SELECT full_name, first_name, last_name, current_team_id FROM {table} WHERE id = %s",
-            (entity_id,)
+            f"SELECT name, first_name, last_name, team_id FROM {PLAYERS_TABLE} "
+            f"WHERE id = %s AND sport = %s",
+            (entity_id, sport.value),
         )
         if not result:
             raise NotFoundError(
                 resource="player",
                 identifier=str(entity_id),
             )
-        entity_name = result["full_name"]
+        entity_name = result["name"]
         first_name = result.get("first_name")
         last_name = result.get("last_name")
         # Get team name if not provided
-        if not team and result.get("current_team_id"):
-            team_table = sport_config.team_profile_table
+        if not team and result.get("team_id"):
             team_result = db.fetchone(
-                f"SELECT name FROM {team_table} WHERE id = %s",
-                (result["current_team_id"],)
+                f"SELECT name FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
+                (result["team_id"], sport.value),
             )
             if team_result:
                 team = team_result["name"]
     else:
-        table = sport_config.team_profile_table
         result = db.fetchone(
-            f"SELECT name FROM {table} WHERE id = %s",
-            (entity_id,)
+            f"SELECT name FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
+            (entity_id, sport.value),
         )
         if not result:
             raise NotFoundError(
@@ -122,19 +120,19 @@ async def get_entity_news(
                 identifier=str(entity_id),
             )
         entity_name = result["name"]
-    
+
     # Check cache
     cache = get_cache()
     cache_key = ("news", entity_type.value, entity_id, sport.value, source, limit)
-    
+
     cached = cache.get(*cache_key)
     if cached:
         response.headers["X-Cache"] = "HIT"
         response.headers["Cache-Control"] = f"public, max-age={NEWS_CACHE_TTL}"
         return cached
-    
+
     response.headers["X-Cache"] = "MISS"
-    
+
     # Fetch from news service
     service = get_news_service()
     result = await service.get_entity_news(
@@ -146,7 +144,7 @@ async def get_entity_news(
         first_name=first_name,
         last_name=last_name,
     )
-    
+
     # Add entity info to response
     result["entity"] = {
         "type": entity_type.value,
@@ -154,9 +152,9 @@ async def get_entity_news(
         "name": entity_name,
         "sport": sport.value,
     }
-    
+
     # Cache and return
     cache.set(result, *cache_key, ttl=NEWS_CACHE_TTL)
     response.headers["Cache-Control"] = f"public, max-age={NEWS_CACHE_TTL}"
-    
+
     return result

@@ -5,7 +5,7 @@ Endpoints:
 - GET /{entity_type}/{entity_id} - Entity profile from players/teams tables
 
 Data:
-- Serves entity info from profile tables (nba_players, nba_teams, etc.)
+- Serves entity info from unified tables (players, teams) with sport filter
 - Includes related team/league info via JOINs
 
 Performance Features:

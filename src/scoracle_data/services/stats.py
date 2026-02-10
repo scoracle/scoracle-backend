@@ -1,19 +1,14 @@
 """
 Stats service — sport-aware entity statistics lookups.
 
-Encapsulates all raw SQL for stats queries, using psycopg.sql for safe
-dynamic table/column injection. Routers call this instead of building SQL.
+Queries the unified player_stats/team_stats tables with JSONB stats.
+Routers call this instead of building SQL.
 """
 
 import logging
 from typing import Any
 
-from psycopg import sql
-
-from ..core.types import (
-    PLAYER_STATS_TABLES,
-    TEAM_STATS_TABLES,
-)
+from ..core.types import PLAYER_STATS_TABLE, TEAM_STATS_TABLE
 from ..percentiles.config import SMALL_SAMPLE_WARNING_THRESHOLD
 
 logger = logging.getLogger(__name__)
@@ -24,74 +19,77 @@ def get_entity_stats(
     sport: str,
     entity_type: str,
     entity_id: int,
-    season_id: int,
+    season: int,
     league_id: int | None = None,
 ) -> dict[str, Any] | None:
-    """Fetch stats from a sport-specific table with embedded percentiles.
+    """Fetch stats + percentiles from the unified stats table.
+
+    Stats and percentiles are stored as JSONB columns in the unified
+    player_stats / team_stats tables.
 
     Args:
         db: Database connection (psycopg-style with fetchone).
         sport: Sport identifier (NBA, NFL, FOOTBALL).
         entity_type: "player" or "team".
         entity_id: The entity's ID.
-        season_id: The season row ID (not year).
+        season: Season year (e.g. 2025).
         league_id: Optional league ID (used for FOOTBALL).
 
     Returns:
         Dict with keys ``stats``, ``percentiles``, ``percentile_metadata``,
         or None if no row found.
     """
-    table_map = PLAYER_STATS_TABLES if entity_type == "player" else TEAM_STATS_TABLES
-    table = table_map.get(sport)
-    if not table:
-        return None
-
+    table = PLAYER_STATS_TABLE if entity_type == "player" else TEAM_STATS_TABLE
     id_column = "player_id" if entity_type == "player" else "team_id"
 
-    tbl = sql.Identifier(table)
-    col = sql.Identifier(id_column)
-
     if sport == "FOOTBALL" and league_id:
-        query = sql.SQL(
-            "SELECT * FROM {} WHERE {} = %s AND season_id = %s AND league_id = %s"
-        ).format(tbl, col)
-        row = db.fetchone(query, (entity_id, season_id, league_id))
+        query = (
+            f"SELECT stats, percentiles FROM {table} "
+            f"WHERE {id_column} = %s AND sport = %s AND season = %s AND league_id = %s"
+        )
+        row = db.fetchone(query, (entity_id, sport, season, league_id))
     else:
-        query = sql.SQL(
-            "SELECT * FROM {} WHERE {} = %s AND season_id = %s"
-        ).format(tbl, col)
-        row = db.fetchone(query, (entity_id, season_id))
+        query = (
+            f"SELECT stats, percentiles FROM {table} "
+            f"WHERE {id_column} = %s AND sport = %s AND season = %s"
+        )
+        row = db.fetchone(query, (entity_id, sport, season))
 
     if not row:
         return None
 
-    data = dict(row)
+    # Stats and percentiles come directly from JSONB columns
+    stats = row["stats"] or {}
+    percentiles_raw = row["percentiles"] or {}
 
-    # Extract percentile data (stored as JSONB in stats table)
-    percentiles = data.pop("percentiles", None) or {}
-    percentile_position_group = data.pop("percentile_position_group", None)
-    percentile_sample_size = data.pop("percentile_sample_size", None)
+    # Separate embedded metadata from percentile values
+    position_group = (
+        percentiles_raw.pop("_position_group", None)
+        if isinstance(percentiles_raw, dict)
+        else None
+    )
+    sample_size = (
+        percentiles_raw.pop("_sample_size", None)
+        if isinstance(percentiles_raw, dict)
+        else None
+    )
 
-    # Remove internal IDs and metadata
-    for key in ["id", "player_id", "team_id", "season_id", "league_id", "updated_at"]:
-        data.pop(key, None)
-
-    # Filter out null and zero values (frontend only needs non-zero stats)
-    stats = {k: v for k, v in data.items() if v is not None and v != 0}
+    # Filter out null and zero stat values (frontend only needs non-zero stats)
+    stats = {k: v for k, v in stats.items() if v is not None and v != 0}
 
     # Build percentile metadata (only if percentiles exist)
     percentile_metadata = None
-    if percentiles:
-        sample_size = percentile_sample_size or 0
+    if percentiles_raw:
+        sz = sample_size or 0
         percentile_metadata = {
-            "position_group": percentile_position_group,
-            "sample_size": sample_size,
-            "small_sample_warning": sample_size < SMALL_SAMPLE_WARNING_THRESHOLD,
+            "position_group": position_group,
+            "sample_size": sz,
+            "small_sample_warning": sz < SMALL_SAMPLE_WARNING_THRESHOLD,
         }
 
     return {
         "stats": stats,
-        "percentiles": percentiles,
+        "percentiles": percentiles_raw,
         "percentile_metadata": percentile_metadata,
     }
 
@@ -113,23 +111,13 @@ def get_available_seasons(
     Returns:
         List of season years in descending order.
     """
-    table_map = PLAYER_STATS_TABLES if entity_type == "player" else TEAM_STATS_TABLES
-    table = table_map.get(sport)
-    if not table:
-        return []
-
+    table = PLAYER_STATS_TABLE if entity_type == "player" else TEAM_STATS_TABLE
     id_column = "player_id" if entity_type == "player" else "team_id"
 
-    tbl = sql.Identifier(table)
-    col = sql.Identifier(id_column)
-
-    query = sql.SQL("""
-        SELECT DISTINCT s.season_year
-        FROM {} st
-        JOIN seasons s ON s.id = st.season_id
-        WHERE st.{} = %s AND s.sport_id = %s
-        ORDER BY s.season_year DESC
-    """).format(tbl, col)
-
+    query = (
+        f"SELECT DISTINCT season FROM {table} "
+        f"WHERE {id_column} = %s AND sport = %s "
+        f"ORDER BY season DESC"
+    )
     rows = db.fetchall(query, (entity_id, sport))
-    return [row["season_year"] for row in rows]
+    return [row["season"] for row in rows]

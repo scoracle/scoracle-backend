@@ -4,17 +4,16 @@ Fixture loader for importing match schedules.
 Supports importing from:
 - CSV files
 - JSON files
-- API-Sports fixtures endpoint (if available)
 
 CSV Format:
-    sport_id,league_id,home_team_id,away_team_id,start_time,round
+    sport,league_id,home_team_id,away_team_id,start_time,round
     NBA,,1,2,2025-01-15T19:30:00-05:00,Week 12
     FOOTBALL,39,49,50,2025-01-18T15:00:00+00:00,Matchday 22
 
 JSON Format:
     [
         {
-            "sport_id": "NBA",
+            "sport": "NBA",
             "home_team_id": 1,
             "away_team_id": 2,
             "start_time": "2025-01-15T19:30:00-05:00",
@@ -54,7 +53,7 @@ class FixtureLoader:
     def load_from_csv(
         self,
         file_path: str | Path,
-        sport_id: str | None = None,
+        sport: str | None = None,
         season_year: int | None = None,
         seed_delay_hours: int = 4,
         clear_existing: bool = False,
@@ -64,10 +63,10 @@ class FixtureLoader:
 
         Args:
             file_path: Path to CSV file
-            sport_id: Default sport ID if not in CSV
-            season_year: Season year (required if not derivable)
+            sport: Default sport if not in CSV (NBA, NFL, FOOTBALL)
+            season_year: Season year (required if not derivable from start_time)
             seed_delay_hours: Hours after match start to seed stats
-            clear_existing: If True, delete existing fixtures for this sport/season first
+            clear_existing: If True, delete existing scheduled fixtures for this sport/season
 
         Returns:
             Summary with counts: {"loaded": N, "skipped": N, "errors": N}
@@ -78,10 +77,10 @@ class FixtureLoader:
             - start_time: ISO 8601 datetime
 
         CSV columns (optional):
-            - sport_id: Sport identifier (NBA, NFL, FOOTBALL)
+            - sport: Sport identifier (NBA, NFL, FOOTBALL)
             - league_id: League ID (required for FOOTBALL)
             - round: Match round/week label
-            - external_id: API-Sports fixture ID
+            - external_id: Provider fixture ID
             - venue_name: Venue name
         """
         file_path = Path(file_path)
@@ -96,7 +95,9 @@ class FixtureLoader:
 
             for row_num, row in enumerate(reader, start=2):
                 try:
-                    fixture = self._parse_csv_row(row, sport_id, season_year, seed_delay_hours)
+                    fixture = self._parse_csv_row(
+                        row, sport, season_year, seed_delay_hours
+                    )
                     if fixture:
                         fixtures_to_insert.append(fixture)
                     else:
@@ -111,12 +112,12 @@ class FixtureLoader:
 
         # Determine sport/season for clearing
         first_fixture = fixtures_to_insert[0]
-        effective_sport_id = first_fixture["sport_id"]
-        effective_season_id = first_fixture["season_id"]
+        effective_sport = first_fixture["sport"]
+        effective_season = first_fixture["season"]
 
         # Clear existing if requested
-        if clear_existing and effective_sport_id:
-            deleted = self._clear_existing_fixtures(effective_sport_id, effective_season_id)
+        if clear_existing and effective_sport:
+            deleted = self._clear_existing_fixtures(effective_sport, effective_season)
             logger.info(f"Cleared {deleted} existing fixtures")
 
         # Batch insert fixtures
@@ -132,7 +133,7 @@ class FixtureLoader:
     def load_from_json(
         self,
         file_path: str | Path,
-        sport_id: str | None = None,
+        sport: str | None = None,
         season_year: int | None = None,
         seed_delay_hours: int = 4,
         clear_existing: bool = False,
@@ -142,7 +143,7 @@ class FixtureLoader:
 
         Args:
             file_path: Path to JSON file
-            sport_id: Default sport ID if not in JSON
+            sport: Default sport if not in JSON
             season_year: Season year
             seed_delay_hours: Hours after match start to seed stats
             clear_existing: If True, delete existing fixtures first
@@ -168,7 +169,9 @@ class FixtureLoader:
 
         for idx, item in enumerate(fixtures_data):
             try:
-                fixture = self._parse_json_item(item, sport_id, season_year, seed_delay_hours)
+                fixture = self._parse_json_item(
+                    item, sport, season_year, seed_delay_hours
+                )
                 if fixture:
                     fixtures_to_insert.append(fixture)
                 else:
@@ -184,7 +187,7 @@ class FixtureLoader:
         # Clear existing if requested
         if clear_existing and fixtures_to_insert:
             first = fixtures_to_insert[0]
-            deleted = self._clear_existing_fixtures(first["sport_id"], first["season_id"])
+            deleted = self._clear_existing_fixtures(first["sport"], first["season"])
             logger.info(f"Cleared {deleted} existing fixtures")
 
         # Batch insert
@@ -200,7 +203,7 @@ class FixtureLoader:
     def _parse_csv_row(
         self,
         row: dict[str, str],
-        default_sport_id: str | None,
+        default_sport: str | None,
         season_year: int | None,
         seed_delay_hours: int,
     ) -> dict[str, Any] | None:
@@ -213,8 +216,9 @@ class FixtureLoader:
         if not all([home_team_id, away_team_id, start_time]):
             return None
 
-        sport_id = row.get("sport_id") or default_sport_id
-        if not sport_id:
+        # Accept both "sport" and legacy "sport_id" CSV headers
+        sport = row.get("sport") or row.get("sport_id") or default_sport
+        if not sport:
             return None
 
         # Parse start_time
@@ -224,9 +228,8 @@ class FixtureLoader:
             logger.warning(f"Invalid start_time format: {start_time}")
             return None
 
-        # Get season ID
-        effective_season_year = season_year or start_dt.year
-        season_id = self._get_or_create_season_id(sport_id, effective_season_year)
+        # Season is just the year — stored directly on the fixtures table
+        season = season_year or start_dt.year
 
         # Optional fields
         league_id = row.get("league_id")
@@ -238,9 +241,9 @@ class FixtureLoader:
             external_id = int(external_id)
 
         return {
-            "sport_id": sport_id,
+            "sport": sport,
             "league_id": league_id,
-            "season_id": season_id,
+            "season": season,
             "home_team_id": int(home_team_id),
             "away_team_id": int(away_team_id),
             "start_time": start_dt,
@@ -253,7 +256,7 @@ class FixtureLoader:
     def _parse_json_item(
         self,
         item: dict[str, Any],
-        default_sport_id: str | None,
+        default_sport: str | None,
         season_year: int | None,
         seed_delay_hours: int,
     ) -> dict[str, Any] | None:
@@ -281,8 +284,9 @@ class FixtureLoader:
         if not all([home_team_id, away_team_id, start_time]):
             return None
 
-        sport_id = item.get("sport_id") or default_sport_id
-        if not sport_id:
+        # Accept both "sport" and legacy "sport_id" keys
+        sport = item.get("sport") or item.get("sport_id") or default_sport
+        if not sport:
             return None
 
         # Parse start_time
@@ -294,14 +298,13 @@ class FixtureLoader:
         except ValueError:
             return None
 
-        # Get season ID
-        effective_season_year = season_year or start_dt.year
-        season_id = self._get_or_create_season_id(sport_id, effective_season_year)
+        # Season is the year — stored directly on fixtures table
+        season = season_year or start_dt.year
 
         return {
-            "sport_id": sport_id,
+            "sport": sport,
             "league_id": item.get("league_id"),
-            "season_id": season_id,
+            "season": season,
             "home_team_id": int(home_team_id),
             "away_team_id": int(away_team_id),
             "start_time": start_dt,
@@ -311,34 +314,18 @@ class FixtureLoader:
             "seed_delay_hours": seed_delay_hours,
         }
 
-    def _get_or_create_season_id(self, sport_id: str, season_year: int) -> int:
-        """Get or create a season record."""
-        existing = self.db.fetchone(
-            "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-            (sport_id, season_year),
-        )
-        if existing:
-            return existing["id"]
-
+    def _clear_existing_fixtures(self, sport: str, season: int) -> int:
+        """Delete existing scheduled fixtures for a sport/season."""
         result = self.db.fetchone(
             """
-            INSERT INTO seasons (sport_id, season_year, season_label)
-            VALUES (%s, %s, %s)
-            RETURNING id
+            WITH deleted AS (
+                DELETE FROM fixtures
+                WHERE sport = %s AND season = %s AND status = 'scheduled'
+                RETURNING 1
+            )
+            SELECT COUNT(*) as count FROM deleted
             """,
-            (sport_id, season_year, str(season_year)),
-        )
-        return result["id"]
-
-    def _clear_existing_fixtures(self, sport_id: str, season_id: int) -> int:
-        """Delete existing fixtures for a sport/season."""
-        result = self.db.fetchone(
-            """
-            DELETE FROM fixtures
-            WHERE sport_id = %s AND season_id = %s AND status = 'scheduled'
-            RETURNING COUNT(*) as count
-            """,
-            (sport_id, season_id),
+            (sport, season),
         )
         return result["count"] if result else 0
 
@@ -352,25 +339,25 @@ class FixtureLoader:
         params = []
 
         for f in fixtures:
-            placeholders.append(
-                "(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            placeholders.append("(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)")
+            params.extend(
+                [
+                    f.get("external_id"),
+                    f["sport"],
+                    f.get("league_id"),
+                    f["season"],
+                    f["home_team_id"],
+                    f["away_team_id"],
+                    f["start_time"],
+                    f.get("venue_name"),
+                    f.get("round"),
+                    f["seed_delay_hours"],
+                ]
             )
-            params.extend([
-                f.get("external_id"),
-                f["sport_id"],
-                f.get("league_id"),
-                f["season_id"],
-                f["home_team_id"],
-                f["away_team_id"],
-                f["start_time"],
-                f.get("venue_name"),
-                f.get("round"),
-                f["seed_delay_hours"],
-            ])
 
         query = f"""
             INSERT INTO fixtures (
-                external_id, sport_id, league_id, season_id,
+                external_id, sport, league_id, season,
                 home_team_id, away_team_id, start_time,
                 venue_name, round, seed_delay_hours
             )
@@ -386,16 +373,15 @@ class FixtureLoader:
         self.db.execute(query, params)
         return len(fixtures)
 
-    def get_fixture_count(self, sport_id: str, season_year: int) -> dict[str, int]:
+    def get_fixture_count(self, sport: str, season_year: int) -> dict[str, int]:
         """Get fixture counts by status for a sport/season."""
         rows = self.db.fetchall(
             """
             SELECT status, COUNT(*) as count
-            FROM fixtures f
-            JOIN seasons s ON s.id = f.season_id
-            WHERE f.sport_id = %s AND s.season_year = %s
+            FROM fixtures
+            WHERE sport = %s AND season = %s
             GROUP BY status
             """,
-            (sport_id, season_year),
+            (sport, season_year),
         )
         return {row["status"]: row["count"] for row in rows}

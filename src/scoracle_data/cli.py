@@ -6,7 +6,6 @@ Usage:
     python -m scoracle_data.cli init
     python -m scoracle_data.cli seed --sport NBA --season 2025
     python -m scoracle_data.cli seed --all
-    python -m scoracle_data.cli diff --sport FOOTBALL --season 2025
     python -m scoracle_data.cli percentiles --sport NBA --season 2025
     python -m scoracle_data.cli status
     python -m scoracle_data.cli export --format json
@@ -17,14 +16,6 @@ Usage:
     python -m scoracle_data.cli fixtures pending
     python -m scoracle_data.cli fixtures run-scheduler
     python -m scoracle_data.cli fixtures seed 12345
-
-    # ML job commands
-    python -m scoracle_data.cli ml scan --sport FOOTBALL
-    python -m scoracle_data.cli ml predict --sport NBA
-    python -m scoracle_data.cli ml vibe --entity-type player
-    python -m scoracle_data.cli ml run-all
-    python -m scoracle_data.cli ml status
-    python -m scoracle_data.cli ml history --job mention_scan
 """
 
 from __future__ import annotations
@@ -48,10 +39,10 @@ logger = logging.getLogger("statsdb.cli")
 
 from .core.types import (
     Sport,
-    PLAYER_PROFILE_TABLES,
-    PLAYER_STATS_TABLES,
-    TEAM_PROFILE_TABLES,
-    TEAM_STATS_TABLES,
+    PLAYERS_TABLE,
+    PLAYER_STATS_TABLE,
+    TEAMS_TABLE,
+    TEAM_STATS_TABLE,
 )
 
 ALL_SPORTS = [s.value for s in Sport]
@@ -152,23 +143,22 @@ def cmd_status(args: argparse.Namespace) -> int:
         for table, count in sorted(counts.items()):
             print(f"  {table}: {count:,}")
 
-        # Show sports summary using sport-specific tables
+        # Show sports summary using unified tables
         print()
         print("Sports Summary:")
         sports = db.fetchall("SELECT * FROM sports WHERE is_active = true")
         for sport in sports:
-            player_table = PLAYER_PROFILE_TABLES.get(sport["id"])
-            team_table = TEAM_PROFILE_TABLES.get(sport["id"])
-            if player_table and team_table:
-                players = db.fetchone(
-                    f"SELECT COUNT(*) as count FROM {player_table}",
-                )
-                teams = db.fetchone(
-                    f"SELECT COUNT(*) as count FROM {team_table}",
-                )
-                print(
-                    f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams"
-                )
+            players = db.fetchone(
+                f"SELECT COUNT(*) as count FROM {PLAYERS_TABLE} WHERE sport = %s",
+                (sport["id"],),
+            )
+            teams = db.fetchone(
+                f"SELECT COUNT(*) as count FROM {TEAMS_TABLE} WHERE sport = %s",
+                (sport["id"],),
+            )
+            print(
+                f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams"
+            )
 
         return 0
 
@@ -279,84 +269,6 @@ def cmd_seed(args: argparse.Namespace) -> int:
     return asyncio.run(cmd_seed_async(args))
 
 
-async def cmd_diff_async(args: argparse.Namespace) -> int:
-    """Run roster diff to detect trades/transfers."""
-    from .roster_diff import RosterDiffEngine
-
-    db = get_db()
-
-    if not db.is_initialized():
-        logger.error("Database not initialized. Run 'init' first.")
-        return 1
-
-    season = args.season or 2025
-
-    try:
-        if args.all:
-            # Run all priority diffs — need a provider per sport
-            # Use NBA provider as default for run_all (it creates per-sport internally)
-            client = _get_provider_client("NBA")
-            engine = RosterDiffEngine(db, client)
-            results = await engine.run_all_priority_diffs(season)
-            total_new = sum(len(r.new_players) for r in results)
-            total_transfers = sum(len(r.transferred_players) for r in results)
-            logger.info(
-                "All diffs complete: %d new players, %d transfers across %d leagues/sports",
-                total_new,
-                total_transfers,
-                len(results),
-            )
-        else:
-            # Single sport/league diff
-            if not args.sport:
-                logger.error("Must specify --sport or --all")
-                return 1
-
-            sport_id = args.sport.upper()
-            league_id = args.league
-
-            if sport_id == "FOOTBALL" and not league_id:
-                logger.error("FOOTBALL requires --league parameter")
-                return 1
-
-            client = _get_provider_client(sport_id)
-            engine = RosterDiffEngine(db, client)
-            result = await engine.run_diff(sport_id, season, league_id)
-            logger.info("Diff result: %s", result.to_dict())
-
-            if result.new_players:
-                logger.info(
-                    "New players needing profile fetch: %s", result.new_players[:10]
-                )
-                if len(result.new_players) > 10:
-                    logger.info("... and %d more", len(result.new_players) - 10)
-
-            if result.transferred_players:
-                for player_id, from_team, to_team in result.transferred_players[:10]:
-                    logger.info(
-                        "Transfer: player %d from team %d to team %d",
-                        player_id,
-                        from_team,
-                        to_team,
-                    )
-
-    except Exception as e:
-        logger.error("Diff failed: %s", e)
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-    return 0
-
-
-def cmd_diff(args: argparse.Namespace) -> int:
-    """Wrapper to run async diff command."""
-    return asyncio.run(cmd_diff_async(args))
-
-
 def cmd_percentiles(args: argparse.Namespace) -> int:
     """Recalculate or archive percentiles using pure Python calculator."""
     from .percentiles.python_calculator import PythonPercentileCalculator
@@ -430,26 +342,21 @@ def cmd_export(args: argparse.Namespace) -> int:
     sports = [sport] if sport else ALL_SPORTS
 
     for sport_id in sports:
-        season_id = db.get_season_id(sport_id, season)
-        if not season_id:
-            logger.warning("No data for %s %d", sport_id, season)
-            continue
-
-        # Export players with stats using sport-specific table
-        player_table = PLAYER_PROFILE_TABLES.get(sport_id)
-        if not player_table:
-            logger.warning("Unknown sport_id: %s", sport_id)
-            continue
-
+        # Export players with stats using unified tables
         players = db.fetchall(
-            f"SELECT * FROM {player_table}",
+            f"SELECT * FROM {PLAYERS_TABLE} WHERE sport = %s",
+            (sport_id,),
         )
 
         player_data = []
         for player in players:
-            stats = db.get_player_stats(player["id"], sport_id, season)
-            # Percentiles are stored as JSONB in the stats row
-            percentiles = stats.get("percentiles") if stats else None
+            stats_row = db.fetchone(
+                f"SELECT stats, percentiles FROM {PLAYER_STATS_TABLE} "
+                f"WHERE player_id = %s AND sport = %s AND season = %s",
+                (player["id"], sport_id, season),
+            )
+            stats = dict(stats_row) if stats_row else None
+            percentiles = stats_row["percentiles"] if stats_row else None
             player_data.append(
                 {
                     "player": dict(player),
@@ -458,21 +365,26 @@ def cmd_export(args: argparse.Namespace) -> int:
                 }
             )
 
-        # Export teams with stats using sport-specific table
-        team_table = TEAM_PROFILE_TABLES.get(sport_id)
+        # Export teams with stats using unified tables
         teams = db.fetchall(
-            f"SELECT * FROM {team_table}",
+            f"SELECT * FROM {TEAMS_TABLE} WHERE sport = %s",
+            (sport_id,),
         )
 
         team_data = []
         for team in teams:
-            stats = db.get_team_stats(team["id"], sport_id, season)
-            percentiles = stats.get("percentiles") if stats else None
+            stats_row = db.fetchone(
+                f"SELECT stats, percentiles FROM {TEAM_STATS_TABLE} "
+                f"WHERE team_id = %s AND sport = %s AND season = %s",
+                (team["id"], sport_id, season),
+            )
+            t_stats = dict(stats_row) if stats_row else None
+            t_percentiles = stats_row["percentiles"] if stats_row else None
             team_data.append(
                 {
                     "team": dict(team),
-                    "stats": stats,
-                    "percentiles": percentiles,
+                    "stats": t_stats,
+                    "percentiles": t_percentiles,
                 }
             )
 
@@ -506,42 +418,6 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_export_profiles(args: argparse.Namespace) -> int:
-    """Export player/team profiles for frontend autocomplete."""
-    from pathlib import Path
-
-    # Import the export function from scripts
-    try:
-        from scripts.export_profiles import export_sport_specific, DEFAULT_OUTPUT_DIR
-    except ImportError:
-        # Fallback: try relative import
-        import sys
-
-        sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
-        from export_profiles import export_sport_specific, DEFAULT_OUTPUT_DIR
-
-    output_dir = Path(args.output) if args.output else DEFAULT_OUTPUT_DIR
-
-    try:
-        result = export_sport_specific(output_dir)
-        print(f"\nExport complete!")
-        print(f"Total entities: {result['counts']['total']}")
-        print(
-            f"  NBA: {result['counts']['nba_players']} players, {result['counts']['nba_teams']} teams"
-        )
-        print(
-            f"  NFL: {result['counts']['nfl_players']} players, {result['counts']['nfl_teams']} teams"
-        )
-        print(
-            f"  FOOTBALL: {result['counts']['football_players']} players, {result['counts']['football_teams']} teams"
-        )
-        print(f"\nOutput: {output_dir / 'entities_minimal.json'}")
-        return 0
-    except Exception as e:
-        logger.error("Export failed: %s", e)
-        return 1
-
-
 def cmd_query(args: argparse.Namespace) -> int:
     """Run a query against the database."""
     db = get_db()
@@ -567,7 +443,7 @@ def cmd_query(args: argparse.Namespace) -> int:
         print("=" * 60)
         for r in results:
             print(
-                f"{r['rank']:3}. {r['full_name']:<25} {r['stat_value']:>10.1f}  ({r['team_name'] or 'N/A'})"
+                f"{r['rank']:3}. {r['name']:<25} {r['stat_value']:>10.1f}  ({r['team_name'] or 'N/A'})"
             )
 
     elif query_type == "standings":
@@ -681,7 +557,7 @@ def cmd_fixtures_load(args: argparse.Namespace) -> int:
         if file_path.suffix.lower() == ".csv":
             result = loader.load_from_csv(
                 file_path,
-                sport_id=args.sport,
+                sport=args.sport,
                 season_year=args.season,
                 seed_delay_hours=args.delay or 4,
                 clear_existing=args.clear,
@@ -689,7 +565,7 @@ def cmd_fixtures_load(args: argparse.Namespace) -> int:
         elif file_path.suffix.lower() == ".json":
             result = loader.load_from_json(
                 file_path,
-                sport_id=args.sport,
+                sport=args.sport,
                 season_year=args.season,
                 seed_delay_hours=args.delay or 4,
                 clear_existing=args.clear,
@@ -772,7 +648,7 @@ def cmd_fixtures_pending(args: argparse.Namespace) -> int:
                 f["start_time"].strftime("%Y-%m-%d %H:%M") if f["start_time"] else "N/A"
             )
             print(
-                f"  {f['id']:<8} {f['sport_id']:<10} {start_time:<20} {f['seed_attempts']:<10}"
+                f"  {f['id']:<8} {f['sport']:<10} {start_time:<20} {f['seed_attempts']:<10}"
             )
 
         print(f"\nTotal: {len(pending)} fixtures ready to seed")
@@ -819,7 +695,7 @@ def cmd_fixtures_upcoming(args: argparse.Namespace) -> int:
             home = f.get("home_team_name", "N/A")[:14]
             away = f.get("away_team_name", "N/A")[:14]
             print(
-                f"  {f['id']:<8} {f['sport_id']:<10} {start_time:<20} {home:<15} {away:<15}"
+                f"  {f['id']:<8} {f['sport']:<10} {start_time:<20} {home:<15} {away:<15}"
             )
 
         print(f"\nTotal: {len(upcoming)} upcoming fixtures")
@@ -866,7 +742,7 @@ def cmd_fixtures_recent(args: argparse.Namespace) -> int:
             home = f.get("home_team_name", "N/A")[:14]
             away = f.get("away_team_name", "N/A")[:14]
             print(
-                f"  {f['id']:<8} {f['sport_id']:<10} {seeded_at:<20} {home:<15} {away:<15}"
+                f"  {f['id']:<8} {f['sport']:<10} {seeded_at:<20} {home:<15} {away:<15}"
             )
 
         print(f"\nTotal: {len(recent)} recently seeded fixtures")
@@ -908,7 +784,7 @@ def cmd_fixtures_failed(args: argparse.Namespace) -> int:
         for f in failed:
             error = (f.get("last_seed_error") or "Unknown")[:48]
             print(
-                f"  {f['id']:<8} {f['sport_id']:<10} {f['seed_attempts']:<10} {error:<50}"
+                f"  {f['id']:<8} {f['sport']:<10} {f['seed_attempts']:<10} {error:<50}"
             )
 
         print(f"\nTotal: {len(failed)} failed fixtures")
@@ -931,9 +807,9 @@ async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
 
     # Determine sport from fixture to create appropriate provider client
     fixture = db.fetchone(
-        "SELECT sport_id FROM fixtures WHERE id = %s", (args.fixture_id,)
+        "SELECT sport FROM fixtures WHERE id = %s", (args.fixture_id,)
     )
-    sport_id = fixture["sport_id"] if fixture else "NBA"
+    sport_id = fixture["sport"] if fixture else "NBA"
     client = _get_provider_client(sport_id)
 
     try:
@@ -949,7 +825,7 @@ async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
         print(f"\nFixture Seeding Result")
         print("=" * 50)
         print(f"  Fixture ID:    {result.fixture_id}")
-        print(f"  Sport:         {result.sport_id}")
+        print(f"  Sport:         {result.sport}")
         print(f"  Success:       {result.success}")
         print(f"  Players:       {result.players_updated}")
         print(f"  Teams:         {result.teams_updated}")
@@ -1041,394 +917,6 @@ def cmd_fixtures_reset(args: argparse.Namespace) -> int:
         db.close()
 
 
-# =============================================================================
-# ML JOB COMMANDS
-# =============================================================================
-
-
-def cmd_ml(args: argparse.Namespace) -> int:
-    """Route ML subcommands."""
-    subcommand = args.ml_command
-
-    if subcommand == "scan":
-        return asyncio.run(cmd_ml_scan_async(args))
-    elif subcommand == "predict":
-        return asyncio.run(cmd_ml_predict_async(args))
-    elif subcommand == "vibe":
-        return asyncio.run(cmd_ml_vibe_async(args))
-    elif subcommand == "run-all":
-        return asyncio.run(cmd_ml_run_all_async(args))
-    elif subcommand == "status":
-        return cmd_ml_status(args)
-    elif subcommand == "history":
-        return cmd_ml_history(args)
-    elif subcommand == "scheduler":
-        return asyncio.run(cmd_ml_scheduler_async(args))
-    else:
-        logger.error("Unknown ML subcommand: %s", subcommand)
-        return 1
-
-
-async def cmd_ml_scan_async(args: argparse.Namespace) -> int:
-    """Run mention scanner job."""
-    from .ml.jobs import MentionScanner
-
-    db = get_pg_db()
-
-    try:
-        scanner = MentionScanner(db)
-        logger.info("Running mention scanner...")
-
-        results = await scanner.scan_all_sources(args.sport)
-
-        print(f"\nMention Scan Results")
-        print("=" * 50)
-
-        total_found = 0
-        total_stored = 0
-
-        for source, result in results.items():
-            print(f"\n  {source.upper()}")
-            print(f"    Found:  {result.mentions_found}")
-            print(f"    Stored: {result.mentions_stored}")
-            print(f"    Time:   {result.duration_seconds:.1f}s")
-            if result.errors:
-                print(f"    Errors: {len(result.errors)}")
-                for err in result.errors[:3]:
-                    print(f"      - {err[:60]}")
-
-            total_found += result.mentions_found
-            total_stored += result.mentions_stored
-
-        print(f"\n  Total: {total_stored} stored / {total_found} found")
-
-        return 0
-
-    except Exception as e:
-        logger.error("Mention scan failed: %s", e)
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
-async def cmd_ml_predict_async(args: argparse.Namespace) -> int:
-    """Run prediction refresh job."""
-    from .ml.jobs import PredictionRefreshJob
-
-    db = get_pg_db()
-
-    try:
-        job = PredictionRefreshJob(db)
-        logger.info("Running prediction refresh...")
-
-        result = job.run(args.sport)
-
-        print(f"\nPrediction Refresh Results")
-        print("=" * 50)
-        print(f"  Predictions created:  {result.predictions_created}")
-        print(f"  Predictions updated:  {result.predictions_updated}")
-        print(f"  Transfer links:       {result.links_updated}")
-        print(f"  Duration:             {result.duration_seconds:.1f}s")
-
-        if result.errors:
-            print(f"\n  Errors: {len(result.errors)}")
-            for err in result.errors[:5]:
-                print(f"    - {err[:70]}")
-
-        return 0
-
-    except Exception as e:
-        logger.error("Prediction refresh failed: %s", e)
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
-async def cmd_ml_vibe_async(args: argparse.Namespace) -> int:
-    """Run vibe calculator job."""
-    from .ml.jobs import VibeCalculatorJob
-    from .ml.jobs.vibe_calculator import SentimentSampler
-
-    db = get_pg_db()
-
-    try:
-        # First sample sentiment from mentions
-        sampler = SentimentSampler(db)
-        samples_created = sampler.sample_from_mentions()
-        logger.info(f"Created {samples_created} sentiment samples")
-
-        # Then calculate vibe scores
-        job = VibeCalculatorJob(db)
-        logger.info("Calculating vibe scores...")
-
-        result = job.run(args.entity_type, args.sport)
-
-        print(f"\nVibe Calculation Results")
-        print("=" * 50)
-        print(f"  Sentiment samples:    {samples_created}")
-        print(f"  Entities created:     {result.entities_created}")
-        print(f"  Entities updated:     {result.entities_updated}")
-        print(f"  Samples processed:    {result.samples_processed}")
-        print(f"  Duration:             {result.duration_seconds:.1f}s")
-
-        if result.errors:
-            print(f"\n  Errors: {len(result.errors)}")
-            for err in result.errors[:5]:
-                print(f"    - {err[:70]}")
-
-        return 0
-
-    except Exception as e:
-        logger.error("Vibe calculation failed: %s", e)
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
-async def cmd_ml_run_all_async(args: argparse.Namespace) -> int:
-    """Run all ML jobs."""
-    from .ml.jobs import MLJobScheduler
-
-    db = get_pg_db()
-
-    try:
-        scheduler = MLJobScheduler(db)
-        logger.info("Running all ML jobs...")
-
-        results = await scheduler.run_all_jobs(sport_id=args.sport)
-
-        print(f"\nML Job Results")
-        print("=" * 60)
-
-        for job_name, result in results.items():
-            status_emoji = "✓" if result.status.value == "completed" else "✗"
-            print(f"\n  {status_emoji} {job_name}")
-            print(f"    Status:    {result.status.value}")
-            print(f"    Processed: {result.items_processed}")
-            print(f"    Duration:  {result.duration_seconds:.1f}s")
-            if result.errors:
-                print(f"    Errors:    {len(result.errors)}")
-
-        return 0
-
-    except Exception as e:
-        logger.error("ML jobs failed: %s", e)
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
-def cmd_ml_status(args: argparse.Namespace) -> int:
-    """Show ML job status."""
-    from .ml.jobs import MLJobScheduler
-
-    db = get_pg_db()
-
-    try:
-        scheduler = MLJobScheduler(db)
-        stats = scheduler.get_job_stats()
-
-        print(f"\nML Job Status (Last 7 Days)")
-        print("=" * 80)
-        print(
-            f"{'Job':<20} {'Enabled':<8} {'Interval':<10} {'Runs':<8} {'Success':<8} {'Failed':<8} {'Avg Time':<10}"
-        )
-        print("-" * 80)
-
-        for job_name, stat in stats.items():
-            enabled = "Yes" if stat["enabled"] else "No"
-            interval = f"{stat['interval_minutes']}m"
-            runs = stat["total_runs"]
-            success = stat["successful"]
-            failed = stat["failed"]
-            avg_time = f"{stat['avg_duration_seconds']:.1f}s"
-
-            print(
-                f"{job_name:<20} {enabled:<8} {interval:<10} {runs:<8} {success:<8} {failed:<8} {avg_time:<10}"
-            )
-
-        return 0
-
-    except Exception as e:
-        logger.error("Failed to get ML status: %s", e)
-        return 1
-    finally:
-        db.close()
-
-
-def cmd_ml_history(args: argparse.Namespace) -> int:
-    """Show ML job history."""
-    from .ml.jobs import MLJobScheduler
-
-    db = get_pg_db()
-
-    try:
-        scheduler = MLJobScheduler(db)
-        history = scheduler.get_job_history(
-            job_name=args.job,
-            limit=args.limit or 20,
-        )
-
-        print(f"\nML Job History")
-        if args.job:
-            print(f"Job: {args.job}")
-        print("=" * 90)
-        print(
-            f"{'Job':<20} {'Status':<12} {'Started':<20} {'Duration':<10} {'Items':<8}"
-        )
-        print("-" * 90)
-
-        for run in history:
-            started = (
-                run["started_at"].strftime("%Y-%m-%d %H:%M")
-                if run["started_at"]
-                else "N/A"
-            )
-            duration = (
-                f"{run['duration_seconds']:.1f}s" if run["duration_seconds"] else "N/A"
-            )
-            items = run["items_processed"] or 0
-
-            print(
-                f"{run['job_name']:<20} {run['status']:<12} {started:<20} {duration:<10} {items:<8}"
-            )
-
-        return 0
-
-    except Exception as e:
-        logger.error("Failed to get ML history: %s", e)
-        return 1
-    finally:
-        db.close()
-
-
-async def cmd_ml_scheduler_async(args: argparse.Namespace) -> int:
-    """Start the ML job scheduler (daemon mode)."""
-    from .ml.jobs import MLJobScheduler
-
-    db = get_pg_db()
-
-    try:
-        scheduler = MLJobScheduler(db)
-
-        print("Starting ML Job Scheduler")
-        print("=" * 50)
-        print("Press Ctrl+C to stop\n")
-
-        # Show enabled jobs
-        for job_name, job_config in scheduler.jobs.items():
-            if job_config.enabled:
-                print(f"  {job_name}: every {job_config.interval_minutes} minutes")
-
-        print()
-
-        await scheduler.start()
-
-        # Run until interrupted
-        try:
-            while True:
-                await asyncio.sleep(60)
-        except KeyboardInterrupt:
-            print("\nShutting down...")
-            await scheduler.stop()
-
-        return 0
-
-    except Exception as e:
-        logger.error("Scheduler failed: %s", e)
-        return 1
-    finally:
-        db.close()
-
-
-# NOTE: The old cmd_seed_generic (provider-agnostic GenericSeeder) has been removed.
-# It depended on the deleted DataProviderProtocol/GenericSeeder framework.
-# New provider-specific seeding should use the BallDontLie/SportMonks clients directly.
-
-
-def cmd_calculate_stats(args: argparse.Namespace) -> int:
-    """Calculate advanced statistics from raw data."""
-    # Import the calculation functions from the script
-    import sys
-
-    sys.path.insert(0, "scripts")
-
-    from scripts.calculate_advanced_stats import (
-        calculate_nba_advanced_stats,
-        calculate_nfl_advanced_stats,
-        calculate_football_advanced_stats,
-        get_season_id,
-        get_all_seasons,
-    )
-
-    db = get_db()
-    sport = args.sport.upper()
-
-    try:
-        # Determine seasons to process
-        if args.all_seasons:
-            seasons = get_all_seasons(db, sport)
-            if not seasons:
-                logger.error(f"No seasons found for {sport}")
-                return 1
-            logger.info(f"Processing {len(seasons)} seasons for {sport}")
-        else:
-            season_year = args.season or 2025
-            season_id = get_season_id(db, sport, season_year)
-            if not season_id:
-                logger.error(f"Season {season_year} not found for {sport}")
-                return 1
-            seasons = [(season_id, season_year)]
-
-        # Calculate stats for each season
-        total_updated = 0
-
-        for season_id, season_year in seasons:
-            logger.info(f"Processing {sport} {season_year}...")
-
-            if sport == "NBA":
-                updated = calculate_nba_advanced_stats(db, season_id)
-            elif sport == "NFL":
-                updated = calculate_nfl_advanced_stats(db, season_id)
-            elif sport == "FOOTBALL":
-                updated = calculate_football_advanced_stats(
-                    db, season_id, args.league_id
-                )
-            else:
-                logger.error(f"Unknown sport: {sport}")
-                return 1
-
-            total_updated += updated
-
-        print(f"\nAdvanced Stats Calculation Complete")
-        print("=" * 50)
-        print(f"  Sport:   {sport}")
-        print(f"  Updated: {total_updated} records")
-
-        return 0
-
-    except Exception as e:
-        logger.error(f"Calculation failed: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return 1
-    finally:
-        db.close()
-
-
 def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -1451,19 +939,6 @@ def main() -> int:
     seed_parser.add_argument("--sport", help="Sport to seed (NBA, NFL, FOOTBALL)")
     seed_parser.add_argument("--all", action="store_true", help="Seed all sports")
     seed_parser.add_argument("--season", type=int, help="Season year to seed")
-
-    # diff command
-    diff_parser = subparsers.add_parser(
-        "diff", help="Run roster diff (detect trades/transfers)"
-    )
-    diff_parser.add_argument("--sport", help="Sport (NBA, NFL, FOOTBALL)")
-    diff_parser.add_argument(
-        "--all", action="store_true", help="Run diff for all priority leagues"
-    )
-    diff_parser.add_argument("--season", type=int, help="Season year")
-    diff_parser.add_argument(
-        "--league", type=int, help="League ID (required for FOOTBALL)"
-    )
 
     # percentiles command with subcommands
     pct_parser = subparsers.add_parser(
@@ -1506,14 +981,6 @@ def main() -> int:
     export_parser.add_argument("--output", help="Output directory")
     export_parser.add_argument("--sport", help="Sport to export")
     export_parser.add_argument("--season", type=int, help="Season year")
-
-    # export-profiles command (for frontend autocomplete)
-    export_profiles_parser = subparsers.add_parser(
-        "export-profiles", help="Export player/team profiles for frontend autocomplete"
-    )
-    export_profiles_parser.add_argument(
-        "--output", "-o", help="Output directory (default: exports/)"
-    )
 
     # query command
     query_parser = subparsers.add_parser("query", help="Run queries")
@@ -1644,96 +1111,6 @@ def main() -> int:
         "fixture_id", type=int, help="Fixture ID to reset"
     )
 
-    # ==========================================================================
-    # ML commands (machine learning jobs)
-    # ==========================================================================
-    ml_parser = subparsers.add_parser(
-        "ml",
-        help="Run ML jobs (mention scanning, predictions, vibe scores)",
-    )
-    ml_subparsers = ml_parser.add_subparsers(
-        dest="ml_command",
-        help="ML subcommands",
-    )
-
-    # ml scan
-    ml_scan_parser = ml_subparsers.add_parser(
-        "scan",
-        help="Scan news/social for transfer mentions",
-    )
-    ml_scan_parser.add_argument("--sport", help="Filter by sport (NBA, NFL, FOOTBALL)")
-
-    # ml predict
-    ml_predict_parser = ml_subparsers.add_parser(
-        "predict",
-        help="Refresh transfer predictions",
-    )
-    ml_predict_parser.add_argument("--sport", help="Filter by sport")
-
-    # ml vibe
-    ml_vibe_parser = ml_subparsers.add_parser(
-        "vibe",
-        help="Calculate vibe scores from sentiment",
-    )
-    ml_vibe_parser.add_argument("--sport", help="Filter by sport")
-    ml_vibe_parser.add_argument(
-        "--entity-type",
-        choices=["player", "team"],
-        help="Filter by entity type",
-    )
-
-    # ml run-all
-    ml_run_all_parser = ml_subparsers.add_parser(
-        "run-all",
-        help="Run all ML jobs",
-    )
-    ml_run_all_parser.add_argument("--sport", help="Filter by sport")
-
-    # ml status
-    ml_status_parser = ml_subparsers.add_parser(
-        "status",
-        help="Show ML job status and statistics",
-    )
-
-    # ml history
-    ml_history_parser = ml_subparsers.add_parser(
-        "history",
-        help="Show ML job run history",
-    )
-    ml_history_parser.add_argument("--job", help="Filter by job name")
-    ml_history_parser.add_argument(
-        "--limit", type=int, default=20, help="Max entries to show"
-    )
-
-    # ml scheduler
-    ml_scheduler_parser = ml_subparsers.add_parser(
-        "scheduler",
-        help="Start the ML job scheduler (daemon mode)",
-    )
-
-    # NOTE: seed-generic command removed (GenericSeeder framework deleted)
-
-    # ==========================================================================
-    # NEW: Calculate advanced stats (post-processing)
-    # ==========================================================================
-    calc_stats_parser = subparsers.add_parser(
-        "calculate-stats",
-        help="Calculate advanced stats after seeding (efficiency, true shooting, etc.)",
-    )
-    calc_stats_parser.add_argument(
-        "--sport",
-        required=True,
-        choices=["NBA", "NFL", "FOOTBALL"],
-        help="Sport to calculate for",
-    )
-    calc_stats_parser.add_argument("--season", type=int, help="Season year")
-    calc_stats_parser.add_argument(
-        "--all-seasons", action="store_true", help="Calculate for all seasons"
-    )
-    calc_stats_parser.add_argument(
-        "--league-id", type=int, help="League ID (for FOOTBALL)"
-    )
-
     args = parser.parse_args()
 
     if not args.command:
@@ -1744,14 +1121,10 @@ def main() -> int:
         "init": cmd_init,
         "status": cmd_status,
         "seed": cmd_seed,
-        "calculate-stats": cmd_calculate_stats,
-        "diff": cmd_diff,
         "percentiles": cmd_percentiles,
         "export": cmd_export,
-        "export-profiles": cmd_export_profiles,
         "query": cmd_query,
         "fixtures": cmd_fixtures,
-        "ml": cmd_ml,
     }
 
     cmd_func = commands.get(args.command)

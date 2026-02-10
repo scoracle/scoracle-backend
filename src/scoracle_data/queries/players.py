@@ -1,12 +1,14 @@
 """
 Player-related queries for stats database.
+
+Uses the unified players/player_stats tables with JSONB stats.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..core.types import PLAYER_PROFILE_TABLES, PLAYER_STATS_TABLES, TEAM_PROFILE_TABLES
+from ..core.types import PLAYERS_TABLE, PLAYER_STATS_TABLE, TEAMS_TABLE
 
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
@@ -35,24 +37,31 @@ class PlayerQueries:
         Returns:
             Dict with player info, stats, and percentiles
         """
-        player = self.db.get_player(player_id, sport_id)
+        player = self.db.fetchone(
+            f"SELECT * FROM {PLAYERS_TABLE} WHERE id = %s AND sport = %s",
+            (player_id, sport_id),
+        )
         if not player:
             return None
 
-        stats = self.db.get_player_stats(player_id, sport_id, season_year)
-        # Percentiles stored as JSONB in the stats row
-        percentiles = stats.get("percentiles") if stats else None
+        stats = self.db.fetchone(
+            f"SELECT * FROM {PLAYER_STATS_TABLE} WHERE player_id = %s AND sport = %s AND season = %s",
+            (player_id, sport_id, season_year),
+        )
 
         # Get team info if available
         team = None
-        if player.get("current_team_id"):
-            team = self.db.get_team(player["current_team_id"], sport_id)
+        if player.get("team_id"):
+            team = self.db.fetchone(
+                f"SELECT * FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
+                (player["team_id"], sport_id),
+            )
 
         return {
             "player": dict(player),
             "team": dict(team) if team else None,
-            "stats": stats,
-            "percentiles": percentiles,
+            "stats": dict(stats) if stats else None,
+            "percentiles": stats.get("percentiles") if stats else None,
         }
 
     def get_stat_leaders(
@@ -61,85 +70,52 @@ class PlayerQueries:
         season_year: int,
         stat_name: str,
         limit: int = 25,
-        position_group: Optional[str] = None,
+        position: Optional[str] = None,
+        league_id: int = 0,
     ) -> list[dict[str, Any]]:
         """
-        Get top players for a specific stat.
+        Get top players for a specific stat (from JSONB).
 
         Args:
             sport_id: Sport identifier
             season_year: Season year
-            stat_name: Stat to rank by
+            stat_name: Stat key within the JSONB stats column
             limit: Number of results
-            position_group: Optional position filter
+            position: Optional position filter
+            league_id: League filter (0 for NBA/NFL, >0 for football)
 
         Returns:
             List of player stats ranked by the stat
         """
-        season_id = self.db.get_season_id(sport_id, season_year)
-        if not season_id:
-            return []
-
-        # Determine table (NFL may use position-specific table)
-        if sport_id == "NFL":
-            stats_table = self._get_nfl_table_for_stat(stat_name)
-        else:
-            stats_table = PLAYER_STATS_TABLES.get(sport_id)
-        player_profile_table = PLAYER_PROFILE_TABLES.get(sport_id)
-        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
-        
-        if not stats_table or not player_profile_table or not team_profile_table:
-            return []
-
-        # Build query using sport-specific profile tables
-        if position_group:
-            query = f"""
-                SELECT
-                    p.id as player_id,
-                    p.full_name,
-                    p.position,
-                    t.name as team_name,
-                    s.{stat_name} as stat_value
-                FROM {stats_table} s
-                JOIN {player_profile_table} p ON s.player_id = p.id
-                LEFT JOIN {team_profile_table} t ON p.current_team_id = t.id
-                WHERE s.season_id = %s
-                  AND p.position_group = %s
-                  AND s.{stat_name} IS NOT NULL
-                ORDER BY s.{stat_name} DESC
-                LIMIT %s
-            """
-            params = (season_id, position_group, limit)
-        else:
-            query = f"""
-                SELECT
-                    p.id as player_id,
-                    p.full_name,
-                    p.position,
-                    t.name as team_name,
-                    s.{stat_name} as stat_value
-                FROM {stats_table} s
-                JOIN {player_profile_table} p ON s.player_id = p.id
-                LEFT JOIN {team_profile_table} t ON p.current_team_id = t.id
-                WHERE s.season_id = %s
-                  AND s.{stat_name} IS NOT NULL
-                ORDER BY s.{stat_name} DESC
-                LIMIT %s
-            """
-            params = (season_id, limit)
-
-        rows = self.db.fetchall(query, params)
-
-        # Add rank
-        return [
-            {**dict(row), "rank": i + 1}
-            for i, row in enumerate(rows)
+        conditions = [
+            "s.sport = %s",
+            "s.season = %s",
+            "s.league_id = %s",
+            f"(s.stats->>'{stat_name}') IS NOT NULL",
         ]
+        params: list[Any] = [sport_id, season_year, league_id]
 
-    def _get_nfl_table_for_stat(self, stat_name: str) -> str:
-        """Get the NFL table containing a stat.
+        if position:
+            conditions.append("p.position = %s")
+            params.append(position)
 
-        Returns the unified nfl_player_stats table for PostgreSQL.
+        params.append(limit)
+
+        query = f"""
+            SELECT
+                p.id as player_id,
+                p.name,
+                p.position,
+                t.name as team_name,
+                (s.stats->>'{stat_name}')::NUMERIC as stat_value
+            FROM {PLAYER_STATS_TABLE} s
+            JOIN {PLAYERS_TABLE} p ON s.player_id = p.id AND s.sport = p.sport
+            LEFT JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
+            WHERE {" AND ".join(conditions)}
+            ORDER BY (s.stats->>'{stat_name}')::NUMERIC DESC
+            LIMIT %s
         """
-        # All NFL stats are now in the unified table
-        return "nfl_player_stats"
+
+        rows = self.db.fetchall(query, tuple(params))
+
+        return [{**dict(row), "rank": i + 1} for i, row in enumerate(rows)]

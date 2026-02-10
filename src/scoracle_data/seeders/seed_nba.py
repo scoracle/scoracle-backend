@@ -1,7 +1,7 @@
 """NBA seeder — seeds NBA data from BallDontLie API into PostgreSQL.
 
-Uses the canonical BallDontLieNBA provider client and centralized table
-names from core.types.SPORT_REGISTRY.
+Uses the canonical BallDontLieNBA provider client and unified tables
+(players, player_stats, teams, team_stats) with JSONB stats.
 
 DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
 """
@@ -10,7 +10,12 @@ import json
 import logging
 from typing import Any, TYPE_CHECKING
 
-from ..core.types import get_sport_config
+from ..core.types import (
+    PLAYERS_TABLE,
+    PLAYER_STATS_TABLE,
+    TEAMS_TABLE,
+    TEAM_STATS_TABLE,
+)
 from ..providers.balldontlie_nba import BallDontLieNBA
 from .base import BallDontLieSeedRunner
 from .common import SeedResult
@@ -20,15 +25,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_cfg = get_sport_config("NBA")
-TEAM_TABLE = _cfg.team_profile_table
-PLAYER_TABLE = _cfg.player_profile_table
-PLAYER_STATS_TABLE = _cfg.player_stats_table
-TEAM_STATS_TABLE = _cfg.team_stats_table
+SPORT = "NBA"
 
 
 class NBASeedRunner(BallDontLieSeedRunner):
-    """Seeds NBA data from BallDontLie into PostgreSQL via psycopg."""
+    """Seeds NBA data from BallDontLie into unified PostgreSQL tables."""
 
     def __init__(self, db: "PostgresDB", client: BallDontLieNBA):
         super().__init__(db, client)
@@ -40,73 +41,99 @@ class NBASeedRunner(BallDontLieSeedRunner):
     # -- Upsert: Teams -------------------------------------------------------
 
     def _upsert_team(self, team: dict[str, Any]) -> None:
-        self.db.execute(f"""
-            INSERT INTO {TEAM_TABLE} (
-                id, name, full_name, abbreviation, city, conference, division
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
+        meta = {}
+        if team.get("conference"):
+            meta["conference"] = team["conference"]
+        if team.get("division"):
+            meta["division"] = team["division"]
+        if team.get("full_name"):
+            meta["full_name"] = team["full_name"]
+
+        self.db.execute(
+            f"""
+            INSERT INTO {TEAMS_TABLE} (
+                id, sport, name, short_code, city, meta
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id, sport) DO UPDATE SET
                 name = EXCLUDED.name,
-                full_name = EXCLUDED.full_name,
-                abbreviation = EXCLUDED.abbreviation,
+                short_code = EXCLUDED.short_code,
                 city = EXCLUDED.city,
-                conference = EXCLUDED.conference,
-                division = EXCLUDED.division,
+                meta = EXCLUDED.meta,
                 updated_at = NOW()
-        """, (
-            team["id"],
-            team.get("name"),
-            team.get("full_name"),
-            team.get("abbreviation"),
-            team.get("city"),
-            team.get("conference"),
-            team.get("division"),
-        ))
+        """,
+            (
+                team["id"],
+                SPORT,
+                team.get("name"),
+                team.get("abbreviation"),
+                team.get("city"),
+                json.dumps(meta),
+            ),
+        )
 
     # -- Upsert: Players -----------------------------------------------------
 
     def _upsert_player(self, player: dict[str, Any]) -> None:
         team = player.get("team") or {}
         team_id = team.get("id") if team else None
-        self.db.execute(f"""
-            INSERT INTO {PLAYER_TABLE} (
-                id, first_name, last_name, position, height, weight,
-                jersey_number, college, country, draft_year, draft_round,
-                draft_number, team_id
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id) DO UPDATE SET
+
+        name = f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
+        if not name:
+            name = f"Player {player['id']}"
+
+        meta = {}
+        if player.get("jersey_number"):
+            meta["jersey_number"] = player["jersey_number"]
+        if player.get("college"):
+            meta["college"] = player["college"]
+        if player.get("draft_year"):
+            meta["draft_year"] = player["draft_year"]
+        if player.get("draft_round"):
+            meta["draft_round"] = player["draft_round"]
+        if player.get("draft_number"):
+            meta["draft_number"] = player["draft_number"]
+
+        self.db.execute(
+            f"""
+            INSERT INTO {PLAYERS_TABLE} (
+                id, sport, name, first_name, last_name, position,
+                height_cm, weight_kg, nationality, team_id, meta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id, sport) DO UPDATE SET
+                name = EXCLUDED.name,
                 first_name = EXCLUDED.first_name,
                 last_name = EXCLUDED.last_name,
                 position = EXCLUDED.position,
-                height = EXCLUDED.height,
-                weight = EXCLUDED.weight,
-                jersey_number = EXCLUDED.jersey_number,
-                college = EXCLUDED.college,
-                country = EXCLUDED.country,
-                draft_year = EXCLUDED.draft_year,
-                draft_round = EXCLUDED.draft_round,
-                draft_number = EXCLUDED.draft_number,
+                height_cm = EXCLUDED.height_cm,
+                weight_kg = EXCLUDED.weight_kg,
+                nationality = EXCLUDED.nationality,
                 team_id = EXCLUDED.team_id,
+                meta = EXCLUDED.meta,
                 updated_at = NOW()
-        """, (
-            player["id"],
-            player.get("first_name"),
-            player.get("last_name"),
-            player.get("position"),
-            player.get("height"),
-            player.get("weight"),
-            player.get("jersey_number"),
-            player.get("college"),
-            player.get("country"),
-            player.get("draft_year"),
-            player.get("draft_round"),
-            player.get("draft_number"),
-            team_id,
-        ))
+        """,
+            (
+                player["id"],
+                SPORT,
+                name,
+                player.get("first_name"),
+                player.get("last_name"),
+                player.get("position"),
+                player.get(
+                    "height"
+                ),  # BDL returns height as string "6-6", may need conversion
+                player.get("weight"),  # BDL returns weight in lbs, may need conversion
+                player.get("country"),
+                team_id,
+                json.dumps(meta) if meta else "{}",
+            ),
+        )
 
     # -- Player Stats ---------------------------------------------------------
 
-    async def seed_player_stats(self, season: int, season_type: str = "regular") -> SeedResult:
-        """Seed player season averages."""
+    async def seed_player_stats(
+        self, season: int, season_type: str = "regular"
+    ) -> SeedResult:
+        """Seed player season averages as JSONB."""
         logger.info(f"Seeding NBA player stats for {season} {season_type}...")
         result = SeedResult()
         try:
@@ -129,57 +156,72 @@ class NBASeedRunner(BallDontLieSeedRunner):
         return result
 
     def _upsert_player_stats(
-        self, stats_data: dict[str, Any], season: int, season_type: str,
+        self,
+        stats_data: dict[str, Any],
+        season: int,
+        season_type: str,
     ) -> None:
         player = stats_data.get("player", {})
         player_id = player.get("id")
         if not player_id:
             return
 
-        self._ensure_player_exists(PLAYER_TABLE, player_id, player)
+        self._ensure_player_exists(player_id, player)
 
         s = stats_data.get("stats", {})
-        raw_json = json.dumps(stats_data)
+        stats_json = {
+            "season_type": season_type,
+            "games_played": s.get("gp"),
+            "minutes": s.get("min"),
+            "pts": s.get("pts"),
+            "reb": s.get("reb"),
+            "ast": s.get("ast"),
+            "stl": s.get("stl"),
+            "blk": s.get("blk"),
+            "fg_pct": s.get("fg_pct"),
+            "fg3_pct": s.get("fg3_pct"),
+            "ft_pct": s.get("ft_pct"),
+            "fgm": s.get("fgm"),
+            "fga": s.get("fga"),
+            "fg3m": s.get("fg3m"),
+            "fg3a": s.get("fg3a"),
+            "ftm": s.get("ftm"),
+            "fta": s.get("fta"),
+            "oreb": s.get("oreb"),
+            "dreb": s.get("dreb"),
+            "turnover": s.get("tov"),
+            "pf": s.get("pf"),
+            "plus_minus": s.get("plus_minus"),
+        }
+        # Remove None values for cleaner JSONB
+        stats_json = {k: v for k, v in stats_json.items() if v is not None}
 
-        self.db.execute(f"""
+        self.db.execute(
+            f"""
             INSERT INTO {PLAYER_STATS_TABLE} (
-                player_id, season, season_type, games_played, minutes,
-                pts, reb, ast, stl, blk,
-                fg_pct, fg3_pct, ft_pct, fgm, fga,
-                fg3m, fg3a, ftm, fta, oreb, dreb,
-                turnover, pf, plus_minus, raw_json
-            ) VALUES (
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
-                %s,%s,%s,%s
-            )
-            ON CONFLICT (player_id, season, season_type) DO UPDATE SET
-                games_played = EXCLUDED.games_played, minutes = EXCLUDED.minutes,
-                pts = EXCLUDED.pts, reb = EXCLUDED.reb, ast = EXCLUDED.ast,
-                stl = EXCLUDED.stl, blk = EXCLUDED.blk,
-                fg_pct = EXCLUDED.fg_pct, fg3_pct = EXCLUDED.fg3_pct, ft_pct = EXCLUDED.ft_pct,
-                fgm = EXCLUDED.fgm, fga = EXCLUDED.fga,
-                fg3m = EXCLUDED.fg3m, fg3a = EXCLUDED.fg3a,
-                ftm = EXCLUDED.ftm, fta = EXCLUDED.fta,
-                oreb = EXCLUDED.oreb, dreb = EXCLUDED.dreb,
-                turnover = EXCLUDED.turnover, pf = EXCLUDED.pf,
-                plus_minus = EXCLUDED.plus_minus, raw_json = EXCLUDED.raw_json,
+                player_id, sport, season, league_id, stats, raw_response
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
+                stats = EXCLUDED.stats,
+                raw_response = EXCLUDED.raw_response,
                 updated_at = NOW()
-        """, (
-            player_id, season, season_type,
-            s.get("gp"), s.get("min"),
-            s.get("pts"), s.get("reb"), s.get("ast"), s.get("stl"), s.get("blk"),
-            s.get("fg_pct"), s.get("fg3_pct"), s.get("ft_pct"),
-            s.get("fgm"), s.get("fga"), s.get("fg3m"), s.get("fg3a"),
-            s.get("ftm"), s.get("fta"), s.get("oreb"), s.get("dreb"),
-            s.get("tov"), s.get("pf"), s.get("plus_minus"),
-            raw_json,
-        ))
+        """,
+            (
+                player_id,
+                SPORT,
+                season,
+                0,
+                json.dumps(stats_json),
+                json.dumps(stats_data),
+            ),
+        )
 
     # -- Team Stats -----------------------------------------------------------
 
-    async def seed_team_stats(self, season: int, season_type: str = "regular") -> SeedResult:
-        """Seed team season stats."""
+    async def seed_team_stats(
+        self, season: int, season_type: str = "regular"
+    ) -> SeedResult:
+        """Seed team season stats as JSONB."""
         logger.info(f"Seeding NBA team stats for {season} {season_type}...")
         result = SeedResult()
         try:
@@ -199,33 +241,50 @@ class NBASeedRunner(BallDontLieSeedRunner):
         return result
 
     def _upsert_team_stats(
-        self, stats_data: dict[str, Any], season: int, season_type: str,
+        self,
+        stats_data: dict[str, Any],
+        season: int,
+        season_type: str,
     ) -> None:
         team = stats_data.get("team", {})
         team_id = team.get("id")
         if not team_id:
             return
+
         s = stats_data.get("stats", {})
-        raw_json = json.dumps(stats_data)
-        self.db.execute(f"""
+        stats_json = {
+            "season_type": season_type,
+            "wins": s.get("w"),
+            "losses": s.get("l"),
+            "games_played": s.get("gp"),
+            "pts": s.get("pts"),
+            "reb": s.get("reb"),
+            "ast": s.get("ast"),
+            "fg_pct": s.get("fg_pct"),
+            "fg3_pct": s.get("fg3_pct"),
+            "ft_pct": s.get("ft_pct"),
+        }
+        stats_json = {k: v for k, v in stats_json.items() if v is not None}
+
+        self.db.execute(
+            f"""
             INSERT INTO {TEAM_STATS_TABLE} (
-                team_id, season, season_type, wins, losses, games_played,
-                pts, reb, ast, fg_pct, fg3_pct, ft_pct, raw_json
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            ON CONFLICT (team_id, season, season_type) DO UPDATE SET
-                wins = EXCLUDED.wins, losses = EXCLUDED.losses,
-                games_played = EXCLUDED.games_played,
-                pts = EXCLUDED.pts, reb = EXCLUDED.reb, ast = EXCLUDED.ast,
-                fg_pct = EXCLUDED.fg_pct, fg3_pct = EXCLUDED.fg3_pct,
-                ft_pct = EXCLUDED.ft_pct, raw_json = EXCLUDED.raw_json,
+                team_id, sport, season, league_id, stats, raw_response
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (team_id, sport, season, league_id) DO UPDATE SET
+                stats = EXCLUDED.stats,
+                raw_response = EXCLUDED.raw_response,
                 updated_at = NOW()
-        """, (
-            team_id, season, season_type,
-            s.get("w"), s.get("l"), s.get("gp"),
-            s.get("pts"), s.get("reb"), s.get("ast"),
-            s.get("fg_pct"), s.get("fg3_pct"), s.get("ft_pct"),
-            raw_json,
-        ))
+        """,
+            (
+                team_id,
+                SPORT,
+                season,
+                0,
+                json.dumps(stats_json),
+                json.dumps(stats_data),
+            ),
+        )
 
     # -- Full Seed ------------------------------------------------------------
 

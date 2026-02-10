@@ -6,7 +6,8 @@ This module provides:
 - SportConfig dataclass for sport-specific settings
 - SPORT_REGISTRY for centralized sport configurations
 
-Update SPORT_REGISTRY when adding new sports or changing sport configurations.
+All sports share the same 4 unified tables (players, player_stats, teams, team_stats)
+with sport-specific data in JSONB columns.
 """
 
 from dataclasses import dataclass
@@ -16,12 +17,14 @@ from typing import Optional
 
 class EntityType(str, Enum):
     """Entity types."""
+
     player = "player"
     team = "team"
 
 
 class Sport(str, Enum):
     """Supported sports."""
+
     NBA = "NBA"
     NFL = "NFL"
     FOOTBALL = "FOOTBALL"
@@ -32,8 +35,10 @@ class SportConfig:
     """
     Configuration for a sport.
 
-    Centralizes all sport-specific settings to avoid scattered hardcoded values.
+    All sports share the same unified tables (players, player_stats, teams,
+    team_stats) — differentiated by the `sport` column.
     """
+
     # Identifiers
     id: str
     name: str
@@ -42,22 +47,11 @@ class SportConfig:
     # Current season (update annually)
     current_season: int
 
-    # Database tables - Profiles (sport-specific, v4.0 schema)
-    player_profile_table: str
-    team_profile_table: str
-
-    # Database tables - Stats
-    player_stats_table: str
-    team_stats_table: str
-
     # API-Sports configuration
     default_league_id: Optional[int] = None
 
     # Season label format
     season_label_format: str = "{year}"  # e.g., "2024-25" for NBA
-
-    # Whether this sport uses league_id in player profiles
-    has_league_in_profiles: bool = False
 
     def get_season_label(self, year: int) -> str:
         """Generate human-readable season label."""
@@ -69,45 +63,30 @@ class SportConfig:
 # =============================================================================
 # SPORT REGISTRY - Central configuration for all sports
 # =============================================================================
-# Update this registry when:
-# - Adding a new sport
-# - Changing current season (annually)
-# - Modifying API configuration
+# All sports use the unified tables: players, player_stats, teams, team_stats.
+# Sport-specific data lives in JSONB (stats, meta) columns.
 
 SPORT_REGISTRY: dict[str, SportConfig] = {
     Sport.NBA.value: SportConfig(
         id="NBA",
         name="National Basketball Association",
-        api_base_url="https://v2.nba.api-sports.io",
+        api_base_url="https://api.balldontlie.io/v1",
         current_season=2025,
-        player_profile_table="nba_player_profiles",
-        team_profile_table="nba_team_profiles",
-        player_stats_table="nba_player_stats",
-        team_stats_table="nba_team_stats",
         season_label_format="{year}-{next_year_short}",
     ),
     Sport.NFL.value: SportConfig(
         id="NFL",
         name="National Football League",
-        api_base_url="https://v1.american-football.api-sports.io",
+        api_base_url="https://api.balldontlie.io/nfl/v1",
         current_season=2025,
-        player_profile_table="nfl_player_profiles",
-        team_profile_table="nfl_team_profiles",
-        player_stats_table="nfl_player_stats",
-        team_stats_table="nfl_team_stats",
         default_league_id=1,
     ),
     Sport.FOOTBALL.value: SportConfig(
         id="FOOTBALL",
         name="Football (Soccer)",
-        api_base_url="https://v3.football.api-sports.io",
+        api_base_url="https://api.sportmonks.com/v3/football",
         current_season=2025,
-        player_profile_table="football_player_profiles",
-        team_profile_table="football_team_profiles",
-        player_stats_table="football_player_stats",
-        team_stats_table="football_team_stats",
-        default_league_id=39,  # Premier League
-        has_league_in_profiles=True,
+        default_league_id=1,  # Premier League (internal ID)
     ),
 }
 
@@ -130,34 +109,11 @@ def get_sport_config(sport: str | Sport) -> SportConfig:
 
 
 # =============================================================================
-# Legacy compatibility - derived from SPORT_REGISTRY
+# Unified table names — shared across all sports
 # =============================================================================
-# These are provided for backwards compatibility with existing code.
-# New code should use SPORT_REGISTRY or get_sport_config() directly.
 
-PLAYER_STATS_TABLES = {
-    sport_id: config.player_stats_table
-    for sport_id, config in SPORT_REGISTRY.items()
-}
-
-TEAM_STATS_TABLES = {
-    sport_id: config.team_stats_table
-    for sport_id, config in SPORT_REGISTRY.items()
-}
-
-PLAYER_PROFILE_TABLES = {
-    sport_id: config.player_profile_table
-    for sport_id, config in SPORT_REGISTRY.items()
-}
-
-TEAM_PROFILE_TABLES = {
-    sport_id: config.team_profile_table
-    for sport_id, config in SPORT_REGISTRY.items()
-}
-
-# Composite (sport, entity_type) -> table name lookups.
-# Used by percentiles, similarity, and ML modules.
-STATS_TABLE_MAP: dict[tuple[str, str], str] = {}
-for _sid, _cfg in SPORT_REGISTRY.items():
-    STATS_TABLE_MAP[(_sid, "player")] = _cfg.player_stats_table
-    STATS_TABLE_MAP[(_sid, "team")] = _cfg.team_stats_table
+PLAYERS_TABLE = "players"
+PLAYER_STATS_TABLE = "player_stats"
+TEAMS_TABLE = "teams"
+TEAM_STATS_TABLE = "team_stats"
+LEAGUES_TABLE = "leagues"

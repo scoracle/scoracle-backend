@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SchedulerResult:
     """Result of a scheduler run."""
+
     run_started: datetime = field(default_factory=datetime.now)
     run_completed: Optional[datetime] = None
     fixtures_found: int = 0
@@ -55,7 +56,9 @@ class SchedulerResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "run_started": self.run_started.isoformat(),
-            "run_completed": self.run_completed.isoformat() if self.run_completed else None,
+            "run_completed": self.run_completed.isoformat()
+            if self.run_completed
+            else None,
             "fixtures_found": self.fixtures_found,
             "fixtures_processed": self.fixtures_processed,
             "fixtures_succeeded": self.fixtures_succeeded,
@@ -66,7 +69,8 @@ class SchedulerResult:
             "errors": self.errors,
             "success_rate": (
                 self.fixtures_succeeded / self.fixtures_processed * 100
-                if self.fixtures_processed > 0 else 0
+                if self.fixtures_processed > 0
+                else 0
             ),
         }
 
@@ -204,9 +208,9 @@ class SchedulerService:
         query = """
             SELECT
                 f.id,
-                f.sport_id,
+                f.sport,
                 f.league_id,
-                f.season_id,
+                f.season,
                 f.home_team_id,
                 f.away_team_id,
                 f.start_time,
@@ -221,7 +225,7 @@ class SchedulerService:
         params = [self.max_retries]
 
         if sport_id:
-            query += " AND f.sport_id = %s"
+            query += " AND f.sport = %s"
             params.append(sport_id)
 
         query += """
@@ -279,34 +283,28 @@ class SchedulerService:
         Returns:
             List of upcoming fixture details
         """
-        # Use COALESCE to get team names from sport-specific profile tables
-        # This handles fixtures from any sport (NBA, NFL, FOOTBALL)
+        # Use the unified teams table with sport filter
         query = """
             SELECT
                 f.id,
-                f.sport_id,
+                f.sport,
                 f.external_id,
                 f.start_time,
                 f.seed_delay_hours,
                 f.status,
-                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
-                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
-                s.season_year
+                ht.name as home_team_name,
+                at.name as away_team_name,
+                f.season as season_year
             FROM fixtures f
-            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
-            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
-            JOIN seasons s ON s.id = f.season_id
+            LEFT JOIN teams ht ON ht.id = f.home_team_id AND ht.sport = f.sport
+            LEFT JOIN teams at ON at.id = f.away_team_id AND at.sport = f.sport
             WHERE f.status = 'scheduled'
               AND f.start_time BETWEEN NOW() AND NOW() + (%s || ' hours')::INTERVAL
         """
         params = [hours_ahead]
 
         if sport_id:
-            query += " AND f.sport_id = %s"
+            query += " AND f.sport = %s"
             params.append(sport_id)
 
         query += """
@@ -337,33 +335,27 @@ class SchedulerService:
         Returns:
             List of recently seeded fixture details
         """
-        # Use COALESCE to get team names from sport-specific profile tables
         query = """
             SELECT
                 f.id,
-                f.sport_id,
+                f.sport,
                 f.external_id,
                 f.start_time,
                 f.seeded_at,
                 f.status,
-                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
-                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
-                s.season_year
+                ht.name as home_team_name,
+                at.name as away_team_name,
+                f.season as season_year
             FROM fixtures f
-            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
-            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
-            JOIN seasons s ON s.id = f.season_id
+            LEFT JOIN teams ht ON ht.id = f.home_team_id AND ht.sport = f.sport
+            LEFT JOIN teams at ON at.id = f.away_team_id AND at.sport = f.sport
             WHERE f.status = 'seeded'
               AND f.seeded_at >= NOW() - (%s || ' hours')::INTERVAL
         """
         params = [hours_back]
 
         if sport_id:
-            query += " AND f.sport_id = %s"
+            query += " AND f.sport = %s"
             params.append(sport_id)
 
         query += """
@@ -392,34 +384,28 @@ class SchedulerService:
         Returns:
             List of failed fixture details
         """
-        # Use COALESCE to get team names from sport-specific profile tables
         query = """
             SELECT
                 f.id,
-                f.sport_id,
+                f.sport,
                 f.external_id,
                 f.start_time,
                 f.status,
                 f.seed_attempts,
                 f.last_seed_error,
-                COALESCE(nba_ht.name, nfl_ht.name, fb_ht.name) as home_team_name,
-                COALESCE(nba_at.name, nfl_at.name, fb_at.name) as away_team_name,
-                s.season_year
+                ht.name as home_team_name,
+                at.name as away_team_name,
+                f.season as season_year
             FROM fixtures f
-            LEFT JOIN nba_team_profiles nba_ht ON nba_ht.id = f.home_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nba_team_profiles nba_at ON nba_at.id = f.away_team_id AND f.sport_id = 'NBA'
-            LEFT JOIN nfl_team_profiles nfl_ht ON nfl_ht.id = f.home_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN nfl_team_profiles nfl_at ON nfl_at.id = f.away_team_id AND f.sport_id = 'NFL'
-            LEFT JOIN football_team_profiles fb_ht ON fb_ht.id = f.home_team_id AND f.sport_id = 'FOOTBALL'
-            LEFT JOIN football_team_profiles fb_at ON fb_at.id = f.away_team_id AND f.sport_id = 'FOOTBALL'
-            JOIN seasons s ON s.id = f.season_id
+            LEFT JOIN teams ht ON ht.id = f.home_team_id AND ht.sport = f.sport
+            LEFT JOIN teams at ON at.id = f.away_team_id AND at.sport = f.sport
             WHERE f.seed_attempts > 0
               AND f.status != 'seeded'
         """
         params = []
 
         if sport_id:
-            query += " AND f.sport_id = %s"
+            query += " AND f.sport = %s"
             params.append(sport_id)
 
         query += """
@@ -455,7 +441,9 @@ class SchedulerService:
         )
         return result is not None
 
-    def get_fixture_status_summary(self, sport_id: Optional[str] = None) -> dict[str, int]:
+    def get_fixture_status_summary(
+        self, sport_id: Optional[str] = None
+    ) -> dict[str, int]:
         """
         Get count of fixtures by status.
 

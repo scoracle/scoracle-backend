@@ -4,12 +4,10 @@ PostgreSQL connection manager for Neon.
 Provides a unified interface matching StatsDB but using PostgreSQL via psycopg3.
 Supports connection pooling for production workloads.
 
-Sport-Specific Tables (v4.0):
-  Player and team profiles are stored in sport-specific tables:
-  - nba_player_profiles, nfl_player_profiles, football_player_profiles
-  - nba_team_profiles, nfl_team_profiles, football_team_profiles
-
-  This prevents cross-sport ID collisions (API-Sports reuses IDs across sports).
+Unified Schema (v5.0):
+  All sports share 4 core tables: players, player_stats, teams, team_stats.
+  Each has a (id, sport) composite key to prevent cross-sport ID collisions.
+  Sport-specific data lives in JSONB columns (stats, meta).
 """
 
 from __future__ import annotations
@@ -29,10 +27,10 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from .core.types import (
-    PLAYER_PROFILE_TABLES,
-    PLAYER_STATS_TABLES,
-    TEAM_PROFILE_TABLES,
-    TEAM_STATS_TABLES,
+    PLAYERS_TABLE,
+    PLAYER_STATS_TABLE,
+    TEAMS_TABLE,
+    TEAM_STATS_TABLE,
 )
 
 
@@ -88,7 +86,9 @@ class PostgresDB:
             separator = "&" if "?" in self.connection_string else "?"
             self.connection_string += f"{separator}sslmode=require"
 
-        self._max_pool_size = max_pool_size or int(os.environ.get("DATABASE_POOL_SIZE", 10))
+        self._max_pool_size = max_pool_size or int(
+            os.environ.get("DATABASE_POOL_SIZE", 10)
+        )
         self._min_pool_size = min_pool_size
 
         # Initialize connection pool with health checks for serverless databases (Neon)
@@ -102,9 +102,9 @@ class PostgresDB:
             max_size=self._max_pool_size,
             kwargs={"row_factory": dict_row},
             check=_check_connection,
-            max_idle=300,         # 5 minutes - close idle connections
-            max_lifetime=3600,    # 1 hour - force refresh old connections
-            reconnect_timeout=60, # 1 minute - time to wait for reconnection
+            max_idle=300,  # 5 minutes - close idle connections
+            max_lifetime=3600,  # 1 hour - force refresh old connections
+            reconnect_timeout=60,  # 1 minute - time to wait for reconnection
         )
 
     def open(self) -> None:
@@ -166,7 +166,9 @@ class PostgresDB:
                 cur.execute(sql)
             conn.commit()
 
-    def fetchone(self, query: str | sql.Composed, params: tuple = ()) -> Optional[dict[str, Any]]:
+    def fetchone(
+        self, query: str | sql.Composed, params: tuple = ()
+    ) -> Optional[dict[str, Any]]:
         """Execute a query and fetch one result as a dict."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
@@ -174,7 +176,9 @@ class PostgresDB:
                 row = cur.fetchone()
                 return dict(row) if row else None
 
-    def fetchall(self, query: str | sql.Composed, params: tuple = ()) -> list[dict[str, Any]]:
+    def fetchall(
+        self, query: str | sql.Composed, params: tuple = ()
+    ) -> list[dict[str, Any]]:
         """Execute a query and fetch all results as dicts."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
@@ -199,79 +203,56 @@ class PostgresDB:
     # Query Methods (matching StatsDB interface)
     # =========================================================================
 
-    def get_season_id(self, sport_id: str, season_year: int) -> Optional[int]:
-        """Get the season ID for a sport and year."""
-        result = self.fetchone(
-            "SELECT id FROM seasons WHERE sport_id = %s AND season_year = %s",
-            (sport_id, season_year),
-        )
-        return result["id"] if result else None
-
     def get_player(self, player_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get player info by ID from sport-specific table."""
-        table = PLAYER_PROFILE_TABLES.get(sport_id)
-        if not table:
-            return None
-        query = sql.SQL("SELECT * FROM {} WHERE id = %s").format(sql.Identifier(table))
-        return self.fetchone(query, (player_id,))
+        """Get player info by ID from unified players table."""
+        return self.fetchone(
+            f"SELECT * FROM {PLAYERS_TABLE} WHERE id = %s AND sport = %s",
+            (player_id, sport_id),
+        )
 
     def get_team(self, team_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get team info by ID from sport-specific table."""
-        table = TEAM_PROFILE_TABLES.get(sport_id)
-        if not table:
-            return None
-        query = sql.SQL("SELECT * FROM {} WHERE id = %s").format(sql.Identifier(table))
-        return self.fetchone(query, (team_id,))
+        """Get team info by ID from unified teams table."""
+        return self.fetchone(
+            f"SELECT * FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
+            (team_id, sport_id),
+        )
 
     def get_player_stats(
         self,
         player_id: int,
         sport_id: str,
         season_year: int,
+        league_id: int = 0,
     ) -> Optional[dict[str, Any]]:
         """
         Get player statistics for a given season.
 
         Args:
-            player_id: API-Sports player ID
+            player_id: Player ID
             sport_id: Sport identifier (NBA, NFL, FOOTBALL)
             season_year: Season year
+            league_id: League ID (0 for NBA/NFL, >0 for football)
 
         Returns:
             Dict of stats or None if not found
         """
-        season_id = self.get_season_id(sport_id, season_year)
-        if not season_id:
-            return None
-
-        table = PLAYER_STATS_TABLES.get(sport_id)
-        if not table:
-            return None
-
-        query = sql.SQL("SELECT * FROM {} WHERE player_id = %s AND season_id = %s").format(
-            sql.Identifier(table)
+        return self.fetchone(
+            f"SELECT * FROM {PLAYER_STATS_TABLE} WHERE player_id = %s AND sport = %s AND season = %s AND league_id = %s",
+            (player_id, sport_id, season_year, league_id),
         )
-        return self.fetchone(query, (player_id, season_id))
 
     def get_team_stats(
         self,
         team_id: int,
         sport_id: str,
         season_year: int,
+        league_id: int = 0,
     ) -> Optional[dict[str, Any]]:
         """Get team statistics for a given season."""
-        season_id = self.get_season_id(sport_id, season_year)
-        if not season_id:
-            return None
-
-        table = TEAM_STATS_TABLES.get(sport_id)
-        if not table:
-            return None
-
-        query = sql.SQL("SELECT * FROM {} WHERE team_id = %s AND season_id = %s").format(
-            sql.Identifier(table)
+        return self.fetchone(
+            f"SELECT * FROM {TEAM_STATS_TABLE} WHERE team_id = %s AND sport = %s AND season = %s AND league_id = %s",
+            (team_id, sport_id, season_year, league_id),
         )
-        return self.fetchone(query, (team_id, season_id))
 
     def get_meta(self, key: str) -> Optional[str]:
         """Get a metadata value."""

@@ -6,12 +6,16 @@ iteration style) that it only inherits __init__ and the _ensure_player_exists
 helper.
 
 DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
+
+All sports use the unified tables (players, player_stats, teams, team_stats)
+with a `sport` discriminator column.
 """
 
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, TYPE_CHECKING
 
+from ..core.types import PLAYERS_TABLE
 from .common import SeedResult
 
 if TYPE_CHECKING:
@@ -49,7 +53,6 @@ class BaseSeedRunner(ABC):
 
     def _ensure_player_exists(
         self,
-        player_table: str,
         player_id: int | str,
         player_data: dict[str, Any],
     ) -> None:
@@ -57,11 +60,16 @@ class BaseSeedRunner(ABC):
 
         Called from ``_upsert_player_stats`` in NBA / NFL / Football
         before writing a stats row that has a FK to the player table.
+        Uses the unified players table with sport discriminator from the
+        subclass's SPORT constant.
         """
         if not player_data:
             return
+        # Get the sport from the subclass (SPORT module-level constant)
+        sport = getattr(self, "_sport_label", None) or "UNKNOWN"
         exists = self.db.fetchone(
-            f"SELECT 1 FROM {player_table} WHERE id = %s", (player_id,),
+            f"SELECT 1 FROM {PLAYERS_TABLE} WHERE id = %s AND sport = %s",
+            (player_id, sport),
         )
         if not exists:
             self._upsert_player(player_data)

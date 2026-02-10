@@ -1,26 +1,20 @@
 """
 Profile service — sport-aware entity profile lookups.
 
-Encapsulates all raw SQL for profile queries, using psycopg.sql.Identifier
-for safe dynamic table injection. Routers call this instead of building SQL.
+Uses the unified players/teams tables with sport discriminator.
+Sport-specific data lives in the meta JSONB column.
 """
 
 import logging
 from typing import Any
 
-from psycopg import sql
-
-from ..core.types import (
-    PLAYER_PROFILE_TABLES,
-    TEAM_PROFILE_TABLES,
-    get_sport_config,
-)
+from ..core.types import PLAYERS_TABLE, TEAMS_TABLE
 
 logger = logging.getLogger(__name__)
 
 
 def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
-    """Fetch player profile with team and league data from sport-specific tables.
+    """Fetch player profile with team and league data from unified tables.
 
     Args:
         db: Database connection (psycopg-style with fetchone).
@@ -30,109 +24,67 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
     Returns:
         Profile dict with nested team/league objects, or None if not found.
     """
-    player_table = PLAYER_PROFILE_TABLES.get(sport)
-    team_table = TEAM_PROFILE_TABLES.get(sport)
+    query = f"""
+        SELECT
+            p.id, p.sport as sport_id, p.name, p.first_name, p.last_name,
+            p.position, p.detailed_position, p.nationality,
+            p.date_of_birth::text as date_of_birth,
+            p.height_cm, p.weight_kg, p.photo_url,
+            p.team_id, p.league_id, p.meta,
+            t.id as team_id_check, t.name as team_name, t.short_code as team_abbr,
+            t.logo_url as team_logo, t.country as team_country, t.city as team_city, t.meta as team_meta
+        FROM {PLAYERS_TABLE} p
+        LEFT JOIN {TEAMS_TABLE} t ON t.id = p.team_id AND t.sport = p.sport
+        WHERE p.id = %s AND p.sport = %s
+    """
 
-    if not player_table or not team_table:
-        return None
-
-    sport_config = get_sport_config(sport)
-    has_leagues = sport_config.has_league_in_profiles
-
-    p_tbl = sql.Identifier(player_table)
-    t_tbl = sql.Identifier(team_table)
-
-    if has_leagues:
-        # Football: include league info
-        query = sql.SQL("""
-            SELECT
-                p.id, {sport_literal} as sport_id, p.first_name, p.last_name, p.full_name,
-                p.position, p.position_group, p.nationality,
-                p.birth_date::text as birth_date, p.birth_place, p.birth_country,
-                p.height_inches, p.weight_lbs, p.photo_url,
-                p.current_team_id, p.current_league_id, p.jersey_number,
-                p.is_active,
-                t.id as team_id, t.name as team_name, t.abbreviation as team_abbr,
-                t.logo_url as team_logo, t.country as team_country, t.city as team_city,
-                l.id as league_id, l.name as league_name, l.country as league_country, l.logo_url as league_logo
-            FROM {player_table} p
-            LEFT JOIN {team_table} t ON t.id = p.current_team_id
-            LEFT JOIN leagues l ON l.id = p.current_league_id
-            WHERE p.id = %s
-        """).format(
-            sport_literal=sql.Literal(sport),
-            player_table=p_tbl,
-            team_table=t_tbl,
-        )
-    else:
-        # NBA/NFL: no league, include college/experience for American sports
-        query = sql.SQL("""
-            SELECT
-                p.id, {sport_literal} as sport_id, p.first_name, p.last_name, p.full_name,
-                p.position, p.position_group, p.nationality,
-                p.birth_date::text as birth_date, p.birth_place, p.birth_country,
-                p.height_inches, p.weight_lbs, p.photo_url,
-                p.current_team_id, p.jersey_number,
-                p.college, p.experience_years, p.is_active,
-                t.id as team_id, t.name as team_name, t.abbreviation as team_abbr,
-                t.logo_url as team_logo, t.conference, t.division, t.city as team_city
-            FROM {player_table} p
-            LEFT JOIN {team_table} t ON t.id = p.current_team_id
-            WHERE p.id = %s
-        """).format(
-            sport_literal=sql.Literal(sport),
-            player_table=p_tbl,
-            team_table=t_tbl,
-        )
-
-    row = db.fetchone(query, (player_id,))
+    row = db.fetchone(query, (player_id, sport))
     if not row:
         return None
 
     data = dict(row)
 
-    # Football: use first_name + last_name as full_name since API returns abbreviated names
-    if has_leagues:
-        first = data.get("first_name") or ""
-        last = data.get("last_name") or ""
-        combined = f"{first} {last}".strip()
-        if combined:
-            data["full_name"] = combined
-
     # Build nested team object
     team = None
-    if data.get("team_id"):
+    if data.get("team_id_check"):
         team = {
-            "id": data.pop("team_id"),
+            "id": data.pop("team_id_check"),
             "name": data.pop("team_name"),
             "abbreviation": data.pop("team_abbr"),
             "logo_url": data.pop("team_logo"),
         }
-        if "conference" in data:
-            team["conference"] = data.pop("conference")
-            team["division"] = data.pop("division")
-        if "team_country" in data:
+        if data.get("team_country"):
             team["country"] = data.pop("team_country")
-        if "team_city" in data:
+        if data.get("team_city"):
             team["city"] = data.pop("team_city")
+        # Pull conference/division from team meta for NBA/NFL
+        team_meta = data.pop("team_meta", None) or {}
+        if isinstance(team_meta, dict):
+            if "conference" in team_meta:
+                team["conference"] = team_meta["conference"]
+            if "division" in team_meta:
+                team["division"] = team_meta["division"]
     else:
-        for k in ["team_id", "team_name", "team_abbr", "team_logo",
-                   "conference", "division", "team_city", "team_country"]:
+        for k in [
+            "team_id_check",
+            "team_name",
+            "team_abbr",
+            "team_logo",
+            "team_country",
+            "team_city",
+            "team_meta",
+        ]:
             data.pop(k, None)
 
     # Build nested league object (Football only)
     league = None
-    if has_leagues and data.get("league_id"):
-        league = {
-            "id": data.pop("league_id"),
-            "name": data.pop("league_name"),
-            "country": data.pop("league_country"),
-            "logo_url": data.pop("league_logo"),
-        }
-    else:
-        for k in ["league_id", "league_name", "league_country",
-                   "league_logo", "current_league_id"]:
-            data.pop(k, None)
+    if sport == "FOOTBALL" and data.get("league_id"):
+        league_row = db.fetchone(
+            "SELECT id, name, country, logo_url FROM leagues WHERE id = %s",
+            (data["league_id"],),
+        )
+        if league_row:
+            league = dict(league_row)
 
     data["team"] = team
     data["league"] = league
@@ -141,7 +93,7 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
 
 
 def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
-    """Fetch team profile with league data from sport-specific tables.
+    """Fetch team profile with league data from unified tables.
 
     Args:
         db: Database connection (psycopg-style with fetchone).
@@ -151,47 +103,16 @@ def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
     Returns:
         Profile dict with nested league object, or None if not found.
     """
-    team_table = TEAM_PROFILE_TABLES.get(sport)
-    if not team_table:
-        return None
+    query = f"""
+        SELECT
+            t.id, t.sport as sport_id, t.name, t.short_code, t.logo_url,
+            t.country, t.city, t.founded, t.league_id,
+            t.venue_name, t.venue_capacity, t.meta
+        FROM {TEAMS_TABLE} t
+        WHERE t.id = %s AND t.sport = %s
+    """
 
-    sport_config = get_sport_config(sport)
-    has_leagues = sport_config.has_league_in_profiles
-
-    t_tbl = sql.Identifier(team_table)
-
-    if has_leagues:
-        # Football: include league info and is_national flag
-        query = sql.SQL("""
-            SELECT
-                t.id, {sport_literal} as sport_id, t.league_id, t.name, t.abbreviation, t.logo_url,
-                t.country, t.city, t.founded, t.is_national,
-                t.venue_name, t.venue_address, t.venue_capacity, t.venue_city, t.venue_surface, t.venue_image,
-                t.is_active,
-                l.name as league_name, l.country as league_country, l.logo_url as league_logo
-            FROM {team_table} t
-            LEFT JOIN leagues l ON l.id = t.league_id
-            WHERE t.id = %s
-        """).format(
-            sport_literal=sql.Literal(sport),
-            team_table=t_tbl,
-        )
-    else:
-        # NBA/NFL: include conference/division
-        query = sql.SQL("""
-            SELECT
-                t.id, {sport_literal} as sport_id, t.name, t.abbreviation, t.logo_url,
-                t.conference, t.division, t.country, t.city, t.founded,
-                t.venue_name, t.venue_address, t.venue_capacity, t.venue_city, t.venue_surface, t.venue_image,
-                t.is_active
-            FROM {team_table} t
-            WHERE t.id = %s
-        """).format(
-            sport_literal=sql.Literal(sport),
-            team_table=t_tbl,
-        )
-
-    row = db.fetchone(query, (team_id,))
+    row = db.fetchone(query, (team_id, sport))
     if not row:
         return None
 
@@ -199,16 +120,13 @@ def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
 
     # Build nested league object (Football only)
     league = None
-    if has_leagues and data.get("league_id"):
-        league = {
-            "id": data["league_id"],
-            "name": data.pop("league_name"),
-            "country": data.pop("league_country"),
-            "logo_url": data.pop("league_logo"),
-        }
-    else:
-        for k in ["league_name", "league_country", "league_logo"]:
-            data.pop(k, None)
+    if sport == "FOOTBALL" and data.get("league_id"):
+        league_row = db.fetchone(
+            "SELECT id, name, country, logo_url FROM leagues WHERE id = %s",
+            (data["league_id"],),
+        )
+        if league_row:
+            league = dict(league_row)
 
     data["league"] = league
 

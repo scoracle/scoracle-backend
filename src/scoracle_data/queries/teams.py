@@ -1,12 +1,14 @@
 """
 Team-related queries for stats database.
+
+Uses the unified teams/team_stats tables with JSONB stats.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional
 
-from ..core.types import TEAM_PROFILE_TABLES, TEAM_STATS_TABLES
+from ..core.types import TEAMS_TABLE, TEAM_STATS_TABLE
 
 if TYPE_CHECKING:
     from ..pg_connection import PostgresDB
@@ -35,121 +37,76 @@ class TeamQueries:
         Returns:
             Dict with team info, stats, and percentiles
         """
-        team = self.db.get_team(team_id, sport_id)
+        team = self.db.fetchone(
+            f"SELECT * FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
+            (team_id, sport_id),
+        )
         if not team:
             return None
 
-        stats = self.db.get_team_stats(team_id, sport_id, season_year)
-        # Percentiles stored as JSONB in the stats row
-        percentiles = stats.get("percentiles") if stats else None
+        stats = self.db.fetchone(
+            f"SELECT * FROM {TEAM_STATS_TABLE} WHERE team_id = %s AND sport = %s AND season = %s",
+            (team_id, sport_id, season_year),
+        )
 
         return {
             "team": dict(team),
-            "stats": stats,
-            "percentiles": percentiles,
+            "stats": dict(stats) if stats else None,
+            "percentiles": stats.get("percentiles") if stats else None,
         }
 
     def get_standings(
         self,
         sport_id: str,
         season_year: int,
-        league_id: Optional[int] = None,
-        conference: Optional[str] = None,
-        division: Optional[str] = None,
+        league_id: int = 0,
     ) -> list[dict[str, Any]]:
         """
-        Get team standings.
+        Get team standings from JSONB stats.
 
         Args:
             sport_id: Sport identifier
             season_year: Season year
-            league_id: League filter (for FOOTBALL)
-            conference: Conference filter (for NBA/NFL)
-            division: Division filter
+            league_id: League filter (0 for NBA/NFL, >0 for football)
 
         Returns:
             List of teams with standings info
         """
-        season_id = self.db.get_season_id(sport_id, season_year)
-        if not season_id:
-            return []
-
-        stats_table = TEAM_STATS_TABLES.get(sport_id)
-        team_profile_table = TEAM_PROFILE_TABLES.get(sport_id)
-        
-        if not stats_table or not team_profile_table:
-            return []
-
-        # Build query based on sport (using sport-specific profile tables)
         if sport_id == "FOOTBALL":
-            conditions = ["s.season_id = %s"]
-            params: list[Any] = [season_id]
-
-            if league_id:
-                conditions.append("s.league_id = %s")
-                params.append(league_id)
-
             query = f"""
                 SELECT
                     t.id,
                     t.name,
                     t.logo_url,
                     l.name as league_name,
-                    s.matches_played as games_played,
-                    s.wins,
-                    s.draws,
-                    s.losses,
-                    s.points,
-                    s.goals_for,
-                    s.goals_against,
-                    s.goal_difference,
-                    s.league_position as rank
-                FROM {stats_table} s
-                JOIN {team_profile_table} t ON s.team_id = t.id
+                    s.stats
+                FROM {TEAM_STATS_TABLE} s
+                JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
                 LEFT JOIN leagues l ON s.league_id = l.id
-                WHERE {' AND '.join(conditions)}
-                ORDER BY s.points DESC, s.goal_difference DESC, s.goals_for DESC
+                WHERE s.sport = %s AND s.season = %s AND s.league_id = %s
+                ORDER BY
+                    (s.stats->>'points')::INTEGER DESC NULLS LAST,
+                    (s.stats->>'goal_difference')::INTEGER DESC NULLS LAST,
+                    (s.stats->>'goals_for')::INTEGER DESC NULLS LAST
             """
+            params: tuple = (sport_id, season_year, league_id)
         else:
-            # NBA/NFL (no sport_id filter needed - tables are sport-specific)
-            conditions = ["s.season_id = %s"]
-            params = [season_id]
-
-            if conference:
-                conditions.append("t.conference = %s")
-                params.append(conference)
-
-            if division:
-                conditions.append("t.division = %s")
-                params.append(division)
-
+            # NBA/NFL
             query = f"""
                 SELECT
                     t.id,
                     t.name,
                     t.logo_url,
-                    t.conference,
-                    t.division,
-                    s.games_played,
-                    s.wins,
-                    s.losses,
-                    {'s.ties,' if sport_id == 'NFL' else ''}
-                    s.win_pct,
-                    s.points_per_game,
-                    s.opponent_ppg,
-                    s.point_differential
-                FROM {stats_table} s
-                JOIN {team_profile_table} t ON s.team_id = t.id
-                WHERE {' AND '.join(conditions)}
-                ORDER BY s.win_pct DESC, s.point_differential DESC
+                    t.meta,
+                    s.stats
+                FROM {TEAM_STATS_TABLE} s
+                JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
+                WHERE s.sport = %s AND s.season = %s AND s.league_id = %s
+                ORDER BY
+                    (s.stats->>'wins')::INTEGER DESC NULLS LAST
             """
+            params = (sport_id, season_year, league_id)
 
-        rows = self.db.fetchall(query, tuple(params))
+        rows = self.db.fetchall(query, params)
 
-        # Add rank
-        return [
-            {**dict(row), "rank": i + 1}
-            for i, row in enumerate(rows)
-        ]
-
-
+        return [{**dict(row), "rank": i + 1} for i, row in enumerate(rows)]

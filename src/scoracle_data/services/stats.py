@@ -1,22 +1,19 @@
 """
 Stats service — sport-aware entity statistics lookups.
 
-Queries the unified player_stats/team_stats tables with JSONB stats.
-Routers and CLI call this instead of building SQL.
+Queries Postgres views and functions for stats, stat leaders, and standings.
+Python is a thin pass-through — Postgres owns all data shaping and ranking.
 
-Also provides stat_leaders and standings queries (previously in queries/ module).
+Postgres objects used:
+- player_stats / team_stats tables (entity stats lookup)
+- fn_stat_leaders() (ranked stat leaders with LATERAL + ROW_NUMBER)
+- fn_standings() (unified standings with win_pct computation)
 """
 
 import logging
 from typing import Any
 
-from ..core.types import (
-    PLAYERS_TABLE,
-    PLAYER_STATS_TABLE,
-    TEAMS_TABLE,
-    TEAM_STATS_TABLE,
-)
-from ..percentiles.config import SMALL_SAMPLE_WARNING_THRESHOLD
+from ..core.types import PLAYER_STATS_TABLE, TEAM_STATS_TABLE
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +35,9 @@ def get_entity_stats(
 ) -> dict[str, Any] | None:
     """Fetch stats + percentiles from the unified stats table.
 
-    Stats and percentiles are stored as JSONB columns in the unified
-    player_stats / team_stats tables.  Percentile metadata (_position_group,
-    _sample_size) is extracted in SQL so Python never mutates the dict.
+    Stats and percentiles are stored as JSONB columns. Percentile metadata
+    (_position_group, _sample_size) is extracted in SQL. Null values pass
+    through to the frontend — filtering is a presentation concern.
 
     Args:
         db: Database connection (psycopg-style with fetchone).
@@ -56,7 +53,6 @@ def get_entity_stats(
     """
     table, id_column = _resolve_table(entity_type)
 
-    # Extract percentile metadata in SQL rather than popping keys in Python
     base_query = f"""
         SELECT
             stats,
@@ -76,26 +72,16 @@ def get_entity_stats(
     if not row:
         return None
 
-    # Stats come directly from JSONB; filter out null/zero for frontend
-    stats = row["stats"] or {}
-    stats = {k: v for k, v in stats.items() if v is not None and v != 0}
-
     percentiles = row["percentiles"] or {}
-    position_group = row["position_group"]
-    sample_size = row["sample_size"]
-
-    # Build percentile metadata (only if percentiles exist)
     percentile_metadata = None
     if percentiles:
-        sz = sample_size or 0
         percentile_metadata = {
-            "position_group": position_group,
-            "sample_size": sz,
-            "small_sample_warning": sz < SMALL_SAMPLE_WARNING_THRESHOLD,
+            "position_group": row["position_group"],
+            "sample_size": row["sample_size"] or 0,
         }
 
     return {
-        "stats": stats,
+        "stats": row["stats"] or {},
         "percentiles": percentiles,
         "percentile_metadata": percentile_metadata,
     }
@@ -130,7 +116,7 @@ def get_available_seasons(
 
 
 # =========================================================================
-# Stat Leaders (moved from queries/players.py, with SQL injection fix)
+# Stat Leaders — delegates to fn_stat_leaders() Postgres function
 # =========================================================================
 
 
@@ -143,10 +129,11 @@ def get_stat_leaders(
     position: str | None = None,
     league_id: int = 0,
 ) -> list[dict[str, Any]]:
-    """Get top players for a specific stat (from JSONB).
+    """Get top players for a specific stat.
 
-    Uses parameterized queries for the stat_name JSONB key to prevent
-    SQL injection (the previous queries/ module used f-string interpolation).
+    Delegates entirely to the fn_stat_leaders() Postgres function which
+    uses LATERAL join for efficient JSONB extraction and ROW_NUMBER()
+    for ranking.
 
     Args:
         db: Database connection.
@@ -158,43 +145,17 @@ def get_stat_leaders(
         league_id: League filter (0 for NBA/NFL, >0 for football).
 
     Returns:
-        List of player stats ranked by the stat, with rank added.
+        List of player stats ranked by the stat.
     """
-    conditions = [
-        "s.sport = %s",
-        "s.season = %s",
-        "s.league_id = %s",
-        "(s.stats->>%s) IS NOT NULL",
-    ]
-    params: list[Any] = [sport, season, league_id, stat_name]
-
-    if position:
-        conditions.append("p.position = %s")
-        params.append(position)
-
-    # stat_name is passed as a parameter — safe from injection
-    query = f"""
-        SELECT
-            p.id AS player_id,
-            p.name,
-            p.position,
-            t.name AS team_name,
-            (s.stats->>%s)::NUMERIC AS stat_value
-        FROM {PLAYER_STATS_TABLE} s
-        JOIN {PLAYERS_TABLE} p ON s.player_id = p.id AND s.sport = p.sport
-        LEFT JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
-        WHERE {" AND ".join(conditions)}
-        ORDER BY (s.stats->>%s)::NUMERIC DESC
-        LIMIT %s
-    """
-    params.extend([stat_name, stat_name, limit])
-
-    rows = db.fetchall(query, tuple(params))
-    return [{**row, "rank": i + 1} for i, row in enumerate(rows)]
+    rows = db.fetchall(
+        "SELECT * FROM fn_stat_leaders(%s, %s, %s, %s, %s, %s)",
+        (sport, season, stat_name, limit, position, league_id),
+    )
+    return [dict(row) for row in rows]
 
 
 # =========================================================================
-# Standings (moved from queries/teams.py)
+# Standings — delegates to fn_standings() Postgres function
 # =========================================================================
 
 
@@ -205,9 +166,11 @@ def get_standings(
     league_id: int = 0,
     conference: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get team standings from JSONB stats.
+    """Get team standings.
 
-    Now uses the typed conference column instead of extracting from meta JSONB.
+    Delegates entirely to the fn_standings() Postgres function which
+    handles sport-conditional ordering, ROW_NUMBER() for ranking,
+    and win_pct computation for NBA/NFL.
 
     Args:
         db: Database connection.
@@ -219,48 +182,8 @@ def get_standings(
     Returns:
         List of teams with standings info, ranked.
     """
-    if sport == "FOOTBALL":
-        query = f"""
-            SELECT
-                t.id,
-                t.name,
-                t.logo_url,
-                l.name AS league_name,
-                s.stats
-            FROM {TEAM_STATS_TABLE} s
-            JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
-            LEFT JOIN leagues l ON s.league_id = l.id
-            WHERE s.sport = %s AND s.season = %s AND s.league_id = %s
-            ORDER BY
-                (s.stats->>'points')::INTEGER DESC NULLS LAST,
-                (s.stats->>'goal_difference')::INTEGER DESC NULLS LAST,
-                (s.stats->>'goals_for')::INTEGER DESC NULLS LAST
-        """
-        params: tuple = (sport, season, league_id)
-    else:
-        # NBA/NFL — use typed conference column for filtering
-        conditions = ["s.sport = %s", "s.season = %s", "s.league_id = %s"]
-        param_list: list[Any] = [sport, season, league_id]
-
-        if conference:
-            conditions.append("t.conference = %s")
-            param_list.append(conference)
-
-        query = f"""
-            SELECT
-                t.id,
-                t.name,
-                t.logo_url,
-                t.conference,
-                t.division,
-                s.stats
-            FROM {TEAM_STATS_TABLE} s
-            JOIN {TEAMS_TABLE} t ON s.team_id = t.id AND s.sport = t.sport
-            WHERE {" AND ".join(conditions)}
-            ORDER BY
-                (s.stats->>'wins')::INTEGER DESC NULLS LAST
-        """
-        params = tuple(param_list)
-
-    rows = db.fetchall(query, params)
-    return [{**row, "rank": i + 1} for i, row in enumerate(rows)]
+    rows = db.fetchall(
+        "SELECT * FROM fn_standings(%s, %s, %s, %s)",
+        (sport, season, league_id, conference),
+    )
+    return [dict(row) for row in rows]

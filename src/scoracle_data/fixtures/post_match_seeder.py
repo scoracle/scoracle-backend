@@ -194,13 +194,9 @@ class PostMatchSeeder:
                 except Exception as e:
                     logger.warning(f"Percentile recalculation failed: {e}")
 
-            # Mark fixture as seeded
+            # Mark fixture as seeded via Postgres function
             self.db.execute(
-                """
-                UPDATE fixtures
-                SET status = 'seeded', seeded_at = NOW(), updated_at = NOW()
-                WHERE id = %s
-                """,
+                "SELECT mark_fixture_seeded(%s)",
                 (fixture_id,),
             )
 
@@ -297,28 +293,33 @@ class PostMatchSeeder:
         )
         return [dict(p) for p in players] if players else []
 
-    @staticmethod
-    def _resolve_sportmonks_season_id(league_id: int, season_year: int) -> int | None:
+    def _resolve_provider_season_id(
+        self, league_id: int, season_year: int
+    ) -> int | None:
         """
-        Resolve a SportMonks season_id from league_id + season year.
+        Resolve a provider season_id from league_id + season year.
 
-        The FOOTBALL seed runner requires SportMonks-specific season IDs for
-        API calls.  These are stored in seed_football.py config.  Returns
-        None if the mapping is unknown (caller should log and skip).
+        Queries the provider_seasons table (populated by migration 006).
+        Returns None if the mapping is unknown (caller should log and skip).
         """
-        from ..seeders.seed_football import LEAGUES, PREMIER_LEAGUE_SEASONS
-
-        # Currently only Premier League has season mappings.
-        # For other leagues, the caller would need to extend the config.
-        if league_id == 1:  # Premier League
-            return PREMIER_LEAGUE_SEASONS.get(season_year)
-
-        # TODO: Add season ID mappings for La Liga, Bundesliga, Serie A, Ligue 1
-        logger.warning(
-            f"No SportMonks season_id mapping for league {league_id}, "
-            f"season {season_year}"
+        result = self.db.fetchone(
+            "SELECT resolve_provider_season_id(%s, %s) AS season_id",
+            (league_id, season_year),
         )
-        return None
+        season_id = result["season_id"] if result else None
+        if season_id is None:
+            logger.warning(
+                f"No provider season_id for league {league_id}, season {season_year}"
+            )
+        return season_id
+
+    def _resolve_sportmonks_league_id(self, league_id: int) -> int | None:
+        """Look up the SportMonks league ID from our internal league ID."""
+        result = self.db.fetchone(
+            "SELECT sportmonks_id FROM leagues WHERE id = %s",
+            (league_id,),
+        )
+        return result["sportmonks_id"] if result else None
 
     async def _seed_player_stats(self, seed_runner, sport: str, fixture: dict):
         """
@@ -339,16 +340,20 @@ class PostMatchSeeder:
             return await seed_runner.seed_player_stats(season)
         elif sport == "FOOTBALL":
             league_id = fixture["league_id"]
-            sm_season_id = self._resolve_sportmonks_season_id(league_id, season)
+            sm_season_id = self._resolve_provider_season_id(league_id, season)
             if sm_season_id is None:
                 logger.error(
                     f"Cannot seed FOOTBALL player stats: no SportMonks season_id "
                     f"for league {league_id}, season {season}"
                 )
                 return SeedResult()
-            from ..seeders.seed_football import LEAGUES
-
-            sm_league_id = int(LEAGUES[league_id]["sportmonks_id"])
+            sm_league_id = self._resolve_sportmonks_league_id(league_id)
+            if sm_league_id is None:
+                logger.error(
+                    f"Cannot seed FOOTBALL player stats: no sportmonks_id "
+                    f"for league {league_id}"
+                )
+                return SeedResult()
             return await seed_runner.seed_player_stats(
                 sm_season_id,
                 league_id,
@@ -378,7 +383,7 @@ class PostMatchSeeder:
             return await seed_runner.seed_team_stats(season)
         elif sport == "FOOTBALL":
             league_id = fixture["league_id"]
-            sm_season_id = self._resolve_sportmonks_season_id(league_id, season)
+            sm_season_id = self._resolve_provider_season_id(league_id, season)
             if sm_season_id is None:
                 logger.error(
                     f"Cannot seed FOOTBALL team stats: no SportMonks season_id "

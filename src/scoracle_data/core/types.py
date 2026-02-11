@@ -37,17 +37,18 @@ class SportConfig:
 
     All sports share the same unified tables (players, player_stats, teams,
     team_stats) — differentiated by the `sport` column.
+
+    Provider API URLs live in the provider client classes, not here.
     """
 
     # Identifiers
     id: str
     name: str
-    api_base_url: str
 
     # Current season (update annually)
     current_season: int
 
-    # API-Sports configuration
+    # Default league for CLI commands (optional)
     default_league_id: Optional[int] = None
 
     # Season label format
@@ -70,21 +71,18 @@ SPORT_REGISTRY: dict[str, SportConfig] = {
     Sport.NBA.value: SportConfig(
         id="NBA",
         name="National Basketball Association",
-        api_base_url="https://api.balldontlie.io/v1",
         current_season=2025,
         season_label_format="{year}-{next_year_short}",
     ),
     Sport.NFL.value: SportConfig(
         id="NFL",
         name="National Football League",
-        api_base_url="https://api.balldontlie.io/nfl/v1",
         current_season=2025,
         default_league_id=1,
     ),
     Sport.FOOTBALL.value: SportConfig(
         id="FOOTBALL",
         name="Football (Soccer)",
-        api_base_url="https://api.sportmonks.com/v3/football",
         current_season=2025,
         default_league_id=1,  # Premier League (internal ID)
     ),

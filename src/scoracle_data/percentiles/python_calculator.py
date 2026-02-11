@@ -3,10 +3,10 @@ Percentile calculator — thin Python orchestrator over Postgres SQL function.
 
 The heavy lifting (percent_rank() window functions, JSONB aggregation) runs
 entirely inside Postgres via the recalculate_percentiles() SQL function
-defined in 001_schema.sql.
+defined in 001_schema.sql (updated in 005_derived_stats.sql).
 
 This module:
-- Passes configuration (inverse stats list) from Python config to SQL
+- Calls the SQL function (which reads inverse stats from stat_definitions)
 - Handles logging, timing, error reporting
 - Provides the CLI entry point (recalculate_all_percentiles)
 - Manages season archiving to percentile_archive table
@@ -17,8 +17,6 @@ from __future__ import annotations
 import logging
 import time
 from typing import Any
-
-from .config import INVERSE_STATS
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +55,11 @@ class PythonPercentileCalculator:
         """
         start = time.time()
 
-        # Pass inverse stats list from Python config to SQL function
-        inverse_list = list(INVERSE_STATS)
-
         try:
+            # SQL function reads inverse stats from stat_definitions table
             result = self.db.fetchone(
-                "SELECT * FROM recalculate_percentiles(%s, %s, %s)",
-                (sport_id, season_year, inverse_list),
+                "SELECT * FROM recalculate_percentiles(%s, %s)",
+                (sport_id, season_year),
             )
 
             player_count = result["players_updated"] if result else 0

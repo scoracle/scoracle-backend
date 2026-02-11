@@ -138,12 +138,30 @@ class PostgresDB:
                 conn.rollback()
                 raise
 
-    def execute(self, query: str, params: tuple = ()) -> None:
-        """Execute a single query without returning results."""
-        with self.get_connection() as conn:
+    def execute(
+        self,
+        query: str,
+        params: tuple = (),
+        conn: psycopg.Connection | None = None,
+    ) -> None:
+        """Execute a single query without returning results.
+
+        Args:
+            query: SQL query string.
+            params: Query parameters.
+            conn: Optional existing connection (e.g. from transaction()).
+                  If provided, executes on that connection without committing
+                  (caller controls the transaction). If None, gets a new
+                  connection from the pool and auto-commits.
+        """
+        if conn is not None:
             with conn.cursor() as cur:
                 cur.execute(query, params)
-            conn.commit()
+        else:
+            with self.get_connection() as c:
+                with c.cursor() as cur:
+                    cur.execute(query, params)
+                c.commit()
 
     def executemany(self, query: str, params_list: list[tuple]) -> None:
         """Execute a query with multiple parameter sets."""
@@ -160,14 +178,29 @@ class PostgresDB:
             conn.commit()
 
     def fetchone(
-        self, query: str | sql.Composed, params: tuple = ()
+        self,
+        query: str | sql.Composed,
+        params: tuple = (),
+        conn: psycopg.Connection | None = None,
     ) -> Optional[dict[str, Any]]:
-        """Execute a query and fetch one result as a dict."""
-        with self.get_connection() as conn:
+        """Execute a query and fetch one result as a dict.
+
+        Args:
+            query: SQL query string or composed query.
+            params: Query parameters.
+            conn: Optional existing connection (e.g. from transaction()).
+        """
+        if conn is not None:
             with conn.cursor() as cur:
                 cur.execute(query, params)
                 row = cur.fetchone()
                 return dict(row) if row else None
+        else:
+            with self.get_connection() as c:
+                with c.cursor() as cur:
+                    cur.execute(query, params)
+                    row = cur.fetchone()
+                    return dict(row) if row else None
 
     def fetchall(
         self, query: str | sql.Composed, params: tuple = ()

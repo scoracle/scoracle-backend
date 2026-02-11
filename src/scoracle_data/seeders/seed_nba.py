@@ -12,7 +12,7 @@ from typing import Any, TYPE_CHECKING
 
 from ..core.types import PLAYER_STATS_TABLE, TEAM_STATS_TABLE
 from ..providers.balldontlie_nba import BallDontLieNBA
-from .base import BallDontLieSeedRunner
+from .base import AmericanSportsSeedRunner
 from .common import SeedResult
 
 if TYPE_CHECKING:
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 SPORT = "NBA"
 
 
-class NBASeedRunner(BallDontLieSeedRunner):
+class NBASeedRunner(AmericanSportsSeedRunner):
     """Seeds NBA data from BallDontLie into unified PostgreSQL tables."""
 
     def __init__(self, db: "PostgresDB", client: BallDontLieNBA):

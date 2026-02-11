@@ -35,7 +35,7 @@ class BaseSeedRunner(ABC):
 
     Sub-classes *must* define ``_upsert_player`` at minimum (called by
     the guard). NBA/NFL sub-classes get additional shared orchestration
-    via ``BallDontLieSeedRunner``.
+    via ``AmericanSportsSeedRunner``.
     """
 
     def __init__(self, db: "PostgresDB", client: Any):
@@ -76,8 +76,8 @@ class BaseSeedRunner(ABC):
             self._upsert_player(player_data)
 
 
-class BallDontLieSeedRunner(BaseSeedRunner):
-    """Extended base for BallDontLie-backed sports (NBA, NFL).
+class AmericanSportsSeedRunner(BaseSeedRunner):
+    """Extended base for American sports (NBA, NFL).
 
     Provides shared ``_upsert_team``, ``_upsert_player``, ``seed_teams``,
     and ``seed_players`` implementations.  Subclasses only need to supply:

@@ -175,8 +175,6 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
     Uses the new seed runners which talk directly to the provider APIs
     and write to PostgreSQL via psycopg.
     """
-    from .seeders.seed_football import LEAGUES, PREMIER_LEAGUE_SEASONS
-
     db = get_db()
 
     # Initialize database if needed
@@ -214,22 +212,31 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
         try:
             async with client:
                 if sport_id == "FOOTBALL":
-                    # For now, only seed leagues where we have a season ID.
-                    # PREMIER_LEAGUE_SEASONS maps year -> sportmonks_season_id.
-                    # TODO: add season ID lookups for other leagues.
-                    sm_season_id = PREMIER_LEAGUE_SEASONS.get(season)
+                    # Resolve provider season ID from DB
+                    league_id = 1  # Premier League
+                    result_row = db.fetchone(
+                        "SELECT resolve_provider_season_id(%s, %s) AS sid",
+                        (league_id, season),
+                    )
+                    sm_season_id = result_row["sid"] if result_row else None
                     if not sm_season_id:
                         logger.warning(
-                            "No SportMonks season ID for year %d, skipping", season
+                            "No provider season ID for league %d year %d, skipping",
+                            league_id,
+                            season,
                         )
                         continue
 
-                    # Seed Premier League (internal league_id=1)
-                    league_id = 1
-                    league_info = LEAGUES[league_id]
+                    league_row = db.fetchone(
+                        "SELECT name FROM leagues WHERE id = %s",
+                        (league_id,),
+                    )
+                    league_name = (
+                        league_row["name"] if league_row else f"League {league_id}"
+                    )
                     logger.info(
                         "Seeding %s %d (season_id=%d)...",
-                        league_info["name"],
+                        league_name,
                         season,
                         sm_season_id,
                     )
@@ -468,12 +475,11 @@ def cmd_query(args: argparse.Namespace) -> int:
                     f"({stats.get('wins', 0)}-{stats.get('draws', 0)}-{stats.get('losses', 0)})"
                 )
             else:
+                win_pct = r.get("win_pct") or 0
                 wins = stats.get("wins", 0) or 0
                 losses = stats.get("losses", 0) or 0
-                total = wins + losses
-                win_pct = wins / total if total > 0 else 0.0
                 print(
-                    f"{r['rank']:3}. {r['name']:<25} {win_pct:.3f}  ({wins}-{losses})"
+                    f"{r['rank']:3}. {r['name']:<25} {float(win_pct):.3f}  ({wins}-{losses})"
                 )
 
     elif query_type == "profile":

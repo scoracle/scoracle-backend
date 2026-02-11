@@ -200,41 +200,13 @@ class SchedulerService:
         """
         Get fixtures that are ready to seed.
 
-        A fixture is ready when:
-        - Status is 'scheduled' or 'completed'
-        - Current time > start_time + seed_delay_hours
-        - seed_attempts < max_retries
+        Delegates to the get_pending_fixtures() Postgres function which
+        checks status, seed delay, and retry limits.
         """
-        query = """
-            SELECT
-                f.id,
-                f.sport,
-                f.league_id,
-                f.season,
-                f.home_team_id,
-                f.away_team_id,
-                f.start_time,
-                f.seed_delay_hours,
-                f.seed_attempts,
-                f.external_id
-            FROM fixtures f
-            WHERE (f.status = 'scheduled' OR f.status = 'completed')
-              AND NOW() >= f.start_time + (f.seed_delay_hours || ' hours')::INTERVAL
-              AND f.seed_attempts < %s
-        """
-        params = [self.max_retries]
-
-        if sport_id:
-            query += " AND f.sport = %s"
-            params.append(sport_id)
-
-        query += """
-            ORDER BY f.start_time ASC
-            LIMIT %s
-        """
-        params.append(self.max_fixtures_per_run)
-
-        rows = self.db.fetchall(query, tuple(params))
+        rows = self.db.fetchall(
+            "SELECT * FROM get_pending_fixtures(%s, %s, %s)",
+            (sport_id, self.max_fixtures_per_run, self.max_retries),
+        )
         return [dict(row) for row in rows]
 
     def get_pending_count(self, sport: Optional[str] = None) -> dict[str, int]:

@@ -33,27 +33,10 @@ logger = logging.getLogger(__name__)
 
 SPORT = "FOOTBALL"
 
-# Top 5 European Leagues with SportMonks IDs
-LEAGUES = {
-    1: {"sportmonks_id": 8, "name": "Premier League", "country": "England"},
-    2: {"sportmonks_id": 564, "name": "La Liga", "country": "Spain"},
-    3: {"sportmonks_id": 82, "name": "Bundesliga", "country": "Germany"},
-    4: {"sportmonks_id": 384, "name": "Serie A", "country": "Italy"},
-    5: {"sportmonks_id": 301, "name": "Ligue 1", "country": "France"},
-}
-
-# Reverse lookup: SportMonks league ID -> our internal league ID
-SPORTMONKS_LEAGUE_MAP = {info["sportmonks_id"]: lid for lid, info in LEAGUES.items()}
-
-# Season IDs for Premier League (from 2020 onwards)
-PREMIER_LEAGUE_SEASONS = {
-    2020: 17420,
-    2021: 18378,
-    2022: 19734,
-    2023: 21646,
-    2024: 23614,
-    2025: 25583,
-}
+# Provider-specific IDs now live in the database:
+#   - League -> SportMonks ID mapping: leagues.sportmonks_id column
+#   - Season -> SportMonks season ID mapping: provider_seasons table
+# See migrations 001_schema.sql and 006_provider_seasons.sql.
 
 # =========================================================================
 # Verified SportMonks PlayerStatisticDetail type_id mappings
@@ -143,6 +126,8 @@ class FootballSeedRunner(BaseSeedRunner):
     All stats are stored as JSONB in the unified player_stats/team_stats tables.
     """
 
+    _sport_label = SPORT  # Used by BaseSeedRunner._ensure_player_exists
+
     def __init__(self, db: "PostgresDB", client: SportMonksClient):
         super().__init__(db, client)
 
@@ -211,19 +196,17 @@ class FootballSeedRunner(BaseSeedRunner):
                         return None
         return None
 
-    @staticmethod
-    def _compute_per_90(stat: int | None, minutes: int | None) -> float | None:
-        """Compute a per-90-minute stat."""
-        if stat is None or minutes is None or minutes == 0:
-            return None
-        return round(stat * 90 / minutes, 3)
-
     # =========================================================================
     # Build JSONB stats dict from SportMonks details
     # =========================================================================
 
     def _build_player_stats_json(self, details: list[dict]) -> dict:
-        """Extract all stat values into a flat dict for JSONB storage."""
+        """Extract all stat values into a flat dict for JSONB storage.
+
+        Only extracts raw stat values from the API response. Derived metrics
+        (per-90, accuracy rates) are computed by the Postgres trigger
+        ``compute_football_derived_stats()`` on INSERT/UPDATE.
+        """
         stats: dict[str, Any] = {}
 
         for stat_name, type_id in PLAYER_STAT_TYPES.items():
@@ -237,38 +220,6 @@ class FootballSeedRunner(BaseSeedRunner):
                 val = self._extract_stat_value(details, type_id)
                 if val is not None:
                     stats[stat_name] = val
-
-        # Compute per-90 metrics
-        minutes = stats.get("minutes_played")
-        goals = stats.get("goals")
-        assists = stats.get("assists")
-
-        gp90 = self._compute_per_90(goals, minutes)
-        if gp90 is not None:
-            stats["goals_per_90"] = gp90
-        ap90 = self._compute_per_90(assists, minutes)
-        if ap90 is not None:
-            stats["assists_per_90"] = ap90
-
-        # Computed rates
-        shots_total = stats.get("shots_total")
-        shots_on = stats.get("shots_on_target")
-        if shots_total and shots_total > 0:
-            stats["shot_accuracy"] = round((shots_on or 0) / shots_total * 100, 1)
-        passes_total = stats.get("passes_total")
-        passes_acc = stats.get("passes_accurate")
-        if passes_total and passes_total > 0:
-            stats["pass_accuracy"] = round((passes_acc or 0) / passes_total * 100, 1)
-        duels_total = stats.get("duels_total")
-        duels_won = stats.get("duels_won")
-        if duels_total and duels_total > 0:
-            stats["duel_success_rate"] = round((duels_won or 0) / duels_total * 100, 1)
-        dribbles_att = stats.get("dribbles_attempts")
-        dribbles_suc = stats.get("dribbles_success")
-        if dribbles_att and dribbles_att > 0:
-            stats["dribble_success_rate"] = round(
-                (dribbles_suc or 0) / dribbles_att * 100, 1
-            )
 
         return stats
 
@@ -546,8 +497,10 @@ class FootballSeedRunner(BaseSeedRunner):
 
                     for player_data in players:
                         try:
-                            # Ensure player profile exists
-                            self._upsert_player(player_data)
+                            # Guard: ensure player profile exists (FK constraint)
+                            # Full upsert already ran in seed_players phase;
+                            # this is a lightweight SELECT check for edge cases.
+                            self._ensure_player_exists(player_data["id"], player_data)
 
                             # Extract stats for the target league/season
                             stats_list = player_data.get("statistics", [])
@@ -752,11 +705,24 @@ class FootballSeedRunner(BaseSeedRunner):
             sportmonks_league_id: SportMonks league ID (auto-resolved if not provided)
         """
         if sportmonks_league_id is None:
-            sportmonks_league_id = int(LEAGUES[league_id]["sportmonks_id"])
+            league_row = self.db.fetchone(
+                "SELECT sportmonks_id, name FROM leagues WHERE id = %s",
+                (league_id,),
+            )
+            if not league_row or not league_row["sportmonks_id"]:
+                raise ValueError(f"No sportmonks_id found for league {league_id}")
+            sportmonks_league_id = int(league_row["sportmonks_id"])
+            league_name = league_row["name"]
+        else:
+            league_row = self.db.fetchone(
+                "SELECT name FROM leagues WHERE id = %s",
+                (league_id,),
+            )
+            league_name = league_row["name"] if league_row else f"League {league_id}"
 
         logger.info(
             f"Seeding season {season_id} "
-            f"(league {league_id}: {LEAGUES[league_id]['name']}, year {season_year})"
+            f"(league {league_id}: {league_name}, year {season_year})"
         )
 
         result = SeedResult()

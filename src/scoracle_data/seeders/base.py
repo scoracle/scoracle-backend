@@ -11,11 +11,12 @@ All sports use the unified tables (players, player_stats, teams, team_stats)
 with a `sport` discriminator column.
 """
 
+import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, TYPE_CHECKING
 
-from ..core.types import PLAYERS_TABLE
+from ..core.types import PLAYERS_TABLE, TEAMS_TABLE
 from .common import SeedResult
 
 if TYPE_CHECKING:
@@ -78,12 +79,125 @@ class BaseSeedRunner(ABC):
 class BallDontLieSeedRunner(BaseSeedRunner):
     """Extended base for BallDontLie-backed sports (NBA, NFL).
 
-    Provides the truly identical ``seed_teams`` and ``seed_players``
-    orchestration that both NBA and NFL share.  Sub-classes supply the
-    sport-specific ``_upsert_*`` and ``_fetch_*`` methods.
+    Provides shared ``_upsert_team``, ``_upsert_player``, ``seed_teams``,
+    and ``seed_players`` implementations.  Subclasses only need to supply:
+
+    * ``_sport_label`` property (e.g. ``"NBA"`` / ``"NFL"``)
+    * ``_city_field`` — API key for team city (``"city"`` for NBA, ``"location"`` for NFL)
+    * ``_player_meta_fields`` — list of (api_key, meta_key) tuples for sport-specific meta
+    * Sport-specific stats methods (``seed_player_stats``, etc.)
     """
 
-    # -- Teams ---------------------------------------------------------------
+    # -- Abstract properties subclasses must implement -----------------------
+
+    @property
+    @abstractmethod
+    def _sport_label(self) -> str:
+        """Short label used in log messages and as sport discriminator."""
+        ...
+
+    @property
+    def _city_field(self) -> str:
+        """API response key for team city. Override in NFL ('location')."""
+        return "city"
+
+    @property
+    def _player_meta_fields(self) -> list[tuple[str, str]]:
+        """List of (api_key, meta_key) for sport-specific player meta.
+
+        Override in subclass. Default is empty.
+        """
+        return []
+
+    # -- Shared upsert: Teams ------------------------------------------------
+
+    def _upsert_team(self, team: dict[str, Any]) -> None:
+        """Upsert a BallDontLie team into the unified teams table.
+
+        Writes conference/division to the typed columns (not meta JSONB).
+        Only stores full_name in meta for display purposes.
+        """
+        meta = {}
+        if team.get("full_name"):
+            meta["full_name"] = team["full_name"]
+
+        self.db.execute(
+            f"""
+            INSERT INTO {TEAMS_TABLE} (
+                id, sport, name, short_code, city, conference, division, meta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id, sport) DO UPDATE SET
+                name = EXCLUDED.name,
+                short_code = EXCLUDED.short_code,
+                city = EXCLUDED.city,
+                conference = EXCLUDED.conference,
+                division = EXCLUDED.division,
+                meta = EXCLUDED.meta,
+                updated_at = NOW()
+        """,
+            (
+                team["id"],
+                self._sport_label,
+                team.get("name"),
+                team.get("abbreviation"),
+                team.get(self._city_field),
+                team.get("conference"),
+                team.get("division"),
+                json.dumps(meta) if meta else "{}",
+            ),
+        )
+
+    # -- Shared upsert: Players ----------------------------------------------
+
+    def _upsert_player(self, player: dict[str, Any]) -> None:
+        """Upsert a BallDontLie player into the unified players table."""
+        team = player.get("team") or {}
+        team_id = team.get("id") if team else None
+
+        name = f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
+        if not name:
+            name = f"Player {player['id']}"
+
+        meta = {}
+        for api_key, meta_key in self._player_meta_fields:
+            val = player.get(api_key)
+            if val is not None:
+                meta[meta_key] = val
+
+        self.db.execute(
+            f"""
+            INSERT INTO {PLAYERS_TABLE} (
+                id, sport, name, first_name, last_name, position,
+                height_cm, weight_kg, nationality, team_id, meta
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id, sport) DO UPDATE SET
+                name = EXCLUDED.name,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                position = EXCLUDED.position,
+                height_cm = EXCLUDED.height_cm,
+                weight_kg = EXCLUDED.weight_kg,
+                nationality = EXCLUDED.nationality,
+                team_id = EXCLUDED.team_id,
+                meta = EXCLUDED.meta,
+                updated_at = NOW()
+        """,
+            (
+                player["id"],
+                self._sport_label,
+                name,
+                player.get("first_name"),
+                player.get("last_name"),
+                player.get("position"),
+                player.get("height"),
+                player.get("weight"),
+                player.get("country"),
+                team_id,
+                json.dumps(meta) if meta else "{}",
+            ),
+        )
+
+    # -- Teams orchestration -------------------------------------------------
 
     async def seed_teams(self) -> SeedResult:
         """Seed all teams — shared flow for BallDontLie sports."""
@@ -102,7 +216,7 @@ class BallDontLieSeedRunner(BaseSeedRunner):
             result.errors.append(error_msg)
         return result
 
-    # -- Players -------------------------------------------------------------
+    # -- Players orchestration -----------------------------------------------
 
     async def seed_players(self) -> SeedResult:
         """Seed all players — shared flow for BallDontLie sports."""
@@ -128,11 +242,3 @@ class BallDontLieSeedRunner(BaseSeedRunner):
             logger.error(error_msg)
             result.errors.append(error_msg)
         return result
-
-    # -- Abstract properties / hooks -----------------------------------------
-
-    @property
-    @abstractmethod
-    def _sport_label(self) -> str:
-        """Short label used in log messages, e.g. ``'NBA'`` or ``'NFL'``."""
-        ...

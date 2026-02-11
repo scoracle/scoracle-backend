@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
     """Fetch player profile with team and league data from unified tables.
 
+    Single query using LEFT JOINs — no N+1 for league lookups.
+
     Args:
         db: Database connection (psycopg-style with fetchone).
         player_id: The player's ID.
@@ -32,9 +34,13 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
             p.height_cm, p.weight_kg, p.photo_url,
             p.team_id, p.league_id, p.meta,
             t.id as team_id_check, t.name as team_name, t.short_code as team_abbr,
-            t.logo_url as team_logo, t.country as team_country, t.city as team_city, t.meta as team_meta
+            t.logo_url as team_logo, t.country as team_country, t.city as team_city,
+            t.conference as team_conference, t.division as team_division,
+            l.id as league_id_check, l.name as league_name,
+            l.country as league_country, l.logo_url as league_logo
         FROM {PLAYERS_TABLE} p
         LEFT JOIN {TEAMS_TABLE} t ON t.id = p.team_id AND t.sport = p.sport
+        LEFT JOIN leagues l ON l.id = p.league_id
         WHERE p.id = %s AND p.sport = %s
     """
 
@@ -42,7 +48,7 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
     if not row:
         return None
 
-    data = dict(row)
+    data = row  # fetchone already returns a dict
 
     # Build nested team object
     team = None
@@ -57,13 +63,15 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
             team["country"] = data.pop("team_country")
         if data.get("team_city"):
             team["city"] = data.pop("team_city")
-        # Pull conference/division from team meta for NBA/NFL
-        team_meta = data.pop("team_meta", None) or {}
-        if isinstance(team_meta, dict):
-            if "conference" in team_meta:
-                team["conference"] = team_meta["conference"]
-            if "division" in team_meta:
-                team["division"] = team_meta["division"]
+        # Use typed conference/division columns (set by migration 002)
+        if data.get("team_conference"):
+            team["conference"] = data.pop("team_conference")
+        else:
+            data.pop("team_conference", None)
+        if data.get("team_division"):
+            team["division"] = data.pop("team_division")
+        else:
+            data.pop("team_division", None)
     else:
         for k in [
             "team_id_check",
@@ -72,19 +80,23 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
             "team_logo",
             "team_country",
             "team_city",
-            "team_meta",
+            "team_conference",
+            "team_division",
         ]:
             data.pop(k, None)
 
-    # Build nested league object (Football only)
+    # Build nested league object from the JOIN (no separate query)
     league = None
-    if sport == "FOOTBALL" and data.get("league_id"):
-        league_row = db.fetchone(
-            "SELECT id, name, country, logo_url FROM leagues WHERE id = %s",
-            (data["league_id"],),
-        )
-        if league_row:
-            league = dict(league_row)
+    if data.get("league_id_check"):
+        league = {
+            "id": data.pop("league_id_check"),
+            "name": data.pop("league_name"),
+            "country": data.pop("league_country"),
+            "logo_url": data.pop("league_logo"),
+        }
+    else:
+        for k in ["league_id_check", "league_name", "league_country", "league_logo"]:
+            data.pop(k, None)
 
     data["team"] = team
     data["league"] = league
@@ -94,6 +106,8 @@ def get_player_profile(db, player_id: int, sport: str) -> dict[str, Any] | None:
 
 def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
     """Fetch team profile with league data from unified tables.
+
+    Single query using LEFT JOIN — no N+1 for league lookups.
 
     Args:
         db: Database connection (psycopg-style with fetchone).
@@ -107,8 +121,12 @@ def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
         SELECT
             t.id, t.sport as sport_id, t.name, t.short_code, t.logo_url,
             t.country, t.city, t.founded, t.league_id,
-            t.venue_name, t.venue_capacity, t.meta
+            t.conference, t.division,
+            t.venue_name, t.venue_capacity, t.meta,
+            l.id as league_id_check, l.name as league_name,
+            l.country as league_country, l.logo_url as league_logo
         FROM {TEAMS_TABLE} t
+        LEFT JOIN leagues l ON l.id = t.league_id
         WHERE t.id = %s AND t.sport = %s
     """
 
@@ -116,17 +134,20 @@ def get_team_profile(db, team_id: int, sport: str) -> dict[str, Any] | None:
     if not row:
         return None
 
-    data = dict(row)
+    data = row  # fetchone already returns a dict
 
-    # Build nested league object (Football only)
+    # Build nested league object from the JOIN (no separate query)
     league = None
-    if sport == "FOOTBALL" and data.get("league_id"):
-        league_row = db.fetchone(
-            "SELECT id, name, country, logo_url FROM leagues WHERE id = %s",
-            (data["league_id"],),
-        )
-        if league_row:
-            league = dict(league_row)
+    if data.get("league_id_check"):
+        league = {
+            "id": data.pop("league_id_check"),
+            "name": data.pop("league_name"),
+            "country": data.pop("league_country"),
+            "logo_url": data.pop("league_logo"),
+        }
+    else:
+        for k in ["league_id_check", "league_name", "league_country", "league_logo"]:
+            data.pop(k, None)
 
     data["league"] = league
 

@@ -10,12 +10,7 @@ import json
 import logging
 from typing import Any, TYPE_CHECKING
 
-from ..core.types import (
-    PLAYERS_TABLE,
-    PLAYER_STATS_TABLE,
-    TEAMS_TABLE,
-    TEAM_STATS_TABLE,
-)
+from ..core.types import PLAYER_STATS_TABLE, TEAM_STATS_TABLE
 from ..providers.balldontlie_nfl import BallDontLieNFL
 from .base import BallDontLieSeedRunner
 from .common import SeedResult
@@ -38,91 +33,19 @@ class NFLSeedRunner(BallDontLieSeedRunner):
     def _sport_label(self) -> str:
         return "NFL"
 
-    # -- Upsert: Teams -------------------------------------------------------
+    @property
+    def _city_field(self) -> str:
+        return "location"
 
-    def _upsert_team(self, team: dict[str, Any]) -> None:
-        meta = {}
-        if team.get("conference"):
-            meta["conference"] = team["conference"]
-        if team.get("division"):
-            meta["division"] = team["division"]
-        if team.get("full_name"):
-            meta["full_name"] = team["full_name"]
-
-        self.db.execute(
-            f"""
-            INSERT INTO {TEAMS_TABLE} (
-                id, sport, name, short_code, city, meta
-            ) VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id, sport) DO UPDATE SET
-                name = EXCLUDED.name,
-                short_code = EXCLUDED.short_code,
-                city = EXCLUDED.city,
-                meta = EXCLUDED.meta,
-                updated_at = NOW()
-        """,
-            (
-                team["id"],
-                SPORT,
-                team.get("name"),
-                team.get("abbreviation"),
-                team.get("location"),
-                json.dumps(meta),
-            ),
-        )
-
-    # -- Upsert: Players -----------------------------------------------------
-
-    def _upsert_player(self, player: dict[str, Any]) -> None:
-        team = player.get("team") or {}
-        team_id = team.get("id") if team else None
-
-        name = f"{player.get('first_name', '')} {player.get('last_name', '')}".strip()
-        if not name:
-            name = f"Player {player['id']}"
-
-        meta = {}
-        if player.get("position_abbreviation"):
-            meta["position_abbreviation"] = player["position_abbreviation"]
-        if player.get("jersey_number"):
-            meta["jersey_number"] = player["jersey_number"]
-        if player.get("college"):
-            meta["college"] = player["college"]
-        if player.get("experience") is not None:
-            meta["experience"] = player["experience"]
-        if player.get("age") is not None:
-            meta["age"] = player["age"]
-
-        self.db.execute(
-            f"""
-            INSERT INTO {PLAYERS_TABLE} (
-                id, sport, name, first_name, last_name, position,
-                height_cm, weight_kg, team_id, meta
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (id, sport) DO UPDATE SET
-                name = EXCLUDED.name,
-                first_name = EXCLUDED.first_name,
-                last_name = EXCLUDED.last_name,
-                position = EXCLUDED.position,
-                height_cm = EXCLUDED.height_cm,
-                weight_kg = EXCLUDED.weight_kg,
-                team_id = EXCLUDED.team_id,
-                meta = EXCLUDED.meta,
-                updated_at = NOW()
-        """,
-            (
-                player["id"],
-                SPORT,
-                name,
-                player.get("first_name"),
-                player.get("last_name"),
-                player.get("position"),
-                player.get("height"),  # May need conversion from BDL format
-                player.get("weight"),  # May need conversion from lbs
-                team_id,
-                json.dumps(meta) if meta else "{}",
-            ),
-        )
+    @property
+    def _player_meta_fields(self) -> list[tuple[str, str]]:
+        return [
+            ("position_abbreviation", "position_abbreviation"),
+            ("jersey_number", "jersey_number"),
+            ("college", "college"),
+            ("experience", "experience"),
+            ("age", "age"),
+        ]
 
     # -- Player Stats ---------------------------------------------------------
 

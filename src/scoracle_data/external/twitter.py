@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TweetAuthor:
     """Tweet author information."""
+
     id: str
     username: str
     name: str
@@ -24,6 +25,7 @@ class TweetAuthor:
 @dataclass
 class TweetMetrics:
     """Tweet engagement metrics."""
+
     likes: int
     retweets: int
     replies: int
@@ -33,6 +35,7 @@ class TweetMetrics:
 @dataclass
 class Tweet:
     """Normalized tweet data."""
+
     id: str
     text: str
     author: TweetAuthor
@@ -93,7 +96,9 @@ class TwitterClient(BaseApiClient):
         }
 
         if sport and sport.upper() in sport_context:
-            return f'"{clean_query}" ({sport_context[sport.upper()]}) -is:retweet lang:en'
+            return (
+                f'"{clean_query}" ({sport_context[sport.upper()]}) -is:retweet lang:en'
+            )
 
         return f'"{clean_query}" -is:retweet lang:en'
 
@@ -127,6 +132,45 @@ class TwitterClient(BaseApiClient):
             metrics=metrics,
             url=f"https://twitter.com/{author.username}/status/{tweet_id}",
         )
+
+    def _format_tweets(self, response: dict[str, Any]) -> list[dict[str, Any]]:
+        """Parse and format tweets from a Twitter API response.
+
+        Shared by search() and get_list_tweets() to avoid duplicated parsing logic.
+        """
+        users_map: dict[str, dict] = {}
+        includes = response.get("includes", {})
+        for user in includes.get("users", []):
+            users_map[user["id"]] = user
+
+        tweets = []
+        for tweet_data in response.get("data", []):
+            try:
+                tweet = self._parse_tweet(tweet_data, users_map)
+                tweets.append(
+                    {
+                        "id": tweet.id,
+                        "text": tweet.text,
+                        "author": {
+                            "username": tweet.author.username,
+                            "name": tweet.author.name,
+                            "verified": tweet.author.verified,
+                            "profile_image_url": tweet.author.profile_image_url,
+                        },
+                        "created_at": tweet.created_at,
+                        "metrics": {
+                            "likes": tweet.metrics.likes,
+                            "retweets": tweet.metrics.retweets,
+                            "replies": tweet.metrics.replies,
+                        },
+                        "url": tweet.url,
+                    }
+                )
+            except Exception as e:
+                logger.warning(f"Failed to parse tweet: {e}")
+                continue
+
+        return tweets
 
     async def search(
         self,
@@ -171,38 +215,7 @@ class TwitterClient(BaseApiClient):
             logger.error(f"Twitter search failed: {e}")
             raise ExternalAPIError(f"Twitter search failed: {str(e)}")
 
-        # Build users map for author lookup
-        users_map = {}
-        includes = response.get("includes", {})
-        for user in includes.get("users", []):
-            users_map[user["id"]] = user
-
-        # Parse tweets
-        tweets = []
-        for tweet_data in response.get("data", []):
-            try:
-                tweet = self._parse_tweet(tweet_data, users_map)
-                tweets.append({
-                    "id": tweet.id,
-                    "text": tweet.text,
-                    "author": {
-                        "username": tweet.author.username,
-                        "name": tweet.author.name,
-                        "verified": tweet.author.verified,
-                        "profile_image_url": tweet.author.profile_image_url,
-                    },
-                    "created_at": tweet.created_at,
-                    "metrics": {
-                        "likes": tweet.metrics.likes,
-                        "retweets": tweet.metrics.retweets,
-                        "replies": tweet.metrics.replies,
-                    },
-                    "url": tweet.url,
-                })
-            except Exception as e:
-                logger.warning(f"Failed to parse tweet: {e}")
-                continue
-
+        tweets = self._format_tweets(response)
         meta = response.get("meta", {})
 
         return {
@@ -258,34 +271,19 @@ class TwitterClient(BaseApiClient):
             logger.error(f"Twitter List fetch failed: {e}")
             raise ExternalAPIError(f"Twitter List fetch failed: {str(e)}")
 
-        # Build users map for author lookup
-        users_map = {}
-        includes = response.get("includes", {})
-        for user in includes.get("users", []):
-            users_map[user["id"]] = user
+        tweets = self._format_tweets(response)
+        meta = response.get("meta", {})
 
-        # Parse tweets
-        tweets = []
-        for tweet_data in response.get("data", []):
-            try:
-                tweet = self._parse_tweet(tweet_data, users_map)
-                tweets.append({
-                    "id": tweet.id,
-                    "text": tweet.text,
-                    "author": {
-                        "username": tweet.author.username,
-                        "name": tweet.author.name,
-                        "verified": tweet.author.verified,
-                        "profile_image_url": tweet.author.profile_image_url,
-                    },
-                    "created_at": tweet.created_at,
-                    "metrics": {
-                        "likes": tweet.metrics.likes,
-                        "retweets": tweet.metrics.retweets,
-                        "replies": tweet.metrics.replies,
-                    },
-                    "url": tweet.url,
-                })
+        return {
+            "list_id": list_id,
+            "tweets": tweets,
+            "meta": {
+                "result_count": meta.get("result_count", len(tweets)),
+                "newest_id": meta.get("newest_id"),
+                "oldest_id": meta.get("oldest_id"),
+            },
+        }
+                )
             except Exception as e:
                 logger.warning(f"Failed to parse tweet: {e}")
                 continue

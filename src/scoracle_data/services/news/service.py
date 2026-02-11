@@ -8,47 +8,25 @@ Combines Google News RSS and NewsAPI into a single interface with:
 """
 
 import logging
-from dataclasses import dataclass
 from typing import Literal
 
+from ...core.http import ExternalAPIError
 from ...external import GoogleNewsClient, NewsClient
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class NewsArticle:
-    """Normalized news article from any provider."""
-    title: str
-    url: str
-    source: str
-    published_at: str | None
-    description: str | None = None
-    image_url: str | None = None
-    provider: str = "unknown"
-
-
-@dataclass
-class NewsResult:
-    """Result from news search."""
-    articles: list[NewsArticle]
-    query: str
-    sport: str | None
-    provider: str
-    meta: dict
-
-
 class NewsService:
     """
     Unified news service that combines multiple news sources.
-    
+
     Features:
     - Primary source: Google News RSS (free, no API key)
     - Fallback: NewsAPI (if configured and RSS fails)
     - Deduplication across sources
     - Normalized article format
     """
-    
+
     def __init__(
         self,
         google_client: GoogleNewsClient | None = None,
@@ -56,19 +34,19 @@ class NewsService:
     ):
         """
         Initialize news service.
-        
+
         Args:
             google_client: Google News RSS client (created if not provided)
             newsapi_client: NewsAPI client (created if not provided)
         """
         self._google_client = google_client or GoogleNewsClient()
         self._newsapi_client = newsapi_client or NewsClient()
-    
+
     @property
     def has_newsapi(self) -> bool:
         """Check if NewsAPI is configured."""
         return self._newsapi_client.is_configured()
-    
+
     async def get_entity_news(
         self,
         entity_name: str,
@@ -99,10 +77,10 @@ class NewsService:
         """
         if prefer_source == "api":
             if not self.has_newsapi:
-                return self._error_result(
-                    query=entity_name,
-                    sport=sport,
-                    message="NewsAPI not configured",
+                raise ExternalAPIError(
+                    "NewsAPI not configured. Set NEWS_API_KEY.",
+                    code="SERVICE_UNAVAILABLE",
+                    status_code=503,
                 )
             return await self._fetch_from_newsapi(entity_name, sport, limit)
 
@@ -115,7 +93,7 @@ class NewsService:
         return await self._fetch_from_rss(
             entity_name, sport, team, limit, first_name, last_name
         )
-    
+
     async def _fetch_from_rss(
         self,
         query: str,
@@ -143,8 +121,8 @@ class NewsService:
             if self.has_newsapi:
                 logger.info("Falling back to NewsAPI")
                 return await self._fetch_from_newsapi(query, sport, limit)
-            return self._error_result(query, sport, f"News fetch failed: {e}")
-    
+            raise ExternalAPIError(f"News fetch failed: {e}")
+
     async def _fetch_from_newsapi(
         self,
         query: str,
@@ -163,8 +141,8 @@ class NewsService:
             return result
         except Exception as e:
             logger.error(f"NewsAPI failed: {e}")
-            return self._error_result(query, sport, f"NewsAPI fetch failed: {e}")
-    
+            raise ExternalAPIError(f"NewsAPI fetch failed: {e}")
+
     async def _fetch_from_both(
         self,
         query: str,
@@ -178,32 +156,32 @@ class NewsService:
         rss_result = await self._fetch_from_rss(
             query, sport, team, limit * 2, first_name, last_name
         )
-        
+
         if not self.has_newsapi:
             # Just return RSS if NewsAPI not available
             return rss_result
-        
+
         api_result = await self._fetch_from_newsapi(query, sport, limit * 2)
-        
+
         # Merge articles, dedupe by URL
         seen_urls: set[str] = set()
         merged_articles = []
-        
+
         for article in rss_result.get("articles", []):
             url = article.get("url", "")
             if url and url not in seen_urls:
                 seen_urls.add(url)
                 merged_articles.append(article)
-        
+
         for article in api_result.get("articles", []):
             url = article.get("url", "")
             if url and url not in seen_urls:
                 seen_urls.add(url)
                 merged_articles.append(article)
-        
+
         # Limit results
         merged_articles = merged_articles[:limit]
-        
+
         return {
             "articles": merged_articles,
             "query": query,
@@ -215,25 +193,7 @@ class NewsService:
                 "merged_count": len(merged_articles),
             },
         }
-    
-    def _error_result(
-        self,
-        query: str,
-        sport: str | None,
-        message: str,
-    ) -> dict:
-        """Create error result."""
-        return {
-            "articles": [],
-            "query": query,
-            "sport": sport,
-            "provider": "none",
-            "error": message,
-            "meta": {
-                "result_count": 0,
-            },
-        }
-    
+
     def get_status(self) -> dict:
         """Get service status."""
         return {

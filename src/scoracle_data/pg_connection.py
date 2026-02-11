@@ -26,13 +26,6 @@ from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from .core.types import (
-    PLAYERS_TABLE,
-    PLAYER_STATS_TABLE,
-    TEAMS_TABLE,
-    TEAM_STATS_TABLE,
-)
-
 
 def _check_connection(conn: psycopg.Connection) -> None:
     """
@@ -200,59 +193,8 @@ class PostgresDB:
             return False
 
     # =========================================================================
-    # Query Methods (matching StatsDB interface)
+    # Metadata helpers (used by CLI and schema management)
     # =========================================================================
-
-    def get_player(self, player_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get player info by ID from unified players table."""
-        return self.fetchone(
-            f"SELECT * FROM {PLAYERS_TABLE} WHERE id = %s AND sport = %s",
-            (player_id, sport_id),
-        )
-
-    def get_team(self, team_id: int, sport_id: str) -> Optional[dict[str, Any]]:
-        """Get team info by ID from unified teams table."""
-        return self.fetchone(
-            f"SELECT * FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
-            (team_id, sport_id),
-        )
-
-    def get_player_stats(
-        self,
-        player_id: int,
-        sport_id: str,
-        season_year: int,
-        league_id: int = 0,
-    ) -> Optional[dict[str, Any]]:
-        """
-        Get player statistics for a given season.
-
-        Args:
-            player_id: Player ID
-            sport_id: Sport identifier (NBA, NFL, FOOTBALL)
-            season_year: Season year
-            league_id: League ID (0 for NBA/NFL, >0 for football)
-
-        Returns:
-            Dict of stats or None if not found
-        """
-        return self.fetchone(
-            f"SELECT * FROM {PLAYER_STATS_TABLE} WHERE player_id = %s AND sport = %s AND season = %s AND league_id = %s",
-            (player_id, sport_id, season_year, league_id),
-        )
-
-    def get_team_stats(
-        self,
-        team_id: int,
-        sport_id: str,
-        season_year: int,
-        league_id: int = 0,
-    ) -> Optional[dict[str, Any]]:
-        """Get team statistics for a given season."""
-        return self.fetchone(
-            f"SELECT * FROM {TEAM_STATS_TABLE} WHERE team_id = %s AND sport = %s AND season = %s AND league_id = %s",
-            (team_id, sport_id, season_year, league_id),
-        )
 
     def get_meta(self, key: str) -> Optional[str]:
         """Get a metadata value."""
@@ -271,30 +213,20 @@ class PostgresDB:
         )
 
 
-# Global instance
+# =========================================================================
+# Singleton access
+# =========================================================================
+
 _postgres_db: Optional[PostgresDB] = None
 
 
-def get_postgres_db() -> PostgresDB:
-    """
-    Get the global PostgreSQL database instance.
+def get_db() -> PostgresDB:
+    """Get the singleton database instance.
 
     Returns:
-        PostgresDB instance
+        PostgresDB instance (Neon serverless PostgreSQL with connection pooling)
     """
     global _postgres_db
-
     if _postgres_db is None:
         _postgres_db = PostgresDB()
-
     return _postgres_db
-
-
-def get_db() -> PostgresDB:
-    """
-    Get the singleton database instance.
-
-    Returns:
-        PostgresDB instance (Neon serverless PostgreSQL)
-    """
-    return get_postgres_db()

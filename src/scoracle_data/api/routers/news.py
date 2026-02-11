@@ -20,9 +20,11 @@ from fastapi import APIRouter, Path, Query, Response
 
 from ..cache import get_cache
 from ..dependencies import DBDependency
-from ..errors import NotFoundError
+from ..errors import NotFoundError, ExternalServiceError
+from ...core.http import ExternalAPIError
 from ...core.types import EntityType, PLAYERS_TABLE, Sport, TEAMS_TABLE
 from ...services.news import get_news_service
+from ._utils import set_cache_headers
 
 logger = logging.getLogger(__name__)
 
@@ -127,23 +129,27 @@ async def get_entity_news(
 
     cached = cache.get(*cache_key)
     if cached:
-        response.headers["X-Cache"] = "HIT"
-        response.headers["Cache-Control"] = f"public, max-age={NEWS_CACHE_TTL}"
+        set_cache_headers(response, ttl=NEWS_CACHE_TTL, cache_hit=True)
         return cached
-
-    response.headers["X-Cache"] = "MISS"
 
     # Fetch from news service
     service = get_news_service()
-    result = await service.get_entity_news(
-        entity_name=entity_name,
-        sport=sport.value,
-        team=team,
-        limit=limit,
-        prefer_source=source,
-        first_name=first_name,
-        last_name=last_name,
-    )
+    try:
+        result = await service.get_entity_news(
+            entity_name=entity_name,
+            sport=sport.value,
+            team=team,
+            limit=limit,
+            prefer_source=source,
+            first_name=first_name,
+            last_name=last_name,
+        )
+    except ExternalAPIError as e:
+        raise ExternalServiceError(
+            service="News",
+            message=e.message,
+            status_code=e.status_code,
+        )
 
     # Add entity info to response
     result["entity"] = {
@@ -155,6 +161,6 @@ async def get_entity_news(
 
     # Cache and return
     cache.set(result, *cache_key, ttl=NEWS_CACHE_TTL)
-    response.headers["Cache-Control"] = f"public, max-age={NEWS_CACHE_TTL}"
+    set_cache_headers(response, ttl=NEWS_CACHE_TTL, cache_hit=False)
 
     return result

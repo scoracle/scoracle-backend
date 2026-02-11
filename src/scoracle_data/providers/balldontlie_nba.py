@@ -8,7 +8,7 @@ via the BallDontLie API (https://api.balldontlie.io).
 import logging
 from typing import Any, AsyncIterator
 
-from .http import BaseApiClient
+from ..core.http import BaseApiClient
 
 logger = logging.getLogger(__name__)
 

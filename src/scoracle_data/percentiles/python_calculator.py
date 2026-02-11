@@ -14,7 +14,6 @@ This module:
 
 from __future__ import annotations
 
-import json
 import logging
 import time
 from typing import Any
@@ -102,8 +101,9 @@ class PythonPercentileCalculator:
         """
         Archive current percentiles to the percentile_archive table.
 
-        Reads percentiles from the JSONB column in stats tables and writes
-        individual rows to percentile_archive for historical queries.
+        Uses a single INSERT ... SELECT per entity type that unpacks the
+        percentiles JSONB directly in Postgres via jsonb_each_text(), avoiding
+        round-tripping all rows through Python.
 
         Args:
             sport_id: Sport identifier
@@ -113,86 +113,65 @@ class PythonPercentileCalculator:
         Returns:
             Number of records archived
         """
-        archived_at = int(time.time())
+        start = time.time()
         total_count = 0
 
         for entity_type in ("player", "team"):
             table = "player_stats" if entity_type == "player" else "team_stats"
             id_column = "player_id" if entity_type == "player" else "team_id"
 
-            rows = self.db.fetchall(
-                f"SELECT {id_column}, percentiles FROM {table} "
-                f"WHERE sport = %s AND season = %s AND percentiles IS NOT NULL "
-                f"AND percentiles != '{{}}'::jsonb",
-                (sport_id, season_year),
-            )
-
-            if not rows:
-                continue
-
-            archive_rows = []
-            for row in rows:
-                entity_id = row[id_column]
-                percentiles_raw = row["percentiles"]
-
-                if isinstance(percentiles_raw, str):
-                    try:
-                        percentiles = json.loads(percentiles_raw)
-                    except (json.JSONDecodeError, TypeError):
-                        continue
-                elif isinstance(percentiles_raw, dict):
-                    percentiles = percentiles_raw
-                else:
-                    continue
-
-                # Extract embedded metadata
-                comparison_group = percentiles.pop("_position_group", None)
-                sample_size = percentiles.pop("_sample_size", None)
-
-                for stat_category, percentile_value in percentiles.items():
-                    # Skip metadata keys
-                    if stat_category.startswith("_"):
-                        continue
-                    archive_rows.append(
-                        (
-                            entity_type,
-                            entity_id,
-                            sport_id,
-                            season_year,
-                            stat_category,
-                            None,  # stat_value not stored in percentiles JSONB
-                            percentile_value,
-                            None,  # rank not stored in percentiles JSONB
-                            sample_size,
-                            comparison_group,
-                            archived_at,
-                            archived_at,
-                            is_final,
-                        )
-                    )
-
-            if archive_rows:
-                self.db.executemany(
-                    """
+            # Single SQL statement: unpack JSONB percentiles, extract metadata,
+            # and insert directly into percentile_archive.
+            result = self.db.fetchone(
+                f"""
+                WITH archived AS (
                     INSERT INTO percentile_archive (
                         entity_type, entity_id, sport, season, stat_category,
                         stat_value, percentile, rank, sample_size, comparison_group,
                         calculated_at, archived_at, is_final
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    SELECT
+                        %s,
+                        s.{id_column},
+                        %s,
+                        %s,
+                        kv.key,
+                        NULL,
+                        kv.value::numeric,
+                        NULL,
+                        (s.percentiles->>'_sample_size')::integer,
+                        s.percentiles->>'_position_group',
+                        NOW(),
+                        NOW(),
+                        %s
+                    FROM {table} s,
+                         jsonb_each_text(
+                            s.percentiles - '_position_group' - '_sample_size'
+                         ) AS kv(key, value)
+                    WHERE s.sport = %s
+                      AND s.season = %s
+                      AND s.percentiles IS NOT NULL
+                      AND s.percentiles != '{{}}'::jsonb
+                      AND kv.key NOT LIKE '\\_%'
                     ON CONFLICT (entity_type, entity_id, sport, season, stat_category, archived_at)
                     DO NOTHING
-                    """,
-                    archive_rows,
+                    RETURNING 1
                 )
-                total_count += len(archive_rows)
+                SELECT count(*) AS cnt FROM archived
+                """,
+                (entity_type, sport_id, season_year, is_final, sport_id, season_year),
+            )
 
+            total_count += result["cnt"] if result else 0
+
+        elapsed = time.time() - start
         logger.info(
-            "Archived %d percentile records for %s %d (final=%s)",
+            "Archived %d percentile records for %s %d (final=%s, %.1fs)",
             total_count,
             sport_id,
             season_year,
             is_final,
+            elapsed,
         )
 
         return total_count

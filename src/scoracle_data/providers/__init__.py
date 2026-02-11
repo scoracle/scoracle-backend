@@ -18,7 +18,7 @@ Usage:
             print(player["first_name"])
 """
 
-from .http import BaseApiClient, RateLimiter
+from ..core.http import BaseApiClient, RateLimiter
 from .balldontlie_nba import BallDontLieNBA
 from .balldontlie_nfl import BallDontLieNFL
 from .sportmonks import SportMonksClient

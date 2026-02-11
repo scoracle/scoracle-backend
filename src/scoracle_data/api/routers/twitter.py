@@ -42,15 +42,22 @@ def _handle_external_error(e: Exception, service: str) -> None:
         )
 
 
-
 # Cache headers use shared set_cache_headers from _utils
 
 
 @router.get("/journalist-feed")
 async def get_journalist_feed(
-    q: Annotated[str, Query(min_length=1, max_length=200, description="Search query (player/team name)")],
+    q: Annotated[
+        str,
+        Query(
+            min_length=1, max_length=200, description="Search query (player/team name)"
+        ),
+    ],
     response: Response,
-    sport: Annotated[Sport | None, Query(description="Sport for context (not used for filtering, metadata only)")] = None,
+    sport: Annotated[
+        Sport | None,
+        Query(description="Sport for context (not used for filtering, metadata only)"),
+    ] = None,
     limit: Annotated[int, Query(ge=1, le=50, description="Max results to return")] = 10,
 ):
     """
@@ -93,14 +100,6 @@ async def get_journalist_feed(
     except Exception as e:
         _handle_external_error(e, "Twitter")
         return  # unreachable; _handle_external_error always raises
-
-    # The service returns error dicts on internal failures instead of raising.
-    # Re-raise as HTTP errors for backward compatibility.
-    if "error" in result:
-        raise ExternalServiceError(
-            service="Twitter",
-            message=result["error"],
-        )
 
     # Set cache headers from result metadata
     meta = result.get("meta", {})

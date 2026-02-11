@@ -12,7 +12,7 @@ SportMonks plan, so player stats are fetched per-player via squad iteration.
 import logging
 from typing import Any
 
-from .http import BaseApiClient
+from ..core.http import BaseApiClient
 
 logger = logging.getLogger(__name__)
 

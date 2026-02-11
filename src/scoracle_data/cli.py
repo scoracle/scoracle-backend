@@ -342,47 +342,49 @@ def cmd_export(args: argparse.Namespace) -> int:
     sports = [sport] if sport else ALL_SPORTS
 
     for sport_id in sports:
-        # Export players with stats using unified tables
-        players = db.fetchall(
-            f"SELECT * FROM {PLAYERS_TABLE} WHERE sport = %s",
-            (sport_id,),
+        # Export players with stats in a single JOIN query (not N+1)
+        player_rows = db.fetchall(
+            f"""
+            SELECT p.*, ps.stats, ps.percentiles
+            FROM {PLAYERS_TABLE} p
+            LEFT JOIN {PLAYER_STATS_TABLE} ps
+                ON ps.player_id = p.id AND ps.sport = p.sport AND ps.season = %s
+            WHERE p.sport = %s
+            """,
+            (season, sport_id),
         )
 
         player_data = []
-        for player in players:
-            stats_row = db.fetchone(
-                f"SELECT stats, percentiles FROM {PLAYER_STATS_TABLE} "
-                f"WHERE player_id = %s AND sport = %s AND season = %s",
-                (player["id"], sport_id, season),
-            )
-            stats = dict(stats_row) if stats_row else None
-            percentiles = stats_row["percentiles"] if stats_row else None
+        for row in player_rows:
+            stats = row.pop("stats", None)
+            percentiles = row.pop("percentiles", None)
             player_data.append(
                 {
-                    "player": dict(player),
+                    "player": row,
                     "stats": stats,
                     "percentiles": percentiles,
                 }
             )
 
-        # Export teams with stats using unified tables
-        teams = db.fetchall(
-            f"SELECT * FROM {TEAMS_TABLE} WHERE sport = %s",
-            (sport_id,),
+        # Export teams with stats in a single JOIN query (not N+1)
+        team_rows = db.fetchall(
+            f"""
+            SELECT t.*, ts.stats, ts.percentiles
+            FROM {TEAMS_TABLE} t
+            LEFT JOIN {TEAM_STATS_TABLE} ts
+                ON ts.team_id = t.id AND ts.sport = t.sport AND ts.season = %s
+            WHERE t.sport = %s
+            """,
+            (season, sport_id),
         )
 
         team_data = []
-        for team in teams:
-            stats_row = db.fetchone(
-                f"SELECT stats, percentiles FROM {TEAM_STATS_TABLE} "
-                f"WHERE team_id = %s AND sport = %s AND season = %s",
-                (team["id"], sport_id, season),
-            )
-            t_stats = dict(stats_row) if stats_row else None
-            t_percentiles = stats_row["percentiles"] if stats_row else None
+        for row in team_rows:
+            t_stats = row.pop("stats", None)
+            t_percentiles = row.pop("percentiles", None)
             team_data.append(
                 {
-                    "team": dict(team),
+                    "team": row,
                     "stats": t_stats,
                     "percentiles": t_percentiles,
                 }
@@ -431,13 +433,12 @@ def cmd_query(args: argparse.Namespace) -> int:
     season = args.season or 2025
 
     if query_type == "leaders":
-        from .queries import PlayerQueries
+        from .services.stats import get_stat_leaders
 
-        pq = PlayerQueries(db)
         stat = args.stat or "points_per_game"
         limit = args.limit or 25
 
-        results = pq.get_stat_leaders(sport, season, stat, limit)
+        results = get_stat_leaders(db, sport, season, stat, limit)
 
         print(f"\n{sport} {season} - Top {limit} {stat}")
         print("=" * 60)
@@ -447,27 +448,32 @@ def cmd_query(args: argparse.Namespace) -> int:
             )
 
     elif query_type == "standings":
-        from .queries import TeamQueries
+        from .services.stats import get_standings
 
-        tq = TeamQueries(db)
-
-        results = tq.get_standings(
+        results = get_standings(
+            db,
             sport,
             season,
-            league_id=args.league,
+            league_id=args.league or 0,
             conference=args.conference,
         )
 
         print(f"\n{sport} {season} Standings")
         print("=" * 60)
         for r in results:
+            stats = r.get("stats", {}) or {}
             if sport == "FOOTBALL":
                 print(
-                    f"{r['rank']:3}. {r['name']:<25} {r['points']:3} pts  ({r['wins']}-{r['draws']}-{r['losses']})"
+                    f"{r['rank']:3}. {r['name']:<25} {stats.get('points', 0):3} pts  "
+                    f"({stats.get('wins', 0)}-{stats.get('draws', 0)}-{stats.get('losses', 0)})"
                 )
             else:
+                wins = stats.get("wins", 0) or 0
+                losses = stats.get("losses", 0) or 0
+                total = wins + losses
+                win_pct = wins / total if total > 0 else 0.0
                 print(
-                    f"{r['rank']:3}. {r['name']:<25} {r['win_pct']:.3f}  ({r['wins']}-{r['losses']})"
+                    f"{r['rank']:3}. {r['name']:<25} {win_pct:.3f}  ({wins}-{losses})"
                 )
 
     elif query_type == "profile":
@@ -479,15 +485,13 @@ def cmd_query(args: argparse.Namespace) -> int:
             return 1
 
         if entity_type == "player":
-            from .queries import PlayerQueries
+            from .services.profiles import get_player_profile
 
-            pq = PlayerQueries(db)
-            result = pq.get_player_profile(entity_id, sport, season)
+            result = get_player_profile(db, entity_id, sport)
         else:
-            from .queries import TeamQueries
+            from .services.profiles import get_team_profile
 
-            tq = TeamQueries(db)
-            result = tq.get_team_profile(entity_id, sport, season)
+            result = get_team_profile(db, entity_id, sport)
 
         if result:
             print(json.dumps(result, indent=2, default=str))
@@ -507,9 +511,8 @@ def cmd_query(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-def get_pg_db():
-    """Get PostgreSQL database connection for fixture/ML operations."""
-    return get_db()
+# Alias for backward compatibility in fixture commands
+get_pg_db = get_db
 
 
 def cmd_fixtures(args: argparse.Namespace) -> int:

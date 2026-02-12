@@ -216,6 +216,11 @@ class FixtureLoader:
         if not all([home_team_id, away_team_id, start_time]):
             return None
 
+        # Narrow types after the None guard above
+        assert home_team_id is not None
+        assert away_team_id is not None
+        assert start_time is not None
+
         # Accept both "sport" and legacy "sport_id" CSV headers
         sport = row.get("sport") or row.get("sport_id") or default_sport
         if not sport:
@@ -290,23 +295,31 @@ class FixtureLoader:
             return None
 
         # Parse start_time
-        try:
-            if isinstance(start_time, str):
+        start_dt: datetime | None = None
+        if isinstance(start_time, str):
+            try:
                 start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-            else:
-                start_dt = start_time
-        except ValueError:
+            except ValueError:
+                return None
+        elif isinstance(start_time, datetime):
+            start_dt = start_time
+
+        if start_dt is None:
             return None
 
         # Season is the year — stored directly on fixtures table
         season = season_year or start_dt.year
 
+        # Safe int conversion (validated non-None by the all() guard above)
+        h_id = int(home_team_id) if home_team_id is not None else 0
+        a_id = int(away_team_id) if away_team_id is not None else 0
+
         return {
             "sport": sport,
             "league_id": item.get("league_id"),
             "season": season,
-            "home_team_id": int(home_team_id),
-            "away_team_id": int(away_team_id),
+            "home_team_id": h_id,
+            "away_team_id": a_id,
             "start_time": start_dt,
             "round": round_name,
             "venue_name": venue_name,

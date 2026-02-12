@@ -65,9 +65,8 @@ class PostMatchSeeder:
     Designed for schedule-driven seeding where stats are updated
     after each match completes, rather than bulk updates.
 
-    Uses the sport-specific seed runners (NBASeedRunner, NFLSeedRunner,
-    FootballSeedRunner) which take (db, provider_client) in their
-    constructors.
+    Uses BaseSeedRunner (for NBA/NFL) and FootballSeedRunner,
+    which take (db, handler) in their constructors.
     """
 
     def __init__(
@@ -80,8 +79,8 @@ class PostMatchSeeder:
 
         Args:
             db: PostgreSQL database connection
-            provider_client: Provider-specific API client (e.g. BallDontLieNBA,
-                BallDontLieNFL, SportMonksClient)
+            provider_client: API handler (e.g. BDLNBAHandler,
+                BDLNFLHandler, SportMonksHandler)
         """
         self.db = db
         self.provider_client = provider_client
@@ -373,21 +372,16 @@ class PostMatchSeeder:
         """
         Return an instantiated seed runner for *sport*.
 
-        Each runner takes ``(db, client)`` — we import lazily so that
-        provider-specific dependencies aren't required at import time.
+        NBA/NFL use BaseSeedRunner directly; Football uses FootballSeedRunner.
         """
-        from ..seeders import FootballSeedRunner, NBASeedRunner, NFLSeedRunner
+        from ..seeders import BaseSeedRunner, FootballSeedRunner
 
-        runner_map: dict[str, type] = {
-            "NBA": NBASeedRunner,
-            "NFL": NFLSeedRunner,
-            "FOOTBALL": FootballSeedRunner,
-        }
-
-        runner_class = runner_map.get(sport)
-        if runner_class is None:
+        if sport == "FOOTBALL":
+            return FootballSeedRunner(self.db, self.provider_client)
+        elif sport in ("NBA", "NFL"):
+            return BaseSeedRunner(self.db, self.provider_client, sport=sport)
+        else:
             return None
-        return runner_class(self.db, self.provider_client)
 
     _make_seed_runner = _get_sport_seeder  # alias for clarity
 

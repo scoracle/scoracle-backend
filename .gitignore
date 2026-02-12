@@ -1,4 +1,4 @@
-﻿# Python
+# Python
 __pycache__/
 *.pyc
 *.db
@@ -7,3 +7,5 @@ __pycache__/
 .env.*
 .env.local
 venv/
+.venv/
+*.log

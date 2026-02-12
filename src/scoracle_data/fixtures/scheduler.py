@@ -225,7 +225,7 @@ class SchedulerService:
               AND NOW() >= start_time + (seed_delay_hours || ' hours')::INTERVAL
               AND seed_attempts < %s
         """
-        params = [self.max_retries]
+        params: list[Any] = [self.max_retries]
 
         if sport:
             query += " AND sport = %s"
@@ -273,7 +273,7 @@ class SchedulerService:
             WHERE f.status = 'scheduled'
               AND f.start_time BETWEEN NOW() AND NOW() + (%s || ' hours')::INTERVAL
         """
-        params = [hours_ahead]
+        params: list[Any] = [hours_ahead]
 
         if sport_id:
             query += " AND f.sport = %s"
@@ -324,7 +324,7 @@ class SchedulerService:
             WHERE f.status = 'seeded'
               AND f.seeded_at >= NOW() - (%s || ' hours')::INTERVAL
         """
-        params = [hours_back]
+        params: list[Any] = [hours_back]
 
         if sport_id:
             query += " AND f.sport = %s"
@@ -374,7 +374,7 @@ class SchedulerService:
             WHERE f.seed_attempts > 0
               AND f.status != 'seeded'
         """
-        params = []
+        params: list[Any] = []
 
         if sport_id:
             query += " AND f.sport = %s"
@@ -434,5 +434,5 @@ class SchedulerService:
 
         query += " GROUP BY status ORDER BY status"
 
-        rows = self.db.fetchall(query, tuple(params) if params else None)
+        rows = self.db.fetchall(query, tuple(params))
         return {row["status"]: row["count"] for row in rows}

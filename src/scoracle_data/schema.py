@@ -65,8 +65,10 @@ def run_migrations(db: "PostgresDB", force: bool = False) -> int:
         sql = migration_file.read_text()
 
         try:
-            # Execute the entire migration script
-            db.execute(sql)
+            # Execute the entire migration script.
+            # Escape literal '%' characters so psycopg3 doesn't treat them
+            # as parameter placeholders (e.g., 'Field Goal %' in stat names).
+            db.execute(sql.replace("%", "%%"))
 
             # Record migration as applied
             db.execute(

@@ -37,6 +37,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("statsdb.cli")
 
+from typing import TYPE_CHECKING
+
 from .core.types import (
     Sport,
     PLAYERS_TABLE,
@@ -44,6 +46,9 @@ from .core.types import (
     TEAMS_TABLE,
     TEAM_STATS_TABLE,
 )
+
+if TYPE_CHECKING:
+    from .seeders.common import SeedResult
 
 ALL_SPORTS = [s.value for s in Sport]
 
@@ -55,10 +60,61 @@ def get_db():
     return _get_db()
 
 
-def _get_provider_client(sport_id: str):
-    """Create a provider client for the given sport.
+def _parse_seasons(seasons_str: str) -> list[int]:
+    """Parse a season range or comma-separated list.
 
-    Reads API keys from environment variables:
+    Accepts:
+        "2023-2025"  -> [2023, 2024, 2025]
+        "2023,2024"  -> [2023, 2024]
+        "2025"       -> [2025]
+    """
+    if "-" in seasons_str and "," not in seasons_str:
+        parts = seasons_str.split("-")
+        start, end = int(parts[0]), int(parts[1])
+        return list(range(start, end + 1))
+    elif "," in seasons_str:
+        return [int(s.strip()) for s in seasons_str.split(",")]
+    else:
+        return [int(seasons_str)]
+
+
+async def _discover_and_store_seasons(
+    db, client, league_id: int, sportmonks_league_id: int, target_years: list[int]
+) -> int:
+    """Discover SportMonks season IDs for a league and store in provider_seasons.
+
+    Returns the number of new mappings stored.
+    """
+    discovered = await client.discover_season_ids(sportmonks_league_id, target_years)
+
+    stored = 0
+    for year, sm_season_id in discovered.items():
+        result = db.fetchone(
+            """
+            INSERT INTO provider_seasons (league_id, season_year, provider, provider_season_id)
+            VALUES (%s, %s, 'sportmonks', %s)
+            ON CONFLICT (league_id, season_year, provider) DO NOTHING
+            RETURNING id
+            """,
+            (league_id, year, sm_season_id),
+        )
+        if result:
+            stored += 1
+            logger.info(
+                "Stored provider season: league %d, year %d -> sportmonks season %d",
+                league_id,
+                year,
+                sm_season_id,
+            )
+
+    return stored
+
+
+def _get_handler(sport_id: str):
+    """Create an API handler for the given sport.
+
+    Handlers extend BaseApiClient and normalize provider responses to
+    canonical format. Reads API keys from environment variables:
     - BALLDONTLIE_API_KEY for NBA/NFL
     - SPORTMONKS_API_TOKEN for FOOTBALL
     """
@@ -67,37 +123,38 @@ def _get_provider_client(sport_id: str):
         if not api_key:
             raise ValueError("BALLDONTLIE_API_KEY environment variable required")
         if sport_id == "NBA":
-            from .providers.balldontlie_nba import BallDontLieNBA
+            from .handlers import BDLNBAHandler
 
-            return BallDontLieNBA(api_key=api_key)
+            return BDLNBAHandler(api_key=api_key)
         else:
-            from .providers.balldontlie_nfl import BallDontLieNFL
+            from .handlers import BDLNFLHandler
 
-            return BallDontLieNFL(api_key=api_key)
+            return BDLNFLHandler(api_key=api_key)
     elif sport_id == "FOOTBALL":
         api_token = os.environ.get("SPORTMONKS_API_TOKEN")
         if not api_token:
             raise ValueError("SPORTMONKS_API_TOKEN environment variable required")
-        from .providers.sportmonks import SportMonksClient
+        from .handlers import SportMonksHandler
 
-        return SportMonksClient(api_token=api_token)
+        return SportMonksHandler(api_token=api_token)
     else:
         raise ValueError(f"Unknown sport: {sport_id}")
 
 
-def _get_seed_runner(sport_id: str, db, client):
-    """Create a seed runner for the given sport."""
-    from .seeders import NBASeedRunner, NFLSeedRunner, FootballSeedRunner
+def _get_seed_runner(sport_id: str, db, handler):
+    """Create a seed runner for the given sport.
 
-    runners = {
-        "NBA": NBASeedRunner,
-        "NFL": NFLSeedRunner,
-        "FOOTBALL": FootballSeedRunner,
-    }
-    runner_class = runners.get(sport_id)
-    if not runner_class:
+    NBA/NFL use BaseSeedRunner directly (identical orchestration).
+    Football uses FootballSeedRunner for per-league iteration.
+    """
+    from .seeders import BaseSeedRunner, FootballSeedRunner
+
+    if sport_id == "FOOTBALL":
+        return FootballSeedRunner(db, handler)
+    elif sport_id in ("NBA", "NFL"):
+        return BaseSeedRunner(db, handler, sport=sport_id)
+    else:
         raise ValueError(f"Unknown sport: {sport_id}")
-    return runner_class(db, client)
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -156,9 +213,9 @@ def cmd_status(args: argparse.Namespace) -> int:
                 f"SELECT COUNT(*) as count FROM {TEAMS_TABLE} WHERE sport = %s",
                 (sport["id"],),
             )
-            print(
-                f"  {sport['id']}: {players['count']:,} players, {teams['count']:,} teams"
-            )
+            player_count = players["count"] if players else 0
+            team_count = teams["count"] if teams else 0
+            print(f"  {sport['id']}: {player_count:,} players, {team_count:,} teams")
 
         return 0
 
@@ -169,12 +226,169 @@ def cmd_status(args: argparse.Namespace) -> int:
         db.close()
 
 
+async def _seed_sport_season(
+    db,
+    sport_id: str,
+    season: int,
+    handler=None,
+    leagues: list[dict] | None = None,
+) -> "SeedResult":
+    """Seed a single sport for a single season. Returns SeedResult.
+
+    For FOOTBALL, iterates the provided leagues list (or falls back to
+    Premier League only). For NBA/NFL, runs seed_all().
+    """
+    from .seeders.common import SeedResult
+
+    result = SeedResult()
+
+    if handler is None:
+        handler = _get_handler(sport_id)
+
+    runner = _get_seed_runner(sport_id, db, handler)
+
+    async with handler:
+        if sport_id == "FOOTBALL":
+            from .seeders.football import FootballSeedRunner as _FB
+
+            assert isinstance(runner, _FB)
+            if leagues is None:
+                leagues = [{"id": 8, "name": "Premier League"}]
+
+            for league in leagues:
+                league_id = league["id"]
+                league_name = league["name"]
+
+                # Resolve provider season ID from DB
+                result_row = db.fetchone(
+                    "SELECT resolve_provider_season_id(%s, %s) AS sid",
+                    (league_id, season),
+                )
+                sm_season_id = result_row["sid"] if result_row else None
+                if not sm_season_id:
+                    logger.warning(
+                        "No provider season ID for %s (league %d) year %d, skipping",
+                        league_name,
+                        league_id,
+                        season,
+                    )
+                    continue
+
+                logger.info(
+                    "Seeding %s %d (season_id=%d)...",
+                    league_name,
+                    season,
+                    sm_season_id,
+                )
+                league_result = await runner.seed_season(
+                    sm_season_id,
+                    league_id,
+                    season,
+                )
+                result = result + league_result
+        else:
+            result = await runner.seed_all(season)
+
+    return result
+
+
+def _recalculate_percentiles(db, sport_id: str, season: int) -> dict[str, int]:
+    """Recalculate percentiles for a sport/season. Returns counts dict."""
+    from .percentiles.python_calculator import PythonPercentileCalculator
+
+    calculator = PythonPercentileCalculator(db)
+    return calculator.recalculate_all_percentiles(sport_id, season)
+
+
+async def _cmd_discover_seasons(args: argparse.Namespace, db) -> int:
+    """Discover and store SportMonks season IDs for benchmark football leagues.
+
+    Queries the SportMonks API for each benchmark league, resolves season IDs
+    for the requested years, and stores them in the provider_seasons table.
+
+    Usage: seed --discover-seasons --seasons 2023-2025
+    """
+    seasons_str = getattr(args, "seasons", None)
+    if not seasons_str:
+        logger.error("--discover-seasons requires --seasons (e.g., --seasons 2023-2025)")
+        db.close()
+        return 1
+
+    target_years = _parse_seasons(seasons_str)
+
+    leagues = db.fetchall(
+        "SELECT id, name, sportmonks_id FROM leagues "
+        "WHERE sport = 'FOOTBALL' AND is_benchmark = true AND is_active = true "
+        "ORDER BY id"
+    )
+
+    if not leagues:
+        logger.error("No benchmark football leagues found in database")
+        db.close()
+        return 1
+
+    total_stored = 0
+    try:
+        handler = _get_handler("FOOTBALL")
+        async with handler:
+            for league in leagues:
+                sm_league_id = league.get("sportmonks_id")
+                if not sm_league_id:
+                    logger.warning("No sportmonks_id for %s, skipping", league["name"])
+                    continue
+
+                logger.info(
+                    "Discovering seasons for %s (sportmonks_id=%d)...",
+                    league["name"],
+                    sm_league_id,
+                )
+
+                stored = await _discover_and_store_seasons(
+                    db, handler, league["id"], sm_league_id, target_years
+                )
+                total_stored += stored
+
+    except Exception as e:
+        logger.error("Failed to discover seasons: %s", e)
+        import traceback
+
+        traceback.print_exc()
+        db.close()
+        return 1
+
+    # Show current state of provider_seasons
+    rows = db.fetchall(
+        "SELECT ps.league_id, l.name, ps.season_year, ps.provider_season_id "
+        "FROM provider_seasons ps "
+        "JOIN leagues l ON l.id = ps.league_id "
+        "ORDER BY l.id, ps.season_year"
+    )
+
+    print(f"\nProvider Season Mappings")
+    print("=" * 60)
+    print(f"  {'League':<20} {'Year':<8} {'SportMonks ID':<15}")
+    print("-" * 60)
+    for row in rows:
+        print(f"  {row['name']:<20} {row['season_year']:<8} {row['provider_season_id']:<15}")
+    print(f"\nNew mappings stored: {total_stored}")
+
+    db.close()
+    return 0
+
+
 async def cmd_seed_async(args: argparse.Namespace) -> int:
     """Seed data using canonical provider clients (BallDontLie / SportMonks).
 
-    Uses the new seed runners which talk directly to the provider APIs
-    and write to PostgreSQL via psycopg.
+    Supports two modes:
+      Single:  seed --sport NBA --season 2025
+      Batch:   seed --batch --seasons 2023-2025
+
+    In batch mode, seeds are organized season-first (complete one season
+    across all sports before moving to the next). Percentile recalculation
+    runs automatically after each sport/season unless --skip-percentiles.
     """
+    import time
+
     db = get_db()
 
     # Initialize database if needed
@@ -184,6 +398,28 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
         logger.info("Database not initialized, running initialization...")
         init_database(db)
 
+    # Handle --discover-seasons subcommand
+    if getattr(args, "discover_seasons", False):
+        return await _cmd_discover_seasons(args, db)
+
+    # Determine batch vs single mode
+    is_batch = getattr(args, "batch", False)
+    skip_pct = getattr(args, "skip_percentiles", False)
+
+    # Batch mode: percentiles on by default; single mode: only if explicit
+    if is_batch:
+        with_percentiles = not skip_pct
+    else:
+        with_percentiles = getattr(args, "with_percentiles", False) and not skip_pct
+
+    from .seeders.common import SeedResult, BatchSeedResult
+
+    if is_batch:
+        return await _cmd_batch_seed(args, db, with_percentiles)
+
+    # =========================================================================
+    # SINGLE-SEASON SEED (original behavior + optional auto-percentiles)
+    # =========================================================================
     sports_to_seed = []
     if args.all:
         sports_to_seed = ALL_SPORTS
@@ -194,66 +430,44 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
         return 1
 
     season = args.season or 2025
-
-    from .seeders.common import SeedResult
-
     total = SeedResult()
 
     for sport_id in sports_to_seed:
         try:
-            client = _get_provider_client(sport_id)
+            handler = _get_handler(sport_id)
         except ValueError as e:
             logger.error("%s", e)
             return 1
 
-        runner = _get_seed_runner(sport_id, db, client)
         logger.info("Seeding %s for season %d...", sport_id, season)
 
         try:
-            async with client:
-                if sport_id == "FOOTBALL":
-                    # Resolve provider season ID from DB
-                    league_id = 1  # Premier League
-                    result_row = db.fetchone(
-                        "SELECT resolve_provider_season_id(%s, %s) AS sid",
-                        (league_id, season),
-                    )
-                    sm_season_id = result_row["sid"] if result_row else None
-                    if not sm_season_id:
-                        logger.warning(
-                            "No provider season ID for league %d year %d, skipping",
-                            league_id,
-                            season,
-                        )
-                        continue
-
-                    league_row = db.fetchone(
-                        "SELECT name FROM leagues WHERE id = %s",
-                        (league_id,),
-                    )
-                    league_name = (
-                        league_row["name"] if league_row else f"League {league_id}"
-                    )
-                    logger.info(
-                        "Seeding %s %d (season_id=%d)...",
-                        league_name,
-                        season,
-                        sm_season_id,
-                    )
-                    result = await runner.seed_season(
-                        sm_season_id,
-                        league_id,
-                        season,
-                    )
-                    total = total + result
-                else:
-                    result = await runner.seed_all(season)
-                    total = total + result
+            result = await _seed_sport_season(db, sport_id, season, handler)
+            total = total + result
         except Exception as e:
             logger.error("Failed to seed %s: %s", sport_id, e)
             import traceback
 
             traceback.print_exc()
+
+        # Auto-percentiles after each sport (if enabled)
+        if with_percentiles and total.player_stats_upserted > 0:
+            try:
+                pct = _recalculate_percentiles(db, sport_id, season)
+                logger.info(
+                    "Percentiles recalculated for %s %d: %d players, %d teams",
+                    sport_id,
+                    season,
+                    pct["players"],
+                    pct["teams"],
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to recalculate percentiles for %s %d: %s",
+                    sport_id,
+                    season,
+                    e,
+                )
 
     # Update metadata
     db.set_meta("last_full_sync", datetime.now(tz=timezone.utc).isoformat())
@@ -269,6 +483,193 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
 
     db.close()
     return 0
+
+
+async def _cmd_batch_seed(
+    args: argparse.Namespace, db, with_percentiles: bool
+) -> int:
+    """Batch seed: multiple seasons across all sports with auto-percentiles.
+
+    Execution order (season-first):
+        For each season in range:
+            1. Seed NBA (teams, players, stats -> triggers compute per-36)
+            2. Recalculate NBA percentiles
+            3. Seed NFL (teams, players, stats -> triggers compute derived)
+            4. Recalculate NFL percentiles
+            5. Discover provider season IDs for FOOTBALL leagues (if needed)
+            6. Seed FOOTBALL for each benchmark league (triggers compute per-90)
+            7. Recalculate FOOTBALL percentiles (across all leagues for that season)
+    """
+    import time
+
+    from .seeders.common import BatchSeedResult
+
+    batch_start = time.time()
+    batch = BatchSeedResult()
+
+    # Parse season range
+    seasons_str = getattr(args, "seasons", None)
+    if not seasons_str:
+        logger.error("--batch requires --seasons (e.g., --seasons 2023-2025)")
+        db.close()
+        return 1
+
+    seasons = _parse_seasons(seasons_str)
+    logger.info("Batch seed: seasons %s", seasons)
+
+    # Determine sports to seed
+    sports_to_seed = []
+    if args.all or not args.sport:
+        sports_to_seed = ALL_SPORTS
+    else:
+        sports_to_seed = [args.sport.upper()]
+
+    # Pre-fetch benchmark football leagues if FOOTBALL is in the list
+    football_leagues: list[dict] = []
+    if "FOOTBALL" in sports_to_seed:
+        football_leagues = db.fetchall(
+            "SELECT id, name, sportmonks_id FROM leagues "
+            "WHERE sport = 'FOOTBALL' AND is_benchmark = true AND is_active = true "
+            "ORDER BY id"
+        )
+        logger.info(
+            "Football benchmark leagues: %s",
+            ", ".join(f"{l['name']} (id={l['id']})" for l in football_leagues),
+        )
+
+        # Discover and store provider season IDs for all football leagues
+        logger.info("Discovering SportMonks season IDs for football leagues...")
+        try:
+            sm_handler = _get_handler("FOOTBALL")
+            async with sm_handler:
+                for league in football_leagues:
+                    sm_league_id = league.get("sportmonks_id")
+                    if not sm_league_id:
+                        logger.warning(
+                            "No sportmonks_id for %s, skipping season discovery",
+                            league["name"],
+                        )
+                        continue
+
+                    stored = await _discover_and_store_seasons(
+                        db, sm_handler, league["id"], sm_league_id, seasons
+                    )
+                    batch.provider_seasons_discovered += stored
+
+            logger.info(
+                "Provider season discovery complete: %d new mappings stored",
+                batch.provider_seasons_discovered,
+            )
+        except Exception as e:
+            logger.error("Failed to discover provider seasons: %s", e)
+            import traceback
+
+            traceback.print_exc()
+            # Continue anyway — some seasons may already be mapped
+
+    # =========================================================================
+    # MAIN BATCH LOOP: season-first ordering
+    # =========================================================================
+    for season in sorted(seasons):
+        logger.info("=" * 60)
+        logger.info("BATCH SEED: Season %d", season)
+        logger.info("=" * 60)
+
+        for sport_id in sports_to_seed:
+            logger.info("-" * 40)
+            logger.info("Seeding %s %d...", sport_id, season)
+            logger.info("-" * 40)
+
+            try:
+                handler = _get_handler(sport_id)
+                if sport_id == "FOOTBALL":
+                    result = await _seed_sport_season(
+                        db, sport_id, season, handler, football_leagues
+                    )
+                else:
+                    result = await _seed_sport_season(
+                        db, sport_id, season, handler
+                    )
+
+                label = f"{sport_id}/{season}"
+                batch.add_seed(result, label)
+
+                logger.info(
+                    "%s %d seeded: %d teams, %d players, "
+                    "%d player stats, %d team stats, %d errors",
+                    sport_id,
+                    season,
+                    result.teams_upserted,
+                    result.players_upserted,
+                    result.player_stats_upserted,
+                    result.team_stats_upserted,
+                    len(result.errors),
+                )
+
+            except Exception as e:
+                logger.error("Failed to seed %s %d: %s", sport_id, season, e)
+                import traceback
+
+                traceback.print_exc()
+                batch.seed_result.errors.append(f"{sport_id}/{season}: {e}")
+                continue
+
+            # Recalculate percentiles after each sport/season
+            if with_percentiles:
+                try:
+                    pct = _recalculate_percentiles(db, sport_id, season)
+                    batch.add_percentile(f"{sport_id}/{season}")
+                    logger.info(
+                        "Percentiles for %s %d: %d players, %d teams",
+                        sport_id,
+                        season,
+                        pct["players"],
+                        pct["teams"],
+                    )
+                except Exception as e:
+                    logger.error(
+                        "Failed to recalculate percentiles for %s %d: %s",
+                        sport_id,
+                        season,
+                        e,
+                    )
+
+    batch.total_duration_seconds = time.time() - batch_start
+
+    # Update metadata
+    db.set_meta("last_full_sync", datetime.now(tz=timezone.utc).isoformat())
+
+    # =========================================================================
+    # BATCH SUMMARY
+    # =========================================================================
+    sr = batch.seed_result
+    print(f"\n{'=' * 60}")
+    print(f"BATCH SEED COMPLETE")
+    print(f"{'=' * 60}")
+    print(f"  Duration:             {batch.total_duration_seconds:.1f}s")
+    print(f"  Seasons completed:    {len(batch.seasons_completed)}")
+    for label in batch.seasons_completed:
+        print(f"    - {label}")
+    print(f"  Teams upserted:       {sr.teams_upserted:,}")
+    print(f"  Players upserted:     {sr.players_upserted:,}")
+    print(f"  Player stats:         {sr.player_stats_upserted:,}")
+    print(f"  Team stats:           {sr.team_stats_upserted:,}")
+    if batch.provider_seasons_discovered > 0:
+        print(f"  Season IDs discovered: {batch.provider_seasons_discovered}")
+    if batch.percentiles_computed:
+        print(f"  Percentiles computed: {len(batch.percentiles_computed)}")
+        for label in batch.percentiles_computed:
+            print(f"    - {label}")
+    if sr.errors:
+        print(f"  Errors:               {len(sr.errors)}")
+        for err in sr.errors[:20]:
+            print(f"    - {err}")
+        if len(sr.errors) > 20:
+            print(f"    ... and {len(sr.errors) - 20} more")
+    print(f"{'=' * 60}")
+
+    db.close()
+    return 0 if not sr.errors else 1
 
 
 def cmd_seed(args: argparse.Namespace) -> int:
@@ -821,15 +1222,15 @@ async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
 
     db = get_pg_db()
 
-    # Determine sport from fixture to create appropriate provider client
+    # Determine sport from fixture to create appropriate handler
     fixture = db.fetchone(
         "SELECT sport FROM fixtures WHERE id = %s", (args.fixture_id,)
     )
     sport_id = fixture["sport"] if fixture else "NBA"
-    client = _get_provider_client(sport_id)
+    handler = _get_handler(sport_id)
 
     try:
-        seeder = PostMatchSeeder(db, client)
+        seeder = PostMatchSeeder(db, handler)
         fixture_id = args.fixture_id
 
         logger.info("Seeding fixture %d...", fixture_id)
@@ -865,14 +1266,14 @@ async def cmd_fixtures_run_scheduler_async(args: argparse.Namespace) -> int:
     from .fixtures import SchedulerService
 
     db = get_pg_db()
-    # Scheduler creates per-fixture provider clients as needed
+    # Scheduler creates per-fixture handlers as needed
     sport_id = (args.sport or "NBA").upper()
-    client = _get_provider_client(sport_id)
+    handler = _get_handler(sport_id)
 
     try:
         scheduler = SchedulerService(
             db,
-            client,
+            handler,
             max_fixtures_per_run=args.max or 10,
             max_retries=args.max_retries or 3,
         )
@@ -951,10 +1352,49 @@ def main() -> int:
     seed_parser = subparsers.add_parser(
         "seed",
         help="Seed data from provider APIs (BallDontLie for NBA/NFL, SportMonks for Football)",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+examples:
+  seed --sport NBA --season 2025              # Single sport, single season
+  seed --all --season 2025                    # All sports, single season
+  seed --all --season 2025 --with-percentiles # With auto-percentile recalc
+  seed --batch --seasons 2023-2025            # Batch: all sports, 3 seasons
+  seed --batch --seasons 2023,2025 --sport NBA  # Batch: NBA only, 2 seasons
+  seed --batch --seasons 2023-2025 --skip-percentiles  # Batch without percentiles
+
+  # Discover SportMonks season IDs for football leagues
+  seed --discover-seasons --seasons 2023-2025
+        """,
     )
     seed_parser.add_argument("--sport", help="Sport to seed (NBA, NFL, FOOTBALL)")
     seed_parser.add_argument("--all", action="store_true", help="Seed all sports")
-    seed_parser.add_argument("--season", type=int, help="Season year to seed")
+    seed_parser.add_argument("--season", type=int, help="Season year (single mode)")
+    seed_parser.add_argument(
+        "--batch",
+        action="store_true",
+        help="Batch mode: seed multiple seasons with auto-percentiles",
+    )
+    seed_parser.add_argument(
+        "--seasons",
+        help="Season range for batch mode (e.g., 2023-2025 or 2023,2024,2025)",
+    )
+    seed_parser.add_argument(
+        "--with-percentiles",
+        action="store_true",
+        default=False,
+        help="Auto-recalculate percentiles after seeding (default in batch mode)",
+    )
+    seed_parser.add_argument(
+        "--skip-percentiles",
+        action="store_true",
+        default=False,
+        help="Skip percentile recalculation (overrides --with-percentiles and batch default)",
+    )
+    seed_parser.add_argument(
+        "--discover-seasons",
+        action="store_true",
+        help="Discover and store SportMonks season IDs for football leagues, then exit",
+    )
 
     # percentiles command with subcommands
     pct_parser = subparsers.add_parser(

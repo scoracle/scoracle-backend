@@ -141,7 +141,7 @@ class PostgresDB:
     def execute(
         self,
         query: str,
-        params: tuple = (),
+        params: tuple | list = (),
         conn: psycopg.Connection | None = None,
     ) -> None:
         """Execute a single query without returning results.
@@ -156,31 +156,31 @@ class PostgresDB:
         """
         if conn is not None:
             with conn.cursor() as cur:
-                cur.execute(query, params)
+                cur.execute(query, params)  # type: ignore[arg-type]
         else:
             with self.get_connection() as c:
                 with c.cursor() as cur:
-                    cur.execute(query, params)
+                    cur.execute(query, params)  # type: ignore[arg-type]
                 c.commit()
 
     def executemany(self, query: str, params_list: list[tuple]) -> None:
         """Execute a query with multiple parameter sets."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.executemany(query, params_list)
+                cur.executemany(query, params_list)  # type: ignore[arg-type]
             conn.commit()
 
-    def executescript(self, sql: str) -> None:
+    def executescript(self, script: str) -> None:
         """Execute a SQL script (multiple statements)."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(sql)
+                cur.execute(script.encode())  # type: ignore[arg-type]
             conn.commit()
 
     def fetchone(
         self,
         query: str | sql.Composed,
-        params: tuple = (),
+        params: tuple | list = (),
         conn: psycopg.Connection | None = None,
     ) -> Optional[dict[str, Any]]:
         """Execute a query and fetch one result as a dict.
@@ -192,23 +192,23 @@ class PostgresDB:
         """
         if conn is not None:
             with conn.cursor() as cur:
-                cur.execute(query, params)
+                cur.execute(query, params)  # type: ignore[arg-type]
                 row = cur.fetchone()
                 return dict(row) if row else None
         else:
             with self.get_connection() as c:
                 with c.cursor() as cur:
-                    cur.execute(query, params)
+                    cur.execute(query, params)  # type: ignore[arg-type]
                     row = cur.fetchone()
                     return dict(row) if row else None
 
     def fetchall(
-        self, query: str | sql.Composed, params: tuple = ()
+        self, query: str | sql.Composed, params: tuple | list | None = ()
     ) -> list[dict[str, Any]]:
         """Execute a query and fetch all results as dicts."""
         with self.get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, params)
+                cur.execute(query, params or ())  # type: ignore[arg-type]
                 return [dict(row) for row in cur.fetchall()]
 
     def close(self) -> None:

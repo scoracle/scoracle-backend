@@ -1,21 +1,17 @@
 """
 Stats database seeders.
 
-Provider-specific seeders using BallDontLie (NBA/NFL) and SportMonks (Football).
-DB writes use psycopg (sync) via PostgresDB; API calls are async via httpx.
+BaseSeedRunner handles NBA/NFL directly (identical flow).
+FootballSeedRunner adds per-league, per-team iteration for SportMonks.
 """
 
-from .base import BaseSeedRunner, AmericanSportsSeedRunner
-from .common import SeedResult
-from .seed_nba import NBASeedRunner
-from .seed_nfl import NFLSeedRunner
-from .seed_football import FootballSeedRunner
+from .base import BaseSeedRunner
+from .common import SeedResult, BatchSeedResult
+from .football import FootballSeedRunner
 
 __all__ = [
     "BaseSeedRunner",
-    "AmericanSportsSeedRunner",
-    "SeedResult",
-    "NBASeedRunner",
-    "NFLSeedRunner",
     "FootballSeedRunner",
+    "SeedResult",
+    "BatchSeedResult",
 ]

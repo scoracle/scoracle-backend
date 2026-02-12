@@ -386,7 +386,7 @@ class SchedulerService:
         """
         params.append(limit)
 
-        rows = self.db.fetchall(query, tuple(params) if params else (limit,))
+        rows = self.db.fetchall(query, tuple(params))
         return [dict(row) for row in rows]
 
     def reset_fixture_for_retry(self, fixture_id: int) -> bool:

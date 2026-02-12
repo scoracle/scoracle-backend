@@ -1,25 +1,25 @@
 """
 Dependency injection for API endpoints.
 
-Provides synchronous database access via connection pooling.
-FastAPI handles concurrency via thread pool for sync dependencies.
+Provides async database access via AsyncPostgresDB connection pooling.
+No thread-pool workarounds needed — all DB calls are natively async.
 """
 
 from typing import Annotated
 from fastapi import Depends
 
-from ..pg_connection import PostgresDB, get_db
+from ..async_pg_connection import AsyncPostgresDB, get_async_db
 
 
-def close_db() -> None:
-    """Close the global database connection. Called at app shutdown."""
-    from .. import pg_connection
+async def close_db() -> None:
+    """Close the global async database connection. Called at app shutdown."""
+    from .. import async_pg_connection
 
-    if pg_connection._postgres_db is not None:
-        pg_connection._postgres_db.close()
-        pg_connection._postgres_db = None
+    if async_pg_connection._async_db is not None:
+        await async_pg_connection._async_db.close()
+        async_pg_connection._async_db = None
 
 
 # Type alias for dependency injection
 # Usage: db: DBDependency
-DBDependency = Annotated[PostgresDB, Depends(get_db)]
+DBDependency = Annotated[AsyncPostgresDB, Depends(get_async_db)]

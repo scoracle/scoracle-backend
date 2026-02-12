@@ -99,6 +99,10 @@ class PostMatchSeeder:
         ``seed_team_stats`` methods which refresh full-season data from
         the upstream provider.
 
+        Individual stat upserts auto-commit (idempotent ON CONFLICT).
+        Fixture status updates (mark_fixture_seeded, error recording)
+        are wrapped in a transaction so the fixture state is consistent.
+
         Args:
             fixture_id: Fixture ID to seed
             recalculate_percentiles: If True, recalculate percentiles after update
@@ -155,6 +159,7 @@ class PostMatchSeeder:
                 logger.debug(f"Fixture {fixture_id}: roster lookup skipped")
 
             # -- Player stats (full-season refresh) ---------------------------
+            # Individual upserts auto-commit (idempotent ON CONFLICT)
             player_result = await self._seed_player_stats(
                 seed_runner,
                 sport,
@@ -194,11 +199,14 @@ class PostMatchSeeder:
                 except Exception as e:
                     logger.warning(f"Percentile recalculation failed: {e}")
 
-            # Mark fixture as seeded via Postgres function
-            self.db.execute(
-                "SELECT mark_fixture_seeded(%s)",
-                (fixture_id,),
-            )
+            # Mark fixture as seeded — wrap in transaction so the fixture
+            # status update is atomic with the success flag
+            with self.db.transaction() as conn:
+                self.db.execute(
+                    "SELECT mark_fixture_seeded(%s)",
+                    (fixture_id,),
+                    conn=conn,
+                )
 
             result.success = True
 
@@ -207,17 +215,19 @@ class PostMatchSeeder:
             result.error = str(e)
             logger.error(f"Failed to seed fixture {fixture_id}: {e}")
 
-            # Record failure
-            self.db.execute(
-                """
-                UPDATE fixtures
-                SET seed_attempts = seed_attempts + 1,
-                    last_seed_error = %s,
-                    updated_at = NOW()
-                WHERE id = %s
-                """,
-                (str(e), fixture_id),
-            )
+            # Record failure in a transaction
+            with self.db.transaction() as conn:
+                self.db.execute(
+                    """
+                    UPDATE fixtures
+                    SET seed_attempts = seed_attempts + 1,
+                        last_seed_error = %s,
+                        updated_at = NOW()
+                    WHERE id = %s
+                    """,
+                    (str(e), fixture_id),
+                    conn=conn,
+                )
 
         result.duration_seconds = (datetime.now() - start_time).total_seconds()
 
@@ -235,25 +245,125 @@ class PostMatchSeeder:
         recalculate_percentiles: bool = True,
     ) -> list[PostMatchResult]:
         """
-        Seed multiple fixtures sequentially.
+        Seed multiple fixtures with deduplication.
+
+        Groups fixtures by (sport, season, league_id) and fetches stats
+        once per group instead of once per fixture.  On a busy night
+        (e.g. 15 NBA games), this reduces API calls from 15 to 1.
+
+        Percentiles are recalculated once per group after all stats are
+        refreshed.
 
         Args:
             fixture_ids: List of fixture IDs to seed
-            recalculate_percentiles: If True, recalculate percentiles after all updates
+            recalculate_percentiles: If True, recalculate percentiles after updates
 
         Returns:
             List of PostMatchResult for each fixture
         """
-        results = []
+        from collections import defaultdict
 
-        # Process fixtures, but only recalculate percentiles at the end
-        for i, fixture_id in enumerate(fixture_ids):
-            is_last = i == len(fixture_ids) - 1
-            result = await self.seed_fixture(
-                fixture_id,
-                recalculate_percentiles=(recalculate_percentiles and is_last),
+        # Fetch all fixture rows upfront
+        fixtures: list[dict] = []
+        for fid in fixture_ids:
+            row = self.db.fetchone(
+                """
+                SELECT id, sport, league_id, season,
+                       home_team_id, away_team_id, status
+                FROM fixtures WHERE id = %s
+                """,
+                (fid,),
             )
-            results.append(result)
+            if row:
+                fixtures.append(dict(row))
+
+        if not fixtures:
+            return []
+
+        # Group by (sport, season, league_id) — each group needs one API fetch
+        groups: dict[tuple, list[dict]] = defaultdict(list)
+        for f in fixtures:
+            key = (f["sport"], f["season"], f.get("league_id"))
+            groups[key].append(f)
+
+        results: list[PostMatchResult] = []
+
+        for (sport, season, league_id), group_fixtures in groups.items():
+            representative = group_fixtures[0]
+
+            try:
+                seed_runner = self._make_seed_runner(sport)
+                if not seed_runner:
+                    raise ValueError(f"No seeder available for sport: {sport}")
+
+                # One stats fetch per group (full-season refresh)
+                player_result = await self._seed_player_stats(
+                    seed_runner, sport, representative,
+                )
+                team_result = await self._seed_team_stats(
+                    seed_runner, sport, representative,
+                )
+
+                # Mark all fixtures in the group as seeded
+                for f in group_fixtures:
+                    self.db.execute(
+                        "SELECT mark_fixture_seeded(%s)",
+                        (f["id"],),
+                    )
+                    results.append(PostMatchResult(
+                        fixture_id=f["id"],
+                        sport=sport,
+                        home_team_id=f["home_team_id"],
+                        away_team_id=f["away_team_id"],
+                        players_updated=player_result.player_stats_upserted,
+                        teams_updated=team_result.team_stats_upserted,
+                        success=True,
+                    ))
+
+                # Percentiles once per group
+                if recalculate_percentiles and player_result.player_stats_upserted > 0:
+                    try:
+                        from ..percentiles.python_calculator import (
+                            PythonPercentileCalculator,
+                        )
+                        calculator = PythonPercentileCalculator(self.db)
+                        calculator.recalculate_all_percentiles(sport, season)
+                        for r in results[-len(group_fixtures):]:
+                            r.percentiles_recalculated = True
+                    except Exception as e:
+                        logger.warning(f"Percentile recalculation failed: {e}")
+
+                logger.info(
+                    f"Batch group ({sport}/{season}/{league_id}): "
+                    f"{len(group_fixtures)} fixtures seeded, "
+                    f"{player_result.player_stats_upserted} players, "
+                    f"{team_result.team_stats_upserted} teams"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Batch group ({sport}/{season}/{league_id}) failed: {e}"
+                )
+                for f in group_fixtures:
+                    results.append(PostMatchResult(
+                        fixture_id=f["id"],
+                        sport=sport,
+                        home_team_id=f["home_team_id"],
+                        away_team_id=f["away_team_id"],
+                        success=False,
+                        error=str(e),
+                    ))
+                    # Record failure per fixture
+                    self.db.execute(
+                        """
+                        UPDATE fixtures
+                        SET seed_attempts = seed_attempts + 1,
+                            last_seed_error = %s,
+                            updated_at = NOW()
+                        WHERE id = %s
+                        """,
+                        (str(e), f["id"]),
+                    )
 
         return results
 

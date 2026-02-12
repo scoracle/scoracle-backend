@@ -1,21 +1,22 @@
 """
 Pydantic models for stats database entities.
 
-These models are used for:
-- Validating data from API-Sports before insertion
-- Type-safe query results
-- API response serialization
+These models document the shape of data in the unified schema.
+The API returns raw dicts from Postgres views/functions — the contract
+is enforced by integration tests (tests/test_api_contract.py) rather
+than Pydantic response_model serialization, since the Go API will
+query the same views and produce identical JSON without Pydantic.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel
 
 
 # =============================================================================
-# Core Entity Models
+# Core Entity Models — match unified table schemas
 # =============================================================================
 
 
@@ -51,39 +52,7 @@ class PlayerModel(BaseModel):
 
 
 # =============================================================================
-# Percentile Models
-# =============================================================================
-
-
-class PercentileResult(BaseModel):
-    """Result of a percentile calculation for a single stat."""
-
-    stat_category: str
-    stat_value: float
-    percentile: float = Field(ge=0, le=100)
-    rank: int
-    sample_size: int
-    comparison_group: Optional[str] = None
-
-
-class EntityPercentiles(BaseModel):
-    """All percentiles for an entity."""
-
-    entity_type: str  # 'player' or 'team'
-    entity_id: int
-    sport: str
-    season: int
-    percentiles: list[PercentileResult]
-
-    @computed_field
-    @property
-    def percentile_map(self) -> dict[str, float]:
-        """Get percentiles as a simple stat -> value map."""
-        return {p.stat_category: p.percentile for p in self.percentiles}
-
-
-# =============================================================================
-# API Response Models
+# Status Constants
 # =============================================================================
 
 
@@ -94,33 +63,11 @@ class ProfileStatus:
     BUILDING = "building"  # Non-priority league, minimal data
 
 
-class PlayerProfile(BaseModel):
-    """Complete player profile with stats and percentiles."""
-
-    player: PlayerModel
-    team: Optional[TeamModel] = None
-    stats: Optional[dict[str, Any]] = None
-    percentiles: Optional[EntityPercentiles] = None
-    comparison_group: Optional[str] = None
-    status: str = ProfileStatus.COMPLETE  # "complete" or "building"
-
-
-class TeamProfile(BaseModel):
-    """Complete team profile with stats and percentiles."""
-
-    team: TeamModel
-    stats: Optional[dict[str, Any]] = None
-    percentiles: Optional[EntityPercentiles] = None
-    status: str = ProfileStatus.COMPLETE  # "complete" or "building"
-
-
 class EntityMinimal(BaseModel):
-    """Minimal entity data for non-priority leagues (autocomplete only)."""
+    """Minimal entity data for autocomplete."""
 
     id: int
     entity_type: str  # "team" or "player"
     sport: str
     league_id: Optional[int] = None
     name: str
-    normalized_name: Optional[str] = None
-    tokens: Optional[str] = None

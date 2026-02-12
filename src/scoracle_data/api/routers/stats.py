@@ -4,6 +4,7 @@ Stats router - serves entity statistics for frontend widgets.
 Endpoints:
 - GET /{entity_type}/{entity_id} - Stats + percentiles from unified stats tables
 - GET /{entity_type}/{entity_id}/seasons - Available seasons for an entity
+- GET /definitions - Canonical stat definitions for a sport
 
 Data:
 - Serves statistics from unified tables (player_stats, team_stats) with sport filter
@@ -21,7 +22,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Header, Query, Response
 from starlette.status import HTTP_304_NOT_MODIFIED
 
-from ..cache import get_cache, TTL_CURRENT_SEASON
+from ..cache import get_cache, TTL_CURRENT_SEASON, TTL_ENTITY_INFO
 from ..dependencies import DBDependency
 from ..errors import NotFoundError
 from ...core.types import EntityType, Sport
@@ -34,11 +35,51 @@ from ._utils import (
     set_etag_headers,
     get_stats_ttl,
 )
-from ...services.stats import get_entity_stats, get_available_seasons
+from ...services.stats import get_entity_stats, get_available_seasons, get_stat_definitions
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/definitions", response_model=None)
+async def get_stat_definitions_endpoint(
+    sport: Annotated[Sport, Query(description="Sport: NBA, NFL, or FOOTBALL")],
+    response: Response,
+    db: DBDependency,
+    if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
+) -> dict[str, Any] | Response:
+    """
+    Get canonical stat definitions for a sport.
+
+    Returns display names, categories, sort orders, and flags for all stats.
+    Useful for the frontend to label and order stat displays.
+    """
+    cache = get_cache()
+    cache_key = ("stat_definitions", sport.value)
+
+    cached = cache.get(*cache_key)
+    if cached:
+        etag = compute_etag(cached)
+        if check_etag_match(if_none_match, etag):
+            return Response(status_code=HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
+        set_cache_headers(response, TTL_ENTITY_INFO, cache_hit=True)
+        set_etag_headers(response, etag, TTL_ENTITY_INFO)
+        return cached
+
+    definitions = await get_stat_definitions(db, sport.value)
+
+    result = {
+        "sport": sport.value,
+        "definitions": definitions,
+        "count": len(definitions),
+    }
+
+    cache.set(result, *cache_key, ttl=TTL_ENTITY_INFO)
+    etag = compute_etag(result)
+    set_cache_headers(response, TTL_ENTITY_INFO, cache_hit=False)
+    set_etag_headers(response, etag, TTL_ENTITY_INFO)
+    return result
 
 
 @router.get("/{entity_type}/{entity_id}", response_model=None)
@@ -81,12 +122,12 @@ async def get_entity_stats_endpoint(
         return cached
 
     # Get season ID (cached lookup)
-    season_id = get_season_id(db, sport.value, season)
+    season_id = await get_season_id(db, sport.value, season)
     if not season_id:
         raise NotFoundError(resource="Season", identifier=season, context=sport.value)
 
     # Get stats via service layer
-    stats_data = get_entity_stats(
+    stats_data = await get_entity_stats(
         db,
         sport.value,
         entity_type.value,
@@ -148,7 +189,7 @@ async def get_available_seasons_endpoint(
         set_etag_headers(response, etag, TTL_CURRENT_SEASON)
         return cached
 
-    seasons = get_available_seasons(db, sport.value, entity_type.value, entity_id)
+    seasons = await get_available_seasons(db, sport.value, entity_type.value, entity_id)
 
     result = {
         "entity_id": entity_id,

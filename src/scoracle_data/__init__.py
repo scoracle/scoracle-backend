@@ -22,8 +22,6 @@ Usage:
 from .pg_connection import PostgresDB, get_db
 from .schema import init_database, run_migrations
 from .core.models import (
-    PlayerProfile,
-    TeamProfile,
     PlayerModel,
     TeamModel,
     ProfileStatus,
@@ -38,8 +36,6 @@ __all__ = [
     "init_database",
     "run_migrations",
     # Models
-    "PlayerProfile",
-    "TeamProfile",
     "PlayerModel",
     "TeamModel",
     "ProfileStatus",

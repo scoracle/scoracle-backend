@@ -429,86 +429,93 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 def cmd_query(args: argparse.Namespace) -> int:
     """Run a query against the database."""
-    db = get_db()
+    return asyncio.run(_cmd_query_async(args))
 
-    if not db.is_initialized():
-        logger.error("Database not initialized.")
-        return 1
 
-    query_type = args.type
-    sport = args.sport.upper() if args.sport else "NBA"
-    season = args.season or 2025
+async def _cmd_query_async(args: argparse.Namespace) -> int:
+    """Async implementation of query command (services are async)."""
+    from .async_pg_connection import AsyncPostgresDB
 
-    if query_type == "leaders":
-        from .services.stats import get_stat_leaders
+    db = AsyncPostgresDB()
+    await db.open()
 
-        stat = args.stat or "points_per_game"
-        limit = args.limit or 25
+    try:
+        query_type = args.type
+        sport = args.sport.upper() if args.sport else "NBA"
+        season = args.season or 2025
 
-        results = get_stat_leaders(db, sport, season, stat, limit)
+        if query_type == "leaders":
+            from .services.stats import get_stat_leaders
 
-        print(f"\n{sport} {season} - Top {limit} {stat}")
-        print("=" * 60)
-        for r in results:
-            print(
-                f"{r['rank']:3}. {r['name']:<25} {r['stat_value']:>10.1f}  ({r['team_name'] or 'N/A'})"
+            stat = args.stat or "points_per_game"
+            limit = args.limit or 25
+
+            results = await get_stat_leaders(db, sport, season, stat, limit)
+
+            print(f"\n{sport} {season} - Top {limit} {stat}")
+            print("=" * 60)
+            for r in results:
+                print(
+                    f"{r['rank']:3}. {r['name']:<25} {r['stat_value']:>10.1f}  ({r['team_name'] or 'N/A'})"
+                )
+
+        elif query_type == "standings":
+            from .services.stats import get_standings
+
+            results = await get_standings(
+                db,
+                sport,
+                season,
+                league_id=args.league or 0,
+                conference=args.conference,
             )
 
-    elif query_type == "standings":
-        from .services.stats import get_standings
+            print(f"\n{sport} {season} Standings")
+            print("=" * 60)
+            for r in results:
+                stats = r.get("stats", {}) or {}
+                if sport == "FOOTBALL":
+                    print(
+                        f"{r['rank']:3}. {r['name']:<25} {stats.get('points', 0):3} pts  "
+                        f"({stats.get('wins', 0)}-{stats.get('draws', 0)}-{stats.get('losses', 0)})"
+                    )
+                else:
+                    win_pct = r.get("win_pct") or 0
+                    wins = stats.get("wins", 0) or 0
+                    losses = stats.get("losses", 0) or 0
+                    print(
+                        f"{r['rank']:3}. {r['name']:<25} {float(win_pct):.3f}  ({wins}-{losses})"
+                    )
 
-        results = get_standings(
-            db,
-            sport,
-            season,
-            league_id=args.league or 0,
-            conference=args.conference,
-        )
+        elif query_type == "profile":
+            entity_type = args.entity_type or "player"
+            entity_id = args.entity_id
 
-        print(f"\n{sport} {season} Standings")
-        print("=" * 60)
-        for r in results:
-            stats = r.get("stats", {}) or {}
-            if sport == "FOOTBALL":
-                print(
-                    f"{r['rank']:3}. {r['name']:<25} {stats.get('points', 0):3} pts  "
-                    f"({stats.get('wins', 0)}-{stats.get('draws', 0)}-{stats.get('losses', 0)})"
-                )
+            if not entity_id:
+                logger.error("Must specify --entity-id for profile query")
+                return 1
+
+            if entity_type == "player":
+                from .services.profiles import get_player_profile
+
+                result = await get_player_profile(db, entity_id, sport)
             else:
-                win_pct = r.get("win_pct") or 0
-                wins = stats.get("wins", 0) or 0
-                losses = stats.get("losses", 0) or 0
-                print(
-                    f"{r['rank']:3}. {r['name']:<25} {float(win_pct):.3f}  ({wins}-{losses})"
-                )
+                from .services.profiles import get_team_profile
 
-    elif query_type == "profile":
-        entity_type = args.entity_type or "player"
-        entity_id = args.entity_id
+                result = await get_team_profile(db, entity_id, sport)
 
-        if not entity_id:
-            logger.error("Must specify --entity-id for profile query")
+            if result:
+                print(json.dumps(result, indent=2, default=str))
+            else:
+                print("Not found")
+
+        else:
+            logger.error("Unknown query type: %s", query_type)
             return 1
 
-        if entity_type == "player":
-            from .services.profiles import get_player_profile
+    finally:
+        await db.close()
 
-            result = get_player_profile(db, entity_id, sport)
-        else:
-            from .services.profiles import get_team_profile
-
-            result = get_team_profile(db, entity_id, sport)
-
-        if result:
-            print(json.dumps(result, indent=2, default=str))
-        else:
-            print("Not found")
-
-    else:
-        logger.error("Unknown query type: %s", query_type)
-        return 1
-
-    db.close()
     return 0
 
 

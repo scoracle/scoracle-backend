@@ -4,6 +4,8 @@ Stats service — sport-aware entity statistics lookups.
 Queries Postgres views and functions for stats, stat leaders, and standings.
 Python is a thin pass-through — Postgres owns all data shaping and ranking.
 
+All functions are async — they accept an AsyncPostgresDB and await queries.
+
 Postgres objects used:
 - player_stats / team_stats tables (entity stats lookup)
 - fn_stat_leaders() (ranked stat leaders with LATERAL + ROW_NUMBER)
@@ -25,7 +27,7 @@ def _resolve_table(entity_type: str) -> tuple[str, str]:
     return TEAM_STATS_TABLE, "team_id"
 
 
-def get_entity_stats(
+async def get_entity_stats(
     db,
     sport: str,
     entity_type: str,
@@ -40,7 +42,7 @@ def get_entity_stats(
     through to the frontend — filtering is a presentation concern.
 
     Args:
-        db: Database connection (psycopg-style with fetchone).
+        db: Async database connection (AsyncPostgresDB).
         sport: Sport identifier (NBA, NFL, FOOTBALL).
         entity_type: "player" or "team".
         entity_id: The entity's ID.
@@ -65,9 +67,9 @@ def get_entity_stats(
 
     if sport == "FOOTBALL" and league_id:
         query = base_query + " AND league_id = %s"
-        row = db.fetchone(query, (entity_id, sport, season, league_id))
+        row = await db.fetchone(query, (entity_id, sport, season, league_id))
     else:
-        row = db.fetchone(base_query, (entity_id, sport, season))
+        row = await db.fetchone(base_query, (entity_id, sport, season))
 
     if not row:
         return None
@@ -87,7 +89,7 @@ def get_entity_stats(
     }
 
 
-def get_available_seasons(
+async def get_available_seasons(
     db,
     sport: str,
     entity_type: str,
@@ -96,7 +98,7 @@ def get_available_seasons(
     """Return season years with stats for an entity, newest first.
 
     Args:
-        db: Database connection (psycopg-style with fetchall).
+        db: Async database connection (AsyncPostgresDB).
         sport: Sport identifier (NBA, NFL, FOOTBALL).
         entity_type: "player" or "team".
         entity_id: The entity's ID.
@@ -111,7 +113,7 @@ def get_available_seasons(
         f"WHERE {id_column} = %s AND sport = %s "
         f"ORDER BY season DESC"
     )
-    rows = db.fetchall(query, (entity_id, sport))
+    rows = await db.fetchall(query, (entity_id, sport))
     return [row["season"] for row in rows]
 
 
@@ -120,7 +122,7 @@ def get_available_seasons(
 # =========================================================================
 
 
-def get_stat_leaders(
+async def get_stat_leaders(
     db,
     sport: str,
     season: int,
@@ -136,7 +138,7 @@ def get_stat_leaders(
     for ranking.
 
     Args:
-        db: Database connection.
+        db: Async database connection (AsyncPostgresDB).
         sport: Sport identifier (NBA, NFL, FOOTBALL).
         season: Season year.
         stat_name: Stat key within the JSONB stats column.
@@ -147,7 +149,7 @@ def get_stat_leaders(
     Returns:
         List of player stats ranked by the stat.
     """
-    rows = db.fetchall(
+    rows = await db.fetchall(
         "SELECT * FROM fn_stat_leaders(%s, %s, %s, %s, %s, %s)",
         (sport, season, stat_name, limit, position, league_id),
     )
@@ -159,7 +161,7 @@ def get_stat_leaders(
 # =========================================================================
 
 
-def get_standings(
+async def get_standings(
     db,
     sport: str,
     season: int,
@@ -173,7 +175,7 @@ def get_standings(
     and win_pct computation for NBA/NFL.
 
     Args:
-        db: Database connection.
+        db: Async database connection (AsyncPostgresDB).
         sport: Sport identifier (NBA, NFL, FOOTBALL).
         season: Season year.
         league_id: League filter (0 for NBA/NFL, >0 for football).
@@ -182,8 +184,37 @@ def get_standings(
     Returns:
         List of teams with standings info, ranked.
     """
-    rows = db.fetchall(
+    rows = await db.fetchall(
         "SELECT * FROM fn_standings(%s, %s, %s, %s)",
         (sport, season, league_id, conference),
+    )
+    return [dict(row) for row in rows]
+
+
+# =========================================================================
+# Stat Definitions — queries stat_definitions table
+# =========================================================================
+
+
+async def get_stat_definitions(
+    db,
+    sport: str,
+) -> list[dict[str, Any]]:
+    """Get canonical stat definitions for a sport.
+
+    Returns display names, categories, sort orders, and flags (is_inverse,
+    is_derived, is_percentile_eligible) from the stat_definitions table.
+    Useful for the frontend to label and order stat displays.
+
+    Args:
+        db: Async database connection (AsyncPostgresDB).
+        sport: Sport identifier (NBA, NFL, FOOTBALL).
+
+    Returns:
+        List of stat definition dicts, ordered by sort_order.
+    """
+    rows = await db.fetchall(
+        "SELECT * FROM stat_definitions WHERE sport = %s ORDER BY sort_order",
+        (sport,),
     )
     return [dict(row) for row in rows]

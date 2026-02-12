@@ -2,6 +2,7 @@
 FastAPI application for Scoracle Data API.
 
 Optimized for high-performance serving with:
+- Native async database access (no thread-pool workarounds)
 - HTTP cache headers for CDN/browser caching
 - In-memory + Redis caching with ETag support
 - GZip compression
@@ -57,51 +58,35 @@ async def lifespan(app: FastAPI):
     Manage application lifecycle.
 
     Startup:
-    - Initialize database connection pool (pre-warm connections)
-    - Warm the cache with popular entities
+    - Initialize async database connection pool (pre-warm connections)
 
     Shutdown:
     - Close database connections
-    - Cancel background tasks
     """
     # Startup
     logger.info("Starting Scoracle Data API...")
 
-    # Pre-warm database connection pool
-    # This ensures ALL min_size connections are established before first request
+    # Open the async connection pool — establishes min_size connections
     try:
-        from .dependencies import get_db
+        from ..async_pg_connection import get_async_db
 
-        db = get_db()
-        # Explicitly open the pool to establish min_size connections
-        db.open()
+        db = get_async_db()
+        await db.open()
         logger.info(
-            f"Database connection pool opened (min_size={db._min_pool_size}, max_size={db._max_pool_size})"
+            f"Async DB pool opened (min={db._min_pool_size}, max={db._max_pool_size})"
         )
 
-        # Warm ALL connections in the pool by running concurrent queries
-        # This ensures the pool is fully ready, not just one connection
-        import concurrent.futures
-
-        def warm_connection(i: int) -> bool:
+        # Warm connections by running a simple query on each
+        warmup_count = 0
+        for _ in range(db._min_pool_size):
             try:
-                db.fetchone("SELECT 1")
-                return True
+                await db.fetchone("SELECT 1")
+                warmup_count += 1
             except Exception as e:
-                logger.warning(f"Connection {i} warm-up failed: {e}")
-                return False
-
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=db._min_pool_size
-        ) as executor:
-            futures = [
-                executor.submit(warm_connection, i) for i in range(db._min_pool_size)
-            ]
-            results = [f.result(timeout=5) for f in futures]
-            successful = sum(results)
-            logger.info(
-                f"Database connection pool fully warmed: {successful}/{db._min_pool_size} connections ready"
-            )
+                logger.warning(f"Connection warm-up failed: {e}")
+        logger.info(
+            f"Database pool warmed: {warmup_count}/{db._min_pool_size} connections ready"
+        )
 
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
@@ -112,11 +97,10 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Scoracle Data API...")
 
-    # Close database connections
     try:
         from .dependencies import close_db
 
-        close_db()  # Close sync DB pool
+        await close_db()
     except Exception as e:
         logger.warning(f"Error closing database connections: {e}")
 
@@ -257,11 +241,11 @@ def create_app() -> FastAPI:
     @app.get("/health/db", tags=["health"])
     async def health_check_db():
         """Database connectivity health check."""
-        from .dependencies import get_db
+        from ..async_pg_connection import get_async_db
 
         try:
-            db = get_db()
-            result = db.fetchone("SELECT 1 as test")
+            db = get_async_db()
+            await db.fetchone("SELECT 1 as test")
             return {
                 "status": "healthy",
                 "database": "connected",
@@ -310,13 +294,12 @@ def create_app() -> FastAPI:
             "status": "running",
             "docs": "/docs",
             "optimizations": [
+                "async_database_pool",
                 "msgspec_json_serialization",
                 "gzip_compression",
                 "redis_caching",
                 "connection_pooling",
-                "cache_warming",
                 "http_cache_headers",
-                "background_refresh",
             ],
         }
 

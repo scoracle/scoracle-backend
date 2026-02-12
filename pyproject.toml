@@ -1,11 +1,5 @@
-# Package configuration for scoracle-data extraction
-# This file defines how statsdb can run as a standalone package
-#
-# To extract to scoracle-data repo:
-# 1. Copy entire statsdb/ directory to new repo root
-# 2. Rename to src/scoracle_data/
-# 3. Move this pyproject.toml to repo root and update paths
-# 4. Install with: pip install -e .
+# Package configuration for scoracle-data
+# Install with: pip install -e .
 
 [build-system]
 requires = ["hatchling"]
@@ -38,8 +32,7 @@ api = [
     "uvicorn[standard]>=0.22.0",
     "msgspec>=0.18.0",
 ]
-# CLI and seeding functionality (httpx already a core dep)
-cli = []
+
 # Redis caching (optional, falls back to in-memory)
 redis = [
     "redis>=5.0.0",
@@ -48,10 +41,11 @@ redis = [
 dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
+    "httpx>=0.25.0",
 ]
 # All optional dependencies
 all = [
-    "scoracle-data[api,cli,redis]",
+    "scoracle-data[api,redis]",
 ]
 
 [project.scripts]
@@ -61,15 +55,3 @@ scoracle-data = "scoracle_data.cli:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/scoracle_data"]
 
-# Current structure mapping (for reference during extraction):
-# statsdb/              -> src/scoracle_data/
-# statsdb/__init__.py   -> src/scoracle_data/__init__.py
-# statsdb/cli.py        -> src/scoracle_data/cli.py
-# statsdb/connection.py -> src/scoracle_data/connection.py
-# statsdb/models.py     -> src/scoracle_data/models.py
-# statsdb/schema.py     -> src/scoracle_data/schema.py
-# statsdb/seeders/      -> src/scoracle_data/seeders/
-# statsdb/queries/      -> src/scoracle_data/queries/
-# statsdb/percentiles/  -> src/scoracle_data/percentiles/
-# statsdb/aggregators/  -> src/scoracle_data/aggregators/
-# statsdb/fixtures/     -> src/scoracle_data/fixtures/

@@ -70,9 +70,9 @@ async def get_entity_profile(
         return cached
 
     if entity_type == EntityType.player:
-        result = get_player_profile(db, entity_id, sport.value)
+        result = await get_player_profile(db, entity_id, sport.value)
     else:
-        result = get_team_profile(db, entity_id, sport.value)
+        result = await get_team_profile(db, entity_id, sport.value)
 
     if not result:
         raise NotFoundError(

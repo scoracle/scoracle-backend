@@ -90,7 +90,7 @@ async def get_entity_news(
     last_name: str | None = None
 
     if entity_type == EntityType.player:
-        result = db.fetchone(
+        result = await db.fetchone(
             f"SELECT name, first_name, last_name, team_id FROM {PLAYERS_TABLE} "
             f"WHERE id = %s AND sport = %s",
             (entity_id, sport.value),
@@ -105,14 +105,14 @@ async def get_entity_news(
         last_name = result.get("last_name")
         # Get team name if not provided
         if not team and result.get("team_id"):
-            team_result = db.fetchone(
+            team_result = await db.fetchone(
                 f"SELECT name FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
                 (result["team_id"], sport.value),
             )
             if team_result:
                 team = team_result["name"]
     else:
-        result = db.fetchone(
+        result = await db.fetchone(
             f"SELECT name FROM {TEAMS_TABLE} WHERE id = %s AND sport = %s",
             (entity_id, sport.value),
         )

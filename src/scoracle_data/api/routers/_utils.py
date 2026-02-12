@@ -30,7 +30,7 @@ def _get_current_season(sport: str) -> int:
     return cfg.current_season if cfg else datetime.now().year
 
 
-def get_season_id(db, sport: str, season_year: int) -> int | None:
+async def get_season_id(db, sport: str, season_year: int) -> int | None:
     """
     Validate that a season year has data, with in-memory caching.
 
@@ -41,7 +41,7 @@ def get_season_id(db, sport: str, season_year: int) -> int | None:
     compatibility with the stats router which passes season_id).
 
     Args:
-        db: Database connection
+        db: Async database connection (AsyncPostgresDB)
         sport: Sport identifier (NBA, NFL, FOOTBALL)
         season_year: Season year (e.g., 2025)
 
@@ -53,13 +53,13 @@ def get_season_id(db, sport: str, season_year: int) -> int | None:
         return _season_id_cache[cache_key]
 
     # Check whether any stats rows exist for this sport + season
-    row = db.fetchone(
+    row = await db.fetchone(
         "SELECT 1 FROM player_stats WHERE sport = %s AND season = %s LIMIT 1",
         (sport, season_year),
     )
     if not row:
         # Also check team_stats in case only team data exists
-        row = db.fetchone(
+        row = await db.fetchone(
             "SELECT 1 FROM team_stats WHERE sport = %s AND season = %s LIMIT 1",
             (sport, season_year),
         )

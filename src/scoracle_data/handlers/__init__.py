@@ -1,11 +1,11 @@
 """
-Data provider handlers — fetch from external APIs and normalize to canonical format.
+API handlers — fetch from external APIs and normalize to canonical format.
 
 Each handler extends BaseApiClient (HTTP infrastructure) and adds
-provider-specific data normalization. Handlers return canonical dicts
+API-specific data normalization. Handlers return canonical dicts
 that seeders write directly to Postgres without further transformation.
 
-Switching providers means writing a new handler; seeders stay untouched.
+Switching APIs means writing a new handler; seeders stay untouched.
 """
 
 

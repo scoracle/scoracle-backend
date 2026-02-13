@@ -101,10 +101,6 @@ class Settings(BaseSettings):
     # ==========================================================================
     # External API Keys
     # ==========================================================================
-    api_sports_key: Optional[str] = Field(
-        default=None,
-        description="API-Sports.com API key for live data fetching",
-    )
     twitter_bearer_token: Optional[str] = Field(
         default=None,
         description="Twitter API v2 bearer token",

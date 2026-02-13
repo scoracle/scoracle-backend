@@ -218,28 +218,6 @@ class BaseSeedRunner:
             result.errors.append(error_msg)
         return result
 
-    async def seed_players(self, **handler_kw: Any) -> SeedResult:
-        """Fetch players from handler and write to DB."""
-        logger.info("Seeding %s players...", self.sport)
-        result = SeedResult()
-        try:
-            count = 0
-            async for player in self.handler.get_players(**handler_kw):
-                try:
-                    self._upsert_player(player)
-                    result.players_upserted += 1
-                    count += 1
-                    if count % 100 == 0:
-                        logger.info("Processed %d players...", count)
-                except Exception as e:
-                    result.errors.append(f"Error upserting player {player.get('id')}: {e}")
-            logger.info("Upserted %d players", result.players_upserted)
-        except Exception as e:
-            error_msg = f"Error seeding players: {e}"
-            logger.error(error_msg)
-            result.errors.append(error_msg)
-        return result
-
     async def seed_player_stats(
         self, season: int, league_id: int = 0, **handler_kw: Any
     ) -> SeedResult:

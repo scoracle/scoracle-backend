@@ -38,7 +38,7 @@ class SportConfig:
     All sports share the same unified tables (players, player_stats, teams,
     team_stats) — differentiated by the `sport` column.
 
-    Provider API URLs live in the provider client classes, not here.
+    API URLs live in the handler classes, not here.
     """
 
     # Identifiers

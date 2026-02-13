@@ -113,7 +113,7 @@ async def _discover_and_store_seasons(
 def _get_handler(sport_id: str):
     """Create an API handler for the given sport.
 
-    Handlers extend BaseApiClient and normalize provider responses to
+    Handlers extend BaseApiClient and normalize API responses to
     canonical format. Reads API keys from environment variables:
     - BALLDONTLIE_API_KEY for NBA/NFL
     - SPORTMONKS_API_TOKEN for FOOTBALL
@@ -377,7 +377,7 @@ async def _cmd_discover_seasons(args: argparse.Namespace, db) -> int:
 
 
 async def cmd_seed_async(args: argparse.Namespace) -> int:
-    """Seed data using canonical provider clients (BallDontLie / SportMonks).
+    """Seed data using API handlers (BallDontLie / SportMonks).
 
     Supports two modes:
       Single:  seed --sport NBA --season 2025
@@ -921,9 +921,6 @@ async def _cmd_query_async(args: argparse.Namespace) -> int:
 # =============================================================================
 
 
-# Alias for backward compatibility in fixture commands
-get_pg_db = get_db
-
 
 def cmd_fixtures(args: argparse.Namespace) -> int:
     """Route fixture subcommands."""
@@ -956,7 +953,7 @@ def cmd_fixtures_load(args: argparse.Namespace) -> int:
     """Load fixtures from CSV or JSON file."""
     from .fixtures import FixtureLoader
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         loader = FixtureLoader(db)
@@ -1006,7 +1003,7 @@ def cmd_fixtures_status(args: argparse.Namespace) -> int:
     """Show fixture status summary."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None)  # No API needed for status
@@ -1038,7 +1035,7 @@ def cmd_fixtures_pending(args: argparse.Namespace) -> int:
     """Show pending fixtures ready to seed."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None, max_fixtures_per_run=args.limit or 50)
@@ -1079,7 +1076,7 @@ def cmd_fixtures_upcoming(args: argparse.Namespace) -> int:
     """Show upcoming fixtures."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None)
@@ -1126,7 +1123,7 @@ def cmd_fixtures_recent(args: argparse.Namespace) -> int:
     """Show recently seeded fixtures."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None)
@@ -1173,7 +1170,7 @@ def cmd_fixtures_failed(args: argparse.Namespace) -> int:
     """Show fixtures that failed seeding."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None)
@@ -1216,7 +1213,7 @@ async def cmd_fixtures_seed_async(args: argparse.Namespace) -> int:
     """Manually seed a specific fixture."""
     from .fixtures import PostMatchSeeder
 
-    db = get_pg_db()
+    db = get_db()
 
     # Determine sport from fixture to create appropriate handler
     fixture = db.fetchone(
@@ -1261,7 +1258,7 @@ async def cmd_fixtures_run_scheduler_async(args: argparse.Namespace) -> int:
     """Run the scheduler to process pending fixtures."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
     # Scheduler creates per-fixture handlers as needed
     sport_id = (args.sport or "NBA").upper()
     handler = _get_handler(sport_id)
@@ -1310,7 +1307,7 @@ def cmd_fixtures_reset(args: argparse.Namespace) -> int:
     """Reset a fixture to allow retry."""
     from .fixtures import SchedulerService
 
-    db = get_pg_db()
+    db = get_db()
 
     try:
         scheduler = SchedulerService(db, None)
@@ -1344,10 +1341,10 @@ def main() -> int:
     # status command
     status_parser = subparsers.add_parser("status", help="Show database status")
 
-    # seed command (uses BallDontLie / SportMonks providers)
+    # seed command (uses BallDontLie / SportMonks handlers)
     seed_parser = subparsers.add_parser(
         "seed",
-        help="Seed data from provider APIs (BallDontLie for NBA/NFL, SportMonks for Football)",
+        help="Seed data from APIs (BallDontLie for NBA/NFL, SportMonks for Football)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:

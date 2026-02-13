@@ -8,9 +8,9 @@ After a match completes (+ seed delay), this seeder:
 4. Marks fixture as seeded
 
 Uses the existing seed runner public API (seed_player_stats / seed_team_stats)
-which fetches full-season data from the provider.  This is less targeted than
-per-player fetching but uses methods that actually exist on the runners and
-keeps the post-match seeder thin.
+which fetches full-season data from the upstream API.  This is less targeted
+than per-player fetching but uses methods that actually exist on the runners
+and keeps the post-match seeder thin.
 """
 
 from __future__ import annotations
@@ -72,18 +72,18 @@ class PostMatchSeeder:
     def __init__(
         self,
         db: "PostgresDB",
-        provider_client: Any,
+        handler: Any,
     ):
         """
         Initialize the seeder.
 
         Args:
             db: PostgreSQL database connection
-            provider_client: API handler (e.g. BDLNBAHandler,
+            handler: API handler (e.g. BDLNBAHandler,
                 BDLNFLHandler, SportMonksHandler)
         """
         self.db = db
-        self.provider_client = provider_client
+        self.handler = handler
 
     async def seed_fixture(
         self,
@@ -368,22 +368,19 @@ class PostMatchSeeder:
 
     # -- Internals ------------------------------------------------------------
 
-    def _get_sport_seeder(self, sport: str):
-        """
-        Return an instantiated seed runner for *sport*.
+    def _make_seed_runner(self, sport: str):
+        """Return an instantiated seed runner for *sport*.
 
         NBA/NFL use BaseSeedRunner directly; Football uses FootballSeedRunner.
         """
         from ..seeders import BaseSeedRunner, FootballSeedRunner
 
         if sport == "FOOTBALL":
-            return FootballSeedRunner(self.db, self.provider_client)
+            return FootballSeedRunner(self.db, self.handler)
         elif sport in ("NBA", "NFL"):
-            return BaseSeedRunner(self.db, self.provider_client, sport=sport)
+            return BaseSeedRunner(self.db, self.handler, sport=sport)
         else:
             return None
-
-    _make_seed_runner = _get_sport_seeder  # alias for clarity
 
     def _get_team_roster(
         self,

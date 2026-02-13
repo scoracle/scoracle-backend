@@ -2,7 +2,7 @@
 Shared HTTP client infrastructure for all API integrations.
 
 Provides BaseApiClient with rate limiting, retries, and error handling.
-Used by both data provider clients (BallDontLie, SportMonks) and
+Used by both data handlers (BallDontLie, SportMonks) and
 external API clients (Twitter, NewsAPI).
 
 Usage:

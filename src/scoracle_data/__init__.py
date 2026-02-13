@@ -6,7 +6,7 @@ Supports percentile calculations, historical data, and multi-sport extensibility
 
 Key Features:
 - PostgreSQL backend (Neon serverless) with connection pooling
-- Provider-specific seeders (BallDontLie for NBA/NFL, SportMonks for Football)
+- API handlers (BallDontLie for NBA/NFL, SportMonks for Football) with generic seeders
 - Centralized sport config in core.types.SPORT_REGISTRY
 - Per-position percentile calculations with JSONB storage
 - Roster diff engine for trade/transfer detection

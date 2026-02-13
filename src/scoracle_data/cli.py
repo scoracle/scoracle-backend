@@ -9,6 +9,8 @@ Usage:
     python -m scoracle_data.cli percentiles --sport NBA --season 2025
     python -m scoracle_data.cli status
     python -m scoracle_data.cli export --format json
+    python -m scoracle_data.cli export-profiles
+    python -m scoracle_data.cli export-profiles --sport FOOTBALL --season 2025
 
     # Schedule-driven fixture commands
     python -m scoracle_data.cli fixtures load schedule.csv --sport FOOTBALL
@@ -824,6 +826,250 @@ def cmd_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_profiles(args: argparse.Namespace) -> int:
+    """Export minimal entity profiles for frontend bootstrap/autocomplete.
+
+    Generates per-sport JSON files (v2.0 format) containing players and teams
+    with just enough data for fuzzy search and API lookups. Uses the current
+    DB data with correct BallDontLie (NBA/NFL) and SportMonks (Football) IDs.
+
+    Output: exports/{sport}_entities.json
+    """
+    import unicodedata
+
+    db = get_db()
+
+    if not db.is_initialized():
+        logger.error("Database not initialized.")
+        return 1
+
+    output_dir = Path(args.output) if args.output else Path("./exports")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    season = args.season or 2025
+    sport_filter = args.sport.upper() if args.sport else None
+    sports = [sport_filter] if sport_filter else ALL_SPORTS
+
+    def _normalize_text(text: str) -> str:
+        """Lowercase + strip accents for fuzzy search."""
+        nfkd = unicodedata.normalize("NFKD", text)
+        return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
+
+    def _tokenize(name: str) -> list[str]:
+        """Split name into search tokens, sorted alphabetically."""
+        return sorted(name.lower().split())
+
+    # NBA position -> position_group mapping
+    NBA_POS_GROUP = {
+        "G": "Guard", "PG": "Guard", "SG": "Guard",
+        "F": "Forward", "SF": "Forward", "PF": "Forward",
+        "C": "Center",
+        "G-F": "Guard-Forward", "F-G": "Guard-Forward",
+        "F-C": "Forward-Center", "C-F": "Forward-Center",
+    }
+
+    # NFL position -> position_group mapping
+    NFL_POS_GROUP = {
+        "QB": "Offense", "RB": "Offense - Skill", "FB": "Offense",
+        "WR": "Offense - Skill", "TE": "Offense - Skill",
+        "OT": "Offense - Line", "OG": "Offense - Line", "C": "Offense - Line",
+        "OL": "Offense - Line", "T": "Offense - Line", "G": "Offense - Line",
+        "DE": "Defense - Line", "DT": "Defense - Line", "DL": "Defense - Line",
+        "NT": "Defense - Line",
+        "LB": "Defense - Linebacker", "OLB": "Defense - Linebacker",
+        "ILB": "Defense - Linebacker", "MLB": "Defense - Linebacker",
+        "CB": "Defense - Secondary", "S": "Defense - Secondary",
+        "SS": "Defense - Secondary", "FS": "Defense - Secondary",
+        "DB": "Defense - Secondary",
+        "K": "Special Teams", "P": "Special Teams", "LS": "Special Teams",
+        "KR": "Special Teams", "PR": "Special Teams",
+    }
+
+    for sport_id in sports:
+        entities: list[dict] = []
+
+        logger.info("Exporting %s profiles for season %d...", sport_id, season)
+
+        # =====================================================================
+        # PLAYERS
+        # =====================================================================
+        if sport_id == "FOOTBALL":
+            # Football: resolve league_id from player_stats (players.league_id may be NULL)
+            player_rows = db.fetchall(
+                f"""
+                SELECT DISTINCT ON (p.id)
+                    p.id, p.name, p.position, p.detailed_position, p.meta,
+                    t.name AS team_name, t.short_code AS team_abbr,
+                    ps.league_id,
+                    l.name AS league_name
+                FROM {PLAYERS_TABLE} p
+                LEFT JOIN {TEAMS_TABLE} t
+                    ON t.id = p.team_id AND t.sport = p.sport
+                LEFT JOIN {PLAYER_STATS_TABLE} ps
+                    ON ps.player_id = p.id AND ps.sport = p.sport AND ps.season = %s
+                LEFT JOIN leagues l
+                    ON l.id = ps.league_id
+                WHERE p.sport = %s
+                ORDER BY p.id, ps.league_id
+                """,
+                (season, sport_id),
+            )
+        else:
+            # NBA/NFL: no league_id needed
+            player_rows = db.fetchall(
+                f"""
+                SELECT p.id, p.name, p.position, p.meta,
+                       t.short_code AS team_abbr
+                FROM {PLAYERS_TABLE} p
+                LEFT JOIN {TEAMS_TABLE} t
+                    ON t.id = p.team_id AND t.sport = p.sport
+                WHERE p.sport = %s
+                """,
+                (sport_id,),
+            )
+
+        for row in player_rows:
+            if not row.get("name"):
+                continue
+
+            entity: dict = {
+                "id": f"{sport_id.lower()}_player_{row['id']}",
+                "entity_id": row["id"],
+                "type": "player",
+                "sport": sport_id,
+                "name": row["name"],
+                "normalized": _normalize_text(row["name"]),
+                "tokens": _tokenize(row["name"]),
+            }
+
+            meta: dict = {}
+            position = row.get("position")
+            if position:
+                meta["position"] = position
+
+            if sport_id == "NBA" and position:
+                pg = NBA_POS_GROUP.get(position, "")
+                if pg:
+                    meta["position_group"] = pg
+            elif sport_id == "NFL" and position:
+                pg = NFL_POS_GROUP.get(position, "")
+                if pg:
+                    meta["position_group"] = pg
+
+            team_abbr = row.get("team_abbr")
+            if team_abbr:
+                meta["team"] = team_abbr
+            elif sport_id == "FOOTBALL" and row.get("team_name"):
+                meta["team"] = row["team_name"]
+
+            if sport_id == "FOOTBALL":
+                league_id = row.get("league_id")
+                if league_id:
+                    entity["league_id"] = league_id
+                league_name = row.get("league_name")
+                if league_name:
+                    meta["league"] = league_name
+
+            entity["meta"] = meta
+            entities.append(entity)
+
+        # =====================================================================
+        # TEAMS
+        # =====================================================================
+        if sport_id == "FOOTBALL":
+            team_rows = db.fetchall(
+                f"""
+                SELECT DISTINCT ON (t.id)
+                    t.id, t.name, t.short_code, t.country,
+                    ts.league_id,
+                    l.name AS league_name
+                FROM {TEAMS_TABLE} t
+                LEFT JOIN {TEAM_STATS_TABLE} ts
+                    ON ts.team_id = t.id AND ts.sport = t.sport AND ts.season = %s
+                LEFT JOIN leagues l
+                    ON l.id = ts.league_id
+                WHERE t.sport = %s
+                ORDER BY t.id, ts.league_id
+                """,
+                (season, sport_id),
+            )
+        else:
+            team_rows = db.fetchall(
+                f"""
+                SELECT t.id, t.name, t.short_code, t.conference, t.division, t.country
+                FROM {TEAMS_TABLE} t
+                WHERE t.sport = %s
+                """,
+                (sport_id,),
+            )
+
+        for row in team_rows:
+            if not row.get("name"):
+                continue
+
+            entity = {
+                "id": f"{sport_id.lower()}_team_{row['id']}",
+                "entity_id": row["id"],
+                "type": "team",
+                "sport": sport_id,
+                "name": row["name"],
+                "normalized": _normalize_text(row["name"]),
+                "tokens": _tokenize(row["name"]),
+            }
+
+            meta = {}
+            if row.get("short_code"):
+                meta["abbreviation"] = row["short_code"]
+
+            if sport_id in ("NBA", "NFL"):
+                if row.get("conference"):
+                    meta["conference"] = row["conference"]
+                if row.get("division"):
+                    meta["division"] = row["division"]
+            elif sport_id == "FOOTBALL":
+                if row.get("country"):
+                    meta["country"] = row["country"]
+                league_id = row.get("league_id")
+                if league_id:
+                    entity["league_id"] = league_id
+                league_name = row.get("league_name")
+                if league_name:
+                    meta["league"] = league_name
+
+            entity["meta"] = meta
+            entities.append(entity)
+
+        # =====================================================================
+        # WRITE OUTPUT
+        # =====================================================================
+        export_data = {
+            "version": "2.0",
+            "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+            "sport": sport_id,
+            "count": len(entities),
+            "entities": entities,
+        }
+
+        output_file = output_dir / f"{sport_id.lower()}_entities.json"
+        with open(output_file, "w") as f:
+            json.dump(export_data, f, indent=2, default=str)
+
+        # Count breakdown
+        player_count = sum(1 for e in entities if e["type"] == "player")
+        team_count = sum(1 for e in entities if e["type"] == "team")
+        logger.info(
+            "Exported %s: %d entities (%d players, %d teams) -> %s",
+            sport_id,
+            len(entities),
+            player_count,
+            team_count,
+            output_file,
+        )
+
+    db.close()
+    return 0
+
+
 def cmd_query(args: argparse.Namespace) -> int:
     """Run a query against the database."""
     return asyncio.run(_cmd_query_async(args))
@@ -1431,6 +1677,15 @@ examples:
     export_parser.add_argument("--sport", help="Sport to export")
     export_parser.add_argument("--season", type=int, help="Season year")
 
+    # export-profiles command (frontend bootstrap)
+    export_profiles_parser = subparsers.add_parser(
+        "export-profiles",
+        help="Export minimal entity profiles for frontend autocomplete bootstrap",
+    )
+    export_profiles_parser.add_argument("--sport", help="Sport to export (default: all)")
+    export_profiles_parser.add_argument("--season", type=int, help="Season year (default: 2025)")
+    export_profiles_parser.add_argument("--output", help="Output directory (default: ./exports)")
+
     # query command
     query_parser = subparsers.add_parser("query", help="Run queries")
     query_parser.add_argument("type", choices=["leaders", "standings", "profile"])
@@ -1572,6 +1827,7 @@ examples:
         "seed": cmd_seed,
         "percentiles": cmd_percentiles,
         "export": cmd_export,
+        "export-profiles": cmd_export_profiles,
         "query": cmd_query,
         "fixtures": cmd_fixtures,
     }

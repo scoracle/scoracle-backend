@@ -4,13 +4,15 @@ This document describes the new bootstrap data format for frontend autocomplete 
 
 ## Overview
 
-The backend exports a static JSON file (`entities_minimal.json`) containing all player and team profiles. This file should be bundled with the frontend application and loaded on startup for instant autocomplete without API calls.
+The backend exports per-sport static JSON files containing all player and team profiles. These files should be bundled with the frontend application and loaded on startup for instant autocomplete without API calls.
 
 ## File Location
 
-After running the export script, the file is generated at:
+After running the export script, per-sport files are generated at:
 ```
-exports/entities_minimal.json
+exports/nba_entities.json
+exports/nfl_entities.json
+exports/football_entities.json
 ```
 
 ## Data Structure
@@ -20,16 +22,9 @@ exports/entities_minimal.json
 ```json
 {
   "version": "2.0",
-  "generated_at": "2026-01-16T12:00:00.000Z",
-  "counts": {
-    "total": 5432,
-    "nba_players": 450,
-    "nba_teams": 30,
-    "nfl_players": 1800,
-    "nfl_teams": 32,
-    "football_players": 3000,
-    "football_teams": 120
-  },
+  "generated_at": "2026-02-12T23:09:50.000Z",
+  "sport": "NBA",
+  "count": 2088,
   "entities": [...]
 }
 ```
@@ -128,7 +123,7 @@ interface Entity {
   "name": "Erling Haaland",
   "normalized": "erling haaland",
   "tokens": ["erling", "haaland"],
-  "league_id": 39,
+  "league_id": 8,
   "meta": {
     "position": "Attacker",
     "team": "Manchester City",
@@ -160,9 +155,17 @@ interface Entity {
 ### Loading the Data
 
 ```javascript
-// Load on app startup
-const bootstrapData = await import('./entities_minimal.json');
-const entities = bootstrapData.entities;
+// Load per-sport bootstrap data on app startup
+const nbaData = await import('./nba_entities.json');
+const nflData = await import('./nfl_entities.json');
+const footballData = await import('./football_entities.json');
+
+// Combine all entities for unified search
+const entities = [
+  ...nbaData.entities,
+  ...nflData.entities,
+  ...footballData.entities,
+];
 ```
 
 ### Setting Up Fuse.js for Fuzzy Search
@@ -232,37 +235,44 @@ const nbaPlayers = entities.filter(e => e.sport === 'NBA' && e.type === 'player'
 // Get only NFL teams
 const nflTeams = entities.filter(e => e.sport === 'NFL' && e.type === 'team');
 
-// Get Football players in Premier League
+// Get Football players in Premier League (SportMonks league ID = 8)
 const premierLeaguePlayers = entities.filter(
-  e => e.sport === 'FOOTBALL' && e.type === 'player' && e.league_id === 39
+  e => e.sport === 'FOOTBALL' && e.type === 'player' && e.league_id === 8
 );
 ```
 
 ## Football League IDs
 
-For Football (soccer), common league IDs:
+For Football (soccer), league IDs use SportMonks IDs:
 
 | League | ID |
 |--------|-----|
-| Premier League | 39 |
-| La Liga | 140 |
-| Bundesliga | 78 |
-| Serie A | 135 |
-| Ligue 1 | 61 |
-| MLS | 253 |
+| Premier League | 8 |
+| Bundesliga | 82 |
+| Ligue 1 | 301 |
+| Serie A | 384 |
+| La Liga | 564 |
 
 ## Generating the Export
 
-Run the export script to generate the JSON file:
+Run the export script to generate the per-sport JSON files:
 
 ```bash
-python -m scoracle_data export-profiles
+# Export all sports
+python -m scoracle_data.cli export-profiles
+
+# Export a single sport
+python -m scoracle_data.cli export-profiles --sport FOOTBALL --season 2025
+
+# Custom output directory
+python -m scoracle_data.cli export-profiles --output ./frontend/public/data
 ```
 
-This generates `exports/entities_minimal.json` which should be copied to your frontend assets.
+This generates per-sport files in `exports/` which should be copied to your frontend assets.
 
 ## Version History
 
+- **v2.0** (2026-02-12): Regenerated with correct BallDontLie (NBA/NFL) and SportMonks (Football) IDs. Per-sport files. Football league IDs now use SportMonks IDs (8, 82, 301, 384, 564) instead of legacy api-sports IDs.
 - **v2.0** (2026-01-16): Sport-specific profile tables, eliminated cross-sport ID collisions
 - **v1.0**: Original unified tables with sport_id filtering
 
@@ -270,8 +280,10 @@ This generates `exports/entities_minimal.json` which should be copied to your fr
 
 1. **ID Uniqueness**: The `id` field (e.g., `nba_player_237`) is globally unique. The `entity_id` (e.g., `237`) is only unique within a sport.
 
-2. **Cross-Sport Safety**: In v2.0, player/team IDs no longer collide across sports. Previously, player ID 2801 existed in both NBA (Cade Cunningham) and FOOTBALL (a goalkeeper). Now they are completely separate tables.
+2. **Cross-Sport Safety**: Player/team IDs are scoped by sport via composite primary key `(id, sport)`. The same integer ID may exist in multiple sports.
 
 3. **API Calls**: Always include the `sport` parameter when calling API endpoints. The `entity_id` alone is not sufficient.
 
 4. **File Size**: The export is optimized for size. Full profiles (with stats, photos, etc.) are fetched on-demand via the API.
+
+5. **Data Sources**: NBA and NFL entity IDs come from BallDontLie. Football entity IDs and league IDs come from SportMonks. These are NOT api-sports IDs.

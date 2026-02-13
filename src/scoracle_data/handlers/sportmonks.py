@@ -352,10 +352,9 @@ class SportMonksHandler(BaseApiClient):
             pos_map = {24: "Goalkeeper", 25: "Defender", 26: "Midfielder", 27: "Attacker"}
             position = pos_map.get(int(pos_id))
 
-        # Name: prefer common_name, fall back to first+last
+        # Name: prefer display_name (full name), fall back to first+last
         name = (
-            raw.get("common_name")
-            or raw.get("display_name")
+            raw.get("display_name")
             or f"{raw.get('firstname', '')} {raw.get('lastname', '')}".strip()
             or f"Player {raw.get('id', '?')}"
         )
@@ -372,8 +371,6 @@ class SportMonksHandler(BaseApiClient):
                 meta[key] = val
         if raw.get("display_name"):
             meta["display_name"] = raw["display_name"]
-        if raw.get("common_name"):
-            meta["common_name"] = raw["common_name"]
 
         return {
             "id": raw.get("id"),

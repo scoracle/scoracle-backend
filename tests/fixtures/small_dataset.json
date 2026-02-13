@@ -1,28 +1,33 @@
 {
   "meta": {
-    "api_key_env": "API_SPORTS_KEY",
-    "profile_refresh_days": 183,
-    "note": "Do NOT commit API keys. Use the environment variable named in api_key_env at runtime.",
+    "note": "Minimal multi-sport test dataset using current API provider IDs.",
+    "providers": {
+      "nba": "BallDontLie (api.balldontlie.io/v1)",
+      "nfl": "BallDontLie (api.balldontlie.io/nfl/v1)",
+      "football": "SportMonks (api.sportmonks.com/v3/football)"
+    },
+    "api_key_env": {
+      "nba_nfl": "BALLDONTLIE_API_KEY",
+      "football": "SPORTMONKS_API_TOKEN"
+    },
     "filters": {
       "nfl": { "exclude_profile_fields": ["coaches"] }
     }
   },
   "nba": {
     "season": 2025,
-    "league": "standard",
     "teams": [
       {
-        "id": 10,
+        "id": 9,
         "name": "Detroit Pistons",
-        "profile_url": "https://v2.nba.api-sports.io/teams?id=10&league=standard",
-        "stats_url": "https://v2.nba.api-sports.io/teams/statistics?id=10&season=2025",
-        "standings_url": "https://v2.nba.api-sports.io/standings?league=standard&season=2025&team=10",
+        "short_code": "DET",
+        "profile_url": "https://api.balldontlie.io/v1/teams?id=9",
         "players": [
           {
-            "id": 2801,
+            "id": 17896075,
             "name": "Cade Cunningham",
-            "profile_url": "https://v2.nba.api-sports.io/players?id=2801",
-            "stats_url": "https://v2.nba.api-sports.io/players/statistics?id=2801&season=2025"
+            "profile_url": "https://api.balldontlie.io/v1/players?id=17896075",
+            "stats_url": "https://api.balldontlie.io/v1/season_averages/general?season=2025&player_ids[]=17896075"
           }
         ]
       }
@@ -30,19 +35,18 @@
   },
   "nfl": {
     "season": 2025,
-    "league": 1,
     "teams": [
       {
-        "id": 29,
+        "id": 19,
         "name": "Dallas Cowboys",
-        "profile_url": "https://v1.american-football.api-sports.io/teams?id=29&league=1&season=2025",
-        "standings_url": "https://v1.american-football.api-sports.io/standings?league=1&season=2025&team=29",
+        "short_code": "DAL",
+        "profile_url": "https://api.balldontlie.io/nfl/v1/teams?id=19",
         "players": [
           {
-            "id": 2076,
+            "id": 25,
             "name": "Dak Prescott",
-            "profile_url": "https://v1.american-football.api-sports.io/players?id=2076",
-            "stats_url": "https://v1.american-football.api-sports.io/players/statistics?id=2076&season=2025"
+            "profile_url": "https://api.balldontlie.io/nfl/v1/players?id=25",
+            "stats_url": "https://api.balldontlie.io/nfl/v1/season_stats?season=2025&player_ids[]=25"
           }
         ]
       }
@@ -50,21 +54,22 @@
   },
   "football": {
     "season": 2025,
-    "league": 39,
+    "league_id": 8,
+    "league_name": "Premier League",
     "teams": [
       {
-        "id": 49,
+        "id": 18,
         "name": "Chelsea",
-        "profile_url": "https://v3.football.api-sports.io/teams?id=49&league=39&season=2025",
-        "stats_url": "https://v3.football.api-sports.io/teams/statistics?league=39&season=2025&team=49",
+        "short_code": "CHE",
+        "profile_url": "https://api.sportmonks.com/v3/football/teams/18",
         "players": [
           {
-            "id": 152982,
+            "id": 28912747,
             "name": "C. Palmer",
             "firstname": "Cole Jermaine",
             "lastname": "Palmer",
-            "profile_url": "https://v3.football.api-sports.io/players/profiles?player=152982",
-            "stats_url": "https://v3.football.api-sports.io/players?id=152982&league=39&season=2025"
+            "profile_url": "https://api.sportmonks.com/v3/football/players/28912747",
+            "stats_url": "https://api.sportmonks.com/v3/football/players/28912747?include=statistics"
           }
         ]
       }

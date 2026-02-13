@@ -291,22 +291,23 @@ class BaseSeedRunner:
         return result
 
     async def seed_all(self, season: int, **handler_kw: Any) -> SeedResult:
-        """Full seed flow: teams -> players -> player stats -> team stats.
+        """Full seed flow: teams -> player stats (+ profiles) -> team stats.
+
+        Player profiles are upserted automatically during the player stats
+        phase — each stats response embeds full profile data (height, weight,
+        college, etc.), so a standalone player fetch is unnecessary.
 
         Used directly by NBA and NFL. Football overrides in FootballSeedRunner.
         """
         logger.info("Starting full %s seed for season %d", self.sport, season)
         result = SeedResult()
         result = result + await self.seed_teams()
-        result = result + await self.seed_players()
         result = result + await self.seed_player_stats(season, **handler_kw)
         result = result + await self.seed_team_stats(season, **handler_kw)
         logger.info(
-            "%s seed complete: %d teams, %d players, "
-            "%d player stats, %d team stats, %d errors",
+            "%s seed complete: %d teams, %d player stats, %d team stats, %d errors",
             self.sport,
             result.teams_upserted,
-            result.players_upserted,
             result.player_stats_upserted,
             result.team_stats_upserted,
             len(result.errors),

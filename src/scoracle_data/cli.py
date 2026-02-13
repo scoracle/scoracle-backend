@@ -473,9 +473,8 @@ async def cmd_seed_async(args: argparse.Namespace) -> int:
     db.set_meta("last_full_sync", datetime.now(tz=timezone.utc).isoformat())
 
     logger.info(
-        "Total seeded: %d teams, %d players, %d player stats, %d team stats, %d errors",
+        "Total seeded: %d teams, %d player stats, %d team stats, %d errors",
         total.teams_upserted,
-        total.players_upserted,
         total.player_stats_upserted,
         total.team_stats_upserted,
         len(total.errors),
@@ -595,12 +594,10 @@ async def _cmd_batch_seed(
                 batch.add_seed(result, label)
 
                 logger.info(
-                    "%s %d seeded: %d teams, %d players, "
-                    "%d player stats, %d team stats, %d errors",
+                    "%s %d seeded: %d teams, %d player stats, %d team stats, %d errors",
                     sport_id,
                     season,
                     result.teams_upserted,
-                    result.players_upserted,
                     result.player_stats_upserted,
                     result.team_stats_upserted,
                     len(result.errors),
@@ -651,7 +648,6 @@ async def _cmd_batch_seed(
     for label in batch.seasons_completed:
         print(f"    - {label}")
     print(f"  Teams upserted:       {sr.teams_upserted:,}")
-    print(f"  Players upserted:     {sr.players_upserted:,}")
     print(f"  Player stats:         {sr.player_stats_upserted:,}")
     print(f"  Team stats:           {sr.team_stats_upserted:,}")
     if batch.provider_seasons_discovered > 0:

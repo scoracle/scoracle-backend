@@ -1,262 +1,190 @@
 # Scoracle Data
 
-Data seeding, statistics management, and machine learning backend for Scoracle.
+Backend data pipeline for Scoracle. Seeds sports statistics from external APIs into a Neon PostgreSQL database, computes derived stats via Postgres triggers, and calculates percentile rankings in Python.
 
-**Database:** PostgreSQL (Neon) only. SQLite is no longer supported.
+**Database:** PostgreSQL (Neon) only.
 
-## Features
+## Sports Covered
 
-### Multi-Sport Support
+- **NBA** — Basketball statistics with per-36 minute normalization and True Shooting %
+- **NFL** — American football with position-specific stat groupings
+- **Football (Soccer)** — Top 5 European leagues with per-90 minute normalization
 
-Sport-specific database schema with dedicated tables for each sport:
+## Data Sources
 
-- **NBA** - Basketball statistics with per-36 minute normalization
-- **NFL** - American football with position-specific stat groupings
-- **Football (Soccer)** - European leagues with per-90 minute normalization
+| Sport | Provider | Handler |
+|-------|----------|---------|
+| NBA | [BallDontLie](https://balldontlie.io) | `handlers/balldontlie.py` — `BDLNBAHandler` |
+| NFL | [BallDontLie](https://balldontlie.io) | `handlers/balldontlie.py` — `BDLNFLHandler` |
+| Football | [SportMonks](https://sportmonks.com) | `handlers/sportmonks.py` — `SportMonksHandler` |
 
-Each sport is configured via TOML files in `sports/{sport}/config.toml`, enabling:
-- Independent data providers per sport
-- Sport-specific position groups for percentile comparison
-- Customizable normalization (per-36, per-90, per-game)
+## How Seeding Works
 
-### Machine Learning
+The pipeline follows a **handler + seeder** pattern:
 
-TensorFlow-powered predictive analytics:
+1. **Handlers** (`handlers/`) — Fetch data from external APIs and normalize responses into a canonical format. Each handler extends `BaseApiClient` (from `core/http.py`) and returns dicts with standardized keys (`provider_id`, `full_name`, `stats`, etc.).
 
-- **Transfer Predictor** - Player transfer probability with confidence intervals
-- **Sentiment Analyzer** - "Vibe scores" from social media and news sources
-- **Similarity Engine** - Find similar players/teams using 64-dim embeddings
-- **Performance Predictor** - LSTM-based game performance forecasts
+2. **Seeders** (`seeders/`) — Provider-agnostic orchestration that takes normalized data from handlers and upserts it into Postgres. `BaseSeedRunner` handles NBA and NFL (identical flow). `FootballSeedRunner` extends it for football's per-league, per-team squad iteration.
 
-### Percentile Calculations
+3. **Derived stats** — Postgres triggers automatically compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE to `player_stats` and `team_stats`.
 
-Pure Python percentile engine (database-agnostic):
+4. **Percentiles** — A pure Python calculator (`percentiles/python_calculator.py`) computes per-position percentile rankings and stores them in the `percentile_archive` table.
 
-- Per-36 (NBA) and per-90 (Football) normalized statistics
-- Position and league-based comparison groups
-- Football uses Top 5 European Leagues for comparisons
-- Inverse stat handling (turnovers, fouls - lower is better)
+Player profiles are derived from stats responses (BallDontLie embeds full player data in each stats record), so there is no separate player-fetching step.
 
-### High-Performance API
+## Database Schema
 
-FastAPI server with optimizations:
+Single consolidated schema in `schema.sql` (v6.0). No incremental migrations.
 
-- msgspec JSON serialization (4-5x faster than stdlib)
+### Core Tables (11)
+
+| Table | Purpose |
+|-------|---------|
+| `meta` | Key-value store for schema version and metadata |
+| `sports` | Sport definitions (NBA, NFL, FOOTBALL) |
+| `leagues` | League definitions with SportMonks IDs |
+| `players` | Player profiles (all sports, unified) |
+| `teams` | Team profiles (all sports, unified) |
+| `player_stats` | Player statistics with JSONB `stats` column |
+| `team_stats` | Team statistics with JSONB `stats` column |
+| `stat_definitions` | Stat registry (display names, categories, inverse flags) |
+| `provider_seasons` | Maps provider season IDs to year strings |
+| `fixtures` | Match schedule for post-match seeding |
+| `percentile_archive` | Stored percentile rankings by position group |
+
+### Views
+
+- `v_player_profile` — Joins players with their latest stats
+- `v_team_profile` — Joins teams with their latest stats
+
+### Triggers & Functions
+
+- **Derived stats triggers** on `player_stats` and `team_stats` — auto-compute per-36, per-90, TS%, win_pct, etc.
+- `resolve_provider_season_id()` — Maps provider season IDs
+- `fn_stat_leaders()` / `fn_standings()` — Query helpers
+- `recalculate_percentiles()` — Percentile recalculation entry point
+
+### ML Tables
+
+Machine learning features (transfer predictions, vibe scores, similarity engine, performance forecasts) are future concepts. The 13 ML tables that previously existed have been removed from the schema and dropped from the database.
+
+## API
+
+FastAPI server with:
+
+- msgspec JSON serialization
 - Two-tier caching (L1 in-memory + L2 Redis)
-- Background cache warming every 30 minutes
+- Background cache warming
 - GZIP compression for responses >1KB
-- Rate limiting with configurable limits
+- Rate limiting
 
-## API Endpoints
+### Endpoints
 
-### Profile (`/api/v1/profile/{type}/{id}`)
-
-Entity profiles with biographical data and photos.
-
-```
-GET /api/v1/profile/player/123?sport=NBA
-GET /api/v1/profile/team/456?sport=NFL
-```
-
-### Stats (`/api/v1/stats/{type}/{id}`)
-
-Entity statistics with percentile rankings.
-
-```
-GET /api/v1/stats/player/123?sport=NBA&season=2024-25
-GET /api/v1/stats/team/456?sport=FOOTBALL
-```
-
-### News (`/api/v1/news/{type}/{id}`)
-
-Unified news from Google News RSS and NewsAPI.
-
-```
-GET /api/v1/news/player/123?sport=NBA&limit=10
-GET /api/v1/news/team/456?sport=NFL&source=both
-```
-
-Parameters:
-- `source`: `rss` (default, free), `api` (NewsAPI), or `both` (merged)
-
-### Twitter (`/api/v1/twitter/journalist-feed`)
-
-Curated journalist feed from X/Twitter Lists.
-
-```
-GET /api/v1/twitter/journalist-feed?q=LeBron&sport=NBA
-```
-
-### ML (`/api/v1/ml`)
-
-- `GET /ml/transfers/trending` - Trending transfer predictions
-- `GET /ml/vibe/{type}/{id}` - Entity vibe score
-- `GET /ml/similar/{type}/{id}` - Similar entities
-- `GET /ml/predictions/{type}/{id}` - Performance predictions
-
-### Health Checks
-
-- `/health` - Basic health
-- `/health/db` - Database connectivity
-- `/health/cache` - Cache statistics
-- `/health/rate-limit` - Rate limiter status
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/v1/profile/{type}/{id}` | Player/team profiles |
+| `GET /api/v1/stats/{type}/{id}` | Statistics with percentile rankings |
+| `GET /api/v1/news/{type}/{id}` | Unified news (Google News RSS + NewsAPI) |
+| `GET /api/v1/twitter/journalist-feed` | Curated journalist feed from X/Twitter Lists |
+| `GET /health` | Health check |
+| `GET /health/db` | Database connectivity |
 
 ## CLI Commands
 
 ```bash
 # Data seeding
-seed                    # Full sync from API-Sports
-seed-2phase             # Two-phase seeding (recommended)
-seed-debug              # Limited seeding (5 teams, 5 players)
-seed-small              # Fixture-based seeding (no API calls)
+scoracle-data seed                     # Full batch seed from APIs
+scoracle-data seed --sport nba         # Seed a single sport
 
 # Percentiles
-percentiles             # Recalculate percentiles (pure Python)
+scoracle-data percentiles              # Recalculate all percentiles
+scoracle-data percentiles --sport nba  # Single sport
 
-# Data export
-export                  # Export data to JSON
-export-profiles         # Export for frontend autocomplete (sport-specific)
-
-# Fixtures/scheduling
-fixtures load           # Load match schedule
-fixtures status         # Show fixture summary
-fixtures pending        # Show ready-to-seed fixtures
-fixtures run-scheduler  # Process pending fixtures
+# Fixtures
+scoracle-data fixtures load            # Load match schedule
+scoracle-data fixtures status          # Show fixture summary
+scoracle-data fixtures pending         # Show ready-to-seed fixtures
+scoracle-data fixtures run-scheduler   # Process pending fixtures
 
 # Queries
-query leaders           # Top stat leaders
-query standings         # League standings
-query profile           # Entity profile details
+scoracle-data query leaders            # Top stat leaders
+scoracle-data query standings          # League standings
+scoracle-data query profile            # Entity profile details
 
-# Utilities
-diff                    # Detect trades/transfers between rosters
+# Data export
+scoracle-data export                   # Export data to JSON
+scoracle-data export-profiles          # Export for frontend autocomplete
 ```
-
-## Development
-
-### Environment Variables
-
-Required:
-
-- `NEON_DATABASE_URL_V2` - PostgreSQL connection string (recommended for v4.0 schema)
-  - Fallback order: `NEON_DATABASE_URL_V2` > `DATABASE_URL` > `NEON_DATABASE_URL`
-- `API_SPORTS_KEY` - API-Sports authentication
-
-Optional:
-
-- `REDIS_URL` - For distributed caching
-- `NEWS_API_KEY` - NewsAPI.org for enhanced news
-- `TWITTER_BEARER_TOKEN` - X/Twitter API for journalist feed
-- `TWITTER_JOURNALIST_LIST_ID` - Curated journalist X List ID
-
-### Quick Start
-
-```bash
-# Install dependencies
-pip install -e .
-
-# Run small dataset seeder (no API calls)
-python -m scoracle_data.seeders.small_dataset_seeder
-
-# Start API server
-uvicorn scoracle_data.api.main:app --reload
-
-# Recalculate percentiles
-scoracle-data percentiles --sport nba
-```
-
-### Testing
-
-Small dataset fixture for quick validation without API calls:
-
-- Fixture: [tests/fixtures/small_dataset.json](tests/fixtures/small_dataset.json)
-- Seeder: [src/scoracle_data/seeders/small_dataset_seeder.py](src/scoracle_data/seeders/small_dataset_seeder.py)
 
 ## Architecture
 
 ```
 src/scoracle_data/
-├── core/                   # Centralized configuration
-│   ├── config.py           # Settings (pydantic-settings)
-│   ├── models.py           # Response models
-│   └── types.py            # Sport registry, table mappings (single source of truth)
-├── db/                     # Database layer
-│   └── __init__.py         # PostgresDB, repositories, get_db()
-├── pg_connection.py        # PostgreSQL connection with Neon pooling
-├── connection.py           # Backward-compatible StatsDB alias
-├── services/               # Business logic services
-│   ├── news/               # Unified NewsService (RSS + NewsAPI)
-│   ├── twitter/            # TwitterService for journalist feed
-│   └── percentiles/        # PercentileService wrapper
-├── sports/                 # Sport-specific configuration
-│   ├── registry.py         # TOML config loader
-│   ├── nba/config.toml     # NBA: API-Sports, per-36, position groups
-│   ├── nfl/config.toml     # NFL: API-Sports, per-game, positions
-│   └── football/config.toml # Football: API-Sports, per-90, Top 5 leagues
-├── providers/              # Data provider abstraction
-│   ├── base.py             # DataProviderProtocol
-│   └── api_sports.py       # API-Sports implementation
-├── api/                    # FastAPI application
-│   ├── main.py             # App entry, middleware, caching
-│   └── routers/            # Endpoint handlers
-│       ├── profile.py      # GET /profile/{type}/{id}
-│       ├── stats.py        # GET /stats/{type}/{id}
-│       ├── news.py         # GET /news/{type}/{id}
-│       ├── twitter.py      # GET /twitter/journalist-feed
-│       └── ml.py           # ML endpoints
-├── ml/                     # Machine learning models
-│   ├── models/             # TensorFlow implementations
-│   ├── jobs/               # Background ML jobs
-│   └── config.py           # ML configuration
-├── percentiles/            # Percentile calculation engine
-│   ├── python_calculator.py # Pure Python calculator
-│   └── config.py           # Stat categories, inverse stats
-├── seeders/                # Data population from API-Sports
-├── migrations/             # Database schema migrations
-├── external/               # External API clients (Twitter, News)
-└── cli.py                  # Command-line interface
+├── handlers/                  # API fetch + normalize to canonical format
+│   ├── __init__.py            # extract_value() utility, exports
+│   ├── balldontlie.py         # BDLNBAHandler, BDLNFLHandler
+│   └── sportmonks.py          # SportMonksHandler
+├── seeders/                   # Provider-agnostic DB orchestration
+│   ├── base.py                # BaseSeedRunner (upserts, generic seed flow)
+│   ├── football.py            # FootballSeedRunner (per-league/team iteration)
+│   └── common.py              # SeedResult, BatchSeedResult
+├── core/                      # Centralized configuration
+│   ├── config.py              # Settings (pydantic-settings)
+│   ├── http.py                # BaseApiClient (shared HTTP, rate limiting)
+│   ├── models.py              # Response models
+│   └── types.py               # SPORT_REGISTRY, table mappings
+├── api/                       # FastAPI application
+│   ├── main.py                # App entry, middleware, caching
+│   ├── cache.py               # Two-tier cache (memory + Redis)
+│   ├── rate_limit.py          # Rate limiting
+│   └── routers/               # Endpoint handlers
+│       ├── profile.py         # GET /profile/{type}/{id}
+│       ├── stats.py           # GET /stats/{type}/{id}
+│       ├── news.py            # GET /news/{type}/{id}
+│       └── twitter.py         # GET /twitter/journalist-feed
+├── services/                  # Business logic
+│   ├── profiles.py            # Profile lookups
+│   ├── stats.py               # Stats retrieval
+│   ├── news/                  # Unified NewsService (RSS + NewsAPI)
+│   └── twitter/               # TwitterService
+├── percentiles/               # Percentile calculation engine
+│   ├── python_calculator.py   # Pure Python calculator
+│   └── config.py              # Stat categories, inverse stats
+├── fixtures/                  # Post-match seeding
+│   ├── loader.py              # Fixture schedule loading
+│   ├── post_match_seeder.py   # Seed stats after matches complete
+│   └── scheduler.py           # Background fixture processing
+├── external/                  # External API clients
+│   ├── google_news.py         # Google News RSS
+│   ├── news.py                # NewsAPI
+│   └── twitter.py             # X/Twitter API
+├── pg_connection.py           # PostgreSQL connection with Neon pooling
+├── schema.py                  # Schema management (applies schema.sql)
+├── schema.sql                 # Consolidated database schema (v6.0)
+└── cli.py                     # Command-line interface
 ```
 
-## Database Schema
+## Environment Variables
 
-### Sport-Specific Tables (v4.0)
+**Required:**
 
-Each sport has dedicated tables to prevent cross-sport ID collisions:
+- `NEON_DATABASE_URL_V2` — PostgreSQL connection string (Neon)
+  - Fallback: `DATABASE_URL` > `NEON_DATABASE_URL`
+- `BALLDONTLIE_API_KEY` — BallDontLie API key (NBA + NFL)
+- `SPORTMONKS_API_TOKEN` — SportMonks API token (Football)
 
-**Profile Tables:**
-- `nba_player_profiles` / `nba_team_profiles`
-- `nfl_player_profiles` / `nfl_team_profiles`
-- `football_player_profiles` / `football_team_profiles`
+**Optional:**
 
-**Stats Tables:**
-- `nba_player_stats` / `nba_team_stats`
-- `nfl_player_stats` / `nfl_team_stats`
-- `football_player_stats` / `football_team_stats`
+- `REDIS_URL` — For distributed caching
+- `NEWS_API_KEY` — NewsAPI.org for enhanced news
+- `TWITTER_BEARER_TOKEN` — X/Twitter API for journalist feed
+- `TWITTER_JOURNALIST_LIST_ID` — Curated journalist X List ID
 
-### Unified Views
+## Quick Start
 
-For backward compatibility, views aggregate all sport-specific profile tables:
-
-- `players` - View combining all `*_player_profiles` tables with `sport_id` column
-- `teams` - View combining all `*_team_profiles` tables with `sport_id` column
-
-These views allow legacy queries like `SELECT * FROM players WHERE sport_id = 'NBA'` to work seamlessly.
-
-### ML Tables
-
-- `transfer_predictions`, `transfer_links`, `transfer_mentions`
-- `vibe_scores`, `sentiment_samples`
-- `entity_embeddings`, `entity_similarities`
-- `performance_predictions`
-- `ml_features`, `ml_models`, `ml_job_runs`
-
-### Core Tables
-
-- `sports`, `seasons`, `leagues`
-- `percentile_archive`, `fixtures_schedule`
-
-## Documentation
-
-- [TENSORFLOW_ML_PLAN.md](docs/TENSORFLOW_ML_PLAN.md) - ML implementation roadmap
-- [FRONTEND_INTEGRATION.md](docs/FRONTEND_INTEGRATION.md) - API usage for frontend
-- [BOOTSTRAP_FRONTEND.md](docs/BOOTSTRAP_FRONTEND.md) - Frontend autofill integration
+```bash
+pip install -e .
+scoracle-data seed --sport nba
+scoracle-data percentiles --sport nba
+uvicorn scoracle_data.api.main:app --reload
+```

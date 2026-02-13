@@ -1,7 +1,7 @@
 """
 Database schema management for the stats database.
 
-Handles initialization, migrations, and schema version tracking.
+Applies a single consolidated schema.sql and tracks the version in the meta table.
 PostgreSQL-only implementation.
 """
 
@@ -16,95 +16,77 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+SCHEMA_FILE = Path(__file__).parent / "schema.sql"
 
-
-def get_migration_files() -> list[Path]:
-    """Get all SQL migration files in order."""
-    if not MIGRATIONS_DIR.exists():
-        return []
-
-    files = sorted(MIGRATIONS_DIR.glob("*.sql"))
-    return files
+# Must match the version comment at the top of schema.sql
+SCHEMA_VERSION = "6.0"
 
 
 def run_migrations(db: "PostgresDB", force: bool = False) -> int:
     """
-    Run all pending migrations.
+    Apply the consolidated schema if not already at the current version.
 
     Args:
         db: Database connection
-        force: If True, run all migrations even if already applied
+        force: If True, re-apply even if version matches
 
     Returns:
-        Number of migrations applied
+        1 if schema was applied, 0 if already up to date
     """
-    migration_files = get_migration_files()
-    if not migration_files:
-        logger.warning("No migration files found in %s", MIGRATIONS_DIR)
+    if not SCHEMA_FILE.exists():
+        logger.error("Schema file not found: %s", SCHEMA_FILE)
         return 0
 
-    applied = 0
+    # Check current version
+    if not force and db.is_initialized():
+        existing = db.fetchone(
+            "SELECT value FROM meta WHERE key = %s",
+            ("schema_version",),
+        )
+        if existing and existing["value"] == SCHEMA_VERSION:
+            logger.info("Schema already at v%s — nothing to apply", SCHEMA_VERSION)
+            return 0
 
-    for migration_file in migration_files:
-        migration_name = migration_file.stem
+    logger.info("Applying schema v%s from %s", SCHEMA_VERSION, SCHEMA_FILE.name)
 
-        # Check if already applied (unless force)
-        if not force and db.is_initialized():
-            existing = db.fetchone(
-                "SELECT value FROM meta WHERE key = %s",
-                (f"migration_{migration_name}",),
-            )
-            if existing:
-                logger.debug("Skipping already applied migration: %s", migration_name)
-                continue
+    sql = SCHEMA_FILE.read_text()
 
-        logger.info("Applying migration: %s", migration_name)
+    try:
+        # Escape literal '%' so psycopg3 doesn't treat them as placeholders
+        # (e.g., 'Field Goal %' in stat definition names).
+        db.execute(sql.replace("%", "%%"))
 
-        # Read and execute migration
-        sql = migration_file.read_text()
+        # Record the version
+        db.execute(
+            """
+            INSERT INTO meta (key, value, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+            """,
+            ("schema_version", SCHEMA_VERSION),
+        )
 
-        try:
-            # Execute the entire migration script.
-            # Escape literal '%' characters so psycopg3 doesn't treat them
-            # as parameter placeholders (e.g., 'Field Goal %' in stat names).
-            db.execute(sql.replace("%", "%%"))
+        logger.info("Schema v%s applied successfully", SCHEMA_VERSION)
+        return 1
 
-            # Record migration as applied
-            db.execute(
-                """
-                INSERT INTO meta (key, value, updated_at)
-                VALUES (%s, %s, NOW())
-                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-                """,
-                (f"migration_{migration_name}", "applied"),
-            )
-
-            applied += 1
-            logger.info("Successfully applied migration: %s", migration_name)
-
-        except Exception as e:
-            logger.error("Failed to apply migration %s: %s", migration_name, e)
-            raise
-
-    return applied
+    except Exception as e:
+        logger.error("Failed to apply schema v%s: %s", SCHEMA_VERSION, e)
+        raise
 
 
 def init_database(db: "PostgresDB") -> None:
     """
     Initialize the database with the full schema.
 
-    This runs all migrations in order to set up the complete schema.
-
     Args:
         db: Database connection
     """
     logger.info("Initializing stats database...")
-
-    # Run all migrations
     applied = run_migrations(db)
-
-    logger.info("Database initialized with %d migrations", applied)
+    if applied:
+        logger.info("Database initialized with schema v%s", SCHEMA_VERSION)
+    else:
+        logger.info("Database already initialized at schema v%s", SCHEMA_VERSION)
 
 
 def get_schema_version(db: "PostgresDB") -> str:

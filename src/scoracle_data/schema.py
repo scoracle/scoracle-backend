@@ -16,10 +16,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_FILE = Path(__file__).parent / "schema.sql"
+SCHEMA_FILE = Path(__file__).resolve().parent.parent.parent.parent / "schema.sql"
 
 # Must match the version comment at the top of schema.sql
-SCHEMA_VERSION = "6.0"
+SCHEMA_VERSION = "7.0"
 
 
 def run_migrations(db: "PostgresDB", force: bool = False) -> int:

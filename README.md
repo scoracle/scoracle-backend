@@ -76,7 +76,7 @@ Player profiles are derived from stats responses (BallDontLie embeds full player
 
 ## Database Schema
 
-Single consolidated schema in `src/scoracle_data/schema.sql` (v6.0, 882 lines). No incremental migrations.
+Single consolidated schema in `schema.sql` at the repo root (v7.0). No incremental migrations — the schema file is the complete database definition including API functions and materialized views.
 
 ### Core Tables (11)
 
@@ -99,7 +99,7 @@ Single consolidated schema in `src/scoracle_data/schema.sql` (v6.0, 882 lines). 
 - `v_player_profile` — Joins players with their latest stats
 - `v_team_profile` — Joins teams with their latest stats
 
-### API Functions (in `go/migrations/001_api_functions.sql`)
+### API Functions (in `schema.sql`)
 
 | Function | Returns | Description |
 |----------|---------|-------------|
@@ -168,7 +168,8 @@ Go Chi server with Postgres JSON passthrough. All data-heavy responses are raw J
 
 ```bash
 # Build both binaries
-make build
+go build -o bin/scoracle-api ./cmd/api
+go build -o bin/scoracle-ingest ./cmd/ingest
 
 # Data seeding
 ./bin/scoracle-ingest seed nba
@@ -180,25 +181,7 @@ make build
 
 # Run API server
 ./bin/scoracle-api
-# or: make run-api
 ```
-
-### Makefile Targets
-
-| Target | Description |
-|--------|-------------|
-| `make build` | Build `scoracle-api` and `scoracle-ingest` binaries |
-| `make test` | Run all tests with race detection |
-| `make vet` | Run `go vet` |
-| `make lint` | Run `golangci-lint` |
-| `make swagger` | Regenerate Swagger docs |
-| `make tidy` | Run `go mod tidy` |
-| `make clean` | Remove binaries and generated docs |
-| `make run-api` | Build and run the API server |
-| `make seed-nba` | Build and seed NBA |
-| `make seed-nfl` | Build and seed NFL |
-| `make seed-football` | Build and seed Football |
-| `make percentiles` | Build and recalculate percentiles |
 
 ### Python CLI (legacy)
 
@@ -209,13 +192,13 @@ scoracle-data percentiles --sport nba
 uvicorn scoracle_data.api.main:app --reload
 ```
 
-## Go Codebase Structure
+## Codebase Structure
 
 ```
-go/
-├── Dockerfile                         # Multi-stage: golang:1.25-alpine -> alpine:3.20
-├── Makefile                           # Build, test, lint, swagger, seed targets
-├── go.mod / go.sum                    # Module: github.com/albapepper/scoracle-data/go
+scoracle-data/
+├── schema.sql                         # THE complete database definition (v7.0)
+├── go.mod / go.sum                    # Module: github.com/albapepper/scoracle-data
+├── railway.toml                       # Railway deployment (Railpack, no Docker)
 │
 ├── cmd/
 │   ├── api/main.go                    # API server entry point (graceful shutdown)
@@ -271,40 +254,14 @@ go/
 │       ├── nfl.go                     # SeedNFL orchestration
 │       └── football.go               # SeedFootballSeason orchestration
 │
-└── migrations/
-    └── 001_api_functions.sql          # api_*() functions + mv_autofill_entities
+├── planning_docs/                     # Historical planning archive
+│
+└── src/scoracle_data/                 # Python legacy (being phased out)
 ```
 
-## Python Codebase Structure (legacy)
+## Python Codebase (legacy, being phased out)
 
-```
-src/scoracle_data/
-├── api/                               # FastAPI application
-│   ├── main.py                        # App entry, middleware, caching
-│   ├── cache.py                       # Two-tier cache (memory + Redis)
-│   └── routers/                       # Endpoint handlers
-├── handlers/                          # API fetch + normalize
-│   ├── balldontlie.py                 # BDLNBAHandler, BDLNFLHandler
-│   └── sportmonks.py                  # SportMonksHandler
-├── seeders/                           # Provider-agnostic DB orchestration
-│   ├── base.py                        # BaseSeedRunner
-│   └── football.py                    # FootballSeedRunner
-├── core/                              # Centralized configuration
-│   ├── config.py                      # Settings (pydantic-settings)
-│   ├── http.py                        # BaseApiClient (shared HTTP)
-│   └── types.py                       # SPORT_REGISTRY, table mappings
-├── services/                          # Business logic
-│   ├── news/                          # Unified NewsService
-│   └── twitter/                       # TwitterService
-├── external/                          # External API clients
-│   ├── google_news.py                 # Google News RSS
-│   ├── news.py                        # NewsAPI
-│   └── twitter.py                     # X/Twitter API
-├── percentiles/                       # Percentile calculation engine
-├── fixtures/                          # Post-match seeding
-├── schema.sql                         # Consolidated database schema (v6.0)
-└── cli.py                             # Click CLI
-```
+The Python codebase under `src/scoracle_data/` contains the original FastAPI server, CLI, and data seeders. It is no longer the production system but remains in the repo until the Go migration is fully validated.
 
 ## Go Dependencies
 
@@ -349,52 +306,51 @@ src/scoracle_data/
 
 ## Deployment
 
-The Go API is deployed on [Railway](https://railway.app) using a multi-stage Docker build.
+The Go API is deployed on [Railway](https://railway.app) using Railpack (Railway's native Go builder). No Docker.
 
 ### Railway Configuration (`railway.toml`)
 
 ```toml
 [build]
-builder = "dockerfile"
-dockerfilePath = "go/Dockerfile"
-dockerContext = "go"
-watchPatterns = ["go/**"]
+builder = "RAILPACK"
+watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum"]
 
 [deploy]
+startCommand = "./out"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
-restartPolicyType = "on_failure"
+restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
 ```
 
-### Docker Image
+Railpack detects `go.mod` at the repo root, reads Go 1.25 from it, compiles a static binary (`CGO_ENABLED=0`, `-ldflags="-w -s"`), and outputs it as `./out`.
 
-- **Build stage:** `golang:1.25-alpine` — compiles a static binary with `CGO_ENABLED=0`
-- **Runtime stage:** `alpine:3.20` — ~20MB image, non-root user (`scoracle`, uid 1000)
-- **Binary:** `scoracle-api`, stripped with `-ldflags="-s -w"`
+### Railway Environment Variables
+
+Set `RAILPACK_GO_BIN=api` to tell Railpack to build `cmd/api` (since `cmd/ingest` also exists).
 
 ### Pre-deployment Checklist
 
-1. Apply `go/migrations/001_api_functions.sql` to the Neon database
-2. Set all required env vars on Railway
-3. Push to `main` — Railway auto-deploys from the Dockerfile
+1. Apply `schema.sql` to the Neon database (if schema has changed)
+2. Set all required env vars on Railway (including `RAILPACK_GO_BIN=api`)
+3. Push to `main` — Railway auto-deploys
 4. Verify `/health/db` returns `"database": "connected"`
 
 ## Quick Start
 
 ```bash
-# Clone and enter the Go directory
-cd scoracle-data/go
+cd scoracle-data
 
 # Install dependencies
 go mod tidy
 
 # Copy env vars
-cp ../.env.example ../.env
-# Edit ../.env with your API keys and database URL
+cp .env.example .env
+# Edit .env with your API keys and database URL
 
 # Build
-make build
+go build -o bin/scoracle-api ./cmd/api
+go build -o bin/scoracle-ingest ./cmd/ingest
 
 # Seed data
 ./bin/scoracle-ingest seed nba

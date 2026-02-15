@@ -3,9 +3,16 @@ __pycache__/
 *.pyc
 *.db
 *.sqlite
+venv/
+.venv/
+
+# Go
+bin/
+
+# Environment
 .env
 .env.*
 .env.local
-venv/
-.venv/
+
+# Logs
 *.log

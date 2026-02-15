@@ -1,0 +1,447 @@
+basePath: /api/v1
+definitions:
+  github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse:
+    properties:
+      error:
+        properties:
+          code:
+            type: string
+          detail:
+            type: string
+          message:
+            type: string
+        type: object
+    type: object
+host: localhost:8000
+info:
+  contact:
+    name: Scoracle
+  description: Sports analytics API serving player/team profiles, stats, percentiles,
+    news, and journalist tweets. All data-heavy responses are JSON-passthrough from
+    Postgres functions.
+  license:
+    name: MIT
+  title: Scoracle Data API
+  version: 2.0.0
+paths:
+  /:
+    get:
+      description: Returns API name, version, status, and available optimizations.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: API root info
+      tags:
+      - meta
+  /autofill_databases:
+    get:
+      description: Returns the complete entity list (players + teams) for a sport,
+        used for frontend search/autofill. Served from mv_autofill_entities materialized
+        view.
+      parameters:
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get autofill database
+      tags:
+      - bootstrap
+  /health:
+    get:
+      description: Returns basic health status and timestamp.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /health/cache:
+    get:
+      description: Returns in-memory cache statistics (active keys, expired keys).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Cache health check
+      tags:
+      - health
+  /health/db:
+    get:
+      description: Verifies Postgres connectivity.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Database health check
+      tags:
+      - health
+  /news/{entityType}/{entityID}:
+    get:
+      description: Returns news articles about a player or team from Google News RSS
+        (primary) or NewsAPI (fallback). Supports time-window escalation and strict
+        name matching.
+      parameters:
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: entityID
+        required: true
+        type: integer
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      - description: Team name for player context
+        in: query
+        name: team
+        type: string
+      - description: Max articles (1-50, default 10)
+        in: query
+        name: limit
+        type: integer
+      - default: rss
+        description: News source preference
+        enum:
+        - rss
+        - api
+        - both
+        in: query
+        name: source
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get entity news
+      tags:
+      - news
+  /news/status:
+    get:
+      description: Returns configuration state for RSS and NewsAPI sources.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: News service status
+      tags:
+      - news
+  /profile/{entityType}/{entityID}:
+    get:
+      description: Returns a complete player or team profile with bio, current team,
+        and summary stats. Response is raw JSON from Postgres api_player_profile/api_team_profile
+        functions.
+      parameters:
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: entityID
+        required: true
+        type: integer
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get entity profile
+      tags:
+      - profiles
+  /stats/{entityType}/{entityID}:
+    get:
+      description: Returns stats and percentiles for a player or team for a given
+        season. Response is raw JSON from Postgres api_entity_stats function.
+      parameters:
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: entityID
+        required: true
+        type: integer
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      - description: Season year (defaults to current)
+        in: query
+        name: season
+        type: integer
+      - description: League ID (for FOOTBALL)
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get entity stats
+      tags:
+      - stats
+  /stats/{entityType}/{entityID}/seasons:
+    get:
+      description: Returns a list of seasons that have stats for an entity.
+      parameters:
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: entityID
+        required: true
+        type: integer
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get available seasons
+      tags:
+      - stats
+  /stats/definitions:
+    get:
+      description: Returns canonical stat definitions (names, display labels, categories)
+        for a sport.
+      parameters:
+      - description: Sport identifier
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Get stat definitions
+      tags:
+      - stats
+  /twitter/journalist-feed:
+    get:
+      description: Searches the cached journalist X List feed for entity mentions.
+        Full feed is fetched once and cached for 1 hour; searches filter the cache
+        client-side.
+      parameters:
+      - description: Search query (1-200 chars)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Sport context (metadata only)
+        enum:
+        - NBA
+        - NFL
+        - FOOTBALL
+        in: query
+        name: sport
+        type: string
+      - description: Max tweets (1-50, default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "502":
+          description: Bad Gateway
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_go_internal_api_respond.ErrorResponse'
+      summary: Search journalist feed
+      tags:
+      - twitter
+  /twitter/status:
+    get:
+      description: Returns Twitter API configuration state, list ID, cache TTL, and
+        rate limit info.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Twitter service status
+      tags:
+      - twitter
+schemes:
+- http
+- https
+swagger: "2.0"

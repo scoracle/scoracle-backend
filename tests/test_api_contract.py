@@ -265,6 +265,101 @@ class TestTwitterContract:
 
 
 # =========================================================================
+# Autofill databases endpoint
+# =========================================================================
+
+
+class TestAutofillDatabasesContract:
+    """Autofill databases endpoint response shape validation."""
+
+    def test_autofill_nba_shape(self, client):
+        """NBA autofill database returns correct structure."""
+        r = client.get("/api/v1/autofill_databases/?sport=NBA")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["version"] == "2.0"
+        assert data["sport"] == "NBA"
+        assert "generated_at" in data
+        assert "count" in data
+        assert "entities" in data
+        assert isinstance(data["entities"], list)
+        assert data["count"] == len(data["entities"])
+
+    def test_autofill_entity_shape(self, client):
+        """Individual entities have all required fields."""
+        r = client.get("/api/v1/autofill_databases/?sport=NBA")
+        assert r.status_code == 200
+        data = r.json()
+        if data["entities"]:
+            entity = data["entities"][0]
+            assert "id" in entity
+            assert "entity_id" in entity
+            assert "type" in entity
+            assert entity["type"] in ("player", "team")
+            assert "sport" in entity
+            assert entity["sport"] == "NBA"
+            assert "name" in entity
+            assert "normalized" in entity
+            assert "tokens" in entity
+            assert isinstance(entity["tokens"], list)
+            assert "meta" in entity
+            assert isinstance(entity["meta"], dict)
+
+    def test_autofill_all_sports(self, client):
+        """Autofill database works for all supported sports."""
+        for sport in ["NBA", "NFL", "FOOTBALL"]:
+            r = client.get(f"/api/v1/autofill_databases/?sport={sport}")
+            assert r.status_code == 200
+            data = r.json()
+            assert data["sport"] == sport
+            assert data["count"] >= 0
+
+    def test_autofill_football_has_league_id(self, client):
+        """Football entities include league_id where available."""
+        r = client.get("/api/v1/autofill_databases/?sport=FOOTBALL")
+        assert r.status_code == 200
+        data = r.json()
+        # At least some football entities should have league_id
+        entities_with_league = [
+            e for e in data["entities"] if "league_id" in e
+        ]
+        # If we have football data, some should have league associations
+        if data["entities"]:
+            assert len(entities_with_league) > 0
+
+    def test_autofill_missing_sport(self, client):
+        """Missing required sport parameter returns 422."""
+        r = client.get("/api/v1/autofill_databases/")
+        assert r.status_code == 422
+
+    def test_autofill_invalid_sport(self, client):
+        """Invalid sport returns 422."""
+        r = client.get("/api/v1/autofill_databases/?sport=INVALID")
+        assert r.status_code == 422
+
+    def test_autofill_cache_headers(self, client):
+        """Response includes cache control headers."""
+        r = client.get("/api/v1/autofill_databases/?sport=NBA")
+        assert r.status_code == 200
+        assert "Cache-Control" in r.headers
+        assert "X-Cache" in r.headers
+        assert "ETag" in r.headers
+
+    def test_autofill_etag_304(self, client):
+        """Conditional request with matching ETag returns 304."""
+        r1 = client.get("/api/v1/autofill_databases/?sport=NBA")
+        assert r1.status_code == 200
+        etag = r1.headers.get("ETag")
+        assert etag
+
+        r2 = client.get(
+            "/api/v1/autofill_databases/?sport=NBA",
+            headers={"If-None-Match": etag},
+        )
+        assert r2.status_code == 304
+
+
+# =========================================================================
 # Cache and ETag behavior
 # =========================================================================
 

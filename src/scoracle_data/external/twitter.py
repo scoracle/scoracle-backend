@@ -283,19 +283,3 @@ class TwitterClient(BaseApiClient):
                 "oldest_id": meta.get("oldest_id"),
             },
         }
-                )
-            except Exception as e:
-                logger.warning(f"Failed to parse tweet: {e}")
-                continue
-
-        meta = response.get("meta", {})
-
-        return {
-            "list_id": list_id,
-            "tweets": tweets,
-            "meta": {
-                "result_count": meta.get("result_count", len(tweets)),
-                "newest_id": meta.get("newest_id"),
-                "oldest_id": meta.get("oldest_id"),
-            },
-        }

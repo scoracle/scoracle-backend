@@ -834,8 +834,11 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
     DB data with correct BallDontLie (NBA/NFL) and SportMonks (Football) IDs.
 
     Output: exports/{sport}_entities.json
+
+    Note: This produces the same data as the /api/v1/autofill_databases
+    endpoint, but writes it to static files for offline use or inspection.
     """
-    import unicodedata
+    from .core.autofill import build_player_entity, build_team_entity
 
     db = get_db()
 
@@ -850,41 +853,6 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
     sport_filter = args.sport.upper() if args.sport else None
     sports = [sport_filter] if sport_filter else ALL_SPORTS
 
-    def _normalize_text(text: str) -> str:
-        """Lowercase + strip accents for fuzzy search."""
-        nfkd = unicodedata.normalize("NFKD", text)
-        return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
-
-    def _tokenize(name: str) -> list[str]:
-        """Split name into search tokens, sorted alphabetically."""
-        return sorted(name.lower().split())
-
-    # NBA position -> position_group mapping
-    NBA_POS_GROUP = {
-        "G": "Guard", "PG": "Guard", "SG": "Guard",
-        "F": "Forward", "SF": "Forward", "PF": "Forward",
-        "C": "Center",
-        "G-F": "Guard-Forward", "F-G": "Guard-Forward",
-        "F-C": "Forward-Center", "C-F": "Forward-Center",
-    }
-
-    # NFL position -> position_group mapping
-    NFL_POS_GROUP = {
-        "QB": "Offense", "RB": "Offense - Skill", "FB": "Offense",
-        "WR": "Offense - Skill", "TE": "Offense - Skill",
-        "OT": "Offense - Line", "OG": "Offense - Line", "C": "Offense - Line",
-        "OL": "Offense - Line", "T": "Offense - Line", "G": "Offense - Line",
-        "DE": "Defense - Line", "DT": "Defense - Line", "DL": "Defense - Line",
-        "NT": "Defense - Line",
-        "LB": "Defense - Linebacker", "OLB": "Defense - Linebacker",
-        "ILB": "Defense - Linebacker", "MLB": "Defense - Linebacker",
-        "CB": "Defense - Secondary", "S": "Defense - Secondary",
-        "SS": "Defense - Secondary", "FS": "Defense - Secondary",
-        "DB": "Defense - Secondary",
-        "K": "Special Teams", "P": "Special Teams", "LS": "Special Teams",
-        "KR": "Special Teams", "PR": "Special Teams",
-    }
-
     for sport_id in sports:
         entities: list[dict] = []
 
@@ -894,7 +862,6 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
         # PLAYERS
         # =====================================================================
         if sport_id == "FOOTBALL":
-            # Football: resolve league_id from player_stats (players.league_id may be NULL)
             player_rows = db.fetchall(
                 f"""
                 SELECT DISTINCT ON (p.id)
@@ -915,7 +882,6 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
                 (season, sport_id),
             )
         else:
-            # NBA/NFL: no league_id needed
             player_rows = db.fetchall(
                 f"""
                 SELECT p.id, p.name, p.position, p.meta,
@@ -929,49 +895,9 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
             )
 
         for row in player_rows:
-            if not row.get("name"):
-                continue
-
-            entity: dict = {
-                "id": f"{sport_id.lower()}_player_{row['id']}",
-                "entity_id": row["id"],
-                "type": "player",
-                "sport": sport_id,
-                "name": row["name"],
-                "normalized": _normalize_text(row["name"]),
-                "tokens": _tokenize(row["name"]),
-            }
-
-            meta: dict = {}
-            position = row.get("position")
-            if position:
-                meta["position"] = position
-
-            if sport_id == "NBA" and position:
-                pg = NBA_POS_GROUP.get(position, "")
-                if pg:
-                    meta["position_group"] = pg
-            elif sport_id == "NFL" and position:
-                pg = NFL_POS_GROUP.get(position, "")
-                if pg:
-                    meta["position_group"] = pg
-
-            team_abbr = row.get("team_abbr")
-            if team_abbr:
-                meta["team"] = team_abbr
-            elif sport_id == "FOOTBALL" and row.get("team_name"):
-                meta["team"] = row["team_name"]
-
-            if sport_id == "FOOTBALL":
-                league_id = row.get("league_id")
-                if league_id:
-                    entity["league_id"] = league_id
-                league_name = row.get("league_name")
-                if league_name:
-                    meta["league"] = league_name
-
-            entity["meta"] = meta
-            entities.append(entity)
+            entity = build_player_entity(dict(row), sport_id)
+            if entity:
+                entities.append(entity)
 
         # =====================================================================
         # TEAMS
@@ -1004,40 +930,9 @@ def cmd_export_profiles(args: argparse.Namespace) -> int:
             )
 
         for row in team_rows:
-            if not row.get("name"):
-                continue
-
-            entity = {
-                "id": f"{sport_id.lower()}_team_{row['id']}",
-                "entity_id": row["id"],
-                "type": "team",
-                "sport": sport_id,
-                "name": row["name"],
-                "normalized": _normalize_text(row["name"]),
-                "tokens": _tokenize(row["name"]),
-            }
-
-            meta = {}
-            if row.get("short_code"):
-                meta["abbreviation"] = row["short_code"]
-
-            if sport_id in ("NBA", "NFL"):
-                if row.get("conference"):
-                    meta["conference"] = row["conference"]
-                if row.get("division"):
-                    meta["division"] = row["division"]
-            elif sport_id == "FOOTBALL":
-                if row.get("country"):
-                    meta["country"] = row["country"]
-                league_id = row.get("league_id")
-                if league_id:
-                    entity["league_id"] = league_id
-                league_name = row.get("league_name")
-                if league_name:
-                    meta["league"] = league_name
-
-            entity["meta"] = meta
-            entities.append(entity)
+            entity = build_team_entity(dict(row), sport_id)
+            if entity:
+                entities.append(entity)
 
         # =====================================================================
         # WRITE OUTPUT

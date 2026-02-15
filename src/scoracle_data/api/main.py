@@ -22,7 +22,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
 
-from .routers import news, profile, stats, twitter
+from .routers import bootstrap, news, profile, stats, twitter
 from .cache import get_cache, TTL_ENTITY_INFO, TTL_CURRENT_SEASON, TTL_HISTORICAL
 from .errors import APIError, api_error_handler
 from .rate_limit import RateLimitMiddleware, get_rate_limiter
@@ -308,6 +308,12 @@ def create_app() -> FastAPI:
     app.include_router(profile.router, prefix="/api/v1/profile", tags=["profile"])
     # Stats endpoints - entity statistics and percentiles
     app.include_router(stats.router, prefix="/api/v1/stats", tags=["stats"])
+    # Autofill databases - entity bootstrap data for frontend autocomplete
+    app.include_router(
+        bootstrap.router,
+        prefix="/api/v1/autofill_databases",
+        tags=["autofill_databases"],
+    )
     # Twitter endpoints - curated journalist feed (separate for lazy loading)
     app.include_router(twitter.router, prefix="/api/v1/twitter", tags=["twitter"])
     # Unified News endpoint - entity-specific news from RSS + NewsAPI

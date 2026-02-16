@@ -76,9 +76,9 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (*Config, error) {
-	dbURL := envOr("NEON_DATABASE_URL_V2", envOr("DATABASE_URL", ""))
+	dbURL := envOr("NEON_DATABASE_URL_V2", envOr("DATABASE_URL", envOr("NEON_DATABASE_URL", "")))
 	if dbURL == "" {
-		return nil, fmt.Errorf("NEON_DATABASE_URL_V2 or DATABASE_URL must be set")
+		return nil, fmt.Errorf("NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL must be set")
 	}
 
 	return &Config{
@@ -88,7 +88,7 @@ func Load() (*Config, error) {
 		DBPoolMaxLife:  time.Duration(envInt("DB_POOL_MAX_LIFE_MINUTES", 30)) * time.Minute,
 
 		APIHost:     envOr("API_HOST", "0.0.0.0"),
-		APIPort:     envInt("API_PORT", 8000),
+		APIPort:     envInt("API_PORT", envInt("PORT", 8000)),
 		Environment: envOr("ENVIRONMENT", "development"),
 		Debug:       envBool("DEBUG", false),
 

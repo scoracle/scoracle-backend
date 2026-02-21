@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 
 # Load .env file for tests
-_env_file = os.path.join(os.path.dirname(__file__), "..", ".env")
+_env_file = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 if os.path.exists(_env_file):
     with open(_env_file) as f:
         for line in f:

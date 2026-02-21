@@ -11,8 +11,8 @@ This document tracks the implementation of machine learning capabilities for Sco
 ## Completed
 
 ### 1. Core ML Module Structure
-- `src/scoracle_data/ml/` - Main ML package
-- `src/scoracle_data/ml/config.py` - Configuration (source tiers, keywords, feature definitions)
+- `python/scoracle_data/ml/` - Main ML package
+- `python/scoracle_data/ml/config.py` - Configuration (source tiers, keywords, feature definitions)
 
 ### 2. Models (with heuristic fallbacks)
 | Model | File | Status |
@@ -34,11 +34,11 @@ This document tracks the implementation of machine learning capabilities for Sco
 - `ml/inference/prediction_service.py` - Unified prediction interface
 
 ### 5. API Router
-- `src/scoracle_data/api/routers/ml.py` - Full ML API endpoints
+- `python/scoracle_data/api/routers/ml.py` - Full ML API endpoints
 - Endpoints: `/transfers/*`, `/vibe/*`, `/similar/*`, `/predictions/*`
 
 ### 6. Database Migration
-- `src/scoracle_data/migrations/013_ml_tables.sql` - All ML tables
+- `python/scoracle_data/migrations/013_ml_tables.sql` - All ML tables
 
 ### 7. Jobs Module (NEW)
 | Job | File | Interval | Description |
@@ -75,7 +75,7 @@ python -m scoracle_data.cli ml scheduler
 1. **Run ML Migration**
    ```bash
    # Connect to Neon and run the migration
-   psql $NEON_DATABASE_URL_V2 -f src/scoracle_data/migrations/013_ml_tables.sql
+   psql $NEON_DATABASE_URL_V2 -f python/scoracle_data/migrations/013_ml_tables.sql
    ```
 
 2. **Test CLI Commands**
@@ -140,7 +140,7 @@ The code looks for environment variables in this order:
 ## File Structure
 
 ```
-src/scoracle_data/ml/
+python/scoracle_data/ml/
 ├── __init__.py
 ├── config.py                 # ML configuration
 ├── models/

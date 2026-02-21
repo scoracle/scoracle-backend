@@ -53,5 +53,8 @@ all = [
 scoracle-data = "scoracle_data.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/scoracle_data"]
+packages = ["python/scoracle_data"]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
 

@@ -150,7 +150,7 @@ This document outlines a comprehensive plan to transform the current blanket see
 
 ### 3.1 Schedule Ingestion Service
 
-**File:** `src/scoracle_data/schedulers/schedule_ingester.py`
+**File:** `python/scoracle_data/schedulers/schedule_ingester.py`
 
 **Responsibilities:**
 - Parse schedule files (CSV, JSON, or API response)
@@ -197,7 +197,7 @@ class ScheduleIngester:
 
 ### 3.2 Seeding Scheduler
 
-**File:** `src/scoracle_data/schedulers/seeding_scheduler.py`
+**File:** `python/scoracle_data/schedulers/seeding_scheduler.py`
 
 **Technology Options:**
 
@@ -259,7 +259,7 @@ class SeedingScheduler:
 
 ### 3.3 Targeted Seeding Engine
 
-**File:** `src/scoracle_data/seeders/targeted_seeder.py`
+**File:** `python/scoracle_data/seeders/targeted_seeder.py`
 
 **Design Philosophy:**
 - Extend existing `BaseSeeder` architecture
@@ -522,7 +522,7 @@ CREATE INDEX idx_sync_log_game ON sync_log(game_id);
 
 **Deliverables:**
 - Migration: `008_game_scheduling.sql`
-- Module: `src/scoracle_data/schedulers/schedule_ingester.py`
+- Module: `python/scoracle_data/schedulers/schedule_ingester.py`
 - CLI command: `ingest-schedule`
 - Tests: `tests/test_schedule_ingestion.py`
 
@@ -555,8 +555,8 @@ CREATE INDEX idx_sync_log_game ON sync_log(game_id);
    - `python -m scoracle_data.cli scheduler status`
 
 **Deliverables:**
-- Module: `src/scoracle_data/schedulers/seeding_scheduler.py`
-- Module: `src/scoracle_data/schedulers/roster_resolver.py`
+- Module: `python/scoracle_data/schedulers/seeding_scheduler.py`
+- Module: `python/scoracle_data/schedulers/roster_resolver.py`
 - Service: `schedulers/scheduler_daemon.py`
 - CLI commands: `scheduler start|stop|status`
 - Tests: `tests/test_scheduler.py`
@@ -593,7 +593,7 @@ CREATE INDEX idx_sync_log_game ON sync_log(game_id);
    - Error logging
 
 **Deliverables:**
-- Module: `src/scoracle_data/seeders/targeted_seeder.py`
+- Module: `python/scoracle_data/seeders/targeted_seeder.py`
 - Modified: NBA/NFL/Football seeders (add filtering support)
 - Tests: `tests/test_targeted_seeding.py`
 
@@ -627,9 +627,9 @@ CREATE INDEX idx_sync_log_game ON sync_log(game_id);
    - Scheduler downtime alerts
 
 **Deliverables:**
-- Module: `src/scoracle_data/monitoring/metrics.py`
+- Module: `python/scoracle_data/monitoring/metrics.py`
 - CLI commands: `monitor upcoming|failures|stats`
-- Alerting: `src/scoracle_data/monitoring/alerts.py`
+- Alerting: `python/scoracle_data/monitoring/alerts.py`
 - Documentation: `docs/MONITORING.md`
 
 **Success Criteria:**

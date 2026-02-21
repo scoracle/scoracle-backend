@@ -198,9 +198,10 @@ uvicorn scoracle_data.api.main:app --reload
 scoracle-data/
 ├── schema.sql                         # THE complete database definition (v7.0)
 ├── go.mod / go.sum                    # Module: github.com/albapepper/scoracle-data
+├── pyproject.toml                     # Python package config (legacy)
 ├── railway.toml                       # Railway deployment (Railpack, no Docker)
 │
-├── cmd/
+├── cmd/                               # Go entry points
 │   ├── api/main.go                    # API server entry point (graceful shutdown)
 │   └── ingest/main.go                 # Cobra CLI: seed nba|nfl|football, percentiles
 │
@@ -209,7 +210,7 @@ scoracle-data/
 │   ├── swagger.json
 │   └── swagger.yaml
 │
-├── internal/
+├── internal/                          # Go internal packages
 │   ├── api/
 │   │   ├── server.go                  # Chi router, middleware stack, route registration
 │   │   ├── middleware.go              # TimingMiddleware, RateLimitMiddleware
@@ -232,7 +233,7 @@ scoracle-data/
 │   ├── db/
 │   │   └── db.go                      # pgxpool wrapper, 17 prepared statements
 │   │
-│   ├── external/
+│   ├── thirdparty/
 │   │   ├── news.go                    # Google News RSS + NewsAPI unified client
 │   │   └── twitter.go                 # X API v2 List tweets with 1h feed cache
 │   │
@@ -254,14 +255,25 @@ scoracle-data/
 │       ├── nfl.go                     # SeedNFL orchestration
 │       └── football.go               # SeedFootballSeason orchestration
 │
-├── planning_docs/                     # Historical planning archive
+├── python/                            # Python codebase (legacy, being phased out)
+│   ├── scoracle_data/                 # Python package
+│   │   ├── cli.py                     # Full-featured CLI (seed, percentiles, export, fixtures)
+│   │   ├── api/                       # FastAPI server + routers
+│   │   ├── core/                      # Config, types, models
+│   │   ├── handlers/                  # BDL, SportMonks API clients
+│   │   ├── seeders/                   # Seed orchestration
+│   │   ├── external/                  # News, Twitter clients
+│   │   ├── fixtures/                  # Fixture scheduling
+│   │   ├── services/                  # Business logic
+│   │   └── percentiles/               # Percentile calculation
+│   └── tests/                         # Python test suite
 │
-└── src/scoracle_data/                 # Python legacy (being phased out)
+└── planning_docs/                     # Planning & design documents
 ```
 
 ## Python Codebase (legacy, being phased out)
 
-The Python codebase under `src/scoracle_data/` contains the original FastAPI server, CLI, and data seeders. It is no longer the production system but remains in the repo until the Go migration is fully validated.
+The Python codebase under `python/scoracle_data/` contains the original FastAPI server, CLI, and data seeders. It is no longer the production system but remains in the repo until the Go migration is fully validated.
 
 ## Go Dependencies
 

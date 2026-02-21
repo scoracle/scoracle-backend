@@ -646,7 +646,7 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 
 ### 3.1 New Connection Module
 
-Create `src/scoracle_data/pg_connection.py`:
+Create `python/scoracle_data/pg_connection.py`:
 
 ```python
 """PostgreSQL connection manager for Neon."""
@@ -912,7 +912,7 @@ PostgreSQL provides powerful window functions for percentile calculations:
 
 ### 5.2 New Percentile Calculation (Database-Side)
 
-Create `src/scoracle_data/percentiles/pg_calculator.py`:
+Create `python/scoracle_data/percentiles/pg_calculator.py`:
 
 ```python
 """PostgreSQL-native percentile calculator using window functions."""
@@ -1611,15 +1611,15 @@ print(f"Pool size: {pool.get_stats()}")
 | File | Action | Description |
 |------|--------|-------------|
 | `pyproject.toml` | Modify | Add psycopg3, psycopg-pool |
-| `src/scoracle_data/pg_connection.py` | Create | New PostgreSQL connection manager |
-| `src/scoracle_data/connection.py` | Keep/Modify | Keep for backward compatibility |
-| `src/scoracle_data/percentiles/pg_calculator.py` | Create | PostgreSQL-native percentile calculator |
-| `src/scoracle_data/percentiles/calculator.py` | Keep | Original for fallback |
-| `src/scoracle_data/entity_repository.py` | Modify | Update placeholders, add DB toggle |
-| `src/scoracle_data/queries/players.py` | Modify | Update query placeholders |
-| `src/scoracle_data/queries/teams.py` | Modify | Update query placeholders |
-| `src/scoracle_data/query_builder.py` | Modify | Generate PostgreSQL syntax |
-| `src/scoracle_data/seeders/*.py` | Modify | Update all INSERT queries |
+| `python/scoracle_data/pg_connection.py` | Create | New PostgreSQL connection manager |
+| `python/scoracle_data/connection.py` | Keep/Modify | Keep for backward compatibility |
+| `python/scoracle_data/percentiles/pg_calculator.py` | Create | PostgreSQL-native percentile calculator |
+| `python/scoracle_data/percentiles/calculator.py` | Keep | Original for fallback |
+| `python/scoracle_data/entity_repository.py` | Modify | Update placeholders, add DB toggle |
+| `python/scoracle_data/queries/players.py` | Modify | Update query placeholders |
+| `python/scoracle_data/queries/teams.py` | Modify | Update query placeholders |
+| `python/scoracle_data/query_builder.py` | Modify | Generate PostgreSQL syntax |
+| `python/scoracle_data/seeders/*.py` | Modify | Update all INSERT queries |
 | `migrations/007_postgresql_conversion.sql` | Create | Consolidated PostgreSQL schema |
 | `scripts/migrate_to_neon.py` | Create | Data migration script |
 | `tests/test_pg_*.py` | Create | PostgreSQL-specific tests |

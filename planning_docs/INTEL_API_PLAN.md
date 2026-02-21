@@ -199,7 +199,7 @@ GET /api/v1/intel/reddit?q={query}&sport={sport}&sort={sort}&limit={limit}
 ## Project Structure Updates
 
 ```
-src/scoracle_data/
+python/scoracle_data/
 ├── api/
 │   ├── main.py                 # Add new router
 │   ├── routers/

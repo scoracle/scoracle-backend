@@ -9,7 +9,7 @@ import pytest
 def pytest_configure(config):
     """Configure pytest with database URL if available."""
     # Try to load from .env file if environment variables not already set
-    env_file = os.path.join(os.path.dirname(__file__), "..", ".env")
+    env_file = os.path.join(os.path.dirname(__file__), "..", "..", ".env")
     if os.path.exists(env_file):
         with open(env_file) as f:
             for line in f:

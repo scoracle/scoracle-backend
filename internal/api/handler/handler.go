@@ -12,7 +12,7 @@ import (
 	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
-	"github.com/albapepper/scoracle-data/internal/external"
+	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 // Handler holds shared dependencies for all endpoint handlers.
@@ -20,8 +20,8 @@ type Handler struct {
 	pool    *pgxpool.Pool
 	cache   *cache.Cache
 	cfg     *config.Config
-	news    *external.NewsService
-	twitter *external.TwitterService
+	news    *thirdparty.NewsService
+	twitter *thirdparty.TwitterService
 }
 
 // New creates a Handler with shared dependencies.
@@ -30,8 +30,8 @@ func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config) *Handler {
 		pool:    pool,
 		cache:   c,
 		cfg:     cfg,
-		news:    external.NewNewsService(cfg.NewsAPIKey),
-		twitter: external.NewTwitterService(cfg.TwitterBearerToken, cfg.TwitterListID),
+		news:    thirdparty.NewNewsService(cfg.NewsAPIKey),
+		twitter: thirdparty.NewTwitterService(cfg.TwitterBearerToken, cfg.TwitterListID),
 	}
 }
 

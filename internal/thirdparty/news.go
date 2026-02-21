@@ -1,5 +1,5 @@
-// Package external provides clients for third-party APIs (news, twitter).
-package external
+// Package thirdparty provides clients for third-party APIs (news, twitter).
+package thirdparty
 
 import (
 	"encoding/json"

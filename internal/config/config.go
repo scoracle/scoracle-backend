@@ -75,6 +75,9 @@ type Config struct {
 
 	// Notifications (FCM push)
 	FCMCredentialsFile string
+
+	// PostgREST URL (for multi-spec Swagger UI)
+	PostgRESTURL string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -114,6 +117,8 @@ func Load() (*Config, error) {
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 
 		FCMCredentialsFile: envOr("FIREBASE_CREDENTIALS_FILE", ""),
+
+		PostgRESTURL: envOr("POSTGREST_URL", ""),
 	}, nil
 }
 

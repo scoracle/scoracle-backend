@@ -49,7 +49,8 @@ When the Go ingestion service writes a new stat row, a Postgres trigger fires `p
 The Go service holds an open `pgx` connection listening on this channel. On receiving a notification, it evaluates the payload against user subscriptions and dispatches FCM push notifications accordingly.
 
 ```
-Ingestion write → Postgres trigger → pg_notify('milestone_reached', payload)
+Ingestion write → REFRESH MATERIALIZED VIEW (post-ingestion hook)
+               → Postgres trigger → pg_notify('milestone_reached', payload)
                                           ↓
                               Go LISTEN consumer
                                           ↓
@@ -58,21 +59,20 @@ Ingestion write → Postgres trigger → pg_notify('milestone_reached', payload)
 
 This model is event-driven, not polling-based. There is no scheduled interval introducing lag between a stat event and the notification.
 
-### Scheduled and Maintenance Jobs (pg_cron)
+### Scheduled Maintenance (Go)
 
-`pg_cron` handles all time-based work that is purely internal to the database:
+All periodic maintenance runs inside the Go service using goroutine-based tickers. Since Go is already a persistent, long-running process (required for LISTEN/NOTIFY), adding scheduled work here is trivial and avoids introducing another infrastructure dependency.
 
-- Refreshing materialized views on a defined schedule
-- Generating digest notification records for batch delivery
-- Expiring stale cache records and cleaning up processed notification rows
-- Periodic catch-up sweeps to handle any NOTIFY events missed during downtime
+**Post-ingestion hooks** (run immediately after a successful ingestion cycle):
+- Refresh materialized views (`REFRESH MATERIALIZED VIEW CONCURRENTLY`)
+- Archive current percentiles for notification diffing
 
-```sql
--- Example: refresh stats materialized view every 10 minutes
-SELECT cron.schedule('refresh-stats', '*/10 * * * *', 'REFRESH MATERIALIZED VIEW CONCURRENTLY mv_player_stats');
-```
+**Periodic tickers** (run on a fixed interval via `time.Ticker`):
+- Clean up processed notification rows and expired cache records
+- Generate digest notification records for batch delivery
+- Catch-up sweep for any NOTIFY events missed during downtime
 
-pg_cron does **not** make external HTTP calls. All scheduled work operates on data already in Postgres.
+Ingestion-triggered refreshes are preferable to fixed-interval cron because they fire exactly when data changes — no stale windows, no wasted cycles.
 
 ---
 
@@ -157,13 +157,14 @@ Both PostgREST and the Go service are deployed as separate services within the s
 
 ### PostgREST Railway Service
 
-Deploy using the official PostgREST Docker image. The only required configuration is the database connection string and JWT secret, supplied as Railway environment variables:
+Deploy as a Railway service using the **Docker Image** source (not a repo-linked build). Point it at `postgrest/postgrest:v12.2.3`. No Dockerfile or build step is needed — PostgREST is configured entirely via environment variables:
 
 ```
 PGRST_DB_URI=postgresql://...
 PGRST_JWT_SECRET=your_jwt_secret
-PGRST_DB_SCHEMA=api
+PGRST_DB_SCHEMAS=api
 PGRST_DB_ANON_ROLE=web_anon
+PGRST_OPENAPI_MODE=follow-privileges
 ```
 
 ### Connection Pooling
@@ -187,5 +188,5 @@ Ensure the Railway project region and the Neon database region are co-located (e
 | News & social API | Go |
 | Push notifications (FCM) | Go |
 | Real-time stat events | Postgres LISTEN/NOTIFY → Go |
-| Scheduled maintenance | pg_cron |
+| Scheduled maintenance | Go (tickers + post-ingestion hooks) |
 | API documentation | Multi-spec Swagger UI |

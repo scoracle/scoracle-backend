@@ -1232,3 +1232,336 @@ RETURNS TABLE (
       AND kv.key NOT LIKE '\_%'
       AND jsonb_typeof(kv.value) = 'number';
 $$ LANGUAGE sql STABLE;
+
+-- ============================================================================
+-- 17. POSTGREST ROLES & API SCHEMA
+-- ============================================================================
+-- PostgREST connects as `authenticator` and switches to `web_anon` (anonymous)
+-- or `web_user` (authenticated via JWT). All PostgREST-facing objects live in
+-- the `api` schema to isolate the public surface from internal tables.
+--
+-- Run this section once as a superuser / database owner.
+
+-- Roles (idempotent: CREATE IF NOT EXISTS equivalent via DO block)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'web_anon') THEN
+        CREATE ROLE web_anon NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'web_user') THEN
+        CREATE ROLE web_user NOLOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticator') THEN
+        CREATE ROLE authenticator NOINHERIT LOGIN;
+    END IF;
+END $$;
+
+GRANT web_anon TO authenticator;
+GRANT web_user TO authenticator;
+
+-- API schema
+CREATE SCHEMA IF NOT EXISTS api;
+GRANT USAGE ON SCHEMA api TO web_anon, web_user;
+
+-- ============================================================================
+-- 17a. API VIEWS — stable read surface for PostgREST
+-- ============================================================================
+-- These views are the only objects PostgREST exposes. Raw tables are never
+-- accessible directly. Column names become the JSON keys in API responses.
+
+-- Player stats with profile context
+CREATE OR REPLACE VIEW api.player_stats AS
+SELECT
+    ps.player_id,
+    ps.sport,
+    ps.season,
+    ps.league_id,
+    ps.team_id,
+    ps.stats,
+    ps.percentiles - '_position_group' - '_sample_size' AS percentiles,
+    CASE
+        WHEN ps.percentiles IS NOT NULL
+            AND ps.percentiles->>'_position_group' IS NOT NULL
+        THEN jsonb_build_object(
+            'position_group', ps.percentiles->>'_position_group',
+            'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
+        )
+    END AS percentile_metadata,
+    p.name AS player_name,
+    p.position,
+    p.photo_url,
+    t.name AS team_name,
+    t.short_code AS team_abbr,
+    t.logo_url AS team_logo_url,
+    ps.updated_at
+FROM player_stats ps
+JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
+LEFT JOIN teams t ON t.id = ps.team_id AND t.sport = ps.sport;
+
+COMMENT ON VIEW api.player_stats IS
+    'Player season stats with percentile ranks and profile context. Filter by sport, season, player_id.';
+
+-- Team stats with profile context
+CREATE OR REPLACE VIEW api.team_stats AS
+SELECT
+    ts.team_id,
+    ts.sport,
+    ts.season,
+    ts.league_id,
+    ts.stats,
+    ts.percentiles - '_sample_size' AS percentiles,
+    CASE
+        WHEN ts.percentiles IS NOT NULL
+            AND ts.percentiles->>'_sample_size' IS NOT NULL
+        THEN jsonb_build_object(
+            'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
+        )
+    END AS percentile_metadata,
+    t.name AS team_name,
+    t.short_code AS team_abbr,
+    t.logo_url,
+    t.conference,
+    t.division,
+    l.name AS league_name,
+    ts.updated_at
+FROM team_stats ts
+JOIN teams t ON t.id = ts.team_id AND t.sport = ts.sport
+LEFT JOIN leagues l ON l.id = ts.league_id;
+
+COMMENT ON VIEW api.team_stats IS
+    'Team season stats with percentile ranks and profile context. Filter by sport, season, team_id.';
+
+-- Player profiles
+CREATE OR REPLACE VIEW api.players AS
+SELECT * FROM v_player_profile;
+
+COMMENT ON VIEW api.players IS
+    'Player profiles with team and league context. Filter by id, sport_id.';
+
+-- Team profiles
+CREATE OR REPLACE VIEW api.teams AS
+SELECT * FROM v_team_profile;
+
+COMMENT ON VIEW api.teams IS
+    'Team profiles with league context. Filter by id, sport_id.';
+
+-- Standings (team stats ordered for league table display)
+CREATE OR REPLACE VIEW api.standings AS
+SELECT
+    ts.team_id,
+    ts.sport,
+    ts.season,
+    ts.league_id,
+    t.name AS team_name,
+    t.short_code AS team_abbr,
+    t.logo_url,
+    t.conference,
+    t.division,
+    l.name AS league_name,
+    ts.stats,
+    CASE WHEN ts.sport = 'FOOTBALL' THEN (ts.stats->>'points')::integer END AS sort_points,
+    CASE WHEN ts.sport = 'FOOTBALL' THEN (ts.stats->>'goal_difference')::integer END AS sort_goal_diff,
+    CASE WHEN ts.sport != 'FOOTBALL' THEN
+        ROUND(
+            (ts.stats->>'wins')::numeric /
+            NULLIF((ts.stats->>'wins')::integer + (ts.stats->>'losses')::integer, 0), 3
+        )
+    END AS win_pct
+FROM team_stats ts
+JOIN teams t ON t.id = ts.team_id AND t.sport = ts.sport
+LEFT JOIN leagues l ON l.id = ts.league_id;
+
+COMMENT ON VIEW api.standings IS
+    'Team standings with computed win_pct/sort keys. Order by sort_points DESC (football) or win_pct DESC (NBA/NFL).';
+
+-- Stat definitions
+CREATE OR REPLACE VIEW api.stat_definitions AS
+SELECT
+    id, sport, key_name, display_name, entity_type,
+    category, is_inverse, is_derived, is_percentile_eligible, sort_order
+FROM stat_definitions;
+
+COMMENT ON VIEW api.stat_definitions IS
+    'Canonical stat registry. Filter by sport, entity_type.';
+
+-- Leagues
+CREATE OR REPLACE VIEW api.leagues AS
+SELECT
+    id, sport, name, country, logo_url,
+    is_benchmark, is_active, handicap, meta
+FROM leagues;
+
+COMMENT ON VIEW api.leagues IS
+    'League metadata. Filter by sport.';
+
+-- Autofill entities (for frontend autocomplete)
+CREATE OR REPLACE VIEW api.autofill_entities AS
+SELECT * FROM mv_autofill_entities;
+
+COMMENT ON VIEW api.autofill_entities IS
+    'Pre-computed entity list for frontend autocomplete. Filter by sport.';
+
+-- Sports
+CREATE OR REPLACE VIEW api.sports AS
+SELECT id, display_name, current_season, is_active
+FROM sports;
+
+COMMENT ON VIEW api.sports IS
+    'Available sports and their current seasons.';
+
+-- ============================================================================
+-- 17b. API FUNCTIONS — RPC endpoints for PostgREST
+-- ============================================================================
+-- PostgREST exposes Postgres functions as RPC: POST /rpc/stat_leaders
+
+CREATE OR REPLACE FUNCTION api.stat_leaders(
+    p_sport TEXT, p_season INTEGER, p_stat_name TEXT,
+    p_limit INTEGER DEFAULT 25, p_position TEXT DEFAULT NULL,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS TABLE (rank BIGINT, player_id INTEGER, name TEXT, position TEXT, team_name TEXT, stat_value NUMERIC)
+AS $$
+    SELECT * FROM public.fn_stat_leaders(p_sport, p_season, p_stat_name, p_limit, p_position, p_league_id);
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION api.stat_leaders IS
+    'Returns top N players by stat category with positional filtering.';
+
+-- ============================================================================
+-- 17c. GRANT PERMISSIONS
+-- ============================================================================
+-- web_anon: read-only access to all api views and RPC functions.
+-- web_user: same as web_anon plus read/write on their own subscription data.
+
+GRANT SELECT ON api.player_stats TO web_anon;
+GRANT SELECT ON api.team_stats TO web_anon;
+GRANT SELECT ON api.players TO web_anon;
+GRANT SELECT ON api.teams TO web_anon;
+GRANT SELECT ON api.standings TO web_anon;
+GRANT SELECT ON api.stat_definitions TO web_anon;
+GRANT SELECT ON api.leagues TO web_anon;
+GRANT SELECT ON api.autofill_entities TO web_anon;
+GRANT SELECT ON api.sports TO web_anon;
+GRANT EXECUTE ON FUNCTION api.stat_leaders TO web_anon;
+
+GRANT SELECT ON api.player_stats TO web_user;
+GRANT SELECT ON api.team_stats TO web_user;
+GRANT SELECT ON api.players TO web_user;
+GRANT SELECT ON api.teams TO web_user;
+GRANT SELECT ON api.standings TO web_user;
+GRANT SELECT ON api.stat_definitions TO web_user;
+GRANT SELECT ON api.leagues TO web_user;
+GRANT SELECT ON api.autofill_entities TO web_user;
+GRANT SELECT ON api.sports TO web_user;
+GRANT EXECUTE ON FUNCTION api.stat_leaders TO web_user;
+
+-- User subscription views (authenticated only, with RLS)
+CREATE OR REPLACE VIEW api.my_follows AS
+SELECT uf.id, uf.entity_type, uf.entity_id, uf.sport, uf.created_at
+FROM user_follows uf
+WHERE uf.user_id::text = current_setting('request.jwt.claims', true)::json->>'sub';
+
+COMMENT ON VIEW api.my_follows IS
+    'Current user entity follow subscriptions (JWT-scoped).';
+
+GRANT SELECT, INSERT, DELETE ON api.my_follows TO web_user;
+GRANT USAGE, SELECT ON SEQUENCE user_follows_id_seq TO web_user;
+
+-- ============================================================================
+-- 17d. ROW LEVEL SECURITY
+-- ============================================================================
+-- RLS on the underlying tables that back authenticated views.
+-- PostgREST sets `request.jwt.claims` per request, and the role to web_user.
+
+ALTER TABLE user_follows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_follows_own ON user_follows;
+CREATE POLICY user_follows_own ON user_follows
+    FOR ALL
+    TO web_user
+    USING (user_id::text = current_setting('request.jwt.claims', true)::json->>'sub')
+    WITH CHECK (user_id::text = current_setting('request.jwt.claims', true)::json->>'sub');
+
+ALTER TABLE user_devices ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS user_devices_own ON user_devices;
+CREATE POLICY user_devices_own ON user_devices
+    FOR ALL
+    TO web_user
+    USING (user_id::text = current_setting('request.jwt.claims', true)::json->>'sub')
+    WITH CHECK (user_id::text = current_setting('request.jwt.claims', true)::json->>'sub');
+
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS notifications_own ON notifications;
+CREATE POLICY notifications_own ON notifications
+    FOR SELECT
+    TO web_user
+    USING (user_id::text = current_setting('request.jwt.claims', true)::json->>'sub');
+
+-- ============================================================================
+-- 18. LISTEN/NOTIFY — milestone event trigger
+-- ============================================================================
+-- Fires pg_notify on `milestone_reached` channel when a player_stats or
+-- team_stats row is inserted/updated and percentiles contain a value >= 90.
+-- The Go LISTEN consumer receives these and dispatches FCM push notifications.
+
+CREATE OR REPLACE FUNCTION notify_milestone_reached()
+RETURNS TRIGGER AS $$
+DECLARE
+    pctile_key TEXT;
+    pctile_val NUMERIC;
+    payload JSONB;
+    entity_type TEXT;
+    entity_id INTEGER;
+BEGIN
+    IF TG_TABLE_NAME = 'player_stats' THEN
+        entity_type := 'player';
+        entity_id := NEW.player_id;
+    ELSIF TG_TABLE_NAME = 'team_stats' THEN
+        entity_type := 'team';
+        entity_id := NEW.team_id;
+    ELSE
+        RETURN NEW;
+    END IF;
+
+    IF NEW.percentiles IS NULL OR NEW.percentiles = '{}'::jsonb THEN
+        RETURN NEW;
+    END IF;
+
+    FOR pctile_key, pctile_val IN
+        SELECT kv.key, (kv.value::text)::numeric
+        FROM jsonb_each(NEW.percentiles) AS kv(key, value)
+        WHERE kv.key NOT LIKE '\_%'
+          AND jsonb_typeof(kv.value) = 'number'
+          AND (kv.value::text)::numeric >= 90
+    LOOP
+        payload := jsonb_build_object(
+            'entity_type', entity_type,
+            'entity_id', entity_id,
+            'sport', NEW.sport,
+            'season', NEW.season,
+            'stat_key', pctile_key,
+            'percentile', pctile_val,
+            'ts', extract(epoch from now())::bigint
+        );
+        PERFORM pg_notify('milestone_reached', payload::text);
+    END LOOP;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_milestone_player_stats ON player_stats;
+CREATE TRIGGER trg_milestone_player_stats
+    AFTER INSERT OR UPDATE OF percentiles ON player_stats
+    FOR EACH ROW
+    WHEN (NEW.percentiles IS NOT NULL AND NEW.percentiles != '{}'::jsonb)
+    EXECUTE FUNCTION notify_milestone_reached();
+
+DROP TRIGGER IF EXISTS trg_milestone_team_stats ON team_stats;
+CREATE TRIGGER trg_milestone_team_stats
+    AFTER INSERT OR UPDATE OF percentiles ON team_stats
+    FOR EACH ROW
+    WHEN (NEW.percentiles IS NOT NULL AND NEW.percentiles != '{}'::jsonb)
+    EXECUTE FUNCTION notify_milestone_reached();

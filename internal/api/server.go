@@ -52,9 +52,20 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 		r.Get("/cache", h.HealthCheckCache)
 	})
 
-	// Swagger UI
+	// Swagger UI — multi-spec dropdown showing Go API and PostgREST specs.
+	// PostgREST auto-generates its OpenAPI spec at its root endpoint.
+	postgrestURL := cfg.PostgRESTURL
+	if postgrestURL == "" {
+		postgrestURL = "http://localhost:3000" // default for local dev
+	}
 	r.Get("/docs/*", httpSwagger.Handler(
 		httpSwagger.URL("/docs/doc.json"),
+		httpSwagger.UIConfig(map[string]string{
+			"urls": `[
+				{"url": "/docs/doc.json", "name": "Ingestion & Notifications API (Go)"},
+				{"url": "` + postgrestURL + `/", "name": "Stats API (PostgREST)"}
+			]`,
+		}),
 	))
 
 	// API v1 routes

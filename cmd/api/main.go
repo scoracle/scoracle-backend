@@ -30,6 +30,8 @@ import (
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
+	"github.com/albapepper/scoracle-data/internal/listener"
+	"github.com/albapepper/scoracle-data/internal/maintenance"
 	"github.com/albapepper/scoracle-data/internal/notifications"
 
 	_ "github.com/albapepper/scoracle-data/docs" // swagger docs
@@ -77,6 +79,12 @@ func main() {
 	} else {
 		logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
 	}
+
+	// Start LISTEN/NOTIFY consumer for real-time milestone events
+	go listener.Start(ctx, cfg.DatabaseURL, pool.Pool, fcmSender, logger)
+
+	// Start maintenance tickers (cleanup, digest, catch-up sweep)
+	go maintenance.Start(ctx, pool.Pool, maintenance.DefaultConfig(), logger)
 
 	// Create router
 	router := api.NewRouter(pool.Pool, appCache, cfg)

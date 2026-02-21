@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/albapepper/scoracle-data/internal/maintenance"
 	"github.com/albapepper/scoracle-data/internal/notifications"
 	"github.com/albapepper/scoracle-data/internal/provider"
 	"github.com/albapepper/scoracle-data/internal/provider/bdl"
@@ -128,6 +129,11 @@ func SeedFixture(
 
 	result.Success = true
 	result.Duration = time.Since(start)
+
+	// Post-ingestion hook: refresh materialized views
+	if err := maintenance.RefreshMaterializedViews(ctx, pool, logger); err != nil {
+		logger.Warn("Post-ingestion view refresh failed", "error", err)
+	}
 
 	// Run notification pipeline (fire-and-warn, never blocks seeding)
 	if result.PercentilesRecalculated {

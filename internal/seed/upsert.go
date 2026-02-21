@@ -127,6 +127,16 @@ func RecalculatePercentiles(ctx context.Context, pool *pgxpool.Pool, sport strin
 	return playersUpdated, teamsUpdated, nil
 }
 
+// ArchivePercentiles snapshots current percentiles to percentile_archive
+// before recalculation. Used by notification diffing to detect changes.
+func ArchivePercentiles(ctx context.Context, pool *pgxpool.Pool, sport string, season int) error {
+	_, err := pool.Exec(ctx, "archive_current_percentiles", sport, season)
+	if err != nil {
+		return fmt.Errorf("archive percentiles: %w", err)
+	}
+	return nil
+}
+
 // --------------------------------------------------------------------------
 // Helpers
 // --------------------------------------------------------------------------

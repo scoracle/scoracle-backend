@@ -30,6 +30,7 @@ import (
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
+	"github.com/albapepper/scoracle-data/internal/notifications"
 
 	_ "github.com/albapepper/scoracle-data/docs" // swagger docs
 )
@@ -67,6 +68,15 @@ func main() {
 	// Initialize cache
 	appCache := cache.New(cfg.CacheEnabled)
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
+
+	// Start notification dispatch worker (if FCM is configured)
+	fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
+	if fcmSender != nil {
+		go notifications.StartWorker(ctx, pool.Pool, fcmSender, logger)
+		logger.Info("Notification dispatch worker started")
+	} else {
+		logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
+	}
 
 	// Create router
 	router := api.NewRouter(pool.Pool, appCache, cfg)

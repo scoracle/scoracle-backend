@@ -1084,3 +1084,151 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_autofill_pk
 
 CREATE INDEX IF NOT EXISTS idx_mv_autofill_sport
     ON mv_autofill_entities (sport);
+
+-- ============================================================================
+-- 15. NOTIFICATIONS & FOLLOWS
+-- ============================================================================
+-- Users, follows, device tokens, and scheduled notification queue.
+-- Supports push notifications triggered by percentile threshold crossings.
+
+CREATE TABLE IF NOT EXISTS users (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    timezone    TEXT NOT NULL DEFAULT 'UTC',
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_follows (
+    id          SERIAL PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id),
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
+    entity_id   INTEGER NOT NULL,
+    sport       TEXT NOT NULL REFERENCES sports(id),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, entity_type, entity_id, sport)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_follows_entity
+    ON user_follows(entity_type, entity_id, sport);
+CREATE INDEX IF NOT EXISTS idx_user_follows_user
+    ON user_follows(user_id);
+
+CREATE TABLE IF NOT EXISTS user_devices (
+    id          SERIAL PRIMARY KEY,
+    user_id     UUID NOT NULL REFERENCES users(id),
+    platform    TEXT NOT NULL CHECK (platform IN ('ios', 'android', 'web')),
+    token       TEXT NOT NULL,
+    is_active   BOOLEAN DEFAULT true,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, token)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id              SERIAL PRIMARY KEY,
+    user_id         UUID NOT NULL REFERENCES users(id),
+    entity_type     TEXT NOT NULL,
+    entity_id       INTEGER NOT NULL,
+    sport           TEXT NOT NULL REFERENCES sports(id),
+    fixture_id      INTEGER REFERENCES fixtures(id),
+    stat_key        TEXT NOT NULL,
+    percentile      NUMERIC NOT NULL,
+    message         TEXT NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'scheduled'
+        CHECK (status IN ('scheduled', 'sending', 'sent', 'failed')),
+    scheduled_for   TIMESTAMPTZ NOT NULL,
+    sent_at         TIMESTAMPTZ,
+    last_error      TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_dispatch
+    ON notifications(status, scheduled_for) WHERE status = 'scheduled';
+CREATE INDEX IF NOT EXISTS idx_notifications_user
+    ON notifications(user_id, created_at DESC);
+
+-- ============================================================================
+-- 16. NOTIFICATION HELPER FUNCTIONS
+-- ============================================================================
+
+-- Archive current percentiles before recalculation (for notification diffing).
+CREATE OR REPLACE FUNCTION archive_current_percentiles(p_sport TEXT, p_season INTEGER)
+RETURNS VOID AS $$
+BEGIN
+    -- Archive player percentiles
+    INSERT INTO percentile_archive (entity_type, entity_id, sport, season, stat_category, percentile, sample_size, calculated_at)
+    SELECT 'player', ps.player_id, ps.sport, ps.season, kv.key,
+           (kv.value::text)::real,
+           COALESCE((ps.percentiles->>'_sample_size')::integer, 0),
+           ps.updated_at
+    FROM player_stats ps
+    CROSS JOIN LATERAL jsonb_each(ps.percentiles) AS kv(key, value)
+    WHERE ps.sport = p_sport AND ps.season = p_season
+      AND kv.key NOT LIKE '\_%'
+      AND jsonb_typeof(kv.value) = 'number'
+    ON CONFLICT (entity_type, entity_id, sport, season, stat_category, archived_at) DO NOTHING;
+
+    -- Archive team percentiles
+    INSERT INTO percentile_archive (entity_type, entity_id, sport, season, stat_category, percentile, sample_size, calculated_at)
+    SELECT 'team', ts.team_id, ts.sport, ts.season, kv.key,
+           (kv.value::text)::real,
+           COALESCE((ts.percentiles->>'_sample_size')::integer, 0),
+           ts.updated_at
+    FROM team_stats ts
+    CROSS JOIN LATERAL jsonb_each(ts.percentiles) AS kv(key, value)
+    WHERE ts.sport = p_sport AND ts.season = p_season
+      AND kv.key NOT LIKE '\_%'
+      AND jsonb_typeof(kv.value) = 'number'
+    ON CONFLICT (entity_type, entity_id, sport, season, stat_category, archived_at) DO NOTHING;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Detect percentile movements for entities involved in a fixture.
+-- Compares percentile_archive (pre-recalc snapshot) vs current values.
+CREATE OR REPLACE FUNCTION detect_percentile_changes(p_fixture_id INTEGER)
+RETURNS TABLE (
+    entity_type TEXT, entity_id INTEGER, sport TEXT, season INTEGER,
+    league_id INTEGER, stat_key TEXT, old_percentile REAL, new_percentile REAL,
+    sample_size INTEGER
+) AS $$
+    -- Team changes
+    SELECT 'team'::text, ts.team_id, ts.sport, ts.season, ts.league_id,
+           kv.key, pa.percentile, (kv.value::text)::real,
+           COALESCE((ts.percentiles->>'_sample_size')::integer, 0)
+    FROM fixtures f
+    JOIN team_stats ts ON ts.sport = f.sport AND ts.season = f.season
+        AND ts.team_id IN (f.home_team_id, f.away_team_id)
+    CROSS JOIN LATERAL jsonb_each(ts.percentiles) AS kv(key, value)
+    LEFT JOIN LATERAL (
+        SELECT pa2.percentile FROM percentile_archive pa2
+        WHERE pa2.entity_type = 'team'
+          AND pa2.entity_id = ts.team_id AND pa2.sport = ts.sport
+          AND pa2.season = ts.season AND pa2.stat_category = kv.key
+          AND pa2.is_final = false
+        ORDER BY pa2.archived_at DESC LIMIT 1
+    ) pa ON true
+    WHERE f.id = p_fixture_id
+      AND kv.key NOT LIKE '\_%'
+      AND jsonb_typeof(kv.value) = 'number'
+
+    UNION ALL
+
+    -- Player changes (players on fixture teams)
+    SELECT 'player'::text, ps.player_id, ps.sport, ps.season, ps.league_id,
+           kv.key, pa.percentile, (kv.value::text)::real,
+           COALESCE((ps.percentiles->>'_sample_size')::integer, 0)
+    FROM fixtures f
+    JOIN player_stats ps ON ps.sport = f.sport AND ps.season = f.season
+        AND ps.team_id IN (f.home_team_id, f.away_team_id)
+    CROSS JOIN LATERAL jsonb_each(ps.percentiles) AS kv(key, value)
+    LEFT JOIN LATERAL (
+        SELECT pa2.percentile FROM percentile_archive pa2
+        WHERE pa2.entity_type = 'player'
+          AND pa2.entity_id = ps.player_id AND pa2.sport = ps.sport
+          AND pa2.season = ps.season AND pa2.stat_category = kv.key
+          AND pa2.is_final = false
+        ORDER BY pa2.archived_at DESC LIMIT 1
+    ) pa ON true
+    WHERE f.id = p_fixture_id
+      AND kv.key NOT LIKE '\_%'
+      AND jsonb_typeof(kv.value) = 'number';
+$$ LANGUAGE sql STABLE;

@@ -97,6 +97,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 
 		// Ingestion: league lookup
 		"league_lookup": "SELECT sportmonks_id, name FROM leagues WHERE id = $1",
+
+		// Fixtures
+		"get_pending_fixtures": "SELECT * FROM get_pending_fixtures($1, $2, $3)",
+		"fixture_by_id":        "SELECT id, sport, league_id, season, home_team_id, away_team_id, start_time, seed_delay_hours, seed_attempts, external_id FROM fixtures WHERE id = $1",
+		"fixture_start_time":   "SELECT start_time FROM fixtures WHERE id = $1",
+
+		// Percentile archiving
+		"archive_current_percentiles": "SELECT archive_current_percentiles($1, $2)",
+
+		// Notifications
+		"detect_percentile_changes": "SELECT * FROM detect_percentile_changes($1)",
+		"get_entity_followers":      "SELECT uf.user_id, u.timezone FROM user_follows uf JOIN users u ON u.id = uf.user_id WHERE uf.entity_type = $1 AND uf.entity_id = $2 AND uf.sport = $3",
+		"notification_player_name":  "SELECT name FROM players WHERE id = $1 AND sport = $2",
+		"stat_display_name":         "SELECT display_name FROM stat_definitions WHERE sport = $1 AND key_name = $2 AND entity_type = $3",
+		"get_user_device_tokens":    "SELECT token FROM user_devices WHERE user_id = $1 AND is_active = true",
 	}
 
 	for name, sql := range stmts {

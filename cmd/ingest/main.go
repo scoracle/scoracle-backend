@@ -6,6 +6,8 @@
 //	scoracle-ingest seed nfl --season 2025
 //	scoracle-ingest seed football --season 2025 --league 8
 //	scoracle-ingest percentiles --sport NBA --season 2025
+//	scoracle-ingest fixtures process --sport NBA --max 10 --workers 2
+//	scoracle-ingest fixtures seed --id 42
 package main
 
 import (
@@ -21,6 +23,7 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
+	"github.com/albapepper/scoracle-data/internal/fixture"
 	"github.com/albapepper/scoracle-data/internal/provider/bdl"
 	"github.com/albapepper/scoracle-data/internal/provider/sportmonks"
 	"github.com/albapepper/scoracle-data/internal/seed"
@@ -39,6 +42,7 @@ func main() {
 
 	root.AddCommand(seedCmd())
 	root.AddCommand(percentilesCmd())
+	root.AddCommand(fixturesCmd())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -181,6 +185,107 @@ func percentilesCmd() *cobra.Command {
 	cmd.Flags().StringVar(&sport, "sport", "NBA", "Sport (NBA, NFL, FOOTBALL)")
 	cmd.Flags().IntVar(&season, "season", 2025, "Season year")
 	return cmd
+}
+
+// --------------------------------------------------------------------------
+// fixtures command
+// --------------------------------------------------------------------------
+
+func fixturesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "fixtures",
+		Short: "Process post-match fixtures (seed stats after games finish)",
+	}
+	cmd.AddCommand(fixturesProcessCmd())
+	cmd.AddCommand(fixturesSeedCmd())
+	return cmd
+}
+
+func fixturesProcessCmd() *cobra.Command {
+	var (
+		sport           string
+		maxFixtures     int
+		workers         int
+		maxRetries      int
+		skipPercentiles bool
+	)
+	cmd := &cobra.Command{
+		Use:   "process",
+		Short: "Find and seed all pending fixtures",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSeed(func(ctx context.Context, cfg *config.Config, pool *db.Pool) error {
+				deps := buildFixtureDeps(cfg)
+				start := time.Now()
+				result := fixture.ProcessPending(
+					ctx, pool.Pool, deps, sport,
+					maxFixtures, maxRetries, workers,
+					!skipPercentiles, logger,
+				)
+				logger.Info("Fixtures process finished",
+					"duration", time.Since(start).Round(time.Second),
+					"summary", result.Summary())
+				if len(result.Errors) > 0 {
+					for _, e := range result.Errors {
+						logger.Error("fixture error", "error", e)
+					}
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&sport, "sport", "", "Filter by sport (NBA, NFL, FOOTBALL); empty = all")
+	cmd.Flags().IntVar(&maxFixtures, "max", 50, "Maximum fixtures to process")
+	cmd.Flags().IntVar(&workers, "workers", 2, "Concurrent worker count")
+	cmd.Flags().IntVar(&maxRetries, "max-retries", 3, "Skip fixtures with this many failed attempts")
+	cmd.Flags().BoolVar(&skipPercentiles, "skip-percentiles", false, "Skip percentile recalculation after seeding")
+	return cmd
+}
+
+func fixturesSeedCmd() *cobra.Command {
+	var (
+		fixtureID       int
+		skipPercentiles bool
+	)
+	cmd := &cobra.Command{
+		Use:   "seed",
+		Short: "Seed a single fixture by ID",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if fixtureID == 0 {
+				return fmt.Errorf("--id is required")
+			}
+			return runSeed(func(ctx context.Context, cfg *config.Config, pool *db.Pool) error {
+				deps := buildFixtureDeps(cfg)
+				start := time.Now()
+				result := fixture.SeedFixture(
+					ctx, pool.Pool, deps,
+					fixtureID, !skipPercentiles, logger,
+				)
+				logger.Info("Fixture seed finished",
+					"duration", time.Since(start).Round(time.Second),
+					"summary", result.Summary())
+				if !result.Success {
+					return fmt.Errorf("fixture %d failed: %s", fixtureID, result.Error)
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().IntVar(&fixtureID, "id", 0, "Fixture ID to seed")
+	cmd.Flags().BoolVar(&skipPercentiles, "skip-percentiles", false, "Skip percentile recalculation after seeding")
+	return cmd
+}
+
+// buildFixtureDeps creates handler dependencies based on configured API keys.
+func buildFixtureDeps(cfg *config.Config) *fixture.Deps {
+	deps := &fixture.Deps{}
+	if cfg.BDLAPIKey != "" {
+		deps.NBAHandler = bdl.NewNBAHandler(cfg.BDLAPIKey, logger)
+		deps.NFLHandler = bdl.NewNFLHandler(cfg.BDLAPIKey, logger)
+	}
+	if cfg.SportMonksAPIToken != "" {
+		deps.FootballHandler = sportmonks.NewFootballHandler(cfg.SportMonksAPIToken, logger)
+	}
+	return deps
 }
 
 // --------------------------------------------------------------------------

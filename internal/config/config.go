@@ -72,6 +72,9 @@ type Config struct {
 
 	// Cache
 	CacheEnabled bool
+
+	// Notifications (FCM push)
+	FCMCredentialsFile string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -109,6 +112,8 @@ func Load() (*Config, error) {
 		NewsAPIKey:         envOr("NEWS_API_KEY", ""),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
+
+		FCMCredentialsFile: envOr("FIREBASE_CREDENTIALS_FILE", ""),
 	}, nil
 }
 

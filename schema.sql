@@ -746,7 +746,7 @@ CREATE OR REPLACE FUNCTION fn_stat_leaders(
     p_limit INTEGER DEFAULT 25, p_position TEXT DEFAULT NULL,
     p_league_id INTEGER DEFAULT 0
 )
-RETURNS TABLE (rank BIGINT, player_id INTEGER, name TEXT, position TEXT, team_name TEXT, stat_value NUMERIC) AS $$
+RETURNS TABLE ("rank" BIGINT, player_id INTEGER, name TEXT, "position" TEXT, team_name TEXT, stat_value NUMERIC) AS $$
     SELECT
         ROW_NUMBER() OVER (ORDER BY stat.val DESC) AS rank,
         p.id AS player_id, p.name, p.position, t.name AS team_name, stat.val AS stat_value
@@ -1019,24 +1019,26 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mv_autofill_entities AS
     UNION ALL
 
     -- Football players (resolve league from latest player_stats)
-    SELECT DISTINCT ON (p.id)
-        p.id,
-        'player'::text AS type,
-        p.sport,
-        p.name,
-        p.position,
-        p.detailed_position,
-        t.short_code AS team_abbr,
-        t.name AS team_name,
-        ps.league_id,
-        l.name AS league_name,
-        p.meta
-    FROM players p
-    LEFT JOIN teams t ON t.id = p.team_id AND t.sport = p.sport
-    LEFT JOIN player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
-    LEFT JOIN leagues l ON l.id = ps.league_id
-    WHERE p.sport = 'FOOTBALL'
-    ORDER BY p.id, ps.season DESC NULLS LAST
+    SELECT * FROM (
+        SELECT DISTINCT ON (p.id)
+            p.id,
+            'player'::text AS type,
+            p.sport,
+            p.name,
+            p.position,
+            p.detailed_position,
+            t.short_code AS team_abbr,
+            t.name AS team_name,
+            ps.league_id,
+            l.name AS league_name,
+            p.meta
+        FROM players p
+        LEFT JOIN teams t ON t.id = p.team_id AND t.sport = p.sport
+        LEFT JOIN player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
+        LEFT JOIN leagues l ON l.id = ps.league_id
+        WHERE p.sport = 'FOOTBALL'
+        ORDER BY p.id, ps.season DESC NULLS LAST
+    ) football_players
 
     UNION ALL
 
@@ -1059,23 +1061,25 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mv_autofill_entities AS
     UNION ALL
 
     -- Football teams (resolve league from latest team_stats)
-    SELECT DISTINCT ON (t.id)
-        t.id,
-        'team'::text AS type,
-        t.sport,
-        t.name,
-        NULL::text AS position,
-        NULL::text AS detailed_position,
-        t.short_code AS team_abbr,
-        NULL::text AS team_name,
-        ts.league_id,
-        l.name AS league_name,
-        t.meta
-    FROM teams t
-    LEFT JOIN team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport
-    LEFT JOIN leagues l ON l.id = ts.league_id
-    WHERE t.sport = 'FOOTBALL'
-    ORDER BY t.id, ts.season DESC NULLS LAST
+    SELECT * FROM (
+        SELECT DISTINCT ON (t.id)
+            t.id,
+            'team'::text AS type,
+            t.sport,
+            t.name,
+            NULL::text AS position,
+            NULL::text AS detailed_position,
+            t.short_code AS team_abbr,
+            NULL::text AS team_name,
+            ts.league_id,
+            l.name AS league_name,
+            t.meta
+        FROM teams t
+        LEFT JOIN team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport
+        LEFT JOIN leagues l ON l.id = ts.league_id
+        WHERE t.sport = 'FOOTBALL'
+        ORDER BY t.id, ts.season DESC NULLS LAST
+    ) football_teams
 
 WITH DATA;
 
@@ -1419,7 +1423,7 @@ CREATE OR REPLACE FUNCTION api.stat_leaders(
     p_limit INTEGER DEFAULT 25, p_position TEXT DEFAULT NULL,
     p_league_id INTEGER DEFAULT 0
 )
-RETURNS TABLE (rank BIGINT, player_id INTEGER, name TEXT, position TEXT, team_name TEXT, stat_value NUMERIC)
+RETURNS TABLE ("rank" BIGINT, player_id INTEGER, name TEXT, "position" TEXT, team_name TEXT, stat_value NUMERIC)
 AS $$
     SELECT * FROM public.fn_stat_leaders(p_sport, p_season, p_stat_name, p_limit, p_position, p_league_id);
 $$ LANGUAGE sql STABLE;

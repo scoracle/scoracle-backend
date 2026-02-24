@@ -23,7 +23,6 @@ import (
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
-// @Router /profile/{entityType}/{entityID} [get]
 func (h *Handler) GetProfile(w http.ResponseWriter, r *http.Request) {
 	entityType := chi.URLParam(r, "entityType")
 	idStr := chi.URLParam(r, "entityID")

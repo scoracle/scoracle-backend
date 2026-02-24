@@ -70,17 +70,6 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
-		// Profiles
-		r.Get("/profile/{entityType}/{entityID}", h.GetProfile)
-
-		// Stats
-		r.Get("/stats/definitions", h.GetStatDefinitions)
-		r.Get("/stats/{entityType}/{entityID}", h.GetEntityStats)
-		r.Get("/stats/{entityType}/{entityID}/seasons", h.GetAvailableSeasons)
-
-		// Bootstrap / autofill
-		r.Get("/autofill_databases", h.GetAutofillDatabase)
-
 		// News
 		r.Get("/news/status", h.GetNewsStatus)
 		r.Get("/news/{entityType}/{entityID}", h.GetEntityNews)

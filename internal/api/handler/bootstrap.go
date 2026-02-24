@@ -18,7 +18,6 @@ import (
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
-// @Router /autofill_databases [get]
 func (h *Handler) GetAutofillDatabase(w http.ResponseWriter, r *http.Request) {
 	sport := r.URL.Query().Get("sport")
 	if sport == "" {

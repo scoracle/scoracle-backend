@@ -7,7 +7,7 @@
 
 // @title Scoracle Data API
 // @version 2.0.0
-// @description Sports analytics API serving player/team profiles, stats, percentiles, news, and journalist tweets. All data-heavy responses are JSON-passthrough from Postgres functions.
+// @description External-intel API serving news and journalist tweets from third-party providers. DB/stats endpoints are owned by PostgREST and documented in the multi-spec Swagger UI.
 // @host localhost:8000
 // @BasePath /api/v1
 // @schemes http https

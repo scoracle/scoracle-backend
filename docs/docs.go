@@ -41,53 +41,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/autofill_databases": {
-            "get": {
-                "description": "Returns the complete entity list (players + teams) for a sport, used for frontend search/autofill. Served from mv_autofill_entities materialized view.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "bootstrap"
-                ],
-                "summary": "Get autofill database",
-                "parameters": [
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/health": {
             "get": {
                 "description": "Returns basic health status and timestamp.",
@@ -256,273 +209,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     },
                     "502": {
                         "description": "Bad Gateway",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/profile/{entityType}/{entityID}": {
-            "get": {
-                "description": "Returns a complete player or team profile with bio, current team, and summary stats. Response is raw JSON from Postgres api_player_profile/api_team_profile functions.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Get entity profile",
-                "parameters": [
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "entityID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/definitions": {
-            "get": {
-                "description": "Returns canonical stat definitions (names, display labels, categories) for a sport.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "stats"
-                ],
-                "summary": "Get stat definitions",
-                "parameters": [
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/{entityType}/{entityID}": {
-            "get": {
-                "description": "Returns stats and percentiles for a player or team for a given season. Response is raw JSON from Postgres api_entity_stats function.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "stats"
-                ],
-                "summary": "Get entity stats",
-                "parameters": [
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "entityID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Season year (defaults to current)",
-                        "name": "season",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "League ID (for FOOTBALL)",
-                        "name": "league_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/stats/{entityType}/{entityID}/seasons": {
-            "get": {
-                "description": "Returns a list of seasons that have stats for an entity.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "stats"
-                ],
-                "summary": "Get available seasons",
-                "parameters": [
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "entityID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     }
                 }
@@ -575,19 +274,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     },
                     "502": {
                         "description": "Bad Gateway",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     },
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                            "$ref": "#/definitions/respond.ErrorResponse"
                         }
                     }
                 }
@@ -616,7 +315,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse": {
+        "respond.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -645,7 +344,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "Scoracle Data API",
-	Description:      "Sports analytics API serving player/team profiles, stats, percentiles, news, and journalist tweets. All data-heavy responses are JSON-passthrough from Postgres functions.",
+	Description:      "External-intel API serving news and journalist tweets from third-party providers. DB/stats endpoints are owned by PostgREST and documented in the multi-spec Swagger UI.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

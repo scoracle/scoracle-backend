@@ -26,7 +26,6 @@ import (
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
-// @Router /stats/{entityType}/{entityID} [get]
 func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 	entityType := chi.URLParam(r, "entityType")
 	idStr := chi.URLParam(r, "entityID")
@@ -104,7 +103,6 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
-// @Router /stats/{entityType}/{entityID}/seasons [get]
 func (h *Handler) GetAvailableSeasons(w http.ResponseWriter, r *http.Request) {
 	entityType := chi.URLParam(r, "entityType")
 	idStr := chi.URLParam(r, "entityID")
@@ -156,7 +154,6 @@ func (h *Handler) GetAvailableSeasons(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
-// @Router /stats/definitions [get]
 func (h *Handler) GetStatDefinitions(w http.ResponseWriter, r *http.Request) {
 	sport := r.URL.Query().Get("sport")
 	if sport == "" {

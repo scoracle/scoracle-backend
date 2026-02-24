@@ -133,7 +133,13 @@ Go Chi server with Postgres JSON passthrough. All data-heavy responses are raw J
 - **Swagger UI** at `/docs/` (swaggo auto-generated)
 - **Graceful shutdown** on SIGINT
 
-### Endpoints
+### Service Responsibilities
+
+- **Go API**: external integrations (`/api/v1/news/*`, `/api/v1/twitter/*`) plus service health/docs.
+- **PostgREST API**: DB-backed stats/profile/autofill endpoints generated from Postgres views/functions.
+- **Swagger UI**: `/docs/` serves a multi-spec dropdown so both APIs are browsable in one place.
+
+### Go Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
@@ -142,11 +148,6 @@ Go Chi server with Postgres JSON passthrough. All data-heavy responses are raw J
 | `GET /health/db` | Database connectivity |
 | `GET /health/cache` | Cache statistics |
 | `GET /docs/` | Swagger UI (interactive) |
-| `GET /api/v1/profile/{type}/{id}?sport=` | Player/team profile (JSON passthrough) |
-| `GET /api/v1/stats/{type}/{id}?sport=&season=` | Statistics with percentile rankings |
-| `GET /api/v1/stats/{type}/{id}/seasons?sport=` | Available seasons for an entity |
-| `GET /api/v1/stats/definitions?sport=` | Canonical stat definitions |
-| `GET /api/v1/autofill_databases?sport=` | Entity bootstrap for frontend autocomplete |
 | `GET /api/v1/news/{type}/{id}?sport=&source=` | News articles (Google News RSS + NewsAPI) |
 | `GET /api/v1/news/status` | News service configuration status |
 | `GET /api/v1/twitter/journalist-feed?q=&sport=` | Curated journalist tweets from X List |
@@ -156,9 +157,6 @@ Go Chi server with Postgres JSON passthrough. All data-heavy responses are raw J
 
 | Data Type | TTL |
 |-----------|-----|
-| Profiles, bootstrap, stat definitions | 24 hours |
-| Current season stats | 1 hour |
-| Historical season stats | 24 hours |
 | News articles | 10 minutes |
 | Twitter journalist feed | 1 hour (in-memory, separate from main cache) |
 

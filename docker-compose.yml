@@ -1,0 +1,27 @@
+# Scoracle Data — local development stack
+# Usage: docker compose up --build
+
+services:
+  postgrest:
+    build: postgrest/
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      PGRST_DB_URI: ${DATABASE_URL}
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_OPENAPI_MODE: follow-privileges
+
+  api:
+    build:
+      context: .
+      dockerfile: go/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      POSTGREST_URL: http://postgrest:3000
+    depends_on:
+      postgrest:
+        condition: service_healthy

@@ -1,9 +1,9 @@
 [build]
-builder = "RAILPACK"
-watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum"]
+builder = "DOCKERFILE"
+dockerfilePath = "go/Dockerfile"
+watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum", "go/Dockerfile"]
 
 [deploy]
-startCommand = "./out"
 healthcheckPath = "/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"

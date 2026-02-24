@@ -1,0 +1,29 @@
+# Version control
+.git/
+
+# Environment and secrets
+.env
+.env.*
+
+# Python legacy
+.venv/
+python/
+__pycache__/
+*.pyc
+
+# Build artifacts
+go/bin/
+bin/
+
+# Documentation and planning
+planning_docs/
+*.md
+
+# Logs
+*.log
+
+# Misc
+.claude/
+uv.lock
+pyproject.toml
+requirements.txt

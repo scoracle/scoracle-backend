@@ -1,8 +1,9 @@
-# Python
+# Python (legacy)
 __pycache__/
 *.pyc
 *.db
 *.sqlite
+.pytest_cache/
 venv/
 .venv/
 

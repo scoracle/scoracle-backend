@@ -1,6 +1,6 @@
 # Scoracle Data
 
-Backend data pipeline and API for Scoracle. Seeds sports statistics from external APIs into Neon PostgreSQL, computes derived stats via Postgres triggers, calculates percentile rankings, and serves everything through a high-performance Go API.
+Backend data pipeline and API for Scoracle. Seeds sports statistics from external APIs into Neon PostgreSQL, computes derived stats via Postgres triggers, calculates percentile rankings, and serves everything through two co-equal services: **PostgREST** for data endpoints and **Go** for third-party integrations.
 
 **Database:** PostgreSQL (Neon) only.
 
@@ -12,35 +12,55 @@ Backend data pipeline and API for Scoracle. Seeds sports statistics from externa
 
 ## Architecture Overview
 
-The system is split into three independent layers. Each layer can be swapped out without affecting the others.
+Two API services sit in front of Postgres, each with a distinct role. PostgREST handles the core data endpoints (stats, profiles, rankings). Go handles third-party integrations (news, Twitter) and ingestion. A separate Go CLI seeds data from external providers.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Frontend (Astro)                         │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ JSON over HTTP
-┌──────────────────────────────▼──────────────────────────────────┐
-│                    Layer 3: Go API (Chi)                        │
-│   Pure transport — Postgres functions return complete JSON.     │
-│   No struct scanning, no marshaling. Raw bytes to HTTP.         │
-│   In-memory cache, ETag, gzip, rate limiting, Swagger UI.      │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │ pgxpool + prepared statements
-┌──────────────────────────────▼──────────────────────────────────┐
-│                 Layer 2: PostgreSQL (Neon)                      │
-│   All data logic lives here: derived stat triggers,            │
-│   recalculate_percentiles(), views (v_player_profile,          │
-│   v_team_profile), functions (fn_stat_leaders, fn_standings),  │
-│   API functions (api_player_profile, api_entity_stats, etc.)   │
-└──────────────────────────────▲──────────────────────────────────┘
-                               │ pgxpool + prepared statements
-┌──────────────────────────────┴──────────────────────────────────┐
-│                 Layer 1: Go Ingestion CLI (Cobra)               │
-│   Provider-specific handlers fetch JSON from external APIs,     │
-│   normalize to canonical Go structs, upsert to Postgres.        │
-│   Provider-agnosticism via canonical output types.              │
+└──────────────┬──────────────────────────────────┬───────────────┘
+               │ Stats, profiles, rankings        │ News, tweets
+┌──────────────▼──────────────────┐  ┌────────────▼───────────────┐
+│   PostgREST — Data Provider     │  │   Go API — Integrations    │
+│                                 │  │                             │
+│   Auto-generated REST from      │  │   Third-party APIs:        │
+│   Postgres views & functions.   │  │   Google News, NewsAPI,    │
+│   JWT auth, row-level security. │  │   X/Twitter journalist     │
+│   Zero application code.        │  │   feed. In-memory cache,   │
+│   Port 3000                     │  │   ETag, gzip, rate limit.  │
+│                                 │  │   Port 8000                │
+│   Swagger UI: /docs/ serves     │  │                             │
+│   both specs via multi-spec     │  │   Also serves health,      │
+│   dropdown.                     │  │   Swagger UI, and stats    │
+│                                 │  │   passthrough endpoints.   │
+└──────────────┬──────────────────┘  └────────────┬───────────────┘
+               │                                  │
+               │         pgxpool + prepared        │
+               │           statements              │
+┌──────────────▼──────────────────────────────────▼───────────────┐
+│                   PostgreSQL (Neon)                              │
+│   All data logic: derived stat triggers, percentile functions,  │
+│   views (v_player_profile, v_team_profile), API functions       │
+│   (api_player_profile, api_entity_stats), materialized views.   │
+└──────────────▲──────────────────────────────────────────────────┘
+               │ pgxpool + prepared statements
+┌──────────────┴──────────────────────────────────────────────────┐
+│                   Go Ingestion CLI (Cobra)                       │
+│   Provider-specific handlers fetch from external APIs,          │
+│   normalize to canonical structs, upsert to Postgres.           │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+### Service Roles
+
+| Service | Role | Port | Dockerfile |
+|---------|------|------|------------|
+| **PostgREST** | Data provider — stats, profiles, rankings, autofill. Auto-generated REST API from Postgres views and functions. | 3000 | `postgrest/Dockerfile` |
+| **Go API** | Integrations provider — news, Twitter, health checks, Swagger UI. Also proxies stats endpoints via Postgres JSON passthrough. | 8000 | `go/Dockerfile` |
+| **Go CLI** | Data ingestion — seeds stats from BallDontLie (NBA/NFL) and SportMonks (Football). | N/A | N/A (ad-hoc tool) |
+
+### Multi-Spec Swagger UI
+
+The Go API serves a unified Swagger UI at `/docs/` with a spec-selector dropdown. Both the Go API spec (auto-generated by swaggo) and the PostgREST OpenAPI spec are browsable from one interface. This gives frontend developers a single entry point to explore all available endpoints across both services.
 
 ### Key Design Decisions
 
@@ -49,36 +69,72 @@ The system is split into three independent layers. Each layer can be swapped out
 - **No shared Provider interface** — provider-agnosticism comes from canonical output structs, not input interfaces. Adding a new provider means adding a new handler package; nothing else changes.
 - **Separate seed runner per sport** — NBA, NFL, and Football each have their own orchestration file since their data flows differ.
 
+## Docker
+
+Both services are containerized with lean, production-ready Dockerfiles and orchestrated via Docker Compose.
+
+### Quick Start
+
+```bash
+# Copy env vars and fill in your values
+cp .env.example .env
+
+# Start both services
+docker compose up --build
+
+# PostgREST → http://localhost:3000
+# Go API    → http://localhost:8000
+# Swagger   → http://localhost:8000/docs/
+```
+
+### Images
+
+| Service | Base | Final Size | Details |
+|---------|------|------------|---------|
+| Go API | `golang:1.25-alpine` → `alpine:3.21` | ~15MB | Multi-stage build, static binary, stripped symbols, non-root user (UID 1000) |
+| PostgREST | `postgrest/postgrest:v13.0.8` | ~30MB | Health check, non-root user (UID 1000) |
+
+### Compose Services
+
+```yaml
+postgrest:  # PostgREST on :3000 — data provider
+api:        # Go API on :8000 — integrations, depends on postgrest health
+```
+
+Compose reads your `.env` file directly. It maps `DATABASE_URL` to `PGRST_DB_URI` and overrides `POSTGREST_URL` for inter-container networking (service name resolution). No additional configuration needed.
+
+### Without Docker
+
+```bash
+go mod tidy
+go build -o bin/scoracle-api ./cmd/api
+go build -o bin/scoracle-ingest ./cmd/ingest
+./bin/scoracle-api
+```
+
 ## Data Sources
 
 | Sport | Provider | Go Handler |
 |-------|----------|------------|
-| NBA | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nba.go` — `NBAHandler` |
-| NFL | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nfl.go` — `NFLHandler` |
-| Football | [SportMonks](https://sportmonks.com) | `internal/provider/sportmonks/football.go` — `FootballHandler` |
+| NBA | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nba.go` |
+| NFL | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nfl.go` |
+| Football | [SportMonks](https://sportmonks.com) | `internal/provider/sportmonks/football.go` |
 
 ## How Seeding Works
 
-The pipeline follows a **handler + seed runner** pattern:
+1. **Provider handlers** (`internal/provider/`) — Fetch data from external APIs and normalize into canonical Go structs (`Team`, `Player`, `PlayerStats`, `TeamStats`). Each provider has its own HTTP client with rate limiting and pagination.
 
-1. **Provider handlers** (`internal/provider/`) — Fetch data from external APIs and normalize responses into canonical Go structs (`Team`, `Player`, `PlayerStats`, `TeamStats`). Each provider package has its own HTTP client with rate limiting and pagination.
+2. **Seed runners** (`internal/seed/`) — Provider-agnostic orchestration that takes canonical structs and upserts into Postgres. Each sport has its own runner: `SeedNBA`, `SeedNFL`, `SeedFootballSeason`.
 
-2. **Seed runners** (`internal/seed/`) — Provider-agnostic orchestration that takes canonical structs and upserts them into Postgres. Each sport has its own runner:
-   - `SeedNBA` — teams, player stats (with auto-player upsert), team stats
-   - `SeedNFL` — same flow, NFL-specific fields
-   - `SeedFootballSeason` — per-league/team squad iteration via SportMonks
+3. **Derived stats** — Postgres triggers auto-compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE.
 
-3. **Derived stats** — Postgres triggers automatically compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE to `player_stats` and `team_stats`.
-
-4. **Percentiles** — The `recalculate_percentiles()` Postgres function computes per-position percentile rankings.
-
-Player profiles are derived from stats responses (BallDontLie embeds full player data in each stats record), so there is no separate player-fetching step.
+4. **Percentiles** — `recalculate_percentiles()` computes per-position percentile rankings.
 
 ## Database Schema
 
-Single consolidated schema in `schema.sql` at the repo root (v7.0). No incremental migrations — the schema file is the complete database definition including API functions and materialized views.
+Single consolidated schema in `schema.sql` at the repo root (v7.0). No incremental migrations — the schema file is the complete database definition.
 
-### Core Tables (11)
+### Core Tables
 
 | Table | Purpose |
 |-------|---------|
@@ -94,184 +150,154 @@ Single consolidated schema in `schema.sql` at the repo root (v7.0). No increment
 | `fixtures` | Match schedule for post-match seeding |
 | `percentile_archive` | Stored percentile rankings by position group |
 
-### Views
+### Views & Materialized Views
 
-- `v_player_profile` — Joins players with their latest stats
-- `v_team_profile` — Joins teams with their latest stats
+- `v_player_profile` — Joins players with latest stats
+- `v_team_profile` — Joins teams with latest stats
+- `mv_autofill_entities` — Pre-computed entity list for frontend search/autocomplete
 
-### API Functions (in `schema.sql`)
+### API Functions
 
 | Function | Returns | Description |
 |----------|---------|-------------|
-| `api_player_profile(id, sport)` | JSON | Complete player profile from `v_player_profile` |
-| `api_team_profile(id, sport)` | JSON | Complete team profile from `v_team_profile` |
-| `api_entity_stats(type, id, sport, season, league_id)` | JSON | Stats + percentiles for a player or team |
-| `api_available_seasons(type, id, sport)` | JSON | List of seasons with stats for an entity |
+| `api_player_profile(id, sport)` | JSON | Complete player profile |
+| `api_team_profile(id, sport)` | JSON | Complete team profile |
+| `api_entity_stats(type, id, sport, season, league_id)` | JSON | Stats + percentiles |
+| `api_available_seasons(type, id, sport)` | JSON | Available seasons for an entity |
 
-### Materialized View
+## API Endpoints
 
-- `mv_autofill_entities` — Pre-computed entity list (players + teams, all sports) for frontend search/autocomplete. Unique index enables `REFRESH MATERIALIZED VIEW CONCURRENTLY`.
-
-### Triggers & Functions
-
-- **Derived stats triggers** on `player_stats` and `team_stats` — auto-compute per-36, per-90, TS%, win_pct, etc.
-- `resolve_provider_season_id()` — Maps provider season IDs
-- `fn_stat_leaders()` / `fn_standings()` — Query helpers
-- `recalculate_percentiles()` — Percentile recalculation entry point
-
-## API
-
-Go Chi server with Postgres JSON passthrough. All data-heavy responses are raw JSON bytes from Postgres functions — no struct scanning, no marshaling overhead.
-
-### Features
-
-- **pgxpool** connection pooling with 17 prepared statements
-- **In-memory TTL cache** with ETag support and periodic eviction
-- **Gzip compression** via Chi middleware
-- **IP-based rate limiting** with token bucket (golang.org/x/time/rate)
-- **CORS** with configurable origins
-- **Swagger UI** at `/docs/` (swaggo auto-generated)
-- **Graceful shutdown** on SIGINT
-
-### Service Responsibilities
-
-- **Go API**: external integrations (`/api/v1/news/*`, `/api/v1/twitter/*`) plus service health/docs.
-- **PostgREST API**: DB-backed stats/profile/autofill endpoints generated from Postgres views/functions.
-- **Swagger UI**: `/docs/` serves a multi-spec dropdown so both APIs are browsable in one place.
-
-### Go Endpoints
+### Go API (`:8000`)
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /` | API info (name, version, status, optimizations) |
+| `GET /` | API info (name, version, status) |
 | `GET /health` | Basic health check |
 | `GET /health/db` | Database connectivity |
 | `GET /health/cache` | Cache statistics |
-| `GET /docs/` | Swagger UI (interactive) |
+| `GET /docs/` | Multi-spec Swagger UI (Go + PostgREST) |
+| `GET /api/v1/profile/{type}/{id}?sport=` | Player/team profile (Postgres JSON passthrough) |
+| `GET /api/v1/stats/{type}/{id}?sport=&season=` | Stats + percentiles (Postgres JSON passthrough) |
+| `GET /api/v1/stats/{type}/{id}/seasons?sport=` | Available seasons |
+| `GET /api/v1/stats/definitions?sport=` | Stat definitions |
+| `GET /api/v1/autofill_databases?sport=` | Entity search/autocomplete |
 | `GET /api/v1/news/{type}/{id}?sport=&source=` | News articles (Google News RSS + NewsAPI) |
-| `GET /api/v1/news/status` | News service configuration status |
 | `GET /api/v1/twitter/journalist-feed?q=&sport=` | Curated journalist tweets from X List |
-| `GET /api/v1/twitter/status` | Twitter service configuration status |
 
-### Cache TTLs
+### PostgREST (`:3000`)
 
-| Data Type | TTL |
-|-----------|-----|
-| News articles | 10 minutes |
-| Twitter journalist feed | 1 hour (in-memory, separate from main cache) |
+Auto-generated REST endpoints from the `api` schema. Supports filtering, ordering, pagination, and JWT authentication out of the box. See the Swagger UI at `/docs/` for the full spec.
 
 ## CLI Commands
 
-### Go CLI (production)
-
 ```bash
-# Build both binaries
+# Build
 go build -o bin/scoracle-api ./cmd/api
 go build -o bin/scoracle-ingest ./cmd/ingest
 
 # Data seeding
-./bin/scoracle-ingest seed nba
-./bin/scoracle-ingest seed nfl
-./bin/scoracle-ingest seed football
+./bin/scoracle-ingest seed nba [--season 2025]
+./bin/scoracle-ingest seed nfl [--season 2025]
+./bin/scoracle-ingest seed football [--season 2025] [--league 8]
 
 # Percentile recalculation
-./bin/scoracle-ingest percentiles
+./bin/scoracle-ingest percentiles [--sport NBA] [--season 2025]
 
-# Run API server
-./bin/scoracle-api
-```
-
-### Python CLI (legacy)
-
-```bash
-pip install -e .
-scoracle-data seed --sport nba
-scoracle-data percentiles --sport nba
-uvicorn scoracle_data.api.main:app --reload
+# Fixture processing
+./bin/scoracle-ingest fixtures process [--sport NBA] [--max 10] [--workers 2]
 ```
 
 ## Codebase Structure
 
 ```
 scoracle-data/
-├── schema.sql                         # THE complete database definition (v7.0)
-├── go.mod / go.sum                    # Module: github.com/albapepper/scoracle-data
-├── pyproject.toml                     # Python package config (legacy)
-├── railway.toml                       # Railway deployment (Railpack, no Docker)
+├── schema.sql                         # Complete database definition (v7.0)
+├── go.mod / go.sum                    # Go module definition
+├── docker-compose.yml                 # Orchestrates Go API + PostgREST
+├── .dockerignore                      # Build context filter
+├── .env.example                       # Environment variable template
+├── railway.toml                       # Railway deployment config
 │
 ├── cmd/                               # Go entry points
-│   ├── api/main.go                    # API server entry point (graceful shutdown)
-│   └── ingest/main.go                 # Cobra CLI: seed nba|nfl|football, percentiles
-│
-├── docs/                              # Auto-generated Swagger (swaggo)
-│   ├── docs.go
-│   ├── swagger.json
-│   └── swagger.yaml
+│   ├── api/main.go                    # API server (graceful shutdown, maintenance tickers)
+│   └── ingest/main.go                 # Cobra CLI (seed, percentiles, fixtures)
 │
 ├── internal/                          # Go internal packages
-│   ├── api/
-│   │   ├── server.go                  # Chi router, middleware stack, route registration
-│   │   ├── middleware.go              # TimingMiddleware, RateLimitMiddleware
-│   │   ├── respond/
-│   │   │   └── respond.go            # WriteJSON, WriteError, WriteJSONObject helpers
-│   │   └── handler/
-│   │       ├── handler.go            # Handler struct (pool, cache, config, news, twitter)
-│   │       ├── profile.go            # GET /profile — Postgres JSON passthrough
-│   │       ├── stats.go              # GET /stats, /seasons, /definitions
-│   │       ├── bootstrap.go          # GET /autofill_databases — materialized view
-│   │       ├── news.go               # GET /news — entity lookup + RSS/NewsAPI
-│   │       └── twitter.go            # GET /twitter — cached journalist feed
-│   │
-│   ├── cache/
-│   │   └── cache.go                   # TTL cache, ETag (MD5), eviction loop
-│   │
-│   ├── config/
-│   │   └── config.go                  # Env var loading, SportRegistry, table constants
-│   │
-│   ├── db/
-│   │   └── db.go                      # pgxpool wrapper, 17 prepared statements
-│   │
-│   ├── thirdparty/
-│   │   ├── news.go                    # Google News RSS + NewsAPI unified client
-│   │   └── twitter.go                 # X API v2 List tweets with 1h feed cache
-│   │
-│   ├── provider/
-│   │   ├── canonical.go               # Team, Player, PlayerStats, TeamStats structs
-│   │   ├── extract.go                 # ExtractValue() for normalizing API fields
-│   │   ├── bdl/
-│   │   │   ├── client.go             # Shared BDL HTTP client (cursor pagination)
-│   │   │   ├── nba.go                # NBAHandler: teams, players, stats
-│   │   │   └── nfl.go                # NFLHandler: teams, players, stats
-│   │   └── sportmonks/
-│   │       ├── client.go             # SportMonks HTTP client (page pagination)
-│   │       └── football.go           # FootballHandler: squads, standings
-│   │
-│   └── seed/
-│       ├── result.go                  # SeedResult tracking (counts + errors)
-│       ├── upsert.go                  # UpsertTeam/Player/Stats, RecalculatePercentiles
-│       ├── nba.go                     # SeedNBA orchestration
-│       ├── nfl.go                     # SeedNFL orchestration
-│       └── football.go               # SeedFootballSeason orchestration
+│   ├── api/                           # Chi router, middleware, response helpers, handlers
+│   ├── cache/                         # In-memory TTL cache with ETag
+│   ├── config/                        # Env var loading, sport registry
+│   ├── db/                            # pgxpool wrapper, prepared statements
+│   ├── thirdparty/                    # News (RSS + NewsAPI) and Twitter clients
+│   ├── provider/                      # External API handlers (BDL, SportMonks)
+│   ├── seed/                          # Per-sport seed orchestration and upsert logic
+│   ├── fixture/                       # Fixture processing and scheduling
+│   ├── listener/                      # LISTEN/NOTIFY consumer for milestones
+│   ├── maintenance/                   # Periodic tickers (cleanup, digest, catch-up)
+│   └── notifications/                 # Milestone detection, FCM dispatch pipeline
 │
-├── python/                            # Python codebase (legacy, being phased out)
-│   ├── scoracle_data/                 # Python package
-│   │   ├── cli.py                     # Full-featured CLI (seed, percentiles, export, fixtures)
-│   │   ├── api/                       # FastAPI server + routers
-│   │   ├── core/                      # Config, types, models
-│   │   ├── handlers/                  # BDL, SportMonks API clients
-│   │   ├── seeders/                   # Seed orchestration
-│   │   ├── external/                  # News, Twitter clients
-│   │   ├── fixtures/                  # Fixture scheduling
-│   │   ├── services/                  # Business logic
-│   │   └── percentiles/               # Percentile calculation
-│   └── tests/                         # Python test suite
+├── docs/                              # Auto-generated Swagger specs (swaggo)
 │
-└── planning_docs/                     # Planning & design documents
+├── go/                                # Go service Docker config
+│   └── Dockerfile                     # Multi-stage: golang:1.25-alpine → alpine:3.21
+│
+├── postgrest/                         # PostgREST service Docker config
+│   ├── Dockerfile                     # postgrest/postgrest:v13.0.8 + healthcheck
+│   └── passwd                         # Non-root user definition
+│
+├── legacy_fastapi/                    # Python reference (FastAPI, seeders, tests)
+├── planning_docs/                     # Architecture and design documents
+└── progress_docs/                     # Session progress tracking
 ```
 
-## Python Codebase (legacy, being phased out)
+## Deployment
 
-The Python codebase under `python/scoracle_data/` contains the original FastAPI server, CLI, and data seeders. It is no longer the production system but remains in the repo until the Go migration is fully validated.
+### Railway (Production)
+
+The Go API deploys to [Railway](https://railway.app) using its Dockerfile (`go/Dockerfile`). Railway builds the multi-stage image, runs the health check, and manages restarts.
+
+PostgREST deploys as a separate Railway service using `postgrest/Dockerfile`.
+
+Both services connect to the same Neon PostgreSQL instance.
+
+### Railway Configuration (`railway.toml`)
+
+```toml
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "go/Dockerfile"
+watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum", "go/Dockerfile"]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+```
+
+## Environment Variables
+
+See `.env.example` for the full documented template.
+
+**Required:**
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (Neon) |
+| `BALLDONTLIE_API_KEY` | BallDontLie API key (NBA + NFL ingestion) |
+| `SPORTMONKS_API_TOKEN` | SportMonks API token (Football ingestion) |
+
+**Optional:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `API_PORT` | `8000` | Go API port |
+| `ENVIRONMENT` | `development` | `development`, `staging`, `production` |
+| `CORS_ALLOW_ORIGINS` | `localhost:3000,4321,5173` | Comma-separated allowed origins |
+| `RATE_LIMIT_ENABLED` | `true` | Enable IP-based rate limiting |
+| `CACHE_ENABLED` | `true` | Enable in-memory cache |
+| `NEWS_API_KEY` | _(empty)_ | NewsAPI.org key |
+| `TWITTER_BEARER_TOKEN` | _(empty)_ | X/Twitter API v2 bearer token |
+| `POSTGREST_URL` | `http://localhost:3000` | PostgREST URL (overridden by Compose) |
 
 ## Go Dependencies
 
@@ -284,90 +310,3 @@ The Python codebase under `python/scoracle_data/` contains the original FastAPI 
 | `spf13/cobra` | v1.10.2 | CLI framework |
 | `swaggo/http-swagger/v2` | v2.0.2 | Swagger UI serving |
 | `golang.org/x/time` | v0.14.0 | Token-bucket rate limiter |
-
-## Environment Variables
-
-**Required:**
-
-| Variable | Description |
-|----------|-------------|
-| `NEON_DATABASE_URL_V2` | PostgreSQL connection string (Neon). Fallback: `DATABASE_URL` |
-| `BALLDONTLIE_API_KEY` | BallDontLie API key (NBA + NFL ingestion) |
-| `SPORTMONKS_API_TOKEN` | SportMonks API token (Football ingestion) |
-
-**Optional:**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_HOST` | `0.0.0.0` | API bind address |
-| `API_PORT` | `8000` | API port |
-| `ENVIRONMENT` | `development` | `development`, `staging`, `production` |
-| `DEBUG` | `false` | Enable debug logging |
-| `CORS_ALLOW_ORIGINS` | `localhost:3000,4321,5173` | Comma-separated allowed origins |
-| `RATE_LIMIT_ENABLED` | `true` | Enable IP-based rate limiting |
-| `RATE_LIMIT_REQUESTS` | `100` | Requests per window |
-| `RATE_LIMIT_WINDOW` | `60` | Window in seconds |
-| `CACHE_ENABLED` | `true` | Enable in-memory cache |
-| `DB_POOL_MIN_CONNS` | `2` | Minimum pool connections |
-| `DB_POOL_MAX_CONNS` | `10` | Maximum pool connections |
-| `NEWS_API_KEY` | _(empty)_ | NewsAPI.org key (fallback news source) |
-| `TWITTER_BEARER_TOKEN` | _(empty)_ | X/Twitter API v2 bearer token |
-| `TWITTER_JOURNALIST_LIST_ID` | _(empty)_ | Curated journalist X List ID |
-
-## Deployment
-
-The Go API is deployed on [Railway](https://railway.app) using Railpack (Railway's native Go builder). No Docker.
-
-### Railway Configuration (`railway.toml`)
-
-```toml
-[build]
-builder = "RAILPACK"
-watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum"]
-
-[deploy]
-startCommand = "./out"
-healthcheckPath = "/health"
-healthcheckTimeout = 100
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
-```
-
-Railpack detects `go.mod` at the repo root, reads Go 1.25 from it, compiles a static binary (`CGO_ENABLED=0`, `-ldflags="-w -s"`), and outputs it as `./out`.
-
-### Railway Environment Variables
-
-Set `RAILPACK_GO_BIN=api` to tell Railpack to build `cmd/api` (since `cmd/ingest` also exists).
-
-### Pre-deployment Checklist
-
-1. Apply `schema.sql` to the Neon database (if schema has changed)
-2. Set all required env vars on Railway (including `RAILPACK_GO_BIN=api`)
-3. Push to `main` — Railway auto-deploys
-4. Verify `/health/db` returns `"database": "connected"`
-
-## Quick Start
-
-```bash
-cd scoracle-data
-
-# Install dependencies
-go mod tidy
-
-# Copy env vars
-cp .env.example .env
-# Edit .env with your API keys and database URL
-
-# Build
-go build -o bin/scoracle-api ./cmd/api
-go build -o bin/scoracle-ingest ./cmd/ingest
-
-# Seed data
-./bin/scoracle-ingest seed nba
-./bin/scoracle-ingest percentiles
-
-# Run the API
-./bin/scoracle-api
-# -> http://localhost:8000
-# -> http://localhost:8000/docs/ (Swagger UI)
-```

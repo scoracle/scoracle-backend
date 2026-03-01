@@ -14,9 +14,7 @@ services:
       PGRST_OPENAPI_MODE: follow-privileges
 
   api:
-    build:
-      context: .
-      dockerfile: go/Dockerfile
+    build: go/
     ports:
       - "8000:8000"
     env_file: .env

@@ -10,7 +10,5 @@ RUN apk add --no-cache libpq \
     && adduser -D -u 1000 -h /tmp postgrest
 COPY --from=src /bin/postgrest /bin/postgrest
 USER postgrest
-EXPOSE 3000
-HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
-  CMD wget -qO /dev/null http://localhost:3000/ || exit 1
-CMD ["postgrest"]
+HEALTHCHECK NONE
+CMD ["sh", "-c", "export PGRST_SERVER_PORT=\"${PORT:-3000}\"; exec postgrest"]

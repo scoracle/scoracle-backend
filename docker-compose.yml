@@ -12,6 +12,7 @@ services:
       PGRST_DB_SCHEMAS: api
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_OPENAPI_MODE: follow-privileges
+      PGRST_DB_CHANNEL_ENABLED: "false"
 
   api:
     build: go/

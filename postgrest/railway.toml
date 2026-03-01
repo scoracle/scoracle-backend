@@ -1,7 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["Dockerfile"]
+watchPatterns = ["Dockerfile", "railway.toml"]
 
 [deploy]
 # healthcheckPath temporarily removed to diagnose deploy/routing issue

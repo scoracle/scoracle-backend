@@ -3,7 +3,6 @@
 # The official amd64 image is scratch-based (no OS, no NSS libs).
 # Railway requires a non-root user and working getpwuid(), so we
 # copy the PostgREST binary into Alpine which provides both.
-# diagnostic deploy — healthcheck disabled to test HTTP serving
 FROM postgrest/postgrest:v13.0.8 AS src
 
 FROM alpine:3.21

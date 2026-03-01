@@ -21,5 +21,4 @@ services:
     environment:
       POSTGREST_URL: http://postgrest:3000
     depends_on:
-      postgrest:
-        condition: service_healthy
+      - postgrest

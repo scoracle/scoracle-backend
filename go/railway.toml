@@ -1,7 +1,7 @@
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
-watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum", "Dockerfile"]
+watchPatterns = ["cmd/**", "internal/**", "go.mod", "go.sum", "Dockerfile", "railway.toml"]
 
 [deploy]
 healthcheckPath = "/health"

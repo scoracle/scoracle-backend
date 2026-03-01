@@ -4,8 +4,7 @@ dockerfilePath = "Dockerfile"
 watchPatterns = ["Dockerfile", "railway.toml"]
 
 [deploy]
-# healthcheckPath temporarily removed to diagnose deploy/routing issue
-# healthcheckPath = "/"
-# healthcheckTimeout = 100
+healthcheckPath = "/"
+healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10

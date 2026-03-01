@@ -13,4 +13,4 @@ USER postgrest
 EXPOSE 3000
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
   CMD wget -qO /dev/null http://localhost:3000/ || exit 1
-CMD ["sh", "-c", "echo \"[diag] PGRST_DB_URI set: $(test -n \"$PGRST_DB_URI\" && echo YES || echo NO)\"; echo \"[diag] PGRST_DB_SCHEMAS=$PGRST_DB_SCHEMAS\"; echo \"[diag] PGRST_DB_ANON_ROLE=$PGRST_DB_ANON_ROLE\"; echo \"[diag] PGRST_OPENAPI_MODE=$PGRST_OPENAPI_MODE\"; echo \"[diag] env var count: $(env | grep -c PGRST)\"; exec postgrest"]
+CMD ["postgrest"]

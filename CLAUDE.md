@@ -162,6 +162,43 @@ Required: `DATABASE_URL` (or equivalent), `BALLDONTLIE_API_KEY`, `SPORTMONKS_API
 
 See `.env.example` for the full list.
 
+## Progress Docs
+
+After any major edit — new feature, new file/folder, or significant refactor — generate a markdown summary and save it to `progress_docs/`. This is a mandatory step, not optional.
+
+**Filename format:** `YYYY-MM-DD_short-description.md` (e.g., `2026-03-02_add-fixture-worker.md`)
+
+**Required sections** (follow the pattern established in existing progress docs):
+
+```markdown
+# Session: <Short Title>
+**Date:** YYYY-MM-DD
+
+## Goals
+- Bullet list of what the session set out to accomplish
+
+## Decisions Made
+| Decision | Rationale |
+|----------|-----------|
+| ...      | ...       |
+
+## Accomplishments
+### Created
+- New files/directories and what they do
+### Updated
+- Existing files that were modified and why
+### Cleaned Up (if applicable)
+- Anything removed or deprecated
+
+## Quick Reference (if applicable)
+- Commands, URLs, or other useful snippets
+
+## File Layout After This Session (if applicable)
+- Tree showing relevant structural changes
+```
+
+**When to write one:** Any session that introduces a new feature, adds/removes files or folders, changes the schema, adds a new provider, or performs a significant refactor. Do **not** write one for minor bug fixes, typo corrections, or comment-only changes.
+
 ## Things to Avoid
 
 - Do not create migration files — edit `schema.sql` directly

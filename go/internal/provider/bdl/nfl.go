@@ -81,19 +81,19 @@ func normalizeNFLTeam(raw bdlNFLTeamRaw) provider.Team {
 // --------------------------------------------------------------------------
 
 type bdlNFLPlayerRaw struct {
-	ID                   int            `json:"id"`
-	FirstName            string         `json:"first_name"`
-	LastName             string         `json:"last_name"`
-	Position             string         `json:"position"`
-	PositionAbbreviation string         `json:"position_abbreviation"`
-	Height               string         `json:"height"`
-	Weight               string         `json:"weight"`
-	Country              string         `json:"country"`
-	Team                 *bdlNFLTeamRaw `json:"team"`
-	JerseyNumber         *int           `json:"jersey_number"`
-	College              string         `json:"college"`
-	Experience           *int           `json:"experience"`
-	Age                  *int           `json:"age"`
+	ID                   int             `json:"id"`
+	FirstName            string          `json:"first_name"`
+	LastName             string          `json:"last_name"`
+	Position             string          `json:"position"`
+	PositionAbbreviation string          `json:"position_abbreviation"`
+	Height               string          `json:"height"`
+	Weight               string          `json:"weight"`
+	Country              string          `json:"country"`
+	Team                 *bdlNFLTeamRaw  `json:"team"`
+	JerseyNumber         json.RawMessage `json:"jersey_number"`
+	College              string          `json:"college"`
+	Experience           json.RawMessage `json:"experience"`
+	Age                  *int            `json:"age"`
 }
 
 // GetPlayers iterates all NFL players via cursor pagination, calling fn for each.
@@ -135,14 +135,14 @@ func normalizeNFLPlayer(raw bdlNFLPlayerRaw) provider.Player {
 	if raw.PositionAbbreviation != "" {
 		meta["position_abbreviation"] = raw.PositionAbbreviation
 	}
-	if raw.JerseyNumber != nil {
-		meta["jersey_number"] = *raw.JerseyNumber
+	if raw.JerseyNumber != nil && string(raw.JerseyNumber) != "null" {
+		meta["jersey_number"] = json.RawMessage(raw.JerseyNumber)
 	}
 	if raw.College != "" {
 		meta["college"] = raw.College
 	}
-	if raw.Experience != nil {
-		meta["experience"] = *raw.Experience
+	if raw.Experience != nil && string(raw.Experience) != "null" {
+		meta["experience"] = json.RawMessage(raw.Experience)
 	}
 	if raw.Age != nil {
 		meta["age"] = *raw.Age
@@ -171,9 +171,18 @@ func normalizeNFLPlayer(raw bdlNFLPlayerRaw) provider.Player {
 // Player Stats (cursor-paginated season stats)
 // --------------------------------------------------------------------------
 
-type bdlNFLPlayerStatsRaw struct {
-	Player bdlNFLPlayerRaw        `json:"player"`
-	Stats  map[string]interface{} `json:"stats"`
+// BDL NFL /season_stats returns flat JSON objects where stat fields are at
+// the top level alongside "player", "season", and "postseason". We decode
+// into a generic map, extract the player, and treat all remaining numeric
+// fields as stats.
+
+// nflPlayerStatsNonStatKeys are keys in the /season_stats response that are
+// not stat values and should be excluded from the stats JSONB.
+var nflPlayerStatsNonStatKeys = map[string]bool{
+	"player":     true,
+	"season":     true,
+	"postseason": true,
+	"team":       true,
 }
 
 // GetPlayerStats iterates all player season stats, calling fn for each.
@@ -190,13 +199,18 @@ func (h *NFLHandler) GetPlayerStats(ctx context.Context, season int, postseason 
 			return fmt.Errorf("fetch NFL player stats: %w", err)
 		}
 
-		var raw []bdlNFLPlayerStatsRaw
-		if err := json.Unmarshal(resp.Data, &raw); err != nil {
+		// Decode as array of generic maps to capture flat stat fields
+		var rawItems []map[string]json.RawMessage
+		if err := json.Unmarshal(resp.Data, &rawItems); err != nil {
 			return fmt.Errorf("decode NFL player stats: %w", err)
 		}
 
-		for _, r := range raw {
-			ps := normalizeNFLPlayerStats(r, postseason)
+		for _, item := range rawItems {
+			ps, err := normalizeNFLPlayerStatsFlat(item, postseason)
+			if err != nil {
+				h.logger.Warn("skip NFL player stat", "error", err)
+				continue
+			}
 			if err := fn(ps); err != nil {
 				return err
 			}
@@ -210,16 +224,49 @@ func (h *NFLHandler) GetPlayerStats(ctx context.Context, season int, postseason 
 	return nil
 }
 
-func normalizeNFLPlayerStats(raw bdlNFLPlayerStatsRaw, postseason bool) provider.PlayerStats {
-	player := normalizeNFLPlayer(raw.Player)
-	stats := normalizeStatKeys(raw.Stats)
+func normalizeNFLPlayerStatsFlat(item map[string]json.RawMessage, postseason bool) (provider.PlayerStats, error) {
+	// Extract and decode the player object
+	playerJSON, ok := item["player"]
+	if !ok {
+		return provider.PlayerStats{}, fmt.Errorf("no player field in season_stats item")
+	}
+	var rawPlayer bdlNFLPlayerRaw
+	if err := json.Unmarshal(playerJSON, &rawPlayer); err != nil {
+		return provider.PlayerStats{}, fmt.Errorf("decode player: %w", err)
+	}
+	player := normalizeNFLPlayer(rawPlayer)
+
+	// Extract all non-player, non-metadata fields as stats
+	stats := make(map[string]interface{}, len(item))
+	for k, v := range item {
+		if nflPlayerStatsNonStatKeys[k] {
+			continue
+		}
+		// Try to decode as a number
+		var num float64
+		if err := json.Unmarshal(v, &num); err == nil {
+			stats[k] = num
+			continue
+		}
+		// Try to decode as a string (some stats may be string-encoded)
+		var s string
+		if err := json.Unmarshal(v, &s); err == nil {
+			stats[k] = s
+			continue
+		}
+		// null values — skip
+	}
+
+	// Apply canonical key renames
+	stats = normalizeStatKeys(stats)
+
 	if postseason {
 		stats["season_type"] = "postseason"
 	} else {
 		stats["season_type"] = "regular"
 	}
 
-	rawJSON, _ := json.Marshal(raw)
+	rawJSON, _ := json.Marshal(item)
 
 	return provider.PlayerStats{
 		PlayerID: player.ID,
@@ -227,42 +274,54 @@ func normalizeNFLPlayerStats(raw bdlNFLPlayerStatsRaw, postseason bool) provider
 		Player:   &player,
 		Stats:    stats,
 		Raw:      rawJSON,
-	}
+	}, nil
 }
 
 // --------------------------------------------------------------------------
-// Team Stats (cursor-paginated)
+// Team Stats (via /standings endpoint)
 // --------------------------------------------------------------------------
 
-type bdlNFLTeamStatsRaw struct {
-	Team  bdlNFLTeamRaw          `json:"team"`
-	Stats map[string]interface{} `json:"stats"`
+type bdlNFLStandingRaw struct {
+	Team              bdlNFLTeamRaw `json:"team"`
+	Wins              int           `json:"wins"`
+	Losses            int           `json:"losses"`
+	Ties              int           `json:"ties"`
+	PointsFor         int           `json:"points_for"`
+	PointsAgainst     int           `json:"points_against"`
+	PointDifferential int           `json:"point_differential"`
+	Season            int           `json:"season"`
 }
 
-// GetTeamStats fetches all team season averages in canonical format.
+// GetTeamStats fetches NFL standings and normalizes to canonical team stats.
 func (h *NFLHandler) GetTeamStats(ctx context.Context, season int, seasonType string) ([]provider.TeamStats, error) {
 	params := url.Values{
-		"season":      {strconv.Itoa(season)},
-		"season_type": {seasonType},
-		"per_page":    {"100"},
+		"season":   {strconv.Itoa(season)},
+		"per_page": {"100"},
 	}
 
 	var all []provider.TeamStats
 
 	for {
-		resp, err := h.client.get(ctx, "/team_season_averages/general", params)
+		resp, err := h.client.get(ctx, "/standings", params)
 		if err != nil {
-			return nil, fmt.Errorf("fetch NFL team stats: %w", err)
+			return nil, fmt.Errorf("fetch NFL standings: %w", err)
 		}
 
-		var raw []bdlNFLTeamStatsRaw
+		var raw []bdlNFLStandingRaw
 		if err := json.Unmarshal(resp.Data, &raw); err != nil {
-			return nil, fmt.Errorf("decode NFL team stats: %w", err)
+			return nil, fmt.Errorf("decode NFL standings: %w", err)
 		}
 
 		for _, r := range raw {
-			stats := normalizeStatKeys(r.Stats)
-			stats["season_type"] = seasonType
+			stats := map[string]interface{}{
+				"wins":               float64(r.Wins),
+				"losses":             float64(r.Losses),
+				"ties":               float64(r.Ties),
+				"points_for":         float64(r.PointsFor),
+				"points_against":     float64(r.PointsAgainst),
+				"point_differential": float64(r.PointDifferential),
+				"season_type":        seasonType,
+			}
 			rawJSON, _ := json.Marshal(r)
 			all = append(all, provider.TeamStats{
 				TeamID: r.Team.ID,

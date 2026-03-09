@@ -1431,6 +1431,15 @@ $$ LANGUAGE sql STABLE;
 COMMENT ON FUNCTION api.stat_leaders IS
     'Returns top N players by stat category with positional filtering.';
 
+-- Health check endpoint for Railway deployment healthcheck (via /rpc/health)
+CREATE OR REPLACE FUNCTION api.health()
+RETURNS json AS $$
+    SELECT json_build_object('status', 'ok');
+$$ LANGUAGE sql STABLE;
+
+COMMENT ON FUNCTION api.health IS
+    'Lightweight health check for deployment probes.';
+
 -- ============================================================================
 -- 17c. GRANT PERMISSIONS
 -- ============================================================================
@@ -1447,6 +1456,7 @@ GRANT SELECT ON api.leagues TO web_anon;
 GRANT SELECT ON api.autofill_entities TO web_anon;
 GRANT SELECT ON api.sports TO web_anon;
 GRANT EXECUTE ON FUNCTION api.stat_leaders TO web_anon;
+GRANT EXECUTE ON FUNCTION api.health TO web_anon;
 
 GRANT SELECT ON api.player_stats TO web_user;
 GRANT SELECT ON api.team_stats TO web_user;
@@ -1458,6 +1468,7 @@ GRANT SELECT ON api.leagues TO web_user;
 GRANT SELECT ON api.autofill_entities TO web_user;
 GRANT SELECT ON api.sports TO web_user;
 GRANT EXECUTE ON FUNCTION api.stat_leaders TO web_user;
+GRANT EXECUTE ON FUNCTION api.health TO web_user;
 
 -- User subscription views (authenticated only, with RLS)
 CREATE OR REPLACE VIEW api.my_follows AS

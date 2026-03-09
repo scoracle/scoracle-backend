@@ -51,11 +51,8 @@ type paginatedResponse struct {
 }
 
 // get performs a rate-limited GET request to a SportMonks endpoint.
+// On 429 (rate limit) responses, it retries with exponential backoff up to 5 times.
 func (c *Client) get(ctx context.Context, path string, params url.Values) (*paginatedResponse, error) {
-	if err := c.limiter.Wait(ctx); err != nil {
-		return nil, fmt.Errorf("rate limit wait: %w", err)
-	}
-
 	if params == nil {
 		params = url.Values{}
 	}
@@ -63,32 +60,63 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) (*pagi
 
 	u := baseURL + path + "?" + params.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+	const maxRetries = 5
+	backoff := 2 * time.Second
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if err := c.limiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limit wait: %w", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("http request %s: %w", path, err)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read response body: %w", err)
+		}
+
+		// Handle rate limiting with retry + backoff
+		if resp.StatusCode == http.StatusTooManyRequests {
+			if attempt == maxRetries {
+				return nil, fmt.Errorf("SportMonks %s returned 429 after %d retries: %s", path, maxRetries, truncate(body, 200))
+			}
+			c.logger.Warn("rate limited, backing off",
+				"path", path,
+				"attempt", attempt+1,
+				"backoff", backoff.String(),
+			)
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+			backoff *= 2 // exponential backoff: 2s, 4s, 8s, 16s, 32s
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("SportMonks %s returned %d: %s", path, resp.StatusCode, truncate(body, 200))
+		}
+
+		var result paginatedResponse
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("decode response: %w", err)
+		}
+
+		return &result, nil
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("http request %s: %w", path, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("SportMonks %s returned %d: %s", path, resp.StatusCode, truncate(body, 200))
-	}
-
-	var result paginatedResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
-	}
-
-	return &result, nil
+	// Should not reach here, but just in case
+	return nil, fmt.Errorf("SportMonks %s: exhausted retries", path)
 }
 
 // getPaginated fetches all pages from a paginated endpoint.

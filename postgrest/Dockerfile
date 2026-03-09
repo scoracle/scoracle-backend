@@ -21,4 +21,4 @@ EXPOSE 3000
 # PostgREST writes *all* log output to stderr.  Railway classifies stderr
 # as [err], which makes GitHub mark every deployment as "failed" even when
 # the service is healthy.  Redirect stderr → stdout so logs appear as [inf].
-CMD ["sh", "-c", "exec postgrest 2>&1"]
+CMD ["sh", "-c", "PGRST_SERVER_PORT=${PORT:-3000} exec postgrest 2>&1"]

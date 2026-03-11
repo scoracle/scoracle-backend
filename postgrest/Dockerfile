@@ -14,6 +14,9 @@ COPY --from=src /bin/postgrest /bin/postgrest
 # connections every ~5-10 min, which causes a noisy reconnect loop.
 # Schema reloads happen on redeploy anyway.
 ENV PGRST_DB_CHANNEL_ENABLED=false
+ENV PGRST_DB_SCHEMAS=api
+ENV PGRST_DB_ANON_ROLE=web_anon
+ENV PGRST_OPENAPI_MODE=follow-privileges
 
 USER postgrest
 EXPOSE 3000
@@ -21,4 +24,4 @@ EXPOSE 3000
 # PostgREST writes *all* log output to stderr.  Railway classifies stderr
 # as [err], which makes GitHub mark every deployment as "failed" even when
 # the service is healthy.  Redirect stderr → stdout so logs appear as [inf].
-CMD ["sh", "-c", "PGRST_SERVER_PORT=${PORT:-3000} exec postgrest 2>&1"]
+CMD ["sh", "-c", "PGRST_SERVER_PORT=${PORT:-3000} PGRST_DB_URI=${PGRST_DB_URI:-$DATABASE_URL} exec postgrest 2>&1"]

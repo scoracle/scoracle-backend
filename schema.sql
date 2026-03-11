@@ -1263,6 +1263,14 @@ END $$;
 GRANT web_anon TO authenticator;
 GRANT web_user TO authenticator;
 
+-- Grant PostgREST roles to the database owner so PostgREST can use
+-- DATABASE_URL directly without a separate authenticator login.
+DO $$
+BEGIN
+    EXECUTE format('GRANT web_anon TO %I', current_user);
+    EXECUTE format('GRANT web_user TO %I', current_user);
+END $$;
+
 -- API schema
 CREATE SCHEMA IF NOT EXISTS api;
 GRANT USAGE ON SCHEMA api TO web_anon, web_user;

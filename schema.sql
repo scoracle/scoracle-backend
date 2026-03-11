@@ -1263,6 +1263,25 @@ END $$;
 GRANT web_anon TO authenticator;
 GRANT web_user TO authenticator;
 
+-- Grant PostgREST roles to the database owner so PostgREST can use
+-- DATABASE_URL directly without a separate authenticator login.
+DO $$
+DECLARE
+    db_owner name;
+BEGIN
+    -- Resolve the actual owner of the current database
+    SELECT r.rolname
+    INTO db_owner
+    FROM pg_database d
+    JOIN pg_roles r ON r.oid = d.datdba
+    WHERE d.datname = current_database();
+
+    IF db_owner IS NOT NULL THEN
+        EXECUTE format('GRANT web_anon TO %I', db_owner);
+        EXECUTE format('GRANT web_user TO %I', db_owner);
+    END IF;
+END $$;
+
 -- API schema
 CREATE SCHEMA IF NOT EXISTS api;
 GRANT USAGE ON SCHEMA api TO web_anon, web_user;

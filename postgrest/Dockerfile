@@ -7,6 +7,7 @@ FROM alpine:3.21
 RUN apk add --no-cache libpq \
     && adduser -D -u 1000 -h /tmp postgrest
 COPY --from=src /bin/postgrest /bin/postgrest
+COPY entrypoint.sh /bin/entrypoint.sh
 
 ENV PGRST_DB_CHANNEL_ENABLED=false \
     PGRST_DB_SCHEMAS=api \
@@ -17,4 +18,4 @@ ENV PGRST_DB_CHANNEL_ENABLED=false \
 USER postgrest
 EXPOSE 3000
 
-ENTRYPOINT ["/bin/postgrest"]
+ENTRYPOINT ["/bin/entrypoint.sh"]

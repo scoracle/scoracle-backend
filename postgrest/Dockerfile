@@ -1,8 +1,6 @@
 # PostgREST — stats and data API via Postgres views/functions
-#
-# The official amd64 image is scratch-based (no OS, no NSS libs).
-# Railway requires a non-root user and working getpwuid(), so we
-# copy the PostgREST binary into Alpine which provides both.
+# The official image is scratch-based, so we copy the binary into Alpine
+# to get a normal user account and the shared libs Railway expects.
 FROM postgrest/postgrest:v13.0.8 AS src
 
 FROM alpine:3.21
@@ -10,18 +8,13 @@ RUN apk add --no-cache libpq \
     && adduser -D -u 1000 -h /tmp postgrest
 COPY --from=src /bin/postgrest /bin/postgrest
 
-# Disable the LISTEN/NOTIFY channel.  Railway's Postgres proxy kills idle
-# connections every ~5-10 min, which causes a noisy reconnect loop.
-# Schema reloads happen on redeploy anyway.
-ENV PGRST_DB_CHANNEL_ENABLED=false
-ENV PGRST_DB_SCHEMAS=api
-ENV PGRST_DB_ANON_ROLE=web_anon
-ENV PGRST_OPENAPI_MODE=follow-privileges
+ENV PGRST_DB_CHANNEL_ENABLED=false \
+    PGRST_DB_SCHEMAS=api \
+    PGRST_DB_ANON_ROLE=web_anon \
+    PGRST_OPENAPI_MODE=follow-privileges \
+    PGRST_SERVER_PORT=3000
 
 USER postgrest
 EXPOSE 3000
 
-# PostgREST writes *all* log output to stderr.  Railway classifies stderr
-# as [err], which makes GitHub mark every deployment as "failed" even when
-# the service is healthy.  Redirect stderr → stdout so logs appear as [inf].
-CMD ["sh", "-c", "PGRST_SERVER_PORT=${PORT:-3000} PGRST_DB_URI=${PGRST_DB_URI:-$DATABASE_URL} exec postgrest 2>&1"]
+ENTRYPOINT ["/bin/postgrest"]

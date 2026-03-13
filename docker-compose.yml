@@ -8,7 +8,13 @@ services:
       - "3000:3000"
     env_file: .env
     environment:
-      PGRST_DB_URI: ${DATABASE_URL}
+      # Mirror the Go API's fallback chain (config.go):
+      # NEON_DATABASE_URL_V2 > DATABASE_URL > NEON_DATABASE_URL
+      # The entrypoint.sh handles this automatically, so we just forward
+      # whichever variables are set — no need to pick one here.
+      NEON_DATABASE_URL_V2: ${NEON_DATABASE_URL_V2:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      NEON_DATABASE_URL: ${NEON_DATABASE_URL:-}
 
   api:
     build: go/

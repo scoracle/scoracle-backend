@@ -28,7 +28,7 @@ The Go API does **not** own stats, profiles, or any core data endpoints. Those m
 
 | Data comes from...         | Build it in...                              |
 |----------------------------|---------------------------------------------|
-| Postgres (stats, profiles) | `schema.sql` — add a view/function in the `api` schema, PostgREST exposes it automatically |
+| Postgres (stats, profiles) | `sql/<sport>.sql` — add a view/function in the sport's schema + wire it in `sql/api_views.sql`, PostgREST exposes it automatically |
 | Third-party API            | Go — add a handler in `go/internal/api/handler/` |
 
 ## Legacy Code — Do Not Use
@@ -45,13 +45,15 @@ Some env var comments and cache constants still reference the Python codebase (e
 
 3. **No shared Provider interface** — Provider-agnosticism comes from canonical output structs (`provider.Team`, `provider.Player`, `provider.PlayerStats`, `provider.TeamStats`), not input interfaces. Adding a new data provider means adding a new handler package under `go/internal/provider/`; nothing else changes.
 
-4. **Single schema file** — `schema.sql` at the repo root is the complete database definition (v7.0). There are no incremental migrations. Edit this file directly when changing the schema.
+4. **Per-sport schema separation** — The database uses separate Postgres schemas per sport (`nba.*`, `nfl.*`, `football.*`) within one Neon database. Each sport has its own self-contained SQL file in `sql/` (`nba.sql`, `nfl.sql`, `football.sql`). The legacy `schema.sql` at the repo root is the v7.0 monolith and is being superseded by the modular files. See `planning_docs/SPORT_SCHEMA_SEPARATION.md` for the full plan and migration phases.
 
 5. **Derived stats in Postgres** — Triggers auto-compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE. Go never calculates derived stats.
 
 6. **Percentiles in Postgres** — `recalculate_percentiles()` runs in Postgres. Go calls it but doesn't compute percentiles.
 
 7. **JSONB for sport-specific data** — The `stats` and `meta` columns are JSONB. No schema changes needed for new stat keys — add them to `stat_definitions` and the provider handler.
+
+> **Critical goal: independent sport growth.** Each sport's database schema, seed pipeline, and API surface must be owned and evolved independently. Adding stats, derived metrics, standings logic, or API views for one sport must never require touching another sport's code or schema. This enables assigning a product owner per sport and makes adding a new sport a bounded, predictable task. See `planning_docs/SPORT_SCHEMA_SEPARATION.md`.
 
 ## Codebase Layout
 
@@ -201,7 +203,7 @@ After any major edit — new feature, new file/folder, or significant refactor �
 
 ## Things to Avoid
 
-- Do not create migration files — edit `schema.sql` directly
+- Do not create migration files — edit the sport's schema file in `sql/` directly
 - Do not add a service/repository layer between handlers and pgxpool
 - Do not compute derived stats or percentiles in Go — that's Postgres's job
 - Do not add core data endpoints to the Go API — those belong in PostgREST (the `api` schema)

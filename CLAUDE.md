@@ -31,11 +31,11 @@ The Go API does **not** own stats, profiles, or any core data endpoints. Those m
 | Postgres (stats, profiles) | `sql/<sport>.sql` — add a view/function in the sport's schema + wire it in `sql/api_views.sql`, PostgREST exposes it automatically |
 | Third-party API            | Go — add a handler in `go/internal/api/handler/` |
 
-## Legacy Code — Do Not Use
+## Python Seeder
 
-The `legacy_fastapi/` directory contains the original Python/FastAPI implementation. It is **not active**, not deployed, and not maintained. Do not modify, reference, or port patterns from it. All active code is in `go/`.
+The `seed/` directory contains the Python seeder — a thin data ingestion layer that calls provider APIs (BDL, SportMonks), extracts raw data, and upserts into Postgres. It has zero notification awareness. After seeding a fixture, it calls `finalize_fixture()` and Postgres handles everything downstream (stat key normalization, derived stats, percentiles, NOTIFY events).
 
-Some env var comments and cache constants still reference the Python codebase (e.g., `core/types.py`). Ignore these — Go is the source of truth.
+Tech stack: `httpx`, `psycopg[binary]` v3, `click`. No frameworks.
 
 ## Key Design Rules
 
@@ -57,71 +57,52 @@ Some env var comments and cache constants still reference the Python codebase (e
 
 ## Codebase Layout
 
-All Go code lives under `go/`:
+Go API code lives under `go/`, Python seeder under `seed/`:
 
 ```
 go/
 ├── cmd/api/main.go              # API server entry point
-├── cmd/ingest/main.go           # Cobra CLI for seeding + percentiles + fixtures
 ├── internal/
-│   ├── api/
-│   │   ├── server.go            # Chi router setup, middleware, route registration
-│   │   ├── middleware.go         # Timing, rate limiting
-│   │   ├── respond/respond.go   # JSON response helpers (WriteJSON, WriteError)
-│   │   └── handler/             # HTTP handlers (one file per domain)
-│   │       ├── handler.go       # Handler struct with shared deps (pool, cache, config)
-│   │       ├── news.go          # News endpoints
-│   │       ├── twitter.go       # Twitter/journalist feed
-│   │       ├── profile.go       # Profile passthrough (Postgres JSON)
-│   │       ├── stats.go         # Stats passthrough (Postgres JSON)
-│   │       └── bootstrap.go     # Autofill/search endpoint
+│   ├── api/                     # Chi router, middleware, response helpers, handlers
 │   ├── cache/cache.go           # In-memory TTL cache with ETag support
-│   ├── config/config.go         # Env var loading, sport registry, table name constants
+│   ├── config/config.go         # Env var loading
 │   ├── db/db.go                 # pgxpool wrapper, prepared statement registration
-│   ├── provider/
-│   │   ├── canonical.go         # Canonical structs (Team, Player, PlayerStats, TeamStats)
-│   │   ├── bdl/                 # BallDontLie handlers (NBA, NFL)
-│   │   └── sportmonks/          # SportMonks handler (Football)
-│   ├── seed/                    # Per-sport seed orchestration + upsert functions
-│   ├── fixture/                 # Post-match fixture processing
 │   ├── thirdparty/              # News + Twitter clients
-│   ├── listener/                # Postgres LISTEN/NOTIFY consumer
-│   ├── maintenance/             # Periodic background tickers
-│   └── notifications/           # Milestone detection + FCM push pipeline
+│   ├── listener/                # Postgres LISTEN/NOTIFY consumer (percentile_changed)
+│   ├── maintenance/             # Periodic background tickers (cleanup, catch-up sweep)
+│   └── notifications/           # FCM push dispatch worker + query helpers
 ├── docs/                        # Auto-generated Swagger specs (swaggo)
-├── go.mod                       # Go 1.25, module: github.com/albapepper/scoracle-data
-├── Dockerfile                   # Multi-stage: golang:1.25-alpine → alpine:3.21
-└── railway.toml                 # Railway deployment config
+└── Dockerfile                   # Multi-stage: golang:1.25-alpine → alpine:3.21
+
+seed/
+├── scoracle_seed/               # Python seeder (15 modules)
+│   ├── cli.py                   # Click CLI entry point
+│   ├── config.py, db.py         # Config + DB pool
+│   ├── models.py, upsert.py     # Canonical types + SQL upserts
+│   ├── fixtures.py              # Fixture schedule management
+│   ├── bdl_*.py                 # BDL provider clients (NBA, NFL)
+│   ├── sportmonks_*.py          # SportMonks provider client (Football)
+│   └── seed_*.py                # Per-sport seed orchestration
+├── Dockerfile                   # python:3.13-slim
+└── pyproject.toml               # httpx, psycopg, click
 ```
 
 ## Build & Run
 
 ```bash
-# From the go/ directory:
-
-# Build
+# Go API (from go/ directory)
 go build -o bin/scoracle-api ./cmd/api
-go build -o bin/scoracle-ingest ./cmd/ingest
-
-# Run API server
 ./bin/scoracle-api
 
-# Seed data
-./bin/scoracle-ingest seed nba --season 2025
-./bin/scoracle-ingest seed nfl --season 2025
-./bin/scoracle-ingest seed football --season 2025 --league 8
+# Python seeder (from seed/ directory)
+scoracle-seed bootstrap-teams nba --season 2025
+scoracle-seed load-fixtures nba --season 2025
+scoracle-seed process --max 50
+scoracle-seed seed-fixture --id 42
 
-# Recalculate percentiles
-./bin/scoracle-ingest percentiles --sport NBA --season 2025
-
-# Process fixtures
-./bin/scoracle-ingest fixtures process --sport NBA --max 10 --workers 2
-
-# Docker (both services)
-cd .. && docker compose up --build
-# PostgREST → http://localhost:3000
-# Go API    → http://localhost:8000
-# Swagger   → http://localhost:8000/docs/
+# Docker (all services)
+docker compose up --build
+docker compose run --rm seed process --max 50
 ```
 
 ## Tests
@@ -149,12 +130,13 @@ For third-party data (news, twitter): use `respond.WriteJSONObject()` instead si
 
 ## Adding a New Provider
 
-1. Create a package under `go/internal/provider/yourprovider/`
-2. Implement functions that return `provider.Team`, `provider.Player`, `provider.PlayerStats`, `provider.TeamStats`
-3. Create a seed runner in `go/internal/seed/`
-4. Add a Cobra subcommand in `go/cmd/ingest/main.go`
+1. Create a new handler file in `seed/scoracle_seed/` (e.g., `newprovider_client.py`, `newprovider_sport.py`)
+2. Implement functions that return canonical models (`Team`, `Player`, `PlayerStats`, `TeamStats`)
+3. Create a seed orchestrator (e.g., `seed_newsport.py`)
+4. Add stat key mappings to `provider_stat_mappings` table in `sql/shared.sql`
+5. Wire the CLI command in `seed/scoracle_seed/cli.py`
 
-The canonical structs in `go/internal/provider/canonical.go` are the contract. The upsert functions in `go/internal/seed/upsert.go` handle writing to Postgres.
+The canonical dataclasses in `seed/scoracle_seed/models.py` are the contract. The upsert functions in `seed/scoracle_seed/upsert.py` handle writing to Postgres.
 
 ## Environment Variables
 
@@ -207,6 +189,6 @@ After any major edit — new feature, new file/folder, or significant refactor �
 - Do not add a service/repository layer between handlers and pgxpool
 - Do not compute derived stats or percentiles in Go — that's Postgres's job
 - Do not add core data endpoints to the Go API — those belong in PostgREST (the `api` schema)
-- Do not modify or reference anything in `legacy_fastapi/` — it is dead code
+- Do not compute derived stats or normalize stat keys in Python — that's Postgres's job
 - Do not introduce a shared Provider interface — use canonical structs instead
 - Do not marshal/unmarshal Postgres JSON responses into Go structs — pass raw bytes through

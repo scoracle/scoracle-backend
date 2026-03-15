@@ -25,3 +25,13 @@ services:
       POSTGREST_URL: http://postgrest:3000
     depends_on:
       - postgrest
+
+  seed:
+    build: seed/
+    env_file: .env
+    environment:
+      NEON_DATABASE_URL_V2: ${NEON_DATABASE_URL_V2:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      BALLDONTLIE_API_KEY: ${BALLDONTLIE_API_KEY:-}
+      SPORTMONKS_API_TOKEN: ${SPORTMONKS_API_TOKEN:-}
+    profiles: ["seed"]

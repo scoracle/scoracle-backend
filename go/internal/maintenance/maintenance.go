@@ -82,10 +82,8 @@ func runLoop(ctx context.Context, ch <-chan time.Time, name string, fn func()) {
 // Task implementations
 // --------------------------------------------------------------------------
 
-// cleanup removes notifications older than 30 days that have been sent or
-// failed, and expired percentile_archive rows marked as final.
+// cleanup removes notifications older than 30 days that have been sent or failed.
 func cleanup(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
-	// Purge old sent/failed notifications
 	tag, err := pool.Exec(ctx, `
 		DELETE FROM notifications
 		WHERE status IN ('sent', 'failed')
@@ -94,17 +92,6 @@ func cleanup(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 		logger.Warn("Cleanup: failed to purge old notifications", "error", err)
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("Cleanup: purged old notifications", "count", tag.RowsAffected())
-	}
-
-	// Purge old non-final percentile archive rows (keep final snapshots)
-	tag, err = pool.Exec(ctx, `
-		DELETE FROM percentile_archive
-		WHERE is_final = false
-		  AND archived_at < NOW() - INTERVAL '7 days'`)
-	if err != nil {
-		logger.Warn("Cleanup: failed to purge old archive rows", "error", err)
-	} else if tag.RowsAffected() > 0 {
-		logger.Info("Cleanup: purged old archive rows", "count", tag.RowsAffected())
 	}
 }
 

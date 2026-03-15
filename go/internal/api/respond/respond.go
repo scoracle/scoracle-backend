@@ -44,18 +44,6 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-// WriteErrorDetail sends a structured error with additional detail.
-func WriteErrorDetail(w http.ResponseWriter, status int, code, message, detail string) {
-	resp := ErrorResponse{}
-	resp.Error.Code = code
-	resp.Error.Message = message
-	resp.Error.Detail = detail
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(resp)
-}
-
 // WriteJSONObject marshals a Go value to JSON and writes it.
 // Used for non-Postgres responses (health checks, news, twitter).
 func WriteJSONObject(w http.ResponseWriter, status int, v interface{}) {

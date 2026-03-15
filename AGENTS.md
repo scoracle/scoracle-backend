@@ -4,28 +4,35 @@ Coding agent guide for the Scoracle Data repository. Read CLAUDE.md for full arc
 
 ## Architecture Summary
 
-Two services, one Neon PostgreSQL database:
+Three services, one Neon PostgreSQL database:
 - **PostgREST** (port 3000) — auto-generated REST API for all core data (stats, profiles, standings). Add endpoints by adding views/functions to `sql/<sport>.sql`.
-- **Go API** (port 8000) — third-party integrations only (news, tweets), plus health checks, Swagger UI, and background workers.
+- **Go API** (port 8000) — third-party integrations only (news, tweets), plus health checks, Swagger UI, LISTEN/NOTIFY for notifications, and background workers.
+- **Python Seeder** (`seed/`) — thin data ingestion layer. Calls provider APIs, extracts raw data, upserts into Postgres, calls `finalize_fixture()`. Zero notification awareness.
 
 All Go code lives under `go/`. Module: `github.com/albapepper/scoracle-data`, Go 1.25.
+Python seeder lives under `seed/`. Uses httpx, psycopg3, click.
 
 ## Build & Run
 
-All commands run from the `go/` directory:
-
+Go API (from `go/` directory):
 ```bash
 go build -o bin/scoracle-api ./cmd/api
-go build -o bin/scoracle-ingest ./cmd/ingest
 ./bin/scoracle-api                                          # start API server
-./bin/scoracle-ingest seed nba --season 2025                # seed NBA data
-./bin/scoracle-ingest percentiles --sport NBA --season 2025  # recalculate percentiles
-./bin/scoracle-ingest fixtures process --sport NBA --max 10 --workers 2
+```
+
+Python Seeder (from `seed/` directory, or via Docker):
+```bash
+scoracle-seed bootstrap-teams nba --season 2025             # one-time team roster
+scoracle-seed load-fixtures nba --season 2025               # load fixture schedule
+scoracle-seed process --max 50                              # process ready fixtures
+scoracle-seed seed-fixture --id 42                          # seed single fixture
+scoracle-seed percentiles --sport NBA --season 2025         # ad-hoc percentile recalc
 ```
 
 Docker (from repo root):
 ```bash
-docker compose up --build   # PostgREST :3000, Go API :8000
+docker compose up --build                                   # PostgREST :3000, Go API :8000
+docker compose run --rm seed process --max 50               # run seeder
 ```
 
 ## Testing
@@ -143,4 +150,4 @@ Response helpers: `respond.WriteJSON` (raw Postgres bytes), `respond.WriteJSONOb
 7. **New data endpoints go in PostgREST** — Add views/functions in `sql/`, not Go handlers.
 8. **New third-party integrations go in Go** — Add handlers in `go/internal/api/handler/`.
 9. **Do not edit `sql/` as migrations** — Edit sport schema files directly, no migration files.
-10. **Ignore `legacy_fastapi/`** — Dead code. Do not reference, modify, or port from it.
+10. **Stat key normalization lives in Postgres** — The `normalize_stat_keys()` trigger and `provider_stat_mappings` table handle all key renaming. Python inserts raw provider keys.

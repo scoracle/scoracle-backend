@@ -192,6 +192,115 @@ CREATE TABLE IF NOT EXISTS stat_definitions (
 CREATE INDEX IF NOT EXISTS idx_stat_definitions_sport ON stat_definitions(sport, entity_type);
 
 -- ============================================================================
+-- 7b. PROVIDER STAT KEY MAPPINGS — maps raw provider keys to canonical names
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS provider_stat_mappings (
+    provider TEXT NOT NULL,
+    sport TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
+    raw_key TEXT NOT NULL,
+    canonical_key TEXT NOT NULL,
+    PRIMARY KEY (provider, sport, entity_type, raw_key)
+);
+
+-- BDL mappings (shared NBA/NFL — these keys appear in both)
+INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
+    ('bdl', 'NBA', 'player', 'tov', 'turnover'),
+    ('bdl', 'NBA', 'player', 'gp', 'games_played'),
+    ('bdl', 'NBA', 'team', 'tov', 'turnover'),
+    ('bdl', 'NBA', 'team', 'gp', 'games_played'),
+    ('bdl', 'NBA', 'team', 'w', 'wins'),
+    ('bdl', 'NBA', 'team', 'l', 'losses'),
+    ('bdl', 'NFL', 'player', 'tov', 'turnover'),
+    ('bdl', 'NFL', 'player', 'gp', 'games_played'),
+    ('bdl', 'NFL', 'team', 'w', 'wins'),
+    ('bdl', 'NFL', 'team', 'l', 'losses')
+ON CONFLICT DO NOTHING;
+
+-- SportMonks Football player stat code overrides
+INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
+    ('sportmonks', 'FOOTBALL', 'player', 'passes', 'passes_total'),
+    ('sportmonks', 'FOOTBALL', 'player', 'accurate-passes', 'passes_accurate'),
+    ('sportmonks', 'FOOTBALL', 'player', 'total-crosses', 'crosses_total'),
+    ('sportmonks', 'FOOTBALL', 'player', 'accurate-crosses', 'crosses_accurate'),
+    ('sportmonks', 'FOOTBALL', 'player', 'blocked-shots', 'blocks'),
+    ('sportmonks', 'FOOTBALL', 'player', 'total-duels', 'duels_total'),
+    ('sportmonks', 'FOOTBALL', 'player', 'dribble-attempts', 'dribbles_attempts'),
+    ('sportmonks', 'FOOTBALL', 'player', 'successful-dribbles', 'dribbles_success'),
+    ('sportmonks', 'FOOTBALL', 'player', 'yellowcards', 'yellow_cards'),
+    ('sportmonks', 'FOOTBALL', 'player', 'redcards', 'red_cards'),
+    ('sportmonks', 'FOOTBALL', 'player', 'fouls', 'fouls_committed'),
+    ('sportmonks', 'FOOTBALL', 'player', 'expected-goals', 'expected_goals')
+ON CONFLICT DO NOTHING;
+
+-- SportMonks Football team standing code overrides
+INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-matches-played', 'matches_played'),
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-won', 'wins'),
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-draw', 'draws'),
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-lost', 'losses'),
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-goals-for', 'goals_for'),
+    ('sportmonks', 'FOOTBALL', 'team', 'overall-goals-against', 'goals_against'),
+    ('sportmonks', 'FOOTBALL', 'team', 'home-matches-played', 'home_played'),
+    ('sportmonks', 'FOOTBALL', 'team', 'away-matches-played', 'away_played')
+ON CONFLICT DO NOTHING;
+
+-- ============================================================================
+-- 7c. STAT KEY NORMALIZATION TRIGGER
+-- Fires BEFORE INSERT OR UPDATE on player_stats and team_stats.
+-- Looks up each raw key in provider_stat_mappings, falls back to
+-- hyphen-to-underscore replacement. Runs before derived stat triggers
+-- (trigger name starts with 'trg_a_' for alphabetical ordering).
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION normalize_stat_keys()
+RETURNS TRIGGER AS $$
+DECLARE
+    raw_stats JSONB := NEW.stats;
+    normalized JSONB := '{}';
+    rec RECORD;
+    mapped_key TEXT;
+BEGIN
+    -- Skip if stats is null or empty
+    IF raw_stats IS NULL OR raw_stats = '{}'::jsonb THEN
+        RETURN NEW;
+    END IF;
+
+    FOR rec IN SELECT key, value FROM jsonb_each(raw_stats)
+    LOOP
+        -- Look up canonical key from mappings (any provider for this sport)
+        SELECT m.canonical_key INTO mapped_key
+        FROM provider_stat_mappings m
+        WHERE m.sport = NEW.sport
+          AND m.raw_key = rec.key
+        LIMIT 1;
+
+        -- Fall back to hyphen-to-underscore, then raw key
+        mapped_key := COALESCE(mapped_key, replace(rec.key, '-', '_'));
+        normalized := normalized || jsonb_build_object(mapped_key, rec.value);
+    END LOOP;
+
+    NEW.stats := normalized;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger names start with 'trg_a_' to fire before sport-specific derived
+-- stat triggers (trg_nba_*, trg_nfl_*, trg_football_*) alphabetically.
+DROP TRIGGER IF EXISTS trg_a_normalize_player_stats ON player_stats;
+CREATE TRIGGER trg_a_normalize_player_stats
+    BEFORE INSERT OR UPDATE OF stats ON player_stats
+    FOR EACH ROW
+    EXECUTE FUNCTION normalize_stat_keys();
+
+DROP TRIGGER IF EXISTS trg_a_normalize_team_stats ON team_stats;
+CREATE TRIGGER trg_a_normalize_team_stats
+    BEFORE INSERT OR UPDATE OF stats ON team_stats
+    FOR EACH ROW
+    EXECUTE FUNCTION normalize_stat_keys();
+
+-- ============================================================================
 -- 8. FIXTURES & SCHEDULING
 -- ============================================================================
 
@@ -241,32 +350,6 @@ CREATE TABLE IF NOT EXISTS provider_seasons (
 );
 
 CREATE INDEX IF NOT EXISTS idx_provider_seasons_lookup ON provider_seasons(league_id, season_year);
-
--- ============================================================================
--- 10. PERCENTILE ARCHIVE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS percentile_archive (
-    id SERIAL PRIMARY KEY,
-    entity_type TEXT NOT NULL,
-    entity_id INTEGER NOT NULL,
-    sport TEXT NOT NULL,
-    season INTEGER NOT NULL,
-    stat_category TEXT NOT NULL,
-    stat_value REAL,
-    percentile REAL,
-    rank INTEGER,
-    sample_size INTEGER,
-    comparison_group TEXT,
-    calculated_at TIMESTAMPTZ,
-    archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    is_final BOOLEAN DEFAULT false,
-    UNIQUE(entity_type, entity_id, sport, season, stat_category, archived_at)
-);
-
-CREATE INDEX IF NOT EXISTS idx_percentile_archive_sport_season ON percentile_archive(sport, season);
-CREATE INDEX IF NOT EXISTS idx_percentile_archive_entity ON percentile_archive(entity_type, entity_id, sport);
-CREATE INDEX IF NOT EXISTS idx_percentile_archive_final ON percentile_archive(sport, season, is_final) WHERE is_final = true;
 
 -- ============================================================================
 -- 11. USERS & NOTIFICATIONS (platform tables)
@@ -380,6 +463,71 @@ RETURNS INTEGER AS $$
       AND provider = p_provider;
 $$ LANGUAGE sql STABLE;
 
+-- Upsert a fixture from a provider schedule API
+CREATE OR REPLACE FUNCTION upsert_fixture(
+    p_external_id INTEGER,
+    p_sport TEXT,
+    p_league_id INTEGER,
+    p_season INTEGER,
+    p_home_team_id INTEGER,
+    p_away_team_id INTEGER,
+    p_start_time TIMESTAMPTZ,
+    p_venue_name TEXT DEFAULT NULL,
+    p_round TEXT DEFAULT NULL,
+    p_seed_delay_hours INTEGER DEFAULT 4
+)
+RETURNS INTEGER AS $$
+    INSERT INTO fixtures (external_id, sport, league_id, season, home_team_id,
+                          away_team_id, start_time, venue_name, round, seed_delay_hours)
+    VALUES (p_external_id, p_sport, p_league_id, p_season, p_home_team_id,
+            p_away_team_id, p_start_time, p_venue_name, p_round, p_seed_delay_hours)
+    ON CONFLICT (external_id) DO UPDATE SET
+        start_time = EXCLUDED.start_time,
+        venue_name = COALESCE(EXCLUDED.venue_name, fixtures.venue_name),
+        round = COALESCE(EXCLUDED.round, fixtures.round),
+        updated_at = NOW()
+    RETURNING id;
+$$ LANGUAGE sql;
+
+-- Finalize a fixture after seeding: recalculate percentiles, refresh views, mark seeded.
+-- This is the single handoff point from the Python seeder to Postgres.
+CREATE OR REPLACE FUNCTION finalize_fixture(p_fixture_id INTEGER)
+RETURNS TABLE (players_updated INTEGER, teams_updated INTEGER) AS $$
+DECLARE
+    v_sport TEXT;
+    v_season INTEGER;
+    v_players INTEGER := 0;
+    v_teams INTEGER := 0;
+BEGIN
+    -- Look up fixture details
+    SELECT f.sport, f.season INTO v_sport, v_season
+    FROM fixtures f WHERE f.id = p_fixture_id;
+
+    IF v_sport IS NULL THEN
+        RAISE EXCEPTION 'fixture % not found', p_fixture_id;
+    END IF;
+
+    -- Recalculate percentiles for the sport/season
+    SELECT rp.players_updated, rp.teams_updated
+    INTO v_players, v_teams
+    FROM recalculate_percentiles(v_sport, v_season) rp;
+
+    -- Refresh per-sport materialized views used by autofill/search
+    IF v_sport = 'NBA' THEN
+        REFRESH MATERIALIZED VIEW CONCURRENTLY nba.autofill_entities;
+    ELSIF v_sport = 'NFL' THEN
+        REFRESH MATERIALIZED VIEW CONCURRENTLY nfl.autofill_entities;
+    ELSIF v_sport = 'FOOTBALL' THEN
+        REFRESH MATERIALIZED VIEW CONCURRENTLY football.autofill_entities;
+    END IF;
+
+    -- Mark the fixture as seeded
+    PERFORM mark_fixture_seeded(p_fixture_id);
+
+    RETURN QUERY SELECT v_players, v_teams;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================================
 -- 13. PERCENTILE CALCULATION
 -- ============================================================================
@@ -467,99 +615,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- ============================================================================
--- 14. NOTIFICATION HELPER FUNCTIONS
--- ============================================================================
 
-CREATE OR REPLACE FUNCTION archive_current_percentiles(p_sport TEXT, p_season INTEGER)
-RETURNS VOID AS $$
-BEGIN
-    INSERT INTO percentile_archive (entity_type, entity_id, sport, season, stat_category, percentile, sample_size, calculated_at)
-    SELECT 'player', ps.player_id, ps.sport, ps.season, kv.key,
-           (kv.value::text)::real,
-           COALESCE((ps.percentiles->>'_sample_size')::integer, 0),
-           ps.updated_at
-    FROM player_stats ps
-    CROSS JOIN LATERAL jsonb_each(ps.percentiles) AS kv(key, value)
-    WHERE ps.sport = p_sport AND ps.season = p_season
-      AND kv.key NOT LIKE '\_%'
-      AND jsonb_typeof(kv.value) = 'number'
-    ON CONFLICT (entity_type, entity_id, sport, season, stat_category, archived_at) DO NOTHING;
-
-    INSERT INTO percentile_archive (entity_type, entity_id, sport, season, stat_category, percentile, sample_size, calculated_at)
-    SELECT 'team', ts.team_id, ts.sport, ts.season, kv.key,
-           (kv.value::text)::real,
-           COALESCE((ts.percentiles->>'_sample_size')::integer, 0),
-           ts.updated_at
-    FROM team_stats ts
-    CROSS JOIN LATERAL jsonb_each(ts.percentiles) AS kv(key, value)
-    WHERE ts.sport = p_sport AND ts.season = p_season
-      AND kv.key NOT LIKE '\_%'
-      AND jsonb_typeof(kv.value) = 'number'
-    ON CONFLICT (entity_type, entity_id, sport, season, stat_category, archived_at) DO NOTHING;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION detect_percentile_changes(p_fixture_id INTEGER)
-RETURNS TABLE (
-    entity_type TEXT, entity_id INTEGER, sport TEXT, season INTEGER,
-    league_id INTEGER, stat_key TEXT, old_percentile REAL, new_percentile REAL,
-    sample_size INTEGER
-) AS $$
-    SELECT 'team'::text, ts.team_id, ts.sport, ts.season, ts.league_id,
-           kv.key, pa.percentile, (kv.value::text)::real,
-           COALESCE((ts.percentiles->>'_sample_size')::integer, 0)
-    FROM fixtures f
-    JOIN team_stats ts ON ts.sport = f.sport AND ts.season = f.season
-        AND ts.team_id IN (f.home_team_id, f.away_team_id)
-    CROSS JOIN LATERAL jsonb_each(ts.percentiles) AS kv(key, value)
-    LEFT JOIN LATERAL (
-        SELECT pa2.percentile FROM percentile_archive pa2
-        WHERE pa2.entity_type = 'team'
-          AND pa2.entity_id = ts.team_id AND pa2.sport = ts.sport
-          AND pa2.season = ts.season AND pa2.stat_category = kv.key
-          AND pa2.is_final = false
-        ORDER BY pa2.archived_at DESC LIMIT 1
-    ) pa ON true
-    WHERE f.id = p_fixture_id
-      AND kv.key NOT LIKE '\_%'
-      AND jsonb_typeof(kv.value) = 'number'
-
-    UNION ALL
-
-    SELECT 'player'::text, ps.player_id, ps.sport, ps.season, ps.league_id,
-           kv.key, pa.percentile, (kv.value::text)::real,
-           COALESCE((ps.percentiles->>'_sample_size')::integer, 0)
-    FROM fixtures f
-    JOIN player_stats ps ON ps.sport = f.sport AND ps.season = f.season
-        AND ps.team_id IN (f.home_team_id, f.away_team_id)
-    CROSS JOIN LATERAL jsonb_each(ps.percentiles) AS kv(key, value)
-    LEFT JOIN LATERAL (
-        SELECT pa2.percentile FROM percentile_archive pa2
-        WHERE pa2.entity_type = 'player'
-          AND pa2.entity_id = ps.player_id AND pa2.sport = ps.sport
-          AND pa2.season = ps.season AND pa2.stat_category = kv.key
-          AND pa2.is_final = false
-        ORDER BY pa2.archived_at DESC LIMIT 1
-    ) pa ON true
-    WHERE f.id = p_fixture_id
-      AND kv.key NOT LIKE '\_%'
-      AND jsonb_typeof(kv.value) = 'number';
-$$ LANGUAGE sql STABLE;
 
 -- ============================================================================
--- 15. LISTEN/NOTIFY — milestone event trigger
+-- 14. LISTEN/NOTIFY — percentile change detection trigger
+-- Fires on UPDATE of percentiles column. Uses OLD vs NEW to detect
+-- significant changes (milestone crossing at 90/95/99 or delta >= 10).
+-- Go listener receives events and dispatches FCM push notifications.
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION notify_milestone_reached()
+CREATE OR REPLACE FUNCTION notify_percentile_changed()
 RETURNS TRIGGER AS $$
 DECLARE
-    pctile_key TEXT;
-    pctile_val NUMERIC;
-    payload JSONB;
+    stat_key TEXT;
+    new_val NUMERIC;
+    old_val NUMERIC;
     entity_type TEXT;
     entity_id INTEGER;
 BEGIN
+    -- Determine entity type
     IF TG_TABLE_NAME = 'player_stats' THEN
         entity_type := 'player';
         entity_id := NEW.player_id;
@@ -570,46 +644,60 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    IF NEW.percentiles IS NULL OR NEW.percentiles = '{}'::jsonb THEN
+    -- Skip if percentiles unchanged
+    IF OLD.percentiles IS NOT DISTINCT FROM NEW.percentiles THEN
         RETURN NEW;
     END IF;
 
-    FOR pctile_key, pctile_val IN
-        SELECT kv.key, (kv.value::text)::numeric
-        FROM jsonb_each(NEW.percentiles) AS kv(key, value)
-        WHERE kv.key NOT LIKE '\_%'
-          AND jsonb_typeof(kv.value) = 'number'
-          AND (kv.value::text)::numeric >= 90
+    -- Check each stat key for significant changes
+    FOR stat_key IN
+        SELECT key FROM jsonb_each(NEW.percentiles)
+        WHERE key NOT LIKE '\_%'
+          AND jsonb_typeof(value) = 'number'
     LOOP
-        payload := jsonb_build_object(
-            'entity_type', entity_type,
-            'entity_id', entity_id,
-            'sport', NEW.sport,
-            'season', NEW.season,
-            'stat_key', pctile_key,
-            'percentile', pctile_val,
-            'ts', extract(epoch from now())::bigint
-        );
-        PERFORM pg_notify('milestone_reached', payload::text);
+        new_val := (NEW.percentiles ->> stat_key)::numeric;
+        old_val := COALESCE((OLD.percentiles ->> stat_key)::numeric, 0);
+
+        -- Significant = milestone crossing (90/95/99) OR large delta (>= 10)
+        IF (new_val >= 90 AND old_val < 90)
+        OR (new_val >= 95 AND old_val < 95)
+        OR (new_val >= 99 AND old_val < 99)
+        OR (new_val - old_val >= 10) THEN
+            PERFORM pg_notify('percentile_changed', json_build_object(
+                'entity_type', entity_type,
+                'entity_id', entity_id,
+                'sport', NEW.sport,
+                'season', NEW.season,
+                'stat_key', stat_key,
+                'old_percentile', old_val,
+                'new_percentile', new_val,
+                'ts', extract(epoch from now())::bigint
+            )::text);
+        END IF;
     END LOOP;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
+-- Only fire on UPDATE (not INSERT) — we need OLD for delta comparison.
+-- First recalculate_percentiles() call UPDATEs rows from percentiles='{}' to
+-- actual values, so old_val defaults to 0 via COALESCE.
 DROP TRIGGER IF EXISTS trg_milestone_player_stats ON player_stats;
-CREATE TRIGGER trg_milestone_player_stats
-    AFTER INSERT OR UPDATE OF percentiles ON player_stats
+DROP TRIGGER IF EXISTS trg_percentile_changed_player_stats ON player_stats;
+CREATE TRIGGER trg_percentile_changed_player_stats
+    AFTER UPDATE OF percentiles ON player_stats
     FOR EACH ROW
     WHEN (NEW.percentiles IS NOT NULL AND NEW.percentiles != '{}'::jsonb)
-    EXECUTE FUNCTION notify_milestone_reached();
+    EXECUTE FUNCTION notify_percentile_changed();
 
 DROP TRIGGER IF EXISTS trg_milestone_team_stats ON team_stats;
-CREATE TRIGGER trg_milestone_team_stats
-    AFTER INSERT OR UPDATE OF percentiles ON team_stats
+DROP TRIGGER IF EXISTS trg_percentile_changed_team_stats ON team_stats;
+CREATE TRIGGER trg_percentile_changed_team_stats
+    AFTER UPDATE OF percentiles ON team_stats
     FOR EACH ROW
     WHEN (NEW.percentiles IS NOT NULL AND NEW.percentiles != '{}'::jsonb)
-    EXECUTE FUNCTION notify_milestone_reached();
+    EXECUTE FUNCTION notify_percentile_changed();
 
 -- ============================================================================
 -- 16. POSTGREST ROLES

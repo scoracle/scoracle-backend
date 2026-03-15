@@ -1,5 +1,5 @@
 // Package config provides centralized configuration loaded from environment
-// variables. Shared by both cmd/api and cmd/ingest.
+// variables for the Go API server.
 package config
 
 import (
@@ -8,34 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-)
-
-// --------------------------------------------------------------------------
-// Sport registry — mirrors Python core/types.py SPORT_REGISTRY
-// --------------------------------------------------------------------------
-
-type SportConfig struct {
-	ID            string
-	Name          string
-	CurrentSeason int
-}
-
-var SportRegistry = map[string]SportConfig{
-	"NBA":      {ID: "NBA", Name: "National Basketball Association", CurrentSeason: 2025},
-	"NFL":      {ID: "NFL", Name: "National Football League", CurrentSeason: 2025},
-	"FOOTBALL": {ID: "FOOTBALL", Name: "Football (Soccer)", CurrentSeason: 2025},
-}
-
-// --------------------------------------------------------------------------
-// Table names — single source of truth, matches sql/shared.sql
-// --------------------------------------------------------------------------
-
-const (
-	PlayersTable     = "players"
-	PlayerStatsTable = "player_stats"
-	TeamsTable       = "teams"
-	TeamStatsTable   = "team_stats"
-	LeaguesTable     = "leagues"
 )
 
 // --------------------------------------------------------------------------
@@ -53,7 +25,6 @@ type Config struct {
 	APIHost     string
 	APIPort     int
 	Environment string // development, staging, production
-	Debug       bool
 
 	// CORS
 	CORSAllowOrigins []string
@@ -63,9 +34,7 @@ type Config struct {
 	RateLimitRequests int
 	RateLimitWindow   time.Duration
 
-	// External API keys
-	BDLAPIKey          string
-	SportMonksAPIToken string
+	// External API keys (third-party integrations only — seeding keys are in Python)
 	TwitterBearerToken string
 	TwitterListID      string
 	NewsAPIKey         string
@@ -96,7 +65,6 @@ func Load() (*Config, error) {
 		APIHost:     envOr("API_HOST", "0.0.0.0"),
 		APIPort:     envInt("API_PORT", envInt("PORT", 8000)),
 		Environment: envOr("ENVIRONMENT", "development"),
-		Debug:       envBool("DEBUG", false),
 
 		CORSAllowOrigins: envList("CORS_ALLOW_ORIGINS", []string{
 			"http://localhost:3000",
@@ -108,8 +76,6 @@ func Load() (*Config, error) {
 		RateLimitRequests: envInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindow:   time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
 
-		BDLAPIKey:          envOr("BALLDONTLIE_API_KEY", ""),
-		SportMonksAPIToken: envOr("SPORTMONKS_API_TOKEN", ""),
 		TwitterBearerToken: envOr("TWITTER_BEARER_TOKEN", ""),
 		TwitterListID:      envOr("TWITTER_JOURNALIST_LIST_ID", ""),
 		NewsAPIKey:         envOr("NEWS_API_KEY", ""),
@@ -120,11 +86,6 @@ func Load() (*Config, error) {
 
 		PostgRESTURL: envOr("POSTGREST_URL", ""),
 	}, nil
-}
-
-// IsProduction returns true if running in production environment.
-func (c *Config) IsProduction() bool {
-	return c.Environment == "production"
 }
 
 // --------------------------------------------------------------------------

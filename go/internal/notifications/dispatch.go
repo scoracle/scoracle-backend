@@ -39,7 +39,7 @@ func dispatchBatch(ctx context.Context, pool *pgxpool.Pool, sender *FCMSender, l
 	}
 
 	for _, row := range claimed {
-		tokens, tokErr := getDeviceTokens(ctx, pool, row.UserID)
+		tokens, tokErr := GetDeviceTokens(ctx, pool, row.UserID)
 		if tokErr != nil {
 			logger.Warn("no device tokens", "user_id", row.UserID, "error", tokErr)
 			_ = MarkFailed(ctx, pool, row.ID, "no device tokens")
@@ -64,25 +64,4 @@ func dispatchBatch(ctx context.Context, pool *pgxpool.Pool, sender *FCMSender, l
 		}
 	}
 	return sent, failed, nil
-}
-
-func getDeviceTokens(ctx context.Context, pool *pgxpool.Pool, userID string) ([]string, error) {
-	rows, err := pool.Query(ctx, "get_user_device_tokens", userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var tokens []string
-	for rows.Next() {
-		var t string
-		if err := rows.Scan(&t); err != nil {
-			return nil, err
-		}
-		tokens = append(tokens, t)
-	}
-	if len(tokens) == 0 {
-		return nil, fmt.Errorf("no active tokens for user %s", userID)
-	}
-	return tokens, rows.Err()
 }

@@ -8,12 +8,9 @@ import (
 	"time"
 )
 
-// TTL constants matching the Python implementation.
+// TTL constants for API response caching.
 const (
-	TTLEntityInfo    = 24 * time.Hour // Profiles, bootstrap — rarely change
-	TTLCurrentSeason = 1 * time.Hour  // Current season stats
-	TTLHistorical    = 24 * time.Hour // Historical season stats
-	TTLNews          = 10 * time.Minute
+	TTLNews = 10 * time.Minute
 )
 
 type entry struct {

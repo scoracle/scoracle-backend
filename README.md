@@ -12,7 +12,7 @@ Backend data pipeline and API for Scoracle. Seeds sports statistics from externa
 
 ## Architecture Overview
 
-Two API services sit in front of Postgres, each with a distinct role. PostgREST handles the core data endpoints (stats, profiles, rankings). Go handles third-party integrations (news, Twitter) and ingestion. A separate Go CLI seeds data from external providers.
+Three services sit in front of Postgres, each with a distinct role. PostgREST handles core data endpoints (stats, profiles, rankings). Go handles third-party integrations (news, Twitter) and reacts to Postgres events for notifications. A Python seeder handles data ingestion from external providers.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ Two API services sit in front of Postgres, each with a distinct role. PostgREST 
 |---------|------|------|------------|
 | **PostgREST** | Data provider — stats, profiles, rankings, autofill. Auto-generated REST API from Postgres views and functions. | 3000 | `postgrest/Dockerfile` |
 | **Go API** | Integrations provider — news, Twitter, health checks, Swagger UI. Also proxies stats endpoints via Postgres JSON passthrough. | 8000 | `go/Dockerfile` |
-| **Go CLI** | Data ingestion — seeds stats from BallDontLie (NBA/NFL) and SportMonks (Football). | N/A | N/A (ad-hoc tool) |
+| **Python Seeder** | Data ingestion — seeds stats from BallDontLie (NBA/NFL) and SportMonks (Football). Fixture-driven scheduling. | N/A | `seed/Dockerfile` |
 
 ### Multi-Spec Swagger UI
 
@@ -106,29 +106,34 @@ Compose reads your `.env` file directly. It maps `DATABASE_URL` to `PGRST_DB_URI
 ### Without Docker
 
 ```bash
-go mod tidy
-go build -o bin/scoracle-api ./cmd/api
-go build -o bin/scoracle-ingest ./cmd/ingest
-./bin/scoracle-api
+# Go API
+cd go && go build -o bin/scoracle-api ./cmd/api && ./bin/scoracle-api
+
+# Python Seeder
+cd seed && pip install -e . && scoracle-seed process --max 50
 ```
 
 ## Data Sources
 
-| Sport | Provider | Go Handler |
-|-------|----------|------------|
-| NBA | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nba.go` |
-| NFL | [BallDontLie](https://balldontlie.io) | `internal/provider/bdl/nfl.go` |
-| Football | [SportMonks](https://sportmonks.com) | `internal/provider/sportmonks/football.go` |
+| Sport | Provider | Handler |
+|-------|----------|---------|
+| NBA | [BallDontLie](https://balldontlie.io) | `seed/scoracle_seed/bdl_nba.py` |
+| NFL | [BallDontLie](https://balldontlie.io) | `seed/scoracle_seed/bdl_nfl.py` |
+| Football | [SportMonks](https://sportmonks.com) | `seed/scoracle_seed/sportmonks_football.py` |
 
 ## How Seeding Works
 
-1. **Provider handlers** (`internal/provider/`) — Fetch data from external APIs and normalize into canonical Go structs (`Team`, `Player`, `PlayerStats`, `TeamStats`). Each provider has its own HTTP client with rate limiting and pagination.
+All seeding is fixture-driven. At season start, fixture schedules are loaded. An external cron job runs `scoracle-seed process` every 30 minutes to seed fixtures that are ready (start_time + delay has passed).
 
-2. **Seed runners** (`internal/seed/`) — Provider-agnostic orchestration that takes canonical structs and upserts into Postgres. Each sport has its own runner: `SeedNBA`, `SeedNFL`, `SeedFootballSeason`.
+1. **Python seeder** (`seed/`) — Calls provider APIs (BDL, SportMonks), extracts raw key/value pairs, and upserts into Postgres. Zero normalization — raw provider keys are inserted.
+
+2. **Stat key normalization** — The `normalize_stat_keys()` Postgres trigger renames raw provider keys to canonical names on INSERT/UPDATE using the `provider_stat_mappings` lookup table.
 
 3. **Derived stats** — Postgres triggers auto-compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE.
 
-4. **Percentiles** — `recalculate_percentiles()` computes per-position percentile rankings.
+4. **Finalization** — Python calls `finalize_fixture()` which recalculates percentiles, refreshes materialized views, and marks the fixture as seeded.
+
+5. **Notifications** — The `notify_percentile_changed()` Postgres trigger detects significant percentile changes and emits NOTIFY events. The Go listener receives events and dispatches FCM push notifications.
 
 ## Database Schema
 
@@ -155,8 +160,7 @@ psql -f sql/football.sql    # Football schema
 | `team_stats` | Team statistics with JSONB `stats` column |
 | `stat_definitions` | Stat registry (display names, categories, inverse flags) |
 | `provider_seasons` | Maps provider season IDs to year strings |
-| `fixtures` | Match schedule for post-match seeding |
-| `percentile_archive` | Stored percentile rankings by position group |
+| `fixtures` | Match schedule for fixture-driven seeding |
 
 ### Per-Sport Schemas
 
@@ -189,20 +193,20 @@ Auto-generated REST endpoints from per-sport Postgres schemas (`nba`, `nfl`, `fo
 ## CLI Commands
 
 ```bash
-# Build
+# Go API
 go build -o bin/scoracle-api ./cmd/api
-go build -o bin/scoracle-ingest ./cmd/ingest
+./bin/scoracle-api
 
-# Data seeding
-./bin/scoracle-ingest seed nba [--season 2025]
-./bin/scoracle-ingest seed nfl [--season 2025]
-./bin/scoracle-ingest seed football [--season 2025] [--league 8]
+# Python Seeder
+scoracle-seed bootstrap-teams nba --season 2025
+scoracle-seed load-fixtures nba --season 2025
+scoracle-seed process --max 50
+scoracle-seed seed-fixture --id 42
+scoracle-seed percentiles --sport NBA --season 2025
 
-# Percentile recalculation
-./bin/scoracle-ingest percentiles [--sport NBA] [--season 2025]
-
-# Fixture processing
-./bin/scoracle-ingest fixtures process [--sport NBA] [--max 10] [--workers 2]
+# Docker
+docker compose up --build
+docker compose run --rm seed process --max 50
 ```
 
 ## Codebase Structure
@@ -247,7 +251,11 @@ scoracle-data/
 │   ├── Dockerfile                     # postgrest/postgrest:v13.0.8 + healthcheck
 │   └── passwd                         # Non-root user definition
 │
-├── legacy_fastapi/                    # Python reference (FastAPI, seeders, tests)
+├── seed/                              # Python seeder (thin ingestion layer)
+│   ├── pyproject.toml                 # Dependencies: httpx, psycopg, click
+│   ├── Dockerfile                     # python:3.13-slim
+│   └── scoracle_seed/                 # CLI, provider clients, upsert logic
+│
 ├── planning_docs/                     # Architecture and design documents
 └── progress_docs/                     # Session progress tracking
 ```

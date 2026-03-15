@@ -3,7 +3,6 @@ package notifications
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,33 +49,26 @@ func GetStatDisplayName(ctx context.Context, pool *pgxpool.Pool, sport, statKey,
 	return displayName, nil
 }
 
-// GetMatchTime returns the start time of a fixture.
-func GetMatchTime(ctx context.Context, pool *pgxpool.Pool, fixtureID int) (time.Time, error) {
-	var t time.Time
-	if err := pool.QueryRow(ctx, "fixture_start_time", fixtureID).Scan(&t); err != nil {
-		return time.Time{}, fmt.Errorf("get match time: %w", err)
+// GetDeviceTokens returns active FCM device tokens for a user.
+func GetDeviceTokens(ctx context.Context, pool *pgxpool.Pool, userID string) ([]string, error) {
+	rows, err := pool.Query(ctx, "get_user_device_tokens", userID)
+	if err != nil {
+		return nil, err
 	}
-	return t, nil
-}
+	defer rows.Close()
 
-// InsertPending persists a batch of scheduled notifications.
-func InsertPending(ctx context.Context, pool *pgxpool.Pool, pending []Pending) (int, error) {
-	inserted := 0
-	for _, n := range pending {
-		_, err := pool.Exec(ctx, `
-			INSERT INTO notifications (
-				user_id, entity_type, entity_id, sport, fixture_id,
-				stat_key, percentile, message, status, scheduled_for
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'scheduled',$9)`,
-			n.UserID, n.EntityType, n.EntityID, n.Sport, n.FixtureID,
-			n.StatKey, n.Percentile, n.Message, n.ScheduleFor,
-		)
-		if err != nil {
-			return inserted, fmt.Errorf("insert notification: %w", err)
+	var tokens []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
 		}
-		inserted++
+		tokens = append(tokens, t)
 	}
-	return inserted, nil
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("no active tokens for user %s", userID)
+	}
+	return tokens, rows.Err()
 }
 
 // claimedRow is an internal type for claimed notification rows.

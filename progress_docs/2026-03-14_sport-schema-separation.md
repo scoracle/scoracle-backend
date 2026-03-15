@@ -37,6 +37,10 @@
 - Removed `go/internal/api/handler/profile.go` (dead — no route in server.go)
 - Removed `go/internal/api/handler/stats.go` (dead — no route in server.go)
 - Removed `go/internal/api/handler/bootstrap.go` (dead — no route in server.go)
+- Removed `schema.sql` (1,602-line monolith, fully superseded by `sql/` directory)
+- Dropped old `api` schema from production database (replaced by sport schemas)
+- Updated `README.md` — removed dead endpoint docs, updated schema section and codebase tree
+- Updated `go/internal/config/config.go` comment to reference `sql/shared.sql`
 
 ## Quick Reference
 ```bash

@@ -132,7 +132,15 @@ go build -o bin/scoracle-ingest ./cmd/ingest
 
 ## Database Schema
 
-Single consolidated schema in `schema.sql` at the repo root (v7.0). No incremental migrations — the schema file is the complete database definition.
+Modular SQL files in the `sql/` directory, organized by sport. Shared tables live in `public`, sport-specific views and functions live in Postgres schemas (`nba`, `nfl`, `football`). PostgREST uses multi-schema mode — the frontend selects the sport via the `Accept-Profile` header.
+
+```bash
+# Apply to a fresh database
+psql -f sql/shared.sql     # tables, roles, shared functions
+psql -f sql/nba.sql         # NBA schema: views, triggers, stat defs, grants
+psql -f sql/nfl.sql         # NFL schema
+psql -f sql/football.sql    # Football schema
+```
 
 ### Core Tables
 
@@ -150,20 +158,15 @@ Single consolidated schema in `schema.sql` at the repo root (v7.0). No increment
 | `fixtures` | Match schedule for post-match seeding |
 | `percentile_archive` | Stored percentile rankings by position group |
 
-### Views & Materialized Views
+### Per-Sport Schemas
 
-- `v_player_profile` — Joins players with latest stats
-- `v_team_profile` — Joins teams with latest stats
-- `mv_autofill_entities` — Pre-computed entity list for frontend search/autocomplete
+Each sport has its own Postgres schema with views, functions, and materialized views:
 
-### API Functions
-
-| Function | Returns | Description |
-|----------|---------|-------------|
-| `api_player_profile(id, sport)` | JSON | Complete player profile |
-| `api_team_profile(id, sport)` | JSON | Complete team profile |
-| `api_entity_stats(type, id, sport, season, league_id)` | JSON | Stats + percentiles |
-| `api_available_seasons(type, id, sport)` | JSON | Available seasons for an entity |
+| Schema | Views | Functions | Materialized Views |
+|--------|-------|-----------|-------------------|
+| `nba` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
+| `nfl` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
+| `football` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions`, `leagues` | `stat_leaders()`, `health()` | `autofill_entities` |
 
 ## API Endpoints
 
@@ -176,17 +179,12 @@ Single consolidated schema in `schema.sql` at the repo root (v7.0). No increment
 | `GET /health/db` | Database connectivity |
 | `GET /health/cache` | Cache statistics |
 | `GET /docs/` | Multi-spec Swagger UI (Go + PostgREST) |
-| `GET /api/v1/profile/{type}/{id}?sport=` | Player/team profile (Postgres JSON passthrough) |
-| `GET /api/v1/stats/{type}/{id}?sport=&season=` | Stats + percentiles (Postgres JSON passthrough) |
-| `GET /api/v1/stats/{type}/{id}/seasons?sport=` | Available seasons |
-| `GET /api/v1/stats/definitions?sport=` | Stat definitions |
-| `GET /api/v1/autofill_databases?sport=` | Entity search/autocomplete |
 | `GET /api/v1/news/{type}/{id}?sport=&source=` | News articles (Google News RSS + NewsAPI) |
 | `GET /api/v1/twitter/journalist-feed?q=&sport=` | Curated journalist tweets from X List |
 
 ### PostgREST (`:3000`)
 
-Auto-generated REST endpoints from the `api` schema. Supports filtering, ordering, pagination, and JWT authentication out of the box. See the Swagger UI at `/docs/` for the full spec.
+Auto-generated REST endpoints from per-sport Postgres schemas (`nba`, `nfl`, `football`). The frontend selects the sport via the `Accept-Profile` header. Supports filtering, ordering, pagination, and JWT authentication out of the box. See the Swagger UI at `/docs/` for the full spec.
 
 ## CLI Commands
 
@@ -211,7 +209,12 @@ go build -o bin/scoracle-ingest ./cmd/ingest
 
 ```
 scoracle-data/
-├── schema.sql                         # Complete database definition (v7.0)
+├── sql/                               # Database schema (modular, per-sport)
+│   ├── shared.sql                     # Public tables, roles, shared functions
+│   ├── nba.sql                        # NBA schema: views, triggers, stat defs
+│   ├── nfl.sql                        # NFL schema: views, triggers, stat defs
+│   ├── football.sql                   # Football schema: views, triggers, leagues
+│   └── platform.sql                   # Stub for future user/follows surface
 ├── go.mod / go.sum                    # Go module definition
 ├── docker-compose.yml                 # Orchestrates Go API + PostgREST
 ├── .dockerignore                      # Build context filter

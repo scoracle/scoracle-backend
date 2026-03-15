@@ -27,7 +27,7 @@ var SportRegistry = map[string]SportConfig{
 }
 
 // --------------------------------------------------------------------------
-// Table names — single source of truth, matches schema.sql
+// Table names — single source of truth, matches sql/shared.sql
 // --------------------------------------------------------------------------
 
 const (

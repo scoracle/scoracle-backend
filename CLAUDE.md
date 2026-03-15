@@ -45,7 +45,7 @@ Some env var comments and cache constants still reference the Python codebase (e
 
 3. **No shared Provider interface** — Provider-agnosticism comes from canonical output structs (`provider.Team`, `provider.Player`, `provider.PlayerStats`, `provider.TeamStats`), not input interfaces. Adding a new data provider means adding a new handler package under `go/internal/provider/`; nothing else changes.
 
-4. **Per-sport schema separation** — The database uses separate Postgres schemas per sport (`nba`, `nfl`, `football`) for views, functions, and PostgREST surface. Shared tables live in `public`. Each sport has its own self-contained SQL file in `sql/` (`nba.sql`, `nfl.sql`, `football.sql`). The legacy `schema.sql` at the repo root is the v7.0 monolith and is being superseded by the modular files. See `planning_docs/SPORT_SCHEMA_SEPARATION.md` for the full plan and migration phases.
+4. **Per-sport schema separation** — The database uses separate Postgres schemas per sport (`nba`, `nfl`, `football`) for views, functions, and PostgREST surface. Shared tables live in `public`. Each sport has its own self-contained SQL file in `sql/` (`nba.sql`, `nfl.sql`, `football.sql`). See `planning_docs/SPORT_SCHEMA_SEPARATION.md` for the full plan.
 
 5. **Derived stats in Postgres** — Triggers auto-compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE. Go never calculates derived stats.
 

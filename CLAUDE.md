@@ -14,9 +14,9 @@ Frontend (Astro)
 
 ### PostgREST — The Data API (port 3000)
 
-PostgREST auto-generates a REST API from the `api` schema in Postgres. It owns **all core data endpoints**: player/team stats, profiles, standings, stat definitions, autofill/search, leagues, and sports. It uses JWT auth, row-level security, and requires zero application code — adding a new data endpoint means adding a view or function to `schema.sql`, not writing Go.
+PostgREST auto-generates a REST API from per-sport Postgres schemas (`nba`, `nfl`, `football`). It owns **all core data endpoints**: player/team stats, profiles, standings, stat definitions, autofill/search, and leagues. It uses JWT auth, row-level security, and requires zero application code — adding a new data endpoint means adding a view or function to the sport's schema file in `sql/`, not writing Go.
 
-PostgREST serves views from the `api` schema (`api.player_stats`, `api.teams`, `api.standings`, etc.) and RPC functions (`api.stat_leaders`). The `web_anon` role has read-only access; `web_user` can also manage follows/subscriptions.
+PostgREST uses multi-schema mode (`PGRST_DB_SCHEMAS=nba,nfl,football`). The frontend selects the sport via the `Accept-Profile` header (e.g., `Accept-Profile: nba`). Each sport schema exposes views like `players`, `player_stats`, `standings`, and RPC functions like `stat_leaders()`. The `web_anon` role has read-only access; `web_user` can also manage follows/subscriptions.
 
 ### Go API — Integrations & Ingestion (port 8000)
 
@@ -45,7 +45,7 @@ Some env var comments and cache constants still reference the Python codebase (e
 
 3. **No shared Provider interface** — Provider-agnosticism comes from canonical output structs (`provider.Team`, `provider.Player`, `provider.PlayerStats`, `provider.TeamStats`), not input interfaces. Adding a new data provider means adding a new handler package under `go/internal/provider/`; nothing else changes.
 
-4. **Per-sport schema separation** — The database uses separate Postgres schemas per sport (`nba.*`, `nfl.*`, `football.*`) within one Neon database. Each sport has its own self-contained SQL file in `sql/` (`nba.sql`, `nfl.sql`, `football.sql`). The legacy `schema.sql` at the repo root is the v7.0 monolith and is being superseded by the modular files. See `planning_docs/SPORT_SCHEMA_SEPARATION.md` for the full plan and migration phases.
+4. **Per-sport schema separation** — The database uses separate Postgres schemas per sport (`nba`, `nfl`, `football`) for views, functions, and PostgREST surface. Shared tables live in `public`. Each sport has its own self-contained SQL file in `sql/` (`nba.sql`, `nfl.sql`, `football.sql`). The legacy `schema.sql` at the repo root is the v7.0 monolith and is being superseded by the modular files. See `planning_docs/SPORT_SCHEMA_SEPARATION.md` for the full plan and migration phases.
 
 5. **Derived stats in Postgres** — Triggers auto-compute per-36, per-90, TS%, win_pct, and other derived metrics on INSERT/UPDATE. Go never calculates derived stats.
 

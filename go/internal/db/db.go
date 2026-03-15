@@ -62,25 +62,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// Health
 		"health_check": "SELECT 1",
 
-		// API: profiles (Postgres returns complete JSON)
-		"api_player_profile": "SELECT api_player_profile($1, $2)",
-		"api_team_profile":   "SELECT api_team_profile($1, $2)",
-
-		// API: stats
-		"api_entity_stats":      "SELECT api_entity_stats($1, $2, $3, $4, $5)",
-		"api_available_seasons": "SELECT api_available_seasons($1, $2, $3)",
-
-		// API: stat definitions
-		"stat_definitions": "SELECT json_agg(row_to_json(sd) ORDER BY sd.sort_order) FROM stat_definitions sd WHERE sd.sport = $1",
-
-		// API: stat leaders & standings (existing Postgres functions)
-		"fn_stat_leaders": "SELECT * FROM fn_stat_leaders($1, $2, $3, $4, $5, $6)",
-		"fn_standings":    "SELECT * FROM fn_standings($1, $2, $3, $4)",
-
-		// API: bootstrap (materialized view)
-		"autofill_entities": "SELECT json_agg(row_to_json(e)) FROM mv_autofill_entities e WHERE e.sport = $1",
-
-		// API: news entity lookup
+		// News entity lookup
 		"player_name_lookup": "SELECT name, first_name, last_name, team_id FROM players WHERE id = $1 AND sport = $2",
 		"team_name_lookup":   "SELECT name FROM teams WHERE id = $1 AND sport = $2",
 		"team_name_by_id":    "SELECT name FROM teams WHERE id = $1 AND sport = $2",

@@ -1,0 +1,14 @@
+-- Scoracle Data — Platform Schema (stub)
+--
+-- Future home of PostgREST views for user-facing platform features:
+--   - User follows (my_follows view with RLS)
+--   - Notification history
+--   - User preferences
+--
+-- The underlying tables (users, user_follows, user_devices, notifications)
+-- already exist in public schema (created by shared.sql). This file will
+-- create a `platform` Postgres schema with PostgREST-facing views when
+-- those features are ready for the frontend.
+--
+-- When implemented, add 'platform' to PGRST_DB_SCHEMAS in the PostgREST
+-- Dockerfile: PGRST_DB_SCHEMAS=nba,nfl,football,platform

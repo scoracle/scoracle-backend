@@ -10,7 +10,7 @@ COPY --from=src /bin/postgrest /bin/postgrest
 COPY entrypoint.sh /bin/entrypoint.sh
 
 ENV PGRST_DB_CHANNEL_ENABLED=false \
-    PGRST_DB_SCHEMAS=api \
+    PGRST_DB_SCHEMAS=nba,nfl,football \
     PGRST_DB_ANON_ROLE=web_anon \
     PGRST_OPENAPI_MODE=follow-privileges \
     PGRST_SERVER_PORT=3000

@@ -41,18 +41,19 @@ PostgREST supports powerful query parameters on all view endpoints. Full docs: [
 
 ---
 
-### `GET /players`
+### `GET /player`
 
-Player profiles with embedded team info.
+Player profile with season stats, percentiles, and team context in a single response.
 
 ```
-GET /players
+GET /player?id=eq.123&season=eq.2025
 Accept-Profile: nba
 ```
 
 **Query examples:**
-- `/players?id=eq.123` — single player by ID
-- `/players?select=id,name,position,team` — only specific columns
+- `/player?id=eq.123&season=eq.2025` — single player, single season
+- `/player?id=eq.123` — all seasons for a player (or profile-only row if no stats exist)
+- `/player?id=eq.123&select=id,name,season,stats` — specific columns
 
 **Response (each item):**
 
@@ -81,31 +82,8 @@ Accept-Profile: nba
     "city": "Los Angeles",
     "conference": "West",
     "division": "Pacific"
-  }
-}
-```
-
-> **Football note:** Football players also include a `league` object: `{ "id": 8, "name": "Premier League", "country": "England", "logo_url": "..." }`.
-
----
-
-### `GET /player_stats`
-
-Season statistics with percentiles for a player.
-
-```
-GET /player_stats?player_id=eq.123&season=eq.2025
-Accept-Profile: nba
-```
-
-**Response (each item):**
-
-```json
-{
-  "player_id": 123,
+  },
   "season": 2025,
-  "league_id": null,
-  "team_id": 17,
   "stats": {
     "pts": 25.7,
     "reb": 7.3,
@@ -122,32 +100,29 @@ Accept-Profile: nba
     "position_group": "F",
     "sample_size": 245
   },
-  "player_name": "LeBron James",
-  "position": "F",
-  "photo_url": "https://...",
-  "team_name": "Los Angeles Lakers",
-  "team_abbr": "LAL",
-  "team_logo_url": "https://...",
-  "updated_at": "2026-03-15T10:30:00Z"
+  "stats_updated_at": "2026-03-15T10:30:00Z"
 }
 ```
 
-> **Football note:** Football `player_stats` also includes `league_name`. Filter by league: `?league_id=eq.8`.
+> **No stats?** When a player has no stats, `season`, `stats`, `percentiles`, `percentile_metadata`, and `stats_updated_at` are all `null`. The profile fields are always present.
+
+> **Football note:** Football players also include a `league` object: `{ "id": 8, "name": "Premier League", "country": "England", "logo_url": "..." }`.
 
 ---
 
-### `GET /teams`
+### `GET /team`
 
-Team profiles.
+Team profile with season stats, percentiles, and venue info in a single response.
 
 ```
-GET /teams
+GET /team?id=eq.5&season=eq.2025
 Accept-Profile: nfl
 ```
 
 **Query examples:**
-- `/teams?id=eq.5` — single team
-- `/teams?conference=eq.West` — filter by conference (NBA/NFL)
+- `/team?id=eq.5&season=eq.2025` — single team, single season
+- `/team?id=eq.5` — all seasons for a team (or profile-only row if no stats exist)
+- `/team?conference=eq.West&season=eq.2025` — filter by conference (NBA/NFL)
 
 **Response (each item):**
 
@@ -165,30 +140,8 @@ Accept-Profile: nfl
   "division": "West",
   "venue_name": "Arrowhead Stadium",
   "venue_capacity": 76416,
-  "meta": {}
-}
-```
-
-> **Football note:** Football teams also include a `league` object and `league_id`.
-
----
-
-### `GET /team_stats`
-
-Season statistics with percentiles for a team.
-
-```
-GET /team_stats?team_id=eq.5&season=eq.2025
-Accept-Profile: nfl
-```
-
-**Response (each item):**
-
-```json
-{
-  "team_id": 5,
+  "meta": {},
   "season": 2025,
-  "league_id": null,
   "stats": {
     "wins": 15,
     "losses": 2,
@@ -203,16 +156,13 @@ Accept-Profile: nfl
   "percentile_metadata": {
     "sample_size": 32
   },
-  "team_name": "Kansas City Chiefs",
-  "team_abbr": "KC",
-  "logo_url": "https://...",
-  "conference": "AFC",
-  "division": "West",
-  "updated_at": "2026-03-15T10:30:00Z"
+  "stats_updated_at": "2026-03-15T10:30:00Z"
 }
 ```
 
-> **Football note:** Also includes `league_name`. Filter by league: `?league_id=eq.8`.
+> **No stats?** When a team has no stats, `season`, `stats`, `percentiles`, `percentile_metadata`, and `stats_updated_at` are all `null`. The profile fields are always present.
+
+> **Football note:** Football teams also include a `league` object. Filter by league: `?league_id=eq.8`.
 
 ---
 
@@ -677,20 +627,12 @@ GO_API    = "https://scoracle-data-production.up.railway.app"
 GET  ${POSTGREST}/autofill_entities?name=ilike.*lebron*
      Accept-Profile: nba
 
-# Player profile
-GET  ${POSTGREST}/players?id=eq.123
+# Player (profile + stats)
+GET  ${POSTGREST}/player?id=eq.123&season=eq.2025
      Accept-Profile: nba
 
-# Player stats
-GET  ${POSTGREST}/player_stats?player_id=eq.123&season=eq.2025
-     Accept-Profile: nba
-
-# Team profile
-GET  ${POSTGREST}/teams?id=eq.5
-     Accept-Profile: nfl
-
-# Team stats
-GET  ${POSTGREST}/team_stats?team_id=eq.5&season=eq.2025
+# Team (profile + stats)
+GET  ${POSTGREST}/team?id=eq.5&season=eq.2025
      Accept-Profile: nfl
 
 # Standings

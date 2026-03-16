@@ -168,9 +168,9 @@ Each sport has its own Postgres schema with views, functions, and materialized v
 
 | Schema | Views | Functions | Materialized Views |
 |--------|-------|-----------|-------------------|
-| `nba` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
-| `nfl` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
-| `football` | `players`, `player_stats`, `teams`, `team_stats`, `standings`, `stat_definitions`, `leagues` | `stat_leaders()`, `health()` | `autofill_entities` |
+| `nba` | `player`, `team`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
+| `nfl` | `player`, `team`, `standings`, `stat_definitions` | `stat_leaders()`, `health()` | `autofill_entities` |
+| `football` | `player`, `team`, `standings`, `stat_definitions`, `leagues` | `stat_leaders()`, `health()` | `autofill_entities` |
 
 ## API Endpoints
 

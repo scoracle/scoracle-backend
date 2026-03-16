@@ -143,8 +143,8 @@ CREATE TRIGGER trg_football_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
--- Player profiles with team and league context
-CREATE OR REPLACE VIEW football.players AS
+-- Combined player profile + stats (with team and league context)
+CREATE OR REPLACE VIEW football.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
@@ -155,18 +155,8 @@ SELECT
     ) END AS team,
     CASE WHEN l.id IS NOT NULL THEN json_build_object(
         'id', l.id, 'name', l.name, 'country', l.country, 'logo_url', l.logo_url
-    ) END AS league
-FROM public.players p
-LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
-LEFT JOIN public.leagues l ON l.id = p.league_id
-WHERE p.sport = 'FOOTBALL';
-
-COMMENT ON VIEW football.players IS
-    'Football player profiles with team and league context. Filter by id.';
-
-CREATE OR REPLACE VIEW football.player_stats AS
-SELECT
-    ps.player_id, ps.season, ps.league_id, ps.team_id,
+    ) END AS league,
+    ps.season,
     ps.stats,
     ps.percentiles - '_position_group' - '_sample_size' AS percentiles,
     CASE
@@ -177,36 +167,26 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    p.name AS player_name, p.position, p.photo_url,
-    t.name AS team_name, t.short_code AS team_abbr, t.logo_url AS team_logo_url,
-    l.name AS league_name,
-    ps.updated_at
-FROM public.player_stats ps
-JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
-LEFT JOIN public.teams t ON t.id = ps.team_id AND t.sport = ps.sport
-LEFT JOIN public.leagues l ON l.id = ps.league_id
-WHERE ps.sport = 'FOOTBALL';
+    ps.updated_at AS stats_updated_at
+FROM public.players p
+LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
+LEFT JOIN public.leagues l ON l.id = p.league_id
+LEFT JOIN public.player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
+WHERE p.sport = 'FOOTBALL';
 
-COMMENT ON VIEW football.player_stats IS
-    'Football player season stats with percentiles and profile context. Filter by player_id, season, league_id.';
+COMMENT ON VIEW football.player IS
+    'Football player profile with stats. Filter by id, season, league_id. Stats columns are NULL when no stats exist.';
 
-CREATE OR REPLACE VIEW football.teams AS
+-- Combined team profile + stats (with league context)
+CREATE OR REPLACE VIEW football.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.venue_name, t.venue_capacity, t.meta,
     CASE WHEN l.id IS NOT NULL THEN json_build_object(
         'id', l.id, 'name', l.name, 'country', l.country, 'logo_url', l.logo_url
-    ) END AS league
-FROM public.teams t
-LEFT JOIN public.leagues l ON l.id = t.league_id
-WHERE t.sport = 'FOOTBALL';
-
-COMMENT ON VIEW football.teams IS
-    'Football team profiles with league context. Filter by id.';
-
-CREATE OR REPLACE VIEW football.team_stats AS
-SELECT
-    ts.team_id, ts.season, ts.league_id, ts.stats,
+    ) END AS league,
+    ts.season,
+    ts.stats,
     ts.percentiles - '_sample_size' AS percentiles,
     CASE
         WHEN ts.percentiles IS NOT NULL
@@ -215,15 +195,14 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    t.name AS team_name, t.short_code AS team_abbr, t.logo_url,
-    l.name AS league_name, ts.updated_at
-FROM public.team_stats ts
-JOIN public.teams t ON t.id = ts.team_id AND t.sport = ts.sport
-LEFT JOIN public.leagues l ON l.id = ts.league_id
-WHERE ts.sport = 'FOOTBALL';
+    ts.updated_at AS stats_updated_at
+FROM public.teams t
+LEFT JOIN public.leagues l ON l.id = t.league_id
+LEFT JOIN public.team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport
+WHERE t.sport = 'FOOTBALL';
 
-COMMENT ON VIEW football.team_stats IS
-    'Football team season stats with percentiles. Filter by team_id, season, league_id.';
+COMMENT ON VIEW football.team IS
+    'Football team profile with stats. Filter by id, season, league_id. Stats columns are NULL when no stats exist.';
 
 -- Standings (hardcoded Football sort: points, goal difference, goals for)
 CREATE OR REPLACE VIEW football.standings AS

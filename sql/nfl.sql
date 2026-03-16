@@ -123,7 +123,8 @@ CREATE TRIGGER trg_nfl_team_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
-CREATE OR REPLACE VIEW nfl.players AS
+-- Combined player profile + stats
+CREATE OR REPLACE VIEW nfl.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
@@ -132,17 +133,8 @@ SELECT
         'id', t.id, 'name', t.name, 'abbreviation', t.short_code,
         'logo_url', t.logo_url, 'country', t.country, 'city', t.city,
         'conference', t.conference, 'division', t.division
-    ) END AS team
-FROM public.players p
-LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
-WHERE p.sport = 'NFL';
-
-COMMENT ON VIEW nfl.players IS
-    'NFL player profiles with team context. Filter by id.';
-
-CREATE OR REPLACE VIEW nfl.player_stats AS
-SELECT
-    ps.player_id, ps.season, ps.league_id, ps.team_id,
+    ) END AS team,
+    ps.season,
     ps.stats,
     ps.percentiles - '_position_group' - '_sample_size' AS percentiles,
     CASE
@@ -153,31 +145,23 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    p.name AS player_name, p.position, p.photo_url,
-    t.name AS team_name, t.short_code AS team_abbr, t.logo_url AS team_logo_url,
-    ps.updated_at
-FROM public.player_stats ps
-JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
-LEFT JOIN public.teams t ON t.id = ps.team_id AND t.sport = ps.sport
-WHERE ps.sport = 'NFL';
+    ps.updated_at AS stats_updated_at
+FROM public.players p
+LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
+LEFT JOIN public.player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
+WHERE p.sport = 'NFL';
 
-COMMENT ON VIEW nfl.player_stats IS
-    'NFL player season stats with percentiles and profile context. Filter by player_id, season.';
+COMMENT ON VIEW nfl.player IS
+    'NFL player profile with stats. Filter by id, season. Stats columns are NULL when no stats exist.';
 
-CREATE OR REPLACE VIEW nfl.teams AS
+-- Combined team profile + stats
+CREATE OR REPLACE VIEW nfl.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.conference, t.division,
-    t.venue_name, t.venue_capacity, t.meta
-FROM public.teams t
-WHERE t.sport = 'NFL';
-
-COMMENT ON VIEW nfl.teams IS
-    'NFL team profiles. Filter by id.';
-
-CREATE OR REPLACE VIEW nfl.team_stats AS
-SELECT
-    ts.team_id, ts.season, ts.league_id, ts.stats,
+    t.venue_name, t.venue_capacity, t.meta,
+    ts.season,
+    ts.stats,
     ts.percentiles - '_sample_size' AS percentiles,
     CASE
         WHEN ts.percentiles IS NOT NULL
@@ -186,14 +170,13 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    t.name AS team_name, t.short_code AS team_abbr, t.logo_url,
-    t.conference, t.division, ts.updated_at
-FROM public.team_stats ts
-JOIN public.teams t ON t.id = ts.team_id AND t.sport = ts.sport
-WHERE ts.sport = 'NFL';
+    ts.updated_at AS stats_updated_at
+FROM public.teams t
+LEFT JOIN public.team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport
+WHERE t.sport = 'NFL';
 
-COMMENT ON VIEW nfl.team_stats IS
-    'NFL team season stats with percentiles and profile context. Filter by team_id, season.';
+COMMENT ON VIEW nfl.team IS
+    'NFL team profile with stats. Filter by id, season. Stats columns are NULL when no stats exist.';
 
 -- Standings (hardcoded NFL sort: by wins, with ties support)
 CREATE OR REPLACE VIEW nfl.standings AS

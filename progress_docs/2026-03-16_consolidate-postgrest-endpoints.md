@@ -20,6 +20,8 @@
 - `sql/nba.sql` — Replaced `nba.players`, `nba.player_stats`, `nba.teams`, `nba.team_stats` with `nba.player` and `nba.team`
 - `sql/nfl.sql` — Replaced `nfl.players`, `nfl.player_stats`, `nfl.teams`, `nfl.team_stats` with `nfl.player` and `nfl.team`
 - `sql/football.sql` — Replaced `football.players`, `football.player_stats`, `football.teams`, `football.team_stats` with `football.player` and `football.team` (with league context)
+- `ENDPOINTS.md` — Replaced 4 endpoint sections (`/players`, `/player_stats`, `/teams`, `/team_stats`) with 2 (`/player`, `/team`); updated Quick Reference cheat sheet
+- `README.md` — Updated Per-Sport Schemas table to reflect new view names
 
 ## Quick Reference
 Frontend migration — before (2 calls):

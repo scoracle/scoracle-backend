@@ -10,7 +10,7 @@
 | Service   | Purpose                          | Production Base URL                                        | Local URL               |
 |-----------|----------------------------------|------------------------------------------------------------|-------------------------|
 | PostgREST | Stats, profiles, standings, search | `https://postgrest-production-0650.up.railway.app`        | `http://localhost:3000` |
-| Go API    | News, tweets, health, docs        | *(your Go API Railway URL)*                                | `http://localhost:8000` |
+| Go API    | News, tweets, health, docs        | `https://scoracle-data-production.up.railway.app`          | `http://localhost:8000` |
 
 ---
 
@@ -669,7 +669,7 @@ Multi-spec Swagger UI. Dropdown includes both the Go API spec and the PostgREST 
 
 ```
 POSTGREST = "https://postgrest-production-0650.up.railway.app"
-GO_API    = "<your-go-api-railway-url>"
+GO_API    = "https://scoracle-data-production.up.railway.app"
 
 # --- PostgREST (always send Accept-Profile) ---
 

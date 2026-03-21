@@ -123,6 +123,12 @@ CREATE TRIGGER trg_nfl_team_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
+-- Drop legacy views from pre-consolidation (players, player_stats, teams, team_stats)
+DROP VIEW IF EXISTS nfl.players;
+DROP VIEW IF EXISTS nfl.player_stats;
+DROP VIEW IF EXISTS nfl.teams;
+DROP VIEW IF EXISTS nfl.team_stats;
+
 -- Combined player profile + stats
 CREATE OR REPLACE VIEW nfl.player AS
 SELECT

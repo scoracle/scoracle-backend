@@ -1,6 +1,11 @@
 package api
 
 import (
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -8,6 +13,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
 	"github.com/albapepper/scoracle-data/internal/api/handler"
+	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 )
@@ -54,16 +60,61 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 
 	// Swagger UI — multi-spec dropdown showing Go API and PostgREST specs.
 	// PostgREST auto-generates its OpenAPI spec at its root endpoint.
+	// We proxy it through /docs/postgrest.json to avoid cross-origin issues.
 	postgrestURL := cfg.PostgRESTURL
 	if postgrestURL == "" {
 		postgrestURL = "http://localhost:3000" // default for local dev
 	}
+
+	// Proxy PostgREST OpenAPI spec to avoid cross-origin fetch in Swagger UI.
+	r.Get("/docs/postgrest.json", func(w http.ResponseWriter, r *http.Request) {
+		const cacheKey = "postgrest-openapi-spec"
+		const ttl = 30 * time.Minute
+
+		if data, etag, ok := appCache.Get(cacheKey); ok {
+			if cache.CheckETagMatch(r.Header.Get("If-None-Match"), etag) {
+				respond.WriteNotModified(w, etag)
+				return
+			}
+			respond.WriteJSON(w, data, etag, ttl, true)
+			return
+		}
+
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, postgrestURL+"/", nil)
+		if err != nil {
+			respond.WriteError(w, http.StatusBadGateway, "proxy_error", "failed to build request")
+			return
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			respond.WriteError(w, http.StatusBadGateway, "proxy_error", "failed to fetch PostgREST spec")
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			respond.WriteError(w, http.StatusBadGateway, "proxy_error",
+				fmt.Sprintf("PostgREST returned status %d", resp.StatusCode))
+			return
+		}
+
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			respond.WriteError(w, http.StatusBadGateway, "proxy_error", "failed to read response body")
+			return
+		}
+
+		etag := appCache.Set(cacheKey, data, ttl)
+		respond.WriteJSON(w, data, etag, ttl, false)
+	})
+
 	r.Get("/docs/*", httpSwagger.Handler(
 		httpSwagger.URL("/docs/doc.json"),
 		httpSwagger.UIConfig(map[string]string{
 			"urls": `[
 				{"url": "/docs/doc.json", "name": "Ingestion & Notifications API (Go)"},
-				{"url": "` + postgrestURL + `/", "name": "Stats API (PostgREST)"}
+				{"url": "/docs/postgrest.json", "name": "Stats API (PostgREST)"}
 			]`,
 		}),
 	))

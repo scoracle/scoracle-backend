@@ -132,6 +132,12 @@ CREATE TRIGGER trg_nba_team_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
+-- Drop legacy views from pre-consolidation (players, player_stats, teams, team_stats)
+DROP VIEW IF EXISTS nba.players;
+DROP VIEW IF EXISTS nba.player_stats;
+DROP VIEW IF EXISTS nba.teams;
+DROP VIEW IF EXISTS nba.team_stats;
+
 -- Combined player profile + stats
 CREATE OR REPLACE VIEW nba.player AS
 SELECT

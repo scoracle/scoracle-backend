@@ -143,6 +143,12 @@ CREATE TRIGGER trg_football_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
+-- Drop legacy views from pre-consolidation (players, player_stats, teams, team_stats)
+DROP VIEW IF EXISTS football.players;
+DROP VIEW IF EXISTS football.player_stats;
+DROP VIEW IF EXISTS football.teams;
+DROP VIEW IF EXISTS football.team_stats;
+
 -- Combined player profile + stats (with team and league context)
 CREATE OR REPLACE VIEW football.player AS
 SELECT

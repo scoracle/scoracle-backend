@@ -2,29 +2,11 @@
 # Usage: docker compose up --build
 
 services:
-  postgrest:
-    build: postgrest/
-    ports:
-      - "3000:3000"
-    env_file: .env
-    environment:
-      # Mirror the Go API's fallback chain (config.go):
-      # NEON_DATABASE_URL_V2 > DATABASE_URL > NEON_DATABASE_URL
-      # The entrypoint.sh handles this automatically, so we just forward
-      # whichever variables are set — no need to pick one here.
-      NEON_DATABASE_URL_V2: ${NEON_DATABASE_URL_V2:-}
-      DATABASE_URL: ${DATABASE_URL:-}
-      NEON_DATABASE_URL: ${NEON_DATABASE_URL:-}
-
   api:
     build: go/
     ports:
       - "8000:8000"
     env_file: .env
-    environment:
-      POSTGREST_URL: http://postgrest:3000
-    depends_on:
-      - postgrest
 
   seed:
     build: seed/

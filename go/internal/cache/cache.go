@@ -11,6 +11,7 @@ import (
 // TTL constants for API response caching.
 const (
 	TTLNews = 10 * time.Minute
+	TTLData = 5 * time.Minute
 )
 
 type entry struct {

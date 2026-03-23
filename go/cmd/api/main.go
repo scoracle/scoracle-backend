@@ -7,7 +7,7 @@
 
 // @title Scoracle Data API
 // @version 2.0.0
-// @description External-intel API serving news and journalist tweets from third-party providers. DB/stats endpoints are owned by PostgREST and documented in the multi-spec Swagger UI.
+// @description Unified Scoracle API serving sport data pages, news, journalist tweets, health checks, and operational endpoints.
 // @host localhost:8000
 // @BasePath /api/v1
 // @schemes http https

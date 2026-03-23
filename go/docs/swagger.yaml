@@ -16,9 +16,8 @@ host: localhost:8000
 info:
   contact:
     name: Scoracle
-  description: External-intel API serving news and journalist tweets from third-party
-    providers. DB/stats endpoints are owned by PostgREST and documented in the multi-spec
-    Swagger UI.
+  description: Unified Scoracle API serving sport data pages, news, journalist tweets,
+    health checks, and operational endpoints.
   license:
     name: MIT
   title: Scoracle Data API
@@ -38,6 +37,316 @@ paths:
       summary: API root info
       tags:
       - meta
+  /{sport}/leaders:
+    get:
+      description: Returns ranked leaders for a given stat and season.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Season year
+        in: query
+        name: season
+        required: true
+        type: integer
+      - description: Stat key
+        in: query
+        name: stat
+        required: true
+        type: string
+      - description: Result limit (1-100, default 25)
+        in: query
+        name: limit
+        type: integer
+      - description: Position filter
+        in: query
+        name: position
+        type: string
+      - description: League ID (required for football)
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get stat leaders page
+      tags:
+      - data
+  /{sport}/players/{id}:
+    get:
+      description: Returns a player-focused payload with profile, season stats, and
+        stat definitions.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Player ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      - description: Football league filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get player page
+      tags:
+      - data
+  /{sport}/search:
+    get:
+      description: Returns matching players and teams for the sport.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Search entities
+      tags:
+      - data
+  /{sport}/standings:
+    get:
+      description: Returns standings with sport-specific sort order and filters.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Season year
+        in: query
+        name: season
+        required: true
+        type: integer
+      - description: Conference (NBA/NFL)
+        in: query
+        name: conference
+        type: string
+      - description: Division (NBA/NFL)
+        in: query
+        name: division
+        type: string
+      - description: League ID (football)
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get standings page
+      tags:
+      - data
+  /{sport}/stat-definitions:
+    get:
+      description: Returns stat metadata for players/teams in the selected sport.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: query
+        name: entity_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get stat definitions
+      tags:
+      - data
+  /{sport}/teams/{id}:
+    get:
+      description: Returns a team-focused payload with profile, season stats, and
+        stat definitions.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      - description: Football league filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get team page
+      tags:
+      - data
+  /football/leagues:
+    get:
+      description: Returns football leagues and optional active/benchmark filtering.
+      parameters:
+      - description: Filter active leagues
+        in: query
+        name: active
+        type: boolean
+      - description: Filter benchmark leagues
+        in: query
+        name: benchmark
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get football leagues
+      tags:
+      - data
   /health:
     get:
       description: Returns basic health status and timestamp.

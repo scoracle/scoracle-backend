@@ -44,9 +44,6 @@ type Config struct {
 
 	// Notifications (FCM push)
 	FCMCredentialsFile string
-
-	// PostgREST URL (for multi-spec Swagger UI)
-	PostgRESTURL string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -54,6 +51,19 @@ func Load() (*Config, error) {
 	dbURL := envOr("NEON_DATABASE_URL_V2", envOr("DATABASE_URL", envOr("NEON_DATABASE_URL", "")))
 	if dbURL == "" {
 		return nil, fmt.Errorf("NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL must be set")
+	}
+
+	environment := envOr("ENVIRONMENT", "development")
+	corsOrigins := envList("CORS_ALLOW_ORIGINS", []string{
+		"http://localhost:3000",
+		"http://localhost:4321",
+		"http://localhost:5173",
+	})
+	if environment == "production" {
+		corsOrigins = appendUnique(corsOrigins, envList("CORS_PRODUCTION_ORIGINS", []string{
+			"https://scoracle.com",
+			"https://www.scoracle.com",
+		})...)
 	}
 
 	return &Config{
@@ -64,13 +74,9 @@ func Load() (*Config, error) {
 
 		APIHost:     envOr("API_HOST", "0.0.0.0"),
 		APIPort:     envInt("API_PORT", envInt("PORT", 8000)),
-		Environment: envOr("ENVIRONMENT", "development"),
+		Environment: environment,
 
-		CORSAllowOrigins: envList("CORS_ALLOW_ORIGINS", []string{
-			"http://localhost:3000",
-			"http://localhost:4321",
-			"http://localhost:5173",
-		}),
+		CORSAllowOrigins: corsOrigins,
 
 		RateLimitEnabled:  envBool("RATE_LIMIT_ENABLED", true),
 		RateLimitRequests: envInt("RATE_LIMIT_REQUESTS", 100),
@@ -83,8 +89,6 @@ func Load() (*Config, error) {
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 
 		FCMCredentialsFile: envOr("FIREBASE_CREDENTIALS_FILE", ""),
-
-		PostgRESTURL: envOr("POSTGREST_URL", ""),
 	}, nil
 }
 
@@ -132,4 +136,20 @@ func envList(key string, fallback []string) []string {
 		}
 	}
 	return fallback
+}
+
+func appendUnique(base []string, extras ...string) []string {
+	seen := make(map[string]struct{}, len(base))
+	result := append([]string{}, base...)
+	for _, value := range base {
+		seen[value] = struct{}{}
+	}
+	for _, value := range extras {
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }

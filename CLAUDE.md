@@ -78,6 +78,21 @@ Integrations:
 - `/api/v1/news/...`
 - `/api/v1/twitter/...`
 
+## Implementation Boundaries
+
+- Route wiring belongs in `go/internal/api/server.go`.
+- Data endpoint handler logic belongs in `go/internal/api/handler/data.go`.
+- Response helpers live in `go/internal/api/respond/`.
+- Caching policy defaults live in `go/internal/cache/cache.go`.
+- Query contracts are prepared statements in `go/internal/db/db.go`.
+
+Any new public data endpoint must follow this flow:
+
+1. Add a prepared statement in `go/internal/db/db.go` that returns final JSON.
+2. Add a thin handler in `go/internal/api/handler/data.go`.
+3. Wire route in `go/internal/api/server.go` under `/api/v1/{sport}` or sport-specific path.
+4. Update `ENDPOINTS.md`, `README.md`, and Swagger annotations.
+
 ## Build & Test
 
 ```bash

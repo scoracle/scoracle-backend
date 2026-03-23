@@ -43,6 +43,13 @@ Integrations and operational routes:
 
 See `ENDPOINTS.md` for full contract details.
 
+## Implementation Notes
+
+- Core data handlers live in `go/internal/api/handler/data.go` and follow a strict thin pattern (validate -> cache -> prepared statement -> passthrough JSON).
+- Prepared statements for page payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
+- Sport routes are constrained to `nba`, `nfl`, and `football` at the router level.
+- Data endpoints use in-memory caching with ETag support (`TTLData=5m`), while integrations use their own TTL strategy.
+
 ## Repository Layout
 
 ```text

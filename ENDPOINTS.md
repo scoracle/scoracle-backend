@@ -133,6 +133,21 @@ Query params:
 - Send `If-None-Match` to receive `304 Not Modified`.
 - `X-Cache` indicates `HIT` or `MISS` for cache-backed endpoints.
 
+Data endpoint cache policy:
+
+- Default data TTL: 5 minutes (`TTLData`).
+- News endpoint TTL: 10 minutes (`TTLNews`).
+- Twitter journalist feed uses provider cache metadata and endpoint-specific cache headers.
+
+## Backend Implementation Map
+
+- Router: `go/internal/api/server.go`
+- Data handlers: `go/internal/api/handler/data.go`
+- Integrations handlers: `go/internal/api/handler/news.go`, `go/internal/api/handler/twitter.go`
+- Prepared statements: `go/internal/db/db.go`
+- Cache/ETag implementation: `go/internal/cache/cache.go`
+- Swagger docs: `go/docs/swagger.json`, `go/docs/swagger.yaml`
+
 ## Error Shape
 
 ```json

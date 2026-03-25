@@ -24,6 +24,7 @@ func TestRouteOwnershipSplit(t *testing.T) {
 		{name: "data player route registered", path: "/api/v1/nba/players/1", wantStatus: http.StatusServiceUnavailable},
 		{name: "data standings route validates input", path: "/api/v1/nfl/standings", wantStatus: http.StatusBadRequest},
 		{name: "legacy profile route removed", path: "/api/v1/profile/player/1?sport=NBA", wantStatus: http.StatusNotFound},
+		{name: "autofill route registered", path: "/api/v1/nba/autofill", wantStatus: http.StatusServiceUnavailable},
 	}
 
 	for _, tt := range tests {

@@ -154,7 +154,7 @@ CREATE OR REPLACE VIEW football.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
-    p.height, p.weight, p.photo_url, p.team_id, p.league_id, p.meta,
+    p.height, p.weight, p.photo_url, p.team_id, p.league_id,
     CASE WHEN t.id IS NOT NULL THEN json_build_object(
         'id', t.id, 'name', t.name, 'abbreviation', t.short_code,
         'logo_url', t.logo_url, 'country', t.country, 'city', t.city
@@ -187,7 +187,7 @@ COMMENT ON VIEW football.player IS
 CREATE OR REPLACE VIEW football.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
-    t.founded, t.league_id, t.venue_name, t.venue_capacity, t.meta,
+    t.founded, t.league_id, t.venue_name, t.venue_capacity,
     CASE WHEN l.id IS NOT NULL THEN json_build_object(
         'id', l.id, 'name', l.name, 'country', l.country, 'logo_url', l.logo_url
     ) END AS league,
@@ -253,9 +253,38 @@ CREATE MATERIALIZED VIEW football.autofill_entities AS
     -- Players (resolve league from latest player_stats)
     SELECT * FROM (
         SELECT DISTINCT ON (p.id)
-            p.id, 'player'::text AS type, p.name, p.position, p.detailed_position,
-            t.short_code AS team_abbr, t.name AS team_name,
-            ps.league_id, l.name AS league_name, p.meta
+            p.id,
+            'player'::text AS type,
+            p.name,
+            p.first_name,
+            p.last_name,
+            p.position,
+            p.detailed_position,
+            p.nationality,
+            p.date_of_birth::text AS date_of_birth,
+            p.height,
+            p.weight,
+            p.photo_url,
+            p.team_id,
+            ps.league_id,
+            l.name AS league_name,
+            t.short_code AS team_abbr,
+            t.name AS team_name,
+            jsonb_build_array(
+                LOWER(p.first_name),
+                LOWER(p.last_name),
+                LOWER(REPLACE(p.name, ' ', '')),
+                LOWER(COALESCE(t.short_code, '')),
+                LOWER(COALESCE(t.name, '')),
+                LOWER(COALESCE(l.name, ''))
+            ) AS search_tokens,
+            jsonb_build_object(
+                'display_name', p.name,
+                'jersey_number', p.meta->>'jersey_number',
+                'foot', p.meta->>'foot',
+                'market_value', (p.meta->>'market_value')::bigint,
+                'contract_until', p.meta->>'contract_until'
+            ) AS meta
         FROM public.players p
         LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
         LEFT JOIN public.player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
@@ -267,10 +296,39 @@ UNION ALL
     -- Teams (resolve league from latest team_stats)
     SELECT * FROM (
         SELECT DISTINCT ON (t.id)
-            t.id, 'team'::text AS type, t.name,
-            NULL::text AS position, NULL::text AS detailed_position,
-            t.short_code AS team_abbr, NULL::text AS team_name,
-            ts.league_id, l.name AS league_name, t.meta
+            t.id,
+            'team'::text AS type,
+            t.name,
+            NULL::text AS first_name,
+            NULL::text AS last_name,
+            NULL::text AS position,
+            NULL::text AS detailed_position,
+            t.country AS nationality,
+            NULL::text AS date_of_birth,
+            NULL::text AS height,
+            NULL::text AS weight,
+            t.logo_url AS photo_url,
+            NULL::int AS team_id,
+            ts.league_id,
+            l.name AS league_name,
+            t.short_code AS team_abbr,
+            NULL::text AS team_name,
+            jsonb_build_array(
+                LOWER(REPLACE(t.name, ' ', '')),
+                LOWER(t.short_code),
+                LOWER(t.city),
+                LOWER(t.country),
+                LOWER(COALESCE(l.name, ''))
+            ) AS search_tokens,
+            jsonb_build_object(
+                'display_name', t.name,
+                'abbreviation', t.short_code,
+                'city', t.city,
+                'country', t.country,
+                'founded', t.founded,
+                'venue_name', t.venue_name,
+                'venue_capacity', t.venue_capacity
+            ) AS meta
         FROM public.teams t
         LEFT JOIN public.team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport
         LEFT JOIN public.leagues l ON l.id = ts.league_id

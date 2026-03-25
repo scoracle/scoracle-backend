@@ -246,6 +246,26 @@ func (h *Handler) GetSearchPage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, q)
 }
 
+// GetAutofillPage returns the complete autofill database for a sport.
+// @Summary Get autofill database
+// @Description Returns all entities with full metadata for frontend autofill caching.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/autofill [get]
+func (h *Handler) GetAutofillPage(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_autofill_page"
+	h.serveStatementJSONNoCache(w, r, stmt)
+}
+
 // GetStatDefinitionsPage returns stat definition payload for a sport.
 // @Summary Get stat definitions
 // @Description Returns stat metadata for players/teams in the selected sport.
@@ -333,6 +353,27 @@ func (h *Handler) serveStatementJSON(
 
 	etag := h.cache.Set(cacheKey, data, ttl)
 	respond.WriteJSON(w, data, etag, ttl, false)
+}
+
+func (h *Handler) serveStatementJSONNoCache(
+	w http.ResponseWriter,
+	r *http.Request,
+	stmt string,
+	args ...any,
+) {
+	if h.pool == nil {
+		respond.WriteError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "database pool unavailable")
+		return
+	}
+
+	var data []byte
+	err := h.pool.QueryRow(r.Context(), stmt, args...).Scan(&data)
+	if err != nil {
+		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
+		return
+	}
+
+	respond.WriteJSON(w, data, "", 0, false)
 }
 
 func parseSport(w http.ResponseWriter, r *http.Request) (string, bool) {

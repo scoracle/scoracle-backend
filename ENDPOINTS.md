@@ -60,11 +60,26 @@ Query params:
 
 ### `GET /api/v1/{sport}/search`
 
-Returns search/autofill page payload.
+Returns search/autofill page payload (filtered by query).
 
 Query params:
 
 - `q` (required string, 1-100 chars)
+
+### `GET /api/v1/{sport}/autofill`
+
+Returns complete autofill database for a sport with full entity metadata.
+
+This endpoint returns all players and teams with their complete profile data (excluding performance statistics), optimized for frontend caching and instant meta widget rendering.
+
+**Response includes:**
+- All entity IDs and names
+- Profile data: nationality, DOB, height, weight, photo URLs
+- Team affiliations and league context
+- `search_tokens` array for frontend fuzzy search
+- Filtered `meta` object with display-worthy fields
+
+**Caching:** No server-side caching. Frontend should cache at build time.
 
 ### `GET /api/v1/{sport}/stat-definitions`
 

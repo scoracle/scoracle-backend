@@ -143,7 +143,7 @@ CREATE OR REPLACE VIEW nba.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
-    p.height, p.weight, p.photo_url, p.team_id, p.league_id, p.meta,
+    p.height, p.weight, p.photo_url, p.team_id, p.league_id,
     CASE WHEN t.id IS NOT NULL THEN json_build_object(
         'id', t.id, 'name', t.name, 'abbreviation', t.short_code,
         'logo_url', t.logo_url, 'country', t.country, 'city', t.city,
@@ -174,7 +174,7 @@ CREATE OR REPLACE VIEW nba.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.conference, t.division,
-    t.venue_name, t.venue_capacity, t.meta,
+    t.venue_name, t.venue_capacity,
     ts.season,
     ts.stats,
     ts.percentiles - '_sample_size' AS percentiles,
@@ -226,17 +226,78 @@ COMMENT ON VIEW nba.stat_definitions IS
 
 DROP MATERIALIZED VIEW IF EXISTS nba.autofill_entities;
 CREATE MATERIALIZED VIEW nba.autofill_entities AS
-    SELECT p.id, 'player'::text AS type, p.name, p.position, p.detailed_position,
-           t.short_code AS team_abbr, t.name AS team_name,
-           NULL::int AS league_id, NULL::text AS league_name, p.meta
+    SELECT
+        p.id,
+        'player'::text AS type,
+        p.name,
+        p.first_name,
+        p.last_name,
+        p.position,
+        p.detailed_position,
+        p.nationality,
+        p.date_of_birth::text AS date_of_birth,
+        p.height,
+        p.weight,
+        p.photo_url,
+        p.team_id,
+        NULL::int AS league_id,
+        NULL::text AS league_name,
+        t.short_code AS team_abbr,
+        t.name AS team_name,
+        jsonb_build_array(
+            LOWER(p.first_name),
+            LOWER(p.last_name),
+            LOWER(REPLACE(p.name, ' ', '')),
+            LOWER(COALESCE(t.short_code, '')),
+            LOWER(COALESCE(t.name, ''))
+        ) AS search_tokens,
+        jsonb_build_object(
+            'display_name', p.name,
+            'jersey_number', p.meta->>'jersey_number',
+            'draft_year', (p.meta->>'draft_year')::int,
+            'draft_pick', (p.meta->>'draft_pick')::int,
+            'years_pro', (p.meta->>'years_pro')::int,
+            'college', p.meta->>'college'
+        ) AS meta
     FROM public.players p
     LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
     WHERE p.sport = 'NBA'
 UNION ALL
-    SELECT t.id, 'team'::text AS type, t.name, t.conference AS position,
-           t.division AS detailed_position,
-           t.short_code AS team_abbr, NULL::text AS team_name,
-           NULL::int AS league_id, NULL::text AS league_name, t.meta
+    SELECT
+        t.id,
+        'team'::text AS type,
+        t.name,
+        NULL::text AS first_name,
+        NULL::text AS last_name,
+        t.conference AS position,
+        t.division AS detailed_position,
+        t.country AS nationality,
+        NULL::text AS date_of_birth,
+        NULL::text AS height,
+        NULL::text AS weight,
+        t.logo_url AS photo_url,
+        NULL::int AS team_id,
+        NULL::int AS league_id,
+        NULL::text AS league_name,
+        t.short_code AS team_abbr,
+        NULL::text AS team_name,
+        jsonb_build_array(
+            LOWER(REPLACE(t.name, ' ', '')),
+            LOWER(t.short_code),
+            LOWER(t.city),
+            LOWER(t.country)
+        ) AS search_tokens,
+        jsonb_build_object(
+            'display_name', t.name,
+            'abbreviation', t.short_code,
+            'city', t.city,
+            'country', t.country,
+            'conference', t.conference,
+            'division', t.division,
+            'founded', t.founded,
+            'venue_name', t.venue_name,
+            'venue_capacity', t.venue_capacity
+        ) AS meta
     FROM public.teams t
     WHERE t.sport = 'NBA'
 WITH DATA;

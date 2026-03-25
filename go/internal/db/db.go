@@ -299,6 +299,32 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json)
 		)`,
 
+		// Autofill database endpoints (full entity metadata for frontend caching)
+		"nba_autofill_page": `SELECT json_build_object(
+			'page', 'autofill',
+			'sport', 'nba',
+			'items', COALESCE((
+				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				FROM nba.autofill_entities t
+			), '[]'::json)
+		)`,
+		"nfl_autofill_page": `SELECT json_build_object(
+			'page', 'autofill',
+			'sport', 'nfl',
+			'items', COALESCE((
+				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				FROM nfl.autofill_entities t
+			), '[]'::json)
+		)`,
+		"football_autofill_page": `SELECT json_build_object(
+			'page', 'autofill',
+			'sport', 'football',
+			'items', COALESCE((
+				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
+				FROM football.autofill_entities t
+			), '[]'::json)
+		)`,
+
 		// Entity name lookup (news handlers + notifications)
 		"team_name_lookup": "SELECT name FROM teams WHERE id = $1 AND sport = $2",
 

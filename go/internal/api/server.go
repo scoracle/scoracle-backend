@@ -86,6 +86,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/standings", h.GetStandingsPage)
 			r.Get("/leaders", h.GetLeadersPage)
 			r.Get("/search", h.GetSearchPage)
+			r.Get("/autofill", h.GetAutofillPage)
 			r.Get("/stat-definitions", h.GetStatDefinitionsPage)
 		})
 		r.Get("/football/leagues", h.GetLeaguesPage)

@@ -150,7 +150,7 @@ This usage satisfies the three-part test for nominative fair use:
 2. Only as much of each mark is used as necessary for identification.
 3. Nothing in the presentation suggests official sponsorship or endorsement by the mark holder.
 
-Scoracle is not affiliated with, endorsed by, or in any way officially connected to the NBA, NFL, or any of their member teams.
+Scoracle is not affiliated with, endorsed by, or in any way officially connected to the NBA, NFL, the Premier League, La Liga, Bundesliga, Serie A, Ligue 1, or any of their member teams and clubs.
 
 ## License & Copyright
 

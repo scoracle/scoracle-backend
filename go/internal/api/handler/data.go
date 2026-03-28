@@ -21,27 +21,38 @@ var validSports = map[string]struct{}{
 	"football": {},
 }
 
-// GetPlayerPage returns a curated player page payload.
-// @Summary Get player page
-// @Description Returns a player-focused payload with profile, season stats, and stat definitions.
+var validEntityTypes = map[string]struct{}{
+	"player": {},
+	"team":   {},
+}
+
+// GetProfilePage returns a canonical profile payload for a sport entity.
+// @Summary Get profile page
+// @Description Returns the sport profile payload for an entity type and ID.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param id path int true "Player ID"
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
 // @Param season query int false "Season year"
-// @Param league_id query int false "Football league filter"
+// @Param league_id query int false "League ID filter"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/players/{id} [get]
-func (h *Handler) GetPlayerPage(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/{entityType}/{id} [get]
+func (h *Handler) GetProfilePage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
 	}
 
-	id, ok := parsePathID(w, r, "id", "player id")
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
 	if !ok {
 		return
 	}
@@ -56,36 +67,42 @@ func (h *Handler) GetPlayerPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stmt := sport + "_player_page"
-	args := []any{id, season}
-	if sport == "football" {
-		args = append(args, leagueID)
-	}
-
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, args...)
+	stmt := sport + "_profile_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, entityType, id, season, leagueID)
 }
 
-// GetTeamPage returns a curated team page payload.
-// @Summary Get team page
-// @Description Returns a team-focused payload with profile, season stats, and stat definitions.
+// GetLeagueProfilePage returns a league-scoped profile payload for a sport entity.
+// @Summary Get league profile page
+// @Description Returns the sport profile payload scoped to a specific league.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param id path int true "Team ID"
+// @Param leagueId path int true "League ID"
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
 // @Param season query int false "Season year"
-// @Param league_id query int false "Football league filter"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/teams/{id} [get]
-func (h *Handler) GetTeamPage(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/leagues/{leagueId}/{entityType}/{id} [get]
+func (h *Handler) GetLeagueProfilePage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
 	}
 
-	id, ok := parsePathID(w, r, "id", "team id")
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	leagueID, ok := parsePathID(w, r, "leagueId", "league id")
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
 	if !ok {
 		return
 	}
@@ -95,226 +112,112 @@ func (h *Handler) GetTeamPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stmt := sport + "_profile_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, entityType, id, season, leagueID)
+}
+
+// GetMetaPage returns the canonical metadata payload used for frontend local DB hydration.
+// @Summary Get meta page
+// @Description Returns complete metadata and search payload for a sport.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/meta [get]
+func (h *Handler) GetMetaPage(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
 	leagueID, ok := optionalIntQuery(w, r, "league_id")
 	if !ok {
 		return
 	}
 
-	stmt := sport + "_team_page"
-	args := []any{id, season}
-	if sport == "football" {
-		args = append(args, leagueID)
-	}
-
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, args...)
+	stmt := sport + "_meta_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
 }
 
-// GetStandingsPage returns standings payload for a sport and season.
-// @Summary Get standings page
-// @Description Returns standings with sport-specific sort order and filters.
+// GetLeagueMetaPage returns league-scoped metadata payload for a sport.
+// @Summary Get league meta page
+// @Description Returns metadata and search payload for a specific league.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param season query int true "Season year"
-// @Param conference query string false "Conference (NBA/NFL)"
-// @Param division query string false "Division (NBA/NFL)"
-// @Param league_id query int false "League ID (football)"
+// @Param leagueId path int true "League ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/standings [get]
-func (h *Handler) GetStandingsPage(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/leagues/{leagueId}/meta [get]
+func (h *Handler) GetLeagueMetaPage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
 	}
 
-	season, ok := requiredIntQuery(w, r, "season")
+	leagueID, ok := parsePathID(w, r, "leagueId", "league id")
 	if !ok {
 		return
 	}
 
-	conference := optionalTextQuery(r, "conference")
-	division := optionalTextQuery(r, "division")
+	stmt := sport + "_meta_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
+}
+
+// GetSportHealthPage returns sport-level data health from Postgres.
+// @Summary Get sport health page
+// @Description Returns sport data freshness and counts.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/health [get]
+func (h *Handler) GetSportHealthPage(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
 	leagueID, ok := optionalIntQuery(w, r, "league_id")
 	if !ok {
 		return
 	}
 
-	stmt := sport + "_standings_page"
-	args := []any{season}
-	switch sport {
-	case "football":
-		if conference != nil || division != nil {
-			respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY", "conference and division are not supported for football standings")
-			return
-		}
-		args = append(args, leagueID)
-	default:
-		args = append(args, conference, division)
-	}
-
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, args...)
+	stmt := sport + "_health_page"
+	h.serveStatementJSONNoCache(w, r, stmt, leagueID)
 }
 
-// GetLeadersPage returns stat leaders payload for a sport.
-// @Summary Get stat leaders page
-// @Description Returns ranked leaders for a given stat and season.
+// GetLeagueHealthPage returns league-scoped sport health from Postgres.
+// @Summary Get league health page
+// @Description Returns sport data freshness and counts for a specific league.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param season query int true "Season year"
-// @Param stat query string true "Stat key"
-// @Param limit query int false "Result limit (1-100, default 25)"
-// @Param position query string false "Position filter"
-// @Param league_id query int false "League ID (required for football)"
+// @Param leagueId path int true "League ID"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/leaders [get]
-func (h *Handler) GetLeadersPage(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/leagues/{leagueId}/health [get]
+func (h *Handler) GetLeagueHealthPage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
 	}
 
-	season, ok := requiredIntQuery(w, r, "season")
+	leagueID, ok := parsePathID(w, r, "leagueId", "league id")
 	if !ok {
 		return
 	}
 
-	stat := strings.TrimSpace(r.URL.Query().Get("stat"))
-	if stat == "" {
-		respond.WriteError(w, http.StatusBadRequest, "MISSING_STAT", "stat query parameter is required")
-		return
-	}
-
-	limit := 25
-	if v := r.URL.Query().Get("limit"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 1 || n > 100 {
-			respond.WriteError(w, http.StatusBadRequest, "INVALID_LIMIT", "limit must be an integer between 1 and 100")
-			return
-		}
-		limit = n
-	}
-
-	position := optionalTextQuery(r, "position")
-	leagueID := 0
-	leagueValue, ok := optionalIntQuery(w, r, "league_id")
-	if !ok {
-		return
-	}
-	if sport == "football" {
-		if leagueValue == nil {
-			respond.WriteError(w, http.StatusBadRequest, "MISSING_LEAGUE_ID", "league_id query parameter is required for football leaders")
-			return
-		}
-		leagueID = leagueValue.(int)
-	} else if leagueValue != nil {
-		leagueID = leagueValue.(int)
-	}
-
-	stmt := sport + "_leaders_page"
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, season, stat, limit, position, leagueID)
-}
-
-// GetSearchPage returns search/autofill payload for entities.
-// @Summary Search entities
-// @Description Returns matching players and teams for the sport.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param q query string true "Search query"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/search [get]
-func (h *Handler) GetSearchPage(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if q == "" || len(q) > 100 {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_QUERY", "q is required and must be 1-100 characters")
-		return
-	}
-
-	stmt := sport + "_search_page"
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, q)
-}
-
-// GetAutofillPage returns the complete autofill database for a sport.
-// @Summary Get autofill database
-// @Description Returns all entities with full metadata for frontend autofill caching.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/autofill [get]
-func (h *Handler) GetAutofillPage(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	stmt := sport + "_autofill_page"
-	h.serveStatementJSONNoCache(w, r, stmt)
-}
-
-// GetStatDefinitionsPage returns stat definition payload for a sport.
-// @Summary Get stat definitions
-// @Description Returns stat metadata for players/teams in the selected sport.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entity_type query string false "Entity type" Enums(player, team)
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/stat-definitions [get]
-func (h *Handler) GetStatDefinitionsPage(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	entityType := optionalTextQuery(r, "entity_type")
-	if entityType != nil && entityType != "player" && entityType != "team" {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_ENTITY_TYPE", "entity_type must be one of: player, team")
-		return
-	}
-
-	stmt := sport + "_stat_definitions_page"
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType)
-}
-
-// GetLeaguesPage returns football leagues payload.
-// @Summary Get football leagues
-// @Description Returns football leagues and optional active/benchmark filtering.
-// @Tags data
-// @Produce json
-// @Param active query bool false "Filter active leagues"
-// @Param benchmark query bool false "Filter benchmark leagues"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /football/leagues [get]
-func (h *Handler) GetLeaguesPage(w http.ResponseWriter, r *http.Request) {
-	active, ok := optionalBoolQuery(w, r, "active")
-	if !ok {
-		return
-	}
-	benchmark, ok := optionalBoolQuery(w, r, "benchmark")
-	if !ok {
-		return
-	}
-
-	h.serveStatementJSON(w, r, "football_leagues_page", dataCacheKey(r), cache.TTLData, false, active, benchmark)
+	stmt := sport + "_health_page"
+	h.serveStatementJSONNoCache(w, r, stmt, leagueID)
 }
 
 func (h *Handler) serveStatementJSON(
@@ -383,6 +286,15 @@ func parseSport(w http.ResponseWriter, r *http.Request) (string, bool) {
 		return "", false
 	}
 	return sport, true
+}
+
+func parseEntityType(w http.ResponseWriter, r *http.Request) (string, bool) {
+	entityType := strings.ToLower(strings.TrimSpace(chi.URLParam(r, "entityType")))
+	if _, ok := validEntityTypes[entityType]; !ok {
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_ENTITY_TYPE", "entityType must be one of: player, team")
+		return "", false
+	}
+	return entityType, true
 }
 
 func parsePathID(w http.ResponseWriter, r *http.Request, param string, label string) (int, bool) {

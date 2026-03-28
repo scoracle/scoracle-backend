@@ -1,15 +1,15 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-03-22
+> Last updated: 2026-03-28
 
 Single public API base URL:
 
 - Production: `https://scoracle-data-production.up.railway.app`
 - Local: `http://localhost:8000`
 
-## Core Data Endpoints
+## Core Data Endpoints (Canonical)
 
-All core endpoints are page-shaped and sport-scoped.
+All canonical endpoints are sport-scoped.
 
 Supported sport path values:
 
@@ -17,86 +17,55 @@ Supported sport path values:
 - `nfl`
 - `football`
 
-### `GET /api/v1/{sport}/players/{id}`
+Supported canonical `entityType` values:
 
-Returns a curated player page payload.
+- `player`
+- `team`
 
-Query params:
+### `GET /api/v1/{sport}/{entityType}/{id}`
 
-- `season` (optional integer)
-- `league_id` (optional integer, football only)
-
-### `GET /api/v1/{sport}/teams/{id}`
-
-Returns a curated team page payload.
+Returns the canonical profile payload for a sport entity.
 
 Query params:
 
 - `season` (optional integer)
-- `league_id` (optional integer, football only)
+- `league_id` (optional integer)
 
-### `GET /api/v1/{sport}/standings`
+### `GET /api/v1/{sport}/meta`
 
-Returns standings page payload.
-
-Query params:
-
-- `season` (required integer)
-- `conference` (optional string, NBA/NFL)
-- `division` (optional string, NBA/NFL)
-- `league_id` (optional integer, football)
-
-### `GET /api/v1/{sport}/leaders`
-
-Returns stat leaders page payload.
+Returns complete metadata payload for frontend local DB hydration (autofill + meta widget).
 
 Query params:
 
-- `season` (required integer)
-- `stat` (required string)
-- `limit` (optional integer, 1-100, default 25)
-- `position` (optional string)
-- `league_id` (required for football)
+- `league_id` (optional integer)
 
-### `GET /api/v1/{sport}/search`
+### `GET /api/v1/{sport}/health`
 
-Returns search/autofill page payload (filtered by query).
+Returns sport-level data freshness and counts.
 
 Query params:
 
-- `q` (required string, 1-100 chars)
+- `league_id` (optional integer)
 
-### `GET /api/v1/{sport}/autofill`
+## League-Scoped Endpoints
 
-Returns complete autofill database for a sport with full entity metadata.
+League-scoped routes are especially important for football and are preferred when league context is explicit.
 
-This endpoint returns all players and teams with their complete profile data (excluding performance statistics), optimized for frontend caching and instant meta widget rendering.
+### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
 
-**Response includes:**
-- All entity IDs and names
-- Profile data: nationality, DOB, height, weight, photo URLs
-- Team affiliations and league context
-- `search_tokens` array for frontend fuzzy search
-- Filtered `meta` object with display-worthy fields
-
-**Caching:** No server-side caching. Frontend should cache at build time.
-
-### `GET /api/v1/{sport}/stat-definitions`
-
-Returns stat-definition page payload.
+Returns profile payload scoped to a specific league.
 
 Query params:
 
-- `entity_type` (optional: `player`, `team`)
+- `season` (optional integer)
 
-### `GET /api/v1/football/leagues`
+### `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 
-Returns football leagues page payload.
+Returns metadata payload scoped to a specific league.
 
-Query params:
+### `GET /api/v1/{sport}/leagues/{leagueId}/health`
 
-- `active` (optional boolean)
-- `benchmark` (optional boolean)
+Returns health/freshness payload scoped to a specific league.
 
 ## Integrations Endpoints
 

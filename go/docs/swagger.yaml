@@ -37,199 +37,9 @@ paths:
       summary: API root info
       tags:
       - meta
-  /{sport}/leaders:
+  /{sport}/{entityType}/{id}:
     get:
-      description: Returns ranked leaders for a given stat and season.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Season year
-        in: query
-        name: season
-        required: true
-        type: integer
-      - description: Stat key
-        in: query
-        name: stat
-        required: true
-        type: string
-      - description: Result limit (1-100, default 25)
-        in: query
-        name: limit
-        type: integer
-      - description: Position filter
-        in: query
-        name: position
-        type: string
-      - description: League ID (required for football)
-        in: query
-        name: league_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get stat leaders page
-      tags:
-      - data
-  /{sport}/players/{id}:
-    get:
-      description: Returns a player-focused payload with profile, season stats, and
-        stat definitions.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Player ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Season year
-        in: query
-        name: season
-        type: integer
-      - description: Football league filter
-        in: query
-        name: league_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get player page
-      tags:
-      - data
-  /{sport}/search:
-    get:
-      description: Returns matching players and teams for the sport.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Search query
-        in: query
-        name: q
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Search entities
-      tags:
-      - data
-  /{sport}/standings:
-    get:
-      description: Returns standings with sport-specific sort order and filters.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Season year
-        in: query
-        name: season
-        required: true
-        type: integer
-      - description: Conference (NBA/NFL)
-        in: query
-        name: conference
-        type: string
-      - description: Division (NBA/NFL)
-        in: query
-        name: division
-        type: string
-      - description: League ID (football)
-        in: query
-        name: league_id
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get standings page
-      tags:
-      - data
-  /{sport}/stat-definitions:
-    get:
-      description: Returns stat metadata for players/teams in the selected sport.
+      description: Returns the sport profile payload for an entity type and ID.
       parameters:
       - description: Sport
         enum:
@@ -244,43 +54,11 @@ paths:
         enum:
         - player
         - team
-        in: query
-        name: entity_type
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get stat definitions
-      tags:
-      - data
-  /{sport}/teams/{id}:
-    get:
-      description: Returns a team-focused payload with profile, season stats, and
-        stat definitions.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
         in: path
-        name: sport
+        name: entityType
         required: true
         type: string
-      - description: Team ID
+      - description: Entity ID
         in: path
         name: id
         required: true
@@ -289,7 +67,7 @@ paths:
         in: query
         name: season
         type: integer
-      - description: Football league filter
+      - description: League ID filter
         in: query
         name: league_id
         type: integer
@@ -313,21 +91,26 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get team page
+      summary: Get profile page
       tags:
       - data
-  /football/leagues:
+  /{sport}/health:
     get:
-      description: Returns football leagues and optional active/benchmark filtering.
+      description: Returns sport data freshness and counts.
       parameters:
-      - description: Filter active leagues
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID filter
         in: query
-        name: active
-        type: boolean
-      - description: Filter benchmark leagues
-        in: query
-        name: benchmark
-        type: boolean
+        name: league_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -344,7 +127,175 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get football leagues
+      summary: Get sport health page
+      tags:
+      - data
+  /{sport}/leagues/{leagueId}/{entityType}/{id}:
+    get:
+      description: Returns the sport profile payload scoped to a specific league.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID
+        in: path
+        name: leagueId
+        required: true
+        type: integer
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get league profile page
+      tags:
+      - data
+  /{sport}/leagues/{leagueId}/health:
+    get:
+      description: Returns sport data freshness and counts for a specific league.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID
+        in: path
+        name: leagueId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get league health page
+      tags:
+      - data
+  /{sport}/leagues/{leagueId}/meta:
+    get:
+      description: Returns metadata and search payload for a specific league.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID
+        in: path
+        name: leagueId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get league meta page
+      tags:
+      - data
+  /{sport}/meta:
+    get:
+      description: Returns complete metadata and search payload for a sport.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get meta page
       tags:
       - data
   /health:

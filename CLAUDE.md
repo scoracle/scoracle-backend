@@ -18,7 +18,7 @@ Frontend (Astro)
 
 The Go API owns all public HTTP endpoints:
 
-- Sport data page endpoints (players, teams, standings, leaders, search, stat definitions, football leagues)
+- Sport data endpoints (canonical profile, meta, and health plus league-scoped variants)
 - Third-party integrations (news + journalist tweets)
 - Health/docs endpoints
 - Background workers (notifications, maintenance, LISTEN/NOTIFY)
@@ -65,13 +65,10 @@ Seeder does not own API response shaping.
 
 Canonical public route shape:
 
-- `/api/v1/{sport}/players/{id}`
-- `/api/v1/{sport}/teams/{id}`
-- `/api/v1/{sport}/standings`
-- `/api/v1/{sport}/leaders`
-- `/api/v1/{sport}/search`
-- `/api/v1/{sport}/stat-definitions`
-- `/api/v1/football/leagues`
+- `/api/v1/{sport}/{entityType}/{id}` (player, team profiles)
+- `/api/v1/{sport}/meta` (metadata, autofill, stat definitions)
+- `/api/v1/{sport}/health` (data freshness)
+- `/api/v1/{sport}/leagues/{leagueId}/...` (league-scoped variants)
 
 Integrations:
 

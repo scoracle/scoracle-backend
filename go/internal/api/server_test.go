@@ -21,10 +21,12 @@ func TestRouteOwnershipSplit(t *testing.T) {
 	}{
 		{name: "news route remains available", path: "/api/v1/news/status", wantStatus: http.StatusOK},
 		{name: "twitter route remains available", path: "/api/v1/twitter/status", wantStatus: http.StatusOK},
-		{name: "data player route registered", path: "/api/v1/nba/players/1", wantStatus: http.StatusServiceUnavailable},
-		{name: "data standings route validates input", path: "/api/v1/nfl/standings", wantStatus: http.StatusBadRequest},
-		{name: "legacy profile route removed", path: "/api/v1/profile/player/1?sport=NBA", wantStatus: http.StatusNotFound},
-		{name: "autofill route registered", path: "/api/v1/nba/autofill", wantStatus: http.StatusServiceUnavailable},
+		{name: "canonical profile route registered", path: "/api/v1/nba/player/1", wantStatus: http.StatusServiceUnavailable},
+		{name: "canonical meta route registered", path: "/api/v1/nba/meta", wantStatus: http.StatusServiceUnavailable},
+		{name: "canonical sport health route registered", path: "/api/v1/nba/health", wantStatus: http.StatusServiceUnavailable},
+		{name: "league profile route registered", path: "/api/v1/football/leagues/8/player/1", wantStatus: http.StatusServiceUnavailable},
+		{name: "league meta route registered", path: "/api/v1/football/leagues/8/meta", wantStatus: http.StatusServiceUnavailable},
+		{name: "league health route registered", path: "/api/v1/football/leagues/8/health", wantStatus: http.StatusServiceUnavailable},
 	}
 
 	for _, tt := range tests {

@@ -34,13 +34,6 @@ League-scoped variants (preferred for multi-league precision):
 - `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 - `GET /api/v1/{sport}/leagues/{leagueId}/health`
 
-Legacy data routes remain temporarily available with deprecation headers:
-
-- `/{sport}/players/{id}`, `/{sport}/teams/{id}`
-- `/{sport}/standings`, `/{sport}/leaders`, `/{sport}/search`
-- `/{sport}/autofill`, `/{sport}/stat-definitions`
-- `/football/leagues`
-
 Integrations and operational routes:
 
 - `GET /api/v1/news/status`
@@ -55,7 +48,7 @@ See `ENDPOINTS.md` for full contract details.
 ## Implementation Notes
 
 - Core data handlers live in `go/internal/api/handler/data.go` and follow a strict thin pattern (validate -> cache -> prepared statement -> passthrough JSON).
-- Prepared statements for canonical and legacy payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
+- Prepared statements for canonical payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
 - Sport routes are constrained to `nba`, `nfl`, and `football` at the router level.
 - Data endpoints use in-memory caching with ETag support (`TTLData=5m`), while integrations use their own TTL strategy.
 

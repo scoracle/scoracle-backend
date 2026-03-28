@@ -41,53 +41,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/football/leagues": {
-            "get": {
-                "description": "Returns football leagues and optional active/benchmark filtering.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get football leagues",
-                "parameters": [
-                    {
-                        "type": "boolean",
-                        "description": "Filter active leagues",
-                        "name": "active",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Filter benchmark leagues",
-                        "name": "benchmark",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/health": {
             "get": {
                 "description": "Returns basic health status and timestamp.",
@@ -360,16 +313,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/leaders": {
+        "/{sport}/health": {
             "get": {
-                "description": "Returns ranked leaders for a given stat and season.",
+                "description": "Returns sport data freshness and counts.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get stat leaders page",
+                "summary": "Get sport health page",
                 "parameters": [
                     {
                         "enum": [
@@ -385,33 +338,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Season year",
-                        "name": "season",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Stat key",
-                        "name": "stat",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Result limit (1-100, default 25)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Position filter",
-                        "name": "position",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "League ID (required for football)",
+                        "description": "League ID filter",
                         "name": "league_id",
                         "in": "query"
                     }
@@ -439,16 +366,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/players/{id}": {
+        "/{sport}/leagues/{leagueId}/health": {
             "get": {
-                "description": "Returns a player-focused payload with profile, season stats, and stat definitions.",
+                "description": "Returns sport data freshness and counts for a specific league.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get player page",
+                "summary": "Get league health page",
                 "parameters": [
                     {
                         "enum": [
@@ -464,7 +391,133 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Player ID",
+                        "description": "League ID",
+                        "name": "leagueId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/leagues/{leagueId}/meta": {
+            "get": {
+                "description": "Returns metadata and search payload for a specific league.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get league meta page",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "League ID",
+                        "name": "leagueId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/leagues/{leagueId}/{entityType}/{id}": {
+            "get": {
+                "description": "Returns the sport profile payload scoped to a specific league.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get league profile page",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "League ID",
+                        "name": "leagueId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -473,12 +526,6 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Season year",
                         "name": "season",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Football league filter",
-                        "name": "league_id",
                         "in": "query"
                     }
                 ],
@@ -511,70 +558,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/search": {
+        "/{sport}/meta": {
             "get": {
-                "description": "Returns matching players and teams for the sport.",
+                "description": "Returns complete metadata and search payload for a sport.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Search entities",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search query",
-                        "name": "q",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/standings": {
-            "get": {
-                "description": "Returns standings with sport-specific sort order and filters.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get standings page",
+                "summary": "Get meta page",
                 "parameters": [
                     {
                         "enum": [
@@ -590,26 +583,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Season year",
-                        "name": "season",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Conference (NBA/NFL)",
-                        "name": "conference",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Division (NBA/NFL)",
-                        "name": "division",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "League ID (football)",
+                        "description": "League ID filter",
                         "name": "league_id",
                         "in": "query"
                     }
@@ -637,16 +611,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/stat-definitions": {
+        "/{sport}/{entityType}/{id}": {
             "get": {
-                "description": "Returns stat metadata for players/teams in the selected sport.",
+                "description": "Returns the sport profile payload for an entity type and ID.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get stat definitions",
+                "summary": "Get profile page",
                 "parameters": [
                     {
                         "enum": [
@@ -667,59 +641,13 @@ const docTemplate = `{
                         ],
                         "type": "string",
                         "description": "Entity type",
-                        "name": "entity_type",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/teams/{id}": {
-            "get": {
-                "description": "Returns a team-focused payload with profile, season stats, and stat definitions.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get team page",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
+                        "name": "entityType",
                         "in": "path",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "Team ID",
+                        "description": "Entity ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -732,7 +660,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Football league filter",
+                        "description": "League ID filter",
                         "name": "league_id",
                         "in": "query"
                     }

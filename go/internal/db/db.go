@@ -57,273 +57,381 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// Health
 		"health_check": "SELECT 1",
 
-		// Data API (page-shaped resource routes)
-		"nba_player_page": `SELECT json_build_object(
-			'page', 'player',
+		// Data API (canonical sport routes)
+		"nba_profile_page": `WITH req AS (
+			SELECT $1::text AS entity_type, $2::int AS entity_id, $3::int AS season, $4::int AS league_id
+		),
+		selected_entity AS (
+			SELECT * FROM (
+				SELECT row_to_json(p)::json AS entity, p.season, COALESCE(p.league_id, 0) AS league_id
+				FROM nba.player p, req
+				WHERE req.entity_type = 'player'
+				  AND p.id = req.entity_id
+				  AND (req.season IS NULL OR p.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(p.league_id, 0) = req.league_id)
+				ORDER BY p.season DESC NULLS LAST
+				LIMIT 1
+			) player_entity
+			UNION ALL
+			SELECT * FROM (
+				SELECT row_to_json(t)::json AS entity, t.season, COALESCE(t.league_id, 0) AS league_id
+				FROM nba.team t, req
+				WHERE req.entity_type = 'team'
+				  AND t.id = req.entity_id
+				  AND (req.season IS NULL OR t.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(t.league_id, 0) = req.league_id)
+				ORDER BY t.season DESC NULLS LAST
+				LIMIT 1
+			) team_entity
+		)
+		SELECT json_build_object(
+			'page', 'profile',
 			'sport', 'nba',
-			'entity', row_to_json(p),
+			'entity_type', req.entity_type,
+			'entity', se.entity,
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
 				FROM nba.stat_definitions sd
 			), '[]'::json),
-			'meta', json_build_object('season', p.season)
+			'meta', json_build_object(
+				'season', se.season,
+				'league_id', NULLIF(se.league_id, 0)
+			),
+			'league_context', CASE
+				WHEN se.league_id > 0 THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
+						FROM public.leagues l
+						WHERE l.id = se.league_id AND l.sport = 'NBA'
+					) lc
+				)
+				ELSE NULL
+			END
 		)
-		FROM nba.player p
-		WHERE p.id = $1
-		  AND ($2::int IS NULL OR p.season = $2)
-		ORDER BY p.season DESC NULLS LAST
-		LIMIT 1`,
-		"nfl_player_page": `SELECT json_build_object(
-			'page', 'player',
+		FROM req
+		JOIN selected_entity se ON true`,
+		"nfl_profile_page": `WITH req AS (
+			SELECT $1::text AS entity_type, $2::int AS entity_id, $3::int AS season, $4::int AS league_id
+		),
+		selected_entity AS (
+			SELECT * FROM (
+				SELECT row_to_json(p)::json AS entity, p.season, COALESCE(p.league_id, 0) AS league_id
+				FROM nfl.player p, req
+				WHERE req.entity_type = 'player'
+				  AND p.id = req.entity_id
+				  AND (req.season IS NULL OR p.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(p.league_id, 0) = req.league_id)
+				ORDER BY p.season DESC NULLS LAST
+				LIMIT 1
+			) player_entity
+			UNION ALL
+			SELECT * FROM (
+				SELECT row_to_json(t)::json AS entity, t.season, COALESCE(t.league_id, 0) AS league_id
+				FROM nfl.team t, req
+				WHERE req.entity_type = 'team'
+				  AND t.id = req.entity_id
+				  AND (req.season IS NULL OR t.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(t.league_id, 0) = req.league_id)
+				ORDER BY t.season DESC NULLS LAST
+				LIMIT 1
+			) team_entity
+		)
+		SELECT json_build_object(
+			'page', 'profile',
 			'sport', 'nfl',
-			'entity', row_to_json(p),
+			'entity_type', req.entity_type,
+			'entity', se.entity,
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
 				FROM nfl.stat_definitions sd
 			), '[]'::json),
-			'meta', json_build_object('season', p.season)
+			'meta', json_build_object(
+				'season', se.season,
+				'league_id', NULLIF(se.league_id, 0)
+			),
+			'league_context', CASE
+				WHEN se.league_id > 0 THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
+						FROM public.leagues l
+						WHERE l.id = se.league_id AND l.sport = 'NFL'
+					) lc
+				)
+				ELSE NULL
+			END
 		)
-		FROM nfl.player p
-		WHERE p.id = $1
-		  AND ($2::int IS NULL OR p.season = $2)
-		ORDER BY p.season DESC NULLS LAST
-		LIMIT 1`,
-		"football_player_page": `SELECT json_build_object(
-			'page', 'player',
+		FROM req
+		JOIN selected_entity se ON true`,
+		"football_profile_page": `WITH req AS (
+			SELECT $1::text AS entity_type, $2::int AS entity_id, $3::int AS season, $4::int AS league_id
+		),
+		selected_entity AS (
+			SELECT * FROM (
+				SELECT row_to_json(p)::json AS entity, p.season, COALESCE(p.league_id, 0) AS league_id
+				FROM football.player p, req
+				WHERE req.entity_type = 'player'
+				  AND p.id = req.entity_id
+				  AND (req.season IS NULL OR p.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(p.league_id, 0) = req.league_id)
+				ORDER BY p.season DESC NULLS LAST
+				LIMIT 1
+			) player_entity
+			UNION ALL
+			SELECT * FROM (
+				SELECT row_to_json(t)::json AS entity, t.season, COALESCE(t.league_id, 0) AS league_id
+				FROM football.team t, req
+				WHERE req.entity_type = 'team'
+				  AND t.id = req.entity_id
+				  AND (req.season IS NULL OR t.season = req.season)
+				  AND (req.league_id IS NULL OR COALESCE(t.league_id, 0) = req.league_id)
+				ORDER BY t.season DESC NULLS LAST
+				LIMIT 1
+			) team_entity
+		)
+		SELECT json_build_object(
+			'page', 'profile',
 			'sport', 'football',
-			'entity', row_to_json(p),
+			'entity_type', req.entity_type,
+			'entity', se.entity,
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
 				FROM football.stat_definitions sd
 			), '[]'::json),
-			'meta', json_build_object('season', p.season, 'league_id', p.league_id)
+			'meta', json_build_object(
+				'season', se.season,
+				'league_id', NULLIF(se.league_id, 0)
+			),
+			'league_context', CASE
+				WHEN se.league_id > 0 THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
+						FROM public.leagues l
+						WHERE l.id = se.league_id AND l.sport = 'FOOTBALL'
+					) lc
+				)
+				ELSE NULL
+			END
 		)
-		FROM football.player p
-		WHERE p.id = $1
-		  AND ($2::int IS NULL OR p.season = $2)
-		  AND ($3::int IS NULL OR p.league_id = $3)
-		ORDER BY p.season DESC NULLS LAST
-		LIMIT 1`,
-		"nba_team_page": `SELECT json_build_object(
-			'page', 'team',
+		FROM req
+		JOIN selected_entity se ON true`,
+		"nba_meta_page": `SELECT json_build_object(
+			'page', 'meta',
 			'sport', 'nba',
-			'entity', row_to_json(t),
-			'stat_definitions', COALESCE((
-				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
-				FROM nba.stat_definitions sd
-			), '[]'::json),
-			'meta', json_build_object('season', t.season)
-		)
-		FROM nba.team t
-		WHERE t.id = $1
-		  AND ($2::int IS NULL OR t.season = $2)
-		ORDER BY t.season DESC NULLS LAST
-		LIMIT 1`,
-		"nfl_team_page": `SELECT json_build_object(
-			'page', 'team',
-			'sport', 'nfl',
-			'entity', row_to_json(t),
-			'stat_definitions', COALESCE((
-				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
-				FROM nfl.stat_definitions sd
-			), '[]'::json),
-			'meta', json_build_object('season', t.season)
-		)
-		FROM nfl.team t
-		WHERE t.id = $1
-		  AND ($2::int IS NULL OR t.season = $2)
-		ORDER BY t.season DESC NULLS LAST
-		LIMIT 1`,
-		"football_team_page": `SELECT json_build_object(
-			'page', 'team',
-			'sport', 'football',
-			'entity', row_to_json(t),
-			'stat_definitions', COALESCE((
-				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
-				FROM football.stat_definitions sd
-			), '[]'::json),
-			'meta', json_build_object('season', t.season, 'league_id', t.league_id)
-		)
-		FROM football.team t
-		WHERE t.id = $1
-		  AND ($2::int IS NULL OR t.season = $2)
-		  AND ($3::int IS NULL OR t.league_id = $3)
-		ORDER BY t.season DESC NULLS LAST
-		LIMIT 1`,
-		"nba_standings_page": `SELECT json_build_object(
-			'page', 'standings',
-			'sport', 'nba',
-			'filters', json_build_object('season', $1::int, 'conference', $2::text, 'division', $3::text),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.win_pct DESC NULLS LAST)
-				FROM nba.standings t
-				WHERE t.season = $1::int
-				  AND ($2::text IS NULL OR t.conference = $2)
-				  AND ($3::text IS NULL OR t.division = $3)
-			), '[]'::json)
-		)`,
-		"nfl_standings_page": `SELECT json_build_object(
-			'page', 'standings',
-			'sport', 'nfl',
-			'filters', json_build_object('season', $1::int, 'conference', $2::text, 'division', $3::text),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.win_pct DESC NULLS LAST)
-				FROM nfl.standings t
-				WHERE t.season = $1::int
-				  AND ($2::text IS NULL OR t.conference = $2)
-				  AND ($3::text IS NULL OR t.division = $3)
-			), '[]'::json)
-		)`,
-		"football_standings_page": `SELECT json_build_object(
-			'page', 'standings',
-			'sport', 'football',
-			'filters', json_build_object('season', $1::int, 'league_id', $2::int),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.sort_points DESC NULLS LAST, t.sort_goal_diff DESC NULLS LAST)
-				FROM football.standings t
-				WHERE t.season = $1::int
-				  AND ($2::int IS NULL OR t.league_id = $2)
-			), '[]'::json)
-		)`,
-		"nba_leaders_page": `SELECT json_build_object(
-			'page', 'leaders',
-			'sport', 'nba',
-			'filters', json_build_object('season', $1::int, 'stat', $2::text, 'limit', $3::int, 'position', $4::text, 'league_id', $5::int),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM nba.stat_leaders($1::int, $2::text, $3::int, $4::text, $5::int) t
-			), '[]'::json)
-		)`,
-		"nfl_leaders_page": `SELECT json_build_object(
-			'page', 'leaders',
-			'sport', 'nfl',
-			'filters', json_build_object('season', $1::int, 'stat', $2::text, 'limit', $3::int, 'position', $4::text, 'league_id', $5::int),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM nfl.stat_leaders($1::int, $2::text, $3::int, $4::text, $5::int) t
-			), '[]'::json)
-		)`,
-		"football_leaders_page": `SELECT json_build_object(
-			'page', 'leaders',
-			'sport', 'football',
-			'filters', json_build_object('season', $1::int, 'stat', $2::text, 'limit', $3::int, 'position', $4::text, 'league_id', $5::int),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM football.stat_leaders($1::int, $2::text, $3::int, $4::text, $5::int) t
-			), '[]'::json)
-		)`,
-		"nba_search_page": `SELECT json_build_object(
-			'page', 'search',
-			'sport', 'nba',
-			'query', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM (
-					SELECT *
-					FROM nba.autofill_entities
-					WHERE name ILIKE '%' || $1::text || '%'
-					ORDER BY type, name
-					LIMIT 20
-				) t
-			), '[]'::json)
-		)`,
-		"nfl_search_page": `SELECT json_build_object(
-			'page', 'search',
-			'sport', 'nfl',
-			'query', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM (
-					SELECT *
-					FROM nfl.autofill_entities
-					WHERE name ILIKE '%' || $1::text || '%'
-					ORDER BY type, name
-					LIMIT 20
-				) t
-			), '[]'::json)
-		)`,
-		"football_search_page": `SELECT json_build_object(
-			'page', 'search',
-			'sport', 'football',
-			'query', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t))
-				FROM (
-					SELECT *
-					FROM football.autofill_entities
-					WHERE name ILIKE '%' || $1::text || '%'
-					ORDER BY type, name
-					LIMIT 20
-				) t
-			), '[]'::json)
-		)`,
-		"nba_stat_definitions_page": `SELECT json_build_object(
-			'page', 'stat_definitions',
-			'sport', 'nba',
-			'entity_type', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.entity_type, t.sort_order)
-				FROM nba.stat_definitions t
-				WHERE ($1::text IS NULL OR t.entity_type = $1)
-			), '[]'::json)
-		)`,
-		"nfl_stat_definitions_page": `SELECT json_build_object(
-			'page', 'stat_definitions',
-			'sport', 'nfl',
-			'entity_type', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.entity_type, t.sort_order)
-				FROM nfl.stat_definitions t
-				WHERE ($1::text IS NULL OR t.entity_type = $1)
-			), '[]'::json)
-		)`,
-		"football_stat_definitions_page": `SELECT json_build_object(
-			'page', 'stat_definitions',
-			'sport', 'football',
-			'entity_type', $1::text,
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.entity_type, t.sort_order)
-				FROM football.stat_definitions t
-				WHERE ($1::text IS NULL OR t.entity_type = $1)
-			), '[]'::json)
-		)`,
-		"football_leagues_page": `SELECT json_build_object(
-			'page', 'leagues',
-			'sport', 'football',
-			'filters', json_build_object('active', $1::bool, 'benchmark', $2::bool),
-			'items', COALESCE((
-				SELECT json_agg(row_to_json(t) ORDER BY t.name)
-				FROM football.leagues t
-				WHERE ($1::bool IS NULL OR t.is_active = $1)
-				  AND ($2::bool IS NULL OR t.is_benchmark = $2)
-			), '[]'::json)
-		)`,
-
-		// Autofill database endpoints (full entity metadata for frontend caching)
-		"nba_autofill_page": `SELECT json_build_object(
-			'page', 'autofill',
-			'sport', 'nba',
+			'scope', json_build_object('league_id', $1::int),
+			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nba.autofill_entities t
+				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
+			), '[]'::json),
+			'stat_definitions', COALESCE((
+				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
+				FROM nba.stat_definitions sd
+			), '[]'::json),
+			'leagues', COALESCE((
+				SELECT json_agg(row_to_json(l) ORDER BY l.name)
+				FROM (
+					SELECT id, name, country, logo_url, is_benchmark, is_active
+					FROM public.leagues
+					WHERE sport = 'NBA'
+					  AND ($1::int IS NULL OR id = $1::int)
+				) l
 			), '[]'::json)
 		)`,
-		"nfl_autofill_page": `SELECT json_build_object(
-			'page', 'autofill',
+		"nfl_meta_page": `SELECT json_build_object(
+			'page', 'meta',
 			'sport', 'nfl',
+			'scope', json_build_object('league_id', $1::int),
+			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nfl.autofill_entities t
+				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
+			), '[]'::json),
+			'stat_definitions', COALESCE((
+				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
+				FROM nfl.stat_definitions sd
+			), '[]'::json),
+			'leagues', COALESCE((
+				SELECT json_agg(row_to_json(l) ORDER BY l.name)
+				FROM (
+					SELECT id, name, country, logo_url, is_benchmark, is_active
+					FROM public.leagues
+					WHERE sport = 'NFL'
+					  AND ($1::int IS NULL OR id = $1::int)
+				) l
 			), '[]'::json)
 		)`,
-		"football_autofill_page": `SELECT json_build_object(
-			'page', 'autofill',
+		"football_meta_page": `SELECT json_build_object(
+			'page', 'meta',
 			'sport', 'football',
+			'scope', json_build_object('league_id', $1::int),
+			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM football.autofill_entities t
+				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
+			), '[]'::json),
+			'stat_definitions', COALESCE((
+				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
+				FROM football.stat_definitions sd
+			), '[]'::json),
+			'leagues', COALESCE((
+				SELECT json_agg(row_to_json(l) ORDER BY l.name)
+				FROM football.leagues l
+				WHERE ($1::int IS NULL OR l.id = $1::int)
 			), '[]'::json)
 		)`,
+		"nba_health_page": `SELECT json_build_object(
+			'page', 'health',
+			'sport', 'nba',
+			'scope', json_build_object('league_id', $1::int),
+			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'counts', json_build_object(
+				'player_stats', health.player_stats_count,
+				'team_stats', health.team_stats_count
+			),
+			'freshness', json_build_object(
+				'player_stats_updated_at', health.player_stats_updated_at,
+				'team_stats_updated_at', health.team_stats_updated_at,
+				'latest_updated_at', GREATEST(
+					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
+					COALESCE(health.team_stats_updated_at, to_timestamp(0))
+				)
+			),
+			'league_context', CASE
+				WHEN $1::int IS NOT NULL THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT id, name, country, logo_url, is_benchmark, is_active
+						FROM public.leagues
+						WHERE id = $1::int AND sport = 'NBA'
+					) lc
+				)
+				ELSE NULL
+			END
+		)
+		FROM (
+			SELECT
+				(SELECT COUNT(*)::int
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'NBA'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
+				(SELECT COUNT(*)::int
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'NBA'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
+				(SELECT MAX(ps.updated_at)
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'NBA'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
+				(SELECT MAX(ts.updated_at)
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'NBA'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+		) health`,
+		"nfl_health_page": `SELECT json_build_object(
+			'page', 'health',
+			'sport', 'nfl',
+			'scope', json_build_object('league_id', $1::int),
+			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'counts', json_build_object(
+				'player_stats', health.player_stats_count,
+				'team_stats', health.team_stats_count
+			),
+			'freshness', json_build_object(
+				'player_stats_updated_at', health.player_stats_updated_at,
+				'team_stats_updated_at', health.team_stats_updated_at,
+				'latest_updated_at', GREATEST(
+					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
+					COALESCE(health.team_stats_updated_at, to_timestamp(0))
+				)
+			),
+			'league_context', CASE
+				WHEN $1::int IS NOT NULL THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT id, name, country, logo_url, is_benchmark, is_active
+						FROM public.leagues
+						WHERE id = $1::int AND sport = 'NFL'
+					) lc
+				)
+				ELSE NULL
+			END
+		)
+		FROM (
+			SELECT
+				(SELECT COUNT(*)::int
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'NFL'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
+				(SELECT COUNT(*)::int
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'NFL'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
+				(SELECT MAX(ps.updated_at)
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'NFL'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
+				(SELECT MAX(ts.updated_at)
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'NFL'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+		) health`,
+		"football_health_page": `SELECT json_build_object(
+			'page', 'health',
+			'sport', 'football',
+			'scope', json_build_object('league_id', $1::int),
+			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'counts', json_build_object(
+				'player_stats', health.player_stats_count,
+				'team_stats', health.team_stats_count
+			),
+			'freshness', json_build_object(
+				'player_stats_updated_at', health.player_stats_updated_at,
+				'team_stats_updated_at', health.team_stats_updated_at,
+				'latest_updated_at', GREATEST(
+					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
+					COALESCE(health.team_stats_updated_at, to_timestamp(0))
+				)
+			),
+			'league_context', CASE
+				WHEN $1::int IS NOT NULL THEN (
+					SELECT row_to_json(lc)
+					FROM (
+						SELECT id, name, country, logo_url, is_benchmark, is_active
+						FROM public.leagues
+						WHERE id = $1::int AND sport = 'FOOTBALL'
+					) lc
+				)
+				ELSE NULL
+			END
+		)
+		FROM (
+			SELECT
+				(SELECT COUNT(*)::int
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'FOOTBALL'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
+				(SELECT COUNT(*)::int
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'FOOTBALL'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
+				(SELECT MAX(ps.updated_at)
+				 FROM public.player_stats ps
+				 WHERE ps.sport = 'FOOTBALL'
+				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
+				(SELECT MAX(ts.updated_at)
+				 FROM public.team_stats ts
+				 WHERE ts.sport = 'FOOTBALL'
+				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+		) health`,
 
 		// Entity name lookup (news handlers + notifications)
 		"team_name_lookup": "SELECT name FROM teams WHERE id = $1 AND sport = $2",

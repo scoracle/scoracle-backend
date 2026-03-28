@@ -81,16 +81,15 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
-			r.Get("/players/{id}", h.GetPlayerPage)
-			r.Get("/teams/{id}", h.GetTeamPage)
-			r.Get("/standings", h.GetStandingsPage)
-			r.Get("/leaders", h.GetLeadersPage)
-			r.Get("/search", h.GetSearchPage)
-			r.Get("/autofill", h.GetAutofillPage)
-			r.Get("/stat-definitions", h.GetStatDefinitionsPage)
-		})
-		r.Get("/football/leagues", h.GetLeaguesPage)
+			// Canonical sport routes (vNext)
+			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
+			r.Get("/meta", h.GetMetaPage)
+			r.Get("/health", h.GetSportHealthPage)
+			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}", h.GetLeagueProfilePage)
+			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)
+			r.Get("/leagues/{leagueId}/health", h.GetLeagueHealthPage)
 
+		})
 		// News
 		r.Get("/news/status", h.GetNewsStatus)
 		r.Get("/news/{entityType}/{entityID}", h.GetEntityNews)

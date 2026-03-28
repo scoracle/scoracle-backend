@@ -22,15 +22,24 @@ The frontend calls one API origin and receives page-shaped JSON payloads designe
 
 ## API Surface
 
-Canonical data routes are sport-scoped and page-shaped:
+Canonical data routes are sport-scoped:
 
-- `GET /api/v1/{sport}/players/{id}`
-- `GET /api/v1/{sport}/teams/{id}`
-- `GET /api/v1/{sport}/standings`
-- `GET /api/v1/{sport}/leaders`
-- `GET /api/v1/{sport}/search`
-- `GET /api/v1/{sport}/stat-definitions`
-- `GET /api/v1/football/leagues`
+- `GET /api/v1/{sport}/{entityType}/{id}` (profile)
+- `GET /api/v1/{sport}/meta`
+- `GET /api/v1/{sport}/health`
+
+League-scoped variants (preferred for multi-league precision):
+
+- `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
+- `GET /api/v1/{sport}/leagues/{leagueId}/meta`
+- `GET /api/v1/{sport}/leagues/{leagueId}/health`
+
+Legacy data routes remain temporarily available with deprecation headers:
+
+- `/{sport}/players/{id}`, `/{sport}/teams/{id}`
+- `/{sport}/standings`, `/{sport}/leaders`, `/{sport}/search`
+- `/{sport}/autofill`, `/{sport}/stat-definitions`
+- `/football/leagues`
 
 Integrations and operational routes:
 
@@ -46,7 +55,7 @@ See `ENDPOINTS.md` for full contract details.
 ## Implementation Notes
 
 - Core data handlers live in `go/internal/api/handler/data.go` and follow a strict thin pattern (validate -> cache -> prepared statement -> passthrough JSON).
-- Prepared statements for page payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
+- Prepared statements for canonical and legacy payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
 - Sport routes are constrained to `nba`, `nfl`, and `football` at the router level.
 - Data endpoints use in-memory caching with ETag support (`TTLData=5m`), while integrations use their own TTL strategy.
 
@@ -130,3 +139,23 @@ Common optional:
 - `TWITTER_BEARER_TOKEN`
 - `TWITTER_JOURNALIST_LIST_ID`
 - `FIREBASE_CREDENTIALS_FILE`
+
+## Trademarks & Nominative Fair Use
+
+Team names, logos, and other identifying marks displayed by Scoracle are the property of their respective owners (leagues, teams, and affiliated entities). These marks are used solely to identify the teams and players whose statistical data is presented — not to imply any official sponsorship, endorsement, or affiliation between Scoracle and any league, team, or player.
+
+This usage satisfies the three-part test for nominative fair use:
+
+1. The teams and leagues cannot reasonably be identified without reference to their marks.
+2. Only as much of each mark is used as necessary for identification.
+3. Nothing in the presentation suggests official sponsorship or endorsement by the mark holder.
+
+Scoracle is not affiliated with, endorsed by, or in any way officially connected to the NBA, NFL, or any of their member teams.
+
+## License & Copyright
+
+Copyright (c) 2026 Scoracle. All rights reserved.
+
+This repository and its contents — including but not limited to source code, database schemas, API designs, data pipeline architecture, and documentation — are proprietary and confidential. No part of this repository may be reproduced, distributed, transmitted, or otherwise used in any form without the prior written permission of the copyright holder.
+
+Unauthorized use, copying, modification, or distribution of any materials in this repository is strictly prohibited and may result in legal action.

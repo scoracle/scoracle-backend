@@ -67,6 +67,23 @@ Returns metadata payload scoped to a specific league.
 
 Returns health/freshness payload scoped to a specific league.
 
+## Breaking Changes (2026-03-28)
+
+Legacy sport data routes were removed in the clean-break migration.
+
+Removed routes:
+
+- `GET /api/v1/{sport}/players/{id}`
+- `GET /api/v1/{sport}/teams/{id}`
+- `GET /api/v1/{sport}/standings`
+- `GET /api/v1/{sport}/leaders`
+- `GET /api/v1/{sport}/search`
+- `GET /api/v1/{sport}/autofill`
+- `GET /api/v1/{sport}/stat-definitions`
+- `GET /api/v1/football/leagues`
+
+Use the canonical route family in this document instead.
+
 ## Integrations Endpoints
 
 ### `GET /api/v1/news/status`

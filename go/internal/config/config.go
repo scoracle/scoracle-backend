@@ -73,7 +73,7 @@ func Load() (*Config, error) {
 		DBPoolMaxLife:  time.Duration(envInt("DB_POOL_MAX_LIFE_MINUTES", 30)) * time.Minute,
 
 		APIHost:     envOr("API_HOST", "0.0.0.0"),
-		APIPort:     envInt("API_PORT", envInt("PORT", 8000)),
+		APIPort:     envInt("PORT", envInt("API_PORT", 8000)),
 		Environment: environment,
 
 		CORSAllowOrigins: corsOrigins,

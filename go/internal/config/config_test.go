@@ -29,3 +29,18 @@ func TestLoadAddsProductionOrigins(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadPrefersPORTOverAPIPort(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("API_PORT", "8000")
+	t.Setenv("PORT", "49231")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+
+	if cfg.APIPort != 49231 {
+		t.Fatalf("APIPort = %d, want %d", cfg.APIPort, 49231)
+	}
+}

@@ -338,7 +338,133 @@ RETURNS json AS $$
 $$ LANGUAGE sql STABLE;
 
 -- ============================================================================
--- 6. GRANTS
+-- 6. EVENT -> SEASON AGGREGATION FUNCTIONS
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION nba.aggregate_player_season(
+    p_player_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS gp,
+        AVG(minutes_played) AS minutes_avg,
+        AVG(NULLIF((stats->>'pts')::numeric, NULL)) AS pts_avg,
+        AVG(NULLIF((stats->>'reb')::numeric, NULL)) AS reb_avg,
+        AVG(NULLIF((stats->>'ast')::numeric, NULL)) AS ast_avg,
+        AVG(NULLIF((stats->>'stl')::numeric, NULL)) AS stl_avg,
+        AVG(NULLIF((stats->>'blk')::numeric, NULL)) AS blk_avg,
+        AVG(NULLIF((stats->>'turnover')::numeric, NULL)) AS tov_avg,
+        AVG(NULLIF((stats->>'pf')::numeric, NULL)) AS pf_avg,
+        AVG(NULLIF((stats->>'plus_minus')::numeric, NULL)) AS pm_avg,
+        AVG(NULLIF((stats->>'oreb')::numeric, NULL)) AS oreb_avg,
+        AVG(NULLIF((stats->>'dreb')::numeric, NULL)) AS dreb_avg,
+        AVG(NULLIF((stats->>'fgm')::numeric, NULL)) AS fgm_avg,
+        AVG(NULLIF((stats->>'fga')::numeric, NULL)) AS fga_avg,
+        AVG(NULLIF((stats->>'fg3m')::numeric, NULL)) AS fg3m_avg,
+        AVG(NULLIF((stats->>'fg3a')::numeric, NULL)) AS fg3a_avg,
+        AVG(NULLIF((stats->>'ftm')::numeric, NULL)) AS ftm_avg,
+        AVG(NULLIF((stats->>'fta')::numeric, NULL)) AS fta_avg,
+        SUM(COALESCE((stats->>'fgm')::numeric, 0)) AS fgm_sum,
+        SUM(COALESCE((stats->>'fga')::numeric, 0)) AS fga_sum,
+        SUM(COALESCE((stats->>'fg3m')::numeric, 0)) AS fg3m_sum,
+        SUM(COALESCE((stats->>'fg3a')::numeric, 0)) AS fg3a_sum,
+        SUM(COALESCE((stats->>'ftm')::numeric, 0)) AS ftm_sum,
+        SUM(COALESCE((stats->>'fta')::numeric, 0)) AS fta_sum
+    FROM public.event_box_scores
+    WHERE player_id = p_player_id
+      AND sport = 'NBA'
+      AND season = p_season
+      AND league_id = p_league_id
+)
+SELECT CASE
+    WHEN gp = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'games_played', gp::int,
+            'minutes', ROUND(minutes_avg, 1),
+            'pts', ROUND(pts_avg, 1),
+            'reb', ROUND(reb_avg, 1),
+            'ast', ROUND(ast_avg, 1),
+            'stl', ROUND(stl_avg, 1),
+            'blk', ROUND(blk_avg, 1),
+            'turnover', ROUND(tov_avg, 1),
+            'pf', ROUND(pf_avg, 1),
+            'plus_minus', ROUND(pm_avg, 1),
+            'oreb', ROUND(oreb_avg, 1),
+            'dreb', ROUND(dreb_avg, 1),
+            'fgm', ROUND(fgm_avg, 1),
+            'fga', ROUND(fga_avg, 1),
+            'fg3m', ROUND(fg3m_avg, 1),
+            'fg3a', ROUND(fg3a_avg, 1),
+            'ftm', ROUND(ftm_avg, 1),
+            'fta', ROUND(fta_avg, 1),
+            'fg_pct', CASE WHEN fga_sum > 0 THEN ROUND((fgm_sum / fga_sum) * 100, 1) END,
+            'fg3_pct', CASE WHEN fg3a_sum > 0 THEN ROUND((fg3m_sum / fg3a_sum) * 100, 1) END,
+            'ft_pct', CASE WHEN fta_sum > 0 THEN ROUND((ftm_sum / fta_sum) * 100, 1) END
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION nba.aggregate_team_season(
+    p_team_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS gp,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        AVG(NULLIF((stats->>'pts')::numeric, NULL)) AS pts_avg,
+        AVG(NULLIF((stats->>'reb')::numeric, NULL)) AS reb_avg,
+        AVG(NULLIF((stats->>'ast')::numeric, NULL)) AS ast_avg,
+        AVG(NULLIF((stats->>'turnover')::numeric, NULL)) AS tov_avg,
+        SUM(COALESCE((stats->>'fgm')::numeric, 0)) AS fgm_sum,
+        SUM(COALESCE((stats->>'fga')::numeric, 0)) AS fga_sum,
+        SUM(COALESCE((stats->>'fg3m')::numeric, 0)) AS fg3m_sum,
+        SUM(COALESCE((stats->>'fg3a')::numeric, 0)) AS fg3a_sum,
+        SUM(COALESCE((stats->>'ftm')::numeric, 0)) AS ftm_sum,
+        SUM(COALESCE((stats->>'fta')::numeric, 0)) AS fta_sum
+    FROM public.event_team_stats ets
+    LEFT JOIN public.event_team_stats opp
+        ON opp.fixture_id = ets.fixture_id
+       AND opp.sport = ets.sport
+       AND opp.season = ets.season
+       AND opp.league_id = ets.league_id
+       AND opp.team_id <> ets.team_id
+    WHERE ets.team_id = p_team_id
+      AND ets.sport = 'NBA'
+      AND ets.season = p_season
+      AND ets.league_id = p_league_id
+)
+SELECT CASE
+    WHEN gp = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'games_played', gp::int,
+            'wins', wins::int,
+            'losses', losses::int,
+            'pts', ROUND(pts_avg, 1),
+            'reb', ROUND(reb_avg, 1),
+            'ast', ROUND(ast_avg, 1),
+            'turnover', ROUND(tov_avg, 1),
+            'fg_pct', CASE WHEN fga_sum > 0 THEN ROUND((fgm_sum / fga_sum) * 100, 1) END,
+            'fg3_pct', CASE WHEN fg3a_sum > 0 THEN ROUND((fg3m_sum / fg3a_sum) * 100, 1) END,
+            'ft_pct', CASE WHEN fta_sum > 0 THEN ROUND((ftm_sum / fta_sum) * 100, 1) END
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+-- ============================================================================
+-- 7. GRANTS
 -- ============================================================================
 
 GRANT USAGE ON SCHEMA nba TO web_anon, web_user;

@@ -328,7 +328,115 @@ RETURNS json AS $$
 $$ LANGUAGE sql STABLE;
 
 -- ============================================================================
--- 6. GRANTS
+-- 6. EVENT -> SEASON AGGREGATION FUNCTIONS
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION nfl.aggregate_player_season(
+    p_player_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS gp,
+        SUM(COALESCE((stats->>'passing_completions')::numeric, 0)) AS pass_cmp_sum,
+        SUM(COALESCE((stats->>'passing_attempts')::numeric, 0)) AS pass_att_sum,
+        SUM(COALESCE((stats->>'passing_yards')::numeric, 0)) AS pass_yds_sum,
+        SUM(COALESCE((stats->>'passing_touchdowns')::numeric, 0)) AS pass_td_sum,
+        SUM(COALESCE((stats->>'passing_interceptions')::numeric, 0)) AS pass_int_sum,
+        SUM(COALESCE((stats->>'rushing_attempts')::numeric, 0)) AS rush_att_sum,
+        SUM(COALESCE((stats->>'rushing_yards')::numeric, 0)) AS rush_yds_sum,
+        SUM(COALESCE((stats->>'rushing_touchdowns')::numeric, 0)) AS rush_td_sum,
+        SUM(COALESCE((stats->>'receptions')::numeric, 0)) AS rec_sum,
+        SUM(COALESCE((stats->>'receiving_targets')::numeric, 0)) AS tgt_sum,
+        SUM(COALESCE((stats->>'receiving_yards')::numeric, 0)) AS rec_yds_sum,
+        SUM(COALESCE((stats->>'receiving_touchdowns')::numeric, 0)) AS rec_td_sum,
+        SUM(COALESCE((stats->>'total_tackles')::numeric, 0)) AS tackles_sum,
+        SUM(COALESCE((stats->>'defensive_sacks')::numeric, 0)) AS sacks_sum,
+        SUM(COALESCE((stats->>'defensive_interceptions')::numeric, 0)) AS int_def_sum
+    FROM public.event_box_scores
+    WHERE player_id = p_player_id
+      AND sport = 'NFL'
+      AND season = p_season
+      AND league_id = p_league_id
+)
+SELECT CASE
+    WHEN gp = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'games_played', gp::int,
+            'passing_completions', pass_cmp_sum::int,
+            'passing_attempts', pass_att_sum::int,
+            'passing_yards', pass_yds_sum::int,
+            'passing_touchdowns', pass_td_sum::int,
+            'passing_interceptions', pass_int_sum::int,
+            'passing_yards_per_game', ROUND(pass_yds_sum / gp, 1),
+            'passing_completion_pct', CASE WHEN pass_att_sum > 0 THEN ROUND(pass_cmp_sum / pass_att_sum * 100, 1) END,
+            'rushing_attempts', rush_att_sum::int,
+            'rushing_yards', rush_yds_sum::int,
+            'rushing_touchdowns', rush_td_sum::int,
+            'rushing_yards_per_game', ROUND(rush_yds_sum / gp, 1),
+            'yards_per_rush_attempt', CASE WHEN rush_att_sum > 0 THEN ROUND(rush_yds_sum / rush_att_sum, 2) END,
+            'receptions', rec_sum::int,
+            'receiving_targets', tgt_sum::int,
+            'receiving_yards', rec_yds_sum::int,
+            'receiving_touchdowns', rec_td_sum::int,
+            'receiving_yards_per_game', ROUND(rec_yds_sum / gp, 1),
+            'yards_per_reception', CASE WHEN rec_sum > 0 THEN ROUND(rec_yds_sum / rec_sum, 2) END,
+            'total_tackles', tackles_sum::int,
+            'defensive_sacks', ROUND(sacks_sum, 1),
+            'defensive_interceptions', int_def_sum::int
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION nfl.aggregate_team_season(
+    p_team_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS gp,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END)::numeric AS ties,
+        SUM(COALESCE(score, 0))::numeric AS pf_sum,
+        SUM(COALESCE(opp.score, 0))::numeric AS pa_sum
+    FROM public.event_team_stats ets
+    LEFT JOIN public.event_team_stats opp
+        ON opp.fixture_id = ets.fixture_id
+       AND opp.sport = ets.sport
+       AND opp.season = ets.season
+       AND opp.league_id = ets.league_id
+       AND opp.team_id <> ets.team_id
+    WHERE ets.team_id = p_team_id
+      AND ets.sport = 'NFL'
+      AND ets.season = p_season
+      AND ets.league_id = p_league_id
+)
+SELECT CASE
+    WHEN gp = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'wins', wins::int,
+            'losses', losses::int,
+            'ties', ties::int,
+            'points_for', pf_sum::int,
+            'points_against', pa_sum::int,
+            'point_differential', (pf_sum - pa_sum)::int
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+-- ============================================================================
+-- 7. GRANTS
 -- ============================================================================
 
 GRANT USAGE ON SCHEMA nfl TO web_anon, web_user;

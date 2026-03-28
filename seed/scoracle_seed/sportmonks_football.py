@@ -9,7 +9,14 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from .models import Player, PlayerStats, Team, TeamStats
+from .models import (
+    EventBoxScore,
+    EventTeamStats,
+    Player,
+    PlayerStats,
+    Team,
+    TeamStats,
+)
 from .sportmonks_client import SportMonksClient
 
 logger = logging.getLogger(__name__)
@@ -153,6 +160,103 @@ class FootballHandler:
         # Sort by position
         results.sort(key=lambda ts: ts.stats.get("position", 999))
         return results
+
+    # ------------------------------------------------------------------
+    # Fixture schedule + fixture box scores
+    # ------------------------------------------------------------------
+
+    def get_fixtures(self, season_id: int) -> list[dict[str, Any]]:
+        """Fetch season fixtures with participant teams."""
+        items = self.client.get_all_pages(
+            "/fixtures",
+            {
+                "filters": f"fixtureSeasons:{season_id}",
+                "include": "participants",
+            },
+        )
+        fixtures: list[dict[str, Any]] = []
+        for raw in items:
+            fixture = _parse_fixture_stub(raw)
+            if fixture:
+                fixtures.append(fixture)
+        return fixtures
+
+    def get_box_score(
+        self, external_fixture_id: int, fixture_id: int
+    ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
+        """Fetch one fixture's detailed lineups + scores as event-level lines."""
+        resp = self.client.get(
+            f"/fixtures/{external_fixture_id}",
+            {
+                "include": "lineups.details.type;events;scores;participants",
+            },
+        )
+        data = resp.get("data", {})
+
+        players: list[EventBoxScore] = []
+        team_stats_acc: dict[int, dict[str, float]] = {}
+        team_scores: dict[int, int] = _extract_fixture_scores(data)
+
+        lineups = data.get("lineups", [])
+        if isinstance(lineups, list):
+            for entry in lineups:
+                team_id = entry.get("team_id") or _team_id_from_relation(entry.get("team"))
+                player_raw = entry.get("player")
+                player_id = entry.get("player_id")
+                if not isinstance(player_id, int) and isinstance(player_raw, dict):
+                    player_id = player_raw.get("id")
+                if not isinstance(team_id, int) or not isinstance(player_id, int):
+                    continue
+
+                details = entry.get("details", [])
+                stats = _normalize_player_stats(details if isinstance(details, list) else [])
+                minutes_played = _extract_value(entry.get("minutes"))
+                if minutes_played is None:
+                    minutes_played = stats.get("minutes_played")
+                if minutes_played is not None:
+                    stats["minutes_played"] = minutes_played
+
+                player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
+                if player and player.team_id is None:
+                    player.team_id = team_id
+
+                players.append(
+                    EventBoxScore(
+                        fixture_id=fixture_id,
+                        player_id=player_id,
+                        team_id=team_id,
+                        player=player,
+                        minutes_played=minutes_played,
+                        stats=stats,
+                        raw=entry,
+                    )
+                )
+
+                acc = team_stats_acc.setdefault(team_id, {})
+                for key, value in stats.items():
+                    if isinstance(value, (int, float)):
+                        acc[key] = acc.get(key, 0.0) + float(value)
+
+        teams: list[EventTeamStats] = []
+        participants = data.get("participants", [])
+        if isinstance(participants, list):
+            for p in participants:
+                team_id = p.get("id")
+                if isinstance(team_id, int):
+                    team_stats_acc.setdefault(team_id, {})
+
+        for team_id, agg in team_stats_acc.items():
+            teams.append(
+                EventTeamStats(
+                    fixture_id=fixture_id,
+                    team_id=team_id,
+                    score=team_scores.get(team_id),
+                    stats=agg,
+                    raw={"provider": "sportmonks", "external_fixture_id": external_fixture_id},
+                )
+            )
+
+        return players, teams
 
 
 # --------------------------------------------------------------------------
@@ -349,3 +453,120 @@ def _parse_standing(raw: dict[str, Any]) -> TeamStats:
         stats=stats,
         raw=raw,
     )
+
+
+def _team_id_from_relation(raw: Any) -> int | None:
+    if isinstance(raw, dict):
+        team_id = raw.get("id")
+        if isinstance(team_id, int):
+            return team_id
+    return None
+
+
+def _extract_fixture_scores(raw: dict[str, Any]) -> dict[int, int]:
+    out: dict[int, int] = {}
+    for score_block in raw.get("scores", []) if isinstance(raw.get("scores"), list) else []:
+        participant_id = score_block.get("participant_id")
+        if not isinstance(participant_id, int):
+            continue
+        score_val = _extract_value(score_block.get("score"))
+        if score_val is None:
+            score_val = _extract_value(score_block.get("goals"))
+        if score_val is None:
+            continue
+        out[participant_id] = int(score_val)
+
+    # Fallback: if no scores include participant IDs, map home/away values.
+    if not out:
+        home_team_id = raw.get("localteam_id")
+        away_team_id = raw.get("visitorteam_id")
+        if isinstance(home_team_id, int):
+            home_val = _extract_value(raw.get("scores_home") or raw.get("home_score"))
+            if home_val is not None:
+                out[home_team_id] = int(home_val)
+        if isinstance(away_team_id, int):
+            away_val = _extract_value(raw.get("scores_away") or raw.get("away_score"))
+            if away_val is not None:
+                out[away_team_id] = int(away_val)
+
+    return out
+
+
+def _parse_fixture_stub(raw: dict[str, Any]) -> dict[str, Any] | None:
+    external_id = raw.get("id")
+    if not isinstance(external_id, int):
+        return None
+
+    participants = raw.get("participants", [])
+    home_participant: dict[str, Any] | None = None
+    away_participant: dict[str, Any] | None = None
+    home_team_id: int | None = None
+    away_team_id: int | None = None
+    if isinstance(participants, list):
+        for p in participants:
+            if not isinstance(p, dict):
+                continue
+            pid = p.get("id")
+            if not isinstance(pid, int):
+                continue
+            loc = (p.get("meta") or {}).get("location")
+            if isinstance(loc, str):
+                loc_l = loc.lower()
+                if loc_l == "home":
+                    home_team_id = pid
+                    home_participant = p
+                elif loc_l == "away":
+                    away_team_id = pid
+                    away_participant = p
+
+    if home_team_id is None:
+        home_team_id = raw.get("localteam_id")
+    if away_team_id is None:
+        away_team_id = raw.get("visitorteam_id")
+    if home_team_id is None:
+        home_team_id = raw.get("home_team_id")
+    if away_team_id is None:
+        away_team_id = raw.get("away_team_id")
+
+    if not isinstance(home_team_id, int) or not isinstance(away_team_id, int):
+        return None
+
+    start_time = (
+        raw.get("starting_at")
+        or raw.get("starting_at_timestamp")
+        or raw.get("starting_at_utc")
+        or raw.get("starting_at_iso")
+        or raw.get("time")
+        or raw.get("date")
+    )
+    if not isinstance(start_time, str):
+        return None
+
+    season = None
+    season_raw = raw.get("season")
+    if isinstance(season_raw, dict):
+        season_name = season_raw.get("name")
+        if isinstance(season_name, str):
+            try:
+                season = int(season_name.split("/")[0])
+            except Exception:
+                season = None
+
+    round_name = None
+    round_raw = raw.get("round")
+    if isinstance(round_raw, dict):
+        round_name = round_raw.get("name")
+    if not isinstance(round_name, str):
+        round_name = raw.get("stage_name")
+
+    return {
+        "external_id": external_id,
+        "home_team_id": home_team_id,
+        "away_team_id": away_team_id,
+        "home_team": _parse_team(home_participant) if home_participant else None,
+        "away_team": _parse_team(away_participant) if away_participant else None,
+        "start_time": start_time,
+        "season": season,
+        "round": round_name,
+        "raw": raw,
+    }

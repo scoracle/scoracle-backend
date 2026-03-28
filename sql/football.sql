@@ -373,7 +373,164 @@ RETURNS json AS $$
 $$ LANGUAGE sql STABLE;
 
 -- ============================================================================
--- 6. GRANTS
+-- 6. EVENT -> SEASON AGGREGATION FUNCTIONS
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION football.aggregate_player_season(
+    p_player_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS matches_played,
+        SUM(COALESCE(minutes_played, 0)) AS minutes_sum,
+        SUM(COALESCE((stats->>'goals')::numeric, 0)) AS goals_sum,
+        SUM(COALESCE((stats->>'assists')::numeric, 0)) AS assists_sum,
+        SUM(COALESCE((stats->>'shots_total')::numeric, 0)) AS shots_sum,
+        SUM(COALESCE((stats->>'shots_on_target')::numeric, 0)) AS sot_sum,
+        SUM(COALESCE((stats->>'passes_total')::numeric, 0)) AS passes_sum,
+        SUM(COALESCE((stats->>'passes_accurate')::numeric, 0)) AS passes_acc_sum,
+        SUM(COALESCE((stats->>'tackles')::numeric, 0)) AS tackles_sum,
+        SUM(COALESCE((stats->>'interceptions')::numeric, 0)) AS interceptions_sum,
+        SUM(COALESCE((stats->>'yellow_cards')::numeric, 0)) AS yellow_sum,
+        SUM(COALESCE((stats->>'red_cards')::numeric, 0)) AS red_sum,
+        SUM(COALESCE((stats->>'expected_goals')::numeric, 0)) AS xg_sum
+    FROM public.event_box_scores
+    WHERE player_id = p_player_id
+      AND sport = 'FOOTBALL'
+      AND season = p_season
+      AND league_id = p_league_id
+)
+SELECT CASE
+    WHEN matches_played = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'appearances', matches_played::int,
+            'lineups', matches_played::int,
+            'minutes_played', CASE WHEN matches_played > 0 THEN ROUND(minutes_sum / matches_played, 1) END,
+            'goals', goals_sum::int,
+            'assists', assists_sum::int,
+            'expected_goals', ROUND(xg_sum, 2),
+            'shots_total', shots_sum::int,
+            'shots_on_target', sot_sum::int,
+            'passes_total', passes_sum::int,
+            'passes_accurate', passes_acc_sum::int,
+            'tackles', tackles_sum::int,
+            'interceptions', interceptions_sum::int,
+            'yellow_cards', yellow_sum::int,
+            'red_cards', red_sum::int
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+CREATE OR REPLACE FUNCTION football.aggregate_team_season(
+    p_team_id INTEGER,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0
+)
+RETURNS JSONB AS $$
+WITH agg AS (
+    SELECT
+        COUNT(*)::numeric AS matches_played,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        SUM(CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END)::numeric AS draws,
+        SUM(COALESCE(score, 0))::numeric AS gf_sum,
+        SUM(COALESCE(opp.score, 0))::numeric AS ga_sum,
+        SUM(
+            CASE
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS home_won,
+        SUM(
+            CASE
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS home_draw,
+        SUM(
+            CASE
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS home_lost,
+        SUM(
+            CASE
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS away_won,
+        SUM(
+            CASE
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS away_draw,
+        SUM(
+            CASE
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END
+                ELSE 0
+            END
+        )::numeric AS away_lost,
+        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(score, 0) ELSE 0 END)::numeric AS home_scored,
+        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS home_conceded,
+        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(score, 0) ELSE 0 END)::numeric AS away_scored,
+        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS away_conceded,
+        SUM(CASE WHEN f.home_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS home_played,
+        SUM(CASE WHEN f.away_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS away_played
+    FROM public.event_team_stats ets
+    JOIN public.fixtures f ON f.id = ets.fixture_id
+    LEFT JOIN public.event_team_stats opp
+        ON opp.fixture_id = ets.fixture_id
+       AND opp.sport = ets.sport
+       AND opp.season = ets.season
+       AND opp.league_id = ets.league_id
+       AND opp.team_id <> ets.team_id
+    WHERE ets.team_id = p_team_id
+      AND ets.sport = 'FOOTBALL'
+      AND ets.season = p_season
+      AND ets.league_id = p_league_id
+)
+SELECT CASE
+    WHEN matches_played = 0 THEN '{}'::jsonb
+    ELSE jsonb_strip_nulls(
+        jsonb_build_object(
+            'matches_played', matches_played::int,
+            'wins', wins::int,
+            'draws', draws::int,
+            'losses', losses::int,
+            'goals_for', gf_sum::int,
+            'goals_against', ga_sum::int,
+            'goal_difference', (gf_sum - ga_sum)::int,
+            'points', (wins * 3 + draws)::int,
+            'overall_points', (wins * 3 + draws)::int,
+            'home_played', home_played::int,
+            'home_won', home_won::int,
+            'home_draw', home_draw::int,
+            'home_lost', home_lost::int,
+            'home_scored', home_scored::int,
+            'home_conceded', home_conceded::int,
+            'home_points', (home_won * 3 + home_draw)::int,
+            'away_played', away_played::int,
+            'away_won', away_won::int,
+            'away_draw', away_draw::int,
+            'away_lost', away_lost::int,
+            'away_scored', away_scored::int,
+            'away_conceded', away_conceded::int,
+            'away_points', (away_won * 3 + away_draw)::int
+        )
+    )
+END
+FROM agg;
+$$ LANGUAGE sql STABLE;
+
+-- ============================================================================
+-- 7. GRANTS
 -- ============================================================================
 
 GRANT USAGE ON SCHEMA football TO web_anon, web_user;

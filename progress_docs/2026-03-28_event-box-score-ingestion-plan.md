@@ -1,7 +1,7 @@
 # Event Box Score Ingestion Plan
 
 **Date:** 2026-03-28
-**Status:** Plan (not yet implemented)
+**Status:** In progress (schema + fixture-level seeding flow implemented; provider payload hardening and parity validation pending)
 
 ## Problem Statement
 
@@ -484,3 +484,38 @@ With event-level box scores as the foundation, these become straightforward:
 3. **Seeder is ingestion-only** — fetch box score, normalize minimally, upsert raw
 4. **`finalize_fixture()` remains the single handoff point** — seeder calls it, Postgres does the rest
 5. **Views maintain backward compatibility** — Go API reads same views, gets same JSON shape
+
+---
+
+## Implementation Snapshot (2026-03-28 update)
+
+The following components are now implemented:
+
+- Shared SQL additions in `sql/shared.sql`:
+  - `provider_entity_map` and `provider_fixture_map`
+  - `event_box_scores` and `event_team_stats`
+  - normalization triggers on event tables
+  - `resolve_provider_fixture_id()`
+  - `box_score_coverage_report()` for completeness checks
+  - `fixtures` uniqueness moved to `(sport, external_id)` for provider safety
+  - `finalize_fixture()` now reaggregates impacted player/team rows from event tables before percentile refresh
+
+- Sport SQL aggregation functions:
+  - `nba.aggregate_player_season`, `nba.aggregate_team_season`
+  - `nfl.aggregate_player_season`, `nfl.aggregate_team_season`
+  - `football.aggregate_player_season`, `football.aggregate_team_season`
+
+- Seeder flow in `seed/scoracle_seed/`:
+  - `load-fixtures` implemented for NBA/NFL/Football
+  - `process` and `seed-fixture` now seed per-fixture event box scores
+  - `backfill` command added
+  - provider handlers now include fixture schedule + fixture box score methods
+  - event models and upsert functions added
+  - provider mapping upserts added for teams, players, fixtures
+  - `percentiles` now reports event box score coverage + missing required keys
+
+Remaining validation work:
+
+- Validate provider endpoint assumptions in live environments (NBA/NFL BDL variants + SportMonks fixture includes)
+- Run parity checks against prior season aggregates for target sports/leagues
+- Harden any provider-specific key remapping discovered during live pulls

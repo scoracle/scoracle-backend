@@ -2,10 +2,11 @@
 
 Commands:
   bootstrap-teams  — One-time team roster seed at season start
-  load-fixtures    — Load fixture schedule from provider API (stub)
+  load-fixtures    — Load fixture schedule from provider API
   process          — Process all ready fixtures (called by cron)
   seed-fixture     — Seed a single fixture by ID
-  percentiles      — Recalculate percentiles (ad-hoc)
+  backfill         — Backfill fixture-level historical box scores
+  percentiles      — Recalculate percentiles + box score coverage report
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from __future__ import annotations
 import logging
 import sys
 import time
-from collections import defaultdict
+from datetime import date, datetime
 
 import click
 
@@ -129,18 +130,224 @@ def bootstrap_teams(sport: str, season: int, league: int) -> None:
 )
 @click.option("--season", type=int, default=2025, help="Season year")
 @click.option("--league", type=int, default=0, help="League ID (football only)")
-def load_fixtures(sport: str, season: int, league: int) -> None:
-    """Load fixture schedule from provider API into the fixtures table.
+@click.option("--from-date", type=str, default=None, help="Start date YYYY-MM-DD")
+@click.option("--to-date", type=str, default=None, help="End date YYYY-MM-DD")
+@click.option("--week", type=int, default=None, help="NFL week filter")
+def load_fixtures(
+    sport: str,
+    season: int,
+    league: int,
+    from_date: str | None,
+    to_date: str | None,
+    week: int | None,
+) -> None:
+    """Load fixture schedule from provider API into the fixtures table."""
+    cfg = config_mod.load()
+    pool = create_pool(cfg)
 
-    This is NEW functionality — provider fixture/schedule endpoints need
-    to be explored and implemented per provider.
-    """
+    if not check_connectivity(pool):
+        click.echo("Database connectivity check failed", err=True)
+        sys.exit(1)
+
+    sport_upper = sport.upper()
+    loaded = 0
+
+    with get_conn(pool) as conn:
+        from .fixtures import upsert_fixture
+        from .upsert import upsert_provider_entity_map, upsert_provider_fixture_map, upsert_team
+
+        if sport_upper == "NBA":
+            from .bdl_nba import NBAHandler
+
+            handler = NBAHandler(cfg.bdl_api_key)
+            try:
+                games = handler.get_games(season, from_date=from_date, to_date=to_date)
+                for game in games:
+                    home_team = game.get("home_team")
+                    away_team = game.get("away_team")
+                    if home_team is not None:
+                        upsert_team(conn, "NBA", home_team)
+                        upsert_provider_entity_map(
+                            conn,
+                            "bdl",
+                            "NBA",
+                            "team",
+                            str(home_team.id),
+                            home_team.id,
+                            {"source": "games"},
+                        )
+                    if away_team is not None:
+                        upsert_team(conn, "NBA", away_team)
+                        upsert_provider_entity_map(
+                            conn,
+                            "bdl",
+                            "NBA",
+                            "team",
+                            str(away_team.id),
+                            away_team.id,
+                            {"source": "games"},
+                        )
+
+                    fixture_id = upsert_fixture(
+                        conn,
+                        external_id=game["external_id"],
+                        sport="NBA",
+                        league_id=0,
+                        season=season,
+                        home_team_id=game["home_team_id"],
+                        away_team_id=game["away_team_id"],
+                        start_time=game["start_time"],
+                        round_name=game.get("round"),
+                    )
+                    if fixture_id:
+                        upsert_provider_fixture_map(
+                            conn,
+                            "bdl",
+                            "NBA",
+                            str(game["external_id"]),
+                            fixture_id,
+                            {"season": season},
+                        )
+                        loaded += 1
+            finally:
+                handler.close()
+
+        elif sport_upper == "NFL":
+            from .bdl_nfl import NFLHandler
+
+            handler = NFLHandler(cfg.bdl_api_key)
+            try:
+                games = handler.get_games(season, week=week)
+                for game in games:
+                    home_team = game.get("home_team")
+                    away_team = game.get("away_team")
+                    if home_team is not None:
+                        upsert_team(conn, "NFL", home_team)
+                        upsert_provider_entity_map(
+                            conn,
+                            "bdl",
+                            "NFL",
+                            "team",
+                            str(home_team.id),
+                            home_team.id,
+                            {"source": "games"},
+                        )
+                    if away_team is not None:
+                        upsert_team(conn, "NFL", away_team)
+                        upsert_provider_entity_map(
+                            conn,
+                            "bdl",
+                            "NFL",
+                            "team",
+                            str(away_team.id),
+                            away_team.id,
+                            {"source": "games"},
+                        )
+
+                    fixture_id = upsert_fixture(
+                        conn,
+                        external_id=game["external_id"],
+                        sport="NFL",
+                        league_id=0,
+                        season=season,
+                        home_team_id=game["home_team_id"],
+                        away_team_id=game["away_team_id"],
+                        start_time=game["start_time"],
+                        round_name=game.get("round"),
+                    )
+                    if fixture_id:
+                        upsert_provider_fixture_map(
+                            conn,
+                            "bdl",
+                            "NFL",
+                            str(game["external_id"]),
+                            fixture_id,
+                            {"season": season, "week": week},
+                        )
+                        loaded += 1
+            finally:
+                handler.close()
+
+        elif sport_upper == "FOOTBALL":
+            from .seed_football import resolve_provider_season_id
+            from .sportmonks_football import FootballHandler
+
+            if not league:
+                click.echo("--league is required for football", err=True)
+                sys.exit(1)
+
+            sm_season_id = resolve_provider_season_id(conn, league, season)
+            if not sm_season_id:
+                click.echo(
+                    f"No provider season found for league={league} season={season}",
+                    err=True,
+                )
+                sys.exit(1)
+
+            handler = FootballHandler(cfg.sportmonks_api_token)
+            try:
+                fixtures = handler.get_fixtures(sm_season_id)
+                from .upsert import upsert_team
+
+                for fx in fixtures:
+                    if not _within_date_window(
+                        fx["start_time"], from_date=from_date, to_date=to_date
+                    ):
+                        continue
+                    home_team_id = fx["home_team_id"]
+                    away_team_id = fx["away_team_id"]
+                    home_team = fx.get("home_team")
+                    away_team = fx.get("away_team")
+                    if home_team is not None:
+                        upsert_team(conn, "FOOTBALL", home_team)
+                    if away_team is not None:
+                        upsert_team(conn, "FOOTBALL", away_team)
+                    fixture_id = upsert_fixture(
+                        conn,
+                        external_id=fx["external_id"],
+                        sport="FOOTBALL",
+                        league_id=league,
+                        season=fx.get("season") or season,
+                        home_team_id=home_team_id,
+                        away_team_id=away_team_id,
+                        start_time=fx["start_time"],
+                        round_name=fx.get("round"),
+                    )
+                    if fixture_id:
+                        upsert_provider_entity_map(
+                            conn,
+                            "sportmonks",
+                            "FOOTBALL",
+                            "team",
+                            str(home_team_id),
+                            home_team_id,
+                            {"source": "fixtures"},
+                        )
+                        upsert_provider_entity_map(
+                            conn,
+                            "sportmonks",
+                            "FOOTBALL",
+                            "team",
+                            str(away_team_id),
+                            away_team_id,
+                            {"source": "fixtures"},
+                        )
+                        upsert_provider_fixture_map(
+                            conn,
+                            "sportmonks",
+                            "FOOTBALL",
+                            str(fx["external_id"]),
+                            fixture_id,
+                            {"season_id": sm_season_id, "league_id": league},
+                        )
+                        loaded += 1
+            finally:
+                handler.close()
+
     click.echo(
-        f"load-fixtures for {sport.upper()} season={season} league={league}\n"
-        "NOTE: Fixture loading from provider APIs is not yet implemented.\n"
-        "Provider schedule endpoints need to be explored."
+        f"Loaded fixtures: sport={sport_upper} season={season} league={league} count={loaded}"
     )
-    sys.exit(1)
+    pool.close()
 
 
 # -------------------------------------------------------------------------
@@ -178,53 +385,39 @@ def process(sport: str | None, max_fixtures: int) -> None:
 
         click.echo(f"Found {len(pending)} pending fixtures")
 
-        # Group by (sport, season, league_id) to deduplicate API calls
-        groups: dict[tuple[str, int, int], list] = defaultdict(list)
-        for f in pending:
-            key = (f.sport, f.season, f.league_id or 0)
-            groups[key].append(f)
-
         succeeded = 0
         failed = 0
 
-        for (grp_sport, grp_season, grp_league_id), fixtures in groups.items():
-            representative = fixtures[0]
+        for f in pending:
             click.echo(
-                f"Seeding group: sport={grp_sport} season={grp_season} "
-                f"league={grp_league_id} fixtures={len(fixtures)}"
+                f"Seeding fixture: id={f.id} sport={f.sport} "
+                f"season={f.season} league={f.league_id or 0}"
             )
 
             try:
-                result = _seed_fixture_group(
-                    conn, cfg, representative, grp_sport, grp_season, grp_league_id
-                )
+                result = _seed_fixture(conn, cfg, f)
 
                 if result.errors:
-                    # Record failure for all fixtures in group
                     from .fixtures import record_failure
 
-                    for f in fixtures:
-                        record_failure(conn, f.id, result.errors[0])
-                    failed += len(fixtures)
+                    record_failure(conn, f.id, result.errors[0])
+                    failed += 1
                     click.echo(f"  FAILED: {result.errors[0]}")
                 else:
-                    # Finalize each fixture
                     from .upsert import finalize_fixture
 
-                    for f in fixtures:
-                        try:
-                            finalize_fixture(conn, f.id)
-                        except Exception as exc:
-                            logger.warning("finalize_fixture %d failed: %s", f.id, exc)
-                    succeeded += len(fixtures)
+                    try:
+                        finalize_fixture(conn, f.id)
+                    except Exception as exc:
+                        logger.warning("finalize_fixture %d failed: %s", f.id, exc)
+                    succeeded += 1
                     click.echo(f"  OK: {result.summary()}")
 
             except Exception as exc:
                 from .fixtures import record_failure
 
-                for f in fixtures:
-                    record_failure(conn, f.id, str(exc))
-                failed += len(fixtures)
+                record_failure(conn, f.id, str(exc))
+                failed += 1
                 click.echo(f"  ERROR: {exc}")
 
     elapsed = time.monotonic() - start
@@ -264,7 +457,7 @@ def seed_fixture_cmd(fixture_id: int) -> None:
             f"home={f.home_team_id} away={f.away_team_id}"
         )
 
-        result = _seed_fixture_group(conn, cfg, f, f.sport, f.season, f.league_id or 0)
+        result = _seed_fixture(conn, cfg, f)
 
         if result.errors:
             from .fixtures import record_failure
@@ -291,8 +484,20 @@ def seed_fixture_cmd(fixture_id: int) -> None:
 @cli.command()
 @click.option("--sport", type=str, required=True, help="Sport (NBA, NFL, FOOTBALL)")
 @click.option("--season", type=int, required=True, help="Season year")
-def percentiles(sport: str, season: int) -> None:
-    """Recalculate percentiles for a sport/season (ad-hoc)."""
+@click.option("--league", type=int, default=0, help="League ID (football only)")
+@click.option(
+    "--required-stat",
+    "required_stats",
+    multiple=True,
+    help="Required box score stat key (repeatable)",
+)
+def percentiles(
+    sport: str,
+    season: int,
+    league: int,
+    required_stats: tuple[str, ...],
+) -> None:
+    """Recalculate percentiles for a sport/season and report box score coverage."""
     cfg = config_mod.load()
     pool = create_pool(cfg)
 
@@ -301,9 +506,25 @@ def percentiles(sport: str, season: int) -> None:
         sys.exit(1)
 
     with get_conn(pool) as conn:
+        sport_upper = sport.upper()
+        league_id = league if sport_upper == "FOOTBALL" else 0
+
+        coverage = conn.execute(
+            "SELECT * FROM box_score_coverage_report(%s, %s, %s, %s)",
+            (sport_upper, season, league_id, list(required_stats)),
+        ).fetchone()
+        if coverage:
+            click.echo(
+                "Coverage: "
+                f"fixtures={coverage['fixture_count']} "
+                f"event_player_rows={coverage['player_row_count']} "
+                f"event_team_rows={coverage['team_row_count']} "
+                f"missing_required_keys={coverage['missing_required_keys']}"
+            )
+
         row = conn.execute(
             "SELECT * FROM recalculate_percentiles(%s, %s)",
-            (sport.upper(), season),
+            (sport_upper, season),
         ).fetchone()
 
         if row:
@@ -318,61 +539,223 @@ def percentiles(sport: str, season: int) -> None:
 
 
 # -------------------------------------------------------------------------
+# backfill — historical fixture + box score ingestion
+# -------------------------------------------------------------------------
+
+
+@cli.command("backfill")
+@click.argument(
+    "sport", type=click.Choice(["nba", "nfl", "football"], case_sensitive=False)
+)
+@click.option("--season", type=int, required=True, help="Season year")
+@click.option("--league", type=int, default=0, help="League ID (football only)")
+@click.option("--from-date", type=str, default=None, help="Start date YYYY-MM-DD")
+@click.option("--to-date", type=str, default=None, help="End date YYYY-MM-DD")
+@click.option("--max", "max_fixtures", type=int, default=200, help="Max fixtures to seed")
+def backfill(
+    sport: str,
+    season: int,
+    league: int,
+    from_date: str | None,
+    to_date: str | None,
+    max_fixtures: int,
+) -> None:
+    """Backfill historical fixtures and box scores."""
+    ctx = click.get_current_context()
+    ctx.invoke(
+        load_fixtures,
+        sport=sport,
+        season=season,
+        league=league,
+        from_date=from_date,
+        to_date=to_date,
+        week=None,
+    )
+    click.echo("Backfill load-fixtures complete, processing ready fixtures...")
+    ctx.invoke(process, sport=sport.upper(), max_fixtures=max_fixtures)
+
+
+# -------------------------------------------------------------------------
 # Internal helpers
 # -------------------------------------------------------------------------
 
 
-def _seed_fixture_group(conn, cfg, fixture, sport, season, league_id):
-    """Seed stats for a fixture group. Returns SeedResult."""
+def _seed_fixture(conn, cfg, fixture):
+    """Seed one fixture's event box scores. Returns SeedResult."""
     from .models import SeedResult
+    from .upsert import (
+        upsert_event_box_score,
+        upsert_event_team_stats,
+        upsert_player,
+        upsert_provider_entity_map,
+    )
+
+    from .fixtures import get_provider_fixture_id
+
+    sport = fixture.sport
+    season = fixture.season
+    league_id = fixture.league_id or 0
+    provider = "sportmonks" if sport == "FOOTBALL" else "bdl"
+    mapped_fixture_id = get_provider_fixture_id(conn, fixture.id, provider, sport)
+    ext_id_raw = mapped_fixture_id or (str(fixture.external_id) if fixture.external_id is not None else None)
+    if ext_id_raw is None:
+        result = SeedResult()
+        result.add_error(
+            f"fixture {fixture.id} missing provider fixture mapping and external_id"
+        )
+        return result
+    try:
+        ext_id = int(ext_id_raw)
+    except ValueError:
+        result = SeedResult()
+        result.add_error(f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}")
+        return result
+    if ext_id <= 0:
+        result = SeedResult()
+        result.add_error(f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}")
+        return result
 
     if sport == "NBA":
         from .bdl_nba import NBAHandler
-        from .seed_nba import seed_nba
 
         handler = NBAHandler(cfg.bdl_api_key)
         try:
-            return seed_nba(conn, handler, season)
+            player_lines, team_lines = handler.get_box_score(ext_id, fixture.id)
+            result = SeedResult()
+            for line in player_lines:
+                if line.player:
+                    upsert_player(conn, "NBA", line.player)
+                    upsert_provider_entity_map(
+                        conn,
+                        "bdl",
+                        "NBA",
+                        "player",
+                        str(line.player_id),
+                        line.player_id,
+                        {"source": "box_score"},
+                    )
+                upsert_provider_entity_map(
+                    conn,
+                    "bdl",
+                    "NBA",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
+                )
+                upsert_event_box_score(conn, "NBA", season, league_id, line)
+                result.event_box_scores_upserted += 1
+            for line in team_lines:
+                upsert_provider_entity_map(
+                    conn,
+                    "bdl",
+                    "NBA",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
+                )
+                upsert_event_team_stats(conn, "NBA", season, league_id, line)
+                result.event_team_stats_upserted += 1
+            if not player_lines and not team_lines:
+                result.add_error("no box score rows returned")
+            return result
         finally:
             handler.close()
 
     elif sport == "NFL":
         from .bdl_nfl import NFLHandler
-        from .seed_nfl import seed_nfl
 
         handler = NFLHandler(cfg.bdl_api_key)
         try:
-            return seed_nfl(conn, handler, season)
+            player_lines, team_lines = handler.get_box_score(ext_id, fixture.id)
+            result = SeedResult()
+            for line in player_lines:
+                if line.player:
+                    upsert_player(conn, "NFL", line.player)
+                    upsert_provider_entity_map(
+                        conn,
+                        "bdl",
+                        "NFL",
+                        "player",
+                        str(line.player_id),
+                        line.player_id,
+                        {"source": "box_score"},
+                    )
+                upsert_provider_entity_map(
+                    conn,
+                    "bdl",
+                    "NFL",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
+                )
+                upsert_event_box_score(conn, "NFL", season, league_id, line)
+                result.event_box_scores_upserted += 1
+            for line in team_lines:
+                upsert_provider_entity_map(
+                    conn,
+                    "bdl",
+                    "NFL",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
+                )
+                upsert_event_team_stats(conn, "NFL", season, league_id, line)
+                result.event_team_stats_upserted += 1
+            if not player_lines and not team_lines:
+                result.add_error("no box score rows returned")
+            return result
         finally:
             handler.close()
 
     elif sport == "FOOTBALL":
-        from .seed_football import (
-            resolve_provider_season_id,
-            resolve_sm_league_id,
-            seed_football_season,
-        )
         from .sportmonks_football import FootballHandler
 
         handler = FootballHandler(cfg.sportmonks_api_token)
         try:
-            sm_season_id = resolve_provider_season_id(conn, league_id, season)
-            if not sm_season_id:
-                result = SeedResult()
-                result.add_error(
-                    f"no provider season for league={league_id} season={season}"
+            player_lines, team_lines = handler.get_box_score(ext_id, fixture.id)
+            result = SeedResult()
+            for line in player_lines:
+                if line.player:
+                    upsert_player(conn, "FOOTBALL", line.player)
+                    upsert_provider_entity_map(
+                        conn,
+                        "sportmonks",
+                        "FOOTBALL",
+                        "player",
+                        str(line.player_id),
+                        line.player_id,
+                        {"source": "box_score"},
+                    )
+                upsert_provider_entity_map(
+                    conn,
+                    "sportmonks",
+                    "FOOTBALL",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
                 )
-                return result
-
-            sm_league_id, _ = resolve_sm_league_id(conn, league_id)
-            if not sm_league_id:
-                result = SeedResult()
-                result.add_error(f"no sportmonks_id for league={league_id}")
-                return result
-
-            return seed_football_season(
-                conn, handler, sm_season_id, league_id, season, sm_league_id
-            )
+                upsert_event_box_score(conn, "FOOTBALL", season, league_id, line)
+                result.event_box_scores_upserted += 1
+            for line in team_lines:
+                upsert_provider_entity_map(
+                    conn,
+                    "sportmonks",
+                    "FOOTBALL",
+                    "team",
+                    str(line.team_id),
+                    line.team_id,
+                    {"source": "box_score"},
+                )
+                upsert_event_team_stats(conn, "FOOTBALL", season, league_id, line)
+                result.event_team_stats_upserted += 1
+            if not player_lines and not team_lines:
+                result.add_error("no box score rows returned")
+            return result
         finally:
             handler.close()
 
@@ -380,3 +763,34 @@ def _seed_fixture_group(conn, cfg, fixture, sport, season, league_id):
         result = SeedResult()
         result.add_error(f"unknown sport: {sport}")
         return result
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+    except ValueError:
+        if len(value) >= 10:
+            try:
+                return date.fromisoformat(value[:10])
+            except ValueError:
+                return None
+        return None
+
+
+def _within_date_window(
+    start_time: str,
+    from_date: str | None,
+    to_date: str | None,
+) -> bool:
+    fx_date = _parse_iso_date(start_time)
+    if fx_date is None:
+        return True
+    from_d = _parse_iso_date(from_date)
+    to_d = _parse_iso_date(to_date)
+    if from_d and fx_date < from_d:
+        return False
+    if to_d and fx_date > to_d:
+        return False
+    return True

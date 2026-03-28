@@ -261,10 +261,19 @@ DECLARE
     normalized JSONB := '{}';
     rec RECORD;
     mapped_key TEXT;
+    v_entity_type TEXT;
 BEGIN
     -- Skip if stats is null or empty
     IF raw_stats IS NULL OR raw_stats = '{}'::jsonb THEN
         RETURN NEW;
+    END IF;
+
+    IF TG_TABLE_NAME = 'player_stats' OR TG_TABLE_NAME = 'event_box_scores' THEN
+        v_entity_type := 'player';
+    ELSIF TG_TABLE_NAME = 'team_stats' OR TG_TABLE_NAME = 'event_team_stats' THEN
+        v_entity_type := 'team';
+    ELSE
+        v_entity_type := NULL;
     END IF;
 
     FOR rec IN SELECT key, value FROM jsonb_each(raw_stats)
@@ -273,6 +282,7 @@ BEGIN
         SELECT m.canonical_key INTO mapped_key
         FROM provider_stat_mappings m
         WHERE m.sport = NEW.sport
+          AND (v_entity_type IS NULL OR m.entity_type = v_entity_type)
           AND m.raw_key = rec.key
         LIMIT 1;
 
@@ -306,7 +316,7 @@ CREATE TRIGGER trg_a_normalize_team_stats
 
 CREATE TABLE IF NOT EXISTS fixtures (
     id SERIAL PRIMARY KEY,
-    external_id INTEGER UNIQUE,
+    external_id INTEGER,
     sport TEXT NOT NULL REFERENCES sports(id),
     league_id INTEGER,
     season INTEGER NOT NULL,
@@ -325,6 +335,7 @@ CREATE TABLE IF NOT EXISTS fixtures (
     away_score INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT fixtures_sport_external_id_key UNIQUE (sport, external_id),
     CONSTRAINT different_teams CHECK (home_team_id != away_team_id)
 );
 
@@ -335,6 +346,192 @@ CREATE INDEX IF NOT EXISTS idx_fixtures_league_date ON fixtures(league_id, start
 CREATE INDEX IF NOT EXISTS idx_fixtures_home_team ON fixtures(home_team_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_away_team ON fixtures(away_team_id);
 CREATE INDEX IF NOT EXISTS idx_fixtures_season ON fixtures(season);
+
+-- Migrate legacy global-unique external_id to sport-scoped uniqueness.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fixtures_external_id_key'
+    ) THEN
+        ALTER TABLE fixtures DROP CONSTRAINT fixtures_external_id_key;
+    END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fixtures_sport_external_id_key'
+    ) THEN
+        ALTER TABLE fixtures
+            ADD CONSTRAINT fixtures_sport_external_id_key UNIQUE (sport, external_id);
+    END IF;
+END;
+$$;
+
+-- ============================================================================
+-- 8b. PROVIDER MAPS + EVENT BOX SCORE TABLES
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS provider_entity_map (
+    provider TEXT NOT NULL,
+    sport TEXT NOT NULL REFERENCES sports(id),
+    entity_type TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
+    provider_entity_id TEXT NOT NULL,
+    canonical_entity_id INTEGER NOT NULL,
+    meta JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (provider, sport, entity_type, provider_entity_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_entity_map_canonical
+    ON provider_entity_map(sport, entity_type, canonical_entity_id);
+
+CREATE TABLE IF NOT EXISTS provider_fixture_map (
+    provider TEXT NOT NULL,
+    sport TEXT NOT NULL REFERENCES sports(id),
+    provider_fixture_id TEXT NOT NULL,
+    fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
+    meta JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (provider, sport, provider_fixture_id),
+    UNIQUE(fixture_id, provider, sport)
+);
+
+CREATE INDEX IF NOT EXISTS idx_provider_fixture_map_fixture
+    ON provider_fixture_map(fixture_id);
+
+CREATE OR REPLACE FUNCTION resolve_provider_fixture_id(
+    p_fixture_id INTEGER,
+    p_provider TEXT,
+    p_sport TEXT
+)
+RETURNS TEXT AS $$
+    SELECT provider_fixture_id
+    FROM provider_fixture_map
+    WHERE fixture_id = p_fixture_id
+      AND provider = p_provider
+      AND sport = p_sport
+    LIMIT 1;
+$$ LANGUAGE sql STABLE;
+
+-- Atomic event rows: one player line per fixture
+CREATE TABLE IF NOT EXISTS event_box_scores (
+    id BIGSERIAL PRIMARY KEY,
+    fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
+    player_id INTEGER NOT NULL,
+    team_id INTEGER NOT NULL,
+    sport TEXT NOT NULL REFERENCES sports(id),
+    season INTEGER NOT NULL,
+    league_id INTEGER NOT NULL DEFAULT 0,
+    minutes_played NUMERIC,
+    stats JSONB NOT NULL DEFAULT '{}',
+    raw_response JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(fixture_id, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_box_scores_player_season
+    ON event_box_scores(player_id, sport, season, league_id);
+CREATE INDEX IF NOT EXISTS idx_event_box_scores_fixture
+    ON event_box_scores(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_event_box_scores_team_season
+    ON event_box_scores(team_id, sport, season, league_id);
+
+-- Atomic event rows: one team line per fixture
+CREATE TABLE IF NOT EXISTS event_team_stats (
+    id BIGSERIAL PRIMARY KEY,
+    fixture_id INTEGER NOT NULL REFERENCES fixtures(id),
+    team_id INTEGER NOT NULL,
+    sport TEXT NOT NULL REFERENCES sports(id),
+    season INTEGER NOT NULL,
+    league_id INTEGER NOT NULL DEFAULT 0,
+    score INTEGER,
+    stats JSONB NOT NULL DEFAULT '{}',
+    raw_response JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(fixture_id, team_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_team_stats_team_season
+    ON event_team_stats(team_id, sport, season, league_id);
+CREATE INDEX IF NOT EXISTS idx_event_team_stats_fixture
+    ON event_team_stats(fixture_id);
+
+CREATE OR REPLACE FUNCTION box_score_coverage_report(
+    p_sport TEXT,
+    p_season INTEGER,
+    p_league_id INTEGER DEFAULT 0,
+    p_required_keys TEXT[] DEFAULT ARRAY[]::TEXT[]
+)
+RETURNS TABLE (
+    fixture_count INTEGER,
+    player_row_count INTEGER,
+    team_row_count INTEGER,
+    missing_required_keys TEXT[]
+) AS $$
+WITH fixtures_in_scope AS (
+    SELECT id
+    FROM fixtures
+    WHERE sport = p_sport
+      AND season = p_season
+      AND COALESCE(league_id, 0) = p_league_id
+),
+missing_keys AS (
+    SELECT DISTINCT req.key_name
+    FROM (
+        SELECT unnest(p_required_keys) AS key_name
+    ) req
+    WHERE EXISTS (
+        SELECT 1
+        FROM event_box_scores ebs
+        JOIN fixtures_in_scope fs ON fs.id = ebs.fixture_id
+        WHERE ebs.sport = p_sport
+          AND ebs.season = p_season
+          AND ebs.league_id = p_league_id
+          AND NOT (ebs.stats ? req.key_name)
+    )
+)
+SELECT
+    (SELECT COUNT(*)::int FROM fixtures_in_scope) AS fixture_count,
+    (
+        SELECT COUNT(*)::int
+        FROM event_box_scores ebs
+        JOIN fixtures_in_scope fs ON fs.id = ebs.fixture_id
+        WHERE ebs.sport = p_sport
+          AND ebs.season = p_season
+          AND ebs.league_id = p_league_id
+    ) AS player_row_count,
+    (
+        SELECT COUNT(*)::int
+        FROM event_team_stats ets
+        JOIN fixtures_in_scope fs ON fs.id = ets.fixture_id
+        WHERE ets.sport = p_sport
+          AND ets.season = p_season
+          AND ets.league_id = p_league_id
+    ) AS team_row_count,
+    COALESCE((SELECT array_agg(key_name ORDER BY key_name) FROM missing_keys), ARRAY[]::TEXT[]) AS missing_required_keys;
+$$ LANGUAGE sql STABLE;
+
+DROP TRIGGER IF EXISTS trg_a_normalize_event_box_scores ON event_box_scores;
+CREATE TRIGGER trg_a_normalize_event_box_scores
+    BEFORE INSERT OR UPDATE OF stats ON event_box_scores
+    FOR EACH ROW
+    EXECUTE FUNCTION normalize_stat_keys();
+
+DROP TRIGGER IF EXISTS trg_a_normalize_event_team_stats ON event_team_stats;
+CREATE TRIGGER trg_a_normalize_event_team_stats
+    BEFORE INSERT OR UPDATE OF stats ON event_team_stats
+    FOR EACH ROW
+    EXECUTE FUNCTION normalize_stat_keys();
 
 -- ============================================================================
 -- 9. PROVIDER SEASONS
@@ -481,10 +678,15 @@ RETURNS INTEGER AS $$
                           away_team_id, start_time, venue_name, round, seed_delay_hours)
     VALUES (p_external_id, p_sport, p_league_id, p_season, p_home_team_id,
             p_away_team_id, p_start_time, p_venue_name, p_round, p_seed_delay_hours)
-    ON CONFLICT (external_id) DO UPDATE SET
+    ON CONFLICT (sport, external_id) DO UPDATE SET
+        league_id = COALESCE(EXCLUDED.league_id, fixtures.league_id),
+        season = EXCLUDED.season,
+        home_team_id = EXCLUDED.home_team_id,
+        away_team_id = EXCLUDED.away_team_id,
         start_time = EXCLUDED.start_time,
         venue_name = COALESCE(EXCLUDED.venue_name, fixtures.venue_name),
         round = COALESCE(EXCLUDED.round, fixtures.round),
+        seed_delay_hours = EXCLUDED.seed_delay_hours,
         updated_at = NOW()
     RETURNING id;
 $$ LANGUAGE sql;
@@ -496,15 +698,130 @@ RETURNS TABLE (players_updated INTEGER, teams_updated INTEGER) AS $$
 DECLARE
     v_sport TEXT;
     v_season INTEGER;
+    v_league_id INTEGER;
     v_players INTEGER := 0;
     v_teams INTEGER := 0;
 BEGIN
     -- Look up fixture details
-    SELECT f.sport, f.season INTO v_sport, v_season
+    SELECT f.sport, f.season, COALESCE(f.league_id, 0)
+    INTO v_sport, v_season, v_league_id
     FROM fixtures f WHERE f.id = p_fixture_id;
 
     IF v_sport IS NULL THEN
         RAISE EXCEPTION 'fixture % not found', p_fixture_id;
+    END IF;
+
+    -- Reaggregate impacted player season rows from event_box_scores
+    IF v_sport = 'NBA' THEN
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        SELECT
+            e.player_id,
+            'NBA',
+            v_season,
+            v_league_id,
+            MAX(e.team_id) AS team_id,
+            COALESCE(nba.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM event_box_scores e
+        WHERE e.fixture_id = p_fixture_id
+        GROUP BY e.player_id
+        ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
+            team_id = EXCLUDED.team_id,
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
+
+        INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
+        SELECT
+            t.team_id,
+            'NBA',
+            v_season,
+            v_league_id,
+            COALESCE(nba.aggregate_team_season(t.team_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM (
+            SELECT DISTINCT team_id FROM event_team_stats WHERE fixture_id = p_fixture_id
+            UNION
+            SELECT DISTINCT home_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+            UNION
+            SELECT DISTINCT away_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+        ) t
+        ON CONFLICT (team_id, sport, season, league_id) DO UPDATE SET
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
+
+    ELSIF v_sport = 'NFL' THEN
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        SELECT
+            e.player_id,
+            'NFL',
+            v_season,
+            v_league_id,
+            MAX(e.team_id) AS team_id,
+            COALESCE(nfl.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM event_box_scores e
+        WHERE e.fixture_id = p_fixture_id
+        GROUP BY e.player_id
+        ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
+            team_id = EXCLUDED.team_id,
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
+
+        INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
+        SELECT
+            t.team_id,
+            'NFL',
+            v_season,
+            v_league_id,
+            COALESCE(nfl.aggregate_team_season(t.team_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM (
+            SELECT DISTINCT team_id FROM event_team_stats WHERE fixture_id = p_fixture_id
+            UNION
+            SELECT DISTINCT home_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+            UNION
+            SELECT DISTINCT away_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+        ) t
+        ON CONFLICT (team_id, sport, season, league_id) DO UPDATE SET
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
+
+    ELSIF v_sport = 'FOOTBALL' THEN
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        SELECT
+            e.player_id,
+            'FOOTBALL',
+            v_season,
+            v_league_id,
+            MAX(e.team_id) AS team_id,
+            COALESCE(football.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM event_box_scores e
+        WHERE e.fixture_id = p_fixture_id
+        GROUP BY e.player_id
+        ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
+            team_id = EXCLUDED.team_id,
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
+
+        INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
+        SELECT
+            t.team_id,
+            'FOOTBALL',
+            v_season,
+            v_league_id,
+            COALESCE(football.aggregate_team_season(t.team_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            NOW()
+        FROM (
+            SELECT DISTINCT team_id FROM event_team_stats WHERE fixture_id = p_fixture_id
+            UNION
+            SELECT DISTINCT home_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+            UNION
+            SELECT DISTINCT away_team_id AS team_id FROM fixtures WHERE id = p_fixture_id
+        ) t
+        ON CONFLICT (team_id, sport, season, league_id) DO UPDATE SET
+            stats = EXCLUDED.stats,
+            updated_at = NOW();
     END IF;
 
     -- Recalculate percentiles for the sport/season

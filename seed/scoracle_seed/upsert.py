@@ -12,7 +12,7 @@ from typing import Any
 
 import psycopg
 
-from .models import Player, PlayerStats, Team, TeamStats
+from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, TeamStats
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +158,134 @@ def upsert_team_stats(
             league_id,
             json.dumps(data.stats or {}),
             json.dumps(data.raw or {}),
+        ),
+    )
+
+
+def upsert_event_box_score(
+    conn: psycopg.Connection,
+    sport: str,
+    season: int,
+    league_id: int,
+    data: EventBoxScore,
+) -> None:
+    """Upsert one player fixture-level box score line."""
+    conn.execute(
+        """
+        INSERT INTO event_box_scores (
+            fixture_id, player_id, team_id, sport, season, league_id,
+            minutes_played, stats, raw_response
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (fixture_id, player_id) DO UPDATE SET
+            team_id = EXCLUDED.team_id,
+            minutes_played = EXCLUDED.minutes_played,
+            stats = EXCLUDED.stats,
+            raw_response = EXCLUDED.raw_response,
+            updated_at = NOW()
+        """,
+        (
+            data.fixture_id,
+            data.player_id,
+            data.team_id,
+            sport,
+            season,
+            league_id,
+            data.minutes_played,
+            json.dumps(data.stats or {}),
+            json.dumps(data.raw or {}),
+        ),
+    )
+
+
+def upsert_event_team_stats(
+    conn: psycopg.Connection,
+    sport: str,
+    season: int,
+    league_id: int,
+    data: EventTeamStats,
+) -> None:
+    """Upsert one team fixture-level stat line."""
+    conn.execute(
+        """
+        INSERT INTO event_team_stats (
+            fixture_id, team_id, sport, season, league_id,
+            score, stats, raw_response
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (fixture_id, team_id) DO UPDATE SET
+            score = EXCLUDED.score,
+            stats = EXCLUDED.stats,
+            raw_response = EXCLUDED.raw_response,
+            updated_at = NOW()
+        """,
+        (
+            data.fixture_id,
+            data.team_id,
+            sport,
+            season,
+            league_id,
+            data.score,
+            json.dumps(data.stats or {}),
+            json.dumps(data.raw or {}),
+        ),
+    )
+
+
+def upsert_provider_entity_map(
+    conn: psycopg.Connection,
+    provider: str,
+    sport: str,
+    entity_type: str,
+    provider_entity_id: str,
+    canonical_entity_id: int,
+    meta: dict[str, Any] | None = None,
+) -> None:
+    """Upsert provider->canonical entity mapping."""
+    conn.execute(
+        """
+        INSERT INTO provider_entity_map (
+            provider, sport, entity_type, provider_entity_id, canonical_entity_id, meta
+        ) VALUES (%s,%s,%s,%s,%s,%s)
+        ON CONFLICT (provider, sport, entity_type, provider_entity_id) DO UPDATE SET
+            canonical_entity_id = EXCLUDED.canonical_entity_id,
+            meta = EXCLUDED.meta,
+            updated_at = NOW()
+        """,
+        (
+            provider,
+            sport,
+            entity_type,
+            provider_entity_id,
+            canonical_entity_id,
+            json.dumps(meta or {}),
+        ),
+    )
+
+
+def upsert_provider_fixture_map(
+    conn: psycopg.Connection,
+    provider: str,
+    sport: str,
+    provider_fixture_id: str,
+    fixture_id: int,
+    meta: dict[str, Any] | None = None,
+) -> None:
+    """Upsert provider->fixture mapping."""
+    conn.execute(
+        """
+        INSERT INTO provider_fixture_map (
+            provider, sport, provider_fixture_id, fixture_id, meta
+        ) VALUES (%s,%s,%s,%s,%s)
+        ON CONFLICT (provider, sport, provider_fixture_id) DO UPDATE SET
+            fixture_id = EXCLUDED.fixture_id,
+            meta = EXCLUDED.meta,
+            updated_at = NOW()
+        """,
+        (
+            provider,
+            sport,
+            provider_fixture_id,
+            fixture_id,
+            json.dumps(meta or {}),
         ),
     )
 

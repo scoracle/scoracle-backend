@@ -4,9 +4,15 @@ from scoracle_seed.models import Player, SeedResult, Team
 
 
 def test_seed_result_summary():
-    r = SeedResult(teams_upserted=3, players_upserted=10, player_stats_upserted=10)
+    r = SeedResult(
+        teams_upserted=3,
+        players_upserted=10,
+        player_stats_upserted=10,
+        event_box_scores_upserted=22,
+    )
     assert "teams=3" in r.summary()
     assert "players=10" in r.summary()
+    assert "event_box_scores=22" in r.summary()
     assert "errors=0" in r.summary()
 
 

@@ -129,3 +129,49 @@ def upsert_fixture(
         ),
     ).fetchone()
     return row["upsert_fixture"] if row else 0
+
+
+def get_provider_fixture_id(
+    conn: psycopg.Connection,
+    fixture_id: int,
+    provider: str,
+    sport: str,
+) -> str | None:
+    """Resolve provider fixture ID for a canonical fixture."""
+    row = conn.execute(
+        """
+        SELECT provider_fixture_id
+        FROM provider_fixture_map
+        WHERE fixture_id = %s
+          AND provider = %s
+          AND sport = %s
+        """,
+        (fixture_id, provider, sport),
+    ).fetchone()
+    if not row:
+        return None
+    return row.get("provider_fixture_id")
+
+
+def resolve_canonical_entity_id(
+    conn: psycopg.Connection,
+    provider: str,
+    sport: str,
+    entity_type: str,
+    provider_entity_id: str,
+) -> int | None:
+    """Resolve provider entity ID to canonical player/team ID."""
+    row = conn.execute(
+        """
+        SELECT canonical_entity_id
+        FROM provider_entity_map
+        WHERE provider = %s
+          AND sport = %s
+          AND entity_type = %s
+          AND provider_entity_id = %s
+        """,
+        (provider, sport, entity_type, provider_entity_id),
+    ).fetchone()
+    if not row:
+        return None
+    return row.get("canonical_entity_id")

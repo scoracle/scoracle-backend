@@ -11,7 +11,7 @@ import logging
 from typing import Any, Callable
 
 from .bdl_client import BDLClient
-from .models import Player, PlayerStats, Team, TeamStats
+from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, TeamStats
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +76,179 @@ class NFLHandler:
         params: dict[str, Any] = {"season": season}
         items = self.client.get_all_pages("/standings", params)
         return [_parse_standing(raw, season_type) for raw in items]
+
+    # ------------------------------------------------------------------
+    # Fixture schedule + fixture box scores
+    # ------------------------------------------------------------------
+
+    def get_games(self, season: int, week: int | None = None) -> list[dict[str, Any]]:
+        """Fetch NFL fixture rows for a season (optionally week-scoped)."""
+        param_candidates: list[dict[str, Any]] = []
+        primary: dict[str, Any] = {"seasons[]": season}
+        fallback: dict[str, Any] = {"season": season}
+        if week is not None:
+            primary["weeks[]"] = week
+            fallback["week"] = week
+        param_candidates.extend([primary, fallback])
+
+        items: list[dict[str, Any]] = []
+        for params in param_candidates:
+            try:
+                items = self.client.get_all_pages("/games", params)
+            except Exception:
+                continue
+            if items:
+                break
+        games: list[dict[str, Any]] = []
+
+        for raw in items:
+            home_raw = raw.get("home_team") or raw.get("home")
+            away_raw = raw.get("visitor_team") or raw.get("away_team") or raw.get("away")
+            if not isinstance(home_raw, dict) or not isinstance(away_raw, dict):
+                continue
+
+            home_id = home_raw.get("id")
+            away_id = away_raw.get("id")
+            external_id = raw.get("id")
+            if not isinstance(home_id, int) or not isinstance(away_id, int):
+                continue
+            if not isinstance(external_id, int):
+                continue
+
+            start_time = (
+                raw.get("date")
+                or raw.get("datetime")
+                or raw.get("start_time")
+                or raw.get("scheduled")
+            )
+            if not isinstance(start_time, str):
+                continue
+
+            games.append(
+                {
+                    "external_id": external_id,
+                    "home_team_id": home_id,
+                    "away_team_id": away_id,
+                    "home_team": _parse_team(home_raw),
+                    "away_team": _parse_team(away_raw),
+                    "start_time": start_time,
+                    "season": raw.get("season", season),
+                    "round": str(raw.get("week") or raw.get("status") or ""),
+                    "home_score": raw.get("home_team_score"),
+                    "away_score": raw.get("visitor_team_score")
+                    or raw.get("away_team_score"),
+                }
+            )
+
+        return games
+
+    def get_box_score(
+        self, external_game_id: int, fixture_id: int
+    ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
+        """Fetch one NFL game's box score and return event-level lines."""
+        raw_lines = self._fetch_box_score_lines(external_game_id)
+        if not raw_lines:
+            return [], []
+
+        players: list[EventBoxScore] = []
+        team_stats_acc: dict[int, dict[str, float]] = {}
+        team_scores: dict[int, int] = {}
+
+        for raw in raw_lines:
+            player_raw = raw.get("player")
+            team_raw = raw.get("team")
+            game_raw = raw.get("game")
+
+            if not isinstance(team_raw, dict):
+                continue
+            team_id = team_raw.get("id")
+            if not isinstance(team_id, int):
+                continue
+
+            player_id = raw.get("player_id")
+            if not isinstance(player_id, int) and isinstance(player_raw, dict):
+                player_id = player_raw.get("id")
+            if not isinstance(player_id, int):
+                continue
+
+            stats = _extract_numeric_stats(raw)
+
+            player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
+            if player and player.team_id is None:
+                player.team_id = team_id
+
+            players.append(
+                EventBoxScore(
+                    fixture_id=fixture_id,
+                    player_id=player_id,
+                    team_id=team_id,
+                    player=player,
+                    stats=stats,
+                    raw=raw,
+                )
+            )
+
+            acc = team_stats_acc.setdefault(team_id, {})
+            for key, value in stats.items():
+                if isinstance(value, (int, float)):
+                    acc[key] = acc.get(key, 0.0) + float(value)
+
+            if isinstance(game_raw, dict):
+                home_team_id = game_raw.get("home_team_id")
+                away_team_id = game_raw.get("visitor_team_id") or game_raw.get(
+                    "away_team_id"
+                )
+                home_score = game_raw.get("home_team_score")
+                away_score = game_raw.get("visitor_team_score") or game_raw.get(
+                    "away_team_score"
+                )
+                if isinstance(home_team_id, int) and isinstance(home_score, int):
+                    team_scores[home_team_id] = home_score
+                if isinstance(away_team_id, int) and isinstance(away_score, int):
+                    team_scores[away_team_id] = away_score
+
+        teams: list[EventTeamStats] = []
+        for team_id, agg in team_stats_acc.items():
+            teams.append(
+                EventTeamStats(
+                    fixture_id=fixture_id,
+                    team_id=team_id,
+                    score=team_scores.get(team_id),
+                    stats=agg,
+                    raw={"provider": "bdl", "external_game_id": external_game_id},
+                )
+            )
+
+        for team_id, score in team_scores.items():
+            if any(t.team_id == team_id for t in teams):
+                continue
+            teams.append(
+                EventTeamStats(
+                    fixture_id=fixture_id,
+                    team_id=team_id,
+                    score=score,
+                    stats={},
+                    raw={"provider": "bdl", "external_game_id": external_game_id},
+                )
+            )
+
+        return players, teams
+
+    def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
+        candidates = [
+            ("/box_scores", {"game_ids[]": external_game_id}),
+            ("/box_scores", {"game_ids": external_game_id}),
+            ("/season_stats", {"game_ids[]": external_game_id}),
+            ("/season_stats", {"game_ids": external_game_id}),
+        ]
+        for path, params in candidates:
+            try:
+                items = self.client.get_all_pages(path, params)
+            except Exception:
+                continue
+            if items:
+                return items
+        return []
 
 
 # --------------------------------------------------------------------------
@@ -194,3 +367,33 @@ def _parse_standing(raw: dict[str, Any], season_type: str) -> TeamStats:
         stats=stats,
         raw=raw,
     )
+
+
+_BOX_SCORE_META_KEYS = {
+    "id",
+    "player",
+    "player_id",
+    "team",
+    "team_id",
+    "game",
+    "game_id",
+    "season",
+    "postseason",
+    "week",
+    "date",
+}
+
+
+def _extract_numeric_stats(raw: dict[str, Any]) -> dict[str, Any]:
+    stats: dict[str, Any] = {}
+    for k, v in raw.items():
+        if k in _BOX_SCORE_META_KEYS:
+            continue
+        if isinstance(v, (int, float)):
+            stats[k] = float(v)
+        elif isinstance(v, str):
+            try:
+                stats[k] = float(v)
+            except ValueError:
+                continue
+    return stats

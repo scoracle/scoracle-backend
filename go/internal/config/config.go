@@ -53,7 +53,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL must be set")
 	}
 
-	environment := envOr("ENVIRONMENT", "development")
+	environment := normalizeEnvironment(envOr("ENVIRONMENT", "development"))
 	corsOrigins := envList("CORS_ALLOW_ORIGINS", []string{
 		"http://localhost:3000",
 		"http://localhost:4321",
@@ -152,4 +152,12 @@ func appendUnique(base []string, extras ...string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+func normalizeEnvironment(value string) string {
+	v := strings.TrimSpace(strings.ToLower(value))
+	if v == "production" || v == "staging" || v == "development" {
+		return v
+	}
+	return "development"
 }

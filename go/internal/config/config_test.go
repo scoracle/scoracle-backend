@@ -44,3 +44,24 @@ func TestLoadPrefersPORTOverAPIPort(t *testing.T) {
 		t.Fatalf("APIPort = %d, want %d", cfg.APIPort, 49231)
 	}
 }
+
+func TestLoadNormalizesMalformedEnvironment(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("ENVIRONMENT", "RAILWAY_GO_BIN=api")
+	t.Setenv("CORS_PRODUCTION_ORIGINS", "https://scoracle.com")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil", err)
+	}
+
+	if cfg.Environment != "development" {
+		t.Fatalf("Environment = %q, want %q", cfg.Environment, "development")
+	}
+
+	for _, origin := range cfg.CORSAllowOrigins {
+		if origin == "https://scoracle.com" {
+			t.Fatalf("CORSAllowOrigins unexpectedly contains production origin in development mode")
+		}
+	}
+}

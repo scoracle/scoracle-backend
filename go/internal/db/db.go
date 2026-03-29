@@ -97,17 +97,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'season', se.season,
 				'league_id', NULLIF(se.league_id, 0)
 			),
-			'league_context', CASE
-				WHEN se.league_id > 0 THEN (
-					SELECT row_to_json(lc)
-					FROM (
-						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
-						FROM public.leagues l
-						WHERE l.id = se.league_id AND l.sport = 'NBA'
-					) lc
-				)
-				ELSE NULL
-			END
+			'league_context', NULL
 		)
 		FROM req
 		JOIN selected_entity se ON true`,
@@ -150,17 +140,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'season', se.season,
 				'league_id', NULLIF(se.league_id, 0)
 			),
-			'league_context', CASE
-				WHEN se.league_id > 0 THEN (
-					SELECT row_to_json(lc)
-					FROM (
-						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
-						FROM public.leagues l
-						WHERE l.id = se.league_id AND l.sport = 'NFL'
-					) lc
-				)
-				ELSE NULL
-			END
+			'league_context', NULL
 		)
 		FROM req
 		JOIN selected_entity se ON true`,
@@ -208,8 +188,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					SELECT row_to_json(lc)
 					FROM (
 						SELECT l.id, l.name, l.country, l.logo_url, l.is_benchmark, l.is_active
-						FROM public.leagues l
-						WHERE l.id = se.league_id AND l.sport = 'FOOTBALL'
+						FROM football.leagues l
+						WHERE l.id = se.league_id
 					) lc
 				)
 				ELSE NULL
@@ -221,57 +201,39 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'page', 'meta',
 			'sport', 'nba',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'meta_version', 'unknown',
 			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nba.autofill_entities t
-				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
 			), '[]'::json),
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
 				FROM nba.stat_definitions sd
 			), '[]'::json),
-			'leagues', COALESCE((
-				SELECT json_agg(row_to_json(l) ORDER BY l.name)
-				FROM (
-					SELECT id, name, country, logo_url, is_benchmark, is_active
-					FROM public.leagues
-					WHERE sport = 'NBA'
-					  AND ($1::int IS NULL OR id = $1::int)
-				) l
-			), '[]'::json)
+			'leagues', '[]'::json
 		)`,
 		"nfl_meta_page": `SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'nfl',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'meta_version', 'unknown',
 			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nfl.autofill_entities t
-				WHERE ($1::int IS NULL OR COALESCE(t.league_id, 0) = $1::int)
 			), '[]'::json),
 			'stat_definitions', COALESCE((
 				SELECT json_agg(row_to_json(sd) ORDER BY sd.entity_type, sd.sort_order)
 				FROM nfl.stat_definitions sd
 			), '[]'::json),
-			'leagues', COALESCE((
-				SELECT json_agg(row_to_json(l) ORDER BY l.name)
-				FROM (
-					SELECT id, name, country, logo_url, is_benchmark, is_active
-					FROM public.leagues
-					WHERE sport = 'NFL'
-					  AND ($1::int IS NULL OR id = $1::int)
-				) l
-			), '[]'::json)
+			'leagues', '[]'::json
 		)`,
 		"football_meta_page": `SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'football',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', COALESCE((SELECT value FROM public.meta WHERE key = 'schema_version'), 'unknown'),
+			'meta_version', 'unknown',
 			'generated_at', NOW(),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
@@ -292,122 +254,65 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'page', 'health',
 			'sport', 'nba',
 			'scope', json_build_object('league_id', $1::int),
-			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'status', CASE WHEN health.player_profiles + health.team_profiles > 0 THEN 'healthy' ELSE 'degraded' END,
 			'counts', json_build_object(
-				'player_stats', health.player_stats_count,
-				'team_stats', health.team_stats_count
+				'player_profiles', health.player_profiles,
+				'team_profiles', health.team_profiles
 			),
 			'freshness', json_build_object(
-				'player_stats_updated_at', health.player_stats_updated_at,
-				'team_stats_updated_at', health.team_stats_updated_at,
-				'latest_updated_at', GREATEST(
-					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
-					COALESCE(health.team_stats_updated_at, to_timestamp(0))
-				)
+				'player_stats_updated_at', NULL,
+				'team_stats_updated_at', NULL,
+				'latest_updated_at', NULL
 			),
-			'league_context', CASE
-				WHEN $1::int IS NOT NULL THEN (
-					SELECT row_to_json(lc)
-					FROM (
-						SELECT id, name, country, logo_url, is_benchmark, is_active
-						FROM public.leagues
-						WHERE id = $1::int AND sport = 'NBA'
-					) lc
-				)
-				ELSE NULL
-			END
+			'league_context', NULL
 		)
 		FROM (
 			SELECT
-				(SELECT COUNT(*)::int
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'NBA'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
-				(SELECT COUNT(*)::int
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'NBA'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
-				(SELECT MAX(ps.updated_at)
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'NBA'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
-				(SELECT MAX(ts.updated_at)
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'NBA'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+				(SELECT COUNT(*)::int FROM nba.player) AS player_profiles,
+				(SELECT COUNT(*)::int FROM nba.team) AS team_profiles
 		) health`,
 		"nfl_health_page": `SELECT json_build_object(
 			'page', 'health',
 			'sport', 'nfl',
 			'scope', json_build_object('league_id', $1::int),
-			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'status', CASE WHEN health.player_profiles + health.team_profiles > 0 THEN 'healthy' ELSE 'degraded' END,
 			'counts', json_build_object(
-				'player_stats', health.player_stats_count,
-				'team_stats', health.team_stats_count
+				'player_profiles', health.player_profiles,
+				'team_profiles', health.team_profiles
 			),
 			'freshness', json_build_object(
-				'player_stats_updated_at', health.player_stats_updated_at,
-				'team_stats_updated_at', health.team_stats_updated_at,
-				'latest_updated_at', GREATEST(
-					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
-					COALESCE(health.team_stats_updated_at, to_timestamp(0))
-				)
+				'player_stats_updated_at', NULL,
+				'team_stats_updated_at', NULL,
+				'latest_updated_at', NULL
 			),
-			'league_context', CASE
-				WHEN $1::int IS NOT NULL THEN (
-					SELECT row_to_json(lc)
-					FROM (
-						SELECT id, name, country, logo_url, is_benchmark, is_active
-						FROM public.leagues
-						WHERE id = $1::int AND sport = 'NFL'
-					) lc
-				)
-				ELSE NULL
-			END
+			'league_context', NULL
 		)
 		FROM (
 			SELECT
-				(SELECT COUNT(*)::int
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'NFL'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
-				(SELECT COUNT(*)::int
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'NFL'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
-				(SELECT MAX(ps.updated_at)
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'NFL'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
-				(SELECT MAX(ts.updated_at)
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'NFL'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+				(SELECT COUNT(*)::int FROM nfl.player) AS player_profiles,
+				(SELECT COUNT(*)::int FROM nfl.team) AS team_profiles
 		) health`,
 		"football_health_page": `SELECT json_build_object(
 			'page', 'health',
 			'sport', 'football',
 			'scope', json_build_object('league_id', $1::int),
-			'status', CASE WHEN health.player_stats_count + health.team_stats_count > 0 THEN 'healthy' ELSE 'degraded' END,
+			'status', CASE WHEN health.player_profiles + health.team_profiles > 0 THEN 'healthy' ELSE 'degraded' END,
 			'counts', json_build_object(
-				'player_stats', health.player_stats_count,
-				'team_stats', health.team_stats_count
+				'player_profiles', health.player_profiles,
+				'team_profiles', health.team_profiles
 			),
 			'freshness', json_build_object(
-				'player_stats_updated_at', health.player_stats_updated_at,
-				'team_stats_updated_at', health.team_stats_updated_at,
-				'latest_updated_at', GREATEST(
-					COALESCE(health.player_stats_updated_at, to_timestamp(0)),
-					COALESCE(health.team_stats_updated_at, to_timestamp(0))
-				)
+				'player_stats_updated_at', NULL,
+				'team_stats_updated_at', NULL,
+				'latest_updated_at', NULL
 			),
 			'league_context', CASE
 				WHEN $1::int IS NOT NULL THEN (
 					SELECT row_to_json(lc)
 					FROM (
 						SELECT id, name, country, logo_url, is_benchmark, is_active
-						FROM public.leagues
-						WHERE id = $1::int AND sport = 'FOOTBALL'
+						FROM football.leagues
+						WHERE id = $1::int
 					) lc
 				)
 				ELSE NULL
@@ -415,22 +320,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)
 		FROM (
 			SELECT
-				(SELECT COUNT(*)::int
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'FOOTBALL'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_count,
-				(SELECT COUNT(*)::int
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'FOOTBALL'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_count,
-				(SELECT MAX(ps.updated_at)
-				 FROM public.player_stats ps
-				 WHERE ps.sport = 'FOOTBALL'
-				   AND ($1::int IS NULL OR ps.league_id = $1::int)) AS player_stats_updated_at,
-				(SELECT MAX(ts.updated_at)
-				 FROM public.team_stats ts
-				 WHERE ts.sport = 'FOOTBALL'
-				   AND ($1::int IS NULL OR ts.league_id = $1::int)) AS team_stats_updated_at
+				(SELECT COUNT(*)::int FROM football.player) AS player_profiles,
+				(SELECT COUNT(*)::int FROM football.team) AS team_profiles
 		) health`,
 
 		// Entity name lookup (news handlers + notifications)

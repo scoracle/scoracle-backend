@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/albapepper/scoracle-data/internal/api"
 	"github.com/albapepper/scoracle-data/internal/cache"
@@ -58,36 +59,43 @@ func main() {
 	// Connect to database
 	logger.Info("Connecting to database...")
 	pool, err := db.New(ctx, cfg)
+	var dbPool *pgxpool.Pool
 	if err != nil {
 		logger.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
+		logger.Warn("Starting in degraded mode without database connectivity")
+	} else {
+		dbPool = pool.Pool
+		defer pool.Close()
+		logger.Info("Database connected",
+			"min_conns", cfg.DBPoolMinConns,
+			"max_conns", cfg.DBPoolMaxConns)
 	}
-	defer pool.Close()
-	logger.Info("Database connected",
-		"min_conns", cfg.DBPoolMinConns,
-		"max_conns", cfg.DBPoolMaxConns)
 
 	// Initialize cache
 	appCache := cache.New(cfg.CacheEnabled)
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
 
-	// Start notification dispatch worker (if FCM is configured)
-	fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
-	if fcmSender != nil {
-		go notifications.StartWorker(ctx, pool.Pool, fcmSender, logger)
-		logger.Info("Notification dispatch worker started")
+	if dbPool != nil {
+		// Start notification dispatch worker (if FCM is configured)
+		fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
+		if fcmSender != nil {
+			go notifications.StartWorker(ctx, dbPool, fcmSender, logger)
+			logger.Info("Notification dispatch worker started")
+		} else {
+			logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
+		}
+
+		// Start LISTEN/NOTIFY consumer for real-time milestone events
+		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
+
+		// Start maintenance tickers (cleanup, digest, catch-up sweep)
+		go maintenance.Start(ctx, dbPool, maintenance.DefaultConfig(), logger)
 	} else {
-		logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
+		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}
 
-	// Start LISTEN/NOTIFY consumer for real-time milestone events
-	go listener.Start(ctx, cfg.DatabaseURL, pool.Pool, fcmSender, logger)
-
-	// Start maintenance tickers (cleanup, digest, catch-up sweep)
-	go maintenance.Start(ctx, pool.Pool, maintenance.DefaultConfig(), logger)
-
 	// Create router
-	router := api.NewRouter(pool.Pool, appCache, cfg)
+	router := api.NewRouter(dbPool, appCache, cfg)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.APIHost, cfg.APIPort)

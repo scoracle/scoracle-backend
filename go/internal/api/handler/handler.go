@@ -82,6 +82,16 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure 503 {object} map[string]interface{}
 // @Router /health/db [get]
 func (h *Handler) HealthCheckDB(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		respond.WriteJSONObject(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"status":    "unhealthy",
+			"database":  "disconnected",
+			"error":     "Database pool unavailable",
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+		return
+	}
+
 	var n int
 	err := h.pool.QueryRow(r.Context(), "health_check").Scan(&n)
 	if err != nil {

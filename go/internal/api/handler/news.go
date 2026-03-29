@@ -31,6 +31,11 @@ import (
 // @Failure 502 {object} respond.ErrorResponse
 // @Router /news/{entityType}/{entityID} [get]
 func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		respond.WriteError(w, http.StatusServiceUnavailable, "SERVICE_UNAVAILABLE", "database pool unavailable")
+		return
+	}
+
 	entityType := chi.URLParam(r, "entityType")
 	entityIDStr := chi.URLParam(r, "entityID")
 

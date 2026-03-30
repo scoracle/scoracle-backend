@@ -35,13 +35,15 @@ class FixtureRow:
 def get_pending(
     conn: psycopg.Connection,
     sport: str | None = None,
-    limit: int = 50,
+    limit: int | None = None,
     max_retries: int = 3,
 ) -> list[FixtureRow]:
     """Get fixtures ready for seeding via get_pending_fixtures() SQL function."""
+    # Use a large number if no limit specified (unlimited)
+    limit_val = limit if limit is not None else 10000
     rows = conn.execute(
         "SELECT * FROM get_pending_fixtures(%s, %s, %s)",
-        (sport, limit, max_retries),
+        (sport, limit_val, max_retries),
     ).fetchall()
 
     return [

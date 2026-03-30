@@ -436,50 +436,50 @@ RETURNS JSONB AS $$
 WITH agg AS (
     SELECT
         COUNT(*)::numeric AS matches_played,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END)::numeric AS draws,
-        SUM(COALESCE(score, 0))::numeric AS gf_sum,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END)::numeric AS draws,
+        SUM(COALESCE(ets.score, 0))::numeric AS gf_sum,
         SUM(COALESCE(opp.score, 0))::numeric AS ga_sum,
         SUM(
             CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS home_won,
         SUM(
             CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS home_draw,
         SUM(
             CASE
-                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END
+                WHEN f.home_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS home_lost,
         SUM(
             CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS away_won,
         SUM(
             CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS away_draw,
         SUM(
             CASE
-                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END
+                WHEN f.away_team_id = ets.team_id THEN CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END
                 ELSE 0
             END
         )::numeric AS away_lost,
-        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(score, 0) ELSE 0 END)::numeric AS home_scored,
+        SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(ets.score, 0) ELSE 0 END)::numeric AS home_scored,
         SUM(CASE WHEN f.home_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS home_conceded,
-        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(score, 0) ELSE 0 END)::numeric AS away_scored,
+        SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(ets.score, 0) ELSE 0 END)::numeric AS away_scored,
         SUM(CASE WHEN f.away_team_id = ets.team_id THEN COALESCE(opp.score, 0) ELSE 0 END)::numeric AS away_conceded,
         SUM(CASE WHEN f.home_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS home_played,
         SUM(CASE WHEN f.away_team_id = ets.team_id THEN 1 ELSE 0 END)::numeric AS away_played

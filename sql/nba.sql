@@ -419,18 +419,18 @@ RETURNS JSONB AS $$
 WITH agg AS (
     SELECT
         COUNT(*)::numeric AS gp,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
-        AVG(NULLIF((stats->>'pts')::numeric, NULL)) AS pts_avg,
-        AVG(NULLIF((stats->>'reb')::numeric, NULL)) AS reb_avg,
-        AVG(NULLIF((stats->>'ast')::numeric, NULL)) AS ast_avg,
-        AVG(NULLIF((stats->>'turnover')::numeric, NULL)) AS tov_avg,
-        SUM(COALESCE((stats->>'fgm')::numeric, 0)) AS fgm_sum,
-        SUM(COALESCE((stats->>'fga')::numeric, 0)) AS fga_sum,
-        SUM(COALESCE((stats->>'fg3m')::numeric, 0)) AS fg3m_sum,
-        SUM(COALESCE((stats->>'fg3a')::numeric, 0)) AS fg3a_sum,
-        SUM(COALESCE((stats->>'ftm')::numeric, 0)) AS ftm_sum,
-        SUM(COALESCE((stats->>'fta')::numeric, 0)) AS fta_sum
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        AVG(NULLIF((ets.stats->>'pts')::numeric, NULL)) AS pts_avg,
+        AVG(NULLIF((ets.stats->>'reb')::numeric, NULL)) AS reb_avg,
+        AVG(NULLIF((ets.stats->>'ast')::numeric, NULL)) AS ast_avg,
+        AVG(NULLIF((ets.stats->>'turnover')::numeric, NULL)) AS tov_avg,
+        SUM(COALESCE((ets.stats->>'fgm')::numeric, 0)) AS fgm_sum,
+        SUM(COALESCE((ets.stats->>'fga')::numeric, 0)) AS fga_sum,
+        SUM(COALESCE((ets.stats->>'fg3m')::numeric, 0)) AS fg3m_sum,
+        SUM(COALESCE((ets.stats->>'fg3a')::numeric, 0)) AS fg3a_sum,
+        SUM(COALESCE((ets.stats->>'ftm')::numeric, 0)) AS ftm_sum,
+        SUM(COALESCE((ets.stats->>'fta')::numeric, 0)) AS fta_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id

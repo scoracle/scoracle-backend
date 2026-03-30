@@ -48,9 +48,9 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() (*Config, error) {
-	dbURL := envOr("NEON_DATABASE_URL_V2", envOr("DATABASE_URL", envOr("NEON_DATABASE_URL", "")))
+	dbURL := envOr("DATABASE_PRIVATE_URL", envOr("DATABASE_URL", ""))
 	if dbURL == "" {
-		return nil, fmt.Errorf("NEON_DATABASE_URL_V2, DATABASE_URL, or NEON_DATABASE_URL must be set")
+		return nil, fmt.Errorf("DATABASE_PRIVATE_URL or DATABASE_URL must be set")
 	}
 
 	environment := normalizeEnvironment(envOr("ENVIRONMENT", "development"))

@@ -1,0 +1,2 @@
+[console_scripts]
+scoracle-seed = scoracle_seed.cli:cli

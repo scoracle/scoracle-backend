@@ -154,7 +154,11 @@ def load_fixtures(
 
     with get_conn(pool) as conn:
         from .fixtures import upsert_fixture
-        from .upsert import upsert_provider_entity_map, upsert_provider_fixture_map, upsert_team
+        from .upsert import (
+            upsert_provider_entity_map,
+            upsert_provider_fixture_map,
+            upsert_team,
+        )
 
         if sport_upper == "NBA":
             from .bdl_nba import NBAHandler
@@ -360,9 +364,13 @@ def load_fixtures(
     "--sport", type=str, default=None, help="Filter by sport (NBA, NFL, FOOTBALL)"
 )
 @click.option(
-    "--max", "max_fixtures", type=int, default=50, help="Max fixtures to process"
+    "--max",
+    "max_fixtures",
+    type=int,
+    default=None,
+    help="Max fixtures to process (default: unlimited)",
 )
-def process(sport: str | None, max_fixtures: int) -> None:
+def process(sport: str | None, max_fixtures: int | None) -> None:
     """Process all ready fixtures (called by cron every 30 min)."""
     cfg = config_mod.load()
     pool = create_pool(cfg)
@@ -551,14 +559,20 @@ def percentiles(
 @click.option("--league", type=int, default=0, help="League ID (football only)")
 @click.option("--from-date", type=str, default=None, help="Start date YYYY-MM-DD")
 @click.option("--to-date", type=str, default=None, help="End date YYYY-MM-DD")
-@click.option("--max", "max_fixtures", type=int, default=200, help="Max fixtures to seed")
+@click.option(
+    "--max",
+    "max_fixtures",
+    type=int,
+    default=None,
+    help="Max fixtures to seed (default: unlimited)",
+)
 def backfill(
     sport: str,
     season: int,
     league: int,
     from_date: str | None,
     to_date: str | None,
-    max_fixtures: int,
+    max_fixtures: int | None,
 ) -> None:
     """Backfill historical fixtures and box scores."""
     ctx = click.get_current_context()
@@ -597,7 +611,9 @@ def _seed_fixture(conn, cfg, fixture):
     league_id = fixture.league_id or 0
     provider = "sportmonks" if sport == "FOOTBALL" else "bdl"
     mapped_fixture_id = get_provider_fixture_id(conn, fixture.id, provider, sport)
-    ext_id_raw = mapped_fixture_id or (str(fixture.external_id) if fixture.external_id is not None else None)
+    ext_id_raw = mapped_fixture_id or (
+        str(fixture.external_id) if fixture.external_id is not None else None
+    )
     if ext_id_raw is None:
         result = SeedResult()
         result.add_error(
@@ -608,11 +624,15 @@ def _seed_fixture(conn, cfg, fixture):
         ext_id = int(ext_id_raw)
     except ValueError:
         result = SeedResult()
-        result.add_error(f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}")
+        result.add_error(
+            f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}"
+        )
         return result
     if ext_id <= 0:
         result = SeedResult()
-        result.add_error(f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}")
+        result.add_error(
+            f"fixture {fixture.id} invalid provider fixture id: {ext_id_raw}"
+        )
         return result
 
     if sport == "NBA":

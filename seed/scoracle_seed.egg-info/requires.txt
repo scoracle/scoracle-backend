@@ -1,0 +1,3 @@
+httpx>=0.27
+psycopg[binary,pool]>=3.2
+click>=8.1

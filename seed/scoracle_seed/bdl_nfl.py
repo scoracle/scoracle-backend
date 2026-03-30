@@ -103,7 +103,9 @@ class NFLHandler:
 
         for raw in items:
             home_raw = raw.get("home_team") or raw.get("home")
-            away_raw = raw.get("visitor_team") or raw.get("away_team") or raw.get("away")
+            away_raw = (
+                raw.get("visitor_team") or raw.get("away_team") or raw.get("away")
+            )
             if not isinstance(home_raw, dict) or not isinstance(away_raw, dict):
                 continue
 
@@ -235,19 +237,15 @@ class NFLHandler:
         return players, teams
 
     def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
-        candidates = [
-            ("/box_scores", {"game_ids[]": external_game_id}),
-            ("/box_scores", {"game_ids": external_game_id}),
-            ("/season_stats", {"game_ids[]": external_game_id}),
-            ("/season_stats", {"game_ids": external_game_id}),
-        ]
-        for path, params in candidates:
-            try:
-                items = self.client.get_all_pages(path, params)
-            except Exception:
-                continue
+        # Use /stats endpoint with game_ids[] filter for per-game stats
+        try:
+            items = self.client.get_all_pages(
+                "/stats", {"game_ids[]": external_game_id}
+            )
             if items:
                 return items
+        except Exception:
+            pass
         return []
 
 

@@ -402,10 +402,10 @@ RETURNS JSONB AS $$
 WITH agg AS (
     SELECT
         COUNT(*)::numeric AS gp,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
-        SUM(CASE WHEN opp.score IS NOT NULL AND score = opp.score THEN 1 ELSE 0 END)::numeric AS ties,
-        SUM(COALESCE(score, 0))::numeric AS pf_sum,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
+        SUM(CASE WHEN opp.score IS NOT NULL AND ets.score = opp.score THEN 1 ELSE 0 END)::numeric AS ties,
+        SUM(COALESCE(ets.score, 0))::numeric AS pf_sum,
         SUM(COALESCE(opp.score, 0))::numeric AS pa_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp

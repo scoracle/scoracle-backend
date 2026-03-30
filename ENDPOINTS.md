@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-03-28
+> Last updated: 2026-03-30
 
 Single public API base URL:
 
@@ -9,54 +9,76 @@ Single public API base URL:
 
 ## Core Data Endpoints (Canonical)
 
-All canonical endpoints are sport-scoped.
+All canonical endpoints are sport-scoped under `/api/v1/{sport}`.
 
 Supported sport path values:
-
 - `nba`
-- `nfl`
+- `nfl`  
 - `football`
 
-Supported canonical `entityType` values:
-
+Supported entity type values:
 - `player`
 - `team`
 
 ### `GET /api/v1/{sport}/{entityType}/{id}`
 
-Returns the canonical profile payload for a sport entity.
+Returns the canonical profile payload for a sport entity (player or team).
 
-Query params:
+Path parameters:
+- `sport` - Sport identifier (`nba`, `nfl`, `football`)
+- `entityType` - Entity type (`player` or `team`)
+- `id` - Entity ID (integer)
 
-- `season` (optional integer)
-- `league_id` (optional integer)
+Query parameters:
+- `season` (optional integer) - Filter by season year
+- `league_id` (optional integer) - Filter by league
+
+Response includes:
+- Entity profile (name, position, team, etc.)
+- Aggregated season stats
+- Percentile rankings
+- Metadata (sample size, position group)
 
 ### `GET /api/v1/{sport}/meta`
 
-Returns complete metadata payload for frontend local DB hydration (autofill + meta widget).
+Returns complete metadata payload for frontend local DB hydration.
 
-Query params:
+Query parameters:
+- `league_id` (optional integer) - Scope to specific league
 
-- `league_id` (optional integer)
+Response includes:
+- All teams for the sport
+- All players for the sport
+- Stat definitions
+- League information
 
 ### `GET /api/v1/{sport}/health`
 
 Returns sport-level data freshness and counts.
 
-Query params:
+Query parameters:
+- `league_id` (optional integer) - Scope to specific league
 
-- `league_id` (optional integer)
+Response includes:
+- Last update timestamp
+- Fixture counts
+- Box score coverage stats
+- Data freshness indicators
 
 ## League-Scoped Endpoints
 
-League-scoped routes are especially important for football and are preferred when league context is explicit.
+League-scoped routes are required for football (which has multiple leagues) and preferred when league context is explicit.
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
 
 Returns profile payload scoped to a specific league.
 
-Query params:
+Path parameters:
+- `leagueId` - League identifier (e.g., 8 for Premier League)
+- `entityType` - `player` or `team`
+- `id` - Entity ID
 
+Query parameters:
 - `season` (optional integer)
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/meta`
@@ -67,23 +89,6 @@ Returns metadata payload scoped to a specific league.
 
 Returns health/freshness payload scoped to a specific league.
 
-## Breaking Changes (2026-03-28)
-
-Legacy sport data routes were removed in the clean-break migration.
-
-Removed routes:
-
-- `GET /api/v1/{sport}/players/{id}`
-- `GET /api/v1/{sport}/teams/{id}`
-- `GET /api/v1/{sport}/standings`
-- `GET /api/v1/{sport}/leaders`
-- `GET /api/v1/{sport}/search`
-- `GET /api/v1/{sport}/autofill`
-- `GET /api/v1/{sport}/stat-definitions`
-- `GET /api/v1/football/leagues`
-
-Use the canonical route family in this document instead.
-
 ## Integrations Endpoints
 
 ### `GET /api/v1/news/status`
@@ -92,19 +97,17 @@ News provider configuration status.
 
 ### `GET /api/v1/news/{entityType}/{entityID}`
 
-News articles for a player/team.
+News articles for a player or team.
 
-Path params:
+Path parameters:
+- `entityType` - `player` or `team`
+- `entityID` - Entity ID (integer)
 
-- `entityType`: `player` or `team`
-- `entityID`: integer
-
-Query params:
-
-- `sport` (required: `NBA`, `NFL`, `FOOTBALL`)
-- `team` (optional)
-- `limit` (optional 1-50)
-- `source` (optional: `rss`, `api`, `both`)
+Query parameters:
+- `sport` (required) - `NBA`, `NFL`, or `FOOTBALL`
+- `team` (optional) - Team name/ID for filtering
+- `limit` (optional, 1-50) - Number of articles to return
+- `source` (optional) - `rss`, `api`, or `both`
 
 ### `GET /api/v1/twitter/status`
 
@@ -114,40 +117,123 @@ Twitter integration status.
 
 Curated journalist-feed search.
 
-Query params:
-
-- `q` (required)
-- `sport` (optional)
-- `limit` (optional 1-50)
+Query parameters:
+- `q` (required) - Search query
+- `sport` (optional) - Sport filter
+- `limit` (optional, 1-50) - Number of tweets to return
 
 ## Operational Endpoints
 
-- `GET /`
-- `GET /health`
-- `GET /health/db`
-- `GET /health/cache`
-- `GET /docs/`
+- `GET /` - Root endpoint (API info)
+- `GET /health` - General health check
+- `GET /health/db` - Database connectivity check
+- `GET /health/cache` - Cache health check
+- `GET /docs/` - Swagger UI documentation
+- `GET /docs/go.json` - OpenAPI/Swagger JSON spec
+
+## Response Structure
+
+### Profile Response Example (Player)
+
+```json
+{
+  "page": "profile",
+  "sport": "nba",
+  "entity_type": "player",
+  "entity": {
+    "id": 666609,
+    "name": "Rui Hachimura",
+    "first_name": "Rui",
+    "last_name": "Hachimura",
+    "position": "F",
+    "nationality": "Japan",
+    "height": "6-8",
+    "weight": "230",
+    "team": {
+      "id": 14,
+      "name": "Lakers",
+      "abbreviation": "LAL",
+      "city": "Los Angeles",
+      "conference": "West",
+      "division": "Pacific"
+    },
+    "season": 2025
+  },
+  "stats": {
+    "pts": 18.0,
+    "reb": 5.0,
+    "ast": 1.0,
+    "games_played": 1
+  },
+  "percentiles": {
+    "pts": 100.0,
+    "reb": 50.0,
+    "ast": 0.0
+  },
+  "percentile_metadata": {
+    "position_group": "F",
+    "sample_size": 13
+  },
+  "meta": {
+    "season": 2025,
+    "league_id": null
+  }
+}
+```
+
+### Profile Response Example (Team)
+
+```json
+{
+  "page": "profile",
+  "sport": "nba",
+  "entity_type": "team",
+  "entity": {
+    "id": 18,
+    "name": "Timberwolves",
+    "short_code": "MIN",
+    "city": "Minnesota",
+    "conference": "West",
+    "division": "Northwest",
+    "season": 2025
+  },
+  "stats": {
+    "wins": 0,
+    "losses": 1,
+    "pts": 103.0,
+    "games_played": 1
+  },
+  "percentiles": {
+    "wins": 0.0,
+    "pts": 0.0
+  },
+  "stat_definitions": [...]
+}
+```
 
 ## Response & Cache Conventions
 
-- JSON responses include ETags where applicable.
-- Send `If-None-Match` to receive `304 Not Modified`.
-- `X-Cache` indicates `HIT` or `MISS` for cache-backed endpoints.
+- JSON responses include ETags where applicable
+- Send `If-None-Match` header to receive `304 Not Modified`
+- `X-Cache` header indicates `HIT` or `MISS` for cache-backed endpoints
+- `X-Process-Time` header shows request processing time
 
-Data endpoint cache policy:
+Cache TTL:
+- Default data: 5 minutes
+- News: 10 minutes
+- Twitter: Uses provider cache metadata
 
-- Default data TTL: 5 minutes (`TTLData`).
-- News endpoint TTL: 10 minutes (`TTLNews`).
-- Twitter journalist feed uses provider cache metadata and endpoint-specific cache headers.
+## Football League IDs
 
-## Backend Implementation Map
+When using league-scoped endpoints for football:
 
-- Router: `go/internal/api/server.go`
-- Data handlers: `go/internal/api/handler/data.go`
-- Integrations handlers: `go/internal/api/handler/news.go`, `go/internal/api/handler/twitter.go`
-- Prepared statements: `go/internal/db/db.go`
-- Cache/ETag implementation: `go/internal/cache/cache.go`
-- Swagger docs: `go/docs/swagger.json`, `go/docs/swagger.yaml`
+| League | ID |
+|--------|-----|
+| Premier League (England) | 8 |
+| Bundesliga (Germany) | 82 |
+| Ligue 1 (France) | 301 |
+| Serie A (Italy) | 384 |
+| La Liga (Spain) | 564 |
 
 ## Error Shape
 
@@ -160,3 +246,16 @@ Data endpoint cache policy:
   }
 }
 ```
+
+## Backend Implementation Map
+
+- Router: `go/internal/api/server.go`
+- Data handlers: `go/internal/api/handler/data.go`
+- Integrations handlers: `go/internal/api/handler/news.go`, `go/internal/api/handler/twitter.go`
+- Prepared statements: `go/internal/db/db.go`
+- Cache/ETag implementation: `go/internal/cache/cache.go`
+- Swagger docs: `go/docs/swagger.json`, `go/docs/swagger.yaml`
+
+---
+
+**Note:** Legacy endpoints (`/players/`, `/teams/`, `/standings/`, `/leaders/`, `/search/`, `/autofill/`) have been consolidated into the canonical endpoint structure above. Use `/{entityType}/` routes instead.

@@ -197,12 +197,23 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)
 		FROM req
 		JOIN selected_entity se ON true`,
-		"nba_meta_page": `SELECT json_build_object(
+		"nba_meta_page": `WITH meta_info AS (
+			SELECT
+				GREATEST(
+					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'NBA'), '1970-01-01'::timestamptz),
+					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'NBA'), '1970-01-01'::timestamptz)
+				) AS last_updated,
+				(SELECT current_season FROM public.sports WHERE id = 'NBA') AS current_season,
+				(SELECT COUNT(*)::int FROM nba.autofill_entities) AS total_entities
+		)
+		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'nba',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', 'unknown',
+			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
 			'generated_at', NOW(),
+			'current_season', (SELECT current_season FROM meta_info),
+			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nba.autofill_entities t
@@ -213,12 +224,23 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json),
 			'leagues', '[]'::json
 		)`,
-		"nfl_meta_page": `SELECT json_build_object(
+		"nfl_meta_page": `WITH meta_info AS (
+			SELECT
+				GREATEST(
+					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'NFL'), '1970-01-01'::timestamptz),
+					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'NFL'), '1970-01-01'::timestamptz)
+				) AS last_updated,
+				(SELECT current_season FROM public.sports WHERE id = 'NFL') AS current_season,
+				(SELECT COUNT(*)::int FROM nfl.autofill_entities) AS total_entities
+		)
+		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'nfl',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', 'unknown',
+			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
 			'generated_at', NOW(),
+			'current_season', (SELECT current_season FROM meta_info),
+			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM nfl.autofill_entities t
@@ -229,12 +251,24 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json),
 			'leagues', '[]'::json
 		)`,
-		"football_meta_page": `SELECT json_build_object(
+		"football_meta_page": `WITH meta_info AS (
+			SELECT
+				GREATEST(
+					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'FOOTBALL'), '1970-01-01'::timestamptz),
+					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'FOOTBALL'), '1970-01-01'::timestamptz)
+				) AS last_updated,
+				(SELECT current_season FROM public.sports WHERE id = 'FOOTBALL') AS current_season,
+				(SELECT COUNT(*)::int FROM football.autofill_entities 
+				 WHERE ($1::int IS NULL OR COALESCE(league_id, 0) = $1::int)) AS total_entities
+		)
+		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'football',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', 'unknown',
+			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
 			'generated_at', NOW(),
+			'current_season', (SELECT current_season FROM meta_info),
+			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
 				SELECT json_agg(row_to_json(t) ORDER BY t.type, t.name)
 				FROM football.autofill_entities t

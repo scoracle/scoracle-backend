@@ -41,16 +41,18 @@ Response includes:
 
 ### `GET /api/v1/{sport}/meta`
 
-Returns complete metadata payload for frontend local DB hydration.
+Returns complete metadata payload for frontend local DB hydration. Designed for caching on the frontend to enable instant autocomplete without repeated API calls.
 
 Query parameters:
 - `league_id` (optional integer) - Scope to specific league
 
 Response includes:
-- All teams for the sport
-- All players for the sport
-- Stat definitions
-- League information
+- `meta_version` - Unix timestamp of last data update (for cache invalidation)
+- `current_season` - The sport's current active season year
+- `total_entities` - Count of players and teams in the response
+- `items` - All entities (players + teams) with search tokens and metadata
+- `stat_definitions` - All stat keys with display names and categories
+- `leagues` - League information (populated for multi-league sports like football)
 
 ### `GET /api/v1/{sport}/health`
 
@@ -208,6 +210,83 @@ Query parameters:
     "pts": 0.0
   },
   "stat_definitions": [...]
+}
+```
+
+### Meta Response Example
+
+```json
+{
+  "page": "meta",
+  "sport": "nba",
+  "scope": {
+    "league_id": null
+  },
+  "meta_version": "1743772800",
+  "generated_at": "2026-04-04T16:00:00Z",
+  "current_season": 2025,
+  "total_entities": 524,
+  "items": [
+    {
+      "id": 666609,
+      "type": "player",
+      "name": "Rui Hachimura",
+      "first_name": "Rui",
+      "last_name": "Hachimura",
+      "position": "F",
+      "nationality": "Japan",
+      "date_of_birth": "1998-02-08",
+      "height": "6-8",
+      "weight": "230",
+      "photo_url": "https://...",
+      "team_id": 14,
+      "team_abbr": "LAL",
+      "team_name": "Lakers",
+      "search_tokens": ["rui", "hachimura", "ruihachimura", "lal", "lakers"],
+      "meta": {
+        "display_name": "Rui Hachimura",
+        "jersey_number": "28",
+        "draft_year": 2019,
+        "draft_pick": 9,
+        "years_pro": 6,
+        "college": "Gonzaga"
+      }
+    }
+  ],
+  "stat_definitions": [
+    {
+      "id": 1,
+      "key_name": "pts",
+      "display_name": "Points Per Game",
+      "entity_type": "player",
+      "category": "scoring",
+      "is_inverse": false,
+      "is_derived": false,
+      "is_percentile_eligible": true,
+      "sort_order": 3
+    }
+  ],
+  "leagues": []
+}
+```
+
+**Frontend Caching Strategy:**
+
+Store `meta_version` locally and send it on subsequent requests:
+
+```javascript
+const response = await fetch('/api/v1/nba/meta', {
+  headers: {
+    'If-None-Match': localStorage.getItem('nba_meta_version')
+  }
+});
+
+if (response.status === 304) {
+  // Use cached data
+} else {
+  const data = await response.json();
+  localStorage.setItem('nba_meta_version', data.meta_version);
+  // Store data.items, data.stat_definitions for local search
 }
 ```
 

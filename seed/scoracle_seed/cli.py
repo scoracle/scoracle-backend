@@ -364,13 +364,16 @@ def load_fixtures(
     "--sport", type=str, default=None, help="Filter by sport (NBA, NFL, FOOTBALL)"
 )
 @click.option(
+    "--season", type=int, default=None, help="Filter by season year (e.g., 2025)"
+)
+@click.option(
     "--max",
     "max_fixtures",
     type=int,
     default=None,
     help="Max fixtures to process (default: unlimited)",
 )
-def process(sport: str | None, max_fixtures: int | None) -> None:
+def process(sport: str | None, season: int | None, max_fixtures: int | None) -> None:
     """Process all ready fixtures (called by cron every 30 min)."""
     cfg = config_mod.load()
     pool = create_pool(cfg)
@@ -386,12 +389,21 @@ def process(sport: str | None, max_fixtures: int | None) -> None:
 
         pending = get_pending(conn, sport=sport, limit=max_fixtures)
 
+        # Filter by season if specified
+        if season is not None:
+            pending = [f for f in pending if f.season == season]
+            if not pending:
+                click.echo(f"No pending fixtures for season {season}")
+                pool.close()
+                return
+
         if not pending:
             click.echo("No pending fixtures to seed")
             pool.close()
             return
 
-        click.echo(f"Found {len(pending)} pending fixtures")
+        season_msg = f" (season={season})" if season else ""
+        click.echo(f"Found {len(pending)} pending fixtures{season_msg}")
 
         succeeded = 0
         failed = 0

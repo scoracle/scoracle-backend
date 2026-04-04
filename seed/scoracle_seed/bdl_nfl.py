@@ -15,7 +15,7 @@ from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, Te
 
 logger = logging.getLogger(__name__)
 
-NFL_BASE_URL = "https://api.balldontlie.io/nfl/v1"
+NFL_BASE_URL = "https://api.balldontlie.io"
 
 # Keys in the /season_stats response that are metadata, not stat values
 _NON_STAT_KEYS = {"player", "season", "postseason", "team"}
@@ -35,7 +35,7 @@ class NFLHandler:
     # ------------------------------------------------------------------
 
     def get_teams(self) -> list[Team]:
-        resp = self.client.get("/teams")
+        resp = self.client.get("/nfl/v1/teams")
         return [_parse_team(t) for t in resp.get("data", [])]
 
     # ------------------------------------------------------------------
@@ -54,7 +54,7 @@ class NFLHandler:
             "postseason": str(postseason).lower(),
         }
 
-        for page in self.client.get_paginated("/season_stats", params):
+        for page in self.client.get_paginated("/nfl/v1/season_stats", params):
             for raw in page:
                 ps = _parse_player_stats_flat(raw, postseason)
                 if ps is None:
@@ -74,7 +74,7 @@ class NFLHandler:
         self, season: int, season_type: str = "regular"
     ) -> list[TeamStats]:
         params: dict[str, Any] = {"season": season}
-        items = self.client.get_all_pages("/standings", params)
+        items = self.client.get_all_pages("/nfl/v1/standings", params)
         return [_parse_standing(raw, season_type) for raw in items]
 
     # ------------------------------------------------------------------
@@ -94,7 +94,7 @@ class NFLHandler:
         items: list[dict[str, Any]] = []
         for params in param_candidates:
             try:
-                items = self.client.get_all_pages("/games", params)
+                items = self.client.get_all_pages("/nfl/v1/games", params)
             except Exception:
                 continue
             if items:
@@ -237,15 +237,15 @@ class NFLHandler:
         return players, teams
 
     def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
-        # Use /stats endpoint with game_ids[] filter for per-game stats
+        """Fetch player stats for a game."""
         try:
             items = self.client.get_all_pages(
-                "/stats", {"game_ids[]": external_game_id}
+                "/nfl/v1/stats", {"game_ids[]": external_game_id, "per_page": 100}
             )
             if items:
                 return items
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
         return []
 
 

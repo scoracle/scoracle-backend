@@ -14,7 +14,10 @@ from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, Te
 
 logger = logging.getLogger(__name__)
 
-NBA_BASE_URL = "https://api.balldontlie.io/v1"
+NBA_BASE_URL = "https://api.balldontlie.io"
+
+# Valid NBA team IDs (1-30) - filters out historical BAA/NFL and defunct teams
+NBA_TEAM_IDS = set(range(1, 31))
 
 
 class NBAHandler:
@@ -31,8 +34,17 @@ class NBAHandler:
     # ------------------------------------------------------------------
 
     def get_teams(self) -> list[Team]:
-        resp = self.client.get("/teams")
-        return [_parse_team(t) for t in resp.get("data", [])]
+        resp = self.client.get("/nba/v1/teams")
+        teams = []
+        for t in resp.get("data", []):
+            team_id = t.get("id")
+            if team_id in NBA_TEAM_IDS:
+                teams.append(_parse_team(t))
+            else:
+                logger.debug(
+                    "Skipping non-current NBA team: %s (ID: %s)", t.get("name"), team_id
+                )
+        return teams
 
     # ------------------------------------------------------------------
     # Player Stats (includes embedded player profiles)
@@ -56,7 +68,9 @@ class NBAHandler:
             "type": "base",
         }
 
-        for page in self.client.get_paginated("/season_averages/general", params):
+        for page in self.client.get_paginated(
+            "/nba/v1/season_averages/general", params
+        ):
             for raw in page:
                 ps = _parse_player_stats(raw, season_type)
                 if callback:
@@ -78,7 +92,9 @@ class NBAHandler:
             "season_type": season_type,
             "type": "base",
         }
-        items = self.client.get_all_pages("/team_season_averages/general", params)
+        items = self.client.get_all_pages(
+            "/nba/v1/team_season_averages/general", params
+        )
         return [_parse_team_stats(raw, season_type) for raw in items]
 
     # ------------------------------------------------------------------
@@ -108,7 +124,7 @@ class NBAHandler:
         items: list[dict[str, Any]] = []
         for params in param_candidates:
             try:
-                items = self.client.get_all_pages("/games", params)
+                items = self.client.get_all_pages("/nba/v1/games", params)
             except Exception:
                 continue
             if items:
@@ -117,7 +133,9 @@ class NBAHandler:
 
         for raw in items:
             home_raw = raw.get("home_team") or raw.get("home")
-            away_raw = raw.get("visitor_team") or raw.get("away_team") or raw.get("away")
+            away_raw = (
+                raw.get("visitor_team") or raw.get("away_team") or raw.get("away")
+            )
             if not isinstance(home_raw, dict) or not isinstance(away_raw, dict):
                 continue
 
@@ -127,6 +145,12 @@ class NBAHandler:
             if not isinstance(home_id, int) or not isinstance(away_id, int):
                 continue
             if not isinstance(external_id, int):
+                continue
+            # Filter out games with non-current NBA teams
+            if home_id not in NBA_TEAM_IDS or away_id not in NBA_TEAM_IDS:
+                logger.debug(
+                    "Skipping game with non-NBA teams: %s vs %s", home_id, away_id
+                )
                 continue
 
             start_time = (
@@ -254,20 +278,44 @@ class NBAHandler:
         return players, teams
 
     def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
-        candidates = [
-            ("/box_scores", {"game_ids[]": external_game_id}),
-            ("/box_scores", {"game_ids": external_game_id}),
-            ("/stats", {"game_ids[]": external_game_id}),
-            ("/stats", {"game_ids": external_game_id}),
-        ]
-        for path, params in candidates:
-            try:
-                items = self.client.get_all_pages(path, params)
-            except Exception:
-                continue
-            if items:
-                return items
-        return []
+        """Fetch player stats for a game."""
+        # Use /stats endpoint which is most reliable
+        params = {"game_ids[]": external_game_id, "per_page": 100}
+        try:
+            return self.client.get_all_pages("/nba/v1/stats", params)
+        except Exception as e:
+            logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
+            return []
+
+    def get_advanced_stats(self, game_id: int) -> list[dict[str, Any]]:
+        """Fetch advanced stats V2 (GOAT tier) - includes hustle, tracking, PIE, etc."""
+        params = {"game_ids[]": game_id, "per_page": 100}
+        try:
+            return self.client.get_all_pages("/nba/v2/stats/advanced", params)
+        except Exception as e:
+            logger.debug(f"Advanced stats not available for game {game_id}: {e}")
+            return []
+
+    def get_lineups(self, game_id: int) -> list[dict[str, Any]]:
+        """Fetch lineup data (GOAT tier) - starters, positions, etc."""
+        params = {"game_ids[]": game_id, "per_page": 100}
+        try:
+            return self.client.get_all_pages("/nba/v1/lineups", params)
+        except Exception as e:
+            logger.debug(f"Lineups not available for game {game_id}: {e}")
+            return []
+
+    def get_team_box_score(self, game_date: str) -> dict[str, Any] | None:
+        """Fetch team-level box score data (GOAT tier) - quarter scores, timeouts, etc."""
+        try:
+            result = self.client.get(
+                "/nba/v1/box_scores", {"date": game_date, "per_page": 1}
+            )
+            data = result.get("data", [])
+            return data[0] if data else None
+        except Exception as e:
+            logger.debug(f"Team box score not available for date {game_date}: {e}")
+            return None
 
 
 # --------------------------------------------------------------------------

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from .models import (
+from shared.models import (
     EventBoxScore,
     EventTeamStats,
     Player,
@@ -17,7 +17,7 @@ from .models import (
     Team,
     TeamStats,
 )
-from .sportmonks_client import SportMonksClient
+from shared.sportmonks_client import SportMonksClient
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +71,36 @@ class FootballHandler:
             {"include": "venue;country"},
         )
         return [_parse_team(t) for t in items]
+
+    def get_team_squad(self, season_id: int, team_id: int) -> list[dict]:
+        """Fetch team squad with jersey numbers.
+
+        Returns list of player entries with:
+        - player_id
+        - jersey_number
+        - position_id
+        """
+        resp = self.client.get(f"/squads/seasons/{season_id}/teams/{team_id}")
+        return resp.get("data", [])
+
+    def get_player_profile(self, player_id: int) -> dict | None:
+        """Fetch detailed player profile including photo, bio, nationality, etc.
+
+        Args:
+            player_id: SportMonks player ID
+
+        Returns:
+            Player profile dict or None if not found
+        """
+        try:
+            resp = self.client.get(
+                f"/players/{player_id}",
+                {"include": "nationality;detailedPosition;position;metadata"},
+            )
+            return resp.get("data")
+        except Exception as e:
+            logger.warning(f"Failed to fetch player profile {player_id}: {e}")
+            return None
 
     # ------------------------------------------------------------------
     # Players + Stats (via squad iteration — N+1 pattern)
@@ -200,7 +230,9 @@ class FootballHandler:
         lineups = data.get("lineups", [])
         if isinstance(lineups, list):
             for entry in lineups:
-                team_id = entry.get("team_id") or _team_id_from_relation(entry.get("team"))
+                team_id = entry.get("team_id") or _team_id_from_relation(
+                    entry.get("team")
+                )
                 player_raw = entry.get("player")
                 player_id = entry.get("player_id")
                 if not isinstance(player_id, int) and isinstance(player_raw, dict):
@@ -209,14 +241,18 @@ class FootballHandler:
                     continue
 
                 details = entry.get("details", [])
-                stats = _normalize_player_stats(details if isinstance(details, list) else [])
+                stats = _normalize_player_stats(
+                    details if isinstance(details, list) else []
+                )
                 minutes_played = _extract_value(entry.get("minutes"))
                 if minutes_played is None:
                     minutes_played = stats.get("minutes_played")
                 if minutes_played is not None:
                     stats["minutes_played"] = minutes_played
 
-                player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
+                player = (
+                    _parse_player(player_raw) if isinstance(player_raw, dict) else None
+                )
                 if player and player.team_id is None:
                     player.team_id = team_id
 
@@ -252,7 +288,10 @@ class FootballHandler:
                     team_id=team_id,
                     score=team_scores.get(team_id),
                     stats=agg,
-                    raw={"provider": "sportmonks", "external_fixture_id": external_fixture_id},
+                    raw={
+                        "provider": "sportmonks",
+                        "external_fixture_id": external_fixture_id,
+                    },
                 )
             )
 
@@ -465,7 +504,9 @@ def _team_id_from_relation(raw: Any) -> int | None:
 
 def _extract_fixture_scores(raw: dict[str, Any]) -> dict[int, int]:
     out: dict[int, int] = {}
-    for score_block in raw.get("scores", []) if isinstance(raw.get("scores"), list) else []:
+    for score_block in (
+        raw.get("scores", []) if isinstance(raw.get("scores"), list) else []
+    ):
         participant_id = score_block.get("participant_id")
         if not isinstance(participant_id, int):
             continue

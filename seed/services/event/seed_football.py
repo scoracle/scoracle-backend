@@ -10,9 +10,14 @@ import logging
 
 import psycopg
 
-from .models import SeedResult
-from .sportmonks_football import FootballHandler
-from .upsert import upsert_player, upsert_player_stats, upsert_team, upsert_team_stats
+from shared.models import SeedResult
+from shared.upsert import (
+    upsert_player,
+    upsert_player_stats,
+    upsert_team,
+    upsert_team_stats,
+)
+from .handlers.sportmonks_football import FootballHandler
 
 logger = logging.getLogger(__name__)
 

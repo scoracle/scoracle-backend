@@ -1,7 +1,6 @@
-"""NFL data extraction from BallDontLie API.
+"""NBA data extraction from BallDontLie API.
 
 Thin handler: extracts raw key/value pairs from API responses.
-NFL stats use flat top-level fields (not nested under "stats" key).
 Stat key normalization is handled by Postgres triggers.
 """
 
@@ -10,22 +9,29 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
-from .bdl_client import BDLClient
-from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, TeamStats
+from shared.bdl_client import BDLClient
+from shared.models import (
+    EventBoxScore,
+    EventTeamStats,
+    Player,
+    PlayerStats,
+    Team,
+    TeamStats,
+)
 
 logger = logging.getLogger(__name__)
 
-NFL_BASE_URL = "https://api.balldontlie.io"
+NBA_BASE_URL = "https://api.balldontlie.io"
 
-# Keys in the /season_stats response that are metadata, not stat values
-_NON_STAT_KEYS = {"player", "season", "postseason", "team"}
+# Valid NBA team IDs (1-30) - filters out historical BAA/NFL and defunct teams
+NBA_TEAM_IDS = set(range(1, 31))
 
 
-class NFLHandler:
-    """Fetches NFL data from BallDontLie and returns canonical models."""
+class NBAHandler:
+    """Fetches NBA data from BallDontLie and returns canonical models."""
 
     def __init__(self, api_key: str):
-        self.client = BDLClient(NFL_BASE_URL, api_key, requests_per_minute=600)
+        self.client = BDLClient(NBA_BASE_URL, api_key, requests_per_minute=600)
 
     def close(self) -> None:
         self.client.close()
@@ -35,30 +41,45 @@ class NFLHandler:
     # ------------------------------------------------------------------
 
     def get_teams(self) -> list[Team]:
-        resp = self.client.get("/nfl/v1/teams")
-        return [_parse_team(t) for t in resp.get("data", [])]
+        resp = self.client.get("/nba/v1/teams")
+        teams = []
+        for t in resp.get("data", []):
+            team_id = t.get("id")
+            if team_id in NBA_TEAM_IDS:
+                teams.append(_parse_team(t))
+            else:
+                logger.debug(
+                    "Skipping non-current NBA team: %s (ID: %s)", t.get("name"), team_id
+                )
+        return teams
 
     # ------------------------------------------------------------------
-    # Player Stats — flat JSON format
+    # Player Stats (includes embedded player profiles)
     # ------------------------------------------------------------------
 
     def get_player_stats(
         self,
         season: int,
-        postseason: bool = False,
+        season_type: str = "regular",
         callback: Callable[[PlayerStats], None] | None = None,
     ) -> list[PlayerStats]:
+        """Fetch all player season averages via cursor pagination.
+
+        If callback is provided, calls it for each PlayerStats and returns
+        an empty list. Otherwise collects and returns all.
+        """
         results: list[PlayerStats] = []
         params: dict[str, Any] = {
             "season": season,
-            "postseason": str(postseason).lower(),
+            "season_type": season_type,
+            "type": "base",
         }
 
-        for page in self.client.get_paginated("/nfl/v1/season_stats", params):
+        for page in self.client.get_paginated(
+            "/nba/v1/season_averages/general", params
+        ):
             for raw in page:
-                ps = _parse_player_stats_flat(raw, postseason)
-                if ps is None:
-                    continue
+                ps = _parse_player_stats(raw, season_type)
                 if callback:
                     callback(ps)
                 else:
@@ -67,34 +88,50 @@ class NFLHandler:
         return results
 
     # ------------------------------------------------------------------
-    # Team Stats (via standings)
+    # Team Stats
     # ------------------------------------------------------------------
 
     def get_team_stats(
         self, season: int, season_type: str = "regular"
     ) -> list[TeamStats]:
-        params: dict[str, Any] = {"season": season}
-        items = self.client.get_all_pages("/nfl/v1/standings", params)
-        return [_parse_standing(raw, season_type) for raw in items]
+        params: dict[str, Any] = {
+            "season": season,
+            "season_type": season_type,
+            "type": "base",
+        }
+        items = self.client.get_all_pages(
+            "/nba/v1/team_season_averages/general", params
+        )
+        return [_parse_team_stats(raw, season_type) for raw in items]
 
     # ------------------------------------------------------------------
     # Fixture schedule + fixture box scores
     # ------------------------------------------------------------------
 
-    def get_games(self, season: int, week: int | None = None) -> list[dict[str, Any]]:
-        """Fetch NFL fixture rows for a season (optionally week-scoped)."""
+    def get_games(
+        self,
+        season: int,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch fixture schedule rows for a season/date range."""
         param_candidates: list[dict[str, Any]] = []
         primary: dict[str, Any] = {"seasons[]": season}
         fallback: dict[str, Any] = {"season": season}
-        if week is not None:
-            primary["weeks[]"] = week
-            fallback["week"] = week
+        if from_date:
+            primary["start_date"] = from_date
+            primary["dates[]"] = from_date
+            fallback["start_date"] = from_date
+            fallback["date"] = from_date
+        if to_date:
+            primary["end_date"] = to_date
+            fallback["end_date"] = to_date
         param_candidates.extend([primary, fallback])
 
         items: list[dict[str, Any]] = []
         for params in param_candidates:
             try:
-                items = self.client.get_all_pages("/nfl/v1/games", params)
+                items = self.client.get_all_pages("/nba/v1/games", params)
             except Exception:
                 continue
             if items:
@@ -116,6 +153,12 @@ class NFLHandler:
                 continue
             if not isinstance(external_id, int):
                 continue
+            # Filter out games with non-current NBA teams
+            if home_id not in NBA_TEAM_IDS or away_id not in NBA_TEAM_IDS:
+                logger.debug(
+                    "Skipping game with non-NBA teams: %s vs %s", home_id, away_id
+                )
+                continue
 
             start_time = (
                 raw.get("date")
@@ -135,7 +178,7 @@ class NFLHandler:
                     "away_team": _parse_team(away_raw),
                     "start_time": start_time,
                     "season": raw.get("season", season),
-                    "round": str(raw.get("week") or raw.get("status") or ""),
+                    "round": raw.get("status"),
                     "home_score": raw.get("home_team_score"),
                     "away_score": raw.get("visitor_team_score")
                     or raw.get("away_team_score"),
@@ -144,10 +187,38 @@ class NFLHandler:
 
         return games
 
+    def get_player(self, player_id: int) -> dict | None:
+        """Fetch individual player profile including photo, bio, etc.
+
+        Args:
+            player_id: BDL player ID
+
+        Returns:
+            Player profile dict or None if not found
+        """
+        try:
+            resp = self.client.get(f"/nba/v1/players/{player_id}")
+            return resp.get("data")
+        except Exception as e:
+            logger.warning(f"Failed to fetch player {player_id}: {e}")
+            return None
+
+    def get_all_players(self) -> list[dict]:
+        """Fetch all active NBA players.
+
+        Returns:
+            List of player profile dicts
+        """
+        try:
+            return self.client.get_all_pages("/nba/v1/players", {"per_page": 100})
+        except Exception as e:
+            logger.warning(f"Failed to fetch all players: {e}")
+            return []
+
     def get_box_score(
         self, external_game_id: int, fixture_id: int
     ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
-        """Fetch one NFL game's box score and return event-level lines."""
+        """Fetch one game's box score and return event-level player/team lines."""
         raw_lines = self._fetch_box_score_lines(external_game_id)
         if not raw_lines:
             return [], []
@@ -173,7 +244,11 @@ class NFLHandler:
             if not isinstance(player_id, int):
                 continue
 
-            stats = _extract_numeric_stats(raw)
+            stats = _extract_numeric_stats(raw, explicit_stats_key="stats")
+            minutes_val = raw.get("min") or raw.get("minutes")
+            if minutes_val is None and isinstance(raw.get("stats"), dict):
+                minutes_val = raw["stats"].get("minutes")
+            minutes = _parse_minutes(minutes_val)
 
             player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
             if player and player.team_id is None:
@@ -185,6 +260,7 @@ class NFLHandler:
                     player_id=player_id,
                     team_id=team_id,
                     player=player,
+                    minutes_played=minutes,
                     stats=stats,
                     raw=raw,
                 )
@@ -238,19 +314,47 @@ class NFLHandler:
 
     def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
         """Fetch player stats for a game."""
+        # Use /stats endpoint which is most reliable
+        params = {"game_ids[]": external_game_id, "per_page": 100}
         try:
-            items = self.client.get_all_pages(
-                "/nfl/v1/stats", {"game_ids[]": external_game_id, "per_page": 100}
-            )
-            if items:
-                return items
+            return self.client.get_all_pages("/nba/v1/stats", params)
         except Exception as e:
             logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
-        return []
+            return []
+
+    def get_advanced_stats(self, game_id: int) -> list[dict[str, Any]]:
+        """Fetch advanced stats V2 (GOAT tier) - includes hustle, tracking, PIE, etc."""
+        params = {"game_ids[]": game_id, "per_page": 100}
+        try:
+            return self.client.get_all_pages("/nba/v2/stats/advanced", params)
+        except Exception as e:
+            logger.debug(f"Advanced stats not available for game {game_id}: {e}")
+            return []
+
+    def get_lineups(self, game_id: int) -> list[dict[str, Any]]:
+        """Fetch lineup data (GOAT tier) - starters, positions, etc."""
+        params = {"game_ids[]": game_id, "per_page": 100}
+        try:
+            return self.client.get_all_pages("/nba/v1/lineups", params)
+        except Exception as e:
+            logger.debug(f"Lineups not available for game {game_id}: {e}")
+            return []
+
+    def get_team_box_score(self, game_date: str) -> dict[str, Any] | None:
+        """Fetch team-level box score data (GOAT tier) - quarter scores, timeouts, etc."""
+        try:
+            result = self.client.get(
+                "/nba/v1/box_scores", {"date": game_date, "per_page": 1}
+            )
+            data = result.get("data", [])
+            return data[0] if data else None
+        except Exception as e:
+            logger.debug(f"Team box score not available for date {game_date}: {e}")
+            return None
 
 
 # --------------------------------------------------------------------------
-# Parsing helpers
+# Parsing helpers — extract raw values, no normalization
 # --------------------------------------------------------------------------
 
 
@@ -263,7 +367,7 @@ def _parse_team(raw: dict[str, Any]) -> Team:
         id=raw["id"],
         name=raw.get("name", ""),
         short_code=raw.get("abbreviation"),
-        city=raw.get("location"),
+        city=raw.get("city"),
         conference=raw.get("conference"),
         division=raw.get("division"),
         meta=meta,
@@ -271,23 +375,20 @@ def _parse_team(raw: dict[str, Any]) -> Team:
 
 
 def _parse_player(raw: dict[str, Any]) -> Player:
+    player_id = raw.get("id", 0)
     first = raw.get("first_name", "")
     last = raw.get("last_name", "")
-    name = f"{first} {last}".strip() or f"Player {raw.get('id', 0)}"
+    name = f"{first} {last}".strip() or f"Player {player_id}"
 
     meta: dict[str, Any] = {}
-    if raw.get("position_abbreviation"):
-        meta["position_abbreviation"] = raw["position_abbreviation"]
     jersey = raw.get("jersey_number")
     if jersey is not None:
         meta["jersey_number"] = jersey
     if raw.get("college"):
         meta["college"] = raw["college"]
-    exp = raw.get("experience")
-    if exp is not None:
-        meta["experience"] = exp
-    if raw.get("age") is not None:
-        meta["age"] = raw["age"]
+    for key in ("draft_year", "draft_round", "draft_number"):
+        if raw.get(key) is not None:
+            meta[key] = raw[key]
 
     team_id = None
     team_raw = raw.get("team")
@@ -295,7 +396,7 @@ def _parse_player(raw: dict[str, Any]) -> Player:
         team_id = team_raw["id"]
 
     return Player(
-        id=raw.get("id", 0),
+        id=player_id,
         name=name,
         first_name=first or None,
         last_name=last or None,
@@ -308,60 +409,33 @@ def _parse_player(raw: dict[str, Any]) -> Player:
     )
 
 
-def _parse_player_stats_flat(
-    item: dict[str, Any], postseason: bool
-) -> PlayerStats | None:
-    """Parse NFL flat season_stats format.
-
-    NFL /season_stats returns flat JSON where stat fields are top-level
-    alongside "player", "season", and "postseason". We extract the player,
-    then treat all remaining numeric fields as stats.
-    """
-    player_raw = item.get("player")
-    if not isinstance(player_raw, dict):
-        return None
-
+def _parse_player_stats(raw: dict[str, Any], season_type: str) -> PlayerStats:
+    player_raw = raw.get("player", {})
     player = _parse_player(player_raw)
 
-    # All non-metadata fields are stats
-    stats: dict[str, Any] = {}
-    for k, v in item.items():
-        if k in _NON_STAT_KEYS:
-            continue
-        if isinstance(v, (int, float)):
-            stats[k] = v
-        elif isinstance(v, str):
-            # Try to parse string-encoded numbers
-            try:
-                stats[k] = float(v)
-            except ValueError:
-                pass
-
-    stats["season_type"] = "postseason" if postseason else "regular"
+    # Stats are in raw["stats"] — pass through as-is (raw provider keys)
+    stats = dict(raw.get("stats", {}))
+    # Filter out None values
+    stats = {k: v for k, v in stats.items() if v is not None}
+    stats["season_type"] = season_type
 
     return PlayerStats(
         player_id=player.id,
         team_id=player.team_id,
         player=player,
         stats=stats,
-        raw=item,
+        raw=raw,
     )
 
 
-def _parse_standing(raw: dict[str, Any], season_type: str) -> TeamStats:
+def _parse_team_stats(raw: dict[str, Any], season_type: str) -> TeamStats:
     team_raw = raw.get("team", {})
-    stats: dict[str, Any] = {
-        "wins": float(raw.get("wins", 0)),
-        "losses": float(raw.get("losses", 0)),
-        "ties": float(raw.get("ties", 0)),
-        "points_for": float(raw.get("points_for", 0)),
-        "points_against": float(raw.get("points_against", 0)),
-        "point_differential": float(raw.get("point_differential", 0)),
-        "season_type": season_type,
-    }
+    stats = dict(raw.get("stats", {}))
+    stats = {k: v for k, v in stats.items() if v is not None}
+    stats["season_type"] = season_type
 
     return TeamStats(
-        team_id=team_raw.get("id", raw.get("id", 0)),
+        team_id=team_raw.get("id", 0),
         stats=stats,
         raw=raw,
     )
@@ -377,13 +451,27 @@ _BOX_SCORE_META_KEYS = {
     "game_id",
     "season",
     "postseason",
-    "week",
     "date",
+    "min",
+    "minutes",
 }
 
 
-def _extract_numeric_stats(raw: dict[str, Any]) -> dict[str, Any]:
+def _extract_numeric_stats(
+    raw: dict[str, Any], explicit_stats_key: str | None = None
+) -> dict[str, Any]:
     stats: dict[str, Any] = {}
+
+    if explicit_stats_key and isinstance(raw.get(explicit_stats_key), dict):
+        for k, v in raw[explicit_stats_key].items():
+            if isinstance(v, (int, float)):
+                stats[k] = float(v)
+            elif isinstance(v, str):
+                try:
+                    stats[k] = float(v)
+                except ValueError:
+                    continue
+
     for k, v in raw.items():
         if k in _BOX_SCORE_META_KEYS:
             continue
@@ -394,4 +482,27 @@ def _extract_numeric_stats(raw: dict[str, Any]) -> dict[str, Any]:
                 stats[k] = float(v)
             except ValueError:
                 continue
+
     return stats
+
+
+def _parse_minutes(val: Any) -> float | None:
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    if isinstance(val, str):
+        if ":" in val:
+            parts = val.split(":")
+            if len(parts) == 2:
+                try:
+                    minutes = int(parts[0])
+                    seconds = int(parts[1])
+                    return round(minutes + (seconds / 60.0), 2)
+                except ValueError:
+                    return None
+        try:
+            return float(val)
+        except ValueError:
+            return None
+    return None

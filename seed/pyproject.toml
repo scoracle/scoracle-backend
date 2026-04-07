@@ -17,4 +17,4 @@ dependencies = [
 scoracle-seed = "scoracle_seed.cli:cli"
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "services", "shared"]

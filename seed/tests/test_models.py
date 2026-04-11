@@ -1,6 +1,6 @@
 """Tests for canonical data models."""
 
-from scoracle_seed.models import Player, SeedResult, Team
+from shared.models import Player, SeedResult, Team
 
 
 def test_seed_result_summary():

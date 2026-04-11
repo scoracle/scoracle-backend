@@ -17,4 +17,6 @@ dependencies = [
 scoracle-seed = "scoracle_seed.cli:cli"
 
 [tool.setuptools.packages.find]
-where = [".", "services", "shared"]
+where = ["."]
+include = ["scoracle_seed*", "services*", "shared*"]
+exclude = ["tests*"]

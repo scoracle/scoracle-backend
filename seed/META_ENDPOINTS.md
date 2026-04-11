@@ -19,9 +19,9 @@ This separation allows provider-agnostic event data and flexible metadata sourci
 
 ### Player Profile
 
-**Endpoint:** `GET /nba/v1/players/{id}`
+**Endpoint:** `GET /v1/players/{id}`
 
-**Example:** `https://api.balldontlie.io/nba/v1/players/237`
+**Example:** `https://api.balldontlie.io/v1/players/237`
 
 **Response Fields:**
 - `id` - BDL player ID
@@ -40,13 +40,13 @@ This separation allows provider-agnostic event data and flexible metadata sourci
 
 ### Team Profile
 
-**Endpoint:** `GET /nba/v1/teams/{id}`
+**Endpoint:** `GET /v1/teams`
 
 **Fields:** id, name, city, conference, division, abbreviation
 
 ### All Players
 
-**Endpoint:** `GET /nba/v1/players`
+**Endpoint:** `GET /v1/players`
 
 **Query Parameters:** per_page (max 100), page
 
@@ -139,14 +139,20 @@ Returns list of players with jersey_number for the season.
 
 ## Usage
 
-### Season Start
-Seed all player/team metadata at beginning of season.
+### CLI-Driven Metadata Seeding
+Run metadata seeding explicitly from the CLI when needed (for example at season start and periodic refresh points):
 
-### Team Changes
-Postgres LISTEN/NOTIFY triggers metadata refresh when player changes teams.
+```bash
+scoracle-seed meta seed nba --season 2025
+scoracle-seed meta seed nfl --season 2025
+scoracle-seed meta seed football --season 2026 --league 8
+```
 
-### Manual Refresh
-Update specific player on demand.
+Optional scoped run:
+
+```bash
+scoracle-seed meta seed nfl --season 2025 --max-teams 2 --max-players 500
+```
 
 ---
 

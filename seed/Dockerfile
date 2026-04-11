@@ -10,6 +10,8 @@ WORKDIR /app
 # Install dependencies first (layer cache optimization)
 COPY pyproject.toml ./
 COPY scoracle_seed/ scoracle_seed/
+COPY services/ services/
+COPY shared/ shared/
 RUN pip install --no-cache-dir .
 
 # Non-root user

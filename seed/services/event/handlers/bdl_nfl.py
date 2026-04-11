@@ -88,14 +88,28 @@ class NFLHandler:
     # Fixture schedule + fixture box scores
     # ------------------------------------------------------------------
 
-    def get_games(self, season: int, week: int | None = None) -> list[dict[str, Any]]:
-        """Fetch NFL fixture rows for a season (optionally week-scoped)."""
+    def get_games(
+        self,
+        season: int,
+        week: int | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Fetch NFL fixture rows for a season (optionally week/date scoped)."""
         param_candidates: list[dict[str, Any]] = []
         primary: dict[str, Any] = {"seasons[]": season}
         fallback: dict[str, Any] = {"season": season}
         if week is not None:
             primary["weeks[]"] = week
             fallback["week"] = week
+        if from_date:
+            primary["start_date"] = from_date
+            primary["dates[]"] = from_date
+            fallback["start_date"] = from_date
+            fallback["date"] = from_date
+        if to_date:
+            primary["end_date"] = to_date
+            fallback["end_date"] = to_date
         param_candidates.extend([primary, fallback])
 
         items: list[dict[str, Any]] = []
@@ -167,7 +181,7 @@ class NFLHandler:
             logger.warning(f"Failed to fetch player {player_id}: {e}")
             return None
 
-    def get_all_players(self, season: int) -> list[dict]:
+    def get_all_players(self, season: int, limit: int | None = None) -> list[dict]:
         """Fetch all NFL players for a season.
 
         Args:
@@ -176,10 +190,16 @@ class NFLHandler:
         Returns:
             List of player profile dicts
         """
+        limit_val = limit if (limit is not None and limit > 0) else None
         try:
-            return self.client.get_all_pages(
+            items: list[dict[str, Any]] = []
+            for page in self.client.get_paginated(
                 "/nfl/v1/players", {"season": season, "per_page": 100}
-            )
+            ):
+                items.extend(page)
+                if limit_val is not None and len(items) >= limit_val:
+                    return items[:limit_val]
+            return items
         except Exception as e:
             logger.warning(f"Failed to fetch all players for season {season}: {e}")
             return []

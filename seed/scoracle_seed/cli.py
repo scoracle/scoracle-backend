@@ -33,15 +33,11 @@ def cli() -> None:
     _setup_logging()
 
 
-# Import and register event commands
 from services.event.cli import cli as event_cli
+from services.meta.cli import cli as meta_cli
 
 cli.add_command(event_cli, name="event")
-
-
-# TODO: Import and register meta commands when built
-# from services.meta.cli import cli as meta_cli
-# cli.add_command(meta_cli, name="meta")
+cli.add_command(meta_cli, name="meta")
 
 
 if __name__ == "__main__":

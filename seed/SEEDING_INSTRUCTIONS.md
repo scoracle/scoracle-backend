@@ -1,182 +1,134 @@
 # Seeding Instructions
 
-This guide explains how to seed the database with sports data using the two-service architecture.
+This seeder is intentionally CLI-driven and lean:
 
-## Architecture Overview
+1. **Event seeding** (`scoracle-seed event ...`) for fixtures + box scores.
+2. **Meta seeding** (`scoracle-seed meta ...`) for team/player profiles.
 
-The seeding system has two separate services:
-
-1. **Event Service** (`scoracle-seed event`) - Box scores, fixtures, raw game data
-2. **Meta Service** (`scoracle-seed meta`) - Player/team profiles, photos, bio data
-
-This separation keeps event data (critical) provider-agnostic while allowing flexible metadata sourcing.
+No scheduler, daemon, or LISTEN/NOTIFY runtime is required for these flows.
 
 ## Prerequisites
 
-1. Set up environment variables in `.env.local`:
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `BALLDONTLIE_API_KEY` - For NBA and NFL data
-   - `SPORTMONKS_API_TOKEN` - For Football/Soccer data
+1. Configure environment variables:
+   - `DATABASE_URL` (or `DATABASE_PRIVATE_URL` / `RAILWAY_DATABASE_URL`)
+   - `BALLDONTLIE_API_KEY` (NBA/NFL)
+   - `SPORTMONKS_API_TOKEN` (Football)
+2. Install package:
 
-2. Install the seeder package:
-   ```bash
-   cd seed
-   pip install -e .
-   ```
-
-## Event Service (Box Scores)
-
-### Load Fixtures
-
-Load the season schedule:
-
-**NBA:**
 ```bash
+cd seed
+pip install -e .
+```
+
+## Event Seeding (Fixtures + Box Scores)
+
+### 1. Load Fixtures
+
+```bash
+# NBA
 scoracle-seed event load-fixtures nba --season 2025
-```
 
-**NFL:**
-```bash
+# NFL
 scoracle-seed event load-fixtures nfl --season 2025
+
+# Football (league required; 2025 == 2025/26 season)
+scoracle-seed event load-fixtures football --season 2025 --league 8
 ```
 
-**Football:**
-```bash
-# Premier League
-scoracle-seed event load-fixtures football --season 2026 --league 8
-
-# Bundesliga
-scoracle-seed event load-fixtures football --season 2026 --league 82
-
-# La Liga
-scoracle-seed event load-fixtures football --season 2026 --league 564
-
-# Serie A
-scoracle-seed event load-fixtures football --season 2026 --league 384
-
-# Ligue 1
-scoracle-seed event load-fixtures football --season 2026 --league 301
-```
-
-### Process Fixtures (Box Scores)
-
-Fetch player and team statistics from completed games:
+### 2. Process Pending Fixtures
 
 ```bash
-# Process NBA
-scoracle-seed event process --sport NBA --season 2025 --max 50
+# Any sport
+scoracle-seed event process --max 100
 
-# Process NFL
-scoracle-seed event process --sport NFL --season 2025 --max 50
-
-# Process Football
-scoracle-seed event process --sport FOOTBALL --season 2026 --max 50
+# Scoped by sport + season
+scoracle-seed event process --sport nba --season 2025 --max 100
+scoracle-seed event process --sport nfl --season 2025 --max 100
+scoracle-seed event process --sport football --season 2025 --max 100
 ```
 
-## Meta Service (Profiles)
+`event process` writes fixture-level rows to:
+- `event_box_scores`
+- `event_team_stats`
 
-### Seed Metadata
+Then it calls `finalize_fixture()` in Postgres to handle aggregation and percentiles.
 
-Populate player/team profiles at season start:
+## Meta Seeding (Profiles)
+
+Run periodically (for example, season start + a couple refreshes per year):
 
 ```bash
-# Seed NBA player profiles
-scoracle-seed meta seed --sport nba --season 2025
+# NBA profiles
+scoracle-seed meta seed nba --season 2025
 
-# Seed NFL player profiles
-scoracle-seed meta seed --sport nfl --season 2025
+# NFL profiles
+scoracle-seed meta seed nfl --season 2025
 
-# Seed Football player profiles
-scoracle-seed meta seed --sport football --season 2026
+# Football profiles (league required; 2025 == 2025/26 season)
+scoracle-seed meta seed football --season 2025 --league 8
 ```
 
-### Refresh Single Player
-
-Update metadata for specific player:
+Optional throttle for controlled runs:
 
 ```bash
-scoracle-seed meta refresh --sport nba --player-id 237
+scoracle-seed meta seed nfl --season 2025 --max-teams 2 --max-players 500
 ```
 
-## Current Season Data
+## Quick Smoke Validation (Minimal Run)
 
-### NBA
-- **Season:** 2025 (2025-26)
-- **Dates:** October 2025 - April 2026
-- **Fixtures:** ~1,200 games
-
-### NFL
-- **Season:** 2025 (2025-26)
-- **Dates:** September 2025 - February 2026
-- **Fixtures:** 285 games
-
-### Football
-- **Season:** 2025/2026
-- **Dates:** August 2025 - May 2026
-- **Leagues:** 5 major leagues
-
-**League IDs:**
-| League | ID | Season ID |
-|--------|-----|-----------|
-| Premier League | 8 | 25583 |
-| Bundesliga | 82 | 25646 |
-| Ligue 1 | 301 | 25651 |
-| Serie A | 384 | 25533 |
-| La Liga | 564 | 25659 |
-
-## Service Separation
-
-### Event Service
-- **Data:** Box scores, fixtures, game events
-- **Priority:** Critical
-- **Runs:** On-demand (CLI)
-- **Goal:** Provider-agnostic raw event data
-
-### Meta Service
-- **Data:** Photos, bio, jersey numbers, positions
-- **Priority:** Important for UX
-- **Runs:** Background daemon (LISTEN/NOTIFY)
-- **Goal:** Rich profiles from standard endpoints
-
-## Architecture
-
-```
-Event Seeding -> API (box scores) -> DB (event_box_scores)
-                                              |
-                                       Postgres Trigger
-                                              |
-                                       NOTIFY 'team_change'
-                                              |
-                                       Meta Service (LISTEN)
-                                              |
-                                       API (profile) -> DB (players)
-```
-
-## Authentication
-
-### BallDontlie (NBA/NFL)
-- **Header:** `Authorization: {api_key}`
-- **Rate Limit:** 600 requests/minute (GOAT tier)
-
-### SportMonks (Football)
-- **Query Parameter:** `api_token={token}`
-- **Rate Limit:** 3,000 requests/day
-
-## Docker
+Use this to verify end-to-end seeding without doing a full pass:
 
 ```bash
-# Run event seeding
+# One team + one player metadata seed per sport
+scoracle-seed meta seed nba --season 2025 --max-teams 1 --max-players 1
+scoracle-seed meta seed nfl --season 2025 --max-teams 1 --max-players 1
+scoracle-seed meta seed football --season 2025 --league 8 --max-teams 1 --max-players 1
+
+# One event per sport (load fixtures first, then process 1)
+scoracle-seed event load-fixtures nba --season 2025
+scoracle-seed event process --sport nba --season 2025 --max 1
+
+scoracle-seed event load-fixtures nfl --season 2025
+scoracle-seed event process --sport nfl --season 2025 --max 1
+
+scoracle-seed event load-fixtures football --season 2025 --league 8
+scoracle-seed event process --sport football --season 2025 --max 1
+```
+
+## Provider Endpoint Notes
+
+- NBA metadata profile seeding uses BallDontLie `GET /v1/players` and `GET /v1/teams` (with compatibility fallback to `/nba/v1/...`).
+- NFL metadata profile seeding uses `GET /nfl/v1/players` and `GET /nfl/v1/teams`.
+- Football metadata profile seeding uses `GET /players/{id}` (SportMonks) and season team/squad endpoints.
+
+## Recommended "Fill Missing Holes" Workflow
+
+1. Load/refresh fixtures for each sport.
+2. Run `event process` in batches until failures are near zero.
+3. Run `meta seed` for each sport to backfill profile metadata.
+4. Re-run `event process` to catch anything that became ready since the prior pass.
+
+## Docker Usage
+
+```bash
+# Load fixtures
 docker compose run --rm seed event load-fixtures nba --season 2025
 
-# Run meta service (continuous)
-docker compose up meta-service
+# Process event data
+docker compose run --rm seed event process --sport nba --season 2025 --max 100
+
+# Seed metadata
+docker compose run --rm seed meta seed nba --season 2025
 ```
 
-## See Also
+## League IDs (Football)
 
-- `BOX_SCORE_ENDPOINTS.md` - Event/box score API endpoints
-- `META_ENDPOINTS.md` - Profile/metadata API endpoints
+| League | ID |
+|---|---|
+| Premier League | 8 |
+| Bundesliga | 82 |
+| Ligue 1 | 301 |
+| Serie A | 384 |
+| La Liga | 564 |
 
----
-
-*Last updated: 2026-04-06*
+See `BOX_SCORE_ENDPOINTS.md` and `META_ENDPOINTS.md` for provider endpoint details.

@@ -36,10 +36,9 @@ cd seed
  pip install -e .
 
 # Run commands
- scoracle-seed bootstrap-teams nba --season 2025
- scoracle-seed load-fixtures nba --season 2025
- scoracle-seed process --max 50
- scoracle-seed seed-fixture <fixture-id>
+ scoracle-seed event load-fixtures nba --season 2025
+ scoracle-seed event process --sport nba --season 2025 --max 50
+ scoracle-seed meta seed nba --season 2025
 ```
 
 ### Docker
@@ -49,7 +48,7 @@ cd seed
 docker compose up --build
 
 # Run seeder via compose
-docker compose run --rm seed process --max 50
+docker compose run --rm seed event process --max 50
 ```
 
 ## Test Commands

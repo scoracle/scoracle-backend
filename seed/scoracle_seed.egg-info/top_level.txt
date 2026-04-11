@@ -1,2 +1,3 @@
 scoracle_seed
-tests
+services
+shared

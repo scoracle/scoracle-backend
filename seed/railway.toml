@@ -1,6 +1,13 @@
 [build]
 builder = "DOCKERFILE"
-watchPatterns = ["scoracle_seed/**", "pyproject.toml", "Dockerfile", "railway.toml"]
+watchPatterns = [
+    "scoracle_seed/**",
+    "services/**",
+    "shared/**",
+    "pyproject.toml",
+    "Dockerfile",
+    "railway.toml",
+]
 
 [deploy]
 restartPolicyType = "ON_FAILURE"

@@ -78,7 +78,7 @@ scoracle-data/
 ```bash
 cp .env.example .env
 docker compose up --build
-docker compose run --rm seed process --max 50
+docker compose run --rm seed event process --max 50
 ```
 
 Local URL: `http://localhost:8000`
@@ -99,11 +99,9 @@ Python seeder:
 cd seed
 pip install -e .
 
-scoracle-seed bootstrap-teams nba --season 2025
-scoracle-seed load-fixtures nba --season 2025 --from-date 2025-10-01 --to-date 2025-10-31
-scoracle-seed process --max 50
-scoracle-seed backfill nba --season 2024 --from-date 2024-10-22 --to-date 2025-04-13 --max 200
-scoracle-seed percentiles --sport NBA --season 2025 --required-stat pts --required-stat ast
+scoracle-seed event load-fixtures nba --season 2025 --from-date 2025-10-01 --to-date 2025-10-31
+scoracle-seed event process --sport nba --season 2025 --max 50
+scoracle-seed meta seed nba --season 2025
 ```
 
 ## Testing

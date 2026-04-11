@@ -36,12 +36,26 @@ class NBAHandler:
     def close(self) -> None:
         self.client.close()
 
+    def _get_first_success(
+        self, paths: list[str], params: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        last_exc: Exception | None = None
+        for path in paths:
+            try:
+                return self.client.get(path, params=params)
+            except Exception as exc:
+                last_exc = exc
+                continue
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("no API paths provided")
+
     # ------------------------------------------------------------------
     # Teams
     # ------------------------------------------------------------------
 
     def get_teams(self) -> list[Team]:
-        resp = self.client.get("/nba/v1/teams")
+        resp = self._get_first_success(["/v1/teams", "/nba/v1/teams"])
         teams = []
         for t in resp.get("data", []):
             team_id = t.get("id")
@@ -197,23 +211,39 @@ class NBAHandler:
             Player profile dict or None if not found
         """
         try:
-            resp = self.client.get(f"/nba/v1/players/{player_id}")
-            return resp.get("data")
+            resp = self._get_first_success(
+                [f"/v1/players/{player_id}", f"/nba/v1/players/{player_id}"]
+            )
+            data = resp.get("data")
+            if isinstance(data, dict):
+                return data
+            return None
         except Exception as e:
             logger.warning(f"Failed to fetch player {player_id}: {e}")
             return None
 
-    def get_all_players(self) -> list[dict]:
+    def get_all_players(self, limit: int | None = None) -> list[dict]:
         """Fetch all active NBA players.
 
         Returns:
             List of player profile dicts
         """
-        try:
-            return self.client.get_all_pages("/nba/v1/players", {"per_page": 100})
-        except Exception as e:
-            logger.warning(f"Failed to fetch all players: {e}")
-            return []
+        limit_val = limit if (limit is not None and limit > 0) else None
+        last_exc: Exception | None = None
+        for path in ("/v1/players", "/nba/v1/players"):
+            try:
+                items: list[dict[str, Any]] = []
+                for page in self.client.get_paginated(path, {"per_page": 100}):
+                    items.extend(page)
+                    if limit_val is not None and len(items) >= limit_val:
+                        return items[:limit_val]
+                return items
+            except Exception as exc:
+                last_exc = exc
+                continue
+        if last_exc:
+            logger.warning(f"Failed to fetch all players: {last_exc}")
+        return []
 
     def get_box_score(
         self, external_game_id: int, fixture_id: int

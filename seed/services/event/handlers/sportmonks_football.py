@@ -187,72 +187,83 @@ class FootballHandler:
     def get_box_score(
         self, external_fixture_id: int, fixture_id: int
     ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
-        """Fetch one fixture's detailed lineups + scores as event-level lines."""
+        """Fetch one fixture's lineups, events, and scores. Return raw data.
+
+        Python's job: flatten nested API structures into per-player stat dicts.
+        Postgres's job: normalize keys, aggregate seasons, derive stats, percentiles.
+        """
         resp = self.client.get(
             f"/fixtures/{external_fixture_id}",
-            {
-                "include": "lineups.details.type;events;scores;participants",
-            },
+            {"include": "lineups.details.type;events;scores;participants"},
         )
         data = resp.get("data", {})
-
-        players: list[EventBoxScore] = []
-        team_stats_acc: dict[int, dict[str, float]] = {}
         team_scores: dict[int, int] = _extract_fixture_scores(data)
 
-        lineups = data.get("lineups", [])
-        if isinstance(lineups, list):
-            for entry in lineups:
-                team_id = entry.get("team_id") or _team_id_from_relation(
-                    entry.get("team")
+        # 1. Flatten lineup details into per-player stats
+        players: list[EventBoxScore] = []
+        player_by_id: dict[int, EventBoxScore] = {}
+        team_stats_acc: dict[int, dict[str, float]] = {}
+
+        for entry in data.get("lineups") or []:
+            team_id = entry.get("team_id") or _team_id_from_relation(entry.get("team"))
+            player_id = entry.get("player_id")
+            if not isinstance(player_id, int) and isinstance(entry.get("player"), dict):
+                player_id = entry["player"].get("id")
+            if not isinstance(team_id, int) or not isinstance(player_id, int):
+                continue
+
+            # Raw pass-through: flatten {type.code: data.value} for every detail
+            stats: dict[str, Any] = {}
+            for detail in entry.get("details") or []:
+                code = (detail.get("type") or {}).get("code", "")
+                value = (detail.get("data") or {}).get("value")
+                if code and value is not None:
+                    stats[code] = value
+
+            minutes_played = stats.get("minutes-played")
+            player_raw = entry.get("player")
+            player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
+            if player and player.team_id is None:
+                player.team_id = team_id
+
+            box = EventBoxScore(
+                fixture_id=fixture_id,
+                player_id=player_id,
+                team_id=team_id,
+                player=player,
+                minutes_played=minutes_played,
+                stats=stats,
+                raw=entry,
+            )
+            players.append(box)
+            player_by_id[player_id] = box
+
+            # Accumulate numeric stats for team totals
+            acc = team_stats_acc.setdefault(team_id, {})
+            for key, value in stats.items():
+                if isinstance(value, (int, float)):
+                    acc[key] = acc.get(key, 0.0) + float(value)
+
+        # 2. Count match events (goals, assists, cards) per player
+        event_counts = _extract_event_stats(data.get("events") or [])
+        for player_id, counts in event_counts.items():
+            box = player_by_id.get(player_id)
+            if box:
+                box.stats.update(counts)
+                acc = team_stats_acc.setdefault(box.team_id, {})
+                for key, value in counts.items():
+                    acc[key] = acc.get(key, 0.0) + float(value)
+            else:
+                logger.warning(
+                    "Event stats for player_id=%d not in lineups (fixture %d): %s",
+                    player_id, fixture_id, counts,
                 )
-                player_raw = entry.get("player")
-                player_id = entry.get("player_id")
-                if not isinstance(player_id, int) and isinstance(player_raw, dict):
-                    player_id = player_raw.get("id")
-                if not isinstance(team_id, int) or not isinstance(player_id, int):
-                    continue
 
-                details = entry.get("details", [])
-                stats = _normalize_player_stats(
-                    details if isinstance(details, list) else []
-                )
-                minutes_played = _extract_value(entry.get("minutes"))
-                if minutes_played is None:
-                    minutes_played = stats.get("minutes-played") or stats.get("minutes_played")
-                if minutes_played is not None:
-                    stats["minutes_played"] = minutes_played
-
-                player = (
-                    _parse_player(player_raw) if isinstance(player_raw, dict) else None
-                )
-                if player and player.team_id is None:
-                    player.team_id = team_id
-
-                players.append(
-                    EventBoxScore(
-                        fixture_id=fixture_id,
-                        player_id=player_id,
-                        team_id=team_id,
-                        player=player,
-                        minutes_played=minutes_played,
-                        stats=stats,
-                        raw=entry,
-                    )
-                )
-
-                acc = team_stats_acc.setdefault(team_id, {})
-                for key, value in stats.items():
-                    if isinstance(value, (int, float)):
-                        acc[key] = acc.get(key, 0.0) + float(value)
-
+        # 3. Build team stats from accumulated player stats + scores
         teams: list[EventTeamStats] = []
-        participants = data.get("participants", [])
-        if isinstance(participants, list):
-            for p in participants:
-                team_id = p.get("id")
-                if isinstance(team_id, int):
-                    team_stats_acc.setdefault(team_id, {})
+        for p in data.get("participants") or []:
+            if isinstance(p.get("id"), int):
+                team_stats_acc.setdefault(p["id"], {})
 
         for team_id, agg in team_stats_acc.items():
             teams.append(
@@ -261,10 +272,7 @@ class FootballHandler:
                     team_id=team_id,
                     score=team_scores.get(team_id),
                     stats=agg,
-                    raw={
-                        "provider": "sportmonks",
-                        "external_fixture_id": external_fixture_id,
-                    },
+                    raw={"provider": "sportmonks", "external_fixture_id": external_fixture_id},
                 )
             )
 
@@ -274,6 +282,52 @@ class FootballHandler:
 # --------------------------------------------------------------------------
 # Parsing helpers
 # --------------------------------------------------------------------------
+
+
+def _extract_event_stats(events: list[dict[str, Any]]) -> dict[int, dict[str, int]]:
+    """Count goals, assists, cards, and penalties per player from match events.
+
+    Event types:
+      14 = Goal (related_player_id = assister)
+      16 = Penalty scored (player also gets a type-14 Goal — count separately)
+      17 = Missed penalty
+      19 = Yellow card
+      20 = Red card
+      21 = Yellow/Red card (second yellow)
+    """
+    counts: dict[int, dict[str, int]] = {}
+
+    if not isinstance(events, list):
+        return counts
+
+    for event in events:
+        type_id = event.get("type_id")
+        player_id = event.get("player_id")
+
+        if not isinstance(player_id, int):
+            continue
+
+        if type_id == 14:  # Goal (includes penalties — penalty_goals counted via type 16)
+            counts.setdefault(player_id, {})
+            counts[player_id]["goals"] = counts[player_id].get("goals", 0) + 1
+            assister_id = event.get("related_player_id")
+            if isinstance(assister_id, int):
+                counts.setdefault(assister_id, {})
+                counts[assister_id]["assists"] = counts[assister_id].get("assists", 0) + 1
+        elif type_id == 16:  # Penalty scored (goal already counted via type 14)
+            counts.setdefault(player_id, {})
+            counts[player_id]["penalty_goals"] = counts[player_id].get("penalty_goals", 0) + 1
+        elif type_id == 17:  # Missed penalty
+            counts.setdefault(player_id, {})
+            counts[player_id]["penalties_missed"] = counts[player_id].get("penalties_missed", 0) + 1
+        elif type_id == 19:  # Yellow card
+            counts.setdefault(player_id, {})
+            counts[player_id]["yellow_cards"] = counts[player_id].get("yellow_cards", 0) + 1
+        elif type_id in (20, 21):  # Red card or second yellow
+            counts.setdefault(player_id, {})
+            counts[player_id]["red_cards"] = counts[player_id].get("red_cards", 0) + 1
+
+    return counts
 
 
 def _extract_value(val: Any) -> float | None:
@@ -404,48 +458,28 @@ def _extract_league_stats(
         if not isinstance(league, dict):
             continue
         if league.get("id") == sm_league_id:
-            return _normalize_player_stats(block.get("details", []))
+            return _flatten_details(block.get("details", []))
     return {}
 
 
-def _normalize_player_stats(details: list[dict[str, Any]]) -> dict[str, Any]:
-    """Extract stat key/value pairs from details array.
-
-    Raw keys are passed through — Postgres handles normalization.
-    """
+def _flatten_details(details: list[dict[str, Any]]) -> dict[str, Any]:
+    """Flatten details array into {code: raw_value}. No type coercion."""
     stats: dict[str, Any] = {}
     for detail in details:
-        type_info = detail.get("type")
-        if not isinstance(type_info, dict):
-            continue
-        code = type_info.get("code", "")
-        if not code:
-            continue
-        val = _extract_value(detail.get("data", {}).get("value"))
-        if val is not None:
-            stats[code] = val
+        code = (detail.get("type") or {}).get("code", "")
+        value = (detail.get("data") or {}).get("value")
+        if code and value is not None:
+            stats[code] = value
     return stats
 
 
 def _parse_standing(raw: dict[str, Any]) -> TeamStats:
-    stats: dict[str, Any] = {}
-
-    # Extract details (raw codes — Postgres normalizes)
-    for detail in raw.get("details", []):
-        type_info = detail.get("type")
-        if not isinstance(type_info, dict):
-            continue
-        code = type_info.get("code", "")
-        if not code:
-            continue
-        val = _extract_value(detail.get("data", {}).get("value"))
-        if val is not None:
-            stats[code] = val
+    stats = _flatten_details(raw.get("details", []))
 
     if raw.get("points") is not None:
-        stats["points"] = float(raw["points"])
+        stats["points"] = raw["points"]
     if raw.get("position") is not None:
-        stats["position"] = float(raw["position"])
+        stats["position"] = raw["position"]
     if raw.get("form"):
         stats["form"] = raw["form"]
 

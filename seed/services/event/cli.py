@@ -72,6 +72,14 @@ def _seed_fixture_box_scores(
     season = fixture.season
     league_id = fixture.league_id or 0
 
+    # Clear stale rows so re-seeds don't leave orphaned data
+    conn.execute(
+        "DELETE FROM event_box_scores WHERE fixture_id = %s", (fixture.id,)
+    )
+    conn.execute(
+        "DELETE FROM event_team_stats WHERE fixture_id = %s", (fixture.id,)
+    )
+
     for row in player_rows:
         if row.player:
             upsert_player(conn, fixture.sport, row.player)

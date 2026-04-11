@@ -382,26 +382,79 @@ CREATE OR REPLACE FUNCTION football.aggregate_player_season(
     p_league_id INTEGER DEFAULT 0
 )
 RETURNS JSONB AS $$
-WITH agg AS (
-    SELECT
-        COUNT(*)::numeric AS matches_played,
-        SUM(COALESCE(minutes_played, 0)) AS minutes_sum,
-        SUM(COALESCE((stats->>'goals')::numeric, 0)) AS goals_sum,
-        SUM(COALESCE((stats->>'assists')::numeric, 0)) AS assists_sum,
-        SUM(COALESCE((stats->>'shots_total')::numeric, 0)) AS shots_sum,
-        SUM(COALESCE((stats->>'shots_on_target')::numeric, 0)) AS sot_sum,
-        SUM(COALESCE((stats->>'passes_total')::numeric, 0)) AS passes_sum,
-        SUM(COALESCE((stats->>'passes_accurate')::numeric, 0)) AS passes_acc_sum,
-        SUM(COALESCE((stats->>'tackles')::numeric, 0)) AS tackles_sum,
-        SUM(COALESCE((stats->>'interceptions')::numeric, 0)) AS interceptions_sum,
-        SUM(COALESCE((stats->>'yellow_cards')::numeric, 0)) AS yellow_sum,
-        SUM(COALESCE((stats->>'red_cards')::numeric, 0)) AS red_sum,
-        SUM(COALESCE((stats->>'expected_goals')::numeric, 0)) AS xg_sum
+WITH raw AS (
+    SELECT stats, minutes_played
     FROM public.event_box_scores
     WHERE player_id = p_player_id
       AND sport = 'FOOTBALL'
       AND season = p_season
       AND league_id = p_league_id
+),
+agg AS (
+    SELECT
+        COUNT(*)::numeric AS matches_played,
+        SUM(COALESCE(minutes_played, 0)) AS minutes_sum,
+        -- Scoring (from match events)
+        SUM(COALESCE((stats->>'goals')::numeric, 0)) AS goals,
+        SUM(COALESCE((stats->>'assists')::numeric, 0)) AS assists,
+        SUM(COALESCE((stats->>'penalty_goals')::numeric, 0)) AS penalty_goals,
+        SUM(COALESCE((stats->>'penalties_missed')::numeric, 0)) AS penalties_missed,
+        SUM(COALESCE((stats->>'penalties_won')::numeric, 0)) AS penalties_won,
+        SUM(COALESCE((stats->>'expected_goals')::numeric, 0)) AS expected_goals,
+        SUM(COALESCE((stats->>'own_goals')::numeric, 0)) AS own_goals,
+        -- Shooting
+        SUM(COALESCE((stats->>'shots_total')::numeric, 0)) AS shots_total,
+        SUM(COALESCE((stats->>'shots_on_target')::numeric, 0)) AS shots_on_target,
+        SUM(COALESCE((stats->>'shots_off_target')::numeric, 0)) AS shots_off_target,
+        SUM(COALESCE((stats->>'shots_blocked')::numeric, 0)) AS shots_blocked,
+        SUM(COALESCE((stats->>'hit_woodwork')::numeric, 0)) AS hit_woodwork,
+        SUM(COALESCE((stats->>'big_chances_missed')::numeric, 0)) AS big_chances_missed,
+        -- Passing
+        SUM(COALESCE((stats->>'passes_total')::numeric, 0)) AS passes_total,
+        SUM(COALESCE((stats->>'passes_accurate')::numeric, 0)) AS passes_accurate,
+        SUM(COALESCE((stats->>'key_passes')::numeric, 0)) AS key_passes,
+        SUM(COALESCE((stats->>'big_chances_created')::numeric, 0)) AS big_chances_created,
+        SUM(COALESCE((stats->>'chances_created')::numeric, 0)) AS chances_created,
+        SUM(COALESCE((stats->>'crosses_total')::numeric, 0)) AS crosses_total,
+        SUM(COALESCE((stats->>'crosses_accurate')::numeric, 0)) AS crosses_accurate,
+        SUM(COALESCE((stats->>'long_balls')::numeric, 0)) AS long_balls,
+        SUM(COALESCE((stats->>'long_balls_won')::numeric, 0)) AS long_balls_won,
+        SUM(COALESCE((stats->>'through_balls')::numeric, 0)) AS through_balls,
+        SUM(COALESCE((stats->>'backward_passes')::numeric, 0)) AS backward_passes,
+        SUM(COALESCE((stats->>'passes_in_final_third')::numeric, 0)) AS passes_in_final_third,
+        -- Defensive
+        SUM(COALESCE((stats->>'tackles')::numeric, 0)) AS tackles,
+        SUM(COALESCE((stats->>'tackles_won')::numeric, 0)) AS tackles_won,
+        SUM(COALESCE((stats->>'interceptions')::numeric, 0)) AS interceptions,
+        SUM(COALESCE((stats->>'clearances')::numeric, 0)) AS clearances,
+        SUM(COALESCE((stats->>'blocks')::numeric, 0)) AS blocks,
+        -- Duels & dribbling
+        SUM(COALESCE((stats->>'duels_total')::numeric, 0)) AS duels_total,
+        SUM(COALESCE((stats->>'duels_won')::numeric, 0)) AS duels_won,
+        SUM(COALESCE((stats->>'aerials')::numeric, 0)) AS aerials,
+        SUM(COALESCE((stats->>'aeriels_won')::numeric, 0)) AS aeriels_won,
+        SUM(COALESCE((stats->>'dribbles_attempts')::numeric, 0)) AS dribbles_attempts,
+        SUM(COALESCE((stats->>'dribbles_success')::numeric, 0)) AS dribbles_success,
+        SUM(COALESCE((stats->>'dribbled_past')::numeric, 0)) AS dribbled_past,
+        SUM(COALESCE((stats->>'dispossessed')::numeric, 0)) AS dispossessed,
+        SUM(COALESCE((stats->>'possession_lost')::numeric, 0)) AS possession_lost,
+        -- General
+        SUM(COALESCE((stats->>'touches')::numeric, 0)) AS touches,
+        SUM(COALESCE((stats->>'ball_recovery')::numeric, 0)) AS ball_recovery,
+        -- Discipline
+        SUM(COALESCE((stats->>'yellow_cards')::numeric, 0)) AS yellow_cards,
+        SUM(COALESCE((stats->>'red_cards')::numeric, 0)) AS red_cards,
+        SUM(COALESCE((stats->>'fouls_committed')::numeric, 0)) AS fouls_committed,
+        SUM(COALESCE((stats->>'fouls_drawn')::numeric, 0)) AS fouls_drawn,
+        SUM(COALESCE((stats->>'offsides')::numeric, 0)) AS offsides,
+        -- Goalkeeper
+        SUM(COALESCE((stats->>'saves')::numeric, 0)) AS saves,
+        SUM(COALESCE((stats->>'saves_insidebox')::numeric, 0)) AS saves_insidebox,
+        SUM(COALESCE((stats->>'goals_conceded')::numeric, 0)) AS goals_conceded,
+        SUM(COALESCE((stats->>'punches')::numeric, 0)) AS punches,
+        SUM(COALESCE((stats->>'good_high_claim')::numeric, 0)) AS good_high_claim,
+        SUM(COALESCE((stats->>'penalties_saved')::numeric, 0)) AS penalties_saved
+    FROM raw
 )
 SELECT CASE
     WHEN matches_played = 0 THEN '{}'::jsonb
@@ -410,17 +463,59 @@ SELECT CASE
             'appearances', matches_played::int,
             'lineups', matches_played::int,
             'minutes_played', CASE WHEN matches_played > 0 THEN ROUND(minutes_sum / matches_played, 1) END,
-            'goals', goals_sum::int,
-            'assists', assists_sum::int,
-            'expected_goals', ROUND(xg_sum, 2),
-            'shots_total', shots_sum::int,
-            'shots_on_target', sot_sum::int,
-            'passes_total', passes_sum::int,
-            'passes_accurate', passes_acc_sum::int,
-            'tackles', tackles_sum::int,
-            'interceptions', interceptions_sum::int,
-            'yellow_cards', yellow_sum::int,
-            'red_cards', red_sum::int
+            'goals', goals::int,
+            'assists', assists::int,
+            'penalty_goals', CASE WHEN penalty_goals > 0 THEN penalty_goals::int END,
+            'penalties_missed', CASE WHEN penalties_missed > 0 THEN penalties_missed::int END,
+            'penalties_won', CASE WHEN penalties_won > 0 THEN penalties_won::int END,
+            'expected_goals', ROUND(expected_goals, 2),
+            'own_goals', CASE WHEN own_goals > 0 THEN own_goals::int END,
+            'shots_total', shots_total::int,
+            'shots_on_target', shots_on_target::int,
+            'shots_off_target', shots_off_target::int,
+            'shots_blocked', shots_blocked::int,
+            'hit_woodwork', CASE WHEN hit_woodwork > 0 THEN hit_woodwork::int END,
+            'big_chances_missed', CASE WHEN big_chances_missed > 0 THEN big_chances_missed::int END,
+            'passes_total', passes_total::int,
+            'passes_accurate', passes_accurate::int,
+            'key_passes', key_passes::int,
+            'big_chances_created', CASE WHEN big_chances_created > 0 THEN big_chances_created::int END,
+            'chances_created', chances_created::int,
+            'crosses_total', crosses_total::int,
+            'crosses_accurate', crosses_accurate::int
+        ) || jsonb_build_object(
+            'long_balls', long_balls::int,
+            'long_balls_won', long_balls_won::int,
+            'through_balls', CASE WHEN through_balls > 0 THEN through_balls::int END,
+            'backward_passes', backward_passes::int,
+            'passes_in_final_third', passes_in_final_third::int,
+            'tackles', tackles::int,
+            'tackles_won', tackles_won::int,
+            'interceptions', interceptions::int,
+            'clearances', clearances::int,
+            'blocks', blocks::int,
+            'duels_total', duels_total::int,
+            'duels_won', duels_won::int,
+            'aerials', aerials::int,
+            'aeriels_won', aeriels_won::int,
+            'dribbles_attempts', dribbles_attempts::int,
+            'dribbles_success', dribbles_success::int,
+            'dribbled_past', dribbled_past::int,
+            'dispossessed', dispossessed::int,
+            'possession_lost', possession_lost::int,
+            'touches', touches::int,
+            'ball_recovery', ball_recovery::int,
+            'yellow_cards', yellow_cards::int,
+            'red_cards', CASE WHEN red_cards > 0 THEN red_cards::int END,
+            'fouls_committed', fouls_committed::int,
+            'fouls_drawn', fouls_drawn::int,
+            'offsides', offsides::int,
+            'saves', CASE WHEN saves > 0 THEN saves::int END,
+            'saves_insidebox', CASE WHEN saves_insidebox > 0 THEN saves_insidebox::int END,
+            'goals_conceded', goals_conceded::int,
+            'punches', CASE WHEN punches > 0 THEN punches::int END,
+            'good_high_claim', CASE WHEN good_high_claim > 0 THEN good_high_claim::int END,
+            'penalties_saved', CASE WHEN penalties_saved > 0 THEN penalties_saved::int END
         )
     )
 END

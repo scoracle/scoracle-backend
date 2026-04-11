@@ -42,3 +42,33 @@ def check_connectivity(pool: ConnectionPool) -> bool:
     except Exception as exc:
         logger.error("Database connectivity check failed: %s", exc)
         return False
+
+
+# ------------------------------------------------------------------
+# Provider resolvers (football / SportMonks)
+# ------------------------------------------------------------------
+
+
+def resolve_provider_season_id(
+    conn: psycopg.Connection, league_id: int, season_year: int
+) -> int | None:
+    """Look up SportMonks season ID from the provider_seasons table."""
+    row = conn.execute(
+        "SELECT resolve_provider_season_id(%s, %s)", (league_id, season_year)
+    ).fetchone()
+    if row:
+        val = list(row.values())[0]
+        return val
+    return None
+
+
+def resolve_sm_league_id(
+    conn: psycopg.Connection, league_id: int
+) -> tuple[int | None, str]:
+    """Look up SportMonks league ID and name from leagues table."""
+    row = conn.execute(
+        "SELECT sportmonks_id, name FROM leagues WHERE id = %s", (league_id,)
+    ).fetchone()
+    if row:
+        return row.get("sportmonks_id"), row.get("name", "")
+    return None, ""

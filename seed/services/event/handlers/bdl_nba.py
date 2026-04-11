@@ -31,7 +31,7 @@ class NBAHandler:
     """Fetches NBA data from BallDontLie and returns canonical models."""
 
     def __init__(self, api_key: str):
-        self.client = BDLClient(NBA_BASE_URL, api_key, requests_per_minute=600)
+        self.client = BDLClient(NBA_BASE_URL, api_key)
 
     def close(self) -> None:
         self.client.close()
@@ -352,35 +352,6 @@ class NBAHandler:
             logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
             return []
 
-    def get_advanced_stats(self, game_id: int) -> list[dict[str, Any]]:
-        """Fetch advanced stats V2 (GOAT tier) - includes hustle, tracking, PIE, etc."""
-        params = {"game_ids[]": game_id, "per_page": 100}
-        try:
-            return self.client.get_all_pages("/nba/v2/stats/advanced", params)
-        except Exception as e:
-            logger.debug(f"Advanced stats not available for game {game_id}: {e}")
-            return []
-
-    def get_lineups(self, game_id: int) -> list[dict[str, Any]]:
-        """Fetch lineup data (GOAT tier) - starters, positions, etc."""
-        params = {"game_ids[]": game_id, "per_page": 100}
-        try:
-            return self.client.get_all_pages("/nba/v1/lineups", params)
-        except Exception as e:
-            logger.debug(f"Lineups not available for game {game_id}: {e}")
-            return []
-
-    def get_team_box_score(self, game_date: str) -> dict[str, Any] | None:
-        """Fetch team-level box score data (GOAT tier) - quarter scores, timeouts, etc."""
-        try:
-            result = self.client.get(
-                "/nba/v1/box_scores", {"date": game_date, "per_page": 1}
-            )
-            data = result.get("data", [])
-            return data[0] if data else None
-        except Exception as e:
-            logger.debug(f"Team box score not available for date {game_date}: {e}")
-            return None
 
 
 # --------------------------------------------------------------------------

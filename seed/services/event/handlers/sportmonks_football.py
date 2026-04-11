@@ -29,37 +29,10 @@ class FootballHandler:
     """Fetches Football data from SportMonks and returns canonical models."""
 
     def __init__(self, api_token: str):
-        self.client = SportMonksClient(api_token, requests_per_minute=300)
+        self.client = SportMonksClient(api_token)
 
     def close(self) -> None:
         self.client.close()
-
-    # ------------------------------------------------------------------
-    # Season discovery
-    # ------------------------------------------------------------------
-
-    def discover_season_ids(
-        self, league_id: int, target_years: list[int]
-    ) -> dict[int, int]:
-        """Map target years to SportMonks season IDs for a league."""
-        resp = self.client.get(f"/leagues/{league_id}", {"include": "seasons"})
-        data = resp.get("data", {})
-        seasons = data.get("seasons", [])
-
-        target_set = set(target_years)
-        result: dict[int, int] = {}
-
-        for season in seasons:
-            name = season.get("name", "")
-            parts = name.split("/")
-            try:
-                start_year = int(parts[0].strip())
-            except (ValueError, IndexError):
-                continue
-            if start_year in target_set and start_year not in result:
-                result[start_year] = season["id"]
-
-        return result
 
     # ------------------------------------------------------------------
     # Teams

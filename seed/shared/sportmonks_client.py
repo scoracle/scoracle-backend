@@ -22,9 +22,9 @@ BASE_URL = "https://api.sportmonks.com/v3/football"
 class SportMonksClient:
     """Rate-limited HTTP client for SportMonks Football API."""
 
-    def __init__(self, api_token: str, requests_per_minute: int = 300):
+    def __init__(self, api_token: str):
         self._api_token = api_token
-        self._min_interval = 60.0 / requests_per_minute
+        self._min_interval = 60.0 / 300  # 300 req/min
         self._last_request = 0.0
         self._client = httpx.Client(timeout=30.0)
 

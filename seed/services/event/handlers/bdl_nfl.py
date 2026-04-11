@@ -32,7 +32,7 @@ class NFLHandler:
     """Fetches NFL data from BallDontLie and returns canonical models."""
 
     def __init__(self, api_key: str):
-        self.client = BDLClient(NFL_BASE_URL, api_key, requests_per_minute=600)
+        self.client = BDLClient(NFL_BASE_URL, api_key)
 
     def close(self) -> None:
         self.client.close()

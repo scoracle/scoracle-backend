@@ -22,7 +22,7 @@ from ..event.handlers.sportmonks_football import (
     FootballHandler,
     _parse_player as parse_football_player,
 )
-from ..event.seed_football import resolve_provider_season_id
+from shared.db import resolve_provider_season_id
 
 logger = logging.getLogger("meta_seeding")
 

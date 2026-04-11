@@ -283,7 +283,7 @@ def load_fixtures(
 
                 handler = FootballHandler(cfg.sportmonks_api_token)
                 try:
-                    from .seed_football import resolve_provider_season_id
+                    from shared.db import resolve_provider_season_id
 
                     sm_season_id = resolve_provider_season_id(conn, league, season)
                     if not sm_season_id:

@@ -19,10 +19,10 @@ logger = logging.getLogger(__name__)
 class BDLClient:
     """Rate-limited HTTP client for BallDontLie API."""
 
-    def __init__(self, base_url: str, api_key: str, requests_per_minute: int = 600):
+    def __init__(self, base_url: str, api_key: str):
         self._base_url = base_url
         self._api_key = api_key
-        self._min_interval = 60.0 / requests_per_minute
+        self._min_interval = 60.0 / 600  # 600 req/min
         self._last_request = 0.0
         self._client = httpx.Client(
             timeout=30.0,

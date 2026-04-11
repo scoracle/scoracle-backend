@@ -510,33 +510,26 @@ def _team_id_from_relation(raw: Any) -> int | None:
 
 
 def _extract_fixture_scores(raw: dict[str, Any]) -> dict[int, int]:
+    """Extract final score per team from the scores array.
+
+    SportMonks scores have multiple entries per team (1ST_HALF, 2ND_HALF, etc.)
+    with format: {"score": {"goals": N, "participant": "home"}, "description": "2ND_HALF"}.
+    We take the highest goals value per participant as the final score.
+    """
     out: dict[int, int] = {}
-    for score_block in (
-        raw.get("scores", []) if isinstance(raw.get("scores"), list) else []
-    ):
+    for score_block in raw.get("scores") or []:
         participant_id = score_block.get("participant_id")
         if not isinstance(participant_id, int):
             continue
-        score_val = _extract_value(score_block.get("score"))
-        if score_val is None:
-            score_val = _extract_value(score_block.get("goals"))
-        if score_val is None:
+        score_obj = score_block.get("score")
+        if isinstance(score_obj, dict):
+            goals = score_obj.get("goals")
+        elif isinstance(score_obj, (int, float)):
+            goals = score_obj
+        else:
             continue
-        out[participant_id] = int(score_val)
-
-    # Fallback: if no scores include participant IDs, map home/away values.
-    if not out:
-        home_team_id = raw.get("localteam_id")
-        away_team_id = raw.get("visitorteam_id")
-        if isinstance(home_team_id, int):
-            home_val = _extract_value(raw.get("scores_home") or raw.get("home_score"))
-            if home_val is not None:
-                out[home_team_id] = int(home_val)
-        if isinstance(away_team_id, int):
-            away_val = _extract_value(raw.get("scores_away") or raw.get("away_score"))
-            if away_val is not None:
-                out[away_team_id] = int(away_val)
-
+        if isinstance(goals, (int, float)):
+            out[participant_id] = max(out.get(participant_id, 0), int(goals))
     return out
 
 

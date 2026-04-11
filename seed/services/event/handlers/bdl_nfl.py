@@ -256,9 +256,20 @@ class NFLHandler:
                     acc[key] = acc.get(key, 0.0) + float(value)
 
             if isinstance(game_raw, dict):
-                home_team_id = game_raw.get("home_team_id")
-                away_team_id = game_raw.get("visitor_team_id") or game_raw.get(
-                    "away_team_id"
+                home_team_obj = game_raw.get("home_team")
+                away_team_obj = game_raw.get("visitor_team") or game_raw.get(
+                    "away_team"
+                )
+                home_team_id = (
+                    home_team_obj.get("id")
+                    if isinstance(home_team_obj, dict)
+                    else game_raw.get("home_team_id")
+                )
+                away_team_id = (
+                    away_team_obj.get("id")
+                    if isinstance(away_team_obj, dict)
+                    else game_raw.get("visitor_team_id")
+                    or game_raw.get("away_team_id")
                 )
                 home_score = game_raw.get("home_team_score")
                 away_score = game_raw.get("visitor_team_score") or game_raw.get(

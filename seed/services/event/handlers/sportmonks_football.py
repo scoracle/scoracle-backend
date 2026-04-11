@@ -330,27 +330,6 @@ def _extract_event_stats(events: list[dict[str, Any]]) -> dict[int, dict[str, in
     return counts
 
 
-def _extract_value(val: Any) -> float | None:
-    """Extract a numeric value from various API response formats.
-
-    SportMonks returns dicts like {"total": 15, "goals": 12} for some stats.
-    BDL returns flat numbers. This handles both.
-    """
-    if val is None:
-        return None
-    if isinstance(val, (int, float)):
-        return float(val)
-    if isinstance(val, str):
-        try:
-            return float(val)
-        except ValueError:
-            return None
-    if isinstance(val, dict):
-        for key in ("total", "all", "count", "average"):
-            if key in val and val[key] is not None:
-                return _extract_value(val[key])
-    return None
-
 
 def _parse_team(raw: dict[str, Any]) -> Team:
     meta: dict[str, Any] = {}

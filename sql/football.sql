@@ -462,7 +462,7 @@ SELECT CASE
         jsonb_build_object(
             'appearances', matches_played::int,
             'lineups', matches_played::int,
-            'minutes_played', CASE WHEN matches_played > 0 THEN ROUND(minutes_sum / matches_played, 1) END,
+            'minutes_played', ROUND(minutes_sum, 1),
             'goals', goals::int,
             'assists', assists::int,
             'penalty_goals', CASE WHEN penalty_goals > 0 THEN penalty_goals::int END,

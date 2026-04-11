@@ -219,7 +219,7 @@ class FootballHandler:
                 )
                 minutes_played = _extract_value(entry.get("minutes"))
                 if minutes_played is None:
-                    minutes_played = stats.get("minutes_played")
+                    minutes_played = stats.get("minutes-played") or stats.get("minutes_played")
                 if minutes_played is not None:
                     stats["minutes_played"] = minutes_played
 
@@ -421,7 +421,7 @@ def _normalize_player_stats(details: list[dict[str, Any]]) -> dict[str, Any]:
         code = type_info.get("code", "")
         if not code:
             continue
-        val = _extract_value(detail.get("value"))
+        val = _extract_value(detail.get("data", {}).get("value"))
         if val is not None:
             stats[code] = val
     return stats
@@ -438,7 +438,7 @@ def _parse_standing(raw: dict[str, Any]) -> TeamStats:
         code = type_info.get("code", "")
         if not code:
             continue
-        val = _extract_value(detail.get("value"))
+        val = _extract_value(detail.get("data", {}).get("value"))
         if val is not None:
             stats[code] = val
 

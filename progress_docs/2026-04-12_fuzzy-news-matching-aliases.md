@@ -50,6 +50,18 @@ Added a `search_aliases TEXT[]` column to teams and players, with an automatic a
 | `go/internal/thirdparty/news.go` | Multi-query search + alias filtering |
 | `go/internal/thirdparty/news_test.go` | 9 unit tests |
 
+## Bug Fix: Alias query short-circuit (2026-04-12)
+
+The outer search loop in `fetchFromRSS()` had an early exit (`break`) when the primary query
+already returned ≥ 3 articles. For popular teams (e.g. FC Bayern München) this meant the alias
+fallback query ("Bayern Munich") never ran, so only exact-name articles appeared.
+
+**Fix:** removed the early exit between queries (line 262-264 of `news.go`). Time-window
+escalation still short-circuits within each query, but all search queries now always execute.
+
+**Before:** 4 articles (all "Bayern München" exact match)
+**After:** 10 articles (includes "Bayern Munich" alias matches)
+
 ## Seeding Status
 
 All teams seeded with aliases (teams-only pass, players capped at 1):

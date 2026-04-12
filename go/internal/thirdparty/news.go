@@ -258,10 +258,6 @@ func (s *NewsService) fetchFromRSS(
 			}
 			time.Sleep(100 * time.Millisecond)
 		}
-
-		if len(allArticles) >= newsMinArticles {
-			break
-		}
 	}
 
 	sortArticlesByDate(allArticles)

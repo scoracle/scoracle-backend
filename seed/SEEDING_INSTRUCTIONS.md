@@ -95,30 +95,44 @@ scoracle-seed event load-fixtures football --season 2025 --league 8
 scoracle-seed event process --sport football --season 2025 --max 1
 ```
 
+## Architecture: Python Seeder Role
+
+Python is a **thin pipe**. It fetches raw data from provider APIs and upserts it to Postgres.
+It does not compute derived stats, per-90 metrics, or percentiles — that is Postgres's job.
+
+For football event seeding, the handler:
+1. Flattens lineup `details[].type.code → details[].data.value` into a raw stats JSONB
+2. Counts goals/assists/cards from the `events` array (structural transformation, not filtering)
+3. Extracts scores from the `scores` array
+4. Upserts to `event_box_scores` and `event_team_stats`
+5. Calls `finalize_fixture()` which triggers Postgres aggregation, derived stats, and percentiles
+
 ## Provider Endpoint Notes
 
-- NBA metadata profile seeding uses BallDontLie `GET /v1/players` and `GET /v1/teams` (with compatibility fallback to `/nba/v1/...`).
-- NFL metadata profile seeding uses `GET /nfl/v1/players` and `GET /nfl/v1/teams`.
-- Football metadata profile seeding uses `GET /players/{id}` (SportMonks) and season team/squad endpoints.
+- NBA/NFL: BallDontLie API (`/nba/v1/...`, `/nfl/v1/...`)
+- Football: SportMonks API (`/v3/football/...`)
 
-## Recommended "Fill Missing Holes" Workflow
+## Recommended Seeding Workflow
 
-1. Load/refresh fixtures for each sport.
-2. Run `event process` in batches until failures are near zero.
-3. Run `meta seed` for each sport to backfill profile metadata.
-4. Re-run `event process` to catch anything that became ready since the prior pass.
+1. `meta seed` for each sport/league (profiles first — players need to exist for box scores).
+2. `event load-fixtures` for each sport/league.
+3. `event process` to seed box scores. Re-run to catch newly completed fixtures.
 
-## Docker Usage
+## Full Football Season Seed (all 5 leagues)
 
 ```bash
-# Load fixtures
-docker compose run --rm seed event load-fixtures nba --season 2025
+# 1. Metadata
+for LEAGUE in 8 82 301 384 564; do
+  scoracle-seed meta seed football --season 2026 --league $LEAGUE
+done
 
-# Process event data
-docker compose run --rm seed event process --sport nba --season 2025 --max 100
+# 2. Fixtures
+for LEAGUE in 8 82 301 384 564; do
+  scoracle-seed event load-fixtures football --season 2026 --league $LEAGUE
+done
 
-# Seed metadata
-docker compose run --rm seed meta seed nba --season 2025
+# 3. Box scores
+scoracle-seed event process --sport football
 ```
 
 ## League IDs (Football)
@@ -130,5 +144,3 @@ docker compose run --rm seed meta seed nba --season 2025
 | Ligue 1 | 301 |
 | Serie A | 384 |
 | La Liga | 564 |
-
-See `BOX_SCORE_ENDPOINTS.md` and `META_ENDPOINTS.md` for provider endpoint details.

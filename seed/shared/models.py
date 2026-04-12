@@ -23,6 +23,7 @@ class Team:
     venue_name: str | None = None
     venue_capacity: int | None = None
     founded: int | None = None
+    search_aliases: list[str] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
 
@@ -40,6 +41,7 @@ class Player:
     date_of_birth: str | None = None
     photo_url: str | None = None
     team_id: int | None = None
+    search_aliases: list[str] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
 

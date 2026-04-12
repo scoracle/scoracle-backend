@@ -359,7 +359,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		) health`,
 
 		// Entity name lookup (news handlers + notifications)
-		"team_name_lookup": "SELECT name FROM teams WHERE id = $1 AND sport = $2",
+		"team_name_lookup":    "SELECT name FROM teams WHERE id = $1 AND sport = $2",
+		"team_news_lookup":    "SELECT name, search_aliases FROM teams WHERE id = $1 AND sport = $2",
+		"player_news_lookup":  "SELECT name, first_name, last_name, team_id, search_aliases FROM players WHERE id = $1 AND sport = $2",
 
 		// Notifications (used by listener + notification pipeline)
 		"get_entity_followers":     "SELECT uf.user_id, u.timezone FROM user_follows uf JOIN users u ON u.id = uf.user_id WHERE uf.entity_type = $1 AND uf.entity_id = $2 AND uf.sport = $3",

@@ -91,13 +91,14 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 
 	// Look up entity name from DB.
 	var entityName, firstName, lastName string
+	var aliases []string
 
 	ctx := r.Context()
 
 	if entityType == "player" {
-		entityName, firstName, lastName, team, err = h.lookupPlayer(ctx, entityID, sport, team)
+		entityName, firstName, lastName, team, aliases, err = h.lookupPlayer(ctx, entityID, sport, team)
 	} else {
-		entityName, err = h.lookupTeam(ctx, entityID, sport)
+		entityName, aliases, err = h.lookupTeam(ctx, entityID, sport)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -109,7 +110,7 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch news.
-	result, err := h.news.GetEntityNews(entityName, sport, team, source, limit, firstName, lastName)
+	result, err := h.news.GetEntityNews(entityName, sport, team, source, limit, firstName, lastName, aliases)
 	if err != nil {
 		respond.WriteError(w, http.StatusBadGateway, "EXTERNAL_SERVICE_ERROR",
 			fmt.Sprintf("News fetch failed: %v", err))
@@ -150,16 +151,13 @@ func (h *Handler) GetNewsStatus(w http.ResponseWriter, r *http.Request) {
 // DB lookups
 // ---------------------------------------------------------------------------
 
-// lookupPlayer fetches player name, first/last names, and resolves team if missing.
-func (h *Handler) lookupPlayer(ctx context.Context, id int, sport, team string) (name, first, last, teamName string, err error) {
-	row := h.pool.QueryRow(ctx,
-		"SELECT name, first_name, last_name, team_id FROM players WHERE id = $1 AND sport = $2",
-		id, sport,
-	)
+// lookupPlayer fetches player name, first/last names, aliases, and resolves team if missing.
+func (h *Handler) lookupPlayer(ctx context.Context, id int, sport, team string) (name, first, last, teamName string, aliases []string, err error) {
+	row := h.pool.QueryRow(ctx, "player_news_lookup", id, sport)
 	var teamID *int
 	var fnPtr, lnPtr *string
-	if err = row.Scan(&name, &fnPtr, &lnPtr, &teamID); err != nil {
-		return "", "", "", "", fmt.Errorf("player %d not found", id)
+	if err = row.Scan(&name, &fnPtr, &lnPtr, &teamID, &aliases); err != nil {
+		return "", "", "", "", nil, fmt.Errorf("player %d not found", id)
 	}
 	if fnPtr != nil {
 		first = *fnPtr
@@ -173,24 +171,22 @@ func (h *Handler) lookupPlayer(ctx context.Context, id int, sport, team string) 
 	if teamName == "" && teamID != nil {
 		var tn string
 		if err := h.pool.QueryRow(ctx,
-			"SELECT name FROM teams WHERE id = $1 AND sport = $2",
+			"team_name_lookup",
 			*teamID, sport,
 		).Scan(&tn); err == nil {
 			teamName = tn
 		}
 	}
-	return name, first, last, teamName, nil
+	return name, first, last, teamName, aliases, nil
 }
 
-// lookupTeam fetches team name.
-func (h *Handler) lookupTeam(ctx context.Context, id int, sport string) (string, error) {
+// lookupTeam fetches team name and search aliases.
+func (h *Handler) lookupTeam(ctx context.Context, id int, sport string) (string, []string, error) {
 	var name string
-	err := h.pool.QueryRow(ctx,
-		"SELECT name FROM teams WHERE id = $1 AND sport = $2",
-		id, sport,
-	).Scan(&name)
+	var aliases []string
+	err := h.pool.QueryRow(ctx, "team_news_lookup", id, sport).Scan(&name, &aliases)
 	if err != nil {
-		return "", fmt.Errorf("team %d not found", id)
+		return "", nil, fmt.Errorf("team %d not found", id)
 	}
-	return name, nil
+	return name, aliases, nil
 }

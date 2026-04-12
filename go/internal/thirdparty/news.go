@@ -102,6 +102,7 @@ func (s *NewsService) GetEntityNews(
 	entityName, sport, team, preferSource string,
 	limit int,
 	firstName, lastName string,
+	aliases []string,
 ) (map[string]interface{}, error) {
 	if limit < 1 {
 		limit = newsDefaultLimit
@@ -117,9 +118,9 @@ func (s *NewsService) GetEntityNews(
 		}
 		return s.fetchFromNewsAPI(entityName, sport, limit)
 	case "both":
-		return s.fetchFromBoth(entityName, sport, team, limit, firstName, lastName)
+		return s.fetchFromBoth(entityName, sport, team, limit, firstName, lastName, aliases)
 	default: // "rss"
-		return s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName)
+		return s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
 	}
 }
 
@@ -215,36 +216,52 @@ func (s *NewsService) fetchFromRSS(
 	entityName, sport, team string,
 	limit int,
 	firstName, lastName string,
+	aliases []string,
 ) (map[string]interface{}, error) {
-	searchName := buildSearchName(entityName, firstName, lastName)
-	searchQuery := searchName
+	sportSuffix := ""
 	if sport != "" {
 		if term, ok := sportTerms[strings.ToUpper(sport)]; ok {
-			searchQuery = searchName + " " + term
+			sportSuffix = " " + term
 		}
+	}
+
+	// Build search queries: primary name first, then best alias as fallback.
+	searchName := buildSearchName(entityName, firstName, lastName)
+	searchQueries := []string{searchName + sportSuffix}
+
+	// Pick the best alias for a fallback query — prefer the longest one that
+	// differs meaningfully from the primary search name (likely the anglicized form).
+	if best := bestAliasQuery(searchName, aliases); best != "" {
+		searchQueries = append(searchQueries, best+sportSuffix)
 	}
 
 	var allArticles []Article
 
-	for _, hours := range timeWindows {
-		articles, err := s.fetchRSS(searchQuery, hours)
-		if err != nil {
-			log.Printf("[news] RSS fetch error (window=%dh): %v", hours, err)
-			continue
-		}
-
-		// Filter to articles that mention the entity.
-		for _, a := range articles {
-			if nameInText(entityName, a.Title, firstName, lastName, team) {
-				allArticles = append(allArticles, a)
+	for _, query := range searchQueries {
+		for _, hours := range timeWindows {
+			articles, err := s.fetchRSS(query, hours)
+			if err != nil {
+				log.Printf("[news] RSS fetch error (window=%dh): %v", hours, err)
+				continue
 			}
+
+			// Filter to articles that mention the entity (by name or alias).
+			for _, a := range articles {
+				if nameInText(entityName, a.Title, firstName, lastName, team, aliases, sportSuffix) {
+					allArticles = append(allArticles, a)
+				}
+			}
+			allArticles = deduplicateArticles(allArticles)
+
+			if len(allArticles) >= newsMinArticles {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		allArticles = deduplicateArticles(allArticles)
 
 		if len(allArticles) >= newsMinArticles {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
 
 	sortArticlesByDate(allArticles)
@@ -263,6 +280,26 @@ func (s *NewsService) fetchFromRSS(
 			"source":        "google_news_rss",
 		},
 	}, nil
+}
+
+// bestAliasQuery returns the best alias to use as a fallback search query.
+// Prefers the longest alias that differs from the primary search name.
+func bestAliasQuery(primarySearch string, aliases []string) string {
+	primaryLower := strings.ToLower(primarySearch)
+	best := ""
+	for _, a := range aliases {
+		// Skip short aliases (abbreviations) — they're too broad for search queries.
+		if len(a) < 4 {
+			continue
+		}
+		if strings.ToLower(a) == primaryLower {
+			continue
+		}
+		if len(a) > len(best) {
+			best = a
+		}
+	}
+	return best
 }
 
 // ---------------------------------------------------------------------------
@@ -361,6 +398,7 @@ func (s *NewsService) fetchFromBoth(
 	entityName, sport, team string,
 	limit int,
 	firstName, lastName string,
+	aliases []string,
 ) (map[string]interface{}, error) {
 	type result struct {
 		data map[string]interface{}
@@ -374,7 +412,7 @@ func (s *NewsService) fetchFromBoth(
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		d, e := s.fetchFromRSS(entityName, sport, team, limit*2, firstName, lastName)
+		d, e := s.fetchFromRSS(entityName, sport, team, limit*2, firstName, lastName, aliases)
 		rssCh <- result{d, e}
 	}()
 
@@ -473,7 +511,9 @@ func buildSearchName(fullName, firstName, lastName string) string {
 }
 
 // nameInText checks if an entity name appears in text with stricter matching.
-func nameInText(name, text, firstName, lastName, team string) bool {
+// aliases are checked as additional name forms. Short aliases (<4 chars) require
+// a sport-context term in the text to avoid false positives.
+func nameInText(name, text, firstName, lastName, team string, aliases []string, sportContext string) bool {
 	if name == "" || text == "" {
 		return false
 	}
@@ -483,6 +523,26 @@ func nameInText(name, text, firstName, lastName, team string) bool {
 	// Exact full name match.
 	if strings.Contains(textLower, nameLower) {
 		return true
+	}
+
+	// Check aliases.
+	for _, alias := range aliases {
+		aliasLower := strings.ToLower(strings.TrimSpace(alias))
+		if aliasLower == "" {
+			continue
+		}
+		// Short aliases need sport-context in the text to avoid false positives.
+		if len(alias) < 4 {
+			if sportContext != "" && strings.Contains(textLower, strings.ToLower(strings.TrimSpace(sportContext))) {
+				if wordBoundaryMatch(aliasLower, textLower) {
+					return true
+				}
+			}
+			continue
+		}
+		if strings.Contains(textLower, aliasLower) {
+			return true
+		}
 	}
 
 	// Multi-part name matching.

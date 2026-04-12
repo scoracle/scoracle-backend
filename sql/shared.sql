@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS players (
     photo_url TEXT,
     team_id INTEGER,
     league_id INTEGER,
+    search_aliases TEXT[] DEFAULT '{}',
     meta JSONB DEFAULT '{}',
     raw_response JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -136,6 +137,7 @@ CREATE TABLE IF NOT EXISTS teams (
     venue_capacity INTEGER,
     conference TEXT,
     division TEXT,
+    search_aliases TEXT[] DEFAULT '{}',
     meta JSONB DEFAULT '{}',
     raw_response JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -145,6 +147,7 @@ CREATE TABLE IF NOT EXISTS teams (
 
 CREATE INDEX IF NOT EXISTS idx_teams_sport ON teams(sport);
 CREATE INDEX IF NOT EXISTS idx_teams_name ON teams(name);
+CREATE INDEX IF NOT EXISTS idx_teams_search_aliases ON teams USING GIN(search_aliases);
 CREATE INDEX IF NOT EXISTS idx_teams_league ON teams(league_id) WHERE league_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_teams_conference ON teams(sport, conference) WHERE conference IS NOT NULL;
 

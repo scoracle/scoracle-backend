@@ -12,6 +12,7 @@ from typing import Any
 
 import psycopg
 
+from .aliases import generate_player_aliases, generate_team_aliases
 from .models import EventBoxScore, EventTeamStats, Player, PlayerStats, Team, TeamStats
 
 logger = logging.getLogger(__name__)
@@ -19,12 +20,18 @@ logger = logging.getLogger(__name__)
 
 def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
     """Upsert a team into the teams table."""
+    # Generate search aliases if not already set.
+    aliases = team.search_aliases or generate_team_aliases(
+        team.name, sport, team.short_code, team.meta,
+    )
+
     conn.execute(
         """
         INSERT INTO teams (
             id, sport, name, short_code, city, country, conference,
-            division, venue_name, venue_capacity, founded, logo_url, meta
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            division, venue_name, venue_capacity, founded, logo_url,
+            search_aliases, meta
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
             name = EXCLUDED.name,
             short_code = EXCLUDED.short_code,
@@ -36,6 +43,7 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
             venue_capacity = EXCLUDED.venue_capacity,
             founded = EXCLUDED.founded,
             logo_url = EXCLUDED.logo_url,
+            search_aliases = EXCLUDED.search_aliases,
             meta = EXCLUDED.meta,
             updated_at = NOW()
         """,
@@ -52,6 +60,7 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
             team.venue_capacity,
             team.founded,
             team.logo_url or None,
+            aliases,
             json.dumps(team.meta or {}),
         ),
     )
@@ -59,13 +68,18 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
 
 def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
     """Upsert a player using COALESCE to preserve existing non-null values."""
+    # Generate search aliases if not already set.
+    aliases = player.search_aliases or generate_player_aliases(
+        player.name, sport, player.first_name, player.last_name, player.meta,
+    )
+
     conn.execute(
         """
         INSERT INTO players (
             id, sport, name, first_name, last_name, position,
             detailed_position, nationality, height, weight,
-            date_of_birth, photo_url, team_id, meta
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            date_of_birth, photo_url, team_id, search_aliases, meta
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, players.name),
             first_name = COALESCE(EXCLUDED.first_name, players.first_name),
@@ -78,6 +92,7 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             date_of_birth = COALESCE(EXCLUDED.date_of_birth, players.date_of_birth),
             photo_url = COALESCE(EXCLUDED.photo_url, players.photo_url),
             team_id = COALESCE(EXCLUDED.team_id, players.team_id),
+            search_aliases = COALESCE(EXCLUDED.search_aliases, players.search_aliases),
             meta = COALESCE(EXCLUDED.meta, players.meta),
             updated_at = NOW()
         """,
@@ -95,6 +110,7 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             player.date_of_birth or None,
             player.photo_url or None,
             player.team_id,
+            aliases or None,
             json.dumps(player.meta or {}),
         ),
     )

@@ -389,7 +389,8 @@ WITH raw AS (
       AND sport = 'FOOTBALL'
       AND season = p_season
       AND league_id = p_league_id
-),
+      AND COALESCE(minutes_played, 0) > 0
+ ),
 agg AS (
     SELECT
         COUNT(*)::numeric AS matches_played,

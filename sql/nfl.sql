@@ -420,6 +420,13 @@ WITH agg AS (
       AND sport = 'NFL'
       AND season = p_season
       AND league_id = p_league_id
+      AND NOT (
+          COALESCE((stats->>'passing_yards')::numeric, 0) = 0
+          AND COALESCE((stats->>'rushing_yards')::numeric, 0) = 0
+          AND COALESCE((stats->>'receiving_yards')::numeric, 0) = 0
+          AND COALESCE((stats->>'total_tackles')::numeric, 0) = 0
+          AND COALESCE((stats->>'fumbles')::numeric, 0) = 0
+      )
 )
 SELECT CASE
     WHEN gp = 0 THEN '{}'::jsonb

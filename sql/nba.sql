@@ -378,6 +378,7 @@ WITH agg AS (
       AND sport = 'NBA'
       AND season = p_season
       AND league_id = p_league_id
+      AND COALESCE(minutes_played, 0) > 0
 )
 SELECT CASE
     WHEN gp = 0 THEN '{}'::jsonb

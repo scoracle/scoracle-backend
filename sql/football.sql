@@ -276,7 +276,11 @@ CREATE MATERIALIZED VIEW football.autofill_entities AS
                 LOWER(REPLACE(p.name, ' ', '')),
                 LOWER(COALESCE(t.short_code, '')),
                 LOWER(COALESCE(t.name, '')),
-                LOWER(COALESCE(l.name, ''))
+                LOWER(COALESCE(l.name, '')),
+                unaccent(LOWER(p.first_name)),
+                unaccent(LOWER(p.last_name)),
+                unaccent(LOWER(REPLACE(p.name, ' ', ''))),
+                unaccent(LOWER(COALESCE(t.name, '')))
             ) AS search_tokens,
             jsonb_build_object(
                 'display_name', p.name,
@@ -318,7 +322,9 @@ UNION ALL
                 LOWER(t.short_code),
                 LOWER(t.city),
                 LOWER(t.country),
-                LOWER(COALESCE(l.name, ''))
+                LOWER(COALESCE(l.name, '')),
+                unaccent(LOWER(REPLACE(t.name, ' ', ''))),
+                unaccent(LOWER(t.city))
             ) AS search_tokens,
             jsonb_build_object(
                 'display_name', t.name,

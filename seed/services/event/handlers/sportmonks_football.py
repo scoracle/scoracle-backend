@@ -340,12 +340,15 @@ def _parse_team(raw: dict[str, Any]) -> Team:
 
     venue_name = None
     venue_capacity = None
+    city = None
     venue_raw = raw.get("venue")
     if isinstance(venue_raw, dict):
         venue_name = venue_raw.get("name")
         venue_capacity = venue_raw.get("capacity")
-        if venue_raw.get("city"):
-            meta["venue_city"] = venue_raw["city"]
+        venue_city = venue_raw.get("city_name") or venue_raw.get("city")
+        if venue_city:
+            city = venue_city
+            meta["venue_city"] = venue_city
         if venue_raw.get("surface"):
             meta["venue_surface"] = venue_raw["surface"]
 
@@ -354,6 +357,7 @@ def _parse_team(raw: dict[str, Any]) -> Team:
         name=raw.get("name", ""),
         short_code=raw.get("short_code"),
         country=country,
+        city=city,
         logo_url=raw.get("image_path"),
         founded=raw.get("founded"),
         venue_name=venue_name,

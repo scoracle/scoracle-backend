@@ -249,7 +249,11 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
             LOWER(p.last_name),
             LOWER(REPLACE(p.name, ' ', '')),
             LOWER(COALESCE(t.short_code, '')),
-            LOWER(COALESCE(t.name, ''))
+            LOWER(COALESCE(t.name, '')),
+            unaccent(LOWER(p.first_name)),
+            unaccent(LOWER(p.last_name)),
+            unaccent(LOWER(REPLACE(p.name, ' ', ''))),
+            unaccent(LOWER(COALESCE(t.name, '')))
         ) AS search_tokens,
         jsonb_build_object(
             'display_name', p.name,
@@ -285,7 +289,9 @@ UNION ALL
             LOWER(REPLACE(t.name, ' ', '')),
             LOWER(t.short_code),
             LOWER(t.city),
-            LOWER(t.country)
+            LOWER(t.country),
+            unaccent(LOWER(REPLACE(t.name, ' ', ''))),
+            unaccent(LOWER(t.city))
         ) AS search_tokens,
         jsonb_build_object(
             'display_name', t.name,

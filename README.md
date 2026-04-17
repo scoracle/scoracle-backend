@@ -39,7 +39,8 @@ Integrations and operational routes:
 - `GET /api/v1/news/status`
 - `GET /api/v1/news/{entityType}/{entityID}`
 - `GET /api/v1/twitter/status`
-- `GET /api/v1/twitter/journalist-feed`
+- `GET /api/v1/{sport}/twitter/feed`
+- `GET /api/v1/{sport}/twitter/{entityType}/{id}`
 - `GET /health`, `GET /health/db`, `GET /health/cache`
 - `GET /docs/`
 
@@ -128,7 +129,8 @@ Common optional:
 - `RATE_LIMIT_ENABLED`
 - `NEWS_API_KEY`
 - `TWITTER_BEARER_TOKEN`
-- `TWITTER_JOURNALIST_LIST_ID`
+- `TWITTER_LIST_NBA`, `TWITTER_LIST_NFL`, `TWITTER_LIST_FOOTBALL` (per-sport curated X List IDs)
+- `TWITTER_CACHE_TTL_SECONDS` (default `1200` / 20 min)
 - `FIREBASE_CREDENTIALS_FILE`
 
 ## Trademarks & Nominative Fair Use

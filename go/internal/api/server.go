@@ -89,13 +89,15 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)
 			r.Get("/leagues/{leagueId}/health", h.GetLeagueHealthPage)
 
+			// Sport-scoped twitter lazy cache
+			r.Get("/twitter/feed", h.GetSportTweets)
+			r.Get("/twitter/{entityType:player|team}/{id}", h.GetEntityTweets)
 		})
 		// News
 		r.Get("/news/status", h.GetNewsStatus)
 		r.Get("/news/{entityType}/{entityID}", h.GetEntityNews)
 
 		// Twitter
-		r.Get("/twitter/journalist-feed", h.GetJournalistFeed)
 		r.Get("/twitter/status", h.GetTwitterStatus)
 	})
 

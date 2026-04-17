@@ -359,9 +359,97 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		) health`,
 
 		// Entity name lookup (news handlers + notifications)
-		"team_name_lookup":    "SELECT name FROM teams WHERE id = $1 AND sport = $2",
-		"team_news_lookup":    "SELECT name, search_aliases FROM teams WHERE id = $1 AND sport = $2",
-		"player_news_lookup":  "SELECT name, first_name, last_name, team_id, search_aliases FROM players WHERE id = $1 AND sport = $2",
+		"team_name_lookup":   "SELECT name FROM teams WHERE id = $1 AND sport = $2",
+		"team_news_lookup":   "SELECT name, search_aliases FROM teams WHERE id = $1 AND sport = $2",
+		"player_news_lookup": "SELECT name, first_name, last_name, team_id, search_aliases FROM players WHERE id = $1 AND sport = $2",
+
+		// Twitter lazy cache (see sql/migrations/002_add_twitter_cache.sql)
+		"twitter_list_get": `SELECT list_id, ttl_seconds, since_id, last_fetched_at
+			FROM twitter_lists WHERE sport = $1`,
+		"twitter_list_upsert": `INSERT INTO twitter_lists (sport, list_id, ttl_seconds, updated_at)
+			VALUES ($1, $2, $3, now())
+			ON CONFLICT (sport) DO UPDATE SET
+				list_id     = EXCLUDED.list_id,
+				ttl_seconds = EXCLUDED.ttl_seconds,
+				updated_at  = now()`,
+		"twitter_list_mark_fetched": `UPDATE twitter_lists
+			SET since_id = COALESCE($2, since_id),
+			    last_fetched_at = now(),
+			    last_error = NULL,
+			    last_error_at = NULL,
+			    updated_at = now()
+			WHERE sport = $1`,
+		"twitter_list_mark_error": `UPDATE twitter_lists
+			SET last_error = $2, last_error_at = now(), updated_at = now()
+			WHERE sport = $1`,
+		"twitter_list_status_all": `SELECT sport, list_id, ttl_seconds, since_id, last_fetched_at,
+			last_error, last_error_at FROM twitter_lists ORDER BY sport`,
+		"twitter_tweet_upsert": `INSERT INTO tweets
+			(id, sport, author_id, author_username, author_name, author_verified,
+			 author_profile_image_url, text, posted_at, likes, retweets, replies, fetched_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, now())
+			ON CONFLICT (id) DO UPDATE SET
+				likes = EXCLUDED.likes,
+				retweets = EXCLUDED.retweets,
+				replies = EXCLUDED.replies,
+				fetched_at = now()`,
+		"twitter_feed_by_sport": `SELECT json_build_object(
+			'sport', $1::text,
+			'tweets', COALESCE((
+				SELECT json_agg(row_to_json(t))
+				FROM (
+					SELECT id, author_username AS username, author_name AS name,
+						author_verified AS verified,
+						author_profile_image_url AS profile_image_url,
+						text, posted_at AS created_at, likes, retweets, replies,
+						'https://twitter.com/' || author_username || '/status/' || id AS url
+					FROM tweets
+					WHERE sport = $1
+					ORDER BY posted_at DESC
+					LIMIT $2
+				) t
+			), '[]'::json),
+			'meta', json_build_object(
+				'feed_size', (SELECT COUNT(*)::int FROM tweets WHERE sport = $1),
+				'last_fetched_at', (SELECT last_fetched_at FROM twitter_lists WHERE sport = $1),
+				'ttl_seconds', (SELECT ttl_seconds FROM twitter_lists WHERE sport = $1)
+			)
+		)`,
+		"twitter_feed_by_entity": `SELECT json_build_object(
+			'sport', $1::text,
+			'entity_type', $2::text,
+			'entity_id', $3::int,
+			'tweets', COALESCE((
+				SELECT json_agg(row_to_json(t))
+				FROM (
+					SELECT tw.id, tw.author_username AS username, tw.author_name AS name,
+						tw.author_verified AS verified,
+						tw.author_profile_image_url AS profile_image_url,
+						tw.text, tw.posted_at AS created_at,
+						tw.likes, tw.retweets, tw.replies,
+						'https://twitter.com/' || tw.author_username || '/status/' || tw.id AS url
+					FROM tweets tw
+					JOIN tweet_entities te ON te.tweet_id = tw.id
+					WHERE te.sport = $1 AND te.entity_type = $2 AND te.entity_id = $3
+					ORDER BY tw.posted_at DESC
+					LIMIT $4
+				) t
+			), '[]'::json)
+		)`,
+		"twitter_entity_link": `INSERT INTO tweet_entities (tweet_id, sport, entity_type, entity_id)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT DO NOTHING`,
+		"twitter_entities_for_sport": `SELECT
+				'player'::text AS entity_type, id, name,
+				COALESCE(first_name, '') AS first_name,
+				COALESCE(last_name, '')  AS last_name,
+				search_aliases
+			FROM players WHERE sport = $1
+			UNION ALL
+			SELECT 'team'::text, id, name, '' AS first_name, '' AS last_name, search_aliases
+			FROM teams WHERE sport = $1`,
+		"twitter_tweets_purge": `DELETE FROM tweets
+			WHERE sport = $1 AND fetched_at < now() - make_interval(secs => $2::int)`,
 
 		// Notifications (used by listener + notification pipeline)
 		"get_entity_followers":     "SELECT uf.user_id, u.timezone FROM user_follows uf JOIN users u ON u.id = uf.user_id WHERE uf.entity_type = $1 AND uf.entity_id = $2 AND uf.sport = $3",

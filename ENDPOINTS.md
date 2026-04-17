@@ -113,16 +113,29 @@ Query parameters:
 
 ### `GET /api/v1/twitter/status`
 
-Twitter integration status.
+Per-sport Twitter list configuration + lazy-cache state (last_fetched_at, since_id, last_error).
 
-### `GET /api/v1/twitter/journalist-feed`
+### `GET /api/v1/{sport}/twitter/feed`
 
-Curated journalist-feed search.
+Cached journalist tweets for a sport. Refreshes on demand when older than the list TTL (default 20 min); concurrent refreshes are coalesced via singleflight, and stale cache is served if the upstream call fails.
+
+Path parameters:
+- `sport` - `nba`, `nfl`, or `football`
 
 Query parameters:
-- `q` (required) - Search query
-- `sport` (optional) - Sport filter
-- `limit` (optional, 1-50) - Number of tweets to return
+- `limit` (optional, 1-100, default 25)
+
+### `GET /api/v1/{sport}/twitter/{entityType}/{id}`
+
+Cached tweets linked to a specific player or team via the shared `search_aliases` matcher.
+
+Path parameters:
+- `sport` - `nba`, `nfl`, or `football`
+- `entityType` - `player` or `team`
+- `id` - Entity ID
+
+Query parameters:
+- `limit` (optional, 1-100, default 25)
 
 ## Operational Endpoints
 

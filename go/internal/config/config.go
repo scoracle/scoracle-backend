@@ -36,8 +36,11 @@ type Config struct {
 
 	// External API keys (third-party integrations only — seeding keys are in Python)
 	TwitterBearerToken string
-	TwitterListID      string
-	NewsAPIKey         string
+	// TwitterLists maps lowercase sport ("nba", "nfl", "football") to an X List ID.
+	// Populated from TWITTER_LIST_<SPORT> env vars. Lists with no ID are unconfigured.
+	TwitterLists    map[string]string
+	TwitterCacheTTL time.Duration
+	NewsAPIKey      string
 
 	// Cache
 	CacheEnabled bool
@@ -83,7 +86,8 @@ func Load() (*Config, error) {
 		RateLimitWindow:   time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
 
 		TwitterBearerToken: envOr("TWITTER_BEARER_TOKEN", ""),
-		TwitterListID:      envOr("TWITTER_JOURNALIST_LIST_ID", ""),
+		TwitterLists:       loadTwitterLists(),
+		TwitterCacheTTL:    time.Duration(envInt("TWITTER_CACHE_TTL_SECONDS", 1200)) * time.Second,
 		NewsAPIKey:         envOr("NEWS_API_KEY", ""),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
@@ -152,6 +156,18 @@ func appendUnique(base []string, extras ...string) []string {
 		result = append(result, value)
 	}
 	return result
+}
+
+// loadTwitterLists reads TWITTER_LIST_<SPORT> env vars for the supported sports.
+func loadTwitterLists() map[string]string {
+	sports := []string{"nba", "nfl", "football"}
+	out := make(map[string]string, len(sports))
+	for _, sport := range sports {
+		if id := os.Getenv("TWITTER_LIST_" + strings.ToUpper(sport)); id != "" {
+			out[sport] = id
+		}
+	}
+	return out
 }
 
 func normalizeEnvironment(value string) string {

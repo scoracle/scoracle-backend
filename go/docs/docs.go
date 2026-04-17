@@ -227,74 +227,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/twitter/journalist-feed": {
-            "get": {
-                "description": "Searches the cached journalist X List feed for entity mentions. Full feed is fetched once and cached for 1 hour; searches filter the cache client-side.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "twitter"
-                ],
-                "summary": "Search journalist feed",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Search query (1-200 chars)",
-                        "name": "q",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport context (metadata only)",
-                        "name": "sport",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max tweets (1-50, default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
         "/twitter/status": {
             "get": {
-                "description": "Returns Twitter API configuration state, list ID, cache TTL, and rate limit info.",
+                "description": "Returns per-sport cache state, since_id, last_fetched_at, and bearer-token configuration.",
                 "produces": [
                     "application/json"
                 ],
@@ -604,6 +539,136 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/twitter/feed": {
+            "get": {
+                "description": "Returns cached tweets from the sport's curated X List. Refreshes on demand when older than the TTL; concurrent refreshes are coalesced via singleflight.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "twitter"
+                ],
+                "summary": "Sport tweet feed",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max tweets (1-100, default 25)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/twitter/{entityType}/{id}": {
+            "get": {
+                "description": "Returns cached tweets mentioning the given player or team. Matching uses the shared search_aliases logic.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "twitter"
+                ],
+                "summary": "Entity tweet feed",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max tweets (1-100, default 25)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/respond.ErrorResponse"
                         }

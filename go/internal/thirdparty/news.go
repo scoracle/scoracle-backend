@@ -246,8 +246,16 @@ func (s *NewsService) fetchFromRSS(
 			}
 
 			// Filter to articles that mention the entity (by name or alias).
+			matchInput := EntityMatchInput{
+				Name:      entityName,
+				FirstName: firstName,
+				LastName:  lastName,
+				Team:      team,
+				Aliases:   aliases,
+				Sport:     sport,
+			}
 			for _, a := range articles {
-				if nameInText(entityName, a.Title, firstName, lastName, team, aliases, sportSuffix) {
+				if MatchesEntity(a.Title, matchInput) {
 					allArticles = append(allArticles, a)
 				}
 			}
@@ -504,81 +512,6 @@ func buildSearchName(fullName, firstName, lastName string) string {
 	}
 
 	return fullName
-}
-
-// nameInText checks if an entity name appears in text with stricter matching.
-// aliases are checked as additional name forms. Short aliases (<4 chars) require
-// a sport-context term in the text to avoid false positives.
-func nameInText(name, text, firstName, lastName, team string, aliases []string, sportContext string) bool {
-	if name == "" || text == "" {
-		return false
-	}
-	nameLower := strings.ToLower(strings.TrimSpace(name))
-	textLower := strings.ToLower(strings.TrimSpace(text))
-
-	// Exact full name match.
-	if strings.Contains(textLower, nameLower) {
-		return true
-	}
-
-	// Check aliases.
-	for _, alias := range aliases {
-		aliasLower := strings.ToLower(strings.TrimSpace(alias))
-		if aliasLower == "" {
-			continue
-		}
-		// Short aliases need sport-context in the text to avoid false positives.
-		if len(alias) < 4 {
-			if sportContext != "" && strings.Contains(textLower, strings.ToLower(strings.TrimSpace(sportContext))) {
-				if wordBoundaryMatch(aliasLower, textLower) {
-					return true
-				}
-			}
-			continue
-		}
-		if strings.Contains(textLower, aliasLower) {
-			return true
-		}
-	}
-
-	// Multi-part name matching.
-	nameParts := strings.Fields(nameLower)
-	if len(nameParts) >= 2 {
-		fn := strings.ToLower(strings.TrimSpace(firstName))
-		if fn == "" {
-			fn = nameParts[0]
-		}
-		ln := strings.ToLower(strings.TrimSpace(lastName))
-		if ln == "" {
-			ln = nameParts[len(nameParts)-1]
-		}
-
-		fnMatch := len(fn) > 1 && wordBoundaryMatch(fn, textLower)
-		lnMatch := len(ln) > 1 && wordBoundaryMatch(ln, textLower)
-
-		// Both first AND last name present.
-		if fnMatch && lnMatch {
-			return true
-		}
-
-		// Name part + team context.
-		if team != "" && (fnMatch || lnMatch) {
-			if strings.Contains(textLower, strings.ToLower(strings.TrimSpace(team))) {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-// wordBoundaryMatch checks for a whole-word match using \b.
-func wordBoundaryMatch(word, text string) bool {
-	re, err := regexp.Compile(`\b` + regexp.QuoteMeta(word) + `\b`)
-	if err != nil {
-		return strings.Contains(text, word)
-	}
-	return re.MatchString(text)
 }
 
 // deduplicateArticles removes duplicate articles by URL.

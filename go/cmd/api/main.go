@@ -43,8 +43,9 @@ func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
-	// Load .env if present
-	_ = godotenv.Load(".env")
+	// Load .env.local (real values, gitignored) then .env (committed template).
+	// godotenv does not overwrite already-set vars, so .env.local wins.
+	_ = godotenv.Load(".env.local", ".env")
 
 	// Load configuration
 	cfg, err := config.Load()

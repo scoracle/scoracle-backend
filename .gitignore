@@ -12,8 +12,8 @@ bin/
 go/bin/
 
 # Environment
-.env
-.env.*
+# .env is the committed template (safe defaults, no secrets).
+# .env.local holds real values and is ignored.
 .env.local
 
 # Logs

@@ -6,13 +6,17 @@ services:
     build: go/
     ports:
       - "8000:8000"
-    env_file: .env
+    env_file:
+      - .env
+      - .env.local
 
   seed:
     build: seed/
-    env_file: .env
+    env_file:
+      - .env
+      - .env.local
     environment:
-      NEON_DATABASE_URL_V2: ${NEON_DATABASE_URL_V2:-}
+      DATABASE_PRIVATE_URL: ${DATABASE_PRIVATE_URL:-}
       DATABASE_URL: ${DATABASE_URL:-}
       BALLDONTLIE_API_KEY: ${BALLDONTLIE_API_KEY:-}
       SPORTMONKS_API_TOKEN: ${SPORTMONKS_API_TOKEN:-}

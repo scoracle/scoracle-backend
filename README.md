@@ -77,7 +77,7 @@ scoracle-data/
 ### Docker Compose
 
 ```bash
-cp .env.example .env
+cp .env .env.local  # fill in real values
 docker compose up --build
 docker compose run --rm seed event process --max 50
 ```
@@ -114,11 +114,12 @@ cd go && go build -o bin/scoracle-api ./cmd/api
 
 ## Environment Variables
 
-See `.env.example`.
+See `.env` (committed template) and copy to `.env.local` (gitignored) for real values.
+DB URL priority: `DATABASE_PRIVATE_URL` > `RAILWAY_DATABASE_URL` > `DATABASE_URL`.
 
 Required for local operation:
 
-- `DATABASE_URL` (or `NEON_DATABASE_URL_V2`/`NEON_DATABASE_URL`)
+- `DATABASE_PRIVATE_URL` (or `DATABASE_URL`)
 - `BALLDONTLIE_API_KEY` (seeder)
 - `SPORTMONKS_API_TOKEN` (seeder)
 
@@ -127,7 +128,6 @@ Common optional:
 - `API_PORT`
 - `CACHE_ENABLED`
 - `RATE_LIMIT_ENABLED`
-- `NEWS_API_KEY`
 - `TWITTER_BEARER_TOKEN`
 - `TWITTER_LIST_NBA`, `TWITTER_LIST_NFL`, `TWITTER_LIST_FOOTBALL` (per-sport curated X List IDs)
 - `TWITTER_CACHE_TTL_SECONDS` (default `1200` / 20 min)

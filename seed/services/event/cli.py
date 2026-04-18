@@ -280,99 +280,136 @@ def load_fixtures(
                 )
 
             elif sport_upper == "FOOTBALL":
-                if not league:
-                    click.echo("--league is required for football", err=True)
-                    sys.exit(1)
                 if not cfg.sportmonks_api_token:
                     click.echo(
                         "SPORTMONKS_API_TOKEN is required for football seeding", err=True
                     )
                     sys.exit(1)
 
-                handler = FootballHandler(cfg.sportmonks_api_token)
-                try:
-                    from shared.db import resolve_provider_season_id
+                from shared.db import (
+                    get_football_league_ids,
+                    resolve_provider_season_id,
+                )
 
-                    sm_season_id = resolve_provider_season_id(conn, league, season)
-                    if not sm_season_id:
+                if league:
+                    league_ids = [league]
+                else:
+                    league_ids = get_football_league_ids(conn, season)
+                    if not league_ids:
                         click.echo(
-                            f"No SportMonks season mapping for league={league} season={season}",
+                            f"No provider_seasons rows found for football season={season}. "
+                            "Add them or pass --league explicitly.",
                             err=True,
                         )
                         sys.exit(1)
+                    click.echo(
+                        f"Iterating {len(league_ids)} football leagues: {league_ids}"
+                    )
 
-                    fixtures = handler.get_fixtures(sm_season_id)
-                    for fixture in fixtures:
-                        external_id = fixture.get("external_id")
-                        home_team_id = fixture.get("home_team_id")
-                        away_team_id = fixture.get("away_team_id")
-                        start_time = fixture.get("start_time")
-                        if not isinstance(external_id, int):
-                            skipped += 1
-                            continue
-                        if not isinstance(home_team_id, int) or not isinstance(
-                            away_team_id, int
-                        ):
-                            skipped += 1
-                            continue
-                        if not isinstance(start_time, str):
-                            skipped += 1
-                            continue
+                handler = FootballHandler(cfg.sportmonks_api_token)
+                try:
+                    per_league_loaded: dict[int, int] = {}
+                    per_league_skipped: dict[int, int] = {}
 
-                        home_team = fixture.get("home_team")
-                        away_team = fixture.get("away_team")
-                        if home_team:
-                            upsert_team(conn, "FOOTBALL", home_team)
-                            upsert_provider_entity_map(
-                                conn,
-                                "sportmonks",
-                                "FOOTBALL",
-                                "team",
-                                str(home_team.id),
-                                home_team.id,
+                    for current_league in league_ids:
+                        click.echo(f"--- league={current_league} ---")
+                        loaded_this = 0
+                        skipped_this = 0
+
+                        sm_season_id = resolve_provider_season_id(
+                            conn, current_league, season
+                        )
+                        if not sm_season_id:
+                            click.echo(
+                                f"No SportMonks season mapping for league={current_league} "
+                                f"season={season}; skipping",
+                                err=True,
                             )
-                        if away_team:
-                            upsert_team(conn, "FOOTBALL", away_team)
-                            upsert_provider_entity_map(
-                                conn,
-                                "sportmonks",
-                                "FOOTBALL",
-                                "team",
-                                str(away_team.id),
-                                away_team.id,
-                            )
+                            continue
 
-                        fixture_season = (
-                            fixture["season"]
-                            if isinstance(fixture.get("season"), int)
-                            else season
+                        fixtures = handler.get_fixtures(sm_season_id)
+                        for fixture in fixtures:
+                            external_id = fixture.get("external_id")
+                            home_team_id = fixture.get("home_team_id")
+                            away_team_id = fixture.get("away_team_id")
+                            start_time = fixture.get("start_time")
+                            if not isinstance(external_id, int):
+                                skipped_this += 1
+                                continue
+                            if not isinstance(home_team_id, int) or not isinstance(
+                                away_team_id, int
+                            ):
+                                skipped_this += 1
+                                continue
+                            if not isinstance(start_time, str):
+                                skipped_this += 1
+                                continue
+
+                            home_team = fixture.get("home_team")
+                            away_team = fixture.get("away_team")
+                            if home_team:
+                                upsert_team(conn, "FOOTBALL", home_team)
+                                upsert_provider_entity_map(
+                                    conn,
+                                    "sportmonks",
+                                    "FOOTBALL",
+                                    "team",
+                                    str(home_team.id),
+                                    home_team.id,
+                                )
+                            if away_team:
+                                upsert_team(conn, "FOOTBALL", away_team)
+                                upsert_provider_entity_map(
+                                    conn,
+                                    "sportmonks",
+                                    "FOOTBALL",
+                                    "team",
+                                    str(away_team.id),
+                                    away_team.id,
+                                )
+
+                            fixture_season = (
+                                fixture["season"]
+                                if isinstance(fixture.get("season"), int)
+                                else season
+                            )
+                            fixture_id = upsert_fixture(
+                                conn,
+                                external_id=external_id,
+                                sport="FOOTBALL",
+                                league_id=current_league,
+                                season=fixture_season,
+                                home_team_id=home_team_id,
+                                away_team_id=away_team_id,
+                                start_time=start_time,
+                                round_name=(
+                                    str(fixture["round"])
+                                    if fixture.get("round") is not None
+                                    else None
+                                ),
+                                seed_delay_hours=0,
+                            )
+                            upsert_provider_fixture_map(
+                                conn, "sportmonks", "FOOTBALL",
+                                str(external_id), fixture_id,
+                            )
+                            loaded_this += 1
+
+                        per_league_loaded[current_league] = loaded_this
+                        per_league_skipped[current_league] = skipped_this
+                        click.echo(
+                            f"Loaded {loaded_this} Football fixtures for "
+                            f"league {current_league} (skipped={skipped_this})"
                         )
-                        fixture_id = upsert_fixture(
-                            conn,
-                            external_id=external_id,
-                            sport="FOOTBALL",
-                            league_id=league,
-                            season=fixture_season,
-                            home_team_id=home_team_id,
-                            away_team_id=away_team_id,
-                            start_time=start_time,
-                            round_name=(
-                                str(fixture["round"])
-                                if fixture.get("round") is not None
-                                else None
-                            ),
-                            seed_delay_hours=0,
-                        )
-                        upsert_provider_fixture_map(
-                            conn, "sportmonks", "FOOTBALL", str(external_id), fixture_id
-                        )
-                        loaded += 1
+
+                    total_loaded = sum(per_league_loaded.values())
+                    total_skipped = sum(per_league_skipped.values())
+                    click.echo(
+                        f"Total: {total_loaded} fixtures loaded across "
+                        f"{len(per_league_loaded)} leagues (skipped={total_skipped})"
+                    )
                 finally:
                     handler.close()
-
-                click.echo(
-                    f"Loaded {loaded} Football fixtures for league {league} (skipped={skipped})"
-                )
     finally:
         pool.close()
 

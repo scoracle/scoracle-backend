@@ -202,7 +202,17 @@ Run metadata seeding explicitly from the CLI when needed (for example at season 
 ```bash
 scoracle-seed meta seed nba --season 2025
 scoracle-seed meta seed nfl --season 2025
-scoracle-seed meta seed football --season 2026 --league 8
+scoracle-seed meta seed football --season 2025 --league 8
+```
+
+Football `--league` is optional. When omitted, the seeder iterates
+every league with a `provider_seasons` row for the given season —
+one cron job can drain all configured football leagues:
+
+```bash
+scoracle-seed meta seed football --season 2025
+scoracle-seed event load-fixtures football --season 2025
+scoracle-seed event process --sport football --season 2025
 ```
 
 Optional scoped run:

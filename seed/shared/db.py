@@ -72,3 +72,22 @@ def resolve_sm_league_id(
     if row:
         return row.get("sportmonks_id"), row.get("name", "")
     return None, ""
+
+
+def get_football_league_ids(
+    conn: psycopg.Connection, season_year: int, provider: str = "sportmonks"
+) -> list[int]:
+    """Return every football league_id with a provider_seasons row for the season."""
+    rows = conn.execute(
+        """
+        SELECT ps.league_id
+        FROM provider_seasons ps
+        JOIN leagues l ON l.id = ps.league_id
+        WHERE ps.season_year = %s
+          AND ps.provider = %s
+          AND l.sport = 'FOOTBALL'
+        ORDER BY ps.league_id
+        """,
+        (season_year, provider),
+    ).fetchall()
+    return [r["league_id"] for r in rows]

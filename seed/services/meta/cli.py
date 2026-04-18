@@ -23,7 +23,7 @@ from ..event.handlers.sportmonks_football import (
     _parse_player as parse_football_player,
 )
 from .handlers.apisports_images import seed_nba_images, seed_nfl_images
-from shared.db import resolve_provider_season_id
+from shared.db import get_football_league_ids, resolve_provider_season_id
 
 logger = logging.getLogger("meta_seeding")
 
@@ -302,22 +302,43 @@ def seed(
                     conn, cfg.bdl_api_key, season, max_teams, max_players
                 )
             elif sport_upper == "FOOTBALL":
-                if not league:
-                    click.echo("--league is required for football meta seed", err=True)
-                    sys.exit(1)
                 if not cfg.sportmonks_api_token:
                     click.echo(
                         "SPORTMONKS_API_TOKEN is required for football meta seed", err=True
                     )
                     sys.exit(1)
-                teams_seeded, players_seeded, failed = _seed_football_metadata(
-                    conn,
-                    cfg.sportmonks_api_token,
-                    season,
-                    league,
-                    max_teams,
-                    max_players,
-                )
+
+                if league:
+                    league_ids = [league]
+                else:
+                    league_ids = get_football_league_ids(conn, season)
+                    if not league_ids:
+                        click.echo(
+                            f"No provider_seasons rows found for football season={season}. "
+                            "Add them or pass --league explicitly.",
+                            err=True,
+                        )
+                        sys.exit(1)
+                    click.echo(
+                        f"Iterating {len(league_ids)} football leagues: {league_ids}"
+                    )
+
+                teams_seeded = 0
+                players_seeded = 0
+                failed = 0
+                for lid in league_ids:
+                    click.echo(f"--- league={lid} ---")
+                    t, p, f = _seed_football_metadata(
+                        conn,
+                        cfg.sportmonks_api_token,
+                        season,
+                        lid,
+                        max_teams,
+                        max_players,
+                    )
+                    teams_seeded += t
+                    players_seeded += p
+                    failed += f
             else:
                 click.echo(f"Unsupported sport: {sport}", err=True)
                 sys.exit(1)

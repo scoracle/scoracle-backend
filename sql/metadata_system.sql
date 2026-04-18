@@ -17,9 +17,11 @@ CREATE TABLE IF NOT EXISTS metadata_refresh_queue (
     retry_count INTEGER DEFAULT 0,
     error_message TEXT,
     
-    -- Prevent duplicate requests for same player
+    -- Prevent duplicate requests for same player.
+    -- Not deferrable: the team-change trigger uses this as an ON CONFLICT
+    -- arbiter (see detect_team_change), which Postgres rejects on deferrable
+    -- unique constraints.
     CONSTRAINT unique_pending_request UNIQUE (player_id, sport, processed_at)
-    DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Index for efficient querying

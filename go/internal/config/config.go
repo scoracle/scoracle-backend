@@ -40,7 +40,6 @@ type Config struct {
 	// Populated from TWITTER_LIST_<SPORT> env vars. Lists with no ID are unconfigured.
 	TwitterLists    map[string]string
 	TwitterCacheTTL time.Duration
-	NewsAPIKey      string
 
 	// Cache
 	CacheEnabled bool
@@ -88,7 +87,6 @@ func Load() (*Config, error) {
 		TwitterBearerToken: envOr("TWITTER_BEARER_TOKEN", ""),
 		TwitterLists:       loadTwitterLists(),
 		TwitterCacheTTL:    time.Duration(envInt("TWITTER_CACHE_TTL_SECONDS", 1200)) * time.Second,
-		NewsAPIKey:         envOr("NEWS_API_KEY", ""),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

@@ -16,7 +16,7 @@ import (
 
 // GetEntityNews returns news articles for an entity (player or team).
 // @Summary Get entity news
-// @Description Returns news articles about a player or team from Google News RSS (primary) or NewsAPI (fallback). Supports time-window escalation and strict name matching.
+// @Description Returns news articles about a player or team from Google News RSS. Supports time-window escalation and strict name matching.
 // @Tags news
 // @Produce json
 // @Param entityType path string true "Entity type" Enums(player, team)
@@ -24,7 +24,6 @@ import (
 // @Param sport query string true "Sport identifier" Enums(NBA, NFL, FOOTBALL)
 // @Param team query string false "Team name for player context"
 // @Param limit query int false "Max articles (1-50, default 10)"
-// @Param source query string false "News source preference" Enums(rss, api, both) default(rss)
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 404 {object} respond.ErrorResponse
@@ -66,20 +65,10 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	source := r.URL.Query().Get("source")
-	if source == "" {
-		source = "rss"
-	}
-	if source != "rss" && source != "api" && source != "both" {
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_SOURCE",
-			"source must be 'rss', 'api', or 'both'")
-		return
-	}
-
 	team := r.URL.Query().Get("team")
 
 	// Check cache first.
-	cacheKey := fmt.Sprintf("news:%s:%d:%s:%s:%d", entityType, entityID, sport, source, limit)
+	cacheKey := fmt.Sprintf("news:%s:%d:%s:%d", entityType, entityID, sport, limit)
 	if data, etag, ok := h.cache.Get(cacheKey); ok {
 		if cache.CheckETagMatch(r.Header.Get("If-None-Match"), etag) {
 			respond.WriteNotModified(w, etag)
@@ -110,7 +99,7 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch news.
-	result, err := h.news.GetEntityNews(entityName, sport, team, source, limit, firstName, lastName, aliases)
+	result, err := h.news.GetEntityNews(entityName, sport, team, limit, firstName, lastName, aliases)
 	if err != nil {
 		respond.WriteError(w, http.StatusBadGateway, "EXTERNAL_SERVICE_ERROR",
 			fmt.Sprintf("News fetch failed: %v", err))
@@ -138,7 +127,7 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 
 // GetNewsStatus returns news service configuration status.
 // @Summary News service status
-// @Description Returns configuration state for RSS and NewsAPI sources.
+// @Description Returns configuration state for the Google News RSS source.
 // @Tags news
 // @Produce json
 // @Success 200 {object} map[string]interface{}

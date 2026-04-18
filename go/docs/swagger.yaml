@@ -439,9 +439,8 @@ paths:
       - health
   /news/{entityType}/{entityID}:
     get:
-      description: Returns news articles about a player or team from Google News RSS
-        (primary) or NewsAPI (fallback). Supports time-window escalation and strict
-        name matching.
+      description: Returns news articles about a player or team from Google News RSS.
+        Supports time-window escalation and strict name matching.
       parameters:
       - description: Entity type
         enum:
@@ -473,15 +472,6 @@ paths:
         in: query
         name: limit
         type: integer
-      - default: rss
-        description: News source preference
-        enum:
-        - rss
-        - api
-        - both
-        in: query
-        name: source
-        type: string
       produces:
       - application/json
       responses:
@@ -507,7 +497,7 @@ paths:
       - news
   /news/status:
     get:
-      description: Returns configuration state for RSS and NewsAPI sources.
+      description: Returns configuration state for the Google News RSS source.
       produces:
       - application/json
       responses:

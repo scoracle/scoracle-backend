@@ -2,7 +2,6 @@
 package thirdparty
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -12,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -25,18 +23,10 @@ const (
 	newsMaxLimit     = 50
 	newsMinArticles  = 3
 	newsRSSTimeout   = 15 * time.Second
-	newsAPITimeout   = 15 * time.Second
 )
 
 // Time windows for escalation (hours).
 var timeWindows = []int{24, 48, 168}
-
-// Sport-specific domains for NewsAPI filtering.
-var sportDomains = map[string]string{
-	"NBA":      "espn.com,bleacherreport.com,nba.com,theathletic.com,cbssports.com",
-	"NFL":      "espn.com,bleacherreport.com,nfl.com,theathletic.com,cbssports.com",
-	"FOOTBALL": "espn.com,skysports.com,bbc.com,goal.com,theathletic.com,theguardian.com",
-}
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{
@@ -46,10 +36,10 @@ var sportTerms = map[string]string{
 }
 
 // ---------------------------------------------------------------------------
-// Article — normalized article shape shared by both sources
+// Article — normalized article shape
 // ---------------------------------------------------------------------------
 
-// Article is a normalized news article from any source.
+// Article is a normalized news article.
 type Article struct {
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
@@ -61,45 +51,34 @@ type Article struct {
 }
 
 // ---------------------------------------------------------------------------
-// NewsService — unified Google News RSS + NewsAPI facade
+// NewsService — Google News RSS client
 // ---------------------------------------------------------------------------
 
-// NewsService combines Google News RSS (primary) and NewsAPI (fallback).
+// NewsService fetches entity news from Google News RSS.
 type NewsService struct {
-	apiKey     string // NewsAPI key (empty = not configured)
 	httpClient *http.Client
 }
 
-// NewNewsService creates a news service. apiKey may be empty.
-func NewNewsService(apiKey string) *NewsService {
+// NewNewsService creates a news service.
+func NewNewsService() *NewsService {
 	return &NewsService{
-		apiKey: apiKey,
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
 	}
 }
 
-// HasNewsAPI reports whether a NewsAPI key is configured.
-func (s *NewsService) HasNewsAPI() bool { return s.apiKey != "" }
-
 // Status returns service configuration status.
 func (s *NewsService) Status() map[string]interface{} {
-	var fallback interface{}
-	if s.HasNewsAPI() {
-		fallback = "newsapi"
-	}
 	return map[string]interface{}{
-		"rss_available":      true,
-		"newsapi_configured": s.HasNewsAPI(),
-		"primary_source":     "google_news_rss",
-		"fallback_source":    fallback,
+		"rss_available":  true,
+		"primary_source": "google_news_rss",
 	}
 }
 
-// GetEntityNews fetches news for an entity. preferSource is "rss" | "api" | "both".
+// GetEntityNews fetches news for an entity via Google News RSS.
 func (s *NewsService) GetEntityNews(
-	entityName, sport, team, preferSource string,
+	entityName, sport, team string,
 	limit int,
 	firstName, lastName string,
 	aliases []string,
@@ -111,17 +90,7 @@ func (s *NewsService) GetEntityNews(
 		limit = newsMaxLimit
 	}
 
-	switch preferSource {
-	case "api":
-		if !s.HasNewsAPI() {
-			return nil, fmt.Errorf("NewsAPI not configured")
-		}
-		return s.fetchFromNewsAPI(entityName, sport, limit)
-	case "both":
-		return s.fetchFromBoth(entityName, sport, team, limit, firstName, lastName, aliases)
-	default: // "rss"
-		return s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
-	}
+	return s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
 }
 
 // ---------------------------------------------------------------------------
@@ -304,190 +273,6 @@ func bestAliasQuery(primarySearch string, aliases []string) string {
 		}
 	}
 	return best
-}
-
-// ---------------------------------------------------------------------------
-// NewsAPI implementation
-// ---------------------------------------------------------------------------
-
-type newsAPIResponse struct {
-	Status       string `json:"status"`
-	TotalResults int    `json:"totalResults"`
-	Articles     []struct {
-		Source struct {
-			Name string `json:"name"`
-		} `json:"source"`
-		Author      *string `json:"author"`
-		Title       string  `json:"title"`
-		Description string  `json:"description"`
-		URL         string  `json:"url"`
-		URLToImage  *string `json:"urlToImage"`
-		PublishedAt string  `json:"publishedAt"`
-	} `json:"articles"`
-	Message string `json:"message"` // on error
-}
-
-func (s *NewsService) fetchFromNewsAPI(entityName, sport string, limit int) (map[string]interface{}, error) {
-	if !s.HasNewsAPI() {
-		return nil, fmt.Errorf("NewsAPI not configured")
-	}
-
-	fromDate := time.Now().UTC().AddDate(0, 0, -7).Format("2006-01-02")
-
-	params := url.Values{}
-	params.Set("q", entityName)
-	params.Set("from", fromDate)
-	params.Set("sortBy", "relevancy")
-	params.Set("pageSize", fmt.Sprintf("%d", limit))
-	params.Set("language", "en")
-
-	if domain, ok := sportDomains[strings.ToUpper(sport)]; ok {
-		params.Set("domains", domain)
-	}
-
-	u := "https://newsapi.org/v2/everything?" + params.Encode()
-
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-Api-Key", s.apiKey)
-
-	client := &http.Client{Timeout: newsAPITimeout}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("NewsAPI request error: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var apiResp newsAPIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("NewsAPI decode error: %w", err)
-	}
-
-	if apiResp.Status != "ok" {
-		return nil, fmt.Errorf("NewsAPI error: %s", apiResp.Message)
-	}
-
-	articles := make([]Article, 0, len(apiResp.Articles))
-	for _, a := range apiResp.Articles {
-		articles = append(articles, Article{
-			Title:       a.Title,
-			Description: a.Description,
-			URL:         a.URL,
-			Source:      a.Source.Name,
-			Author:      a.Author,
-			PublishedAt: a.PublishedAt,
-			ImageURL:    a.URLToImage,
-		})
-	}
-
-	return map[string]interface{}{
-		"query":    entityName,
-		"sport":    sport,
-		"articles": articles,
-		"provider": "newsapi",
-		"meta": map[string]interface{}{
-			"total_results": apiResp.TotalResults,
-			"returned":      len(articles),
-		},
-	}, nil
-}
-
-// ---------------------------------------------------------------------------
-// Combined fetch
-// ---------------------------------------------------------------------------
-
-func (s *NewsService) fetchFromBoth(
-	entityName, sport, team string,
-	limit int,
-	firstName, lastName string,
-	aliases []string,
-) (map[string]interface{}, error) {
-	type result struct {
-		data map[string]interface{}
-		err  error
-	}
-
-	var wg sync.WaitGroup
-	rssCh := make(chan result, 1)
-	apiCh := make(chan result, 1)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		d, e := s.fetchFromRSS(entityName, sport, team, limit*2, firstName, lastName, aliases)
-		rssCh <- result{d, e}
-	}()
-
-	if s.HasNewsAPI() {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			d, e := s.fetchFromNewsAPI(entityName, sport, limit*2)
-			apiCh <- result{d, e}
-		}()
-	}
-
-	go func() {
-		wg.Wait()
-		close(rssCh)
-		close(apiCh)
-	}()
-
-	rssResult := <-rssCh
-	if rssResult.err != nil && !s.HasNewsAPI() {
-		return nil, rssResult.err
-	}
-
-	// Merge articles, dedup by URL.
-	seenURLs := make(map[string]bool)
-	var merged []Article
-
-	if rssResult.data != nil {
-		if arts, ok := rssResult.data["articles"].([]Article); ok {
-			for _, a := range arts {
-				if a.URL != "" && !seenURLs[a.URL] {
-					seenURLs[a.URL] = true
-					merged = append(merged, a)
-				}
-			}
-		}
-	}
-
-	rssCount := len(merged)
-	apiCount := 0
-
-	if s.HasNewsAPI() {
-		apiResult := <-apiCh
-		if apiResult.data != nil {
-			if arts, ok := apiResult.data["articles"].([]Article); ok {
-				apiCount = len(arts)
-				for _, a := range arts {
-					if a.URL != "" && !seenURLs[a.URL] {
-						seenURLs[a.URL] = true
-						merged = append(merged, a)
-					}
-				}
-			}
-		}
-	}
-
-	if len(merged) > limit {
-		merged = merged[:limit]
-	}
-
-	return map[string]interface{}{
-		"articles": merged,
-		"query":    entityName,
-		"sport":    sport,
-		"provider": "combined",
-		"meta": map[string]interface{}{
-			"rss_count":    rssCount,
-			"api_count":    apiCount,
-			"merged_count": len(merged),
-		},
-	}, nil
 }
 
 // ---------------------------------------------------------------------------

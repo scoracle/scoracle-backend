@@ -111,7 +111,7 @@
         },
         "/news/status": {
             "get": {
-                "description": "Returns configuration state for RSS and NewsAPI sources.",
+                "description": "Returns configuration state for the Google News RSS source.",
                 "produces": [
                     "application/json"
                 ],
@@ -132,7 +132,7 @@
         },
         "/news/{entityType}/{entityID}": {
             "get": {
-                "description": "Returns news articles about a player or team from Google News RSS (primary) or NewsAPI (fallback). Supports time-window escalation and strict name matching.",
+                "description": "Returns news articles about a player or team from Google News RSS. Supports time-window escalation and strict name matching.",
                 "produces": [
                     "application/json"
                 ],
@@ -181,18 +181,6 @@
                         "type": "integer",
                         "description": "Max articles (1-50, default 10)",
                         "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "rss",
-                            "api",
-                            "both"
-                        ],
-                        "type": "string",
-                        "default": "rss",
-                        "description": "News source preference",
-                        "name": "source",
                         "in": "query"
                     }
                 ],

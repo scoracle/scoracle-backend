@@ -22,6 +22,7 @@ from ..event.handlers.sportmonks_football import (
     FootballHandler,
     _parse_player as parse_football_player,
 )
+from .handlers.apisports_images import seed_nba_images, seed_nfl_images
 from shared.db import resolve_provider_season_id
 
 logger = logging.getLogger("meta_seeding")
@@ -324,6 +325,63 @@ def seed(
             click.echo(
                 f"Meta seed complete sport={sport_upper} "
                 f"teams={teams_seeded} players={players_seeded} failed={failed}"
+            )
+    finally:
+        pool.close()
+
+
+@cli.command("images")
+@click.argument("sport", type=click.Choice(["nba", "nfl"], case_sensitive=False))
+@click.option("--season", type=int, required=True, help="Season year")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Match + log only; don't write to DB. Still consumes API quota.",
+)
+def images(sport: str, season: int, dry_run: bool) -> None:
+    """Seed logo + headshot URLs from api-sports (NBA and NFL).
+
+    Box scores and stats continue to come from BDL. This command only
+    populates team logo_url and player photo_url when they're currently
+    NULL, and records api-sports entity mappings in provider_entity_map.
+    """
+    cfg = config_mod.load()
+    if not cfg.api_sports_key:
+        click.echo("API_SPORTS_KEY is required for image seed", err=True)
+        sys.exit(1)
+
+    pool = create_pool(cfg)
+    try:
+        if not check_connectivity(pool):
+            click.echo("Database connectivity check failed", err=True)
+            sys.exit(1)
+
+        with get_conn(pool) as conn:
+            sport_upper = sport.upper()
+            if sport_upper == "NBA":
+                report = seed_nba_images(
+                    conn, cfg.api_sports_key, season, dry_run=dry_run,
+                )
+            elif sport_upper == "NFL":
+                report = seed_nfl_images(
+                    conn, cfg.api_sports_key, season, dry_run=dry_run,
+                )
+            else:
+                click.echo(f"Unsupported sport: {sport}", err=True)
+                sys.exit(1)
+
+            click.echo(
+                f"Image seed complete sport={sport_upper} dry_run={dry_run} "
+                f"api_calls={report.api_calls} "
+                f"teams_mapped={report.teams_mapped} "
+                f"team_logos_written={report.team_logos_written} "
+                f"team_logos_skipped={report.team_logos_skipped_present} "
+                f"teams_unmatched={report.teams_unmatched} "
+                f"players_mapped={report.players_mapped} "
+                f"player_photos_written={report.player_photos_written} "
+                f"player_photos_skipped={report.player_photos_skipped_present} "
+                f"players_unmatched={report.players_unmatched}"
             )
     finally:
         pool.close()

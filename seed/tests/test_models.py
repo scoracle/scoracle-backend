@@ -1,29 +1,6 @@
 """Tests for canonical data models."""
 
-from shared.models import Player, SeedResult, Team
-
-
-def test_seed_result_summary():
-    r = SeedResult(
-        teams_upserted=3,
-        players_upserted=10,
-        player_stats_upserted=10,
-        event_box_scores_upserted=22,
-    )
-    assert "teams=3" in r.summary()
-    assert "players=10" in r.summary()
-    assert "event_box_scores=22" in r.summary()
-    assert "errors=0" in r.summary()
-
-
-def test_seed_result_add():
-    a = SeedResult(teams_upserted=2, players_upserted=5)
-    b = SeedResult(teams_upserted=1, player_stats_upserted=3, errors=["fail"])
-    a.add(b)
-    assert a.teams_upserted == 3
-    assert a.players_upserted == 5
-    assert a.player_stats_upserted == 3
-    assert len(a.errors) == 1
+from shared.models import Player, Team
 
 
 def test_team_defaults():

@@ -9,6 +9,7 @@ class Config:
     database_url: str
     bdl_api_key: str
     sportmonks_api_token: str
+    api_sports_key: str
     db_pool_min: int = 2
     db_pool_max: int = 10
 
@@ -33,6 +34,7 @@ def load() -> Config:
         database_url=db_url,
         bdl_api_key=os.environ.get("BALLDONTLIE_API_KEY", ""),
         sportmonks_api_token=os.environ.get("SPORTMONKS_API_TOKEN", ""),
+        api_sports_key=os.environ.get("API_SPORTS_KEY", ""),
         db_pool_min=int(os.environ.get("DB_POOL_MIN_CONNS", "2")),
         db_pool_max=int(os.environ.get("DB_POOL_MAX_CONNS", "10")),
     )

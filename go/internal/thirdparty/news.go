@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -59,6 +60,25 @@ type Article struct {
 // NewsService — Google News RSS client
 // ---------------------------------------------------------------------------
 
+// entityPoolTTL controls how often the cross-entity match pool is refreshed
+// from the DB. The pool is populated by player/team upserts via the seeder,
+// so staleness of up to an hour is harmless.
+const entityPoolTTL = 1 * time.Hour
+
+// cachedEntity is one row in the in-memory entity pool used for cross-entity
+// matching at write-through time. Built from teams + players rows.
+type cachedEntity struct {
+	entityType string // 'player' | 'team'
+	entityID   int
+	sport      string
+	match      EntityMatchInput
+}
+
+type entityPool struct {
+	entities  []cachedEntity
+	refreshed time.Time
+}
+
 // NewsService fetches entity news from Google News RSS.
 //
 // When constructed with a non-nil pool, every matched article is also
@@ -67,6 +87,9 @@ type Article struct {
 type NewsService struct {
 	httpClient *http.Client
 	pool       *pgxpool.Pool
+
+	entityMu    sync.RWMutex
+	entityPools map[string]*entityPool // keyed by sport, lowercased
 }
 
 // NewNewsService creates a news service. If pool is non-nil, fetched
@@ -77,7 +100,8 @@ func NewNewsService(pool *pgxpool.Pool) *NewsService {
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
-		pool: pool,
+		pool:        pool,
+		entityPools: make(map[string]*entityPool),
 	}
 }
 
@@ -125,13 +149,18 @@ func (s *NewsService) GetEntityNews(
 	return result, nil
 }
 
-// persistArticles upserts articles by URL hash and links them to an entity.
+// persistArticles upserts articles by URL hash and links them to the primary
+// requested entity plus any other teams/players mentioned in the title (cross-
+// entity linking). The secondary pass catches relational patterns Gemma can
+// learn from — e.g. "Warriors trade talks for Durant" links to Warriors AND
+// Durant even if only Durant was the queried entity.
+//
 // Runs in a single transaction. Errors are returned to the caller but don't
 // break the response path — the caller logs and moves on.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
-	sport, entityType string,
-	entityID int,
+	sport, primaryEntityType string,
+	primaryEntityID int,
 	articles []Article,
 ) error {
 	tx, err := s.pool.Begin(ctx)
@@ -140,13 +169,19 @@ func (s *NewsService) persistArticles(
 	}
 	defer tx.Rollback(ctx)
 
+	sportUpper := strings.ToUpper(sport)
+	pool, err := s.getEntityPool(ctx, sportUpper)
+	if err != nil {
+		log.Printf("[news] entity pool load failed sport=%s: %v", sportUpper, err)
+		pool = nil
+	}
+
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
 			continue
 		}
 		hash := sha256Hex(a.URL)
 
-		// published_at can be any of a few formats; best-effort parse.
 		var publishedAt *time.Time
 		if ts := parseArticleDate(a.PublishedAt); !ts.IsZero() {
 			publishedAt = &ts
@@ -167,19 +202,136 @@ func (s *NewsService) persistArticles(
 			return fmt.Errorf("upsert article: %w", err)
 		}
 
-		// Idempotent link — a user hitting the same article for the same
-		// entity twice shouldn't create a duplicate row.
-		_, err = tx.Exec(ctx, `
+		// Primary link — the entity that was queried.
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
 			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, entityType, entityID, strings.ToUpper(sport), 1.0)
-		if err != nil {
-			return fmt.Errorf("link article: %w", err)
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0); err != nil {
+			return fmt.Errorf("link primary entity: %w", err)
+		}
+
+		// Secondary links — scan the title against the cached entity pool
+		// to pick up co-mentioned teams/players. ON CONFLICT DO NOTHING
+		// means re-matching the primary entity is a cheap no-op.
+		for i := range pool {
+			e := &pool[i]
+			// Skip the primary — we already linked it at confidence 1.0.
+			if e.entityType == primaryEntityType && e.entityID == primaryEntityID {
+				continue
+			}
+			if !MatchesEntity(a.Title, e.match) {
+				continue
+			}
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
+				VALUES ($1, $2, $3, $4, $5)
+				ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
+			`, articleID, e.entityType, e.entityID, sportUpper, 0.8); err != nil {
+				return fmt.Errorf("link secondary entity: %w", err)
+			}
 		}
 	}
 
 	return tx.Commit(ctx)
+}
+
+// getEntityPool returns (and refreshes on staleness) the cached list of
+// players + teams for a sport. The pool is small enough (<3.5k per sport
+// post-purge) that scanning the whole list per article is fine.
+func (s *NewsService) getEntityPool(ctx context.Context, sport string) ([]cachedEntity, error) {
+	s.entityMu.RLock()
+	p, ok := s.entityPools[sport]
+	s.entityMu.RUnlock()
+
+	if ok && time.Since(p.refreshed) < entityPoolTTL {
+		return p.entities, nil
+	}
+
+	entities, err := s.loadEntityPool(ctx, sport)
+	if err != nil {
+		// If we have a stale cache, keep using it rather than failing.
+		if ok {
+			return p.entities, nil
+		}
+		return nil, err
+	}
+
+	s.entityMu.Lock()
+	s.entityPools[sport] = &entityPool{entities: entities, refreshed: time.Now()}
+	s.entityMu.Unlock()
+	return entities, nil
+}
+
+func (s *NewsService) loadEntityPool(ctx context.Context, sport string) ([]cachedEntity, error) {
+	// Teams
+	teamRows, err := s.pool.Query(ctx, `
+		SELECT id, name, COALESCE(short_code, ''), COALESCE(search_aliases, ARRAY[]::text[])
+		FROM teams WHERE sport = $1
+	`, sport)
+	if err != nil {
+		return nil, fmt.Errorf("load teams: %w", err)
+	}
+	var out []cachedEntity
+	for teamRows.Next() {
+		var id int
+		var name, shortCode string
+		var aliases []string
+		if err := teamRows.Scan(&id, &name, &shortCode, &aliases); err != nil {
+			teamRows.Close()
+			return nil, err
+		}
+		al := aliases
+		if shortCode != "" {
+			al = append(al, shortCode)
+		}
+		out = append(out, cachedEntity{
+			entityType: "team",
+			entityID:   id,
+			sport:      sport,
+			match: EntityMatchInput{
+				Name:    name,
+				Aliases: al,
+				Sport:   sport,
+			},
+		})
+	}
+	teamRows.Close()
+
+	// Players
+	playerRows, err := s.pool.Query(ctx, `
+		SELECT id, name, COALESCE(first_name, ''), COALESCE(last_name, ''),
+		       COALESCE(search_aliases, ARRAY[]::text[])
+		FROM players WHERE sport = $1
+	`, sport)
+	if err != nil {
+		return nil, fmt.Errorf("load players: %w", err)
+	}
+	for playerRows.Next() {
+		var id int
+		var name, first, last string
+		var aliases []string
+		if err := playerRows.Scan(&id, &name, &first, &last, &aliases); err != nil {
+			playerRows.Close()
+			return nil, err
+		}
+		out = append(out, cachedEntity{
+			entityType: "player",
+			entityID:   id,
+			sport:      sport,
+			match: EntityMatchInput{
+				Name:      name,
+				FirstName: first,
+				LastName:  last,
+				Aliases:   aliases,
+				Sport:     sport,
+			},
+		})
+	}
+	playerRows.Close()
+
+	log.Printf("[news] loaded entity pool sport=%s count=%d", sport, len(out))
+	return out, nil
 }
 
 func sha256Hex(s string) string {

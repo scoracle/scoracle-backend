@@ -2,6 +2,9 @@
 package thirdparty
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -12,6 +15,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ---------------------------------------------------------------------------
@@ -55,16 +60,24 @@ type Article struct {
 // ---------------------------------------------------------------------------
 
 // NewsService fetches entity news from Google News RSS.
+//
+// When constructed with a non-nil pool, every matched article is also
+// persisted to news_articles + news_article_entities as a write-through.
+// That populates the long-term corpus Gemma reads from.
 type NewsService struct {
 	httpClient *http.Client
+	pool       *pgxpool.Pool
 }
 
-// NewNewsService creates a news service.
-func NewNewsService() *NewsService {
+// NewNewsService creates a news service. If pool is non-nil, fetched
+// articles are written to news_articles / news_article_entities on each
+// successful entity match.
+func NewNewsService(pool *pgxpool.Pool) *NewsService {
 	return &NewsService{
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
+		pool: pool,
 	}
 }
 
@@ -77,7 +90,13 @@ func (s *NewsService) Status() map[string]interface{} {
 }
 
 // GetEntityNews fetches news for an entity via Google News RSS.
+// entityType ("player"|"team") and entityID drive the write-through —
+// matched articles are linked back to the requested entity in
+// news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
 func (s *NewsService) GetEntityNews(
+	ctx context.Context,
+	entityType string,
+	entityID int,
 	entityName, sport, team string,
 	limit int,
 	firstName, lastName string,
@@ -90,7 +109,107 @@ func (s *NewsService) GetEntityNews(
 		limit = newsMaxLimit
 	}
 
-	return s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
+	result, matched, err := s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
+	if err != nil {
+		return nil, err
+	}
+
+	// Write-through: persist the matched articles and link them to this entity.
+	// Non-fatal — a failed persist shouldn't break the response.
+	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
+		if perr := s.persistArticles(ctx, sport, entityType, entityID, matched); perr != nil {
+			log.Printf("[news] persist failed sport=%s entity=%s/%d: %v", sport, entityType, entityID, perr)
+		}
+	}
+
+	return result, nil
+}
+
+// persistArticles upserts articles by URL hash and links them to an entity.
+// Runs in a single transaction. Errors are returned to the caller but don't
+// break the response path — the caller logs and moves on.
+func (s *NewsService) persistArticles(
+	ctx context.Context,
+	sport, entityType string,
+	entityID int,
+	articles []Article,
+) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	for _, a := range articles {
+		if a.URL == "" || a.Title == "" {
+			continue
+		}
+		hash := sha256Hex(a.URL)
+
+		// published_at can be any of a few formats; best-effort parse.
+		var publishedAt *time.Time
+		if ts := parseArticleDate(a.PublishedAt); !ts.IsZero() {
+			publishedAt = &ts
+		}
+
+		var articleID int64
+		err := tx.QueryRow(ctx, `
+			INSERT INTO news_articles (url_hash, url, source, title, description, published_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
+			ON CONFLICT (url_hash) DO UPDATE SET
+			    title       = EXCLUDED.title,
+			    description = EXCLUDED.description,
+			    source      = COALESCE(EXCLUDED.source, news_articles.source),
+			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at)
+			RETURNING id
+		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt).Scan(&articleID)
+		if err != nil {
+			return fmt.Errorf("upsert article: %w", err)
+		}
+
+		// Idempotent link — a user hitting the same article for the same
+		// entity twice shouldn't create a duplicate row.
+		_, err = tx.Exec(ctx, `
+			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
+		`, articleID, entityType, entityID, strings.ToUpper(sport), 1.0)
+		if err != nil {
+			return fmt.Errorf("link article: %w", err)
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func sha256Hex(s string) string {
+	h := sha256.Sum256([]byte(s))
+	return hex.EncodeToString(h[:])
+}
+
+func nullIfEmpty(s string) interface{} {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+func parseArticleDate(s string) time.Time {
+	if s == "" {
+		return time.Time{}
+	}
+	for _, f := range []string{
+		time.RFC1123Z,
+		time.RFC1123,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05-07:00",
+	} {
+		if t, err := time.Parse(f, strings.TrimSpace(s)); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +305,7 @@ func (s *NewsService) fetchFromRSS(
 	limit int,
 	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, error) {
+) (map[string]interface{}, []Article, error) {
 	sportSuffix := ""
 	if sport != "" {
 		if term, ok := sportTerms[strings.ToUpper(sport)]; ok {
@@ -252,7 +371,7 @@ func (s *NewsService) fetchFromRSS(
 			"returned":      len(allArticles),
 			"source":        "google_news_rss",
 		},
-	}, nil
+	}, allArticles, nil
 }
 
 // bestAliasQuery returns the best alias to use as a fallback search query.

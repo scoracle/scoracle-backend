@@ -98,8 +98,9 @@ func (h *Handler) GetEntityNews(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetch news.
-	result, err := h.news.GetEntityNews(entityName, sport, team, limit, firstName, lastName, aliases)
+	// Fetch news. Handler also write-throughs matched articles into
+	// news_articles + news_article_entities for the Gemma corpus.
+	result, err := h.news.GetEntityNews(ctx, entityType, entityID, entityName, sport, team, limit, firstName, lastName, aliases)
 	if err != nil {
 		respond.WriteError(w, http.StatusBadGateway, "EXTERNAL_SERVICE_ERROR",
 			fmt.Sprintf("News fetch failed: %v", err))

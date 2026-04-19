@@ -30,7 +30,7 @@ func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config) *Handler {
 		pool:    pool,
 		cache:   c,
 		cfg:     cfg,
-		news:    thirdparty.NewNewsService(),
+		news:    thirdparty.NewNewsService(pool),
 		twitter: thirdparty.NewTwitterService(pool, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL),
 	}
 }

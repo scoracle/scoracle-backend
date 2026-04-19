@@ -439,7 +439,16 @@ func (s *TwitterService) fetchListTweets(ctx context.Context, listID, sinceID st
 		return nil, "", fmt.Errorf("twitter decode error: %w", err)
 	}
 
-	return formatTweets(&apiResp), apiResp.Meta.NewestID, nil
+	// X v2 only populates meta.newest_id when the request includes since_id,
+	// so cold calls return an empty cursor. Tweets come back newest-first,
+	// so derive the cursor from data[0] when meta is empty — without this,
+	// every refresh re-pulls 100 tweets instead of just the delta.
+	newestID := apiResp.Meta.NewestID
+	if newestID == "" && len(apiResp.Data) > 0 {
+		newestID = apiResp.Data[0].ID
+	}
+
+	return formatTweets(&apiResp), newestID, nil
 }
 
 // ---------------------------------------------------------------------------

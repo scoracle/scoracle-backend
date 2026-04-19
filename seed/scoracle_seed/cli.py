@@ -2,7 +2,8 @@
 
 Usage:
   scoracle-seed event [command]    # Box scores, fixtures
-  scoracle-seed meta [command]     # Profiles, metadata
+  scoracle-seed meta [command]     # Profiles, metadata, images, purge
+  scoracle-seed news [command]     # News corpus backfill
 """
 
 from __future__ import annotations
@@ -26,18 +27,21 @@ def _setup_logging() -> None:
 def cli() -> None:
     """Scoracle Seed — sports data ingestion.
 
-    Two services:
+    Services:
       event  — Box scores and fixture data
-      meta   — Player/team profiles and metadata
+      meta   — Player/team profiles, images, purge-inactive
+      news   — Corpus backfill from Google RSS (via Go API)
     """
     _setup_logging()
 
 
 from services.event.cli import cli as event_cli
 from services.meta.cli import cli as meta_cli
+from services.news.cli import cli as news_cli
 
 cli.add_command(event_cli, name="event")
 cli.add_command(meta_cli, name="meta")
+cli.add_command(news_cli, name="news")
 
 
 if __name__ == "__main__":

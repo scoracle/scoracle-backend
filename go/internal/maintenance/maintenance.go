@@ -13,17 +13,21 @@ import (
 
 // Config controls maintenance task intervals. Zero duration disables a task.
 type Config struct {
-	CleanupInterval time.Duration // Expired notifications + stale cache rows
-	DigestInterval  time.Duration // Batch digest generation
-	CatchUpInterval time.Duration // Sweep for missed NOTIFY events
+	CleanupInterval  time.Duration // Expired notifications + stale cache rows
+	DigestInterval   time.Duration // Batch digest generation
+	CatchUpInterval  time.Duration // Sweep for missed NOTIFY events
+	TweetTTLInterval time.Duration // X tweet purge cadence
+	TweetTTL         time.Duration // How long tweets live before being purged
 }
 
 // DefaultConfig returns sensible production defaults.
 func DefaultConfig() Config {
 	return Config{
-		CleanupInterval: 30 * time.Minute,
-		DigestInterval:  1 * time.Hour,
-		CatchUpInterval: 15 * time.Minute,
+		CleanupInterval:  30 * time.Minute,
+		DigestInterval:   1 * time.Hour,
+		CatchUpInterval:  15 * time.Minute,
+		TweetTTLInterval: 1 * time.Hour,
+		TweetTTL:         24 * time.Hour,
 	}
 }
 
@@ -33,9 +37,11 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 	logger.Info("Maintenance tickers started",
 		"cleanup", cfg.CleanupInterval,
 		"digest", cfg.DigestInterval,
-		"catchup", cfg.CatchUpInterval)
+		"catchup", cfg.CatchUpInterval,
+		"tweet_ttl", cfg.TweetTTLInterval,
+		"tweet_age", cfg.TweetTTL)
 
-	tickers := make([]*time.Ticker, 0, 3)
+	tickers := make([]*time.Ticker, 0, 4)
 	defer func() {
 		for _, t := range tickers {
 			t.Stop()
@@ -61,6 +67,17 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		t := time.NewTicker(cfg.CatchUpInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "catchup", func() { catchUpSweep(ctx, pool, logger) })
+	}
+
+	// Tweet TTL: enforce X ToS — no long-term tweet storage. Tweets live
+	// only long enough to serve real-time vibe inference; after TweetTTL
+	// they're deleted (tweet_entities cascade automatically).
+	if cfg.TweetTTLInterval > 0 && cfg.TweetTTL > 0 {
+		t := time.NewTicker(cfg.TweetTTLInterval)
+		tickers = append(tickers, t)
+		go runLoop(ctx, t.C, "tweet_ttl", func() {
+			purgeTweets(ctx, pool, cfg.TweetTTL, logger)
+		})
 	}
 
 	<-ctx.Done()
@@ -107,6 +124,31 @@ func generateDigests(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logge
 	_ = ctx
 	_ = pool
 	_ = logger
+}
+
+// purgeTweets deletes tweets older than ttl. The tweets table is a
+// short-lived inference cache — X's developer agreement prohibits
+// long-term storage and ML training on tweet content, so we cap
+// retention at 24h by default. tweet_entities rows cascade.
+//
+// Do NOT lengthen this TTL to give Gemma "more context"; that violates
+// the agreement. News articles (google_news_rss provider) carry the
+// long-term corpus and have no such restriction.
+func purgeTweets(ctx context.Context, pool *pgxpool.Pool, ttl time.Duration, logger *slog.Logger) {
+	tag, err := pool.Exec(ctx, `
+		DELETE FROM tweets
+		WHERE fetched_at < NOW() - $1::interval`,
+		ttl,
+	)
+	if err != nil {
+		logger.Warn("Tweet TTL: purge failed", "error", err)
+		return
+	}
+	if tag.RowsAffected() > 0 {
+		logger.Info("Tweet TTL: purged old tweets",
+			"count", tag.RowsAffected(),
+			"ttl", ttl)
+	}
 }
 
 // catchUpSweep checks for entities with high percentiles that may not have

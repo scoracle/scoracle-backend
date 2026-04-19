@@ -41,6 +41,11 @@ type Config struct {
 	TwitterLists    map[string]string
 	TwitterCacheTTL time.Duration
 
+	// Ollama (local Gemma inference)
+	OllamaBaseURL string // default http://localhost:11434
+	OllamaModel   string // default gemma4:e4b
+	OllamaTimeout time.Duration
+
 	// Cache
 	CacheEnabled bool
 
@@ -87,6 +92,10 @@ func Load() (*Config, error) {
 		TwitterBearerToken: envOr("TWITTER_BEARER_TOKEN", ""),
 		TwitterLists:       loadTwitterLists(),
 		TwitterCacheTTL:    time.Duration(envInt("TWITTER_CACHE_TTL_SECONDS", 1200)) * time.Second,
+
+		OllamaBaseURL: envOr("OLLAMA_BASE_URL", "http://localhost:11434"),
+		OllamaModel:   envOr("OLLAMA_MODEL", "gemma4:e4b"),
+		OllamaTimeout: time.Duration(envInt("OLLAMA_TIMEOUT_SECONDS", 60)) * time.Second,
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

@@ -409,5 +409,101 @@ def images(sport: str, season: int, dry_run: bool) -> None:
         pool.close()
 
 
+@cli.command("purge-inactive")
+@click.argument(
+    "sport", type=click.Choice(["nba", "nfl", "football"], case_sensitive=False)
+)
+@click.option(
+    "--grace-days",
+    type=int,
+    default=30,
+    help="Keep players added within this many days even if they have no box scores. Default 30. Pass 0 on first run since meta seed just timestamped everyone today.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Count what would be deleted without touching the DB.",
+)
+def purge_inactive(sport: str, grace_days: int, dry_run: bool) -> None:
+    """Drop players we've never seen in event_box_scores.
+
+    BDL's /players returns the all-time roster (thousands of historical
+    entries). After event seeding completes we know which players have
+    actually played — the rest are dead weight in the DB and noise in
+    entity matching.
+
+    Keeps:
+      - Players with any event_box_scores row (any season)
+      - Players added within --grace-days (rookie / new-signing protection)
+
+    Drops:
+      - Everyone else
+
+    Re-running is safe: future meta seed calls will re-introduce any player
+    who reappears in BDL's list; fresh created_at keeps them in the grace
+    window until they either play or age out.
+    """
+    cfg = config_mod.load()
+    pool = create_pool(cfg)
+    try:
+        if not check_connectivity(pool):
+            click.echo("Database connectivity check failed", err=True)
+            sys.exit(1)
+
+        sport_upper = sport.upper()
+        with get_conn(pool) as conn:
+            # Always report the "would purge" count first.
+            row = conn.execute(
+                """
+                SELECT count(*) AS n
+                FROM players p
+                WHERE p.sport = %s
+                  AND p.created_at < NOW() - (%s || ' days')::interval
+                  AND NOT EXISTS (
+                      SELECT 1 FROM event_box_scores ebs
+                      WHERE ebs.player_id = p.id AND ebs.sport = p.sport
+                  )
+                """,
+                (sport_upper, grace_days),
+            ).fetchone()
+            would_purge = row["n"] if row else 0
+
+            total_row = conn.execute(
+                "SELECT count(*) AS n FROM players WHERE sport = %s",
+                (sport_upper,),
+            ).fetchone()
+            total = total_row["n"] if total_row else 0
+
+            if dry_run:
+                click.echo(
+                    f"[dry-run] sport={sport_upper} total={total} "
+                    f"would_purge={would_purge} would_keep={total - would_purge} "
+                    f"grace_days={grace_days}"
+                )
+                return
+
+            cur = conn.execute(
+                """
+                DELETE FROM players p
+                WHERE p.sport = %s
+                  AND p.created_at < NOW() - (%s || ' days')::interval
+                  AND NOT EXISTS (
+                      SELECT 1 FROM event_box_scores ebs
+                      WHERE ebs.player_id = p.id AND ebs.sport = p.sport
+                  )
+                """,
+                (sport_upper, grace_days),
+            )
+            purged = cur.rowcount
+            kept = total - purged
+            click.echo(
+                f"Purge complete sport={sport_upper} purged={purged} "
+                f"kept={kept} grace_days={grace_days}"
+            )
+    finally:
+        pool.close()
+
+
 if __name__ == "__main__":
     cli()

@@ -2,6 +2,11 @@
 Description=Scoracle Data API
 After=network-online.target
 Wants=network-online.target
+# Cap rapid-crash restarts. If we're crashing 5 times in 60s something
+# is genuinely wrong — stop trying. (systemd wants these in [Unit], not
+# [Service].)
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
@@ -14,10 +19,6 @@ EnvironmentFile=-/home/sheneveld/scoracle-data/.env.local
 ExecStart=/home/sheneveld/scoracle-data/go/bin/scoracle-api
 Restart=on-failure
 RestartSec=5
-# Cap rapid-crash restarts. If we're crashing 5 times in 60s something
-# is genuinely wrong — stop trying.
-StartLimitBurst=5
-StartLimitIntervalSec=60
 
 # Logs go to the journal; view with:
 #   journalctl --user -u scoracle-api -f

@@ -1,19 +1,30 @@
 [Unit]
 Description=Restart scoracle-api when its binary is rebuilt
 # This is the solution to the "I rebuilt but forgot to restart" gotcha.
-# systemd watches the binary via inotify; any write-close event on it
-# triggers scoracle-api.service to restart.
+# systemd watches the bin/ directory via inotify; any IN_CLOSE_WRITE
+# inside it fires the service restart.
 #
 # After:  go build -o bin/scoracle-api ./cmd/api
 # Result: within ~1s, systemctl --user restart scoracle-api fires
 #         automatically.
 #
-# Works because `go build -o X` writes to X atomically (temp file + rename),
-# which systemd sees as a PathChanged event.
+# WHY THE DIRECTORY AND NOT THE FILE?
+# `go build -o X` writes to a temp file then atomically renames it to X.
+# The rename gives the file a new inode, so an inotify watch pinned to
+# the old inode never fires. PathChanged on the parent directory catches
+# the temp file's close-write event, which is enough to trigger restart
+# right around when the new binary is actually in place.
+#
+# Side note: building any other binary into go/bin/ (e.g. cmd/vibe) will
+# also trigger a restart. Fine — you're not rebuilding sibling binaries
+# in production.
 
 [Path]
-PathChanged=/home/sheneveld/scoracle-data/go/bin/scoracle-api
-Unit=scoracle-api.service
+PathChanged=/home/sheneveld/scoracle-data/go/bin/
+# Triggers the oneshot restart helper, NOT the service directly, because
+# a Path unit triggers `systemctl start <Unit>` — and start is a no-op
+# when the service is already running.
+Unit=scoracle-api-restart.service
 
 [Install]
 WantedBy=default.target

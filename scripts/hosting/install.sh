@@ -23,9 +23,10 @@ USER_SYSTEMD_DIR="$HOME/.config/systemd/user"
 
 echo "==> copying systemd units"
 mkdir -p "$USER_SYSTEMD_DIR"
-cp "$REPO_ROOT/scripts/systemd/scoracle-api.service" "$USER_SYSTEMD_DIR/"
-cp "$REPO_ROOT/scripts/systemd/scoracle-api.path"    "$USER_SYSTEMD_DIR/"
-cp "$REPO_ROOT/scripts/systemd/cloudflared.service"  "$USER_SYSTEMD_DIR/"
+cp "$REPO_ROOT/scripts/systemd/scoracle-api.service"         "$USER_SYSTEMD_DIR/"
+cp "$REPO_ROOT/scripts/systemd/scoracle-api-restart.service" "$USER_SYSTEMD_DIR/"
+cp "$REPO_ROOT/scripts/systemd/scoracle-api.path"            "$USER_SYSTEMD_DIR/"
+cp "$REPO_ROOT/scripts/systemd/cloudflared.service"          "$USER_SYSTEMD_DIR/"
 
 echo "==> ensuring logs directory exists"
 mkdir -p "$REPO_ROOT/logs"

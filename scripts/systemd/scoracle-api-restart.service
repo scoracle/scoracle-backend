@@ -1,0 +1,11 @@
+[Unit]
+Description=Restart scoracle-api (path-trigger target)
+# A one-shot helper invoked by scoracle-api.path whenever go/bin/ sees
+# a close-write (i.e. go build finished). Exists because systemd Path
+# units trigger `systemctl start <Unit>` — which is a no-op when the
+# target service is already running. This oneshot does an explicit
+# restart so the new binary is actually picked up.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart scoracle-api.service

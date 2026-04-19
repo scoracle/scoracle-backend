@@ -133,6 +133,12 @@ def _recently_backfilled(
     help="Cap total entities (teams + players). Useful for test runs.",
 )
 @click.option(
+    "--teams-only",
+    is_flag=True,
+    default=False,
+    help="Skip the starter-player loop. Team news still gets cross-entity-linked to any players mentioned in the headlines, which is usually enough for NFL and football.",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     default=False,
@@ -145,6 +151,7 @@ def backfill(
     request_delay: float,
     skip_if_fresh: int,
     max_entities: int | None,
+    teams_only: bool,
     dry_run: bool,
 ) -> None:
     """One-time news backfill for starters + all teams.
@@ -168,7 +175,9 @@ def backfill(
 
         with get_conn(pool) as conn:
             teams = _team_ids(conn, sport_upper)
-            players = _starter_player_ids(conn, sport_upper, season)
+            players: list[int] = []
+            if not teams_only:
+                players = _starter_player_ids(conn, sport_upper, season)
 
         total = len(teams) + len(players)
         if max_entities is not None:
@@ -177,7 +186,7 @@ def backfill(
         click.echo(
             f"Backfill plan sport={sport_upper} season={season} "
             f"teams={len(teams)} starter_players={len(players)} "
-            f"total_requests<={total} dry_run={dry_run}"
+            f"teams_only={teams_only} total_requests<={total} dry_run={dry_run}"
         )
 
         if dry_run:

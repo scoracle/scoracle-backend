@@ -1,0 +1,28 @@
+# Cloudflare Tunnel config — copy to ~/.cloudflared/config.yml
+# and fill in <tunnel-id> and <your-subdomain>.
+#
+# First-time setup (one-shot, interactive):
+#   sudo pacman -S cloudflared            # or yay -S cloudflared-bin
+#   cloudflared tunnel login              # opens browser, picks a CF zone
+#   cloudflared tunnel create scoracle    # records the tunnel id
+#   cloudflared tunnel route dns scoracle api.your-domain.com
+#   # Copy this file to ~/.cloudflared/config.yml and edit
+#   systemctl --user enable --now cloudflared.service
+#
+# Rotate: `cloudflared tunnel rotate-creds scoracle`
+# Logs:   `journalctl --user -u cloudflared -f`
+
+tunnel: <tunnel-id>
+credentials-file: /home/sheneveld/.cloudflared/<tunnel-id>.json
+
+# Tunnels the public hostname to the local Go API. The API still binds
+# only to localhost — CF Tunnel is the only thing that can reach it.
+ingress:
+  - hostname: api.your-domain.com
+    service: http://localhost:8000
+    originRequest:
+      # Bearer/custom headers pass through unchanged.
+      noTLSVerify: false
+      connectTimeout: 10s
+  # Catch-all: any other hostname that somehow hits the tunnel gets a 404.
+  - service: http_status:404

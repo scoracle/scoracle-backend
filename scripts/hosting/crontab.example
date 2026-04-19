@@ -1,0 +1,45 @@
+# Scoracle cron schedule — example crontab entries.
+#
+# Install with:
+#   crontab scripts/hosting/crontab.example
+# or merge into your existing crontab with `crontab -e`.
+#
+# IMPORTANT: cron runs in the system local timezone unless you set TZ.
+# Arch defaults to whatever timedatectl reports. Check with:
+#   timedatectl status
+# If your system is in UTC, translate 23:00 ET:
+#   EDT (Mar-Nov): 03:00 UTC next day  →  0 3 * * *
+#   EST (Nov-Mar): 04:00 UTC next day  →  0 4 * * *
+# Or set TZ=America/New_York at the top of this file to sidestep it.
+TZ=America/New_York
+
+# Make sure logs dir exists before cron writes to it:
+#   mkdir -p /home/sheneveld/scoracle-data/logs
+
+# ---------------------------------------------------------------------------
+# Football event draining — daily
+# ---------------------------------------------------------------------------
+# Runs at 23:00 ET. Late enough that every European match of the day has
+# finished AND SportMonks has finalized lineup data. See
+# planning_docs/CRON_SEEDING_STRATEGY.md for the reasoning.
+0 23 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Football schedule + roster refresh — weekly (Monday 23:00 ET)
+# ---------------------------------------------------------------------------
+# Catches postponements, new signings, jersey changes. Larger call count
+# (~400 SportMonks req) but only once a week.
+0 23 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh event load-fixtures football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
+30 23 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh meta seed football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Postgres backup — nightly 04:00 local
+# ---------------------------------------------------------------------------
+# Scheduled after the seeder so nightly backups capture the latest data.
+0 4 * * * /home/sheneveld/scoracle-data/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle-data/logs/backup.log 2>&1
+
+# ---------------------------------------------------------------------------
+# NBA / NFL — intentionally absent from cron.
+# BDL supports webhook subscriptions; those will drive event processing
+# when wired up (see planning_docs/CRON_SEEDING_STRATEGY.md).
+# ---------------------------------------------------------------------------

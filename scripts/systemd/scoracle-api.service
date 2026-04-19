@@ -1,0 +1,28 @@
+[Unit]
+Description=Scoracle Data API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/sheneveld/scoracle-data
+# EnvironmentFile order matters here: systemd loads sequentially, but unlike
+# godotenv systemd DOES overwrite on later files. Load .env first (template
+# with empty defaults), then .env.local (real values) wins.
+EnvironmentFile=-/home/sheneveld/scoracle-data/.env
+EnvironmentFile=-/home/sheneveld/scoracle-data/.env.local
+ExecStart=/home/sheneveld/scoracle-data/go/bin/scoracle-api
+Restart=on-failure
+RestartSec=5
+# Cap rapid-crash restarts. If we're crashing 5 times in 60s something
+# is genuinely wrong — stop trying.
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Logs go to the journal; view with:
+#   journalctl --user -u scoracle-api -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

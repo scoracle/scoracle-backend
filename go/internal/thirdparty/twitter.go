@@ -133,7 +133,17 @@ func (s *TwitterService) Status(ctx context.Context) map[string]interface{} {
 				var ttlSec int
 				var sinceID, lastError *string
 				var lastFetchedAt, lastErrorAt *time.Time
-				if err := rows.Scan(&sport, &listID, &ttlSec, &sinceID, &lastFetchedAt, &lastError, &lastErrorAt); err == nil {
+				var countersDate time.Time
+				var callsToday, tweetsToday int
+				if err := rows.Scan(&sport, &listID, &ttlSec, &sinceID, &lastFetchedAt,
+					&lastError, &lastErrorAt, &countersDate, &callsToday, &tweetsToday); err == nil {
+					// Counters reset implicitly each UTC day; surface them as
+					// 0 if today's date hasn't been reached yet in the row.
+					today := time.Now().UTC().Format("2006-01-02")
+					if countersDate.UTC().Format("2006-01-02") != today {
+						callsToday = 0
+						tweetsToday = 0
+					}
 					dbRows[sport] = map[string]interface{}{
 						"list_id":         listID,
 						"ttl_seconds":     ttlSec,
@@ -141,6 +151,8 @@ func (s *TwitterService) Status(ctx context.Context) map[string]interface{} {
 						"last_fetched_at": timePtrToISO(lastFetchedAt),
 						"last_error":      ptrToString(lastError),
 						"last_error_at":   timePtrToISO(lastErrorAt),
+						"calls_today":     callsToday,
+						"tweets_today":    tweetsToday,
 					}
 				}
 			}
@@ -318,7 +330,7 @@ func (s *TwitterService) refresh(ctx context.Context, sport string, st *listStat
 	if newestID != "" {
 		sinceArg = &newestID
 	}
-	if _, err := s.pool.Exec(ctx, "twitter_list_mark_fetched", sport, sinceArg); err != nil {
+	if _, err := s.pool.Exec(ctx, "twitter_list_mark_fetched", sport, sinceArg, len(tweets)); err != nil {
 		return fmt.Errorf("mark fetched: %w", err)
 	}
 	return nil

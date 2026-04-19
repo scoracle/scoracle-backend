@@ -377,13 +377,35 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			    last_fetched_at = now(),
 			    last_error = NULL,
 			    last_error_at = NULL,
+			    counters_date = CASE
+			        WHEN counters_date = (now() AT TIME ZONE 'UTC')::date THEN counters_date
+			        ELSE (now() AT TIME ZONE 'UTC')::date
+			    END,
+			    calls_today = CASE
+			        WHEN counters_date = (now() AT TIME ZONE 'UTC')::date THEN calls_today + 1
+			        ELSE 1
+			    END,
+			    tweets_today = CASE
+			        WHEN counters_date = (now() AT TIME ZONE 'UTC')::date THEN tweets_today + $3::int
+			        ELSE $3::int
+			    END,
 			    updated_at = now()
 			WHERE sport = $1`,
 		"twitter_list_mark_error": `UPDATE twitter_lists
-			SET last_error = $2, last_error_at = now(), updated_at = now()
+			SET last_error = $2, last_error_at = now(),
+			    counters_date = CASE
+			        WHEN counters_date = (now() AT TIME ZONE 'UTC')::date THEN counters_date
+			        ELSE (now() AT TIME ZONE 'UTC')::date
+			    END,
+			    calls_today = CASE
+			        WHEN counters_date = (now() AT TIME ZONE 'UTC')::date THEN calls_today + 1
+			        ELSE 1
+			    END,
+			    updated_at = now()
 			WHERE sport = $1`,
 		"twitter_list_status_all": `SELECT sport, list_id, ttl_seconds, since_id, last_fetched_at,
-			last_error, last_error_at FROM twitter_lists ORDER BY sport`,
+			last_error, last_error_at, counters_date, calls_today, tweets_today
+			FROM twitter_lists ORDER BY sport`,
 		"twitter_tweet_upsert": `INSERT INTO tweets
 			(id, sport, author_id, author_username, author_name, author_verified,
 			 author_profile_image_url, text, posted_at, likes, retweets, replies, fetched_at)

@@ -42,11 +42,14 @@ type PercentileChangeEvent struct {
 // Start opens a dedicated connection and listens on the percentile_changed
 // channel. It reconnects automatically on connection loss. Blocks until ctx
 // is cancelled. Intended to be called with `go`.
-func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) {
+//
+// vibe may be nil — in that case milestone events still drive FCM pushes
+// but skip Gemma blurb generation.
+func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, vibe *VibeWorker, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
 	for {
-		err := listenLoop(ctx, dbURL, pool, sender, logger)
+		err := listenLoop(ctx, dbURL, pool, sender, vibe, logger)
 		if ctx.Err() != nil {
 			logger.Info("Percentile listener stopped (context cancelled)")
 			return
@@ -66,7 +69,7 @@ func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifi
 
 // listenLoop runs a single listen session. Returns when the connection drops
 // or the context is cancelled.
-func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) error {
+func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, vibe *VibeWorker, logger *slog.Logger) error {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -100,8 +103,13 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 			"old_pctile", event.OldPercentile,
 			"new_pctile", event.NewPercentile)
 
-		// Process asynchronously to avoid blocking the listener
+		// Process asynchronously to avoid blocking the listener. Both FCM
+		// dispatch and Gemma vibe generation are best-effort; each runs in
+		// its own goroutine so a slow Gemma call can't delay the push.
 		go handlePercentileChange(ctx, pool, sender, event, logger)
+		if vibe != nil {
+			go vibe.Dispatch(ctx, event, logger)
+		}
 	}
 }
 

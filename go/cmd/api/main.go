@@ -33,6 +33,7 @@ import (
 	"github.com/albapepper/scoracle-data/internal/db"
 	"github.com/albapepper/scoracle-data/internal/listener"
 	"github.com/albapepper/scoracle-data/internal/maintenance"
+	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/notifications"
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
 
@@ -87,8 +88,22 @@ func main() {
 			logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
 		}
 
+		// Vibe worker: Ollama-backed Gemma blurb generator triggered by
+		// milestone events. Disabled gracefully if Ollama isn't reachable.
+		var vibeWorker *listener.VibeWorker
+		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
+		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
+		if err := ollamaCli.Ping(pingCtx); err != nil {
+			logger.Warn("Vibe worker disabled (Ollama unreachable)",
+				"base_url", cfg.OllamaBaseURL, "error", err)
+		} else {
+			logger.Info("Vibe worker enabled", "model", cfg.OllamaModel)
+			vibeWorker = listener.NewVibeWorker(dbPool, ml.NewGenerator(dbPool, ollamaCli))
+		}
+		pingCancel()
+
 		// Start LISTEN/NOTIFY consumer for real-time milestone events
-		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
+		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, vibeWorker, logger)
 
 		// Start maintenance tickers (cleanup, digest, catch-up sweep)
 		go maintenance.Start(ctx, dbPool, maintenance.DefaultConfig(), logger)

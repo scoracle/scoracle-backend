@@ -38,21 +38,43 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NBA', 'stl_per_36',         'Steals Per 36 Min',       'player', 'advanced',   false, true,  true,  33),
     ('NBA', 'blk_per_36',         'Blocks Per 36 Min',       'player', 'advanced',   false, true,  true,  34),
     ('NBA', 'true_shooting_pct',  'True Shooting %',        'player', 'advanced',   false, true,  true,  35),
-    ('NBA', 'efficiency',         'Efficiency Rating',      'player', 'advanced',   false, true,  true,  36)
+    ('NBA', 'efficiency',         'Efficiency Rating',      'player', 'advanced',   false, true,  true,  36),
+    ('NBA', 'efg_pct',            'Effective FG %',         'player', 'advanced',   false, true,  true,  37),
+    ('NBA', 'ast_to_tov',         'Assist/Turnover Ratio',  'player', 'advanced',   false, true,  true,  38),
+    ('NBA', 'tov_per_36',         'Turnovers Per 36 Min',   'player', 'advanced',   true,  true,  true,  39),
+    ('NBA', 'pf_per_36',          'Fouls Per 36 Min',       'player', 'advanced',   true,  true,  false, 40)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- NBA team stats
 INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
-    ('NBA', 'wins',          'Wins',             'team', 'standings',  false, false, true,   1),
-    ('NBA', 'losses',        'Losses',           'team', 'standings',  true,  false, true,   2),
-    ('NBA', 'games_played',  'Games Played',     'team', 'general',    false, false, false,  3),
-    ('NBA', 'pts',           'Points Per Game',  'team', 'scoring',    false, false, true,   4),
-    ('NBA', 'reb',           'Rebounds Per Game', 'team', 'rebounding', false, false, true,   5),
-    ('NBA', 'ast',           'Assists Per Game',  'team', 'passing',    false, false, true,   6),
-    ('NBA', 'fg_pct',        'Field Goal %',     'team', 'shooting',   false, false, true,   7),
-    ('NBA', 'fg3_pct',       'Three-Point %',    'team', 'shooting',   false, false, true,   8),
-    ('NBA', 'ft_pct',        'Free Throw %',     'team', 'shooting',   false, false, false,  9),
-    ('NBA', 'win_pct',       'Win Percentage',   'team', 'standings',  false, true,  true,  10)
+    ('NBA', 'wins',              'Wins',                   'team', 'standings',  false, false, true,   1),
+    ('NBA', 'losses',            'Losses',                 'team', 'standings',  true,  false, true,   2),
+    ('NBA', 'games_played',      'Games Played',           'team', 'general',    false, false, false,  3),
+    ('NBA', 'pts',               'Points Per Game',        'team', 'scoring',    false, false, true,   4),
+    ('NBA', 'reb',               'Rebounds Per Game',      'team', 'rebounding', false, false, true,   5),
+    ('NBA', 'ast',               'Assists Per Game',       'team', 'passing',    false, false, true,   6),
+    ('NBA', 'fg_pct',            'Field Goal %',           'team', 'shooting',   false, false, true,   7),
+    ('NBA', 'fg3_pct',           'Three-Point %',          'team', 'shooting',   false, false, true,   8),
+    ('NBA', 'ft_pct',            'Free Throw %',           'team', 'shooting',   false, false, true,   9),
+    ('NBA', 'win_pct',           'Win Percentage',         'team', 'standings',  false, true,  true,  10),
+    ('NBA', 'pts_allowed',       'Points Allowed/Game',    'team', 'defensive',  true,  false, true,  11),
+    ('NBA', 'point_differential','Point Differential',     'team', 'advanced',   false, true,  true,  12),
+    ('NBA', 'stl',               'Steals Per Game',        'team', 'defensive',  false, false, true,  13),
+    ('NBA', 'blk',               'Blocks Per Game',        'team', 'defensive',  false, false, true,  14),
+    ('NBA', 'oreb',              'Off Rebounds/Game',      'team', 'rebounding', false, false, true,  15),
+    ('NBA', 'dreb',              'Def Rebounds/Game',      'team', 'rebounding', false, false, true,  16),
+    ('NBA', 'turnover',          'Turnovers Per Game',     'team', 'general',    true,  false, true,  17),
+    ('NBA', 'pf',                'Fouls Per Game',         'team', 'general',    true,  false, false, 18),
+    ('NBA', 'fgm',               'Field Goals Made',       'team', 'shooting',   false, false, false, 19),
+    ('NBA', 'fga',               'Field Goals Attempted',  'team', 'shooting',   false, false, false, 20),
+    ('NBA', 'fg3m',              'Three-Pointers Made',    'team', 'shooting',   false, false, true,  21),
+    ('NBA', 'fg3a',              'Three-Pointers Att',     'team', 'shooting',   false, false, false, 22),
+    ('NBA', 'ftm',               'Free Throws Made',       'team', 'shooting',   false, false, false, 23),
+    ('NBA', 'fta',               'Free Throws Attempted',  'team', 'shooting',   false, false, false, 24),
+    ('NBA', 'true_shooting_pct', 'True Shooting %',        'team', 'advanced',   false, true,  true,  25),
+    ('NBA', 'efg_pct',           'Effective FG %',         'team', 'advanced',   false, true,  true,  26),
+    ('NBA', 'ast_to_tov',        'Assist/Turnover Ratio',  'team', 'advanced',   false, true,  true,  27),
+    ('NBA', 'efficiency',        'Efficiency Rating',      'team', 'advanced',   false, true,  true,  28)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- ============================================================================
@@ -97,20 +119,75 @@ BEGIN
         NEW.stats := NEW.stats || jsonb_build_object('efficiency', ROUND((pts + reb + ast + stl + blk) - ((fga - fgm) + (fta - ftm) + turnover), 1));
     END IF;
 
+    IF fga IS NOT NULL AND fga > 0 AND fgm IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('efg_pct', ROUND((fgm + 0.5 * COALESCE((NEW.stats->>'fg3m')::numeric, 0)) / fga * 100, 1));
+    END IF;
+
+    IF turnover IS NOT NULL AND turnover > 0 AND ast IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('ast_to_tov', ROUND(ast / turnover, 2));
+    END IF;
+
+    IF minutes IS NOT NULL AND minutes > 0 THEN
+        IF turnover IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('tov_per_36', ROUND(turnover / minutes * 36, 1)); END IF;
+        IF (NEW.stats->>'pf') IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('pf_per_36', ROUND((NEW.stats->>'pf')::numeric / minutes * 36, 1)); END IF;
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- NBA team: win_pct
+-- NBA team: win_pct, point differential, efg, TS, ast/tov, efficiency
 CREATE OR REPLACE FUNCTION nba.compute_derived_team_stats()
 RETURNS TRIGGER AS $$
-DECLARE wins NUMERIC; losses NUMERIC; total NUMERIC;
+DECLARE
+    wins NUMERIC; losses NUMERIC; total NUMERIC;
+    pts NUMERIC; pts_allowed NUMERIC;
+    fgm NUMERIC; fga NUMERIC; fg3m NUMERIC; fta NUMERIC; ftm NUMERIC;
+    reb NUMERIC; ast NUMERIC; stl NUMERIC; blk NUMERIC; turnover NUMERIC;
+    tsa NUMERIC;
 BEGIN
-    wins := (NEW.stats->>'wins')::NUMERIC; losses := (NEW.stats->>'losses')::NUMERIC;
+    wins        := (NEW.stats->>'wins')::NUMERIC;
+    losses      := (NEW.stats->>'losses')::NUMERIC;
+    pts         := (NEW.stats->>'pts')::NUMERIC;
+    pts_allowed := (NEW.stats->>'pts_allowed')::NUMERIC;
+    fgm         := (NEW.stats->>'fgm')::NUMERIC;
+    fga         := (NEW.stats->>'fga')::NUMERIC;
+    fg3m        := (NEW.stats->>'fg3m')::NUMERIC;
+    fta         := (NEW.stats->>'fta')::NUMERIC;
+    ftm         := (NEW.stats->>'ftm')::NUMERIC;
+    reb         := (NEW.stats->>'reb')::NUMERIC;
+    ast         := (NEW.stats->>'ast')::NUMERIC;
+    stl         := (NEW.stats->>'stl')::NUMERIC;
+    blk         := (NEW.stats->>'blk')::NUMERIC;
+    turnover    := (NEW.stats->>'turnover')::NUMERIC;
+
     IF wins IS NOT NULL AND losses IS NOT NULL THEN
         total := wins + losses;
         IF total > 0 THEN NEW.stats := NEW.stats || jsonb_build_object('win_pct', ROUND(wins / total, 3)); END IF;
     END IF;
+
+    IF pts IS NOT NULL AND pts_allowed IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('point_differential', ROUND(pts - pts_allowed, 1));
+    END IF;
+
+    IF pts IS NOT NULL AND fga IS NOT NULL AND fta IS NOT NULL THEN
+        tsa := fga + 0.44 * fta;
+        IF tsa > 0 THEN NEW.stats := NEW.stats || jsonb_build_object('true_shooting_pct', ROUND(pts / (2 * tsa) * 100, 1)); END IF;
+    END IF;
+
+    IF fga IS NOT NULL AND fga > 0 AND fgm IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('efg_pct', ROUND((fgm + 0.5 * COALESCE(fg3m, 0)) / fga * 100, 1));
+    END IF;
+
+    IF turnover IS NOT NULL AND turnover > 0 AND ast IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('ast_to_tov', ROUND(ast / turnover, 2));
+    END IF;
+
+    IF pts IS NOT NULL AND reb IS NOT NULL AND ast IS NOT NULL AND stl IS NOT NULL AND blk IS NOT NULL
+       AND fga IS NOT NULL AND fgm IS NOT NULL AND fta IS NOT NULL AND ftm IS NOT NULL AND turnover IS NOT NULL THEN
+        NEW.stats := NEW.stats || jsonb_build_object('efficiency', ROUND((pts + reb + ast + stl + blk) - ((fga - fgm) + (fta - ftm) + turnover), 1));
+    END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -428,16 +505,28 @@ WITH agg AS (
         COUNT(*)::numeric AS gp,
         SUM(CASE WHEN opp.score IS NOT NULL AND ets.score > opp.score THEN 1 ELSE 0 END)::numeric AS wins,
         SUM(CASE WHEN opp.score IS NOT NULL AND ets.score < opp.score THEN 1 ELSE 0 END)::numeric AS losses,
-        AVG(NULLIF((ets.stats->>'pts')::numeric, NULL)) AS pts_avg,
-        AVG(NULLIF((ets.stats->>'reb')::numeric, NULL)) AS reb_avg,
-        AVG(NULLIF((ets.stats->>'ast')::numeric, NULL)) AS ast_avg,
-        AVG(NULLIF((ets.stats->>'turnover')::numeric, NULL)) AS tov_avg,
-        SUM(COALESCE((ets.stats->>'fgm')::numeric, 0)) AS fgm_sum,
-        SUM(COALESCE((ets.stats->>'fga')::numeric, 0)) AS fga_sum,
-        SUM(COALESCE((ets.stats->>'fg3m')::numeric, 0)) AS fg3m_sum,
-        SUM(COALESCE((ets.stats->>'fg3a')::numeric, 0)) AS fg3a_sum,
-        SUM(COALESCE((ets.stats->>'ftm')::numeric, 0)) AS ftm_sum,
-        SUM(COALESCE((ets.stats->>'fta')::numeric, 0)) AS fta_sum
+        AVG(NULLIF((ets.stats->>'pts')::numeric, NULL))       AS pts_avg,
+        AVG(NULLIF((opp.stats->>'pts')::numeric, NULL))       AS pts_allowed_avg,
+        AVG(NULLIF((ets.stats->>'reb')::numeric, NULL))       AS reb_avg,
+        AVG(NULLIF((ets.stats->>'oreb')::numeric, NULL))      AS oreb_avg,
+        AVG(NULLIF((ets.stats->>'dreb')::numeric, NULL))      AS dreb_avg,
+        AVG(NULLIF((ets.stats->>'ast')::numeric, NULL))       AS ast_avg,
+        AVG(NULLIF((ets.stats->>'stl')::numeric, NULL))       AS stl_avg,
+        AVG(NULLIF((ets.stats->>'blk')::numeric, NULL))       AS blk_avg,
+        AVG(NULLIF((ets.stats->>'turnover')::numeric, NULL))  AS tov_avg,
+        AVG(NULLIF((ets.stats->>'pf')::numeric, NULL))        AS pf_avg,
+        AVG(NULLIF((ets.stats->>'fgm')::numeric, NULL))       AS fgm_avg,
+        AVG(NULLIF((ets.stats->>'fga')::numeric, NULL))       AS fga_avg,
+        AVG(NULLIF((ets.stats->>'fg3m')::numeric, NULL))      AS fg3m_avg,
+        AVG(NULLIF((ets.stats->>'fg3a')::numeric, NULL))      AS fg3a_avg,
+        AVG(NULLIF((ets.stats->>'ftm')::numeric, NULL))       AS ftm_avg,
+        AVG(NULLIF((ets.stats->>'fta')::numeric, NULL))       AS fta_avg,
+        SUM(COALESCE((ets.stats->>'fgm')::numeric, 0))        AS fgm_sum,
+        SUM(COALESCE((ets.stats->>'fga')::numeric, 0))        AS fga_sum,
+        SUM(COALESCE((ets.stats->>'fg3m')::numeric, 0))       AS fg3m_sum,
+        SUM(COALESCE((ets.stats->>'fg3a')::numeric, 0))       AS fg3a_sum,
+        SUM(COALESCE((ets.stats->>'ftm')::numeric, 0))        AS ftm_sum,
+        SUM(COALESCE((ets.stats->>'fta')::numeric, 0))        AS fta_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id
@@ -458,9 +547,21 @@ SELECT CASE
             'wins', wins::int,
             'losses', losses::int,
             'pts', ROUND(pts_avg, 1),
+            'pts_allowed', ROUND(pts_allowed_avg, 1),
             'reb', ROUND(reb_avg, 1),
+            'oreb', ROUND(oreb_avg, 1),
+            'dreb', ROUND(dreb_avg, 1),
             'ast', ROUND(ast_avg, 1),
+            'stl', ROUND(stl_avg, 1),
+            'blk', ROUND(blk_avg, 1),
             'turnover', ROUND(tov_avg, 1),
+            'pf', ROUND(pf_avg, 1),
+            'fgm', ROUND(fgm_avg, 1),
+            'fga', ROUND(fga_avg, 1),
+            'fg3m', ROUND(fg3m_avg, 1),
+            'fg3a', ROUND(fg3a_avg, 1),
+            'ftm', ROUND(ftm_avg, 1),
+            'fta', ROUND(fta_avg, 1),
             'fg_pct', CASE WHEN fga_sum > 0 THEN ROUND((fgm_sum / fga_sum) * 100, 1) END,
             'fg3_pct', CASE WHEN fg3a_sum > 0 THEN ROUND((fg3m_sum / fg3a_sum) * 100, 1) END,
             'ft_pct', CASE WHEN fta_sum > 0 THEN ROUND((ftm_sum / fta_sum) * 100, 1) END

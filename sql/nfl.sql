@@ -64,7 +64,24 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'extra_points_made',       'Extra Points Made',     'player', 'kicking',    false, false, false, 53),
     ('NFL', 'total_points',            'Total Points',          'player', 'kicking',    false, false, false, 54),
     ('NFL', 'touchbacks',              'Touchbacks',            'player', 'kicking',    false, false, false, 55),
-    ('NFL', 'punts_inside_20',         'Punts Inside 20',       'player', 'special',    false, false, true,  68)
+    ('NFL', 'punts_inside_20',         'Punts Inside 20',       'player', 'special',    false, false, true,  68),
+    ('NFL', 'qb_rating',               'Passer Rating (NFL)',   'player', 'passing',    false, false, true,  19),
+    ('NFL', 'yards_per_pass_attempt',  'Yards/Attempt',         'player', 'passing',    false, true,  true,  26),
+    ('NFL', 'sacks_taken',             'Sacks Taken',           'player', 'passing',    true,  false, false, 27),
+    ('NFL', 'sack_yards_lost',         'Sack Yards Lost',       'player', 'passing',    true,  false, false, 28),
+    ('NFL', 'long_pass',               'Longest Pass',          'player', 'passing',    false, false, false, 29),
+    ('NFL', 'long_rushing',            'Longest Rush',          'player', 'rushing',    false, false, false, 70),
+    ('NFL', 'long_reception',          'Longest Reception',     'player', 'receiving',  false, false, false, 71),
+    ('NFL', 'long_field_goal_made',    'Longest FG Made',       'player', 'kicking',    false, false, false, 72),
+    ('NFL', 'long_punt',               'Longest Punt',          'player', 'special',    false, false, false, 73),
+    ('NFL', 'long_kick_return',        'Longest Kick Return',   'player', 'special',    false, false, false, 74),
+    ('NFL', 'long_punt_return',        'Longest Punt Return',   'player', 'special',    false, false, false, 75),
+    ('NFL', 'avg_punt_yards',          'Yards/Punt',            'player', 'special',    false, true,  true,  76),
+    ('NFL', 'yards_per_kick_return',   'Yards/Kick Return',     'player', 'special',    false, true,  true,  77),
+    ('NFL', 'yards_per_punt_return',   'Yards/Punt Return',     'player', 'special',    false, true,  true,  78),
+    ('NFL', 'interception_yards',      'INT Return Yards',      'player', 'defensive',  false, false, false, 56),
+    ('NFL', 'fumbles_touchdowns',      'Fumble Return TDs',     'player', 'defensive',  false, false, false, 57),
+    ('NFL', 'fumbles_recovered',       'Fumbles Recovered',     'player', 'defensive',  false, false, false, 58)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- NFL team stats
@@ -93,7 +110,39 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'turnovers',               'Total Turnovers',       'team', 'turnovers', true,  true,  true,  31),
     ('NFL', 'field_goals_made',        'FG Made',               'team', 'kicking',   false, false, false, 40),
     ('NFL', 'field_goal_attempts',     'FG Attempts',           'team', 'kicking',   false, false, false, 41),
-    ('NFL', 'field_goal_pct',          'FG Percentage',         'team', 'kicking',   false, true,  true,  42)
+    ('NFL', 'field_goal_pct',          'FG Percentage',         'team', 'kicking',   false, true,  true,  42),
+    ('NFL', 'extra_points_made',       'Extra Points Made',     'team', 'kicking',   false, false, false, 43),
+    ('NFL', 'games_played',            'Games Played',          'team', 'general',   false, false, false,  0),
+    ('NFL', 'points_per_game',         'Points/Game',           'team', 'scoring',   false, true,  true,   8),
+    ('NFL', 'points_allowed_per_game', 'Points Allowed/Game',   'team', 'scoring',   true,  true,  true,   9),
+    ('NFL', 'yards_per_game',          'Total Yards/Game',      'team', 'offense',   false, true,  true,  19),
+    ('NFL', 'yards_per_rush_attempt',  'Yards/Carry',           'team', 'offense',   false, true,  true,  24),
+    ('NFL', 'yards_per_pass_attempt',  'Yards/Attempt',         'team', 'offense',   false, true,  true,  25),
+    ('NFL', 'passing_completion_pct',  'Completion %',          'team', 'offense',   false, true,  true,  26),
+    ('NFL', 'solo_tackles',            'Solo Tackles',          'team', 'defense',   false, false, false, 27),
+    ('NFL', 'tackles_for_loss',        'Tackles for Loss',      'team', 'defense',   false, false, true,  28),
+    ('NFL', 'qb_hits',                 'QB Hits',               'team', 'defense',   false, false, true,  29),
+    ('NFL', 'interception_touchdowns', 'INT Return TDs',        'team', 'defense',   false, false, false, 32),
+    ('NFL', 'fumbles_recovered',       'Fumbles Recovered',     'team', 'defense',   false, false, true,  33),
+    ('NFL', 'fumbles_touchdowns',      'Fumble Return TDs',     'team', 'defense',   false, false, false, 34),
+    ('NFL', 'fumbles',                 'Fumbles',               'team', 'turnovers', true,  false, false, 35),
+    ('NFL', 'takeaways',               'Takeaways',             'team', 'defense',   false, true,  true,  36),
+    ('NFL', 'turnover_differential',   'Turnover Differential', 'team', 'turnovers', false, true,  true,  37),
+    ('NFL', 'punts',                   'Punts',                 'team', 'special',   false, false, false, 50),
+    ('NFL', 'punt_yards',              'Punt Yards',            'team', 'special',   false, false, false, 51),
+    ('NFL', 'punts_inside_20',         'Punts Inside 20',       'team', 'special',   false, false, true,  52),
+    ('NFL', 'gross_avg_punt_yards',    'Yards/Punt',            'team', 'special',   false, true,  true,  53),
+    ('NFL', 'touchbacks',              'Touchbacks',            'team', 'special',   false, false, false, 54),
+    ('NFL', 'kick_returns',            'Kick Returns',          'team', 'special',   false, false, false, 55),
+    ('NFL', 'kick_return_yards',       'Kick Return Yards',     'team', 'special',   false, false, true,  56),
+    ('NFL', 'kick_return_touchdowns',  'Kick Return TDs',       'team', 'special',   false, false, false, 57),
+    ('NFL', 'yards_per_kick_return',   'Yards/Kick Return',     'team', 'special',   false, true,  true,  58),
+    ('NFL', 'punt_returns',            'Punt Returns',          'team', 'special',   false, false, false, 59),
+    ('NFL', 'punt_return_yards',       'Punt Return Yards',     'team', 'special',   false, false, true,  60),
+    ('NFL', 'punt_return_touchdowns',  'Punt Return TDs',       'team', 'special',   false, false, false, 61),
+    ('NFL', 'yards_per_punt_return',   'Yards/Punt Return',     'team', 'special',   false, true,  true,  62),
+    ('NFL', 'qbr',                     'Passer Rating (ESPN)',  'team', 'offense',   false, false, true,  63),
+    ('NFL', 'qb_rating',               'Passer Rating (NFL)',   'team', 'offense',   false, false, true,  64)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- ============================================================================
@@ -382,15 +431,22 @@ WITH agg AS (
         SUM(COALESCE((stats->>'passing_interceptions')::numeric, 0)) AS pass_int_sum,
         SUM(COALESCE((stats->>'qbr')::numeric, 0)) AS qbr_sum,
         COUNT(*) FILTER (WHERE (stats->>'qbr') IS NOT NULL)::numeric AS qbr_games,
+        SUM(COALESCE((stats->>'qb_rating')::numeric, 0)) AS qb_rating_sum,
+        COUNT(*) FILTER (WHERE (stats->>'qb_rating') IS NOT NULL)::numeric AS qb_rating_games,
+        SUM(COALESCE((stats->>'sacks')::numeric, 0)) AS sacks_taken_sum,
+        SUM(COALESCE((stats->>'sacks_loss')::numeric, 0)) AS sack_yards_lost_sum,
+        MAX(COALESCE((stats->>'long_pass')::numeric, 0)) AS long_pass_max,
         -- Rushing
         SUM(COALESCE((stats->>'rushing_attempts')::numeric, 0)) AS rush_att_sum,
         SUM(COALESCE((stats->>'rushing_yards')::numeric, 0)) AS rush_yds_sum,
         SUM(COALESCE((stats->>'rushing_touchdowns')::numeric, 0)) AS rush_td_sum,
+        MAX(COALESCE((stats->>'long_rushing')::numeric, 0)) AS long_rushing_max,
         -- Receiving
         SUM(COALESCE((stats->>'receptions')::numeric, 0)) AS rec_sum,
         SUM(COALESCE((stats->>'receiving_targets')::numeric, 0)) AS tgt_sum,
         SUM(COALESCE((stats->>'receiving_yards')::numeric, 0)) AS rec_yds_sum,
         SUM(COALESCE((stats->>'receiving_touchdowns')::numeric, 0)) AS rec_td_sum,
+        MAX(COALESCE((stats->>'long_reception')::numeric, 0)) AS long_reception_max,
         -- General ball-security
         SUM(COALESCE((stats->>'fumbles')::numeric, 0)) AS fum_sum,
         SUM(COALESCE((stats->>'fumbles_lost')::numeric, 0)) AS fum_lost_sum,
@@ -400,6 +456,7 @@ WITH agg AS (
         SUM(COALESCE((stats->>'defensive_sacks')::numeric, 0)) AS sacks_sum,
         SUM(COALESCE((stats->>'defensive_interceptions')::numeric, 0)) AS int_def_sum,
         SUM(COALESCE((stats->>'interception_touchdowns')::numeric, 0)) AS int_td_sum,
+        SUM(COALESCE((stats->>'interception_yards')::numeric, 0)) AS int_yds_sum,
         SUM(COALESCE((stats->>'fumbles_recovered')::numeric, 0)) AS fum_rec_sum,
         SUM(COALESCE((stats->>'fumbles_touchdowns')::numeric, 0)) AS fum_td_sum,
         SUM(COALESCE((stats->>'tackles_for_loss')::numeric, 0)) AS tfl_sum,
@@ -411,16 +468,20 @@ WITH agg AS (
         SUM(COALESCE((stats->>'extra_points_made')::numeric, 0)) AS xp_sum,
         SUM(COALESCE((stats->>'total_points')::numeric, 0)) AS points_sum,
         SUM(COALESCE((stats->>'touchbacks')::numeric, 0)) AS touchback_sum,
+        MAX(COALESCE((stats->>'long_field_goal_made')::numeric, 0)) AS long_fg_max,
         -- Special teams (BDL key → canonical key)
         SUM(COALESCE((stats->>'punts')::numeric, 0)) AS punts_sum,
         SUM(COALESCE((stats->>'punt_yards')::numeric, 0)) AS punt_yds_sum,
         SUM(COALESCE((stats->>'punts_inside_20')::numeric, 0)) AS punts_in20_sum,
+        MAX(COALESCE((stats->>'long_punt')::numeric, 0)) AS long_punt_max,
         SUM(COALESCE((stats->>'kick_returns')::numeric, 0)) AS kr_sum,
         SUM(COALESCE((stats->>'kick_return_yards')::numeric, 0)) AS kr_yds_sum,
         SUM(COALESCE((stats->>'kick_return_touchdowns')::numeric, 0)) AS kr_td_sum,
+        MAX(COALESCE((stats->>'long_kick_return')::numeric, 0)) AS long_kr_max,
         SUM(COALESCE((stats->>'punt_returns')::numeric, 0)) AS pr_sum,
         SUM(COALESCE((stats->>'punt_return_yards')::numeric, 0)) AS pr_yds_sum,
-        SUM(COALESCE((stats->>'punt_return_touchdowns')::numeric, 0)) AS pr_td_sum
+        SUM(COALESCE((stats->>'punt_return_touchdowns')::numeric, 0)) AS pr_td_sum,
+        MAX(COALESCE((stats->>'long_punt_return')::numeric, 0)) AS long_pr_max
     FROM public.event_box_scores
     WHERE player_id = p_player_id
       AND sport = 'NFL'
@@ -449,13 +510,19 @@ SELECT CASE
             'passing_interceptions', pass_int_sum::int,
             'passing_yards_per_game', ROUND(pass_yds_sum / gp, 1),
             'passing_completion_pct', CASE WHEN pass_att_sum > 0 THEN ROUND(pass_cmp_sum / pass_att_sum * 100, 1) END,
+            'yards_per_pass_attempt', CASE WHEN pass_att_sum > 0 THEN ROUND(pass_yds_sum / pass_att_sum, 2) END,
             'qbr', CASE WHEN qbr_games > 0 THEN ROUND(qbr_sum / qbr_games, 1) END,
+            'qb_rating', CASE WHEN qb_rating_games > 0 THEN ROUND(qb_rating_sum / qb_rating_games, 1) END,
+            'sacks_taken', CASE WHEN sacks_taken_sum > 0 THEN sacks_taken_sum::int END,
+            'sack_yards_lost', CASE WHEN sack_yards_lost_sum > 0 THEN sack_yards_lost_sum::int END,
+            'long_pass', CASE WHEN long_pass_max > 0 THEN long_pass_max::int END,
             -- Rushing
             'rushing_attempts', rush_att_sum::int,
             'rushing_yards', rush_yds_sum::int,
             'rushing_touchdowns', rush_td_sum::int,
             'rushing_yards_per_game', ROUND(rush_yds_sum / gp, 1),
             'yards_per_rush_attempt', CASE WHEN rush_att_sum > 0 THEN ROUND(rush_yds_sum / rush_att_sum, 2) END,
+            'long_rushing', CASE WHEN long_rushing_max > 0 THEN long_rushing_max::int END,
             -- Receiving
             'receptions', rec_sum::int,
             'receiving_targets', tgt_sum::int,
@@ -463,6 +530,7 @@ SELECT CASE
             'receiving_touchdowns', rec_td_sum::int,
             'receiving_yards_per_game', ROUND(rec_yds_sum / gp, 1),
             'yards_per_reception', CASE WHEN rec_sum > 0 THEN ROUND(rec_yds_sum / rec_sum, 2) END,
+            'long_reception', CASE WHEN long_reception_max > 0 THEN long_reception_max::int END,
             -- Defense
             'total_tackles', tackles_sum::int,
             'solo_tackles', solo_tackles_sum::int,
@@ -470,15 +538,18 @@ SELECT CASE
             'defensive_sacks', ROUND(sacks_sum, 1),
             'defensive_interceptions', int_def_sum::int,
             'interception_touchdowns', int_td_sum::int,
+            'interception_yards', CASE WHEN int_yds_sum > 0 THEN int_yds_sum::int END,
             'fumbles_recovered', fum_rec_sum::int,
             'fumbles_touchdowns', fum_td_sum::int,
             'tackles_for_loss', tfl_sum::int,
             'passes_defended', pd_sum::int,
-            'qb_hits', qbh_sum::int,
+            'qb_hits', qbh_sum::int
+        ) || jsonb_build_object(
             -- Kicking
             'field_goal_attempts', fg_att_sum::int,
             'field_goals_made', fg_made_sum::int,
             'field_goal_pct', CASE WHEN fg_att_sum > 0 THEN ROUND(fg_made_sum / fg_att_sum * 100, 1) END,
+            'long_field_goal_made', CASE WHEN long_fg_max > 0 THEN long_fg_max::int END,
             'extra_points_made', xp_sum::int,
             'total_points', points_sum::int,
             'touchbacks', touchback_sum::int,
@@ -486,12 +557,18 @@ SELECT CASE
             'punts', punts_sum::int,
             'punt_yards', punt_yds_sum::int,
             'punts_inside_20', punts_in20_sum::int,
+            'avg_punt_yards', CASE WHEN punts_sum > 0 THEN ROUND(punt_yds_sum / punts_sum, 1) END,
+            'long_punt', CASE WHEN long_punt_max > 0 THEN long_punt_max::int END,
             'kick_returns', kr_sum::int,
             'kick_return_yards', kr_yds_sum::int,
             'kick_return_touchdowns', kr_td_sum::int,
+            'yards_per_kick_return', CASE WHEN kr_sum > 0 THEN ROUND(kr_yds_sum / kr_sum, 2) END,
+            'long_kick_return', CASE WHEN long_kr_max > 0 THEN long_kr_max::int END,
             'punt_returner_returns', pr_sum::int,
             'punt_returner_return_yards', pr_yds_sum::int,
-            'punt_return_touchdowns', pr_td_sum::int
+            'punt_return_touchdowns', pr_td_sum::int,
+            'yards_per_punt_return', CASE WHEN pr_sum > 0 THEN ROUND(pr_yds_sum / pr_sum, 2) END,
+            'long_punt_return', CASE WHEN long_pr_max > 0 THEN long_pr_max::int END
         )
     )
 END
@@ -513,25 +590,48 @@ WITH agg AS (
         SUM(COALESCE(ets.score, 0))::numeric AS pf_sum,
         SUM(COALESCE(opp.score, 0))::numeric AS pa_sum,
         -- Offense (passing)
-        SUM(COALESCE((ets.stats->>'passing_yards')::numeric, 0)) AS pass_yds_sum,
-        SUM(COALESCE((ets.stats->>'passing_touchdowns')::numeric, 0)) AS pass_td_sum,
-        SUM(COALESCE((ets.stats->>'passing_attempts')::numeric, 0)) AS pass_att_sum,
-        SUM(COALESCE((ets.stats->>'passing_completions')::numeric, 0)) AS pass_cmp_sum,
-        SUM(COALESCE((ets.stats->>'passing_interceptions')::numeric, 0)) AS pass_int_sum,
+        SUM(COALESCE((ets.stats->>'passing_yards')::numeric, 0))        AS pass_yds_sum,
+        SUM(COALESCE((ets.stats->>'passing_touchdowns')::numeric, 0))   AS pass_td_sum,
+        SUM(COALESCE((ets.stats->>'passing_attempts')::numeric, 0))     AS pass_att_sum,
+        SUM(COALESCE((ets.stats->>'passing_completions')::numeric, 0))  AS pass_cmp_sum,
+        SUM(COALESCE((ets.stats->>'passing_interceptions')::numeric, 0))AS pass_int_sum,
+        AVG(NULLIF((ets.stats->>'qbr')::numeric, NULL))                 AS qbr_avg,
+        AVG(NULLIF((ets.stats->>'qb_rating')::numeric, NULL))           AS qb_rating_avg,
         -- Offense (rushing)
-        SUM(COALESCE((ets.stats->>'rushing_yards')::numeric, 0)) AS rush_yds_sum,
-        SUM(COALESCE((ets.stats->>'rushing_touchdowns')::numeric, 0)) AS rush_td_sum,
-        SUM(COALESCE((ets.stats->>'rushing_attempts')::numeric, 0)) AS rush_att_sum,
+        SUM(COALESCE((ets.stats->>'rushing_yards')::numeric, 0))        AS rush_yds_sum,
+        SUM(COALESCE((ets.stats->>'rushing_touchdowns')::numeric, 0))   AS rush_td_sum,
+        SUM(COALESCE((ets.stats->>'rushing_attempts')::numeric, 0))     AS rush_att_sum,
         -- Defense
-        SUM(COALESCE((ets.stats->>'defensive_sacks')::numeric, 0)) AS sacks_sum,
+        SUM(COALESCE((ets.stats->>'defensive_sacks')::numeric, 0))      AS sacks_sum,
         SUM(COALESCE((ets.stats->>'defensive_interceptions')::numeric, 0)) AS int_def_sum,
-        SUM(COALESCE((ets.stats->>'total_tackles')::numeric, 0)) AS tackles_sum,
-        SUM(COALESCE((ets.stats->>'passes_defended')::numeric, 0)) AS pd_sum,
+        SUM(COALESCE((ets.stats->>'interception_touchdowns')::numeric, 0)) AS int_td_sum,
+        SUM(COALESCE((ets.stats->>'total_tackles')::numeric, 0))        AS tackles_sum,
+        SUM(COALESCE((ets.stats->>'solo_tackles')::numeric, 0))         AS solo_tackles_sum,
+        SUM(COALESCE((ets.stats->>'passes_defended')::numeric, 0))      AS pd_sum,
+        SUM(COALESCE((ets.stats->>'tackles_for_loss')::numeric, 0))     AS tfl_sum,
+        SUM(COALESCE((ets.stats->>'qb_hits')::numeric, 0))              AS qbh_sum,
+        SUM(COALESCE((ets.stats->>'fumbles_recovered')::numeric, 0))    AS fum_rec_sum,
+        SUM(COALESCE((ets.stats->>'fumbles_touchdowns')::numeric, 0))   AS fum_td_sum,
         -- Turnovers
-        SUM(COALESCE((ets.stats->>'fumbles_lost')::numeric, 0)) AS fum_lost_sum,
+        SUM(COALESCE((ets.stats->>'fumbles')::numeric, 0))              AS fum_sum,
+        SUM(COALESCE((ets.stats->>'fumbles_lost')::numeric, 0))         AS fum_lost_sum,
+        SUM(COALESCE((opp.stats->>'fumbles_lost')::numeric, 0))         AS opp_fum_lost_sum,
+        SUM(COALESCE((opp.stats->>'passing_interceptions')::numeric, 0))AS opp_pass_int_sum,
         -- Kicking
-        SUM(COALESCE((ets.stats->>'field_goals_made')::numeric, 0)) AS fg_made_sum,
-        SUM(COALESCE((ets.stats->>'field_goal_attempts')::numeric, 0)) AS fg_att_sum
+        SUM(COALESCE((ets.stats->>'field_goals_made')::numeric, 0))     AS fg_made_sum,
+        SUM(COALESCE((ets.stats->>'field_goal_attempts')::numeric, 0))  AS fg_att_sum,
+        SUM(COALESCE((ets.stats->>'extra_points_made')::numeric, 0))    AS xp_sum,
+        -- Special teams
+        SUM(COALESCE((ets.stats->>'punts')::numeric, 0))                AS punts_sum,
+        SUM(COALESCE((ets.stats->>'punt_yards')::numeric, 0))           AS punt_yds_sum,
+        SUM(COALESCE((ets.stats->>'punts_inside_20')::numeric, 0))      AS punts_in20_sum,
+        SUM(COALESCE((ets.stats->>'touchbacks')::numeric, 0))           AS touchback_sum,
+        SUM(COALESCE((ets.stats->>'kick_returns')::numeric, 0))         AS kr_sum,
+        SUM(COALESCE((ets.stats->>'kick_return_yards')::numeric, 0))    AS kr_yds_sum,
+        SUM(COALESCE((ets.stats->>'kick_return_touchdowns')::numeric, 0)) AS kr_td_sum,
+        SUM(COALESCE((ets.stats->>'punt_returns')::numeric, 0))         AS pr_sum,
+        SUM(COALESCE((ets.stats->>'punt_return_yards')::numeric, 0))    AS pr_yds_sum,
+        SUM(COALESCE((ets.stats->>'punt_return_touchdowns')::numeric, 0)) AS pr_td_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id
@@ -548,34 +648,68 @@ SELECT CASE
     WHEN gp = 0 THEN '{}'::jsonb
     ELSE jsonb_strip_nulls(
         jsonb_build_object(
+            'games_played', gp::int,
             'wins', wins::int,
             'losses', losses::int,
             'ties', ties::int,
             'points_for', pf_sum::int,
             'points_against', pa_sum::int,
             'point_differential', (pf_sum - pa_sum)::int,
+            'points_per_game', ROUND(pf_sum / gp, 1),
+            'points_allowed_per_game', ROUND(pa_sum / gp, 1),
             -- Offense
             'passing_yards', pass_yds_sum::int,
             'passing_touchdowns', pass_td_sum::int,
             'passing_attempts', pass_att_sum::int,
             'passing_completions', pass_cmp_sum::int,
             'passing_interceptions', pass_int_sum::int,
+            'passing_completion_pct', CASE WHEN pass_att_sum > 0 THEN ROUND(pass_cmp_sum / pass_att_sum * 100, 1) END,
+            'yards_per_pass_attempt', CASE WHEN pass_att_sum > 0 THEN ROUND(pass_yds_sum / pass_att_sum, 2) END,
+            'qbr', ROUND(qbr_avg, 1),
+            'qb_rating', ROUND(qb_rating_avg, 1),
             'rushing_yards', rush_yds_sum::int,
             'rushing_touchdowns', rush_td_sum::int,
             'rushing_attempts', rush_att_sum::int,
+            'yards_per_rush_attempt', CASE WHEN rush_att_sum > 0 THEN ROUND(rush_yds_sum / rush_att_sum, 2) END,
             'total_yards', (pass_yds_sum + rush_yds_sum)::int,
+            'yards_per_game', ROUND((pass_yds_sum + rush_yds_sum) / gp, 1),
             -- Defense
             'defensive_sacks', ROUND(sacks_sum, 1),
             'defensive_interceptions', int_def_sum::int,
+            'interception_touchdowns', int_td_sum::int,
             'total_tackles', tackles_sum::int,
+            'solo_tackles', solo_tackles_sum::int,
+            'tackles_for_loss', tfl_sum::int,
+            'qb_hits', qbh_sum::int,
             'passes_defended', pd_sum::int,
+            'fumbles_recovered', fum_rec_sum::int,
+            'fumbles_touchdowns', fum_td_sum::int
+        ) || jsonb_build_object(
             -- Turnovers
+            'fumbles', fum_sum::int,
             'fumbles_lost', fum_lost_sum::int,
             'turnovers', (pass_int_sum + fum_lost_sum)::int,
+            'takeaways', (opp_pass_int_sum + opp_fum_lost_sum)::int,
+            'turnover_differential', ((opp_pass_int_sum + opp_fum_lost_sum) - (pass_int_sum + fum_lost_sum))::int,
             -- Kicking
             'field_goals_made', fg_made_sum::int,
             'field_goal_attempts', fg_att_sum::int,
-            'field_goal_pct', CASE WHEN fg_att_sum > 0 THEN ROUND(fg_made_sum / fg_att_sum * 100, 1) END
+            'field_goal_pct', CASE WHEN fg_att_sum > 0 THEN ROUND(fg_made_sum / fg_att_sum * 100, 1) END,
+            'extra_points_made', xp_sum::int,
+            -- Special teams
+            'punts', punts_sum::int,
+            'punt_yards', punt_yds_sum::int,
+            'punts_inside_20', punts_in20_sum::int,
+            'gross_avg_punt_yards', CASE WHEN punts_sum > 0 THEN ROUND(punt_yds_sum / punts_sum, 1) END,
+            'touchbacks', touchback_sum::int,
+            'kick_returns', kr_sum::int,
+            'kick_return_yards', kr_yds_sum::int,
+            'kick_return_touchdowns', kr_td_sum::int,
+            'yards_per_kick_return', CASE WHEN kr_sum > 0 THEN ROUND(kr_yds_sum / kr_sum, 2) END,
+            'punt_returns', pr_sum::int,
+            'punt_return_yards', pr_yds_sum::int,
+            'punt_return_touchdowns', pr_td_sum::int,
+            'yards_per_punt_return', CASE WHEN pr_sum > 0 THEN ROUND(pr_yds_sum / pr_sum, 2) END
         )
     )
 END

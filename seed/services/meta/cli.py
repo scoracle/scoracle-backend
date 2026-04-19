@@ -180,6 +180,7 @@ def _seed_football_metadata(
         if max_teams is not None:
             teams = teams[:max_teams]
         for team in teams:
+            team.league_id = league
             upsert_team(conn, "FOOTBALL", team)
             upsert_provider_entity_map(
                 conn, "sportmonks", "FOOTBALL", "team", str(team.id), team.id

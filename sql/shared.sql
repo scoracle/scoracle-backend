@@ -704,12 +704,17 @@ DECLARE
     v_sport TEXT;
     v_season INTEGER;
     v_league_id INTEGER;
+    v_home_team_id INTEGER;
+    v_away_team_id INTEGER;
+    v_home_score INTEGER;
+    v_away_score INTEGER;
     v_players INTEGER := 0;
     v_teams INTEGER := 0;
 BEGIN
     -- Look up fixture details
-    SELECT f.sport, f.season, COALESCE(f.league_id, 0)
-    INTO v_sport, v_season, v_league_id
+    SELECT f.sport, f.season, COALESCE(f.league_id, 0),
+           f.home_team_id, f.away_team_id
+    INTO v_sport, v_season, v_league_id, v_home_team_id, v_away_team_id
     FROM fixtures f WHERE f.id = p_fixture_id;
 
     IF v_sport IS NULL THEN
@@ -843,8 +848,14 @@ BEGIN
         REFRESH MATERIALIZED VIEW CONCURRENTLY football.autofill_entities;
     END IF;
 
-    -- Mark the fixture as seeded
-    PERFORM mark_fixture_seeded(p_fixture_id);
+    -- Look up final score for each team from event_team_stats.
+    SELECT score INTO v_home_score FROM event_team_stats
+    WHERE fixture_id = p_fixture_id AND team_id = v_home_team_id;
+    SELECT score INTO v_away_score FROM event_team_stats
+    WHERE fixture_id = p_fixture_id AND team_id = v_away_team_id;
+
+    -- Mark the fixture as seeded (with scores if we found them)
+    PERFORM mark_fixture_seeded(p_fixture_id, v_home_score, v_away_score);
 
     RETURN QUERY SELECT v_players, v_teams;
 END;

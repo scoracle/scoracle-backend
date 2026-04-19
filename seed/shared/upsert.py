@@ -30,19 +30,20 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
         INSERT INTO teams (
             id, sport, name, short_code, city, country, conference,
             division, venue_name, venue_capacity, founded, logo_url,
-            search_aliases, meta
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            league_id, search_aliases, meta
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
             name = EXCLUDED.name,
-            short_code = EXCLUDED.short_code,
-            city = EXCLUDED.city,
-            country = EXCLUDED.country,
-            conference = EXCLUDED.conference,
-            division = EXCLUDED.division,
-            venue_name = EXCLUDED.venue_name,
-            venue_capacity = EXCLUDED.venue_capacity,
-            founded = EXCLUDED.founded,
-            logo_url = EXCLUDED.logo_url,
+            short_code = COALESCE(EXCLUDED.short_code, teams.short_code),
+            city = COALESCE(EXCLUDED.city, teams.city),
+            country = COALESCE(EXCLUDED.country, teams.country),
+            conference = COALESCE(EXCLUDED.conference, teams.conference),
+            division = COALESCE(EXCLUDED.division, teams.division),
+            venue_name = COALESCE(EXCLUDED.venue_name, teams.venue_name),
+            venue_capacity = COALESCE(EXCLUDED.venue_capacity, teams.venue_capacity),
+            founded = COALESCE(EXCLUDED.founded, teams.founded),
+            logo_url = COALESCE(EXCLUDED.logo_url, teams.logo_url),
+            league_id = COALESCE(EXCLUDED.league_id, teams.league_id),
             search_aliases = EXCLUDED.search_aliases,
             meta = EXCLUDED.meta,
             updated_at = NOW()
@@ -60,6 +61,7 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
             team.venue_capacity,
             team.founded,
             team.logo_url or None,
+            team.league_id,
             aliases,
             json.dumps(team.meta or {}),
         ),

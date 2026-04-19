@@ -95,6 +95,8 @@ def _seed_fixture_box_scores(
 
     for row in team_rows:
         if row.team:
+            if fixture.sport == "FOOTBALL" and fixture.league_id:
+                row.team.league_id = fixture.league_id
             upsert_team(conn, fixture.sport, row.team)
             upsert_provider_entity_map(
                 conn,
@@ -348,6 +350,7 @@ def load_fixtures(
                             home_team = fixture.get("home_team")
                             away_team = fixture.get("away_team")
                             if home_team:
+                                home_team.league_id = current_league
                                 upsert_team(conn, "FOOTBALL", home_team)
                                 upsert_provider_entity_map(
                                     conn,
@@ -358,6 +361,7 @@ def load_fixtures(
                                     home_team.id,
                                 )
                             if away_team:
+                                away_team.league_id = current_league
                                 upsert_team(conn, "FOOTBALL", away_team)
                                 upsert_provider_entity_map(
                                     conn,

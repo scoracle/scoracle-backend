@@ -251,7 +251,12 @@ func loadStarterCandidates(
 		%s
 	`, limitClause)
 
-	rows, err := pool.Query(ctx, query, sport, sinceHours, skipRecentHours)
+	// Passed as strings because the query does `($n || ' hours')::interval`;
+	// pgx's int text-encoding path trips on that concat.
+	rows, err := pool.Query(ctx, query, sport,
+		fmt.Sprintf("%d", sinceHours),
+		fmt.Sprintf("%d", skipRecentHours),
+	)
 	if err != nil {
 		return nil, err
 	}

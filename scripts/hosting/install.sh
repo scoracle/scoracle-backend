@@ -35,7 +35,8 @@ echo "==> setting executable bits on hosting scripts"
 chmod +x \
     "$REPO_ROOT/scripts/hosting/cron-scoseed.sh" \
     "$REPO_ROOT/scripts/hosting/backup-postgres.sh" \
-    "$REPO_ROOT/scripts/hosting/restore-drill.sh"
+    "$REPO_ROOT/scripts/hosting/restore-drill.sh" \
+    "$REPO_ROOT/scripts/hosting/recompute-tiers.sh"
 
 echo "==> reloading systemd user daemon"
 systemctl --user daemon-reload

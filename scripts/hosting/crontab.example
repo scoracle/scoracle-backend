@@ -39,7 +39,27 @@ TZ=America/New_York
 0 4 * * * /home/sheneveld/scoracle-data/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle-data/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# NBA / NFL — intentionally absent from cron.
+# Vibe batch — nightly coverage for starter-tier players (03:00 ET)
+# ---------------------------------------------------------------------------
+# Runs AFTER event processing (23:00) and the backup (04:00 would be after,
+# so we go at 03:00). Iterates starter-tier players who played in the last
+# 24h and generates one blurb each. Headliner-tier entities are handled in
+# real-time by the vibe worker inside the Go API.
+#
+# Gemma e4b at ~20s per blurb. Typical batch on a Saturday: ~500 entities =
+# ~2.8h of GPU time. Scheduled 03:00 so it wraps well before morning browsing.
+0 3 * * * /home/sheneveld/scoracle-data/go/bin/vibe -mode batch -sport all -since-hours 24 >> /home/sheneveld/scoracle-data/logs/vibe-batch.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Entity tier recomputation — weekly (Monday 02:00 ET)
+# ---------------------------------------------------------------------------
+# Rankings shift as the season progresses. One cheap SQL function call per
+# sport (<1s). Scheduled before the Monday weekly meta refresh so the new
+# tiers inform that run.
+0 2 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle-data/logs/tier-recompute.log 2>&1
+
+# ---------------------------------------------------------------------------
+# NBA / NFL event seeding — intentionally absent from cron.
 # BDL supports webhook subscriptions; those will drive event processing
 # when wired up (see planning_docs/CRON_SEEDING_STRATEGY.md).
 # ---------------------------------------------------------------------------

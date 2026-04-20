@@ -51,15 +51,21 @@ func (w *VibeWorker) Dispatch(ctx context.Context, event PercentileChangeEvent, 
 		return
 	}
 
-	if w.recentlyGenerated(ctx, event) {
-		return
-	}
-
-	entityName, err := w.lookupEntityName(ctx, event)
+	// Real-time vibes are headliner-only. Starters get a daily batch blurb
+	// via cmd/vibe -mode batch; bench/inactive never get one. This cap is
+	// what lets a single local GPU keep up on NFL Sundays.
+	tier, entityName, err := w.lookupEntity(ctx, event)
 	if err != nil || entityName == "" {
 		logger.Warn("vibe: entity lookup failed",
 			"entity_type", event.EntityType, "entity_id", event.EntityID,
 			"sport", event.Sport, "error", err)
+		return
+	}
+	if tier != "headliner" {
+		return
+	}
+
+	if w.recentlyGenerated(ctx, event) {
 		return
 	}
 
@@ -115,14 +121,15 @@ func (w *VibeWorker) recentlyGenerated(ctx context.Context, event PercentileChan
 	return exists
 }
 
-func (w *VibeWorker) lookupEntityName(ctx context.Context, event PercentileChangeEvent) (string, error) {
+// lookupEntity returns the entity's tier + display name in one query so the
+// worker can short-circuit non-headliners before any debounce or Gemma work.
+func (w *VibeWorker) lookupEntity(ctx context.Context, event PercentileChangeEvent) (tier, name string, err error) {
 	var query string
 	if event.EntityType == "player" {
-		query = `SELECT name FROM players WHERE id = $1 AND sport = $2`
+		query = `SELECT tier, name FROM players WHERE id = $1 AND sport = $2`
 	} else {
-		query = `SELECT name FROM teams WHERE id = $1 AND sport = $2`
+		query = `SELECT tier, name FROM teams WHERE id = $1 AND sport = $2`
 	}
-	var name string
-	err := w.pool.QueryRow(ctx, query, event.EntityID, event.Sport).Scan(&name)
-	return name, err
+	err = w.pool.QueryRow(ctx, query, event.EntityID, event.Sport).Scan(&tier, &name)
+	return
 }

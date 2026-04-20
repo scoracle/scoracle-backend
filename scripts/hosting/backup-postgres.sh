@@ -16,7 +16,11 @@
 
 set -euo pipefail
 
-BACKUP_DIR=${BACKUP_DIR:-/mnt/backup/scoracle}
+# Default target is the KingSpec NVMe at /mnt/data/backup/scoracle.
+# Same-disk-as-Postgres caveat: useful for snapshots + accidental drops
+# but does not protect against drive failure. Plan off-disk (USB / cloud
+# / NAS) before the corpus has irreplaceable value.
+BACKUP_DIR=${BACKUP_DIR:-/mnt/data/backup/scoracle}
 DB_HOST=${DB_HOST:-localhost}
 DB_USER=${DB_USER:-scoracle}
 DB_NAME=${DB_NAME:-scoracle}

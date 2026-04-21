@@ -142,7 +142,31 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'punt_return_touchdowns',  'Punt Return TDs',       'team', 'special',   false, false, false, 61),
     ('NFL', 'yards_per_punt_return',   'Yards/Punt Return',     'team', 'special',   false, true,  true,  62),
     ('NFL', 'qbr',                     'Passer Rating (ESPN)',  'team', 'offense',   false, false, true,  63),
-    ('NFL', 'qb_rating',               'Passer Rating (NFL)',   'team', 'offense',   false, false, true,  64)
+    ('NFL', 'qb_rating',               'Passer Rating (NFL)',   'team', 'offense',   false, false, true,  64),
+    -- Team-only datapoints from BDL /nfl/v1/team_stats (not derivable from player sums)
+    ('NFL', 'first_downs',             'First Downs',           'team', 'offense',   false, false, true,  65),
+    ('NFL', 'first_downs_passing',     'First Downs (Passing)', 'team', 'offense',   false, false, true,  66),
+    ('NFL', 'first_downs_rushing',     'First Downs (Rushing)', 'team', 'offense',   false, false, true,  67),
+    ('NFL', 'first_downs_penalty',     'First Downs (Penalty)', 'team', 'offense',   false, false, false, 68),
+    ('NFL', 'third_down_attempts',     'Third Down Attempts',   'team', 'offense',   false, false, false, 70),
+    ('NFL', 'third_down_conversions',  'Third Down Conversions','team', 'offense',   false, false, true,  71),
+    ('NFL', 'third_down_pct',          'Third Down %',          'team', 'offense',   false, true,  true,  72),
+    ('NFL', 'fourth_down_attempts',    'Fourth Down Attempts',  'team', 'offense',   false, false, false, 73),
+    ('NFL', 'fourth_down_conversions', 'Fourth Down Conversions','team','offense',   false, false, true,  74),
+    ('NFL', 'fourth_down_pct',         'Fourth Down %',         'team', 'offense',   false, true,  true,  75),
+    ('NFL', 'red_zone_attempts',       'Red Zone Attempts',     'team', 'offense',   false, false, true,  76),
+    ('NFL', 'red_zone_scores',         'Red Zone Scores',       'team', 'offense',   false, false, true,  77),
+    ('NFL', 'red_zone_pct',            'Red Zone %',            'team', 'offense',   false, true,  true,  78),
+    ('NFL', 'total_drives',            'Total Drives',          'team', 'offense',   false, false, false, 79),
+    ('NFL', 'total_offensive_plays',   'Total Offensive Plays', 'team', 'offense',   false, false, false, 80),
+    ('NFL', 'yards_per_play',          'Yards/Play',            'team', 'offense',   false, true,  true,  81),
+    ('NFL', 'net_passing_yards',       'Net Passing Yards',     'team', 'offense',   false, false, true,  82),
+    ('NFL', 'sack_yards_lost',         'Sack Yards Lost',       'team', 'offense',   true,  false, false, 83),
+    ('NFL', 'possession_time_seconds', 'Possession Time (s)',   'team', 'general',   false, false, true,  84),
+    ('NFL', 'avg_possession_seconds',  'Avg Possession/Game (s)','team','general',   false, true,  true,  85),
+    ('NFL', 'penalties',               'Penalties',             'team', 'discipline',true,  false, true,  86),
+    ('NFL', 'penalty_yards',           'Penalty Yards',         'team', 'discipline',true,  false, true,  87),
+    ('NFL', 'defensive_touchdowns',    'Defensive TDs',         'team', 'defense',   false, false, true,  88)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- ============================================================================
@@ -631,7 +655,26 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'kick_return_touchdowns')::numeric, 0)) AS kr_td_sum,
         SUM(COALESCE((ets.stats->>'punt_returns')::numeric, 0))         AS pr_sum,
         SUM(COALESCE((ets.stats->>'punt_return_yards')::numeric, 0))    AS pr_yds_sum,
-        SUM(COALESCE((ets.stats->>'punt_return_touchdowns')::numeric, 0)) AS pr_td_sum
+        SUM(COALESCE((ets.stats->>'punt_return_touchdowns')::numeric, 0)) AS pr_td_sum,
+        -- Team-only (BDL /nfl/v1/team_stats)
+        SUM(COALESCE((ets.stats->>'first_downs')::numeric, 0))                AS first_downs_sum,
+        SUM(COALESCE((ets.stats->>'first_downs_passing')::numeric, 0))        AS first_downs_pass_sum,
+        SUM(COALESCE((ets.stats->>'first_downs_rushing')::numeric, 0))        AS first_downs_rush_sum,
+        SUM(COALESCE((ets.stats->>'first_downs_penalty')::numeric, 0))        AS first_downs_pen_sum,
+        SUM(COALESCE((ets.stats->>'third_down_attempts')::numeric, 0))        AS third_att_sum,
+        SUM(COALESCE((ets.stats->>'third_down_conversions')::numeric, 0))     AS third_conv_sum,
+        SUM(COALESCE((ets.stats->>'fourth_down_attempts')::numeric, 0))       AS fourth_att_sum,
+        SUM(COALESCE((ets.stats->>'fourth_down_conversions')::numeric, 0))    AS fourth_conv_sum,
+        SUM(COALESCE((ets.stats->>'red_zone_attempts')::numeric, 0))          AS rz_att_sum,
+        SUM(COALESCE((ets.stats->>'red_zone_scores')::numeric, 0))            AS rz_score_sum,
+        SUM(COALESCE((ets.stats->>'total_drives')::numeric, 0))               AS drives_sum,
+        SUM(COALESCE((ets.stats->>'total_offensive_plays')::numeric, 0))      AS plays_sum,
+        SUM(COALESCE((ets.stats->>'net_passing_yards')::numeric, 0))          AS net_pass_yds_sum,
+        SUM(COALESCE((ets.stats->>'sack_yards_lost')::numeric, 0))            AS sack_yds_lost_sum,
+        SUM(COALESCE((ets.stats->>'possession_time_seconds')::numeric, 0))    AS poss_seconds_sum,
+        SUM(COALESCE((ets.stats->>'penalties')::numeric, 0))                  AS penalties_sum,
+        SUM(COALESCE((ets.stats->>'penalty_yards')::numeric, 0))              AS penalty_yds_sum,
+        SUM(COALESCE((ets.stats->>'defensive_touchdowns')::numeric, 0))       AS def_td_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id
@@ -710,6 +753,31 @@ SELECT CASE
             'punt_return_yards', pr_yds_sum::int,
             'punt_return_touchdowns', pr_td_sum::int,
             'yards_per_punt_return', CASE WHEN pr_sum > 0 THEN ROUND(pr_yds_sum / pr_sum, 2) END
+        ) || jsonb_build_object(
+            -- Team-only aggregates (BDL /nfl/v1/team_stats)
+            'first_downs', first_downs_sum::int,
+            'first_downs_passing', first_downs_pass_sum::int,
+            'first_downs_rushing', first_downs_rush_sum::int,
+            'first_downs_penalty', first_downs_pen_sum::int,
+            'third_down_attempts', third_att_sum::int,
+            'third_down_conversions', third_conv_sum::int,
+            'third_down_pct', CASE WHEN third_att_sum > 0 THEN ROUND(third_conv_sum / third_att_sum * 100, 1) END,
+            'fourth_down_attempts', fourth_att_sum::int,
+            'fourth_down_conversions', fourth_conv_sum::int,
+            'fourth_down_pct', CASE WHEN fourth_att_sum > 0 THEN ROUND(fourth_conv_sum / fourth_att_sum * 100, 1) END,
+            'red_zone_attempts', rz_att_sum::int,
+            'red_zone_scores', rz_score_sum::int,
+            'red_zone_pct', CASE WHEN rz_att_sum > 0 THEN ROUND(rz_score_sum / rz_att_sum * 100, 1) END,
+            'total_drives', drives_sum::int,
+            'total_offensive_plays', plays_sum::int,
+            'yards_per_play', CASE WHEN plays_sum > 0 THEN ROUND((pass_yds_sum + rush_yds_sum) / plays_sum, 2) END,
+            'net_passing_yards', net_pass_yds_sum::int,
+            'sack_yards_lost', sack_yds_lost_sum::int,
+            'possession_time_seconds', poss_seconds_sum::int,
+            'avg_possession_seconds', CASE WHEN gp > 0 THEN ROUND(poss_seconds_sum / gp, 1) END,
+            'penalties', penalties_sum::int,
+            'penalty_yards', penalty_yds_sum::int,
+            'defensive_touchdowns', def_td_sum::int
         )
     )
 END

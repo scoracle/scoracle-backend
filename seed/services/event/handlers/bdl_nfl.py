@@ -227,6 +227,12 @@ class NFLHandler:
         if not raw_lines:
             return [], []
 
+        # Authoritative team-level aggregates (first downs, drives, red-zone,
+        # possession time, penalties, etc.) that can't be derived from
+        # summing player rows. Applied after player accumulation so BDL
+        # team values win for keys it covers.
+        team_stat_overrides = self._fetch_team_stats(external_game_id)
+
         players: list[EventBoxScore] = []
         team_stats_acc: dict[int, dict[str, float]] = {}
         team_scores: dict[int, int] = {}
@@ -296,6 +302,10 @@ class NFLHandler:
                 if isinstance(away_team_id, int) and isinstance(away_score, int):
                     team_scores[away_team_id] = away_score
 
+        # Overlay BDL team-aggregate stats on top of player-sum accumulation.
+        for team_id, overrides in team_stat_overrides.items():
+            team_stats_acc.setdefault(team_id, {}).update(overrides)
+
         teams: list[EventTeamStats] = []
         for team_id, agg in team_stats_acc.items():
             teams.append(
@@ -334,6 +344,34 @@ class NFLHandler:
         except Exception as e:
             logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
         return []
+
+    def _fetch_team_stats(self, external_game_id: int) -> dict[int, dict[str, Any]]:
+        """Fetch team-aggregate stats for a game, keyed by team.id.
+
+        Returns a dict[team_id, {stat_key: value}] containing fields that
+        cannot be derived from summing player rows: first downs, third/fourth
+        down efficiency, red zone, drives, possession time, penalties.
+        Returns an empty dict on failure — player-sum fallback still works.
+        """
+        try:
+            items = self.client.get_all_pages(
+                "/nfl/v1/team_stats",
+                {"game_ids[]": external_game_id, "per_page": 10},
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch team_stats for game {external_game_id}: {e}"
+            )
+            return {}
+
+        out: dict[int, dict[str, Any]] = {}
+        for row in items:
+            team_raw = row.get("team")
+            team_id = team_raw.get("id") if isinstance(team_raw, dict) else None
+            if not isinstance(team_id, int):
+                continue
+            out[team_id] = _extract_team_numeric_stats(row)
+        return out
 
 
 # --------------------------------------------------------------------------
@@ -468,6 +506,36 @@ _BOX_SCORE_META_KEYS = {
     "week",
     "date",
 }
+
+# Fields in /nfl/v1/team_stats that aren't numeric stats — either metadata
+# or string-format duplicates of numeric fields (possession_time is "31:14"
+# but possession_time_seconds is available; third/fourth_down_efficiency is
+# "4-12" but conversions/attempts are already separate fields).
+_TEAM_STATS_SKIP_KEYS = {
+    "game",
+    "team",
+    "home_away",
+    "possession_time",
+    "third_down_efficiency",
+    "fourth_down_efficiency",
+}
+
+
+def _extract_team_numeric_stats(raw: dict[str, Any]) -> dict[str, Any]:
+    """Pull numeric fields from a /nfl/v1/team_stats row, skipping metadata
+    and string-format duplicates of numeric fields."""
+    stats: dict[str, Any] = {}
+    for k, v in raw.items():
+        if k in _TEAM_STATS_SKIP_KEYS:
+            continue
+        if isinstance(v, (int, float)):
+            stats[k] = v
+        elif isinstance(v, str):
+            try:
+                stats[k] = float(v)
+            except ValueError:
+                continue
+    return stats
 
 
 def _extract_numeric_stats(raw: dict[str, Any]) -> dict[str, Any]:

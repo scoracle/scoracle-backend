@@ -418,15 +418,17 @@ func (s *TwitterService) linkEntities(ctx context.Context, sport string, tweets 
 // X API client
 // ---------------------------------------------------------------------------
 
-func (s *TwitterService) fetchListTweets(ctx context.Context, listID, sinceID string) ([]Tweet, string, error) {
+func (s *TwitterService) fetchListTweets(ctx context.Context, listID, _ string) ([]Tweet, string, error) {
+	// NOTE: /2/lists/:id/tweets does NOT accept since_id (returns HTTP 400).
+	// The supported cursor for this endpoint is pagination_token. We dedupe
+	// downstream via ON CONFLICT on tweets.id, so re-pulling the same 100
+	// tweets each refresh is harmless. The sinceID arg is retained in the
+	// signature for compatibility with callers that still pass it.
 	params := url.Values{}
 	params.Set("max_results", fmt.Sprintf("%d", twitterMaxResults))
 	params.Set("tweet.fields", "created_at,public_metrics,author_id")
 	params.Set("user.fields", "username,name,verified,profile_image_url")
 	params.Set("expansions", "author_id")
-	if sinceID != "" {
-		params.Set("since_id", sinceID)
-	}
 
 	u := fmt.Sprintf("%s/lists/%s/tweets?%s", twitterBaseURL, listID, params.Encode())
 

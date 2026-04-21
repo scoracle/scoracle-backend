@@ -31,8 +31,8 @@ const (
 	newsRSSTimeout   = 15 * time.Second
 )
 
-// Time windows for escalation (hours).
-var timeWindows = []int{24, 48, 168}
+// Time windows for escalation (hours). Capped at 12h to limit upstream load.
+var timeWindows = []int{12}
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{
@@ -382,10 +382,17 @@ type rssItem struct {
 }
 
 func (s *NewsService) fetchRSS(query string, hoursBack int) ([]Article, error) {
-	when := "1d"
-	if hoursBack > 24 && hoursBack <= 168 {
-		when = "7d"
-	} else if hoursBack > 168 {
+	// Google News RSS accepts when:Nh / Nd / Ny. Use hours directly when
+	// under a day so callers can request sub-day windows like 12h.
+	var when string
+	switch {
+	case hoursBack <= 0:
+		when = "1d"
+	case hoursBack < 24:
+		when = fmt.Sprintf("%dh", hoursBack)
+	case hoursBack <= 168:
+		when = fmt.Sprintf("%dd", (hoursBack+23)/24)
+	default:
 		when = "30d"
 	}
 

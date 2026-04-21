@@ -4,6 +4,7 @@ Auth: api_token query parameter.
 Rate limit: 300 req/min.
 Pagination: page-based via pagination.has_more.
 429 retry: exponential backoff (2s, 4s, 8s, 16s, 32s), max 5 retries.
+Transient network retry: 4 attempts, 1s/2s/4s backoff (DNS, conn, timeout).
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ import time
 from typing import Any, Generator
 
 import httpx
+
+from .http_retry import with_network_retry
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +51,12 @@ class SportMonksClient:
 
         for attempt in range(max_retries + 1):
             self._wait_rate_limit()
-            resp = self._client.get(url, params=params)
+            # with_network_retry rides out DNS / connect / read-timeout
+            # blips. The outer loop here handles HTTP-level 429 backoff.
+            resp = with_network_retry(
+                lambda: self._client.get(url, params=params),
+                logger=logger,
+            )
 
             if resp.status_code == 429:
                 if attempt == max_retries:

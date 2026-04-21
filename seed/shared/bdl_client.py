@@ -13,6 +13,8 @@ from typing import Any, Generator
 
 import httpx
 
+from .http_retry import with_network_retry
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +44,10 @@ class BDLClient:
         """Perform a rate-limited GET request. Returns parsed JSON."""
         self._wait_rate_limit()
         url = self._base_url + path
-        resp = self._client.get(url, params=params or {})
+        resp = with_network_retry(
+            lambda: self._client.get(url, params=params or {}),
+            logger=logger,
+        )
         resp.raise_for_status()
         return resp.json()
 

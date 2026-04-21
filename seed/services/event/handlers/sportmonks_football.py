@@ -194,10 +194,16 @@ class FootballHandler:
         """
         resp = self.client.get(
             f"/fixtures/{external_fixture_id}",
-            {"include": "lineups.details.type;events;scores;participants"},
+            {"include": "lineups.details.type;events;scores;participants;statistics.type"},
         )
         data = resp.get("data", {})
         team_scores: dict[int, int] = _extract_fixture_scores(data)
+        # Authoritative team-level stats (possession %, corners, attacks, etc.)
+        # that can't be derived by summing player rows. Applied after player
+        # accumulation so SportMonks values win for keys it provides.
+        team_stat_overrides: dict[int, dict[str, Any]] = _extract_team_statistics(
+            data.get("statistics") or []
+        )
 
         # 1. Flatten lineup details into per-player stats
         players: list[EventBoxScore] = []
@@ -265,6 +271,14 @@ class FootballHandler:
             if isinstance(p.get("id"), int):
                 team_stats_acc.setdefault(p["id"], {})
 
+        # Overlay authoritative SportMonks team statistics. These overwrite any
+        # same-keyed values produced by player-row accumulation (e.g. shots_total
+        # from player sums is replaced by the team-level figure SportMonks
+        # publishes — which accounts for own goals, missed-attribution, etc.).
+        for team_id, overrides in team_stat_overrides.items():
+            acc = team_stats_acc.setdefault(team_id, {})
+            acc.update(overrides)
+
         for team_id, agg in team_stats_acc.items():
             teams.append(
                 EventTeamStats(
@@ -282,6 +296,31 @@ class FootballHandler:
 # --------------------------------------------------------------------------
 # Parsing helpers
 # --------------------------------------------------------------------------
+
+
+def _extract_team_statistics(
+    statistics: list[dict[str, Any]],
+) -> dict[int, dict[str, Any]]:
+    """Flatten the fixture-level `statistics[]` payload into per-team dicts.
+
+    SportMonks shape: {participant_id, type.code, data.value, location, ...}.
+    Stat-key normalization (hyphen->underscore + per-sport overrides) happens
+    in Postgres via the `normalize_stat_keys` trigger; here we just pass the
+    raw `type.code` straight through.
+    """
+    out: dict[int, dict[str, Any]] = {}
+    for s in statistics:
+        team_id = s.get("participant_id")
+        if not isinstance(team_id, int):
+            continue
+        code = (s.get("type") or {}).get("code", "")
+        if not code:
+            continue
+        value = (s.get("data") or {}).get("value")
+        if value is None:
+            continue
+        out.setdefault(team_id, {})[code] = value
+    return out
 
 
 def _extract_event_stats(events: list[dict[str, Any]]) -> dict[int, dict[str, int]]:

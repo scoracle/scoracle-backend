@@ -176,7 +176,25 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'offsides_provoked',     'Offsides Won',             'team', 'defensive',  false, false, false, 113),
     ('FOOTBALL', 'saves',                 'Saves',                    'team', 'goalkeeper', false, false, true,  120),
     ('FOOTBALL', 'saves_insidebox',       'Saves Inside Box',         'team', 'goalkeeper', false, false, true,  121),
-    ('FOOTBALL', 'good_high_claim',       'High Claims',              'team', 'goalkeeper', false, false, false, 122)
+    ('FOOTBALL', 'good_high_claim',       'High Claims',              'team', 'goalkeeper', false, false, false, 122),
+    -- Team-level box-score datapoints sourced from SportMonks fixture statistics.
+    ('FOOTBALL', 'possession_pct',        'Possession %',             'team', 'possession', false, false, true,  108),
+    ('FOOTBALL', 'assists',               'Assists',                  'team', 'attacking',  false, false, true,   91),
+    ('FOOTBALL', 'goal_attempts',         'Goal Attempts',            'team', 'shooting',   false, false, true,   92),
+    ('FOOTBALL', 'hit_woodwork',          'Hit Woodwork',             'team', 'shooting',   false, false, false,  93),
+    ('FOOTBALL', 'shots_insidebox',       'Shots Inside Box',         'team', 'shooting',   false, false, true,   94),
+    ('FOOTBALL', 'shots_outsidebox',      'Shots Outside Box',        'team', 'shooting',   false, false, false,  95),
+    ('FOOTBALL', 'successful_headers',    'Successful Headers',       'team', 'duels',      false, false, false, 109),
+    ('FOOTBALL', 'corners',               'Corners',                  'team', 'attacking',  false, false, true,  130),
+    ('FOOTBALL', 'attacks',               'Attacks',                  'team', 'attacking',  false, false, false, 131),
+    ('FOOTBALL', 'dangerous_attacks',     'Dangerous Attacks',        'team', 'attacking',  false, false, true,  132),
+    ('FOOTBALL', 'ball_safe',             'Ball Safe Events',         'team', 'possession', false, false, false, 133),
+    ('FOOTBALL', 'goal_kicks',            'Goal Kicks',               'team', 'set_pieces', false, false, false, 140),
+    ('FOOTBALL', 'free_kicks',            'Free Kicks',               'team', 'set_pieces', false, false, false, 141),
+    ('FOOTBALL', 'throw_ins',             'Throw-ins',                'team', 'set_pieces', false, false, false, 142),
+    ('FOOTBALL', 'penalties',             'Penalties',                'team', 'set_pieces', false, false, false, 143),
+    ('FOOTBALL', 'injuries',              'Injuries',                 'team', 'discipline', true,  false, false, 150),
+    ('FOOTBALL', 'substitutions',         'Substitutions',            'team', 'general',    false, false, false, 151)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- ============================================================================
@@ -772,7 +790,25 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'offsides_provoked')::numeric, 0))      AS offsides_provoked,
         SUM(COALESCE((ets.stats->>'saves')::numeric, 0))                  AS saves,
         SUM(COALESCE((ets.stats->>'saves_insidebox')::numeric, 0))        AS saves_insidebox,
-        SUM(COALESCE((ets.stats->>'good_high_claim')::numeric, 0))        AS good_high_claim
+        SUM(COALESCE((ets.stats->>'good_high_claim')::numeric, 0))        AS good_high_claim,
+        -- Fixture-level team statistics (SportMonks `statistics` include)
+        AVG(NULLIF((ets.stats->>'possession_pct')::numeric, 0))           AS possession_pct,
+        SUM(COALESCE((ets.stats->>'assists')::numeric, 0))                AS team_assists,
+        SUM(COALESCE((ets.stats->>'goal_attempts')::numeric, 0))          AS goal_attempts,
+        SUM(COALESCE((ets.stats->>'hit_woodwork')::numeric, 0))           AS hit_woodwork,
+        SUM(COALESCE((ets.stats->>'shots_insidebox')::numeric, 0))        AS shots_insidebox,
+        SUM(COALESCE((ets.stats->>'shots_outsidebox')::numeric, 0))       AS shots_outsidebox,
+        SUM(COALESCE((ets.stats->>'successful_headers')::numeric, 0))     AS successful_headers,
+        SUM(COALESCE((ets.stats->>'corners')::numeric, 0))                AS corners,
+        SUM(COALESCE((ets.stats->>'attacks')::numeric, 0))                AS attacks,
+        SUM(COALESCE((ets.stats->>'dangerous_attacks')::numeric, 0))      AS dangerous_attacks,
+        SUM(COALESCE((ets.stats->>'ball_safe')::numeric, 0))              AS ball_safe,
+        SUM(COALESCE((ets.stats->>'goal_kicks')::numeric, 0))             AS goal_kicks,
+        SUM(COALESCE((ets.stats->>'free_kicks')::numeric, 0))             AS free_kicks,
+        SUM(COALESCE((ets.stats->>'throw_ins')::numeric, 0))              AS throw_ins,
+        SUM(COALESCE((ets.stats->>'penalties')::numeric, 0))              AS penalties,
+        SUM(COALESCE((ets.stats->>'injuries')::numeric, 0))               AS injuries,
+        SUM(COALESCE((ets.stats->>'substitutions')::numeric, 0))          AS substitutions
     FROM public.event_team_stats ets
     JOIN public.fixtures f ON f.id = ets.fixture_id
     LEFT JOIN public.event_team_stats opp
@@ -867,6 +903,24 @@ SELECT CASE
             'saves', saves::int,
             'saves_insidebox', saves_insidebox::int,
             'good_high_claim', good_high_claim::int
+        ) || jsonb_build_object(
+            'possession_pct', CASE WHEN possession_pct IS NOT NULL THEN ROUND(possession_pct, 2) END,
+            'assists', team_assists::int,
+            'goal_attempts', goal_attempts::int,
+            'hit_woodwork', hit_woodwork::int,
+            'shots_insidebox', shots_insidebox::int,
+            'shots_outsidebox', shots_outsidebox::int,
+            'successful_headers', successful_headers::int,
+            'corners', corners::int,
+            'attacks', attacks::int,
+            'dangerous_attacks', dangerous_attacks::int,
+            'ball_safe', ball_safe::int,
+            'goal_kicks', goal_kicks::int,
+            'free_kicks', free_kicks::int,
+            'throw_ins', throw_ins::int,
+            'penalties', penalties::int,
+            'injuries', injuries::int,
+            'substitutions', substitutions::int
         )
     )
 END

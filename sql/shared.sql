@@ -251,6 +251,24 @@ INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canon
     ('sportmonks', 'FOOTBALL', 'team', 'away-matches-played', 'away_played')
 ON CONFLICT DO NOTHING;
 
+-- SportMonks Football fixture-level team statistics codes. The codes that
+-- need explicit canonical names are listed here; everything else falls back
+-- to hyphen->underscore replacement (e.g. `dangerous-attacks` -> `dangerous_attacks`).
+INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
+    ('sportmonks', 'FOOTBALL', 'team', 'ball-possession',                    'possession_pct'),
+    ('sportmonks', 'FOOTBALL', 'team', 'yellowcards',                        'yellow_cards'),
+    ('sportmonks', 'FOOTBALL', 'team', 'redcards',                           'red_cards'),
+    ('sportmonks', 'FOOTBALL', 'team', 'goals-kicks',                        'goal_kicks'),
+    ('sportmonks', 'FOOTBALL', 'team', 'throwins',                           'throw_ins'),
+    ('sportmonks', 'FOOTBALL', 'team', 'successful-passes',                  'accurate_passes'),
+    ('sportmonks', 'FOOTBALL', 'team', 'successful-passes-percentage',       'pass_accuracy'),
+    ('sportmonks', 'FOOTBALL', 'team', 'long-passes',                        'long_balls'),
+    ('sportmonks', 'FOOTBALL', 'team', 'successful-long-passes',             'long_balls_won'),
+    ('sportmonks', 'FOOTBALL', 'team', 'successful-long-passes-percentage',  'long_ball_accuracy'),
+    ('sportmonks', 'FOOTBALL', 'team', 'successful-dribbles-percentage',     'dribble_success_rate'),
+    ('sportmonks', 'FOOTBALL', 'team', 'shots-blocked',                      'shots_blocked_by_opp')
+ON CONFLICT DO NOTHING;
+
 -- ============================================================================
 -- 7c. STAT KEY NORMALIZATION TRIGGER
 -- Fires BEFORE INSERT OR UPDATE on player_stats and team_stats.

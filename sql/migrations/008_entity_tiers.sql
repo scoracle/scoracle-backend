@@ -46,8 +46,8 @@ DECLARE
     v_starter_min_apps INTEGER;
     v_starter_min_minutes_per_app NUMERIC;
 BEGIN
-    -- Per-sport starter thresholds. Mirror the scoracle-seed news
-    -- backfill heuristics so the two systems agree on who's a starter.
+    -- Per-sport starter thresholds. Same baseline heuristics we use
+    -- elsewhere for "has this entity played enough to matter."
     CASE p_sport
         WHEN 'NBA' THEN
             v_starter_min_apps := 20;

@@ -197,141 +197,38 @@ CREATE TABLE IF NOT EXISTS stat_definitions (
 CREATE INDEX IF NOT EXISTS idx_stat_definitions_sport ON stat_definitions(sport, entity_type);
 
 -- ============================================================================
--- 7b. PROVIDER STAT KEY MAPPINGS — maps raw provider keys to canonical names
+-- 7b. STAT KEY NORMALIZATION — relocated to Python seeder handlers
 -- ============================================================================
+--
+-- Provider-specific key normalization (e.g. SportMonks `accurate-passes` ->
+-- `passes_accurate`, BDL `tov` -> `turnover`) now lives in the Python
+-- handlers under seed/services/event/handlers/ as inline `_*_STAT_MAP`
+-- consts passed through shared/stat_keys.py::canonicalize().
+--
+-- Postgres is provider-agnostic: it receives canonical keys and never sees
+-- provider-speak. Aggregators, triggers, and views all read canonical keys
+-- directly.
+--
+-- The DROP statements below clean up the old infrastructure in place so
+-- an in-place schema reload removes the trigger, function, and mapping
+-- table without manual intervention.
 
-CREATE TABLE IF NOT EXISTS provider_stat_mappings (
-    provider TEXT NOT NULL,
-    sport TEXT NOT NULL,
-    entity_type TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
-    raw_key TEXT NOT NULL,
-    canonical_key TEXT NOT NULL,
-    PRIMARY KEY (provider, sport, entity_type, raw_key)
-);
-
--- BDL mappings (shared NBA/NFL — these keys appear in both)
-INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
-    ('bdl', 'NBA', 'player', 'tov', 'turnover'),
-    ('bdl', 'NBA', 'player', 'gp', 'games_played'),
-    ('bdl', 'NBA', 'team', 'tov', 'turnover'),
-    ('bdl', 'NBA', 'team', 'gp', 'games_played'),
-    ('bdl', 'NBA', 'team', 'w', 'wins'),
-    ('bdl', 'NBA', 'team', 'l', 'losses'),
-    ('bdl', 'NFL', 'player', 'tov', 'turnover'),
-    ('bdl', 'NFL', 'player', 'gp', 'games_played'),
-    ('bdl', 'NFL', 'team', 'w', 'wins'),
-    ('bdl', 'NFL', 'team', 'l', 'losses')
-ON CONFLICT DO NOTHING;
-
--- SportMonks Football player stat code overrides
-INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
-    ('sportmonks', 'FOOTBALL', 'player', 'passes', 'passes_total'),
-    ('sportmonks', 'FOOTBALL', 'player', 'accurate-passes', 'passes_accurate'),
-    ('sportmonks', 'FOOTBALL', 'player', 'total-crosses', 'crosses_total'),
-    ('sportmonks', 'FOOTBALL', 'player', 'accurate-crosses', 'crosses_accurate'),
-    ('sportmonks', 'FOOTBALL', 'player', 'blocked-shots', 'blocks'),
-    ('sportmonks', 'FOOTBALL', 'player', 'total-duels', 'duels_total'),
-    ('sportmonks', 'FOOTBALL', 'player', 'dribble-attempts', 'dribbles_attempts'),
-    ('sportmonks', 'FOOTBALL', 'player', 'successful-dribbles', 'dribbles_success'),
-    ('sportmonks', 'FOOTBALL', 'player', 'yellowcards', 'yellow_cards'),
-    ('sportmonks', 'FOOTBALL', 'player', 'redcards', 'red_cards'),
-    ('sportmonks', 'FOOTBALL', 'player', 'fouls', 'fouls_committed'),
-    ('sportmonks', 'FOOTBALL', 'player', 'expected-goals', 'expected_goals')
-ON CONFLICT DO NOTHING;
-
--- SportMonks Football team standing code overrides
-INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-matches-played', 'matches_played'),
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-won', 'wins'),
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-draw', 'draws'),
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-lost', 'losses'),
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-goals-for', 'goals_for'),
-    ('sportmonks', 'FOOTBALL', 'team', 'overall-goals-against', 'goals_against'),
-    ('sportmonks', 'FOOTBALL', 'team', 'home-matches-played', 'home_played'),
-    ('sportmonks', 'FOOTBALL', 'team', 'away-matches-played', 'away_played')
-ON CONFLICT DO NOTHING;
-
--- SportMonks Football fixture-level team statistics codes. The codes that
--- need explicit canonical names are listed here; everything else falls back
--- to hyphen->underscore replacement (e.g. `dangerous-attacks` -> `dangerous_attacks`).
-INSERT INTO provider_stat_mappings (provider, sport, entity_type, raw_key, canonical_key) VALUES
-    ('sportmonks', 'FOOTBALL', 'team', 'ball-possession',                    'possession_pct'),
-    ('sportmonks', 'FOOTBALL', 'team', 'yellowcards',                        'yellow_cards'),
-    ('sportmonks', 'FOOTBALL', 'team', 'redcards',                           'red_cards'),
-    ('sportmonks', 'FOOTBALL', 'team', 'goals-kicks',                        'goal_kicks'),
-    ('sportmonks', 'FOOTBALL', 'team', 'throwins',                           'throw_ins'),
-    ('sportmonks', 'FOOTBALL', 'team', 'successful-passes',                  'accurate_passes'),
-    ('sportmonks', 'FOOTBALL', 'team', 'successful-passes-percentage',       'pass_accuracy'),
-    ('sportmonks', 'FOOTBALL', 'team', 'long-passes',                        'long_balls'),
-    ('sportmonks', 'FOOTBALL', 'team', 'successful-long-passes',             'long_balls_won'),
-    ('sportmonks', 'FOOTBALL', 'team', 'successful-long-passes-percentage',  'long_ball_accuracy'),
-    ('sportmonks', 'FOOTBALL', 'team', 'successful-dribbles-percentage',     'dribble_success_rate'),
-    ('sportmonks', 'FOOTBALL', 'team', 'shots-blocked',                      'shots_blocked_by_opp')
-ON CONFLICT DO NOTHING;
-
--- ============================================================================
--- 7c. STAT KEY NORMALIZATION TRIGGER
--- Fires BEFORE INSERT OR UPDATE on player_stats and team_stats.
--- Looks up each raw key in provider_stat_mappings, falls back to
--- hyphen-to-underscore replacement. Runs before derived stat triggers
--- (trigger name starts with 'trg_a_' for alphabetical ordering).
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION normalize_stat_keys()
-RETURNS TRIGGER AS $$
-DECLARE
-    raw_stats JSONB := NEW.stats;
-    normalized JSONB := '{}';
-    rec RECORD;
-    mapped_key TEXT;
-    v_entity_type TEXT;
+DROP TRIGGER IF EXISTS trg_a_normalize_player_stats     ON player_stats;
+DROP TRIGGER IF EXISTS trg_a_normalize_team_stats       ON team_stats;
+-- Event tables are declared later in this file but the drop must precede
+-- DROP FUNCTION since the triggers hold a dependency on it. IF EXISTS
+-- guards a first-run when those tables haven't been created yet.
+DO $$
 BEGIN
-    -- Skip if stats is null or empty
-    IF raw_stats IS NULL OR raw_stats = '{}'::jsonb THEN
-        RETURN NEW;
+    IF to_regclass('event_box_scores') IS NOT NULL THEN
+        EXECUTE 'DROP TRIGGER IF EXISTS trg_a_normalize_event_box_scores ON event_box_scores';
     END IF;
-
-    IF TG_TABLE_NAME = 'player_stats' OR TG_TABLE_NAME = 'event_box_scores' THEN
-        v_entity_type := 'player';
-    ELSIF TG_TABLE_NAME = 'team_stats' OR TG_TABLE_NAME = 'event_team_stats' THEN
-        v_entity_type := 'team';
-    ELSE
-        v_entity_type := NULL;
+    IF to_regclass('event_team_stats') IS NOT NULL THEN
+        EXECUTE 'DROP TRIGGER IF EXISTS trg_a_normalize_event_team_stats ON event_team_stats';
     END IF;
-
-    FOR rec IN SELECT key, value FROM jsonb_each(raw_stats)
-    LOOP
-        -- Look up canonical key from mappings (any provider for this sport)
-        SELECT m.canonical_key INTO mapped_key
-        FROM provider_stat_mappings m
-        WHERE m.sport = NEW.sport
-          AND (v_entity_type IS NULL OR m.entity_type = v_entity_type)
-          AND m.raw_key = rec.key
-        LIMIT 1;
-
-        -- Fall back to hyphen-to-underscore, then raw key
-        mapped_key := COALESCE(mapped_key, replace(rec.key, '-', '_'));
-        normalized := normalized || jsonb_build_object(mapped_key, rec.value);
-    END LOOP;
-
-    NEW.stats := normalized;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Trigger names start with 'trg_a_' to fire before sport-specific derived
--- stat triggers (trg_nba_*, trg_nfl_*, trg_football_*) alphabetically.
-DROP TRIGGER IF EXISTS trg_a_normalize_player_stats ON player_stats;
-CREATE TRIGGER trg_a_normalize_player_stats
-    BEFORE INSERT OR UPDATE OF stats ON player_stats
-    FOR EACH ROW
-    EXECUTE FUNCTION normalize_stat_keys();
-
-DROP TRIGGER IF EXISTS trg_a_normalize_team_stats ON team_stats;
-CREATE TRIGGER trg_a_normalize_team_stats
-    BEFORE INSERT OR UPDATE OF stats ON team_stats
-    FOR EACH ROW
-    EXECUTE FUNCTION normalize_stat_keys();
+END$$;
+DROP FUNCTION IF EXISTS normalize_stat_keys();
+DROP TABLE    IF EXISTS provider_stat_mappings;
 
 -- ============================================================================
 -- 8. FIXTURES & SCHEDULING
@@ -544,17 +441,11 @@ SELECT
     COALESCE((SELECT array_agg(key_name ORDER BY key_name) FROM missing_keys), ARRAY[]::TEXT[]) AS missing_required_keys;
 $$ LANGUAGE sql STABLE;
 
+-- Event-table normalization triggers previously lived here; removed with
+-- the rest of the normalization layer (see section 7b). Python handlers
+-- canonicalize keys before upsert.
 DROP TRIGGER IF EXISTS trg_a_normalize_event_box_scores ON event_box_scores;
-CREATE TRIGGER trg_a_normalize_event_box_scores
-    BEFORE INSERT OR UPDATE OF stats ON event_box_scores
-    FOR EACH ROW
-    EXECUTE FUNCTION normalize_stat_keys();
-
 DROP TRIGGER IF EXISTS trg_a_normalize_event_team_stats ON event_team_stats;
-CREATE TRIGGER trg_a_normalize_event_team_stats
-    BEFORE INSERT OR UPDATE OF stats ON event_team_stats
-    FOR EACH ROW
-    EXECUTE FUNCTION normalize_stat_keys();
 
 -- ============================================================================
 -- 9. PROVIDER SEASONS

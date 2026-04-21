@@ -18,6 +18,7 @@ from shared.models import (
     Team,
     TeamStats,
 )
+from shared.stat_keys import canonicalize
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,19 @@ NBA_BASE_URL = "https://api.balldontlie.io"
 
 # Valid NBA team IDs (1-30) - filters out historical BAA/NFL and defunct teams
 NBA_TEAM_IDS = set(range(1, 31))
+
+# BDL provider-key -> canonical-key maps. Player and team differ because
+# w/l only appear in team season averages, not in box scores.
+_PLAYER_STAT_MAP: dict[str, str] = {
+    "tov": "turnover",
+    "gp":  "games_played",
+}
+_TEAM_STAT_MAP: dict[str, str] = {
+    "tov": "turnover",
+    "gp":  "games_played",
+    "w":   "wins",
+    "l":   "losses",
+}
 
 
 class NBAHandler:
@@ -274,7 +288,7 @@ class NBAHandler:
             if not isinstance(player_id, int):
                 continue
 
-            stats = _extract_numeric_stats(raw, explicit_stats_key="stats")
+            raw_stats = _extract_numeric_stats(raw, explicit_stats_key="stats")
             minutes_val = raw.get("min") or raw.get("minutes")
             if minutes_val is None and isinstance(raw.get("stats"), dict):
                 minutes_val = raw["stats"].get("minutes")
@@ -291,13 +305,14 @@ class NBAHandler:
                     team_id=team_id,
                     player=player,
                     minutes_played=minutes,
-                    stats=stats,
+                    stats=canonicalize(raw_stats, _PLAYER_STAT_MAP),
                     raw=raw,
                 )
             )
 
+            # Accumulate raw codes; team-side canonicalization applied at end.
             acc = team_stats_acc.setdefault(team_id, {})
-            for key, value in stats.items():
+            for key, value in raw_stats.items():
                 if isinstance(value, (int, float)):
                     acc[key] = acc.get(key, 0.0) + float(value)
 
@@ -322,7 +337,7 @@ class NBAHandler:
                     fixture_id=fixture_id,
                     team_id=team_id,
                     score=team_scores.get(team_id),
-                    stats=agg,
+                    stats=canonicalize(agg, _TEAM_STAT_MAP),
                     raw={"provider": "bdl", "external_game_id": external_game_id},
                 )
             )
@@ -414,10 +429,8 @@ def _parse_player_stats(raw: dict[str, Any], season_type: str) -> PlayerStats:
     player_raw = raw.get("player", {})
     player = _parse_player(player_raw)
 
-    # Stats are in raw["stats"] — pass through as-is (raw provider keys)
-    stats = dict(raw.get("stats", {}))
-    # Filter out None values
-    stats = {k: v for k, v in stats.items() if v is not None}
+    raw_stats = {k: v for k, v in (raw.get("stats") or {}).items() if v is not None}
+    stats = canonicalize(raw_stats, _PLAYER_STAT_MAP)
     stats["season_type"] = season_type
 
     return PlayerStats(
@@ -431,8 +444,8 @@ def _parse_player_stats(raw: dict[str, Any], season_type: str) -> PlayerStats:
 
 def _parse_team_stats(raw: dict[str, Any], season_type: str) -> TeamStats:
     team_raw = raw.get("team", {})
-    stats = dict(raw.get("stats", {}))
-    stats = {k: v for k, v in stats.items() if v is not None}
+    raw_stats = {k: v for k, v in (raw.get("stats") or {}).items() if v is not None}
+    stats = canonicalize(raw_stats, _TEAM_STAT_MAP)
     stats["season_type"] = season_type
 
     return TeamStats(

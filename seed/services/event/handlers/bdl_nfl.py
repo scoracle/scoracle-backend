@@ -19,6 +19,7 @@ from shared.models import (
     Team,
     TeamStats,
 )
+from shared.stat_keys import canonicalize
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,20 @@ NFL_BASE_URL = "https://api.balldontlie.io"
 
 # Keys in the /season_stats response that are metadata, not stat values
 _NON_STAT_KEYS = {"player", "season", "postseason", "team"}
+
+# BDL provider-key -> canonical-key maps. Identical to the NBA handler since
+# both share the BallDontLie schema; kept inline so each handler is
+# self-contained.
+_PLAYER_STAT_MAP: dict[str, str] = {
+    "tov": "turnover",
+    "gp":  "games_played",
+}
+_TEAM_STAT_MAP: dict[str, str] = {
+    "tov": "turnover",
+    "gp":  "games_played",
+    "w":   "wins",
+    "l":   "losses",
+}
 
 
 class NFLHandler:
@@ -233,7 +248,7 @@ class NFLHandler:
             if not isinstance(player_id, int):
                 continue
 
-            stats = _extract_numeric_stats(raw)
+            raw_stats = _extract_numeric_stats(raw)
 
             player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
             if player and player.team_id is None:
@@ -245,13 +260,14 @@ class NFLHandler:
                     player_id=player_id,
                     team_id=team_id,
                     player=player,
-                    stats=stats,
+                    stats=canonicalize(raw_stats, _PLAYER_STAT_MAP),
                     raw=raw,
                 )
             )
 
+            # Accumulate raw codes; team-side canonicalization applied at end.
             acc = team_stats_acc.setdefault(team_id, {})
-            for key, value in stats.items():
+            for key, value in raw_stats.items():
                 if isinstance(value, (int, float)):
                     acc[key] = acc.get(key, 0.0) + float(value)
 
@@ -287,7 +303,7 @@ class NFLHandler:
                     fixture_id=fixture_id,
                     team_id=team_id,
                     score=team_scores.get(team_id),
-                    stats=agg,
+                    stats=canonicalize(agg, _TEAM_STAT_MAP),
                     raw={"provider": "bdl", "external_game_id": external_game_id},
                 )
             )
@@ -395,19 +411,20 @@ def _parse_player_stats_flat(
     player = _parse_player(player_raw)
 
     # All non-metadata fields are stats
-    stats: dict[str, Any] = {}
+    raw_stats: dict[str, Any] = {}
     for k, v in item.items():
         if k in _NON_STAT_KEYS:
             continue
         if isinstance(v, (int, float)):
-            stats[k] = v
+            raw_stats[k] = v
         elif isinstance(v, str):
             # Try to parse string-encoded numbers
             try:
-                stats[k] = float(v)
+                raw_stats[k] = float(v)
             except ValueError:
                 pass
 
+    stats = canonicalize(raw_stats, _PLAYER_STAT_MAP)
     stats["season_type"] = "postseason" if postseason else "regular"
 
     return PlayerStats(

@@ -18,11 +18,60 @@ from shared.models import (
     TeamStats,
 )
 from shared.sportmonks_client import SportMonksClient
+from shared.stat_keys import canonicalize
 
 logger = logging.getLogger(__name__)
 
 # Position ID to name mapping (SportMonks uses numeric IDs)
 _POSITION_MAP = {24: "Goalkeeper", 25: "Defender", 26: "Midfielder", 27: "Attacker"}
+
+# --------------------------------------------------------------------------
+# Provider-key -> canonical-key maps. These are the SportMonks-specific
+# quirks; everything else falls back to hyphen->underscore in canonicalize().
+# --------------------------------------------------------------------------
+
+_PLAYER_STAT_MAP: dict[str, str] = {
+    "passes":              "passes_total",
+    "accurate-passes":     "passes_accurate",
+    "total-crosses":       "crosses_total",
+    "accurate-crosses":    "crosses_accurate",
+    "blocked-shots":       "blocks",
+    "total-duels":         "duels_total",
+    "dribble-attempts":    "dribbles_attempts",
+    "successful-dribbles": "dribbles_success",
+    "yellowcards":         "yellow_cards",
+    "redcards":            "red_cards",
+    "fouls":               "fouls_committed",
+    "expected-goals":      "expected_goals",
+}
+
+# Standings (league table) codes used by get_team_stats().
+_STANDINGS_STAT_MAP: dict[str, str] = {
+    "overall-matches-played": "matches_played",
+    "overall-won":            "wins",
+    "overall-draw":           "draws",
+    "overall-lost":           "losses",
+    "overall-goals-for":      "goals_for",
+    "overall-goals-against":  "goals_against",
+    "home-matches-played":    "home_played",
+    "away-matches-played":    "away_played",
+}
+
+# Fixture-level team statistics (statistics include).
+_TEAM_STAT_MAP: dict[str, str] = {
+    "ball-possession":                    "possession_pct",
+    "yellowcards":                        "yellow_cards",
+    "redcards":                           "red_cards",
+    "goals-kicks":                        "goal_kicks",
+    "throwins":                           "throw_ins",
+    "successful-passes":                  "accurate_passes",
+    "successful-passes-percentage":       "pass_accuracy",
+    "long-passes":                        "long_balls",
+    "successful-long-passes":             "long_balls_won",
+    "successful-long-passes-percentage":  "long_ball_accuracy",
+    "successful-dribbles-percentage":     "dribble_success_rate",
+    "shots-blocked":                      "shots_blocked_by_opp",
+}
 
 
 class FootballHandler:
@@ -218,15 +267,20 @@ class FootballHandler:
             if not isinstance(team_id, int) or not isinstance(player_id, int):
                 continue
 
-            # Raw pass-through: flatten {type.code: data.value} for every detail
-            stats: dict[str, Any] = {}
+            # Flatten {type.code: data.value}. raw_stats stays raw because
+            # the team-level accumulation (below) uses team mappings, not
+            # player mappings — same SportMonks code can canonicalize
+            # differently per entity type (e.g. `passes` -> `passes_total`
+            # for player but stays `passes` for team).
+            raw_stats: dict[str, Any] = {}
             for detail in entry.get("details") or []:
                 code = (detail.get("type") or {}).get("code", "")
                 value = (detail.get("data") or {}).get("value")
                 if code and value is not None:
-                    stats[code] = value
+                    raw_stats[code] = value
+            stats = canonicalize(raw_stats, _PLAYER_STAT_MAP)
 
-            minutes_played = stats.get("minutes-played")
+            minutes_played = stats.get("minutes_played")
             player_raw = entry.get("player")
             player = _parse_player(player_raw) if isinstance(player_raw, dict) else None
             if player and player.team_id is None:
@@ -244,9 +298,10 @@ class FootballHandler:
             players.append(box)
             player_by_id[player_id] = box
 
-            # Accumulate numeric stats for team totals
+            # Accumulate raw (un-canonicalized) numeric stats for team
+            # totals. Team-side canonicalization happens once at the end.
             acc = team_stats_acc.setdefault(team_id, {})
-            for key, value in stats.items():
+            for key, value in raw_stats.items():
                 if isinstance(value, (int, float)):
                     acc[key] = acc.get(key, 0.0) + float(value)
 
@@ -285,7 +340,7 @@ class FootballHandler:
                     fixture_id=fixture_id,
                     team_id=team_id,
                     score=team_scores.get(team_id),
-                    stats=agg,
+                    stats=canonicalize(agg, _TEAM_STAT_MAP),
                     raw={"provider": "sportmonks", "external_fixture_id": external_fixture_id},
                 )
             )
@@ -304,9 +359,9 @@ def _extract_team_statistics(
     """Flatten the fixture-level `statistics[]` payload into per-team dicts.
 
     SportMonks shape: {participant_id, type.code, data.value, location, ...}.
-    Stat-key normalization (hyphen->underscore + per-sport overrides) happens
-    in Postgres via the `normalize_stat_keys` trigger; here we just pass the
-    raw `type.code` straight through.
+    Returns raw `type.code` keys; the caller is responsible for canonicalizing
+    with the appropriate per-entity-type mapping (the team mapping for
+    fixture-level statistics).
     """
     out: dict[int, dict[str, Any]] = {}
     for s in statistics:
@@ -480,12 +535,15 @@ def _extract_league_stats(
         if not isinstance(league, dict):
             continue
         if league.get("id") == sm_league_id:
-            return _flatten_details(block.get("details", []))
+            return canonicalize(
+                _flatten_details(block.get("details", [])), _PLAYER_STAT_MAP
+            )
     return {}
 
 
 def _flatten_details(details: list[dict[str, Any]]) -> dict[str, Any]:
-    """Flatten details array into {code: raw_value}. No type coercion."""
+    """Flatten details array into {code: raw_value}. Caller is responsible
+    for canonicalizing keys with the appropriate per-entity-type mapping."""
     stats: dict[str, Any] = {}
     for detail in details:
         code = (detail.get("type") or {}).get("code", "")
@@ -496,7 +554,7 @@ def _flatten_details(details: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _parse_standing(raw: dict[str, Any]) -> TeamStats:
-    stats = _flatten_details(raw.get("details", []))
+    stats = canonicalize(_flatten_details(raw.get("details", [])), _STANDINGS_STAT_MAP)
 
     if raw.get("points") is not None:
         stats["points"] = raw["points"]

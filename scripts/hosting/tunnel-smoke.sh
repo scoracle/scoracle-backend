@@ -14,10 +14,14 @@
 #   - New DNS record pointed at the tunnel
 #
 # Usage:
-#   scripts/hosting/tunnel-smoke.sh                         # localhost
-#   scripts/hosting/tunnel-smoke.sh https://api.example.com
-#   scripts/hosting/tunnel-smoke.sh https://api.example.com https://app.example.com
-#   scripts/hosting/tunnel-smoke.sh --full https://api.example.com
+#   scripts/hosting/tunnel-smoke.sh                              # local API
+#   scripts/hosting/tunnel-smoke.sh https://api.<YOUR-DOMAIN>    # via CF Tunnel
+#   scripts/hosting/tunnel-smoke.sh https://api.<YOUR-DOMAIN> https://app.<YOUR-DOMAIN>
+#   scripts/hosting/tunnel-smoke.sh --full https://api.<YOUR-DOMAIN>
+#
+# Replace <YOUR-DOMAIN> with a domain YOU OWN and have tunneled — not a
+# placeholder. Running against an unowned domain will get generic CF
+# edge responses (200 OK with ~1KB HTML bodies) and eventually 429s.
 #
 # Exit 0 if every check passes. Exit 1 if any fails. Prints a table of
 # results so a human can spot which specific endpoint regressed.

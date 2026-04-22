@@ -93,8 +93,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/twitter/feed", h.GetSportTweets)
 			r.Get("/twitter/{entityType:player|team}/{id}", h.GetEntityTweets)
 
-			// Vibe blurbs (Gemma) — read-only. Generation happens via
-			// the vibe CLI or the milestone listener worker.
+			// Vibe sentiment scores (Gemma) — read-only. Generation happens
+			// via the vibe CLI or the milestone listener worker.
+			r.Get("/vibe/hottest", h.GetHottestEntities)
 			r.Get("/vibe/{entityType:player|team}/{id}", h.GetLatestVibe)
 			r.Get("/vibe/{entityType:player|team}/{id}/history", h.GetVibeHistory)
 		})

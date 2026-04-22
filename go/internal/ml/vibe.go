@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -11,12 +13,8 @@ import (
 )
 
 // Prompt version — bump when the prompt text below materially changes so
-// we can trace which prompt produced which blurb in vibe_scores.
-const vibePromptVersion = "v1"
-
-// Maximum blurb length in characters. Enforced by truncation after the
-// model responds — Gemma isn't always obedient about length requests.
-const vibeMaxChars = 140
+// we can trace which prompt produced which score in vibe_scores.
+const vibePromptVersion = "v2"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
 const (
@@ -28,7 +26,7 @@ const (
 
 // VibeRequest describes the entity to score and the triggering fact (if any).
 type VibeRequest struct {
-	EntityType  string         // 'player' or 'team'
+	EntityType  string // 'player' or 'team'
 	EntityID    int
 	EntityName  string         // used in the prompt for Gemma's reference
 	Sport       string         // 'NBA' | 'NFL' | 'FOOTBALL'
@@ -37,9 +35,10 @@ type VibeRequest struct {
 }
 
 // VibeResult is what the generator persists to vibe_scores and returns
-// to callers (CLI / HTTP endpoint).
+// to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale;
+// Gemma rates on 1-10 internally and the generator scales for storage.
 type VibeResult struct {
-	Blurb         string
+	Sentiment     int
 	Model         string
 	PromptVersion string
 	InputNewsIDs  []int64
@@ -59,12 +58,13 @@ func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
 }
 
 // Generate builds a prompt from recent news + tweets + milestone context,
-// calls Gemma, persists the blurb to vibe_scores, and returns the result.
+// calls Gemma for a 1-10 sentiment rating, persists the scaled 1-100
+// score to vibe_scores, and returns the result.
 //
 // Tweet reads are cache-only. If the tweets table has nothing recent for
-// the sport, the blurb is assembled from news + milestone alone — we
-// NEVER trigger a fresh X API fetch from this path. Fresh pulls are
-// strictly user-traffic-driven (see thirdparty/twitter.go).
+// the sport, the score is drawn from news + milestone alone — we NEVER
+// trigger a fresh X API fetch from this path. Fresh pulls are strictly
+// user-traffic-driven (see thirdparty/twitter.go).
 func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult, error) {
 	if g.pool == nil {
 		return nil, fmt.Errorf("vibe generator: no db pool")
@@ -86,32 +86,35 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 	prompt := buildVibePrompt(req, news, tweets)
 
 	start := time.Now()
-	// num_predict=800 gives Gemma 4 enough internal reasoning headroom
-	// before it emits the final blurb. Lower values caused empty responses
-	// (done_reason=length with eval_count hitting the cap before any
-	// visible output) during early testing.
+	// Gemma 4 burns predict tokens on internal reasoning before any visible
+	// output — too low a cap returns empty (done_reason=length with no
+	// response text). Reasoning footprint scales with prompt size, so
+	// 1200 covers our widest corpus (team entities with ~8 tweets + 12
+	// articles). Cost is still dominated by actual eval_count (a single
+	// digit), not the cap, so this stays meaningfully cheaper than the
+	// v1 blurb path which emitted ~40 visible tokens per call.
 	gen, err := g.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      vibeSystemPrompt,
 		Temperature: 0.7,
-		NumPredict:  800,
+		NumPredict:  1200,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)
 	}
 	duration := time.Since(start)
 
-	blurb := sanitizeBlurb(gen.Response)
-	if blurb == "" {
-		return nil, fmt.Errorf("gemma returned empty blurb (raw=%q prompt_len=%d)",
-			truncate(gen.Response, 300), len(prompt))
+	sentiment, err := parseSentiment(gen.Response)
+	if err != nil {
+		return nil, fmt.Errorf("parse sentiment (raw=%q prompt_len=%d): %w",
+			truncate(gen.Response, 120), len(prompt), err)
 	}
 
-	if err := g.persistVibe(ctx, req, sport, blurb, gen.Model, newsIDs, tweetIDs); err != nil {
+	if err := g.persistVibe(ctx, req, sport, sentiment, gen.Model, newsIDs, tweetIDs); err != nil {
 		return nil, fmt.Errorf("persist vibe: %w", err)
 	}
 
 	return &VibeResult{
-		Blurb:         blurb,
+		Sentiment:     sentiment,
 		Model:         gen.Model,
 		PromptVersion: vibePromptVersion,
 		InputNewsIDs:  newsIDs,
@@ -217,12 +220,12 @@ func (g *Generator) loadRecentTweets(
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const vibeSystemPrompt = `You write ultra-short sports vibe blurbs (<= 140 characters).
-Conversational fan voice, not a press-release tone. One sentence.
-No emojis, no hashtags, no quotation marks around the whole blurb.
-Lead with sentiment from the news and tweets — stats are context, not the point.
-If the source material is thin or neutral, reflect that honestly — don't fabricate drama.
-Respond immediately with just the blurb. No thinking, no preamble, no explanation.`
+const vibeSystemPrompt = `You rate overall sentiment toward a sports entity based on recent news and tweets.
+Reply with ONLY a single integer from 1 to 10.
+1 = overwhelmingly negative, 5-6 = neutral or mixed, 10 = overwhelmingly positive.
+Weight news and tweets equally; stats are context, not the point.
+If the source material is thin or neutral, answer around 5 — don't invent drama.
+No words, no punctuation, no explanation. Just the digit.`
 
 func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) string {
 	var b strings.Builder
@@ -261,7 +264,7 @@ func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) strin
 		}
 	}
 
-	b.WriteString("\nWrite the vibe blurb now.")
+	b.WriteString("\nReply with the sentiment score (1-10) now.")
 	return b.String()
 }
 
@@ -269,29 +272,33 @@ func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) strin
 // Output sanitation + persistence
 // ---------------------------------------------------------------------------
 
-func sanitizeBlurb(raw string) string {
-	s := strings.TrimSpace(raw)
-	// Strip leading/trailing quotes if Gemma wrapped the whole thing.
-	s = strings.Trim(s, `"'` + "`")
-	// Collapse whitespace.
-	s = strings.Join(strings.Fields(s), " ")
-	// Hard truncate to cap.
-	if len(s) > vibeMaxChars {
-		s = s[:vibeMaxChars]
-		// Trim any partial word at the edge.
-		if idx := strings.LastIndexAny(s, " .,;:!?"); idx > vibeMaxChars-40 {
-			s = s[:idx]
-		}
-		s = strings.TrimRight(s, " .,;:")
-		s += "…"
+var sentimentDigitRE = regexp.MustCompile(`\d+`)
+
+// parseSentiment pulls the first integer out of Gemma's response, clamps
+// it into 1-10, and returns the scaled 1-100 score. Returns an error only
+// when the response contains no digits at all.
+func parseSentiment(raw string) (int, error) {
+	match := sentimentDigitRE.FindString(raw)
+	if match == "" {
+		return 0, fmt.Errorf("no digit in response")
 	}
-	return s
+	n, err := strconv.Atoi(match)
+	if err != nil {
+		return 0, fmt.Errorf("parse digit %q: %w", match, err)
+	}
+	if n < 1 {
+		n = 1
+	}
+	if n > 10 {
+		n = 10
+	}
+	return n * 10, nil
 }
 
 func (g *Generator) persistVibe(
 	ctx context.Context,
 	req VibeRequest,
-	sport, blurb, model string,
+	sport string, sentiment int, model string,
 	newsIDs []int64,
 	tweetIDs []string,
 ) error {
@@ -312,13 +319,13 @@ func (g *Generator) persistVibe(
 		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
-		    blurb, input_news_ids, input_tweet_ids,
+		    sentiment, blurb, input_news_ids, input_tweet_ids,
 		    model_version, prompt_version
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		) VALUES ($1,$2,$3,$4,$5,$6,NULL,$7,$8,$9,$10)
 	`,
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
-		blurb, newsIDs, tweetIDs,
+		sentiment, newsIDs, tweetIDs,
 		model, vibePromptVersion,
 	)
 	return err

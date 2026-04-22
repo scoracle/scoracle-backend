@@ -1,17 +1,17 @@
-// vibe — CLI for generating vibe blurbs.
+// vibe — CLI for generating vibe sentiment scores (1-100).
 //
 // Two modes:
 //
-//   single (default) — generate one blurb for a given entity.
-//     go run ./cmd/vibe -entity-type player -entity-id 237 -sport NBA
-//     go run ./cmd/vibe -entity-type team -entity-id 14 -sport NBA
+//	single (default) — generate one score for a given entity.
+//	  go run ./cmd/vibe -entity-type player -entity-id 237 -sport NBA
+//	  go run ./cmd/vibe -entity-type team -entity-id 14 -sport NBA
 //
-//   batch — iterate starter-tier entities that played in the last N hours
-//           and generate one blurb each. Intended to run overnight from
-//           cron so the long-tail of active players gets daily coverage
-//           that doesn't compete with the real-time headliner path.
-//     go run ./cmd/vibe -mode batch -sport NBA -since-hours 24
-//     go run ./cmd/vibe -mode batch -sport all -since-hours 30
+//	batch — iterate starter-tier entities that played in the last N hours
+//	        and generate one score each. Intended to run overnight from
+//	        cron so the long-tail of active players gets daily coverage
+//	        that doesn't compete with the real-time headliner path.
+//	  go run ./cmd/vibe -mode batch -sport NBA -since-hours 24
+//	  go run ./cmd/vibe -mode batch -sport all -since-hours 30
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
 package main
@@ -121,7 +121,7 @@ func runSingle(
 	}
 
 	fmt.Printf("\n--- Vibe for %s (%s %d, %s) ---\n", entityName, entityType, entityID, sportUpper)
-	fmt.Println(result.Blurb)
+	fmt.Printf("Sentiment: %d/100\n", result.Sentiment)
 	fmt.Printf("\n(model=%s prompt=%s duration=%s news=%d tweets=%d)\n",
 		result.Model, result.PromptVersion, result.Duration.Round(10*time.Millisecond),
 		len(result.InputNewsIDs), len(result.InputTweetIDs))
@@ -211,9 +211,14 @@ func runBatch(
 		"elapsed", time.Since(startAll).Round(time.Second))
 }
 
-// loadStarterCandidates returns starter-tier players + any teams whose roster
-// played in the window. skipRecentHours excludes entities that already have
-// a vibe from the last N hours (idempotent reruns).
+// loadStarterCandidates returns starter+headliner-tier players AND teams
+// whose fixtures actually kicked off in the last N hours. skipRecentHours
+// excludes entities that already have a vibe within that window (idempotent
+// reruns).
+//
+// Activity is measured against fixtures.start_time (when the game happened),
+// not fixtures.seeded_at (when we ingested the row). A historical re-seed
+// should not make every player "recently active".
 func loadStarterCandidates(
 	pool *pgxpool.Pool, sport string,
 	sinceHours, skipRecentHours, maxPerSport int,
@@ -226,28 +231,54 @@ func loadStarterCandidates(
 		limitClause = fmt.Sprintf("LIMIT %d", maxPerSport)
 	}
 
-	// Starter-tier players who appeared in a fixture within the window AND
-	// don't already have a vibe in the skip window.
+	// Players who appeared in a fixture that kicked off within the window
+	// UNION teams that played in such a fixture, both filtered to the
+	// relevant tiers and excluding entities with a recent vibe.
 	query := fmt.Sprintf(`
-		WITH recent_play AS (
+		WITH recent_fixtures AS (
+			SELECT id, home_team_id, away_team_id
+			FROM fixtures
+			WHERE sport = $1
+			  AND start_time > NOW() - ($2 || ' hours')::interval
+			  AND start_time <= NOW()
+		),
+		recent_play AS (
 			SELECT DISTINCT ebs.player_id
 			FROM event_box_scores ebs
-			JOIN fixtures f ON f.id = ebs.fixture_id
+			JOIN recent_fixtures rf ON rf.id = ebs.fixture_id
 			WHERE ebs.sport = $1
-			  AND f.seeded_at > NOW() - ($2 || ' hours')::interval
+		),
+		recent_teams AS (
+			SELECT DISTINCT team_id FROM (
+				SELECT home_team_id AS team_id FROM recent_fixtures
+				UNION ALL
+				SELECT away_team_id FROM recent_fixtures
+			) _
 		)
-		SELECT 'player'::text, p.id, p.sport, p.name
+		SELECT 'player'::text AS entity_type, p.id, p.sport, p.name
 		FROM players p
 		JOIN recent_play rp ON rp.player_id = p.id
 		WHERE p.sport = $1
-		  AND p.tier = 'starter'
+		  AND p.tier IN ('starter', 'headliner')
 		  AND NOT EXISTS (
 			  SELECT 1 FROM vibe_scores v
 			  WHERE v.entity_type = 'player' AND v.entity_id = p.id
 			    AND v.sport = $1
 			    AND v.generated_at > NOW() - ($3 || ' hours')::interval
 		  )
-		ORDER BY p.id
+		UNION ALL
+		SELECT 'team'::text AS entity_type, t.id, t.sport, t.name
+		FROM teams t
+		JOIN recent_teams rt ON rt.team_id = t.id
+		WHERE t.sport = $1
+		  AND t.tier IN ('starter', 'headliner')
+		  AND NOT EXISTS (
+			  SELECT 1 FROM vibe_scores v
+			  WHERE v.entity_type = 'team' AND v.entity_id = t.id
+			    AND v.sport = $1
+			    AND v.generated_at > NOW() - ($3 || ' hours')::interval
+		  )
+		ORDER BY 1, 2
 		%s
 	`, limitClause)
 

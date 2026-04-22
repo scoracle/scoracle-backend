@@ -96,7 +96,7 @@ func (w *VibeWorker) Dispatch(ctx context.Context, event PercentileChangeEvent, 
 		"sport", event.Sport, "stat", event.StatKey,
 		"duration", result.Duration,
 		"news", len(result.InputNewsIDs), "tweets", len(result.InputTweetIDs),
-		"blurb", result.Blurb)
+		"sentiment", result.Sentiment)
 }
 
 // recentlyGenerated returns true if a blurb for this entity was stored

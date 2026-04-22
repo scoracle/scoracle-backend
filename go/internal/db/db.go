@@ -418,13 +418,24 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"twitter_feed_by_sport": `SELECT json_build_object(
 			'sport', $1::text,
 			'tweets', COALESCE((
-				SELECT json_agg(row_to_json(t))
+				SELECT json_agg(json_build_object(
+					'id', id,
+					'text', text,
+					'author', author_name,
+					'author_username', author_username,
+					'created_at', posted_at,
+					'verified', author_verified,
+					'profile_image_url', author_profile_image_url,
+					'metrics', json_build_object(
+						'like_count', likes,
+						'retweet_count', retweets,
+						'reply_count', replies
+					),
+					'url', 'https://twitter.com/' || author_username || '/status/' || id
+				) ORDER BY posted_at DESC)
 				FROM (
-					SELECT id, author_username AS username, author_name AS name,
-						author_verified AS verified,
-						author_profile_image_url AS profile_image_url,
-						text, posted_at AS created_at, likes, retweets, replies,
-						'https://twitter.com/' || author_username || '/status/' || id AS url
+					SELECT id, author_username, author_name, author_verified,
+						author_profile_image_url, text, posted_at, likes, retweets, replies
 					FROM tweets
 					WHERE sport = $1
 					ORDER BY posted_at DESC
@@ -442,14 +453,25 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', $2::text,
 			'entity_id', $3::int,
 			'tweets', COALESCE((
-				SELECT json_agg(row_to_json(t))
+				SELECT json_agg(json_build_object(
+					'id', id,
+					'text', text,
+					'author', author_name,
+					'author_username', author_username,
+					'created_at', posted_at,
+					'verified', author_verified,
+					'profile_image_url', author_profile_image_url,
+					'metrics', json_build_object(
+						'like_count', likes,
+						'retweet_count', retweets,
+						'reply_count', replies
+					),
+					'url', 'https://twitter.com/' || author_username || '/status/' || id
+				) ORDER BY posted_at DESC)
 				FROM (
-					SELECT tw.id, tw.author_username AS username, tw.author_name AS name,
-						tw.author_verified AS verified,
-						tw.author_profile_image_url AS profile_image_url,
-						tw.text, tw.posted_at AS created_at,
-						tw.likes, tw.retweets, tw.replies,
-						'https://twitter.com/' || tw.author_username || '/status/' || tw.id AS url
+					SELECT tw.id, tw.author_username, tw.author_name, tw.author_verified,
+						tw.author_profile_image_url, tw.text, tw.posted_at,
+						tw.likes, tw.retweets, tw.replies
 					FROM tweets tw
 					JOIN tweet_entities te ON te.tweet_id = tw.id
 					WHERE te.sport = $1 AND te.entity_type = $2 AND te.entity_id = $3

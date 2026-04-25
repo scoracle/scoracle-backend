@@ -111,6 +111,9 @@ def generate_team_aliases(
         full_name = meta.get("full_name")
         if full_name and full_name != name:
             aliases.append(full_name)
+        short_name = meta.get("short_name")
+        if short_name and short_name != name:
+            aliases.append(short_name)
 
     # Deduplicate, preserve order, exclude primary name.
     name_lower = name.lower()

@@ -378,10 +378,12 @@ def _parse_team(raw: dict[str, Any]) -> Team:
     meta: dict[str, Any] = {}
     if raw.get("full_name"):
         meta["full_name"] = raw["full_name"]
+    if raw.get("name"):
+        meta["short_name"] = raw["name"]
 
     return Team(
         id=raw["id"],
-        name=raw.get("name", ""),
+        name=raw.get("full_name") or raw.get("name", ""),
         short_code=raw.get("abbreviation"),
         city=raw.get("city"),
         conference=raw.get("conference"),

@@ -1,6 +1,11 @@
 """One-shot: copy NBA+NFL team logo_url from old Neon DB into local DB.
 
-Match strategy: short_code first, then normalized name. IDs differ between DBs.
+Neon's `sport_id` is unreliable (NBA teams duplicated under sport_id='NFL';
+the NFL-labeled duplicates are the rows that actually carry logo_url).
+Strategy: drive from the local side. For each local team, find a Neon row
+with the same normalized name that has a logo_url, ignoring Neon's sport_id.
+Full team names don't collide across NBA/NFL, so this disambiguates cleanly.
+
 Dry-run by default; pass --apply to write.
 """
 from __future__ import annotations
@@ -28,7 +33,7 @@ FROM teams
 WHERE sport_id = ANY(%s)
 """
 LOCAL_SQL = """
-SELECT id, sport, name, short_code, logo_url
+SELECT id, sport, name, short_code, city, logo_url
 FROM teams
 WHERE sport = ANY(%s)
 """
@@ -50,49 +55,38 @@ def main() -> int:
     neon = [t for t in fetch_teams(NEON_URL, sports, NEON_SQL) if t["logo_url"]]
     local = fetch_teams(LOCAL_URL, sports, LOCAL_SQL)
 
-    print(f"Neon teams with logo_url: {len(neon)}")
-    print(f"Local teams total:       {len(local)}")
+    print(f"Neon rows with logo_url (NBA+NFL bucket): {len(neon)}")
+    print(f"Local teams total:                       {len(local)}")
 
-    # Build lookup indices on local side, per sport.
-    by_short: dict[tuple[str, str], dict] = {}
-    by_name: dict[tuple[str, str], dict] = {}
-    for t in local:
-        by_short[(t["sport"], (t["short_code"] or "").upper())] = t
-        by_name[(t["sport"], norm(t["name"]))] = t
-
-    matches: list[tuple[dict, dict, str]] = []
-    unmatched: list[dict] = []
+    # Local stores nickname-only ("Hawks") while Neon stores full names
+    # ("Atlanta Hawks"). Match by city + nickname against Neon's name.
+    neon_by_name: dict[str, dict] = {}
     for n in neon:
-        sport = n["sport"]
-        hit = None
-        how = ""
-        if n["short_code"]:
-            hit = by_short.get((sport, n["short_code"].upper()))
-            if hit:
-                how = "short_code"
-        if not hit:
-            hit = by_name.get((sport, norm(n["name"])))
-            if hit:
-                how = "name"
+        neon_by_name[norm(n["name"])] = n
+
+    matches: list[tuple[dict, dict]] = []
+    unmatched_local: list[dict] = []
+    for l in local:
+        full = norm((l["city"] or "") + (l["name"] or ""))
+        hit = neon_by_name.get(full) or neon_by_name.get(norm(l["name"]))
         if hit:
-            matches.append((n, hit, how))
+            matches.append((l, hit))
         else:
-            unmatched.append(n)
+            unmatched_local.append(l)
 
-    print(f"\nMatched: {len(matches)}   Unmatched: {len(unmatched)}\n")
+    print(f"\nMatched: {len(matches)}   Local without logo source: {len(unmatched_local)}\n")
 
-    print(f"{'sport':<4}  {'neon_name':<30} -> {'local_name':<30}  via")
-    print("-" * 90)
-    for n, l, how in matches:
-        print(f"{n['sport']:<4}  {n['name']:<30} -> {l['name']:<30}  {how}")
+    print(f"{'sport':<4}  {'local_name':<30} <- {'neon_name':<30}")
+    print("-" * 80)
+    for l, n in matches:
+        print(f"{l['sport']:<4}  {l['name']:<30} <- {n['name']:<30}")
 
-    if unmatched:
-        print("\nUNMATCHED (no write for these):")
-        for n in unmatched:
-            print(f"  {n['sport']}  {n['name']} (short={n['short_code']})")
+    if unmatched_local:
+        print("\nLOCAL TEAMS WITH NO MATCHING NEON LOGO:")
+        for l in unmatched_local:
+            print(f"  {l['sport']}  {l['name']} (short={l['short_code']})")
 
-    # Check which local rows already have a logo_url (should be 0 per user)
-    already_set = [l for _, l, _ in matches if l["logo_url"]]
+    already_set = [l for l, _ in matches if l["logo_url"]]
     if already_set:
         print(f"\nNOTE: {len(already_set)} matched local rows ALREADY have logo_url set — will overwrite.")
 
@@ -101,7 +95,7 @@ def main() -> int:
         return 0
 
     with psycopg.connect(LOCAL_URL) as conn, conn.cursor() as cur:
-        for n, l, _ in matches:
+        for l, n in matches:
             cur.execute(
                 "UPDATE teams SET logo_url = %s WHERE id = %s",
                 (n["logo_url"], l["id"]),

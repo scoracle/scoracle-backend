@@ -398,23 +398,24 @@ def _parse_team(raw: dict[str, Any]) -> Team:
 
 
 def _parse_player(raw: dict[str, Any]) -> Player:
+    """Parse a BDL /nfl/v1/players/{id} payload.
+
+    Captures every non-structural field BDL returns. The full payload is
+    also persisted to players.raw_response so downstream code can pick up
+    new fields without a re-seed.
+    """
     first = raw.get("first_name", "")
     last = raw.get("last_name", "")
     name = f"{first} {last}".strip() or f"Player {raw.get('id', 0)}"
 
-    meta: dict[str, Any] = {}
-    if raw.get("position_abbreviation"):
-        meta["position_abbreviation"] = raw["position_abbreviation"]
-    jersey = raw.get("jersey_number")
-    if jersey is not None:
-        meta["jersey_number"] = jersey
-    if raw.get("college"):
-        meta["college"] = raw["college"]
-    exp = raw.get("experience")
-    if exp is not None:
-        meta["experience"] = exp
-    if raw.get("age") is not None:
-        meta["age"] = raw["age"]
+    # Mirror everything BDL returns into meta, minus fields already promoted
+    # to top-level columns (id, name parts, position, height, weight) and
+    # the team object (which lives in players.team_id + the teams table).
+    promoted = {
+        "id", "first_name", "last_name", "position",
+        "height", "weight", "team",
+    }
+    meta = {k: v for k, v in raw.items() if k not in promoted and v is not None}
 
     team_id = None
     team_raw = raw.get("team")
@@ -427,11 +428,17 @@ def _parse_player(raw: dict[str, Any]) -> Player:
         first_name=first or None,
         last_name=last or None,
         position=raw.get("position") or None,
+        # BDL NFL ships the full position label ("Tight End") in `position`
+        # and the abbreviation ("TE") in position_abbreviation. We keep
+        # `position` as the long form and surface the abbr as the
+        # detailed_position column for sort/filter consumers.
+        detailed_position=raw.get("position_abbreviation") or None,
         height=raw.get("height") or None,
         weight=raw.get("weight") or None,
         nationality=raw.get("country") or None,
         team_id=team_id,
         meta=meta,
+        raw=raw,
     )
 
 

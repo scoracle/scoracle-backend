@@ -333,17 +333,23 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
             unaccent(LOWER(REPLACE(p.name, ' ', ''))),
             unaccent(LOWER(COALESCE(t.name, '')))
         ) AS search_tokens,
-        jsonb_build_object(
-            'display_name', p.name,
-            'jersey_number', p.meta->>'jersey_number',
-            'draft_year', (p.meta->>'draft_year')::int,
-            'draft_pick', (p.meta->>'draft_pick')::int,
-            'years_pro', (p.meta->>'years_pro')::int,
-            'college', p.meta->>'college'
-        ) AS meta
+        -- Pass the full player meta blob through. The frontend decides
+        -- which fields to render; the backend doesn't curate.
+        COALESCE(p.meta, '{}'::jsonb) || jsonb_build_object('display_name', p.name) AS meta
     FROM public.players p
     LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
     WHERE p.sport = 'NBA'
+      AND (
+          EXISTS (
+              SELECT 1 FROM public.player_stats ps
+              WHERE ps.player_id = p.id AND ps.sport = p.sport
+          )
+          -- Rookie exemption: keep current-season draft class even with no
+          -- stats yet, so unplayed rookies don't fall out of autofill.
+          OR (p.meta->>'draft_year')::int = (
+              SELECT current_season FROM public.sports WHERE id = 'NBA'
+          )
+      )
 UNION ALL
     SELECT
         t.id,

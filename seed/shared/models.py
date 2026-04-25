@@ -44,6 +44,7 @@ class Player:
     team_id: int | None = None
     search_aliases: list[str] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] | None = None
 
 
 @dataclass

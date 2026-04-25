@@ -347,17 +347,21 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
             unaccent(LOWER(REPLACE(p.name, ' ', ''))),
             unaccent(LOWER(COALESCE(t.name, '')))
         ) AS search_tokens,
-        jsonb_build_object(
-            'display_name', p.name,
-            'jersey_number', p.meta->>'jersey_number',
-            'draft_year', (p.meta->>'draft_year')::int,
-            'draft_pick', (p.meta->>'draft_pick')::int,
-            'years_pro', (p.meta->>'years_pro')::int,
-            'college', p.meta->>'college'
-        ) AS meta
+        -- Pass the full player meta blob through. The frontend decides
+        -- which fields to render; the backend doesn't curate.
+        COALESCE(p.meta, '{}'::jsonb) || jsonb_build_object('display_name', p.name) AS meta
     FROM public.players p
     LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
     WHERE p.sport = 'NFL'
+      AND (
+          EXISTS (
+              SELECT 1 FROM public.player_stats ps
+              WHERE ps.player_id = p.id AND ps.sport = p.sport
+          )
+          -- Rookie exemption: BDL labels first-year players "Rookie" in
+          -- meta.experience, so unplayed rookies stay in autofill.
+          OR p.meta->>'experience' ILIKE 'rookie%'
+      )
 UNION ALL
     SELECT
         t.id,

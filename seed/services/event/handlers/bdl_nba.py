@@ -393,20 +393,26 @@ def _parse_team(raw: dict[str, Any]) -> Team:
 
 
 def _parse_player(raw: dict[str, Any]) -> Player:
+    """Parse a BDL /v1/players/{id} payload.
+
+    Captures every non-structural field BDL returns. The full payload is
+    also persisted to players.raw_response so downstream code can pick up
+    new fields without a re-seed.
+    """
     player_id = raw.get("id", 0)
     first = raw.get("first_name", "")
     last = raw.get("last_name", "")
     name = f"{first} {last}".strip() or f"Player {player_id}"
 
-    meta: dict[str, Any] = {}
-    jersey = raw.get("jersey_number")
-    if jersey is not None:
-        meta["jersey_number"] = jersey
-    if raw.get("college"):
-        meta["college"] = raw["college"]
-    for key in ("draft_year", "draft_round", "draft_number"):
-        if raw.get(key) is not None:
-            meta[key] = raw[key]
+    # Mirror everything BDL returns into meta, minus fields already promoted
+    # to top-level columns (id, name parts, position, height, weight,
+    # country) and the team object (which lives in players.team_id + the
+    # teams table).
+    promoted = {
+        "id", "first_name", "last_name", "position",
+        "height", "weight", "country", "team",
+    }
+    meta = {k: v for k, v in raw.items() if k not in promoted and v is not None}
 
     team_id = None
     team_raw = raw.get("team")
@@ -424,6 +430,7 @@ def _parse_player(raw: dict[str, Any]) -> Player:
         nationality=raw.get("country") or None,
         team_id=team_id,
         meta=meta,
+        raw=raw,
     )
 
 

@@ -50,10 +50,20 @@ def _seed_nba_metadata(
     api_key: str,
     max_teams: int | None,
     max_players: int | None,
-) -> tuple[int, int, int]:
+    *,
+    purge_statless: bool = True,
+) -> tuple[int, int, int, int]:
+    """Seed NBA metadata via the BDL provider.
+
+    BDL's /v1/players returns the all-time historical roster, so this shim
+    follows the seed with a stat-less purge by default. The trigger lives
+    here (not in the CLI) so a future provider swap can replace this shim
+    with one that doesn't need the cleanup.
+    """
     teams_seeded = 0
     players_seeded = 0
     failed = 0
+    purged = 0
 
     handler = NBAHandler(api_key)
     try:
@@ -97,7 +107,10 @@ def _seed_nba_metadata(
     finally:
         handler.close()
 
-    return teams_seeded, players_seeded, failed
+    if purge_statless:
+        purged = _purge_statless(conn, "NBA")
+
+    return teams_seeded, players_seeded, failed, purged
 
 
 def _seed_nfl_metadata(
@@ -106,10 +119,20 @@ def _seed_nfl_metadata(
     season: int,
     max_teams: int | None,
     max_players: int | None,
-) -> tuple[int, int, int]:
+    *,
+    purge_statless: bool = True,
+) -> tuple[int, int, int, int]:
+    """Seed NFL metadata via the BDL provider.
+
+    BDL's /nfl/v1/players returns the historical roster, so this shim
+    follows the seed with a stat-less purge by default. The trigger lives
+    here (not in the CLI) so a future provider swap can replace this shim
+    with one that doesn't need the cleanup.
+    """
     teams_seeded = 0
     players_seeded = 0
     failed = 0
+    purged = 0
 
     handler = NFLHandler(api_key)
     try:
@@ -153,7 +176,10 @@ def _seed_nfl_metadata(
     finally:
         handler.close()
 
-    return teams_seeded, players_seeded, failed
+    if purge_statless:
+        purged = _purge_statless(conn, "NFL")
+
+    return teams_seeded, players_seeded, failed, purged
 
 
 def _seed_football_metadata(
@@ -262,12 +288,21 @@ def _seed_football_metadata(
     default=None,
     help="Optional cap on player profile fetches",
 )
+@click.option(
+    "--purge-statless/--no-purge-statless",
+    default=True,
+    help="Forwarded to provider shims. The BDL shims (NBA/NFL) drop "
+    "players with no event_box_scores after seeding (rookies exempted). "
+    "Football's SportMonks shim ignores this — its roster source is "
+    "scoped, so no purge needed. Default: on.",
+)
 def seed(
     sport: str,
     season: int,
     league: int,
     max_teams: int | None,
     max_players: int | None,
+    purge_statless: bool,
 ) -> None:
     """Seed team/player metadata from provider profile endpoints."""
     if max_teams is not None and max_teams <= 0:
@@ -288,19 +323,22 @@ def seed(
         sport_upper = sport.upper()
 
         with get_conn(pool) as conn:
+            purged = 0
             if sport_upper == "NBA":
                 if not cfg.bdl_api_key:
                     click.echo("BALLDONTLIE_API_KEY is required for NBA meta seed", err=True)
                     sys.exit(1)
-                teams_seeded, players_seeded, failed = _seed_nba_metadata(
-                    conn, cfg.bdl_api_key, max_teams, max_players
+                teams_seeded, players_seeded, failed, purged = _seed_nba_metadata(
+                    conn, cfg.bdl_api_key, max_teams, max_players,
+                    purge_statless=purge_statless,
                 )
             elif sport_upper == "NFL":
                 if not cfg.bdl_api_key:
                     click.echo("BALLDONTLIE_API_KEY is required for NFL meta seed", err=True)
                     sys.exit(1)
-                teams_seeded, players_seeded, failed = _seed_nfl_metadata(
-                    conn, cfg.bdl_api_key, season, max_teams, max_players
+                teams_seeded, players_seeded, failed, purged = _seed_nfl_metadata(
+                    conn, cfg.bdl_api_key, season, max_teams, max_players,
+                    purge_statless=purge_statless,
                 )
             elif sport_upper == "FOOTBALL":
                 if not cfg.sportmonks_api_token:
@@ -344,12 +382,52 @@ def seed(
                 click.echo(f"Unsupported sport: {sport}", err=True)
                 sys.exit(1)
 
+            # Purge (if any) is owned by the provider shim, not the CLI —
+            # the BDL shims trigger it because BDL returns the all-time
+            # roster; SportMonks doesn't, so the football shim returns 0.
             click.echo(
                 f"Meta seed complete sport={sport_upper} "
-                f"teams={teams_seeded} players={players_seeded} failed={failed}"
+                f"teams={teams_seeded} players={players_seeded} "
+                f"failed={failed} purged={purged}"
             )
     finally:
         pool.close()
+
+
+def _purge_statless(conn: psycopg.Connection, sport_upper: str) -> int:
+    """Drop players for `sport_upper` that have no event_box_scores rows,
+    keeping current-season rookies. Returns rowcount.
+
+    Mirrors the rookie-aware filter in `purge-inactive` so the meta-seed
+    auto-purge and the standalone command behave identically.
+    """
+    if sport_upper == "NBA":
+        rookie_clause = (
+            "AND (p.meta->>'draft_year')::int IS DISTINCT FROM "
+            "(SELECT current_season FROM sports WHERE id = 'NBA')"
+        )
+    elif sport_upper == "NFL":
+        # %% escapes the literal % so psycopg doesn't treat it as a placeholder.
+        rookie_clause = (
+            "AND (p.meta->>'experience' IS NULL "
+            "OR p.meta->>'experience' NOT ILIKE 'rookie%%')"
+        )
+    else:
+        return 0
+
+    cur = conn.execute(
+        f"""
+        DELETE FROM players p
+        WHERE p.sport = %s
+          AND NOT EXISTS (
+              SELECT 1 FROM event_box_scores ebs
+              WHERE ebs.player_id = p.id AND ebs.sport = p.sport
+          )
+          {rookie_clause}
+        """,
+        (sport_upper,),
+    )
+    return cur.rowcount
 
 
 @cli.command("images")
@@ -435,7 +513,13 @@ def purge_inactive(sport: str, grace_days: int, dry_run: bool) -> None:
 
     Keeps:
       - Players with any event_box_scores row (any season)
-      - Players added within --grace-days (rookie / new-signing protection)
+      - Per-sport rookie exemption so first-year players don't get purged
+        before they've logged a stat:
+          * NBA  — meta.draft_year matches sports.current_season
+          * NFL  — meta.experience starts with "Rookie" (BDL label)
+          * FOOTBALL — none (handler doesn't tag rookies; falls back to
+            grace_days only)
+      - Players added within --grace-days (broad new-signing protection)
 
     Drops:
       - Everyone else
@@ -452,19 +536,36 @@ def purge_inactive(sport: str, grace_days: int, dry_run: bool) -> None:
             sys.exit(1)
 
         sport_upper = sport.upper()
+        # Per-sport rookie clause inserted into the WHERE so we don't purge
+        # first-year players who haven't logged a box score yet.
+        if sport_upper == "NBA":
+            rookie_clause = (
+                "AND (p.meta->>'draft_year')::int IS DISTINCT FROM "
+                "(SELECT current_season FROM sports WHERE id = 'NBA')"
+            )
+        elif sport_upper == "NFL":
+            # %% escapes the literal % so psycopg doesn't treat it as a placeholder.
+            rookie_clause = (
+                "AND (p.meta->>'experience' IS NULL "
+                "OR p.meta->>'experience' NOT ILIKE 'rookie%%')"
+            )
+        else:
+            rookie_clause = ""
+
+        purge_where = f"""
+            WHERE p.sport = %s
+              AND p.created_at < NOW() - (%s || ' days')::interval
+              AND NOT EXISTS (
+                  SELECT 1 FROM event_box_scores ebs
+                  WHERE ebs.player_id = p.id AND ebs.sport = p.sport
+              )
+              {rookie_clause}
+        """
+
         with get_conn(pool) as conn:
             # Always report the "would purge" count first.
             row = conn.execute(
-                """
-                SELECT count(*) AS n
-                FROM players p
-                WHERE p.sport = %s
-                  AND p.created_at < NOW() - (%s || ' days')::interval
-                  AND NOT EXISTS (
-                      SELECT 1 FROM event_box_scores ebs
-                      WHERE ebs.player_id = p.id AND ebs.sport = p.sport
-                  )
-                """,
+                f"SELECT count(*) AS n FROM players p {purge_where}",
                 (sport_upper, grace_days),
             ).fetchone()
             would_purge = row["n"] if row else 0
@@ -484,15 +585,7 @@ def purge_inactive(sport: str, grace_days: int, dry_run: bool) -> None:
                 return
 
             cur = conn.execute(
-                """
-                DELETE FROM players p
-                WHERE p.sport = %s
-                  AND p.created_at < NOW() - (%s || ' days')::interval
-                  AND NOT EXISTS (
-                      SELECT 1 FROM event_box_scores ebs
-                      WHERE ebs.player_id = p.id AND ebs.sport = p.sport
-                  )
-                """,
+                f"DELETE FROM players p {purge_where}",
                 (sport_upper, grace_days),
             )
             purged = cur.rowcount

@@ -80,8 +80,9 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
         INSERT INTO players (
             id, sport, name, first_name, last_name, position,
             detailed_position, nationality, height, weight,
-            date_of_birth, photo_url, team_id, search_aliases, meta
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            date_of_birth, photo_url, team_id, search_aliases, meta,
+            raw_response
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, players.name),
             first_name = COALESCE(EXCLUDED.first_name, players.first_name),
@@ -96,6 +97,7 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             team_id = COALESCE(EXCLUDED.team_id, players.team_id),
             search_aliases = COALESCE(EXCLUDED.search_aliases, players.search_aliases),
             meta = COALESCE(EXCLUDED.meta, players.meta),
+            raw_response = COALESCE(EXCLUDED.raw_response, players.raw_response),
             updated_at = NOW()
         """,
         (
@@ -114,6 +116,7 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             player.team_id,
             aliases or None,
             json.dumps(player.meta or {}),
+            json.dumps(player.raw) if player.raw else None,
         ),
     )
 

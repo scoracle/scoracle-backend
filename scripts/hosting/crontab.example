@@ -48,7 +48,7 @@ TZ=America/New_York
 #
 # Gemma e4b at ~20s per blurb. Typical batch on a Saturday: ~500 entities =
 # ~2.8h of GPU time. Scheduled 03:00 so it wraps well before morning browsing.
-0 3 * * * /home/sheneveld/scoracle-data/go/bin/vibe -mode batch -sport all -since-hours 24 >> /home/sheneveld/scoracle-data/logs/vibe-batch.log 2>&1
+0 3 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-vibe.sh -mode batch -sport all -since-hours 24 >> /home/sheneveld/scoracle-data/logs/vibe-batch.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)

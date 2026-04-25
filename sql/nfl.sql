@@ -335,6 +335,7 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         t.name AS team_name,
+        t.logo_url AS team_logo_url,
         jsonb_build_array(
             LOWER(p.first_name),
             LOWER(p.last_name),
@@ -376,6 +377,7 @@ UNION ALL
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         NULL::text AS team_name,
+        NULL::text AS team_logo_url,
         jsonb_build_array(
             LOWER(REPLACE(t.name, ' ', '')),
             LOWER(t.short_code),

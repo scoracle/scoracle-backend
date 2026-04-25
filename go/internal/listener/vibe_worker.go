@@ -91,6 +91,13 @@ func (w *VibeWorker) Dispatch(ctx context.Context, event PercentileChangeEvent, 
 		return
 	}
 
+	if result.SkippedNoCorpus {
+		logger.Info("vibe: skipped (no corpus)",
+			"entity_type", event.EntityType, "entity_id", event.EntityID,
+			"sport", event.Sport, "stat", event.StatKey)
+		return
+	}
+
 	logger.Info("vibe: generated",
 		"entity_type", event.EntityType, "entity_id", event.EntityID,
 		"sport", event.Sport, "stat", event.StatKey,

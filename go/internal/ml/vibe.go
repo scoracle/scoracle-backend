@@ -37,13 +37,19 @@ type VibeRequest struct {
 // VibeResult is what the generator persists to vibe_scores and returns
 // to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale;
 // Gemma rates on 1-10 internally and the generator scales for storage.
+//
+// When the corpus is empty (no news AND no tweets) the generator skips
+// the Gemma call and writes a row with NULL sentiment as an explicit
+// "no data" signal for the frontend. In that case Sentiment == 0 and
+// SkippedNoCorpus == true.
 type VibeResult struct {
-	Sentiment     int
-	Model         string
-	PromptVersion string
-	InputNewsIDs  []int64
-	InputTweetIDs []string
-	Duration      time.Duration
+	Sentiment       int
+	SkippedNoCorpus bool
+	Model           string
+	PromptVersion   string
+	InputNewsIDs    []int64
+	InputTweetIDs   []string
+	Duration        time.Duration
 }
 
 // Generator wires Ollama to the Postgres corpus. Reused by CLI,
@@ -81,6 +87,24 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 	tweets, tweetIDs, err := g.loadRecentTweets(ctx, req.EntityName, sport)
 	if err != nil {
 		return nil, fmt.Errorf("load tweets: %w", err)
+	}
+
+	// No corpus → no rating. Persist a NULL-sentiment row so the read path
+	// returns an explicit "no data" signal (sentiment: null) and so the
+	// batch debounce skips this entity until the corpus changes. Skipping
+	// Gemma here is the whole point — the model has nothing to rate, and
+	// a neutral-anchor 50 would pollute /vibe/hottest.
+	if len(news) == 0 && len(tweets) == 0 {
+		if err := g.persistNoCorpus(ctx, req, sport); err != nil {
+			return nil, fmt.Errorf("persist no-corpus marker: %w", err)
+		}
+		return &VibeResult{
+			SkippedNoCorpus: true,
+			Model:           g.ollama.Model(),
+			PromptVersion:   vibePromptVersion,
+			InputNewsIDs:    []int64{},
+			InputTweetIDs:   []string{},
+		}, nil
 	}
 
 	prompt := buildVibePrompt(req, news, tweets)
@@ -121,6 +145,29 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 		InputTweetIDs: tweetIDs,
 		Duration:      duration,
 	}, nil
+}
+
+// persistNoCorpus writes a row with NULL sentiment so the API returns
+// {"sentiment": null} and the batch debounce stops re-running this entity
+// until something in the corpus changes.
+func (g *Generator) persistNoCorpus(ctx context.Context, req VibeRequest, sport string) error {
+	triggerJSON, err := json.Marshal(req.Trigger)
+	if err != nil {
+		return err
+	}
+	_, err = g.pool.Exec(ctx, `
+		INSERT INTO vibe_scores (
+		    entity_type, entity_id, sport,
+		    trigger_type, trigger_payload,
+		    sentiment, blurb, input_news_ids, input_tweet_ids,
+		    model_version, prompt_version
+		) VALUES ($1,$2,$3,$4,$5,NULL,NULL,'{}','{}',$6,$7)
+	`,
+		req.EntityType, req.EntityID, sport,
+		req.TriggerType, triggerJSON,
+		g.ollama.Model(), vibePromptVersion,
+	)
+	return err
 }
 
 // ---------------------------------------------------------------------------

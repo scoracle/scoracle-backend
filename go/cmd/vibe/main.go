@@ -121,7 +121,11 @@ func runSingle(
 	}
 
 	fmt.Printf("\n--- Vibe for %s (%s %d, %s) ---\n", entityName, entityType, entityID, sportUpper)
-	fmt.Printf("Sentiment: %d/100\n", result.Sentiment)
+	if result.SkippedNoCorpus {
+		fmt.Println("Sentiment: (no data — corpus empty)")
+	} else {
+		fmt.Printf("Sentiment: %d/100\n", result.Sentiment)
+	}
 	fmt.Printf("\n(model=%s prompt=%s duration=%s news=%d tweets=%d)\n",
 		result.Model, result.PromptVersion, result.Duration.Round(10*time.Millisecond),
 		len(result.InputNewsIDs), len(result.InputTweetIDs))

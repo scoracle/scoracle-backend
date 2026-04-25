@@ -175,7 +175,7 @@ cd go && gofmt -w . && go vet ./...
 
 Go config resolves the DB URL in this order:
 
-`DATABASE_PRIVATE_URL` > `RAILWAY_DATABASE_URL` > `DATABASE_URL`
+`DATABASE_PRIVATE_URL` > `DATABASE_URL`
 
 Env file convention:
 

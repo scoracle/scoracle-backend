@@ -17,18 +17,15 @@ class Config:
 def load() -> Config:
     """Load configuration from environment variables.
 
-    DB URL resolution chain: DATABASE_PRIVATE_URL > RAILWAY_DATABASE_URL > DATABASE_URL
+    DB URL resolution chain: DATABASE_PRIVATE_URL > DATABASE_URL
     """
     db_url = (
         os.environ.get("DATABASE_PRIVATE_URL")
-        or os.environ.get("RAILWAY_DATABASE_URL")
         or os.environ.get("DATABASE_URL")
         or ""
     )
     if not db_url:
-        raise SystemExit(
-            "DATABASE_PRIVATE_URL, RAILWAY_DATABASE_URL, or DATABASE_URL must be set"
-        )
+        raise SystemExit("DATABASE_PRIVATE_URL or DATABASE_URL must be set")
 
     return Config(
         database_url=db_url,

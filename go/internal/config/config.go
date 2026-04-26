@@ -63,8 +63,9 @@ func Load() (*Config, error) {
 	environment := normalizeEnvironment(envOr("ENVIRONMENT", "development"))
 	corsOrigins := envList("CORS_ALLOW_ORIGINS", []string{
 		"http://localhost:3000",
-		"http://localhost:4321",
-		"http://localhost:5173",
+		"http://localhost:4321", // Astro flagship dev (legacy, retires at DNS cutover)
+		"http://localhost:5173", // Vite default (SolidStart flagship dev)
+		"http://localhost:5185", // Vite fallback when 5173 is occupied (observed in scoracle-frontend dev)
 	})
 	if environment == "production" {
 		corsOrigins = appendUnique(corsOrigins, envList("CORS_PRODUCTION_ORIGINS", []string{

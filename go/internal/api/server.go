@@ -33,8 +33,28 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	r.Use(middleware.Compress(5)) // gzip
 
 	// CORS
+	//
+	// AllowedOrigins covers browser callers (the configured frontend origins).
+	// AllowOriginFunc is an additional gate that fires when an Origin header is
+	// present; we accept any origin already in AllowedOrigins, and we explicitly
+	// allow origin-less requests (Origin == "") which is how server-to-server
+	// callers — e.g. the SolidStart frontend's worker doing SSR fetches via
+	// "use server" / `query()` — reach the API. The rs/cors library default
+	// already permits origin-less requests, but stating it here documents the
+	// intent and survives any future tightening of the library default.
+	allowed := make(map[string]struct{}, len(cfg.CORSAllowOrigins))
+	for _, o := range cfg.CORSAllowOrigins {
+		allowed[o] = struct{}{}
+	}
 	c := corslib.New(corslib.Options{
-		AllowedOrigins:   cfg.CORSAllowOrigins,
+		AllowedOrigins: cfg.CORSAllowOrigins,
+		AllowOriginFunc: func(origin string) bool {
+			if origin == "" {
+				return true // origin-less server-to-server calls
+			}
+			_, ok := allowed[origin]
+			return ok
+		},
 		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Accept-Encoding", "Content-Type", "If-None-Match", "Cache-Control"},
 		ExposedHeaders:   []string{"X-Process-Time", "X-Cache", "Link", "ETag"},

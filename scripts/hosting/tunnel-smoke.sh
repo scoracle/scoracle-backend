@@ -166,6 +166,26 @@ check_cors() {
     fi
 }
 
+# Origin-less probe: how a server-to-server caller (Cloudflare worker doing
+# SSR fetches via "use server", a uptime monitor, etc.) actually hits the API.
+# A 403 here means an upstream WAF/Bot-Fight rule on the api.scoracle.com zone
+# is rejecting non-browser traffic; the Go server itself emits no 403s.
+check_origin_less() {
+    local label=$1 url=$2
+    local result status
+    result=$(curl -sS -o /dev/null \
+        -w '%{http_code}' \
+        --max-time 15 \
+        -H 'User-Agent: scoracle-smoke/1.0' \
+        "$url" 2>/dev/null || echo "000")
+    status=$result
+    case "$status" in
+        200) emit pass "$label" "$status (origin-less GET succeeded)" ;;
+        403) emit fail "$label" "$status — likely WAF/Bot-Fight on the api zone (no Origin header)" ;;
+        *)   emit fail "$label" "got $status" ;;
+    esac
+}
+
 # ---------------------------------------------------------------------------
 # Run checks
 # ---------------------------------------------------------------------------
@@ -195,6 +215,11 @@ echo
 echo "-- CORS preflight --"
 check_cors "OPTIONS /api/v1/nba/meta" "$HOST/api/v1/nba/meta" "$ORIGIN"
 check_cors "OPTIONS /api/v1/news/status" "$HOST/api/v1/news/status" "$ORIGIN"
+
+echo
+echo "-- Origin-less GET (server-to-server / SSR fetch path) --"
+check_origin_less "GET /api/v1/nba/meta (no Origin)"     "$HOST/api/v1/nba/meta"
+check_origin_less "GET /health/db (no Origin)"           "$HOST/health/db"
 
 if [[ $FULL -eq 1 ]]; then
     echo

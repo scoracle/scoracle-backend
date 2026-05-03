@@ -438,12 +438,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 						author_profile_image_url, text, posted_at, likes, retweets, replies
 					FROM tweets
 					WHERE sport = $1
+					  AND posted_at > NOW() - INTERVAL '48 hours'
 					ORDER BY posted_at DESC
 					LIMIT $2
 				) t
 			), '[]'::json),
 			'meta', json_build_object(
-				'feed_size', (SELECT COUNT(*)::int FROM tweets WHERE sport = $1),
+				'feed_size', (SELECT COUNT(*)::int FROM tweets WHERE sport = $1 AND posted_at > NOW() - INTERVAL '48 hours'),
 				'last_fetched_at', (SELECT last_fetched_at FROM twitter_lists WHERE sport = $1),
 				'ttl_seconds', (SELECT ttl_seconds FROM twitter_lists WHERE sport = $1)
 			)
@@ -475,6 +476,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					FROM tweets tw
 					JOIN tweet_entities te ON te.tweet_id = tw.id
 					WHERE te.sport = $1 AND te.entity_type = $2 AND te.entity_id = $3
+					  AND tw.posted_at > NOW() - INTERVAL '48 hours'
 					ORDER BY tw.posted_at DESC
 					LIMIT $4
 				) t

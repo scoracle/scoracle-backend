@@ -1,17 +1,26 @@
 // vibe — CLI for generating vibe sentiment scores (1-100).
 //
-// Two modes:
+// Three modes:
 //
 //	single (default) — generate one score for a given entity.
 //	  go run ./cmd/vibe -entity-type player -entity-id 237 -sport NBA
 //	  go run ./cmd/vibe -entity-type team -entity-id 14 -sport NBA
 //
 //	batch — iterate starter-tier entities that played in the last N hours
-//	        and generate one score each. Intended to run overnight from
-//	        cron so the long-tail of active players gets daily coverage
-//	        that doesn't compete with the real-time headliner path.
+//	        and generate one score each. Fixture-driven; produces no-corpus
+//	        marker rows for entities without recent news/tweet coverage.
+//	        Retained for backfills; the canonical path is now corpus mode.
 //	  go run ./cmd/vibe -mode batch -sport NBA -since-hours 24
-//	  go run ./cmd/vibe -mode batch -sport all -since-hours 30
+//
+//	corpus — RSS-sweep every team across NBA/NFL/FOOTBALL, then run Gemma
+//	         only on entities that picked up fresh news in this run. The
+//	         corpus presence is the candidate signal — every Gemma call
+//	         is guaranteed real input. Cross-entity linking inside the
+//	         news write-through pulls in co-mentioned players for free,
+//	         so the player layer is included without per-player RSS calls.
+//	         Intended for a noon + midnight cron pair.
+//	  go run ./cmd/vibe -mode corpus
+//	  go run ./cmd/vibe -mode corpus -sport NBA  # one-sport smoke run
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
 package main
@@ -30,21 +39,25 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/ml"
+	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 func main() {
-	mode := flag.String("mode", "single", "single | batch")
+	mode := flag.String("mode", "single", "single | batch | corpus")
 
 	// single-mode flags
 	entityType := flag.String("entity-type", "player", "[single] player | team")
 	entityID := flag.Int("entity-id", 0, "[single] canonical entity id")
 	trigger := flag.String("trigger", "manual", "[single] milestone | manual | periodic")
 
-	// shared + batch-mode flags
-	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (required)")
+	// shared + batch/corpus-mode flags
+	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (single+batch require it; corpus defaults to all)")
 	sinceHours := flag.Int("since-hours", 24, "[batch] look back this many hours for entities with recent activity")
-	throttleMs := flag.Int("throttle-ms", 0, "[batch] pause N ms between generations; 0 = back-to-back")
+	throttleMs := flag.Int("throttle-ms", 0, "[batch/corpus] pause N ms between generations; 0 = back-to-back")
 	skipRecentHours := flag.Int("skip-recent-hours", 20, "[batch] skip entities that already have a vibe within the last N hours")
+	corpusSkipHours := flag.Int("corpus-skip-recent-hours", 10, "[corpus] skip entities with a vibe newer than this; <= half the cron cadence")
+	corpusRSSPause := flag.Int("corpus-rss-pause-ms", 100, "[corpus] pause between team RSS calls to be polite to Google News")
+	corpusRSSLimit := flag.Int("corpus-rss-limit", 10, "[corpus] articles per team RSS call")
 	maxEntities := flag.Int("max", 0, "[batch] cap entities per sport; 0 = no cap")
 
 	flag.Parse()
@@ -77,8 +90,10 @@ func main() {
 		runSingle(pool, gen, *entityType, *entityID, *sport, *trigger, cfg.OllamaTimeout, logger)
 	case "batch":
 		runBatch(pool, gen, *sport, *sinceHours, *skipRecentHours, *throttleMs, *maxEntities, cfg.OllamaTimeout, logger)
+	case "corpus":
+		runCorpus(pool, gen, *sport, *corpusSkipHours, *throttleMs, *corpusRSSPause, *corpusRSSLimit, cfg.OllamaTimeout, logger)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | batch\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | batch | corpus\n", *mode)
 		os.Exit(2)
 	}
 }
@@ -306,6 +321,246 @@ func loadStarterCandidates(
 		out = append(out, c)
 	}
 	return out, nil
+}
+
+// ---------------------------------------------------------------------------
+// Corpus mode — RSS sweep + corpus-driven Gemma queue
+// ---------------------------------------------------------------------------
+
+// corpusSweepTimeout caps the per-team RSS call. The default RSS HTTP client
+// already times out at 15s; this is the outer ctx budget per team.
+const corpusSweepTimeout = 30 * time.Second
+
+type corpusTeam struct {
+	id      int
+	sport   string
+	name    string
+	aliases []string
+}
+
+type corpusEntity struct {
+	entityType string
+	entityID   int
+	sport      string
+}
+
+func runCorpus(
+	pool *pgxpool.Pool, gen *ml.Generator,
+	sportArg string, skipRecentHours, throttleMs, rssPauseMs, rssLimit int,
+	gemmaTimeout time.Duration, logger *slog.Logger,
+) {
+	sports := []string{"NBA", "NFL", "FOOTBALL"}
+	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
+		sports = []string{strings.ToUpper(sportArg)}
+	}
+
+	news := thirdparty.NewNewsService(pool)
+
+	// Phase 1 — RSS sweep over every team in scope.
+	// `runStart` is the watermark that defines "fresh corpus from this run."
+	// Capture before the sweep so any link write inside persistArticles counts.
+	runStart := time.Now().UTC()
+
+	rssOK, rssFail := 0, 0
+	for _, sport := range sports {
+		teams, err := loadTeams(pool, sport)
+		if err != nil {
+			logger.Error("corpus: load teams failed", "sport", sport, "error", err)
+			continue
+		}
+		logger.Info("corpus: rss sweep starting", "sport", sport, "teams", len(teams))
+
+		for _, t := range teams {
+			ctx, cancel := context.WithTimeout(context.Background(), corpusSweepTimeout)
+			_, err := news.GetEntityNews(
+				ctx, "team", t.id, t.name, t.sport, "",
+				rssLimit, "", "", t.aliases,
+			)
+			cancel()
+			if err != nil {
+				rssFail++
+				logger.Warn("corpus: rss fetch failed",
+					"sport", sport, "team", t.name, "id", t.id, "error", err)
+			} else {
+				rssOK++
+			}
+			if rssPauseMs > 0 {
+				time.Sleep(time.Duration(rssPauseMs) * time.Millisecond)
+			}
+		}
+	}
+	logger.Info("corpus: rss sweep complete",
+		"ok", rssOK, "fail", rssFail, "elapsed", time.Since(runStart).Round(time.Second))
+
+	// Phase 2 — Gemma queue. Pick up every (entity_type, entity_id, sport)
+	// whose news_article_entities row is newer than runStart. That set
+	// includes the queried teams AND any players/teams co-mentioned in
+	// the article titles via persistArticles' cross-entity linking.
+	touched, err := loadTouchedEntities(pool, runStart, sports)
+	if err != nil {
+		logger.Error("corpus: load touch-set failed", "error", err)
+		return
+	}
+	logger.Info("corpus: gemma queue starting", "candidates", len(touched))
+
+	gemmaStart := time.Now()
+	ok, fail, skipped, noCorpus := 0, 0, 0, 0
+	for i, e := range touched {
+		if recentlyVibed(pool, e, skipRecentHours) {
+			skipped++
+			continue
+		}
+
+		name, err := lookupEntityNameCtx(pool, e.entityType, e.entityID, e.sport)
+		if err != nil || name == "" {
+			fail++
+			logger.Warn("corpus: entity lookup failed",
+				"entity_type", e.entityType, "entity_id", e.entityID, "sport", e.sport, "error", err)
+			continue
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), gemmaTimeout+10*time.Second)
+		result, err := gen.Generate(ctx, ml.VibeRequest{
+			EntityType:  e.entityType,
+			EntityID:    e.entityID,
+			EntityName:  name,
+			Sport:       e.sport,
+			TriggerType: "periodic",
+		})
+		cancel()
+
+		switch {
+		case err != nil:
+			fail++
+			logger.Warn("corpus: generate failed",
+				"sport", e.sport, "entity", name, "id", e.entityID, "error", err)
+		case result.SkippedNoCorpus:
+			// Should be rare in corpus mode (we filtered to entities
+			// with fresh links), but the news lookback inside Generate
+			// is still 72h — a link from an old article that just got
+			// re-linked could still net zero "recent" rows.
+			noCorpus++
+		default:
+			ok++
+		}
+
+		if (i+1)%25 == 0 {
+			logger.Info("corpus: progress",
+				"done", i+1, "total", len(touched),
+				"ok", ok, "fail", fail, "skipped", skipped, "no_corpus", noCorpus)
+		}
+
+		if throttleMs > 0 {
+			time.Sleep(time.Duration(throttleMs) * time.Millisecond)
+		}
+	}
+
+	logger.Info("corpus: complete",
+		"ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus,
+		"gemma_elapsed", time.Since(gemmaStart).Round(time.Second),
+		"total_elapsed", time.Since(runStart).Round(time.Second))
+}
+
+// loadTeams returns the team set we sweep RSS for. All teams in the sport,
+// regardless of tier — teams default to 'headliner' anyway and the count is
+// small (~30-100 per sport).
+func loadTeams(pool *pgxpool.Pool, sport string) ([]corpusTeam, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	rows, err := pool.Query(ctx, `
+		SELECT id, sport, name, COALESCE(search_aliases, ARRAY[]::text[])
+		FROM teams
+		WHERE sport = $1
+		ORDER BY id
+	`, sport)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []corpusTeam
+	for rows.Next() {
+		var t corpusTeam
+		if err := rows.Scan(&t.id, &t.sport, &t.name, &t.aliases); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}
+
+// loadTouchedEntities returns the deduped set of entities whose
+// news_article_entities row was created at-or-after `since` AND whose
+// linked article was published within the same window Generate uses to
+// assemble corpus (ml.NewsLookback). The two filters together guarantee
+// every queued entity will have non-empty corpus inside Generate, so the
+// corpus run never writes null-sentiment markers.
+//
+// An entity with only fresh links pointing to stale articles (e.g. RSS
+// just discovered a 3-week-old article that mentions player X) is dropped
+// here — stale evidence isn't worth Gemma's time, and writing a null row
+// would dilute the "no-corpus markers stop accumulating" property that
+// the corpus mode design promises.
+func loadTouchedEntities(pool *pgxpool.Pool, since time.Time, sports []string) ([]corpusEntity, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	lookbackSecs := int(ml.NewsLookback.Seconds())
+	rows, err := pool.Query(ctx, `
+		SELECT nae.entity_type, nae.entity_id, nae.sport
+		FROM news_article_entities nae
+		JOIN news_articles a ON a.id = nae.article_id
+		WHERE nae.created_at >= $1
+		  AND nae.sport = ANY($2::text[])
+		  AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
+		GROUP BY nae.entity_type, nae.entity_id, nae.sport
+		ORDER BY nae.sport, nae.entity_type, nae.entity_id
+	`, since, sports, fmt.Sprintf("%d", lookbackSecs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []corpusEntity
+	for rows.Next() {
+		var e corpusEntity
+		if err := rows.Scan(&e.entityType, &e.entityID, &e.sport); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}
+
+// recentlyVibed checks whether this entity already has a vibe row within the
+// debounce window. Mirrors the milestone listener's check so noon and midnight
+// runs don't duplicate work.
+func recentlyVibed(pool *pgxpool.Pool, e corpusEntity, skipRecentHours int) bool {
+	if skipRecentHours <= 0 {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	var exists bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM vibe_scores
+			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+			  AND generated_at > NOW() - ($4 || ' hours')::interval
+		)
+	`, e.entityType, e.entityID, e.sport, fmt.Sprintf("%d", skipRecentHours)).Scan(&exists)
+	if err != nil {
+		// Fail open — better to over-generate than drop on a transient error.
+		return false
+	}
+	return exists
+}
+
+// lookupEntityNameCtx is the same as lookupEntityName but builds its own ctx
+// with a short timeout so a slow lookup doesn't stall a full corpus run.
+func lookupEntityNameCtx(pool *pgxpool.Pool, entityType string, id int, sport string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return lookupEntityName(ctx, pool, entityType, id, sport)
 }
 
 // ---------------------------------------------------------------------------

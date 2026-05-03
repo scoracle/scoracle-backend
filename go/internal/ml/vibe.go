@@ -14,15 +14,34 @@ import (
 
 // Prompt version — bump when the prompt text below materially changes so
 // we can trace which prompt produced which score in vibe_scores.
-const vibePromptVersion = "v2"
+//
+// v2: 1-10 internal scale, x10 multiplier on persist. Always landed on
+//
+//	multiples of 10 (e.g. 90/100), which read as low-resolution.
+//
+// v3: 1-100 direct scale. Prompt explicitly discourages round answers so
+//
+//	Gemma uses the full range (e.g. 73, 87) instead of multiples of 10.
+const vibePromptVersion = "v3"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
+//
+// NewsLookback is exported so callers that *select candidates* (e.g.
+// cmd/vibe corpus mode) can apply the same window when picking entities
+// whose links are "fresh enough to be worth scoring." Without that
+// alignment, an entity with a brand-new link to an old article gets
+// queued and then skipped inside Generate, producing a null marker.
 const (
-	newsLookback  = 72 * time.Hour // 3 days
+	NewsLookback  = 72 * time.Hour // 3 days
 	tweetLookback = 24 * time.Hour // matches the tweet TTL
 	maxNewsItems  = 12
 	maxTweetItems = 8
 )
+
+// newsLookback is the unexported alias the rest of this package uses.
+// Kept so existing call sites read naturally; switch to NewsLookback at
+// any external boundary.
+const newsLookback = NewsLookback
 
 // VibeRequest describes the entity to score and the triggering fact (if any).
 type VibeRequest struct {
@@ -35,8 +54,8 @@ type VibeRequest struct {
 }
 
 // VibeResult is what the generator persists to vibe_scores and returns
-// to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale;
-// Gemma rates on 1-10 internally and the generator scales for storage.
+// to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale,
+// produced directly by Gemma (v3 prompt).
 //
 // When the corpus is empty (no news AND no tweets) the generator skips
 // the Gemma call and writes a row with NULL sentiment as an explicit
@@ -64,8 +83,8 @@ func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
 }
 
 // Generate builds a prompt from recent news + tweets + milestone context,
-// calls Gemma for a 1-10 sentiment rating, persists the scaled 1-100
-// score to vibe_scores, and returns the result.
+// calls Gemma for a 1-100 sentiment rating, persists it to vibe_scores,
+// and returns the result.
 //
 // Tweet reads are cache-only. If the tweets table has nothing recent for
 // the sport, the score is drawn from news + milestone alone — we NEVER
@@ -268,11 +287,13 @@ func (g *Generator) loadRecentTweets(
 // ---------------------------------------------------------------------------
 
 const vibeSystemPrompt = `You rate overall sentiment toward a sports entity based on recent news and tweets.
-Reply with ONLY a single integer from 1 to 10.
-1 = overwhelmingly negative, 5-6 = neutral or mixed, 10 = overwhelmingly positive.
+Reply with ONLY a single integer from 1 to 100.
+1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive.
+Use the FULL range with precision. Pick exact numbers like 47, 63, 78, 92.
+Avoid round multiples of 10 (50, 60, 70, 80, 90) unless the evidence genuinely lands there.
 Weight news and tweets equally; stats are context, not the point.
-If the source material is thin or neutral, answer around 5 — don't invent drama.
-No words, no punctuation, no explanation. Just the digit.`
+If the source material is thin or neutral, answer somewhere in 45-55 — don't invent drama.
+No words, no punctuation, no explanation. Just the number.`
 
 func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) string {
 	var b strings.Builder
@@ -311,7 +332,7 @@ func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) strin
 		}
 	}
 
-	b.WriteString("\nReply with the sentiment score (1-10) now.")
+	b.WriteString("\nReply with the sentiment score (1-100, exact value, not rounded) now.")
 	return b.String()
 }
 
@@ -321,9 +342,10 @@ func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) strin
 
 var sentimentDigitRE = regexp.MustCompile(`\d+`)
 
-// parseSentiment pulls the first integer out of Gemma's response, clamps
-// it into 1-10, and returns the scaled 1-100 score. Returns an error only
-// when the response contains no digits at all.
+// parseSentiment pulls the first integer out of Gemma's response and clamps
+// it into 1-100. Returns an error only when the response contains no digits
+// at all. The v3 prompt asks for the score directly on the 1-100 scale, so
+// no scaling is applied — Gemma is expected to produce e.g. 73, not 7.
 func parseSentiment(raw string) (int, error) {
 	match := sentimentDigitRE.FindString(raw)
 	if match == "" {
@@ -336,10 +358,10 @@ func parseSentiment(raw string) (int, error) {
 	if n < 1 {
 		n = 1
 	}
-	if n > 10 {
-		n = 10
+	if n > 100 {
+		n = 100
 	}
-	return n * 10, nil
+	return n, nil
 }
 
 func (g *Generator) persistVibe(

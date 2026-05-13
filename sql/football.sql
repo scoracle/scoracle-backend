@@ -95,7 +95,41 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'offsides',              'Offsides',             'player', 'discipline', true,  false, false, 90),
     ('FOOTBALL', 'offsides_provoked',     'Offsides Won',         'player', 'defensive',  false, false, false, 91),
     ('FOOTBALL', 'motm_awards',           'Man of the Match',     'player', 'general',    false, false, true,   4),
-    ('FOOTBALL', 'rating_avg',            'Average Match Rating', 'player', 'general',    false, true,  true,   5)
+    ('FOOTBALL', 'rating_avg',            'Average Match Rating', 'player', 'general',    false, true,  true,   5),
+    -- Per-90 derived rates for all volume stats. Mirrors the existing seven entries
+    -- (goals_per_90, assists_per_90, key_passes_per_90, shots_per_90, tackles_per_90,
+    -- interceptions_per_90, goals_conceded_per_90) which keep their legacy keys.
+    ('FOOTBALL', 'expected_goals_per_90',      'xG Per 90',                 'player', 'scoring',    false, true,  true,  200),
+    ('FOOTBALL', 'shots_on_target_per_90',     'Shots on Target/90',        'player', 'shooting',   false, true,  true,  201),
+    ('FOOTBALL', 'passes_total_per_90',        'Passes Per 90',             'player', 'passing',    false, true,  true,  202),
+    ('FOOTBALL', 'passes_accurate_per_90',     'Accurate Passes/90',        'player', 'passing',    false, true,  true,  203),
+    ('FOOTBALL', 'crosses_total_per_90',       'Crosses Per 90',            'player', 'passing',    false, true,  true,  204),
+    ('FOOTBALL', 'crosses_accurate_per_90',    'Accurate Crosses/90',       'player', 'passing',    false, true,  true,  205),
+    ('FOOTBALL', 'clearances_per_90',          'Clearances Per 90',         'player', 'defensive',  false, true,  true,  206),
+    ('FOOTBALL', 'blocks_per_90',              'Blocks Per 90',             'player', 'defensive',  false, true,  true,  207),
+    ('FOOTBALL', 'duels_total_per_90',         'Duels Per 90',              'player', 'duels',      false, true,  true,  208),
+    ('FOOTBALL', 'duels_won_per_90',           'Duels Won Per 90',          'player', 'duels',      false, true,  true,  209),
+    ('FOOTBALL', 'dribbles_attempts_per_90',   'Dribble Attempts/90',       'player', 'dribbling',  false, true,  true,  210),
+    ('FOOTBALL', 'dribbles_success_per_90',    'Successful Dribbles/90',    'player', 'dribbling',  false, true,  true,  211),
+    ('FOOTBALL', 'saves_per_90',               'Saves Per 90',              'player', 'goalkeeper', false, true,  true,  212),
+    ('FOOTBALL', 'saves_insidebox_per_90',     'Saves Inside Box/90',       'player', 'goalkeeper', false, true,  true,  213),
+    ('FOOTBALL', 'chances_created_per_90',     'Chances Created Per 90',    'player', 'passing',    false, true,  true,  214),
+    ('FOOTBALL', 'big_chances_created_per_90', 'Big Chances Created/90',    'player', 'passing',    false, true,  true,  215),
+    ('FOOTBALL', 'long_balls_per_90',          'Long Balls Per 90',         'player', 'passing',    false, true,  true,  216),
+    ('FOOTBALL', 'long_balls_won_per_90',      'Long Balls Won Per 90',     'player', 'passing',    false, true,  true,  217),
+    ('FOOTBALL', 'through_balls_per_90',       'Through Balls Per 90',      'player', 'passing',    false, true,  true,  218),
+    ('FOOTBALL', 'through_balls_won_per_90',   'Through Balls Won Per 90',  'player', 'passing',    false, true,  true,  219),
+    ('FOOTBALL', 'passes_in_final_third_per_90','Final-Third Passes/90',    'player', 'passing',    false, true,  true,  220),
+    ('FOOTBALL', 'tackles_won_per_90',         'Tackles Won Per 90',        'player', 'defensive',  false, true,  true,  221),
+    ('FOOTBALL', 'dribbled_past_per_90',       'Dribbled Past Per 90',      'player', 'defensive',  true,  true,  true,  222),
+    ('FOOTBALL', 'dispossessed_per_90',        'Dispossessed Per 90',       'player', 'possession', true,  true,  true,  223),
+    ('FOOTBALL', 'possession_lost_per_90',     'Possession Lost Per 90',    'player', 'possession', true,  true,  true,  224),
+    ('FOOTBALL', 'turnovers_per_90',           'Turnovers Per 90',          'player', 'possession', true,  true,  true,  225),
+    ('FOOTBALL', 'ball_recovery_per_90',       'Ball Recoveries Per 90',    'player', 'defensive',  false, true,  true,  226),
+    ('FOOTBALL', 'aerials_per_90',             'Aerials Per 90',            'player', 'duels',      false, true,  true,  227),
+    ('FOOTBALL', 'aeriels_won_per_90',         'Aerials Won Per 90',        'player', 'duels',      false, true,  true,  228),
+    ('FOOTBALL', 'fouls_committed_per_90',     'Fouls Committed Per 90',    'player', 'discipline', true,  true,  true,  229),
+    ('FOOTBALL', 'fouls_drawn_per_90',         'Fouls Drawn Per 90',        'player', 'discipline', false, true,  true,  230)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- Football team stats
@@ -201,52 +235,77 @@ ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================
 
--- Football player: per-90 metrics, accuracy rates, GK stats
+-- Football player: per-90 conversions for all volume stats, then accuracy/rate
+-- formulas. Per-90 keys follow <base>_per_90 except for the four legacy aliases
+-- that pre-date this convention (shots_total → shots_per_90 etc.); those are
+-- emitted from the legacy_per_90_aliases mapping after the loop.
 CREATE OR REPLACE FUNCTION football.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
-    minutes NUMERIC; goals NUMERIC; assists NUMERIC; key_passes NUMERIC;
+    minutes NUMERIC;
+    s TEXT;
+    v NUMERIC;
+    -- Per-90 derivations follow the <base>_per_90 convention.
+    per_90_keys TEXT[] := ARRAY[
+        'goals','assists','expected_goals','shots_on_target','key_passes',
+        'passes_total','passes_accurate','crosses_total','crosses_accurate',
+        'clearances','blocks','duels_total','duels_won','dribbles_attempts',
+        'dribbles_success','saves','goals_conceded','saves_insidebox',
+        'chances_created','big_chances_created','long_balls','long_balls_won',
+        'through_balls','through_balls_won','passes_in_final_third','tackles',
+        'tackles_won','interceptions','dribbled_past','dispossessed',
+        'possession_lost','turnovers','ball_recovery','aerials','aeriels_won',
+        'fouls_committed','fouls_drawn'
+    ];
+    -- Legacy alias: shots_total writes shots_per_90 (not shots_total_per_90)
+    -- because the existing stat_definitions row uses 'shots_per_90'.
     shots_t NUMERIC; shots_on NUMERIC; passes_t NUMERIC; passes_a NUMERIC;
-    tackles NUMERIC; tackles_w NUMERIC; intercepts NUMERIC;
     duels_t NUMERIC; duels_w NUMERIC;
-    dribbles_a NUMERIC; dribbles_s NUMERIC; saves NUMERIC; conceded NUMERIC;
+    dribbles_a NUMERIC; dribbles_s NUMERIC;
+    tackles NUMERIC; tackles_w NUMERIC;
     crosses_t NUMERIC; crosses_a NUMERIC;
     long_balls_t NUMERIC; long_balls_w NUMERIC;
     aerials_t NUMERIC; aerials_w NUMERIC;
+    saves NUMERIC; conceded NUMERIC;
 BEGIN
-    minutes      := (NEW.stats->>'minutes_played')::NUMERIC;
-    goals        := (NEW.stats->>'goals')::NUMERIC;
-    assists      := (NEW.stats->>'assists')::NUMERIC;
-    key_passes   := (NEW.stats->>'key_passes')::NUMERIC;
+    minutes := (NEW.stats->>'minutes_played')::NUMERIC;
+
+    IF minutes IS NOT NULL AND minutes > 0 THEN
+        FOREACH s IN ARRAY per_90_keys LOOP
+            IF NEW.stats ? s THEN
+                v := (NEW.stats->>s)::NUMERIC;
+                IF v IS NOT NULL THEN
+                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_90', ROUND(v * 90 / minutes, 3));
+                END IF;
+            END IF;
+        END LOOP;
+        -- Legacy alias preserved for back-compat with existing 'shots_per_90' key.
+        IF NEW.stats ? 'shots_total' THEN
+            v := (NEW.stats->>'shots_total')::NUMERIC;
+            IF v IS NOT NULL THEN
+                NEW.stats := NEW.stats || jsonb_build_object('shots_per_90', ROUND(v * 90 / minutes, 3));
+            END IF;
+        END IF;
+    END IF;
+
     shots_t      := (NEW.stats->>'shots_total')::NUMERIC;
     shots_on     := (NEW.stats->>'shots_on_target')::NUMERIC;
     passes_t     := (NEW.stats->>'passes_total')::NUMERIC;
     passes_a     := (NEW.stats->>'passes_accurate')::NUMERIC;
-    tackles      := (NEW.stats->>'tackles')::NUMERIC;
-    tackles_w    := (NEW.stats->>'tackles_won')::NUMERIC;
-    intercepts   := (NEW.stats->>'interceptions')::NUMERIC;
     duels_t      := (NEW.stats->>'duels_total')::NUMERIC;
     duels_w      := (NEW.stats->>'duels_won')::NUMERIC;
     dribbles_a   := (NEW.stats->>'dribbles_attempts')::NUMERIC;
     dribbles_s   := (NEW.stats->>'dribbles_success')::NUMERIC;
-    saves        := (NEW.stats->>'saves')::NUMERIC;
-    conceded     := (NEW.stats->>'goals_conceded')::NUMERIC;
+    tackles      := (NEW.stats->>'tackles')::NUMERIC;
+    tackles_w    := (NEW.stats->>'tackles_won')::NUMERIC;
     crosses_t    := (NEW.stats->>'crosses_total')::NUMERIC;
     crosses_a    := (NEW.stats->>'crosses_accurate')::NUMERIC;
     long_balls_t := (NEW.stats->>'long_balls')::NUMERIC;
     long_balls_w := (NEW.stats->>'long_balls_won')::NUMERIC;
     aerials_t    := (NEW.stats->>'aerials')::NUMERIC;
     aerials_w    := (NEW.stats->>'aeriels_won')::NUMERIC;
-
-    IF minutes IS NOT NULL AND minutes > 0 THEN
-        IF goals IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('goals_per_90', ROUND(goals * 90 / minutes, 3)); END IF;
-        IF assists IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('assists_per_90', ROUND(assists * 90 / minutes, 3)); END IF;
-        IF key_passes IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('key_passes_per_90', ROUND(key_passes * 90 / minutes, 3)); END IF;
-        IF shots_t IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('shots_per_90', ROUND(shots_t * 90 / minutes, 3)); END IF;
-        IF tackles IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('tackles_per_90', ROUND(tackles * 90 / minutes, 3)); END IF;
-        IF intercepts IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('interceptions_per_90', ROUND(intercepts * 90 / minutes, 3)); END IF;
-        IF conceded IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('goals_conceded_per_90', ROUND(conceded * 90 / minutes, 3)); END IF;
-    END IF;
+    saves        := (NEW.stats->>'saves')::NUMERIC;
+    conceded     := (NEW.stats->>'goals_conceded')::NUMERIC;
 
     IF shots_t IS NOT NULL AND shots_t > 0 THEN NEW.stats := NEW.stats || jsonb_build_object('shot_accuracy', ROUND(COALESCE(shots_on, 0) / shots_t * 100, 1)); END IF;
     IF passes_t IS NOT NULL AND passes_t > 0 THEN NEW.stats := NEW.stats || jsonb_build_object('pass_accuracy', ROUND(COALESCE(passes_a, 0) / passes_t * 100, 1)); END IF;
@@ -280,9 +339,11 @@ DROP VIEW IF EXISTS football.players;
 DROP VIEW IF EXISTS football.player_stats;
 DROP VIEW IF EXISTS football.teams;
 DROP VIEW IF EXISTS football.team_stats;
+DROP VIEW IF EXISTS football.player;
+DROP VIEW IF EXISTS football.team;
 
 -- Combined player profile + stats (with team and league context)
-CREATE OR REPLACE VIEW football.player AS
+CREATE VIEW football.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
@@ -305,6 +366,18 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ps.scoped_percentiles - '_position_group' - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ps.scoped_percentiles IS NOT NULL
+            AND ps.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ps.scoped_percentiles->>'scope_type',
+            'scope_id', ps.scoped_percentiles->>'scope_id',
+            'scope_name', ps.scoped_percentiles->>'scope_name',
+            'position_group', ps.scoped_percentiles->>'_position_group',
+            'sample_size', COALESCE((ps.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ps.updated_at AS stats_updated_at
 FROM public.players p
 LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
@@ -316,7 +389,7 @@ COMMENT ON VIEW football.player IS
     'Football player profile with stats. Filter by id, season, league_id. Stats columns are NULL when no stats exist.';
 
 -- Combined team profile + stats (with league context)
-CREATE OR REPLACE VIEW football.team AS
+CREATE VIEW football.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.venue_name, t.venue_capacity,
@@ -333,6 +406,17 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ts.scoped_percentiles - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ts.scoped_percentiles IS NOT NULL
+            AND ts.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ts.scoped_percentiles->>'scope_type',
+            'scope_id', ts.scoped_percentiles->>'scope_id',
+            'scope_name', ts.scoped_percentiles->>'scope_name',
+            'sample_size', COALESCE((ts.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ts.updated_at AS stats_updated_at
 FROM public.teams t
 LEFT JOIN public.leagues l ON l.id = t.league_id

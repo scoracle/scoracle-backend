@@ -229,9 +229,11 @@ DROP VIEW IF EXISTS nfl.players;
 DROP VIEW IF EXISTS nfl.player_stats;
 DROP VIEW IF EXISTS nfl.teams;
 DROP VIEW IF EXISTS nfl.team_stats;
+DROP VIEW IF EXISTS nfl.player;
+DROP VIEW IF EXISTS nfl.team;
 
 -- Combined player profile + stats
-CREATE OR REPLACE VIEW nfl.player AS
+CREATE VIEW nfl.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
@@ -252,6 +254,18 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ps.scoped_percentiles - '_position_group' - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ps.scoped_percentiles IS NOT NULL
+            AND ps.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ps.scoped_percentiles->>'scope_type',
+            'scope_id', ps.scoped_percentiles->>'scope_id',
+            'scope_name', ps.scoped_percentiles->>'scope_name',
+            'position_group', ps.scoped_percentiles->>'_position_group',
+            'sample_size', COALESCE((ps.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ps.updated_at AS stats_updated_at
 FROM public.players p
 LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
@@ -262,7 +276,7 @@ COMMENT ON VIEW nfl.player IS
     'NFL player profile with stats. Filter by id, season. Stats columns are NULL when no stats exist.';
 
 -- Combined team profile + stats
-CREATE OR REPLACE VIEW nfl.team AS
+CREATE VIEW nfl.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.conference, t.division,
@@ -277,6 +291,17 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ts.scoped_percentiles - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ts.scoped_percentiles IS NOT NULL
+            AND ts.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ts.scoped_percentiles->>'scope_type',
+            'scope_id', ts.scoped_percentiles->>'scope_id',
+            'scope_name', ts.scoped_percentiles->>'scope_name',
+            'sample_size', COALESCE((ts.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ts.updated_at AS stats_updated_at
 FROM public.teams t
 LEFT JOIN public.team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport

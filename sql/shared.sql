@@ -112,10 +112,16 @@ CREATE TABLE IF NOT EXISTS player_stats (
     team_id INTEGER,
     stats JSONB NOT NULL DEFAULT '{}',
     percentiles JSONB DEFAULT '{}',
+    -- Percentiles partitioned by (position, league/conference scope) — sibling
+    -- to `percentiles` (which is sport-wide, position-only). See
+    -- recalculate_percentiles() for population logic.
+    scoped_percentiles JSONB DEFAULT '{}',
     raw_response JSONB,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (player_id, sport, season, league_id)
 );
+
+ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS scoped_percentiles JSONB DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_player_stats_sport_season ON player_stats(sport, season);
 CREATE INDEX IF NOT EXISTS idx_player_stats_team ON player_stats(team_id);
@@ -164,10 +170,14 @@ CREATE TABLE IF NOT EXISTS team_stats (
     league_id INTEGER NOT NULL DEFAULT 0,
     stats JSONB NOT NULL DEFAULT '{}',
     percentiles JSONB DEFAULT '{}',
+    -- Percentiles partitioned by league (Football) or conference (NBA/NFL).
+    scoped_percentiles JSONB DEFAULT '{}',
     raw_response JSONB,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (team_id, sport, season, league_id)
 );
+
+ALTER TABLE team_stats ADD COLUMN IF NOT EXISTS scoped_percentiles JSONB DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS idx_team_stats_sport_season ON team_stats(sport, season);
 CREATE INDEX IF NOT EXISTS idx_team_stats_league ON team_stats(league_id) WHERE league_id > 0;
@@ -852,6 +862,126 @@ BEGIN
     UPDATE team_stats ts SET percentiles = agg.percentiles_json, updated_at = NOW()
     FROM aggregated agg WHERE ts.team_id = agg.team_id AND ts.sport = p_sport AND ts.season = p_season;
     GET DIAGNOSTICS v_teams = ROW_COUNT;
+
+    -- ------------------------------------------------------------------
+    -- Scoped percentiles: stored in scoped_percentiles JSONB sibling.
+    -- Players: partitioned by (position, scope) where scope is league_id
+    -- (Football) or team's conference (NBA/NFL).
+    -- Teams: partitioned by scope only (no position).
+    -- Each player_stats row has its own league_id in PK, so a player with
+    -- rows in two leagues gets two distinct scoped_percentiles values.
+    -- ------------------------------------------------------------------
+
+    -- Player scoped percentiles
+    WITH stat_keys AS (
+        SELECT DISTINCT key FROM player_stats, jsonb_each(stats) AS kv(key, val)
+        WHERE sport = p_sport AND season = p_season AND jsonb_typeof(val) = 'number' AND (val::text)::numeric != 0
+    ),
+    player_meta AS (
+        SELECT ps.player_id, ps.league_id,
+            COALESCE(p.position, 'Unknown') AS position,
+            CASE WHEN p_sport = 'FOOTBALL' THEN 'league' ELSE 'conference' END AS scope_type,
+            CASE WHEN p_sport = 'FOOTBALL' THEN ps.league_id::text
+                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_id,
+            CASE WHEN p_sport = 'FOOTBALL' THEN COALESCE(l.name, 'Unknown')
+                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_name
+        FROM player_stats ps
+        JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
+        LEFT JOIN teams t ON t.id = ps.team_id AND t.sport = ps.sport
+        LEFT JOIN leagues l ON l.id = ps.league_id
+        WHERE ps.sport = p_sport AND ps.season = p_season
+    ),
+    expanded AS (
+        SELECT pm.player_id, pm.league_id, pm.position, pm.scope_type, pm.scope_id, pm.scope_name,
+            sk.key AS stat_key, (ps.stats->>sk.key)::numeric AS stat_value
+        FROM player_stats ps
+        JOIN player_meta pm ON pm.player_id = ps.player_id AND pm.league_id = ps.league_id
+        CROSS JOIN stat_keys sk
+        WHERE ps.sport = p_sport AND ps.season = p_season
+            AND ps.stats ? sk.key AND (ps.stats->>sk.key)::numeric != 0
+    ),
+    ranked AS (
+        SELECT player_id, league_id, position, scope_type, scope_id, scope_name, stat_key,
+            CASE WHEN stat_key = ANY(v_inverse)
+                THEN round((1.0 - percent_rank() OVER (PARTITION BY position, scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
+                ELSE round((percent_rank() OVER (PARTITION BY position, scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
+            END AS percentile,
+            count(*) OVER (PARTITION BY position, scope_type, scope_id, stat_key) AS sample_size
+        FROM expanded
+    ),
+    aggregated AS (
+        SELECT player_id, league_id, position, scope_type, scope_id, scope_name,
+            jsonb_object_agg(stat_key, percentile)
+                || jsonb_build_object(
+                    '_position_group', position,
+                    '_sample_size', max(sample_size),
+                    'scope_type', scope_type,
+                    'scope_id', scope_id,
+                    'scope_name', scope_name
+                ) AS scoped_json
+        FROM ranked
+        GROUP BY player_id, league_id, position, scope_type, scope_id, scope_name
+    )
+    UPDATE player_stats ps
+    SET scoped_percentiles = agg.scoped_json
+    FROM aggregated agg
+    WHERE ps.player_id = agg.player_id
+      AND ps.league_id = agg.league_id
+      AND ps.sport = p_sport AND ps.season = p_season;
+
+    -- Team scoped percentiles
+    WITH stat_keys AS (
+        SELECT DISTINCT key FROM team_stats, jsonb_each(stats) AS kv(key, val)
+        WHERE sport = p_sport AND season = p_season AND jsonb_typeof(val) = 'number' AND (val::text)::numeric != 0
+    ),
+    team_meta AS (
+        SELECT ts.team_id, ts.league_id,
+            CASE WHEN p_sport = 'FOOTBALL' THEN 'league' ELSE 'conference' END AS scope_type,
+            CASE WHEN p_sport = 'FOOTBALL' THEN ts.league_id::text
+                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_id,
+            CASE WHEN p_sport = 'FOOTBALL' THEN COALESCE(l.name, 'Unknown')
+                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_name
+        FROM team_stats ts
+        JOIN teams t ON t.id = ts.team_id AND t.sport = ts.sport
+        LEFT JOIN leagues l ON l.id = ts.league_id
+        WHERE ts.sport = p_sport AND ts.season = p_season
+    ),
+    expanded AS (
+        SELECT tm.team_id, tm.league_id, tm.scope_type, tm.scope_id, tm.scope_name,
+            sk.key AS stat_key, (ts.stats->>sk.key)::numeric AS stat_value
+        FROM team_stats ts
+        JOIN team_meta tm ON tm.team_id = ts.team_id AND tm.league_id = ts.league_id
+        CROSS JOIN stat_keys sk
+        WHERE ts.sport = p_sport AND ts.season = p_season
+            AND ts.stats ? sk.key AND (ts.stats->>sk.key)::numeric != 0
+    ),
+    ranked AS (
+        SELECT team_id, league_id, scope_type, scope_id, scope_name, stat_key,
+            CASE WHEN stat_key = ANY(v_inverse)
+                THEN round((1.0 - percent_rank() OVER (PARTITION BY scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
+                ELSE round((percent_rank() OVER (PARTITION BY scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
+            END AS percentile,
+            count(*) OVER (PARTITION BY scope_type, scope_id, stat_key) AS sample_size
+        FROM expanded
+    ),
+    aggregated AS (
+        SELECT team_id, league_id, scope_type, scope_id, scope_name,
+            jsonb_object_agg(stat_key, percentile)
+                || jsonb_build_object(
+                    '_sample_size', max(sample_size),
+                    'scope_type', scope_type,
+                    'scope_id', scope_id,
+                    'scope_name', scope_name
+                ) AS scoped_json
+        FROM ranked
+        GROUP BY team_id, league_id, scope_type, scope_id, scope_name
+    )
+    UPDATE team_stats ts
+    SET scoped_percentiles = agg.scoped_json
+    FROM aggregated agg
+    WHERE ts.team_id = agg.team_id
+      AND ts.league_id = agg.league_id
+      AND ts.sport = p_sport AND ts.season = p_season;
 
     RETURN QUERY SELECT v_players, v_teams;
 END;

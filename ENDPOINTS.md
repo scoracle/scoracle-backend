@@ -256,12 +256,26 @@ Response:
     "position_group": "F",
     "sample_size": 13
   },
+  "scoped_percentiles": {
+    "pts": 92.3,
+    "reb": 61.5,
+    "ast": 7.7
+  },
+  "scoped_percentile_metadata": {
+    "scope_type": "conference",
+    "scope_id": "West",
+    "scope_name": "West",
+    "position_group": "F",
+    "sample_size": 13
+  },
   "meta": {
     "season": 2025,
     "league_id": null
   }
 }
 ```
+
+`percentiles` is sport-wide (partitioned by player position). `scoped_percentiles` is partitioned by **(position, conference)** for NBA/NFL and **(position, league)** for Football — same percentile semantics, narrower comparison set. Both are emitted; clients can show either or both.
 
 ### Profile Response Example (Team)
 
@@ -289,9 +303,24 @@ Response:
     "wins": 0.0,
     "pts": 0.0
   },
+  "percentile_metadata": {
+    "sample_size": 30
+  },
+  "scoped_percentiles": {
+    "wins": 0.0,
+    "pts": 6.7
+  },
+  "scoped_percentile_metadata": {
+    "scope_type": "conference",
+    "scope_id": "West",
+    "scope_name": "West",
+    "sample_size": 15
+  },
   "stat_definitions": [...]
 }
 ```
+
+For teams, `scoped_percentiles` is partitioned by **conference** (NBA/NFL) or **league** (Football) — no position dimension since teams don't have positions.
 
 ### Meta Response Example
 

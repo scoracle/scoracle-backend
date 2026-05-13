@@ -42,7 +42,15 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NBA', 'efg_pct',            'Effective FG %',         'player', 'advanced',   false, true,  true,  37),
     ('NBA', 'ast_to_tov',         'Assist/Turnover Ratio',  'player', 'advanced',   false, true,  true,  38),
     ('NBA', 'tov_per_36',         'Turnovers Per 36 Min',   'player', 'advanced',   true,  true,  true,  39),
-    ('NBA', 'pf_per_36',          'Fouls Per 36 Min',       'player', 'advanced',   true,  true,  false, 40)
+    ('NBA', 'pf_per_36',          'Fouls Per 36 Min',       'player', 'advanced',   true,  true,  false, 40),
+    ('NBA', 'oreb_per_36',        'Off Rebounds Per 36 Min','player', 'advanced',   false, true,  true,  41),
+    ('NBA', 'dreb_per_36',        'Def Rebounds Per 36 Min','player', 'advanced',   false, true,  true,  42),
+    ('NBA', 'fgm_per_36',         'FG Made Per 36 Min',     'player', 'advanced',   false, true,  true,  43),
+    ('NBA', 'fga_per_36',         'FG Att Per 36 Min',      'player', 'advanced',   false, true,  true,  44),
+    ('NBA', 'fg3m_per_36',        '3PT Made Per 36 Min',    'player', 'advanced',   false, true,  true,  45),
+    ('NBA', 'fg3a_per_36',        '3PT Att Per 36 Min',     'player', 'advanced',   false, true,  true,  46),
+    ('NBA', 'ftm_per_36',         'FT Made Per 36 Min',     'player', 'advanced',   false, true,  true,  47),
+    ('NBA', 'fta_per_36',         'FT Att Per 36 Min',      'player', 'advanced',   false, true,  true,  48)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- NBA team stats
@@ -81,13 +89,24 @@ ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================
 
--- NBA player: per-36, true shooting %, efficiency
+-- NBA player: per-36 conversions for all volume stats, true shooting %, efficiency,
+-- effective FG %, assist/turnover. Per-36 keys follow the convention <base>_per_36.
+-- Base→derived mapping is driven by per_36_keys; rate/efficiency formulas stay inline.
 CREATE OR REPLACE FUNCTION nba.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
-    minutes NUMERIC; pts NUMERIC; reb NUMERIC; ast NUMERIC;
-    stl NUMERIC; blk NUMERIC; fga NUMERIC; fgm NUMERIC;
-    fta NUMERIC; ftm NUMERIC; turnover NUMERIC; tsa NUMERIC;
+    minutes NUMERIC;
+    s TEXT;
+    v NUMERIC;
+    pts NUMERIC; reb NUMERIC; ast NUMERIC; stl NUMERIC; blk NUMERIC;
+    fga NUMERIC; fgm NUMERIC; fta NUMERIC; ftm NUMERIC; turnover NUMERIC;
+    tsa NUMERIC;
+    -- 'turnover' is intentionally excluded — it has a legacy alias 'tov_per_36'
+    -- (not 'turnover_per_36') that's emitted in the special-case block below.
+    per_36_keys TEXT[] := ARRAY[
+        'pts','reb','ast','stl','blk','pf',
+        'oreb','dreb','fgm','fga','fg3m','fg3a','ftm','fta'
+    ];
 BEGIN
     minutes  := (NEW.stats->>'minutes')::NUMERIC;
     pts      := (NEW.stats->>'pts')::NUMERIC;
@@ -102,11 +121,18 @@ BEGIN
     turnover := (NEW.stats->>'turnover')::NUMERIC;
 
     IF minutes IS NOT NULL AND minutes > 0 THEN
-        IF pts IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('pts_per_36', ROUND(pts / minutes * 36, 1)); END IF;
-        IF reb IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('reb_per_36', ROUND(reb / minutes * 36, 1)); END IF;
-        IF ast IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('ast_per_36', ROUND(ast / minutes * 36, 1)); END IF;
-        IF stl IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('stl_per_36', ROUND(stl / minutes * 36, 1)); END IF;
-        IF blk IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('blk_per_36', ROUND(blk / minutes * 36, 1)); END IF;
+        FOREACH s IN ARRAY per_36_keys LOOP
+            IF NEW.stats ? s THEN
+                v := (NEW.stats->>s)::NUMERIC;
+                IF v IS NOT NULL THEN
+                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_36', ROUND(v / minutes * 36, 1));
+                END IF;
+            END IF;
+        END LOOP;
+        -- Legacy alias preserved: 'turnover' base writes 'tov_per_36' (not 'turnover_per_36').
+        IF turnover IS NOT NULL THEN
+            NEW.stats := NEW.stats || jsonb_build_object('tov_per_36', ROUND(turnover / minutes * 36, 1));
+        END IF;
     END IF;
 
     IF pts IS NOT NULL AND fga IS NOT NULL AND fta IS NOT NULL THEN
@@ -125,11 +151,6 @@ BEGIN
 
     IF turnover IS NOT NULL AND turnover > 0 AND ast IS NOT NULL THEN
         NEW.stats := NEW.stats || jsonb_build_object('ast_to_tov', ROUND(ast / turnover, 2));
-    END IF;
-
-    IF minutes IS NOT NULL AND minutes > 0 THEN
-        IF turnover IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('tov_per_36', ROUND(turnover / minutes * 36, 1)); END IF;
-        IF (NEW.stats->>'pf') IS NOT NULL THEN NEW.stats := NEW.stats || jsonb_build_object('pf_per_36', ROUND((NEW.stats->>'pf')::numeric / minutes * 36, 1)); END IF;
     END IF;
 
     RETURN NEW;
@@ -209,14 +230,19 @@ CREATE TRIGGER trg_nba_team_derived_stats
 -- 3. VIEWS (PostgREST surface)
 -- ============================================================================
 
--- Drop legacy views from pre-consolidation (players, player_stats, teams, team_stats)
+-- Drop legacy views from pre-consolidation (players, player_stats, teams, team_stats).
+-- Also drop the current player/team views — re-running this file mid-list-changes
+-- (e.g. after adding scoped_percentiles) trips Postgres' column-rename guard,
+-- and DROP+CREATE handles that cleanly.
 DROP VIEW IF EXISTS nba.players;
 DROP VIEW IF EXISTS nba.player_stats;
 DROP VIEW IF EXISTS nba.teams;
 DROP VIEW IF EXISTS nba.team_stats;
+DROP VIEW IF EXISTS nba.player;
+DROP VIEW IF EXISTS nba.team;
 
 -- Combined player profile + stats
-CREATE OR REPLACE VIEW nba.player AS
+CREATE VIEW nba.player AS
 SELECT
     p.id, p.name, p.first_name, p.last_name, p.position,
     p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
@@ -237,6 +263,18 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ps.scoped_percentiles - '_position_group' - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ps.scoped_percentiles IS NOT NULL
+            AND ps.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ps.scoped_percentiles->>'scope_type',
+            'scope_id', ps.scoped_percentiles->>'scope_id',
+            'scope_name', ps.scoped_percentiles->>'scope_name',
+            'position_group', ps.scoped_percentiles->>'_position_group',
+            'sample_size', COALESCE((ps.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ps.updated_at AS stats_updated_at
 FROM public.players p
 LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
@@ -247,7 +285,7 @@ COMMENT ON VIEW nba.player IS
     'NBA player profile with stats. Filter by id, season. Stats columns are NULL when no stats exist.';
 
 -- Combined team profile + stats
-CREATE OR REPLACE VIEW nba.team AS
+CREATE VIEW nba.team AS
 SELECT
     t.id, t.name, t.short_code, t.logo_url, t.country, t.city,
     t.founded, t.league_id, t.conference, t.division,
@@ -262,6 +300,17 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
+    ts.scoped_percentiles - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
+    CASE
+        WHEN ts.scoped_percentiles IS NOT NULL
+            AND ts.scoped_percentiles->>'scope_type' IS NOT NULL
+        THEN jsonb_build_object(
+            'scope_type', ts.scoped_percentiles->>'scope_type',
+            'scope_id', ts.scoped_percentiles->>'scope_id',
+            'scope_name', ts.scoped_percentiles->>'scope_name',
+            'sample_size', COALESCE((ts.scoped_percentiles->>'_sample_size')::int, 0)
+        )
+    END AS scoped_percentile_metadata,
     ts.updated_at AS stats_updated_at
 FROM public.teams t
 LEFT JOIN public.team_stats ts ON ts.team_id = t.id AND ts.sport = t.sport

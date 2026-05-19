@@ -20,7 +20,7 @@ Description=Restart scoracle-api when its binary is rebuilt
 # in production.
 
 [Path]
-PathChanged=/home/sheneveld/scoracle-data/go/bin/
+PathChanged=/home/sheneveld/scoracle-backend/go/bin/
 # Triggers the oneshot restart helper, NOT the service directly, because
 # a Path unit triggers `systemctl start <Unit>` — and start is a no-op
 # when the service is already running.

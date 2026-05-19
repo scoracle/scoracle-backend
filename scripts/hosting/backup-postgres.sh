@@ -26,10 +26,10 @@ DB_USER=${DB_USER:-scoracle}
 DB_NAME=${DB_NAME:-scoracle}
 
 # Load password from .env.local if not already in env.
-if [ -z "${PGPASSWORD:-}" ] && [ -f /home/sheneveld/scoracle-data/.env.local ]; then
+if [ -z "${PGPASSWORD:-}" ] && [ -f /home/sheneveld/scoracle-backend/.env.local ]; then
     # Extract DATABASE_URL or fall back to the static dev password.
     # We use PGPASSWORD rather than parsing the URL so pg_dump stays simple.
-    PGPASSWORD=$(grep -oP '(?<=:)[^@/]+(?=@)' /home/sheneveld/scoracle-data/.env.local | head -1)
+    PGPASSWORD=$(grep -oP '(?<=:)[^@/]+(?=@)' /home/sheneveld/scoracle-backend/.env.local | head -1)
 fi
 export PGPASSWORD
 

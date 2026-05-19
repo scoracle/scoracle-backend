@@ -6,7 +6,7 @@
 # so the vibe binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
 #
 # Recommended cron — corpus mode at noon and midnight (local time):
-#   0 0,12 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-vibe.sh -mode corpus
+#   0 0,12 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-vibe.sh -mode corpus
 #
 # corpus mode RSS-sweeps every team in NBA/NFL/FOOTBALL, then runs Gemma
 # only against entities whose news corpus picked up something fresh in the
@@ -16,7 +16,7 @@
 # corpus path is the canonical scheduled job.
 
 set -euo pipefail
-cd /home/sheneveld/scoracle-data
+cd /home/sheneveld/scoracle-backend
 
 # Load env vars. .env is committed template (safe defaults); .env.local
 # has real creds and wins because set -a exports every assignment.

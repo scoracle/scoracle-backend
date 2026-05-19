@@ -56,7 +56,7 @@ See `ENDPOINTS.md` for full contract details.
 ## Repository Layout
 
 ```text
-scoracle-data/
+scoracle-backend/
 ├── README.md
 ├── ENDPOINTS.md
 ├── docker-compose.yml

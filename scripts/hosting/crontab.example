@@ -14,7 +14,7 @@
 TZ=America/New_York
 
 # Make sure logs dir exists before cron writes to it:
-#   mkdir -p /home/sheneveld/scoracle-data/logs
+#   mkdir -p /home/sheneveld/scoracle-backend/logs
 
 # ---------------------------------------------------------------------------
 # Football event draining — daily
@@ -22,21 +22,21 @@ TZ=America/New_York
 # Runs at 23:00 ET. Late enough that every European match of the day has
 # finished AND SportMonks has finalized lineup data. See
 # planning_docs/CRON_SEEDING_STRATEGY.md for the reasoning.
-0 23 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
+0 23 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025 >> /home/sheneveld/scoracle-backend/logs/cron-football.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Football schedule + roster refresh — weekly (Monday 23:00 ET)
 # ---------------------------------------------------------------------------
 # Catches postponements, new signings, jersey changes. Larger call count
 # (~400 SportMonks req) but only once a week.
-0 23 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh event load-fixtures football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
-30 23 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh meta seed football --season 2025 >> /home/sheneveld/scoracle-data/logs/cron-football.log 2>&1
+0 23 * * 1 /home/sheneveld/scoracle-backend/scripts/hosting/cron-scoseed.sh event load-fixtures football --season 2025 >> /home/sheneveld/scoracle-backend/logs/cron-football.log 2>&1
+30 23 * * 1 /home/sheneveld/scoracle-backend/scripts/hosting/cron-scoseed.sh meta seed football --season 2025 >> /home/sheneveld/scoracle-backend/logs/cron-football.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Postgres backup — nightly 04:00 local
 # ---------------------------------------------------------------------------
 # Scheduled after the seeder so nightly backups capture the latest data.
-0 4 * * * /home/sheneveld/scoracle-data/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle-data/logs/backup.log 2>&1
+0 4 * * * /home/sheneveld/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Vibe batch — nightly coverage for starter-tier players (03:00 ET)
@@ -48,7 +48,7 @@ TZ=America/New_York
 #
 # Gemma e4b at ~20s per blurb. Typical batch on a Saturday: ~500 entities =
 # ~2.8h of GPU time. Scheduled 03:00 so it wraps well before morning browsing.
-0 3 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-vibe.sh -mode batch -sport all -since-hours 24 >> /home/sheneveld/scoracle-data/logs/vibe-batch.log 2>&1
+0 3 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-vibe.sh -mode batch -sport all -since-hours 24 >> /home/sheneveld/scoracle-backend/logs/vibe-batch.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)
@@ -56,7 +56,7 @@ TZ=America/New_York
 # Rankings shift as the season progresses. One cheap SQL function call per
 # sport (<1s). Scheduled before the Monday weekly meta refresh so the new
 # tiers inform that run.
-0 2 * * 1 /home/sheneveld/scoracle-data/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle-data/logs/tier-recompute.log 2>&1
+0 2 * * 1 /home/sheneveld/scoracle-backend/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle-backend/logs/tier-recompute.log 2>&1
 
 # ---------------------------------------------------------------------------
 # NBA / NFL event seeding — intentionally absent from cron.

@@ -7,10 +7,10 @@
 # provider API keys.
 #
 # Usage from crontab:
-#   0 23 * * * /home/sheneveld/scoracle-data/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025
+#   0 23 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025
 
 set -euo pipefail
-cd /home/sheneveld/scoracle-data
+cd /home/sheneveld/scoracle-backend
 
 # Activate the project venv.
 # shellcheck source=/dev/null

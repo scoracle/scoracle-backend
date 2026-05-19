@@ -10,13 +10,13 @@ StartLimitIntervalSec=60
 
 [Service]
 Type=simple
-WorkingDirectory=/home/sheneveld/scoracle-data
+WorkingDirectory=/home/sheneveld/scoracle-backend
 # EnvironmentFile order matters here: systemd loads sequentially, but unlike
 # godotenv systemd DOES overwrite on later files. Load .env first (template
 # with empty defaults), then .env.local (real values) wins.
-EnvironmentFile=-/home/sheneveld/scoracle-data/.env
-EnvironmentFile=-/home/sheneveld/scoracle-data/.env.local
-ExecStart=/home/sheneveld/scoracle-data/go/bin/scoracle-api
+EnvironmentFile=-/home/sheneveld/scoracle-backend/.env
+EnvironmentFile=-/home/sheneveld/scoracle-backend/.env.local
+ExecStart=/home/sheneveld/scoracle-backend/go/bin/scoracle-api
 Restart=on-failure
 RestartSec=5
 

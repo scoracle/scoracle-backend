@@ -407,6 +407,13 @@ $$ LANGUAGE plpgsql;
 -- 6. stat_leaders — read position from player_stats (no JOIN players)
 -- ============================================================================
 
+-- Drop existing signatures first: the previous version returned a `name` column
+-- sourced from players, which the stats-only rewrite removes. CREATE OR REPLACE
+-- cannot change the OUT-parameter row type.
+DROP FUNCTION IF EXISTS nba.stat_leaders(integer, text, integer, text, integer);
+DROP FUNCTION IF EXISTS nfl.stat_leaders(integer, text, integer, text, integer);
+DROP FUNCTION IF EXISTS football.stat_leaders(integer, text, integer, text, integer);
+
 CREATE OR REPLACE FUNCTION nba.stat_leaders(
     p_season INTEGER, p_stat_name TEXT,
     p_limit INTEGER DEFAULT 25, p_position TEXT DEFAULT NULL,

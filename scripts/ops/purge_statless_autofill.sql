@@ -3,9 +3,10 @@
 -- class (rookies who haven't logged a stat yet); NFL has no draft_year in
 -- players.meta so the strict filter applies.
 --
--- This script preserves the LOCAL matview column list (no team_logo_url —
--- migration 010 has not been applied here). Each per-sport block is wrapped
--- in BEGIN/COMMIT so the swap is atomic from a reader's perspective.
+-- This script mirrors the canonical autofill matview shape from sql/nba.sql
+-- and sql/nfl.sql. Position/detailed_position dropped (migration 013 moved
+-- position to the stats domain). Each per-sport block wraps in BEGIN/COMMIT
+-- so the swap is atomic from a reader's perspective.
 --
 -- Run: psql "$DATABASE_PRIVATE_URL" -f scripts/ops/purge_statless_autofill.sql
 
@@ -20,8 +21,6 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
         p.name,
         p.first_name,
         p.last_name,
-        p.position,
-        p.detailed_position,
         p.nationality,
         p.date_of_birth::text AS date_of_birth,
         p.height,
@@ -32,6 +31,7 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         t.name AS team_name,
+        t.logo_url AS team_logo_url,
         jsonb_build_array(
             LOWER(p.first_name),
             LOWER(p.last_name),
@@ -43,7 +43,6 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
             unaccent(LOWER(REPLACE(p.name, ' ', ''))),
             unaccent(LOWER(COALESCE(t.name, '')))
         ) AS search_tokens,
-        -- Pass the full player meta blob through. Frontend curates display.
         COALESCE(p.meta, '{}'::jsonb) || jsonb_build_object('display_name', p.name) AS meta
     FROM public.players p
     LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
@@ -53,8 +52,6 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
               SELECT 1 FROM public.player_stats ps
               WHERE ps.player_id = p.id AND ps.sport = p.sport
           )
-          -- Rookie exemption: keep current-season draft class even with no
-          -- stats yet, so we don't lose rookies who haven't played.
           OR (p.meta->>'draft_year')::int = (
               SELECT current_season FROM public.sports WHERE id = 'NBA'
           )
@@ -66,8 +63,6 @@ UNION ALL
         t.name,
         NULL::text AS first_name,
         NULL::text AS last_name,
-        t.conference AS position,
-        t.division AS detailed_position,
         t.country AS nationality,
         NULL::text AS date_of_birth,
         NULL::text AS height,
@@ -78,6 +73,7 @@ UNION ALL
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         NULL::text AS team_name,
+        NULL::text AS team_logo_url,
         jsonb_build_array(
             LOWER(REPLACE(t.name, ' ', '')),
             LOWER(t.short_code),
@@ -117,8 +113,6 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
         p.name,
         p.first_name,
         p.last_name,
-        p.position,
-        p.detailed_position,
         p.nationality,
         p.date_of_birth::text AS date_of_birth,
         p.height,
@@ -129,6 +123,7 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         t.name AS team_name,
+        t.logo_url AS team_logo_url,
         jsonb_build_array(
             LOWER(p.first_name),
             LOWER(p.last_name),
@@ -140,7 +135,6 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
             unaccent(LOWER(REPLACE(p.name, ' ', ''))),
             unaccent(LOWER(COALESCE(t.name, '')))
         ) AS search_tokens,
-        -- Pass the full player meta blob through. Frontend curates display.
         COALESCE(p.meta, '{}'::jsonb) || jsonb_build_object('display_name', p.name) AS meta
     FROM public.players p
     LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
@@ -150,8 +144,6 @@ CREATE MATERIALIZED VIEW nfl.autofill_entities AS
               SELECT 1 FROM public.player_stats ps
               WHERE ps.player_id = p.id AND ps.sport = p.sport
           )
-          -- Rookie exemption: BDL labels first-year players "Rookie" in
-          -- meta.experience, so unplayed rookies stay in autofill.
           OR p.meta->>'experience' ILIKE 'rookie%'
       )
 UNION ALL
@@ -161,8 +153,6 @@ UNION ALL
         t.name,
         NULL::text AS first_name,
         NULL::text AS last_name,
-        t.conference AS position,
-        t.division AS detailed_position,
         t.country AS nationality,
         NULL::text AS date_of_birth,
         NULL::text AS height,
@@ -173,6 +163,7 @@ UNION ALL
         NULL::text AS league_name,
         t.short_code AS team_abbr,
         NULL::text AS team_name,
+        NULL::text AS team_logo_url,
         jsonb_build_array(
             LOWER(REPLACE(t.name, ' ', '')),
             LOWER(t.short_code),

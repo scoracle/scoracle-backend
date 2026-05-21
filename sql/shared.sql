@@ -71,14 +71,14 @@ ON CONFLICT (id) DO NOTHING;
 -- 3. PLAYERS
 -- ============================================================================
 
+-- Meta-only player record. Position lives on player_stats / event_box_scores
+-- so stats calculations never touch this table (only the FK ties the two).
 CREATE TABLE IF NOT EXISTS players (
     id INTEGER NOT NULL,
     sport TEXT NOT NULL REFERENCES sports(id),
     name TEXT NOT NULL,
     first_name TEXT,
     last_name TEXT,
-    position TEXT,
-    detailed_position TEXT,
     nationality TEXT,
     date_of_birth DATE,
     height TEXT,
@@ -97,7 +97,6 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE INDEX IF NOT EXISTS idx_players_sport ON players(sport);
 CREATE INDEX IF NOT EXISTS idx_players_team ON players(team_id);
 CREATE INDEX IF NOT EXISTS idx_players_name ON players(name);
-CREATE INDEX IF NOT EXISTS idx_players_position ON players(sport, position);
 CREATE INDEX IF NOT EXISTS idx_players_league ON players(league_id) WHERE league_id IS NOT NULL;
 
 -- ============================================================================
@@ -110,6 +109,10 @@ CREATE TABLE IF NOT EXISTS player_stats (
     season INTEGER NOT NULL,
     league_id INTEGER NOT NULL DEFAULT 0,
     team_id INTEGER,
+    -- Per-stats-row position. Provider-raw string. Owned by the stats pipeline
+    -- (finalize_fixture picks most-recent non-null from event_box_scores).
+    -- recalculate_percentiles() partitions on this — never touches public.players.
+    position TEXT,
     stats JSONB NOT NULL DEFAULT '{}',
     percentiles JSONB DEFAULT '{}',
     -- Percentiles partitioned by (position, league/conference scope) — sibling
@@ -122,10 +125,12 @@ CREATE TABLE IF NOT EXISTS player_stats (
 );
 
 ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS scoped_percentiles JSONB DEFAULT '{}';
+ALTER TABLE player_stats ADD COLUMN IF NOT EXISTS position TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_player_stats_sport_season ON player_stats(sport, season);
 CREATE INDEX IF NOT EXISTS idx_player_stats_team ON player_stats(team_id);
 CREATE INDEX IF NOT EXISTS idx_player_stats_league ON player_stats(league_id) WHERE league_id > 0;
+CREATE INDEX IF NOT EXISTS idx_player_stats_position ON player_stats(sport, position);
 
 -- ============================================================================
 -- 5. TEAMS
@@ -360,6 +365,9 @@ CREATE TABLE IF NOT EXISTS event_box_scores (
     sport TEXT NOT NULL REFERENCES sports(id),
     season INTEGER NOT NULL,
     league_id INTEGER NOT NULL DEFAULT 0,
+    -- Per-game position raw from the provider's stat embed. finalize_fixture
+    -- aggregates this into player_stats.position (most-recent non-null wins).
+    position TEXT,
     minutes_played NUMERIC,
     stats JSONB NOT NULL DEFAULT '{}',
     raw_response JSONB,
@@ -367,6 +375,8 @@ CREATE TABLE IF NOT EXISTS event_box_scores (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE(fixture_id, player_id)
 );
+
+ALTER TABLE event_box_scores ADD COLUMN IF NOT EXISTS position TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_event_box_scores_player_season
     ON event_box_scores(player_id, sport, season, league_id);
@@ -642,7 +652,7 @@ BEGIN
 
     -- Reaggregate impacted player season rows from event_box_scores
     IF v_sport = 'NBA' THEN
-        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, position, updated_at)
         SELECT
             e.player_id,
             'NBA',
@@ -650,13 +660,15 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(nba.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
         GROUP BY e.player_id
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
-            team_id = EXCLUDED.team_id,
-            stats = EXCLUDED.stats,
+            team_id  = EXCLUDED.team_id,
+            stats    = EXCLUDED.stats,
+            position = COALESCE(EXCLUDED.position, player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
@@ -679,7 +691,7 @@ BEGIN
             updated_at = NOW();
 
     ELSIF v_sport = 'NFL' THEN
-        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, position, updated_at)
         SELECT
             e.player_id,
             'NFL',
@@ -687,13 +699,15 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(nfl.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
         GROUP BY e.player_id
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
-            team_id = EXCLUDED.team_id,
-            stats = EXCLUDED.stats,
+            team_id  = EXCLUDED.team_id,
+            stats    = EXCLUDED.stats,
+            position = COALESCE(EXCLUDED.position, player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
@@ -716,7 +730,7 @@ BEGIN
             updated_at = NOW();
 
     ELSIF v_sport = 'FOOTBALL' THEN
-        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, updated_at)
+        INSERT INTO player_stats (player_id, sport, season, league_id, team_id, stats, position, updated_at)
         SELECT
             e.player_id,
             'FOOTBALL',
@@ -724,13 +738,15 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(football.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
+            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
         GROUP BY e.player_id
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
-            team_id = EXCLUDED.team_id,
-            stats = EXCLUDED.stats,
+            team_id  = EXCLUDED.team_id,
+            stats    = EXCLUDED.stats,
+            position = COALESCE(EXCLUDED.position, player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
@@ -803,20 +819,17 @@ BEGIN
     ) combined;
     v_inverse := COALESCE(v_inverse, ARRAY[]::TEXT[]);
 
-    -- Player percentiles (partitioned by position)
+    -- Player percentiles (sport-wide, partitioned by ps.position)
     WITH stat_keys AS (
         SELECT DISTINCT key FROM player_stats, jsonb_each(stats) AS kv(key, val)
         WHERE sport = p_sport AND season = p_season AND jsonb_typeof(val) = 'number' AND (val::text)::numeric != 0
     ),
-    player_positions AS (
-        SELECT ps.player_id, COALESCE(p.position, 'Unknown') AS position
-        FROM player_stats ps JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
-        WHERE ps.sport = p_sport AND ps.season = p_season
-    ),
     expanded AS (
-        SELECT ps.player_id, pp.position, sk.key AS stat_key, (ps.stats->>sk.key)::numeric AS stat_value
-        FROM player_stats ps CROSS JOIN stat_keys sk JOIN player_positions pp ON pp.player_id = ps.player_id
-        WHERE ps.sport = p_sport AND ps.season = p_season AND ps.stats ? sk.key AND (ps.stats->>sk.key)::numeric != 0
+        SELECT ps.player_id, COALESCE(ps.position, 'Unknown') AS position,
+               sk.key AS stat_key, (ps.stats->>sk.key)::numeric AS stat_value
+        FROM player_stats ps CROSS JOIN stat_keys sk
+        WHERE ps.sport = p_sport AND ps.season = p_season
+          AND ps.stats ? sk.key AND (ps.stats->>sk.key)::numeric != 0
     ),
     ranked AS (
         SELECT player_id, position, stat_key,
@@ -879,14 +892,13 @@ BEGIN
     ),
     player_meta AS (
         SELECT ps.player_id, ps.league_id,
-            COALESCE(p.position, 'Unknown') AS position,
+            COALESCE(ps.position, 'Unknown') AS position,
             CASE WHEN p_sport = 'FOOTBALL' THEN 'league' ELSE 'conference' END AS scope_type,
             CASE WHEN p_sport = 'FOOTBALL' THEN ps.league_id::text
                  ELSE COALESCE(t.conference, 'Unknown') END AS scope_id,
             CASE WHEN p_sport = 'FOOTBALL' THEN COALESCE(l.name, 'Unknown')
                  ELSE COALESCE(t.conference, 'Unknown') END AS scope_name
         FROM player_stats ps
-        JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
         LEFT JOIN teams t ON t.id = ps.team_id AND t.sport = ps.sport
         LEFT JOIN leagues l ON l.id = ps.league_id
         WHERE ps.sport = p_sport AND ps.season = p_season

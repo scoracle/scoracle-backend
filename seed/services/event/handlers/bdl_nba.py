@@ -303,6 +303,7 @@ class NBAHandler:
                     fixture_id=fixture_id,
                     player_id=player_id,
                     team_id=team_id,
+                    position=player.position if player else None,
                     player=player,
                     minutes_played=minutes,
                     stats=canonicalize(raw_stats, _PLAYER_STAT_MAP),
@@ -445,6 +446,7 @@ def _parse_player_stats(raw: dict[str, Any], season_type: str) -> PlayerStats:
     return PlayerStats(
         player_id=player.id,
         team_id=player.team_id,
+        position=player.position,
         player=player,
         stats=stats,
         raw=raw,

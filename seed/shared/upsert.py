@@ -69,7 +69,10 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
 
 
 def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
-    """Upsert a player using COALESCE to preserve existing non-null values."""
+    """Upsert a player meta record. Position is NOT persisted here — it lives
+    on player_stats / event_box_scores so the stats domain and meta domain
+    stay independent. Only the player ID links the two tables.
+    """
     # Generate search aliases if not already set.
     aliases = player.search_aliases or generate_player_aliases(
         player.name, sport, player.first_name, player.last_name, player.meta,
@@ -78,17 +81,15 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
     conn.execute(
         """
         INSERT INTO players (
-            id, sport, name, first_name, last_name, position,
-            detailed_position, nationality, height, weight,
+            id, sport, name, first_name, last_name,
+            nationality, height, weight,
             date_of_birth, photo_url, team_id, search_aliases, meta,
             raw_response
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, players.name),
             first_name = COALESCE(EXCLUDED.first_name, players.first_name),
             last_name = COALESCE(EXCLUDED.last_name, players.last_name),
-            position = COALESCE(EXCLUDED.position, players.position),
-            detailed_position = COALESCE(EXCLUDED.detailed_position, players.detailed_position),
             nationality = COALESCE(EXCLUDED.nationality, players.nationality),
             height = COALESCE(EXCLUDED.height, players.height),
             weight = COALESCE(EXCLUDED.weight, players.weight),
@@ -106,8 +107,6 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             player.name,
             player.first_name or None,
             player.last_name or None,
-            player.position or None,
-            player.detailed_position or None,
             player.nationality or None,
             player.height or None,
             player.weight or None,
@@ -133,10 +132,11 @@ def upsert_player_stats(
         """
         INSERT INTO player_stats (
             player_id, sport, season, league_id, team_id,
-            stats, raw_response
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s)
+            position, stats, raw_response
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
             team_id = EXCLUDED.team_id,
+            position = COALESCE(EXCLUDED.position, player_stats.position),
             stats = EXCLUDED.stats,
             raw_response = EXCLUDED.raw_response,
             updated_at = NOW()
@@ -147,6 +147,7 @@ def upsert_player_stats(
             season,
             league_id,
             data.team_id,
+            data.position or None,
             json.dumps(data.stats or {}),
             json.dumps(data.raw or {}),
         ),
@@ -195,10 +196,11 @@ def upsert_event_box_score(
         """
         INSERT INTO event_box_scores (
             fixture_id, player_id, team_id, sport, season, league_id,
-            minutes_played, stats, raw_response
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            position, minutes_played, stats, raw_response
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (fixture_id, player_id) DO UPDATE SET
             team_id = EXCLUDED.team_id,
+            position = COALESCE(EXCLUDED.position, event_box_scores.position),
             minutes_played = EXCLUDED.minutes_played,
             stats = EXCLUDED.stats,
             raw_response = EXCLUDED.raw_response,
@@ -211,6 +213,7 @@ def upsert_event_box_score(
             sport,
             season,
             league_id,
+            data.position or None,
             data.minutes_played,
             json.dumps(data.stats or {}),
             json.dumps(data.raw or {}),

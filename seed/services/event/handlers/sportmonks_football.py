@@ -178,6 +178,7 @@ class FootballHandler:
                 ps = PlayerStats(
                     player_id=player_data.get("id", pid),
                     team_id=team_id,
+                    position=player.position,
                     player=player,
                     stats=stats,
                     raw=player_data,
@@ -243,7 +244,7 @@ class FootballHandler:
         """
         resp = self.client.get(
             f"/fixtures/{external_fixture_id}",
-            {"include": "lineups.details.type;events;scores;participants;statistics.type"},
+            {"include": "lineups.player;lineups.details.type;events;scores;participants;statistics.type"},
         )
         data = resp.get("data", {})
         team_scores: dict[int, int] = _extract_fixture_scores(data)
@@ -286,10 +287,18 @@ class FootballHandler:
             if player and player.team_id is None:
                 player.team_id = team_id
 
+            # SportMonks stamps position_id directly on the lineup row (the
+            # role this player started in for this match). Prefer that over
+            # the player meta's overall position, falling back to whatever
+            # _parse_player resolved.
+            entry_position = _POSITION_MAP.get(entry.get("position_id"))
+            position = entry_position or (player.position if player else None)
+
             box = EventBoxScore(
                 fixture_id=fixture_id,
                 player_id=player_id,
                 team_id=team_id,
+                position=position,
                 player=player,
                 minutes_played=minutes_played,
                 stats=stats,

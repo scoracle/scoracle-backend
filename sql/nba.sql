@@ -241,18 +241,16 @@ DROP VIEW IF EXISTS nba.team_stats;
 DROP VIEW IF EXISTS nba.player;
 DROP VIEW IF EXISTS nba.team;
 
--- Combined player profile + stats
+-- Player profile — stats only (no JOIN to public.players or public.teams).
+-- Name/headshot/etc. are served by the meta endpoint; frontend caches them
+-- locally for fast widget hydration. The two domains are linked only by ID.
 CREATE VIEW nba.player AS
 SELECT
-    p.id, p.name, p.first_name, p.last_name, p.position,
-    p.detailed_position, p.nationality, p.date_of_birth::text AS date_of_birth,
-    p.height, p.weight, p.photo_url, p.team_id, p.league_id,
-    CASE WHEN t.id IS NOT NULL THEN json_build_object(
-        'id', t.id, 'name', t.name, 'abbreviation', t.short_code,
-        'logo_url', t.logo_url, 'country', t.country, 'city', t.city,
-        'conference', t.conference, 'division', t.division
-    ) END AS team,
+    ps.player_id AS id,
     ps.season,
+    ps.league_id,
+    ps.team_id,
+    ps.position,
     ps.stats,
     ps.percentiles - '_position_group' - '_sample_size' AS percentiles,
     CASE
@@ -276,13 +274,11 @@ SELECT
         )
     END AS scoped_percentile_metadata,
     ps.updated_at AS stats_updated_at
-FROM public.players p
-LEFT JOIN public.teams t ON t.id = p.team_id AND t.sport = p.sport
-LEFT JOIN public.player_stats ps ON ps.player_id = p.id AND ps.sport = p.sport
-WHERE p.sport = 'NBA';
+FROM public.player_stats ps
+WHERE ps.sport = 'NBA';
 
 COMMENT ON VIEW nba.player IS
-    'NBA player profile with stats. Filter by id, season. Stats columns are NULL when no stats exist.';
+    'NBA player profile — stats only. Meta (name, headshot, etc.) served separately and cached on the frontend.';
 
 -- Combined team profile + stats
 CREATE VIEW nba.team AS
@@ -358,8 +354,6 @@ CREATE MATERIALIZED VIEW nba.autofill_entities AS
         p.name,
         p.first_name,
         p.last_name,
-        p.position,
-        p.detailed_position,
         p.nationality,
         p.date_of_birth::text AS date_of_birth,
         p.height,
@@ -406,8 +400,6 @@ UNION ALL
         t.name,
         NULL::text AS first_name,
         NULL::text AS last_name,
-        t.conference AS position,
-        t.division AS detailed_position,
         t.country AS nationality,
         NULL::text AS date_of_birth,
         NULL::text AS height,
@@ -454,23 +446,22 @@ CREATE OR REPLACE FUNCTION nba.stat_leaders(
     p_limit INTEGER DEFAULT 25, p_position TEXT DEFAULT NULL,
     p_league_id INTEGER DEFAULT 0
 )
-RETURNS TABLE ("rank" BIGINT, player_id INTEGER, name TEXT, "position" TEXT, team_name TEXT, stat_value NUMERIC) AS $$
+RETURNS TABLE ("rank" BIGINT, player_id INTEGER, "position" TEXT, team_name TEXT, stat_value NUMERIC) AS $$
     SELECT
         ROW_NUMBER() OVER (ORDER BY stat.val DESC) AS rank,
-        p.id AS player_id, p.name, p.position, t.name AS team_name, stat.val AS stat_value
+        s.player_id, s.position, t.name AS team_name, stat.val AS stat_value
     FROM public.player_stats s
     CROSS JOIN LATERAL (SELECT (s.stats->>p_stat_name)::NUMERIC AS val) stat
-    JOIN public.players p ON s.player_id = p.id AND s.sport = p.sport
     LEFT JOIN public.teams t ON s.team_id = t.id AND s.sport = t.sport
     WHERE s.sport = 'NBA' AND s.season = p_season AND s.league_id = p_league_id
       AND stat.val IS NOT NULL
-      AND (p_position IS NULL OR p.position = p_position)
+      AND (p_position IS NULL OR s.position = p_position)
     ORDER BY stat.val DESC
     LIMIT p_limit;
 $$ LANGUAGE sql STABLE;
 
 COMMENT ON FUNCTION nba.stat_leaders IS
-    'Returns top N NBA players by stat category with positional filtering.';
+    'Returns top N NBA players by stat category with positional filtering. Position sourced from player_stats; name is served by the meta endpoint.';
 
 CREATE OR REPLACE FUNCTION nba.health()
 RETURNS json AS $$

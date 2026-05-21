@@ -51,6 +51,9 @@ class Player:
 class PlayerStats:
     player_id: int
     team_id: int | None = None
+    # Provider-raw position string. Owned by the stats pipeline — partitions
+    # percentile cohorts. Never touches public.players.
+    position: str | None = None
     player: Player | None = None
     stats: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] | None = None
@@ -71,6 +74,9 @@ class EventBoxScore:
     fixture_id: int
     player_id: int
     team_id: int
+    # Per-game position from the provider's stat embed (raw string).
+    # finalize_fixture aggregates these into player_stats.position.
+    position: str | None = None
     player: Player | None = None
     minutes_played: float | None = None
     stats: dict[str, Any] = field(default_factory=dict)

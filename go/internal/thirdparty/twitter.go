@@ -375,10 +375,10 @@ func (s *TwitterService) linkEntities(ctx context.Context, sport string, tweets 
 	defer rows.Close()
 
 	type entity struct {
-		kind            string
-		id              int
-		name, fn, ln    string
-		aliases         []string
+		kind         string
+		id           int
+		name, fn, ln string
+		aliases      []string
 	}
 	var entities []entity
 	for rows.Next() {

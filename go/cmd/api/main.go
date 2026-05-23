@@ -24,8 +24,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 
 	"github.com/albapepper/scoracle-data/internal/api"
 	"github.com/albapepper/scoracle-data/internal/cache"

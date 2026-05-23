@@ -71,9 +71,9 @@ func TestBestAliasQuery(t *testing.T) {
 		want    string
 	}{
 		{"FC Bayern Munchen", []string{"Bayern Munich", "FC Bayern", "BAY"}, "Bayern Munich"},
-		{"FC Bayern Munchen", []string{"FCB"}, ""},          // too short
-		{"Bayern Munich", []string{"bayern munich"}, ""},     // same as primary
-		{"Arsenal", nil, ""},                                  // no aliases
+		{"FC Bayern Munchen", []string{"FCB"}, ""},       // too short
+		{"Bayern Munich", []string{"bayern munich"}, ""}, // same as primary
+		{"Arsenal", nil, ""}, // no aliases
 		{"Arsenal", []string{"Arsenal FC", "The Gunners"}, "The Gunners"}, // longest wins
 	}
 

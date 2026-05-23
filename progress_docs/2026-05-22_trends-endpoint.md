@@ -91,6 +91,34 @@ survive the lift.
 | Public docs | `ENDPOINTS.md` (Trends section), `README.md` (API Surface) |
 | Wiki | `~/scoracleWiki/wiki/Architecture/API Contracts.md`, `~/scoracleWiki/wiki/Changelog.md` |
 
+## Addendum — vibes block added to the same payload
+
+Same session, follow-up scope. The trends payload now also carries the entity's
+last-7-days of Gemma sentiment scores so the frontend can present "stats trend"
+and "narrative trend" from a single endpoint call.
+
+- **No schema change required.** `vibe_scores` (migration 007) is already
+  `BIGSERIAL PRIMARY KEY` + INSERT-only writes (verified — only `INSERT INTO
+  vibe_scores` exists in `go/internal/ml/vibe.go`, no `UPDATE`). Every score
+  Gemma generates is preserved, so the record-keeping the feature relies on
+  was already in place.
+- **`trendsStatement` gains one CTE.** `vibe_window` filters `vibe_scores` for
+  the entity's last 7 days, excluding legacy `sentiment IS NULL` rows for
+  consistency with the latest-vibe handler. The `json_build_object` gets a
+  `vibes` field with `window_days: 7` and a `snapshots` array of
+  `{sentiment, generated_at, trigger_type}` rows ordered newest first.
+- **Index already covers it.** `idx_vibe_scores_entity_recent` on
+  `(entity_type, entity_id, sport, generated_at DESC)` matches the filter
+  exactly — the 7-day slice is an index-only scan.
+- **Empty case:** `vibes.snapshots: []` means no score in the last 7 days
+  (usually a starter/bench-tier entity not covered by the milestone listener
+  or nightly batch). Frontend should hide the vibes panel rather than render
+  an empty chart.
+
+The data.scoracle / PostgREST forward path is unchanged — the new CTE lifts
+cleanly into the same eventual `get_entity_trends(...)` function alongside the
+existing ones.
+
 ## Verification status
 
 - `gofmt -w .`, `go vet ./...`, `go build ./...`, `go test ./...` all clean.
@@ -109,3 +137,10 @@ survive the lift.
      matches the endpoint's `entity_recent_avgs`.
   3. Repeat for `entity_type=team` and for football's league-scoped variant.
   4. Confirm empty-entity case returns 200 with `games_used:0`, not 404.
+  5. Vibes cross-check: `SELECT sentiment, generated_at, trigger_type FROM
+     vibe_scores WHERE entity_type=<t> AND entity_id=<id> AND sport='<SPORTID>'
+     AND sentiment IS NOT NULL AND generated_at >= NOW() - INTERVAL '7 days'
+     ORDER BY generated_at DESC;` — should match the endpoint's
+     `vibes.snapshots` array element-for-element.
+  6. Vibes empty case: hit trends for an entity that has no recent vibe
+     generations — `vibes.snapshots: []`, still 200.

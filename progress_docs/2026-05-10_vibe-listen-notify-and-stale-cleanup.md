@@ -183,3 +183,32 @@ scripts/hosting/
 ├── cron-vibe.sh                     # docs rewritten
 └── crontab.example                  # 0 0,12 * * * corpus
 ```
+
+## Addendum — 2026-05-23: stale-team rescue in corpus
+
+Debugging "Chelsea (football team 18) has had no vibe for 6 days despite
+35–64 articles/day" surfaced a starvation pattern in corpus mode that the
+new LISTEN/NOTIFY worker compensates for in theory but not always in
+practice. Two follow-ups:
+
+1. **Deployed binary was stale.** The production scoracle-api binary was
+   built 2026-05-10, before the v3 commit, so the news-volume listener
+   never started — the SQL trigger was firing pg_notify into a void. The
+   `scoracle-api.path` unit auto-restarts on bin/ changes, so a rebuild
+   was the entire fix.
+
+2. **`loadTouchedEntities` was starving popular teams.** Corpus mode
+   only queues entities whose `news_article_entities` row was created
+   during the current run (after `runStart`). For a team that gets
+   continuous user-driven `/news/team/{id}` ingestion between cron
+   passes, every Google News URL the noon RSS sweep tries to insert is
+   already in `news_articles`, so the run-window filter returns zero
+   fresh links and the team is dropped. Added a `stale_teams` CTE that
+   UNIONs in teams with any in-lookback article AND no vibe in the last
+   18h. Teams-only (small N, ~30-100/sport); headliner players ride
+   along via cross-entity linking from the original `from_run` set, and
+   real-time player coverage is the news-volume worker's job.
+
+Why 18h: longer than the 12h cron cadence (no clock-drift double-fire
+across consecutive runs) and shorter than the 72h read-layer cap (so
+a stale team gets refreshed before the read filter would 404 it).

@@ -41,24 +41,70 @@ Response includes:
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/trends`
 
-Returns the entity's last-3 event averages alongside the peer-cohort's season averages **plus the entity's last-7-days of Gemma sentiment scores**, so the frontend can show how a player or team is performing recently — on both stats and narrative — relative to the position norm. **Raw values only — no interpretation.** The frontend decides what "trending up" looks like.
+Combines **stats trend + narrative trend** in one read-only payload so a profile page can render "is this entity hot right now" without juggling multiple endpoint calls.
 
-Path parameters:
-- `sport` - `nba`, `nfl`, or `football`
-- `entityType` - `player` or `team`
-- `id` - Entity ID (integer)
+What you get, per request:
+- **Stats trend** — the entity's average per stat over its **last 3 fixtures** alongside the **peer cohort's season averages**. The asymmetry is intentional: the entity carries the recent signal, the cohort carries the stable baseline.
+- **Narrative trend** — the entity's **last 7 days** of Gemma sentiment scores (1–100) from `vibe_scores`, newest first.
 
-Query parameters:
-- `season` (optional integer) - Defaults to the sport's `current_season`
-- `league_id` (optional integer) - Filter to a specific league. For football, when omitted the entity's natural league is used so the cohort doesn't span all leagues.
+**Raw values only.** No "trending up" verdict, no deltas pre-computed. The frontend decides what the gap (or the slope) means visually.
 
-Cohort definition mirrors the percentile pipeline:
-- Players: same sport + same position (+ same league for football), excluding the entity.
-- Teams: same sport (+ same league for football), excluding the entity.
+Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
 
-Empty / new-entity case: returns **200** with `games_used: 0` and empty averages — not 404 (entity existence is the profile endpoint's job).
+#### Path parameters
 
-Response example:
+| Name | Type | Notes |
+|---|---|---|
+| `sport` | string | `nba`, `nfl`, or `football` |
+| `entityType` | string | `player` or `team` |
+| `id` | integer | Entity ID |
+
+#### Query parameters
+
+| Name | Type | Notes |
+|---|---|---|
+| `season` | integer (optional) | Defaults to the sport's `current_season` |
+| `league_id` | integer (optional) | Filter to a specific league. **For football**, when omitted the entity's natural league is used so the cohort doesn't span multiple leagues. NBA/NFL ignore it. |
+
+The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends` is an alias that takes `leagueId` from the path instead of the query string — identical payload.
+
+#### Response fields
+
+| Field | Type | Description |
+|---|---|---|
+| `page` | string | Literal `"trends"` |
+| `sport`, `entity_type`, `entity_id` | echo of inputs | |
+| `window.games_used` | integer | How many events fed `entity_recent_avgs` (0–3) |
+| `window.fixture_ids` | int[] | Fixture IDs of those events, newest first |
+| `window.spans_prior_season` | bool | `true` when the 3-fixture window bridged into the prior season because the current season had fewer than 3 |
+| `entity_recent_avgs` | `{stat: number}` | Per-stat average over those events. Keys come from `event_box_scores.stats` / `event_team_stats.stats`. `{}` if no events. |
+| `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort's full season. Keys come from `player_stats.stats` / `team_stats.stats`. Compare by intersecting keys with `entity_recent_avgs`. |
+| `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
+| `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
+| `vibes.snapshots` | object[] | `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. |
+| `meta.season` | integer | Resolved season used for the peer cohort |
+| `meta.league_id` | integer \| null | The league actually used (after the football fallback); `null` for NBA/NFL |
+| `meta.position` | string \| null | The position used to partition the peer cohort. `null` for `entity_type=team` (teams have no position dimension). |
+
+#### Peer cohort definition
+
+Mirrors the percentile pipeline:
+- **Player** entity → peers are same `sport` + same `position` (+ same `league` for football), excluding the target.
+- **Team** entity → peers are same `sport` (+ same `league` for football), excluding the target.
+
+#### Status codes & empty cases
+
+| Case | Status | Body |
+|---|---|---|
+| Entity exists and has ≥ 1 fixture | 200 | Populated `entity_recent_avgs`, possibly `[]` vibes |
+| Entity exists but no fixtures this season (and no prior-season bridge data) | 200 | `games_used: 0`, `entity_recent_avgs: {}`, `peer_season_avgs` still populated |
+| Entity doesn't exist | 200 | `games_used: 0`, both avgs `{}`, `peer_cohort_size: 0` |
+| Vibe panel empty | 200 | `vibes.snapshots: []` — usually a `starter`/`bench`-tier entity not yet covered by the milestone listener or nightly batch. Frontend should hide the vibes panel rather than render an empty chart. |
+
+Note that entity existence is the **profile endpoint's** job — trends always returns 200. Legacy blurb-only `vibe_scores` rows (`sentiment IS NULL`) are excluded for consistency with the latest-vibe handler.
+
+#### Response example (player)
+
 ```json
 {
   "page": "trends",
@@ -85,18 +131,31 @@ Response example:
 }
 ```
 
-Window semantics:
-- The 3 events are the entity's most recent fixtures, ordered by `fixtures.start_time DESC`.
-- When fewer than 3 events exist in the current season, the window bridges into the prior season; `spans_prior_season: true` flags that case.
-- `peer_cohort_size` tells the frontend when the comparison is thin enough to hide (e.g., < 5 peers).
+#### Response example (team — note `meta.position: null`)
 
-Vibes block:
-- `vibes.snapshots` is the entity's Gemma-generated sentiment scores (1–100) over the last 7 days, newest first. The `vibe_scores` table is append-only (`BIGSERIAL` PK, insert-only writes), so every score Gemma generates is preserved — this endpoint just reads the recent slice. See `/api/v1/{sport}/vibe/{entityType}/{id}/history` for longer retention reads.
-- Empty array (`vibes.snapshots: []`) means the entity hasn't had a score generated in the last 7 days — usually a starter/bench tier entity that the nightly batch and milestone listener haven't covered. Frontend should hide the vibes panel in that case rather than render an empty chart.
-- Legacy blurb-only rows (`sentiment IS NULL`) are excluded for consistency with the latest-vibe endpoint.
-- `trigger_type` (`milestone` / `manual` / `periodic`) lets the frontend differentiate event-driven scores (likely meaningful) from nightly batch scores (baseline coverage).
+```json
+{
+  "page": "trends",
+  "sport": "football",
+  "entity_type": "team",
+  "entity_id": 18,
+  "window": {
+    "games_used": 3,
+    "fixture_ids": [22781, 22769, 22754],
+    "spans_prior_season": false
+  },
+  "entity_recent_avgs": { "shots_total": 14.7, "possession": 58.2, "passes_accurate": 521.3 },
+  "peer_season_avgs":   { "shots_total": 11.9, "possession": 49.5, "passes_accurate": 442.1 },
+  "peer_cohort_size": 19,
+  "vibes": {
+    "window_days": 7,
+    "snapshots": []
+  },
+  "meta": { "season": 2025, "league_id": 8, "position": null }
+}
+```
 
-> **Forward-compatibility:** this endpoint is structured as pure read-only SQL with no derived state stored anywhere. The CTE chain can be lifted into a SQL function and exposed on **data.scoracle** (the planned PostgREST surface) as an RPC the frontend calls directly with user-selected scope (window size, cohort filters).
+> **Forward-compatibility — data.scoracle.** The endpoint is pure read-only SQL with no derived state stored anywhere. The CTE chain in each prepared statement (one per sport, in `go/internal/db/db.go`) lifts directly into a SQL function — `get_entity_trends(sport, entity_type, entity_id, season, league_id, window_size)` — and can be exposed on **data.scoracle** (the planned PostgREST surface) as an RPC the frontend calls directly with user-selected scope. Same query, different transport, no new derivation logic.
 
 ### `GET /api/v1/{sport}/meta`
 
@@ -144,7 +203,9 @@ Query parameters:
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends`
 
-League-scoped variant of the trends endpoint. Mirrors the body of the canonical trends route with `leagueId` taken from the URL path.
+League-scoped alias for the trends endpoint above. `leagueId` is taken from the URL path instead of the `league_id` query parameter; **the response body is identical** to the canonical route. Useful when the calling page already has league context (e.g., a Premier League team profile) and you want to keep that context in the URL.
+
+Example: `GET /api/v1/football/leagues/8/team/18/trends` is equivalent to `GET /api/v1/football/team/18/trends?league_id=8`.
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 

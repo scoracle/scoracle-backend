@@ -14,6 +14,7 @@ import click
 import psycopg
 
 from shared import config as config_mod
+from shared.api_errors import RateLimitExhausted
 from shared.db import check_connectivity, create_pool, get_conn
 from shared.upsert import (
     finalize_fixture,
@@ -514,6 +515,22 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
                             f"Seeded fixture {fixture.id} ({fixture.sport}) "
                             f"box_rows={box_rows} team_rows={team_rows}"
                         )
+                    except RateLimitExhausted as exc:
+                        # Pause the whole run instead of marking fixtures failed.
+                        # seed_attempts stays untouched so the next process run
+                        # picks these up without retry-cap churn.
+                        remaining = len(pending) - processed - failed
+                        click.echo(
+                            f"\n⏸  Rate limit reached on {exc.provider} "
+                            f"({exc.detail or 'no detail'}).\n"
+                            f"   Stopping cleanly to preserve resume state.\n"
+                            f"   Processed this run: {processed} "
+                            f"(box_rows={total_box_rows}, team_rows={total_team_rows})\n"
+                            f"   Remaining pending: {remaining}\n"
+                            f"   Re-run the same command later to resume.",
+                            err=True,
+                        )
+                        sys.exit(2)
                     except Exception as exc:
                         error_msg = str(exc).strip() or exc.__class__.__name__
                         with conn.transaction():

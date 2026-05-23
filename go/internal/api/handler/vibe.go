@@ -65,17 +65,19 @@ func (h *Handler) GetLatestVibe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Skip legacy blurb-only rows (sentiment IS NULL) from the pre-v2 era —
-	// otherwise an older null-scored row gets surfaced and the frontend
-	// shows "Not enough news" when the real story is "no real score yet".
-	// Falling back to 404 lets the frontend render the honest "Training"
-	// state.
+	// Hide legacy rows: pre-v2 blurb-only (sentiment IS NULL), v2 scores
+	// (1-10 scaled-by-10 — always multiples of 10), and anything older than
+	// 72h (corpus runs twice daily; a row that hasn't refreshed in 3 days
+	// signals an offseason / no-news entity, not a current vibe). 404 lets
+	// the frontend render the honest "Training" state.
 	row := h.pool.QueryRow(r.Context(), `
 		SELECT id, entity_type, entity_id, sport, trigger_type, trigger_payload,
 		       sentiment, model_version, prompt_version, generated_at
 		FROM vibe_scores
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND sentiment IS NOT NULL
+		  AND prompt_version <> 'v2'
+		  AND generated_at > NOW() - INTERVAL '72 hours'
 		ORDER BY generated_at DESC
 		LIMIT 1
 	`, entityType, entityID, sport)
@@ -126,14 +128,15 @@ func (h *Handler) GetVibeHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Same legacy-row filter as GetLatestVibe — pre-v2 blurb-only rows
-	// would otherwise pollute the history view.
+	// Same legacy-row filter as GetLatestVibe — pre-v2 blurb-only rows and
+	// v2 multiple-of-10 rows would otherwise pollute the history view.
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT id, entity_type, entity_id, sport, trigger_type, trigger_payload,
 		       sentiment, model_version, prompt_version, generated_at
 		FROM vibe_scores
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND sentiment IS NOT NULL
+		  AND prompt_version <> 'v2'
 		ORDER BY generated_at DESC
 		LIMIT $4
 	`, entityType, entityID, sport, limit)
@@ -205,6 +208,7 @@ func (h *Handler) GetHottestEntities(w http.ResponseWriter, r *http.Request) {
 			WHERE sport = $1
 			  AND ($2::text IS NULL OR entity_type = $2)
 			  AND sentiment IS NOT NULL
+			  AND prompt_version <> 'v2'
 			  AND generated_at > NOW() - INTERVAL '48 hours'
 			ORDER BY entity_type, entity_id, generated_at DESC
 		) latest

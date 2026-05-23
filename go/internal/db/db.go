@@ -284,6 +284,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				WHERE ($1::int IS NULL OR l.id = $1::int)
 			), '[]'::json)
 		)`,
+		// Trends — last-3 entity events vs peer-cohort season averages.
+		// Pure read-only: aggregates event_box_scores / event_team_stats over a
+		// rolling 3-fixture window, and averages peer player_stats / team_stats for
+		// the same season. Structured so the CTE chain can be lifted into a SQL
+		// function for PostgREST (data.scoracle) without reshaping.
+		"nba_trends_page":      trendsStatement("nba", "NBA", false),
+		"nfl_trends_page":      trendsStatement("nfl", "NFL", false),
+		"football_trends_page": trendsStatement("football", "FOOTBALL", true),
+
 		"nba_health_page": `SELECT json_build_object(
 			'page', 'health',
 			'sport', 'nba',
@@ -510,4 +519,162 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		}
 	}
 	return nil
+}
+
+// trendsStatement builds the per-sport trends prepared statement. It returns
+// raw last-3-event averages for the entity (player or team) alongside the
+// matching peer-cohort season averages, plus window metadata. No derived
+// signals — the frontend reads raw values and computes direction itself.
+//
+// sportTag is the lowercase URL sport ("nba", "nfl", "football"); sportID is
+// the uppercase sports.id used in joins. leagueScoped=true (football) resolves
+// the entity's natural league when no league_id is supplied, so the peer
+// cohort stays inside one league instead of spanning all of them.
+func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
+	// Football: when no league_id is supplied, fall back to the entity's own
+	// league_id so the peer cohort isn't a meaningless multi-league mix.
+	// NBA/NFL: league_id is effectively 0 across the dataset; no fallback.
+	effectiveLeague := "req.league_id"
+	if leagueScoped {
+		effectiveLeague = `COALESCE(
+			req.league_id,
+			(SELECT ps.league_id FROM player_stats ps
+			 WHERE req.entity_type = 'player'
+			   AND ps.player_id = req.entity_id
+			   AND ps.sport = '` + sportID + `'
+			   AND ps.season = (SELECT season FROM resolved_season)
+			 ORDER BY ps.updated_at DESC LIMIT 1),
+			(SELECT ts.league_id FROM team_stats ts
+			 WHERE req.entity_type = 'team'
+			   AND ts.team_id = req.entity_id
+			   AND ts.sport = '` + sportID + `'
+			   AND ts.season = (SELECT season FROM resolved_season)
+			 ORDER BY ts.updated_at DESC LIMIT 1)
+		)`
+	}
+
+	return `WITH req AS (
+		SELECT $1::text AS entity_type, $2::int AS entity_id,
+		       $3::int AS season, $4::int AS league_id
+	),
+	resolved_season AS (
+		SELECT COALESCE(
+			(SELECT season FROM req),
+			(SELECT current_season FROM public.sports WHERE id = '` + sportID + `')
+		) AS season
+	),
+	effective_league AS (
+		SELECT ` + effectiveLeague + ` AS league_id FROM req
+	),
+	player_position AS (
+		SELECT ps.position
+		FROM player_stats ps, req, resolved_season rs, effective_league el
+		WHERE req.entity_type = 'player'
+		  AND ps.player_id = req.entity_id
+		  AND ps.sport = '` + sportID + `'
+		  AND ps.season = rs.season
+		  AND (el.league_id IS NULL OR ps.league_id = el.league_id)
+		ORDER BY ps.updated_at DESC
+		LIMIT 1
+	),
+	player_events AS (
+		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season
+		FROM event_box_scores e
+		JOIN fixtures f ON f.id = e.fixture_id
+		CROSS JOIN req
+		CROSS JOIN resolved_season rs
+		CROSS JOIN effective_league el
+		WHERE req.entity_type = 'player'
+		  AND e.player_id = req.entity_id
+		  AND e.sport = '` + sportID + `'
+		  AND f.season IN (rs.season, rs.season - 1)
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+		ORDER BY f.start_time DESC
+		LIMIT 3
+	),
+	team_events AS (
+		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season
+		FROM event_team_stats e
+		JOIN fixtures f ON f.id = e.fixture_id
+		CROSS JOIN req
+		CROSS JOIN resolved_season rs
+		CROSS JOIN effective_league el
+		WHERE req.entity_type = 'team'
+		  AND e.team_id = req.entity_id
+		  AND e.sport = '` + sportID + `'
+		  AND f.season IN (rs.season, rs.season - 1)
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+		ORDER BY f.start_time DESC
+		LIMIT 3
+	),
+	entity_events AS (
+		SELECT fixture_id, stats, start_time, event_season FROM player_events
+		UNION ALL
+		SELECT fixture_id, stats, start_time, event_season FROM team_events
+	),
+	entity_recent_avgs AS (
+		SELECT COALESCE(jsonb_object_agg(key, avg_val), '{}'::jsonb) AS avgs
+		FROM (
+			SELECT kv.key, AVG((kv.value)::numeric) AS avg_val
+			FROM entity_events e, LATERAL jsonb_each(e.stats) kv
+			WHERE jsonb_typeof(kv.value) = 'number'
+			GROUP BY kv.key
+		) s
+	),
+	player_peer_cohort AS (
+		SELECT ps.stats
+		FROM player_stats ps, req, resolved_season rs, effective_league el, player_position pp
+		WHERE req.entity_type = 'player'
+		  AND ps.sport = '` + sportID + `'
+		  AND ps.season = rs.season
+		  AND ps.position = pp.position
+		  AND ps.player_id <> req.entity_id
+		  AND (el.league_id IS NULL OR ps.league_id = el.league_id)
+	),
+	team_peer_cohort AS (
+		SELECT ts.stats
+		FROM team_stats ts, req, resolved_season rs, effective_league el
+		WHERE req.entity_type = 'team'
+		  AND ts.sport = '` + sportID + `'
+		  AND ts.season = rs.season
+		  AND ts.team_id <> req.entity_id
+		  AND (el.league_id IS NULL OR ts.league_id = el.league_id)
+	),
+	peer_cohort AS (
+		SELECT stats FROM player_peer_cohort
+		UNION ALL
+		SELECT stats FROM team_peer_cohort
+	),
+	peer_aggregate AS (
+		SELECT
+			COALESCE((SELECT jsonb_object_agg(key, avg_val) FROM (
+				SELECT kv.key, AVG((kv.value)::numeric) AS avg_val
+				FROM peer_cohort pc, LATERAL jsonb_each(pc.stats) kv
+				WHERE jsonb_typeof(kv.value) = 'number'
+				GROUP BY kv.key
+			) t), '{}'::jsonb) AS avgs,
+			(SELECT COUNT(*) FROM peer_cohort) AS cohort_size
+	)
+	SELECT json_build_object(
+		'page', 'trends',
+		'sport', '` + sportTag + `',
+		'entity_type', req.entity_type,
+		'entity_id', req.entity_id,
+		'window', json_build_object(
+			'games_used',         (SELECT COUNT(*) FROM entity_events),
+			'fixture_ids',        COALESCE((SELECT json_agg(fixture_id ORDER BY start_time DESC) FROM entity_events), '[]'::json),
+			'spans_prior_season', EXISTS (
+				SELECT 1 FROM entity_events e, resolved_season rs WHERE e.event_season <> rs.season
+			)
+		),
+		'entity_recent_avgs', (SELECT avgs FROM entity_recent_avgs),
+		'peer_season_avgs',   (SELECT avgs FROM peer_aggregate),
+		'peer_cohort_size',   (SELECT cohort_size FROM peer_aggregate),
+		'meta', json_build_object(
+			'season',    (SELECT season FROM resolved_season),
+			'league_id', NULLIF((SELECT league_id FROM effective_league), 0),
+			'position',  (SELECT position FROM player_position)
+		)
+	)
+	FROM req`
 }

@@ -41,7 +41,7 @@ Response includes:
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/trends`
 
-Returns the entity's last-3 event averages alongside the peer-cohort's season averages, so the frontend can show how a player or team is performing recently relative to the position norm. **Raw values only — no interpretation.** The frontend decides what "trending up" looks like.
+Returns the entity's last-3 event averages alongside the peer-cohort's season averages **plus the entity's last-7-days of Gemma sentiment scores**, so the frontend can show how a player or team is performing recently — on both stats and narrative — relative to the position norm. **Raw values only — no interpretation.** The frontend decides what "trending up" looks like.
 
 Path parameters:
 - `sport` - `nba`, `nfl`, or `football`
@@ -73,6 +73,14 @@ Response example:
   "entity_recent_avgs": { "pts": 28.3, "reb": 8.1, "ast": 6.4 },
   "peer_season_avgs":   { "pts": 19.1, "reb": 5.4, "ast": 4.0 },
   "peer_cohort_size": 87,
+  "vibes": {
+    "window_days": 7,
+    "snapshots": [
+      { "sentiment": 78, "generated_at": "2026-05-22T11:00:14Z", "trigger_type": "milestone" },
+      { "sentiment": 74, "generated_at": "2026-05-21T03:01:02Z", "trigger_type": "periodic" },
+      { "sentiment": 71, "generated_at": "2026-05-20T03:00:55Z", "trigger_type": "periodic" }
+    ]
+  },
   "meta": { "season": 2025, "league_id": null, "position": "PG" }
 }
 ```
@@ -81,6 +89,12 @@ Window semantics:
 - The 3 events are the entity's most recent fixtures, ordered by `fixtures.start_time DESC`.
 - When fewer than 3 events exist in the current season, the window bridges into the prior season; `spans_prior_season: true` flags that case.
 - `peer_cohort_size` tells the frontend when the comparison is thin enough to hide (e.g., < 5 peers).
+
+Vibes block:
+- `vibes.snapshots` is the entity's Gemma-generated sentiment scores (1–100) over the last 7 days, newest first. The `vibe_scores` table is append-only (`BIGSERIAL` PK, insert-only writes), so every score Gemma generates is preserved — this endpoint just reads the recent slice. See `/api/v1/{sport}/vibe/{entityType}/{id}/history` for longer retention reads.
+- Empty array (`vibes.snapshots: []`) means the entity hasn't had a score generated in the last 7 days — usually a starter/bench tier entity that the nightly batch and milestone listener haven't covered. Frontend should hide the vibes panel in that case rather than render an empty chart.
+- Legacy blurb-only rows (`sentiment IS NULL`) are excluded for consistency with the latest-vibe endpoint.
+- `trigger_type` (`milestone` / `manual` / `periodic`) lets the frontend differentiate event-driven scores (likely meaningful) from nightly batch scores (baseline coverage).
 
 > **Forward-compatibility:** this endpoint is structured as pure read-only SQL with no derived state stored anywhere. The CTE chain can be lifted into a SQL function and exposed on **data.scoracle** (the planned PostgREST surface) as an RPC the frontend calls directly with user-selected scope (window size, cohort filters).
 

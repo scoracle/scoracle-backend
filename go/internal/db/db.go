@@ -654,6 +654,20 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 				GROUP BY kv.key
 			) t), '{}'::jsonb) AS avgs,
 			(SELECT COUNT(*) FROM peer_cohort) AS cohort_size
+	),
+	vibe_window AS (
+		-- Last 7 days of Gemma sentiment scores (1-100) for this entity.
+		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes), so
+		-- this is a faithful history snapshot. Legacy blurb-only rows have
+		-- sentiment IS NULL — exclude them for consistency with the latest-vibe
+		-- handler. Uppercase sport literal matches vibe_scores.sport.
+		SELECT vs.sentiment, vs.generated_at, vs.trigger_type
+		FROM vibe_scores vs, req
+		WHERE vs.entity_type = req.entity_type
+		  AND vs.entity_id = req.entity_id
+		  AND vs.sport = '` + sportID + `'
+		  AND vs.sentiment IS NOT NULL
+		  AND vs.generated_at >= NOW() - INTERVAL '7 days'
 	)
 	SELECT json_build_object(
 		'page', 'trends',
@@ -670,6 +684,17 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		'entity_recent_avgs', (SELECT avgs FROM entity_recent_avgs),
 		'peer_season_avgs',   (SELECT avgs FROM peer_aggregate),
 		'peer_cohort_size',   (SELECT cohort_size FROM peer_aggregate),
+		'vibes', json_build_object(
+			'window_days', 7,
+			'snapshots', COALESCE((
+				SELECT json_agg(json_build_object(
+					'sentiment',    sentiment,
+					'generated_at', generated_at,
+					'trigger_type', trigger_type
+				) ORDER BY generated_at DESC)
+				FROM vibe_window
+			), '[]'::json)
+		),
 		'meta', json_build_object(
 			'season',    (SELECT season FROM resolved_season),
 			'league_id', NULLIF((SELECT league_id FROM effective_league), 0),

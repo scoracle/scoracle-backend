@@ -24,21 +24,75 @@ Supported entity type values:
 
 Returns the canonical profile payload for a sport entity (player or team).
 
-Path parameters:
-- `sport` - Sport identifier (`nba`, `nfl`, `football`)
-- `entityType` - Entity type (`player` or `team`)
-- `id` - Entity ID (integer)
+Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
 
-Query parameters:
-- `season` (optional integer) - Filter by season year
-- `league_id` (optional integer) - Filter by league
+#### Path parameters
 
-Response includes:
-- Entity profile (name, position, team, etc.)
-- Aggregated season stats
-- Percentile rankings
-- Metadata (sample size, position group)
-- `meta.available_seasons` — list of seasons this entity has data for (within the requested league scope, if any), newest first. Use it to populate a season selector that only ever lists real options.
+| Name | Type | Notes |
+|---|---|---|
+| `sport` | string | `nba`, `nfl`, or `football` |
+| `entityType` | string | `player` or `team` |
+| `id` | integer | Entity ID |
+
+#### Query parameters
+
+| Name | Type | Notes |
+|---|---|---|
+| `season` | integer (optional) | Filter to a specific season year (e.g. `2024`). When omitted, the most recent season the entity has data for is returned. |
+| `league_id` | integer (optional) | Filter by league. For football, scopes the response (and `available_seasons`) to that league. NBA/NFL are single-league and ignore it. |
+
+#### Response shape
+
+Top-level keys:
+
+| Field | Type | Description |
+|---|---|---|
+| `page` | string | Literal `"profile"` |
+| `sport` | string | Echo of the path param |
+| `entity_type` | string | Echo (`"player"` or `"team"`) |
+| `entity` | object | Entity profile: identifiers, names, position, team/league context, and a `stats` JSONB with all aggregated season stats keyed by canonical stat name. |
+| `percentiles` | `{stat: number}` | Sport-wide percentiles, partitioned by position (player) or none (team). Keys mirror `entity.stats`. |
+| `percentile_metadata` | object | `{position_group, sample_size}` for players; `{sample_size}` for teams. |
+| `scoped_percentiles` | `{stat: number}` | Narrower-cohort percentiles — partitioned by `(position, conference)` for NBA/NFL, `(position, league)` for Football. Same shape as `percentiles`. |
+| `scoped_percentile_metadata` | object | Adds `scope_type` (`"conference"` / `"league"`), `scope_id`, `scope_name` on top of the base metadata. |
+| `stat_definitions` | object[] | Sport's full stat catalog (key_name, display_name, category, is_inverse, is_derived, is_percentile_eligible, sort_order). |
+| `meta` | object | Resolved scope + season selector data — see below. |
+| `league_context` | object \| null | Football only: `{id, name, country, logo_url, is_benchmark, is_active}` of the league in scope. `null` for NBA/NFL or unscoped football. |
+
+`meta` object:
+
+| Field | Type | Description |
+|---|---|---|
+| `meta.season` | integer | The season this response is for. Echoes `?season=` if provided, else the entity's most recent season. The frontend should treat this as the "selected" value of its season picker. |
+| `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
+| `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
+
+#### Season selection (`meta.available_seasons`)
+
+The profile payload tells the frontend exactly which seasons it can ask for, so a season selector renders with **no dead options**.
+
+**Semantics:**
+
+- It's the list of distinct `season` values in `player_stats` (for `entity_type=player`) or `team_stats` (for `entity_type=team`) where the row matches the requested `sport` and `entity_id`.
+- When the request is **league-scoped** (`/leagues/{leagueId}/...` or `?league_id=N`), the list is filtered to seasons the entity appeared in **that league**. A footballer who played in the Bundesliga in 2023 and the Premier League in 2024 returns `[2024]` for `?league_id=8` (Premier League) and `[2023]` for `?league_id=82` (Bundesliga).
+- When the request is **unscoped**, the list spans every league. For NBA/NFL (single league) this is just every season the entity has stats for.
+- Sorted **newest first**. Always an array — never `null`. Empty `[]` when the entity exists in `players`/`teams` but has no `*_stats` rows in scope (rare; profile would typically 404 first).
+- Each integer in the list is a valid value for the `?season=` query parameter — passing it back is guaranteed to return populated stats for this entity, within the same league scope.
+
+**Frontend usage pattern:**
+
+```ts
+// On profile load
+const res = await fetch(`/api/v1/${sport}/${entityType}/${id}?season=${selected ?? ''}`);
+const { meta, entity, stats, percentiles } = await res.json();
+
+// Render dropdown from meta.available_seasons; mark meta.season as current.
+// On change:
+const next = await fetch(`/api/v1/${sport}/${entityType}/${id}?season=${newSeason}`);
+// → returns the same shape, with meta.season === newSeason.
+```
+
+**Cross-entity navigation:** if the user picked 2023 on entity A and navigates to entity B which doesn't have 2023 (`available_seasons` lacks it), fall back to entity B's newest. Keep the user-preferred season in URL/state and reconcile per-page.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/trends`
 
@@ -192,7 +246,7 @@ League-scoped routes are required for football (which has multiple leagues) and 
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
 
-Returns profile payload scoped to a specific league.
+Returns profile payload scoped to a specific league. Body shape is identical to the canonical route — `meta.league_id` reflects the path param, and `meta.available_seasons` is filtered to seasons the entity appeared in **this league** (so a multi-league football player gets a different list per league-scoped URL).
 
 Path parameters:
 - `leagueId` - League identifier (e.g., 8 for Premier League)
@@ -442,7 +496,12 @@ Response:
     "scope_name": "West",
     "sample_size": 15
   },
-  "stat_definitions": [...]
+  "stat_definitions": [...],
+  "meta": {
+    "season": 2025,
+    "league_id": null,
+    "available_seasons": [2025, 2024, 2023]
+  }
 }
 ```
 

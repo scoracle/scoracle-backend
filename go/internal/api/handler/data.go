@@ -116,6 +116,94 @@ func (h *Handler) GetLeagueProfilePage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, entityType, id, season, leagueID)
 }
 
+// GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
+// @Summary Get trends page
+// @Description Returns the entity's last-3 event averages and peer-cohort season averages so the frontend can derive recent direction relative to peers. Raw values only.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/trends [get]
+func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_trends_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType, id, season, leagueID)
+}
+
+// GetLeagueTrendsPage returns league-scoped last-3 entity event averages vs peer-cohort season averages.
+// @Summary Get league trends page
+// @Description League-scoped trends payload. Mirrors GetTrendsPage with leagueId taken from the URL path.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param leagueId path int true "League ID"
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leagues/{leagueId}/{entityType}/{id}/trends [get]
+func (h *Handler) GetLeagueTrendsPage(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	leagueID, ok := parsePathID(w, r, "leagueId", "league id")
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_trends_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType, id, season, leagueID)
+}
+
 // GetMetaPage returns the canonical metadata payload used for frontend local DB hydration.
 // @Summary Get meta page
 // @Description Returns complete metadata and search payload for a sport.

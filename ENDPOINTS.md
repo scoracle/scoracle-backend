@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-04-20
+> Last updated: 2026-05-22
 
 Single public API base URL:
 
@@ -38,6 +38,51 @@ Response includes:
 - Aggregated season stats
 - Percentile rankings
 - Metadata (sample size, position group)
+
+### `GET /api/v1/{sport}/{entityType}/{id}/trends`
+
+Returns the entity's last-3 event averages alongside the peer-cohort's season averages, so the frontend can show how a player or team is performing recently relative to the position norm. **Raw values only — no interpretation.** The frontend decides what "trending up" looks like.
+
+Path parameters:
+- `sport` - `nba`, `nfl`, or `football`
+- `entityType` - `player` or `team`
+- `id` - Entity ID (integer)
+
+Query parameters:
+- `season` (optional integer) - Defaults to the sport's `current_season`
+- `league_id` (optional integer) - Filter to a specific league. For football, when omitted the entity's natural league is used so the cohort doesn't span all leagues.
+
+Cohort definition mirrors the percentile pipeline:
+- Players: same sport + same position (+ same league for football), excluding the entity.
+- Teams: same sport (+ same league for football), excluding the entity.
+
+Empty / new-entity case: returns **200** with `games_used: 0` and empty averages — not 404 (entity existence is the profile endpoint's job).
+
+Response example:
+```json
+{
+  "page": "trends",
+  "sport": "nba",
+  "entity_type": "player",
+  "entity_id": 123,
+  "window": {
+    "games_used": 3,
+    "fixture_ids": [9912, 9905, 9897],
+    "spans_prior_season": false
+  },
+  "entity_recent_avgs": { "pts": 28.3, "reb": 8.1, "ast": 6.4 },
+  "peer_season_avgs":   { "pts": 19.1, "reb": 5.4, "ast": 4.0 },
+  "peer_cohort_size": 87,
+  "meta": { "season": 2025, "league_id": null, "position": "PG" }
+}
+```
+
+Window semantics:
+- The 3 events are the entity's most recent fixtures, ordered by `fixtures.start_time DESC`.
+- When fewer than 3 events exist in the current season, the window bridges into the prior season; `spans_prior_season: true` flags that case.
+- `peer_cohort_size` tells the frontend when the comparison is thin enough to hide (e.g., < 5 peers).
+
+> **Forward-compatibility:** this endpoint is structured as pure read-only SQL with no derived state stored anywhere. The CTE chain can be lifted into a SQL function and exposed on **data.scoracle** (the planned PostgREST surface) as an RPC the frontend calls directly with user-selected scope (window size, cohort filters).
 
 ### `GET /api/v1/{sport}/meta`
 
@@ -82,6 +127,10 @@ Path parameters:
 
 Query parameters:
 - `season` (optional integer)
+
+### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends`
+
+League-scoped variant of the trends endpoint. Mirrors the body of the canonical trends route with `leagueId` taken from the URL path.
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 

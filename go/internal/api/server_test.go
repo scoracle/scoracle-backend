@@ -27,6 +27,9 @@ func TestRouteOwnershipSplit(t *testing.T) {
 		{name: "league profile route registered", path: "/api/v1/football/leagues/8/player/1", wantStatus: http.StatusServiceUnavailable},
 		{name: "league meta route registered", path: "/api/v1/football/leagues/8/meta", wantStatus: http.StatusServiceUnavailable},
 		{name: "league health route registered", path: "/api/v1/football/leagues/8/health", wantStatus: http.StatusServiceUnavailable},
+		{name: "canonical trends route registered", path: "/api/v1/nba/player/1/trends", wantStatus: http.StatusServiceUnavailable},
+		{name: "canonical team trends route registered", path: "/api/v1/nba/team/1/trends", wantStatus: http.StatusServiceUnavailable},
+		{name: "league trends route registered", path: "/api/v1/football/leagues/8/player/1/trends", wantStatus: http.StatusServiceUnavailable},
 	}
 
 	for _, tt := range tests {

@@ -5,7 +5,7 @@ Backend data pipeline and unified API for the Scoracle sports platform.
 ## Architecture — Two Components, One Database
 
 ```
-Frontend (Astro)
+Frontend (Solid)
     └── Curated sport pages + integrations ──► Go API (:8000)
                                               │
                                    Connects to PostgreSQL

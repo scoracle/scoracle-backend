@@ -305,12 +305,23 @@ func loadTeams(pool *pgxpool.Pool, sport string) ([]corpusTeam, error) {
 	return out, nil
 }
 
-// loadTouchedEntities returns the deduped set of entities whose
-// news_article_entities row was created at-or-after `since` AND whose
-// linked article was published within the same window Generate uses to
-// assemble corpus (ml.NewsLookback). The two filters together guarantee
-// every queued entity will have non-empty corpus inside Generate, so the
-// corpus run never writes null-sentiment markers.
+// loadTouchedEntities returns the deduped set of entities to score this run.
+// Two sources are unioned:
+//
+//  1. from_run — entities with a news_article_entities row created at-or-after
+//     `since` whose linked article was published within ml.NewsLookback. The
+//     two filters together guarantee non-empty corpus inside Generate, so the
+//     corpus run never writes null-sentiment markers from this branch.
+//
+//  2. stale_teams — popular teams whose ML.NewsLookback corpus has any fresh
+//     article AND who haven't been scored in 18h. This rescues teams that get
+//     starved by from_run because users continuously hit /news/team/{id}
+//     between cron passes: by the time the noon RSS sweep runs, every Google
+//     News URL it tries to ingest is already in news_articles from a user
+//     fetch, so no new link rows appear in the run-start window and the team
+//     drops out. Teams-only keeps the rescue scope small (~30-100/sport);
+//     headliner players ride along via cross-entity linking in from_run, and
+//     real-time players get caught by the news-volume LISTEN/NOTIFY worker.
 //
 // An entity with only fresh links pointing to stale articles (e.g. RSS
 // just discovered a 3-week-old article that mentions player X) is dropped
@@ -322,14 +333,37 @@ func loadTouchedEntities(pool *pgxpool.Pool, since time.Time, sports []string) (
 	defer cancel()
 	lookbackSecs := int(ml.NewsLookback.Seconds())
 	rows, err := pool.Query(ctx, `
-		SELECT nae.entity_type, nae.entity_id, nae.sport
-		FROM news_article_entities nae
-		JOIN news_articles a ON a.id = nae.article_id
-		WHERE nae.created_at >= $1
-		  AND nae.sport = ANY($2::text[])
-		  AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
-		GROUP BY nae.entity_type, nae.entity_id, nae.sport
-		ORDER BY nae.sport, nae.entity_type, nae.entity_id
+		WITH from_run AS (
+			SELECT nae.entity_type, nae.entity_id, nae.sport
+			FROM news_article_entities nae
+			JOIN news_articles a ON a.id = nae.article_id
+			WHERE nae.created_at >= $1
+			  AND nae.sport = ANY($2::text[])
+			  AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
+			GROUP BY nae.entity_type, nae.entity_id, nae.sport
+		),
+		stale_teams AS (
+			SELECT 'team'::text AS entity_type, t.id AS entity_id, t.sport
+			FROM teams t
+			WHERE t.sport = ANY($2::text[])
+			  AND EXISTS (
+				  SELECT 1
+				  FROM news_article_entities nae
+				  JOIN news_articles a ON a.id = nae.article_id
+				  WHERE nae.entity_type = 'team' AND nae.entity_id = t.id AND nae.sport = t.sport
+					AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
+				  LIMIT 1
+			  )
+			  AND NOT EXISTS (
+				  SELECT 1 FROM vibe_scores v
+				  WHERE v.entity_type = 'team' AND v.entity_id = t.id AND v.sport = t.sport
+					AND v.generated_at > NOW() - INTERVAL '18 hours'
+			  )
+		)
+		SELECT entity_type, entity_id, sport FROM from_run
+		UNION
+		SELECT entity_type, entity_id, sport FROM stale_teams
+		ORDER BY 3, 1, 2
 	`, since, sports, fmt.Sprintf("%d", lookbackSecs))
 	if err != nil {
 		return nil, err

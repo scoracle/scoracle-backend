@@ -15,6 +15,7 @@ from typing import Any, Generator
 
 import httpx
 
+from .api_errors import RateLimitExhausted
 from .http_retry import with_network_retry
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class SportMonksClient:
 
             if resp.status_code == 429:
                 if attempt == max_retries:
-                    resp.raise_for_status()
+                    raise RateLimitExhausted("sportmonks", f"path={path}")
                 logger.warning(
                     "Rate limited (429), backing off %.1fs (attempt %d/%d)",
                     backoff,
@@ -75,7 +76,7 @@ class SportMonksClient:
             return resp.json()
 
         # Should not reach here
-        raise RuntimeError(f"SportMonks {path}: exhausted retries")
+        raise RateLimitExhausted("sportmonks", f"path={path}: exhausted retries")
 
     def get_paginated(
         self, path: str, params: dict[str, Any] | None = None, per_page: int = 50

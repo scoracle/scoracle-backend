@@ -13,6 +13,7 @@ from typing import Any, Generator
 
 import httpx
 
+from .api_errors import RateLimitExhausted
 from .http_retry import with_network_retry
 
 logger = logging.getLogger(__name__)
@@ -41,13 +42,19 @@ class BDLClient:
         self._last_request = time.monotonic()
 
     def get(self, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Perform a rate-limited GET request. Returns parsed JSON."""
+        """Perform a rate-limited GET request. Returns parsed JSON.
+
+        Raises RateLimitExhausted on a 429 so the caller can pause the run
+        cleanly instead of churning per-fixture failures.
+        """
         self._wait_rate_limit()
         url = self._base_url + path
         resp = with_network_retry(
             lambda: self._client.get(url, params=params or {}),
             logger=logger,
         )
+        if resp.status_code == 429:
+            raise RateLimitExhausted("balldontlie", f"path={path}")
         resp.raise_for_status()
         return resp.json()
 

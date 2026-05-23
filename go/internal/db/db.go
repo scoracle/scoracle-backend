@@ -83,6 +83,24 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				ORDER BY t.season DESC NULLS LAST
 				LIMIT 1
 			) team_entity
+		),
+		entity_seasons AS (
+			SELECT COALESCE(array_agg(season ORDER BY season DESC), ARRAY[]::int[]) AS seasons
+			FROM (
+				SELECT DISTINCT ps.season
+				FROM public.player_stats ps, req
+				WHERE req.entity_type = 'player'
+				  AND ps.sport = 'NBA'
+				  AND ps.player_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+				UNION
+				SELECT DISTINCT ts.season
+				FROM public.team_stats ts, req
+				WHERE req.entity_type = 'team'
+				  AND ts.sport = 'NBA'
+				  AND ts.team_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+			) s
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -95,7 +113,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json),
 			'meta', json_build_object(
 				'season', se.season,
-				'league_id', NULLIF(se.league_id, 0)
+				'league_id', NULLIF(se.league_id, 0),
+				'available_seasons', (SELECT seasons FROM entity_seasons)
 			),
 			'league_context', NULL
 		)
@@ -126,6 +145,24 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				ORDER BY t.season DESC NULLS LAST
 				LIMIT 1
 			) team_entity
+		),
+		entity_seasons AS (
+			SELECT COALESCE(array_agg(season ORDER BY season DESC), ARRAY[]::int[]) AS seasons
+			FROM (
+				SELECT DISTINCT ps.season
+				FROM public.player_stats ps, req
+				WHERE req.entity_type = 'player'
+				  AND ps.sport = 'NFL'
+				  AND ps.player_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+				UNION
+				SELECT DISTINCT ts.season
+				FROM public.team_stats ts, req
+				WHERE req.entity_type = 'team'
+				  AND ts.sport = 'NFL'
+				  AND ts.team_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+			) s
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -138,7 +175,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json),
 			'meta', json_build_object(
 				'season', se.season,
-				'league_id', NULLIF(se.league_id, 0)
+				'league_id', NULLIF(se.league_id, 0),
+				'available_seasons', (SELECT seasons FROM entity_seasons)
 			),
 			'league_context', NULL
 		)
@@ -169,6 +207,24 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				ORDER BY t.season DESC NULLS LAST
 				LIMIT 1
 			) team_entity
+		),
+		entity_seasons AS (
+			SELECT COALESCE(array_agg(season ORDER BY season DESC), ARRAY[]::int[]) AS seasons
+			FROM (
+				SELECT DISTINCT ps.season
+				FROM public.player_stats ps, req
+				WHERE req.entity_type = 'player'
+				  AND ps.sport = 'FOOTBALL'
+				  AND ps.player_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+				UNION
+				SELECT DISTINCT ts.season
+				FROM public.team_stats ts, req
+				WHERE req.entity_type = 'team'
+				  AND ts.sport = 'FOOTBALL'
+				  AND ts.team_id = req.entity_id
+				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+			) s
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -181,7 +237,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			), '[]'::json),
 			'meta', json_build_object(
 				'season', se.season,
-				'league_id', NULLIF(se.league_id, 0)
+				'league_id', NULLIF(se.league_id, 0),
+				'available_seasons', (SELECT seasons FROM entity_seasons)
 			),
 			'league_context', CASE
 				WHEN se.league_id > 0 THEN (

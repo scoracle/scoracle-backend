@@ -38,6 +38,7 @@ Response includes:
 - Aggregated season stats
 - Percentile rankings
 - Metadata (sample size, position group)
+- `meta.available_seasons` — list of seasons this entity has data for (within the requested league scope, if any), newest first. Use it to populate a season selector that only ever lists real options.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/trends`
 
@@ -394,7 +395,8 @@ Response:
   },
   "meta": {
     "season": 2025,
-    "league_id": null
+    "league_id": null,
+    "available_seasons": [2025, 2024, 2023]
   }
 }
 ```

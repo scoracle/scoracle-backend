@@ -1071,18 +1071,29 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		  AND vs.sentiment IS NOT NULL
 		  AND vs.generated_at >= NOW() - INTERVAL '7 days'
 	),
-	-- Season vibe series: daily-bucketed sentiment averages from the entity's
-	-- oldest scored event in the season through NOW(). Drives the frontend's
-	-- season-length vibe sparkline that mirrors entity_event_scores.
-	-- Sibling to vibe_window (which is the recent 7-day raw snapshot list);
-	-- the two answer different questions and both stay.
+	-- Season vibe series: daily-bucketed sentiment averages from the start
+	-- of the current sport+league season through NOW(). Drives the frontend's
+	-- season-length vibe sparkline. Sibling to vibe_window (recent 7-day raw
+	-- snapshot list); the two answer different questions and both stay.
 	vibe_season_anchor AS (
-		-- Oldest scored event in the current season anchors the series start.
-		-- If the entity has no scored events in scope, NULL → series will be
-		-- empty (frontend hides the Vibes sparkline same as the Rating one).
-		SELECT MIN(start_time) AS season_start
-		FROM entity_season_events
-		WHERE composite_score IS NOT NULL
+		-- Anchor = first kickoff of the most-recently-started season in this
+		-- sport+league scope. Per-sport (not per-entity) so two entities in
+		-- the same scope share a date axis — frontend can compare them on
+		-- aligned sparklines. During the offseason the anchor stays pinned
+		-- to the most recent started season's start, so vibes carry through
+		-- gap periods (trade rumors, draft news, off-day sentiment); once
+		-- the next season's first fixture kicks off, the anchor moves
+		-- forward.
+		SELECT MIN(f.start_time) AS season_start
+		FROM fixtures f, effective_league el
+		WHERE f.sport = '` + sportID + `'
+		  AND f.season = (
+		      SELECT MAX(season) FROM fixtures
+		      WHERE sport = '` + sportID + `'
+		        AND start_time <= NOW()
+		  )
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+		  AND f.start_time <= NOW()
 	),
 	vibe_season_series AS (
 		-- One row per UTC day with >=1 non-null sentiment snapshot in [anchor, NOW].

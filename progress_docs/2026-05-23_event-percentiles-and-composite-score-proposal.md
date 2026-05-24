@@ -620,7 +620,54 @@ loop — resolved by running the per-season backfill via a small bash
 retry wrapper. Worth noting for any future bulk-recompute that
 contends with active writes.
 
-### Deferred (still open): football player per-90 inflation breaks the leaderboard
+### Resolved 2026-05-24: per-90 dropped from event composite (migration 019)
+
+The football player per-90 inflation issue documented below is fixed.
+The chosen path: **drop per-90 normalization at event ranking
+entirely; rank raw cumulative values like NBA/NFL do.** Per-90 stays
+where it belongs at the season-rolled `player_stats.stats` level
+(`goals_per_90` etc.), which has the sample size to be statistically
+defensible. The per-event composite now answers "how much did you
+deliver in THIS game" instead of conflating it with "what would you
+have delivered at 90-min pace."
+
+Post-migration verification:
+
+```
+Minute-band distribution (football Attacker events) — now correctly monotonic:
+  < 15 min : 25.0  (was 75.2)
+  15-30 min: 33.4  (was 65.0)
+  30-60 min: 46.3  (was 51.3)
+  60-80 min: 58.6  (was 40.0)
+  80+ min  : 69.3  (was 32.8)
+
+Top-attacker season composites:
+  Harry Kane  : 73.9  (was 53.3)
+  João Pedro  : 59.9  (was 33.3)
+
+Real-name top of Attacker leaderboard:
+  Georges Mikautadze 89.5  (33 events, 63 min avg)
+  Alex Iwobi         85.9  (28 events, 84 min avg)
+  Michael Olise      85.7  (32 events, 70 min avg)
+```
+
+Migration 019 also added a stale-composite reset at the start of
+`recalculate_event_percentiles` — events that lose their ranked data
+between runs (re-seeded fixtures, etc.) now have their composite
+cleared rather than keeping the previous value indefinitely.
+
+The single-stat-outlier case (e.g. an Attacker event with only
+`goals_conceded: 1`, an inverse stat, percentile-ranked to 100) is
+now MORE visible at the very top of leaderboards because the per-90
+inflation that previously crowded out true starters is gone. This is
+the few-ranked-stats deferred case in its purest form; the proper
+fix (Bayesian shrinkage by participating-stat count, or
+`stats_contributed` metadata for frontend-side disclaiming) is more
+warranted than ever. Real players consistently appear from rank 8-10
+onward; first 5-7 ranks of the Football Attacker leaderboard are
+still dominated by 1-event 0-1-minute appearances.
+
+### Original report (now resolved): football player per-90 inflation breaks the leaderboard
 
 Confirmed 2026-05-24 with two top attackers (Harry Kane #997 at 53.3,
 João Pedro #28931574 at 33.3). Both are 76-min-average starters who

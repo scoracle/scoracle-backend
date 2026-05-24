@@ -104,10 +104,12 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// Canonical sport routes (vNext)
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
+			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/meta", h.GetMetaPage)
 			r.Get("/health", h.GetSportHealthPage)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}", h.GetLeagueProfilePage)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/trends", h.GetLeagueTrendsPage)
+			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)
 			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)
 			r.Get("/leagues/{leagueId}/health", h.GetLeagueHealthPage)
 

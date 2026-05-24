@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-23
+> Last updated: 2026-05-23 (trends comparability filter + cumulative-total normalization)
 
 Single public API base URL:
 
@@ -55,7 +55,7 @@ Top-level keys:
 | `percentile_metadata` | object | `{position_group, sample_size}` for players; `{sample_size}` for teams. |
 | `scoped_percentiles` | `{stat: number}` | Narrower-cohort percentiles — partitioned by `(position, conference)` for NBA/NFL, `(position, league)` for Football. Same shape as `percentiles`. |
 | `scoped_percentile_metadata` | object | Adds `scope_type` (`"conference"` / `"league"`), `scope_id`, `scope_name` on top of the base metadata. |
-| `stat_definitions` | object[] | Sport's full stat catalog (key_name, display_name, category, is_inverse, is_derived, is_percentile_eligible, sort_order). |
+| `stat_definitions` | object[] | Sport's full stat catalog (key_name, display_name, category, is_inverse, is_derived, is_percentile_eligible, sort_order, unit, comparable). `unit` is one of `rate_pct` / `per_game_avg` / `cumulative_total` / `special`; `comparable` is the flag the trends endpoint filters on. |
 | `meta` | object | Resolved scope + season selector data — see below. |
 | `league_context` | object \| null | Football only: `{id, name, country, logo_url, is_benchmark, is_active}` of the league in scope. `null` for NBA/NFL or unscoped football. |
 
@@ -132,8 +132,8 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `window.games_used` | integer | How many events fed `entity_recent_avgs` (0–3) |
 | `window.fixture_ids` | int[] | Fixture IDs of those events, newest first |
 | `window.spans_prior_season` | bool | `true` when the 3-fixture window bridged into the prior season because the current season had fewer than 3 |
-| `entity_recent_avgs` | `{stat: number}` | Per-stat average over those events. Keys come from `event_box_scores.stats` / `event_team_stats.stats`. `{}` if no events. |
-| `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort's full season. Keys come from `player_stats.stats` / `team_stats.stats`. Compare by intersecting keys with `entity_recent_avgs`. |
+| `entity_recent_avgs` | `{stat: number}` | Per-stat average over those events. Keys come from `event_box_scores.stats` / `event_team_stats.stats`, filtered to `stat_definitions.comparable = true` so units match the peer side. `{}` if no events. |
+| `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort, filtered to `stat_definitions.comparable = true`. For `unit = 'cumulative_total'` keys (e.g. football team `tackles`, NFL team `passing_yards`), the raw season values are normalized to per-game by dividing each peer's value by their `matches_played` (football) / `games_played` (NBA/NFL) before averaging, so both sides land in the same per-game unit. Compare by intersecting keys with `entity_recent_avgs`. |
 | `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
 | `vibes.snapshots` | object[] | `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. |
@@ -157,6 +157,18 @@ Mirrors the percentile pipeline:
 | Vibe panel empty | 200 | `vibes.snapshots: []` — usually a `starter`/`bench`-tier entity not yet covered by the milestone listener or nightly batch. Frontend should hide the vibes panel rather than render an empty chart. |
 
 Note that entity existence is the **profile endpoint's** job — trends always returns 200. Legacy blurb-only `vibe_scores` rows (`sentiment IS NULL`) are excluded for consistency with the latest-vibe handler.
+
+#### Comparability filter
+
+Both `entity_recent_avgs` and `peer_season_avgs` are filtered to stat keys flagged `comparable = true` in `stat_definitions` (migration 016). A key is comparable when its unit on both sides resolves to the same scale:
+
+- `rate_pct` (percentages, accuracies, efficiencies — directly comparable)
+- `per_game_avg` (per-game / per-36 / per-90 derived stats)
+- `cumulative_total` **for teams only** — normalized to per-game by dividing each peer's value by `matches_played` (football) / `games_played` (NBA/NFL) before averaging. Coverage of the divisor is 100% for the team tables.
+
+Keys flagged `special` (standings columns like `wins`, `losses`, `goal_difference`, `points`) are never emitted — they're not per-event production stats.
+
+Known limitation — **NFL/football player trends** have a small intersection between sides because the seeder writes raw per-event counts (`passing_yards`, `tackles`) to `event_box_scores` but writes derived per-game / per-90 keys (`passing_yards_per_game`, `tackles_per_90`) to `player_stats`. The trends card on player pages for these sports shows fewer rows until the seeder schema is unified.
 
 #### Response example (player)
 

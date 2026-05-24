@@ -687,7 +687,57 @@ func teamResultsStatement(sportTag, sportID string, leagueScoped bool) string {
 // the uppercase sports.id used in joins. leagueScoped=true (football) resolves
 // the entity's natural league when no league_id is supplied, so the peer
 // cohort stays inside one league instead of spanning all of them.
+//
+// Unit handling (migration 016): both sides JOIN stat_definitions and filter
+// to keys where comparable=true, so the frontend never has to reconcile
+// mismatched units. Peer side additionally normalizes cumulative_total keys
+// (e.g. football team `tackles: 350` over a 23-match season) by dividing by
+// the sport's per-row games-played key — matches_played for football,
+// games_played for NBA/NFL. The entity-recent side is a simple AVG because
+// every input row is a single fixture (already per-game).
+//
+// Known limitation — PLAYER trends on NFL & football: the seeder stores raw
+// per-event counts in event_box_scores (e.g. `passing_yards`, `tackles`)
+// but derived per-game/per-90 averages in player_stats (e.g.
+// `passing_yards_per_game`, `tackles_per_90`). The key names differ, so the
+// intersection used by the frontend's trends card is small or empty for
+// these sports. Fixing it requires either unifying the seeder schema or
+// having this CTE emit per-90/per-game keys synthesized from the raw event
+// counts. Tracked separately. TEAM trends (the original Spurs bug) are
+// fully comparable.
 func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
+	// Sport-specific divisor for converting season cumulatives to per-game.
+	// Coverage was verified 100% for the tables we actually normalize against
+	// (NFL team_stats, football team_stats); player_stats coverage is uneven
+	// so player cumulatives are flagged non-comparable in stat_definitions
+	// and never reach the divisor branch.
+	divisorKey := "games_played"
+	if sportID == "FOOTBALL" {
+		divisorKey = "matches_played"
+	}
+
+	// Entity-side rate_pct filter.
+	//
+	// Football: SportMonks per-fixture stats include real percentages
+	// (pass_accuracy, possession_pct) in the same 0..100 scale as the
+	// season-rolled team_stats version, so we keep them with a [0,100]
+	// sanity guard that drops the handful of broken keys SportMonks emits
+	// as non-normalized aggregates (tackles_won_percentage ≈ 700/fixture).
+	//
+	// NBA / NFL: the BDL seeder accumulates team event rows by SUMMING the
+	// underlying player rows, which turns rate_pct keys into nonsense
+	// (e.g. team fg_pct ≈ sum of player fg_pcts ≈ 4.0). Player events
+	// have their own mismatch — fg_pct stored as a 0..1 fraction in
+	// event_box_scores vs 0..100 in player_stats. Until the seeder writes
+	// matching units, drop rate_pct from the entity-recent side for these
+	// sports. The peer-season side still surfaces the same keys; the
+	// frontend takes the intersection so they fall out of the trends card
+	// rather than render as wrong-looking numbers.
+	recentRatePctGuard := "AND sd.unit <> 'rate_pct'"
+	if sportID == "FOOTBALL" {
+		recentRatePctGuard = "AND (sd.unit <> 'rate_pct' OR (kv.value)::numeric BETWEEN 0 AND 100)"
+	}
+
 	// Football: when no league_id is supplied, fall back to the entity's own
 	// league_id so the peer cohort isn't a meaningless multi-league mix.
 	// NBA/NFL: league_id is effectively 0 across the dataset; no fallback.
@@ -770,11 +820,26 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		SELECT fixture_id, stats, start_time, event_season FROM team_events
 	),
 	entity_recent_avgs AS (
+		-- Average the entity's last-3 single-fixture values per stat key,
+		-- filtered to stat_definitions.comparable so we never emit keys whose
+		-- unit doesn't survive an apples-to-apples compare against the peer
+		-- side. No divisor here: every event row is already one fixture.
+		-- The recentRatePctGuard (see helper preamble) drops rate_pct keys
+		-- whose event-row values are written in a different unit than the
+		-- season-rolled version by the seeder.
 		SELECT COALESCE(jsonb_object_agg(key, avg_val), '{}'::jsonb) AS avgs
 		FROM (
 			SELECT kv.key, AVG((kv.value)::numeric) AS avg_val
-			FROM entity_events e, LATERAL jsonb_each(e.stats) kv
+			FROM entity_events e
+			CROSS JOIN req
+			CROSS JOIN LATERAL jsonb_each(e.stats) kv
+			JOIN stat_definitions sd
+			  ON sd.sport = '` + sportID + `'
+			 AND sd.entity_type = req.entity_type
+			 AND sd.key_name = kv.key
+			 AND sd.comparable = true
 			WHERE jsonb_typeof(kv.value) = 'number'
+			  ` + recentRatePctGuard + `
 			GROUP BY kv.key
 		) s
 	),
@@ -803,10 +868,30 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		SELECT stats FROM team_peer_cohort
 	),
 	peer_aggregate AS (
+		-- Average peer-cohort season values per stat key, filtered to
+		-- comparable keys. Cumulative totals are normalized to per-game by
+		-- dividing each peer's value by their own games-played key — that
+		-- per-team division has to happen INSIDE the AVG so we don't bias
+		-- toward teams that played more games.
 		SELECT
 			COALESCE((SELECT jsonb_object_agg(key, avg_val) FROM (
-				SELECT kv.key, AVG((kv.value)::numeric) AS avg_val
-				FROM peer_cohort pc, LATERAL jsonb_each(pc.stats) kv
+				SELECT kv.key, AVG(
+					CASE
+						WHEN sd.unit = 'cumulative_total' THEN
+							(kv.value)::numeric
+							/ NULLIF((pc.stats->>'` + divisorKey + `')::numeric, 0)
+						ELSE
+							(kv.value)::numeric
+					END
+				) AS avg_val
+				FROM peer_cohort pc
+				CROSS JOIN req
+				CROSS JOIN LATERAL jsonb_each(pc.stats) kv
+				JOIN stat_definitions sd
+				  ON sd.sport = '` + sportID + `'
+				 AND sd.entity_type = req.entity_type
+				 AND sd.key_name = kv.key
+				 AND sd.comparable = true
 				WHERE jsonb_typeof(kv.value) = 'number'
 				GROUP BY kv.key
 			) t), '{}'::jsonb) AS avgs,

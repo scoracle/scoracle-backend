@@ -1,9 +1,11 @@
 # Proposal — per-event percentiles + composite score per game
 
 Date: 2026-05-23
-Status: **Phase 1 shipped** — schema + function + finalize_fixture hook
-+ full backfill live in production. Phase 2 (API surface) and Phase 3
-(frontend) pending.
+Status: **Phase 1 + Phase 2 shipped** — schema, function, finalize_fixture
+hook, full backfill, and API surface across trends + profile + team
+results all live. Phase 3 (frontend) is purely client-side from here;
+all needed data flows through the three existing endpoints. Outlier
+handling deferred per the addendum at the bottom of this doc.
 
 ## Context
 
@@ -480,3 +482,69 @@ Both are now unblocked:
 
 No further migrations needed; everything Phase 2 needs is already
 populated in the DB.
+
+## Phase 2 shipped — 2026-05-23
+
+API surface now exposes the Phase 1 data across three endpoints. No
+migration; pure-additive Go changes in `go/internal/db/db.go`:
+
+- **Trends** (`/api/v1/{sport}/{entityType}/{id}/trends`) gains:
+  - `entity_recent_scores: [{fixture_id, composite_score, minutes_played}, ...]`
+    — last 3 events, with `minutes_played` for sample-size disclaimers.
+  - `entity_season_score_avg` — entity's own season composite.
+  - `peer_season_score_avg` — AVG of peer cohort season composites.
+- **Profile** (`/api/v1/{sport}/{entityType}/{id}`) gains
+  `meta.season_composite_score` — the headline rating.
+- **Team results** (`/api/v1/{sport}/team/{id}/results`) gains
+  `composite_score` per row.
+
+Live verified end-to-end:
+
+```
+Spurs trends: season=51.1, peer=46.6, recent=[40.0, 41.7, 53.9]
+Jokic trends: season=65.6, peer=39.2 (Center cohort), recent=[54.4 (40m), 56.7 (18m), null (DNP)]
+Jokic profile: meta.season_composite_score=65.6 ✓ matches trends
+Spurs results: composite scores 40-56 per fixture, surfaced inline
+```
+
+Implementation deviation: the proposal suggested separate
+`entity_recent_scores` / `entity_season_score_avg` /
+`peer_season_score_avg` fields rather than nesting under a `scores`
+block. Kept flat for consistency with the existing
+`entity_recent_avgs` / `entity_season_avgs` / `peer_season_avgs`
+triplet. Trivially regroupable later if a `scores` block is preferred.
+
+## Deferred to a follow-up session — outlier handling
+
+Phase 1 exposed two edge cases worth dedicated work but explicitly
+out-of-scope for the initial ship:
+
+1. **Few-ranked-stats events produce extreme composites.** A
+   goalkeeper event where the ONLY ranked stat is `error_lead_to_goal`
+   (an inverse stat) scores 100 because that one stat ranked high.
+   Same family as the low-minute appearance issue but rooted in
+   sparse stat presence rather than sparse minutes. Today the
+   `_sample_size` metadata key tells consumers the cohort size for
+   the most-ranked stat in that event — it does NOT tell them how
+   many stats contributed to the composite. A future refinement
+   could:
+   - Add `stats_contributed` to each event's percentiles metadata.
+   - Optionally clamp composite to NULL when `stats_contributed < N`
+     (e.g. < 3 stats), letting the frontend distinguish "this
+     player legitimately scored 80" from "this player only had
+     one ranked stat so the math degenerates."
+   - Or weight the composite toward stats that have multi-row cohort
+     support, reducing the impact of degenerate single-stat games.
+
+2. **Low-minute football appearances producing per-90 outliers.**
+   A 5-minute sub with 13 passes → 234 passes/90 → 99th percentile.
+   This is by design (per-90 illuminates underused players, per
+   the user's explicit framing) but consumers will want the
+   `minutes_played` already surfaced to render a disclaimer rather
+   than show the raw 99 as a normal score. Frontend-side display
+   call; backend currently surfaces the data the disclaimer needs.
+
+Both should be revisited together once the frontend has been built
+out to consume composite scores and we see how the edge cases read
+in practice. The fixes are non-breaking refinements; nothing in
+Phase 1 or 2 needs to change to ship them later.

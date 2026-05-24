@@ -66,7 +66,7 @@ Top-level keys:
 | `meta.season` | integer | The season this response is for. Echoes `?season=` if provided, else the entity's most recent season. The frontend should treat this as the "selected" value of its season picker. |
 | `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
 | `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
-| `meta.season_composite_score` | number \| null | Headline single-number rating for the entity in the resolved season, in `[0, 100]`. AVG of per-event composite scores (migrations 017 + 018). Same scale as `entity_recent_scores[].composite_score` and `entity_season_score_avg` on the trends endpoint — per-event distribution is uniform with mean 50, so a player whose events consistently rank in the top quartile will land in the 75+ range here. Top NBA centers ship around 90; bench players land in the 20s; bottom-of-rotation in the 10s. `null` if the entity has no scored events in the season. |
+| `meta.season_composite_score` | number \| null | Headline single-number rating for the entity in the resolved season, in `[0, 100]`. AVG of per-event composite scores (migrations 017 + 018). Same scale as `entity_event_scores[].composite_score` and `entity_season_score_avg` on the trends endpoint — per-event distribution is uniform with mean 50, so a player whose events consistently rank in the top quartile will land in the 75+ range here. Top NBA centers ship around 90; bench players land in the 20s; bottom-of-rotation in the 10s. `null` if the entity has no scored events in the season. |
 
 #### Season selection (`meta.available_seasons`)
 
@@ -183,7 +183,7 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 #### Composite score — a single number per game
 
-`entity_recent_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migration 017) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
+`entity_event_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migrations 017 + 018) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
 
 **Interpretation:** the score is the **percentile rank of the event's raw composite within its position cohort** (migration 018 — replaces the unweighted-mean exposed by 017). Concretely, two passes:
 1. Compute the unweighted mean of per-stat percentiles for stats the player had non-zero values in (the raw composite).

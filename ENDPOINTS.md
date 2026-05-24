@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-24 (composite scores normalized — mean=50 per position partition, uniform [0,100]; entity_event_scores now covers the full season)
+> Last updated: 2026-05-24 (entity_season_vibe_series — daily-bucketed sentiment trajectory across the season, mirrors entity_event_scores' date range)
 
 Single public API base URL:
 
@@ -141,7 +141,8 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `entity_season_score_avg` | number \| null | The entity's own `season_composite_score` — AVG of their event composite scores across the resolved season. `null` if the entity has no scored events. |
 | `peer_season_score_avg` | number | AVG of `season_composite_score` across the peer cohort. By construction this hovers near 50 (it's an average of percentile averages within a position cohort); useful as a tier-rendering anchor. |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
-| `vibes.snapshots` | object[] | `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. |
+| `vibes.snapshots` | object[] | Last-7-days raw sentiment snapshots — `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. Still the freshest single number for "right now" headlines; `entity_season_vibe_series` is the season trajectory companion. |
+| `entity_season_vibe_series` | object[] | Daily-bucketed sentiment trajectory across the season, oldest-first. Each row: `{date, sentiment_avg, snapshot_count}` — `date` is the UTC day (`YYYY-MM-DD`); `sentiment_avg` is the integer mean of that day's snapshots on the 0–100 scale (matches the rating scale); `snapshot_count` is how many snapshots aggregated into that day (frontend hover-tooltip: "4 snapshots that day"). **Days with zero snapshots are omitted** so the sparkline renders quiet stretches as honest gaps rather than zero-sentiment dots. Range: anchored at the entity's oldest scored event in the season (`MIN(start_time)` over `entity_event_scores`) through `NOW()` — vibes after the most recent game still matter (off-day news, trade rumors, post-game reactions). `[]` when the entity has no scored events in scope; frontend should hide the season vibe sparkline in that case. |
 | `meta.season` | integer | Resolved season used for the peer cohort |
 | `meta.league_id` | integer \| null | The league actually used (after the football fallback); `null` for NBA/NFL |
 | `meta.position` | string \| null | The position used to partition the peer cohort. `null` for `entity_type=team` (teams have no position dimension). |
@@ -232,6 +233,12 @@ Known limitation — **NFL/football player trends** have a small intersection be
       { "sentiment": 71, "generated_at": "2026-05-20T03:00:55Z", "trigger_type": "periodic" }
     ]
   },
+  "entity_season_vibe_series": [
+    { "date": "2025-10-23", "sentiment_avg": 68, "snapshot_count": 3 },
+    { "date": "2025-10-24", "sentiment_avg": 72, "snapshot_count": 5 },
+    { "date": "2025-10-26", "sentiment_avg": 65, "snapshot_count": 2 },
+    "... // one row per UTC day with >=1 snapshot, oldest first, through NOW()"
+  ],
   "meta": { "season": 2025, "league_id": null, "position": "PG" }
 }
 ```
@@ -265,6 +272,11 @@ Known limitation — **NFL/football player trends** have a small intersection be
     "window_days": 7,
     "snapshots": []
   },
+  "entity_season_vibe_series": [
+    { "date": "2025-08-17", "sentiment_avg": 55, "snapshot_count": 1 },
+    { "date": "2025-08-30", "sentiment_avg": 70, "snapshot_count": 2 },
+    "... // anchored at oldest scored fixture, through NOW()"
+  ],
   "meta": { "season": 2025, "league_id": 8, "position": null }
 }
 ```

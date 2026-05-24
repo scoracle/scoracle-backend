@@ -204,6 +204,82 @@ func (h *Handler) GetLeagueTrendsPage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType, id, season, leagueID)
 }
 
+// GetTeamResults returns a team's finalized scorelines for a season.
+// @Summary Get team season results
+// @Description Returns the team's list of finalized fixtures (status completed/seeded) for a season, framed from the team's perspective with opponent identity and W/L/D.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param id path int true "Team ID"
+// @Param season query int false "Season year"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/team/{id}/results [get]
+func (h *Handler) GetTeamResults(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "team id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_team_results"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, id, season, leagueID)
+}
+
+// GetLeagueTeamResults returns league-scoped team season results.
+// @Summary Get league team season results
+// @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param leagueId path int true "League ID"
+// @Param id path int true "Team ID"
+// @Param season query int false "Season year"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leagues/{leagueId}/team/{id}/results [get]
+func (h *Handler) GetLeagueTeamResults(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	leagueID, ok := parsePathID(w, r, "leagueId", "league id")
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "team id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_team_results"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, id, season, leagueID)
+}
+
 // GetMetaPage returns the canonical metadata payload used for frontend local DB hydration.
 // @Summary Get meta page
 // @Description Returns complete metadata and search payload for a sport.

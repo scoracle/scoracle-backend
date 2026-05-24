@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-22
+> Last updated: 2026-05-23
 
 Single public API base URL:
 
@@ -211,6 +211,85 @@ Note that entity existence is the **profile endpoint's** job — trends always r
 ```
 
 > **Forward-compatibility — data.scoracle.** The endpoint is pure read-only SQL with no derived state stored anywhere. The CTE chain in each prepared statement (one per sport, in `go/internal/db/db.go`) lifts directly into a SQL function — `get_entity_trends(sport, entity_type, entity_id, season, league_id, window_size)` — and can be exposed on **data.scoracle** (the planned PostgREST surface) as an RPC the frontend calls directly with user-selected scope. Same query, different transport, no new derivation logic.
+
+### `GET /api/v1/{sport}/team/{id}/results`
+
+Returns a team's **finalized scorelines** for a season — every fixture with `status` in `('completed', 'seeded')`, framed from the team's perspective. Each row carries the opponent's identity (id, name, short_code, logo_url), home/away framing, the team's own score, the opponent's score, and a `W`/`L`/`D` result derived from the two scores.
+
+Designed as a reusable scoreline source: a results strip, a form guide, head-to-head context, and similar UI all consume the same payload.
+
+Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
+
+#### Path parameters
+
+| Name | Type | Notes |
+|---|---|---|
+| `sport` | string | `nba`, `nfl`, or `football` |
+| `id` | integer | Team ID |
+
+#### Query parameters
+
+| Name | Type | Notes |
+|---|---|---|
+| `season` | integer (optional) | Defaults to the sport's `current_season` |
+| `league_id` | integer (optional) | Filter to a specific league. **For football**, when omitted the team's natural league (from `team_stats`) is used so the response doesn't blend league + cup fixtures from different competitions. NBA/NFL ignore it. |
+
+The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` is an alias that takes `leagueId` from the path instead of the query string — identical payload.
+
+#### Response fields
+
+| Field | Type | Description |
+|---|---|---|
+| `page` | string | Literal `"results"` |
+| `sport`, `team_id` | echo of inputs | |
+| `results` | object[] | One entry per finalized fixture, ordered **newest first** by `start_time`. Empty `[]` when the team has no finalized fixtures in scope. |
+| `results[].fixture_id` | integer | `fixtures.id` |
+| `results[].start_time` | timestamp | UTC ISO-8601 |
+| `results[].status` | string | Either `"completed"` or `"seeded"` (other statuses are excluded) |
+| `results[].round` | string \| null | Sport-specific round/week label when set |
+| `results[].home_away` | string | `"home"` or `"away"` from the requested team's perspective |
+| `results[].team_score` | integer | The requested team's score |
+| `results[].opponent_score` | integer | The opponent's score |
+| `results[].result` | string \| null | `"W"`, `"L"`, `"D"`, or `null` if either score is missing |
+| `results[].opponent` | object | `{id, name, short_code, logo_url}` of the other team. Fields may be `null` if the opponent row is missing from `teams`. |
+| `meta.season` | integer | Resolved season used |
+| `meta.league_id` | integer \| null | The league actually used (after the football fallback); `null` for NBA/NFL or unscoped football |
+| `meta.games_played` | integer | Count of entries in `results` — a convenience so the frontend doesn't need to `.length` to gate UI |
+
+#### Response example
+
+```json
+{
+  "page": "results",
+  "sport": "nba",
+  "team_id": 14,
+  "results": [
+    {
+      "fixture_id": 9912,
+      "start_time": "2026-04-12T02:30:00Z",
+      "status": "seeded",
+      "round": null,
+      "home_away": "home",
+      "team_score": 112,
+      "opponent_score": 108,
+      "result": "W",
+      "opponent": { "id": 7, "name": "Boston Celtics", "short_code": "BOS", "logo_url": "https://…/celtics.png" }
+    },
+    {
+      "fixture_id": 9905,
+      "start_time": "2026-04-10T00:00:00Z",
+      "status": "completed",
+      "round": null,
+      "home_away": "away",
+      "team_score": 99,
+      "opponent_score": 104,
+      "result": "L",
+      "opponent": { "id": 3, "name": "Denver Nuggets", "short_code": "DEN", "logo_url": "https://…/nuggets.png" }
+    }
+  ],
+  "meta": { "season": 2025, "league_id": null, "games_played": 2 }
+}
+```
 
 ### `GET /api/v1/{sport}/meta`
 

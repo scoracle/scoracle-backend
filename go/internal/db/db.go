@@ -350,6 +350,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"nfl_trends_page":      trendsStatement("nfl", "NFL", false),
 		"football_trends_page": trendsStatement("football", "FOOTBALL", true),
 
+		// Team season results — list of final scorelines from fixtures for one
+		// team in a season, with opponent identity and home/away framing. Final
+		// scores only (status IN ('completed','seeded')); upcoming fixtures live
+		// elsewhere if/when that endpoint exists.
+		"nba_team_results":      teamResultsStatement("nba", "NBA", false),
+		"nfl_team_results":      teamResultsStatement("nfl", "NFL", false),
+		"football_team_results": teamResultsStatement("football", "FOOTBALL", true),
+
 		"nba_health_page": `SELECT json_build_object(
 			'page', 'health',
 			'sport', 'nba',
@@ -576,6 +584,98 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		}
 	}
 	return nil
+}
+
+// teamResultsStatement builds the per-sport team season results prepared
+// statement. It returns the team's finalized scorelines (status IN
+// ('completed','seeded')) for one season, framed from the team's perspective:
+// each row carries opponent identity, home/away, the team's own score, the
+// opponent's score, and a W/L/D result derived from the two scores.
+//
+// Args: $1::int team_id, $2::int season (nullable → sports.current_season),
+// $3::int league_id (nullable; football falls back to the team's natural
+// league via team_stats so we don't return rows from other leagues' cups).
+//
+// W/L/D is a one-line comparison of two columns the row already carries — not
+// a percentile or derived stat — so it lives here rather than forcing every
+// consumer to recompute it. Results are ordered newest first.
+func teamResultsStatement(sportTag, sportID string, leagueScoped bool) string {
+	effectiveLeague := "req.league_id"
+	if leagueScoped {
+		effectiveLeague = `COALESCE(
+			req.league_id,
+			(SELECT ts.league_id FROM team_stats ts
+			 WHERE ts.team_id = req.team_id
+			   AND ts.sport = '` + sportID + `'
+			   AND ts.season = (SELECT season FROM resolved_season)
+			 ORDER BY ts.updated_at DESC LIMIT 1)
+		)`
+	}
+
+	return `WITH req AS (
+		SELECT $1::int AS team_id, $2::int AS season, $3::int AS league_id
+	),
+	resolved_season AS (
+		SELECT COALESCE(
+			(SELECT season FROM req),
+			(SELECT current_season FROM public.sports WHERE id = '` + sportID + `')
+		) AS season
+	),
+	effective_league AS (
+		SELECT ` + effectiveLeague + ` AS league_id FROM req
+	),
+	team_fixtures AS (
+		SELECT f.id, f.start_time, f.status, f.round,
+		       f.home_team_id, f.away_team_id, f.home_score, f.away_score,
+		       (f.home_team_id = req.team_id) AS is_home,
+		       CASE WHEN f.home_team_id = req.team_id
+		            THEN f.away_team_id ELSE f.home_team_id END AS opponent_id,
+		       CASE WHEN f.home_team_id = req.team_id
+		            THEN f.home_score ELSE f.away_score END AS team_score,
+		       CASE WHEN f.home_team_id = req.team_id
+		            THEN f.away_score ELSE f.home_score END AS opponent_score
+		FROM fixtures f, req, resolved_season rs, effective_league el
+		WHERE f.sport = '` + sportID + `'
+		  AND f.season = rs.season
+		  AND f.status IN ('completed', 'seeded')
+		  AND (f.home_team_id = req.team_id OR f.away_team_id = req.team_id)
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+	)
+	SELECT json_build_object(
+		'page', 'results',
+		'sport', '` + sportTag + `',
+		'team_id', (SELECT team_id FROM req),
+		'results', COALESCE((
+			SELECT json_agg(json_build_object(
+				'fixture_id',     tf.id,
+				'start_time',     tf.start_time,
+				'status',         tf.status,
+				'round',          tf.round,
+				'home_away',      CASE WHEN tf.is_home THEN 'home' ELSE 'away' END,
+				'team_score',     tf.team_score,
+				'opponent_score', tf.opponent_score,
+				'result',         CASE
+				                    WHEN tf.team_score IS NULL OR tf.opponent_score IS NULL THEN NULL
+				                    WHEN tf.team_score >  tf.opponent_score THEN 'W'
+				                    WHEN tf.team_score <  tf.opponent_score THEN 'L'
+				                    ELSE 'D'
+				                  END,
+				'opponent', json_build_object(
+					'id',         t.id,
+					'name',       t.name,
+					'short_code', t.short_code,
+					'logo_url',   t.logo_url
+				)
+			) ORDER BY tf.start_time DESC)
+			FROM team_fixtures tf
+			LEFT JOIN teams t ON t.id = tf.opponent_id AND t.sport = '` + sportID + `'
+		), '[]'::json),
+		'meta', json_build_object(
+			'season',        (SELECT season FROM resolved_season),
+			'league_id',     NULLIF((SELECT league_id FROM effective_league), 0),
+			'games_played',  (SELECT COUNT(*) FROM team_fixtures)
+		)
+	)`
 }
 
 // trendsStatement builds the per-sport trends prepared statement. It returns

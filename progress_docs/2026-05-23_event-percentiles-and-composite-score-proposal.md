@@ -1001,3 +1001,73 @@ fields unchanged. Backfill ~2 min via the per-season retry loop.
 This also retired the single-stat-outlier concern (see corrected note
 above) — season aggregation already penalizes sparse seasons, so the
 rank surfaces real top performers without a minimum-events gate.
+
+## Layer-4 all-time rank — 2026-05-24 (migrations 022-024 + maintenance worker)
+
+Added `season_composite_rank_alltime`: percentile rank of
+`season_composite_score` against EVERY season in the DB (position-
+partitioned for players, sport-wide for teams). Answers "is this one of
+the best seasons we've ever recorded?" Era-fair because the composite is
+itself a percentile (controls for pace/rule/league shifts) — an entity
+hits all-time-100 only if its season is the most dominant-relative-to-
+peers season in the data.
+
+Four-layer model now complete:
+  1. event composite_score          — per-game
+  2. season_composite_score         — season absolute (cross-season comparable)
+  3. season_composite_rank          — within current season (in-season leaderboard)
+  4. season_composite_rank_alltime  — across all seasons (historical leaderboard)
+
+Architecture (settled with the user over several iterations):
+  - **Previous seasons are a frozen read-only reference; only the current
+    season is dynamic.** In-season, the all-time recompute writes ONLY
+    current-season rows (reading the full history as the comparison pool).
+    Previous seasons are never touched in-season.
+  - **Decoupled from finalize_fixture.** finalize does within-season work
+    only (layers 1-3). The all-time recompute (layer 4) runs on a nightly
+    maintenance ticker — the historical percentile barely moves game-to-
+    game, so per-finalize recompute would be wasteful churn.
+  - **Full re-baseline on startup + season rollover.** The maintenance
+    worker tracks current_season per sport; a first-run-after-startup or
+    a detected rollover triggers recalculate_alltime_ranks(sport, NULL)
+    (writes all seasons, re-ranks against the complete history). Steady
+    state calls recalculate_alltime_ranks(sport, current_season) (writes
+    current only). Retries on deadlock (contends with the live seeder's
+    finalize_fixture on the same rows).
+
+Migration arc:
+  - 022: added the column + computed it inside recalculate_event_percentiles
+    (per-finalize, all-seasons). Backfill took 7m20s — O(seasons²) — which
+    flagged the wrong cadence.
+  - 023: pulled it OUT of recalculate_event_percentiles (reverted that fn
+    to within-season-only) into a standalone recalculate_alltime_ranks(sport).
+    Full pass across all sports: 26s.
+  - 024: added the optional p_season scope so the nightly job writes
+    current-season-only while reading full history; NULL → full re-baseline.
+
+Verification (NBA, all-time team leaderboard):
+```
+Milwaukee Bucks  2019  comp 82.4  →  alltime 100.0   ← best team-season in DB
+Cleveland Cavs   2024  comp 81.5  →  alltime  99.5
+Boston Celtics   2023  comp 81.0  →  alltime  99.0
+OKC Thunder      2024  comp 77.1  →  alltime  98.6
+OKC Thunder      2025  comp 76.2  →  alltime  98.1   ← #1 this season, not all-time
+```
+
+OKC 2025 is in-season rank 100 but all-time 98.1 — exactly the
+"best in DB or not" signal intended. Jokic: avg 81.9, season-rank 100,
+all-time-rank 99.2.
+
+API: `meta.season_composite_rank_alltime` on profile,
+`entity_alltime_score_rank` on trends. Maintenance ticker:
+`AlltimeRankInterval` (24h) in `go/internal/maintenance/maintenance.go`.
+
+### Note on the season-composite aggregation (confirmed 2026-05-24)
+
+A flow-validation question confirmed the season composite stays as
+**AVG of season per-stat percentiles** (migration 020), NOT AVG of
+per-game composites. The distinction is load-bearing: outcome stats
+(wins/points/GD) only exist at the season level, so an AVG-of-per-game-
+composites approach would silently drop them and re-invert Arsenal vs
+Chelsea. Per-game composites remain a parallel track (the sparkline);
+they are not the input to the season composite.

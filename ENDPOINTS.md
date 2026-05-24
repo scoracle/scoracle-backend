@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-24 (added season_composite_rank — Layer-3 percentile-of-composite leaderboard number, uniform 0-100; season_composite_score stays as the cross-season-comparable layer)
+> Last updated: 2026-05-24 (added season_composite_rank_alltime — Layer-4 across-all-seasons historical percentile, nightly-refreshed with previous seasons frozen; four-layer composite model complete)
 
 Single public API base URL:
 
@@ -67,7 +67,8 @@ Top-level keys:
 | `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
 | `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
 | `meta.season_composite_score` | number \| null | The entity's season composite — AVG of season per-stat percentile ranks for eligible stats (migration 020). `[0, 100]`, cross-season comparable (relative-to-cohort). Good for trajectory/year-over-year. `null` if no eligible season stats. |
-| `meta.season_composite_rank` | number \| null | Percentile rank of `season_composite_score` within the cohort (`(sport, season, position)` players / `(sport, season)` teams). Uniform `[0, 100]`, top = 100 (migration 021). The **leaderboard/headline number** — use this for the at-a-glance rating chip and single-season leaderboards. Within-season only (not cross-season comparable). `null` if no eligible season stats. |
+| `meta.season_composite_rank` | number \| null | Percentile rank of `season_composite_score` within the **current-season** cohort (`(sport, season, position)` players / `(sport, season)` teams). Uniform `[0, 100]`, top = 100 (migration 021). The **in-season leaderboard/headline number**. `null` if no eligible season stats. |
+| `meta.season_composite_rank_alltime` | number \| null | Percentile rank of `season_composite_score` against **all seasons in the DB** for the cohort (migrations 022-024). "Best season we've recorded?" — 100 only if it's the most dominant-relative-to-peers season in the data. Refreshed nightly; prior seasons frozen. `null` if no eligible season stats. |
 
 #### Season selection (`meta.available_seasons`)
 
@@ -140,7 +141,8 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
 | `entity_event_scores` | object[] | **Every** played event in the current season, newest first (renamed from `entity_recent_scores` which only carried the last 3). Each entry: `{fixture_id, composite_score, minutes_played, start_time}`. `composite_score` is in `[0, 100]` — see the Interpretation section below. NULL composite for events with no eligible non-zero stats (e.g. a DNP-CD). `minutes_played` is provided for hover-tooltip context; `null` for team entities (teams play the full match). `start_time` is the fixture's UTC ISO-8601 timestamp — lets the frontend label hover-tooltips and bucket by week/month without a second fetch. Counts: ~82 for NBA, ~17 for NFL, ~38 for football (single league). |
 | `entity_season_score_avg` | number \| null | The entity's own `season_composite_score` — AVG of season per-stat percentile ranks (migration 020). Cross-season comparable (relative-to-cohort). `null` if the entity has no eligible season stats. |
-| `entity_season_score_rank` | number \| null | The entity's `season_composite_rank` — percentile rank of `season_composite_score` within the cohort (`(sport, season, position)` for players, `(sport, season)` for teams). Uniform `[0, 100]`, top entity in cohort = 100. This is the **leaderboard/headline number** — "96 = top 4% of Centers this season." NOT cross-season comparable (within-season rank); use `entity_season_score_avg` for year-over-year trajectory. `null` if no eligible season stats. |
+| `entity_season_score_rank` | number \| null | The entity's `season_composite_rank` — percentile rank of `season_composite_score` within the **current-season** cohort (`(sport, season, position)` for players, `(sport, season)` for teams). Uniform `[0, 100]`, top entity in cohort = 100. The **in-season leaderboard/headline number** — "96 = top 4% of Centers this season." `null` if no eligible season stats. |
+| `entity_alltime_score_rank` | number \| null | The entity's `season_composite_rank_alltime` — percentile rank of `season_composite_score` against **every season in the DB** for the cohort. "Is this one of the best seasons we've ever recorded?" An entity hits 100 only if its season is the most dominant-relative-to-peers season in the data (e.g. Milwaukee's 2019 tops NBA teams; OKC's 2025 is ~98 — #1 this year but not all-time). Era-fair because the composite is already a percentile (controls for pace/rule changes). Refreshed nightly; previous seasons are a frozen reference. `null` if no eligible season stats. |
 | `peer_season_score_avg` | number | AVG of `season_composite_score` across the peer cohort. Hovers near 50; tier-rendering anchor. |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
 | `vibes.snapshots` | object[] | Last-7-days raw sentiment snapshots — `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. Still the freshest single number for "right now" headlines; `entity_season_vibe_series` is the season trajectory companion. |
@@ -208,9 +210,12 @@ What's deliberately NOT in the season composite:
 |---|---|---|---|
 | Per-event | `entity_event_scores[].composite_score` | "How good was this *game*?" | uniform per cohort |
 | Season (absolute) | `season_composite_score` / `entity_season_score_avg` | "How did this *season* compare, cross-season?" | spread, relative-to-cohort |
-| Season (rank) | `season_composite_rank` / `entity_season_score_rank` | "Where does this entity *rank* among peers this season?" | uniform `[0, 100]`, top = 100 |
+| Season (in-season rank) | `season_composite_rank` / `entity_season_score_rank` | "Where does this entity *rank* among peers this season?" | uniform `[0, 100]`, top = 100 |
+| Season (all-time rank) | `season_composite_rank_alltime` / `entity_alltime_score_rank` | "Is this one of the best seasons we've *ever* recorded?" | uniform `[0, 100]` across all seasons |
 
-Use `season_composite_rank` for headline rating chips and single-season leaderboards (it gives a clean 0–100 spread — top NBA team / top Center / top Attacker all sit at ~100). Use `season_composite_score` for year-over-year trajectory.
+Use `season_composite_rank` for in-season headline chips and single-season leaderboards (top NBA team / Center / Attacker all sit at ~100). Use `season_composite_rank_alltime` for "all-time greats" / historical surfaces. Use `season_composite_score` for year-over-year trajectory.
+
+**Refresh cadence:** the per-event, season composite, and in-season rank all recompute on `finalize_fixture` (current-season work, cheap, immediate). The all-time rank recomputes nightly via the maintenance worker — current season is re-ranked against the full frozen history each night, previous seasons are read-only, and a full re-baseline runs on process startup and at season rollover. The all-time number doesn't need per-game freshness; nightly keeps the finalize path doing only dynamic current-season work.
 
 Cross-season comparison: each entity's `season_composite_score` is partitioned by `(sport, season, position)` for players / `(sport, season)` for teams. Previous seasons stay frozen (`finalize_fixture` only operates on the current season). Comparing the same entity year-over-year is "their average percentile vs same-position peers in that year." Caveat: it's relative-to-cohort rather than truly absolute, so cohort strength shifts (e.g. a stacked Center class in 2024) can move a player's number even with identical absolute production. `season_composite_rank` is explicitly within-season — do NOT use it for cross-season comparison (every cohort's top entity reads ~100 each year).
 

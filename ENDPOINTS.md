@@ -132,7 +132,8 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `window.games_used` | integer | How many events fed `entity_recent_avgs` (0–3) |
 | `window.fixture_ids` | int[] | Fixture IDs of those events, newest first |
 | `window.spans_prior_season` | bool | `true` when the 3-fixture window bridged into the prior season because the current season had fewer than 3 |
-| `entity_recent_avgs` | `{stat: number}` | Per-stat average over those events. Keys come from `event_box_scores.stats` / `event_team_stats.stats`, filtered to `stat_definitions.comparable = true` so units match the peer side. `{}` if no events. |
+| `entity_recent_avgs` | `{stat: number}` | Per-stat average over those events. Keys come from `event_box_scores.stats` / `event_team_stats.stats`, filtered to `stat_definitions.comparable = true` so units match the season-rolled sides. `{}` if no events. |
+| `entity_season_avgs` | `{stat: number}` | The entity's **own** season-rolled per-stat values, sourced from `player_stats.stats` / `team_stats.stats`. Same comparability filter and same per-game normalization as `peer_season_avgs`, applied to the single entity row instead of a cohort. Frontend uses this alongside `peer_season_avgs` to render a self-delta next to the peer-delta — important for dominant entities where every peer comparison reads as a huge positive and the user can't otherwise tell which way the entity is actually trending relative to its own baseline. `{}` for players (player cumulatives are non-comparable; their per-game / per-90 siblings already appear on the peer side and self-comparison adds no signal there). `{}` if the entity has no `*_stats` row in scope. |
 | `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort, filtered to `stat_definitions.comparable = true`. For `unit = 'cumulative_total'` keys (e.g. football team `tackles`, NFL team `passing_yards`), the raw season values are normalized to per-game by dividing each peer's value by their `matches_played` (football) / `games_played` (NBA/NFL) before averaging, so both sides land in the same per-game unit. Compare by intersecting keys with `entity_recent_avgs`. |
 | `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
@@ -168,6 +169,14 @@ Both `entity_recent_avgs` and `peer_season_avgs` are filtered to stat keys flagg
 
 Keys flagged `special` (standings columns like `wins`, `losses`, `goal_difference`, `points`) are never emitted — they're not per-event production stats.
 
+#### Self-delta vs peer-delta — why both
+
+The trends payload returns three dictionaries: `entity_recent_avgs` (last-3-fixture average), `entity_season_avgs` (the entity's own season baseline), and `peer_season_avgs` (the peer cohort's season baseline). The frontend computes two deltas per stat row — `(recent − self) / self` and `(recent − peer) / peer` — and renders both alongside the recent value.
+
+This matters most for **dominant outliers**. A team that leads its league sees `(recent − peer)` skewed positive on virtually every stat regardless of recent form; the peer-delta column becomes a noise floor. The self-delta column cuts through that: `+0% vs self` next to `+155% vs peer` reads as "this is their normal level, not a recent surge", while `+50% vs self` next to `+200% vs peer` reads as "they're stepping up further on top of their usual dominance." For non-outlier entities the two deltas are usually directionally aligned and reinforce the signal.
+
+`entity_season_avgs` is `{}` for player entities — player cumulative_total keys are non-comparable (their per-game / per-90 siblings carry the comparison on the peer side), and per-game / per-90 derived keys for a player are by definition their season baseline, so the self-delta column would be vacuously zero. The frontend should gate the self-delta rendering on the field being non-empty.
+
 Known limitation — **NFL/football player trends** have a small intersection between sides because the seeder writes raw per-event counts (`passing_yards`, `tackles`) to `event_box_scores` but writes derived per-game / per-90 keys (`passing_yards_per_game`, `tackles_per_90`) to `player_stats`. The trends card on player pages for these sports shows fewer rows until the seeder schema is unified.
 
 #### Response example (player)
@@ -184,6 +193,7 @@ Known limitation — **NFL/football player trends** have a small intersection be
     "spans_prior_season": false
   },
   "entity_recent_avgs": { "pts": 28.3, "reb": 8.1, "ast": 6.4 },
+  "entity_season_avgs": {},
   "peer_season_avgs":   { "pts": 19.1, "reb": 5.4, "ast": 4.0 },
   "peer_cohort_size": 87,
   "vibes": {
@@ -211,8 +221,9 @@ Known limitation — **NFL/football player trends** have a small intersection be
     "fixture_ids": [22781, 22769, 22754],
     "spans_prior_season": false
   },
-  "entity_recent_avgs": { "shots_total": 14.7, "possession": 58.2, "passes_accurate": 521.3 },
-  "peer_season_avgs":   { "shots_total": 11.9, "possession": 49.5, "passes_accurate": 442.1 },
+  "entity_recent_avgs": { "shots_total": 14.7, "possession_pct": 58.2, "accurate_passes": 521.3 },
+  "entity_season_avgs": { "shots_total": 12.4, "possession_pct": 55.1, "accurate_passes": 478.6 },
+  "peer_season_avgs":   { "shots_total": 11.9, "possession_pct": 49.5, "accurate_passes": 442.1 },
   "peer_cohort_size": 19,
   "vibes": {
     "window_days": 7,

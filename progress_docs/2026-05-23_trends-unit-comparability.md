@@ -142,3 +142,45 @@ described in the proposal doc.
    logic drops everything since the keys never match.
 
 Both are addressed in `progress_docs/2026-05-23_event-derivation-proposal.md`.
+
+## Addendum — `entity_season_avgs` field for self-deltas
+
+Same session, follow-up scope. The trends payload now also carries the
+entity's own season averages so the frontend can render a self-delta next
+to the existing peer-delta on every stats row.
+
+- **Why it ships now.** The peer-comparison flatlines for dominant outliers
+  — a league-leading team shows `+80%` to `+500%` on every row regardless
+  of recent form, so the trends card devolves into "every arrow green,
+  every number huge, user learns nothing about actual recent trend."
+  Adding the entity's own baseline lets the frontend separate "this is
+  their normal level" from "this is a real recent move." Live verification
+  on football team_id=503: `assists: 2.67 recent / 2.68 self / 1.05 peer`
+  now cleanly reads as "league-leading at this stat, but on-pace not
+  surging" instead of "+155% noise."
+- **No schema change.** Pure SQL composition on top of migration 016.
+  `trendsStatement` gains two CTEs (`entity_self_row` reads one row from
+  `player_stats` / `team_stats` for the requesting entity; `entity_season_aggregate`
+  applies the same comparability filter + cumulative-total normalization
+  as `peer_aggregate`, just on the single row). The `json_build_object`
+  gets one new field, `entity_season_avgs`, between `entity_recent_avgs`
+  and `peer_season_avgs`.
+- **Player entities emit `{}`.** Player cumulatives are non-comparable in
+  `stat_definitions`, so the JOIN filters everything out. The per-game /
+  per-90 derived keys that ARE comparable for players are vacuously
+  self-delta-zero by definition (a player's season-avg `points_per_game`
+  is exactly the value the season blob carries), so the field carries no
+  useful signal. Frontend gates self-delta rendering on
+  `Object.keys(entity_season_avgs).length > 0`.
+- **Verified live.** Spurs (football team 18) now returns 72 keys in
+  `entity_season_avgs`, all unit-aligned with `peer_season_avgs` and
+  `entity_recent_avgs`. Self-deltas reveal real recent moves that peer
+  deltas alone obscured — Spurs are doing -50% clearances and -64%
+  blocked shots vs their own season baseline while still being above the
+  league average.
+- **Bonus.** The same field unblocks a future "form streak" reading
+  ("4th game above season avg") without another roundtrip.
+
+The data.scoracle / PostgREST forward path is unchanged — the new CTEs
+lift cleanly into the same eventual `get_entity_trends(...)` function
+alongside the existing ones.

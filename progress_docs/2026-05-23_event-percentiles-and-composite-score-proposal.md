@@ -1,7 +1,9 @@
 # Proposal — per-event percentiles + composite score per game
 
 Date: 2026-05-23
-Status: Proposal — not yet implemented.
+Status: **Phase 1 shipped** — schema + function + finalize_fixture hook
++ full backfill live in production. Phase 2 (API surface) and Phase 3
+(frontend) pending.
 
 ## Context
 
@@ -352,5 +354,129 @@ normalization.
 | Existing season-percentile function (model) | `sql/shared.sql:803` (`recalculate_percentiles`) |
 | Existing finalize_fixture hook | `sql/shared.sql:630` |
 | Existing stat metadata table | `sql/shared.sql:198` (`stat_definitions`) |
+| Phase 1 migration | `sql/migrations/017_event_percentiles_and_composite.sql` |
 | Related — event-derivation proposal | `progress_docs/2026-05-23_event-derivation-proposal.md` |
 | Related — trends comparability work | `progress_docs/2026-05-23_trends-unit-comparability.md` |
+
+## Phase 1 shipped — what's live now
+
+Migration 017 applied to production on 2026-05-23. Backfill ran in
+**91 seconds** across all (sport, season) pairs — well under the
+"need to chunk this" threshold flagged in the proposal.
+
+### Coverage after backfill
+
+| Table | Sport | Rows | Scored | Avg composite |
+|---|---|---|---|---|
+| event_box_scores | FOOTBALL | 134,482 | 98,193 | 49.0 |
+| event_box_scores | NBA | 213,895 | 138,322 | 42.1 |
+| event_box_scores | NFL | 89,816 | 89,157 | 35.9 |
+| event_team_stats | FOOTBALL | 6,352 | 6,352 | 47.2 |
+| event_team_stats | NBA | 13,070 | 13,070 | 48.3 |
+| event_team_stats | NFL | 2,848 | 2,848 | 44.6 |
+
+The gap between event_box_scores totals and "scored" counts is rows
+with no eligible non-zero stats (e.g. a player listed in the lineup
+but with an empty stats blob, or a DNP-CD). Team events score at
+100% because every team event has a full stat slate.
+
+The sub-50 averages for player events reflect the long tail of
+low-minute / sparse-stat events; the same composite scoring system
+that ranks Anthony Edwards at 64.8 for a 22-point game ranks bench
+appearances in the 20s. Aggregate distribution by playing-time band
+confirms this is healthy:
+
+| NBA minutes band | Events | Avg composite |
+|---|---|---|
+| 0-10 min | 20,345 | 28.2 |
+| 10-25 min | 53,156 | 36.0 |
+| 25-35 min | 45,393 | 48.5 |
+| 35+ min | 21,550 | 56.6 |
+
+Clean monotonic relationship: more minutes → more stats → composite
+trends toward 50+.
+
+### Top-of-leaderboard sanity check (NBA 2025 season)
+
+```
+Nikola Jokic              65.6   (27.6 pts avg)
+Jayson Tatum              64.2   (21.8 pts avg)
+Luka Doncic               64.2   (33.5 pts avg)
+Kawhi Leonard             64.0   (27.8 pts avg)
+Shai Gilgeous-Alexander   62.9   (31.1 pts avg)
+Lauri Markkanen           61.6   (26.7 pts avg)
+Jalen Duren               61.1   (19.5 pts avg)
+Giannis Antetokounmpo     61.1   (27.6 pts avg)
+```
+
+Exactly who you'd expect. Jokic edges Luka despite scoring 6 fewer
+PPG because his percentile profile is more balanced (rebounds,
+assists, efficiency).
+
+### Per-90 normalization confirmed working
+
+Spot-checked Arthur Vermeeren's 5-minute appearance (13 passes, 5
+backward passes, 13 touches):
+- 13 passes × 90/5 = 234 passes/90 → 99.2 percentile among midfielder events
+- Composite for the event = 99.2
+
+This is the "illuminates underused players" framing the user
+explicitly asked for. The frontend will need to surface
+`minutes_played` alongside the score so users see "(5 min)" next to
+the 99.2 rather than reading it as a 90-minute dominant performance.
+
+### Edge case noted: few-ranked-stats events produce extreme composites
+
+A goalkeeper event where the only ranked stat is `error_lead_to_goal`
+(an inverse stat, so "low value = high percentile") scores 100 if
+the GK had the fewest errors in the cohort. Same family of issue as
+the low-minute appearance — sparse data → extreme composites, by
+design. Worth surfacing a per-event "stats_contributed" count to
+the metadata in a future refinement so the frontend can disclaim
+single-stat composites the same way it'll disclaim short appearances.
+Not blocking Phase 2.
+
+### Deviation from the proposal — `aggregate_*_season` not modified
+
+The proposal suggested extending `aggregate_*_season` functions to
+include `season_composite_score`. In implementation it was cleaner
+to write the rollup as a final UPDATE step inside
+`recalculate_event_percentiles` itself, because the season composite
+depends on event composite scores — which don't exist until after
+the percentile recompute runs. The aggregate functions stay
+unmodified; one fewer file touched.
+
+### `is_percentile_eligible` activation
+
+The flag had existed since migration 008 with no reader. Migration
+017 backfills it via this rule:
+
+```sql
+is_percentile_eligible = (
+    unit IN ('per_game_avg', 'rate_pct', 'cumulative_total')
+    AND key_name NOT IN (games_played, matches_played, lineups,
+                         minutes_played, minutes, gp,
+                         cumulative_minutes_played,
+                         captain, substitutions, rating)
+)
+```
+
+`rating` is excluded because SportMonks already provides it as a
+composite score per fixture — including it would double-count
+itself in the new composite.
+
+### Phase 2 and 3 — next steps
+
+Both are now unblocked:
+
+- **Phase 2 (API surface)**: extend the trends endpoint with
+  `entity_recent_scores` (last-3 composite scores + minutes_played
+  per entry), `entity_season_score_avg`, `peer_season_score_avg`.
+  Extend the profile payload with `season_composite_score`. Extend
+  the team-results endpoint with `composite_score` per result row.
+- **Phase 3 (frontend)**: composite sparkline above TrendsCard's
+  per-stat rows; profile headline rating; form-streak rendering
+  computed client-side from the score array.
+
+No further migrations needed; everything Phase 2 needs is already
+populated in the DB.

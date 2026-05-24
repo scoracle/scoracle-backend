@@ -362,6 +362,8 @@ normalization.
 | Existing stat metadata table | `sql/shared.sql:198` (`stat_definitions`) |
 | Phase 1 migration | `sql/migrations/017_event_percentiles_and_composite.sql` |
 | Normalization migration | `sql/migrations/018_event_composite_normalization.sql` |
+| Per-90 drop + stale reset | `sql/migrations/019_drop_per90_and_reset_stale.sql` |
+| Composite purity + outcomes | `sql/migrations/020_composite_purity_and_outcomes.sql` |
 | Related — event-derivation proposal | `progress_docs/2026-05-23_event-derivation-proposal.md` |
 | Related — trends comparability work | `progress_docs/2026-05-23_trends-unit-comparability.md` |
 
@@ -667,7 +669,74 @@ warranted than ever. Real players consistently appear from rank 8-10
 onward; first 5-7 ranks of the Football Attacker leaderboard are
 still dominated by 1-event 0-1-minute appearances.
 
-### Original report (now resolved): football player per-90 inflation breaks the leaderboard
+### Resolved 2026-05-24 (later): season composite shifts to AVG of season per-stat percentiles (migration 020)
+
+Prompted by the NBA team compression concern (sd 9.0 — top team 66.4 when top players reach 90) and the Arsenal vs Chelsea inversion (Chelsea 65.0 ranking above Arsenal 54.2 despite Arsenal winning the Premier League with 82 pts / +43 GD vs Chelsea's 52 / +7).
+
+Three changes, all in `sql/migrations/020_composite_purity_and_outcomes.sql`:
+
+1. **Outcome stats become percentile-eligible for teams.** `wins`, `losses`, `draws`, `points`, `overall_points`, `goal_difference`, `points_for`, `points_against`, `point_differential`, `win_pct` previously flagged `unit='special'`, `is_percentile_eligible=false`. They're objective box-score data; including them is honest, not weighting. `is_inverse=true` set on `losses`, `points_against`, `goals_against` so low values rank high.
+
+2. **Per-X derived stats become percentile-ineligible for composite.** Any `is_derived=true` stat whose key matches `_per_(game|36|90|...)$` is flipped to `is_percentile_eligible=false`. The reasoning: a player's `passing_yards` (raw) and `passing_yards_per_game` (derived from it + games_played) describe the same underlying production in different units. Including both in the AVG silently weights that performance 2×. The derived versions remain in the `percentiles` JSONB (still ranked by `recalculate_percentiles`) and remain available to other consumers — they just don't enter the composite AVG. Pure data-driven principle: each underlying data point gets one vote.
+
+3. **Season composite calculation changes source.** `recalculate_event_percentiles` season-rollup step was `AVG(event_box_scores.composite_score)`. Now it's `AVG(value in player_stats.percentiles WHERE is_percentile_eligible AND key NOT LIKE '_%')` — read directly from the season-level per-stat percentiles already written by `recalculate_percentiles`. More stable, supports cross-season comparison via the existing per-`(sport, season, position)` partitioning. The per-event `composite_score` (sparkline source via `entity_event_scores`) is unchanged.
+
+Eligibility shifts:
+```
+FOOTBALL player: 76/116 eligible  (was 116/116 with per-X included)
+FOOTBALL team  : 77/94  eligible  (was 73/94 — outcome stats added)
+NBA      player: 23/40  eligible  (per-X removed; NBA's primary stats are per-game-by-API so they stay)
+NBA      team  : 27/28  eligible  (outcome stats added)
+NFL      player: 68/112 eligible  (per-X removed)
+NFL      team  : 75/80  eligible  (outcome stats added)
+```
+
+Distribution shifts (NBA 2025):
+```
+Before (migration 019):
+  Team   : mean 49.9, sd  9.0, range 31.0–66.4
+  Player : mean 45.5, sd 17.5, range  1.2–90.5
+
+After (migration 020):
+  Team   : mean 49.5, sd 16.4, range 16.0–76.2  ← much better spread
+  Player : mean 48.5, sd 15.6, range  6.8–83.0  ← slight tightening (per-X removal)
+```
+
+Arsenal vs Chelsea verification:
+```
+Arsenal: 25-7-5, 82 pts, +43 GD
+  before: 54.2  → after: 59.1  (+4.9)
+Chelsea: 14-10-13, 52 pts, +7 GD
+  before: 65.0  → after: 59.9  (-5.1)
+Gap narrowed from 10.8 (inverted) to 0.8 (nearly tied).
+```
+
+The inversion narrowed dramatically but didn't fully flip. Arsenal's grinding 1-0 wins genuinely produce less stat volume than Chelsea's high-possession draws, even with outcome stats added. The 5-6 outcome stats are diluted across ~75 eligible team stats. **This matches the user's "honest reflection of the data, even if Arsenal's refereed wins don't show as production excellence" framing** — but worth flagging if a future iteration wants outcome to dominate further.
+
+NBA top 8 teams post-migration:
+```
+1. Oklahoma City Thunder 76.2 (64-18)  ← correct top team
+2. San Antonio Spurs     75.7 (62-21)
+3. Denver Nuggets        72.4 (55-28)
+4. Cleveland Cavaliers   68.0 (53-30)
+5. Miami Heat            65.9 (43-40)
+6. Boston Celtics        65.6 (56-26)
+7. Detroit Pistons       65.3 (60-22)  ← was #1, now correctly behind real contenders
+8. New York Knicks       64.6 (54-29)
+```
+
+NBA top 5 players (>=20 events filter) post-migration:
+```
+SGA      83.0
+Kawhi    82.1
+Jokic    81.9
+Murray   81.6
+Mitchell 78.3
+```
+
+All the right names; numbers tightened slightly from the per-X removal.
+
+### Resolved 2026-05-24: per-90 dropped from event composite (migration 019)
 
 Confirmed 2026-05-24 with two top attackers (Harry Kane #997 at 53.3,
 João Pedro #28931574 at 33.3). Both are 76-min-average starters who

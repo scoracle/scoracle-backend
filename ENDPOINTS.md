@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-24 (per-90 dropped from event composite — Football leaderboards now correctly reflect playing time; vibe series anchor moved to sport+league season start, offseason-carrying)
+> Last updated: 2026-05-24 (season composite shifts to AVG of season per-stat percentiles, includes outcome stats, excludes per-X derived siblings — pure data-driven, no weighting; cross-season comparable within bucket)
 
 Single public API base URL:
 
@@ -186,11 +186,21 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 `entity_event_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migrations 017 + 018) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
 
-**Interpretation:** the score is the **percentile rank of the event's raw composite within its position cohort** (migration 018 — replaces the unweighted-mean exposed by 017). Concretely, two passes:
-1. Compute the unweighted mean of per-stat percentiles for stats the player had non-zero values in (the raw composite).
-2. Percent-rank that raw composite against every other same-season same-position event.
+**Interpretation:** event-level `composite_score` is the **percentile rank of the event's raw composite within its position cohort** (migrations 017 → 018 → 019). Two passes: (1) unweighted mean of per-stat percentiles for stats the player had non-zero values in, producing a raw composite; (2) percent-rank that raw composite against every other same-season same-position event. **Mean per partition is 50 by construction; distribution is uniform in `[0, 100]`.** A 70 reads as "this event ranks in the top 30% of events at this position this season."
 
-The stored value is the result of pass 2. **Mean per partition is 50 by construction; distribution is uniform in `[0, 100]`.** A 70 reads as "this event ranks in the top 30% of events at this position this season." 80+ is a top-decile game. Below 30 is a bottom-third outing. The two-pass design has the side effect of bounding sparse-stat outliers (a goalkeeper event whose raw composite was 100 because only one stat ranked simply takes its place among other sparse-stat events rather than pinning to the top).
+**Season `season_composite_score` and `entity_season_score_avg` (migration 020):** different source. It's the **AVG of season-level per-stat percentile ranks** for the entity, filtered to keys flagged `stat_definitions.is_percentile_eligible = true`. Each eligible stat contributes one vote — pure data-driven, no manual weighting.
+
+What's eligible for the season composite:
+- **Raw box-score counts** (`goals`, `tackles`, `passing_yards`, NBA `pts`/`reb`/`ast`, etc.)
+- **Rate stats** (`fg_pct`, `pass_accuracy`, `true_shooting_pct`) — orthogonal dimensions, not unit re-expressions
+- **Outcome stats** for teams (`wins`, `losses`, `draws`, `points`, `goal_difference`, `points_for/against`, `point_differential`, `win_pct`) — objective box-score data; included after migration 020
+
+What's deliberately NOT in the season composite:
+- **Per-X derived stats** (`*_per_game`, `*_per_36`, `*_per_90`) — they're the same underlying production as their raw counterparts, just normalized to a different unit. Including both would silently weight that performance 2×. The derived versions still exist in `player_stats.percentiles` JSONB and remain available to other consumers; they just don't enter the composite AVG.
+- **Playing-time denominators** (`games_played`, `matches_played`, `minutes_played`, `lineups`) — opportunity, not production.
+- **Provider composites** (`rating` from SportMonks) — would double-count itself.
+
+Cross-season comparison: each entity's `season_composite_score` is partitioned by `(sport, season, position)` for players / `(sport, season)` for teams. Previous seasons stay frozen (`finalize_fixture` only operates on the current season). Comparing the same entity year-over-year is "their average percentile vs same-position peers in that year." Caveat: it's relative-to-cohort rather than truly absolute, so cohort strength shifts (e.g. a stacked Center class in 2024) can move a player's number even with identical absolute production. Good for trajectory; not for "Jokic-2024 had exactly N points worth of production above Jokic-2025."
 
 **Sample-size disclaimers:** `minutes_played` is surfaced alongside each event score so the frontend can flag short appearances (e.g. football subs under ~30 min where per-90 normalization can produce extreme scores from a single stat). The decision to NOT filter low-minute appearances was explicit — per-90 normalization is partly meant to illuminate underused players, and dropping those events server-side would defeat that. At full-season sparkline density (82 dots for NBA) the per-dot disclaimers naturally move to hover-tooltips rather than inline labels.
 

@@ -1070,6 +1070,37 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		  AND vs.sport = '` + sportID + `'
 		  AND vs.sentiment IS NOT NULL
 		  AND vs.generated_at >= NOW() - INTERVAL '7 days'
+	),
+	-- Season vibe series: daily-bucketed sentiment averages from the entity's
+	-- oldest scored event in the season through NOW(). Drives the frontend's
+	-- season-length vibe sparkline that mirrors entity_event_scores.
+	-- Sibling to vibe_window (which is the recent 7-day raw snapshot list);
+	-- the two answer different questions and both stay.
+	vibe_season_anchor AS (
+		-- Oldest scored event in the current season anchors the series start.
+		-- If the entity has no scored events in scope, NULL → series will be
+		-- empty (frontend hides the Vibes sparkline same as the Rating one).
+		SELECT MIN(start_time) AS season_start
+		FROM entity_season_events
+		WHERE composite_score IS NOT NULL
+	),
+	vibe_season_series AS (
+		-- One row per UTC day with >=1 non-null sentiment snapshot in [anchor, NOW].
+		-- Days with zero snapshots are absent — the frontend renders them as
+		-- honest gaps in the sparkline rather than zero-sentiment dots.
+		SELECT
+			DATE_TRUNC('day', vs.generated_at AT TIME ZONE 'UTC')::date AS day,
+			ROUND(AVG(vs.sentiment)::numeric, 0)::int AS sentiment_avg,
+			COUNT(*)::int AS snapshot_count
+		FROM vibe_scores vs, req, vibe_season_anchor anchor
+		WHERE vs.entity_type = req.entity_type
+		  AND vs.entity_id = req.entity_id
+		  AND vs.sport = '` + sportID + `'
+		  AND vs.sentiment IS NOT NULL
+		  AND anchor.season_start IS NOT NULL
+		  AND vs.generated_at >= anchor.season_start
+		  AND vs.generated_at <= NOW()
+		GROUP BY 1
 	)
 	SELECT json_build_object(
 		'page', 'trends',
@@ -1119,6 +1150,21 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 				FROM vibe_window
 			), '[]'::json)
 		),
+		-- Season-length daily vibe series (sibling to vibes.snapshots).
+		-- Same date range as entity_event_scores: anchored at the entity's
+		-- oldest scored event in the season, ends at NOW(). One JSON row
+		-- per UTC day with >=1 non-null sentiment snapshot; days with zero
+		-- snapshots are omitted so the frontend renders honest gaps rather
+		-- than zero-sentiment dots. [] when the entity has no scored events
+		-- in scope.
+		'entity_season_vibe_series', COALESCE((
+			SELECT json_agg(json_build_object(
+				'date',           day,
+				'sentiment_avg',  sentiment_avg,
+				'snapshot_count', snapshot_count
+			) ORDER BY day ASC)
+			FROM vibe_season_series
+		), '[]'::json),
 		'meta', json_build_object(
 			'season',    (SELECT season FROM resolved_season),
 			'league_id', NULLIF((SELECT league_id FROM effective_league), 0),

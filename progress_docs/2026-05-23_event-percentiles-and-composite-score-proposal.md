@@ -620,6 +620,56 @@ loop — resolved by running the per-season backfill via a small bash
 retry wrapper. Worth noting for any future bulk-recompute that
 contends with active writes.
 
+### Deferred (still open): football player per-90 inflation breaks the leaderboard
+
+Confirmed 2026-05-24 with two top attackers (Harry Kane #997 at 53.3,
+João Pedro #28931574 at 33.3). Both are 76-min-average starters who
+should rank in the 80-90 band like NBA stars. They don't because the
+event cohort is dominated by low-minute appearances whose per-90
+extrapolations look elite. Minute-band distribution makes the
+mechanism unmistakable:
+
+```
+< 15 min : 2,780 events, avg composite 75.2
+15-30 min: 3,057 events, avg composite 65.0
+30-60 min: 2,265 events, avg composite 51.3
+60-80 min: 3,733 events, avg composite 40.0
+80+ min  : 4,722 events, avg composite 32.8
+```
+
+Almost a perfect inverse correlation between minutes and composite — a
+5-min sub with one stat extrapolates to elite per-90 numbers, then
+percent-ranks at the top of the Attacker cohort. Real starters get
+pushed into the bottom third.
+
+This is the same family as the goalkeeper-100 case (sparse data →
+extreme score), but for football PLAYERS it has structural rather
+than edge-case impact because the per-90 transform actively amplifies
+low-minute events. Teams aren't affected (every team event is 90
+mins, no minutes variance). NBA/NFL players aren't affected (1 event
+= 1 game, no per-minute extrapolation).
+
+Two fix paths to weigh next session:
+
+1. **Simpler:** drop per-90 normalization at event ranking for football
+   players. Rank raw cumulative values (same as the other sports).
+   Loses "per-90 illuminates underused" framing at the event level
+   but preserves it at season aggregation (where `*_per_90` keys
+   already live in `player_stats`). Plus minutes-weighted season
+   composite rollup: `SUM(composite * minutes) / SUM(minutes)` so a
+   30-event starter outweighs a 1-event sub at the season-summary
+   level.
+2. **More principled:** filter the per-event cohort to events with
+   `minutes_played >= 30` (or some threshold). Bench appearances
+   either get NULL composite or score against a separate sub
+   cohort. Plus the same minutes-weighted season rollup.
+
+Plus a separate bug surfaced: Papa Dame Ba shows event composite 99.9
+with stats `{}` and percentiles `{}` — either NULL raw composites are
+getting ranked at the top of percent_rank's NULL-handling, or stale
+composite from an earlier state never got cleared when his stats were
+emptied. Worth tracking down independent of the per-90 fix.
+
 ### Deferred (still open): few-ranked-stats outlier
 
 The earlier "goalkeeper event scoring 100 because one inverse stat

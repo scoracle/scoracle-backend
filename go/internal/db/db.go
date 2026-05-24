@@ -103,14 +103,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) s
 		),
 		entity_season_score AS (
-			SELECT season_composite_score, season_composite_rank FROM (
-				SELECT ps.season_composite_score, ps.season_composite_rank
+			SELECT season_composite_score, season_composite_rank, season_composite_rank_alltime FROM (
+				SELECT ps.season_composite_score, ps.season_composite_rank, ps.season_composite_rank_alltime
 				FROM public.player_stats ps, req, selected_entity se
 				WHERE req.entity_type = 'player' AND ps.sport = 'NBA'
 				  AND ps.player_id = req.entity_id AND ps.season = se.season
 				  AND COALESCE(ps.league_id, 0) = se.league_id
 				UNION ALL
-				SELECT ts.season_composite_score, ts.season_composite_rank
+				SELECT ts.season_composite_score, ts.season_composite_rank, ts.season_composite_rank_alltime
 				FROM public.team_stats ts, req, selected_entity se
 				WHERE req.entity_type = 'team' AND ts.sport = 'NBA'
 				  AND ts.team_id = req.entity_id AND ts.season = se.season
@@ -132,7 +132,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'league_id', NULLIF(se.league_id, 0),
 				'available_seasons', (SELECT seasons FROM entity_seasons),
 				'season_composite_score', (SELECT season_composite_score FROM entity_season_score),
-				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score)
+				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score),
+				'season_composite_rank_alltime', (SELECT season_composite_rank_alltime FROM entity_season_score)
 			),
 			'league_context', NULL
 		)
@@ -183,14 +184,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) s
 		),
 		entity_season_score AS (
-			SELECT season_composite_score, season_composite_rank FROM (
-				SELECT ps.season_composite_score, ps.season_composite_rank
+			SELECT season_composite_score, season_composite_rank, season_composite_rank_alltime FROM (
+				SELECT ps.season_composite_score, ps.season_composite_rank, ps.season_composite_rank_alltime
 				FROM public.player_stats ps, req, selected_entity se
 				WHERE req.entity_type = 'player' AND ps.sport = 'NFL'
 				  AND ps.player_id = req.entity_id AND ps.season = se.season
 				  AND COALESCE(ps.league_id, 0) = se.league_id
 				UNION ALL
-				SELECT ts.season_composite_score, ts.season_composite_rank
+				SELECT ts.season_composite_score, ts.season_composite_rank, ts.season_composite_rank_alltime
 				FROM public.team_stats ts, req, selected_entity se
 				WHERE req.entity_type = 'team' AND ts.sport = 'NFL'
 				  AND ts.team_id = req.entity_id AND ts.season = se.season
@@ -212,7 +213,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'league_id', NULLIF(se.league_id, 0),
 				'available_seasons', (SELECT seasons FROM entity_seasons),
 				'season_composite_score', (SELECT season_composite_score FROM entity_season_score),
-				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score)
+				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score),
+				'season_composite_rank_alltime', (SELECT season_composite_rank_alltime FROM entity_season_score)
 			),
 			'league_context', NULL
 		)
@@ -263,14 +265,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) s
 		),
 		entity_season_score AS (
-			SELECT season_composite_score, season_composite_rank FROM (
-				SELECT ps.season_composite_score, ps.season_composite_rank
+			SELECT season_composite_score, season_composite_rank, season_composite_rank_alltime FROM (
+				SELECT ps.season_composite_score, ps.season_composite_rank, ps.season_composite_rank_alltime
 				FROM public.player_stats ps, req, selected_entity se
 				WHERE req.entity_type = 'player' AND ps.sport = 'FOOTBALL'
 				  AND ps.player_id = req.entity_id AND ps.season = se.season
 				  AND COALESCE(ps.league_id, 0) = se.league_id
 				UNION ALL
-				SELECT ts.season_composite_score, ts.season_composite_rank
+				SELECT ts.season_composite_score, ts.season_composite_rank, ts.season_composite_rank_alltime
 				FROM public.team_stats ts, req, selected_entity se
 				WHERE req.entity_type = 'team' AND ts.sport = 'FOOTBALL'
 				  AND ts.team_id = req.entity_id AND ts.season = se.season
@@ -292,7 +294,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'league_id', NULLIF(se.league_id, 0),
 				'available_seasons', (SELECT seasons FROM entity_seasons),
 				'season_composite_score', (SELECT season_composite_score FROM entity_season_score),
-				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score)
+				'season_composite_rank', (SELECT season_composite_rank FROM entity_season_score),
+				'season_composite_rank_alltime', (SELECT season_composite_rank_alltime FROM entity_season_score)
 			),
 			'league_context', CASE
 				WHEN se.league_id > 0 THEN (
@@ -958,7 +961,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		--
 		-- season_composite_score comes from migration 017; surfaces directly in
 		-- the trends payload as entity_season_score_avg.
-		(SELECT ps.stats, ps.season_composite_score, ps.season_composite_rank
+		(SELECT ps.stats, ps.season_composite_score, ps.season_composite_rank, ps.season_composite_rank_alltime
 		 FROM player_stats ps, req, resolved_season rs, effective_league el
 		 WHERE req.entity_type = 'player'
 		   AND ps.sport = '` + sportID + `'
@@ -968,7 +971,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		 ORDER BY ps.updated_at DESC
 		 LIMIT 1)
 		UNION ALL
-		(SELECT ts.stats, ts.season_composite_score, ts.season_composite_rank
+		(SELECT ts.stats, ts.season_composite_score, ts.season_composite_rank, ts.season_composite_rank_alltime
 		 FROM team_stats ts, req, resolved_season rs, effective_league el
 		 WHERE req.entity_type = 'team'
 		   AND ts.sport = '` + sportID + `'
@@ -1151,9 +1154,10 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			) ORDER BY start_time DESC)
 			FROM entity_season_events
 		), '[]'::json),
-		'entity_season_score_avg',  (SELECT season_composite_score FROM entity_self_row),
-		'entity_season_score_rank', (SELECT season_composite_rank FROM entity_self_row),
-		'peer_season_score_avg',    (SELECT ROUND(AVG(season_composite_score), 1) FROM peer_cohort),
+		'entity_season_score_avg',   (SELECT season_composite_score FROM entity_self_row),
+		'entity_season_score_rank',  (SELECT season_composite_rank FROM entity_self_row),
+		'entity_alltime_score_rank', (SELECT season_composite_rank_alltime FROM entity_self_row),
+		'peer_season_score_avg',     (SELECT ROUND(AVG(season_composite_score), 1) FROM peer_cohort),
 		'vibes', json_build_object(
 			'window_days', 7,
 			'snapshots', COALESCE((

@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-23 (trends comparability filter + cumulative-total normalization)
+> Last updated: 2026-05-23 (composite score per game + season rollup; trends/profile/team-results all carry composite fields)
 
 Single public API base URL:
 
@@ -66,6 +66,7 @@ Top-level keys:
 | `meta.season` | integer | The season this response is for. Echoes `?season=` if provided, else the entity's most recent season. The frontend should treat this as the "selected" value of its season picker. |
 | `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
 | `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
+| `meta.season_composite_score` | number \| null | Headline single-number rating for the entity in the resolved season, in `[0, 100]`. AVG of per-event composite scores from the new event-percentile pipeline (migration 017). Same scale as `entity_recent_scores[].composite_score` and `entity_season_score_avg` on the trends endpoint — by construction league-average for a position hovers near 50; 60+ is strong, 80+ is elite. `null` if the entity has no scored events in the season. |
 
 #### Season selection (`meta.available_seasons`)
 
@@ -136,6 +137,9 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `entity_season_avgs` | `{stat: number}` | The entity's **own** season-rolled per-stat values, sourced from `player_stats.stats` / `team_stats.stats`. Same comparability filter and same per-game normalization as `peer_season_avgs`, applied to the single entity row instead of a cohort. Frontend uses this alongside `peer_season_avgs` to render a self-delta next to the peer-delta — important for dominant entities where every peer comparison reads as a huge positive and the user can't otherwise tell which way the entity is actually trending relative to its own baseline. `{}` for players (player cumulatives are non-comparable; their per-game / per-90 siblings already appear on the peer side and self-comparison adds no signal there). `{}` if the entity has no `*_stats` row in scope. |
 | `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort, filtered to `stat_definitions.comparable = true`. For `unit = 'cumulative_total'` keys (e.g. football team `tackles`, NFL team `passing_yards`), the raw season values are normalized to per-game by dividing each peer's value by their `matches_played` (football) / `games_played` (NBA/NFL) before averaging, so both sides land in the same per-game unit. Compare by intersecting keys with `entity_recent_avgs`. |
 | `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
+| `entity_recent_scores` | object[] | Last-3 per-event composite scores (migration 017). Each entry: `{fixture_id, composite_score, minutes_played}`. `composite_score` is in `[0, 100]` — the mean of the entity's per-stat percentile values for that single fixture, with high values = good. NULL composite for events with no eligible non-zero stats (e.g. a DNP-CD). `minutes_played` is provided so the frontend can render a "small sample" disclaimer for short appearances; it's `null` for team entities (teams play the full match). |
+| `entity_season_score_avg` | number \| null | The entity's own `season_composite_score` — AVG of their event composite scores across the resolved season. `null` if the entity has no scored events. |
+| `peer_season_score_avg` | number | AVG of `season_composite_score` across the peer cohort. By construction this hovers near 50 (it's an average of percentile averages within a position cohort); useful as a tier-rendering anchor. |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
 | `vibes.snapshots` | object[] | `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. |
 | `meta.season` | integer | Resolved season used for the peer cohort |
@@ -177,6 +181,18 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 `entity_season_avgs` is `{}` for player entities — player cumulative_total keys are non-comparable (their per-game / per-90 siblings carry the comparison on the peer side), and per-game / per-90 derived keys for a player are by definition their season baseline, so the self-delta column would be vacuously zero. The frontend should gate the self-delta rendering on the field being non-empty.
 
+#### Composite score — a single number per game
+
+`entity_recent_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migration 017) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
+
+**Interpretation:** the score is the unweighted mean of the entity's per-stat percentile values for that single fixture, against the same-season position-partitioned cohort of single-game performances. By construction the league average for a position hovers near 50; 60+ is a strong game; 80+ is elite; below 40 is a poor outing. Tier rendering should match the season-percentile tiers used elsewhere in the app for visual consistency.
+
+**Sample-size disclaimers:** `minutes_played` is surfaced alongside each event score so the frontend can flag short appearances (e.g. football subs under ~30 min where per-90 normalization can produce extreme scores from a single stat). The decision to NOT filter low-minute appearances was explicit — per-90 normalization is partly meant to illuminate underused players, and dropping those events server-side would defeat that.
+
+**Specialists vs well-rounded:** because the formula is an unweighted mean, a specialist who's elite at one stat but average elsewhere scores around 55, while a well-rounded entity scores higher. The per-stat percentiles in the existing trends payload (`entity_recent_avgs` etc.) remain the breakdown view; the composite score is the summary view.
+
+**Form-streak rendering:** the `entity_recent_scores` array is sufficient input for any client-side "N games above 70" display — no additional endpoint needed.
+
 Known limitation — **NFL/football player trends** have a small intersection between sides because the seeder writes raw per-event counts (`passing_yards`, `tackles`) to `event_box_scores` but writes derived per-game / per-90 keys (`passing_yards_per_game`, `tackles_per_90`) to `player_stats`. The trends card on player pages for these sports shows fewer rows until the seeder schema is unified.
 
 #### Response example (player)
@@ -195,6 +211,13 @@ Known limitation — **NFL/football player trends** have a small intersection be
   "entity_recent_avgs": { "pts": 28.3, "reb": 8.1, "ast": 6.4 },
   "entity_season_avgs": {},
   "peer_season_avgs":   { "pts": 19.1, "reb": 5.4, "ast": 4.0 },
+  "entity_recent_scores": [
+    { "fixture_id": 9912, "composite_score": 78.4, "minutes_played": 38 },
+    { "fixture_id": 9905, "composite_score": 82.1, "minutes_played": 35 },
+    { "fixture_id": 9897, "composite_score": 71.2, "minutes_played": 40 }
+  ],
+  "entity_season_score_avg": 75.3,
+  "peer_season_score_avg":   50.0,
   "peer_cohort_size": 87,
   "vibes": {
     "window_days": 7,
@@ -224,6 +247,13 @@ Known limitation — **NFL/football player trends** have a small intersection be
   "entity_recent_avgs": { "shots_total": 14.7, "possession_pct": 58.2, "accurate_passes": 521.3 },
   "entity_season_avgs": { "shots_total": 12.4, "possession_pct": 55.1, "accurate_passes": 478.6 },
   "peer_season_avgs":   { "shots_total": 11.9, "possession_pct": 49.5, "accurate_passes": 442.1 },
+  "entity_recent_scores": [
+    { "fixture_id": 22781, "composite_score": 53.9, "minutes_played": null },
+    { "fixture_id": 22769, "composite_score": 41.7, "minutes_played": null },
+    { "fixture_id": 22754, "composite_score": 40.0, "minutes_played": null }
+  ],
+  "entity_season_score_avg": 51.1,
+  "peer_season_score_avg":   46.6,
   "peer_cohort_size": 19,
   "vibes": {
     "window_days": 7,
@@ -274,6 +304,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
 | `results[].team_score` | integer | The requested team's score |
 | `results[].opponent_score` | integer | The opponent's score |
 | `results[].result` | string \| null | `"W"`, `"L"`, `"D"`, or `null` if either score is missing |
+| `results[].composite_score` | number \| null | Team-level composite score for this fixture in `[0, 100]` (migration 017). Same scale as the trends endpoint's composite fields. `null` if the team has no `event_team_stats` row for the fixture (e.g. a finalize that hasn't fully run yet). |
 | `results[].opponent` | object | `{id, name, short_code, logo_url}` of the other team. Fields may be `null` if the opponent row is missing from `teams`. |
 | `meta.season` | integer | Resolved season used |
 | `meta.league_id` | integer \| null | The league actually used (after the football fallback); `null` for NBA/NFL or unscoped football |
@@ -296,6 +327,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
       "team_score": 112,
       "opponent_score": 108,
       "result": "W",
+      "composite_score": 62.4,
       "opponent": { "id": 7, "name": "Boston Celtics", "short_code": "BOS", "logo_url": "https://…/celtics.png" }
     },
     {
@@ -307,6 +339,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
       "team_score": 99,
       "opponent_score": 104,
       "result": "L",
+      "composite_score": 41.7,
       "opponent": { "id": 3, "name": "Denver Nuggets", "short_code": "DEN", "logo_url": "https://…/nuggets.png" }
     }
   ],

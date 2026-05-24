@@ -101,6 +101,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ts.team_id = req.entity_id
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 			) s
+		),
+		entity_season_score AS (
+			SELECT season_composite_score FROM (
+				SELECT ps.season_composite_score
+				FROM public.player_stats ps, req, selected_entity se
+				WHERE req.entity_type = 'player' AND ps.sport = 'NBA'
+				  AND ps.player_id = req.entity_id AND ps.season = se.season
+				  AND COALESCE(ps.league_id, 0) = se.league_id
+				UNION ALL
+				SELECT ts.season_composite_score
+				FROM public.team_stats ts, req, selected_entity se
+				WHERE req.entity_type = 'team' AND ts.sport = 'NBA'
+				  AND ts.team_id = req.entity_id AND ts.season = se.season
+				  AND COALESCE(ts.league_id, 0) = se.league_id
+			) sub
+			LIMIT 1
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -114,7 +130,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'meta', json_build_object(
 				'season', se.season,
 				'league_id', NULLIF(se.league_id, 0),
-				'available_seasons', (SELECT seasons FROM entity_seasons)
+				'available_seasons', (SELECT seasons FROM entity_seasons),
+				'season_composite_score', (SELECT season_composite_score FROM entity_season_score)
 			),
 			'league_context', NULL
 		)
@@ -163,6 +180,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ts.team_id = req.entity_id
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 			) s
+		),
+		entity_season_score AS (
+			SELECT season_composite_score FROM (
+				SELECT ps.season_composite_score
+				FROM public.player_stats ps, req, selected_entity se
+				WHERE req.entity_type = 'player' AND ps.sport = 'NFL'
+				  AND ps.player_id = req.entity_id AND ps.season = se.season
+				  AND COALESCE(ps.league_id, 0) = se.league_id
+				UNION ALL
+				SELECT ts.season_composite_score
+				FROM public.team_stats ts, req, selected_entity se
+				WHERE req.entity_type = 'team' AND ts.sport = 'NFL'
+				  AND ts.team_id = req.entity_id AND ts.season = se.season
+				  AND COALESCE(ts.league_id, 0) = se.league_id
+			) sub
+			LIMIT 1
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -176,7 +209,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'meta', json_build_object(
 				'season', se.season,
 				'league_id', NULLIF(se.league_id, 0),
-				'available_seasons', (SELECT seasons FROM entity_seasons)
+				'available_seasons', (SELECT seasons FROM entity_seasons),
+				'season_composite_score', (SELECT season_composite_score FROM entity_season_score)
 			),
 			'league_context', NULL
 		)
@@ -225,6 +259,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ts.team_id = req.entity_id
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 			) s
+		),
+		entity_season_score AS (
+			SELECT season_composite_score FROM (
+				SELECT ps.season_composite_score
+				FROM public.player_stats ps, req, selected_entity se
+				WHERE req.entity_type = 'player' AND ps.sport = 'FOOTBALL'
+				  AND ps.player_id = req.entity_id AND ps.season = se.season
+				  AND COALESCE(ps.league_id, 0) = se.league_id
+				UNION ALL
+				SELECT ts.season_composite_score
+				FROM public.team_stats ts, req, selected_entity se
+				WHERE req.entity_type = 'team' AND ts.sport = 'FOOTBALL'
+				  AND ts.team_id = req.entity_id AND ts.season = se.season
+				  AND COALESCE(ts.league_id, 0) = se.league_id
+			) sub
+			LIMIT 1
 		)
 		SELECT json_build_object(
 			'page', 'profile',
@@ -238,7 +288,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'meta', json_build_object(
 				'season', se.season,
 				'league_id', NULLIF(se.league_id, 0),
-				'available_seasons', (SELECT seasons FROM entity_seasons)
+				'available_seasons', (SELECT seasons FROM entity_seasons),
+				'season_composite_score', (SELECT season_composite_score FROM entity_season_score)
 			),
 			'league_context', CASE
 				WHEN se.league_id > 0 THEN (
@@ -660,6 +711,11 @@ func teamResultsStatement(sportTag, sportID string, leagueScoped bool) string {
 				                    WHEN tf.team_score <  tf.opponent_score THEN 'L'
 				                    ELSE 'D'
 				                  END,
+				-- Team-level composite score for this fixture (migration 017).
+				-- NULL when the team has no event_team_stats row for the fixture
+				-- (e.g. status='scheduled' on a row that slipped past the
+				-- status filter, or a finalize_fixture that hasn't run yet).
+				'composite_score', ets.composite_score,
 				'opponent', json_build_object(
 					'id',         t.id,
 					'name',       t.name,
@@ -669,6 +725,10 @@ func teamResultsStatement(sportTag, sportID string, leagueScoped bool) string {
 			) ORDER BY tf.start_time DESC)
 			FROM team_fixtures tf
 			LEFT JOIN teams t ON t.id = tf.opponent_id AND t.sport = '` + sportID + `'
+			LEFT JOIN event_team_stats ets
+			  ON ets.fixture_id = tf.id
+			 AND ets.team_id = (SELECT team_id FROM req)
+			 AND ets.sport = '` + sportID + `'
 		), '[]'::json),
 		'meta', json_build_object(
 			'season',        (SELECT season FROM resolved_season),
@@ -785,7 +845,8 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		LIMIT 1
 	),
 	player_events AS (
-		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season
+		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season,
+		       e.composite_score, e.minutes_played
 		FROM event_box_scores e
 		JOIN fixtures f ON f.id = e.fixture_id
 		CROSS JOIN req
@@ -800,7 +861,8 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		LIMIT 3
 	),
 	team_events AS (
-		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season
+		SELECT e.fixture_id, e.stats, f.start_time, f.season AS event_season,
+		       e.composite_score, NULL::numeric AS minutes_played
 		FROM event_team_stats e
 		JOIN fixtures f ON f.id = e.fixture_id
 		CROSS JOIN req
@@ -815,9 +877,11 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		LIMIT 3
 	),
 	entity_events AS (
-		SELECT fixture_id, stats, start_time, event_season FROM player_events
+		SELECT fixture_id, stats, start_time, event_season,
+		       composite_score, minutes_played FROM player_events
 		UNION ALL
-		SELECT fixture_id, stats, start_time, event_season FROM team_events
+		SELECT fixture_id, stats, start_time, event_season,
+		       composite_score, minutes_played FROM team_events
 	),
 	entity_recent_avgs AS (
 		-- Average the entity's last-3 single-fixture values per stat key,
@@ -851,7 +915,10 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- specifically for dominant outliers where every peer comparison reads
 		-- as a huge positive and the user can't tell which way the entity is
 		-- actually trending relative to its own baseline.
-		(SELECT ps.stats
+		--
+		-- season_composite_score comes from migration 017; surfaces directly in
+		-- the trends payload as entity_season_score_avg.
+		(SELECT ps.stats, ps.season_composite_score
 		 FROM player_stats ps, req, resolved_season rs, effective_league el
 		 WHERE req.entity_type = 'player'
 		   AND ps.sport = '` + sportID + `'
@@ -861,7 +928,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		 ORDER BY ps.updated_at DESC
 		 LIMIT 1)
 		UNION ALL
-		(SELECT ts.stats
+		(SELECT ts.stats, ts.season_composite_score
 		 FROM team_stats ts, req, resolved_season rs, effective_league el
 		 WHERE req.entity_type = 'team'
 		   AND ts.sport = '` + sportID + `'
@@ -900,7 +967,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		) s
 	),
 	player_peer_cohort AS (
-		SELECT ps.stats
+		SELECT ps.stats, ps.season_composite_score
 		FROM player_stats ps, req, resolved_season rs, effective_league el, player_position pp
 		WHERE req.entity_type = 'player'
 		  AND ps.sport = '` + sportID + `'
@@ -910,7 +977,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		  AND (el.league_id IS NULL OR ps.league_id = el.league_id)
 	),
 	team_peer_cohort AS (
-		SELECT ts.stats
+		SELECT ts.stats, ts.season_composite_score
 		FROM team_stats ts, req, resolved_season rs, effective_league el
 		WHERE req.entity_type = 'team'
 		  AND ts.sport = '` + sportID + `'
@@ -919,9 +986,9 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		  AND (el.league_id IS NULL OR ts.league_id = el.league_id)
 	),
 	peer_cohort AS (
-		SELECT stats FROM player_peer_cohort
+		SELECT stats, season_composite_score FROM player_peer_cohort
 		UNION ALL
-		SELECT stats FROM team_peer_cohort
+		SELECT stats, season_composite_score FROM team_peer_cohort
 	),
 	peer_aggregate AS (
 		-- Average peer-cohort season values per stat key, filtered to
@@ -983,6 +1050,23 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		'entity_season_avgs', (SELECT avgs FROM entity_season_aggregate),
 		'peer_season_avgs',   (SELECT avgs FROM peer_aggregate),
 		'peer_cohort_size',   (SELECT cohort_size FROM peer_aggregate),
+		-- Composite-score block (Phase 2 of migration 017).
+		-- entity_recent_scores: per-event composite score for the last 3
+		-- fixtures, with minutes_played + fixture_id so the frontend can
+		-- render small-sample disclaimers and link rows to a fixture.
+		-- entity_season_score_avg: the entity's own season composite.
+		-- peer_season_score_avg: AVG of peer cohort's season composites
+		-- (by construction near 50; useful as an anchor for tier rendering).
+		'entity_recent_scores', COALESCE((
+			SELECT json_agg(json_build_object(
+				'fixture_id',      fixture_id,
+				'composite_score', composite_score,
+				'minutes_played',  minutes_played
+			) ORDER BY start_time DESC)
+			FROM entity_events
+		), '[]'::json),
+		'entity_season_score_avg', (SELECT season_composite_score FROM entity_self_row),
+		'peer_season_score_avg',   (SELECT ROUND(AVG(season_composite_score), 1) FROM peer_cohort),
 		'vibes', json_build_object(
 			'window_days', 7,
 			'snapshots', COALESCE((

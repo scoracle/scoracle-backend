@@ -25,7 +25,7 @@ The frontend calls one API origin and receives page-shaped JSON payloads designe
 Canonical data routes are sport-scoped:
 
 - `GET /api/v1/{sport}/{entityType}/{id}` (profile)
-- `GET /api/v1/{sport}/{entityType}/{id}/trends` (last-3 event averages vs peer-cohort season averages — raw, frontend interprets)
+- `GET /api/v1/{sport}/{entityType}/{id}/trends` (recent-form payload: last-3 stat averages + entity/peer season averages + full-season composite score sparkline)
 - `GET /api/v1/{sport}/team/{id}/results` (team's finalized scorelines for a season, framed from the team's perspective)
 - `GET /api/v1/{sport}/meta`
 - `GET /api/v1/{sport}/health`

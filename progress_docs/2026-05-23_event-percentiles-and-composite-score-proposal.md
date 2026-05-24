@@ -633,3 +633,36 @@ field for the frontend to disclaim — remains in the "deferred"
 section above. Normalization made it less acute; we can decide
 whether to layer the more-principled fix on top once the frontend
 is consuming composites and we see how it reads in practice.
+
+## Full-season sparkline data — 2026-05-24
+
+Frontend feedback after the initial composite ship: a 3-dot sparkline
+from `entity_recent_scores` reads as "last 3 dots" rather than
+"season form shape." Extended the field to cover every played event
+in the current season:
+
+- **Renamed `entity_recent_scores` → `entity_event_scores`** (no
+  external consumer was attached yet — frontend integration landed
+  same-day; better to fix the name before it ossifies).
+- **No more `LIMIT 3`** — full-season coverage: NBA ~82, NFL ~17,
+  football ~38 per response.
+- **Added `start_time` per row** so the frontend can label
+  hover-tooltips and bucket by week/month without a second fetch.
+  Fixtures table already joined; cheap addition.
+- **Scope: current season only.** The prior-season bridge logic
+  (used by `entity_recent_avgs` when current season is sparse)
+  doesn't apply here — once a team has any current-season
+  data, the sparkline shows that season's shape; off-season requests
+  return `[]`.
+
+Implementation: two new CTEs in `trendsStatement`
+(`player_season_events`, `team_season_events` unioned into
+`entity_season_events`) scoped to current season with no row limit.
+Existing limit-3-with-bridge CTEs (`player_events` / `team_events`
+/ `entity_events`) stay intact for `entity_recent_avgs` and the
+`window` metadata — the two consumers are now cleanly separated.
+
+Pure SQL composition; no schema change. Cache TTL on `/trends`
+unchanged. Live verification: Jokic returns 83 events for the 2025
+NBA season (regular season + early-spring playoffs); Spurs returns
+37 events for the PL season.

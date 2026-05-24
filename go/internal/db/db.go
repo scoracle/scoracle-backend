@@ -843,6 +843,62 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			GROUP BY kv.key
 		) s
 	),
+	entity_self_row AS (
+		-- The entity's own season-rolled stats row (player_stats or team_stats),
+		-- scoped to the resolved season + effective league. Emits 0 or 1 row.
+		-- Drives entity_season_aggregate below, which mirrors peer_aggregate so
+		-- the frontend can render a self-delta alongside the peer-delta — useful
+		-- specifically for dominant outliers where every peer comparison reads
+		-- as a huge positive and the user can't tell which way the entity is
+		-- actually trending relative to its own baseline.
+		(SELECT ps.stats
+		 FROM player_stats ps, req, resolved_season rs, effective_league el
+		 WHERE req.entity_type = 'player'
+		   AND ps.sport = '` + sportID + `'
+		   AND ps.season = rs.season
+		   AND ps.player_id = req.entity_id
+		   AND (el.league_id IS NULL OR ps.league_id = el.league_id)
+		 ORDER BY ps.updated_at DESC
+		 LIMIT 1)
+		UNION ALL
+		(SELECT ts.stats
+		 FROM team_stats ts, req, resolved_season rs, effective_league el
+		 WHERE req.entity_type = 'team'
+		   AND ts.sport = '` + sportID + `'
+		   AND ts.season = rs.season
+		   AND ts.team_id = req.entity_id
+		   AND (el.league_id IS NULL OR ts.league_id = el.league_id)
+		 ORDER BY ts.updated_at DESC
+		 LIMIT 1)
+	),
+	entity_season_aggregate AS (
+		-- Same comparability filter + cumulative-total normalization as
+		-- peer_aggregate. Operates on a single row (the entity's own season
+		-- stats), so the divisor handling reduces to a per-row division rather
+		-- than divide-then-average. Player entities end up with mostly empty
+		-- output (cumulative_total is non-comparable for players); that's fine
+		-- and the frontend treats {} as "no self-delta to render."
+		SELECT COALESCE(jsonb_object_agg(key, val), '{}'::jsonb) AS avgs
+		FROM (
+			SELECT kv.key,
+			       CASE
+			           WHEN sd.unit = 'cumulative_total' THEN
+			               (kv.value)::numeric
+			               / NULLIF((er.stats->>'` + divisorKey + `')::numeric, 0)
+			           ELSE
+			               (kv.value)::numeric
+			       END AS val
+			FROM entity_self_row er
+			CROSS JOIN req
+			CROSS JOIN LATERAL jsonb_each(er.stats) kv
+			JOIN stat_definitions sd
+			  ON sd.sport = '` + sportID + `'
+			 AND sd.entity_type = req.entity_type
+			 AND sd.key_name = kv.key
+			 AND sd.comparable = true
+			WHERE jsonb_typeof(kv.value) = 'number'
+		) s
+	),
 	player_peer_cohort AS (
 		SELECT ps.stats
 		FROM player_stats ps, req, resolved_season rs, effective_league el, player_position pp
@@ -924,6 +980,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			)
 		),
 		'entity_recent_avgs', (SELECT avgs FROM entity_recent_avgs),
+		'entity_season_avgs', (SELECT avgs FROM entity_season_aggregate),
 		'peer_season_avgs',   (SELECT avgs FROM peer_aggregate),
 		'peer_cohort_size',   (SELECT cohort_size FROM peer_aggregate),
 		'vibes', json_build_object(

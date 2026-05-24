@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-24 (composite scores normalized — mean=50 per position partition, uniform [0,100])
+> Last updated: 2026-05-24 (composite scores normalized — mean=50 per position partition, uniform [0,100]; entity_event_scores now covers the full season)
 
 Single public API base URL:
 
@@ -137,7 +137,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/tr
 | `entity_season_avgs` | `{stat: number}` | The entity's **own** season-rolled per-stat values, sourced from `player_stats.stats` / `team_stats.stats`. Same comparability filter and same per-game normalization as `peer_season_avgs`, applied to the single entity row instead of a cohort. Frontend uses this alongside `peer_season_avgs` to render a self-delta next to the peer-delta — important for dominant entities where every peer comparison reads as a huge positive and the user can't otherwise tell which way the entity is actually trending relative to its own baseline. `{}` for players (player cumulatives are non-comparable; their per-game / per-90 siblings already appear on the peer side and self-comparison adds no signal there). `{}` if the entity has no `*_stats` row in scope. |
 | `peer_season_avgs` | `{stat: number}` | Per-stat average across the peer cohort, filtered to `stat_definitions.comparable = true`. For `unit = 'cumulative_total'` keys (e.g. football team `tackles`, NFL team `passing_yards`), the raw season values are normalized to per-game by dividing each peer's value by their `matches_played` (football) / `games_played` (NBA/NFL) before averaging, so both sides land in the same per-game unit. Compare by intersecting keys with `entity_recent_avgs`. |
 | `peer_cohort_size` | integer | Peers contributing to `peer_season_avgs`. Use this to hide the comparison when the cohort is too thin to be meaningful (e.g., `< 5`). |
-| `entity_recent_scores` | object[] | Last-3 per-event composite scores (migration 017). Each entry: `{fixture_id, composite_score, minutes_played}`. `composite_score` is in `[0, 100]` — the mean of the entity's per-stat percentile values for that single fixture, with high values = good. NULL composite for events with no eligible non-zero stats (e.g. a DNP-CD). `minutes_played` is provided so the frontend can render a "small sample" disclaimer for short appearances; it's `null` for team entities (teams play the full match). |
+| `entity_event_scores` | object[] | **Every** played event in the current season, newest first (renamed from `entity_recent_scores` which only carried the last 3). Each entry: `{fixture_id, composite_score, minutes_played, start_time}`. `composite_score` is in `[0, 100]` — see the Interpretation section below. NULL composite for events with no eligible non-zero stats (e.g. a DNP-CD). `minutes_played` is provided for hover-tooltip context; `null` for team entities (teams play the full match). `start_time` is the fixture's UTC ISO-8601 timestamp — lets the frontend label hover-tooltips and bucket by week/month without a second fetch. Counts: ~82 for NBA, ~17 for NFL, ~38 for football (single league). |
 | `entity_season_score_avg` | number \| null | The entity's own `season_composite_score` — AVG of their event composite scores across the resolved season. `null` if the entity has no scored events. |
 | `peer_season_score_avg` | number | AVG of `season_composite_score` across the peer cohort. By construction this hovers near 50 (it's an average of percentile averages within a position cohort); useful as a tier-rendering anchor. |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
@@ -191,11 +191,11 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 The stored value is the result of pass 2. **Mean per partition is 50 by construction; distribution is uniform in `[0, 100]`.** A 70 reads as "this event ranks in the top 30% of events at this position this season." 80+ is a top-decile game. Below 30 is a bottom-third outing. The two-pass design has the side effect of bounding sparse-stat outliers (a goalkeeper event whose raw composite was 100 because only one stat ranked simply takes its place among other sparse-stat events rather than pinning to the top).
 
-**Sample-size disclaimers:** `minutes_played` is surfaced alongside each event score so the frontend can flag short appearances (e.g. football subs under ~30 min where per-90 normalization can produce extreme scores from a single stat). The decision to NOT filter low-minute appearances was explicit — per-90 normalization is partly meant to illuminate underused players, and dropping those events server-side would defeat that.
+**Sample-size disclaimers:** `minutes_played` is surfaced alongside each event score so the frontend can flag short appearances (e.g. football subs under ~30 min where per-90 normalization can produce extreme scores from a single stat). The decision to NOT filter low-minute appearances was explicit — per-90 normalization is partly meant to illuminate underused players, and dropping those events server-side would defeat that. At full-season sparkline density (82 dots for NBA) the per-dot disclaimers naturally move to hover-tooltips rather than inline labels.
 
 **Specialists vs well-rounded:** because the formula is an unweighted mean, a specialist who's elite at one stat but average elsewhere scores around 55, while a well-rounded entity scores higher. The per-stat percentiles in the existing trends payload (`entity_recent_avgs` etc.) remain the breakdown view; the composite score is the summary view.
 
-**Form-streak rendering:** the `entity_recent_scores` array is sufficient input for any client-side "N games above 70" display — no additional endpoint needed.
+**Form-streak rendering:** the `entity_event_scores` array is sufficient input for any client-side "N games above 70" display or full-season sparkline — no additional endpoint needed. The frontend's natural reading direction (oldest→newest, left→right) is the reverse of the server's newest-first ordering; reverse on the client.
 
 Known limitation — **NFL/football player trends** have a small intersection between sides because the seeder writes raw per-event counts (`passing_yards`, `tackles`) to `event_box_scores` but writes derived per-game / per-90 keys (`passing_yards_per_game`, `tackles_per_90`) to `player_stats`. The trends card on player pages for these sports shows fewer rows until the seeder schema is unified.
 
@@ -215,10 +215,11 @@ Known limitation — **NFL/football player trends** have a small intersection be
   "entity_recent_avgs": { "pts": 28.3, "reb": 8.1, "ast": 6.4 },
   "entity_season_avgs": {},
   "peer_season_avgs":   { "pts": 19.1, "reb": 5.4, "ast": 4.0 },
-  "entity_recent_scores": [
-    { "fixture_id": 9912, "composite_score": 78.4, "minutes_played": 38 },
-    { "fixture_id": 9905, "composite_score": 82.1, "minutes_played": 35 },
-    { "fixture_id": 9897, "composite_score": 71.2, "minutes_played": 40 }
+  "entity_event_scores": [
+    { "fixture_id": 9912, "composite_score": 78.4, "minutes_played": 38, "start_time": "2026-04-18T02:30:00Z" },
+    { "fixture_id": 9905, "composite_score": 82.1, "minutes_played": 35, "start_time": "2026-04-15T00:00:00Z" },
+    { "fixture_id": 9897, "composite_score": 71.2, "minutes_played": 40, "start_time": "2026-04-12T02:30:00Z" },
+    "... // every played event in the current season, newest first"
   ],
   "entity_season_score_avg": 75.3,
   "peer_season_score_avg":   50.0,
@@ -251,13 +252,14 @@ Known limitation — **NFL/football player trends** have a small intersection be
   "entity_recent_avgs": { "shots_total": 14.7, "possession_pct": 58.2, "accurate_passes": 521.3 },
   "entity_season_avgs": { "shots_total": 12.4, "possession_pct": 55.1, "accurate_passes": 478.6 },
   "peer_season_avgs":   { "shots_total": 11.9, "possession_pct": 49.5, "accurate_passes": 442.1 },
-  "entity_recent_scores": [
-    { "fixture_id": 22781, "composite_score": 53.9, "minutes_played": null },
-    { "fixture_id": 22769, "composite_score": 41.7, "minutes_played": null },
-    { "fixture_id": 22754, "composite_score": 40.0, "minutes_played": null }
+  "entity_event_scores": [
+    { "fixture_id": 22781, "composite_score": 20.1, "minutes_played": null, "start_time": "2026-05-19T18:30:00Z" },
+    { "fixture_id": 22769, "composite_score": 26.6, "minutes_played": null, "start_time": "2026-05-09T15:00:00Z" },
+    { "fixture_id": 22754, "composite_score": 77.9, "minutes_played": null, "start_time": "2026-05-04T15:30:00Z" },
+    "... // every played fixture in the current season, newest first"
   ],
-  "entity_season_score_avg": 51.1,
-  "peer_season_score_avg":   46.6,
+  "entity_season_score_avg": 65.0,
+  "peer_season_score_avg":   48.0,
   "peer_cohort_size": 19,
   "vibes": {
     "window_days": 7,

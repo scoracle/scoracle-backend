@@ -883,6 +883,43 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		SELECT fixture_id, stats, start_time, event_season,
 		       composite_score, minutes_played FROM team_events
 	),
+	-- Full-season events (no LIMIT, no prior-season bridge). Drives
+	-- entity_event_scores so the frontend sparkline can render a real
+	-- season trajectory across every played event rather than just the
+	-- last 3. We keep the limit-3 entity_events above intact because
+	-- entity_recent_avgs and the window metadata legitimately need
+	-- "last 3, bridging prior season if current is sparse" semantics.
+	player_season_events AS (
+		SELECT e.fixture_id, e.composite_score, e.minutes_played, f.start_time
+		FROM event_box_scores e
+		JOIN fixtures f ON f.id = e.fixture_id
+		CROSS JOIN req
+		CROSS JOIN resolved_season rs
+		CROSS JOIN effective_league el
+		WHERE req.entity_type = 'player'
+		  AND e.player_id = req.entity_id
+		  AND e.sport = '` + sportID + `'
+		  AND f.season = rs.season
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+	),
+	team_season_events AS (
+		SELECT e.fixture_id, e.composite_score, NULL::numeric AS minutes_played, f.start_time
+		FROM event_team_stats e
+		JOIN fixtures f ON f.id = e.fixture_id
+		CROSS JOIN req
+		CROSS JOIN resolved_season rs
+		CROSS JOIN effective_league el
+		WHERE req.entity_type = 'team'
+		  AND e.team_id = req.entity_id
+		  AND e.sport = '` + sportID + `'
+		  AND f.season = rs.season
+		  AND (el.league_id IS NULL OR f.league_id = el.league_id)
+	),
+	entity_season_events AS (
+		SELECT fixture_id, composite_score, minutes_played, start_time FROM player_season_events
+		UNION ALL
+		SELECT fixture_id, composite_score, minutes_played, start_time FROM team_season_events
+	),
 	entity_recent_avgs AS (
 		-- Average the entity's last-3 single-fixture values per stat key,
 		-- filtered to stat_definitions.comparable so we never emit keys whose
@@ -1050,20 +1087,24 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		'entity_season_avgs', (SELECT avgs FROM entity_season_aggregate),
 		'peer_season_avgs',   (SELECT avgs FROM peer_aggregate),
 		'peer_cohort_size',   (SELECT cohort_size FROM peer_aggregate),
-		-- Composite-score block (Phase 2 of migration 017).
-		-- entity_recent_scores: per-event composite score for the last 3
-		-- fixtures, with minutes_played + fixture_id so the frontend can
-		-- render small-sample disclaimers and link rows to a fixture.
+		-- Composite-score block (migrations 017 + 018).
+		-- entity_event_scores: per-event composite score across EVERY
+		-- played event in the current season — drives the frontend's
+		-- full-season sparkline. Each row carries fixture_id, the
+		-- normalized composite_score (mean=50 per partition by
+		-- construction), minutes_played for hover-tooltip context, and
+		-- start_time for date labels and time-bucket grouping.
 		-- entity_season_score_avg: the entity's own season composite.
 		-- peer_season_score_avg: AVG of peer cohort's season composites
-		-- (by construction near 50; useful as an anchor for tier rendering).
-		'entity_recent_scores', COALESCE((
+		-- (near 50 by construction; useful as an anchor for tier rendering).
+		'entity_event_scores', COALESCE((
 			SELECT json_agg(json_build_object(
 				'fixture_id',      fixture_id,
 				'composite_score', composite_score,
-				'minutes_played',  minutes_played
+				'minutes_played',  minutes_played,
+				'start_time',      start_time
 			) ORDER BY start_time DESC)
-			FROM entity_events
+			FROM entity_season_events
 		), '[]'::json),
 		'entity_season_score_avg', (SELECT season_composite_score FROM entity_self_row),
 		'peer_season_score_avg',   (SELECT ROUND(AVG(season_composite_score), 1) FROM peer_cohort),

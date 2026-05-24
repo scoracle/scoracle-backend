@@ -832,3 +832,145 @@ Pure SQL composition; no schema change. Cache TTL on `/trends`
 unchanged. Live verification: Jokic returns 83 events for the 2025
 NBA season (regular season + early-spring playoffs); Spurs returns
 37 events for the PL season.
+
+## Outlier audit — current state (post-migration 020)
+
+Consolidated reference. Numbers below were captured 2026-05-24 after
+the migration-020 backfill completed. The composite system is in good
+shape overall — NBA team leaderboard correctly tops with OKC Thunder,
+NBA player leaderboard tops with SGA / Kawhi / Jokic / Murray /
+Mitchell, PL teams roughly track the actual table. The outliers
+documented here are residual edges, not systemic problems.
+
+### Resolved by migration 019/020
+
+- **Per-90 inflation crowding football leaderboards.** A 5-min sub
+  with one good stat extrapolated to elite per-90 numbers, pushing
+  bench appearances to the top of position cohorts. **Fix: 019**
+  dropped per-90 from event ranking; **020** also dropped per-X
+  derived stats from composite eligibility so the season number
+  doesn't double-count the same production. Verification: Football
+  Attacker minute-band distribution went from inverted
+  (`<15min: 75.2`, `80+min: 32.8`) to correctly monotonic.
+
+- **NBA team rating compression.** Pre-020 distribution was
+  mean 49.9 / sd 9.0 / range 31–66 — top teams didn't feel elite.
+  **Fix: 020** added outcome stats (wins, points, GD, etc.) which
+  spread the distribution naturally. Post-020: mean 49.5 / sd 16.4 /
+  range 16–76. OKC #1 (76.2), real contenders 65+, rebuilding teams
+  in the 40s-50s.
+
+- **Stale composites from re-seeded fixtures.** Events whose stats
+  blob was cleared in a re-seed kept their previous composite
+  indefinitely. **Fix: 019** added a reset step at the start of
+  `recalculate_event_percentiles` so the function self-cleans on
+  every invocation.
+
+### Still open — residual edges worth flagging
+
+1. **Single-stat outlier at the very top of position-cohort leaderboards.**
+   The clearest example today: Football Attacker top-5 still contains
+   1-event 0-1-minute appearances (Papa Dame Ba and similar) ranking
+   99.9 because their event had only `goals_conceded: 1` (an inverse
+   stat) which percentile-ranked high in isolation. After 020 these
+   still surface because the season composite reads percentile values
+   directly from the per-stat percentiles JSONB, and a player with
+   one ranked stat at 100 gets composite ~100.
+
+   Real-name top players begin appearing from rank 5-10 onward.
+
+   **Proper fixes (deferred until painful):**
+   - Bayesian shrinkage by participating-stat count: `adjusted =
+     (sum_percentiles + 50 * (max_stats - n)) / max_stats` — events /
+     entities with few ranked stats get pulled toward 50.
+   - Surface a `stats_contributed` metadata field on the percentiles
+     JSONB so frontend can disclaim "100 from 1 stat" in the same
+     way `minutes_played` disclaims sub appearances.
+   - Minimum-events gate at the season-composite level (only emit
+     `season_composite_score` when entity has >= N events in the
+     season). N=10 for NBA, 5 for NFL, 15 for football probably.
+
+   **Frontend workaround in the meantime:** for any leaderboard
+   surface, filter to entities with `>= N events` (the values above).
+   Backend can absorb this gate later via the season-composite
+   minimum-events filter if it proves universally useful.
+
+2. **Production vs. outcomes residual divergence (mostly Premier
+   League).** Migration 020 narrowed the Arsenal–Chelsea gap from
+   10.8 to 0.8, but Chelsea (59.9, 52 pts) still nominally ranks
+   above Arsenal (59.1, 82 pts). Arsenal's grinding 1-0 wins
+   genuinely produce less stat volume than Chelsea's high-possession
+   losses, and the 5-6 outcome stats are diluted across ~75 eligible
+   team stats. Newcastle (49 pts, 0 GD) shows 60.3 — also above
+   Arsenal. Brighton (53 pts) shows 57.8.
+
+   Top of PL is correct (Man City 69, Man United 68, Liverpool 62.5);
+   middle is clustered (Newcastle / Chelsea / Arsenal / Brighton all
+   between 57-60); style and stat-volume drive the order within that
+   band more than league-table position does.
+
+   **This is expected behavior under the "pure data, no weighting"
+   principle.** Including more outcome-derivative stats would help
+   but starts to feel like soft weighting. Leaving as-is unless the
+   product surfaces a user-facing reason to revisit.
+
+3. **Miami Heat-type production-rich-but-losing teams.** Heat at
+   composite 65.9 with a 43-40 record (just above .500) ranks #5 in
+   the NBA team leaderboard, ahead of better-record teams like the
+   Knicks (54-29). Same family of issue as the PL middle cluster —
+   production volume isn't perfectly correlated with winning.
+   Mostly bounded by the outcome-stat inclusion (a 43-40 team
+   doesn't rank as high as a 64-18 team), but the residual gap
+   between production and outcomes persists by design.
+
+4. **Football team cluster compression.** PL team distribution is
+   mean 52.9 / sd 9.3 — narrower than NBA team (sd 16.4). Football
+   teams play more similar styles within a league than NBA teams do,
+   so the per-stat percentile values cluster harder. Adding more
+   outcome stats (e.g. home/away split percentages) would help spread
+   without manual weighting, but at the cost of double-counting base
+   wins/losses. Not worth chasing.
+
+5. **NFL Patriots data anomaly.** NFL team leaderboard shows New
+   England Patriots at 75.0 with `wins=17` — that's a full
+   undefeated 17-game season, which the team did not have in
+   reality. This is almost certainly a SEEDER data issue (NFL
+   standings ingestion bug), not a composite issue: if the data
+   says 17 wins, the system correctly ranks them top. Worth
+   flagging for a future seeder audit. Composite logic is fine.
+
+### Suggested order of operations when it's time
+
+If the user ever decides to address these:
+
+1. **Minimum-events gate first** (cheapest, biggest leaderboard
+   visual win). Add a `WHERE event_count >= N` clause to the
+   season-composite UPDATE — entities below the threshold keep
+   `season_composite_score = NULL`. Frontend already handles null
+   gracefully (hides headline chip). Knocks the top-of-leaderboard
+   noise out without breaking anything else.
+
+2. **`stats_contributed` metadata** (low cost, frontend disclaimer
+   unlock). Add to the percentiles JSONB so consumers can render
+   "(based on 1 stat)" badges for sparse-event entities. Doesn't
+   change rankings but lets the UI be honest about uncertainty.
+
+3. **Bayesian shrinkage** (highest principled value, biggest math
+   change). Only worth doing if 1+2 above don't move the needle
+   enough.
+
+### What deliberately is NOT a bug
+
+- **Players ranked higher than top stars on production-heavy stats.**
+  A specialist who plays well in their narrow role gets credit. The
+  composite is well-roundedness-weighted by design.
+- **Cross-season comparison being relative-to-cohort.** Documented
+  trade-off — preferred for "same entity bucket year-over-year"
+  trajectory; not appropriate for "absolute production was higher in
+  year X vs year Y" claims. True absolute cross-season comparison
+  would need z-scoring against a multi-year baseline, a separate
+  project.
+- **Game-to-game composite swing.** Per-event values being noisy is
+  inherent to per-event data. The sparkline showing 25, 80, 50
+  across three games is honest — that's what the data says. Season
+  AVG smooths it.

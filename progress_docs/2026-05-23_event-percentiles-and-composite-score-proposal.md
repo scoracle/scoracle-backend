@@ -868,32 +868,25 @@ documented here are residual edges, not systemic problems.
 
 ### Still open — residual edges worth flagging
 
-1. **Single-stat outlier at the very top of position-cohort leaderboards.**
-   The clearest example today: Football Attacker top-5 still contains
-   1-event 0-1-minute appearances (Papa Dame Ba and similar) ranking
-   99.9 because their event had only `goals_conceded: 1` (an inverse
-   stat) which percentile-ranked high in isolation. After 020 these
-   still surface because the season composite reads percentile values
-   directly from the per-stat percentiles JSONB, and a player with
-   one ranked stat at 100 gets composite ~100.
+1. **Single-stat outlier — RESOLVED by migration 020 (correction to an
+   earlier note in this doc).** An earlier version of this audit claimed
+   1-event entities like Papa Dame Ba still ranked 99.9 after migration
+   020. That was wrong — it described the pre-020 per-event-composite-AVG
+   behavior. After 020, the season composite reads from *season-aggregated*
+   per-stat percentiles, so a 1-game player's tiny cumulative totals
+   (1 goal, a handful of passes) rank LOW against full-season players.
+   Verified 2026-05-24: Papa Dame Ba's `season_composite_score` is now
+   NULL/low; the Football Attacker top-5 is Lamine Yamal, Harry Kane,
+   Mason Greenwood, Kenan Yıldız, Antony — all 28-36-event starters.
+   Migration 021's `season_composite_rank` (percent_rank of the season
+   composite) keeps them correctly ranked because the underlying
+   composite already penalizes sparse seasons.
 
-   Real-name top players begin appearing from rank 5-10 onward.
-
-   **Proper fixes (deferred until painful):**
-   - Bayesian shrinkage by participating-stat count: `adjusted =
-     (sum_percentiles + 50 * (max_stats - n)) / max_stats` — events /
-     entities with few ranked stats get pulled toward 50.
-   - Surface a `stats_contributed` metadata field on the percentiles
-     JSONB so frontend can disclaim "100 from 1 stat" in the same
-     way `minutes_played` disclaims sub appearances.
-   - Minimum-events gate at the season-composite level (only emit
-     `season_composite_score` when entity has >= N events in the
-     season). N=10 for NBA, 5 for NFL, 15 for football probably.
-
-   **Frontend workaround in the meantime:** for any leaderboard
-   surface, filter to entities with `>= N events` (the values above).
-   Backend can absorb this gate later via the season-composite
-   minimum-events filter if it proves universally useful.
+   No further fix needed. The Bayesian-shrinkage / `stats_contributed`
+   ideas are no longer necessary for the season-level leaderboard
+   (season aggregation handles it). They'd only matter if a future
+   surface ranks individual *events* (where a 1-stat game can still
+   read extreme) — not currently exposed.
 
 2. **Production vs. outcomes residual divergence (mostly Premier
    League).** Migration 020 narrowed the Arsenal–Chelsea gap from
@@ -974,3 +967,37 @@ If the user ever decides to address these:
   inherent to per-event data. The sparkline showing 25, 80, 50
   across three games is honest — that's what the data says. Season
   AVG smooths it.
+
+## Layer-3 leaderboard rank — 2026-05-24 (migration 021)
+
+Added `season_composite_rank` to `player_stats` / `team_stats`: the
+percentile rank of `season_composite_score` within the cohort
+(`(sport, season, position)` for players, `(sport, season)` for teams).
+Completes the three-layer model:
+
+1. `event_box_scores.composite_score` — per-game ("how good was this game")
+2. `season_composite_score` — season absolute, cross-season comparable
+   (AVG of season per-stat percentiles, migration 020)
+3. `season_composite_rank` — season within-cohort percentile, uniform
+   `[0, 100]`, top entity = 100 (the leaderboard/headline number)
+
+Why a separate field instead of replacing the composite: layer 2 is
+cross-season comparable (same methodology yearly — good for trajectory);
+layer 3 is within-season only (2024-top and 2025-top both read ~100 —
+NOT cross-season). Keeping both lets the frontend use the rank for
+leaderboards/headline chips and the composite for year-over-year arcs.
+
+Verification (2026-05-24):
+```
+NBA teams:   OKC 76.2→100.0, Spurs 75.7→96.6, Nuggets 72.4→93.1 ... Nets 16.0→0.0
+FB Attackers: Yamal 73.2→100.0, Kane 71.5→99.9, Greenwood 69.0→99.8 (all 28-36 evt starters)
+Rank distribution: uniform 0-100, mean 49.9 (both NBA team + player)
+```
+
+API: `meta.season_composite_rank` on profile; `entity_season_score_rank`
+on trends. Pure-additive — `season_composite_score` and all existing
+fields unchanged. Backfill ~2 min via the per-season retry loop.
+
+This also retired the single-stat-outlier concern (see corrected note
+above) — season aggregation already penalizes sparse seasons, so the
+rank surfaces real top performers without a minimum-events gate.

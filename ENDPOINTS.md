@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-23 (composite score per game + season rollup; trends/profile/team-results all carry composite fields)
+> Last updated: 2026-05-24 (composite scores normalized — mean=50 per position partition, uniform [0,100])
 
 Single public API base URL:
 
@@ -66,7 +66,7 @@ Top-level keys:
 | `meta.season` | integer | The season this response is for. Echoes `?season=` if provided, else the entity's most recent season. The frontend should treat this as the "selected" value of its season picker. |
 | `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
 | `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
-| `meta.season_composite_score` | number \| null | Headline single-number rating for the entity in the resolved season, in `[0, 100]`. AVG of per-event composite scores from the new event-percentile pipeline (migration 017). Same scale as `entity_recent_scores[].composite_score` and `entity_season_score_avg` on the trends endpoint — by construction league-average for a position hovers near 50; 60+ is strong, 80+ is elite. `null` if the entity has no scored events in the season. |
+| `meta.season_composite_score` | number \| null | Headline single-number rating for the entity in the resolved season, in `[0, 100]`. AVG of per-event composite scores (migrations 017 + 018). Same scale as `entity_recent_scores[].composite_score` and `entity_season_score_avg` on the trends endpoint — per-event distribution is uniform with mean 50, so a player whose events consistently rank in the top quartile will land in the 75+ range here. Top NBA centers ship around 90; bench players land in the 20s; bottom-of-rotation in the 10s. `null` if the entity has no scored events in the season. |
 
 #### Season selection (`meta.available_seasons`)
 
@@ -185,7 +185,11 @@ This matters most for **dominant outliers**. A team that leads its league sees `
 
 `entity_recent_scores`, `entity_season_score_avg`, and `peer_season_score_avg` (migration 017) ship a data-driven single-number rating per event in `[0, 100]`, derived per the per-event percentile pipeline described in `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`.
 
-**Interpretation:** the score is the unweighted mean of the entity's per-stat percentile values for that single fixture, against the same-season position-partitioned cohort of single-game performances. By construction the league average for a position hovers near 50; 60+ is a strong game; 80+ is elite; below 40 is a poor outing. Tier rendering should match the season-percentile tiers used elsewhere in the app for visual consistency.
+**Interpretation:** the score is the **percentile rank of the event's raw composite within its position cohort** (migration 018 — replaces the unweighted-mean exposed by 017). Concretely, two passes:
+1. Compute the unweighted mean of per-stat percentiles for stats the player had non-zero values in (the raw composite).
+2. Percent-rank that raw composite against every other same-season same-position event.
+
+The stored value is the result of pass 2. **Mean per partition is 50 by construction; distribution is uniform in `[0, 100]`.** A 70 reads as "this event ranks in the top 30% of events at this position this season." 80+ is a top-decile game. Below 30 is a bottom-third outing. The two-pass design has the side effect of bounding sparse-stat outliers (a goalkeeper event whose raw composite was 100 because only one stat ranked simply takes its place among other sparse-stat events rather than pinning to the top).
 
 **Sample-size disclaimers:** `minutes_played` is surfaced alongside each event score so the frontend can flag short appearances (e.g. football subs under ~30 min where per-90 normalization can produce extreme scores from a single stat). The decision to NOT filter low-minute appearances was explicit — per-90 normalization is partly meant to illuminate underused players, and dropping those events server-side would defeat that.
 

@@ -1,11 +1,15 @@
 # Proposal — per-event percentiles + composite score per game
 
-Date: 2026-05-23
-Status: **Phase 1 + Phase 2 shipped** — schema, function, finalize_fixture
-hook, full backfill, and API surface across trends + profile + team
-results all live. Phase 3 (frontend) is purely client-side from here;
-all needed data flows through the three existing endpoints. Outlier
-handling deferred per the addendum at the bottom of this doc.
+Date: 2026-05-23 (initial) / 2026-05-24 (normalization)
+Status: **Phase 1 + Phase 2 + normalization shipped.** Schema, function,
+finalize_fixture hook, full backfill, API surface across trends +
+profile + team results, AND a two-pass normalization (migration 018)
+so composite_score now has mean=50 per partition with uniform
+distribution in `[0, 100]`. Phase 3 (frontend) is purely client-side
+from here; all needed data flows through the three existing endpoints.
+Most outlier concerns are now bounded by normalization; the
+remaining sparse-stat case is documented at the bottom of this doc
+for a future session.
 
 ## Context
 
@@ -357,6 +361,7 @@ normalization.
 | Existing finalize_fixture hook | `sql/shared.sql:630` |
 | Existing stat metadata table | `sql/shared.sql:198` (`stat_definitions`) |
 | Phase 1 migration | `sql/migrations/017_event_percentiles_and_composite.sql` |
+| Normalization migration | `sql/migrations/018_event_composite_normalization.sql` |
 | Related — event-derivation proposal | `progress_docs/2026-05-23_event-derivation-proposal.md` |
 | Related — trends comparability work | `progress_docs/2026-05-23_trends-unit-comparability.md` |
 
@@ -548,3 +553,83 @@ Both should be revisited together once the frontend has been built
 out to consume composite scores and we see how the edge cases read
 in practice. The fixes are non-breaking refinements; nothing in
 Phase 1 or 2 needs to change to ship them later.
+
+## Normalization shipped — 2026-05-24 (migration 018)
+
+The Phase 1 + 2 ship exposed a real distributional issue: per-event
+composite means were ~42 (NBA), ~36 (NFL), ~49 (football) instead of
+the expected 50. Mechanism: composite is AVG of per-stat percentiles
+across stats with non-zero values; stat presence correlates with stat
+quality (bench players have few stats AND those stats are low-
+percentile; stars have many AND they're high), so the population mean
+drifts below 50.
+
+Fix: migration 018 replaces `recalculate_event_percentiles` with a
+two-pass version. Pass 1 is the original unweighted-mean (now called
+`raw_composite` inside the function). Pass 2 percent-ranks the raw
+composite within the same (sport, season, position) partition for
+players, (sport, season) for teams. The stored `composite_score`
+becomes the result of pass 2.
+
+This delivers:
+
+- **Mean per partition = 50 by construction.** Verified post-migration:
+  NBA player events 49.91, NFL 47.56, FOOTBALL 49.88; all team event
+  averages 49.8-49.9. Standard deviations ~28.9 — the textbook value
+  for a uniform distribution on `[0, 100]` is `100/√12 ≈ 28.87`.
+- **Self-bounded outliers in `[0, 100]`.** The previous degenerate
+  case (goalkeeper event with one inverse stat scoring 100) now
+  ranks against other sparse-stat events — usually clustering at
+  similar values rather than uniquely pinning to 100.
+- **No schema change, same function signature, same call site.**
+  `finalize_fixture` continues to work unchanged. API surface
+  unchanged — clients still see a number in `[0, 100]`, and the
+  "higher = better" property is preserved.
+- **Interpretation shift, documented:** the stored composite is no
+  longer "average of stat-percentiles" — it's now "percentile rank
+  of the event's raw composite within its position cohort." Arguably
+  more intuitive for users ("ranks in the 70th percentile of NBA
+  Center events" vs. "scored a 65 on a homemade index"). Tier
+  thresholds (50/60/80) actually mean what they say now.
+
+Post-normalization sanity check:
+
+```
+NBA top season composites:
+  Nikola Jokic              90.5  (C)
+  Jayson Tatum              90.2  (F)
+  Kawhi Leonard             88.0  (F)
+  Shai Gilgeous-Alexander   87.9  (G)
+  Lauri Markkanen           86.7  (F)
+  Luka Doncic               86.2  (F-G)
+  Kevin Durant              85.5  (F)
+  Giannis Antetokounmpo     84.6  (F)
+  James Harden              84.6  (G)
+  Tyrese Maxey              84.5  (G)
+```
+
+The right names cluster in the 85-90 band — exactly what a uniform
+distribution under "season composite = AVG of percentile-ranked event
+composites" would predict for genuinely elite players.
+
+Backfill ran in ~50 seconds (slightly faster than 017's 91 seconds
+because the per-stat percentile pass is the dominant cost; pass 2 is
+a single percent_rank over the small per-event table). One transient
+deadlock with the live football seeder during the inline backfill
+loop — resolved by running the per-season backfill via a small bash
+retry wrapper. Worth noting for any future bulk-recompute that
+contends with active writes.
+
+### Deferred (still open): few-ranked-stats outlier
+
+The earlier "goalkeeper event scoring 100 because one inverse stat
+ranked high" case is improved by normalization (such events now
+rank against other sparse-stat events rather than uniquely
+saturating the high end), but not fully solved. A goalkeeper with
+chronically sparse stats can still rank in the high percentiles
+within the goalkeeper cohort. The proper fix — Bayesian shrinkage
+by participating-stat count, or a `stats_contributed` metadata
+field for the frontend to disclaim — remains in the "deferred"
+section above. Normalization made it less acute; we can decide
+whether to layer the more-principled fix on top once the frontend
+is consuming composites and we see how it reads in practice.

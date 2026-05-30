@@ -1,7 +1,7 @@
 # Composite Score — Enhancements Proposal (deltas vs shipped v1)
 
 Date: 2026-05-30
-Status: **proposal** — for discussion, not yet implemented
+Status: **shipped 2026-05-30** — deltas 1 + 2 live (migrations 025/026); delta 3 deferred per the doc's recommendation. See "Shipped" section at the bottom for the implementation summary.
 Builds on (already shipped, migrations 017–024):
 - `progress_docs/2026-05-23_event-percentiles-and-composite-score-proposal.md`
 - `progress_docs/2026-05-23_event-derivation-proposal.md`
@@ -128,3 +128,86 @@ event rating is marginal on top of that. Park unless a specific UI wants it.
 
 Everything else the session produced is already shipped — this doc is the honest
 residue worth acting on.
+
+## Shipped — 2026-05-30
+
+### Delta 1 — Cold-start guard (migration 025)
+
+Implemented as Layer-2.5 inside `recalculate_event_percentiles`, running
+between layer 2 (season_composite_score AVG) and layer 3 (in-season rank).
+Linear blend `α·prior + (1−α)·current` with `α = max(0, (window−games)/window)`,
+where `window` is sport-specific per the doc's "proportional ~10%" choice:
+
+  NBA      8 games  (10% of 82)
+  NFL      2 games  (10% of 17)
+  FOOTBALL 4 games  (10% of 38)
+
+Fallback chain matches the doc's spec: entity's own prev-season composite
+(same league_id for football) → prev-season cohort average
+(sport + position for players, sport for teams) → 50.0. Lives within the
+existing in-season write footprint; prior seasons read-only.
+
+Sub-decision (a) from the doc adopted (blend on `season_composite_score`
+directly rather than on per-stat percentiles). Simpler, same effect.
+
+Verification: NBA Centers full-season unchanged (Jokic 81.9 → 81.2 — tiny
+ripple from cohort shifts as sparse-event players got pulled to ~50 rather
+than ~bottom). Football Attacker top-5 cleaned up further: Yamal, Soler,
+Kane, Greenwood, Nusa — all real 28-36-event starters. Backfill ran in
+2m47s across all (sport, season).
+
+### Delta 2 — Cross-position absolute leaderboard (migration 026)
+
+Added two player-only columns: `season_composite_rank_absolute` (in-season,
+cross-position) and `season_composite_rank_alltime_absolute` (across-all-seasons,
+cross-position). Adopted the doc's recommended variant: `percent_rank` of the
+existing `season_composite_score` with no `PARTITION BY position` — keeps the
+inputs position-fair (the composite is built from position-relative
+percentiles) while producing an overall leaderboard.
+
+Functions modified:
+- `recalculate_event_percentiles`: Layer-3 absolute step after the existing
+  position-partitioned Layer 3, in-season scope.
+- `recalculate_alltime_ranks`: Layer-4 absolute step alongside the existing
+  position-partitioned Layer 4, same `(sport, season)`-scope semantics
+  (NULL → full re-baseline, integer → that season only).
+
+Teams unchanged — their ranks are already sport-wide; "absolute" is N/A.
+Profile/trends API expose the new fields as NULL for teams to keep the
+contract symmetric.
+
+Verification: NBA in-season absolute top-5 — SGA, Kawhi, Murray, Jokic,
+Edwards (right names, ordered by composite). NBA all-time absolute top-5 —
+Kyrie 2020, Kawhi 2023, Jokic 2022, Kawhi 2020, Kyrie 2021. Jokic 2025 →
+100 within Centers / 99.5 absolute (correctly identifies him as top Center
+but not top player overall since SGA's composite is higher). All-time
+full rebaseline ran in seconds.
+
+### Delta 3 — Cross-season per-event sparkline rating
+
+Deferred per the doc's recommendation. The per-event composite is already
+normalized within `(sport, season, position)` so the sparkline is dynamic
+per season; a cross-season "best games ever" event rating is marginal
+until a specific UI surface asks for it.
+
+### API surface added
+
+Profile (`/api/v1/{sport}/{entityType}/{id}`):
+  `meta.season_composite_rank_absolute`            (players only)
+  `meta.season_composite_rank_alltime_absolute`    (players only)
+
+Trends (`/api/v1/{sport}/{entityType}/{id}/trends`):
+  `entity_season_score_rank_absolute`              (players only)
+  `entity_alltime_score_rank_absolute`             (players only)
+
+Teams receive NULL for the four absolute fields. Existing position-
+partitioned ranks (`season_composite_rank`, `season_composite_rank_alltime`)
+are unchanged.
+
+### Maintenance ticker
+
+`AlltimeRankInterval` (24h) already handles both position-partitioned and
+absolute all-time recomputes — `recalculate_alltime_ranks` was extended in
+mig 026 to write both columns in the same pass, so no maintenance worker
+changes were needed. Startup full re-baseline + season-rollover detection
+also cover both ranks automatically.

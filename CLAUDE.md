@@ -2,6 +2,12 @@
 
 Backend data pipeline and unified API for the Scoracle sports platform.
 
+## Session start: confirm branch is synced — ALWAYS step 1
+
+**Before any editing, before any tool call beyond inspection, confirm the local branch is synced with `origin/main`.** Run `git fetch && git status`; if uncertain about divergence compare `git log origin/main..HEAD` (local-only) and `git log HEAD..origin/main` (remote-only). If the branch is behind — even by a single commit — `git pull --ff-only` before editing; if it has genuinely diverged, surface it to the user and agree a plan first.
+
+Why this is non-negotiable: scoracle is a solo, multi-machine project (**archx220** + **archbox**), and work is pushed to `origin` from whichever machine made it. Starting on a stale baseline burns time on duplicate or conflicting work — e.g. re-designing a feature that was already shipped on `origin/main`. A `SessionStart` git-sync hook in `.claude/settings.json` runs this check automatically, but treat the hook as a backstop, not a substitute for the habit.
+
 ## Architecture — Two Components, One Database
 
 ```

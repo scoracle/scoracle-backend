@@ -208,16 +208,26 @@ What's deliberately NOT in the season composite:
 - **Playing-time denominators** (`games_played`, `matches_played`, `minutes_played`, `lineups`) — opportunity, not production.
 - **Provider composites** (`rating` from SportMonks) — would double-count itself.
 
-**Three layers, three questions** (migrations 017→021):
+**Composite fields — four layers + an orthogonal absolute axis for players** (migrations 017→026):
 
-| Layer | Field | Question | Distribution |
+| Layer | Field (profile / trends) | Question | Distribution |
 |---|---|---|---|
 | Per-event | `entity_event_scores[].composite_score` | "How good was this *game*?" | uniform per cohort |
-| Season (absolute) | `season_composite_score` / `entity_season_score_avg` | "How did this *season* compare, cross-season?" | spread, relative-to-cohort |
+| Season (absolute number) | `season_composite_score` / `entity_season_score_avg` | "How did this *season* compare, cross-season?" | spread, relative-to-cohort |
 | Season (in-season rank) | `season_composite_rank` / `entity_season_score_rank` | "Where does this entity *rank* among peers this season?" | uniform `[0, 100]`, top = 100 |
 | Season (all-time rank) | `season_composite_rank_alltime` / `entity_alltime_score_rank` | "Is this one of the best seasons we've *ever* recorded?" | uniform `[0, 100]` across all seasons |
+| **Players only** — cross-position in-season | `season_composite_rank_absolute` / `entity_season_score_rank_absolute` | "Best player overall this season, regardless of position?" | uniform `[0, 100]` within `(sport, season)` |
+| **Players only** — cross-position all-time | `season_composite_rank_alltime_absolute` / `entity_alltime_score_rank_absolute` | "Best player-season overall ever recorded, regardless of position?" | uniform `[0, 100]` across all seasons |
 
-Use `season_composite_rank` for in-season headline chips and single-season leaderboards (top NBA team / Center / Attacker all sit at ~100). Use `season_composite_rank_alltime` for "all-time greats" / historical surfaces. Use `season_composite_score` for year-over-year trajectory.
+Pick per surface:
+
+- **In-season headline chip / single-season leaderboards** → `season_composite_rank` (position-partitioned, top of each position cohort sits at ~100).
+- **"Best player overall" leaderboards** → `season_composite_rank_absolute` (players only). Position cohort still informs the underlying composite, but the leaderboard isn't sliced by position.
+- **"All-time greats" / historical surfaces** → `season_composite_rank_alltime` (or `_absolute` if cross-position).
+- **Year-over-year trajectory** → `season_composite_score` (cross-season comparable). NEVER use the ranks for cross-season comparison — every cohort's top entity reads ~100 each year by design.
+- **Per-game sparkline** → `entity_event_scores[].composite_score`.
+
+Teams have no `_absolute` fields (their position-partitioned ranks are already sport-wide; there's no position partition to escape). The four absolute fields are always `null` for teams.
 
 **Refresh cadence:** the per-event, season composite, and in-season rank all recompute on `finalize_fixture` (current-season work, cheap, immediate). The all-time rank recomputes nightly via the maintenance worker — current season is re-ranked against the full frozen history each night, previous seasons are read-only, and a full re-baseline runs on process startup and at season rollover. The all-time number doesn't need per-game freshness; nightly keeps the finalize path doing only dynamic current-season work.
 
@@ -258,6 +268,10 @@ Known limitation — **NFL/football player trends** have a small intersection be
     "... // every played event in the current season, newest first"
   ],
   "entity_season_score_avg": 75.3,
+  "entity_season_score_rank": 96.0,
+  "entity_alltime_score_rank": 98.4,
+  "entity_season_score_rank_absolute": 94.2,
+  "entity_alltime_score_rank_absolute": 97.1,
   "peer_season_score_avg":   50.0,
   "peer_cohort_size": 87,
   "vibes": {
@@ -301,6 +315,10 @@ Known limitation — **NFL/football player trends** have a small intersection be
     "... // every played fixture in the current season, newest first"
   ],
   "entity_season_score_avg": 65.0,
+  "entity_season_score_rank": 80.0,
+  "entity_alltime_score_rank": 79.7,
+  "entity_season_score_rank_absolute": null,
+  "entity_alltime_score_rank_absolute": null,
   "peer_season_score_avg":   48.0,
   "peer_cohort_size": 19,
   "vibes": {

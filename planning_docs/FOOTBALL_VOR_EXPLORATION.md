@@ -58,6 +58,17 @@ board. What ships:
 
 Small-sample floor: NBA ≥20 MPG, Football ≥15 apps (tunable).
 
+**Goalkeepers — RESOLVED (2026-05-31):** keepers do NOT fold into the outfield
+scarcity pool. Validated: save *volume* isn't scarce (1.35 among keepers — every
+starter makes ~90–150 saves) and the real skill (`save_pct`) is a bounded rate, so
+keepers can't earn a cross-position Specialist. Since keepers **share no stats with
+outfield**, they get their **own within-keeper board**: a keeper General over GK
+skills (`save_pct`, `saves`, `good_high_claim`, `penalties_saved`, distribution) +
+per-GK-skill specialists (best save% / claimer / penalty-saver). Validated — top 10
+= Bounou, de Gea, ter Stegen, Donnarumma, Oblak, Unai Simón, Maignan, Diogo Costa.
+Outfield two-score excludes keepers entirely; keepers ranked among keepers. (This
+supersedes the earlier "GK spikes the outfield Specialist" idea.)
+
 **Do NOT sum them into an "Overall."** The sum re-introduces the breadth bias
 (General drags pure finishers down) — ranking La Liga by General+Specialist dropped
 **Mbappé and Lewandowski out of the top 10.** Present the two scores side by side.

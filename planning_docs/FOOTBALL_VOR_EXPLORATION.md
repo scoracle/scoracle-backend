@@ -25,6 +25,39 @@ across all five top leagues.
 `value_i` = the datapoint's scarcity from the value matrix (**p90/p50 tail ratio** —
 goals 7.0 … duels 1.8). Surfaces each player's single most-irreplaceable skill.
 
+**Datapoint eligibility — the scarcity pool (cross-sport rule):** Specialist is
+computed over **counting-production datapoints only** — discrete accumulations where
+elite ≫ replacement (goals, blocks, tackles, assists, yards, sacks…). **Excluded
+from scarcity, kept in General only:**
+- *rates / efficiency* (shots_to_points, shooting %, pass accuracy) — commodities,
+  no spread (NBA shots_to_points scarcity 1.17), so no scarce "production";
+- *inverse / bad* stats (turnovers, fouls) — "scarcity of a bad thing" ≠ value;
+- *signed / impact* stats (plus_minus) — mean ≈ 0, the ratio is undefined.
+
+General uses the **full** de-duped set (production + efficiency + inverse + impact);
+Specialist uses the **production subset**. (NBA scarcity pool = `pts, reb, ast, stl,
+blk, fg3m`.)
+
+**Specialty label:** each Specialist score carries the skill that drove it (the
+`value × percentile` argmax) plus that skill's rarity — e.g. "Wembanyama — 100,
+*rim protection* (3.3×-rare)", "Curry — *shooting* (2.3×)". A single cross-skill
+Specialist *number* collapses to the scarcest skill (NBA: top is all rim-protection),
+so present **per-skill boards + the label**, not one unified figure.
+
+**Validated & shippable (NBA + Football, 2026-05-31):** both sports behave
+identically. The unified Specialist *leaderboard* collapses to the single scarcest
+skill (FB all-`goals`, NBA all-`rim protection`), so it is **not** shipped as a
+board. What ships:
+1. **General leaderboard** — the all-rounders.
+2. **Per-skill specialist boards** — recognizable & diverse (FB: Kane goals · Van
+   Dijk clearances · Yamal dribbling · Bruno F assists/key-passes · Mbappé shots ·
+   Tarkowski blocks · Garner tackles; NBA: Curry shooting · Jokić playmaking ·
+   Wembanyama rim protection · KPJ perimeter-D).
+3. **Player card** = General + Specialist + specialty label
+   ("Haaland — General 57 / Specialist 100, *goals*").
+
+Small-sample floor: NBA ≥20 MPG, Football ≥15 apps (tunable).
+
 **Do NOT sum them into an "Overall."** The sum re-introduces the breadth bias
 (General drags pure finishers down) — ranking La Liga by General+Specialist dropped
 **Mbappé and Lewandowski out of the top 10.** Present the two scores side by side.

@@ -28,9 +28,21 @@ replacement baselines, no editorial choices are needed.
    season averages. Public-domain box scores are the *entire* input — the constraint
    that forced this elegance and keeps the system simple and explainable. We give
    derived context; we never import advanced/paywalled data.
-2. **De-dupe.** One datapoint per concept. Collinear clutter (oreb/dreb under reb;
-   solo/assist under total_tackles; "a yard is a yard" → one `total_yards`) is what
-   manufactures false risers/fallers. Kill it.
+2. **De-dupe — the three-gate inclusion rule.** A datapoint earns a **Composite**
+   vote ONLY if it passes all three gates. The z-score self-weights for *scarcity*
+   but does NOT fix collinearity, sparsity, or coverage gaps — so these gates are
+   the human-set method (decided once, applied blind):
+   - **(1) Distinct concept** — correlation < ~0.7 with every already-included stat.
+     (Kills "13 collinear scoring stats" / carries↔rush_yds 0.99 / targets↔rec 0.99 /
+     fga↔pts 0.97 / oreb↔reb 0.82 — all volume re-skins, OUT.)
+   - **(2) Healthy spread** — broadly recorded, not sparse-spiky (mostly-zeros makes
+     a Composite-sum term behave like a specialist spike). Sparse-but-distinct stats
+     may feed **Specialist** (peak rewards spikes) but never the breadth sum.
+   - **(3) ~Full coverage** — the key is populated for ~all qualified players, not a
+     systematic subset. A missing key + `COALESCE(...,0)` silently docks players whose
+     row lacks it. **Verify `stats ? key` coverage, not just nonzero %.**
+   Collinear clutter (oreb/dreb under reb; solo/assist under total_tackles; "a yard is
+   a yard" → one `total_yards`) is what manufactures false risers/fallers. Kill it.
 3. **Positionless base.** Every score answers *"how valuable was this performance,
    regardless of position?"* One pool, every entity vs every other. Position is NEVER
    baked into the base.
@@ -123,6 +135,12 @@ via the position scope.
   Specialist — Wembanyama (rim 6.11), Jokić (playmaking), KPJ (steals), Curry (3pt),
   Luka (scoring). Diverse, labeled, correct.
 
+**NBA add-back (2026-06-01):** `pf` (personal fouls) added to the Composite z-set as
+a **negative** (`−z`, defensive discipline). Passes all three gates: distinct
+(corr 0.34 vs blk), dense (578 nonzero), full coverage. Validated: top unchanged
+(Wemby/Jokić/Luka), sensible nudges (Jimmy Butler +26 for low fouls, Cade −5).
+NBA Composite z-set is now: `pts, reb, ast, stl, blk, fg3m, plus_minus, −turnover, −pf`.
+
 **Football** (floor: ≥15 apps; population = top-5 leagues pooled; **GK in the same
 pool**)
 - De-dupe note: `duels_won` already includes aerials; `possession_lost` ⊇
@@ -132,6 +150,18 @@ pool**)
   ball_recovery, −possession_lost` + GK exclusives `saves, penalties_saved, punches,
   good_high_claim` (uniform drag — outfielders score 0, ranks unmoved).
 - Specialist over the positive counting set (GK `saves` etc. included).
+- **Add-back (2026-06-01): `fouls_drawn`** — passes all three gates (distinct 0.69
+  vs duels; dense, p50≈18; 100% coverage 1679/1679). Rewards contact-drawing
+  aggression; helps progressive engines (Barco, Enzo Fernández) who pay in turnovers
+  but earn fouls. **ADD to Composite z-set.**
+- **BLOCKED on seeder fix: `through_balls`** — distinct (0.59) and dense among present
+  rows, BUT only **65% coverage** (1086/1679 have the key). A temporal/positional
+  seeding gap, not true zeros: Levi Colwill's full 2024 season (35 apps, 2319 passes —
+  elite line-breaking CB) has NO through_balls key, and every top ball-playing CB
+  (Dunk, van Hecke, van de Ven) is missing it. Including it now would systematically
+  PUNISH ball-playing defenders — the opposite of intent. **Pending: seeder must emit
+  `through_balls: 0` explicitly for all players; then it passes gate 3 and goes in
+  (Colwill/Barco rise legitimately).**
 - Stats-page only: `save_pct`, pass %s, `shot_accuracy`.
 - Validation (PL): Composite — Bruno Fernandes, Elliot Anderson, Garner, Senesi,
   Bowen. Specialist — Bruno F (assists 8.90), **Haaland (goals 7.02)**, Tarkowski

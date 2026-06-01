@@ -1,4 +1,9 @@
-# Football — Value Over Replacement (VOR) — exploration (DEFERRED)
+# Football — Value Over Replacement (VOR) — exploration
+
+> ⭐ **SUPERSEDED BY `SCORACLE_RATING_ENGINE.md` (canonical, 2026-05-31).** This doc
+> drove the General/Specialist breakthrough; the final engine uses the **z-score**
+> (which subsumes VOR/scarcity weighting with zero knobs). Retained as rationale.
+
 
 **Status:** **LOCKED (2026-05-31) — two-score model: General (breadth) + Specialist
 (scarcity/VOR), shown SEPARATELY, never summed.** Validated on PL / La Liga /

@@ -1,5 +1,11 @@
 # Composite Matrix v2 — flat, honest, event-built
 
+> ⭐ **SUPERSEDED BY `SCORACLE_RATING_ENGINE.md` (the canonical keystone spec, 2026-05-31).**
+> The framework landed on the **z-score** as the engine (Composite = sum of z,
+> Specialist = peak z) — which implicitly does the scarcity weighting this doc
+> describes explicitly. Read the canonical spec for the live design; this doc is
+> retained as the journey + the NBA datapoint/de-dupe worked example.
+
 **Status:** **Framework LOCKED (2026-05-31) — TWO scores, all sports: Composite
 (scarcity-weighted breadth) + Specialist (scarcity peak), positionless base.**
 NBA + Football (incl. GK) validated & shippable; NFL next; then build. The

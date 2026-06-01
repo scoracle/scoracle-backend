@@ -446,6 +446,132 @@ Response includes:
 - Box score coverage stats
 - Data freshness indicators
 
+## Rating Engine Endpoints
+
+The **Scoracle Rating Engine** (migrations 027–028) is a **separate dataset** from the
+profile/meta payloads above — it does not touch the counting-stats/pizza payload, and
+the rating numbers are **not** in `/meta` (which exists only to refresh the frontend's
+local DB). The rating engine has two dedicated endpoints: a **leaderboard** (board view)
+and a **starline** (per-entity).
+
+### What the rating engine computes
+
+Every entity is rated **positionlessly** by the z-score of each de-duped box-score
+datapoint against the whole population. Two complementary scores, **never merged**:
+
+- **`rating_composite`** — Σ z (breadth → all-rounders/grinders). Raw z-sum (e.g. ~12.5
+  for the best player). For **NFL players** the Composite is **category-balanced**
+  (offense / defense / special-teams facets, mean-of-z per facet, summed) so recording
+  granularity doesn't silently weight defense 2×. NBA + football players and **all teams
+  are flat** (Σ z) — a team is multi-phase, so no facet-balancing.
+- **`rating_specialist`** — peak z over the positive counting set (irreplaceability →
+  difference-makers).
+- **`rating_specialty`** — the argmax datapoint label (e.g. `"Rim Protection"`,
+  `"Sacks"`, `"Goalscoring"`; teams e.g. `"Steals"`, `"Goals For"`).
+- **`rating_composite_rank` / `rating_specialist_rank`** — positionless `percent_rank` ×
+  100 (0–100), a friendly headline number; the raw z drives ordering.
+
+No weighting, no hand-picked baselines — the z-score *is* the scarcity weighting (a rare
+skill sits further from the mean → larger z). Floors: NBA ≥30 GP & ≥20 MPG; football ≥15
+apps; NFL ≥8 GP (players). Teams: all rated.
+
+### `GET /api/v1/{sport}/leaderboard`
+
+The board view. Each row carries **both** Composite and Specialist (+ specialty), so one
+payload feeds the board and a meta card.
+
+#### Query parameters
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `entity_type` | string | `player` | `player` or `team`. **The type differentiator** — team calls return the team board (`team_stats`), player calls the player board (`player_stats`). |
+| `scope` | string | `composite` | `composite`, `specialist`, or a **specialty label** (e.g. `Sacks`, `3PT Shooting`) for a per-skill board (rows whose top skill matches, ordered by peak z). Case-insensitive. |
+| `season` | integer | latest rated | Season year. |
+| `position` | string | — | Player boards only — the position scope ("best Center / QB"). |
+| `league_id` | integer | — | Filter to a league (football). |
+| `limit` | integer | `50` | Max rows. |
+
+#### Response shape
+
+```jsonc
+{
+  "page": "leaderboard",
+  "sport": "nba",
+  "entity_type": "player",          // echoes the request
+  "season": 2025,
+  "scope": "composite",
+  "count": 3,
+  "leaders": [
+    {
+      "entity_type": "player",       // "player" | "team"
+      "id": 56677822,
+      "name": "Victor Wembanyama",
+      "image": "https://…",          // player photo_url | team logo_url
+      "position": "F-C",             // null for teams
+      "team_id": 27,
+      "team_name": "San Antonio Spurs",
+      "team_code": "SAS",
+      "team_logo": "https://…",
+      "league_id": null,
+      "rating_composite": 12.5226,
+      "rating_specialist": 6.1058,
+      "rating_specialty": "Rim Protection",
+      "rating_composite_rank": 100.0,
+      "rating_specialist_rank": 100.0,
+      "rank": 1
+    }
+  ]
+}
+```
+
+Examples:
+- `GET /api/v1/nba/leaderboard` → top 50 NBA players by Composite, latest season.
+- `GET /api/v1/nba/leaderboard?entity_type=team` → the NBA **team** board.
+- `GET /api/v1/nfl/leaderboard?scope=specialist&limit=10` → the irreplaceables board.
+- `GET /api/v1/nba/leaderboard?scope=3PT%20Shooting` → the 3-point-specialist board.
+
+### `GET /api/v1/{sport}/{entityType}/{id}/starline`
+
+The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
+numbers a meta card shows) **and** the per-event dual-sparkline series. `entityType`
+(`player` or `team`) comes from the path — team starlines read `event_team_stats`,
+player starlines `event_box_scores`.
+
+#### Query parameters
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `season` | integer | latest rated | Season year. |
+| `league_id` | integer | — | League filter (football). |
+
+#### Response shape
+
+```jsonc
+{
+  "page": "starline",
+  "sport": "nba",
+  "entity_type": "player",
+  "entity_id": 56677822,
+  "season": 2025,
+  "rating": {                        // the season summary (meta-card numbers)
+    "season": 2025,
+    "league_id": null,
+    "position": "F-C",               // null for teams
+    "rating_composite": 12.5226,
+    "rating_composite_rank": 100.0,
+    "rating_specialist": 6.1058,
+    "rating_specialist_rank": 100.0,
+    "rating_specialty": "Rim Protection"
+  },
+  "events": [                        // the dual-sparkline series, chronological
+    { "fixture_id": 12345, "start_time": "2025-10-26T…",
+      "rating_composite": 16.015, "rating_specialist": 6.85, "rating_specialty": "Rim Protection" }
+  ]
+}
+```
+
+`rating` is `null` and `events` is `[]` if the entity has no rated season.
+
 ## League-Scoped Endpoints
 
 League-scoped routes are required for football (which has multiple leagues) and preferred when league context is explicit.

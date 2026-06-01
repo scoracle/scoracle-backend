@@ -116,6 +116,100 @@ func (h *Handler) GetLeagueProfilePage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, true, entityType, id, season, leagueID)
 }
 
+// GetLeaderboard returns the positionless rating leaderboard for a sport.
+// Each row carries BOTH the Composite and Specialist score (+ the specialty label),
+// so a single payload feeds the leaderboard board, the meta card, and the starline.
+// @Summary Get rating leaderboard
+// @Description Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Specialist in one payload.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entity_type query string false "Board type: player (default) or team"
+// @Param scope query string false "Board: composite (default), specialist, or a specialty label (e.g. Sacks)"
+// @Param season query int false "Season year (defaults to the latest rated season)"
+// @Param position query string false "Filter to a position (player boards only)"
+// @Param league_id query int false "Filter to a league (football)"
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard [get]
+func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	scope := optionalTextQuery(r, "scope")
+	position := optionalTextQuery(r, "position")
+	entityType := optionalTextQuery(r, "entity_type")
+
+	h.serveStatementJSON(w, r, "leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, season, scope, position, leagueID, limit, entityType)
+}
+
+// GetStarline returns the rating-engine dataset for one entity: the season
+// Composite + Specialist (+ specialty + ranks) and the per-event dual-sparkline
+// series. This is the dedicated rating dataset — kept separate from the profile
+// and meta payloads.
+// @Summary Get entity starline (rating)
+// @Description Season Composite/Specialist rating + per-event sparkline series for one entity.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year (defaults to the latest rated season)"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/starline [get]
+func (h *Handler) GetStarline(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "starline", dataCacheKey(r), cache.TTLData, false,
+		sport, entityType, id, season, leagueID)
+}
+
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
 // @Summary Get trends page
 // @Description Returns the entity's last-3 event averages and peer-cohort season averages so the frontend can derive recent direction relative to peers. Raw values only.

@@ -176,24 +176,39 @@ pool**)
   (blocks), Doku (dribbling). GK via position scope.
 
 **NFL** (floor: ≥8 GP; population = league-season; all 17 positions in ONE pool)
-- De-dupe: `total_tackles` (not solo/assist splits); **`total_yards` = passing +
-  rushing + receiving** ("a yard is a yard"; the *way* is a scope); `total_touchdowns`
-  likewise; drop all `long_*`.
+- De-dupe: `total_tackles` (not solo/assist splits); drop all `long_*`.
+- **"A yard is a yard / a TD is a TD" — including return yardage (revised 2026-06-01):**
+  `total_yards` = passing + rushing + receiving **+ kick_return + punt_return yards**;
+  `total_touchdowns` = passing + rushing + receiving **+ return TDs**. `return_yards`
+  is NO LONGER a standalone datapoint — siloing it created a thin, skew-heavy slot
+  that manufactured +14 SD freaks (Chimere Dike's return z 13.97 vs Puka Nacua's best
+  6.60), pushing return men to the top of the board. Folding return yards into the
+  dense `total_yards` distribution dissolves the distortion — a few hundred return
+  yards becomes a small bump, not an outlier. (This is the thin-population caveat §6
+  biting; the fix is the same "yards are yards" pillar, applied to ALL yards.)
 - Composite z-set: `total_yards, total_touchdowns, receptions, total_tackles,
   tackles_for_loss, defensive_sacks, passes_defended, defensive_interceptions,
-  fumbles_recovered, field_goals_made, punts_inside_20, return_yards,
+  fumbles_recovered, field_goals_made, punts_inside_20,
   −(passing_interceptions + fumbles_lost)`
 - Specialist over the positive set → labels total yards / touchdowns / receptions /
   tackles / TFL / sacks / pass defense / interceptions / fumble rec / field goals /
-  punting / returns.
+  punting.
 - OL stays in the pool (≈0 score — box score doesn't capture them; honest), surfaced
-  via position scope. Kickers/punters/returners are pure specialists (low Composite,
-  high Specialist) — the GK pattern generalized.
-- Validation: Composite — Marcus Jones, Myles Garrett, Brian Burns, Stafford (lone
-  QB high), Will Anderson, Maxx Crosby, T.J. Watt. Specialist — return men, Garrett
-  (sacks), **Byard (INTs)** — the DB-specialist prediction, confirmed.
-- QBs leading the yards datapoint is **correct** (most valuable position; salaries +
-  32 starting jobs confirm). Runners/receivers surface via Specialist + position scope.
+  via position scope. Kickers/punters are pure specialists (low Composite, high
+  Specialist) — the GK pattern generalized.
+- **Defense-heavy Composite is a real, accepted structural truth** (NFL box scores
+  track defense in ~6 dense categories vs offense's ~3) — NOT a bug. The Specialist
+  lens is what surfaces the offensive stars (Stafford 100 TDs, Maye/Love 81, Byard 79
+  INTs) regardless of the breadth skew. Considered splitting TDs by type to lift
+  RB/WR — REJECTED: TD types are 0.88–0.97 collinear with yards (back-door volume
+  double-vote, gate 1), and TDs already give studs strong z (McCaffrey TD z 3.16).
+  The real culprit was return-yard distribution, fixed above.
+- Validation (return-yards folded in): Composite — Garrett, Marcus Jones, Burns,
+  Stafford, Will Anderson, Crosby, Watt … McCaffrey #25 (receptions); return men
+  correctly gone from the top. Specialist — Stafford (TDs 100), Maye/Love (81),
+  Byard (INTs 79), Garrett (sacks 95).
+- QBs leading yards is **correct** (most valuable position; salaries + 32 starting
+  jobs confirm). Runners/receivers surface via Specialist + position scope.
 
 ---
 
@@ -303,7 +318,8 @@ NBA: `pts, reb, ast, stl, blk, fg3m, plus_minus, −turnover, −pf`.
 Football: `goals, assists, shots_total, passes_accurate, key_passes,
 dribbles_success, duels_won, tackles, interceptions, clearances, blocks,
 ball_recovery, −possession_lost, fouls_drawn` + GK `saves, penalties_saved, punches,
-good_high_claim`. NFL: §4.
+good_high_claim`. NFL: §4 (note `total_yards`/`total_touchdowns` INCLUDE return
+yardage/TDs — "yards are yards"; no standalone `return_yards` slot).
 Specialist = positive counting subset of each.
 
 ### Known data limitations (NOT bugs — provider/availability)

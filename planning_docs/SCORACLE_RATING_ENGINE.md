@@ -333,4 +333,14 @@ Specialist = positive counting subset of each.
 - Football: a **zeros-inclusive** fouls feed; a reliable **through-balls/progressive-
   pass** count with explicit zeros (would finally credit line-breaking CBs — Colwill,
   and progressive engines Barco/Enzo).
+- NFL: **defensive coverage data** — targeted-against, completions-allowed,
+  completion-% / passer-rating allowed (e.g. NextGen Stats). We have NONE of it
+  (`receiving_targets` is the OFFENSIVE side). This is THE box-score blind spot: a
+  lockdown corner's value is *passes not thrown at him* — events that didn't happen,
+  which a box score can't record. `passes_defended`+INT only catch corners who make
+  plays ON the ball, not deterrence. A *positive* z for low completion-% allowed would
+  finally rate shutdown corners correctly. Charted/advanced data — out of v1 scope.
+- General principle: the lockdown-corner archetype (value = absence-of-opportunity) is
+  the hardest case for any box-score system; acknowledge the ceiling, don't fake a
+  proxy ("low targets = good" also flags benched players — needs a charted denominator).
 - Verify any new datapoint with the gate-3 event check: `has_key == nonzero_count` → reject.

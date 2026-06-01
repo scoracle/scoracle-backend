@@ -98,3 +98,12 @@ Full ordered plan in `planning_docs/SCORACLE_RATING_ENGINE.md` §9. Summary:
 5. ENDPOINTS/README/Swagger.
 v1 datapoint sets are FROZEN (§9). Data limits & future-data wishlist captured in §9.
 NOT yet built — design only.
+
+## NFL return-yards fix (2026-06-01)
+Return men (Chimere Dike, Turpin) topped the NFL board because `return_yards` was a
+siloed thin/skewed slot → +14 SD freak z's. Fix (consistent with "a yard is a yard"):
+fold kick/punt return yards into `total_yards` and return TDs into `total_touchdowns`;
+DROP standalone `return_yards`. Board corrected — return men gone from top, McCaffrey
+surfaces #25. (Considered splitting TDs by type — REJECTED: 0.88–0.97 collinear with
+yards.) Defense-heavy Composite is accepted structural truth; Specialist surfaces
+offensive stars (Stafford TDs 100, Maye/Love 81). NFL v1 z-set updated in §4.

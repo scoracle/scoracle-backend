@@ -259,9 +259,62 @@ The destination is **simpler** than any waypoint: one operation (z), zero knobs.
 
 ---
 
-## 9. Build status
+## 9. Build status & execution plan
 
-Design **landed & locked**. Nothing built into the live pipeline yet (still
-read-only validated against the DB). Next: SQL implementation (event derivations,
-z-based Composite/Specialist + label columns, freeze/recompute lifecycle, leaderboard
-+ starline endpoints, ENDPOINTS/README/Swagger per CLAUDE.md).
+**Status:** Design **LANDED & LOCKED**. Validated read-only against the live DB
+(NBA/PL/La Liga/Bundesliga/NFL 2025). **Nothing built into the pipeline yet** — the
+next session is the build. All design decisions are settled; this is execution.
+
+### Execution order (each step is a reviewable unit)
+
+1. **SQL — z-engine functions (Postgres owns the math, per CLAUDE.md).**
+   - `compute_rating(sport, season)`: for the qualified population (apply floors §6),
+     compute mean+`STDDEV_POP` per de-duped datapoint, then per entity:
+     `composite = Σ COALESCE(z_i,0)` over the Composite z-set; `specialist =
+     MAX(z_i)` over the production set; `specialty = argmax` label. Guard every term
+     `NULLIF(sd,0)`+`COALESCE(z,0)` (thin-stat NULL bug, §6).
+   - Per-sport z-sets are fixed in §4. Negatives enter as `−z`.
+   - Add columns to `player_stats`: `rating_composite NUMERIC`,
+     `rating_specialist NUMERIC`, `rating_specialty TEXT` (keep legacy
+     `season_composite_score` lineage or migrate it).
+   - Migration numbering continues from `027` (next free; confirm at build time).
+
+2. **Per-event scores (starline).** Event-level z (vs the season population) written to
+   `event_box_scores` for the dual sparkline (Composite + Specialist contribution per
+   game). Event derivations via `BEFORE INSERT/UPDATE` trigger if any derived input is
+   needed (none currently — all rating inputs are raw counting stats).
+
+3. **Lifecycle (freeze + recompute).** In-season: recompute on `finalize_fixture`
+   (current season only). Season close: lock; recompute only the cross-season layer on
+   rollover (reuse maintenance worker `lastSeenSeason`). Avoid the O(M²) per-fixture
+   whole-season pass — see COMPOSITE_MATRIX_V2 §4–5.
+
+4. **Endpoints (thin Go handlers → prepared statements, per CLAUDE.md flow).**
+   - `GET /api/v1/{sport}/leaderboard?scope=composite|specialist|<skill>&season=&position=&league=`
+   - Starline data on the existing trends/profile-adjacent surface.
+   - **Join caveat:** `players` is keyed by `(id, sport)` (ids collide across sports) —
+     every join needs `AND p.sport = ps.sport`.
+   - Profile/pizza-chart payload stays SEPARATE and unchanged (§5).
+
+5. **Docs:** ENDPOINTS.md, README.md, Swagger annotations (required, per CLAUDE.md).
+
+### Datapoint inclusion is FROZEN for v1 (the three-gate rule, §1.2)
+NBA: `pts, reb, ast, stl, blk, fg3m, plus_minus, −turnover, −pf`.
+Football: `goals, assists, shots_total, passes_accurate, key_passes,
+dribbles_success, duels_won, tackles, interceptions, clearances, blocks,
+ball_recovery, −possession_lost, fouls_drawn` + GK `saves, penalties_saved, punches,
+good_high_claim`. NFL: §4.
+Specialist = positive counting subset of each.
+
+### Known data limitations (NOT bugs — provider/availability)
+- `through_balls` (football) — DROPPED; SportMonks omits zeros (§4). Unusable.
+- `fouls_committed` (football) — REJECTED; same omits-zeros trap (gate 3).
+- NBA fouls-drawn — does not exist in our box-score feed (only `pf` committed, `fta`).
+- NFL `qb_hits` — effectively unseeded (6 nonzero). Excluded.
+
+### Future-data wishlist (slot in cleanly under the gates IF a provider supplies them)
+- NBA: a true **fouls-drawn** count (would pair with `−pf` for two-way foul fairness).
+- Football: a **zeros-inclusive** fouls feed; a reliable **through-balls/progressive-
+  pass** count with explicit zeros (would finally credit line-breaking CBs — Colwill,
+  and progressive engines Barco/Enzo).
+- Verify any new datapoint with the gate-3 event check: `has_key == nonzero_count` → reject.

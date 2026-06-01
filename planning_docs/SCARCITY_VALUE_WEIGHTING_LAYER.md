@@ -95,6 +95,27 @@ soar." (NBA's effect is milder than football's — scarcity spread is only ~3× 
 held at baseline weight 1.0. Options: baseline 1.0 (used) · median value · drop them
 from weighted General. Decide at adoption.
 
+## 4b. Per-opportunity normalization — EXPLORED, DEFERRED (not intuitive yet)
+
+The team tailwind/headwind in raw volume cuts both ways: a striker on a bad team
+gets fewer shots (production suppressed); a defender on a good team gets fewer
+clearances (less need). Per-opportunity rates would contextualize both.
+
+**Why a pure rate fails (measured):** goals-per-shot with no volume gate tops out on
+small-sample flukes — Carlos Vicente (5g/12sh = .417), 2g/7sh subs — over Haaland
+(119 shots). Volume *is* signal here; dividing it out inverts the whole framework.
+
+**The clean candidate if/when adopted:** two-component value = `avg(volume_percentile,
+rate_percentile)` with rate **volume-gated** (min attempts). Bad-team striker:
+lower volume pct but high rate pct → rescued; the 7-shot fluke is gated out. Pure
+box-score, one knob (the gate). (Full opportunity models needing team
+possession/context are rejected — that's the advanced-stats black box we avoid.)
+
+**Why deferred:** scarcity-weighting *already* rescues bad-team gems (Bowen #7→#3 on
+a terrible team, no opportunity layer). Per-opportunity is a refinement, not a
+missing pillar — and each added component re-correlates the scores + adds a knob.
+Revisit only if the team tailwind proves materially large (one query to quantify).
+
 ## 5. Caveat — scarcity ≠ team-context (a distinct future layer)
 
 Scarcity weighting rewards **value-dense production** (output concentrated in scarce

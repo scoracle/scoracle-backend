@@ -96,6 +96,14 @@ single-phase (NFL) — there it = equal phases of the game. Where players are mu
 #2→#5). NFL flat was 7 OFF/43 DEF → balanced 19 OFF/31 DEF (Stafford #1, McCaffrey #4,
 Nacua #7). Balancing affects Composite only; Specialist always pure peak-z. See §1.5.
 
+**Final validated NFL top 10 (category-balanced, user-confirmed "honest, accurate"):**
+1 Stafford (QB, 100/100 TDs) · 2 Garrett (DE, sacks) · 3 Marcus Jones (CB) ·
+4 McCaffrey (RB, receptions) · 5 Caleb Williams (QB) · 6 Jordan Love (QB) ·
+7 Puka Nacua (WR) · 8 Drake Maye (QB) · 9 Brian Burns (LB) · 10 Will Anderson (DE).
+QBs lead, skill players + defensive stars properly intermixed, each tagged with why.
+All three sports now produce boards the user stands behind — keystone fully validated
+across NBA, football (5 leagues), and NFL.
+
 ## Next — BUILD PHASE (design is locked; this is execution)
 Full ordered plan in `planning_docs/SCORACLE_RATING_ENGINE.md` §9. Summary:
 1. SQL z-engine fn (`compute_rating`) + `player_stats` columns (rating_composite,

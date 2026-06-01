@@ -77,14 +77,15 @@ docks players).
   passing_attempts↔yds 1.0, fga↔pts 0.97, oreb↔reb 0.82, shots_on_target↔shots 0.94.
 - **Rejected (data, not principle):** NFL `qb_hits` (only 6 nonzero — unseeded).
 
-## PENDING SEEDER FIX — through_balls (and audit siblings)
-`through_balls` is a real value stat (line-breaking creativity) and passes gates 1+2,
-but only 65% of football players have the KEY (1086/1679). It's a seeding gap, not
-true zeros — elite ball-playing CBs (Colwill's full 2024, Dunk, van de Ven) lack the
-key entirely, so including it would punish exactly the players it should reward.
-**Fix: seeder must emit `through_balls: 0` explicitly for players with none** (and
-audit other sparse-coverage keys the same way). Once coverage ~100%, through_balls
-passes gate 3 → add to football Composite.
+## through_balls — DROPPED (provider limitation, not a seeder bug) [resolved 2026-06-01]
+Traced to source: SportMonks emits `through-balls` as a match detail ONLY when >0. In
+raw event_box_scores the key is present on exactly the 3,136 events where it's nonzero,
+absent on all 49,943 pass-having zero events. The provider never sends a zero, so
+absent==0 is unrecoverable and aggregation can't produce a trustworthy season count.
+Not a seeder bug — no fix. Dropped permanently. The season `aggregate_player_season`
+already SUMs it (harmless), but it's excluded from the rating. (Sharpened gate 3: a
+datapoint must be provided as explicit value incl. zero; red flag is
+`has_key == nonzero_count` at the event level.)
 
 ## Next
 Build phase: SQL (event derivations → z Composite/Specialist + label, freeze/

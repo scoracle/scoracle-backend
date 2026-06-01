@@ -60,6 +60,31 @@ replacement baselines, no editorial choices are needed.
 
 ---
 
+## 1.5. Composite aggregation — flat-z vs category-balanced (per-sport, 2026-06-01)
+
+The Composite is `Σ z` (flat) **except where the box score has a structural
+phase-skew AND players occupy a single phase** — then it's **category-balanced**:
+group datapoints into phase facets, take the **mean of z within each facet**, sum
+the facets (equal phase weight). This neutralizes the count asymmetry (a sport that
+records 6 defensive stats but 3 offensive ones would otherwise let *recording
+granularity* silently weight defense 2×).
+
+**The rule (grounded in player overlap):**
+- **Single-phase players → category-balance.** NFL: a corner has zero offensive
+  production, a receiver zero defensive. Balancing facets = "a phase of football is a
+  phase of football"; each player judged on their one phase at full weight. **Adopted
+  for NFL** (offense / defense / special-teams facets). Validated: flat board was
+  defense-heavy (top-50 = 7 OFF / 43 DEF; Stafford #4, Puka #41); balanced =
+  19 OFF / 31 DEF with Stafford #1, McCaffrey #4, Nacua #7 — reads like a real season.
+- **Multi-phase players → flat-z.** NBA & football: every player attacks AND defends
+  to some degree. Forcing equal facets there just **rewards whoever touches the most
+  facets** — which in football is the all-phase center-back, not the striker.
+  Validated: football category-balancing made it WORSE (top-50 attackers 9→4,
+  defenders 15→24; Yamal #2→#5, CBs flooded the top). **NBA + football stay flat-z.**
+- Category-balancing affects **Composite only**; Specialist is always pure peak-z
+  (irreplaceability is phase-agnostic). Football's attacker-vs-grinder tension is
+  handled by Specialist (Haaland/Yamal top it), NOT by reshaping Composite.
+
 ## 2. The formula
 
 For a sport+season population **P** (positionless: all qualified entities, see
@@ -71,6 +96,7 @@ sd_i   = STDDEV_POP(value_i)     over P        -- NULLIF(sd_i, 0) to guard thin 
 z_i(e) = COALESCE( (value_i(e) - mean_i) / sd_i , 0 )      -- non-participant → 0, correct
 
 COMPOSITE(e)  = Σ over all composite datapoints of  z_i(e)        -- breadth → grinders
+                 (NFL: category-balanced = Σ over facets of MEAN(z within facet); see §1.5)
 SPECIALIST(e) = MAX over production datapoints of    z_i(e)        -- peak → difference-makers
 specialty(e)  = argmax_i z_i(e)                                    -- the skill label
 ```
@@ -196,17 +222,18 @@ pool**)
 - OL stays in the pool (≈0 score — box score doesn't capture them; honest), surfaced
   via position scope. Kickers/punters are pure specialists (low Composite, high
   Specialist) — the GK pattern generalized.
-- **Defense-heavy Composite is a real, accepted structural truth** (NFL box scores
-  track defense in ~6 dense categories vs offense's ~3) — NOT a bug. The Specialist
-  lens is what surfaces the offensive stars (Stafford 100 TDs, Maye/Love 81, Byard 79
-  INTs) regardless of the breadth skew. Considered splitting TDs by type to lift
-  RB/WR — REJECTED: TD types are 0.88–0.97 collinear with yards (back-door volume
-  double-vote, gate 1), and TDs already give studs strong z (McCaffrey TD z 3.16).
-  The real culprit was return-yard distribution, fixed above.
-- Validation (return-yards folded in): Composite — Garrett, Marcus Jones, Burns,
-  Stafford, Will Anderson, Crosby, Watt … McCaffrey #25 (receptions); return men
-  correctly gone from the top. Specialist — Stafford (TDs 100), Maye/Love (81),
-  Byard (INTs 79), Garrett (sacks 95).
+- **Composite is CATEGORY-BALANCED (offense / defense / special-teams facets, each
+  the MEAN of its z's, summed) — §1.5.** The box score records ~6 defensive concepts
+  vs ~3 offensive (confirmed not over-counted: intra-defense corr mostly <0.55, and no
+  missed offensive concept exists — carries/targets/TD-splits all re-skins). Flat-z
+  let that recording granularity silently weight defense 2×. Balancing fixes it
+  honestly because NFL players are single-phase (corner=0 offense, WR=0 defense), so
+  equal facets = equal phases of football. **Validated:** flat top-50 was 7 OFF/43 DEF
+  (Stafford #4, Puka #41); balanced = 19 OFF/31 DEF, top = Stafford, Garrett, Marcus
+  Jones, McCaffrey, Caleb Williams, Love, Nacua, Maye — reads like a real NFL season.
+- Specialist stays pure peak-z (Stafford 100 TDs, Maye/Love 81, Byard 79 INTs).
+- Rejected splitting TDs by type to lift RB/WR (0.88–0.97 collinear with yards); the
+  real offense/defense imbalance was the facet-count skew, fixed by balancing.
 - QBs leading yards is **correct** (most valuable position; salaries + 32 starting
   jobs confirm). Runners/receivers surface via Specialist + position scope.
 

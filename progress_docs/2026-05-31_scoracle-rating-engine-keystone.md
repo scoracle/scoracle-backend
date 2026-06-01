@@ -87,6 +87,15 @@ already SUMs it (harmless), but it's excluded from the rating. (Sharpened gate 3
 datapoint must be provided as explicit value incl. zero; red flag is
 `has_key == nonzero_count` at the event level.)
 
+## Composite aggregation: flat-z vs category-balanced (2026-06-01)
+NFL Composite is **category-balanced** (offense/defense/special-teams facets, mean-of-z
+per facet, summed); NBA + football stay **flat-z**. Rule: balance only where players are
+single-phase (NFL) — there it = equal phases of the game. Where players are multi-phase
+(NBA, football) flat-z is correct; balancing just rewards whoever touches the most facets
+(in football = the all-phase CB, which BURIED attackers: top-50 att 9→4, def 15→24, Yamal
+#2→#5). NFL flat was 7 OFF/43 DEF → balanced 19 OFF/31 DEF (Stafford #1, McCaffrey #4,
+Nacua #7). Balancing affects Composite only; Specialist always pure peak-z. See §1.5.
+
 ## Next — BUILD PHASE (design is locked; this is execution)
 Full ordered plan in `planning_docs/SCORACLE_RATING_ENGINE.md` §9. Summary:
 1. SQL z-engine fn (`compute_rating`) + `player_stats` columns (rating_composite,

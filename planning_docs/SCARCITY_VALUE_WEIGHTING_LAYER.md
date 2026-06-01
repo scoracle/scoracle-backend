@@ -116,6 +116,44 @@ a terrible team, no opportunity layer). Per-opportunity is a refinement, not a
 missing pillar — and each added component re-correlates the scores + adds a knob.
 Revisit only if the team tailwind proves materially large (one query to quantify).
 
+## 4c. Negative value — usage-adjusted (LOCKED 2026-05-31)
+
+Negative-event stats (turnovers, QB interceptions, fumbles) are **kept** (they carry
+real, ~independent signal) but **not** as a flat raw-count penalty. A raw inverse-
+percentile double-punishes the engine of the offense for doing valuable work.
+
+**The breakthrough — negatives have a *relative* value too:** a turnover's true cost
+= **actual − expected-given-your-positive-activity**. We derive "expected" by
+regressing the negative on the player's usage/positive stats; the **excess** (residual)
+is the real negative. Same philosophy as positive scarcity — let the data set the
+value — just pointed downward. No knobs, no editorial weighting.
+
+**Validated (NBA 2025):** turnovers are **0.90 correlated with usage** — overwhelmingly
+a byproduct of valuable activity. Usage-adjusted excess separates cleanly:
+- *Justified* (high raw TO, negative excess): SGA −0.9, Brunson −0.8, Maxey −1.0,
+  Kawhi −0.6; **Cade 3.9 raw → +0.5 excess**, **Luka 4.0 raw → +0.3** (league's most
+  turnovers, almost entirely earned).
+- *Careless* (high excess): Draymond +1.2, Westbrook +1.0, Giddey +1.0.
+
+**Kills the phantom-credit bug WITHOUT gating** (user is anti-gating): a player who
+never handles the ball has ~0 expected and ~0 actual → ~0 excess → no phantom "ball
+security" credit and no cutoff. This is *why* we don't gate.
+
+**Placement:** negatives live in **Composite/General only**, never Specialist
+("elite at excess turnovers" is not a valued specialty). "Expected" is itself derived
+(regression on positive-usage stats), not hand-set. The same "expected given
+opportunity" engine could later power the deferred per-opportunity layer (§4b).
+
+**Boundary — in-box-score vs out-of-box-score confounds:** we correct confounds the
+box score *contains* (Cade's turnovers vs his own usage — both in the box score). We
+**cannot and do not** correct confounds it doesn't record (Dak's INTs partly caused by
+receiver drops — "drops" is advanced/paywalled data we deliberately don't use).
+Principle: **Scoracle values what the official box score attributes — it gives derived
+context, it does not apologize for players.** A box-score INT is charged to the QB;
+that is the public record. The constraint is a feature (simplicity), the same one
+that produced scarcity. (Partial self-correction: drops also suppress the QB's
+completion%/yards/TDs, so the whole line moves together.)
+
 ## 5. Caveat — scarcity ≠ team-context (a distinct future layer)
 
 Scarcity weighting rewards **value-dense production** (output concentrated in scarce

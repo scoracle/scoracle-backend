@@ -1,23 +1,45 @@
 # Composite Matrix v2 — flat, honest, event-built
 
-**Status:** **NBA matrix LOCKED (2026-05-30)** — flat-9, absolute basis. Football
-next (per-position matrices; user has an approach to the goalkeeper problem).
-NFL after. Supersedes the Game Score direction and the position-relative inputs
-explored earlier the same day.
+**Status:** **Framework LOCKED (2026-05-31) — TWO scores, all sports: Composite
+(scarcity-weighted breadth) + Specialist (scarcity peak), positionless base.**
+NBA + Football (incl. GK) validated & shippable; NFL next; then build. The
+scarcity/value engine lives in `SCARCITY_VALUE_WEIGHTING_LAYER.md`; the two-score
+spec + GK in `FOOTBALL_VOR_EXPLORATION.md`. (Supersedes this doc's original
+NBA-only "flat-9 unweighted" and football "per-position matrices" — both replaced
+by the scarcity framework below. NBA §2–§6 below retained as the worked example.)
 
 **Author context:** Drafted after a live-data audit of the shipped composite
 (migrations 017–026) showed it was effectively a scoring-volume metric, then
-iterated interactively against live NBA 2025 data until the board held up.
+iterated interactively against live data across NBA + the top-5 football leagues.
 
-**Design philosophy (non-negotiables that shaped this):**
-- **No weighting.** Every data point is one equal vote. Weighting "opens a can of
-  worms and puts too much on me to mess with the data." The matrix self-balances
-  *as long as the points stay one-per-concept* — that discipline replaces tuning.
-- **Our own metric, not borrowed.** We rejected third-party formulas (Game Score:
-  offense-weighted, redundant at the top, craters defenders). The efficiency point
-  is the house `shots_to_points` (§3).
-- **Absolute, not per-position.** The score answers "best player overall," so each
-  stat is ranked against *all* players, not position peers (§2, §4).
+**Design pillars (non-negotiable, all sports):**
+- **POSITIONLESS BASE — the spine.** Every score answers *"how valuable was this
+  performance, regardless of position?"* One pool, every entity ranked vs every
+  other, on the de-duped datapoint set. Position is NEVER baked into the base.
+  Disjoint-position sports (football GK, all of NFL) stay in the one pool via the
+  **exclusive-stats uniform drag**: non-participants score 0 on a role's stats
+  (doesn't move their rank), specialists are placed by their own production.
+- **SCOPES layer context on the base** — position · league · season · per-36 (NBA) /
+  per-90 (football) / per-game (NFL). Same numbers, re-ranked/filtered. "Best QB",
+  "best keeper", "best center" live here, not in the base.
+- **VALUE NOT VOLUME.** Each datapoint weighted by replication difficulty
+  (`p90/p50` scarcity), measured among participants. Negatives weighted by
+  usage-adjusted *excess* (actual − expected). Judgment lives in the *method*, set
+  once and applied blind — never per-player. (Full engine: scarcity doc.)
+- **TWO complementary scores, never merged:** Composite (scarcity-weighted breadth,
+  a mean → all-round value) + Specialist (scarcity peak → single most-irreplaceable
+  skill, with a label). Specialist is a *complement* to Composite — not derived from
+  it, not summed into it.
+- **Box-score only.** Public-domain event box scores are the entire input — the
+  constraint that forced the scarcity breakthrough and keeps the system simple and
+  explainable. We give derived context; we don't import advanced/paywalled data.
+- **The house efficiency metric** is `shots_to_points` (NBA, §3) — efficiency feeds
+  Composite, never Specialist (it's a commodity, not scarce production).
+
+> NOTE: the original NBA section below says "no weighting / flat-9." That was the
+> NBA-only stage; the locked framework scarcity-WEIGHTS the Composite (validated not
+> to collapse into Specialist, corr ~0.97). Read §2–§6 as the worked NBA example of
+> the *datapoints + de-dupe*, with weighting per the scarcity doc layered on top.
 
 ---
 

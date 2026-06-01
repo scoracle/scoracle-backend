@@ -58,16 +58,18 @@ board. What ships:
 
 Small-sample floor: NBA ≥20 MPG, Football ≥15 apps (tunable).
 
-**Goalkeepers — RESOLVED (2026-05-31):** keepers do NOT fold into the outfield
-scarcity pool. Validated: save *volume* isn't scarce (1.35 among keepers — every
-starter makes ~90–150 saves) and the real skill (`save_pct`) is a bounded rate, so
-keepers can't earn a cross-position Specialist. Since keepers **share no stats with
-outfield**, they get their **own within-keeper board**: a keeper General over GK
-skills (`save_pct`, `saves`, `good_high_claim`, `penalties_saved`, distribution) +
-per-GK-skill specialists (best save% / claimer / penalty-saver). Validated — top 10
-= Bounou, de Gea, ter Stegen, Donnarumma, Oblak, Unai Simón, Maignan, Diogo Costa.
-Outfield two-score excludes keepers entirely; keepers ranked among keepers. (This
-supersedes the earlier "GK spikes the outfield Specialist" idea.)
+**Goalkeepers — RESOLVED via the positionless pillar (revised 2026-05-31):**
+keepers stay **IN the one positionless pool** — NOT a separate board (that earlier
+"within-keeper board" idea violated the positionless pillar and is withdrawn). GK
+stats (`saves`, `save_pct`, `penalties_saved`, `punches`, `good_high_claim`) are in
+the datapoint set; outfielders score 0 on them (uniform drag — outfield ranks
+unmoved), keepers score 0 on outfield stats. Consequence: keepers rank **low on the
+positionless composite** — honest, since the public box score barely captures keeper
+value — and **"best keeper" surfaces through the POSITION SCOPE**, the same base-plus-
+scopes model as every sport. Scarcity calibration for `saves` is measured **among
+keepers** (saves ≈ 0 elsewhere); finding stands (save volume scarcity 1.35, save% is
+a rate), so keepers don't spike the positionless Specialist either — the position
+scope is their dedicated view, not a carve-out.
 
 **Do NOT sum them into an "Overall."** The sum re-introduces the breadth bias
 (General drags pure finishers down) — ranking La Liga by General+Specialist dropped

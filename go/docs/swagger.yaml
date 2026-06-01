@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  respond.ErrorResponse:
+  github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse:
     properties:
       error:
         properties:
@@ -82,16 +82,125 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get profile page
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/starline:
+    get:
+      description: Season Composite/Specialist rating + per-event sparkline series
+        for one entity.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year (defaults to the latest rated season)
+        in: query
+        name: season
+        type: integer
+      - description: League ID filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get entity starline (rating)
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/trends:
+    get:
+      description: Returns the entity's last-3 event averages and peer-cohort season
+        averages so the frontend can derive recent direction relative to peers. Raw
+        values only.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      - description: League ID filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get trends page
       tags:
       - data
   /{sport}/health:
@@ -122,12 +231,70 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get sport health page
+      tags:
+      - data
+  /{sport}/leaderboard:
+    get:
+      description: Positionless rating board (z-score engine). entity_type=player
+        (default) or team. Composite + Specialist in one payload.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: 'Board type: player (default) or team'
+        in: query
+        name: entity_type
+        type: string
+      - description: 'Board: composite (default), specialist, or a specialty label
+          (e.g. Sacks)'
+        in: query
+        name: scope
+        type: string
+      - description: Season year (defaults to the latest rated season)
+        in: query
+        name: season
+        type: integer
+      - description: Filter to a position (player boards only)
+        in: query
+        name: position
+        type: string
+      - description: Filter to a league (football)
+        in: query
+        name: league_id
+        type: integer
+      - description: Max rows (default 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get rating leaderboard
       tags:
       - data
   /{sport}/leagues/{leagueId}/{entityType}/{id}:
@@ -176,16 +343,71 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get league profile page
+      tags:
+      - data
+  /{sport}/leagues/{leagueId}/{entityType}/{id}/trends:
+    get:
+      description: League-scoped trends payload. Mirrors GetTrendsPage with leagueId
+        taken from the URL path.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID
+        in: path
+        name: leagueId
+        required: true
+        type: integer
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get league trends page
       tags:
       - data
   /{sport}/leagues/{leagueId}/health:
@@ -217,11 +439,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get league health page
       tags:
       - data
@@ -254,12 +476,59 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get league meta page
+      tags:
+      - data
+  /{sport}/leagues/{leagueId}/team/{id}/results:
+    get:
+      description: League-scoped variant of GetTeamResults — leagueId comes from the
+        URL path. Identical payload.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: League ID
+        in: path
+        name: leagueId
+        required: true
+        type: integer
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get league team season results
       tags:
       - data
   /{sport}/meta:
@@ -290,12 +559,59 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get meta page
+      tags:
+      - data
+  /{sport}/team/{id}/results:
+    get:
+      description: Returns the team's list of finalized fixtures (status completed/seeded)
+        for a season, framed from the team's perspective with opponent identity and
+        W/L/D.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Team ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      - description: League ID filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Get team season results
       tags:
       - data
   /{sport}/twitter/{entityType}/{id}:
@@ -340,11 +656,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Entity tweet feed
       tags:
       - twitter
@@ -378,18 +694,138 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Sport tweet feed
       tags:
       - twitter
+  /{sport}/vibe/{entityType}/{id}:
+    get:
+      description: Returns the most recent Gemma-generated sentiment score (1-100)
+        for a player or team. 404 if no score has been generated yet.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+      summary: Latest vibe score
+      tags:
+      - vibe
+  /{sport}/vibe/{entityType}/{id}/history:
+    get:
+      description: Returns the N most recent vibe sentiment scores for an entity,
+        newest first.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Max scores (1-50, default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Vibe score history
+      tags:
+      - vibe
+  /{sport}/vibe/hottest:
+    get:
+      description: Returns the entities with the highest recent vibe sentiment in
+        the sport, using each entity's latest score from the last 48 hours.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Filter to player or team
+        enum:
+        - player
+        - team
+        in: query
+        name: entityType
+        type: string
+      - description: Max entities (1-50, default 10)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Hottest entities by vibe score
+      tags:
+      - vibe
   /health:
     get:
       description: Returns basic health status and timestamp.
@@ -483,15 +919,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
         "502":
           description: Bad Gateway
           schema:
-            $ref: '#/definitions/respond.ErrorResponse'
+            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
       summary: Get entity news
       tags:
       - news

@@ -29,6 +29,8 @@ Canonical data routes are sport-scoped:
 - `GET /api/v1/{sport}/team/{id}/results` (team's finalized scorelines for a season, framed from the team's perspective)
 - `GET /api/v1/{sport}/meta`
 - `GET /api/v1/{sport}/health`
+- `GET /api/v1/{sport}/leaderboard` (rating engine board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; positionless z-score Composite + Specialist)
+- `GET /api/v1/{sport}/{entityType}/{id}/starline` (per-entity rating: season Composite/Specialist + per-event dual sparkline)
 
 League-scoped variants (preferred for multi-league precision):
 

@@ -317,6 +317,173 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)
 		FROM req
 		JOIN selected_entity se ON true`,
+
+		// Rating leaderboard (migrations 027/028 — the z-score rating engine).
+		// Type-aware: entity_type=player ⇒ player board (player_stats); entity_type=team
+		// ⇒ team board (team_stats, flat scarcity-z). Composite + Specialist (+ specialty)
+		// in ONE payload per row. Reads the shared *_stats/players/teams tables — join
+		// caveat: players & teams are keyed by (id, sport), so every join needs AND .sport=.
+		// $1 sport · $2 season (NULL ⇒ latest rated) · $3 scope (composite|specialist|
+		// <skill label>) · $4 position (player only) · $5 league_id · $6 limit (NULL ⇒ 50) ·
+		// $7 entity_type (NULL ⇒ player).
+		"leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport,
+			       $2::int AS season,
+			       COALESCE(NULLIF(lower($3::text), ''), 'composite') AS scope,
+			       NULLIF($4::text, '') AS position,
+			       $5::int AS league_id,
+			       COALESCE($6::int, 50) AS lim,
+			       COALESCE(NULLIF(lower($7::text), ''), 'player') AS entity_type
+		),
+		season_pick AS (
+			SELECT COALESCE(
+				(SELECT season FROM req WHERE season IS NOT NULL),
+				(SELECT MAX(s) FROM (
+					SELECT ps.season AS s FROM public.player_stats ps, req
+					 WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.rating_composite IS NOT NULL
+					UNION ALL
+					SELECT ts.season FROM public.team_stats ts, req
+					 WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.rating_composite IS NOT NULL
+				) ss)
+			) AS season
+		),
+		ranked AS (
+			SELECT * FROM (
+				-- PLAYER board
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+					ps.position, ps.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+					NULLIF(ps.league_id, 0) AS league_id,
+					ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
+					ps.rating_composite_rank, ps.rating_specialist_rank,
+					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
+					              ELSE ps.rating_specialist END DESC NULLS LAST, ps.rating_composite DESC NULLS LAST) AS rank
+				FROM public.player_stats ps
+				JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
+				LEFT JOIN public.teams t ON t.id = ps.team_id AND t.sport = ps.sport
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.season = sp.season
+				  AND ps.rating_composite IS NOT NULL
+				  AND (req.position IS NULL OR ps.position = req.position)
+				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+				  AND (req.scope IN ('composite', 'specialist') OR lower(ps.rating_specialty) = req.scope)
+			) pl
+			UNION ALL
+			SELECT * FROM (
+				-- TEAM board
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+					NULL::text AS position, t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+					NULLIF(ts.league_id, 0) AS league_id,
+					ts.rating_composite, ts.rating_specialist, ts.rating_specialty,
+					ts.rating_composite_rank, ts.rating_specialist_rank,
+					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
+					              ELSE ts.rating_specialist END DESC NULLS LAST, ts.rating_composite DESC NULLS LAST) AS rank
+				FROM public.team_stats ts
+				JOIN public.teams t ON t.id = ts.team_id AND t.sport = ts.sport
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.season = sp.season
+				  AND ts.rating_composite IS NOT NULL
+				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+				  AND (req.scope IN ('composite', 'specialist') OR lower(ts.rating_specialty) = req.scope)
+			) tm
+			ORDER BY rank
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT entity_type FROM req),
+			'season', (SELECT season FROM season_pick),
+			'scope', (SELECT scope FROM req),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
+				'[]'::json
+			)
+		)`,
+
+		// Starline (migrations 027 + 028 — the rating engine, per entity).
+		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
+		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist
+		// (+ specialty + ranks) AND the per-event dual-sparkline series, in one payload.
+		// Kept SEPARATE from the profile/meta payloads (the rating engine is its own
+		// dataset, spec §5).
+		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ latest rated) ·
+		// $5 league_id.
+		"starline": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS etype,
+			       $3::int AS eid, $4::int AS season, $5::int AS league_id
+		),
+		season_pick AS (
+			SELECT COALESCE(
+				(SELECT season FROM req WHERE season IS NOT NULL),
+				(SELECT MAX(s) FROM (
+					SELECT ps.season AS s FROM public.player_stats ps, req
+					 WHERE req.etype = 'player' AND ps.sport = req.sport AND ps.player_id = req.eid
+					   AND ps.rating_composite IS NOT NULL
+					   AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+					UNION ALL
+					SELECT ts.season FROM public.team_stats ts, req
+					 WHERE req.etype = 'team' AND ts.sport = req.sport AND ts.team_id = req.eid
+					   AND ts.rating_composite IS NOT NULL
+					   AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+				) ss)
+			) AS season
+		),
+		season_rating AS (
+			SELECT season, league_id, position, rating_composite, rating_composite_rank,
+			       rating_specialist, rating_specialist_rank, rating_specialty FROM (
+				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
+				       ps.rating_composite, ps.rating_composite_rank,
+				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty
+				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'player' AND ps.sport = req.sport
+				  AND ps.player_id = req.eid AND ps.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+				UNION ALL
+				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
+				       ts.rating_composite, ts.rating_composite_rank,
+				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty
+				FROM public.team_stats ts CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'team' AND ts.sport = req.sport
+				  AND ts.team_id = req.eid AND ts.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+			) u LIMIT 1
+		),
+		event_series AS (
+			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty FROM (
+				SELECT e.fixture_id, f.start_time,
+				       e.rating_composite, e.rating_specialist, e.rating_specialty
+				FROM public.event_box_scores e
+				JOIN public.fixtures f ON f.id = e.fixture_id
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'player' AND e.sport = req.sport
+				  AND e.player_id = req.eid AND e.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(e.league_id, 0) = req.league_id)
+				  AND e.rating_composite IS NOT NULL
+				UNION ALL
+				SELECT e.fixture_id, f.start_time,
+				       e.rating_composite, e.rating_specialist, e.rating_specialty
+				FROM public.event_team_stats e
+				JOIN public.fixtures f ON f.id = e.fixture_id
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'team' AND e.sport = req.sport
+				  AND e.team_id = req.eid AND e.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(e.league_id, 0) = req.league_id)
+				  AND e.rating_composite IS NOT NULL
+			) u ORDER BY start_time
+		)
+		SELECT json_build_object(
+			'page', 'starline',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT etype FROM req),
+			'entity_id', (SELECT eid FROM req),
+			'season', (SELECT season FROM season_pick),
+			'rating', (SELECT row_to_json(season_rating) FROM season_rating),
+			'events', COALESCE(
+				(SELECT json_agg(row_to_json(es) ORDER BY es.start_time) FROM event_series es),
+				'[]'::json
+			)
+		)`,
 		"nba_meta_page": `WITH meta_info AS (
 			SELECT
 				GREATEST(

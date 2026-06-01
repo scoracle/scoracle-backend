@@ -58,17 +58,29 @@ General ships **unweighted** for now (two maximally-distinct scores; zero knobs)
 But scarcity-weighting General is validated as a richer alternative when we want it:
 
 - **Does NOT collapse into Specialist** — weighted vs unweighted General corr
-  **0.976** (FB) / **0.97** (NBA); it stays "General," only drifting ~0.13 toward
-  Specialist (Gen↔Spec corr 0.53 → 0.66).
-- **Surfaces value-dense players volume-counting flattens** (live results):
-  - NBA: **Wembanyama #4→#2** (blocks + 3s — the one-of-a-kind profile), Curry
-    26→20, Gobert 35→29, Myles Turner 40→33, Trae Young 17→10.
-  - Football PL: **Bowen 7→3**, Bruno Fernandes 9→5, Semenyo 19→11 (value-dense
-    attackers); abundant-stat fullbacks (Truffert 10→20) fall.
+  **0.976** (FB) / **0.969** (NBA); it stays "General," only drifting ~0.13 toward
+  Specialist (FB Gen↔Spec corr 0.53 → 0.66).
+- **Rewards players who are broad AND value-tilted** (live results):
+  - Football PL: **Bowen 7→3**, Bruno Fernandes 9→5, Semenyo 19→11 (broad attackers
+    whose volume sits in scarce stats); abundant-stat fullbacks (Truffert 10→20) fall.
+  - NBA: Şengün 28→12, Derrick White 20→11, Scottie Barnes 15→8, Cade 6→3, Maxey
+    8→5 — two-way/complete players rise.
 
-**Why it's the right "value not volume" instinct:** a holding mid's 2,000 passes and
-a winger's 8 goals count equally under unweighted breadth; weighting says the scarce
-contribution is worth more — which is what a *value* rating should say.
+**IMPORTANT — weighted General does NOT make pure specialists "soar" (measured).**
+Initial intuition was that Wemby/Gobert would rocket up a weighted General; the data
+says **no**: Wemby 4→4 (flat), Gobert 63→73, Curry 25→31, Holmgren 24→35 — the
+spiky specialists *fell* or held. Reason: General is a **mean**, so a specialist's
+*holes* (zero scoring/playmaking) get up-weighted toward zero right alongside their
+elite skill — the mean still counts the gaps. **Only the Specialist score (a PEAK)
+makes a one-of-a-kind like Wemby soar** (Specialist 100), because the peak ignores
+the holes. So: the Wemby/“most valuable, irreplaceable” intuition is correct, but
+it's delivered by **Specialist**, not by weighting General.
+
+**Why weighted General is still the right "value not volume" instinct:** a holding
+mid's 2,000 passes and a winger's 8 goals count equally under unweighted breadth;
+weighting says the scarce contribution is worth more — which a *value* rating
+should. It just expresses as "broad + value-tilted players rise," not "specialists
+soar." (NBA's effect is milder than football's — scarcity spread is only ~3× vs ~4×.)
 
 **Why deferred (not wrong, just a tradeoff):**
 1. Costs orthogonality — the product's value is two *distinct* lenses; weighting

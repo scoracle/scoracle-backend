@@ -38,9 +38,12 @@ replacement baselines, no editorial choices are needed.
    - **(2) Healthy spread** — broadly recorded, not sparse-spiky (mostly-zeros makes
      a Composite-sum term behave like a specialist spike). Sparse-but-distinct stats
      may feed **Specialist** (peak rewards spikes) but never the breadth sum.
-   - **(3) ~Full coverage** — the key is populated for ~all qualified players, not a
-     systematic subset. A missing key + `COALESCE(...,0)` silently docks players whose
-     row lacks it. **Verify `stats ? key` coverage, not just nonzero %.**
+   - **(3) Explicit-zero coverage** — the provider must emit the value *including
+     zero*, not only-when-nonzero. Check at the EVENT level: if `count(has_key) ==
+     count(value>0)`, the provider omits zeros → "absent" is indistinguishable from
+     "0" and `COALESCE(...,0)` can't recover the truth → REJECT. (This killed
+     `through_balls`: present on exactly its 3,136 nonzero events, absent on 49,943
+     zero events.) Verify `stats ? key` coverage, not just nonzero %.
    Collinear clutter (oreb/dreb under reb; solo/assist under total_tackles; "a yard is
    a yard" → one `total_yards`) is what manufactures false risers/fallers. Kill it.
 3. **Positionless base.** Every score answers *"how valuable was this performance,
@@ -154,14 +157,19 @@ pool**)
   vs duels; dense, p50≈18; 100% coverage 1679/1679). Rewards contact-drawing
   aggression; helps progressive engines (Barco, Enzo Fernández) who pay in turnovers
   but earn fouls. **ADD to Composite z-set.**
-- **BLOCKED on seeder fix: `through_balls`** — distinct (0.59) and dense among present
-  rows, BUT only **65% coverage** (1086/1679 have the key). A temporal/positional
-  seeding gap, not true zeros: Levi Colwill's full 2024 season (35 apps, 2319 passes —
-  elite line-breaking CB) has NO through_balls key, and every top ball-playing CB
-  (Dunk, van Hecke, van de Ven) is missing it. Including it now would systematically
-  PUNISH ball-playing defenders — the opposite of intent. **Pending: seeder must emit
-  `through_balls: 0` explicitly for all players; then it passes gate 3 and goes in
-  (Colwill/Barco rise legitimately).**
+- **DROPPED permanently: `through_balls`** — NOT a reliable box-score datapoint.
+  Traced to source (2026-06-01): SportMonks emits `through-balls` as a match detail
+  **only when the value is non-zero** — in raw `event_box_scores` the key is present on
+  exactly the 3,136 events where it's >0, and absent on all 49,943 pass-having events
+  where it's 0. The provider never sends a zero, so "absent" and "0" are
+  indistinguishable, and aggregation can't recover a true season count (a player shown
+  with 5 may have had more in un-itemized matches). It's a provider garnish, not a
+  stat we own — fails the box-score-honesty principle at the root. Not a seeder bug;
+  no fix possible. (Contrast: `passes_accurate` 53k events, `key_passes` 21k,
+  `fouls_drawn` 100% — densely/consistently provided, so they qualify.) **General rule
+  this established: a datapoint must be provided as an explicit value (incl. zero), not
+  only-when-nonzero — else absence masquerades as zero. Verify at the EVENT level
+  (`has_key == nonzero_count` is the red flag).**
 - Stats-page only: `save_pct`, pass %s, `shot_accuracy`.
 - Validation (PL): Composite — Bruno Fernandes, Elliot Anderson, Garner, Senesi,
   Bowen. Specialist — Bruno F (assists 8.90), **Haaland (goals 7.02)**, Tarkowski

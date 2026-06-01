@@ -1,5 +1,11 @@
 # Scarcity / Value Weighting — the cross-sport overlay
 
+> ⭐ **SUPERSEDED BY `SCORACLE_RATING_ENGINE.md` (canonical, 2026-05-31).** The
+> explicit scarcity weighting here (p90/p50, p90/p75) is replaced by the **z-score**,
+> which rewards scarcity *implicitly* (rare skills sit further from the mean) — no
+> weights, no replacement baseline. Retained as the rationale for "value not volume."
+
+
 **Status:** Core principle **LOCKED (2026-05-31)**. Powers the **Specialist** score
 (live in the design). Also available as an **optional weighted-General layer**
 (deferred — General ships unweighted first, this is the documented upgrade path).

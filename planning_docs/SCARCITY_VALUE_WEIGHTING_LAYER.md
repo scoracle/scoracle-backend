@@ -139,6 +139,19 @@ a byproduct of valuable activity. Usage-adjusted excess separates cleanly:
 never handles the ball has ~0 expected and ~0 actual → ~0 excess → no phantom "ball
 security" credit and no cutoff. This is *why* we don't gate.
 
+**Impact is small & top-stable (measured):** turnovers are ~1-of-N inputs and 90%
+usage-bundled, so the term fine-tunes edges without reshuffling the top — Cade #6→#9,
+Luka #2→#5, while careful stars rise (SGA #3→#1 on ball security, correctly) and
+careless players drop hardest (Giddey #69→#82). A turnover term *should* behave this
+way; it's a refinement, not a needle-mover.
+
+**Implementation requirement — position-appropriate usage base:** "expected" must
+regress each negative on a *matching* usage denominator (turnovers↔ball-handling,
+possession_lost↔touches, QB INTs↔pass attempts). Regressing a striker's
+possession_lost on passing volume mis-fires (Haaland barely passes → model expects ~0
+→ all his losses read as excess). The denominator must fit the stat, not a generic
+usage proxy.
+
 **Placement:** negatives live in **Composite/General only**, never Specialist
 ("elite at excess turnovers" is not a valued specialty). "Expected" is itself derived
 (regression on positive-usage stats), not hand-set. The same "expected given

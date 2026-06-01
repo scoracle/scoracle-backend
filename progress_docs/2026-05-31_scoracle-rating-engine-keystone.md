@@ -87,7 +87,14 @@ already SUMs it (harmless), but it's excluded from the rating. (Sharpened gate 3
 datapoint must be provided as explicit value incl. zero; red flag is
 `has_key == nonzero_count` at the event level.)
 
-## Next
-Build phase: SQL (event derivations → z Composite/Specialist + label, freeze/
-recompute), leaderboard + starline endpoints, ENDPOINTS/README/Swagger. Plus the
-seeder coverage fix above. NOT yet built — design only.
+## Next — BUILD PHASE (design is locked; this is execution)
+Full ordered plan in `planning_docs/SCORACLE_RATING_ENGINE.md` §9. Summary:
+1. SQL z-engine fn (`compute_rating`) + `player_stats` columns (rating_composite,
+   rating_specialist, rating_specialty); guard NULLIF(sd,0)+COALESCE(z,0).
+2. Per-event z → starline (dual sparkline).
+3. Freeze/recompute lifecycle (in-season on finalize; cross-season on rollover; avoid O(M²)).
+4. Endpoints: `/api/v1/{sport}/leaderboard` + starline (thin Go → prepared stmt; join needs
+   `AND p.sport=ps.sport`). Profile/pizza payload stays separate.
+5. ENDPOINTS/README/Swagger.
+v1 datapoint sets are FROZEN (§9). Data limits & future-data wishlist captured in §9.
+NOT yet built — design only.

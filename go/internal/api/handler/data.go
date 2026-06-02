@@ -374,6 +374,31 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "roster", dataCacheKey(r), cache.TTLData, false, sport, id, season, leagueID)
 }
 
+// GetTransfers returns a team's transfer/trade rumors ranked by the heat index.
+// @Summary Get team transfers/trades (rumor heat)
+// @Description Players linked to the team by news/tweet co-mention, ranked by a deterministic heat index (with transparent components). Once Gemma vetting lands, each carries direction/stage/grounded summary/source. Player names link to the player profile.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param id path int true "Team ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/team/{id}/transfers [get]
+func (h *Handler) GetTransfers(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "team id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "team_transfers", dataCacheKey(r), cache.TTLData, false, sport, id)
+}
+
 // GetLeagueTeamResults returns league-scoped team season results.
 // @Summary Get league team season results
 // @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.

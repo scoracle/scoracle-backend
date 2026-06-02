@@ -443,6 +443,40 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Transfers/Trades (migrations 031-032 — rumor heat). A team's linked
+		// players ranked by the deterministic heat index, latest row per pair.
+		// is_rumor IS TRUE filters out Gemma-cleared / unvetted-empty rows.
+		// $1 sport · $2 team_id.
+		"team_transfers": `WITH req AS (
+			SELECT upper($1::text) AS sport, $2::int AS team_id
+		),
+		latest AS (
+			SELECT DISTINCT ON (tr.team_id, tr.player_id)
+			       tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
+			       tr.gemma_summary, tr.source_attribution, tr.generated_at
+			FROM public.transfer_rumors tr CROSS JOIN req
+			WHERE tr.team_id = req.team_id AND tr.sport = req.sport AND tr.is_rumor IS TRUE
+			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+		),
+		ranked AS (
+			SELECT p.id, p.name, p.photo_url AS image,
+			       l.heat, l.heat_components, l.direction, l.stage,
+			       l.gemma_summary, l.source_attribution,
+			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
+			FROM latest l
+			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'transfers',
+			'sport', lower((SELECT sport FROM req)),
+			'team_id', (SELECT team_id FROM req),
+			'count', (SELECT count(*) FROM ranked),
+			'rumors', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= 25),
+				'[]'::json
+			)
+		)`,
+
 		// Starline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist

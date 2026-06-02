@@ -24,8 +24,8 @@ RESTORE_DB="scoracle_restore_drill_$$"
 DB_HOST=${DB_HOST:-localhost}
 DB_USER=${DB_USER:-scoracle}
 
-if [ -z "${PGPASSWORD:-}" ] && [ -f /home/sheneveld/scoracle-backend/.env.local ]; then
-    PGPASSWORD=$(grep -oP '(?<=:)[^@/]+(?=@)' /home/sheneveld/scoracle-backend/.env.local | head -1)
+if [ -z "${PGPASSWORD:-}" ] && [ -f /home/sheneveld/scoracle/scoracle-backend/.env.local ]; then
+    PGPASSWORD=$(grep -oP '(?<=:)[^@/]+(?=@)' /home/sheneveld/scoracle/scoracle-backend/.env.local | head -1)
 fi
 export PGPASSWORD
 

@@ -6,7 +6,7 @@
 # recent activity. Cheap — <1s per sport. Scheduled weekly from cron.
 
 set -euo pipefail
-cd /home/sheneveld/scoracle-backend
+cd /home/sheneveld/scoracle/scoracle-backend
 
 # Load DB URL from .env.local. Parse out password so PGPASSWORD works —
 # beats embedding creds in a crontab.

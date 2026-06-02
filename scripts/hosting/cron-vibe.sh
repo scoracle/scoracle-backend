@@ -6,7 +6,7 @@
 # so the vibe binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
 #
 # Cron schedule — corpus mode once daily at midnight (local time):
-#   0 0 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-vibe.sh -mode corpus
+#   0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibe.sh -mode corpus
 # (Was twice daily; the noon pass is now redundant — the in-API news-spike
 #  LISTEN/NOTIFY worker handles intraday breaking news in real time.)
 #
@@ -20,7 +20,7 @@
 # worker runs Gemma immediately. No CLI involvement.
 
 set -euo pipefail
-cd /home/sheneveld/scoracle-backend
+cd /home/sheneveld/scoracle/scoracle-backend
 
 # Load env vars. .env is committed template (safe defaults); .env.local
 # has real creds and wins because set -a exports every assignment.

@@ -6,7 +6,7 @@
 # so the transfer binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
 #
 # Cron schedule — corpus mode, STAGGERED ~30 min AFTER the daily vibe corpus run:
-#   30 0 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-transfer.sh -mode corpus
+#   30 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-transfer.sh -mode corpus
 #
 # Why staggered after vibe (cron-vibe.sh at 0 0):
 #   1. The vibe corpus run does the RSS sweep that refreshes news_article_entities.
@@ -23,7 +23,7 @@
 # immediately (60-min per-team debounce, global concurrency cap). No CLI here.
 
 set -euo pipefail
-cd /home/sheneveld/scoracle-backend
+cd /home/sheneveld/scoracle/scoracle-backend
 
 # Load env vars. .env is committed template (safe defaults); .env.local
 # has real creds and wins because set -a exports every assignment.

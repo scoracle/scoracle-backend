@@ -102,3 +102,66 @@ func TestBuildSearchName(t *testing.T) {
 		}
 	}
 }
+
+// --- FirstMatchPos / proximity gate -----------------------------------------
+
+func TestFirstMatchPos_BasicAndAbsent(t *testing.T) {
+	title := "Everton want Chelsea striker Liam Delap and Tottenham Hotspur midfielder Conor Gallagher"
+
+	chelsea := EntityMatchInput{Name: "Chelsea", Sport: "FOOTBALL"}
+	if got := FirstMatchPos(title, chelsea); got != 13 {
+		t.Errorf("Chelsea pos = %d, want 13", got)
+	}
+	gallagher := EntityMatchInput{Name: "Conor Gallagher", FirstName: "Conor", LastName: "Gallagher", Sport: "FOOTBALL"}
+	if got := FirstMatchPos(title, gallagher); got != 73 {
+		t.Errorf("Gallagher pos = %d, want 73", got)
+	}
+	absent := EntityMatchInput{Name: "Mohamed Salah", FirstName: "Mohamed", LastName: "Salah", Sport: "FOOTBALL"}
+	if got := FirstMatchPos(title, absent); got != -1 {
+		t.Errorf("absent entity pos = %d, want -1", got)
+	}
+}
+
+// The whole point: the proximity gate keeps the genuine pair and drops the
+// roundup artifact in the same headline.
+func TestFirstMatchPos_ProximityGate(t *testing.T) {
+	title := "Everton want Chelsea striker Liam Delap and Tottenham Hotspur midfielder Conor Gallagher"
+	const window = 50
+
+	chelsea := FirstMatchPos(title, EntityMatchInput{Name: "Chelsea", Sport: "FOOTBALL"})
+	delap := FirstMatchPos(title, EntityMatchInput{Name: "Liam Delap", FirstName: "Liam", LastName: "Delap", Sport: "FOOTBALL"})
+	gallagher := FirstMatchPos(title, EntityMatchInput{Name: "Conor Gallagher", FirstName: "Conor", LastName: "Gallagher", Sport: "FOOTBALL"})
+
+	if abs(chelsea-delap) > window {
+		t.Errorf("Chelsea↔Delap (%d) should be within window", abs(chelsea-delap))
+	}
+	if abs(chelsea-gallagher) <= window {
+		t.Errorf("Chelsea↔Gallagher (%d) should be OUTSIDE window (spurious)", abs(chelsea-gallagher))
+	}
+}
+
+// FirstMatchPos must agree with MatchesEntity on presence/absence.
+func TestFirstMatchPos_AgreesWithMatchesEntity(t *testing.T) {
+	cases := []struct {
+		text string
+		in   EntityMatchInput
+	}{
+		{"Bayern Munich transfer news", EntityMatchInput{Name: "FC Bayern Munchen", Aliases: []string{"Bayern Munich"}}},
+		{"Some unrelated headline", EntityMatchInput{Name: "FC Bayern Munchen", Aliases: []string{"Bayern Munich"}}},
+		{"Conor Gallagher to Atletico", EntityMatchInput{Name: "Conor Gallagher", FirstName: "Conor", LastName: "Gallagher"}},
+	}
+	for _, c := range cases {
+		want := MatchesEntity(c.text, c.in)
+		got := FirstMatchPos(c.text, c.in) >= 0
+		if got != want {
+			t.Errorf("FirstMatchPos>=0 = %v, MatchesEntity = %v for %q / %q", got, want, c.text, c.in.Name)
+		}
+	}
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

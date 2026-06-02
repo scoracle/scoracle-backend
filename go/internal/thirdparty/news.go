@@ -176,6 +176,18 @@ func (s *NewsService) persistArticles(
 		pool = nil
 	}
 
+	// The primary entity's own match input — needed to record its title position
+	// for the co-mention proximity gate. The fetch filter guarantees the primary
+	// is in the title, so this is usually found.
+	var primaryMatch *EntityMatchInput
+	for i := range pool {
+		if pool[i].entityType == primaryEntityType && pool[i].entityID == primaryEntityID {
+			m := pool[i].match
+			primaryMatch = &m
+			break
+		}
+	}
+
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
 			continue
@@ -202,32 +214,39 @@ func (s *NewsService) persistArticles(
 			return fmt.Errorf("upsert article: %w", err)
 		}
 
-		// Primary link — the entity that was queried.
+		// Primary link — the entity that was queried. Record its title position
+		// (NULL if not found in the title) for the co-mention proximity gate.
+		primaryPos := -1
+		if primaryMatch != nil {
+			primaryPos = FirstMatchPos(a.Title, *primaryMatch)
+		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0); err != nil {
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0, posOrNil(primaryPos)); err != nil {
 			return fmt.Errorf("link primary entity: %w", err)
 		}
 
 		// Secondary links — scan the title against the cached entity pool
-		// to pick up co-mentioned teams/players. ON CONFLICT DO NOTHING
-		// means re-matching the primary entity is a cheap no-op.
+		// to pick up co-mentioned teams/players, recording WHERE each matched
+		// so the proximity gate can drop far-apart co-mentions (roundup artifacts).
+		// ON CONFLICT DO NOTHING means re-matching the primary entity is a cheap no-op.
 		for i := range pool {
 			e := &pool[i]
 			// Skip the primary — we already linked it at confidence 1.0.
 			if e.entityType == primaryEntityType && e.entityID == primaryEntityID {
 				continue
 			}
-			if !MatchesEntity(a.Title, e.match) {
+			pos := FirstMatchPos(a.Title, e.match)
+			if pos < 0 {
 				continue
 			}
 			if _, err := tx.Exec(ctx, `
-				INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
-				VALUES ($1, $2, $3, $4, $5)
+				INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
+				VALUES ($1, $2, $3, $4, $5, $6)
 				ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-			`, articleID, e.entityType, e.entityID, sportUpper, 0.8); err != nil {
+			`, articleID, e.entityType, e.entityID, sportUpper, 0.8, posOrNil(pos)); err != nil {
 				return fmt.Errorf("link secondary entity: %w", err)
 			}
 		}
@@ -344,6 +363,97 @@ func nullIfEmpty(s string) interface{} {
 		return nil
 	}
 	return s
+}
+
+// posOrNil maps a title-match index to a SMALLINT value or NULL (no match / out
+// of range). NULL is the "unknown" sentinel the proximity gate treats as lenient.
+func posOrNil(p int) interface{} {
+	if p < 0 {
+		return nil
+	}
+	if p > 32767 {
+		return int16(32767)
+	}
+	return int16(p)
+}
+
+// BackfillTitlePositions recomputes news_article_entities.title_pos for existing
+// rows of a sport from the stored article title, using the same matcher as the
+// write path. One-shot maintenance for the co-mention proximity gate (migration
+// 033); idempotent. Rows whose entity is no longer in the pool (purged) keep a
+// NULL title_pos, which the gate treats leniently. Returns rows updated.
+func (s *NewsService) BackfillTitlePositions(ctx context.Context, sport string) (int, error) {
+	sportUpper := strings.ToUpper(sport)
+	pool, err := s.getEntityPool(ctx, sportUpper)
+	if err != nil {
+		return 0, err
+	}
+	type poolKey struct {
+		etype string
+		id    int
+	}
+	idx := make(map[poolKey]EntityMatchInput, len(pool))
+	for i := range pool {
+		idx[poolKey{pool[i].entityType, pool[i].entityID}] = pool[i].match
+	}
+
+	rows, err := s.pool.Query(ctx, `
+		SELECT nae.article_id, nae.entity_type, nae.entity_id, a.title
+		FROM news_article_entities nae
+		JOIN news_articles a ON a.id = nae.article_id
+		WHERE nae.sport = $1
+	`, sportUpper)
+	if err != nil {
+		return 0, err
+	}
+	type update struct {
+		articleID int64
+		etype     string
+		eid       int
+		pos       interface{}
+	}
+	var batch []update
+	for rows.Next() {
+		var articleID int64
+		var etype, title string
+		var eid int
+		if err := rows.Scan(&articleID, &etype, &eid, &title); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		mi, ok := idx[poolKey{etype, eid}]
+		if !ok {
+			continue
+		}
+		batch = append(batch, update{articleID, etype, eid, posOrNil(FirstMatchPos(title, mi))})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	// One transaction per sport — far faster than autocommit for ~tens of
+	// thousands of single-row updates.
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	updated := 0
+	for _, u := range batch {
+		ct, err := tx.Exec(ctx, `
+			UPDATE news_article_entities SET title_pos = $1
+			WHERE article_id = $2 AND entity_type = $3 AND entity_id = $4 AND sport = $5
+		`, u.pos, u.articleID, u.etype, u.eid, sportUpper)
+		if err != nil {
+			return updated, err
+		}
+		updated += int(ct.RowsAffected())
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return updated, err
+	}
+	return updated, nil
 }
 
 func parseArticleDate(s string) time.Time {

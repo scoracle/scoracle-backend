@@ -620,7 +620,16 @@ player starlines `event_box_scores`.
     "rating_composite_rank": 100.0,
     "rating_specialist": 6.1058,
     "rating_specialist_rank": 100.0,
-    "rating_specialty": "Rim Protection"
+    "rating_specialty": "Rim Protection",
+    "rating_breakdown": [            // per-datapoint transparency (migration 030)
+      { "label": "Rim Protection", "z": 6.1058, "pct": 100.0,
+        "in_comp": true, "in_spec": true, "sign": 1, "facet": "all",
+        "is_specialty": true },
+      { "label": "Ball Security", "z": 0.9999, "pct": 15.1,
+        "in_comp": true, "in_spec": false, "sign": -1, "facet": "all",
+        "is_specialty": false }
+      // … one object per datapoint (NBA 9 / NFL 12 / FOOTBALL 18; teams 7–8)
+    ]
   },
   "events": [                        // the dual-sparkline series, chronological
     { "fixture_id": 12345, "start_time": "2025-10-26T…",
@@ -631,6 +640,16 @@ player starlines `event_box_scores`.
 ```
 
 `rating` is `null` and `events` is `[]` if the entity has no rated season.
+
+**`rating.rating_breakdown`** (migration 030) is the per-datapoint transparency
+behind the Composite/Specialist scores — one object per datapoint the engine
+z-scores. Each carries the raw `z`, its 0–100 `pct` (`percent_rank` of `sign*z`
+within the `(sport, season, label)` population, so negative datapoints like
+turnovers read correctly: low raw value → high pct), the `in_comp` / `in_spec` /
+`sign` / `facet` config, and `is_specialty` (the single peak skill — exactly one
+per entity, matching `rating_specialty`). **Stored as raw z, served as a
+percentile** — `pct` is what the UI draws (the Composite tab pizzas the `in_comp`
+rows by `pct`; the Specialist tab heros the `is_specialty` row).
 
 Each event also carries **`rating_composite_pct` / `rating_specialist_pct`**
 (migration 029): the **0–100 positionless percentile** of that event's z within the

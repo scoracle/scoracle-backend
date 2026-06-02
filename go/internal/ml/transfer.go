@@ -145,15 +145,18 @@ func (g *TransferGenerator) analyzePair(
 	// Grounding: the credibility attribution comes from the CORPUS, not Gemma.
 	attribution, bestWeight := bestSource(news, tweets, tiers)
 
-	// Direction is DETERMINISTIC from roster membership, not Gemma's text guess:
-	// a player currently on the team can only be an OUTGOING rumor; a player not
-	// on the roster can only be INCOMING. (Gemma's direction field is ignored.)
-	onRoster, err := g.isOnRoster(ctx, teamID, c.playerID, sport)
+	// Direction AND the noise filter key off the player's RELATIONSHIP to the team
+	// (computed deterministically from player_stats history), not Gemma's text
+	// guess: "current" → outgoing; "former"/"none" → incoming. The "former" case
+	// matters most — ex-players get co-mentioned in historical background
+	// ("former Chelsea man …") that isn't a rumor; the prompt tells Gemma to clear
+	// those unless there's a genuine return.
+	rel, err := g.teamRelationship(ctx, teamID, c.playerID, sport)
 	if err != nil {
 		return err
 	}
 
-	prompt := buildTransferPrompt(teamName, c.playerName, sport, onRoster, news, tweets)
+	prompt := buildTransferPrompt(teamName, c.playerName, sport, rel, news, tweets)
 	gen, gerr := g.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      transferSystemPrompt(sport),
 		Temperature: 0.3,
@@ -162,38 +165,60 @@ func (g *TransferGenerator) analyzePair(
 	})
 	if gerr != nil {
 		// Gemma down/slow → provisional heat-only row (the card still renders).
-		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, onRoster, attribution, newsIDs, tweetIDs, res)
+		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, tweetIDs, res)
 	}
 	verdict, ok := parseTransferVerdict(gen.Response)
 	if !ok {
 		// Unparseable output → same provisional fallback.
-		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, onRoster, attribution, newsIDs, tweetIDs, res)
+		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, tweetIDs, res)
+	}
+	// Former-player gate (deterministic — gemma4:e4b doesn't reliably honor the
+	// prompt's "clear unless returning" instruction). A FORMER player is a live
+	// rumor only if the corpus actually signals a RETURN; otherwise the co-mention
+	// is historical background or a multi-entity-article artifact ("Everton want
+	// [Chelsea's Delap] and [Spurs' Gallagher]" links Gallagher↔Chelsea spuriously).
+	if rel == "former" && verdict.IsRumor != nil && *verdict.IsRumor && !hasReturnSignal(news, tweets) {
+		cleared := false
+		verdict.IsRumor = &cleared
 	}
 	// Grounding guard: a claimed rumor with no credible (tier-1/2) source is suspect.
 	if verdict.IsRumor != nil && *verdict.IsRumor && bestWeight < 0.5 {
 		verdict.Confidence *= 0.5
 	}
-	return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, &verdict, onRoster, attribution, newsIDs, tweetIDs, res)
+	return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, &verdict, rel, attribution, newsIDs, tweetIDs, res)
 }
 
-// isOnRoster reports whether the player's most recent season was spent on this
-// team — the deterministic signal for transfer direction (on → outgoing, off →
-// incoming).
-func (g *TransferGenerator) isOnRoster(ctx context.Context, teamID, playerID int, sport string) (bool, error) {
-	var on bool
+// teamRelationship classifies the player's deterministic relationship to the team
+// from player_stats history: "current" (latest season on the team), "former" (on
+// the team in some past season but not now), or "none". Drives direction and the
+// former-player noise filter. Bounded by seeded history — a stint that predates
+// our data reads as "none".
+func (g *TransferGenerator) teamRelationship(ctx context.Context, teamID, playerID int, sport string) (string, error) {
+	var isCurrent, isEver bool
 	err := g.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM player_stats ps
-			WHERE ps.player_id = $1 AND ps.sport = $2 AND ps.team_id = $3
-			  AND ps.season = (SELECT MAX(season) FROM player_stats WHERE player_id = $1 AND sport = $2)
-		)
-	`, playerID, sport, teamID).Scan(&on)
-	return on, err
+		SELECT
+		    COALESCE(bool_or(ps.team_id = $3 AND ps.season = (SELECT MAX(season) FROM player_stats WHERE player_id = $1 AND sport = $2)), false),
+		    COALESCE(bool_or(ps.team_id = $3), false)
+		FROM player_stats ps
+		WHERE ps.player_id = $1 AND ps.sport = $2
+	`, playerID, sport, teamID).Scan(&isCurrent, &isEver)
+	if err != nil {
+		return "none", err
+	}
+	switch {
+	case isCurrent:
+		return "current", nil
+	case isEver:
+		return "former", nil
+	default:
+		return "none", nil
+	}
 }
 
-// directionFor maps roster membership to the rumor direction.
-func directionFor(onRoster bool) string {
-	if onRoster {
+// directionFor maps the team relationship to the rumor direction: a current
+// player can only be leaving (outgoing); everyone else would be arriving.
+func directionFor(rel string) string {
+	if rel == "current" {
 		return "outgoing"
 	}
 	return "incoming"
@@ -324,6 +349,37 @@ func bestSource(news []newsItem, tweets []tweetItem, tiers map[string]float64) (
 	return best, bestW
 }
 
+// returnSignals are phrases that indicate a genuine RETURN move (vs. a former
+// player merely mentioned in passing). Tunable — phrasing varies.
+var returnSignals = []string{
+	"return to", "returning to", "rejoin", "re-sign", "resign for",
+	"back to", "back at", "comeback", "second spell", "reunite", "bring back", "brings back",
+}
+
+// hasReturnSignal reports whether the pair corpus contains return-move language.
+func hasReturnSignal(news []newsItem, tweets []tweetItem) bool {
+	contains := func(s string) bool {
+		l := strings.ToLower(s)
+		for _, kw := range returnSignals {
+			if strings.Contains(l, kw) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, n := range news {
+		if contains(n.title) || contains(n.description) {
+			return true
+		}
+	}
+	for _, t := range tweets {
+		if contains(t.text) {
+			return true
+		}
+	}
+	return false
+}
+
 // ---------------------------------------------------------------------------
 // Prompt
 // ---------------------------------------------------------------------------
@@ -343,12 +399,15 @@ Reply with ONLY a JSON object, no prose:
 direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving the team. If not a %s, set is_rumor=false and the other fields to your best guess or empty.`, noun, noun, noun)
 }
 
-func buildTransferPrompt(teamName, playerName, sport string, onRoster bool, news []newsItem, tweets []tweetItem) string {
+func buildTransferPrompt(teamName, playerName, sport, rel string, news []newsItem, tweets []tweetItem) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Sport: %s\nTeam: %s\nPlayer: %s\n", sport, teamName, playerName))
-	if onRoster {
+	switch rel {
+	case "current":
 		b.WriteString(fmt.Sprintf("Roster status: %s is CURRENTLY on %s — so any move is a DEPARTURE (outgoing). Frame the summary as other clubs' interest in signing them.\n", playerName, teamName))
-	} else {
+	case "former":
+		b.WriteString(fmt.Sprintf("Roster status: %s is a FORMER %s player who has SINCE LEFT. A 'former/ex-%s' mention is just background, NOT a transfer rumor — set is_rumor=false UNLESS the sources genuinely report %s RETURNING to %s (then it is incoming).\n", playerName, teamName, teamName, playerName, teamName))
+	default:
 		b.WriteString(fmt.Sprintf("Roster status: %s is NOT on %s — so any move is an ARRIVAL (incoming). Frame the summary as %s pursuing them.\n", playerName, teamName, teamName))
 	}
 	b.WriteString("\nNews headlines:\n")
@@ -427,7 +486,7 @@ func strptr(s string) *string { return &s }
 // (hidden by the read filter — removes roster/match-report noise).
 func (g *TransferGenerator) persist(
 	ctx context.Context, teamID, playerID int, sport, triggerType string,
-	heat *int, components string, verdict *gemmaTransferVerdict, onRoster bool, attribution string,
+	heat *int, components string, verdict *gemmaTransferVerdict, relationship string, attribution string,
 	newsIDs []int64, tweetIDs []string, res *TransferResult,
 ) error {
 	var (
@@ -444,14 +503,14 @@ func (g *TransferGenerator) persist(
 	case verdict == nil:
 		t := true
 		isRumor = &t // provisional
-		direction = strptr(directionFor(onRoster))
+		direction = strptr(directionFor(relationship))
 		res.Rumors++
 	default:
 		ir := verdict.IsRumor != nil && *verdict.IsRumor
 		isRumor = &ir
 		model = strptr(g.ollama.Model())
 		if ir {
-			direction = strptr(directionFor(onRoster)) // deterministic from roster, not Gemma's guess
+			direction = strptr(directionFor(relationship)) // deterministic from roster, not Gemma's guess
 			stage = strptr(normStage(verdict.Stage))
 			if s := strings.TrimSpace(verdict.Summary); s != "" {
 				summary = strptr(truncate(s, 240))

@@ -401,6 +401,48 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Roster (rating engine, per team) — every player on the team's season
+		// roster with their season Composite + Specialist (+ ranks + specialty),
+		// ranked by the SUM of Composite + Specialist (a single "total impact"
+		// order). $1 sport · $2 team_id · $3 season (NULL ⇒ latest rated) · $4 league_id.
+		"roster": `WITH req AS (
+			SELECT upper($1::text) AS sport, $2::int AS team_id,
+			       $3::int AS season, $4::int AS league_id
+		),
+		season_pick AS (
+			SELECT COALESCE(
+				(SELECT season FROM req WHERE season IS NOT NULL),
+				(SELECT MAX(ps.season) FROM public.player_stats ps, req
+				  WHERE ps.sport = req.sport AND ps.team_id = req.team_id
+				    AND ps.rating_composite IS NOT NULL)
+			) AS season
+		),
+		ranked AS (
+			SELECT p.id, p.name, p.photo_url AS image, ps.position,
+				ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
+				ps.rating_composite_rank, ps.rating_specialist_rank,
+				row_number() OVER (
+					ORDER BY (COALESCE(ps.rating_composite, 0) + COALESCE(ps.rating_specialist, 0)) DESC
+				) AS rank
+			FROM public.player_stats ps
+			JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
+			CROSS JOIN req CROSS JOIN season_pick sp
+			WHERE ps.sport = req.sport AND ps.team_id = req.team_id AND ps.season = sp.season
+			  AND ps.rating_composite IS NOT NULL
+			  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+		)
+		SELECT json_build_object(
+			'page', 'roster',
+			'sport', lower((SELECT sport FROM req)),
+			'team_id', (SELECT team_id FROM req),
+			'season', (SELECT season FROM season_pick),
+			'count', (SELECT count(*) FROM ranked),
+			'players', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
+				'[]'::json
+			)
+		)`,
+
 		// Starline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist
@@ -450,9 +492,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u LIMIT 1
 		),
 		event_series AS (
-			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty FROM (
+			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty, rating_composite_pct, rating_specialist_pct FROM (
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist, e.rating_specialty
+				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
 				FROM public.event_box_scores e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -462,7 +504,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND e.rating_composite IS NOT NULL
 				UNION ALL
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist, e.rating_specialty
+				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
 				FROM public.event_team_stats e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp

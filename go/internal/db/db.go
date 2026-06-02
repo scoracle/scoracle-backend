@@ -451,11 +451,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport, $2::int AS team_id
 		),
 		latest AS (
+			-- The newest row per pair regardless of verdict, so a fresh "cleared"
+			-- (is_rumor=false) supersedes an older heat-only seed row.
 			SELECT DISTINCT ON (tr.team_id, tr.player_id)
 			       tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
-			       tr.gemma_summary, tr.source_attribution, tr.generated_at
+			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr CROSS JOIN req
-			WHERE tr.team_id = req.team_id AND tr.sport = req.sport AND tr.is_rumor IS TRUE
+			WHERE tr.team_id = req.team_id AND tr.sport = req.sport
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -465,6 +467,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+			WHERE l.is_rumor IS TRUE
 		)
 		SELECT json_build_object(
 			'page', 'transfers',

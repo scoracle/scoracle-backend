@@ -109,6 +109,25 @@ func main() {
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
 		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeGen, logger)
 
+		// Transfer-rumor news-spike worker. Reuses the SAME ollamaCli (no second
+		// ping) — newsVolumeGen != nil is exactly "Ollama reachable". nil gen → the
+		// listener still runs, logging spikes without generating.
+		if cfg.TransferEnabled {
+			var transferGen *ml.TransferGenerator
+			if newsVolumeGen != nil {
+				transferGen = ml.NewTransferGenerator(dbPool, ollamaCli)
+				logger.Info("Transfer rumor worker enabled", "model", cfg.OllamaModel,
+					"max_concurrent", cfg.TransferMaxConcurrent)
+			} else {
+				logger.Warn("Transfer rumor worker degraded (Ollama unreachable) — spikes logged only")
+			}
+			go listener.StartTransfer(ctx, cfg.DatabaseURL, dbPool, transferGen, listener.TransferConfig{
+				MaxConcurrent: cfg.TransferMaxConcurrent,
+				Debounce:      cfg.TransferDebounce,
+				MinArticles:   cfg.TransferMinArticles,
+			}, logger)
+		}
+
 		// Start maintenance tickers (cleanup, digest, catch-up sweep)
 		go maintenance.Start(ctx, dbPool, maintenance.DefaultConfig(), logger)
 

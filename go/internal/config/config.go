@@ -46,6 +46,12 @@ type Config struct {
 	OllamaModel   string // default gemma4:e4b
 	OllamaTimeout time.Duration
 
+	// Transfer-rumor news-spike worker (LISTEN transfer_trigger)
+	TransferEnabled       bool          // master switch (default true)
+	TransferDebounce      time.Duration // min gap between runs for one team
+	TransferMinArticles   int           // candidate pre-filter
+	TransferMaxConcurrent int           // global cap on concurrent team analyses (shared GPU)
+
 	// Cache
 	CacheEnabled bool
 
@@ -97,6 +103,11 @@ func Load() (*Config, error) {
 		OllamaBaseURL: envOr("OLLAMA_BASE_URL", "http://localhost:11434"),
 		OllamaModel:   envOr("OLLAMA_MODEL", "gemma4:e4b"),
 		OllamaTimeout: time.Duration(envInt("OLLAMA_TIMEOUT_SECONDS", 60)) * time.Second,
+
+		TransferEnabled:       envBool("TRANSFER_ENABLED", true),
+		TransferDebounce:      time.Duration(envInt("TRANSFER_DEBOUNCE_MINUTES", 60)) * time.Minute,
+		TransferMinArticles:   envInt("TRANSFER_MIN_ARTICLES", 2),
+		TransferMaxConcurrent: envInt("TRANSFER_MAX_CONCURRENT", 2),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

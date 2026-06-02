@@ -336,6 +336,44 @@ func (h *Handler) GetTeamResults(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, id, season, leagueID)
 }
 
+// GetRoster returns a team's roster with each player's season Composite +
+// Specialist rating, ranked by the sum of the two.
+// @Summary Get team roster (rating)
+// @Description Players on the team's season roster with season Composite/Specialist (+ ranks + specialty), ordered by the Composite+Specialist sum. Player names link to the player profile.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param id path int true "Team ID"
+// @Param season query int false "Season year"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/team/{id}/roster [get]
+func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "team id")
+	if !ok {
+		return
+	}
+
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "roster", dataCacheKey(r), cache.TTLData, false, sport, id, season, leagueID)
+}
+
 // GetLeagueTeamResults returns league-scoped team season results.
 // @Summary Get league team season results
 // @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.

@@ -107,6 +107,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/{entityType:player|team}/{id}/starline", h.GetStarline)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
+			r.Get("/team/{id}/transfers", h.GetTransfers)
 			r.Get("/meta", h.GetMetaPage)
 			r.Get("/health", h.GetSportHealthPage)
 			r.Get("/leaderboard", h.GetLeaderboard)

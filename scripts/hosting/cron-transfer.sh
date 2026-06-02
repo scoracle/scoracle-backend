@@ -5,10 +5,10 @@
 # no venv. This wrapper rebuilds shell state from the repo's .env files
 # so the transfer binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
 #
-# Cron schedule — corpus mode, STAGGERED ~30 min AFTER the vibe corpus run:
-#   30 0,12 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-transfer.sh -mode corpus
+# Cron schedule — corpus mode, STAGGERED ~30 min AFTER the daily vibe corpus run:
+#   30 0 * * * /home/sheneveld/scoracle-backend/scripts/hosting/cron-transfer.sh -mode corpus
 #
-# Why staggered after vibe (cron-vibe.sh at 0 0,12):
+# Why staggered after vibe (cron-vibe.sh at 0 0):
 #   1. The vibe corpus run does the RSS sweep that refreshes news_article_entities.
 #      Transfer analysis reads that corpus — so it must run AFTER, not before.
 #   2. Both share the single Archbox GPU. Offsetting reduces (doesn't eliminate)

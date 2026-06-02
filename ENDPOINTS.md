@@ -451,8 +451,10 @@ Response includes:
 The **Scoracle Rating Engine** (migrations 027–028) is a **separate dataset** from the
 profile/meta payloads above — it does not touch the counting-stats/pizza payload, and
 the rating numbers are **not** in `/meta` (which exists only to refresh the frontend's
-local DB). The rating engine has two dedicated endpoints: a **leaderboard** (board view)
-and a **starline** (per-entity).
+local DB). The rating engine has three dedicated endpoints: a **leaderboard** (the sport-wide
+board), a **roster** (that same board narrowed to one team), and a **starline**
+(per-entity). The leaderboard and roster share one row shape — see the roster
+note below.
 
 ### What the rating engine computes
 
@@ -530,6 +532,63 @@ Examples:
 - `GET /api/v1/nfl/leaderboard?scope=specialist&limit=10` → the irreplaceables board.
 - `GET /api/v1/nba/leaderboard?scope=3PT%20Shooting` → the 3-point-specialist board.
 
+### `GET /api/v1/{sport}/team/{id}/roster`
+
+**The leaderboard's player board, scoped to one team.** Returns every rated player
+whose `player_stats.team_id` is this team for the season — a team's roster ranked
+by rating. The row shape is the **same rating row** the leaderboard's `leaders[]`
+uses (minus the `team_*` columns, which would be constant for a single team), so
+the frontend draws the board and the roster with the **same list component**. Two
+differences from `/leaderboard`: it's filtered to one `team_id`, and rows are
+ordered by the **sum of Composite + Specialist** (a single "total impact" order)
+rather than by a single scope.
+
+#### Path / query parameters
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `id` (path) | integer | — | Team ID. |
+| `season` | integer | latest rated | Season year (latest season the team has rated players for). |
+| `league_id` | integer | — | League filter (football). |
+
+#### Response shape
+
+```jsonc
+{
+  "page": "roster",
+  "sport": "nba",
+  "team_id": 21,
+  "season": 2025,
+  "count": 9,
+  "players": [
+    {
+      "id": 175,
+      "name": "Shai Gilgeous-Alexander",
+      "image": null,                   // player photo_url (may be null)
+      "position": "G",
+      "rating_composite": 8.6853,
+      "rating_specialist": 3.0034,
+      "rating_specialty": "Scoring",
+      "rating_composite_rank": 98.4,
+      "rating_specialist_rank": 94.4,
+      "rank": 1                          // 1-based, by (rating_composite + rating_specialist) DESC
+    }
+  ]
+}
+```
+
+`players` is `[]` if the team has no rated players in scope. Player floors apply
+(NBA ≥30 GP & ≥20 MPG, etc.), so a partially-seeded team returns a short list.
+
+> **Shared shape — board ⇄ roster.** `leaderboard.leaders[]` and `roster.players[]`
+> are the **same rating-row shape** (`id`, `name`, `image`, `position`,
+> `rating_composite` / `rating_specialist` `(+ _rank)`, `rating_specialty`,
+> `rank`). Roster is just that player board narrowed to one team and re-sorted by
+> the Composite+Specialist sum — which is exactly why one frontend list component
+> (`RatingList`) renders both. Any future "board over a different slice" (a
+> conference board, a draft-class board, …) is the same recipe: identical row,
+> different `WHERE` filter + `ORDER BY`.
+
 ### `GET /api/v1/{sport}/{entityType}/{id}/starline`
 
 The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
@@ -565,12 +624,21 @@ player starlines `event_box_scores`.
   },
   "events": [                        // the dual-sparkline series, chronological
     { "fixture_id": 12345, "start_time": "2025-10-26T…",
-      "rating_composite": 16.015, "rating_specialist": 6.85, "rating_specialty": "Rim Protection" }
+      "rating_composite": 16.015, "rating_specialist": 6.85, "rating_specialty": "Rim Protection",
+      "rating_composite_pct": 99.4, "rating_specialist_pct": 96.2 }
   ]
 }
 ```
 
 `rating` is `null` and `events` is `[]` if the entity has no rated season.
+
+Each event also carries **`rating_composite_pct` / `rating_specialist_pct`**
+(migration 029): the **0–100 positionless percentile** of that event's z within the
+`(sport, season)` event population — a `percent_rank × 100` over the per-event z's,
+the same normalization the season ranks use. These let the per-event lines be drawn
+on the same **0–100 axis** as the vibe series (the frontend Trends sparkline plots
+Composite + Specialist + Vibes together). The raw `rating_composite` /
+`rating_specialist` z's are unchanged; the pct columns sit beside them.
 
 ## League-Scoped Endpoints
 

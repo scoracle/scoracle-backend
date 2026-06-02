@@ -30,6 +30,11 @@ const (
 	transferMaxCorpusTweets    = 8
 	transferDefaultMinArticles = 2
 	transferMaxCandidates      = 40 // load governor: cap Gemma calls per team
+	// comentionProximityChars bounds how far apart (in title characters) a team
+	// and a player may be mentioned and still count as a genuine co-mention.
+	// Beyond it a shared article is almost always a multi-subject roundup, not a
+	// link between the two. NULL-tolerant in SQL. Mirrors migration 033's gate.
+	comentionProximityChars = 50
 )
 
 // TransferRequest describes one team's analysis pass.
@@ -255,11 +260,13 @@ func (g *TransferGenerator) loadCandidates(ctx context.Context, teamID int, spor
 		JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
 		WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
 		  AND te.created_at > NOW() - INTERVAL '14 days'
+		  AND (te.title_pos IS NULL OR pe.title_pos IS NULL
+		       OR abs(te.title_pos - pe.title_pos) <= $5)
 		GROUP BY pe.entity_id, p.name
 		HAVING count(DISTINCT te.article_id) >= $3
 		ORDER BY count(DISTINCT te.article_id) DESC
 		LIMIT $4
-	`, teamID, sport, minArticles, transferMaxCandidates)
+	`, teamID, sport, minArticles, transferMaxCandidates, comentionProximityChars)
 	if err != nil {
 		return nil, err
 	}

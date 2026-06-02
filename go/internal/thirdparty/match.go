@@ -104,3 +104,114 @@ func wordBoundaryMatch(word, text string) bool {
 	}
 	return re.MatchString(text)
 }
+
+// FirstMatchPos reports the earliest character index in text at which the entity
+// is mentioned (by name, alias, or first+last match), or -1 if absent. It accepts
+// exactly what MatchesEntity accepts, but reports WHERE the match starts.
+//
+// It exists for co-mention precision: recording each entity's position in an
+// article title lets consumers require two entities to appear in PROXIMITY (the
+// same phrase) rather than merely both somewhere in a flat multi-subject headline
+// — e.g. "Everton want Chelsea's Delap and Spurs' Gallagher" should NOT link
+// Chelsea↔Gallagher (66 chars apart) the way bare co-occurrence does.
+func FirstMatchPos(text string, in EntityMatchInput) int {
+	return firstMatchPos(
+		in.Name, text, in.FirstName, in.LastName, in.Team, in.Aliases,
+		SportContextTerms(in.Sport),
+	)
+}
+
+// firstMatchPos mirrors nameInText's acceptance logic but returns the earliest
+// matching index instead of a bool. A returned >= 0 is exactly equivalent to
+// nameInText returning true.
+func firstMatchPos(name, text, firstName, lastName, team string, aliases []string, sportContext string) int {
+	if name == "" || text == "" {
+		return -1
+	}
+	nameLower := strings.ToLower(strings.TrimSpace(name))
+	textLower := strings.ToLower(strings.TrimSpace(text))
+
+	best := -1
+	consider := func(idx int) {
+		if idx >= 0 && (best == -1 || idx < best) {
+			best = idx
+		}
+	}
+
+	consider(strings.Index(textLower, nameLower))
+
+	for _, alias := range aliases {
+		aliasLower := strings.ToLower(strings.TrimSpace(alias))
+		if aliasLower == "" {
+			continue
+		}
+		if len(alias) < 4 {
+			if sportContext != "" && strings.Contains(textLower, strings.ToLower(strings.TrimSpace(sportContext))) {
+				consider(wordBoundaryIndex(aliasLower, textLower))
+			}
+			continue
+		}
+		consider(strings.Index(textLower, aliasLower))
+	}
+
+	nameParts := strings.Fields(nameLower)
+	if len(nameParts) >= 2 {
+		fn := strings.ToLower(strings.TrimSpace(firstName))
+		if fn == "" {
+			fn = nameParts[0]
+		}
+		ln := strings.ToLower(strings.TrimSpace(lastName))
+		if ln == "" {
+			ln = nameParts[len(nameParts)-1]
+		}
+		fnIdx, lnIdx := -1, -1
+		if len(fn) > 1 {
+			fnIdx = wordBoundaryIndex(fn, textLower)
+		}
+		if len(ln) > 1 {
+			lnIdx = wordBoundaryIndex(ln, textLower)
+		}
+
+		if fnIdx >= 0 && lnIdx >= 0 {
+			consider(earliest(fnIdx, lnIdx))
+		}
+		if team != "" && (fnIdx >= 0 || lnIdx >= 0) {
+			if strings.Contains(textLower, strings.ToLower(strings.TrimSpace(team))) {
+				consider(earliest(fnIdx, lnIdx)) // the player's span anchors the position
+			}
+		}
+	}
+
+	return best
+}
+
+// earliest returns the smaller non-negative of a, b (or -1 if both are negative).
+func earliest(a, b int) int {
+	switch {
+	case a < 0:
+		return b
+	case b < 0:
+		return a
+	case a < b:
+		return a
+	default:
+		return b
+	}
+}
+
+// wordBoundaryIndex returns the first index of a whole-word match of word in
+// text, or -1. The boundary-anchored sibling of wordBoundaryMatch.
+func wordBoundaryIndex(word, text string) int {
+	re, err := regexp.Compile(`\b` + regexp.QuoteMeta(word) + `\b`)
+	if err != nil {
+		if i := strings.Index(text, word); i >= 0 {
+			return i
+		}
+		return -1
+	}
+	loc := re.FindStringIndex(text)
+	if loc == nil {
+		return -1
+	}
+	return loc[0]
+}

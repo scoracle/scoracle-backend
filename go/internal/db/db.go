@@ -599,6 +599,19 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT etype FROM req),
 			'entity_id', (SELECT eid FROM req),
 			'season', (SELECT season FROM season_pick),
+			'available_seasons', COALESCE((
+				SELECT array_agg(DISTINCT s ORDER BY s DESC) FROM (
+					SELECT ps.season AS s FROM public.player_stats ps, req
+					 WHERE req.etype = 'player' AND ps.sport = req.sport AND ps.player_id = req.eid
+					   AND ps.rating_composite IS NOT NULL
+					   AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
+					UNION
+					SELECT ts.season FROM public.team_stats ts, req
+					 WHERE req.etype = 'team' AND ts.sport = req.sport AND ts.team_id = req.eid
+					   AND ts.rating_composite IS NOT NULL
+					   AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+				) seasons
+			), '{}'::int[]),
 			'rating', (SELECT row_to_json(season_rating) FROM season_rating),
 			'events', COALESCE(
 				(SELECT json_agg(row_to_json(es) ORDER BY es.start_time) FROM event_series es),

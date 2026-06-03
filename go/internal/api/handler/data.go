@@ -399,6 +399,23 @@ func (h *Handler) GetTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "team_transfers", dataCacheKey(r), cache.TTLData, false, sport, id)
 }
 
+// GetPlayerSuitors returns the teams linked with a player, ranked by heat — the
+// player-side mirror of GetTransfers ("who's after this player"). Same pair-level
+// transfer_rumors data, pivoted on player_id.
+func (h *Handler) GetPlayerSuitors(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "player id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "player_suitors", dataCacheKey(r), cache.TTLData, false, sport, id)
+}
+
 // GetLeagueTeamResults returns league-scoped team season results.
 // @Summary Get league team season results
 // @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.

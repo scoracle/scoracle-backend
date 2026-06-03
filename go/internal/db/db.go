@@ -480,6 +480,45 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Player-suitors — the player-side mirror of team_transfers. Same pair-level
+		// transfer_rumors, pivoted on the player to list the TEAMS linked with them
+		// ranked by heat ("who's after this player"). is_rumor IS TRUE filters out
+		// Gemma-cleared / unvetted-empty rows. The (player_id, sport, generated_at DESC)
+		// index (migration 031) supports the per-team latest scan. $1 sport · $2 player_id.
+		"player_suitors": `WITH req AS (
+			SELECT upper($1::text) AS sport, $2::int AS player_id
+		),
+		latest AS (
+			-- Newest row per (team, player) pair regardless of verdict, so a fresh
+			-- "cleared" supersedes an older heat-only seed row. player_id is fixed, so
+			-- this is effectively the latest row per linked team.
+			SELECT DISTINCT ON (tr.team_id, tr.player_id)
+			       tr.team_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
+			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
+			FROM public.transfer_rumors tr CROSS JOIN req
+			WHERE tr.player_id = req.player_id AND tr.sport = req.sport
+			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+		),
+		ranked AS (
+			SELECT t.id, t.name, t.logo_url AS image,
+			       l.heat, l.heat_components, l.direction, l.stage,
+			       l.gemma_summary, l.source_attribution,
+			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
+			FROM latest l
+			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
+			WHERE l.is_rumor IS TRUE
+		)
+		SELECT json_build_object(
+			'page', 'suitors',
+			'sport', lower((SELECT sport FROM req)),
+			'player_id', (SELECT player_id FROM req),
+			'count', (SELECT count(*) FROM ranked),
+			'suitors', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= 25),
+				'[]'::json
+			)
+		)`,
+
 		// Starline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist

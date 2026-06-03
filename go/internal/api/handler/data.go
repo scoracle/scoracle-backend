@@ -158,9 +158,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	scope := optionalTextQuery(r, "scope")
 	position := optionalTextQuery(r, "position")
 	entityType := optionalTextQuery(r, "entity_type")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 
 	h.serveStatementJSON(w, r, "leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, season, scope, position, leagueID, limit, entityType)
+		sport, season, scope, position, leagueID, limit, entityType, conference, division)
 }
 
 // GetStarline returns the rating-engine dataset for one entity: the season

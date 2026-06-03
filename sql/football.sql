@@ -882,7 +882,12 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'throw_ins')::numeric, 0))              AS throw_ins,
         SUM(COALESCE((ets.stats->>'penalties')::numeric, 0))              AS penalties,
         SUM(COALESCE((ets.stats->>'injuries')::numeric, 0))               AS injuries,
-        SUM(COALESCE((ets.stats->>'substitutions')::numeric, 0))          AS substitutions
+        SUM(COALESCE((ets.stats->>'substitutions')::numeric, 0))          AS substitutions,
+        -- Opponent production allowed (other team's box score, same fixture) → defensive suppression.
+        SUM(COALESCE((opp.stats->>'shots_on_target')::numeric, 0))        AS opp_sot_sum,
+        SUM(COALESCE((opp.stats->>'shots_total')::numeric, 0))            AS opp_shots_sum,
+        SUM(COALESCE((opp.stats->>'big_chances_created')::numeric, 0))    AS opp_big_chances_sum,
+        AVG(NULLIF((opp.stats->>'possession_pct')::numeric, 0))           AS opp_possession_pct
     FROM public.event_team_stats ets
     JOIN public.fixtures f ON f.id = ets.fixture_id
     LEFT JOIN public.event_team_stats opp
@@ -994,7 +999,15 @@ SELECT CASE
             'throw_ins', throw_ins::int,
             'penalties', penalties::int,
             'injuries', injuries::int,
-            'substitutions', substitutions::int
+            'substitutions', substitutions::int,
+            -- Opponent-allowed (defensive suppression, derived from opponent box scores).
+            -- shots_on_target_allowed is the composite −z term (gate-checked distinct, corr ≤0.59
+            -- vs the defensive-action terms); shots_allowed / big_chances_allowed / opp possession
+            -- are display-only.
+            'shots_on_target_allowed', opp_sot_sum::int,
+            'shots_allowed', opp_shots_sum::int,
+            'big_chances_allowed', opp_big_chances_sum::int,
+            'opp_possession_pct', CASE WHEN opp_possession_pct IS NOT NULL THEN ROUND(opp_possession_pct, 2) END
         )
     )
 END

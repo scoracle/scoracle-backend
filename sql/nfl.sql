@@ -783,7 +783,15 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'possession_time_seconds')::numeric, 0))    AS poss_seconds_sum,
         SUM(COALESCE((ets.stats->>'penalties')::numeric, 0))                  AS penalties_sum,
         SUM(COALESCE((ets.stats->>'penalty_yards')::numeric, 0))              AS penalty_yds_sum,
-        SUM(COALESCE((ets.stats->>'defensive_touchdowns')::numeric, 0))       AS def_td_sum
+        SUM(COALESCE((ets.stats->>'defensive_touchdowns')::numeric, 0))       AS def_td_sum,
+        -- Opponent production allowed (other team's box score, same fixture) → defensive suppression.
+        SUM(COALESCE((opp.stats->>'total_yards')::numeric, 0))                AS opp_yards_sum,
+        SUM(COALESCE((opp.stats->>'first_downs')::numeric, 0))                AS opp_first_downs_sum,
+        SUM(COALESCE((opp.stats->>'red_zone_scores')::numeric, 0))            AS opp_rz_score_sum,
+        SUM(COALESCE((opp.stats->>'red_zone_attempts')::numeric, 0))          AS opp_rz_att_sum,
+        SUM(COALESCE((opp.stats->>'third_down_conversions')::numeric, 0))     AS opp_third_conv_sum,
+        SUM(COALESCE((opp.stats->>'third_down_attempts')::numeric, 0))        AS opp_third_att_sum,
+        SUM(COALESCE((opp.stats->>'total_offensive_plays')::numeric, 0))      AS opp_plays_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id
@@ -886,7 +894,15 @@ SELECT CASE
             'avg_possession_seconds', CASE WHEN gp > 0 THEN ROUND(poss_seconds_sum / gp, 1) END,
             'penalties', penalties_sum::int,
             'penalty_yards', penalty_yds_sum::int,
-            'defensive_touchdowns', def_td_sum::int
+            'defensive_touchdowns', def_td_sum::int,
+            -- Opponent-allowed (defensive suppression, derived from opponent box scores).
+            -- yards_allowed is the composite −z term (gate-checked distinct, corr ≤0.34 vs the
+            -- splash-play terms); first_downs_allowed (0.90 collinear) + the rates are display-only.
+            'yards_allowed', opp_yards_sum::int,
+            'first_downs_allowed', opp_first_downs_sum::int,
+            'red_zone_def_pct', CASE WHEN opp_rz_att_sum > 0 THEN ROUND(opp_rz_score_sum / opp_rz_att_sum * 100, 1) END,
+            'third_down_def_pct', CASE WHEN opp_third_att_sum > 0 THEN ROUND(opp_third_conv_sum / opp_third_att_sum * 100, 1) END,
+            'yards_per_play_allowed', CASE WHEN opp_plays_sum > 0 THEN ROUND(opp_yards_sum / opp_plays_sum, 2) END
         )
     )
 END

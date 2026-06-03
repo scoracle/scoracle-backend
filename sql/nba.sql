@@ -574,7 +574,12 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'fg3m')::numeric, 0))       AS fg3m_sum,
         SUM(COALESCE((ets.stats->>'fg3a')::numeric, 0))       AS fg3a_sum,
         SUM(COALESCE((ets.stats->>'ftm')::numeric, 0))        AS ftm_sum,
-        SUM(COALESCE((ets.stats->>'fta')::numeric, 0))        AS fta_sum
+        SUM(COALESCE((ets.stats->>'fta')::numeric, 0))        AS fta_sum,
+        -- Opponent shooting allowed (other team's box score, same fixture) → shot suppression.
+        SUM(COALESCE((opp.stats->>'fgm')::numeric, 0))        AS opp_fgm_sum,
+        SUM(COALESCE((opp.stats->>'fga')::numeric, 0))        AS opp_fga_sum,
+        SUM(COALESCE((opp.stats->>'fg3m')::numeric, 0))       AS opp_fg3m_sum,
+        SUM(COALESCE((opp.stats->>'fg3a')::numeric, 0))       AS opp_fg3a_sum
     FROM public.event_team_stats ets
     LEFT JOIN public.event_team_stats opp
         ON opp.fixture_id = ets.fixture_id
@@ -612,7 +617,11 @@ SELECT CASE
             'fta', ROUND(fta_avg, 1),
             'fg_pct', CASE WHEN fga_sum > 0 THEN ROUND((fgm_sum / fga_sum) * 100, 1) END,
             'fg3_pct', CASE WHEN fg3a_sum > 0 THEN ROUND((fg3m_sum / fg3a_sum) * 100, 1) END,
-            'ft_pct', CASE WHEN fta_sum > 0 THEN ROUND((ftm_sum / fta_sum) * 100, 1) END
+            'ft_pct', CASE WHEN fta_sum > 0 THEN ROUND((ftm_sum / fta_sum) * 100, 1) END,
+            -- Opponent shooting allowed (defensive shot suppression). Display-only:
+            -- rates → ~0 z, so not a composite term — shown as a defense percentile.
+            'def_fg_pct',  CASE WHEN opp_fga_sum  > 0 THEN ROUND((opp_fgm_sum  / opp_fga_sum)  * 100, 1) END,
+            'def_fg3_pct', CASE WHEN opp_fg3a_sum > 0 THEN ROUND((opp_fg3m_sum / opp_fg3a_sum) * 100, 1) END
         )
     )
 END

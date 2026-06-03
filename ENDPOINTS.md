@@ -621,14 +621,17 @@ player starlines `event_box_scores`.
     "rating_specialist": 6.1058,
     "rating_specialist_rank": 100.0,
     "rating_specialty": "Rim Protection",
-    "rating_breakdown": [            // per-datapoint transparency (migration 030)
-      { "label": "Rim Protection", "z": 6.1058, "pct": 100.0,
+    "rating_categories": null,       // TEAMS ONLY: {facet → {z, pct}} ready-made, e.g.
+                                     // {"offense":{"z":0.60,"pct":86.2},"defense":{"z":0.93,"pct":93.1}}
+    "rating_breakdown": [            // per-datapoint transparency (migrations 030/037/038)
+      { "label": "Rim Protection", "value": 3.8, "z": 6.1058, "pct": 100.0,
         "in_comp": true, "in_spec": true, "sign": 1, "facet": "all",
         "is_specialty": true },
-      { "label": "Ball Security", "z": 0.9999, "pct": 15.1,
+      { "label": "Ball Security", "value": 1.9, "z": 0.9999, "pct": 15.1,
         "in_comp": true, "in_spec": false, "sign": -1, "facet": "all",
         "is_specialty": false }
-      // … one object per datapoint (NBA 9 / NFL 12 / FOOTBALL 18; teams 7–8)
+      // … one object per datapoint. `value` = raw volume. Teams: facet is
+      // 'offense'/'defense' (+ display-only 'discipline'/'squad' in football).
     ]
   },
   "events": [                        // the dual-sparkline series, chronological
@@ -649,7 +652,17 @@ turnovers read correctly: low raw value → high pct), the `in_comp` / `in_spec`
 `sign` / `facet` config, and `is_specialty` (the single peak skill — exactly one
 per entity, matching `rating_specialty`). **Stored as raw z, served as a
 percentile** — `pct` is what the UI draws (the Composite tab pizzas the `in_comp`
-rows by `pct`; the Specialist tab heros the `is_specialty` row).
+rows by `pct`; the Specialist tab heros the `is_specialty` row). Each datapoint also
+carries **`value`** (migration 038) — the raw volume behind the z (e.g. `27.3` ppg),
+so the UI shows the underlying counting stat next to its percentile.
+
+**`rating.rating_categories`** (migration 037, **teams only** — `null` for players) is
+the per-category summary served ready-made: `{facet → {z, pct}}` where the category `z`
+is the mean of `sign*z` over that facet's `in_comp` datapoints and `pct` its
+`percent_rank` within the `(sport, season, facet)` population. Teams are tagged
+`offense` / `defense` (the rated categories) plus display-only `discipline` / `squad`
+(football cards/injuries) which carry no category score. Margins (point/goal
+differential) are intentionally **not** rated — teams are scored on the HOW, not outcomes.
 
 Each event also carries **`rating_composite_pct` / `rating_specialist_pct`**
 (migration 029): the **0–100 positionless percentile** of that event's z within the

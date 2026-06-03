@@ -549,10 +549,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank,
-			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown FROM (
+			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown,
+			       rating_categories FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank,
-				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown
+				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown,
+				       NULL::jsonb AS rating_categories
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season
@@ -560,7 +562,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				UNION ALL
 				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
 				       ts.rating_composite, ts.rating_composite_rank,
-				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty, ts.rating_breakdown
+				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty, ts.rating_breakdown,
+				       ts.rating_categories
 				FROM public.team_stats ts CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season

@@ -786,6 +786,7 @@ WITH agg AS (
         SUM(COALESCE((ets.stats->>'defensive_touchdowns')::numeric, 0))       AS def_td_sum,
         -- Opponent production allowed (other team's box score, same fixture) → defensive suppression.
         SUM(COALESCE((opp.stats->>'total_yards')::numeric, 0))                AS opp_yards_sum,
+        SUM(COALESCE((opp.stats->>'penalty_yards')::numeric, 0))              AS opp_penalty_yds_sum,
         SUM(COALESCE((opp.stats->>'first_downs')::numeric, 0))                AS opp_first_downs_sum,
         SUM(COALESCE((opp.stats->>'red_zone_scores')::numeric, 0))            AS opp_rz_score_sum,
         SUM(COALESCE((opp.stats->>'red_zone_attempts')::numeric, 0))          AS opp_rz_att_sum,
@@ -894,6 +895,7 @@ SELECT CASE
             'avg_possession_seconds', CASE WHEN gp > 0 THEN ROUND(poss_seconds_sum / gp, 1) END,
             'penalties', penalties_sum::int,
             'penalty_yards', penalty_yds_sum::int,
+            'penalty_yards_drawn', opp_penalty_yds_sum::int,
             'defensive_touchdowns', def_td_sum::int,
             -- Opponent-allowed (defensive suppression, derived from opponent box scores).
             -- yards_allowed is the composite −z term (gate-checked distinct, corr ≤0.34 vs the

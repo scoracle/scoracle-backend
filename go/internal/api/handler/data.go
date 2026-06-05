@@ -165,6 +165,99 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		sport, season, scope, position, leagueID, limit, entityType, conference, division)
 }
 
+// GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by
+// their latest sentiment score (1-100) in the last 48h, enriched with name/image/team.
+// @Summary Vibes leaderboard
+// @Description Sport-wide board of entities ranked by latest vibe sentiment (1-100). Enriched sibling of /vibe/hottest.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/vibes [get]
+func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	entityType := optionalTextQuery(r, "entity_type")
+
+	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType)
+}
+
+// GetNewsLeaderboard returns the sport-wide news board: entities ranked by the
+// number of distinct article mentions in the rolling window.
+// @Summary News leaderboard
+// @Description Sport-wide board of the most-mentioned entities in the news corpus over the rolling window.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param days query int false "Rolling window in days (default 30)"
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/news [get]
+func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	days, ok := optionalIntQuery(w, r, "days")
+	if !ok {
+		return
+	}
+
+	entityType := optionalTextQuery(r, "entity_type")
+
+	h.serveStatementJSON(w, r, "news_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType, days)
+}
+
+// GetTransfersLeaderboard returns the sport-wide transfer board: Gemma-vetted
+// (team, player) rumors ranked by heat (0-100), enriched with both sides of the pair.
+// @Summary Transfers leaderboard
+// @Description Sport-wide board of the hottest Gemma-vetted transfer rumors, ranked by heat (0-100).
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/transfers [get]
+func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit)
+}
+
 // GetStarline returns the rating-engine dataset for one entity: the season
 // Composite + Specialist (+ specialty + ranks) and the per-event dual-sparkline
 // series. This is the dedicated rating dataset — kept separate from the profile

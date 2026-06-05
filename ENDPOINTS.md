@@ -532,6 +532,117 @@ Examples:
 - `GET /api/v1/nfl/leaderboard?scope=specialist&limit=10` → the irreplaceables board.
 - `GET /api/v1/nba/leaderboard?scope=3PT%20Shooting` → the 3-point-specialist board.
 
+### `GET /api/v1/{sport}/leaderboard/vibes`
+
+The sport-wide **vibe** board — entities ranked by their latest Gemma sentiment score
+(1-100) in the last 48h. The enriched sibling of `/vibe/hottest`: same window + filters,
+but each row is joined to `players`/`teams` so it carries `name` / `image` / `team_*` —
+one row shape shared with the news board below.
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `entity_type` | string | both | `player` or `team`; omit for a mixed board. |
+| `limit` | integer | `50` | Max rows. |
+
+```jsonc
+{
+  "page": "vibes_leaderboard",
+  "sport": "nba",
+  "entity_type": "player",            // echoes the request, "all" when unfiltered
+  "count": 3,
+  "leaders": [
+    {
+      "entity_type": "player",         // "player" | "team"
+      "id": 1057262088,
+      "name": "Cooper Flagg",
+      "image": "https://…",            // player photo_url | team logo_url (may be null)
+      "team_id": 7,
+      "team_name": "Dallas Mavericks",
+      "team_code": "DAL",
+      "team_logo": "https://…",
+      "score": 92,                     // latest sentiment (1-100)
+      "generated_at": "2026-06-04T12:04:16-04:00",
+      "rank": 1
+    }
+  ]
+}
+```
+
+### `GET /api/v1/{sport}/leaderboard/news`
+
+The sport-wide **news** board — the most-mentioned entities, ranked by the count of
+distinct article links (`news_article_entities`) in a rolling window. Same enriched row
+shape as the vibe board, with `score` = mention count.
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `entity_type` | string | both | `player` or `team`; omit for a mixed board. |
+| `days` | integer | `30` | Rolling window in days. |
+| `limit` | integer | `50` | Max rows. |
+
+```jsonc
+{
+  "page": "news_leaderboard",
+  "sport": "nba",
+  "entity_type": "team",
+  "window_days": 14,
+  "count": 3,
+  "leaders": [
+    {
+      "entity_type": "team",
+      "id": 27,
+      "name": "San Antonio Spurs",
+      "image": "https://…",
+      "team_id": 27,
+      "team_name": "San Antonio Spurs",
+      "team_code": "SAS",
+      "team_logo": "https://…",
+      "score": 1183,                   // distinct article mentions in window
+      "latest_at": "2026-06-04T13:47:21-04:00",
+      "rank": 1
+    }
+  ]
+}
+```
+
+### `GET /api/v1/{sport}/leaderboard/transfers`
+
+The sport-wide **transfers** board — the hottest Gemma-vetted `(team, player)` rumors,
+ranked by deterministic `heat` (0-100). The sport-scoped sibling of
+`/team/{id}/transfers` + `/player/{id}/suitors`: latest row per pair (`DISTINCT ON`),
+`is_rumor IS TRUE`, with **both** sides of the pair on each row.
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `limit` | integer | `50` | Max rows. |
+
+```jsonc
+{
+  "page": "transfers_leaderboard",
+  "sport": "football",
+  "count": 432,
+  "rumors": [
+    {
+      "player_id": 154421,
+      "player_name": "Erling Haaland",
+      "player_image": "https://…",
+      "team_id": 3468,
+      "team_name": "Real Madrid",
+      "team_code": "RMA",
+      "team_logo": "https://…",
+      "heat": 95,                      // 0-100 deterministic heat index
+      "heat_components": { "volume": 1.0, "recency": 0.994, "tier_weight": 1.0, "distinct_sources": 9, "…": "…" },
+      "direction": "incoming",          // "incoming" | "outgoing" | "unclear" | null
+      "stage": "speculation",           // speculation | concrete_interest | advanced_talks | here_we_go | null
+      "gemma_summary": "…",
+      "source_attribution": "…",
+      "generated_at": "2026-06-04T…",
+      "rank": 1
+    }
+  ]
+}
+```
+
 ### `GET /api/v1/{sport}/team/{id}/roster`
 
 **The leaderboard's player board, scoped to one team.** Returns every rated player

@@ -405,6 +405,158 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Vibes leaderboard — the sport-wide sentiment board. Each entity's LATEST
+		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. This
+		// is the enriched sibling of /vibe/hottest: same window + filters, but joined
+		// to players/teams so the row carries name/image/team (one shape across every
+		// single-entity board the /leaderboard page renders). The partial index
+		// idx_vibe_scores_sport_sentiment covers the inner scan.
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
+		"vibes_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 50) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type
+		),
+		latest AS (
+			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
+			       vs.entity_type, vs.entity_id, vs.sentiment, vs.generated_at
+			FROM public.vibe_scores vs, req
+			WHERE vs.sport = req.sport
+			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
+			  AND vs.sentiment IS NOT NULL
+			  AND vs.prompt_version <> 'v2'
+			  AND vs.generated_at > NOW() - INTERVAL '48 hours'
+			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			FROM (
+				-- PLAYER
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       NULLIF(p.team_id, 0) AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.sentiment AS score, l.generated_at
+				FROM latest l
+				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN public.teams t ON t.id = NULLIF(p.team_id, 0) AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'player'
+				UNION ALL
+				-- TEAM
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.sentiment AS score, l.generated_at
+				FROM latest l
+				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'team'
+			) u
+			ORDER BY u.score DESC, u.generated_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'vibes_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
+				'[]'::json
+			)
+		)`,
+
+		// News leaderboard — "most mentioned" entities in the rolling window. Counts
+		// distinct article links per entity from news_article_entities, joined to
+		// players/teams for the same enriched row shape as the vibes board.
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 window days (NULL ⇒ 30).
+		"news_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 50) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       COALESCE($4::int, 30) AS window_days
+		),
+		counts AS (
+			SELECT nae.entity_type, nae.entity_id,
+			       COUNT(DISTINCT nae.article_id) AS mentions,
+			       MAX(nae.created_at) AS latest_at
+			FROM public.news_article_entities nae, req
+			WHERE nae.sport = req.sport
+			  AND (req.entity_type IS NULL OR nae.entity_type = req.entity_type)
+			  AND nae.created_at > NOW() - make_interval(days => req.window_days)
+			GROUP BY nae.entity_type, nae.entity_id
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.latest_at DESC) AS rank
+			FROM (
+				-- PLAYER
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       NULLIF(p.team_id, 0) AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       c.mentions AS score, c.latest_at
+				FROM counts c
+				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN public.teams t ON t.id = NULLIF(p.team_id, 0) AND t.sport = (SELECT sport FROM req)
+				WHERE c.entity_type = 'player'
+				UNION ALL
+				-- TEAM
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       c.mentions AS score, c.latest_at
+				FROM counts c
+				JOIN public.teams t ON t.id = c.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE c.entity_type = 'team'
+			) u
+			ORDER BY u.score DESC, u.latest_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'news_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'window_days', (SELECT window_days FROM req),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
+				'[]'::json
+			)
+		)`,
+
+		// Transfers leaderboard — the sport-wide "hottest rumors" board. The
+		// sport-scoped sibling of team_transfers/player_suitors: latest row per
+		// (team, player) pair (DISTINCT ON), Gemma-vetted (is_rumor IS TRUE), ranked
+		// by heat desc. Each row carries BOTH sides of the pair (player + team).
+		// $1 sport · $2 limit (NULL ⇒ 50).
+		"transfers_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim
+		),
+		latest AS (
+			-- Newest row per pair regardless of verdict, so a fresh "cleared"
+			-- supersedes an older heat-only seed row.
+			SELECT DISTINCT ON (tr.team_id, tr.player_id)
+			       tr.team_id, tr.player_id, tr.heat, tr.heat_components,
+			       tr.direction, tr.stage, tr.gemma_summary, tr.source_attribution,
+			       tr.is_rumor, tr.generated_at
+			FROM public.transfer_rumors tr, req
+			WHERE tr.sport = req.sport
+			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+		),
+		ranked AS (
+			SELECT p.id AS player_id, p.name AS player_name, p.photo_url AS player_image,
+			       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+			       l.heat, l.heat_components, l.direction, l.stage,
+			       l.gemma_summary, l.source_attribution, l.generated_at,
+			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST, l.generated_at DESC) AS rank
+			FROM latest l
+			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
+			WHERE l.is_rumor IS TRUE
+		)
+		SELECT json_build_object(
+			'page', 'transfers_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'count', (SELECT count(*) FROM ranked),
+			'rumors', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= (SELECT lim FROM req)),
+				'[]'::json
+			)
+		)`,
+
 		// Roster (rating engine, per team) — every player on the team's season
 		// roster with their season Composite + Specialist (+ ranks + specialty),
 		// ranked by the SUM of Composite + Specialist (a single "total impact"

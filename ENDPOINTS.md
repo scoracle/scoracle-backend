@@ -452,7 +452,7 @@ The **Scoracle Rating Engine** (migrations 027–028) is a **separate dataset** 
 profile/meta payloads above — it does not touch the counting-stats/pizza payload, and
 the rating numbers are **not** in `/meta` (which exists only to refresh the frontend's
 local DB). The rating engine has three dedicated endpoints: a **leaderboard** (the sport-wide
-board), a **roster** (that same board narrowed to one team), and a **starline**
+board), a **roster** (that same board narrowed to one team), and a **sparkline**
 (per-entity). The leaderboard and roster share one row shape — see the roster
 note below.
 
@@ -700,12 +700,13 @@ rather than by a single scope.
 > conference board, a draft-class board, …) is the same recipe: identical row,
 > different `WHERE` filter + `ORDER BY`.
 
-### `GET /api/v1/{sport}/{entityType}/{id}/starline`
+### `GET /api/v1/{sport}/{entityType}/{id}/sparkline`
 
 The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
-numbers a meta card shows) **and** the per-event dual-sparkline series. `entityType`
-(`player` or `team`) comes from the path — team starlines read `event_team_stats`,
-player starlines `event_box_scores`.
+numbers a meta card shows), **that season's team**, **and** the per-event dual-sparkline
+series. `entityType` (`player` or `team`) comes from the path — team sparklines read
+`event_team_stats`, player sparklines `event_box_scores`. (Legacy `/starline` remains a
+deprecated alias to this endpoint during the frontend rollout.)
 
 #### Query parameters
 
@@ -718,7 +719,7 @@ player starlines `event_box_scores`.
 
 ```jsonc
 {
-  "page": "starline",
+  "page": "sparkline",
   "sport": "nba",
   "entity_type": "player",
   "entity_id": 56677822,
@@ -727,6 +728,9 @@ player starlines `event_box_scores`.
     "season": 2025,
     "league_id": null,
     "position": "F-C",               // null for teams
+    "team": {                        // that SEASON's team (season-aware) — for players, the
+      "id": 27, "name": "San Antonio Spurs", "short_code": "SAS", "logo_url": "https://…"
+    },                               //   team they played for that year; teams: themselves. null if unknown.
     "rating_composite": 12.5226,
     "rating_composite_rank": 100.0,
     "rating_specialist": 6.1058,

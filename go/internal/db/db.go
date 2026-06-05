@@ -675,7 +675,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
-		// Starline (migrations 027 + 028 — the rating engine, per entity).
+		// Sparkline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist
 		// (+ specialty + ranks) AND the per-event dual-sparkline series, in one payload.
@@ -683,7 +683,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// dataset, spec §5).
 		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ latest rated) ·
 		// $5 league_id.
-		"starline": `WITH req AS (
+		"sparkline": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS etype,
 			       $3::int AS eid, $4::int AS season, $5::int AS league_id
 		),
@@ -706,13 +706,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank,
 			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown,
-			       rating_categories, rating_scoped_ranks, conference, division FROM (
+			       rating_categories, rating_scoped_ranks, conference, division, team FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank,
 				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown,
 				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks,
-				       NULL::text AS conference, NULL::text AS division
+				       NULL::text AS conference, NULL::text AS division,
+				       CASE WHEN pt.id IS NULL THEN NULL::json
+				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
+				LEFT JOIN public.teams pt ON pt.id = NULLIF(ps.team_id, 0) AND pt.sport = ps.sport
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
@@ -721,7 +724,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       ts.rating_composite, ts.rating_composite_rank,
 				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty, ts.rating_breakdown,
 				       ts.rating_categories, ts.rating_scoped_ranks,
-				       tmc.conference, tmc.division
+				       tmc.conference, tmc.division,
+				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url)
 				FROM public.team_stats ts
 				JOIN public.teams tmc ON tmc.id = ts.team_id AND tmc.sport = ts.sport
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -754,7 +758,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u ORDER BY start_time
 		)
 		SELECT json_build_object(
-			'page', 'starline',
+			'page', 'sparkline',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT etype FROM req),
 			'entity_id', (SELECT eid FROM req),

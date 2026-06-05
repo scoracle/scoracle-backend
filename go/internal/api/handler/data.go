@@ -118,7 +118,7 @@ func (h *Handler) GetLeagueProfilePage(w http.ResponseWriter, r *http.Request) {
 
 // GetLeaderboard returns the positionless rating leaderboard for a sport.
 // Each row carries BOTH the Composite and Specialist score (+ the specialty label),
-// so a single payload feeds the leaderboard board, the meta card, and the starline.
+// so a single payload feeds the leaderboard board, the meta card, and the sparkline.
 // @Summary Get rating leaderboard
 // @Description Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Specialist in one payload.
 // @Tags data
@@ -258,12 +258,13 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 		sport, limit)
 }
 
-// GetStarline returns the rating-engine dataset for one entity: the season
-// Composite + Specialist (+ specialty + ranks) and the per-event dual-sparkline
-// series. This is the dedicated rating dataset — kept separate from the profile
-// and meta payloads.
-// @Summary Get entity starline (rating)
-// @Description Season Composite/Specialist rating + per-event sparkline series for one entity.
+// GetSparkline returns the rating-engine dataset for one entity: the season
+// Composite + Specialist (+ specialty + ranks + that season's team) and the
+// per-event dual-sparkline series. This is the dedicated rating dataset — kept
+// separate from the profile and meta payloads. Served at /sparkline (the legacy
+// /starline path remains a deprecated alias during the frontend rollout).
+// @Summary Get entity sparkline (rating)
+// @Description Season Composite/Specialist rating (+ season team) + per-event sparkline series for one entity.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -274,8 +275,8 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/starline [get]
-func (h *Handler) GetStarline(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/{entityType}/{id}/sparkline [get]
+func (h *Handler) GetSparkline(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -301,7 +302,7 @@ func (h *Handler) GetStarline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveStatementJSON(w, r, "starline", dataCacheKey(r), cache.TTLData, false,
+	h.serveStatementJSON(w, r, "sparkline", dataCacheKey(r), cache.TTLData, false,
 		sport, entityType, id, season, leagueID)
 }
 

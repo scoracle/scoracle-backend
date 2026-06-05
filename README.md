@@ -30,6 +30,9 @@ Canonical data routes are sport-scoped:
 - `GET /api/v1/{sport}/meta`
 - `GET /api/v1/{sport}/health`
 - `GET /api/v1/{sport}/leaderboard` (rating engine board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; positionless z-score Composite + Specialist)
+- `GET /api/v1/{sport}/leaderboard/vibes` (sport-wide vibe board — entities by latest sentiment 1-100; `entity_type`, `limit`)
+- `GET /api/v1/{sport}/leaderboard/news` (sport-wide news board — most-mentioned entities; `entity_type`, `days`, `limit`)
+- `GET /api/v1/{sport}/leaderboard/transfers` (sport-wide transfer board — Gemma-vetted rumors by heat 0-100; `limit`)
 - `GET /api/v1/{sport}/{entityType}/{id}/starline` (per-entity rating: season Composite/Specialist + per-event dual sparkline)
 
 League-scoped variants (preferred for multi-league precision):

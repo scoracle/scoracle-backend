@@ -33,7 +33,7 @@ Canonical data routes are sport-scoped:
 - `GET /api/v1/{sport}/leaderboard/vibes` (sport-wide vibe board — entities by latest sentiment 1-100; `entity_type`, `limit`)
 - `GET /api/v1/{sport}/leaderboard/news` (sport-wide news board — most-mentioned entities; `entity_type`, `days`, `limit`)
 - `GET /api/v1/{sport}/leaderboard/transfers` (sport-wide transfer board — Gemma-vetted rumors by heat 0-100; `limit`)
-- `GET /api/v1/{sport}/{entityType}/{id}/starline` (per-entity rating: season Composite/Specialist + per-event dual sparkline)
+- `GET /api/v1/{sport}/{entityType}/{id}/sparkline` (per-entity rating: season Composite/Specialist + that season's team + per-event dual sparkline; legacy `/starline` is a deprecated alias)
 
 League-scoped variants (preferred for multi-league precision):
 

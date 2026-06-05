@@ -104,7 +104,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// Canonical sport routes (vNext)
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
-			r.Get("/{entityType:player|team}/{id}/starline", h.GetStarline)
+			r.Get("/{entityType:player|team}/{id}/sparkline", h.GetSparkline)
+			// Deprecated alias — remove once the frontend rollout to /sparkline settles.
+			r.Get("/{entityType:player|team}/{id}/starline", h.GetSparkline)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/team/{id}/transfers", h.GetTransfers)

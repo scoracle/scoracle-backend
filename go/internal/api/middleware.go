@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
+	"github.com/albapepper/scoracle-data/internal/auth"
 )
 
 // --------------------------------------------------------------------------
@@ -75,6 +77,32 @@ func RateLimitMiddleware(requestsPerWindow int, window time.Duration) func(http.
 			}
 
 			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// --------------------------------------------------------------------------
+// Mobile auth middleware (JWT bearer)
+// --------------------------------------------------------------------------
+
+// RequireAuth returns middleware that requires a valid access token. It extracts
+// the bearer token, verifies it, and puts the user id in the request context
+// (read with auth.UserIDFromContext). 401 on a missing or invalid token.
+func RequireAuth(tokens *auth.Tokens) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			const prefix = "Bearer "
+			header := r.Header.Get("Authorization")
+			if !strings.HasPrefix(header, prefix) {
+				respond.WriteError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Missing bearer token")
+				return
+			}
+			userID, err := tokens.ParseAccess(strings.TrimPrefix(header, prefix))
+			if err != nil {
+				respond.WriteError(w, http.StatusUnauthorized, "UNAUTHORIZED", "Invalid or expired token")
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(auth.WithUserID(r.Context(), userID)))
 		})
 	}
 }

@@ -706,11 +706,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank,
 			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown,
-			       rating_categories, rating_scoped_ranks, conference, division, team FROM (
+			       rating_categories, rating_scoped_ranks, rating_modes, conference, division, team FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank,
 				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown,
-				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks,
+				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_modes,
 				       NULL::text AS conference, NULL::text AS division,
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team
@@ -723,7 +723,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
 				       ts.rating_composite, ts.rating_composite_rank,
 				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty, ts.rating_breakdown,
-				       ts.rating_categories, ts.rating_scoped_ranks,
+				       ts.rating_categories, ts.rating_scoped_ranks, NULL::jsonb AS rating_modes,
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url)
 				FROM public.team_stats ts

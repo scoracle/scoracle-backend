@@ -15,6 +15,7 @@ import (
 	apidocs "github.com/albapepper/scoracle-data/docs"
 	"github.com/albapepper/scoracle-data/internal/api/handler"
 	"github.com/albapepper/scoracle-data/internal/api/respond"
+	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 )
@@ -55,8 +56,8 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			_, ok := allowed[origin]
 			return ok
 		},
-		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Accept-Encoding", "Content-Type", "If-None-Match", "Cache-Control"},
+		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS", "POST"},
+		AllowedHeaders:   []string{"Accept", "Accept-Encoding", "Content-Type", "If-None-Match", "Cache-Control", "Authorization"},
 		ExposedHeaders:   []string{"X-Process-Time", "X-Cache", "Link", "ETag"},
 		AllowCredentials: false,
 	})
@@ -68,7 +69,8 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	}
 
 	// --- Handler dependencies ---
-	h := handler.New(pool, appCache, cfg)
+	tokens := auth.New(cfg)
+	h := handler.New(pool, appCache, cfg, tokens)
 
 	// --- Routes ---
 
@@ -139,6 +141,18 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 
 		// Twitter
 		r.Get("/twitter/status", h.GetTwitterStatus)
+
+		// Mobile auth (device-identity JWT). /device + /refresh are public;
+		// /device/push + /logout require a valid access token.
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/device", h.AuthDevice)
+			r.Post("/refresh", h.AuthRefresh)
+			r.Group(func(r chi.Router) {
+				r.Use(RequireAuth(tokens))
+				r.Post("/device/push", h.AuthRegisterPush)
+				r.Post("/logout", h.AuthLogout)
+			})
+		})
 	})
 
 	return r

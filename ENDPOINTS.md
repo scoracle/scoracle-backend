@@ -1192,6 +1192,24 @@ When using league-scoped endpoints for football:
 }
 ```
 
+## Auth (mobile) — device-identity JWT
+
+Native apps can't share the web's `.scoracle.com` cookie, so they authenticate
+with a bearer token. The user is **anonymous** (a UUID — no email/password);
+identity persists via the refresh token in the device Keychain. Full design:
+`~/scoracleWiki/wiki/Architecture/Mobile Auth.md`.
+
+| Method · path | Auth | Body | Returns |
+|---|---|---|---|
+| `POST /api/v1/auth/device` | public | `{}` | `{ access_token, refresh_token, user_id, expires_in }` — new anonymous user. First launch. |
+| `POST /api/v1/auth/refresh` | public | `{ refresh_token }` | `{ access_token, refresh_token, expires_in }` — rotates the refresh token; `401` if expired/revoked. |
+| `POST /api/v1/auth/device/push` | bearer | `{ token, platform }` | `204` — upsert APNs/FCM token for the user. |
+| `POST /api/v1/auth/logout` | bearer | `{ refresh_token }` | `204` — revoke the refresh token. |
+
+- Access token: HS256 JWT (`sub`=user_id, `iss`=scoracle), ~30 min.
+- Refresh token: opaque, SHA-256-hashed server-side (`auth_refresh_tokens`), ~90 days, rotated on every refresh.
+- **Requires `JWT_SECRET`** (`.env.local`). If unset, `/auth/*` returns `503 AUTH_UNCONFIGURED`; the rest of the API is unaffected.
+
 ## Backend Implementation Map
 
 - Router: `go/internal/api/server.go`
@@ -1199,6 +1217,8 @@ When using league-scoped endpoints for football:
 - News handler: `go/internal/api/handler/news.go`
 - Twitter handler: `go/internal/api/handler/twitter.go`
 - Vibe handlers: `go/internal/api/handler/vibe.go`
+- Auth handlers (mobile JWT): `go/internal/api/handler/auth.go`
+- Auth token issue/verify: `go/internal/auth/auth.go`; bearer middleware: `go/internal/api/middleware.go` (`RequireAuth`)
 - News write-through + entity pool: `go/internal/thirdparty/news.go`
 - Twitter service + telemetry: `go/internal/thirdparty/twitter.go`
 - Ollama client + vibe generator: `go/internal/ml/ollama.go`, `go/internal/ml/vibe.go`

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
+	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
@@ -22,16 +23,18 @@ type Handler struct {
 	cfg     *config.Config
 	news    *thirdparty.NewsService
 	twitter *thirdparty.TwitterService
+	auth    *auth.Tokens
 }
 
 // New creates a Handler with shared dependencies.
-func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config) *Handler {
+func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.Tokens) *Handler {
 	return &Handler{
 		pool:    pool,
 		cache:   c,
 		cfg:     cfg,
 		news:    thirdparty.NewNewsService(pool),
 		twitter: thirdparty.NewTwitterService(pool, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL),
+		auth:    tokens,
 	}
 }
 

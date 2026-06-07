@@ -57,6 +57,12 @@ type Config struct {
 
 	// Notifications (FCM push)
 	FCMCredentialsFile string
+
+	// Mobile auth (device-identity JWT). JWTSecret empty => auth endpoints 503
+	// (the rest of the API is unaffected). Set in .env.local.
+	JWTSecret     string
+	JWTAccessTTL  time.Duration
+	JWTRefreshTTL time.Duration
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -112,6 +118,10 @@ func Load() (*Config, error) {
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 
 		FCMCredentialsFile: envOr("FIREBASE_CREDENTIALS_FILE", ""),
+
+		JWTSecret:     envOr("JWT_SECRET", ""),
+		JWTAccessTTL:  time.Duration(envInt("JWT_ACCESS_TTL_MINUTES", 30)) * time.Minute,
+		JWTRefreshTTL: time.Duration(envInt("JWT_REFRESH_TTL_DAYS", 90)) * 24 * time.Hour,
 	}, nil
 }
 

@@ -43,17 +43,21 @@ token. Code-complete + tested locally; deploy is a separate, careful step.
 
 ## Verification
 `gofmt` clean · `go build ./...` OK · `go vet` OK · `go test ./...` **all pass**
-(incl. `internal/api` server test; new `internal/auth` suite green). Not yet
-deployed — no prod DB or service touched.
+(incl. `internal/api` server test; new `internal/auth` suite green).
 
-## Deploy runbook (do in order)
-1. Apply the migration to prod: `psql "$DATABASE_PRIVATE_URL" -f sql/migrations/042_auth_refresh_tokens.sql`.
-2. Set the secret in `~/scoracle-backend/.env.local`: `JWT_SECRET=$(openssl rand -base64 48)`.
-3. Build: `cd go && go build -o bin/scoracle-api ./cmd/api`.
-4. Restart: `systemctl --user restart scoracle-api.service`.
-5. Smoke: `curl -XPOST https://api.scoracle.com/api/v1/auth/device` → use the
-   access token on a bearer route. (Inline SQL ⇒ no degraded-mode risk if step 1
-   is skipped — `/auth/*` just errors until the table exists.)
+## Deployment — done 2026-06-07 (archbox)
+Ran in order, all ✅:
+1. Migration applied to prod (`042_auth_refresh_tokens.sql`; `BEGIN/CREATE TABLE/CREATE INDEX/COMMIT`; table confirmed present).
+2. `JWT_SECRET` generated (`openssl rand -base64 48`) → `.env.local`.
+3. `cd go && go build -o bin/scoracle-api ./cmd/api`.
+4. `systemctl --user restart scoracle-api.service` → `active`.
+5. Smoke end-to-end against `http://localhost:8000`.
+
+**Smoke result:** `/health/db` healthy (clean boot, not degraded) · `POST /auth/device`
+→ 200 (JWT + refresh + `user_id`, `expires_in` 1800) · `POST /auth/refresh` →
+rotated · bearer `POST /auth/logout` → 204 · reuse of the rotated refresh → 401 ·
+logout with no bearer → 401 · `GET /api/v1/nba/meta` → 200 (**data API
+unaffected** by the restart; inline SQL meant zero degraded-mode risk).
 
 ## Follow-ups
 - Wire `scoracle-ios` `TokenStore` (Keychain) + refresh-on-401 / on-launch.

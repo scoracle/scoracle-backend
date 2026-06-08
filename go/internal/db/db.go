@@ -349,6 +349,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				) ss)
 			) AS season
 		),
+		-- Every season with a composite rating for this sport + entity_type, newest
+		-- first — powers the leaderboard's season dropdown.
+		avail_seasons AS (
+			SELECT COALESCE(array_agg(s ORDER BY s DESC), ARRAY[]::int[]) AS seasons FROM (
+				SELECT DISTINCT ps.season AS s FROM public.player_stats ps, req
+				 WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.rating_composite IS NOT NULL
+				UNION
+				SELECT DISTINCT ts.season FROM public.team_stats ts, req
+				 WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.rating_composite IS NOT NULL
+			) ss
+		),
 		ranked AS (
 			SELECT * FROM (
 				-- PLAYER board
@@ -397,6 +408,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'season', (SELECT season FROM season_pick),
+			'available_seasons', (SELECT seasons FROM avail_seasons),
 			'scope', (SELECT scope FROM req),
 			'count', (SELECT count(*) FROM ranked),
 			'leaders', COALESCE(

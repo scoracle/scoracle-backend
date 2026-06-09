@@ -368,7 +368,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					NULLIF(ps.league_id, 0) AS league_id,
 					ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
 					ps.rating_composite_rank, ps.rating_specialist_rank,
+					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
+					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
+					              WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
 					              ELSE ps.rating_specialist END DESC NULLS LAST, ps.rating_composite DESC NULLS LAST) AS rank
 				FROM public.player_stats ps
 				JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
@@ -378,7 +381,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ps.rating_composite IS NOT NULL
 				  AND (req.position IS NULL OR ps.position = req.position)
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
-				  AND (req.scope IN ('composite', 'specialist') OR lower(ps.rating_specialty) = req.scope)
+				  AND (req.scope IN ('composite', 'specialist', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
+				  AND (req.scope <> 'fantasy' OR COALESCE((ps.stats->>'fantasy_points')::numeric, 0) > 0)
 			) pl
 			UNION ALL
 			SELECT * FROM (
@@ -388,6 +392,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					NULLIF(ts.league_id, 0) AS league_id,
 					ts.rating_composite, ts.rating_specialist, ts.rating_specialty,
 					ts.rating_composite_rank, ts.rating_specialist_rank,
+					NULL::numeric AS fantasy_points,
+					NULL::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
 					              ELSE ts.rating_specialist END DESC NULLS LAST, ts.rating_composite DESC NULLS LAST) AS rank
 				FROM public.team_stats ts
@@ -586,7 +592,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) AS season
 		),
 		ranked AS (
-			SELECT p.id, p.name, p.photo_url AS image, ps.position,
+			SELECT p.id, p.name, p.photo_url AS image, ps.position, (ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 				ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
 				ps.rating_composite_rank, ps.rating_specialist_rank,
 				row_number() OVER (

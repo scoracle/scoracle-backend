@@ -126,6 +126,27 @@ docker compose up --build
 docker compose run --rm seed event process --max 50
 ```
 
+### Migrations & fresh environments
+
+Migrations in `sql/migrations/` are tracked in `public.schema_migrations` (bootstrapped by
+migration `051`). Apply pending ones with the runner — idempotent, ordered, records each:
+
+```bash
+DATABASE_PRIVATE_URL=… ./sql/migrate.sh
+```
+
+Stand up a fresh env (sandbox/fantasy.scoracle, dev) by **cloning the prod schema**, not by
+replaying migrations (canonical `sql/*.sql` is the BASE only; the rating/fantasy engine lives
+in migrations, several of which have data-dependent gates that fail on an empty DB):
+
+```bash
+./sql/build.sh "$PROD_URL" "$NEW_ENV_URL"
+```
+
+Apply a migration **before** restarting the Go API: `db.New` prepares every statement at boot
+(validating columns + functions), so a restart against a drifted schema fails fast instead of
+serving degraded. Full conventions in `sql/README-migrations.md`.
+
 ## Test
 
 ### Go

@@ -1,5 +1,6 @@
 -- ============================================================================
--- 042_auth_refresh_tokens.sql
+-- 042a_auth_refresh_tokens.sql  (renamed from 042_ — was a duplicate 042 number
+-- alongside 042_rating_modes.sql; both already applied. See migration 051.)
 -- Mobile auth (device-identity JWT). The Go API issues a short-lived access JWT
 -- + a long-lived, ROTATING refresh token against the existing anonymous `users`
 -- model (no password). Only the SHA-256 hash of the refresh token is stored, so

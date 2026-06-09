@@ -1027,6 +1027,82 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
     WHERE m.blk IS NOT NULL;
 $$;
 
+-- ── Counting-stat templates (migration 047) — per-position counting-stat pizza for
+-- NFL offensive skill; NULL elsewhere → frontend z-score pizza fallback. Seeds live in
+-- the per-sport file (sql/nfl.sql). ──────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.stat_templates (
+    sport          TEXT    NOT NULL,
+    position_group TEXT    NOT NULL,
+    stat_key       TEXT    NOT NULL,
+    rate_base      TEXT,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (sport, position_group, stat_key)
+);
+
+-- Raw provider position → template group. Only NFL offensive skill maps; everything
+-- else (NFL defense/OL/special, all NBA + football) returns NULL → no template.
+CREATE OR REPLACE FUNCTION public.position_group(p_sport TEXT, p_position TEXT)
+RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE upper(p_sport)
+        WHEN 'NFL' THEN CASE p_position
+            WHEN 'Quarterback' THEN 'quarterback'
+            WHEN 'QB'          THEN 'quarterback'
+            WHEN 'Running Back' THEN 'running-back'
+            WHEN 'Fullback'     THEN 'running-back'
+            WHEN 'RB'           THEN 'running-back'
+            WHEN 'FB'           THEN 'running-back'
+            WHEN 'HB'           THEN 'running-back'
+            WHEN 'Wide Receiver' THEN 'receiver'
+            WHEN 'Tight End'     THEN 'receiver'
+            WHEN 'WR'            THEN 'receiver'
+            WHEN 'TE'            THEN 'receiver'
+            ELSE NULL
+        END
+        ELSE NULL
+    END;
+$$;
+
+-- Per-position counting-stat template for one player, pre-expanded by rate mode. NULL
+-- when the position has no template (→ frontend z-pizza). `value` = raw counting stat
+-- (0 when absent); `pct` = within-position percentile (the percentiles column).
+CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    WITH tmpl AS (
+        SELECT t.stat_key, t.rate_base,
+               COALESCE(sd.display_name, t.stat_key) AS label,
+               t.sort_order
+        FROM public.stat_templates t
+        LEFT JOIN public.stat_definitions sd
+               ON sd.sport = t.sport AND sd.key_name = t.stat_key AND sd.entity_type = 'player'
+        WHERE t.sport = upper(p_sport)
+          AND t.position_group = public.position_group(p_sport, p_position)
+    ),
+    modes(mode, suffix) AS (
+        VALUES ('default', ''), ('per_game', '_per_game'),
+               ('per_season', '_per_season'), ('per_36', '_per_36')
+    )
+    SELECT jsonb_object_agg(m.mode, m.items)
+    FROM (
+        SELECT md.mode,
+            (SELECT jsonb_agg(jsonb_build_object(
+                'key',   t.stat_key,
+                'label', t.label,
+                'value', COALESCE((p_stats->>(CASE WHEN md.suffix = '' THEN t.stat_key
+                                                   ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))::numeric, 0),
+                'pct',   COALESCE((p_pct  ->>(CASE WHEN md.suffix = '' THEN t.stat_key
+                                                   ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))::numeric, 0),
+                'sort',  t.sort_order
+            ) ORDER BY t.sort_order) FROM tmpl t) AS items
+        FROM modes md
+        WHERE EXISTS (SELECT 1 FROM tmpl t
+                      WHERE p_stats ? (CASE WHEN md.suffix = '' THEN t.stat_key
+                                            ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))
+    ) m
+    WHERE m.items IS NOT NULL;
+$$;
+
+GRANT SELECT ON public.stat_templates TO web_anon, web_user;
+
 -- ============================================================================
 -- 14. LISTEN/NOTIFY — percentile change detection trigger
 -- Fires on UPDATE of percentiles column. Uses OLD vs NEW to detect

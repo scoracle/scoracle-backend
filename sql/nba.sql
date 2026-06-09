@@ -50,7 +50,27 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NBA', 'fg3m_per_36',        '3PT Made Per 36 Min',    'player', 'advanced',   false, true,  true,  45),
     ('NBA', 'fg3a_per_36',        '3PT Att Per 36 Min',     'player', 'advanced',   false, true,  true,  46),
     ('NBA', 'ftm_per_36',         'FT Made Per 36 Min',     'player', 'advanced',   false, true,  true,  47),
-    ('NBA', 'fta_per_36',         'FT Att Per 36 Min',      'player', 'advanced',   false, true,  true,  48)
+    ('NBA', 'fta_per_36',         'FT Att Per 36 Min',      'player', 'advanced',   false, true,  true,  48),
+    -- Per-season cumulative totals (avg × games_played) — the Per Season rate mode.
+    ('NBA', 'pts_per_season',     'Total Points',           'player', 'advanced',   false, true,  true,  50),
+    ('NBA', 'reb_per_season',     'Total Rebounds',         'player', 'advanced',   false, true,  true,  51),
+    ('NBA', 'ast_per_season',     'Total Assists',          'player', 'advanced',   false, true,  true,  52),
+    ('NBA', 'stl_per_season',     'Total Steals',           'player', 'advanced',   false, true,  true,  53),
+    ('NBA', 'blk_per_season',     'Total Blocks',           'player', 'advanced',   false, true,  true,  54),
+    ('NBA', 'tov_per_season',     'Total Turnovers',        'player', 'advanced',   true,  true,  true,  55),
+    ('NBA', 'pf_per_season',      'Total Fouls',            'player', 'advanced',   true,  true,  false, 56),
+    ('NBA', 'oreb_per_season',    'Total Off Rebounds',     'player', 'advanced',   false, true,  true,  57),
+    ('NBA', 'dreb_per_season',    'Total Def Rebounds',     'player', 'advanced',   false, true,  true,  58),
+    ('NBA', 'fgm_per_season',     'Total FG Made',          'player', 'advanced',   false, true,  true,  59),
+    ('NBA', 'fga_per_season',     'Total FG Attempted',     'player', 'advanced',   false, true,  true,  60),
+    ('NBA', 'fg3m_per_season',    'Total 3PT Made',         'player', 'advanced',   false, true,  true,  61),
+    ('NBA', 'fg3a_per_season',    'Total 3PT Attempted',    'player', 'advanced',   false, true,  true,  62),
+    ('NBA', 'ftm_per_season',     'Total FT Made',          'player', 'advanced',   false, true,  true,  63),
+    ('NBA', 'fta_per_season',     'Total FT Attempted',     'player', 'advanced',   false, true,  true,  64),
+    -- Fantasy points (DraftKings) + rate siblings (migration 046).
+    ('NBA', 'fantasy_points',            'Fantasy Points',        'player', 'fantasy', false, true, true, 90),
+    ('NBA', 'fantasy_points_per_36',     'Fantasy Points Per 36', 'player', 'fantasy', false, true, true, 91),
+    ('NBA', 'fantasy_points_per_season', 'Total Fantasy Points',  'player', 'fantasy', false, true, true, 92)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- NBA team stats
@@ -89,6 +109,21 @@ ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================
 
+-- DraftKings fantasy points (per-game, on the stored per-game averages). DD/TD bonus
+-- omitted — per-game and unreconstructable from season averages. (Migration 046.)
+CREATE OR REPLACE FUNCTION nba.fantasy_points(p jsonb) RETURNS numeric
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT ROUND(
+          1.0  * COALESCE((p->>'pts')::numeric, 0)
+        + 0.5  * COALESCE((p->>'fg3m')::numeric, 0)
+        + 1.25 * COALESCE((p->>'reb')::numeric, 0)
+        + 1.5  * COALESCE((p->>'ast')::numeric, 0)
+        + 2.0  * COALESCE((p->>'stl')::numeric, 0)
+        + 2.0  * COALESCE((p->>'blk')::numeric, 0)
+        - 0.5  * COALESCE((p->>'turnover')::numeric, 0)
+    , 2);
+$$;
+
 -- NBA player: per-36 conversions for all volume stats, true shooting %, efficiency,
 -- effective FG %, assist/turnover. Per-36 keys follow the convention <base>_per_36.
 -- Base→derived mapping is driven by per_36_keys; rate/efficiency formulas stay inline.
@@ -100,12 +135,13 @@ DECLARE
     v NUMERIC;
     pts NUMERIC; reb NUMERIC; ast NUMERIC; stl NUMERIC; blk NUMERIC;
     fga NUMERIC; fgm NUMERIC; fta NUMERIC; ftm NUMERIC; turnover NUMERIC;
-    tsa NUMERIC;
+    tsa NUMERIC; gp NUMERIC;
     -- 'turnover' is intentionally excluded — it has a legacy alias 'tov_per_36'
     -- (not 'turnover_per_36') that's emitted in the special-case block below.
     per_36_keys TEXT[] := ARRAY[
         'pts','reb','ast','stl','blk','pf',
-        'oreb','dreb','fgm','fga','fg3m','fg3a','ftm','fta'
+        'oreb','dreb','fgm','fga','fg3m','fg3a','ftm','fta',
+        'fantasy_points'
     ];
 BEGIN
     minutes  := (NEW.stats->>'minutes')::NUMERIC;
@@ -120,6 +156,10 @@ BEGIN
     ftm      := (NEW.stats->>'ftm')::NUMERIC;
     turnover := (NEW.stats->>'turnover')::NUMERIC;
 
+    -- Fantasy points (DraftKings, per-game) — computed before the rate loops so the
+    -- per_36 / per_season loops emit its siblings (fantasy is in per_36_keys).
+    NEW.stats := NEW.stats || jsonb_build_object('fantasy_points', nba.fantasy_points(NEW.stats));
+
     IF minutes IS NOT NULL AND minutes > 0 THEN
         FOREACH s IN ARRAY per_36_keys LOOP
             IF NEW.stats ? s THEN
@@ -132,6 +172,26 @@ BEGIN
         -- Legacy alias preserved: 'turnover' base writes 'tov_per_36' (not 'turnover_per_36').
         IF turnover IS NOT NULL THEN
             NEW.stats := NEW.stats || jsonb_build_object('tov_per_36', ROUND(turnover / minutes * 36, 1));
+        END IF;
+    END IF;
+
+    -- Per-SEASON cumulative totals (Per Season rate mode): per-game average × games
+    -- played. NBA box scores are stored as per-game averages, so this is the only mode
+    -- that captures total seasonal volume — durability/availability (e.g. 70 games
+    -- played) outweighs a higher per-game rate from a player who missed time. Same
+    -- <base>_per_season convention; 'turnover' keeps the legacy 'tov_' alias.
+    gp := (NEW.stats->>'games_played')::NUMERIC;
+    IF gp IS NOT NULL AND gp > 0 THEN
+        FOREACH s IN ARRAY per_36_keys LOOP
+            IF NEW.stats ? s THEN
+                v := (NEW.stats->>s)::NUMERIC;
+                IF v IS NOT NULL THEN
+                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_season', ROUND(v * gp, 0));
+                END IF;
+            END IF;
+        END LOOP;
+        IF turnover IS NOT NULL THEN
+            NEW.stats := NEW.stats || jsonb_build_object('tov_per_season', ROUND(turnover * gp, 0));
         END IF;
     END IF;
 

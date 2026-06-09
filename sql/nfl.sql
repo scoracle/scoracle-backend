@@ -215,9 +215,31 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'defensive_touchdowns',    'Defensive TDs',         'team', 'defense',   false, false, true,  88)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Fantasy points (PPR) + per-game sibling (migration 046).
+INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
+    ('NFL', 'fantasy_points',          'Fantasy Points',          'player', 'fantasy', false, true, true, 90),
+    ('NFL', 'fantasy_points_per_game', 'Fantasy Points Per Game', 'player', 'fantasy', false, true, true, 91)
+ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
+
 -- ============================================================================
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================
+
+-- Standard PPR fantasy points (on season totals). (Migration 046.)
+CREATE OR REPLACE FUNCTION nfl.fantasy_points(p jsonb) RETURNS numeric
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT ROUND(
+          0.04 * COALESCE((p->>'passing_yards')::numeric, 0)
+        + 4.0  * COALESCE((p->>'passing_touchdowns')::numeric, 0)
+        - 2.0  * COALESCE((p->>'passing_interceptions')::numeric, 0)
+        + 0.1  * COALESCE((p->>'rushing_yards')::numeric, 0)
+        + 6.0  * COALESCE((p->>'rushing_touchdowns')::numeric, 0)
+        + 1.0  * COALESCE((p->>'receptions')::numeric, 0)
+        + 0.1  * COALESCE((p->>'receiving_yards')::numeric, 0)
+        + 6.0  * COALESCE((p->>'receiving_touchdowns')::numeric, 0)
+        - 2.0  * COALESCE((p->>'fumbles_lost')::numeric, 0)
+    , 2);
+$$;
 
 -- NFL player: per-game rates (denominator: games_played), td_int_ratio, catch_pct.
 -- Per-game keys follow the <base>_per_game convention; loop covers every
@@ -249,7 +271,8 @@ DECLARE
         -- Special teams
         'punts','punt_yards','punts_inside_20',
         'kick_returns','kick_return_yards','kick_return_touchdowns',
-        'punt_returner_returns','punt_returner_return_yards','punt_return_touchdowns'
+        'punt_returner_returns','punt_returner_return_yards','punt_return_touchdowns',
+        'fantasy_points'
     ];
 BEGIN
     gp       := (NEW.stats->>'games_played')::NUMERIC;
@@ -257,6 +280,9 @@ BEGIN
     pass_int := (NEW.stats->>'passing_interceptions')::NUMERIC;
     rec      := (NEW.stats->>'receptions')::NUMERIC;
     targets  := (NEW.stats->>'receiving_targets')::NUMERIC;
+
+    -- Fantasy points (PPR, season total) — before the per_game loop so its sibling emits.
+    NEW.stats := NEW.stats || jsonb_build_object('fantasy_points', nfl.fantasy_points(NEW.stats));
 
     IF gp IS NOT NULL AND gp > 0 THEN
         FOREACH s IN ARRAY per_game_keys LOOP

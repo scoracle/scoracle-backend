@@ -129,7 +129,48 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'aerials_per_90',             'Aerials Per 90',            'player', 'duels',      false, true,  true,  227),
     ('FOOTBALL', 'aeriels_won_per_90',         'Aerials Won Per 90',        'player', 'duels',      false, true,  true,  228),
     ('FOOTBALL', 'fouls_committed_per_90',     'Fouls Committed Per 90',    'player', 'discipline', true,  true,  true,  229),
-    ('FOOTBALL', 'fouls_drawn_per_90',         'Fouls Drawn Per 90',        'player', 'discipline', false, true,  true,  230)
+    ('FOOTBALL', 'fouls_drawn_per_90',         'Fouls Drawn Per 90',        'player', 'discipline', false, true,  true,  230),
+    -- Per-game averages (season total ÷ appearances) — the Per Game rate mode. Mirrors
+    -- the per-90 family (incl. the seven legacy bases goals/assists/key_passes/shots/
+    -- tackles/interceptions/goals_conceded) one-for-one.
+    ('FOOTBALL', 'goals_per_game',             'Goals Per Game',            'player', 'scoring',    false, true,  true,  300),
+    ('FOOTBALL', 'assists_per_game',           'Assists Per Game',          'player', 'scoring',    false, true,  true,  301),
+    ('FOOTBALL', 'expected_goals_per_game',    'xG Per Game',               'player', 'scoring',    false, true,  true,  302),
+    ('FOOTBALL', 'shots_per_game',             'Shots Per Game',            'player', 'shooting',   false, true,  true,  303),
+    ('FOOTBALL', 'shots_on_target_per_game',   'Shots on Target/Game',      'player', 'shooting',   false, true,  true,  304),
+    ('FOOTBALL', 'key_passes_per_game',        'Key Passes Per Game',       'player', 'passing',    false, true,  true,  305),
+    ('FOOTBALL', 'passes_total_per_game',      'Passes Per Game',           'player', 'passing',    false, true,  true,  306),
+    ('FOOTBALL', 'passes_accurate_per_game',   'Accurate Passes/Game',      'player', 'passing',    false, true,  true,  307),
+    ('FOOTBALL', 'crosses_total_per_game',     'Crosses Per Game',          'player', 'passing',    false, true,  true,  308),
+    ('FOOTBALL', 'crosses_accurate_per_game',  'Accurate Crosses/Game',     'player', 'passing',    false, true,  true,  309),
+    ('FOOTBALL', 'clearances_per_game',        'Clearances Per Game',       'player', 'defensive',  false, true,  true,  310),
+    ('FOOTBALL', 'blocks_per_game',            'Blocks Per Game',           'player', 'defensive',  false, true,  true,  311),
+    ('FOOTBALL', 'duels_total_per_game',       'Duels Per Game',            'player', 'duels',      false, true,  true,  312),
+    ('FOOTBALL', 'duels_won_per_game',         'Duels Won Per Game',        'player', 'duels',      false, true,  true,  313),
+    ('FOOTBALL', 'dribbles_attempts_per_game', 'Dribble Attempts/Game',     'player', 'dribbling',  false, true,  true,  314),
+    ('FOOTBALL', 'dribbles_success_per_game',  'Successful Dribbles/Game',  'player', 'dribbling',  false, true,  true,  315),
+    ('FOOTBALL', 'saves_per_game',             'Saves Per Game',            'player', 'goalkeeper', false, true,  true,  316),
+    ('FOOTBALL', 'goals_conceded_per_game',    'Goals Conceded/Game',       'player', 'goalkeeper', true,  true,  true,  317),
+    ('FOOTBALL', 'saves_insidebox_per_game',   'Saves Inside Box/Game',     'player', 'goalkeeper', false, true,  true,  318),
+    ('FOOTBALL', 'chances_created_per_game',   'Chances Created/Game',      'player', 'passing',    false, true,  true,  319),
+    ('FOOTBALL', 'big_chances_created_per_game','Big Chances Created/Game', 'player', 'passing',    false, true,  true,  320),
+    ('FOOTBALL', 'long_balls_per_game',        'Long Balls Per Game',       'player', 'passing',    false, true,  true,  321),
+    ('FOOTBALL', 'long_balls_won_per_game',    'Long Balls Won/Game',       'player', 'passing',    false, true,  true,  322),
+    ('FOOTBALL', 'through_balls_per_game',     'Through Balls Per Game',    'player', 'passing',    false, true,  true,  323),
+    ('FOOTBALL', 'through_balls_won_per_game', 'Through Balls Won/Game',    'player', 'passing',    false, true,  true,  324),
+    ('FOOTBALL', 'passes_in_final_third_per_game','Final-Third Passes/Game','player', 'passing',    false, true,  true,  325),
+    ('FOOTBALL', 'tackles_per_game',           'Tackles Per Game',          'player', 'defensive',  false, true,  true,  326),
+    ('FOOTBALL', 'tackles_won_per_game',       'Tackles Won Per Game',      'player', 'defensive',  false, true,  true,  327),
+    ('FOOTBALL', 'interceptions_per_game',     'Interceptions/Game',        'player', 'defensive',  false, true,  true,  328),
+    ('FOOTBALL', 'dribbled_past_per_game',     'Dribbled Past Per Game',    'player', 'defensive',  true,  true,  true,  329),
+    ('FOOTBALL', 'dispossessed_per_game',      'Dispossessed Per Game',     'player', 'possession', true,  true,  true,  330),
+    ('FOOTBALL', 'possession_lost_per_game',   'Possession Lost/Game',      'player', 'possession', true,  true,  true,  331),
+    ('FOOTBALL', 'turnovers_per_game',         'Turnovers Per Game',        'player', 'possession', true,  true,  true,  332),
+    ('FOOTBALL', 'ball_recovery_per_game',     'Ball Recoveries/Game',      'player', 'defensive',  false, true,  true,  333),
+    ('FOOTBALL', 'aerials_per_game',           'Aerials Per Game',          'player', 'duels',      false, true,  true,  334),
+    ('FOOTBALL', 'aeriels_won_per_game',       'Aerials Won Per Game',      'player', 'duels',      false, true,  true,  335),
+    ('FOOTBALL', 'fouls_committed_per_game',   'Fouls Committed/Game',      'player', 'discipline', true,  true,  true,  336),
+    ('FOOTBALL', 'fouls_drawn_per_game',       'Fouls Drawn Per Game',      'player', 'discipline', false, true,  true,  337)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
 -- Football team stats
@@ -243,6 +284,7 @@ CREATE OR REPLACE FUNCTION football.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
     minutes NUMERIC;
+    apps NUMERIC;
     s TEXT;
     v NUMERIC;
     -- Per-90 derivations follow the <base>_per_90 convention.
@@ -284,6 +326,28 @@ BEGIN
             v := (NEW.stats->>'shots_total')::NUMERIC;
             IF v IS NOT NULL THEN
                 NEW.stats := NEW.stats || jsonb_build_object('shots_per_90', ROUND(v * 90 / minutes, 3));
+            END IF;
+        END IF;
+    END IF;
+
+    -- Per-GAME averages (Per Game rate mode): season total ÷ appearances. Football box
+    -- scores are stored as cumulative season totals, so per-game is the missing middle
+    -- tier between season totals (default) and per-90. Same <base>_per_game convention;
+    -- shots_total keeps the legacy 'shots_' alias.
+    apps := (NEW.stats->>'appearances')::NUMERIC;
+    IF apps IS NOT NULL AND apps > 0 THEN
+        FOREACH s IN ARRAY per_90_keys LOOP
+            IF NEW.stats ? s THEN
+                v := (NEW.stats->>s)::NUMERIC;
+                IF v IS NOT NULL THEN
+                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_game', ROUND(v / apps, 3));
+                END IF;
+            END IF;
+        END LOOP;
+        IF NEW.stats ? 'shots_total' THEN
+            v := (NEW.stats->>'shots_total')::NUMERIC;
+            IF v IS NOT NULL THEN
+                NEW.stats := NEW.stats || jsonb_build_object('shots_per_game', ROUND(v / apps, 3));
             END IF;
         END IF;
     END IF;

@@ -783,6 +783,19 @@ BEGIN
     INTO v_players, v_teams
     FROM recalculate_percentiles(v_sport, v_season) rp;
 
+    -- Derived recomputes — keep the LIVE season fresh on every seed (event
+    -- percentiles, the season z-rating engine for players + teams, the per-event
+    -- starline, and per-event rating percentiles). All are scoped to v_season, so
+    -- prior (completed) seasons are untouched here and stay FROZEN until a deliberate
+    -- recompute. (Lineage: migrations 017/027/028/029; restored in migration 050 after
+    -- 049 inadvertently dropped them by rebuilding finalize_fixture from a stale shared.sql.)
+    PERFORM recalculate_event_percentiles(v_sport, v_season);
+    PERFORM compute_rating(v_sport, v_season);
+    PERFORM compute_team_rating(v_sport, v_season);
+    PERFORM compute_event_starline(v_sport, v_season);
+    PERFORM compute_team_event_starline(v_sport, v_season);
+    PERFORM recalculate_event_rating_pct(v_sport, v_season);
+
     -- Refresh per-sport materialized views used by autofill/search
     IF v_sport = 'NBA' THEN
         REFRESH MATERIALIZED VIEW CONCURRENTLY nba.autofill_entities;

@@ -1001,6 +1001,32 @@ $$ LANGUAGE plpgsql;
 
 
 
+-- fantasy_block — pre-expands fantasy points + percentile rank by rate mode for the
+-- sparkline payload (migration 046). Pure passthrough; NULL when the entity has no
+-- fantasy_points. Keys mirror the RateMode vocabulary (default + the sport's siblings).
+CREATE OR REPLACE FUNCTION public.fantasy_block(p_stats jsonb, p_pct jsonb, p_scoped jsonb)
+RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+    SELECT CASE WHEN p_stats ? 'fantasy_points' THEN
+        jsonb_object_agg(m.mode, m.blk)
+    END
+    FROM (
+        SELECT v.mode,
+            CASE WHEN p_stats ? v.key THEN jsonb_build_object(
+                'points', (p_stats->>v.key)::numeric,
+                'rank',   (p_pct->>v.key)::numeric,
+                'scoped_ranks', CASE WHEN p_scoped ? v.key
+                                     THEN jsonb_build_object('position', (p_scoped->>v.key)::numeric) END
+            ) END AS blk
+        FROM (VALUES
+            ('default',    'fantasy_points'),
+            ('per_game',   'fantasy_points_per_game'),
+            ('per_season', 'fantasy_points_per_season'),
+            ('per_36',     'fantasy_points_per_36')
+        ) v(mode, key)
+    ) m
+    WHERE m.blk IS NOT NULL;
+$$;
+
 -- ============================================================================
 -- 14. LISTEN/NOTIFY — percentile change detection trigger
 -- Fires on UPDATE of percentiles column. Uses OLD vs NEW to detect
@@ -1037,6 +1063,7 @@ BEGIN
     FOR stat_key IN
         SELECT key FROM jsonb_each(NEW.percentiles)
         WHERE key NOT LIKE '\_%'
+          AND key !~ '_per_(36|90|game|season)$'
           AND jsonb_typeof(value) = 'number'
     LOOP
         new_val := (NEW.percentiles ->> stat_key)::numeric;

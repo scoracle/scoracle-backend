@@ -1,0 +1,43 @@
+# Migrations & schema lifecycle
+
+Source of truth = the ordered files in `sql/migrations/`, tracked in the
+`public.schema_migrations` table. The canonical `sql/shared.sql` + `sql/{nba,nfl,football}.sql`
+are the **base** (tables, views, per-sport triggers, RPCs); the rating / fantasy / percentile
+**engine evolves through migrations**. Don't assume `shared.sql` alone builds a working DB.
+
+## Applying migrations (prod / incremental)
+```bash
+DATABASE_PRIVATE_URL=… ./sql/migrate.sh
+```
+Applies every migration not yet in `schema_migrations`, in lexical filename order, recording
+each. Idempotent — re-running is a no-op. (Bootstrapped once by migration `051`, which created
+`schema_migrations` and backfilled `001`–`051`.)
+
+Before applying a migration that a running Go API depends on, remember the API **fail-fasts**:
+`db.New` prepares every statement at startup (validating columns + functions against the live
+schema), so a restart against a drifted schema refuses to boot. Apply the migration first, then
+restart/deploy. (This is the guard that turns silent drift into a loud boot failure.)
+
+## Standing up a fresh environment (sandbox.scoracle, fantasy.scoracle, dev)
+```bash
+./sql/build.sh "$PROD_URL" "$NEW_ENV_URL"
+```
+Clones the prod **schema only** (no data), including `schema_migrations`, so `migrate.sh` is
+incremental from there. Do **not** replay migrations from scratch on an empty DB — several carry
+data-dependent gates (e.g. `045`/`046`/`048` smoke checks) that assume real rows.
+
+## Writing a new migration
+1. Name it `NNN_short_description.sql` (next number; keep it unique).
+2. Wrap in `BEGIN; … COMMIT;`. Prefer idempotent DDL (`CREATE … IF NOT EXISTS`,
+   `CREATE OR REPLACE`). For data backfills, add a parity/smoke gate (see `045`).
+3. **Rebuilding an existing function** (e.g. `finalize_fixture`): derive it from the CURRENT
+   prod definition — `psql "$DB" -c "\sf finalize_fixture"` or `pg_get_functiondef(...)` — NOT
+   from a possibly-stale canonical file. (Rebuilding from a stale `shared.sql` is what caused the
+   049→050 regression.) Then mirror the change into the canonical file.
+4. The runner records the version on success; an explicit
+   `INSERT INTO public.schema_migrations(version) VALUES ('NNN_…') ON CONFLICT DO NOTHING;`
+   as the last statement before `COMMIT;` makes recording atomic with the migration.
+
+## Notes
+- Duplicate-number history: `042_rating_modes` + `042a_auth_refresh_tokens` (the auth one was
+  renamed from a second `042`). Both applied; the lexical runner + table key handle them.

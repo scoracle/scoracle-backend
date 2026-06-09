@@ -221,6 +221,29 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'fantasy_points_per_game', 'Fantasy Points Per Game', 'player', 'fantasy', false, true, true, 91)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Counting-stat pizza templates (migration 047) — NFL offensive skill positions only.
+-- The public.stat_templates table + position_group/template_block live in shared.sql;
+-- NFL owns its template rows here (per the per-sport SQL boundary).
+INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order) VALUES
+    ('NFL', 'quarterback', 'passing_attempts',      10),
+    ('NFL', 'quarterback', 'passing_yards',         20),
+    ('NFL', 'quarterback', 'passing_touchdowns',    30),
+    ('NFL', 'quarterback', 'passing_interceptions', 40),
+    ('NFL', 'quarterback', 'rushing_yards',         50),
+    ('NFL', 'quarterback', 'rushing_touchdowns',    60),
+    ('NFL', 'running-back', 'rushing_attempts',     10),
+    ('NFL', 'running-back', 'rushing_yards',        20),
+    ('NFL', 'running-back', 'rushing_touchdowns',   30),
+    ('NFL', 'running-back', 'receptions',           40),
+    ('NFL', 'running-back', 'receiving_yards',      50),
+    ('NFL', 'running-back', 'receiving_touchdowns', 60),
+    ('NFL', 'receiver', 'receiving_targets',     10),
+    ('NFL', 'receiver', 'receptions',            20),
+    ('NFL', 'receiver', 'receiving_yards',       30),
+    ('NFL', 'receiver', 'receiving_touchdowns',  40),
+    ('NFL', 'receiver', 'receiving_first_downs', 50)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- ============================================================================
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================

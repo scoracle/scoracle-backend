@@ -73,6 +73,21 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NBA', 'fantasy_points_per_season', 'Total Fantasy Points',  'player', 'fantasy', false, true, true, 92)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Counting-stat pizza template (migration 053) — the NBA FANTASY-mode pizza: the
+-- DraftKings scoring components, position-agnostic ('ALL'). The Composite card renders
+-- this only when the Regular|Fantasy selector is on Fantasy (Regular keeps the z-datapoint
+-- pizza). 'turnover' is is_inverse (low = good) and its per-rate siblings use the legacy
+-- 'tov_' alias, declared via rate_base. The public.stat_templates table lives in shared.sql.
+INSERT INTO public.stat_templates (sport, position_group, stat_key, rate_base, sort_order) VALUES
+    ('NBA', 'ALL', 'pts',      NULL,  10),
+    ('NBA', 'ALL', 'reb',      NULL,  20),
+    ('NBA', 'ALL', 'ast',      NULL,  30),
+    ('NBA', 'ALL', 'stl',      NULL,  40),
+    ('NBA', 'ALL', 'blk',      NULL,  50),
+    ('NBA', 'ALL', 'fg3m',     NULL,  60),
+    ('NBA', 'ALL', 'turnover', 'tov', 70)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- NBA team stats
 INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
     ('NBA', 'wins',              'Wins',                   'team', 'standings',  false, false, true,   1),

@@ -1066,6 +1066,7 @@ CREATE TABLE IF NOT EXISTS public.stat_templates (
 CREATE OR REPLACE FUNCTION public.position_group(p_sport TEXT, p_position TEXT)
 RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
     SELECT CASE upper(p_sport)
+        WHEN 'NBA' THEN 'ALL'  -- one Fantasy-mode template for all NBA players
         WHEN 'NFL' THEN CASE p_position
             WHEN 'Quarterback' THEN 'quarterback'
             WHEN 'QB'          THEN 'quarterback'

@@ -660,7 +660,10 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(nba.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
-            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
+            COALESCE(
+                NULLIF((array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE NULLIF(e.position, '') IS NOT NULL))[1], ''),
+                (SELECT NULLIF(pl.meta->>'position_abbreviation', '') FROM players pl WHERE pl.id = e.player_id AND pl.sport = v_sport)
+            ) AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
@@ -668,7 +671,7 @@ BEGIN
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
             team_id  = EXCLUDED.team_id,
             stats    = EXCLUDED.stats,
-            position = COALESCE(EXCLUDED.position, player_stats.position),
+            position = COALESCE(NULLIF(EXCLUDED.position, ''), player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
@@ -699,7 +702,10 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(nfl.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
-            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
+            COALESCE(
+                NULLIF((array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE NULLIF(e.position, '') IS NOT NULL))[1], ''),
+                (SELECT NULLIF(pl.meta->>'position_abbreviation', '') FROM players pl WHERE pl.id = e.player_id AND pl.sport = v_sport)
+            ) AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
@@ -707,7 +713,7 @@ BEGIN
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
             team_id  = EXCLUDED.team_id,
             stats    = EXCLUDED.stats,
-            position = COALESCE(EXCLUDED.position, player_stats.position),
+            position = COALESCE(NULLIF(EXCLUDED.position, ''), player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)
@@ -738,7 +744,10 @@ BEGIN
             v_league_id,
             MAX(e.team_id) AS team_id,
             COALESCE(football.aggregate_player_season(e.player_id, v_season, v_league_id), '{}'::jsonb) AS stats,
-            (array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE e.position IS NOT NULL))[1] AS position,
+            COALESCE(
+                NULLIF((array_agg(e.position ORDER BY e.id DESC) FILTER (WHERE NULLIF(e.position, '') IS NOT NULL))[1], ''),
+                (SELECT NULLIF(pl.meta->>'position_abbreviation', '') FROM players pl WHERE pl.id = e.player_id AND pl.sport = v_sport)
+            ) AS position,
             NOW()
         FROM event_box_scores e
         WHERE e.fixture_id = p_fixture_id
@@ -746,7 +755,7 @@ BEGIN
         ON CONFLICT (player_id, sport, season, league_id) DO UPDATE SET
             team_id  = EXCLUDED.team_id,
             stats    = EXCLUDED.stats,
-            position = COALESCE(EXCLUDED.position, player_stats.position),
+            position = COALESCE(NULLIF(EXCLUDED.position, ''), player_stats.position),
             updated_at = NOW();
 
         INSERT INTO team_stats (team_id, sport, season, league_id, stats, updated_at)

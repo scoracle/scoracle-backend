@@ -37,6 +37,16 @@ meaningful on every pizza (the template's base `pct` is within-position).
   `rating_scoped_ranks` gain the per-sport cohorts (NBA/Football drop the old
   `position` scope for `all`+conference/league; NFL gains conference/division). A
   teams LEFT JOIN supplies conference/division without changing dp multiplicity.
+- **`fantasy_block`** — reads the SAME `scoped_percentiles`, so it's updated to the
+  nested format too (its `scoped_ranks` becomes `{scope: pct}` per cohort). Same
+  3-arg arity → replaced in place; the fantasy headline scope re-rank now matches.
+- **Zero-downtime ordering** — the old block arities (`template_block/4`,
+  `team_template_block/3`) are NOT dropped: the running binary keeps calling them
+  until the restart swaps to the new build, so there's no sparkline error window
+  between apply and restart. (`datapoints`/`team_datapoints`/`fantasy` keep their
+  arity and are replaced in place — the running binary picks up the nested reads
+  immediately, gracefully degrading to no scoped re-rank only on the two template
+  paths until restart.)
 - **Go (`db.go`)** — pass `ps.scoped_percentiles` / `ts.scoped_percentiles` to the two
   `*_template_block` calls (the only signature change → API restart required).
 - Canonical `sql/shared.sql` synced (recalc + 4 blocks). `_compute_rating_bundle` is

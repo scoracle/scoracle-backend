@@ -1125,8 +1125,13 @@ RETURNS jsonb LANGUAGE sql STABLE AS $$
             CASE WHEN p_stats ? v.key THEN jsonb_build_object(
                 'points', (p_stats->>v.key)::numeric,
                 'rank',   (p_pct->>v.key)::numeric,
-                'scoped_ranks', CASE WHEN p_scoped ? v.key
-                                     THEN jsonb_build_object('position', (p_scoped->>v.key)::numeric) END
+                -- per-cohort fantasy ranks from the nested scoped_percentiles
+                -- (migration 058): {scope: pct} for every cohort holding this key.
+                'scoped_ranks', (
+                    SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>v.key)::numeric)
+                                  FILTER (WHERE s.keys ? v.key), '{}'::jsonb)
+                    FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+                )
             ) END AS blk
         FROM (
             SELECT 'default'::text AS mode, 'fantasy_points'::text AS key

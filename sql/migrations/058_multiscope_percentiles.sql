@@ -38,9 +38,13 @@
 
 BEGIN;
 
--- Old single-scope block arities are superseded by the p_scoped forms below.
-DROP FUNCTION IF EXISTS public.template_block(text, text, jsonb, jsonb);
-DROP FUNCTION IF EXISTS public.team_template_block(text, jsonb, jsonb);
+-- NOTE: the old single-scope arities template_block(text,text,jsonb,jsonb) and
+-- team_template_block(text,jsonb,jsonb) are intentionally NOT dropped here — the
+-- live API binary still calls them until it is restarted onto the new build, so
+-- keeping them avoids a sparkline error window between apply and restart (the new
+-- p_scoped forms are added alongside). A later cleanup migration can drop them once
+-- no binary references them. datapoints_block / team_datapoints_block keep their
+-- 4-arg arity (replaced in place; they now read the nested scoped format).
 
 -- ── 1. recalculate_percentiles — multi-scope scoped_percentiles ─────────────
 CREATE OR REPLACE FUNCTION recalculate_percentiles(
@@ -215,6 +219,32 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ── 2. Block functions — emit nested multi-scope scoped_pct {scope: pct} ─────
+-- fantasy_block reads the SAME scoped_percentiles (now nested) — update it too or its
+-- scoped_ranks silently break (flat ?key lookups miss the nested keys). Same 3-arg
+-- arity → replaced in place, so the running binary picks it up immediately.
+CREATE OR REPLACE FUNCTION public.fantasy_block(p_stats jsonb, p_pct jsonb, p_scoped jsonb)
+RETURNS jsonb LANGUAGE sql STABLE AS $$
+    SELECT CASE WHEN p_stats ? 'fantasy_points' THEN jsonb_object_agg(m.mode, m.blk) END
+    FROM (
+        SELECT v.mode,
+            CASE WHEN p_stats ? v.key THEN jsonb_build_object(
+                'points', (p_stats->>v.key)::numeric,
+                'rank',   (p_pct->>v.key)::numeric,
+                'scoped_ranks', (
+                    SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>v.key)::numeric)
+                                  FILTER (WHERE s.keys ? v.key), '{}'::jsonb)
+                    FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+                )
+            ) END AS blk
+        FROM (
+            SELECT 'default'::text AS mode, 'fantasy_points'::text AS key
+            UNION
+            SELECT DISTINCT rm.mode, 'fantasy_points' || rm.suffix FROM public.rate_modes rm
+        ) v
+    ) m
+    WHERE m.blk IS NOT NULL;
+$$;
+
 CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH tmpl AS (

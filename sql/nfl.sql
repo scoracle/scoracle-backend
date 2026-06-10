@@ -264,6 +264,27 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order) 
     ('NFL', 'receiver', 'receiving_first_downs', 50)
 ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
 
+-- Team templates (migration 056) — position_group='team', faceted offense/defense
+-- (same keys as the team z facets / rating_categories so the frontend's per-facet
+-- sub-score footers line up). sort_order: 10s offense, 20s defense. Every key
+-- ≥94% non-zero coverage across NFL team-season rows.
+INSERT INTO public.stat_templates (sport, position_group, stat_key, facet, sort_order) VALUES
+    ('NFL', 'team', 'points_for',              'offense', 10),
+    ('NFL', 'team', 'total_yards',             'offense', 11),
+    ('NFL', 'team', 'passing_yards',           'offense', 12),
+    ('NFL', 'team', 'rushing_yards',           'offense', 13),
+    ('NFL', 'team', 'passing_touchdowns',      'offense', 14),
+    ('NFL', 'team', 'rushing_touchdowns',      'offense', 15),
+    ('NFL', 'team', 'turnovers',               'offense', 16),  -- is_inverse: giveaways
+    ('NFL', 'team', 'points_against',          'defense', 20),  -- is_inverse
+    ('NFL', 'team', 'defensive_sacks',         'defense', 21),
+    ('NFL', 'team', 'defensive_interceptions', 'defense', 22),
+    ('NFL', 'team', 'takeaways',               'defense', 23),
+    ('NFL', 'team', 'total_tackles',           'defense', 24),
+    ('NFL', 'team', 'passes_defended',         'defense', 25),
+    ('NFL', 'team', 'tackles_for_loss',        'defense', 26)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- ============================================================================
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================

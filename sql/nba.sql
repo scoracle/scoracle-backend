@@ -99,6 +99,26 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order) 
     ('NBA', 'ALL', 'turnover', 70)
 ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
 
+-- Team template (migration 056) — the team Composite's offense/defense counting-stat
+-- pizzas (position_group 'team'; facets match the team z facets + rating_categories
+-- keys so the per-facet sub-score footers line up). Teams have no rate modes —
+-- team_template_block (shared.sql) emits the 'default' block only. NBA team stats are
+-- per-game averages by nature. 'turnover'/'pts_allowed' are is_inverse (low = good).
+-- sort_order encodes facet order (10s offense, 20s defense) + wedge order.
+INSERT INTO public.stat_templates (sport, position_group, stat_key, facet, sort_order) VALUES
+    ('NBA', 'team', 'pts',               'offense', 10),
+    ('NBA', 'team', 'ast',               'offense', 11),
+    ('NBA', 'team', 'fg3m',              'offense', 12),
+    ('NBA', 'team', 'true_shooting_pct', 'offense', 13),
+    ('NBA', 'team', 'oreb',              'offense', 14),
+    ('NBA', 'team', 'turnover',          'offense', 15),
+    ('NBA', 'team', 'pts_allowed',       'defense', 20),
+    ('NBA', 'team', 'reb',               'defense', 21),
+    ('NBA', 'team', 'stl',               'defense', 22),
+    ('NBA', 'team', 'blk',               'defense', 23),
+    ('NBA', 'team', 'dreb',              'defense', 24)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- NBA team stats
 INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
     ('NBA', 'wins',              'Wins',                   'team', 'standings',  false, false, true,   1),

@@ -748,8 +748,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
 				       NULL::jsonb AS fantasy,
-				       NULL::jsonb AS template,
-				       NULL::jsonb AS datapoints
+				       public.team_template_block(ts.sport, ts.stats, ts.percentiles) AS template,
+				       public.team_datapoints_block(ts.sport, ts.stats, ts.percentiles, ts.scoped_percentiles) AS datapoints
 				FROM public.team_stats ts
 				JOIN public.teams tmc ON tmc.id = ts.team_id AND tmc.sport = ts.sport
 				CROSS JOIN req CROSS JOIN season_pick sp

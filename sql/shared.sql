@@ -206,10 +206,112 @@ CREATE TABLE IF NOT EXISTS stat_definitions (
     is_derived BOOLEAN NOT NULL DEFAULT false,
     is_percentile_eligible BOOLEAN NOT NULL DEFAULT false,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    -- migration 054: rate-sibling registry (was the triggers' per_X_keys arrays)
+    rate_sibling BOOLEAN NOT NULL DEFAULT false,
+    rate_base TEXT,
     UNIQUE(sport, key_name, entity_type)
 );
+COMMENT ON COLUMN public.stat_definitions.rate_sibling IS
+    'TRUE = the derived-stats trigger emits <key or rate_base><rate_modes.suffix> siblings.';
+COMMENT ON COLUMN public.stat_definitions.rate_base IS
+    'Legacy sibling base name when it differs from key_name (turnover→tov, shots_total→shots).';
 
 CREATE INDEX IF NOT EXISTS idx_stat_definitions_sport ON stat_definitions(sport, entity_type);
+
+-- ============================================================================
+-- 7a. ENGINE METADATA (migration 054) — rate-mode families, eligibility
+-- thresholds, and the shared sibling emitter. Single source for what was
+-- previously duplicated across triggers, rating functions, payload blocks,
+-- the notify trigger, and the Go catchUpSweep regex.
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.rate_modes (
+    sport        TEXT     NOT NULL REFERENCES sports(id),
+    mode         TEXT     NOT NULL,   -- rating_modes / payload-block key ('per_36', ...)
+    suffix       TEXT     NOT NULL,   -- sibling stat-key suffix ('_per_36', ...)
+    denom_key    TEXT     NOT NULL,   -- stats key of the denominator
+    formula      TEXT     NOT NULL CHECK (formula IN ('div_mul', 'mul_div', 'div', 'mul')),
+    unit         NUMERIC,             -- 36 / 90; NULL for div|mul
+    round_digits SMALLINT NOT NULL,
+    PRIMARY KEY (sport, mode)
+);
+COMMENT ON COLUMN public.rate_modes.formula IS
+    'Exact ROUND expression order (numeric division is inexact, so order matters at rounding ties): '
+    'div_mul = ROUND(v / denom * unit, d) · mul_div = ROUND(v * unit / denom, d) · '
+    'div = ROUND(v / denom, d) · mul = ROUND(v * denom, d)';
+
+INSERT INTO public.rate_modes (sport, mode, suffix, denom_key, formula, unit, round_digits) VALUES
+    ('NBA',      'per_36',     '_per_36',     'minutes',        'div_mul', 36,   1),
+    ('NBA',      'per_season', '_per_season', 'games_played',   'mul',     NULL, 0),
+    ('FOOTBALL', 'per_90',     '_per_90',     'minutes_played', 'mul_div', 90,   3),
+    ('FOOTBALL', 'per_game',   '_per_game',   'appearances',    'div',     NULL, 3),
+    ('NFL',      'per_game',   '_per_game',   'games_played',   'div',     NULL, 2)
+ON CONFLICT (sport, mode) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.rating_thresholds (
+    sport     TEXT    NOT NULL REFERENCES sports(id),
+    stat_key  TEXT    NOT NULL,
+    min_value NUMERIC NOT NULL,
+    PRIMARY KEY (sport, stat_key)
+);
+COMMENT ON TABLE public.rating_thresholds IS
+    'Rating eligibility gates: a player enters _compute_rating_bundle only when EVERY row '
+    'for their sport passes (COALESCE(stats->>stat_key, 0) >= min_value). A sport with no '
+    'rows rates nobody.';
+
+INSERT INTO public.rating_thresholds (sport, stat_key, min_value) VALUES
+    ('NBA',      'games_played', 30),
+    ('NBA',      'minutes',      20),
+    ('FOOTBALL', 'appearances',  15),
+    ('NFL',      'games_played',  8)
+ON CONFLICT (sport, stat_key) DO NOTHING;
+
+-- Shared sibling emitter, called by each sport's compute_derived_player_stats
+-- trigger: for every rate_modes row of the sport, emits
+-- <COALESCE(rate_base, key_name)><suffix> for every rate_sibling stat present.
+CREATE OR REPLACE FUNCTION public.apply_rate_siblings(p_sport TEXT, p_stats JSONB)
+RETURNS JSONB
+LANGUAGE plpgsql STABLE
+AS $$
+DECLARE
+    result JSONB := p_stats;
+    rm     RECORD;
+    sk     RECORD;
+    denom  NUMERIC;
+    v      NUMERIC;
+BEGIN
+    FOR rm IN
+        SELECT suffix, denom_key, formula, unit, round_digits
+        FROM public.rate_modes WHERE sport = p_sport ORDER BY mode
+    LOOP
+        denom := (p_stats->>rm.denom_key)::NUMERIC;
+        IF denom IS NOT NULL AND denom > 0 THEN
+            FOR sk IN
+                SELECT sd.key_name, COALESCE(sd.rate_base, sd.key_name) || rm.suffix AS out_key
+                FROM public.stat_definitions sd
+                WHERE sd.sport = p_sport AND sd.entity_type = 'player' AND sd.rate_sibling
+            LOOP
+                IF p_stats ? sk.key_name THEN
+                    v := (p_stats->>sk.key_name)::NUMERIC;
+                    IF v IS NOT NULL THEN
+                        result := result || jsonb_build_object(sk.out_key,
+                            CASE rm.formula
+                                WHEN 'div_mul' THEN ROUND(v / denom * rm.unit, rm.round_digits)
+                                WHEN 'mul_div' THEN ROUND(v * rm.unit / denom, rm.round_digits)
+                                WHEN 'div'     THEN ROUND(v / denom, rm.round_digits)
+                                WHEN 'mul'     THEN ROUND(v * denom, rm.round_digits)
+                            END);
+                    END IF;
+                END IF;
+            END LOOP;
+        END IF;
+    END LOOP;
+    RETURN result;
+END;
+$$;
+
+-- No web_anon/web_user grants here: the API connects as the db owner, and the
+-- PostgREST roles (section 16) are legacy — nothing reads these tables through them.
 
 -- ============================================================================
 -- 7b. STAT KEY NORMALIZATION — relocated to Python seeder handlers
@@ -1024,10 +1126,12 @@ $$ LANGUAGE plpgsql;
 
 
 -- fantasy_block — pre-expands fantasy points + percentile rank by rate mode for the
--- sparkline payload (migration 046). Pure passthrough; NULL when the entity has no
--- fantasy_points. Keys mirror the RateMode vocabulary (default + the sport's siblings).
+-- sparkline payload (migration 046; mode list from rate_modes since 054). Pure
+-- passthrough; NULL when the entity has no fantasy_points. Keys mirror the RateMode
+-- vocabulary (default + every registered rate-mode sibling — entities that lack a
+-- sibling key simply skip that mode).
 CREATE OR REPLACE FUNCTION public.fantasy_block(p_stats jsonb, p_pct jsonb, p_scoped jsonb)
-RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
+RETURNS jsonb LANGUAGE sql STABLE AS $$
     SELECT CASE WHEN p_stats ? 'fantasy_points' THEN
         jsonb_object_agg(m.mode, m.blk)
     END
@@ -1039,12 +1143,11 @@ RETURNS jsonb LANGUAGE sql IMMUTABLE AS $$
                 'scoped_ranks', CASE WHEN p_scoped ? v.key
                                      THEN jsonb_build_object('position', (p_scoped->>v.key)::numeric) END
             ) END AS blk
-        FROM (VALUES
-            ('default',    'fantasy_points'),
-            ('per_game',   'fantasy_points_per_game'),
-            ('per_season', 'fantasy_points_per_season'),
-            ('per_36',     'fantasy_points_per_36')
-        ) v(mode, key)
+        FROM (
+            SELECT 'default'::text AS mode, 'fantasy_points'::text AS key
+            UNION
+            SELECT DISTINCT rm.mode, 'fantasy_points' || rm.suffix FROM public.rate_modes rm
+        ) v
     ) m
     WHERE m.blk IS NOT NULL;
 $$;
@@ -1052,11 +1155,12 @@ $$;
 -- ── Counting-stat templates (migration 047) — per-position counting-stat pizza for
 -- NFL offensive skill; NULL elsewhere → frontend z-score pizza fallback. Seeds live in
 -- the per-sport file (sql/nfl.sql). ──────────────────────────────────────────────────
+-- (rate_base column dropped in 054 — the legacy sibling alias is single-sourced
+-- from stat_definitions.rate_base.)
 CREATE TABLE IF NOT EXISTS public.stat_templates (
     sport          TEXT    NOT NULL,
     position_group TEXT    NOT NULL,
     stat_key       TEXT    NOT NULL,
-    rate_base      TEXT,
     sort_order     INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (sport, position_group, stat_key)
 );
@@ -1091,7 +1195,10 @@ $$;
 CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH tmpl AS (
-        SELECT t.stat_key, t.rate_base,
+        SELECT t.stat_key,
+               -- rate modes read the sibling; the sibling base is the legacy alias from
+               -- stat_definitions.rate_base when it differs (e.g. turnover → tov).
+               COALESCE(sd.rate_base, t.stat_key) AS rate_base,
                COALESCE(sd.display_name, t.stat_key) AS label,
                t.sort_order
         FROM public.stat_templates t
@@ -1101,8 +1208,9 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
           AND t.position_group = public.position_group(p_sport, p_position)
     ),
     modes(mode, suffix) AS (
-        VALUES ('default', ''), ('per_game', '_per_game'),
-               ('per_season', '_per_season'), ('per_36', '_per_36')
+        SELECT 'default'::text, ''::text
+        UNION
+        SELECT DISTINCT rm.mode, rm.suffix FROM public.rate_modes rm
     )
     SELECT jsonb_object_agg(m.mode, m.items)
     FROM (
@@ -1111,15 +1219,16 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                 'key',   t.stat_key,
                 'label', t.label,
                 'value', COALESCE((p_stats->>(CASE WHEN md.suffix = '' THEN t.stat_key
-                                                   ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))::numeric, 0),
+                                                   ELSE t.rate_base || md.suffix END))::numeric, 0),
                 'pct',   COALESCE((p_pct  ->>(CASE WHEN md.suffix = '' THEN t.stat_key
-                                                   ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))::numeric, 0),
+                                                   ELSE t.rate_base || md.suffix END))::numeric, 0),
                 'sort',  t.sort_order
             ) ORDER BY t.sort_order) FROM tmpl t) AS items
         FROM modes md
+        -- emit a mode only when its rate sibling actually exists for this sport
         WHERE EXISTS (SELECT 1 FROM tmpl t
                       WHERE p_stats ? (CASE WHEN md.suffix = '' THEN t.stat_key
-                                            ELSE COALESCE(t.rate_base, t.stat_key) || md.suffix END))
+                                            ELSE t.rate_base || md.suffix END))
     ) m
     WHERE m.items IS NOT NULL;
 $$;
@@ -1162,7 +1271,8 @@ BEGIN
     FOR stat_key IN
         SELECT key FROM jsonb_each(NEW.percentiles)
         WHERE key NOT LIKE '\_%'
-          AND key !~ '_per_(36|90|game|season)$'
+          -- skip per-rate siblings; the suffix family lives in rate_modes
+          AND NOT EXISTS (SELECT 1 FROM public.rate_modes rm WHERE key ~ (rm.suffix || '$'))
           AND jsonb_typeof(value) = 'number'
     LOOP
         new_val := (NEW.percentiles ->> stat_key)::numeric;

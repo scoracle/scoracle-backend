@@ -15,6 +15,7 @@
 //   - a PER-TEAM in-flight guard so a same-team burst can't launch the team twice
 //     concurrently (the DB debounce only updates AFTER a run finishes, so it can't
 //     dedupe mid-run).
+//
 // Plus the DB-backed 60-min debounce (survives restarts) and the cron carrying the
 // comprehensive batch. Heat-only rows already render, so saturation degrades to
 // numbers-without-fresh-summaries, never a broken card.

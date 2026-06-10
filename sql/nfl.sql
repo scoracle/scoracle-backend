@@ -221,6 +221,26 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NFL', 'fantasy_points_per_game', 'Fantasy Points Per Game', 'player', 'fantasy', false, true, true, 91)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Rate-sibling registry (migration 054): these base keys get <base><suffix> siblings
+-- emitted by public.apply_rate_siblings for every NFL rate_modes row (per_game).
+-- No legacy aliases.
+UPDATE public.stat_definitions SET rate_sibling = TRUE
+WHERE sport = 'NFL' AND entity_type = 'player' AND key_name = ANY (ARRAY[
+    'passing_completions','passing_attempts','passing_yards',
+    'passing_touchdowns','passing_interceptions','sacks_taken','sack_yards_lost',
+    'rushing_attempts','rushing_yards','rushing_touchdowns','rushing_first_downs',
+    'receptions','receiving_targets','receiving_yards','receiving_touchdowns','receiving_first_downs',
+    'total_tackles','solo_tackles','assist_tackles','defensive_sacks','defensive_sack_yards',
+    'defensive_interceptions','interception_touchdowns','interception_yards',
+    'fumbles_forced','fumbles_recovered','fumbles_touchdowns',
+    'tackles_for_loss','passes_defended','qb_hits',
+    'fumbles','fumbles_lost',
+    'field_goal_attempts','field_goals_made','extra_points_made','total_points','touchbacks',
+    'punts','punt_yards','punts_inside_20',
+    'kick_returns','kick_return_yards','kick_return_touchdowns',
+    'punt_returner_returns','punt_returner_return_yards','punt_return_touchdowns',
+    'fantasy_points']);
+
 -- Counting-stat pizza templates (migration 047) — NFL offensive skill positions only.
 -- The public.stat_templates table + position_group/template_block live in shared.sql;
 -- NFL owns its template rows here (per the per-sport SQL boundary).
@@ -264,59 +284,24 @@ LANGUAGE sql IMMUTABLE AS $$
     , 2);
 $$;
 
--- NFL player: per-game rates (denominator: games_played), td_int_ratio, catch_pct.
--- Per-game keys follow the <base>_per_game convention; loop covers every
--- counting/volume stat. Mirrors NBA per-36 and Football per-90 patterns.
+-- NFL player: rate siblings (per_game ÷ games_played — driven by rate_modes +
+-- stat_definitions.rate_sibling via public.apply_rate_siblings, migration 054),
+-- td_int_ratio, catch_pct.
 CREATE OR REPLACE FUNCTION nfl.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
-    gp NUMERIC;
-    s TEXT;
-    v NUMERIC;
     pass_td NUMERIC; pass_int NUMERIC; rec NUMERIC; targets NUMERIC;
-    per_game_keys TEXT[] := ARRAY[
-        -- Passing
-        'passing_completions','passing_attempts','passing_yards',
-        'passing_touchdowns','passing_interceptions','sacks_taken','sack_yards_lost',
-        -- Rushing
-        'rushing_attempts','rushing_yards','rushing_touchdowns','rushing_first_downs',
-        -- Receiving
-        'receptions','receiving_targets','receiving_yards','receiving_touchdowns','receiving_first_downs',
-        -- Defense
-        'total_tackles','solo_tackles','assist_tackles','defensive_sacks','defensive_sack_yards',
-        'defensive_interceptions','interception_touchdowns','interception_yards',
-        'fumbles_forced','fumbles_recovered','fumbles_touchdowns',
-        'tackles_for_loss','passes_defended','qb_hits',
-        -- Ball security
-        'fumbles','fumbles_lost',
-        -- Kicking
-        'field_goal_attempts','field_goals_made','extra_points_made','total_points','touchbacks',
-        -- Special teams
-        'punts','punt_yards','punts_inside_20',
-        'kick_returns','kick_return_yards','kick_return_touchdowns',
-        'punt_returner_returns','punt_returner_return_yards','punt_return_touchdowns',
-        'fantasy_points'
-    ];
 BEGIN
-    gp       := (NEW.stats->>'games_played')::NUMERIC;
     pass_td  := (NEW.stats->>'passing_touchdowns')::NUMERIC;
     pass_int := (NEW.stats->>'passing_interceptions')::NUMERIC;
     rec      := (NEW.stats->>'receptions')::NUMERIC;
     targets  := (NEW.stats->>'receiving_targets')::NUMERIC;
 
-    -- Fantasy points (PPR, season total) — before the per_game loop so its sibling emits.
+    -- Fantasy points (PPR, season total) — before the sibling pass so its sibling emits.
     NEW.stats := NEW.stats || jsonb_build_object('fantasy_points', nfl.fantasy_points(NEW.stats));
 
-    IF gp IS NOT NULL AND gp > 0 THEN
-        FOREACH s IN ARRAY per_game_keys LOOP
-            IF NEW.stats ? s THEN
-                v := (NEW.stats->>s)::NUMERIC;
-                IF v IS NOT NULL THEN
-                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_game', ROUND(v / gp, 2));
-                END IF;
-            END IF;
-        END LOOP;
-    END IF;
+    -- Rate siblings (per_game) — driven by rate_modes + stat_definitions.rate_sibling.
+    NEW.stats := public.apply_rate_siblings('NFL', NEW.stats);
 
     IF pass_td IS NOT NULL AND pass_int IS NOT NULL AND pass_int > 0 THEN
         NEW.stats := NEW.stats || jsonb_build_object('td_int_ratio', ROUND(pass_td / pass_int, 2));

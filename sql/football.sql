@@ -251,6 +251,27 @@ INSERT INTO public.stat_templates (sport, position_group, stat_key, facet, sort_
     ('FOOTBALL', 'attacker', 'aeriels_won',       'defending', 35)
 ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
 
+-- Team templates (migration 056) — position_group='team', faceted offense/defense
+-- (same keys as the team z facets / rating_categories so the frontend's per-facet
+-- sub-score footers line up). sort_order: 10s offense, 20s defense. Every key
+-- ≥94% non-zero coverage across FOOTBALL team-season rows.
+INSERT INTO public.stat_templates (sport, position_group, stat_key, facet, sort_order) VALUES
+    ('FOOTBALL', 'team', 'goals_for',           'offense', 10),
+    ('FOOTBALL', 'team', 'shots_on_target',     'offense', 11),
+    ('FOOTBALL', 'team', 'big_chances_created', 'offense', 12),
+    ('FOOTBALL', 'team', 'key_passes',          'offense', 13),
+    ('FOOTBALL', 'team', 'assists',             'offense', 14),
+    ('FOOTBALL', 'team', 'possession_pct',      'offense', 15),
+    ('FOOTBALL', 'team', 'pass_accuracy',       'offense', 16),
+    ('FOOTBALL', 'team', 'goals_against',       'defense', 20),  -- is_inverse
+    ('FOOTBALL', 'team', 'tackles',             'defense', 21),
+    ('FOOTBALL', 'team', 'interceptions',       'defense', 22),
+    ('FOOTBALL', 'team', 'clearances',          'defense', 23),
+    ('FOOTBALL', 'team', 'blocked_shots',       'defense', 24),
+    ('FOOTBALL', 'team', 'saves',               'defense', 25),
+    ('FOOTBALL', 'team', 'aerials_won',         'defense', 26)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- Rate-sibling registry (migration 054): these base keys get <base><suffix> siblings
 -- emitted by public.apply_rate_siblings for every FOOTBALL rate_modes row (per_90,
 -- per_game). 'shots_total' keeps its legacy 'shots' sibling base via rate_base.

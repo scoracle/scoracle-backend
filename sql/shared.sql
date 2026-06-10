@@ -1279,6 +1279,55 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                         AND right(k.key, length(rm.suffix)) = rm.suffix);
 $$;
 
+-- Team template block (migration 056) — the team sibling of template_block. Teams
+-- have no rate modes, so the block is {'default': items} only; the frontend's
+-- templateForMode falls back to 'default' for any requested mode. NULL when the
+-- sport has no team template rows → z-pizza fallback. Deliberately a SEPARATE
+-- function (not a generalized template_block): no signature change on the live
+-- prepared statement, zero player-path risk.
+CREATE OR REPLACE FUNCTION public.team_template_block(p_sport TEXT, p_stats JSONB, p_pct JSONB)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    SELECT jsonb_build_object('default', jsonb_agg(jsonb_build_object(
+               'key',   t.stat_key,
+               'label', COALESCE(sd.display_name, t.stat_key),
+               'value', COALESCE((p_stats->>t.stat_key)::numeric, 0),
+               'pct',   COALESCE((p_pct  ->>t.stat_key)::numeric, 0),
+               'facet', t.facet,
+               'sort',  t.sort_order
+           ) ORDER BY t.sort_order, t.stat_key))
+    FROM public.stat_templates t
+    LEFT JOIN public.stat_definitions sd
+           ON sd.sport = t.sport AND sd.key_name = t.stat_key AND sd.entity_type = 'team'
+    WHERE t.sport = upper(p_sport) AND t.position_group = 'team'
+    HAVING count(*) > 0;
+$$;
+
+-- Team datapoints block (migration 056) — the team sibling of datapoints_block:
+-- every percentile-ranked team stat, labeled/faceted/sorted from stat_definitions
+-- (entity_type='team'; the percentiles meta keys — _sample_size etc. — have no
+-- definition row and drop out). NO rate-sibling exclusion: teams carry no rate
+-- siblings, and NFL team base keys legitimately end in '_per_game'. scoped_pct is
+-- labeled by the team cohort scope: league (FOOTBALL) / conference (NBA, NFL) —
+-- mirroring recalculate_percentiles' team scoping.
+CREATE OR REPLACE FUNCTION public.team_datapoints_block(p_sport TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    SELECT jsonb_agg(jsonb_build_object(
+               'key',        sd.key_name,
+               'label',      sd.display_name,
+               'value',      COALESCE((p_stats->>sd.key_name)::numeric, 0),
+               'pct',        (p_pct->>sd.key_name)::numeric,
+               'scoped_pct', CASE WHEN p_scoped ? sd.key_name
+                                  THEN jsonb_build_object(
+                                       CASE WHEN upper(p_sport) = 'FOOTBALL' THEN 'league' ELSE 'conference' END,
+                                       (p_scoped->>sd.key_name)::numeric) END,
+               'facet',      sd.category,
+               'sort',       sd.sort_order
+           ) ORDER BY sd.sort_order, sd.key_name)
+    FROM jsonb_object_keys(COALESCE(p_pct, '{}'::jsonb)) AS k(key)
+    JOIN public.stat_definitions sd
+      ON sd.sport = upper(p_sport) AND sd.entity_type = 'team' AND sd.key_name = k.key;
+$$;
+
 GRANT SELECT ON public.stat_templates TO web_anon, web_user;
 
 -- ============================================================================

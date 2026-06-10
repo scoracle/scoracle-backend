@@ -527,18 +527,13 @@ SELECT
             'sample_size', COALESCE((ps.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    ps.scoped_percentiles - '_position_group' - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
-    CASE
-        WHEN ps.scoped_percentiles IS NOT NULL
-            AND ps.scoped_percentiles->>'scope_type' IS NOT NULL
-        THEN jsonb_build_object(
-            'scope_type', ps.scoped_percentiles->>'scope_type',
-            'scope_id', ps.scoped_percentiles->>'scope_id',
-            'scope_name', ps.scoped_percentiles->>'scope_name',
-            'position_group', ps.scoped_percentiles->>'_position_group',
-            'sample_size', COALESCE((ps.scoped_percentiles->>'_sample_size')::int, 0)
-        )
-    END AS scoped_percentile_metadata,
+    ps.scoped_percentiles AS scoped_percentiles,
+    -- migration 059: the available cohort scopes (the pre-058 flat scope_type/id/name
+    -- no longer apply — percentiles are nested per scope in scoped_percentiles).
+    CASE WHEN ps.scoped_percentiles IS NOT NULL AND ps.scoped_percentiles <> '{}'::jsonb
+        THEN jsonb_build_object('scopes',
+            (SELECT COALESCE(jsonb_agg(k ORDER BY k), '[]'::jsonb) FROM jsonb_object_keys(ps.scoped_percentiles) k))
+        END AS scoped_percentile_metadata,
     ps.updated_at AS stats_updated_at
 FROM public.player_stats ps
 WHERE ps.sport = 'FOOTBALL';
@@ -564,17 +559,13 @@ SELECT
             'sample_size', COALESCE((ts.percentiles->>'_sample_size')::int, 0)
         )
     END AS percentile_metadata,
-    ts.scoped_percentiles - '_sample_size' - 'scope_type' - 'scope_id' - 'scope_name' AS scoped_percentiles,
-    CASE
-        WHEN ts.scoped_percentiles IS NOT NULL
-            AND ts.scoped_percentiles->>'scope_type' IS NOT NULL
-        THEN jsonb_build_object(
-            'scope_type', ts.scoped_percentiles->>'scope_type',
-            'scope_id', ts.scoped_percentiles->>'scope_id',
-            'scope_name', ts.scoped_percentiles->>'scope_name',
-            'sample_size', COALESCE((ts.scoped_percentiles->>'_sample_size')::int, 0)
-        )
-    END AS scoped_percentile_metadata,
+    ts.scoped_percentiles AS scoped_percentiles,
+    -- migration 059: the available cohort scopes (the pre-058 flat scope_type/id/name
+    -- no longer apply — percentiles are nested per scope in scoped_percentiles).
+    CASE WHEN ts.scoped_percentiles IS NOT NULL AND ts.scoped_percentiles <> '{}'::jsonb
+        THEN jsonb_build_object('scopes',
+            (SELECT COALESCE(jsonb_agg(k ORDER BY k), '[]'::jsonb) FROM jsonb_object_keys(ts.scoped_percentiles) k))
+        END AS scoped_percentile_metadata,
     ts.updated_at AS stats_updated_at
 FROM public.teams t
 LEFT JOIN public.leagues l ON l.id = t.league_id

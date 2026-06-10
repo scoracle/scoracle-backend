@@ -1162,11 +1162,16 @@ CREATE TABLE IF NOT EXISTS public.stat_templates (
     position_group TEXT    NOT NULL,
     stat_key       TEXT    NOT NULL,
     sort_order     INTEGER NOT NULL DEFAULT 0,
+    -- Pizza grouping for the Composite card (migration 055). NULL = single
+    -- unfaceted pizza (the NFL/NBA fantasy templates); non-NULL = one pizza per
+    -- facet, ordered by item sort_order (the football counting-stat pizzas).
+    facet          TEXT,
     PRIMARY KEY (sport, position_group, stat_key)
 );
 
--- Raw provider position → template group. Only NFL offensive skill maps; everything
--- else (NFL defense/OL/special, all NBA + football) returns NULL → no template.
+-- Raw provider position → template group. NFL offensive skill, NBA (one group),
+-- and the four FOOTBALL provider positions map; everything else (NFL defense/OL/
+-- special, NULL positions) returns NULL → no template → frontend z-pizza.
 CREATE OR REPLACE FUNCTION public.position_group(p_sport TEXT, p_position TEXT)
 RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
     SELECT CASE upper(p_sport)
@@ -1185,13 +1190,21 @@ RETURNS TEXT LANGUAGE sql IMMUTABLE AS $$
             WHEN 'TE'            THEN 'receiver'
             ELSE NULL
         END
+        WHEN 'FOOTBALL' THEN CASE p_position
+            WHEN 'Goalkeeper' THEN 'goalkeeper'
+            WHEN 'Defender'   THEN 'defender'
+            WHEN 'Midfielder' THEN 'midfielder'
+            WHEN 'Attacker'   THEN 'attacker'
+            ELSE NULL
+        END
         ELSE NULL
     END;
 $$;
 
 -- Per-position counting-stat template for one player, pre-expanded by rate mode. NULL
 -- when the position has no template (→ frontend z-pizza). `value` = raw counting stat
--- (0 when absent); `pct` = within-position percentile (the percentiles column).
+-- (0 when absent); `pct` = within-position percentile (the percentiles column);
+-- `facet` = pizza grouping (NULL on the unfaceted NFL/NBA fantasy templates).
 CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH tmpl AS (
@@ -1200,6 +1213,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                -- stat_definitions.rate_base when it differs (e.g. turnover → tov).
                COALESCE(sd.rate_base, t.stat_key) AS rate_base,
                COALESCE(sd.display_name, t.stat_key) AS label,
+               t.facet,
                t.sort_order
         FROM public.stat_templates t
         LEFT JOIN public.stat_definitions sd
@@ -1215,13 +1229,19 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     SELECT jsonb_object_agg(m.mode, m.items)
     FROM (
         SELECT md.mode,
+            -- value/pct read the mode sibling, falling back to the base key for
+            -- mode-invariant stats (percentages have no per-X sibling — they'd
+            -- otherwise zero out in per-X modes).
             (SELECT jsonb_agg(jsonb_build_object(
                 'key',   t.stat_key,
                 'label', t.label,
                 'value', COALESCE((p_stats->>(CASE WHEN md.suffix = '' THEN t.stat_key
-                                                   ELSE t.rate_base || md.suffix END))::numeric, 0),
+                                                   ELSE t.rate_base || md.suffix END))::numeric,
+                                  (p_stats->>t.stat_key)::numeric, 0),
                 'pct',   COALESCE((p_pct  ->>(CASE WHEN md.suffix = '' THEN t.stat_key
-                                                   ELSE t.rate_base || md.suffix END))::numeric, 0),
+                                                   ELSE t.rate_base || md.suffix END))::numeric,
+                                  (p_pct  ->>t.stat_key)::numeric, 0),
+                'facet', t.facet,
                 'sort',  t.sort_order
             ) ORDER BY t.sort_order) FROM tmpl t) AS items
         FROM modes md
@@ -1231,6 +1251,32 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                                             ELSE t.rate_base || md.suffix END))
     ) m
     WHERE m.items IS NOT NULL;
+$$;
+
+-- Generic player datapoints (migration 055) — EVERY percentile-ranked base stat,
+-- default rate mode only: the keys of `percentiles` minus rate-mode siblings,
+-- labeled/faceted/sorted from stat_definitions (unregistered keys are dropped).
+-- Third sibling to fantasy_block/template_block in the sparkline payload; NULL
+-- when no ranked key has a definition (unranked fringe players, teams).
+CREATE OR REPLACE FUNCTION public.datapoints_block(p_sport TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    SELECT jsonb_agg(jsonb_build_object(
+               'key',        sd.key_name,
+               'label',      sd.display_name,
+               'value',      COALESCE((p_stats->>sd.key_name)::numeric, 0),
+               'pct',        (p_pct->>sd.key_name)::numeric,
+               'scoped_pct', CASE WHEN p_scoped ? sd.key_name
+                                  THEN jsonb_build_object('position', (p_scoped->>sd.key_name)::numeric) END,
+               'facet',      sd.category,
+               'sort',       sd.sort_order
+           ) ORDER BY sd.sort_order, sd.key_name)
+    FROM jsonb_object_keys(COALESCE(p_pct, '{}'::jsonb)) AS k(key)
+    JOIN public.stat_definitions sd
+      ON sd.sport = upper(p_sport) AND sd.entity_type = 'player' AND sd.key_name = k.key
+    -- default mode only: drop rate-mode sibling keys (goals_per_90, pts_per_36, …)
+    WHERE NOT EXISTS (SELECT 1 FROM public.rate_modes rm
+                      WHERE rm.sport = upper(p_sport)
+                        AND right(k.key, length(rm.suffix)) = rm.suffix);
 $$;
 
 GRANT SELECT ON public.stat_templates TO web_anon, web_user;

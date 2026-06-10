@@ -173,6 +173,84 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'fouls_drawn_per_game',       'Fouls Drawn Per Game',      'player', 'discipline', false, true,  true,  337)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- The public.stat_templates table + position_group/template_block live in shared.sql;
+-- FOOTBALL owns its template rows here (per the per-sport SQL boundary). Migration 055:
+-- faceted counting-stat pizzas per position group — the Composite card renders one
+-- pizza per facet (the goalkeeper rows replace the old frontend GK hardcode).
+-- Curation rules: broadly-covered keys only (expected_goals is empty provider-wide;
+-- through_balls/penalty_goals < 40% coverage — excluded). Volume keys carry
+-- per_90/per_game siblings; percentage keys are mode-invariant (template_block falls
+-- back to the base value in per-X modes). sort_order encodes facet order (10s/20s/30s).
+INSERT INTO public.stat_templates (sport, position_group, stat_key, facet, sort_order) VALUES
+    -- Goalkeeper: shot-stopping + distribution
+    ('FOOTBALL', 'goalkeeper', 'saves',            'shot-stopping', 10),
+    ('FOOTBALL', 'goalkeeper', 'save_pct',         'shot-stopping', 11),
+    ('FOOTBALL', 'goalkeeper', 'saves_insidebox',  'shot-stopping', 12),
+    ('FOOTBALL', 'goalkeeper', 'goals_conceded',   'shot-stopping', 13),
+    ('FOOTBALL', 'goalkeeper', 'penalties_saved',  'shot-stopping', 14),
+    ('FOOTBALL', 'goalkeeper', 'punches',          'shot-stopping', 15),
+    ('FOOTBALL', 'goalkeeper', 'good_high_claim',  'shot-stopping', 16),
+    ('FOOTBALL', 'goalkeeper', 'passes_total',       'passing', 20),
+    ('FOOTBALL', 'goalkeeper', 'pass_accuracy',      'passing', 21),
+    ('FOOTBALL', 'goalkeeper', 'long_balls',         'passing', 22),
+    ('FOOTBALL', 'goalkeeper', 'long_balls_won',     'passing', 23),
+    ('FOOTBALL', 'goalkeeper', 'long_ball_accuracy', 'passing', 24),
+    -- Defender: defending first, then distribution, then set-piece/attacking threat
+    ('FOOTBALL', 'defender', 'tackles',       'defending', 10),
+    ('FOOTBALL', 'defender', 'interceptions', 'defending', 11),
+    ('FOOTBALL', 'defender', 'clearances',    'defending', 12),
+    ('FOOTBALL', 'defender', 'blocks',        'defending', 13),
+    ('FOOTBALL', 'defender', 'aeriels_won',   'defending', 14),
+    ('FOOTBALL', 'defender', 'ball_recovery', 'defending', 15),
+    ('FOOTBALL', 'defender', 'duels_won',     'defending', 16),
+    ('FOOTBALL', 'defender', 'passes_total',          'passing', 20),
+    ('FOOTBALL', 'defender', 'pass_accuracy',         'passing', 21),
+    ('FOOTBALL', 'defender', 'long_balls_won',        'passing', 22),
+    ('FOOTBALL', 'defender', 'long_ball_accuracy',    'passing', 23),
+    ('FOOTBALL', 'defender', 'passes_in_final_third', 'passing', 24),
+    ('FOOTBALL', 'defender', 'key_passes',            'passing', 25),
+    ('FOOTBALL', 'defender', 'goals',           'attacking', 30),
+    ('FOOTBALL', 'defender', 'assists',         'attacking', 31),
+    ('FOOTBALL', 'defender', 'shots_total',     'attacking', 32),
+    ('FOOTBALL', 'defender', 'shots_on_target', 'attacking', 33),
+    -- Midfielder: creation first
+    ('FOOTBALL', 'midfielder', 'key_passes',            'passing', 10),
+    ('FOOTBALL', 'midfielder', 'chances_created',       'passing', 11),
+    ('FOOTBALL', 'midfielder', 'big_chances_created',   'passing', 12),
+    ('FOOTBALL', 'midfielder', 'passes_total',          'passing', 13),
+    ('FOOTBALL', 'midfielder', 'pass_accuracy',         'passing', 14),
+    ('FOOTBALL', 'midfielder', 'passes_in_final_third', 'passing', 15),
+    ('FOOTBALL', 'midfielder', 'goals',            'attacking', 20),
+    ('FOOTBALL', 'midfielder', 'assists',          'attacking', 21),
+    ('FOOTBALL', 'midfielder', 'shots_total',      'attacking', 22),
+    ('FOOTBALL', 'midfielder', 'shots_on_target',  'attacking', 23),
+    ('FOOTBALL', 'midfielder', 'shot_accuracy',    'attacking', 24),
+    ('FOOTBALL', 'midfielder', 'dribbles_success', 'attacking', 25),
+    ('FOOTBALL', 'midfielder', 'tackles',           'defending', 30),
+    ('FOOTBALL', 'midfielder', 'interceptions',     'defending', 31),
+    ('FOOTBALL', 'midfielder', 'ball_recovery',     'defending', 32),
+    ('FOOTBALL', 'midfielder', 'duels_won',         'defending', 33),
+    ('FOOTBALL', 'midfielder', 'duel_success_rate', 'defending', 34),
+    -- Attacker: goalscoring first
+    ('FOOTBALL', 'attacker', 'goals',            'attacking', 10),
+    ('FOOTBALL', 'attacker', 'assists',          'attacking', 11),
+    ('FOOTBALL', 'attacker', 'shots_total',      'attacking', 12),
+    ('FOOTBALL', 'attacker', 'shots_on_target',  'attacking', 13),
+    ('FOOTBALL', 'attacker', 'shot_accuracy',    'attacking', 14),
+    ('FOOTBALL', 'attacker', 'dribbles_success', 'attacking', 15),
+    ('FOOTBALL', 'attacker', 'key_passes',          'passing', 20),
+    ('FOOTBALL', 'attacker', 'chances_created',     'passing', 21),
+    ('FOOTBALL', 'attacker', 'big_chances_created', 'passing', 22),
+    ('FOOTBALL', 'attacker', 'crosses_accurate',    'passing', 23),
+    ('FOOTBALL', 'attacker', 'pass_accuracy',       'passing', 24),
+    ('FOOTBALL', 'attacker', 'tackles',           'defending', 30),
+    ('FOOTBALL', 'attacker', 'interceptions',     'defending', 31),
+    ('FOOTBALL', 'attacker', 'ball_recovery',     'defending', 32),
+    ('FOOTBALL', 'attacker', 'duels_won',         'defending', 33),
+    ('FOOTBALL', 'attacker', 'duel_success_rate', 'defending', 34),
+    ('FOOTBALL', 'attacker', 'aeriels_won',       'defending', 35)
+ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
+
 -- Rate-sibling registry (migration 054): these base keys get <base><suffix> siblings
 -- emitted by public.apply_rate_siblings for every FOOTBALL rate_modes row (per_90,
 -- per_game). 'shots_total' keeps its legacy 'shots' sibling base via rate_base.

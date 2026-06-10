@@ -733,7 +733,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
 				       public.fantasy_block(ps.stats, ps.percentiles, ps.scoped_percentiles) AS fantasy,
-				       public.template_block(ps.sport, ps.position, ps.stats, ps.percentiles) AS template,
+				       public.template_block(ps.sport, ps.position, ps.stats, ps.percentiles, ps.scoped_percentiles) AS template,
 				       public.datapoints_block(ps.sport, ps.stats, ps.percentiles, ps.scoped_percentiles) AS datapoints
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				LEFT JOIN public.teams pt ON pt.id = NULLIF(ps.team_id, 0) AND pt.sport = ps.sport
@@ -748,7 +748,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
 				       NULL::jsonb AS fantasy,
-				       public.team_template_block(ts.sport, ts.stats, ts.percentiles) AS template,
+				       public.team_template_block(ts.sport, ts.stats, ts.percentiles, ts.scoped_percentiles) AS template,
 				       public.team_datapoints_block(ts.sport, ts.stats, ts.percentiles, ts.scoped_percentiles) AS datapoints
 				FROM public.team_stats ts
 				JOIN public.teams tmc ON tmc.id = ts.team_id AND tmc.sport = ts.sport

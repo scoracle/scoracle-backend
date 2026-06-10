@@ -1001,12 +1001,15 @@ BEGIN
     GET DIAGNOSTICS v_teams = ROW_COUNT;
 
     -- ------------------------------------------------------------------
-    -- Scoped percentiles: stored in scoped_percentiles JSONB sibling.
-    -- Players: partitioned by (position, scope) where scope is league_id
-    -- (Football) or team's conference (NBA/NFL).
-    -- Teams: partitioned by scope only (no position).
-    -- Each player_stats row has its own league_id in PK, so a player with
-    -- rows in two leagues gets two distinct scoped_percentiles values.
+    -- Scoped percentiles (migration 058): MULTI-SCOPE nested {scope: {key: pct}}.
+    -- Per-sport cohorts (the LATERAL VALUES are the single source):
+    --   players  NFL: position | conference | division | all   (cohorts WITHIN position;
+    --                 'all' positionless) · NBA: all | conference · FOOTBALL: all | league
+    --   teams    NFL/NBA: conference | division | league(=all, uniform league_id)
+    --            FOOTBALL: league (within competition)
+    -- The 'all' scope is the positionless baseline the frontend uses for the "All"
+    -- option (the template's base pct is within-position). Each player_stats row has
+    -- its own league_id in PK → a multi-league player gets distinct scoped values.
     -- ------------------------------------------------------------------
 
     -- Player scoped percentiles
@@ -1014,110 +1017,92 @@ BEGIN
         SELECT DISTINCT key FROM player_stats, jsonb_each(stats) AS kv(key, val)
         WHERE sport = p_sport AND season = p_season AND jsonb_typeof(val) = 'number' AND (val::text)::numeric != 0
     ),
-    player_meta AS (
-        SELECT ps.player_id, ps.league_id,
-            COALESCE(ps.position, 'Unknown') AS position,
-            CASE WHEN p_sport = 'FOOTBALL' THEN 'league' ELSE 'conference' END AS scope_type,
-            CASE WHEN p_sport = 'FOOTBALL' THEN ps.league_id::text
-                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_id,
-            CASE WHEN p_sport = 'FOOTBALL' THEN COALESCE(l.name, 'Unknown')
-                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_name
+    player_scope AS (
+        SELECT ps.player_id, ps.league_id, sc.scope_name, sc.cohort_key
         FROM player_stats ps
         LEFT JOIN teams t ON t.id = ps.team_id AND t.sport = ps.sport
-        LEFT JOIN leagues l ON l.id = ps.league_id
-        WHERE ps.sport = p_sport AND ps.season = p_season
+        CROSS JOIN LATERAL (VALUES
+            ('position',   CASE WHEN p_sport='NFL' THEN COALESCE(ps.position,'Unknown') END),
+            ('conference', CASE WHEN p_sport IN ('NFL','NBA') THEN COALESCE(ps.position,'Unknown')||'|'||COALESCE(t.conference,'Unknown') END),
+            ('division',   CASE WHEN p_sport='NFL' THEN COALESCE(ps.position,'Unknown')||'|'||COALESCE(t.division,'Unknown') END),
+            ('league',     CASE WHEN p_sport='FOOTBALL' THEN COALESCE(ps.position,'Unknown')||'|'||ps.league_id::text END),
+            ('all',        'ALL')
+        ) sc(scope_name, cohort_key)
+        WHERE sc.cohort_key IS NOT NULL AND ps.sport = p_sport AND ps.season = p_season
     ),
     expanded AS (
-        SELECT pm.player_id, pm.league_id, pm.position, pm.scope_type, pm.scope_id, pm.scope_name,
-            sk.key AS stat_key, (ps.stats->>sk.key)::numeric AS stat_value
-        FROM player_stats ps
-        JOIN player_meta pm ON pm.player_id = ps.player_id AND pm.league_id = ps.league_id
+        SELECT psc.player_id, psc.league_id, psc.scope_name, psc.cohort_key,
+               sk.key AS stat_key, (ps.stats->>sk.key)::numeric AS stat_value
+        FROM player_scope psc
+        JOIN player_stats ps ON ps.player_id=psc.player_id AND ps.league_id=psc.league_id
+                            AND ps.sport=p_sport AND ps.season=p_season
         CROSS JOIN stat_keys sk
-        WHERE ps.sport = p_sport AND ps.season = p_season
-            AND ps.stats ? sk.key AND (ps.stats->>sk.key)::numeric != 0
+        WHERE ps.stats ? sk.key AND (ps.stats->>sk.key)::numeric != 0
     ),
     ranked AS (
-        SELECT player_id, league_id, position, scope_type, scope_id, scope_name, stat_key,
+        SELECT player_id, league_id, scope_name, stat_key,
             CASE WHEN stat_key = ANY(v_inverse)
-                THEN round((1.0 - percent_rank() OVER (PARTITION BY position, scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
-                ELSE round((percent_rank() OVER (PARTITION BY position, scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
-            END AS percentile,
-            count(*) OVER (PARTITION BY position, scope_type, scope_id, stat_key) AS sample_size
+                THEN round((1.0 - percent_rank() OVER (PARTITION BY scope_name, cohort_key, stat_key ORDER BY stat_value ASC))::numeric*100,1)
+                ELSE round((percent_rank() OVER (PARTITION BY scope_name, cohort_key, stat_key ORDER BY stat_value ASC))::numeric*100,1)
+            END AS percentile
         FROM expanded
     ),
+    per_scope AS (
+        SELECT player_id, league_id, scope_name, jsonb_object_agg(stat_key, percentile) AS scope_pcts
+        FROM ranked GROUP BY player_id, league_id, scope_name
+    ),
     aggregated AS (
-        SELECT player_id, league_id, position, scope_type, scope_id, scope_name,
-            jsonb_object_agg(stat_key, percentile)
-                || jsonb_build_object(
-                    '_position_group', position,
-                    '_sample_size', max(sample_size),
-                    'scope_type', scope_type,
-                    'scope_id', scope_id,
-                    'scope_name', scope_name
-                ) AS scoped_json
-        FROM ranked
-        GROUP BY player_id, league_id, position, scope_type, scope_id, scope_name
+        SELECT player_id, league_id, jsonb_object_agg(scope_name, scope_pcts) AS scoped_json
+        FROM per_scope GROUP BY player_id, league_id
     )
-    UPDATE player_stats ps
-    SET scoped_percentiles = agg.scoped_json
-    FROM aggregated agg
-    WHERE ps.player_id = agg.player_id
-      AND ps.league_id = agg.league_id
-      AND ps.sport = p_sport AND ps.season = p_season;
+    UPDATE player_stats ps SET scoped_percentiles = agg.scoped_json
+    FROM aggregated agg WHERE ps.player_id=agg.player_id AND ps.league_id=agg.league_id
+                          AND ps.sport=p_sport AND ps.season=p_season;
 
     -- Team scoped percentiles
     WITH stat_keys AS (
         SELECT DISTINCT key FROM team_stats, jsonb_each(stats) AS kv(key, val)
         WHERE sport = p_sport AND season = p_season AND jsonb_typeof(val) = 'number' AND (val::text)::numeric != 0
     ),
-    team_meta AS (
-        SELECT ts.team_id, ts.league_id,
-            CASE WHEN p_sport = 'FOOTBALL' THEN 'league' ELSE 'conference' END AS scope_type,
-            CASE WHEN p_sport = 'FOOTBALL' THEN ts.league_id::text
-                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_id,
-            CASE WHEN p_sport = 'FOOTBALL' THEN COALESCE(l.name, 'Unknown')
-                 ELSE COALESCE(t.conference, 'Unknown') END AS scope_name
+    team_scope AS (
+        SELECT ts.team_id, ts.league_id, sc.scope_name, sc.cohort_key
         FROM team_stats ts
         JOIN teams t ON t.id = ts.team_id AND t.sport = ts.sport
-        LEFT JOIN leagues l ON l.id = ts.league_id
-        WHERE ts.sport = p_sport AND ts.season = p_season
+        CROSS JOIN LATERAL (VALUES
+            ('conference', CASE WHEN p_sport IN ('NFL','NBA') THEN COALESCE(t.conference,'Unknown') END),
+            ('division',   CASE WHEN p_sport IN ('NFL','NBA') THEN COALESCE(t.division,'Unknown') END),
+            ('league',     ts.league_id::text)
+        ) sc(scope_name, cohort_key)
+        WHERE sc.cohort_key IS NOT NULL AND ts.sport = p_sport AND ts.season = p_season
     ),
     expanded AS (
-        SELECT tm.team_id, tm.league_id, tm.scope_type, tm.scope_id, tm.scope_name,
-            sk.key AS stat_key, (ts.stats->>sk.key)::numeric AS stat_value
-        FROM team_stats ts
-        JOIN team_meta tm ON tm.team_id = ts.team_id AND tm.league_id = ts.league_id
+        SELECT tsc.team_id, tsc.league_id, tsc.scope_name, tsc.cohort_key,
+               sk.key AS stat_key, (ts.stats->>sk.key)::numeric AS stat_value
+        FROM team_scope tsc
+        JOIN team_stats ts ON ts.team_id=tsc.team_id AND ts.league_id=tsc.league_id
+                          AND ts.sport=p_sport AND ts.season=p_season
         CROSS JOIN stat_keys sk
-        WHERE ts.sport = p_sport AND ts.season = p_season
-            AND ts.stats ? sk.key AND (ts.stats->>sk.key)::numeric != 0
+        WHERE ts.stats ? sk.key AND (ts.stats->>sk.key)::numeric != 0
     ),
     ranked AS (
-        SELECT team_id, league_id, scope_type, scope_id, scope_name, stat_key,
+        SELECT team_id, league_id, scope_name, stat_key,
             CASE WHEN stat_key = ANY(v_inverse)
-                THEN round((1.0 - percent_rank() OVER (PARTITION BY scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
-                ELSE round((percent_rank() OVER (PARTITION BY scope_type, scope_id, stat_key ORDER BY stat_value ASC))::numeric * 100, 1)
-            END AS percentile,
-            count(*) OVER (PARTITION BY scope_type, scope_id, stat_key) AS sample_size
+                THEN round((1.0 - percent_rank() OVER (PARTITION BY scope_name, cohort_key, stat_key ORDER BY stat_value ASC))::numeric*100,1)
+                ELSE round((percent_rank() OVER (PARTITION BY scope_name, cohort_key, stat_key ORDER BY stat_value ASC))::numeric*100,1)
+            END AS percentile
         FROM expanded
     ),
+    per_scope AS (
+        SELECT team_id, league_id, scope_name, jsonb_object_agg(stat_key, percentile) AS scope_pcts
+        FROM ranked GROUP BY team_id, league_id, scope_name
+    ),
     aggregated AS (
-        SELECT team_id, league_id, scope_type, scope_id, scope_name,
-            jsonb_object_agg(stat_key, percentile)
-                || jsonb_build_object(
-                    '_sample_size', max(sample_size),
-                    'scope_type', scope_type,
-                    'scope_id', scope_id,
-                    'scope_name', scope_name
-                ) AS scoped_json
-        FROM ranked
-        GROUP BY team_id, league_id, scope_type, scope_id, scope_name
+        SELECT team_id, league_id, jsonb_object_agg(scope_name, scope_pcts) AS scoped_json
+        FROM per_scope GROUP BY team_id, league_id
     )
-    UPDATE team_stats ts
-    SET scoped_percentiles = agg.scoped_json
-    FROM aggregated agg
-    WHERE ts.team_id = agg.team_id
-      AND ts.league_id = agg.league_id
-      AND ts.sport = p_sport AND ts.season = p_season;
+    UPDATE team_stats ts SET scoped_percentiles = agg.scoped_json
+    FROM aggregated agg WHERE ts.team_id=agg.team_id AND ts.league_id=agg.league_id
+                          AND ts.sport=p_sport AND ts.season=p_season;
 
     RETURN QUERY SELECT v_players, v_teams;
 END;
@@ -1204,8 +1189,9 @@ $$;
 -- Per-position counting-stat template for one player, pre-expanded by rate mode. NULL
 -- when the position has no template (→ frontend z-pizza). `value` = raw counting stat
 -- (0 when absent); `pct` = within-position percentile (the percentiles column);
--- `facet` = pizza grouping (NULL on the unfaceted NFL/NBA fantasy templates).
-CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB)
+-- `scoped_pct` = {scope: pct} per cohort from scoped_percentiles (migration 058 —
+-- the slice re-rank); `facet` = pizza grouping (NULL on unfaceted NFL/NBA templates).
+CREATE OR REPLACE FUNCTION public.template_block(p_sport TEXT, p_position TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH tmpl AS (
         SELECT t.stat_key,
@@ -1241,6 +1227,11 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                 'pct',   COALESCE((p_pct  ->>(CASE WHEN md.suffix = '' THEN t.stat_key
                                                    ELSE t.rate_base || md.suffix END))::numeric,
                                   (p_pct  ->>t.stat_key)::numeric, 0),
+                'scoped_pct', (
+                    SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>(CASE WHEN md.suffix='' THEN t.stat_key ELSE t.rate_base||md.suffix END))::numeric)
+                                  FILTER (WHERE s.keys ? (CASE WHEN md.suffix='' THEN t.stat_key ELSE t.rate_base||md.suffix END)), '{}'::jsonb)
+                    FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+                ),
                 'facet', t.facet,
                 'sort',  t.sort_order
             ) ORDER BY t.sort_order) FROM tmpl t) AS items
@@ -1256,8 +1247,8 @@ $$;
 -- Generic player datapoints (migration 055) — EVERY percentile-ranked base stat,
 -- default rate mode only: the keys of `percentiles` minus rate-mode siblings,
 -- labeled/faceted/sorted from stat_definitions (unregistered keys are dropped).
--- Third sibling to fantasy_block/template_block in the sparkline payload; NULL
--- when no ranked key has a definition (unranked fringe players, teams).
+-- scoped_pct = {scope: pct} per cohort (migration 058). Third sibling to
+-- fantasy_block/template_block; NULL when no ranked key has a definition.
 CREATE OR REPLACE FUNCTION public.datapoints_block(p_sport TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     SELECT jsonb_agg(jsonb_build_object(
@@ -1265,8 +1256,11 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                'label',      sd.display_name,
                'value',      COALESCE((p_stats->>sd.key_name)::numeric, 0),
                'pct',        (p_pct->>sd.key_name)::numeric,
-               'scoped_pct', CASE WHEN p_scoped ? sd.key_name
-                                  THEN jsonb_build_object('position', (p_scoped->>sd.key_name)::numeric) END,
+               'scoped_pct', (
+                   SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>sd.key_name)::numeric)
+                                 FILTER (WHERE s.keys ? sd.key_name), '{}'::jsonb)
+                   FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+               ),
                'facet',      sd.category,
                'sort',       sd.sort_order
            ) ORDER BY sd.sort_order, sd.key_name)
@@ -1282,16 +1276,20 @@ $$;
 -- Team template block (migration 056) — the team sibling of template_block. Teams
 -- have no rate modes, so the block is {'default': items} only; the frontend's
 -- templateForMode falls back to 'default' for any requested mode. NULL when the
--- sport has no team template rows → z-pizza fallback. Deliberately a SEPARATE
--- function (not a generalized template_block): no signature change on the live
--- prepared statement, zero player-path risk.
-CREATE OR REPLACE FUNCTION public.team_template_block(p_sport TEXT, p_stats JSONB, p_pct JSONB)
+-- sport has no team template rows → z-pizza fallback. scoped_pct = {scope: pct} per
+-- team cohort (conference/division/league, migration 058).
+CREATE OR REPLACE FUNCTION public.team_template_block(p_sport TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     SELECT jsonb_build_object('default', jsonb_agg(jsonb_build_object(
                'key',   t.stat_key,
                'label', COALESCE(sd.display_name, t.stat_key),
                'value', COALESCE((p_stats->>t.stat_key)::numeric, 0),
                'pct',   COALESCE((p_pct  ->>t.stat_key)::numeric, 0),
+               'scoped_pct', (
+                   SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>t.stat_key)::numeric)
+                                 FILTER (WHERE s.keys ? t.stat_key), '{}'::jsonb)
+                   FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+               ),
                'facet', t.facet,
                'sort',  t.sort_order
            ) ORDER BY t.sort_order, t.stat_key))
@@ -1306,9 +1304,8 @@ $$;
 -- every percentile-ranked team stat, labeled/faceted/sorted from stat_definitions
 -- (entity_type='team'; the percentiles meta keys — _sample_size etc. — have no
 -- definition row and drop out). NO rate-sibling exclusion: teams carry no rate
--- siblings, and NFL team base keys legitimately end in '_per_game'. scoped_pct is
--- labeled by the team cohort scope: league (FOOTBALL) / conference (NBA, NFL) —
--- mirroring recalculate_percentiles' team scoping.
+-- siblings, and NFL team base keys legitimately end in '_per_game'. scoped_pct =
+-- {scope: pct} per team cohort (conference/division/league, migration 058).
 CREATE OR REPLACE FUNCTION public.team_datapoints_block(p_sport TEXT, p_stats JSONB, p_pct JSONB, p_scoped JSONB)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     SELECT jsonb_agg(jsonb_build_object(
@@ -1316,10 +1313,11 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
                'label',      sd.display_name,
                'value',      COALESCE((p_stats->>sd.key_name)::numeric, 0),
                'pct',        (p_pct->>sd.key_name)::numeric,
-               'scoped_pct', CASE WHEN p_scoped ? sd.key_name
-                                  THEN jsonb_build_object(
-                                       CASE WHEN upper(p_sport) = 'FOOTBALL' THEN 'league' ELSE 'conference' END,
-                                       (p_scoped->>sd.key_name)::numeric) END,
+               'scoped_pct', (
+                   SELECT NULLIF(jsonb_object_agg(s.scope, (s.keys->>sd.key_name)::numeric)
+                                 FILTER (WHERE s.keys ? sd.key_name), '{}'::jsonb)
+                   FROM jsonb_each(COALESCE(p_scoped,'{}'::jsonb)) s(scope, keys)
+               ),
                'facet',      sd.category,
                'sort',       sd.sort_order
            ) ORDER BY sd.sort_order, sd.key_name)

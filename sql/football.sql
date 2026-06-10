@@ -173,6 +173,13 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'fouls_drawn_per_game',       'Fouls Drawn Per Game',      'player', 'discipline', false, true,  true,  337)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Fantasy points (FPL-style, position-dependent) + per_90/per_game siblings (migration 057).
+INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
+    ('FOOTBALL', 'fantasy_points',          'Fantasy Points',          'player', 'fantasy', false, true, true, 90),
+    ('FOOTBALL', 'fantasy_points_per_90',   'Fantasy Points Per 90',   'player', 'fantasy', false, true, true, 91),
+    ('FOOTBALL', 'fantasy_points_per_game', 'Fantasy Points Per Game', 'player', 'fantasy', false, true, true, 92)
+ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
+
 -- The public.stat_templates table + position_group/template_block live in shared.sql;
 -- FOOTBALL owns its template rows here (per the per-sport SQL boundary). Migration 055:
 -- faceted counting-stat pizzas per position group — the Composite card renders one
@@ -285,9 +292,39 @@ WHERE sport = 'FOOTBALL' AND entity_type = 'player' AND key_name = ANY (ARRAY[
     'through_balls','through_balls_won','passes_in_final_third','tackles',
     'tackles_won','interceptions','dribbled_past','dispossessed',
     'possession_lost','turnovers','ball_recovery','aerials','aeriels_won',
-    'fouls_committed','fouls_drawn']);
+    'fouls_committed','fouls_drawn','fantasy_points']);
 UPDATE public.stat_definitions SET rate_sibling = TRUE, rate_base = 'shots'
 WHERE sport = 'FOOTBALL' AND entity_type = 'player' AND key_name = 'shots_total';
+
+-- Fantasy scoring (FPL-style, position-dependent), migration 057. Called by
+-- football.compute_derived_player_stats before apply_rate_siblings. Goal value by
+-- position group (GK/DEF 6, MID 5, FWD 4); GK save/penalty credit; GK/DEF
+-- goals-conceded penalty; discipline deductions; 2/appearance playing-time proxy.
+-- Clean-sheet + bonus points omitted by design (per-match, unreconstructable from
+-- season totals). Penalty goals are already inside `goals` → no separate term.
+CREATE OR REPLACE FUNCTION football.fantasy_points(p jsonb, p_position text) RETURNS numeric
+LANGUAGE sql IMMUTABLE AS $$
+    SELECT ROUND(
+          2.0 * COALESCE((p->>'appearances')::numeric, 0)
+        + (CASE public.position_group('FOOTBALL', p_position)
+             WHEN 'goalkeeper' THEN 6.0
+             WHEN 'defender'   THEN 6.0
+             WHEN 'midfielder' THEN 5.0
+             ELSE 4.0 END) * COALESCE((p->>'goals')::numeric, 0)
+        + 3.0 * COALESCE((p->>'assists')::numeric, 0)
+        - 2.0 * COALESCE((p->>'penalties_missed')::numeric, 0)
+        - 1.0 * COALESCE((p->>'yellow_cards')::numeric, 0)
+        - 3.0 * COALESCE((p->>'red_cards')::numeric, 0)
+        - 2.0 * COALESCE((p->>'own_goals')::numeric, 0)
+        + CASE WHEN public.position_group('FOOTBALL', p_position) IN ('goalkeeper','defender')
+               THEN -1.0 * FLOOR(COALESCE((p->>'goals_conceded')::numeric, 0) / 2.0)
+               ELSE 0 END
+        + CASE WHEN public.position_group('FOOTBALL', p_position) = 'goalkeeper'
+               THEN FLOOR(COALESCE((p->>'saves')::numeric, 0) / 3.0)
+                  + 5.0 * COALESCE((p->>'penalties_saved')::numeric, 0)
+               ELSE 0 END
+    , 2);
+$$;
 
 -- Football team stats
 INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
@@ -409,6 +446,10 @@ DECLARE
     aerials_t NUMERIC; aerials_w NUMERIC;
     saves NUMERIC; conceded NUMERIC;
 BEGIN
+    -- Fantasy points (FPL-style, season total) — before apply_rate_siblings so its
+    -- per_90 / per_game siblings emit (fantasy_points is rate_sibling=TRUE).
+    NEW.stats := NEW.stats || jsonb_build_object('fantasy_points', football.fantasy_points(NEW.stats, NEW.position));
+
     -- Rate siblings (per_90, per_game) — driven by rate_modes + stat_definitions.rate_sibling.
     NEW.stats := public.apply_rate_siblings('FOOTBALL', NEW.stats);
 

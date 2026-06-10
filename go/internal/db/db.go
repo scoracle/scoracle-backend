@@ -724,7 +724,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank,
 			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown,
-			       rating_categories, rating_scoped_ranks, rating_modes, conference, division, team, fantasy, template FROM (
+			       rating_categories, rating_scoped_ranks, rating_modes, conference, division, team, fantasy, template, datapoints FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank,
 				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown,
@@ -733,7 +733,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
 				       public.fantasy_block(ps.stats, ps.percentiles, ps.scoped_percentiles) AS fantasy,
-				       public.template_block(ps.sport, ps.position, ps.stats, ps.percentiles) AS template
+				       public.template_block(ps.sport, ps.position, ps.stats, ps.percentiles) AS template,
+				       public.datapoints_block(ps.sport, ps.stats, ps.percentiles, ps.scoped_percentiles) AS datapoints
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				LEFT JOIN public.teams pt ON pt.id = NULLIF(ps.team_id, 0) AND pt.sport = ps.sport
 				WHERE req.etype = 'player' AND ps.sport = req.sport
@@ -747,7 +748,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
 				       NULL::jsonb AS fantasy,
-				       NULL::jsonb AS template
+				       NULL::jsonb AS template,
+				       NULL::jsonb AS datapoints
 				FROM public.team_stats ts
 				JOIN public.teams tmc ON tmc.id = ts.team_id AND tmc.sport = ts.sport
 				CROSS JOIN req CROSS JOIN season_pick sp

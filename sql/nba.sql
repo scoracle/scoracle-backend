@@ -73,19 +73,30 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('NBA', 'fantasy_points_per_season', 'Total Fantasy Points',  'player', 'fantasy', false, true, true, 92)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Rate-sibling registry (migration 054): these base keys get <base><suffix> siblings
+-- emitted by public.apply_rate_siblings for every NBA rate_modes row (per_36,
+-- per_season). 'turnover' keeps its legacy 'tov' sibling base via rate_base.
+UPDATE public.stat_definitions SET rate_sibling = TRUE
+WHERE sport = 'NBA' AND entity_type = 'player' AND key_name = ANY (ARRAY[
+    'pts','reb','ast','stl','blk','pf',
+    'oreb','dreb','fgm','fga','fg3m','fg3a','ftm','fta',
+    'fantasy_points']);
+UPDATE public.stat_definitions SET rate_sibling = TRUE, rate_base = 'tov'
+WHERE sport = 'NBA' AND entity_type = 'player' AND key_name = 'turnover';
+
 -- Counting-stat pizza template (migration 053) — the NBA FANTASY-mode pizza: the
 -- DraftKings scoring components, position-agnostic ('ALL'). The Composite card renders
 -- this only when the Regular|Fantasy selector is on Fantasy (Regular keeps the z-datapoint
--- pizza). 'turnover' is is_inverse (low = good) and its per-rate siblings use the legacy
--- 'tov_' alias, declared via rate_base. The public.stat_templates table lives in shared.sql.
-INSERT INTO public.stat_templates (sport, position_group, stat_key, rate_base, sort_order) VALUES
-    ('NBA', 'ALL', 'pts',      NULL,  10),
-    ('NBA', 'ALL', 'reb',      NULL,  20),
-    ('NBA', 'ALL', 'ast',      NULL,  30),
-    ('NBA', 'ALL', 'stl',      NULL,  40),
-    ('NBA', 'ALL', 'blk',      NULL,  50),
-    ('NBA', 'ALL', 'fg3m',     NULL,  60),
-    ('NBA', 'ALL', 'turnover', 'tov', 70)
+-- pizza). 'turnover' is is_inverse (low = good); its legacy 'tov_' sibling alias comes
+-- from stat_definitions.rate_base (054). The public.stat_templates table lives in shared.sql.
+INSERT INTO public.stat_templates (sport, position_group, stat_key, sort_order) VALUES
+    ('NBA', 'ALL', 'pts',      10),
+    ('NBA', 'ALL', 'reb',      20),
+    ('NBA', 'ALL', 'ast',      30),
+    ('NBA', 'ALL', 'stl',      40),
+    ('NBA', 'ALL', 'blk',      50),
+    ('NBA', 'ALL', 'fg3m',     60),
+    ('NBA', 'ALL', 'turnover', 70)
 ON CONFLICT (sport, position_group, stat_key) DO NOTHING;
 
 -- NBA team stats
@@ -139,27 +150,19 @@ LANGUAGE sql IMMUTABLE AS $$
     , 2);
 $$;
 
--- NBA player: per-36 conversions for all volume stats, true shooting %, efficiency,
--- effective FG %, assist/turnover. Per-36 keys follow the convention <base>_per_36.
--- Base→derived mapping is driven by per_36_keys; rate/efficiency formulas stay inline.
+-- NBA player: rate siblings (per_36, per_season — driven by rate_modes +
+-- stat_definitions.rate_sibling via public.apply_rate_siblings, migration 054),
+-- true shooting %, efficiency, effective FG %, assist/turnover. NBA box scores are
+-- stored as per-game averages, so per_season (avg × games_played) is the only mode
+-- that captures total seasonal volume — durability/availability (e.g. 70 games
+-- played) outweighs a higher per-game rate from a player who missed time.
 CREATE OR REPLACE FUNCTION nba.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
-    minutes NUMERIC;
-    s TEXT;
-    v NUMERIC;
     pts NUMERIC; reb NUMERIC; ast NUMERIC; stl NUMERIC; blk NUMERIC;
     fga NUMERIC; fgm NUMERIC; fta NUMERIC; ftm NUMERIC; turnover NUMERIC;
-    tsa NUMERIC; gp NUMERIC;
-    -- 'turnover' is intentionally excluded — it has a legacy alias 'tov_per_36'
-    -- (not 'turnover_per_36') that's emitted in the special-case block below.
-    per_36_keys TEXT[] := ARRAY[
-        'pts','reb','ast','stl','blk','pf',
-        'oreb','dreb','fgm','fga','fg3m','fg3a','ftm','fta',
-        'fantasy_points'
-    ];
+    tsa NUMERIC;
 BEGIN
-    minutes  := (NEW.stats->>'minutes')::NUMERIC;
     pts      := (NEW.stats->>'pts')::NUMERIC;
     reb      := (NEW.stats->>'reb')::NUMERIC;
     ast      := (NEW.stats->>'ast')::NUMERIC;
@@ -171,44 +174,12 @@ BEGIN
     ftm      := (NEW.stats->>'ftm')::NUMERIC;
     turnover := (NEW.stats->>'turnover')::NUMERIC;
 
-    -- Fantasy points (DraftKings, per-game) — computed before the rate loops so the
-    -- per_36 / per_season loops emit its siblings (fantasy is in per_36_keys).
+    -- Fantasy points (DraftKings, per-game) — computed before the sibling pass so the
+    -- rate loops pick up its siblings.
     NEW.stats := NEW.stats || jsonb_build_object('fantasy_points', nba.fantasy_points(NEW.stats));
 
-    IF minutes IS NOT NULL AND minutes > 0 THEN
-        FOREACH s IN ARRAY per_36_keys LOOP
-            IF NEW.stats ? s THEN
-                v := (NEW.stats->>s)::NUMERIC;
-                IF v IS NOT NULL THEN
-                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_36', ROUND(v / minutes * 36, 1));
-                END IF;
-            END IF;
-        END LOOP;
-        -- Legacy alias preserved: 'turnover' base writes 'tov_per_36' (not 'turnover_per_36').
-        IF turnover IS NOT NULL THEN
-            NEW.stats := NEW.stats || jsonb_build_object('tov_per_36', ROUND(turnover / minutes * 36, 1));
-        END IF;
-    END IF;
-
-    -- Per-SEASON cumulative totals (Per Season rate mode): per-game average × games
-    -- played. NBA box scores are stored as per-game averages, so this is the only mode
-    -- that captures total seasonal volume — durability/availability (e.g. 70 games
-    -- played) outweighs a higher per-game rate from a player who missed time. Same
-    -- <base>_per_season convention; 'turnover' keeps the legacy 'tov_' alias.
-    gp := (NEW.stats->>'games_played')::NUMERIC;
-    IF gp IS NOT NULL AND gp > 0 THEN
-        FOREACH s IN ARRAY per_36_keys LOOP
-            IF NEW.stats ? s THEN
-                v := (NEW.stats->>s)::NUMERIC;
-                IF v IS NOT NULL THEN
-                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_season', ROUND(v * gp, 0));
-                END IF;
-            END IF;
-        END LOOP;
-        IF turnover IS NOT NULL THEN
-            NEW.stats := NEW.stats || jsonb_build_object('tov_per_season', ROUND(turnover * gp, 0));
-        END IF;
-    END IF;
+    -- Rate siblings (per_36, per_season) — driven by rate_modes + stat_definitions.rate_sibling.
+    NEW.stats := public.apply_rate_siblings('NBA', NEW.stats);
 
     IF pts IS NOT NULL AND fga IS NOT NULL AND fta IS NOT NULL THEN
         tsa := fga + 0.44 * fta;

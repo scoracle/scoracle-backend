@@ -270,7 +270,9 @@ func catchUpSweep(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) 
 		JOIN players p ON p.id = ps.player_id AND p.sport = ps.sport
 		JOIN user_follows uf ON uf.entity_type = 'player' AND uf.entity_id = ps.player_id AND uf.sport = ps.sport
 		LEFT JOIN stat_definitions sd ON sd.sport = ps.sport AND sd.key_name = kv.key AND sd.entity_type = 'player'
-		WHERE kv.key NOT LIKE '\_%' AND kv.key !~ '_per_(36|90|game|season)$'
+		WHERE kv.key NOT LIKE '\_%'
+		  -- skip per-rate siblings; the suffix family lives in rate_modes
+		  AND NOT EXISTS (SELECT 1 FROM rate_modes rm WHERE kv.key ~ (rm.suffix || '$'))
 		  AND jsonb_typeof(kv.value) = 'number'
 		  AND (kv.value::text)::numeric >= 90
 		  AND ps.updated_at > NOW() - INTERVAL '1 hour'

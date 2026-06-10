@@ -173,6 +173,23 @@ INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, catego
     ('FOOTBALL', 'fouls_drawn_per_game',       'Fouls Drawn Per Game',      'player', 'discipline', false, true,  true,  337)
 ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 
+-- Rate-sibling registry (migration 054): these base keys get <base><suffix> siblings
+-- emitted by public.apply_rate_siblings for every FOOTBALL rate_modes row (per_90,
+-- per_game). 'shots_total' keeps its legacy 'shots' sibling base via rate_base.
+UPDATE public.stat_definitions SET rate_sibling = TRUE
+WHERE sport = 'FOOTBALL' AND entity_type = 'player' AND key_name = ANY (ARRAY[
+    'goals','assists','expected_goals','shots_on_target','key_passes',
+    'passes_total','passes_accurate','crosses_total','crosses_accurate',
+    'clearances','blocks','duels_total','duels_won','dribbles_attempts',
+    'dribbles_success','saves','goals_conceded','saves_insidebox',
+    'chances_created','big_chances_created','long_balls','long_balls_won',
+    'through_balls','through_balls_won','passes_in_final_third','tackles',
+    'tackles_won','interceptions','dribbled_past','dispossessed',
+    'possession_lost','turnovers','ball_recovery','aerials','aeriels_won',
+    'fouls_committed','fouls_drawn']);
+UPDATE public.stat_definitions SET rate_sibling = TRUE, rate_base = 'shots'
+WHERE sport = 'FOOTBALL' AND entity_type = 'player' AND key_name = 'shots_total';
+
 -- Football team stats
 INSERT INTO stat_definitions (sport, key_name, display_name, entity_type, category, is_inverse, is_derived, is_percentile_eligible, sort_order) VALUES
     ('FOOTBALL', 'matches_played',  'Matches Played',       'team', 'standings', false, false, false,  1),
@@ -276,31 +293,14 @@ ON CONFLICT (sport, key_name, entity_type) DO NOTHING;
 -- 2. DERIVED STATS TRIGGERS
 -- ============================================================================
 
--- Football player: per-90 conversions for all volume stats, then accuracy/rate
--- formulas. Per-90 keys follow <base>_per_90 except for the four legacy aliases
--- that pre-date this convention (shots_total → shots_per_90 etc.); those are
--- emitted from the legacy_per_90_aliases mapping after the loop.
+-- Football player: rate siblings (per_90 ÷ minutes_played, per_game ÷ appearances —
+-- driven by rate_modes + stat_definitions.rate_sibling via public.apply_rate_siblings,
+-- migration 054; shots_total keeps its legacy 'shots' sibling base via rate_base),
+-- then accuracy/rate formulas. Football box scores are stored as cumulative season
+-- totals, so per-game is the middle tier between season totals (default) and per-90.
 CREATE OR REPLACE FUNCTION football.compute_derived_player_stats()
 RETURNS TRIGGER AS $$
 DECLARE
-    minutes NUMERIC;
-    apps NUMERIC;
-    s TEXT;
-    v NUMERIC;
-    -- Per-90 derivations follow the <base>_per_90 convention.
-    per_90_keys TEXT[] := ARRAY[
-        'goals','assists','expected_goals','shots_on_target','key_passes',
-        'passes_total','passes_accurate','crosses_total','crosses_accurate',
-        'clearances','blocks','duels_total','duels_won','dribbles_attempts',
-        'dribbles_success','saves','goals_conceded','saves_insidebox',
-        'chances_created','big_chances_created','long_balls','long_balls_won',
-        'through_balls','through_balls_won','passes_in_final_third','tackles',
-        'tackles_won','interceptions','dribbled_past','dispossessed',
-        'possession_lost','turnovers','ball_recovery','aerials','aeriels_won',
-        'fouls_committed','fouls_drawn'
-    ];
-    -- Legacy alias: shots_total writes shots_per_90 (not shots_total_per_90)
-    -- because the existing stat_definitions row uses 'shots_per_90'.
     shots_t NUMERIC; shots_on NUMERIC; passes_t NUMERIC; passes_a NUMERIC;
     duels_t NUMERIC; duels_w NUMERIC;
     dribbles_a NUMERIC; dribbles_s NUMERIC;
@@ -310,47 +310,8 @@ DECLARE
     aerials_t NUMERIC; aerials_w NUMERIC;
     saves NUMERIC; conceded NUMERIC;
 BEGIN
-    minutes := (NEW.stats->>'minutes_played')::NUMERIC;
-
-    IF minutes IS NOT NULL AND minutes > 0 THEN
-        FOREACH s IN ARRAY per_90_keys LOOP
-            IF NEW.stats ? s THEN
-                v := (NEW.stats->>s)::NUMERIC;
-                IF v IS NOT NULL THEN
-                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_90', ROUND(v * 90 / minutes, 3));
-                END IF;
-            END IF;
-        END LOOP;
-        -- Legacy alias preserved for back-compat with existing 'shots_per_90' key.
-        IF NEW.stats ? 'shots_total' THEN
-            v := (NEW.stats->>'shots_total')::NUMERIC;
-            IF v IS NOT NULL THEN
-                NEW.stats := NEW.stats || jsonb_build_object('shots_per_90', ROUND(v * 90 / minutes, 3));
-            END IF;
-        END IF;
-    END IF;
-
-    -- Per-GAME averages (Per Game rate mode): season total ÷ appearances. Football box
-    -- scores are stored as cumulative season totals, so per-game is the missing middle
-    -- tier between season totals (default) and per-90. Same <base>_per_game convention;
-    -- shots_total keeps the legacy 'shots_' alias.
-    apps := (NEW.stats->>'appearances')::NUMERIC;
-    IF apps IS NOT NULL AND apps > 0 THEN
-        FOREACH s IN ARRAY per_90_keys LOOP
-            IF NEW.stats ? s THEN
-                v := (NEW.stats->>s)::NUMERIC;
-                IF v IS NOT NULL THEN
-                    NEW.stats := NEW.stats || jsonb_build_object(s || '_per_game', ROUND(v / apps, 3));
-                END IF;
-            END IF;
-        END LOOP;
-        IF NEW.stats ? 'shots_total' THEN
-            v := (NEW.stats->>'shots_total')::NUMERIC;
-            IF v IS NOT NULL THEN
-                NEW.stats := NEW.stats || jsonb_build_object('shots_per_game', ROUND(v / apps, 3));
-            END IF;
-        END IF;
-    END IF;
+    -- Rate siblings (per_90, per_game) — driven by rate_modes + stat_definitions.rate_sibling.
+    NEW.stats := public.apply_rate_siblings('FOOTBALL', NEW.stats);
 
     shots_t      := (NEW.stats->>'shots_total')::NUMERIC;
     shots_on     := (NEW.stats->>'shots_on_target')::NUMERIC;

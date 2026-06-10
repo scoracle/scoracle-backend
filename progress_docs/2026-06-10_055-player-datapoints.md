@@ -70,12 +70,19 @@ Two connected pieces, both riding the 054 metadata layer:
   pizzas; attacker renders Attacking/Passing/Defending; NFL/NBA regression sweep
   all-correct (see the frontend progress doc).
 
-## Rollout status
+## Rollout (complete, 2026-06-10)
 
-**Prod NOT touched** — local validation only. Pending: prod dry-run (COMMIT→ROLLBACK)
-→ `migrate.sh` apply → Go rebuild + `systemctl --user restart scoracle-api`
-(migration strictly BEFORE restart: db.New prepares `datapoints_block` at boot) →
-frontend cf:deploy → live spot-checks.
+- Prod dry-run (COMMIT→ROLLBACK): all 3 gates green — 16732 football players
+  templated, 35331 player rows get datapoints.
+- `migrate.sh` apply: gates green, recorded in `schema_migrations`.
+- Go rebuild + `systemctl --user restart scoracle-api` (migration strictly BEFORE
+  restart: db.New prepares `datapoints_block` at boot) — service active, healthy.
+- Prod payload spot-checks: GK 12 faceted wedges (saves 142 → 3.737/90; save_pct
+  85.5 invariant), 42 datapoints, fantasy null; NFL QB facet null + 23 datapoints +
+  fantasy intact; NBA team template/datapoints both null.
+- Frontend cf:deploy + live sweep on scoracle.com: GK ["Shot-Stopping","Passing"]
+  with correct per_90 wedges; attacker ["Attacking","Passing","Defending"]; NFL QB
+  Regular ["Offense"] / Fantasy ["Fantasy"]; NBA Regular ["Rating"] — zero regressions.
 
 ## Files changed
 

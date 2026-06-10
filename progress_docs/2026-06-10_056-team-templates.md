@@ -101,11 +101,24 @@ Zero code changes needed — the 055 template machinery (`template()`,
 facets match `rating_categories` keys. Doc comments updated in
 `sparkline.server.ts` + `CompositeCard.tsx` (see the frontend progress doc).
 
-## Rollout (pending authorization)
+## Rollout (COMPLETE — 2026-06-10)
 
-- Prod dry-run (COMMIT→ROLLBACK) → `migrate.sh` apply → Go rebuild +
-  `systemctl --user restart scoracle-api` (migration strictly BEFORE restart).
-- Frontend cf:deploy (no code change required; will carry the share-unplug edit).
+- Prod dry-run (COMMIT→ROLLBACK) green, `migrate.sh` apply recorded 056, then
+  `systemctl --user restart scoracle-api` → "Database connected", health 200.
+  Prod gates: 39 template rows (FOOTBALL=14, NBA=11, NFL=14); 1078 team rows
+  templated; datapoints meta-free with correct scope labels. Payload
+  spot-checks matched local (NFL team 14 items/78 dp conference; NBA 11/28;
+  FOOTBALL 14/92 league; QB regression intact).
+- Frontend cf:deploy shipped (carried the share unplug + team-facet-footer
+  edit); live Playwright sweep on scoracle.com green.
+- **Incident note:** between the Go rebuild and the migration apply, a `pkill
+  -f "bin/scoracle-api"` aimed at a local test instance also matched the prod
+  systemd service (same binary path). systemd restarted the NEW binary against
+  the OLD 055 schema → `prepare "sparkline": function
+  public.team_template_block does not exist` → degraded mode, all endpoints
+  503 for ~1.6h (08:19–09:57 EDT) — the "leaderboard 503" report. Resolved by
+  the apply + restart. Lesson: never `pkill` by binary-name pattern on the
+  prod box; the prod service execs the repo's `go/bin/scoracle-api` path.
 
 ## Files changed
 

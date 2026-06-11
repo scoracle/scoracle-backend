@@ -40,5 +40,15 @@ sport-agnostic.
 ## Verification
 Dry-run (COMMIT→ROLLBACK): UPDATE 153, gate OK, rollback left 153 dirty (no commit). Applied
 via `./sql/migrate.sh`: UPDATE 153, gate `075 OK`, post-apply dirty count = 0. Seeder tests:
-4 passed. The Go `/meta` cache (max-age 300s) revalidates from the clean DB on expiry; the
-frontend autocomplete bundle is regenerated + redeployed separately (frontend repo).
+4 passed.
+
+## Downstream (operational — NOT in the migration)
+`/meta` reads `players.name` via the **`football.autofill_entities` materialized view**, not
+the base table — so the cleaned names only surface after a matview refresh. Ran
+`REFRESH MATERIALIZED VIEW CONCURRENTLY football.autofill_entities` + restarted the API to
+drop its 5-min response cache; `/meta` then returns `'Harry Kane'`. (Not folded into the
+migration: matview refresh is point-in-time, normally fires on the next fixture-ingestion
+NOTIFY, and clone-based fresh envs inherit the refreshed state via `build.sh`.) The frontend
+autocomplete bundle is regenerated + redeployed separately (frontend repo). NOTE:
+`players.meta->>'display_name'` still holds the raw nbsp value — harmless, nothing renders it
+(the matview + bundle use `name`); preserved as the raw provider value.

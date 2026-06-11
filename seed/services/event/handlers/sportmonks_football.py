@@ -470,7 +470,11 @@ def _parse_team(raw: dict[str, Any]) -> Team:
 
 
 def _parse_player(raw: dict[str, Any]) -> Player:
-    name = raw.get("display_name") or ""
+    # display_name from the provider can carry surrounding whitespace — notably a
+    # trailing non-breaking space (U+00A0). str.strip() removes it (nbsp counts as
+    # whitespace); without this the nbsp survives into players.name and renders as a
+    # stray trailing space (e.g. share text "Harry Kane 's report").
+    name = (raw.get("display_name") or "").strip()
     if not name:
         first = raw.get("firstname", "")
         last = raw.get("lastname", "")

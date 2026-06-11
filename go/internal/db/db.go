@@ -368,6 +368,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					NULLIF(ps.league_id, 0) AS league_id,
 					ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
 					ps.rating_composite_rank, ps.rating_specialist_rank,
+					ps.rating_composite_score, ps.rating_specialist_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
@@ -392,6 +393,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					NULLIF(ts.league_id, 0) AS league_id,
 					ts.rating_composite, ts.rating_specialist, ts.rating_specialty,
 					ts.rating_composite_rank, ts.rating_specialist_rank,
+					ts.rating_composite_score, ts.rating_specialist_score,
 					NULL::numeric AS fantasy_points,
 					NULL::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
@@ -595,6 +597,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT p.id, p.name, p.photo_url AS image, ps.position, (ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 				ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
 				ps.rating_composite_rank, ps.rating_specialist_rank,
+				ps.rating_composite_score, ps.rating_specialist_score,
 				row_number() OVER (
 					ORDER BY (COALESCE(ps.rating_composite, 0) + COALESCE(ps.rating_specialist, 0)) DESC
 				) AS rank
@@ -722,13 +725,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) AS season
 		),
 		season_rating AS (
-			SELECT season, league_id, position, rating_composite, rating_composite_rank,
-			       rating_specialist, rating_specialist_rank, rating_specialty, rating_breakdown,
-			       rating_categories, rating_scoped_ranks, rating_modes, conference, division, team, fantasy, template, datapoints FROM (
+			SELECT season, league_id, position, rating_composite, rating_composite_rank, rating_composite_score,
+			       rating_specialist, rating_specialist_rank, rating_specialist_score, rating_specialty, rating_breakdown,
+			       rating_categories, rating_scoped_ranks, rating_scoped_scores, rating_modes, conference, division, team, fantasy, template, datapoints FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
-				       ps.rating_composite, ps.rating_composite_rank,
-				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialty, ps.rating_breakdown,
-				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_modes,
+				       ps.rating_composite, ps.rating_composite_rank, ps.rating_composite_score,
+				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialist_score, ps.rating_specialty, ps.rating_breakdown,
+				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, ps.rating_modes,
 				       NULL::text AS conference, NULL::text AS division,
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
@@ -742,9 +745,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 				UNION ALL
 				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
-				       ts.rating_composite, ts.rating_composite_rank,
-				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialty, ts.rating_breakdown,
-				       ts.rating_categories, ts.rating_scoped_ranks, NULL::jsonb AS rating_modes,
+				       ts.rating_composite, ts.rating_composite_rank, ts.rating_composite_score,
+				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialist_score, ts.rating_specialty, ts.rating_breakdown,
+				       ts.rating_categories, ts.rating_scoped_ranks, ts.rating_scoped_scores, NULL::jsonb AS rating_modes,
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
 				       NULL::jsonb AS fantasy,

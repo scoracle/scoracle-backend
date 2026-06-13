@@ -235,7 +235,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND p.id = req.entity_id
 				  AND (req.season IS NULL OR p.season = req.season)
 				  AND (req.league_id IS NULL OR COALESCE(p.league_id, 0) = req.league_id)
-				ORDER BY p.season DESC NULLS LAST
+				-- Multi-league season (a parent-club registration row + a loan/played row):
+				-- prefer the row the player actually PLAYED (most appearances) over an empty
+				-- registration row. See Luka Vušković (id 37657587).
+				ORDER BY p.season DESC NULLS LAST, COALESCE((p.stats->>'appearances')::numeric, 0) DESC
 				LIMIT 1
 			) player_entity
 			UNION ALL
@@ -773,7 +776,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
-			) u LIMIT 1
+			) u ORDER BY rating_composite DESC NULLS LAST LIMIT 1
 		),
 		event_series AS (
 			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty, rating_composite_pct, rating_specialist_pct FROM (

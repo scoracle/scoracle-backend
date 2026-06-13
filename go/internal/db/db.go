@@ -731,7 +731,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				(SELECT MAX(s) FROM (
 					SELECT ps.season AS s FROM public.player_stats ps, req
 					 WHERE req.etype = 'player' AND ps.sport = req.sport AND ps.player_id = req.eid
-					   AND ps.rating_composite IS NOT NULL
+					   AND (ps.rating_composite IS NOT NULL OR ps.rating_breakdown IS NOT NULL)
 					   AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 					UNION ALL
 					SELECT ts.season FROM public.team_stats ts, req
@@ -776,7 +776,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
-			) u ORDER BY rating_composite DESC NULLS LAST LIMIT 1
+			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
 		),
 		event_series AS (
 			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty, rating_composite_pct, rating_specialist_pct FROM (
@@ -811,7 +811,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT array_agg(DISTINCT s ORDER BY s DESC) FROM (
 					SELECT ps.season AS s FROM public.player_stats ps, req
 					 WHERE req.etype = 'player' AND ps.sport = req.sport AND ps.player_id = req.eid
-					   AND ps.rating_composite IS NOT NULL
+					   AND (ps.rating_composite IS NOT NULL OR ps.rating_breakdown IS NOT NULL)
 					   AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 					UNION
 					SELECT ts.season FROM public.team_stats ts, req

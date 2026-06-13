@@ -453,11 +453,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM (
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
-				       NULLIF(p.team_id, 0) AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       l.sentiment AS score, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN public.teams t ON t.id = NULLIF(p.team_id, 0) AND t.sport = (SELECT sport FROM req)
+				-- current club: latest-season player_stats.team_id (canonical:
+				-- public.player_current_team), NOT players.team_id which is last-seeded.
+				LEFT JOIN LATERAL (
+				    SELECT ps.team_id FROM public.player_stats ps
+				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
 				UNION ALL
 				-- TEAM
@@ -507,11 +514,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM (
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
-				       NULLIF(p.team_id, 0) AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       c.mentions AS score, c.latest_at
 				FROM counts c
 				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN public.teams t ON t.id = NULLIF(p.team_id, 0) AND t.sport = (SELECT sport FROM req)
+				-- current club: latest-season player_stats.team_id (canonical:
+				-- public.player_current_team), NOT players.team_id which is last-seeded.
+				LEFT JOIN LATERAL (
+				    SELECT ps.team_id FROM public.player_stats ps
+				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE c.entity_type = 'player'
 				UNION ALL
 				-- TEAM

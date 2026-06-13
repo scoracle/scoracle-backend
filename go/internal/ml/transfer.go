@@ -23,7 +23,8 @@ import (
 )
 
 // Bump when the transfer prompt materially changes.
-const transferPromptVersion = "t1"
+// t2: identity card + same-person test (require THIS exact player, name-collision guard).
+const transferPromptVersion = "t2"
 
 const (
 	transferMaxCorpusNews      = 12
@@ -59,6 +60,7 @@ type TransferResult struct {
 // gemmaTransferVerdict is Gemma's JSON output (defensively parsed).
 type gemmaTransferVerdict struct {
 	IsRumor    *bool   `json:"is_rumor"`
+	Subject    string  `json:"subject"` // who the sources are really about (audit trail for discarded impostors)
 	Direction  string  `json:"direction"`
 	Stage      string  `json:"stage"`
 	Summary    string  `json:"summary"`
@@ -75,8 +77,11 @@ func NewTransferGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *TransferGen
 }
 
 type transferCandidate struct {
-	playerID   int
-	playerName string
+	playerID    int
+	playerName  string
+	nationality string // identity-card disambiguators; empty when unknown
+	currentClub string // latest-season club name (player_current_team), NOT the stale players.team_id
+	position    string
 }
 
 // GenerateForTeam vets every candidate rumor for one team.
@@ -161,7 +166,7 @@ func (g *TransferGenerator) analyzePair(
 		return err
 	}
 
-	prompt := buildTransferPrompt(teamName, c.playerName, sport, rel, news, tweets)
+	prompt := buildTransferPrompt(teamName, c, sport, rel, news, tweets)
 	gen, gerr := g.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      transferSystemPrompt(sport),
 		Temperature: 0.3,
@@ -253,16 +258,28 @@ func (g *TransferGenerator) loadTierMap(ctx context.Context) (map[string]float64
 
 func (g *TransferGenerator) loadCandidates(ctx context.Context, teamID int, sport string, minArticles int) ([]transferCandidate, error) {
 	rows, err := g.pool.Query(ctx, `
-		SELECT pe.entity_id, p.name
+		SELECT pe.entity_id, p.name,
+		       COALESCE(p.nationality, '')                    AS nationality,
+		       COALESCE(ct.name, '')                          AS current_club,
+		       COALESCE(NULLIF(pos.position, 'Unknown'), '')  AS position
 		FROM news_article_entities te
 		JOIN news_article_entities pe
 		  ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'player'
 		JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
+		-- Identity card: current club from the canonical latest-season source (NOT the
+		-- stale players.team_id), position from the latest stats row.
+		LEFT JOIN public.player_current_team pct ON pct.player_id = p.id AND pct.sport = p.sport
+		LEFT JOIN teams ct ON ct.id = pct.team_id AND ct.sport = p.sport
+		LEFT JOIN LATERAL (
+		    SELECT ps.position FROM player_stats ps
+		    WHERE ps.player_id = p.id AND ps.sport = p.sport
+		    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+		) pos ON true
 		WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
 		  AND te.created_at > NOW() - INTERVAL '14 days'
 		  AND (te.title_pos IS NULL OR pe.title_pos IS NULL
 		       OR abs(te.title_pos - pe.title_pos) <= $5)
-		GROUP BY pe.entity_id, p.name
+		GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pos.position
 		HAVING count(DISTINCT te.article_id) >= $3
 		ORDER BY count(DISTINCT te.article_id) DESC
 		LIMIT $4
@@ -274,7 +291,7 @@ func (g *TransferGenerator) loadCandidates(ctx context.Context, teamID int, spor
 	var out []transferCandidate
 	for rows.Next() {
 		var c transferCandidate
-		if err := rows.Scan(&c.playerID, &c.playerName); err != nil {
+		if err := rows.Scan(&c.playerID, &c.playerName, &c.nationality, &c.currentClub, &c.position); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -398,17 +415,41 @@ func transferSystemPrompt(sport string) string {
 	}
 	return fmt.Sprintf(`You analyze sports %s rumors STRICTLY from the provided news headlines and tweets. Never invent facts; use only what the sources say. Cite the source.
 
-Decide whether the source material is genuinely about a %s involving BOTH the named team and the named player — NOT a match report, a "who is better" comparison, an injury note, or routine coverage of a player already on the team.
+You are given an IDENTITY line describing ONE specific player (name, nationality, current club, position). Decide whether the sources genuinely report a %s involving BOTH the named team AND THIS EXACT player — the same human as the identity line — not merely someone who shares the name.
+
+Set is_rumor=false when ANY of these holds:
+- The sources are really about a DIFFERENT person who happens to share the name — a club president/owner, a manager/coach, an unrelated public figure, or a different player at another club. (Example: a midfielder named "Florentino" is NOT Florentino Pérez, the Real Madrid president — clear it.)
+- The current club or position in the sources contradicts the identity line — that means it is a different person.
+- It is a match report, a "who is better" comparison, an injury note, or routine coverage of a player already on the team.
+
+Use the identity line — ESPECIALLY the current club — as your tie-breaker for same-name people. When unsure it is the same person, prefer is_rumor=false.
 
 Reply with ONLY a JSON object, no prose:
-{"is_rumor": true|false, "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one short sentence grounded in and attributed to the sources", "confidence": 0.0-1.0}
+{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one short sentence grounded in and attributed to the sources", "confidence": 0.0-1.0}
 
-direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving the team. If not a %s, set is_rumor=false and the other fields to your best guess or empty.`, noun, noun, noun)
+direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving the team. If it is not a %s about THIS exact player, set is_rumor=false; still fill "subject" with who the sources are really about.`, noun, noun, noun)
 }
 
-func buildTransferPrompt(teamName, playerName, sport, rel string, news []newsItem, tweets []tweetItem) string {
+func buildTransferPrompt(teamName string, c transferCandidate, sport, rel string, news []newsItem, tweets []tweetItem) string {
+	playerName := c.playerName
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Sport: %s\nTeam: %s\nPlayer: %s\n", sport, teamName, playerName))
+	// Identity card — the disambiguators that separate same-name people. Led by
+	// current club (nationality is sparse, ~39% coverage). The system prompt keys
+	// its same-person test off this line.
+	ident := []string{playerName}
+	if c.nationality != "" {
+		ident = append(ident, c.nationality)
+	}
+	if c.currentClub != "" {
+		ident = append(ident, "currently at "+c.currentClub)
+	} else {
+		ident = append(ident, "current club unknown")
+	}
+	if c.position != "" {
+		ident = append(ident, c.position)
+	}
+	b.WriteString("Identity (the ONE specific player to judge): " + strings.Join(ident, " · ") + "\n")
 	switch rel {
 	case "current":
 		b.WriteString(fmt.Sprintf("Roster status: %s is CURRENTLY on %s — so any move is a DEPARTURE (outgoing). Frame the summary as other clubs' interest in signing them.\n", playerName, teamName))
@@ -541,16 +582,28 @@ func (g *TransferGenerator) persist(
 		tweetIDs = []string{}
 	}
 
+	// Audit trail: stash who Gemma judged the sources to be about, so a discarded
+	// same-name impostor (is_rumor=false) leaves a record of what was filtered and
+	// why. trigger_payload is NOT NULL DEFAULT '{}'.
+	triggerPayload := "{}"
+	if verdict != nil {
+		if subj := strings.TrimSpace(verdict.Subject); subj != "" {
+			if b, mErr := json.Marshal(map[string]string{"subject": subj}); mErr == nil {
+				triggerPayload = string(b)
+			}
+		}
+	}
+
 	_, err := g.pool.Exec(ctx, `
 		INSERT INTO transfer_rumors (
 		    team_id, player_id, sport, trigger_type, heat, heat_components,
 		    is_rumor, direction, stage, gemma_summary, source_attribution, confidence,
-		    input_news_ids, input_tweet_ids, model_version, prompt_version
-		) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+		    input_news_ids, input_tweet_ids, model_version, prompt_version, trigger_payload
+		) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)
 	`,
 		teamID, playerID, sport, triggerType, heat, components,
 		isRumor, direction, stage, summary, attr, confidence,
-		newsIDs, tweetIDs, model, promptVer,
+		newsIDs, tweetIDs, model, promptVer, triggerPayload,
 	)
 	return err
 }

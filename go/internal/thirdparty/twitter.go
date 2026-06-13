@@ -67,6 +67,7 @@ type Tweet struct {
 // the same stale cache are coalesced by singleflight.
 type TwitterService struct {
 	pool        *pgxpool.Pool
+	enabled     bool // master switch; when false the service reports unavailable + skips all live fetches
 	bearerToken string
 	lists       map[string]string // sport -> list_id
 	ttl         time.Duration
@@ -77,7 +78,7 @@ type TwitterService struct {
 // NewTwitterService builds a service. pool may be nil (no caching — endpoint
 // will report unavailable). bearerToken may be empty until X credentials land.
 // lists maps lowercase sport identifiers to X List IDs.
-func NewTwitterService(pool *pgxpool.Pool, bearerToken string, lists map[string]string, ttl time.Duration) *TwitterService {
+func NewTwitterService(pool *pgxpool.Pool, enabled bool, bearerToken string, lists map[string]string, ttl time.Duration) *TwitterService {
 	if ttl <= 0 {
 		ttl = 20 * time.Minute
 	}
@@ -88,6 +89,7 @@ func NewTwitterService(pool *pgxpool.Pool, bearerToken string, lists map[string]
 	}
 	return &TwitterService{
 		pool:        pool,
+		enabled:     enabled,
 		bearerToken: bearerToken,
 		lists:       listsCopy,
 		ttl:         ttl,
@@ -110,9 +112,18 @@ func (s *TwitterService) SyncLists(ctx context.Context) error {
 	return nil
 }
 
-func (s *TwitterService) HasBearerToken() bool { return s.bearerToken != "" }
+// HasBearerToken reports whether the live integration is usable — gated by the
+// master `enabled` switch, so a suspended service (TWITTER_ENABLED=false) reports
+// unavailable even if a token is present. Drives the handlers' 503 guard.
+func (s *TwitterService) HasBearerToken() bool { return s.enabled && s.bearerToken != "" }
 
+// IsConfigured reports whether a live fetch should be attempted for a sport.
+// Gated by `enabled` so the entity-feed handler's opportunistic refresh
+// (GetSportFeed — the only multi-second upstream) is skipped when suspended.
 func (s *TwitterService) IsConfigured(sport string) bool {
+	if !s.enabled {
+		return false
+	}
 	_, ok := s.lists[strings.ToLower(sport)]
 	return ok && s.bearerToken != ""
 }

@@ -33,7 +33,7 @@ func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.To
 		cache:   c,
 		cfg:     cfg,
 		news:    thirdparty.NewNewsService(pool),
-		twitter: thirdparty.NewTwitterService(pool, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL),
+		twitter: thirdparty.NewTwitterService(pool, cfg.TwitterEnabled, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL),
 		auth:    tokens,
 	}
 }

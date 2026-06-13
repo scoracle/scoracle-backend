@@ -134,7 +134,7 @@ func main() {
 		// Seed twitter_lists rows for configured sports so status endpoints can
 		// report cold-cache state before the first refresh.
 		if len(cfg.TwitterLists) > 0 {
-			tw := thirdparty.NewTwitterService(dbPool, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL)
+			tw := thirdparty.NewTwitterService(dbPool, cfg.TwitterEnabled, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL)
 			if err := tw.SyncLists(ctx); err != nil {
 				logger.Warn("Failed to sync twitter_lists", "error", err)
 			}

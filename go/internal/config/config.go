@@ -35,6 +35,7 @@ type Config struct {
 	RateLimitWindow   time.Duration
 
 	// External API keys (third-party integrations only — seeding keys are in Python)
+	TwitterEnabled     bool // master switch for the live X integration (default false — suspended)
 	TwitterBearerToken string
 	// TwitterLists maps lowercase sport ("nba", "nfl", "football") to an X List ID.
 	// Populated from TWITTER_LIST_<SPORT> env vars. Lists with no ID are unconfigured.
@@ -102,6 +103,12 @@ func Load() (*Config, error) {
 		RateLimitRequests: envInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindow:   time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
 
+		// Master switch for the live X/Twitter integration. Default OFF — the
+		// feed is suspended (the live X fetch was the platform's only multi-second
+		// upstream; value moved to Gemma news summaries). Code is retained; flip
+		// TWITTER_ENABLED=true to resume. When off, the service reports unavailable
+		// and skips all live fetches (entity/sport feeds return cached-or-empty).
+		TwitterEnabled:     envBool("TWITTER_ENABLED", false),
 		TwitterBearerToken: envOr("TWITTER_BEARER_TOKEN", ""),
 		TwitterLists:       loadTwitterLists(),
 		TwitterCacheTTL:    time.Duration(envInt("TWITTER_CACHE_TTL_SECONDS", 1200)) * time.Second,

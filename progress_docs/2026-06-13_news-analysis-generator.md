@@ -31,6 +31,13 @@ recent articles, 12 used), one Gemma call, 10.4s:
 
 `go build ./...` + `go vet` clean.
 
+**Prompt v2 (Scott feedback — "comprehensive, name-drop, not a teaser"):** widened the prompt
+to a full briefing that names specific people/clubs (no genericizing "a Real Madrid star"),
+bumped NumPredict 1200→2200 for the longer output. Re-run on Chelsea: sentiment 61 / impact
+95, 13s, and a comprehensive recap naming Cucurella, Barcelona, Bayern (€25m bid), Xabi
+Alonso, Man City, Real Madrid, Enzo Maresca, the seven "untouchables", four completed
+transfers, and the Newcastle/Chelsea coach at Brentford. Markedly richer than v1.
+
 ## Result
 The Gemma news-analysis generator is built and producing high-quality summaries on the
 live corpus. Not yet persisted/deployed (news_summaries migration pending the batched

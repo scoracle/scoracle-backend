@@ -28,7 +28,11 @@ import (
 )
 
 // Bump when the prompt below materially changes (traced in news_summaries.prompt_version).
-const newsAnalysisPromptVersion = "v1"
+//
+// v1: first cut — concise summaries.
+// v2: comprehensive recap (a briefing, not a teaser) + name-drop specific
+//     people/clubs instead of genericizing ("a Real Madrid star" → the name).
+const newsAnalysisPromptVersion = "v2"
 
 // NewsAnalysisRequest describes the entity whose recent news to analyze.
 type NewsAnalysisRequest struct {
@@ -106,13 +110,13 @@ func (a *NewsAnalyzer) Analyze(ctx context.Context, req NewsAnalysisRequest) (*N
 	prompt := buildNewsAnalysisPrompt(req, news)
 
 	start := time.Now()
-	// JSON output is small but Gemma 4 spends predict tokens on internal
-	// reasoning first; 1200 covers our widest corpus (≤12 articles) — same
-	// envelope vibe uses.
+	// Gemma 4 spends predict tokens on internal reasoning before visible
+	// output; a comprehensive (multi-sentence, name-dropping) summary needs
+	// real room on top of that, so budget higher than vibe's number-only 1200.
 	gen, err := a.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      newsAnalysisSystemPrompt,
 		Temperature: 0.6,
-		NumPredict:  1200,
+		NumPredict:  2200,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)
@@ -250,10 +254,10 @@ const newsAnalysisSystemPrompt = `You analyze recent NEWS about one sports entit
 Output exactly one JSON object, no markdown fences, no text before or after:
 {"sentiment": <integer 1-100>, "summary": "<recap>", "trending_topics": ["<topic>", ...]}
 
-summary: a concise but COMPLETE recap of the recent news in your own words. One sentence for a quiet stretch; more sentences when warranted (a coaching search, an injury saga, multiple storylines) — never leave the reader wanting "tell me more". Lead with the most impactful item. Write original prose: do NOT list headlines, do NOT include URLs or source names, do NOT invent facts not present in the articles.
+summary: a COMPREHENSIVE recap of the recent news in your own words — a full briefing, NOT a teaser. Cover the notable storylines, not just one. NAME the specific people and clubs: players, managers, executives, and the OTHER clubs involved in any move — always use the real names from the articles; never genericize to "a Real Madrid star" or "a former player" when the article gives a name. Lead with the most impactful storyline, then work through the rest. Length follows the news — a busy week earns several sentences; a quiet one stays short. Write original prose: do NOT quote headlines verbatim, do NOT include URLs or dump source names, do NOT invent facts not present in the articles.
 sentiment: 1 = overwhelmingly negative, 50 = neutral/mixed, 100 = overwhelmingly positive. Use the full range with precision (e.g. 47, 63, 78); avoid round multiples of 10 unless genuinely earned.
-trending_topics: 1-4 short noun phrases (e.g. "contract talks", "injury return").
-If an article clearly is NOT about this entity, ignore it. If the material is thin/neutral, sentiment ~50 and a short summary.`
+trending_topics: 2-5 short noun phrases naming the key threads (e.g. "Cucurella future", "Osimhen pursuit", "managerial search").
+If an article clearly is NOT about this entity, ignore it. If the material is genuinely thin/neutral, sentiment ~50 and keep it brief.`
 
 func buildNewsAnalysisPrompt(req NewsAnalysisRequest, news []newsItem) string {
 	var b strings.Builder

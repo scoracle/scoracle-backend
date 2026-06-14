@@ -574,6 +574,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr, req
 			WHERE tr.sport = req.sport
+			  -- Stage-2 hygiene: only recently-regenerated rows, so stale/pre-scrub
+			  -- pairs age out (no self-heal under append+latest-per-pair).
+			  AND tr.generated_at > NOW() - INTERVAL '14 days'
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -585,7 +588,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
-			WHERE l.is_rumor IS TRUE
+			-- is_rumor IS TRUE = Gemma-vetted; heat > 0 drops zero-signal stragglers.
+			WHERE l.is_rumor IS TRUE AND l.heat > 0
 		)
 		SELECT json_build_object(
 			'page', 'transfers_leaderboard',
@@ -655,6 +659,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr CROSS JOIN req
 			WHERE tr.team_id = req.team_id AND tr.sport = req.sport
+			  AND tr.generated_at > NOW() - INTERVAL '14 days'  -- stage-2 hygiene (age out stale)
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -664,7 +669,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
-			WHERE l.is_rumor IS TRUE
+			WHERE l.is_rumor IS TRUE AND l.heat > 0  -- vetted + has signal
 		)
 		SELECT json_build_object(
 			'page', 'transfers',
@@ -694,6 +699,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr CROSS JOIN req
 			WHERE tr.player_id = req.player_id AND tr.sport = req.sport
+			  AND tr.generated_at > NOW() - INTERVAL '14 days'  -- stage-2 hygiene (age out stale)
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
@@ -703,7 +709,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM latest l
 			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
-			WHERE l.is_rumor IS TRUE
+			WHERE l.is_rumor IS TRUE AND l.heat > 0  -- vetted + has signal
 		)
 		SELECT json_build_object(
 			'page', 'suitors',

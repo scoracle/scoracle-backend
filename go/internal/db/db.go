@@ -510,6 +510,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			WHERE nae.sport = req.sport
 			  AND (req.entity_type IS NULL OR nae.entity_type = req.entity_type)
 			  AND nae.created_at > NOW() - make_interval(days => req.window_days)
+			  -- Scrub gate (transition): count only Gemma-vetted or not-yet-scrubbed
+			  -- links, so "most mentioned" reflects real coverage, not fuzzy noise.
+			  AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
 			GROUP BY nae.entity_type, nae.entity_id
 		),
 		ranked AS (

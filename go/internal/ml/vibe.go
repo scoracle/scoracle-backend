@@ -216,6 +216,10 @@ func (g *Generator) loadRecentNews(
 		FROM news_article_entities nae
 		JOIN news_articles a ON a.id = nae.article_id
 		WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
+		  -- Scrub gate (transition): keep links Gemma vetted as genuine + any not yet
+		  -- scrubbed (shown until judged). Tighten to vetted IS TRUE once coverage is
+		  -- high. See ml/news_scrub.go + migration 083.
+		  AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
 		  AND (a.published_at IS NULL OR a.published_at > NOW() - $4::interval)
 		ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
 		LIMIT $5

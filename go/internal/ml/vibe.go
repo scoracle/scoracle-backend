@@ -22,7 +22,12 @@ import (
 // v3: 1-100 direct scale. Prompt explicitly discourages round answers so
 //
 //	Gemma uses the full range (e.g. 73, 87) instead of multiples of 10.
-const vibePromptVersion = "v3"
+//
+// v4: the vibe is now the LAST stage — it DETERMINES sentiment from the DERIVED
+//
+//	layer (the entity's latest narratives from ml/news_narratives.go + its
+//	transfer heat), not raw news/tweets. Richest context, per the staged pipeline.
+const vibePromptVersion = "v4"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
 //
@@ -82,14 +87,11 @@ func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
 	return &Generator{pool: pool, ollama: ollama}
 }
 
-// Generate builds a prompt from recent news + tweets + milestone context,
-// calls Gemma for a 1-100 sentiment rating, persists it to vibe_scores,
-// and returns the result.
-//
-// Tweet reads are cache-only. If the tweets table has nothing recent for
-// the sport, the score is drawn from news + milestone alone — we NEVER
-// trigger a fresh X API fetch from this path. Fresh pulls are strictly
-// user-traffic-driven (see thirdparty/twitter.go).
+// Generate determines an overall 1-100 sentiment for the entity from the DERIVED
+// layer — its latest narratives (ml/news_narratives.go) + current transfer heat —
+// persists it to vibe_scores, and returns the result. This is the LAST stage of
+// the pipeline (raw → scrub → narratives → transfer heat → VIBE): by now Gemma
+// reasons over the curated storylines, not raw headlines (the richest context).
 func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult, error) {
 	if g.pool == nil {
 		return nil, fmt.Errorf("vibe generator: no db pool")
@@ -99,21 +101,21 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 	}
 	sport := strings.ToUpper(req.Sport)
 
-	news, newsIDs, err := g.loadRecentNews(ctx, req.EntityType, req.EntityID, sport)
+	narratives, newsIDs, err := g.loadLatestNarratives(ctx, req.EntityType, req.EntityID, sport)
 	if err != nil {
-		return nil, fmt.Errorf("load news: %w", err)
+		return nil, fmt.Errorf("load narratives: %w", err)
 	}
-	tweets, tweetIDs, err := g.loadRecentTweets(ctx, req.EntityName, sport)
+	heat, err := g.loadTransferHeat(ctx, req.EntityType, req.EntityID, sport)
 	if err != nil {
-		return nil, fmt.Errorf("load tweets: %w", err)
+		return nil, fmt.Errorf("load transfer heat: %w", err)
 	}
 
-	// No corpus → no rating. Persist a NULL-sentiment row so the read path
-	// returns an explicit "no data" signal (sentiment: null) and so the
-	// batch debounce skips this entity until the corpus changes. Skipping
-	// Gemma here is the whole point — the model has nothing to rate, and
-	// a neutral-anchor 50 would pollute /vibe/hottest.
-	if len(news) == 0 && len(tweets) == 0 {
+	// No derived signal (no narratives AND no transfer heat) → no rating. Persist
+	// a NULL-sentiment row so the read path returns "no data" and the debounce
+	// skips this entity until its narratives/heat change. The vibe runs LAST, so
+	// "no narratives" means the narratives stage found no corpus this cycle; a
+	// neutral-anchor 50 would only pollute /vibe/hottest.
+	if len(narratives) == 0 && len(heat) == 0 {
 		if err := g.persistNoCorpus(ctx, req, sport); err != nil {
 			return nil, fmt.Errorf("persist no-corpus marker: %w", err)
 		}
@@ -126,16 +128,13 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 		}, nil
 	}
 
-	prompt := buildVibePrompt(req, news, tweets)
+	prompt := buildVibePrompt(req, narratives, heat)
 
 	start := time.Now()
 	// Gemma 4 burns predict tokens on internal reasoning before any visible
-	// output — too low a cap returns empty (done_reason=length with no
-	// response text). Reasoning footprint scales with prompt size, so
-	// 1200 covers our widest corpus (team entities with ~8 tweets + 12
-	// articles). Cost is still dominated by actual eval_count (a single
-	// digit), not the cap, so this stays meaningfully cheaper than the
-	// v1 blurb path which emitted ~40 visible tokens per call.
+	// output — too low a cap returns empty. 1200 covers a number-only answer
+	// over the narratives + heat context; the cost is dominated by eval_count
+	// (a single digit), not the cap.
 	gen, err := g.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      vibeSystemPrompt,
 		Temperature: 0.7,
@@ -152,7 +151,9 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 			truncate(gen.Response, 120), len(prompt), err)
 	}
 
-	if err := g.persistVibe(ctx, req, sport, sentiment, gen.Model, newsIDs, tweetIDs); err != nil {
+	// input_news_ids = the narratives' source articles (provenance); tweets are
+	// no longer a vibe input (the derived layer supersedes raw feeds).
+	if err := g.persistVibe(ctx, req, sport, sentiment, gen.Model, newsIDs, nil); err != nil {
 		return nil, fmt.Errorf("persist vibe: %w", err)
 	}
 
@@ -161,7 +162,7 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 		Model:         gen.Model,
 		PromptVersion: vibePromptVersion,
 		InputNewsIDs:  newsIDs,
-		InputTweetIDs: tweetIDs,
+		InputTweetIDs: []string{},
 		Duration:      duration,
 	}, nil
 }
@@ -208,131 +209,163 @@ type tweetItem struct {
 	postedAt time.Time
 }
 
-func (g *Generator) loadRecentNews(
+// maxHeatItems bounds the transfer rumors shown to the vibe as the "transfer
+// temperature" signal alongside the narratives.
+const maxHeatItems = 6
+
+type narrativeItem struct {
+	title  string
+	body   string
+	impact int
+}
+
+type heatItem struct {
+	counterparty string
+	heat         int
+	stage        string
+	direction    string
+}
+
+// loadLatestNarratives returns the narratives from the entity's most recent
+// generation (news_summaries; ml/news_narratives.go), hottest first, plus the
+// deduped union of their source article ids for provenance. Empty when the latest
+// generation was a no-narratives marker or the entity has none yet.
+func (g *Generator) loadLatestNarratives(
 	ctx context.Context, entityType string, entityID int, sport string,
-) ([]newsItem, []int64, error) {
+) ([]narrativeItem, []int64, error) {
 	rows, err := g.pool.Query(ctx, `
-		SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(a.source, ''), a.published_at
-		FROM news_article_entities nae
-		JOIN news_articles a ON a.id = nae.article_id
-		WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-		  -- Scrub gate (transition): keep links Gemma vetted as genuine + any not yet
-		  -- scrubbed (shown until judged). Tighten to vetted IS TRUE once coverage is
-		  -- high. See ml/news_scrub.go + migration 083.
-		  AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
-		  AND (a.published_at IS NULL OR a.published_at > NOW() - $4::interval)
-		ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
-		LIMIT $5
-	`, entityType, entityID, sport, fmt.Sprintf("%d seconds", int(newsLookback.Seconds())), maxNewsItems)
+		SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids
+		FROM news_summaries
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+		  AND body IS NOT NULL
+		  AND generated_at = (
+		      SELECT max(generated_at) FROM news_summaries
+		      WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+		  )
+		ORDER BY impact DESC NULLS LAST
+	`, entityType, entityID, sport)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer rows.Close()
 
-	var out []newsItem
+	var out []narrativeItem
 	var ids []int64
 	for rows.Next() {
-		var n newsItem
-		if err := rows.Scan(&n.id, &n.title, &n.description, &n.source, &n.publishedAt); err != nil {
+		var n narrativeItem
+		var nids []int64
+		if err := rows.Scan(&n.title, &n.body, &n.impact, &nids); err != nil {
 			return nil, nil, err
 		}
 		out = append(out, n)
-		ids = append(ids, n.id)
+		ids = append(ids, nids...)
 	}
-	return out, ids, nil
+	return out, dedupeInt64(ids), rows.Err()
 }
 
-// loadRecentTweets pulls up to maxTweetItems tweets from the sport's
-// cached feed whose author_username OR text mentions the entity name.
-// This is lazy-only — no fresh X API calls originate here.
-func (g *Generator) loadRecentTweets(
-	ctx context.Context, entityName, sport string,
-) ([]tweetItem, []string, error) {
-	// Simple pattern match: entity full name OR last-word surname.
-	// Tweet text matching in SQL is crude but cheap; the vibe is
-	// qualitative anyway.
-	last := entityName
-	if parts := strings.Fields(entityName); len(parts) > 1 {
-		last = parts[len(parts)-1]
+// loadTransferHeat returns the entity's hottest active transfer/trade rumors
+// (latest per counterparty, heat > 0), naming the counterparty — the transfer
+// "temperature" the vibe weighs alongside the narratives. Branches on entity type
+// (a team's player rumors vs a player's suitor clubs).
+func (g *Generator) loadTransferHeat(
+	ctx context.Context, entityType string, entityID int, sport string,
+) ([]heatItem, error) {
+	q := `
+		SELECT counterparty, heat, stage, direction FROM (
+		    SELECT DISTINCT ON (tr.team_id)
+		           t.name AS counterparty, tr.heat,
+		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+		           tr.generated_at
+		    FROM transfer_rumors tr
+		    JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
+		    WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+		    ORDER BY tr.team_id, tr.generated_at DESC
+		) latest
+		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
+	if entityType == "team" {
+		q = `
+		SELECT counterparty, heat, stage, direction FROM (
+		    SELECT DISTINCT ON (tr.player_id)
+		           p.name AS counterparty, tr.heat,
+		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+		           tr.generated_at
+		    FROM transfer_rumors tr
+		    JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
+		    WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+		    ORDER BY tr.player_id, tr.generated_at DESC
+		) latest
+		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
 	}
-
-	rows, err := g.pool.Query(ctx, `
-		SELECT id, author_username, text, posted_at
-		FROM tweets
-		WHERE sport = $1
-		  AND fetched_at > NOW() - $2::interval
-		  AND (text ILIKE '%' || $3 || '%' OR text ILIKE '%' || $4 || '%')
-		ORDER BY posted_at DESC
-		LIMIT $5
-	`, strings.ToLower(sport),
-		fmt.Sprintf("%d seconds", int(tweetLookback.Seconds())),
-		entityName, last, maxTweetItems,
-	)
+	rows, err := g.pool.Query(ctx, q, entityID, sport, maxHeatItems)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer rows.Close()
 
-	var out []tweetItem
-	var ids []string
+	var out []heatItem
 	for rows.Next() {
-		var t tweetItem
-		if err := rows.Scan(&t.id, &t.author, &t.text, &t.postedAt); err != nil {
-			return nil, nil, err
+		var h heatItem
+		if err := rows.Scan(&h.counterparty, &h.heat, &h.stage, &h.direction); err != nil {
+			return nil, err
 		}
-		out = append(out, t)
-		ids = append(ids, t.id)
+		out = append(out, h)
 	}
-	return out, ids, nil
+	return out, rows.Err()
+}
+
+func dedupeInt64(in []int64) []int64 {
+	out := make([]int64, 0, len(in))
+	seen := make(map[int64]struct{}, len(in))
+	for _, v := range in {
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }
 
 // ---------------------------------------------------------------------------
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const vibeSystemPrompt = `You rate overall sentiment toward a sports entity based on recent news and tweets.
+const vibeSystemPrompt = `You determine overall sentiment toward a sports entity from the NARRATIVES forming around it and its current TRANSFER/TRADE activity — the derived signals, not raw headlines.
 Reply with ONLY a single integer from 1 to 100.
 1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive.
 Use the FULL range with precision. Pick exact numbers like 47, 63, 78, 92.
 Avoid round multiples of 10 (50, 60, 70, 80, 90) unless the evidence genuinely lands there.
-Weight news and tweets equally; stats are context, not the point.
-If the source material is thin or neutral, answer somewhere in 45-55 — don't invent drama.
+Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening.
+If the material is thin or neutral, answer somewhere in 45-55 — don't invent drama.
 No words, no punctuation, no explanation. Just the number.`
 
-func buildVibePrompt(req VibeRequest, news []newsItem, tweets []tweetItem) string {
+func buildVibePrompt(req VibeRequest, narratives []narrativeItem, heat []heatItem) string {
 	var b strings.Builder
 
 	b.WriteString(fmt.Sprintf("Entity: %s %s (%s)\n", strings.Title(req.EntityType), req.EntityName, req.Sport))
 
-	if len(req.Trigger) > 0 && req.TriggerType == "milestone" {
-		raw, _ := json.Marshal(req.Trigger)
-		b.WriteString(fmt.Sprintf("Milestone context (light sprinkle only): %s\n", string(raw)))
-	}
-
-	b.WriteString("\nRecent news headlines:\n")
-	if len(news) == 0 {
-		b.WriteString("- (none in the last 3 days)\n")
+	b.WriteString("\nNarratives forming around them (impact in brackets):\n")
+	if len(narratives) == 0 {
+		b.WriteString("- (none this cycle)\n")
 	} else {
-		for _, n := range news {
-			b.WriteString("- ")
-			if n.source != "" {
-				b.WriteString(fmt.Sprintf("[%s] ", n.source))
-			}
-			b.WriteString(n.title)
-			if n.description != "" {
-				b.WriteString(" — ")
-				b.WriteString(truncate(n.description, 160))
-			}
-			b.WriteString("\n")
+		for _, n := range narratives {
+			b.WriteString(fmt.Sprintf("- [%d] %s: %s\n", n.impact, n.title, truncate(n.body, 280)))
 		}
 	}
 
-	b.WriteString("\nRecent tweets:\n")
-	if len(tweets) == 0 {
-		b.WriteString("- (none in the last 24 hours)\n")
+	b.WriteString("\nCurrent transfer/trade activity (heat 0-100):\n")
+	if len(heat) == 0 {
+		b.WriteString("- (none)\n")
 	} else {
-		for _, t := range tweets {
-			b.WriteString(fmt.Sprintf("- @%s: %s\n", t.author, truncate(strings.ReplaceAll(t.text, "\n", " "), 200)))
+		for _, h := range heat {
+			line := fmt.Sprintf("- %s — heat %d", h.counterparty, h.heat)
+			if h.direction != "" {
+				line += ", " + h.direction
+			}
+			if h.stage != "" {
+				line += ", " + h.stage
+			}
+			b.WriteString(line + "\n")
 		}
 	}
 

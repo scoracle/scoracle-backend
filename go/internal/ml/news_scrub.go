@@ -179,18 +179,19 @@ func (s *NewsScrubber) loadCandidates(ctx context.Context, articleID int64, spor
 	return out, rows.Err()
 }
 
-// applyVerdicts deletes the links Gemma judged NOT about this article. (The
-// vetted-set wiring may evolve — e.g. a `vetted` flag instead of delete — but
-// delete keeps news_article_entities clean for the consumers that already read it.)
+// applyVerdicts records the Gemma verdict on every link of the article: vetted =
+// the relevance call, scrubbed_at = NOW(). Non-destructive (migration 083) — the
+// dropped links stay, flagged vetted=false, so we keep the recall to re-judge and
+// can compare fuzzy-vs-vetted before consumers trust the flag. Every candidate
+// (kept and dropped) is stamped so the async worker knows the article is scrubbed;
+// the primary link is always vetted=true (ScrubArticle marks it relevant).
 func (s *NewsScrubber) applyVerdicts(ctx context.Context, articleID int64, sport string, verdicts []ScrubVerdict) error {
 	for _, v := range verdicts {
-		if v.Relevant {
-			continue
-		}
 		if _, err := s.pool.Exec(ctx, `
-			DELETE FROM news_article_entities
-			WHERE article_id = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-		`, articleID, v.EntityType, v.EntityID, sport); err != nil {
+			UPDATE news_article_entities
+			   SET vetted = $5, scrubbed_at = NOW()
+			 WHERE article_id = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+		`, articleID, v.EntityType, v.EntityID, sport, v.Relevant); err != nil {
 			return err
 		}
 	}

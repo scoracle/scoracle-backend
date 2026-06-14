@@ -4,7 +4,7 @@
 //
 //	go run ./cmd/newsscrub -team-id 18 -sport FOOTBALL -limit 8
 //	go run ./cmd/newsscrub -article-id 12345 -sport FOOTBALL
-//	# apply (delete the dropped links): add -persist
+//	# apply (record vetted verdicts; non-destructive): add -persist
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
 package main
@@ -31,7 +31,7 @@ func main() {
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL")
 	limit := flag.Int("limit", 8, "[team mode] number of articles to scrub")
 	minCands := flag.Int("min-candidates", 3, "[team mode] only articles with >= this many linked entities")
-	persist := flag.Bool("persist", false, "apply verdicts (delete dropped links); default dry-run")
+	persist := flag.Bool("persist", false, "apply verdicts (set vetted flag, non-destructive); default dry-run")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
@@ -78,7 +78,7 @@ func main() {
 
 	mode := "DRY-RUN"
 	if *persist {
-		mode = "PERSIST (dropping links)"
+		mode = "PERSIST (recording vetted verdicts)"
 	}
 	fmt.Printf("=== News scrub (%s) — %d article(s) ===\n", mode, len(articleIDs))
 	kept, dropped := 0, 0

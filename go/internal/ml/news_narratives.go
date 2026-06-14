@@ -120,8 +120,9 @@ func (a *NewsNarrator) Generate(ctx context.Context, req NarrativesRequest) (*Na
 		System:      newsNarrativesSystemPrompt,
 		Temperature: 0.6,
 		// Several narratives, each a multi-sentence write-up, on top of Gemma 4's
-		// internal reasoning budget — give it real room.
-		NumPredict: 3000,
+		// internal reasoning budget — give it real room. The prompt caps the count
+		// and body length; the tolerant parser salvages a truncated tail regardless.
+		NumPredict: 4000,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)
@@ -319,7 +320,9 @@ For each narrative:
 - body: an original-prose write-up of that storyline — what is happening, who is involved (use the REAL names of players, managers, executives, and other clubs from the articles; never genericize to "a Real Madrid star"), and where it stands. One to three sentences; longer only when the story is genuinely big.
 - articles: the numbers of the articles that belong to this narrative.
 
-Rules: write original prose (do NOT quote headlines verbatim, no URLs, no source-name dumps); never invent facts not present in the articles; ignore any article clearly not about this entity; order the narratives MOST IMPACTFUL first.`
+Return AT MOST 6 narratives, ordered MOST IMPACTFUL first. Keep each body to 1-3 sentences (a genuinely big story may use up to 4).
+
+Rules: write original prose (do NOT quote headlines verbatim, no URLs, no source-name dumps); never invent facts not present in the articles; ignore any article clearly not about this entity.`
 
 func buildNarrativesPrompt(req NarrativesRequest, news []newsItem) string {
 	var b strings.Builder
@@ -345,27 +348,76 @@ func buildNarrativesPrompt(req NarrativesRequest, news []newsItem) string {
 // Parse
 // ---------------------------------------------------------------------------
 
-type gemmaNarratives struct {
-	Narratives []struct {
-		Title    string `json:"title"`
-		Body     string `json:"body"`
-		Articles []int  `json:"articles"`
-	} `json:"narratives"`
+type gemmaNarrative struct {
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+	Articles []int  `json:"articles"`
 }
 
-// parseNarratives extracts the first JSON object from Gemma's response (tolerating
-// stray text / markdown fences) and unmarshals it.
+type gemmaNarratives struct {
+	Narratives []gemmaNarrative `json:"narratives"`
+}
+
+// parseNarratives salvages each complete narrative object from Gemma's response
+// independently, rather than requiring the whole document to be well-formed. LLM
+// output length is non-deterministic, so a multi-narrative reply can truncate
+// mid-array or carry one malformed object; this scanner extracts every balanced
+// top-level {...} inside the "narratives" array (respecting strings/escapes),
+// unmarshals each on its own, and keeps the ones that parse. A truncated tail
+// just drops its last incomplete object. Succeeds when >= 1 narrative survives.
 func parseNarratives(raw string) (gemmaNarratives, bool) {
 	var out gemmaNarratives
-	start := strings.IndexByte(raw, '{')
-	end := strings.LastIndexByte(raw, '}')
-	if start < 0 || end <= start {
+	key := strings.Index(raw, `"narratives"`)
+	if key < 0 {
 		return out, false
 	}
-	if err := json.Unmarshal([]byte(raw[start:end+1]), &out); err != nil {
+	lb := strings.IndexByte(raw[key:], '[')
+	if lb < 0 {
 		return out, false
 	}
-	return out, true
+	s := raw[key+lb+1:] // just after the array's '['
+
+	depth, start := 0, -1
+	inStr, esc := false, false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			switch {
+			case esc:
+				esc = false
+			case c == '\\':
+				esc = true
+			case c == '"':
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+				if depth == 0 && start >= 0 {
+					var n gemmaNarrative
+					if err := json.Unmarshal([]byte(s[start:i+1]), &n); err == nil {
+						out.Narratives = append(out.Narratives, n)
+					}
+					start = -1
+				}
+			}
+		case ']':
+			if depth == 0 {
+				return out, len(out.Narratives) > 0 // end of the array
+			}
+		}
+	}
+	return out, len(out.Narratives) > 0
 }
 
 // ---------------------------------------------------------------------------

@@ -1,17 +1,17 @@
-// newsanalyze — CLI to generate (or dry-run) the unified Gemma news analysis
-// for one entity: summary + trending topics + sentiment + deterministic impact.
+// newsnarrate — CLI to generate (or dry-run) the Gemma narratives stage for one
+// entity: the distinct storylines in its recent vetted news, each a write-up with
+// a per-narrative impact.
 //
-//	# dry-run (default): read corpus + run Gemma, print result, DO NOT persist
-//	go run ./cmd/newsanalyze -entity-type team -entity-id 154 -sport FOOTBALL
-//	# persist to news_summaries (requires migration 081 applied)
-//	go run ./cmd/newsanalyze -entity-type player -entity-id 154421 -sport FOOTBALL -persist
+//	# dry-run (default): read vetted corpus + group via Gemma, print, DO NOT persist
+//	go run ./cmd/newsnarrate -entity-type team -entity-id 18 -sport FOOTBALL
+//	# persist to news_summaries (requires migration 085 applied)
+//	go run ./cmd/newsnarrate -entity-type team -entity-id 18 -sport FOOTBALL -persist
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -34,7 +34,7 @@ func main() {
 	persist := flag.Bool("persist", false, "persist to news_summaries (default: dry-run, no write)")
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
 	_ = godotenv.Load(".env.local", ".env")
 	cfg, err := config.Load()
 	if err != nil {
@@ -58,7 +58,7 @@ func main() {
 		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
 		os.Exit(1)
 	}
-	analyzer := ml.NewNewsAnalyzer(pool, ollama)
+	narrator := ml.NewNewsNarrator(pool, ollama)
 
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.OllamaTimeout+10*time.Second)
 	defer cancel()
@@ -70,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	res, err := analyzer.Analyze(ctx, ml.NewsAnalysisRequest{
+	res, err := narrator.Generate(ctx, ml.NarrativesRequest{
 		EntityType:  *entityType,
 		EntityID:    *entityID,
 		EntityName:  name,
@@ -79,7 +79,7 @@ func main() {
 		DryRun:      !*persist,
 	})
 	if err != nil {
-		logger.Error("news analysis failed", "error", err)
+		logger.Error("narratives generation failed", "error", err)
 		os.Exit(1)
 	}
 
@@ -87,18 +87,17 @@ func main() {
 	if *persist {
 		mode = "PERSISTED to news_summaries"
 	}
-	fmt.Printf("\n=== News analysis: %s (%s %d, %s) — %s ===\n", name, *entityType, *entityID, sportUpper, mode)
+	fmt.Printf("\n=== Narratives: %s (%s %d, %s) — %s ===\n", name, *entityType, *entityID, sportUpper, mode)
 	if res.SkippedNoCorpus {
-		fmt.Println("(no relevant news in the last 3 days — null marker)")
+		fmt.Println("(no usable narratives — null marker)")
 	} else {
-		fmt.Printf("Sentiment: %d/100   Impact: %d/100\n", res.Sentiment, res.Impact)
-		fmt.Printf("Trending:  %v\n", res.TrendingTopics)
-		comp, _ := json.Marshal(res.ImpactComponents)
-		fmt.Printf("Impact components: %s\n", comp)
-		fmt.Printf("\nSummary:\n%s\n", res.Summary)
+		for i, n := range res.Narratives {
+			fmt.Printf("\n[%d] (impact %d, %d articles) %s\n", i+1, n.Impact, len(n.InputNewsIDs), n.Title)
+			fmt.Printf("    %s\n", n.Body)
+		}
 	}
-	fmt.Printf("\n(model=%s prompt=%s duration=%s articles=%d)\n",
-		res.Model, res.PromptVersion, res.Duration.Round(10*time.Millisecond), len(res.InputNewsIDs))
+	fmt.Printf("\n(model=%s prompt=%s duration=%s narratives=%d)\n",
+		res.Model, res.PromptVersion, res.Duration.Round(10*time.Millisecond), len(res.Narratives))
 }
 
 func lookupEntityName(ctx context.Context, pool *pgxpool.Pool, entityType string, id int, sport string) (string, error) {

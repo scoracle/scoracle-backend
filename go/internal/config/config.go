@@ -60,6 +60,9 @@ type Config struct {
 	NewsScrubInterval time.Duration // sweep cadence
 	NewsScrubBatch    int           // max candidate-rich articles Gemma-scrubbed per tick
 
+	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
+	PipelineStatsInterval time.Duration
+
 	// Cache
 	CacheEnabled bool
 
@@ -132,6 +135,8 @@ func Load() (*Config, error) {
 		NewsScrubEnabled:  envBool("NEWS_SCRUB_ENABLED", true),
 		NewsScrubInterval: time.Duration(envInt("NEWS_SCRUB_INTERVAL_MINUTES", 30)) * time.Minute,
 		NewsScrubBatch:    envInt("NEWS_SCRUB_BATCH", 15),
+
+		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

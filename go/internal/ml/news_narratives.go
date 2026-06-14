@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
@@ -26,7 +27,12 @@ import (
 )
 
 // Bump when the prompt below materially changes (traced in news_summaries.prompt_version).
-const newsNarrativesPromptVersion = "n1"
+//
+// n2: grounds transfer storylines in the entity's VETTED transfer rumors (the
+//
+//	same heat the vibe stage loads) so the narrator names real counterparties +
+//	the true direction/stage instead of re-inferring them from clickbait titles.
+const newsNarrativesPromptVersion = "n2"
 
 // maxNarrativeCorpus bounds the articles fed to the grouping prompt. Wider than
 // the vibe/analysis window (maxNewsItems) so Gemma can see enough breadth to find
@@ -113,7 +119,18 @@ func (a *NewsNarrator) Generate(ctx context.Context, req NarrativesRequest) (*Na
 		return res, nil
 	}
 
-	prompt := buildNarrativesPrompt(req, news)
+	// Vetted transfer rumors ground any transfer/trade storyline in confirmed
+	// facts (real counterparty + direction + stage) instead of a clickbait title.
+	// Best-effort: a transfer-read failure must never block the news narrative —
+	// the corpus is the primary signal, the heat only sharpens it.
+	heat, err := loadTransferHeat(ctx, a.pool, req.EntityType, req.EntityID, sport)
+	if err != nil {
+		slog.Warn("news narrator: transfer heat load failed (continuing ungrounded)",
+			"entity_type", req.EntityType, "entity_id", req.EntityID, "sport", sport, "error", err)
+		heat = nil
+	}
+
+	prompt := buildNarrativesPrompt(req, news, heat)
 
 	start := time.Now()
 	gen, err := a.ollama.Generate(ctx, prompt, GenerateOptions{
@@ -322,9 +339,13 @@ For each narrative:
 
 Return AT MOST 6 narratives, ordered MOST IMPACTFUL first. Keep each body to 1-3 sentences (a genuinely big story may use up to 4).
 
-Rules: write original prose (do NOT quote headlines verbatim, no URLs, no source-name dumps); never invent facts not present in the articles; ignore any article clearly not about this entity.`
+If a "Known transfer/trade activity" list is provided, treat it as CONFIRMED FACTS: when a narrative is a transfer/trade saga, use those exact counterparties and their stated direction and stage, and never contradict them or invent a different club/player or a more advanced stage than stated. They are the structured truth behind the story — let them sharpen the storyline, not pad it.
 
-func buildNarrativesPrompt(req NarrativesRequest, news []newsItem) string {
+Signal over noise — this is the whole job: REVEAL the real story, never echo clickbait. Some articles are vague hype that name no concrete subject ("eyeing a Super Striker", "Dutch stars shine", "the Germans return", "a 19-year-old prodigy"). You can tell the difference — when an article carries no nameable specifics, do NOT spin it into a narrative and do NOT paper the gap over with a generic placeholder. If you cannot name who or what or where, the story isn't there to tell — leave it out. Build narratives ONLY on storylines with concrete, nameable specifics (real players, clubs, managers, fees, stages). A short, sharp, true reveal beats a padded vague one; it is fine to return fewer narratives.
+
+Rules: write original prose (do NOT quote headlines verbatim, no URLs, no source-name dumps); never invent facts not present in the articles or the transfer facts; ignore any article clearly not about this entity.`
+
+func buildNarrativesPrompt(req NarrativesRequest, news []newsItem, heat []heatItem) string {
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Entity: %s (%s %s)\n", req.EntityName, req.Sport, req.EntityType))
 	b.WriteString("\nRecent news (numbered):\n")
@@ -339,6 +360,13 @@ func buildNarrativesPrompt(req NarrativesRequest, news []newsItem) string {
 			b.WriteString(truncate(n.description, 200))
 		}
 		b.WriteString("\n")
+	}
+	// Vetted transfer facts (when any) — the structured truth behind any transfer
+	// storyline. The narrator uses these names/direction/stage rather than guessing
+	// from a headline; the deterministic heat already ranks them in the drill-down.
+	if len(heat) > 0 {
+		b.WriteString("\nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n")
+		writeHeatLines(&b, heat)
 	}
 	b.WriteString("\nReturn the JSON object now.")
 	return b.String()

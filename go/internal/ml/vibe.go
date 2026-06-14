@@ -105,7 +105,7 @@ func (g *Generator) Generate(ctx context.Context, req VibeRequest) (*VibeResult,
 	if err != nil {
 		return nil, fmt.Errorf("load narratives: %w", err)
 	}
-	heat, err := g.loadTransferHeat(ctx, req.EntityType, req.EntityID, sport)
+	heat, err := loadTransferHeat(ctx, g.pool, req.EntityType, req.EntityID, sport)
 	if err != nil {
 		return nil, fmt.Errorf("load transfer heat: %w", err)
 	}
@@ -209,21 +209,10 @@ type tweetItem struct {
 	postedAt time.Time
 }
 
-// maxHeatItems bounds the transfer rumors shown to the vibe as the "transfer
-// temperature" signal alongside the narratives.
-const maxHeatItems = 6
-
 type narrativeItem struct {
 	title  string
 	body   string
 	impact int
-}
-
-type heatItem struct {
-	counterparty string
-	heat         int
-	stage        string
-	direction    string
 }
 
 // loadLatestNarratives returns the narratives from the entity's most recent
@@ -261,56 +250,6 @@ func (g *Generator) loadLatestNarratives(
 		ids = append(ids, nids...)
 	}
 	return out, dedupeInt64(ids), rows.Err()
-}
-
-// loadTransferHeat returns the entity's hottest active transfer/trade rumors
-// (latest per counterparty, heat > 0), naming the counterparty — the transfer
-// "temperature" the vibe weighs alongside the narratives. Branches on entity type
-// (a team's player rumors vs a player's suitor clubs).
-func (g *Generator) loadTransferHeat(
-	ctx context.Context, entityType string, entityID int, sport string,
-) ([]heatItem, error) {
-	q := `
-		SELECT counterparty, heat, stage, direction FROM (
-		    SELECT DISTINCT ON (tr.team_id)
-		           t.name AS counterparty, tr.heat,
-		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
-		           tr.generated_at
-		    FROM transfer_rumors tr
-		    JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
-		    WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
-		    ORDER BY tr.team_id, tr.generated_at DESC
-		) latest
-		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
-	if entityType == "team" {
-		q = `
-		SELECT counterparty, heat, stage, direction FROM (
-		    SELECT DISTINCT ON (tr.player_id)
-		           p.name AS counterparty, tr.heat,
-		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
-		           tr.generated_at
-		    FROM transfer_rumors tr
-		    JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
-		    WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
-		    ORDER BY tr.player_id, tr.generated_at DESC
-		) latest
-		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
-	}
-	rows, err := g.pool.Query(ctx, q, entityID, sport, maxHeatItems)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []heatItem
-	for rows.Next() {
-		var h heatItem
-		if err := rows.Scan(&h.counterparty, &h.heat, &h.stage, &h.direction); err != nil {
-			return nil, err
-		}
-		out = append(out, h)
-	}
-	return out, rows.Err()
 }
 
 func dedupeInt64(in []int64) []int64 {
@@ -357,16 +296,7 @@ func buildVibePrompt(req VibeRequest, narratives []narrativeItem, heat []heatIte
 	if len(heat) == 0 {
 		b.WriteString("- (none)\n")
 	} else {
-		for _, h := range heat {
-			line := fmt.Sprintf("- %s — heat %d", h.counterparty, h.heat)
-			if h.direction != "" {
-				line += ", " + h.direction
-			}
-			if h.stage != "" {
-				line += ", " + h.stage
-			}
-			b.WriteString(line + "\n")
-		}
+		writeHeatLines(&b, heat)
 	}
 
 	b.WriteString("\nReply with the sentiment score (1-100, exact value, not rounded) now.")

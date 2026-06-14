@@ -36,8 +36,8 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/albapepper/scoracle-data/internal/config"
+	"github.com/albapepper/scoracle-data/internal/corpus"
 	"github.com/albapepper/scoracle-data/internal/ml"
-	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 func main() {
@@ -110,7 +110,7 @@ func runSingle(
 	defer cancel()
 
 	sportUpper := strings.ToUpper(sport)
-	entityName, err := lookupEntityName(ctx, pool, entityType, entityID, sportUpper)
+	entityName, err := corpus.LookupEntityName(ctx, pool, entityType, entityID, sportUpper)
 	if err != nil {
 		logger.Error("entity lookup failed", "error", err)
 		os.Exit(1)
@@ -143,23 +143,6 @@ func runSingle(
 // Corpus mode — RSS sweep + corpus-driven Gemma queue
 // ---------------------------------------------------------------------------
 
-// corpusSweepTimeout caps the per-team RSS call. The default RSS HTTP client
-// already times out at 15s; this is the outer ctx budget per team.
-const corpusSweepTimeout = 30 * time.Second
-
-type corpusTeam struct {
-	id      int
-	sport   string
-	name    string
-	aliases []string
-}
-
-type corpusEntity struct {
-	entityType string
-	entityID   int
-	sport      string
-}
-
 func runCorpus(
 	pool *pgxpool.Pool, gen *ml.Generator,
 	sportArg string, skipRecentHours, throttleMs, rssPauseMs, rssLimit int,
@@ -170,49 +153,14 @@ func runCorpus(
 		sports = []string{strings.ToUpper(sportArg)}
 	}
 
-	news := thirdparty.NewNewsService(pool)
+	ctx := context.Background()
 
-	// Phase 1 — RSS sweep over every team in scope.
-	// `runStart` is the watermark that defines "fresh corpus from this run."
-	// Capture before the sweep so any link write inside persistArticles counts.
-	runStart := time.Now().UTC()
+	// Phase 1 — RSS sweep refreshes the corpus; runStart marks "fresh from this run".
+	runStart, _, _ := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
 
-	rssOK, rssFail := 0, 0
-	for _, sport := range sports {
-		teams, err := loadTeams(pool, sport)
-		if err != nil {
-			logger.Error("corpus: load teams failed", "sport", sport, "error", err)
-			continue
-		}
-		logger.Info("corpus: rss sweep starting", "sport", sport, "teams", len(teams))
-
-		for _, t := range teams {
-			ctx, cancel := context.WithTimeout(context.Background(), corpusSweepTimeout)
-			_, err := news.GetEntityNews(
-				ctx, "team", t.id, t.name, t.sport, "",
-				rssLimit, "", "", t.aliases,
-			)
-			cancel()
-			if err != nil {
-				rssFail++
-				logger.Warn("corpus: rss fetch failed",
-					"sport", sport, "team", t.name, "id", t.id, "error", err)
-			} else {
-				rssOK++
-			}
-			if rssPauseMs > 0 {
-				time.Sleep(time.Duration(rssPauseMs) * time.Millisecond)
-			}
-		}
-	}
-	logger.Info("corpus: rss sweep complete",
-		"ok", rssOK, "fail", rssFail, "elapsed", time.Since(runStart).Round(time.Second))
-
-	// Phase 2 — Gemma queue. Pick up every (entity_type, entity_id, sport)
-	// whose news_article_entities row is newer than runStart. That set
-	// includes the queried teams AND any players/teams co-mentioned in
-	// the article titles via persistArticles' cross-entity linking.
-	touched, err := loadTouchedEntities(pool, runStart, sports)
+	// Phase 2 — Gemma queue every entity whose corpus changed since runStart
+	// (the queried teams + any players/teams co-mentioned via cross-entity linking).
+	touched, err := corpus.LoadTouchedEntities(ctx, pool, runStart, sports)
 	if err != nil {
 		logger.Error("corpus: load touch-set failed", "error", err)
 		return
@@ -227,20 +175,22 @@ func runCorpus(
 			continue
 		}
 
-		name, err := lookupEntityNameCtx(pool, e.entityType, e.entityID, e.sport)
+		lctx, lcancel := context.WithTimeout(ctx, 5*time.Second)
+		name, err := corpus.LookupEntityName(lctx, pool, e.EntityType, e.EntityID, e.Sport)
+		lcancel()
 		if err != nil || name == "" {
 			fail++
 			logger.Warn("corpus: entity lookup failed",
-				"entity_type", e.entityType, "entity_id", e.entityID, "sport", e.sport, "error", err)
+				"entity_type", e.EntityType, "entity_id", e.EntityID, "sport", e.Sport, "error", err)
 			continue
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), gemmaTimeout+10*time.Second)
-		result, err := gen.Generate(ctx, ml.VibeRequest{
-			EntityType:  e.entityType,
-			EntityID:    e.entityID,
+		gctx, cancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
+		result, err := gen.Generate(gctx, ml.VibeRequest{
+			EntityType:  e.EntityType,
+			EntityID:    e.EntityID,
 			EntityName:  name,
-			Sport:       e.sport,
+			Sport:       e.Sport,
 			TriggerType: "periodic",
 		})
 		cancel()
@@ -249,7 +199,7 @@ func runCorpus(
 		case err != nil:
 			fail++
 			logger.Warn("corpus: generate failed",
-				"sport", e.sport, "entity", name, "id", e.entityID, "error", err)
+				"sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
 		case result.SkippedNoCorpus:
 			// Should be rare in corpus mode (we filtered to entities
 			// with fresh links), but the news lookback inside Generate
@@ -277,114 +227,9 @@ func runCorpus(
 		"total_elapsed", time.Since(runStart).Round(time.Second))
 }
 
-// loadTeams returns the team set we sweep RSS for. All teams in the sport,
-// regardless of tier — teams default to 'headliner' anyway and the count is
-// small (~30-100 per sport).
-func loadTeams(pool *pgxpool.Pool, sport string) ([]corpusTeam, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	rows, err := pool.Query(ctx, `
-		SELECT id, sport, name, COALESCE(search_aliases, ARRAY[]::text[])
-		FROM teams
-		WHERE sport = $1
-		ORDER BY id
-	`, sport)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []corpusTeam
-	for rows.Next() {
-		var t corpusTeam
-		if err := rows.Scan(&t.id, &t.sport, &t.name, &t.aliases); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, nil
-}
-
-// loadTouchedEntities returns the deduped set of entities to score this run.
-// Two sources are unioned:
-//
-//  1. from_run — entities with a news_article_entities row created at-or-after
-//     `since` whose linked article was published within ml.NewsLookback. The
-//     two filters together guarantee non-empty corpus inside Generate, so the
-//     corpus run never writes null-sentiment markers from this branch.
-//
-//  2. stale_teams — popular teams whose ML.NewsLookback corpus has any fresh
-//     article AND who haven't been scored in 18h. This rescues teams that get
-//     starved by from_run because users continuously hit /news/team/{id}
-//     between cron passes: by the time the noon RSS sweep runs, every Google
-//     News URL it tries to ingest is already in news_articles from a user
-//     fetch, so no new link rows appear in the run-start window and the team
-//     drops out. Teams-only keeps the rescue scope small (~30-100/sport);
-//     headliner players ride along via cross-entity linking in from_run, and
-//     real-time players get caught by the news-volume LISTEN/NOTIFY worker.
-//
-// An entity with only fresh links pointing to stale articles (e.g. RSS
-// just discovered a 3-week-old article that mentions player X) is dropped
-// here — stale evidence isn't worth Gemma's time, and writing a null row
-// would dilute the "no-corpus markers stop accumulating" property that
-// the corpus mode design promises.
-func loadTouchedEntities(pool *pgxpool.Pool, since time.Time, sports []string) ([]corpusEntity, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	lookbackSecs := int(ml.NewsLookback.Seconds())
-	rows, err := pool.Query(ctx, `
-		WITH from_run AS (
-			SELECT nae.entity_type, nae.entity_id, nae.sport
-			FROM news_article_entities nae
-			JOIN news_articles a ON a.id = nae.article_id
-			WHERE nae.created_at >= $1
-			  AND nae.sport = ANY($2::text[])
-			  AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
-			GROUP BY nae.entity_type, nae.entity_id, nae.sport
-		),
-		stale_teams AS (
-			SELECT 'team'::text AS entity_type, t.id AS entity_id, t.sport
-			FROM teams t
-			WHERE t.sport = ANY($2::text[])
-			  AND EXISTS (
-				  SELECT 1
-				  FROM news_article_entities nae
-				  JOIN news_articles a ON a.id = nae.article_id
-				  WHERE nae.entity_type = 'team' AND nae.entity_id = t.id AND nae.sport = t.sport
-					AND (a.published_at IS NULL OR a.published_at > NOW() - ($3 || ' seconds')::interval)
-				  LIMIT 1
-			  )
-			  AND NOT EXISTS (
-				  SELECT 1 FROM vibe_scores v
-				  WHERE v.entity_type = 'team' AND v.entity_id = t.id AND v.sport = t.sport
-					AND v.generated_at > NOW() - INTERVAL '18 hours'
-			  )
-		)
-		SELECT entity_type, entity_id, sport FROM from_run
-		UNION
-		SELECT entity_type, entity_id, sport FROM stale_teams
-		ORDER BY 3, 1, 2
-	`, since, sports, fmt.Sprintf("%d", lookbackSecs))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []corpusEntity
-	for rows.Next() {
-		var e corpusEntity
-		if err := rows.Scan(&e.entityType, &e.entityID, &e.sport); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, nil
-}
-
 // recentlyVibed checks whether this entity already has a vibe row within the
-// debounce window. Mirrors the milestone listener's check so noon and midnight
-// runs don't duplicate work.
-func recentlyVibed(pool *pgxpool.Pool, e corpusEntity, skipRecentHours int) bool {
+// debounce window so repeated runs don't duplicate work.
+func recentlyVibed(pool *pgxpool.Pool, e corpus.Entity, skipRecentHours int) bool {
 	if skipRecentHours <= 0 {
 		return false
 	}
@@ -397,34 +242,10 @@ func recentlyVibed(pool *pgxpool.Pool, e corpusEntity, skipRecentHours int) bool
 			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 			  AND generated_at > NOW() - ($4 || ' hours')::interval
 		)
-	`, e.entityType, e.entityID, e.sport, fmt.Sprintf("%d", skipRecentHours)).Scan(&exists)
+	`, e.EntityType, e.EntityID, e.Sport, fmt.Sprintf("%d", skipRecentHours)).Scan(&exists)
 	if err != nil {
 		// Fail open — better to over-generate than drop on a transient error.
 		return false
 	}
 	return exists
-}
-
-// lookupEntityNameCtx is the same as lookupEntityName but builds its own ctx
-// with a short timeout so a slow lookup doesn't stall a full corpus run.
-func lookupEntityNameCtx(pool *pgxpool.Pool, entityType string, id int, sport string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return lookupEntityName(ctx, pool, entityType, id, sport)
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-func lookupEntityName(ctx context.Context, pool *pgxpool.Pool, entityType string, id int, sport string) (string, error) {
-	var query string
-	if entityType == "player" {
-		query = `SELECT name FROM players WHERE id = $1 AND sport = $2`
-	} else {
-		query = `SELECT name FROM teams WHERE id = $1 AND sport = $2`
-	}
-	var name string
-	err := pool.QueryRow(ctx, query, id, sport).Scan(&name)
-	return name, err
 }

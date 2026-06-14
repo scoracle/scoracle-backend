@@ -94,6 +94,7 @@ func main() {
 		// starts (events are logged) so we observe spikes even when the
 		// model is offline.
 		var newsVolumeGen *ml.Generator
+		var newsVolumeNarrator *ml.NewsNarrator
 		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
 		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
 		if err := ollamaCli.Ping(pingCtx); err != nil {
@@ -102,12 +103,14 @@ func main() {
 		} else {
 			logger.Info("News-volume vibe enabled", "model", cfg.OllamaModel)
 			newsVolumeGen = ml.NewGenerator(dbPool, ollamaCli)
+			newsVolumeNarrator = ml.NewNewsNarrator(dbPool, ollamaCli)
 		}
 		pingCancel()
 
-		// Start LISTEN/NOTIFY consumers (one goroutine per channel).
+		// Start LISTEN/NOTIFY consumers (one goroutine per channel). On a news
+		// spike the news-volume worker refreshes narratives first, then vibe.
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
-		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeGen, logger)
+		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeNarrator, newsVolumeGen, logger)
 
 		// Transfer-rumor news-spike worker. Reuses the SAME ollamaCli (no second
 		// ping) — newsVolumeGen != nil is exactly "Ollama reachable". nil gen → the
@@ -142,6 +145,7 @@ func main() {
 		if !cfg.NewsScrubEnabled {
 			mc.NewsScrubInterval = 0 // disable the scrub ticker
 		}
+		mc.StatsInterval = cfg.PipelineStatsInterval
 		go maintenance.Start(ctx, dbPool, mc, newsScrubber, logger)
 
 		// Seed twitter_lists rows for configured sports so status endpoints can

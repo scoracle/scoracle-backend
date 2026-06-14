@@ -39,31 +39,24 @@ TZ=America/New_York
 0 4 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Vibe corpus — once daily, RSS-driven coverage of every team
+# Gemma pipeline corpus — the full staged chain, once daily overnight
 # ---------------------------------------------------------------------------
-# Corpus mode RSS-sweeps every team in NBA/NFL/FOOTBALL, then runs Gemma
-# only on entities that picked up fresh news in the sweep. No fixture filter,
-# no tier filter — so coverage doesn't collapse during offseason or for
-# eliminated teams. Cross-entity linking surfaces co-mentioned players for
-# free, so the player layer rides along without per-player RSS calls.
+# One process runs the stages IN ORDER so each enriches the next:
+#   sweep -> transfers -> narratives -> vibe
+# Stage 0 RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
+# coverage doesn't collapse in the offseason); the async scrub ticker vets the new
+# links. Stage 1 vets transfer heat off the scrubbed corpus. Stage 2 narrates the
+# touched entities (grounded on the fresh stage-1 heat). Stage 3 determines the
+# vibe from those narratives + heat. Cross-entity linking surfaces co-mentioned
+# players for free, so the player layer rides along without per-player RSS calls.
 #
-# One pass per day (midnight ET) gives every team a full overnight refresh.
-# The former noon pass is now redundant: the in-API news-spike LISTEN/NOTIFY
-# worker (5 articles in 60 min → immediate Gemma rescoring) covers breaking
-# cycles in real time, so we no longer need a second batch to stay within ~12h
-# of fresh news. -corpus-skip-recent-hours 10 (default) still guards against
-# re-scoring entities the spike worker just covered.
-0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibe.sh -mode corpus >> /home/sheneveld/scoracle/scoracle-backend/logs/vibe-corpus.log 2>&1
-
-# ---------------------------------------------------------------------------
-# Transfer / Trade rumor corpus — once daily, 30 min AFTER the vibe run
-# ---------------------------------------------------------------------------
-# Heat-scores (deterministic SQL) + Gemma-vets every team's co-mention transfer
-# candidates. Runs AFTER vibe so it reads the corpus the vibe RSS sweep just
-# refreshed, and is offset to ease the shared Archbox GPU. Real-time coverage
-# between runs is the in-API transfer news-spike worker (LISTEN transfer_trigger,
-# 60-min per-team debounce), so this batch only needs to run once a day.
-30 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-transfer.sh -mode corpus >> /home/sheneveld/scoracle/scoracle-backend/logs/transfer-corpus.log 2>&1
+# This REPLACES the former separate cron-vibe.sh + cron-transfer.sh entries —
+# running this alongside them would double-run vibe/transfer. One pass per day
+# (midnight ET) gives every team a full overnight refresh; the in-API
+# LISTEN/NOTIFY workers (news-volume -> narrate+vibe; transfer_trigger -> transfer)
+# cover breaking cycles in real time. Per-stage -*-skip-recent-hours 10 guards
+# against re-doing what a spike worker just covered.
+0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode corpus >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-corpus.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)

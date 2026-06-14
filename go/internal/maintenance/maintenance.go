@@ -24,6 +24,7 @@ type Config struct {
 	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
 	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
 	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
+	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
 }
 
 // DefaultConfig returns sensible production defaults.
@@ -37,6 +38,7 @@ func DefaultConfig() Config {
 		AlltimeRankInterval: 24 * time.Hour,
 		NewsScrubInterval:   30 * time.Minute,
 		NewsScrubBatch:      15,
+		StatsInterval:       24 * time.Hour,
 	}
 }
 
@@ -59,9 +61,10 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		"catchup", cfg.CatchUpInterval,
 		"tweet_ttl", cfg.TweetTTLInterval,
 		"tweet_age", cfg.TweetTTL,
-		"news_scrub", cfg.NewsScrubInterval)
+		"news_scrub", cfg.NewsScrubInterval,
+		"pipeline_stats", cfg.StatsInterval)
 
-	tickers := make([]*time.Ticker, 0, 6)
+	tickers := make([]*time.Ticker, 0, 7)
 	defer func() {
 		for _, t := range tickers {
 			t.Stop()
@@ -121,6 +124,16 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		go runLoop(ctx, t.C, "news_scrub", func() {
 			scrubNewsLinks(ctx, pool, scrubber, cfg.NewsScrubBatch, logger)
 		})
+	}
+
+	// Pipeline stats: the daily corpus snapshot (news + vibes + transfers growth +
+	// coverage) into pipeline_stats. Pure SQL — no Gemma, so it runs regardless of
+	// model availability. Once on startup for an immediate row, then on the interval.
+	if cfg.StatsInterval > 0 {
+		writePipelineStats(ctx, pool, logger)
+		t := time.NewTicker(cfg.StatsInterval)
+		tickers = append(tickers, t)
+		go runLoop(ctx, t.C, "pipeline_stats", func() { writePipelineStats(ctx, pool, logger) })
 	}
 
 	<-ctx.Done()
@@ -410,4 +423,91 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 	}
 	logger.Info("News scrub: swept",
 		"articles", articles, "kept", kept, "dropped", dropped, "failed", failed, "batch", batch)
+}
+
+// pipelineStatsSports are the sports a daily pipeline_stats snapshot is written for.
+var pipelineStatsSports = []string{"NBA", "NFL", "FOOTBALL"}
+
+// writePipelineStats upserts one pipeline_stats row per (sport, today) capturing
+// the corpus asset's daily size + coverage: article counts, the count of entities
+// with a CURRENT (<24h) narrative / vibe, the number of distinct ACTIVE transfer
+// pairs (latest generation, heat > 0, within 14d — not raw append rows), and
+// coverage/staleness of vibe analysis over the in-scope (fresh-news) entity set.
+// Pure SQL, idempotent per day (ON CONFLICT upsert).
+func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	const upsert = `
+		INSERT INTO pipeline_stats (
+		    sport, snapshot_date,
+		    total_articles, new_articles,
+		    entities_with_summary, entities_with_vibe, transfer_rumors_active,
+		    coverage_pct, median_staleness_hours
+		)
+		SELECT
+		    $1, CURRENT_DATE,
+		    art.total_articles, art.new_articles,
+		    cov.entities_with_summary, cov.entities_with_vibe, tr.active,
+		    cov.coverage_pct, cov.median_staleness_hours
+		FROM
+		(
+		    SELECT count(DISTINCT article_id) AS total_articles,
+		           count(DISTINCT article_id) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') AS new_articles
+		    FROM news_article_entities WHERE sport = $1
+		) art,
+		(
+		    SELECT count(*) AS active FROM (
+		        SELECT DISTINCT ON (team_id, player_id) heat, generated_at
+		        FROM transfer_rumors WHERE sport = $1
+		        ORDER BY team_id, player_id, generated_at DESC
+		    ) latest
+		    WHERE heat > 0 AND generated_at > NOW() - INTERVAL '14 days'
+		) tr,
+		(
+		    WITH in_scope AS (
+		        SELECT DISTINCT nae.entity_type, nae.entity_id
+		        FROM news_article_entities nae JOIN news_articles a ON a.id = nae.article_id
+		        WHERE nae.sport = $1 AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
+		          AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours')
+		    ),
+		    lv AS (
+		        SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, generated_at
+		        FROM vibe_scores WHERE sport = $1 AND sentiment IS NOT NULL
+		        ORDER BY entity_type, entity_id, generated_at DESC
+		    ),
+		    ls AS (
+		        SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, generated_at
+		        FROM news_summaries WHERE sport = $1 AND body IS NOT NULL
+		        ORDER BY entity_type, entity_id, generated_at DESC
+		    )
+		    SELECT
+		        (SELECT count(*) FROM ls WHERE generated_at > NOW() - INTERVAL '24 hours') AS entities_with_summary,
+		        (SELECT count(*) FROM lv WHERE generated_at > NOW() - INTERVAL '24 hours') AS entities_with_vibe,
+		        CASE WHEN (SELECT count(*) FROM in_scope) > 0
+		            THEN round(100.0 * (SELECT count(*) FROM in_scope i JOIN lv ON lv.entity_type = i.entity_type AND lv.entity_id = i.entity_id
+		                                 WHERE lv.generated_at > NOW() - INTERVAL '24 hours')
+		                        / (SELECT count(*) FROM in_scope), 2)
+		            ELSE NULL END AS coverage_pct,
+		        (SELECT round(percentile_cont(0.5) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM (NOW() - lv.generated_at)) / 3600.0)::numeric, 2)
+		            FROM in_scope i JOIN lv ON lv.entity_type = i.entity_type AND lv.entity_id = i.entity_id) AS median_staleness_hours
+		) cov
+		ON CONFLICT (sport, snapshot_date) DO UPDATE SET
+		    total_articles         = EXCLUDED.total_articles,
+		    new_articles           = EXCLUDED.new_articles,
+		    entities_with_summary  = EXCLUDED.entities_with_summary,
+		    entities_with_vibe     = EXCLUDED.entities_with_vibe,
+		    transfer_rumors_active = EXCLUDED.transfer_rumors_active,
+		    coverage_pct           = EXCLUDED.coverage_pct,
+		    median_staleness_hours = EXCLUDED.median_staleness_hours,
+		    generated_at           = NOW()`
+
+	var written int
+	for _, sport := range pipelineStatsSports {
+		if _, err := pool.Exec(ctx, upsert, sport); err != nil {
+			logger.Warn("Pipeline stats: upsert failed", "sport", sport, "error", err)
+			continue
+		}
+		written++
+	}
+	if written > 0 {
+		logger.Info("Pipeline stats: daily snapshot written", "sports", written)
+	}
 }

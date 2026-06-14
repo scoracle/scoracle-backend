@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
 // Config controls maintenance task intervals. Zero duration disables a task.
@@ -20,6 +22,8 @@ type Config struct {
 	TweetTTLInterval    time.Duration // X tweet purge cadence
 	TweetTTL            time.Duration // How long tweets live before being purged
 	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
+	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
+	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
 }
 
 // DefaultConfig returns sensible production defaults.
@@ -31,8 +35,16 @@ func DefaultConfig() Config {
 		TweetTTLInterval:    1 * time.Hour,
 		TweetTTL:            24 * time.Hour,
 		AlltimeRankInterval: 24 * time.Hour,
+		NewsScrubInterval:   30 * time.Minute,
+		NewsScrubBatch:      15,
 	}
 }
+
+// newsScrubPrimaryBatch bounds the cheap per-tick auto-vet of primary links
+// (match_confidence >= 1.0 — deterministically relevant, no Gemma). Generous
+// because it's a single-column SQL UPDATE on uncontended rows; drains the
+// backlog over a few ticks without ever holding a large lock.
+const newsScrubPrimaryBatch = 20000
 
 // alltimeRankSports are the sports whose season_composite_rank_alltime is
 // recomputed on the AlltimeRankInterval cadence.
@@ -40,15 +52,16 @@ var alltimeRankSports = []string{"NBA", "NFL", "FOOTBALL"}
 
 // Start launches all configured maintenance tickers. Blocks until ctx is
 // cancelled. Intended to be called with `go`.
-func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
+func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.NewsScrubber, logger *slog.Logger) {
 	logger.Info("Maintenance tickers started",
 		"cleanup", cfg.CleanupInterval,
 		"digest", cfg.DigestInterval,
 		"catchup", cfg.CatchUpInterval,
 		"tweet_ttl", cfg.TweetTTLInterval,
-		"tweet_age", cfg.TweetTTL)
+		"tweet_age", cfg.TweetTTL,
+		"news_scrub", cfg.NewsScrubInterval)
 
-	tickers := make([]*time.Ticker, 0, 4)
+	tickers := make([]*time.Ticker, 0, 6)
 	defer func() {
 		for _, t := range tickers {
 			t.Stop()
@@ -97,6 +110,17 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		t := time.NewTicker(cfg.AlltimeRankInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "alltime_rank", func() { recalcAlltimeRanks(ctx, pool, logger) })
+	}
+
+	// News scrub: the Gemma ID-gate sweep over unscrubbed news_article_entities
+	// links. Skipped when Ollama is unreachable (scrubber == nil) so a model
+	// outage never stalls the rest of maintenance.
+	if cfg.NewsScrubInterval > 0 && scrubber != nil {
+		t := time.NewTicker(cfg.NewsScrubInterval)
+		tickers = append(tickers, t)
+		go runLoop(ctx, t.C, "news_scrub", func() {
+			scrubNewsLinks(ctx, pool, scrubber, cfg.NewsScrubBatch, logger)
+		})
 	}
 
 	<-ctx.Done()
@@ -290,4 +314,100 @@ func catchUpSweep(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) 
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("Catch-up sweep: created missed notifications", "count", tag.RowsAffected())
 	}
+}
+
+// scrubNewsLinks is the Gemma ID-gate sweep — the async "scrub". Two bounded,
+// non-destructive phases per tick:
+//
+//  1. Auto-vet primaries (cheap SQL, no Gemma): links at match_confidence >= 1.0
+//     are the entity the article was fetched for — deterministically relevant, no
+//     disambiguation needed. Stamp them vetted=true in one bounded UPDATE.
+//  2. Gemma pass: take the newest `batch` candidate-rich articles (those with an
+//     unscrubbed SECONDARY link, conf < 1.0 — the ones that actually need
+//     disambiguation) and scrub each serially, writing vetted verdicts.
+//
+// Newest-first so the recent window the consumers read stays scrubbed; the
+// ancient tail is harmless (consumers filter by recency). Serial Gemma calls keep
+// us a good GPU citizen — Ollama serializes anyway, so a reactive vibe/transfer
+// spike just waits one call. A single article's error is logged and skipped; the
+// sweep never aborts mid-batch.
+func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsScrubber, batch int, logger *slog.Logger) {
+	if scrubber == nil || batch <= 0 {
+		return
+	}
+
+	// Phase 1 — auto-vet unscrubbed primaries (bounded, no Gemma).
+	if tag, err := pool.Exec(ctx, `
+		WITH b AS (
+			SELECT ctid FROM news_article_entities
+			 WHERE scrubbed_at IS NULL AND match_confidence >= 1.0
+			 LIMIT $1
+		)
+		UPDATE news_article_entities n
+		   SET vetted = TRUE, scrubbed_at = NOW()
+		  FROM b WHERE n.ctid = b.ctid`, newsScrubPrimaryBatch); err != nil {
+		logger.Warn("News scrub: auto-vet primaries failed", "error", err)
+	} else if tag.RowsAffected() > 0 {
+		logger.Info("News scrub: auto-vetted primary links", "count", tag.RowsAffected())
+	}
+
+	// Phase 2 — collect the newest candidate-rich articles (one row per article;
+	// drained into a slice before the slow Gemma loop so we don't hold a cursor).
+	type job struct {
+		id    int64
+		sport string
+	}
+	var jobs []job
+	rows, err := pool.Query(ctx, `
+		SELECT nae.article_id, nae.sport
+		FROM news_article_entities nae
+		JOIN news_articles a ON a.id = nae.article_id
+		WHERE nae.scrubbed_at IS NULL AND nae.match_confidence < 1.0
+		GROUP BY nae.article_id, nae.sport, a.published_at
+		ORDER BY a.published_at DESC NULLS LAST
+		LIMIT $1`, batch)
+	if err != nil {
+		logger.Warn("News scrub: candidate query failed", "error", err)
+		return
+	}
+	for rows.Next() {
+		var j job
+		if err := rows.Scan(&j.id, &j.sport); err != nil {
+			rows.Close()
+			logger.Warn("News scrub: scan failed", "error", err)
+			return
+		}
+		jobs = append(jobs, j)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		logger.Warn("News scrub: candidate rows error", "error", err)
+		return
+	}
+	if len(jobs) == 0 {
+		return
+	}
+
+	var articles, kept, dropped, failed int
+	for _, j := range jobs {
+		if ctx.Err() != nil {
+			break
+		}
+		res, err := scrubber.ScrubArticle(ctx, j.id, j.sport, false /* persist */)
+		if err != nil {
+			failed++
+			logger.Warn("News scrub: article failed", "article_id", j.id, "sport", j.sport, "error", err)
+			continue
+		}
+		articles++
+		for _, v := range res.Verdicts {
+			if v.Relevant {
+				kept++
+			} else {
+				dropped++
+			}
+		}
+	}
+	logger.Info("News scrub: swept",
+		"articles", articles, "kept", kept, "dropped", dropped, "failed", failed, "batch", batch)
 }

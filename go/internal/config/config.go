@@ -53,6 +53,13 @@ type Config struct {
 	TransferMinArticles   int           // candidate pre-filter
 	TransferMaxConcurrent int           // global cap on concurrent team analyses (shared GPU)
 
+	// News scrub sweep (Gemma ID-gate over unscrubbed news_article_entities
+	// links). Runs as a maintenance ticker: auto-vets primaries (cheap SQL) +
+	// disambiguates candidate-rich secondaries via Gemma. See ml/news_scrub.go.
+	NewsScrubEnabled  bool          // master switch (default true)
+	NewsScrubInterval time.Duration // sweep cadence
+	NewsScrubBatch    int           // max candidate-rich articles Gemma-scrubbed per tick
+
 	// Cache
 	CacheEnabled bool
 
@@ -121,6 +128,10 @@ func Load() (*Config, error) {
 		TransferDebounce:      time.Duration(envInt("TRANSFER_DEBOUNCE_MINUTES", 60)) * time.Minute,
 		TransferMinArticles:   envInt("TRANSFER_MIN_ARTICLES", 2),
 		TransferMaxConcurrent: envInt("TRANSFER_MAX_CONCURRENT", 2),
+
+		NewsScrubEnabled:  envBool("NEWS_SCRUB_ENABLED", true),
+		NewsScrubInterval: time.Duration(envInt("NEWS_SCRUB_INTERVAL_MINUTES", 30)) * time.Minute,
+		NewsScrubBatch:    envInt("NEWS_SCRUB_BATCH", 15),
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

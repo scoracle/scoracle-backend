@@ -128,8 +128,21 @@ func main() {
 			}, logger)
 		}
 
-		// Start maintenance tickers (cleanup, digest, catch-up sweep)
-		go maintenance.Start(ctx, dbPool, maintenance.DefaultConfig(), logger)
+		// News scrub sweep (Gemma ID-gate). Reuses the SAME ollamaCli; nil when
+		// Ollama is unreachable (newsVolumeGen == nil) → maintenance skips the sweep.
+		var newsScrubber *ml.NewsScrubber
+		if newsVolumeGen != nil {
+			newsScrubber = ml.NewNewsScrubber(dbPool, ollamaCli)
+		}
+
+		// Start maintenance tickers (cleanup, digest, catch-up, ranks, news scrub)
+		mc := maintenance.DefaultConfig()
+		mc.NewsScrubInterval = cfg.NewsScrubInterval
+		mc.NewsScrubBatch = cfg.NewsScrubBatch
+		if !cfg.NewsScrubEnabled {
+			mc.NewsScrubInterval = 0 // disable the scrub ticker
+		}
+		go maintenance.Start(ctx, dbPool, mc, newsScrubber, logger)
 
 		// Seed twitter_lists rows for configured sports so status endpoints can
 		// report cold-cache state before the first refresh.

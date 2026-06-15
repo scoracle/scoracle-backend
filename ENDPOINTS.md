@@ -433,6 +433,13 @@ Response includes:
 - `stat_definitions` - All stat keys with display names and categories
 - `leagues` - League information (populated for multi-league sports like football)
 
+### `GET /api/v1/{sport}/autofill`
+
+The sport's **autofill / instant-search index** — its dedicated home in the two-rail model. Returns the **same payload** as `/{sport}/meta` today (same `{sport}_meta_page` statement, same `league_id` query param). The split exists because `/meta` is being repurposed to per-entity metadata (`/{sport}/{entityType}/{id}/meta`); the search index lives here. **Additive** — `/{sport}/meta` keeps serving until the frontend's search migrates to `/autofill`, then it's retired.
+
+Query parameters:
+- `league_id` (optional integer) - Scope to specific league
+
 ### `GET /api/v1/{sport}/health`
 
 Returns sport-level data freshness and counts.

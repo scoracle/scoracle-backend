@@ -611,6 +611,36 @@ func (h *Handler) GetMetaPage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
 }
 
+// GetAutofill returns the sport's instant-search / autofill index — the payload the
+// frontend bundles for zero-latency search. Same data the legacy /{sport}/meta route
+// serves today; this is its dedicated home in the two-rail model (where /meta is
+// repurposed to per-entity metadata). Additive: /{sport}/meta stays until the
+// frontend's search migrates here, then it's retired.
+// @Summary Get the sport autofill/search index
+// @Description The sport's autofill + search payload for frontend local hydration — the dedicated home for what /meta historically served.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/autofill [get]
+func (h *Handler) GetAutofill(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+
+	stmt := sport + "_meta_page"
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
+}
+
 // GetLeagueMetaPage returns league-scoped metadata payload for a sport.
 // @Summary Get league meta page
 // @Description Returns metadata and search payload for a specific league.

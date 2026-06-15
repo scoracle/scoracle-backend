@@ -116,6 +116,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// News rail (two-rail model): narratives + transfer scope + vibe in one payload.
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNewsRail)
 			r.Get("/meta", h.GetMetaPage)
+			// Autofill/search index — the dedicated home for what /meta serves today
+			// (two-rail split; /meta becomes per-entity metadata, this stays the search index).
+			r.Get("/autofill", h.GetAutofill)
 			r.Get("/health", h.GetSportHealthPage)
 			r.Get("/leaderboard", h.GetLeaderboard)
 			r.Get("/leaderboard/vibes", h.GetVibesLeaderboard)

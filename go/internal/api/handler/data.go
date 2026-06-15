@@ -512,6 +512,41 @@ func (h *Handler) GetPlayerSuitors(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "player_suitors", dataCacheKey(r), cache.TTLData, false, sport, id)
 }
 
+// GetEntityNewsRail returns the entity's NEWS RAIL in one payload (the two-rail
+// model): the latest Gemma narratives (hottest first), the transfer scope (a
+// team's player rumors / a player's suitor clubs), and the vibe (current + a
+// bounded history for the sparkline). Consolidates the split /news + /vibe +
+// /transfers reads — cards render slices of this rail.
+// @Summary Get the entity news rail (narratives + transfers + vibe)
+// @Description One payload for the news rail: the entity's latest narratives (hottest first), its transfer scope (team→player rumors, player→suitor clubs), and its vibe sentiment (current + history for the sparkline).
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/news [get]
+func (h *Handler) GetEntityNewsRail(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "entity_news_rail", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
 // GetLeagueTeamResults returns league-scoped team season results.
 // @Summary Get league team season results
 // @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.

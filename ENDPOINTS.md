@@ -491,6 +491,8 @@ apps; NFL ≥8 GP (players). Teams: all rated.
 The board view. Each row carries **both** Composite and Specialist (+ specialty), so one
 payload feeds the board and a meta card.
 
+**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, or `transfers`. The dedicated `/leaderboard/{board}` routes below remain for now (the frontend will migrate to `?board=`, then they're retired). The **`news` board now ranks the hottest Gemma narratives by per-narrative impact** (each row = an entity's top current narrative), superseding the old raw mention-count board.
+
 #### Query parameters
 
 | Param | Type | Default | Notes |
@@ -579,14 +581,15 @@ one row shape shared with the news board below.
 
 ### `GET /api/v1/{sport}/leaderboard/news`
 
-The sport-wide **news** board — the most-mentioned entities, ranked by the count of
-distinct article links (`news_article_entities`) in a rolling window. Same enriched row
-shape as the vibe board, with `score` = mention count.
+The sport-wide **news** board — the **hottest Gemma narratives**, ranked by per-narrative
+`impact`. Each row is an entity's TOP current narrative (latest generation, ≤7 days), enriched
+like the vibe board (player/team name, image, current club) plus `narrative_title`, `body`, and
+`score` = impact. Supersedes the old mention-count board (`news_article_entities`). Also reachable
+as `/leaderboard?board=news`.
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `entity_type` | string | both | `player` or `team`; omit for a mixed board. |
-| `days` | integer | `30` | Rolling window in days. |
 | `limit` | integer | `50` | Max rows. |
 
 ```jsonc

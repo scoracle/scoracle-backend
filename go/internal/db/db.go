@@ -1014,6 +1014,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				) seasons
 			), '{}'::int[]),
 			'rating', (SELECT row_to_json(season_rating) FROM season_rating),
+			-- Stats-rail commentary (the on-field identity analysis) for the resolved
+			-- season — so the Special card reads it from its existing sparkline fetch.
+			-- NULL until the stat-commentary backfill reaches this entity-season.
+			'commentary', (
+				SELECT row_to_json(c) FROM (
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at
+					FROM public.stat_summaries s
+					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
+					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick) AND s.body IS NOT NULL
+					ORDER BY s.generated_at DESC LIMIT 1
+				) c
+			),
 			'events', COALESCE(
 				(SELECT json_agg(row_to_json(es) ORDER BY es.start_time) FROM event_series es),
 				'[]'::json

@@ -523,6 +523,57 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// distinct article links per entity from news_article_entities, joined to
 		// players/teams for the same enriched row shape as the vibes board.
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 window days (NULL ⇒ 30).
+		// Narratives leaderboard (two-rail model) — the sport's HOTTEST narratives:
+		// each entity's TOP current narrative (latest generation, <=7d) ranked by impact.
+		// Supersedes the raw mention-count news board. Mirrors vibes_leaderboard enrichment.
+		// $1 sport · $2 limit · $3 entity_type.
+		"narratives_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
+		),
+		latest AS (
+			SELECT DISTINCT ON (ns.entity_type, ns.entity_id)
+			       ns.entity_type, ns.entity_id, ns.narrative_title, ns.body, ns.impact, ns.generated_at
+			FROM public.news_summaries ns, req
+			WHERE ns.sport = req.sport
+			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
+			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
+			  AND ns.generated_at > NOW() - INTERVAL '7 days'
+			ORDER BY ns.entity_type, ns.entity_id, ns.generated_at DESC, ns.impact DESC
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			FROM (
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.narrative_title, l.body, l.impact AS score, l.generated_at
+				FROM latest l
+				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN LATERAL (
+				    SELECT ps.team_id FROM public.player_stats ps
+				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'player'
+				UNION ALL
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.narrative_title, l.body, l.impact AS score, l.generated_at
+				FROM latest l
+				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'team'
+			) u
+			ORDER BY u.score DESC, u.generated_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'news_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
+		)`,
+
 		"news_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,

@@ -140,6 +140,26 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Two-rail consolidation: one endpoint, many boards via ?board=. Delegate the
+	// non-rating boards to their handlers; fall through to the rating board (the
+	// default) below. The dedicated /leaderboard/{board} routes remain for now.
+	switch strings.ToLower(strings.TrimSpace(r.URL.Query().Get("board"))) {
+	case "", "rating":
+		// rating board — handled below
+	case "vibes":
+		h.GetVibesLeaderboard(w, r)
+		return
+	case "news":
+		h.GetNewsLeaderboard(w, r)
+		return
+	case "transfers":
+		h.GetTransfersLeaderboard(w, r)
+		return
+	default:
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, news, transfers")
+		return
+	}
+
 	season, ok := optionalIntQuery(w, r, "season")
 	if !ok {
 		return
@@ -220,15 +240,13 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	days, ok := optionalIntQuery(w, r, "days")
-	if !ok {
-		return
-	}
-
 	entityType := optionalTextQuery(r, "entity_type")
 
-	h.serveStatementJSON(w, r, "news_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, days)
+	// Two-rail model: the news board is now the hottest NARRATIVES (ranked by
+	// per-narrative impact), not raw mention counts. narratives_leaderboard
+	// supersedes the old news_leaderboard (which read news_article_entities).
+	h.serveStatementJSON(w, r, "narratives_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType)
 }
 
 // GetTransfersLeaderboard returns the sport-wide transfer board: Gemma-vetted

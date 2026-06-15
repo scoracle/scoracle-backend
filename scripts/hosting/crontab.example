@@ -59,6 +59,18 @@ TZ=America/New_York
 0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode corpus >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-corpus.log 2>&1
 
 # ---------------------------------------------------------------------------
+# Stats-rail commentary — nightly, current season, regenerate only on new data
+# ---------------------------------------------------------------------------
+# The on-field IDENTITY analysis (the stats-rail twin of the news narrative).
+# Stats only move on game days, so -mode nightly enumerates the current season's
+# rated entities and regenerates one ONLY when its rating snapshot changed
+# (input_hash differs) — most nights just the entities who played. Runs at 03:00,
+# after the news pipeline (00:00) and the football drain (23:00) so ratings are
+# fresh, and offset to ease the shared Archbox GPU. Previous seasons are immutable
+# and backfilled ONCE out of band (cron-statcommentary.sh -mode backfill).
+0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-statcommentary.sh -mode nightly >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)
 # ---------------------------------------------------------------------------
 # Rankings shift as the season progresses. One cheap SQL function call per

@@ -19,6 +19,8 @@ package ml
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,19 +50,27 @@ type StatCommentaryRequest struct {
 	EntityID    int
 	EntityName  string
 	Sport       string         // 'NBA' | 'NFL' | 'FOOTBALL'
+	Season      *int           // nil = the entity's latest season
 	TriggerType string         // 'stat_change' | 'periodic' | 'manual'
 	Trigger     map[string]any // optional context
 	DryRun      bool           // skip persistence (the profile is still loaded + scored)
+	// SkipUnchanged returns early (SkippedUnchanged) without a Gemma call when the
+	// entity-season's last commentary was built from the same rating snapshot
+	// (matching input_hash). The nightly cadence's "only work on new data" gate.
+	SkipUnchanged bool
 }
 
 // StatCommentaryResult is what Generate produces. SkippedNoStats is true when the
-// entity has no usable rating row (a NULL-body marker is persisted).
+// entity has no usable rating row; SkippedUnchanged when SkipUnchanged short-circuited.
 type StatCommentaryResult struct {
 	Body                 string
 	Notability           int
 	NotabilityComponents map[string]any
 	InputComponents      map[string]any
+	Season               int
+	InputHash            string
 	SkippedNoStats       bool
+	SkippedUnchanged     bool
 	Model                string
 	PromptVersion        string
 	GeneratedAt          time.Time
@@ -90,17 +100,18 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 	sport := strings.ToUpper(req.Sport)
 	now := time.Now()
 
-	profile, err := loadRatingProfile(ctx, a.pool, req.EntityType, req.EntityID, sport)
+	profile, err := loadRatingProfile(ctx, a.pool, req.EntityType, req.EntityID, sport, req.Season)
 	if err != nil {
 		return nil, fmt.Errorf("load rating profile: %w", err)
 	}
 
 	// No usable rating (no row, or a row with no composite + empty breakdown) →
 	// persist a NULL-body marker so the read path returns "no profile" and the
-	// debounce skips until the rating changes.
+	// cadence skips until the rating changes.
 	if profile == nil || (profile.compositeScore == nil && len(profile.breakdown) == 0) {
 		res := &StatCommentaryResult{
 			SkippedNoStats: true,
+			Season:         derefOrZero(req.Season),
 			Model:          a.ollama.Model(),
 			PromptVersion:  statCommentaryPromptVersion,
 			GeneratedAt:    now,
@@ -111,6 +122,24 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 			}
 		}
 		return res, nil
+	}
+
+	// Build the grounding facts + their hash up front so the nightly cadence can
+	// skip the (expensive) Gemma call when the rating snapshot is unchanged.
+	ic := profile.inputComponents()
+	hash := hashComponents(ic)
+	if req.SkipUnchanged {
+		last, err := a.lastCommentaryHash(ctx, req.EntityType, req.EntityID, sport, profile.season)
+		if err == nil && last != "" && last == hash {
+			return &StatCommentaryResult{
+				SkippedUnchanged: true,
+				Season:           profile.season,
+				InputHash:        hash,
+				Model:            a.ollama.Model(),
+				PromptVersion:    statCommentaryPromptVersion,
+				GeneratedAt:      now,
+			}, nil
+		}
 	}
 
 	notability, ncomp := computeNotability(profile)
@@ -137,7 +166,9 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 		Body:                 body,
 		Notability:           notability,
 		NotabilityComponents: ncomp,
-		InputComponents:      profile.inputComponents(),
+		InputComponents:      ic,
+		Season:               profile.season,
+		InputHash:            hash,
 		Model:                gen.Model,
 		PromptVersion:        statCommentaryPromptVersion,
 		GeneratedAt:          now,
@@ -183,9 +214,10 @@ type ratingProfile struct {
 	rateModes       map[string][]ratingDatapoint // rating_modes — per-x breakdowns (per_36, per_90, …)
 }
 
-// loadRatingProfile reads the entity's latest unscoped (league_id 0/NULL) rating
-// row. Returns nil when there is no rating row at all.
-func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string) (*ratingProfile, error) {
+// loadRatingProfile reads the entity's rating row for `season` (nil = latest).
+// Prefers the unscoped row, falling back to the richest league row. Returns nil
+// when there is no rating row at all.
+func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string, season *int) (*ratingProfile, error) {
 	var idCol string
 	switch entityType {
 	case "player":
@@ -210,7 +242,7 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 		       COALESCE(rating_breakdown, '[]'::jsonb), COALESCE(rating_scoped_ranks, '{}'::jsonb),
 		       COALESCE(rating_modes, '{}'::jsonb)
 		FROM public.%s
-		WHERE sport = $1 AND %s = $2
+		WHERE sport = $1 AND %s = $2 AND ($3::int IS NULL OR season = $3)
 		ORDER BY season DESC,
 		         (COALESCE(league_id, 0) = 0) DESC,
 		         jsonb_array_length(COALESCE(rating_breakdown, '[]'::jsonb)) DESC,
@@ -223,7 +255,7 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 		scopedRaw    []byte
 		modesRaw     []byte
 	)
-	err := pool.QueryRow(ctx, q, sport, entityID).Scan(
+	err := pool.QueryRow(ctx, q, sport, entityID, season).Scan(
 		&p.season, &p.position,
 		&p.compositeScore, &p.specialistScore, &p.specialty,
 		&breakdownRaw, &scopedRaw, &modesRaw,
@@ -495,17 +527,65 @@ func (a *StatCommentator) persist(ctx context.Context, req StatCommentaryRequest
 		body = res.Body
 		notability = res.Notability
 	}
+	var season any
+	if res.Season > 0 {
+		season = res.Season
+	}
+	var inputHash any
+	if res.InputHash != "" {
+		inputHash = res.InputHash
+	}
 
 	_, err = a.pool.Exec(ctx, `
 		INSERT INTO stat_summaries (
-		    entity_type, entity_id, sport, trigger_type, trigger_payload,
-		    body, notability, notability_components, input_components,
+		    entity_type, entity_id, sport, season, trigger_type, trigger_payload,
+		    body, notability, notability_components, input_components, input_hash,
 		    model_version, prompt_version, generated_at
-		) VALUES ($1,$2,$3,$4,$5, $6,$7,$8,$9, $10,$11,$12)`,
-		req.EntityType, req.EntityID, sport, req.TriggerType, triggerJSON,
-		body, notability, ncomp, icomp,
+		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14)`,
+		req.EntityType, req.EntityID, sport, season, req.TriggerType, triggerJSON,
+		body, notability, ncomp, icomp, inputHash,
 		res.Model, statCommentaryPromptVersion, res.GeneratedAt)
 	return err
+}
+
+// lastCommentaryHash returns the input_hash of the entity-season's most recent
+// real (non-marker) commentary, or "" if none — the nightly skip signal.
+func (a *StatCommentator) lastCommentaryHash(ctx context.Context, entityType string, entityID int, sport string, season int) (string, error) {
+	var hash *string
+	err := a.pool.QueryRow(ctx, `
+		SELECT input_hash FROM stat_summaries
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+		  AND body IS NOT NULL
+		ORDER BY generated_at DESC
+		LIMIT 1`, entityType, entityID, sport, season).Scan(&hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if hash == nil {
+		return "", nil
+	}
+	return *hash, nil
+}
+
+// hashComponents is a stable hash of the grounding facts. encoding/json marshals
+// map keys in sorted order, so the same rating snapshot always hashes the same.
+func hashComponents(ic map[string]any) string {
+	b, err := json.Marshal(orEmptyMap(ic))
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:16]) // 128-bit prefix is ample for a change signal
+}
+
+func derefOrZero(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
 }
 
 // ---------------------------------------------------------------------------

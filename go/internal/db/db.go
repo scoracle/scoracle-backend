@@ -574,66 +574,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
 		)`,
 
-		"news_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport,
-			       COALESCE($2::int, 50) AS lim,
-			       NULLIF(lower($3::text), '') AS entity_type,
-			       COALESCE($4::int, 30) AS window_days
-		),
-		counts AS (
-			SELECT nae.entity_type, nae.entity_id,
-			       COUNT(DISTINCT nae.article_id) AS mentions,
-			       MAX(nae.created_at) AS latest_at
-			FROM public.news_article_entities nae, req
-			WHERE nae.sport = req.sport
-			  AND (req.entity_type IS NULL OR nae.entity_type = req.entity_type)
-			  AND nae.created_at > NOW() - make_interval(days => req.window_days)
-			  -- Scrub gate (transition): count only Gemma-vetted or not-yet-scrubbed
-			  -- links, so "most mentioned" reflects real coverage, not fuzzy noise.
-			  AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
-			GROUP BY nae.entity_type, nae.entity_id
-		),
-		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.latest_at DESC) AS rank
-			FROM (
-				-- PLAYER
-				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
-				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       c.mentions AS score, c.latest_at
-				FROM counts c
-				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
-				-- current club: latest-season player_stats.team_id (canonical:
-				-- public.player_current_team), NOT players.team_id which is last-seeded.
-				LEFT JOIN LATERAL (
-				    SELECT ps.team_id FROM public.player_stats ps
-				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
-				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
-				WHERE c.entity_type = 'player'
-				UNION ALL
-				-- TEAM
-				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
-				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       c.mentions AS score, c.latest_at
-				FROM counts c
-				JOIN public.teams t ON t.id = c.entity_id AND t.sport = (SELECT sport FROM req)
-				WHERE c.entity_type = 'team'
-			) u
-			ORDER BY u.score DESC, u.latest_at DESC
-			LIMIT (SELECT lim FROM req)
-		)
-		SELECT json_build_object(
-			'page', 'news_leaderboard',
-			'sport', lower((SELECT sport FROM req)),
-			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
-			'window_days', (SELECT window_days FROM req),
-			'count', (SELECT count(*) FROM ranked),
-			'leaders', COALESCE(
-				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
-				'[]'::json
-			)
-		)`,
 
 		// Transfers leaderboard — the sport-wide "hottest rumors" board. The
 		// sport-scoped sibling of team_transfers/player_suitors: latest row per

@@ -66,9 +66,12 @@ TZ=America/New_York
 # rated entities and regenerates one ONLY when its rating snapshot changed
 # (input_hash differs) — most nights just the entities who played. Runs at 03:00,
 # after the news pipeline (00:00) and the football drain (23:00) so ratings are
-# fresh, and offset to ease the shared Archbox GPU. Previous seasons are immutable
-# and backfilled ONCE out of band (cron-statcommentary.sh -mode backfill).
-0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-statcommentary.sh -mode nightly >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
+# fresh, and offset to ease the shared Archbox GPU. -limit caps GENERATIONS (Gemma
+# calls) per night, NOT entities scanned — so a filled night still hash-checks the
+# whole current season (DB-only), while the initial fill is bounded to ~400 writes/
+# night (undone-first, so it progresses) and steady state rarely hits the cap.
+# Deep/previous seasons are deferred — backfilled in batches out of band (-mode backfill).
+0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)

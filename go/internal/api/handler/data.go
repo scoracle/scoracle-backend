@@ -527,6 +527,182 @@ func (h *Handler) GetEntityNewsRail(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_news_rail", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
 }
 
+// GetEntityNarratives returns the entity's NEWS product — the latest Gemma
+// narratives (hottest first). Per-product split of the old news rail; transfers +
+// vibe are their own products now (/transfers, /vibes). Narratives already carry
+// transfer context (news is a post-transfers pipeline layer), so this is
+// narratives-only. (Named to avoid the older GetEntityNews raw-articles handler.)
+// @Summary Get the entity news narratives
+// @Description The entity's latest Gemma narratives (hottest first) ranked by per-narrative impact.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/news [get]
+func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
+// GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
+// heat list (pre-narrative data). For a team: linked players; for a player:
+// interested clubs. The counterparty is the OTHER entity type.
+// @Summary Get the entity transfer rumors
+// @Description The entity's vetted transfer/trade rumors ranked by deterministic heat (team→players, player→clubs).
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/transfers [get]
+func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
+// GetEntityVibes returns the entity's VIBES product — the current sentiment plus a
+// bounded history (for the trend sparkline). The single vibe product, read by the
+// Vibe card AND the meta corner score.
+// @Summary Get the entity vibe sentiment
+// @Description The entity's current vibe sentiment (1-100) plus a bounded history for the trend sparkline.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/vibes [get]
+func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
+// GetEntityStats returns the entity's STATS product — the full season rating
+// (Composite breakdown, modes, fantasy, template, scoped ranks) + available
+// seasons. The Composite card + the ContentShell control strip read this. The
+// per-event series moved to /trends; the commentary to /special.
+// @Summary Get the entity season rating
+// @Description The entity's season Composite rating (breakdown, modes, fantasy, scoped ranks) + available seasons.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/stats [get]
+func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_stats", dataCacheKey(r), cache.TTLData, false,
+		sport, entityType, id, season, leagueID)
+}
+
+// GetEntitySpecial returns the entity's SPECIAL product — the lean specialist
+// projection (peak skill + the specialty datapoints) plus the Gemma stat
+// commentary. The Special card reads this. Distinct from /stats (no fantasy/
+// template/datapoints blocks).
+// @Summary Get the entity specialist + commentary
+// @Description The entity's specialist rating, specialty, the specialty datapoints, and the Gemma stat commentary.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year"
+// @Param league_id query int false "League ID filter"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/special [get]
+func (h *Handler) GetEntitySpecial(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_special", dataCacheKey(r), cache.TTLData, false,
+		sport, entityType, id, season, leagueID)
+}
+
 // GetEntityMeta returns the entity's IDENTITY metadata (two-rail model) — name,
 // image, physicals, current team/club, position, tier — the payload that drives
 // the page header and is eager-loaded first. 404 when the entity doesn't exist.

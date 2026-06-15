@@ -546,7 +546,7 @@ Examples:
 ### `GET /api/v1/{sport}/leaderboard/vibes`
 
 The sport-wide **vibe** board — entities ranked by their latest Gemma sentiment score
-(1-100) in the last 48h. The enriched sibling of `/vibe/hottest`: same window + filters,
+(1-100) in the last 48h: the sport-wide hottest-by-sentiment board (same window + filters,
 but each row is joined to `players`/`teams` so it carries `name` / `image` / `team_*` —
 one row shape shared with the news board below.
 
@@ -969,54 +969,13 @@ Team response:
 - `team` (players) is the **current** club from `player_current_team`; `null` if unknown.
 - `position` is the latest season's; `conference`/`division` populate for NBA/NFL teams.
 
-### `GET /api/v1/{sport}/vibe/{entityType}/{id}`
+### ~~`GET /api/v1/{sport}/vibe/{entityType}/{id}` · `/history` · `/vibe/hottest`~~ (retired 2026-06-15)
 
-Returns the most recent vibe blurb for the entity. Returns **404** (not a 200 with empty data) when no blurb has been generated yet — frontends should handle that as "no blurb to show" rather than as an error state.
+The per-entity vibe endpoints were retired and superseded by the per-product model:
+- latest + history → **`GET /api/v1/{sport}/{entityType}/{id}/vibes`** (`current` + bounded `history` in one payload).
+- `/vibe/hottest` → **`GET /api/v1/{sport}/leaderboard/vibes`** (the enriched sport-wide hottest-by-sentiment board).
 
-Path parameters:
-- `sport` - `nba`, `nfl`, or `football`
-- `entityType` - `player` or `team`
-- `id` - Entity ID (integer)
-
-Response example:
-```json
-{
-  "id": 6,
-  "entity_type": "player",
-  "entity_id": 115,
-  "sport": "NBA",
-  "trigger_type": "manual",
-  "trigger_payload": {"stat_key": "pts", "new_percentile": 97.2},
-  "blurb": "From play-in losses and knee drama, Curry keeps the vibes going with jokes and the anticipation of a massive comeback.",
-  "model_version": "gemma4:e4b",
-  "prompt_version": "v1",
-  "generated_at": "2026-04-19T11:51:45.006058-04:00"
-}
-```
-
-`trigger_type` values: `milestone` (listener-driven), `manual` (CLI ad-hoc), `periodic` (nightly batch).
-
-`trigger_payload` is JSONB — populated for milestone triggers (stat_key + percentile movement), often `null` for manual / periodic runs.
-
-### `GET /api/v1/{sport}/vibe/{entityType}/{id}/history`
-
-Returns the N most recent vibe blurbs for the entity, newest first.
-
-Path parameters: same as above.
-
-Query parameters:
-- `limit` (optional, 1-50, default 10)
-
-Response:
-```json
-{
-  "entity_type": "player",
-  "entity_id": 115,
-  "sport": "NBA",
-  "count": 3,
-  "vibes": [ /* array of full vibe objects as above */ ]
-}
-```
+The vibe *data* (vibe_scores) and its writers (CLI / listener / cron) are unchanged — only these read routes moved.
 
 ## Operational Endpoints
 

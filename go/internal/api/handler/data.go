@@ -276,54 +276,6 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 		sport, limit)
 }
 
-// GetSparkline returns the rating-engine dataset for one entity: the season
-// Composite + Specialist (+ specialty + ranks + that season's team) and the
-// per-event dual-sparkline series. This is the dedicated rating dataset — kept
-// separate from the profile and meta payloads. Served at /sparkline (the legacy
-// /starline path remains a deprecated alias during the frontend rollout).
-// @Summary Get entity sparkline (rating)
-// @Description Season Composite/Specialist rating (+ season team) + per-event sparkline series for one entity.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
-// @Param id path int true "Entity ID"
-// @Param season query int false "Season year (defaults to the latest rated season)"
-// @Param league_id query int false "League ID filter"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/sparkline [get]
-func (h *Handler) GetSparkline(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-
-	season, ok := optionalIntQuery(w, r, "season")
-	if !ok {
-		return
-	}
-
-	leagueID, ok := optionalIntQuery(w, r, "league_id")
-	if !ok {
-		return
-	}
-
-	h.serveStatementJSON(w, r, "sparkline", dataCacheKey(r), cache.TTLData, false,
-		sport, entityType, id, season, leagueID)
-}
-
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
 // @Summary Get trends page
 // @Description Returns the entity's last-3 event averages and peer-cohort season averages so the frontend can derive recent direction relative to peers. Raw values only.
@@ -488,44 +440,8 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "roster", dataCacheKey(r), cache.TTLData, false, sport, id, season, leagueID)
 }
 
-// GetTransfers + GetPlayerSuitors retired 2026-06-15 — the transfer scope folded
-// into the news rail (GetEntityNewsRail); their team_transfers/player_suitors
-// prepared statements are removed too.
-
-// GetEntityNewsRail returns the entity's NEWS RAIL in one payload (the two-rail
-// model): the latest Gemma narratives (hottest first), the transfer scope (a
-// team's player rumors / a player's suitor clubs), and the vibe (current + a
-// bounded history for the sparkline). Consolidates the split /news + /vibe +
-// /transfers reads — cards render slices of this rail.
-// @Summary Get the entity news rail (narratives + transfers + vibe)
-// @Description One payload for the news rail: the entity's latest narratives (hottest first), its transfer scope (team→player rumors, player→suitor clubs), and its vibe sentiment (current + history for the sparkline).
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
-// @Param id path int true "Entity ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/news [get]
-func (h *Handler) GetEntityNewsRail(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-
-	h.serveStatementJSON(w, r, "entity_news_rail", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
-}
+// GetTransfers + GetPlayerSuitors retired 2026-06-15 — the transfer scope is now
+// its own product (GetEntityTransfers, /{type}/{id}/transfers).
 
 // GetEntityNarratives returns the entity's NEWS product — the latest Gemma
 // narratives (hottest first). Per-product split of the old news rail; transfers +

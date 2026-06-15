@@ -105,20 +105,18 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
 			// Canonical sport routes (vNext)
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
-			// Stats rail (two-rail model): the rating profile + the Gemma stat commentary.
-			// Same payload as the base profile route (which now carries `commentary`).
+			// Per-product endpoints — each card is its own product. "news" + "stats"
+			// are the two sources; the cards are self-contained derivatives.
+			//   stats source: /stats (season rating + per-event series), /special
+			//     (lean specialist + Gemma commentary), /trends (the season sparkline).
+			//   news source:  /news (narratives), /transfers (vetted rumor heat),
+			//     /vibes (current + history).
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/special", h.GetEntitySpecial)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
-			r.Get("/{entityType:player|team}/{id}/sparkline", h.GetSparkline)
-			// Deprecated alias — remove once the frontend rollout to /sparkline settles.
-			r.Get("/{entityType:player|team}/{id}/starline", h.GetSparkline)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
-			// /team/{id}/transfers + /player/{id}/suitors retired 2026-06-15 — folded into
-			// the news rail's `transfers` scope (entity_news_rail). The flagship reads the rail.
-			// News rail (two-rail model): narratives + transfer scope + vibe in one payload.
-			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNewsRail)
+			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
 			r.Get("/{entityType:player|team}/{id}/vibes", h.GetEntityVibes)
 			// Per-entity identity metadata (drives the page header). Distinct from the

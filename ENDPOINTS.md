@@ -24,7 +24,7 @@ Supported entity type values:
 
 Returns the canonical profile payload for a sport entity (player or team).
 
-**Also available as `GET /api/v1/{sport}/{entityType}/{id}/stats`** — the same payload, the two-rail model's **stats rail** name. The payload now carries a `commentary` key: the Gemma **on-field identity analysis** for the selected season (`{body, notability, notability_components, season, prompt_version, generated_at}`), or `null` when none has been generated yet. The Special card renders it; the Trends sparkline stays its own `/sparkline` endpoint.
+> Not to be confused with `GET /api/v1/{sport}/{entityType}/{id}/stats` — that's the **stats product** (season rating + `available_seasons` + the per-event series), one of the per-product endpoints (see the stats source below). The Gemma **on-field identity analysis** (`commentary`) lives on its sibling `/special`.
 
 Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
 
@@ -622,9 +622,9 @@ as `/leaderboard?board=news`.
 The sport-wide **transfers** board — the hottest Gemma-vetted `(team, player)` rumors,
 ranked by deterministic `heat` (0-100): latest row per pair (`DISTINCT ON`),
 `is_rumor IS TRUE`, with **both** sides of the pair on each row. The per-entity
-`/team/{id}/transfers` + `/player/{id}/suitors` routes were retired 2026-06-15 —
-that transfer scope now rides the entity news rail (`/{entityType}/{id}/news`,
-the `transfers` field).
+transfer scope is the `/{entityType}/{id}/transfers` product (the old team-only
+`/team/{id}/transfers` + player-only `/player/{id}/suitors` routes were unified
+into it 2026-06-15).
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
@@ -714,13 +714,18 @@ rather than by a single scope.
 > conference board, a draft-class board, …) is the same recipe: identical row,
 > different `WHERE` filter + `ORDER BY`.
 
-### `GET /api/v1/{sport}/{entityType}/{id}/sparkline`
+### `GET /api/v1/{sport}/{entityType}/{id}/stats` &nbsp;·&nbsp; `/special` &nbsp;(stats source)
+
+> **`/sparkline` + `/starline` were retired 2026-06-15** and split into the per-product
+> stats source. The query parameters + the rating/event field shapes below are unchanged —
+> they now live on `/stats` (rating + `available_seasons` + the per-event `events` series)
+> and `/special` (the lean specialist projection — specialty + its datapoints — plus the
+> Gemma `commentary`). `/trends` carries the season sparkline (rating series × vibe series).
 
 The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
 numbers a meta card shows), **that season's team**, **and** the per-event dual-sparkline
-series. `entityType` (`player` or `team`) comes from the path — team sparklines read
-`event_team_stats`, player sparklines `event_box_scores`. (Legacy `/starline` remains a
-deprecated alias to this endpoint during the frontend rollout.)
+series. `entityType` (`player` or `team`) comes from the path — team stats read
+`event_team_stats`, player stats `event_box_scores`.
 
 #### Query parameters
 
@@ -895,38 +900,42 @@ Query parameters:
 
 Vibe blurbs are ~140-character narrative summaries produced by a local Ollama-hosted Gemma 4 e4b model, informed by recent news (last 72h) and recent tweets (last 24h) for the entity. Blurbs are NOT generated on request — they land via the vibe CLI (`go/cmd/vibe`) or the milestone listener worker (fires on `percentile_changed` events for `tier=headliner` entities crossing the 90th percentile, with a 30-min per-entity debounce). These endpoints serve what has already been generated.
 
-### `GET /api/v1/{sport}/{entityType}/{id}/news`
+### News source — three per-product endpoints
 
-The **news rail** (two-rail model) in ONE payload: the entity's latest Gemma **narratives** (hottest first), its **transfer scope** (a team's player rumors / a player's suitor clubs — branched on `entityType`), and its **vibe** (`current` + a bounded `history` for the sparkline). Consolidates the older split `/news/...` + `/vibe/...` + `/transfers` reads — frontend cards render slices of this one rail.
+The old bundled **news rail** (`/news` = narratives + transfers + vibe in one payload)
+was split into three self-contained products on 2026-06-15. `news` is the data
+**source**; each card fetches exactly its own product. All three take the same path
+params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`).
 
-Path parameters:
-- `sport` - `nba`, `nfl`, or `football`
-- `entityType` - `player` or `team`
-- `id` - Entity ID (integer)
-
-Response shape:
+**`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's latest Gemma
+**narratives** (hottest first by `impact`). News is a post-transfers pipeline layer, so
+the narratives already carry transfer context; this is narratives-only.
 ```json
-{
-  "page": "news_rail",
-  "sport": "football",
-  "entity_type": "team",
-  "entity_id": 18,
+{ "page": "news", "sport": "football", "entity_type": "team", "entity_id": 18,
   "narratives": [
     {"narrative_title": "...", "body": "...", "impact": 85, "impact_components": {}, "source_attribution": null, "input_news_ids": [], "generated_at": "..."}
-  ],
+  ] }
+```
+`narratives`: the latest generation only, ordered by `impact` DESC; `[]` when none.
+
+**`GET /api/v1/{sport}/{entityType}/{id}/transfers`** — the vetted transfer/trade rumor
+heat list (the pre-narrative data). The counterparty is the OTHER entity type: for a
+`team` the linked **players**, for a `player` the **clubs**.
+```json
+{ "page": "transfers", "sport": "football", "entity_type": "team", "entity_id": 18,
   "transfers": [
     {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "gemma_summary": "...", "source_attribution": "...", "rank": 1}
-  ],
-  "vibe": {
-    "current": {"sentiment": 73, "model_version": "gemma4:e4b", "prompt_version": "v4", "generated_at": "..."},
-    "history": [{"sentiment": 73, "generated_at": "..."}]
-  }
-}
+  ] }
 ```
+`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25); `[]` when none.
 
-- `narratives`: the latest generation only, ordered by `impact` DESC; `[]` when none.
-- `transfers`: for a `team` the linked **players**, for a `player` the suitor **teams** — vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25).
-- `vibe.current`: latest fresh sentiment (`prompt_version != 'v2'`, < 72h) or `null`; `vibe.history`: up to 14 recent points for the trend sparkline.
+**`GET /api/v1/{sport}/{entityType}/{id}/vibes`** — current sentiment + bounded history.
+```json
+{ "page": "vibes", "sport": "football", "entity_type": "team", "entity_id": 18,
+  "current": {"sentiment": 73, "model_version": "gemma4:e4b", "prompt_version": "v4", "generated_at": "..."},
+  "history": [{"sentiment": 73, "generated_at": "..."}] }
+```
+`current`: latest fresh sentiment (`prompt_version != 'v2'`, < 72h) or `null`; `history`: up to 14 recent points for the trend sparkline.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 

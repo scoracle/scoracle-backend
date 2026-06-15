@@ -620,9 +620,11 @@ as `/leaderboard?board=news`.
 ### `GET /api/v1/{sport}/leaderboard/transfers`
 
 The sport-wide **transfers** board — the hottest Gemma-vetted `(team, player)` rumors,
-ranked by deterministic `heat` (0-100). The sport-scoped sibling of
-`/team/{id}/transfers` + `/player/{id}/suitors`: latest row per pair (`DISTINCT ON`),
-`is_rumor IS TRUE`, with **both** sides of the pair on each row.
+ranked by deterministic `heat` (0-100): latest row per pair (`DISTINCT ON`),
+`is_rumor IS TRUE`, with **both** sides of the pair on each row. The per-entity
+`/team/{id}/transfers` + `/player/{id}/suitors` routes were retired 2026-06-15 —
+that transfer scope now rides the entity news rail (`/{entityType}/{id}/news`,
+the `transfers` field).
 
 | Param | Type | Default | Notes |
 |---|---|---|---|

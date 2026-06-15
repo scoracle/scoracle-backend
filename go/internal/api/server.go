@@ -107,7 +107,8 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
 			// Stats rail (two-rail model): the rating profile + the Gemma stat commentary.
 			// Same payload as the base profile route (which now carries `commentary`).
-			r.Get("/{entityType:player|team}/{id}/stats", h.GetProfilePage)
+			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
+			r.Get("/{entityType:player|team}/{id}/special", h.GetEntitySpecial)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
 			r.Get("/{entityType:player|team}/{id}/sparkline", h.GetSparkline)
 			// Deprecated alias — remove once the frontend rollout to /sparkline settles.
@@ -118,6 +119,8 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// the news rail's `transfers` scope (entity_news_rail). The flagship reads the rail.
 			// News rail (two-rail model): narratives + transfer scope + vibe in one payload.
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNewsRail)
+			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
+			r.Get("/{entityType:player|team}/{id}/vibes", h.GetEntityVibes)
 			// Per-entity identity metadata (drives the page header). Distinct from the
 			// sport-level /meta (search index → /autofill).
 			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)

@@ -921,6 +921,38 @@ Response shape:
 - `transfers`: for a `team` the linked **players**, for a `player` the suitor **teams** — vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25).
 - `vibe.current`: latest fresh sentiment (`prompt_version != 'v2'`, < 72h) or `null`; `vibe.history`: up to 14 recent points for the trend sparkline.
 
+### `GET /api/v1/{sport}/{entityType}/{id}/meta`
+
+The entity's **identity metadata** (two-rail model) — the payload that drives the page header and is eager-loaded first. Distinct from the sport-level `/{sport}/meta` (the search index, now at `/autofill`). Returns **404** when the entity doesn't exist.
+
+Path parameters:
+- `sport` - `nba`, `nfl`, or `football`
+- `entityType` - `player` or `team`
+- `id` - Entity ID (integer)
+
+Player response:
+```json
+{
+  "entity_type": "player", "id": 1592, "sport": "football", "name": "Jarrod Bowen",
+  "first_name": "Jarrod", "last_name": "Bowen", "image": "https://.../1592.png",
+  "nationality": "England", "date_of_birth": "1996-12-20", "height": "176", "weight": "70",
+  "position": "Midfielder", "tier": "headliner",
+  "team": {"id": 1, "name": "West Ham United", "short_code": "WHU", "image": "https://.../1.png"}
+}
+```
+
+Team response:
+```json
+{
+  "entity_type": "team", "id": 18, "sport": "football", "name": "Chelsea",
+  "image": "https://.../18.png", "short_code": "CHE", "country": "England", "city": "London",
+  "venue": "Stamford Bridge", "conference": null, "division": null, "tier": "headliner"
+}
+```
+
+- `team` (players) is the **current** club from `player_current_team`; `null` if unknown.
+- `position` is the latest season's; `conference`/`division` populate for NBA/NFL teams.
+
 ### `GET /api/v1/{sport}/vibe/{entityType}/{id}`
 
 Returns the most recent vibe blurb for the entity. Returns **404** (not a 200 with empty data) when no blurb has been generated yet — frontends should handle that as "no blurb to show" rather than as an error state.

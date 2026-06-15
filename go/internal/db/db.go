@@ -795,6 +795,39 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
+		// image, physicals, current team/club (player_current_team), position (latest
+		// player_stats), tier. UNION-gated on entity_type so a missing entity returns 0
+		// rows (404). Distinct from the sport-level /{sport}/meta (search index → /autofill).
+		// $1 sport · $2 entity_type · $3 entity_id.
+		"entity_meta": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
+		)
+		SELECT json_build_object(
+			'entity_type', 'player', 'id', p.id, 'sport', lower(p.sport), 'name', p.name,
+			'first_name', p.first_name, 'last_name', p.last_name, 'image', p.photo_url,
+			'nationality', p.nationality, 'date_of_birth', p.date_of_birth, 'height', p.height, 'weight', p.weight,
+			'position', pos.position, 'tier', p.tier,
+			'team', CASE WHEN t.id IS NOT NULL THEN json_build_object('id', t.id, 'name', t.name, 'short_code', t.short_code, 'image', t.logo_url) ELSE NULL END
+		) AS meta
+		FROM public.players p
+		LEFT JOIN public.player_current_team pct ON pct.player_id = p.id AND pct.sport = p.sport
+		LEFT JOIN public.teams t ON t.id = pct.team_id AND t.sport = p.sport
+		LEFT JOIN LATERAL (
+			SELECT ps.position FROM public.player_stats ps
+			WHERE ps.player_id = p.id AND ps.sport = p.sport AND ps.position IS NOT NULL
+			ORDER BY ps.season DESC LIMIT 1
+		) pos ON true
+		WHERE (SELECT entity_type FROM req) = 'player' AND p.id = (SELECT entity_id FROM req) AND p.sport = (SELECT sport FROM req)
+		UNION ALL
+		SELECT json_build_object(
+			'entity_type', 'team', 'id', t.id, 'sport', lower(t.sport), 'name', t.name, 'image', t.logo_url,
+			'short_code', t.short_code, 'country', t.country, 'city', t.city, 'venue', t.venue_name,
+			'conference', t.conference, 'division', t.division, 'tier', t.tier
+		)
+		FROM public.teams t
+		WHERE (SELECT entity_type FROM req) = 'team' AND t.id = (SELECT entity_id FROM req) AND t.sport = (SELECT sport FROM req)`,
+
 		// Sparkline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist

@@ -547,6 +547,40 @@ func (h *Handler) GetEntityNewsRail(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_news_rail", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
 }
 
+// GetEntityMeta returns the entity's IDENTITY metadata (two-rail model) — name,
+// image, physicals, current team/club, position, tier — the payload that drives
+// the page header and is eager-loaded first. 404 when the entity doesn't exist.
+// Distinct from the sport-level /{sport}/meta (the search index, now at /autofill).
+// @Summary Get per-entity identity metadata
+// @Description The entity's identity for the page header: name, image, physicals, current team/club, position, tier.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 404 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/meta [get]
+func (h *Handler) GetEntityMeta(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+
+	h.serveStatementJSON(w, r, "entity_meta", dataCacheKey(r), cache.TTLData, true, sport, entityType, id)
+}
+
 // GetLeagueTeamResults returns league-scoped team season results.
 // @Summary Get league team season results
 // @Description League-scoped variant of GetTeamResults — leagueId comes from the URL path. Identical payload.

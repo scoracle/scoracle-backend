@@ -574,7 +574,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
 		)`,
 
-
 		// Transfers leaderboard — the sport-wide "hottest rumors" board. The
 		// sport-scoped sibling of team_transfers/player_suitors: latest row per
 		// (team, player) pair (DISTINCT ON), Gemma-vetted (is_rumor IS TRUE), ranked
@@ -658,84 +657,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'count', (SELECT count(*) FROM ranked),
 			'players', COALESCE(
 				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
-				'[]'::json
-			)
-		)`,
-
-		// Transfers/Trades (migrations 031-032 — rumor heat). A team's linked
-		// players ranked by the deterministic heat index, latest row per pair.
-		// is_rumor IS TRUE filters out Gemma-cleared / unvetted-empty rows.
-		// $1 sport · $2 team_id.
-		"team_transfers": `WITH req AS (
-			SELECT upper($1::text) AS sport, $2::int AS team_id
-		),
-		latest AS (
-			-- The newest row per pair regardless of verdict, so a fresh "cleared"
-			-- (is_rumor=false) supersedes an older heat-only seed row.
-			SELECT DISTINCT ON (tr.team_id, tr.player_id)
-			       tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
-			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
-			FROM public.transfer_rumors tr CROSS JOIN req
-			WHERE tr.team_id = req.team_id AND tr.sport = req.sport
-			  AND tr.generated_at > NOW() - INTERVAL '14 days'  -- stage-2 hygiene (age out stale)
-			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
-		),
-		ranked AS (
-			SELECT p.id, p.name, p.photo_url AS image,
-			       l.heat, l.heat_components, l.direction, l.stage,
-			       l.gemma_summary, l.source_attribution,
-			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
-			FROM latest l
-			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
-			WHERE l.is_rumor IS TRUE AND l.heat > 0  -- vetted + has signal
-		)
-		SELECT json_build_object(
-			'page', 'transfers',
-			'sport', lower((SELECT sport FROM req)),
-			'team_id', (SELECT team_id FROM req),
-			'count', (SELECT count(*) FROM ranked),
-			'rumors', COALESCE(
-				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= 25),
-				'[]'::json
-			)
-		)`,
-
-		// Player-suitors — the player-side mirror of team_transfers. Same pair-level
-		// transfer_rumors, pivoted on the player to list the TEAMS linked with them
-		// ranked by heat ("who's after this player"). is_rumor IS TRUE filters out
-		// Gemma-cleared / unvetted-empty rows. The (player_id, sport, generated_at DESC)
-		// index (migration 031) supports the per-team latest scan. $1 sport · $2 player_id.
-		"player_suitors": `WITH req AS (
-			SELECT upper($1::text) AS sport, $2::int AS player_id
-		),
-		latest AS (
-			-- Newest row per (team, player) pair regardless of verdict, so a fresh
-			-- "cleared" supersedes an older heat-only seed row. player_id is fixed, so
-			-- this is effectively the latest row per linked team.
-			SELECT DISTINCT ON (tr.team_id, tr.player_id)
-			       tr.team_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
-			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
-			FROM public.transfer_rumors tr CROSS JOIN req
-			WHERE tr.player_id = req.player_id AND tr.sport = req.sport
-			  AND tr.generated_at > NOW() - INTERVAL '14 days'  -- stage-2 hygiene (age out stale)
-			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
-		),
-		ranked AS (
-			SELECT t.id, t.name, t.logo_url AS image,
-			       l.heat, l.heat_components, l.direction, l.stage,
-			       l.gemma_summary, l.source_attribution,
-			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
-			FROM latest l
-			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
-			WHERE l.is_rumor IS TRUE AND l.heat > 0  -- vetted + has signal
-		)
-		SELECT json_build_object(
-			'page', 'suitors',
-			'sport', lower((SELECT sport FROM req)),
-			'player_id', (SELECT player_id FROM req),
-			'count', (SELECT count(*) FROM ranked),
-			'suitors', COALESCE(
-				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= 25),
 				'[]'::json
 			)
 		)`,

@@ -114,8 +114,8 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/{entityType:player|team}/{id}/starline", h.GetSparkline)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
-			r.Get("/team/{id}/transfers", h.GetTransfers)
-			r.Get("/player/{id}/suitors", h.GetPlayerSuitors)
+			// /team/{id}/transfers + /player/{id}/suitors retired 2026-06-15 — folded into
+			// the news rail's `transfers` scope (entity_news_rail). The flagship reads the rail.
 			// News rail (two-rail model): narratives + transfer scope + vibe in one payload.
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNewsRail)
 			// Per-entity identity metadata (drives the page header). Distinct from the

@@ -488,47 +488,9 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "roster", dataCacheKey(r), cache.TTLData, false, sport, id, season, leagueID)
 }
 
-// GetTransfers returns a team's transfer/trade rumors ranked by the heat index.
-// @Summary Get team transfers/trades (rumor heat)
-// @Description Players linked to the team by news/tweet co-mention, ranked by a deterministic heat index (with transparent components). Once Gemma vetting lands, each carries direction/stage/grounded summary/source. Player names link to the player profile.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param id path int true "Team ID"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/team/{id}/transfers [get]
-func (h *Handler) GetTransfers(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	id, ok := parsePathID(w, r, "id", "team id")
-	if !ok {
-		return
-	}
-
-	h.serveStatementJSON(w, r, "team_transfers", dataCacheKey(r), cache.TTLData, false, sport, id)
-}
-
-// GetPlayerSuitors returns the teams linked with a player, ranked by heat — the
-// player-side mirror of GetTransfers ("who's after this player"). Same pair-level
-// transfer_rumors data, pivoted on player_id.
-func (h *Handler) GetPlayerSuitors(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	id, ok := parsePathID(w, r, "id", "player id")
-	if !ok {
-		return
-	}
-
-	h.serveStatementJSON(w, r, "player_suitors", dataCacheKey(r), cache.TTLData, false, sport, id)
-}
+// GetTransfers + GetPlayerSuitors retired 2026-06-15 — the transfer scope folded
+// into the news rail (GetEntityNewsRail); their team_transfers/player_suitors
+// prepared statements are removed too.
 
 // GetEntityNewsRail returns the entity's NEWS RAIL in one payload (the two-rail
 // model): the latest Gemma narratives (hottest first), the transfer scope (a

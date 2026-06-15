@@ -1042,6 +1042,29 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ts.team_id = req.eid AND ts.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
+		),
+		event_series AS (
+			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty, rating_composite_pct, rating_specialist_pct FROM (
+				SELECT e.fixture_id, f.start_time,
+				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
+				FROM public.event_box_scores e
+				JOIN public.fixtures f ON f.id = e.fixture_id
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'player' AND e.sport = req.sport
+				  AND e.player_id = req.eid AND e.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(e.league_id, 0) = req.league_id)
+				  AND e.rating_composite IS NOT NULL
+				UNION ALL
+				SELECT e.fixture_id, f.start_time,
+				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
+				FROM public.event_team_stats e
+				JOIN public.fixtures f ON f.id = e.fixture_id
+				CROSS JOIN req CROSS JOIN season_pick sp
+				WHERE req.etype = 'team' AND e.sport = req.sport
+				  AND e.team_id = req.eid AND e.season = sp.season
+				  AND (req.league_id IS NULL OR COALESCE(e.league_id, 0) = req.league_id)
+				  AND e.rating_composite IS NOT NULL
+			) u ORDER BY start_time
 		)
 		SELECT json_build_object(
 			'page', 'stats',
@@ -1062,7 +1085,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					   AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 				) seasons
 			), '{}'::int[]),
-			'rating', (SELECT row_to_json(season_rating) FROM season_rating)
+			'rating', (SELECT row_to_json(season_rating) FROM season_rating),
+			'events', COALESCE(
+				(SELECT json_agg(row_to_json(es) ORDER BY es.start_time) FROM event_series es),
+				'[]'::json
+			)
 		)`,
 		"entity_special": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS etype,

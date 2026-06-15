@@ -115,6 +115,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/player/{id}/suitors", h.GetPlayerSuitors)
 			// News rail (two-rail model): narratives + transfer scope + vibe in one payload.
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNewsRail)
+			// Per-entity identity metadata (drives the page header). Distinct from the
+			// sport-level /meta (search index → /autofill).
+			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)
 			r.Get("/meta", h.GetMetaPage)
 			// Autofill/search index — the dedicated home for what /meta serves today
 			// (two-rail split; /meta becomes per-entity metadata, this stays the search index).

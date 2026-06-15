@@ -22,10 +22,18 @@ The frontend calls one API origin and receives page-shaped JSON payloads designe
 
 ## API Surface
 
-Canonical data routes are sport-scoped:
+Canonical data routes are sport-scoped. **`news` and `stats` are the two data
+sources; each card is a self-contained product with its own endpoint:**
 
 - `GET /api/v1/{sport}/{entityType}/{id}` (profile)
-- `GET /api/v1/{sport}/{entityType}/{id}/trends` (recent-form payload: last-3 stat averages + entity/peer season averages + full-season composite score sparkline)
+- **stats source:**
+  - `GET /api/v1/{sport}/{entityType}/{id}/stats` (season Composite rating — breakdown, modes, fantasy, scoped ranks — + `available_seasons` + the per-event series)
+  - `GET /api/v1/{sport}/{entityType}/{id}/special` (lean specialist projection — specialty + its datapoints — + the Gemma stat commentary)
+  - `GET /api/v1/{sport}/{entityType}/{id}/trends` (the season sparkline: per-event rating series + daily vibe series + peer-cohort form)
+- **news source:**
+  - `GET /api/v1/{sport}/{entityType}/{id}/news` (the entity's latest Gemma narratives, hottest first by impact)
+  - `GET /api/v1/{sport}/{entityType}/{id}/transfers` (vetted transfer/trade rumors by heat — team→players, player→clubs)
+  - `GET /api/v1/{sport}/{entityType}/{id}/vibes` (current sentiment + bounded history)
 - `GET /api/v1/{sport}/team/{id}/results` (team's finalized scorelines for a season, framed from the team's perspective)
 - `GET /api/v1/{sport}/meta`
 - `GET /api/v1/{sport}/health`
@@ -33,7 +41,8 @@ Canonical data routes are sport-scoped:
 - `GET /api/v1/{sport}/leaderboard/vibes` (sport-wide vibe board — entities by latest sentiment 1-100; `entity_type`, `limit`)
 - `GET /api/v1/{sport}/leaderboard/news` (sport-wide news board — hottest Gemma narratives ranked by per-narrative impact; `entity_type`, `limit`)
 - `GET /api/v1/{sport}/leaderboard/transfers` (sport-wide transfer board — Gemma-vetted rumors by heat 0-100; `limit`)
-- `GET /api/v1/{sport}/{entityType}/{id}/sparkline` (per-entity rating: season Composite/Specialist + that season's team + per-event dual sparkline; legacy `/starline` is a deprecated alias)
+
+> The bundled `/news` rail (narratives+transfers+vibe) and `/sparkline` (rating+events) were split into the per-product endpoints above on 2026-06-15; `/sparkline` + `/starline` are retired.
 
 League-scoped variants (preferred for multi-league precision):
 

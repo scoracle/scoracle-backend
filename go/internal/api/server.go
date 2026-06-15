@@ -105,6 +105,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
 			// Canonical sport routes (vNext)
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
+			// Stats rail (two-rail model): the rating profile + the Gemma stat commentary.
+			// Same payload as the base profile route (which now carries `commentary`).
+			r.Get("/{entityType:player|team}/{id}/stats", h.GetProfilePage)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
 			r.Get("/{entityType:player|team}/{id}/sparkline", h.GetSparkline)
 			// Deprecated alias — remove once the frontend rollout to /sparkline settles.

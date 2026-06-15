@@ -32,7 +32,11 @@ import (
 )
 
 // Bump when the prompt below materially changes (traced in stat_summaries.prompt_version).
-const statCommentaryPromptVersion = "s1"
+//
+// s2: feeds the rate-adjusted (per-x: per_36/per_90) standouts so Gemma can reveal
+//
+//	elite rate production the raw totals hide; per-x peak also counts toward notability.
+const statCommentaryPromptVersion = "s2"
 
 // maxStatFacts bounds the breakdown datapoints fed to the prompt (the specialty is
 // always kept; the rest are the highest-percentile skills).
@@ -175,7 +179,8 @@ type ratingProfile struct {
 	specialistScore *float64
 	specialty       string
 	breakdown       []ratingDatapoint
-	scopedRanks     map[string]float64 // rating_scoped_ranks (entity-level cohort percentiles)
+	scopedRanks     map[string]float64           // rating_scoped_ranks (entity-level cohort percentiles)
+	rateModes       map[string][]ratingDatapoint // rating_modes — per-x breakdowns (per_36, per_90, …)
 }
 
 // loadRatingProfile reads the entity's latest unscoped (league_id 0/NULL) rating
@@ -202,7 +207,8 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 	q := fmt.Sprintf(`
 		SELECT season, %s,
 		       rating_composite_score, rating_specialist_score, COALESCE(rating_specialty, ''),
-		       COALESCE(rating_breakdown, '[]'::jsonb), COALESCE(rating_scoped_ranks, '{}'::jsonb)
+		       COALESCE(rating_breakdown, '[]'::jsonb), COALESCE(rating_scoped_ranks, '{}'::jsonb),
+		       COALESCE(rating_modes, '{}'::jsonb)
 		FROM public.%s
 		WHERE sport = $1 AND %s = $2
 		ORDER BY season DESC,
@@ -215,11 +221,12 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 		p            ratingProfile
 		breakdownRaw []byte
 		scopedRaw    []byte
+		modesRaw     []byte
 	)
 	err := pool.QueryRow(ctx, q, sport, entityID).Scan(
 		&p.season, &p.position,
 		&p.compositeScore, &p.specialistScore, &p.specialty,
-		&breakdownRaw, &scopedRaw,
+		&breakdownRaw, &scopedRaw, &modesRaw,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -234,6 +241,21 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 	}
 	if len(scopedRaw) > 0 {
 		_ = json.Unmarshal(scopedRaw, &p.scopedRanks) // tolerant: cohort framing is optional
+	}
+	// rating_modes: a per-x bundle per mode (per_36 / per_90 / …), each with its own
+	// breakdown. The per-x lens is the reveal — elite rate production raw totals hide.
+	if len(modesRaw) > 0 {
+		var modes map[string]struct {
+			Breakdown []ratingDatapoint `json:"breakdown"`
+		}
+		if err := json.Unmarshal(modesRaw, &modes); err == nil {
+			p.rateModes = make(map[string][]ratingDatapoint, len(modes))
+			for name, m := range modes {
+				if len(m.Breakdown) > 0 {
+					p.rateModes[name] = m.Breakdown
+				}
+			}
+		}
 	}
 	p.entityType = entityType
 	return &p, nil
@@ -250,6 +272,13 @@ func (p *ratingProfile) inputComponents() map[string]any {
 		"season":     p.season,
 		"specialty":  p.specialty,
 		"datapoints": facts,
+	}
+	if rs := collectRateStandouts(p); len(rs) > 0 {
+		rates := make([]map[string]any, 0, len(rs))
+		for _, r := range rs {
+			rates = append(rates, map[string]any{"mode": r.mode, "label": r.label, "pct": round1(r.pct)})
+		}
+		out["rate_standouts"] = rates
 	}
 	if p.compositeScore != nil {
 		out["composite_score"] = round1(*p.compositeScore)
@@ -280,6 +309,16 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 			eliteCount++
 		}
 	}
+	// The per-x lens counts toward the PEAK (so a limited-minutes player who is
+	// elite per-36/per-90 is judged notable and earns a fuller reveal), but not
+	// toward eliteCount (avoid double-counting the same skill across modes).
+	for _, dps := range p.rateModes {
+		for _, d := range dps {
+			if d.Pct > peak {
+				peak = d.Pct
+			}
+		}
+	}
 	comp := 50.0 // average T-score anchor when no composite
 	if p.compositeScore != nil {
 		comp = *p.compositeScore
@@ -306,6 +345,7 @@ Rules:
 - Every percentile is SIGN-ADJUSTED so HIGHER IS ALWAYS BETTER — a high percentile in a "negative" stat (turnovers, goals conceded) means the entity EXCELS there (commits/concedes few). Read every number as goodness.
 - Ground every claim in the given datapoints; never invent a stat, number, or fact not provided. Do NOT recite the raw numbers as a list — weave them into the read.
 - Synthesize a coherent identity (e.g. "a low-usage floor-spacer who defends above his profile"), don't just enumerate skills.
+- You may also be given RATE-ADJUSTED (per-x, e.g. per-36 / per-90) standouts. When an entity produces at an ELITE per-x rate even if its raw totals are modest — a young or limited-minutes player whose efficiency the box score hides — call that out. Surfacing that hidden value is exactly the point.
 - Return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
 
 func buildStatPrompt(req StatCommentaryRequest, p *ratingProfile, notability int) string {
@@ -343,8 +383,50 @@ func buildStatPrompt(req StatCommentaryRequest, p *ratingProfile, notability int
 		b.WriteString("\n")
 	}
 
+	if rs := collectRateStandouts(p); len(rs) > 0 {
+		b.WriteString("\nRate-adjusted (per-x) standouts — elite production raw totals can hide:\n")
+		for _, r := range rs {
+			b.WriteString(fmt.Sprintf("- [%s] %s: %.0fth\n", strings.ReplaceAll(r.mode, "_", "-"), r.label, r.pct))
+		}
+	}
+
 	b.WriteString("\nWrite the identity analysis now.")
 	return b.String()
+}
+
+type rateStandout struct {
+	mode  string
+	label string
+	pct   float64
+}
+
+// collectRateStandouts surfaces, per rate mode, the elite (pct >= 80) per-x
+// datapoints — the lens that reveals a limited-minutes player producing at an
+// elite rate. Modes sorted for stable output; bounded per mode.
+func collectRateStandouts(p *ratingProfile) []rateStandout {
+	modes := make([]string, 0, len(p.rateModes))
+	for m := range p.rateModes {
+		modes = append(modes, m)
+	}
+	sort.Strings(modes)
+
+	var out []rateStandout
+	for _, m := range modes {
+		dps := make([]ratingDatapoint, len(p.rateModes[m]))
+		copy(dps, p.rateModes[m])
+		sort.SliceStable(dps, func(i, j int) bool { return dps[i].Pct > dps[j].Pct })
+		cnt := 0
+		for _, d := range dps {
+			if d.Pct < 80 {
+				break
+			}
+			out = append(out, rateStandout{mode: m, label: d.Label, pct: d.Pct})
+			if cnt++; cnt >= 5 {
+				break
+			}
+		}
+	}
+	return out
 }
 
 // orderedFacts puts the specialty first, then the highest-percentile datapoints,

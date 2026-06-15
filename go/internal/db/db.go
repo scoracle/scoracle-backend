@@ -722,6 +722,79 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Entity news rail (the two-rail model) — ONE payload: the entity's LATEST
+		// narratives (hottest first), its transfer SCOPE (a team's player rumors / a
+		// player's suitor clubs — branched on entity_type), and its vibe {current + a
+		// bounded history for the sparkline}. Consolidates the split /news + /vibe +
+		// /transfers reads. $1 sport · $2 entity_type (player|team) · $3 entity_id.
+		"entity_news_rail": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
+		),
+		narr AS (
+			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
+			       ns.source_attribution, ns.input_news_ids, ns.generated_at
+			FROM public.news_summaries ns CROSS JOIN req
+			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
+			  AND ns.body IS NOT NULL
+			  AND ns.generated_at = (
+			      SELECT max(generated_at) FROM public.news_summaries
+			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
+			        AND sport = (SELECT sport FROM req) AND body IS NOT NULL
+			  )
+		),
+		tr_latest AS (
+			SELECT DISTINCT ON (tr.team_id, tr.player_id)
+			       tr.team_id, tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
+			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
+			FROM public.transfer_rumors tr CROSS JOIN req
+			WHERE tr.sport = req.sport
+			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
+			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id) )
+			  AND tr.generated_at > NOW() - INTERVAL '14 days'
+			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
+		),
+		tr_ranked AS (
+			SELECT
+			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.id        ELSE t.id       END AS id,
+			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.name      ELSE t.name     END AS name,
+			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.photo_url ELSE t.logo_url END AS image,
+			    l.heat, l.heat_components, l.direction, l.stage, l.gemma_summary, l.source_attribution,
+			    row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
+			FROM tr_latest l
+			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
+			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
+			WHERE l.is_rumor IS TRUE AND l.heat > 0
+		),
+		vibe_cur AS (
+			SELECT vs.sentiment, vs.model_version, vs.prompt_version, vs.generated_at
+			FROM public.vibe_scores vs CROSS JOIN req
+			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
+			  AND vs.sentiment IS NOT NULL AND vs.prompt_version <> 'v2'
+			  AND vs.generated_at > NOW() - INTERVAL '72 hours'
+			ORDER BY vs.generated_at DESC LIMIT 1
+		),
+		vibe_hist AS (
+			SELECT vs.sentiment, vs.generated_at
+			FROM public.vibe_scores vs CROSS JOIN req
+			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
+			  AND vs.sentiment IS NOT NULL AND vs.prompt_version <> 'v2'
+			ORDER BY vs.generated_at DESC LIMIT 14
+		)
+		SELECT json_build_object(
+			'page', 'news_rail',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT entity_type FROM req),
+			'entity_id', (SELECT entity_id FROM req),
+			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
+			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids, generated_at FROM narr) n), '[]'::json),
+			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
+			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, gemma_summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json),
+			'vibe', json_build_object(
+			     'current', (SELECT row_to_json(v) FROM (SELECT sentiment, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			     'history', COALESCE((SELECT json_agg(json_build_object('sentiment', sentiment, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
+			)
+		)`,
+
 		// Sparkline (migrations 027 + 028 — the rating engine, per entity).
 		// Type-aware (entity_type in the path): player ⇒ player_stats + event_box_scores;
 		// team ⇒ team_stats + event_team_stats. The season Composite + Specialist

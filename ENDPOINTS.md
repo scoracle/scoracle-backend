@@ -881,6 +881,39 @@ Query parameters:
 
 Vibe blurbs are ~140-character narrative summaries produced by a local Ollama-hosted Gemma 4 e4b model, informed by recent news (last 72h) and recent tweets (last 24h) for the entity. Blurbs are NOT generated on request — they land via the vibe CLI (`go/cmd/vibe`) or the milestone listener worker (fires on `percentile_changed` events for `tier=headliner` entities crossing the 90th percentile, with a 30-min per-entity debounce). These endpoints serve what has already been generated.
 
+### `GET /api/v1/{sport}/{entityType}/{id}/news`
+
+The **news rail** (two-rail model) in ONE payload: the entity's latest Gemma **narratives** (hottest first), its **transfer scope** (a team's player rumors / a player's suitor clubs — branched on `entityType`), and its **vibe** (`current` + a bounded `history` for the sparkline). Consolidates the older split `/news/...` + `/vibe/...` + `/transfers` reads — frontend cards render slices of this one rail.
+
+Path parameters:
+- `sport` - `nba`, `nfl`, or `football`
+- `entityType` - `player` or `team`
+- `id` - Entity ID (integer)
+
+Response shape:
+```json
+{
+  "page": "news_rail",
+  "sport": "football",
+  "entity_type": "team",
+  "entity_id": 18,
+  "narratives": [
+    {"narrative_title": "...", "body": "...", "impact": 85, "impact_components": {}, "source_attribution": null, "input_news_ids": [], "generated_at": "..."}
+  ],
+  "transfers": [
+    {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "gemma_summary": "...", "source_attribution": "...", "rank": 1}
+  ],
+  "vibe": {
+    "current": {"sentiment": 73, "model_version": "gemma4:e4b", "prompt_version": "v4", "generated_at": "..."},
+    "history": [{"sentiment": 73, "generated_at": "..."}]
+  }
+}
+```
+
+- `narratives`: the latest generation only, ordered by `impact` DESC; `[]` when none.
+- `transfers`: for a `team` the linked **players**, for a `player` the suitor **teams** — vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25).
+- `vibe.current`: latest fresh sentiment (`prompt_version != 'v2'`, < 72h) or `null`; `vibe.history`: up to 14 recent points for the trend sparkline.
+
 ### `GET /api/v1/{sport}/vibe/{entityType}/{id}`
 
 Returns the most recent vibe blurb for the entity. Returns **404** (not a 200 with empty data) when no blurb has been generated yet — frontends should handle that as "no blurb to show" rather than as an error state.

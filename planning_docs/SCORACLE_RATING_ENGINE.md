@@ -6,6 +6,16 @@ Premier League / La Liga / Bundesliga 2025, NFL 2025. The exploration docs
 (`COMPOSITE_MATRIX_V2.md`, `FOOTBALL_VOR_EXPLORATION.md`,
 `SCARCITY_VALUE_WEIGHTING_LAYER.md`) record the journey; **this doc is the engine.**
 
+> **⚠️ Read alongside the methodology doc — parts of this spec are superseded.** The v1
+> three-gate de-dupe rule (§1–2) has since matured into a **value × reliability ×
+> non-redundancy** curation discipline, and the displayed rating is now a **magnitude
+> T-score for players** (percentile for teams). The football datapoint sets in **§4 are
+> stale** — the live sets are defined by migrations **058–075** (GK/outfield split, PAdj,
+> Goals Prevented, SoT-only shooting, team Creation/Progression, Cards, Injuries). For the
+> current process + pillars + the per-sport audit playbook, see
+> **`~/scoracleWiki/wiki/Architecture/Rating Engine Methodology.md`**. This doc remains the
+> v1 build record and the canonical statement of the *positionless Σz* foundation.
+
 ---
 
 ## 0. The one-line truth

@@ -24,6 +24,8 @@ Supported entity type values:
 
 Returns the canonical profile payload for a sport entity (player or team).
 
+**Also available as `GET /api/v1/{sport}/{entityType}/{id}/stats`** — the same payload, the two-rail model's **stats rail** name. The payload now carries a `commentary` key: the Gemma **on-field identity analysis** for the selected season (`{body, notability, notability_components, season, prompt_version, generated_at}`), or `null` when none has been generated yet. The Special card renders it; the Trends sparkline stays its own `/sparkline` endpoint.
+
 Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
 
 #### Path parameters

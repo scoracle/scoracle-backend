@@ -137,6 +137,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'season_composite_rank_absolute', (SELECT season_composite_rank_absolute FROM entity_season_score),
 				'season_composite_rank_alltime_absolute', (SELECT season_composite_rank_alltime_absolute FROM entity_season_score)
 			),
+			'commentary', (
+				SELECT row_to_json(c) FROM (
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at
+					FROM public.stat_summaries s
+					WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id
+					  AND s.sport = 'NBA' AND s.season = se.season AND s.body IS NOT NULL
+					ORDER BY s.generated_at DESC LIMIT 1
+				) c
+			),
 			'league_context', NULL
 		)
 		FROM req
@@ -219,6 +228,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'season_composite_rank_alltime', (SELECT season_composite_rank_alltime FROM entity_season_score),
 				'season_composite_rank_absolute', (SELECT season_composite_rank_absolute FROM entity_season_score),
 				'season_composite_rank_alltime_absolute', (SELECT season_composite_rank_alltime_absolute FROM entity_season_score)
+			),
+			'commentary', (
+				SELECT row_to_json(c) FROM (
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at
+					FROM public.stat_summaries s
+					WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id
+					  AND s.sport = 'NFL' AND s.season = se.season AND s.body IS NOT NULL
+					ORDER BY s.generated_at DESC LIMIT 1
+				) c
 			),
 			'league_context', NULL
 		)
@@ -305,6 +323,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'season_composite_rank_alltime', (SELECT season_composite_rank_alltime FROM entity_season_score),
 				'season_composite_rank_absolute', (SELECT season_composite_rank_absolute FROM entity_season_score),
 				'season_composite_rank_alltime_absolute', (SELECT season_composite_rank_alltime_absolute FROM entity_season_score)
+			),
+			'commentary', (
+				SELECT row_to_json(c) FROM (
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at
+					FROM public.stat_summaries s
+					WHERE s.entity_type = req.entity_type AND s.entity_id = req.entity_id
+					  AND s.sport = 'FOOTBALL' AND s.season = se.season AND s.body IS NOT NULL
+					ORDER BY s.generated_at DESC LIMIT 1
+				) c
 			),
 			'league_context', CASE
 				WHEN se.league_id > 0 THEN (

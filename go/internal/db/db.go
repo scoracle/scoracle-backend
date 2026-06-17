@@ -369,9 +369,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 					ps.position, ps.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ps.league_id, 0) AS league_id,
-					ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
-					ps.rating_composite_rank, ps.rating_specialist_rank,
-					ps.rating_composite_score, ps.rating_specialist_score,
+					ps.rating_composite, ps.rating_specialist AS rating_sigil, ps.rating_specialty AS rating_sigil_label,
+					ps.rating_composite_rank, ps.rating_specialist_rank AS rating_sigil_rank,
+					ps.rating_composite_score, ps.rating_specialist_score AS rating_sigil_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
@@ -385,7 +385,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ps.rating_composite IS NOT NULL
 				  AND (req.position IS NULL OR ps.position = req.position)
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
-				  AND (req.scope IN ('composite', 'specialist', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
+				  AND (req.scope IN ('composite', 'sigil', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
 				  AND (req.scope <> 'fantasy' OR COALESCE((ps.stats->>'fantasy_points')::numeric, 0) > 0)
 			) pl
 			UNION ALL
@@ -394,9 +394,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 					NULL::text AS position, t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ts.league_id, 0) AS league_id,
-					ts.rating_composite, ts.rating_specialist, ts.rating_specialty,
-					ts.rating_composite_rank, ts.rating_specialist_rank,
-					ts.rating_composite_score, ts.rating_specialist_score,
+					ts.rating_composite, ts.rating_specialist AS rating_sigil, ts.rating_specialty AS rating_sigil_label,
+					ts.rating_composite_rank, ts.rating_specialist_rank AS rating_sigil_rank,
+					ts.rating_composite_score, ts.rating_specialist_score AS rating_sigil_score,
 					NULL::numeric AS fantasy_points,
 					NULL::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
@@ -409,7 +409,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 				  AND (req.conference IS NULL OR t.conference = req.conference)
 				  AND (req.division IS NULL OR t.division = req.division)
-				  AND (req.scope IN ('composite', 'specialist') OR lower(ts.rating_specialty) = req.scope)
+				  AND (req.scope IN ('composite', 'sigil') OR lower(ts.rating_specialty) = req.scope)
 			) tm
 			ORDER BY rank
 			LIMIT (SELECT lim FROM req)
@@ -429,11 +429,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)`,
 
 		// Vibes leaderboard — the sport-wide sentiment board. Each entity's LATEST
-		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. This
-		// is the enriched sibling of /vibe/hottest: same window + filters, but joined
+		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. Joined
 		// to players/teams so the row carries name/image/team (one shape across every
 		// single-entity board the /leaderboard page renders). The partial index
-		// idx_vibe_scores_sport_sentiment covers the inner scan.
+		// idx_vibe_synthesis_sport_score covers the inner scan.
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
@@ -442,12 +441,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		latest AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
-			       vs.entity_type, vs.entity_id, vs.sentiment, vs.generated_at
-			FROM public.vibe_scores vs, req
+			       vs.entity_type, vs.entity_id, vs.score, vs.generated_at
+			FROM public.vibe_synthesis vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND vs.sentiment IS NOT NULL
-			  AND vs.prompt_version <> 'v2'
+			  AND vs.score IS NOT NULL AND vs.blurb IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '48 hours'
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
@@ -457,7 +455,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.sentiment AS score, l.generated_at
+				       l.score, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				-- current club: latest-season player_stats.team_id (canonical:
@@ -473,7 +471,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.sentiment AS score, l.generated_at
+				       l.score, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
@@ -609,9 +607,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		ranked AS (
 			SELECT p.id, p.name, p.photo_url AS image, ps.position, (ps.stats->>'fantasy_points')::numeric AS fantasy_points,
-				ps.rating_composite, ps.rating_specialist, ps.rating_specialty,
-				ps.rating_composite_rank, ps.rating_specialist_rank,
-				ps.rating_composite_score, ps.rating_specialist_score,
+				ps.rating_composite, ps.rating_specialist AS rating_sigil, ps.rating_specialty AS rating_sigil_label,
+				ps.rating_composite_rank, ps.rating_specialist_rank AS rating_sigil_rank,
+				ps.rating_composite_score, ps.rating_specialist_score AS rating_sigil_score,
 				row_number() OVER (
 					ORDER BY (COALESCE(ps.rating_composite, 0) + COALESCE(ps.rating_specialist, 0)) DESC
 				) AS rank
@@ -706,18 +704,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
 		),
 		vibe_cur AS (
-			SELECT vs.sentiment, vs.model_version, vs.prompt_version, vs.generated_at
-			FROM public.vibe_scores vs CROSS JOIN req
+			SELECT vs.score, vs.blurb, vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
+			FROM public.vibe_synthesis vs CROSS JOIN req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
-			  AND vs.sentiment IS NOT NULL AND vs.prompt_version <> 'v2'
+			  AND vs.score IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '72 hours'
 			ORDER BY vs.generated_at DESC LIMIT 1
 		),
 		vibe_hist AS (
-			SELECT vs.sentiment, vs.generated_at
-			FROM public.vibe_scores vs CROSS JOIN req
+			SELECT vs.score, vs.generated_at
+			FROM public.vibe_synthesis vs CROSS JOIN req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
-			  AND vs.sentiment IS NOT NULL AND vs.prompt_version <> 'v2'
+			  AND vs.score IS NOT NULL
 			ORDER BY vs.generated_at DESC LIMIT 14
 		)
 		SELECT json_build_object(
@@ -725,8 +723,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
-			'current', (SELECT row_to_json(v) FROM (SELECT sentiment, model_version, prompt_version, generated_at FROM vibe_cur) v),
-			'history', COALESCE((SELECT json_agg(json_build_object('sentiment', sentiment, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
+			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
 		// image, physicals, current team/club (player_current_team), position (latest
@@ -763,7 +761,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 
 		// --- Per-product stats source (split from sparkline) ---
 		// /stats = the full season rating (Composite card + ContentShell controls);
-		// /special = the lean specialist projection + Gemma commentary (Special card);
+		// /sigil = the lean specialist projection + Gemma commentary (Sigil card);
 		// /trends absorbs the per-event series (built in trendsStatement). The heavy
 		// fantasy/template/datapoints blocks live only in /stats. $1 sport · $2 type ·
 		// $3 id · $4 season (NULL ⇒ latest rated) · $5 league_id.
@@ -789,12 +787,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank, rating_composite_score,
-			       rating_specialist, rating_specialist_rank, rating_specialist_score, rating_specialty, rating_breakdown,
+			       rating_sigil, rating_sigil_rank, rating_sigil_score, rating_sigil_label, rating_breakdown,
 			       rating_categories, rating_scoped_ranks, rating_scoped_scores, rating_modes, conference, division, team, fantasy, template, datapoints FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank, ps.rating_composite_score,
-				       ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialist_score, ps.rating_specialty, ps.rating_breakdown,
-				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, ps.rating_modes,
+				       ps.rating_specialist AS rating_sigil, ps.rating_specialist_rank AS rating_sigil_rank, ps.rating_specialist_score AS rating_sigil_score, ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown,
+				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes,
 				       NULL::text AS conference, NULL::text AS division,
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
@@ -809,7 +807,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				UNION ALL
 				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
 				       ts.rating_composite, ts.rating_composite_rank, ts.rating_composite_score,
-				       ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialist_score, ts.rating_specialty, ts.rating_breakdown,
+				       ts.rating_specialist AS rating_sigil, ts.rating_specialist_rank AS rating_sigil_rank, ts.rating_specialist_score AS rating_sigil_score, ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown,
 				       ts.rating_categories, ts.rating_scoped_ranks, ts.rating_scoped_scores, NULL::jsonb AS rating_modes,
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
@@ -825,9 +823,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
 		),
 		event_series AS (
-			SELECT fixture_id, start_time, rating_composite, rating_specialist, rating_specialty, rating_composite_pct, rating_specialist_pct FROM (
+			SELECT fixture_id, start_time, rating_composite, rating_sigil, rating_sigil_label, rating_composite_pct, rating_sigil_pct FROM (
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
+				       e.rating_composite, e.rating_specialist AS rating_sigil, e.rating_specialty AS rating_sigil_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_sigil_pct
 				FROM public.event_box_scores e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -837,7 +835,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND e.rating_composite IS NOT NULL
 				UNION ALL
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist, e.rating_specialty, e.rating_composite_pct, e.rating_specialist_pct
+				       e.rating_composite, e.rating_specialist AS rating_sigil, e.rating_specialty AS rating_sigil_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_sigil_pct
 				FROM public.event_team_stats e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -872,7 +870,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'[]'::json
 			)
 		)`,
-		"entity_special": `WITH req AS (
+		"entity_sigil": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS etype,
 			       $3::int AS eid, $4::int AS season, $5::int AS league_id
 		),
@@ -893,17 +891,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) AS season
 		),
 		spec_rating AS (
-			SELECT season, position, rating_specialist, rating_specialist_rank, rating_specialist_score,
-			       rating_specialty, rating_breakdown, rating_modes FROM (
-				SELECT ps.season, ps.position, ps.rating_specialist, ps.rating_specialist_rank, ps.rating_specialist_score,
-				       ps.rating_specialty, ps.rating_breakdown, ps.rating_modes, ps.rating_composite
+			SELECT season, position, rating_sigil, rating_sigil_rank, rating_sigil_score,
+			       rating_sigil_label, rating_breakdown, rating_modes FROM (
+				SELECT ps.season, ps.position, ps.rating_specialist AS rating_sigil, ps.rating_specialist_rank AS rating_sigil_rank, ps.rating_specialist_score AS rating_sigil_score,
+				       ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 				UNION ALL
-				SELECT ts.season, NULL::text, ts.rating_specialist, ts.rating_specialist_rank, ts.rating_specialist_score,
-				       ts.rating_specialty, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
+				SELECT ts.season, NULL::text, ts.rating_specialist AS rating_sigil, ts.rating_specialist_rank AS rating_sigil_rank, ts.rating_specialist_score AS rating_sigil_score,
+				       ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
 				FROM public.team_stats ts CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season
@@ -911,7 +909,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
 		)
 		SELECT json_build_object(
-			'page', 'special',
+			'page', 'sigil',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT etype FROM req),
 			'entity_id', (SELECT eid FROM req),
@@ -919,7 +917,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'rating', (SELECT row_to_json(spec_rating) FROM spec_rating),
 			'commentary', (
 				SELECT row_to_json(c) FROM (
-					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_sigil
 					FROM public.stat_summaries s
 					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
 					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick) AND s.body IS NOT NULL
@@ -1683,22 +1681,20 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 	),
 	vibe_window AS (
 		-- Last 7 days of Gemma sentiment scores (1-100) for this entity.
-		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes), so
-		-- this is a faithful history snapshot. Legacy blurb-only rows have
-		-- sentiment IS NULL — exclude them for consistency with the latest-vibe
-		-- handler. Uppercase sport literal matches vibe_scores.sport.
+		-- sentiment_scores is append-only (BIGSERIAL PK + INSERT-only writes).
+		-- Legacy blurb-only rows have sentiment IS NULL — exclude them.
 		SELECT vs.sentiment, vs.generated_at, vs.trigger_type
-		FROM vibe_scores vs, req
+		FROM sentiment_scores vs, req
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'
 		  AND vs.sentiment IS NOT NULL
 		  AND vs.generated_at >= NOW() - INTERVAL '7 days'
 	),
-	-- Season vibe series: daily-bucketed sentiment averages from the start
+	-- Season sentiment series: daily-bucketed sentiment averages from the start
 	-- of the current sport+league season through NOW(). Drives the frontend's
-	-- season-length vibe sparkline. Sibling to vibe_window (recent 7-day raw
-	-- snapshot list); the two answer different questions and both stay.
+	-- season-length sentiment sparkline on TrendsCard. Sibling to vibe_window
+	-- (recent 7-day raw snapshot list); the two answer different questions and both stay.
 	vibe_season_anchor AS (
 		-- Anchor = first kickoff of the most-recently-started season in this
 		-- sport+league scope. Per-sport (not per-entity) so two entities in
@@ -1727,7 +1723,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			DATE_TRUNC('day', vs.generated_at AT TIME ZONE 'UTC')::date AS day,
 			ROUND(AVG(vs.sentiment)::numeric, 0)::int AS sentiment_avg,
 			COUNT(*)::int AS snapshot_count
-		FROM vibe_scores vs, req, vibe_season_anchor anchor
+		FROM sentiment_scores vs, req, vibe_season_anchor anchor
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'
@@ -1796,7 +1792,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- snapshots are omitted so the frontend renders honest gaps rather
 		-- than zero-sentiment dots. [] when the entity has no scored events
 		-- in scope.
-		'entity_season_vibe_series', COALESCE((
+		'entity_season_sentiment_series', COALESCE((
 			SELECT json_agg(json_build_object(
 				'date',           day,
 				'sentiment_avg',  sentiment_avg,

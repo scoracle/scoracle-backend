@@ -13,18 +13,24 @@ import (
 	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
+	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 // Handler holds shared dependencies for all endpoint handlers.
 type Handler struct {
-	pool    *pgxpool.Pool
-	cache   *cache.Cache
-	cfg     *config.Config
-	news    *thirdparty.NewsService
-	twitter *thirdparty.TwitterService
-	auth    *auth.Tokens
+	pool     *pgxpool.Pool
+	cache    *cache.Cache
+	cfg      *config.Config
+	news     *thirdparty.NewsService
+	twitter  *thirdparty.TwitterService
+	auth     *auth.Tokens
+	synthGen *ml.SynthesisGenerator // optional; nil = lazy-view synthesis disabled
 }
+
+// SetSynthGen wires the vibe synthesis generator for lazy-view triggering on
+// cold entities. Call once after New, before serving requests.
+func (h *Handler) SetSynthGen(g *ml.SynthesisGenerator) { h.synthGen = g }
 
 // New creates a Handler with shared dependencies.
 func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.Tokens) *Handler {

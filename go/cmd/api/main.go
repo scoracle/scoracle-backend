@@ -78,6 +78,10 @@ func main() {
 	appCache := cache.New(cfg.CacheEnabled)
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
 
+	// synthGen is set inside the dbPool block when Ollama is reachable; stays nil
+	// otherwise. Declared here so NewRouter can receive it at the outer scope.
+	var synthGen *ml.SynthesisGenerator
+
 	if dbPool != nil {
 		// Start notification dispatch worker (if FCM is configured)
 		fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
@@ -104,13 +108,15 @@ func main() {
 			logger.Info("News-volume vibe enabled", "model", cfg.OllamaModel)
 			newsVolumeGen = ml.NewGenerator(dbPool, ollamaCli)
 			newsVolumeNarrator = ml.NewNewsNarrator(dbPool, ollamaCli)
+			synthGen = ml.NewSynthesisGenerator(dbPool, ollamaCli)
 		}
 		pingCancel()
 
 		// Start LISTEN/NOTIFY consumers (one goroutine per channel). On a news
-		// spike the news-volume worker refreshes narratives first, then vibe.
-		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
-		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeNarrator, newsVolumeGen, logger)
+		// spike the news-volume worker refreshes narratives (stage 2), sentiment
+		// (stage 3), then vibe synthesis (stage 4, 24h debounced).
+		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, synthGen, logger)
+		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeNarrator, newsVolumeGen, synthGen, logger)
 
 		// Transfer-rumor news-spike worker. Reuses the SAME ollamaCli (no second
 		// ping) — newsVolumeGen != nil is exactly "Ollama reachable". nil gen → the
@@ -160,8 +166,8 @@ func main() {
 		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}
 
-	// Create router
-	router := api.NewRouter(dbPool, appCache, cfg)
+	// Create router (synthGen wires lazy-view synthesis; nil when Ollama is down)
+	router := api.NewRouter(dbPool, appCache, cfg, synthGen)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.APIHost, cfg.APIPort)

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/cache"
+	"github.com/albapepper/scoracle-data/internal/corpus"
+	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
 var validSports = map[string]struct{}{
@@ -532,7 +535,32 @@ func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Lazy-view synthesis: if this entity has no recent synthesis row, kick off
+	// a background generation so the next view (after a few seconds) has a blurb.
+	if h.synthGen != nil {
+		go h.maybeSynthesizeLazy(r.Context(), sport, entityType, id)
+	}
 	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
+// maybeSynthesizeLazy triggers a lazy-view vibe synthesis for cold entities —
+// those that have no synthesis row in the last 24 hours. Runs in a goroutine;
+// errors are silently dropped (best-effort enrichment, not a request dependency).
+func (h *Handler) maybeSynthesizeLazy(ctx context.Context, sport, entityType string, id int) {
+	if ml.RecentlySynthesized(ctx, h.pool, entityType, id, strings.ToUpper(sport), 24*time.Hour) {
+		return
+	}
+	name, err := corpus.LookupEntityName(ctx, h.pool, entityType, id, strings.ToUpper(sport))
+	if err != nil || name == "" {
+		return
+	}
+	_, _ = h.synthGen.Generate(ctx, ml.VibeSynthesisRequest{
+		EntityType:  entityType,
+		EntityID:    id,
+		EntityName:  name,
+		Sport:       strings.ToUpper(sport),
+		TriggerType: "lazy_view",
+	})
 }
 
 // GetEntityStats returns the entity's STATS product — the full season rating
@@ -577,12 +605,12 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 		sport, entityType, id, season, leagueID)
 }
 
-// GetEntitySpecial returns the entity's SPECIAL product — the lean specialist
-// projection (peak skill + the specialty datapoints) plus the Gemma stat
-// commentary. The Special card reads this. Distinct from /stats (no fantasy/
+// GetEntitySigil returns the entity's SIGIL product — the lean sigil
+// projection (peak skill + the sigil datapoints) plus the Gemma stat
+// commentary. The Sigil card reads this. Distinct from /stats (no fantasy/
 // template/datapoints blocks).
-// @Summary Get the entity specialist + commentary
-// @Description The entity's specialist rating, specialty, the specialty datapoints, and the Gemma stat commentary.
+// @Summary Get the entity sigil + commentary
+// @Description The entity's sigil rating, the sigil datapoints, and the Gemma stat commentary.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -593,8 +621,8 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/special [get]
-func (h *Handler) GetEntitySpecial(w http.ResponseWriter, r *http.Request) {
+// @Router /{sport}/{entityType}/{id}/sigil [get]
+func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -615,7 +643,7 @@ func (h *Handler) GetEntitySpecial(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_special", dataCacheKey(r), cache.TTLData, false,
+	h.serveStatementJSON(w, r, "entity_sigil", dataCacheKey(r), cache.TTLData, false,
 		sport, entityType, id, season, leagueID)
 }
 

@@ -3,14 +3,15 @@
 // Runs the full chain IN ORDER, in one process so the cross-stage "which entities
 // were touched this run" handoff (the in-process runStart watermark) holds:
 //
-//	sweep → transfers → narratives → vibe
-//	  0        1            2          3
+//	sweep → transfers → narratives → sentiment → synthesis
+//	  0        1            2            3            4
 //
 // Stage 0 RSS-refreshes the corpus (the async scrub ticker vets it). Stage 1 vets
-// transfer heat off the scrubbed corpus (all teams). Stages 2/3 process every
+// transfer heat off the scrubbed corpus (all teams). Stages 2/3/4 process every
 // entity whose corpus changed this run: narratives first (grounded on the fresh
-// stage-1 heat — see ml/news_narratives.go), then vibe (which reads the fresh
-// narratives + heat). Per-stage batches; the DB is the handoff between stages.
+// stage-1 heat — see ml/news_narratives.go), then sentiment (the internal ingredient),
+// then vibe synthesis (the three-pillar holistic score the product shows).
+// Per-stage batches; the DB is the handoff between stages.
 //
 //	go run ./cmd/pipeline -mode corpus
 //	go run ./cmd/pipeline -mode corpus -sport FOOTBALL   # one-sport smoke
@@ -52,9 +53,11 @@ func main() {
 	transferThrottleMs := flag.Int("transfer-throttle-ms", 0, "[stage 1] pause between teams")
 	narrateThrottleMs := flag.Int("narrate-throttle-ms", 0, "[stage 2] pause between entities")
 	vibeThrottleMs := flag.Int("vibe-throttle-ms", 0, "[stage 3] pause between entities")
+	synthThrottleMs := flag.Int("synth-throttle-ms", 0, "[stage 4] pause between entities")
 	narrateSkipHours := flag.Int("narrate-skip-recent-hours", 10, "[stage 2] skip entities narrated within this window")
 	vibeSkipHours := flag.Int("vibe-skip-recent-hours", 10, "[stage 3] skip entities vibed within this window")
-	limit := flag.Int("limit", 0, "cap teams (stage 1) and touched entities (stages 2/3); 0 = no cap. For smoke runs.")
+	synthSkipHours := flag.Int("synth-skip-recent-hours", 24, "[stage 4] skip entities synthesized within this window")
+	limit := flag.Int("limit", 0, "cap teams (stage 1) and touched entities (stages 2/3/4); 0 = no cap. For smoke runs.")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -86,11 +89,13 @@ func main() {
 	transferGen := ml.NewTransferGenerator(pool, ollama)
 	narrator := ml.NewNewsNarrator(pool, ollama)
 	vibeGen := ml.NewGenerator(pool, ollama)
+	synthGen := ml.NewSynthesisGenerator(pool, ollama)
 
 	runCorpus(pool, opts{
 		transferGen:      transferGen,
 		narrator:         narrator,
 		vibeGen:          vibeGen,
+		synthGen:         synthGen,
 		gemmaTimeout:     cfg.OllamaTimeout,
 		sportArg:         *sport,
 		minArticles:      *minArticles,
@@ -99,8 +104,10 @@ func main() {
 		transferThrottle: *transferThrottleMs,
 		narrateThrottle:  *narrateThrottleMs,
 		vibeThrottle:     *vibeThrottleMs,
+		synthThrottle:    *synthThrottleMs,
 		narrateSkip:      time.Duration(*narrateSkipHours) * time.Hour,
 		vibeSkip:         time.Duration(*vibeSkipHours) * time.Hour,
+		synthSkip:        time.Duration(*synthSkipHours) * time.Hour,
 		limit:            *limit,
 	}, logger)
 }
@@ -109,6 +116,7 @@ type opts struct {
 	transferGen      *ml.TransferGenerator
 	narrator         *ml.NewsNarrator
 	vibeGen          *ml.Generator
+	synthGen         *ml.SynthesisGenerator
 	gemmaTimeout     time.Duration
 	sportArg         string
 	minArticles      int
@@ -117,8 +125,10 @@ type opts struct {
 	transferThrottle int
 	narrateThrottle  int
 	vibeThrottle     int
+	synthThrottle    int
 	narrateSkip      time.Duration
 	vibeSkip         time.Duration
+	synthSkip        time.Duration
 	limit            int
 }
 
@@ -151,8 +161,10 @@ func runCorpus(pool *pgxpool.Pool, o opts, logger *slog.Logger) {
 
 	// Stage 2 — narratives (grounded on the fresh stage-1 transfer heat).
 	runNarratives(ctx, pool, o, touched, logger)
-	// Stage 3 — vibe (reads the fresh narratives + heat — the LAST stage).
+	// Stage 3 — sentiment from the fresh narratives + heat.
 	runVibe(ctx, pool, o, touched, logger)
+	// Stage 4 — vibe synthesis (three-pillar holistic score — the LAST stage).
+	runSynthesis(ctx, pool, o, touched, logger)
 
 	logger.Info("pipeline: complete", "elapsed", time.Since(start).Round(time.Second))
 }
@@ -227,11 +239,11 @@ func runNarratives(ctx context.Context, pool *pgxpool.Pool, o opts, touched []co
 	logger.Info("pipeline/narratives: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus)
 }
 
-// Stage 3 — vibe for every touched entity (reads the stage-2 narratives + heat).
+// Stage 3 — sentiment for every touched entity (reads the stage-2 narratives + heat).
 func runVibe(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
 	ok, fail, skipped, noCorpus := 0, 0, 0, 0
 	for i, e := range touched {
-		if debounced(ctx, pool, "vibe_scores", e, o.vibeSkip) {
+		if debounced(ctx, pool, "sentiment_scores", e, o.vibeSkip) {
 			skipped++
 			continue
 		}
@@ -241,25 +253,63 @@ func runVibe(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.E
 			continue
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.vibeGen.Generate(gctx, ml.VibeRequest{
+		res, err := o.vibeGen.Generate(gctx, ml.SentimentRequest{
 			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
 		})
 		cancel()
 		switch {
 		case err != nil:
 			fail++
-			logger.Warn("pipeline/vibe: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
+			logger.Warn("pipeline/sentiment: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
 		case res.SkippedNoCorpus:
 			noCorpus++
 		default:
 			ok++
 		}
-		progress(logger, "pipeline/vibe", i+1, len(touched), ok, fail, skipped, noCorpus)
+		progress(logger, "pipeline/sentiment", i+1, len(touched), ok, fail, skipped, noCorpus)
 		if o.vibeThrottle > 0 {
 			time.Sleep(time.Duration(o.vibeThrottle) * time.Millisecond)
 		}
 	}
-	logger.Info("pipeline/vibe: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus)
+	logger.Info("pipeline/sentiment: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus)
+}
+
+// Stage 4 — vibe synthesis for every touched entity.
+func runSynthesis(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
+	ok, fail, skipped, noPillars := 0, 0, 0, 0
+	for i, e := range touched {
+		dctx, dcancel := context.WithTimeout(ctx, 5*time.Second)
+		recent := ml.RecentlySynthesized(dctx, pool, e.EntityType, e.EntityID, e.Sport, o.synthSkip)
+		dcancel()
+		if recent {
+			skipped++
+			continue
+		}
+		name := lookup(ctx, pool, e, logger)
+		if name == "" {
+			fail++
+			continue
+		}
+		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
+		res, err := o.synthGen.Generate(gctx, ml.VibeSynthesisRequest{
+			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
+		})
+		cancel()
+		switch {
+		case err != nil:
+			fail++
+			logger.Warn("pipeline/synthesis: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
+		case res.SkippedNoPillars:
+			noPillars++
+		default:
+			ok++
+		}
+		progress(logger, "pipeline/synthesis", i+1, len(touched), ok, fail, skipped, noPillars)
+		if o.synthThrottle > 0 {
+			time.Sleep(time.Duration(o.synthThrottle) * time.Millisecond)
+		}
+	}
+	logger.Info("pipeline/synthesis: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_pillars", noPillars)
 }
 
 func debounced(ctx context.Context, pool *pgxpool.Pool, table string, e corpus.Entity, within time.Duration) bool {

@@ -1,10 +1,10 @@
-// vibe — CLI for generating vibe sentiment scores (1-100).
+// sentiment — CLI for generating entity sentiment scores (1-100).
 //
 // Two modes:
 //
 //	single (default) — generate one score for a given entity.
-//	  go run ./cmd/vibe -entity-type player -entity-id 237 -sport NBA
-//	  go run ./cmd/vibe -entity-type team -entity-id 14 -sport NBA
+//	  go run ./cmd/sentiment -entity-type player -entity-id 237 -sport NBA
+//	  go run ./cmd/sentiment -entity-type team -entity-id 14 -sport NBA
 //
 //	corpus — RSS-sweep every team across NBA/NFL/FOOTBALL, then run Gemma
 //	         only on entities that picked up fresh news in this run. The
@@ -13,8 +13,8 @@
 //	         news write-through pulls in co-mentioned players for free,
 //	         so the player layer is included without per-player RSS calls.
 //	         Intended for a noon + midnight cron pair.
-//	  go run ./cmd/vibe -mode corpus
-//	  go run ./cmd/vibe -mode corpus -sport NBA  # one-sport smoke run
+//	  go run ./cmd/sentiment -mode corpus
+//	  go run ./cmd/sentiment -mode corpus -sport NBA  # one-sport smoke run
 //
 // Real-time coverage between corpus runs is handled inside the API by the
 // news-volume LISTEN/NOTIFY worker (internal/listener/news_volume_worker.go),
@@ -51,7 +51,7 @@ func main() {
 	// shared + corpus-mode flags
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (single requires it; corpus defaults to all)")
 	throttleMs := flag.Int("throttle-ms", 0, "[corpus] pause N ms between generations; 0 = back-to-back")
-	corpusSkipHours := flag.Int("corpus-skip-recent-hours", 10, "[corpus] skip entities with a vibe newer than this; <= half the cron cadence")
+	corpusSkipHours := flag.Int("corpus-skip-recent-hours", 10, "[corpus] skip entities with a sentiment row newer than this; <= half the cron cadence")
 	corpusRSSPause := flag.Int("corpus-rss-pause-ms", 100, "[corpus] pause between team RSS calls to be polite to Google News")
 	corpusRSSLimit := flag.Int("corpus-rss-limit", 10, "[corpus] articles per team RSS call")
 
@@ -116,7 +116,7 @@ func runSingle(
 		os.Exit(1)
 	}
 
-	result, err := gen.Generate(ctx, ml.VibeRequest{
+	result, err := gen.Generate(ctx, ml.SentimentRequest{
 		EntityType:  entityType,
 		EntityID:    entityID,
 		EntityName:  entityName,
@@ -124,11 +124,11 @@ func runSingle(
 		TriggerType: trigger,
 	})
 	if err != nil {
-		logger.Error("vibe generate failed", "error", err)
+		logger.Error("sentiment generate failed", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("\n--- Vibe for %s (%s %d, %s) ---\n", entityName, entityType, entityID, sportUpper)
+	fmt.Printf("\n--- Sentiment for %s (%s %d, %s) ---\n", entityName, entityType, entityID, sportUpper)
 	if result.SkippedNoCorpus {
 		fmt.Println("Sentiment: (no data — corpus empty)")
 	} else {
@@ -170,7 +170,7 @@ func runCorpus(
 	gemmaStart := time.Now()
 	ok, fail, skipped, noCorpus := 0, 0, 0, 0
 	for i, e := range touched {
-		if recentlyVibed(pool, e, skipRecentHours) {
+		if recentlySentimentScored(pool, e, skipRecentHours) {
 			skipped++
 			continue
 		}
@@ -186,7 +186,7 @@ func runCorpus(
 		}
 
 		gctx, cancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
-		result, err := gen.Generate(gctx, ml.VibeRequest{
+		result, err := gen.Generate(gctx, ml.SentimentRequest{
 			EntityType:  e.EntityType,
 			EntityID:    e.EntityID,
 			EntityName:  name,
@@ -201,10 +201,6 @@ func runCorpus(
 			logger.Warn("corpus: generate failed",
 				"sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
 		case result.SkippedNoCorpus:
-			// Should be rare in corpus mode (we filtered to entities
-			// with fresh links), but the news lookback inside Generate
-			// is still 72h — a link from an old article that just got
-			// re-linked could still net zero "recent" rows.
 			noCorpus++
 		default:
 			ok++
@@ -227,9 +223,9 @@ func runCorpus(
 		"total_elapsed", time.Since(runStart).Round(time.Second))
 }
 
-// recentlyVibed checks whether this entity already has a vibe row within the
-// debounce window so repeated runs don't duplicate work.
-func recentlyVibed(pool *pgxpool.Pool, e corpus.Entity, skipRecentHours int) bool {
+// recentlySentimentScored checks whether this entity already has a sentiment row
+// within the debounce window so repeated runs don't duplicate work.
+func recentlySentimentScored(pool *pgxpool.Pool, e corpus.Entity, skipRecentHours int) bool {
 	if skipRecentHours <= 0 {
 		return false
 	}
@@ -238,13 +234,12 @@ func recentlyVibed(pool *pgxpool.Pool, e corpus.Entity, skipRecentHours int) boo
 	var exists bool
 	err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM vibe_scores
+			SELECT 1 FROM sentiment_scores
 			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 			  AND generated_at > NOW() - ($4 || ' hours')::interval
 		)
 	`, e.EntityType, e.EntityID, e.Sport, fmt.Sprintf("%d", skipRecentHours)).Scan(&exists)
 	if err != nil {
-		// Fail open — better to over-generate than drop on a transient error.
 		return false
 	}
 	return exists

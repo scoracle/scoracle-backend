@@ -2,15 +2,17 @@ package ml
 
 // Stat commentary — the STATS-rail narrative, the twin of news_narratives.go.
 // Reads an entity's ALREADY-SCRUBBED rating-engine output (player_stats /
-// team_stats: composite, specialist, the rating_breakdown datapoints + their
+// team_stats: composite, sigil, the rating_breakdown datapoints + their
 // cohort-scoped percentiles) and asks Gemma for the entity's ON-FIELD IDENTITY —
 // a few sentences of actual analysis, NOT a strengths/weaknesses list.
 //
-// Framing (Scott): our COMPOSITE shows how WELL an entity performs, our SPECIAL
+// Framing (Scott): our COMPOSITE shows how WELL an entity performs, our SIGIL
 // shows HOW it performs; the commentary narrates the "how" (the identity) with the
-// composite setting the quality register. Gemma works only from the engine's
-// curated datapoints (the deterministic scrub), never raw box scores, and the
-// percentiles are passed as FACTS so it never invents a number.
+// composite setting the quality register. Gemma divines the entity's SIGIL — its
+// single defining statistical strength — on the first output line ("SIGIL: <label>"),
+// then writes the identity analysis. Gemma works only from the engine's curated
+// datapoints (the deterministic scrub), never raw box scores, and the percentiles
+// are passed as FACTS so it never invents a number.
 //
 // Length scales with a DETERMINISTIC notability score (the stats-rail analog of
 // news impact / transfer heat). One stat_summaries row per generation (an entity
@@ -38,10 +40,13 @@ import (
 // s2: feeds the rate-adjusted (per-x: per_36/per_90) standouts so Gemma can reveal
 //
 //	elite rate production the raw totals hide; per-x peak also counts toward notability.
-const statCommentaryPromptVersion = "s2"
+//
+// s3: Gemma divines the sigil on line 1 ("SIGIL: <label>"); specialty-first sort
+//
+//	removed; the pre-supplied "Special" hint line dropped from the prompt.
+const statCommentaryPromptVersion = "s3"
 
-// maxStatFacts bounds the breakdown datapoints fed to the prompt (the specialty is
-// always kept; the rest are the highest-percentile skills).
+// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const maxStatFacts = 14
 
 // StatCommentaryRequest describes the entity whose rating profile to narrate.
@@ -64,6 +69,7 @@ type StatCommentaryRequest struct {
 // entity has no usable rating row; SkippedUnchanged when SkipUnchanged short-circuited.
 type StatCommentaryResult struct {
 	Body                 string
+	DivinedSigil         string // extracted from "SIGIL: <label>" first line; empty if absent
 	Notability           int
 	NotabilityComponents map[string]any
 	InputComponents      map[string]any
@@ -157,13 +163,15 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 	}
 	duration := time.Since(start)
 
-	body := cleanCommentary(gen.Response)
+	divinedSigil, rawBody := parseSigilCommentary(gen.Response)
+	body := cleanCommentary(rawBody)
 	if body == "" {
 		return nil, fmt.Errorf("empty commentary (raw=%q prompt_len=%d)", truncate(gen.Response, 160), len(prompt))
 	}
 
 	res := &StatCommentaryResult{
 		Body:                 body,
+		DivinedSigil:         divinedSigil,
 		Notability:           notability,
 		NotabilityComponents: ncomp,
 		InputComponents:      ic,
@@ -203,15 +211,15 @@ type ratingDatapoint struct {
 }
 
 type ratingProfile struct {
-	entityType      string
-	season          int
-	position        string // players only
-	compositeScore  *float64
-	specialistScore *float64
-	specialty       string
-	breakdown       []ratingDatapoint
-	scopedRanks     map[string]float64           // rating_scoped_ranks (entity-level cohort percentiles)
-	rateModes       map[string][]ratingDatapoint // rating_modes — per-x breakdowns (per_36, per_90, …)
+	entityType     string
+	season         int
+	position       string // players only
+	compositeScore *float64
+	sigilScore     *float64
+	sigilLabel     string
+	breakdown      []ratingDatapoint
+	scopedRanks    map[string]float64           // rating_scoped_ranks (entity-level cohort percentiles)
+	rateModes      map[string][]ratingDatapoint // rating_modes — per-x breakdowns (per_36, per_90, …)
 }
 
 // loadRatingProfile reads the entity's rating row for `season` (nil = latest).
@@ -257,7 +265,7 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 	)
 	err := pool.QueryRow(ctx, q, sport, entityID, season).Scan(
 		&p.season, &p.position,
-		&p.compositeScore, &p.specialistScore, &p.specialty,
+		&p.compositeScore, &p.sigilScore, &p.sigilLabel,
 		&breakdownRaw, &scopedRaw, &modesRaw,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -301,9 +309,9 @@ func (p *ratingProfile) inputComponents() map[string]any {
 		facts = append(facts, map[string]any{"label": d.Label, "pct": round1(d.Pct), "is_specialty": d.IsSpecialty})
 	}
 	out := map[string]any{
-		"season":     p.season,
-		"specialty":  p.specialty,
-		"datapoints": facts,
+		"season":      p.season,
+		"sigil_label": p.sigilLabel,
+		"datapoints":  facts,
 	}
 	if rs := collectRateStandouts(p); len(rs) > 0 {
 		rates := make([]map[string]any, 0, len(rs))
@@ -315,8 +323,8 @@ func (p *ratingProfile) inputComponents() map[string]any {
 	if p.compositeScore != nil {
 		out["composite_score"] = round1(*p.compositeScore)
 	}
-	if p.specialistScore != nil {
-		out["specialist_score"] = round1(*p.specialistScore)
+	if p.sigilScore != nil {
+		out["sigil_score"] = round1(*p.sigilScore)
 	}
 	if p.position != "" {
 		out["position"] = p.position
@@ -370,15 +378,15 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const statCommentarySystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, our COMPOSITE shows how WELL it performs and our SPECIAL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY: what kind of player or team this is and what defines it. This is an ACTUAL ANALYSIS, not a strengths/weaknesses list and not a stat recap.
+const statCommentarySystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY: what kind of player or team this is and what defines it. This is an ACTUAL ANALYSIS, not a strengths/weaknesses list and not a stat recap.
 
 Rules:
-- Lead with the DEFINING trait (the specialty, framed by its cohort percentile when given — e.g. "especially among forwards").
+- On the first line, identify the entity's sigil — their single defining statistical strength — in the format: SIGIL: <label>. Then write your analysis on the following lines.
 - Every percentile is SIGN-ADJUSTED so HIGHER IS ALWAYS BETTER — a high percentile in a "negative" stat (turnovers, goals conceded) means the entity EXCELS there (commits/concedes few). Read every number as goodness.
 - Ground every claim in the given datapoints; never invent a stat, number, or fact not provided. Do NOT recite the raw numbers as a list — weave them into the read.
 - Synthesize a coherent identity (e.g. "a low-usage floor-spacer who defends above his profile"), don't just enumerate skills.
 - You may also be given RATE-ADJUSTED (per-x, e.g. per-36 / per-90) standouts. When an entity produces at an ELITE per-x rate even if its raw totals are modest — a young or limited-minutes player whose efficiency the box score hides — call that out. Surfacing that hidden value is exactly the point.
-- Return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
+- After the SIGIL line, return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
 
 func buildStatPrompt(req StatCommentaryRequest, p *ratingProfile, notability int) string {
 	var b strings.Builder
@@ -395,20 +403,10 @@ func buildStatPrompt(req StatCommentaryRequest, p *ratingProfile, notability int
 	if p.compositeScore != nil {
 		b.WriteString(fmt.Sprintf("\nComposite (how WELL — T-score, 50 = average): %.0f\n", *p.compositeScore))
 	}
-	if p.specialty != "" {
-		line := fmt.Sprintf("Special (how — the standout skill): %s", p.specialty)
-		if p.specialistScore != nil {
-			line += fmt.Sprintf(" (%.0f)", *p.specialistScore)
-		}
-		b.WriteString(line + "\n")
-	}
 
 	b.WriteString("\nDatapoints (percentile vs peers; higher = better; [cohort] when available):\n")
 	for _, d := range orderedFacts(p.breakdown) {
 		b.WriteString(fmt.Sprintf("- %s: %.0fth", d.Label, d.Pct))
-		if d.IsSpecialty {
-			b.WriteString(" — THE specialty")
-		}
 		if pos, ok := d.ScopedPct["position"]; ok {
 			b.WriteString(fmt.Sprintf(" [position: %.0fth]", pos))
 		}
@@ -461,15 +459,11 @@ func collectRateStandouts(p *ratingProfile) []rateStandout {
 	return out
 }
 
-// orderedFacts puts the specialty first, then the highest-percentile datapoints,
-// bounded to maxStatFacts so the prompt stays tight.
+// orderedFacts returns the highest-percentile datapoints, bounded to maxStatFacts.
 func orderedFacts(in []ratingDatapoint) []ratingDatapoint {
 	facts := make([]ratingDatapoint, len(in))
 	copy(facts, in)
 	sort.SliceStable(facts, func(i, j int) bool {
-		if facts[i].IsSpecialty != facts[j].IsSpecialty {
-			return facts[i].IsSpecialty // specialty first
-		}
 		return facts[i].Pct > facts[j].Pct
 	})
 	if len(facts) > maxStatFacts {
@@ -492,6 +486,28 @@ func lengthGuidance(notability int) string {
 // ---------------------------------------------------------------------------
 // Output + persistence
 // ---------------------------------------------------------------------------
+
+// parseSigilCommentary extracts the divined sigil label from the first line
+// ("SIGIL: <label>") and returns (divinedSigil, body). The body is everything
+// after that line. If the model omits the SIGIL line the whole response becomes
+// the body and divinedSigil is empty.
+func parseSigilCommentary(raw string) (divinedSigil, body string) {
+	trimmed := strings.TrimSpace(raw)
+	idx := strings.Index(trimmed, "\n")
+	if idx >= 0 {
+		firstLine := strings.TrimSpace(trimmed[:idx])
+		rest := strings.TrimSpace(trimmed[idx+1:])
+		if strings.HasPrefix(firstLine, "SIGIL: ") {
+			return strings.TrimSpace(strings.TrimPrefix(firstLine, "SIGIL: ")), rest
+		}
+		return "", trimmed
+	}
+	// single-line response — could be just a bare SIGIL line with no body
+	if strings.HasPrefix(trimmed, "SIGIL: ") {
+		return strings.TrimSpace(strings.TrimPrefix(trimmed, "SIGIL: ")), ""
+	}
+	return "", trimmed
+}
 
 // cleanCommentary trims Gemma's prose and strips a leading "Analysis:"-style
 // label or wrapping quotes/fences if one slips through despite the prompt.
@@ -523,9 +539,13 @@ func (a *StatCommentator) persist(ctx context.Context, req StatCommentaryRequest
 
 	var body any
 	var notability any
+	var divinedSigil any
 	if !res.SkippedNoStats {
 		body = res.Body
 		notability = res.Notability
+		if res.DivinedSigil != "" {
+			divinedSigil = res.DivinedSigil
+		}
 	}
 	var season any
 	if res.Season > 0 {
@@ -540,11 +560,11 @@ func (a *StatCommentator) persist(ctx context.Context, req StatCommentaryRequest
 		INSERT INTO stat_summaries (
 		    entity_type, entity_id, sport, season, trigger_type, trigger_payload,
 		    body, notability, notability_components, input_components, input_hash,
-		    model_version, prompt_version, generated_at
-		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14)`,
+		    model_version, prompt_version, generated_at, divined_sigil
+		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14,$15)`,
 		req.EntityType, req.EntityID, sport, season, req.TriggerType, triggerJSON,
 		body, notability, ncomp, icomp, inputHash,
-		res.Model, statCommentaryPromptVersion, res.GeneratedAt)
+		res.Model, statCommentaryPromptVersion, res.GeneratedAt, divinedSigil)
 	return err
 }
 

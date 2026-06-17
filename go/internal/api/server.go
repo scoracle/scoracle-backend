@@ -18,10 +18,12 @@ import (
 	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
+	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
 // NewRouter creates and configures the Chi router with all middleware and routes.
-func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *chi.Mux {
+// synthGen is optional; pass nil to disable lazy-view vibe synthesis.
+func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, synthGen ...*ml.SynthesisGenerator) *chi.Mux {
 	r := chi.NewRouter()
 	if appCache == nil {
 		appCache = cache.New(false)
@@ -71,6 +73,9 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	// --- Handler dependencies ---
 	tokens := auth.New(cfg)
 	h := handler.New(pool, appCache, cfg, tokens)
+	if len(synthGen) > 0 && synthGen[0] != nil {
+		h.SetSynthGen(synthGen[0])
+	}
 
 	// --- Routes ---
 
@@ -112,7 +117,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			//   news source:  /news (narratives), /transfers (vetted rumor heat),
 			//     /vibes (current + history).
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
-			r.Get("/{entityType:player|team}/{id}/special", h.GetEntitySpecial)
+			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)

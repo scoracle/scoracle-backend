@@ -15,11 +15,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/notifications"
 )
 
@@ -44,11 +46,14 @@ type PercentileChangeEvent struct {
 // Start opens a dedicated connection and listens on the percentile_changed
 // channel. It reconnects automatically on connection loss. Blocks until ctx
 // is cancelled. Intended to be called with `go`.
-func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) {
+// Start opens a dedicated connection and listens on the percentile_changed
+// channel. It reconnects automatically on connection loss. Blocks until ctx
+// is cancelled. synthGen is optional — nil disables composite-shift synthesis.
+func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
 	for {
-		err := listenLoop(ctx, dbURL, pool, sender, logger)
+		err := listenLoop(ctx, dbURL, pool, sender, synthGen, logger)
 		if ctx.Err() != nil {
 			logger.Info("Percentile listener stopped (context cancelled)")
 			return
@@ -68,7 +73,7 @@ func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifi
 
 // listenLoop runs a single listen session. Returns when the connection drops
 // or the context is cancelled.
-func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) error {
+func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, logger *slog.Logger) error {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -103,13 +108,13 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 			"new_pctile", event.NewPercentile)
 
 		// Process asynchronously to avoid blocking the listener.
-		go handlePercentileChange(ctx, pool, sender, event, logger)
+		go handlePercentileChange(ctx, pool, sender, synthGen, event, logger)
 	}
 }
 
-// handlePercentileChange resolves followers for the entity and dispatches FCM
-// push notifications for the percentile change.
-func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, event PercentileChangeEvent, logger *slog.Logger) {
+// handlePercentileChange resolves followers for the entity, dispatches FCM
+// push notifications, and optionally triggers vibe synthesis on composite shifts.
+func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, event PercentileChangeEvent, logger *slog.Logger) {
 	// Find followers for this entity
 	followers, err := notifications.GetFollowers(ctx, pool, event.EntityType, event.EntityID, event.Sport)
 	if err != nil {
@@ -163,6 +168,22 @@ func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *not
 	if sent+failed > 0 {
 		logger.Info("Percentile notifications dispatched",
 			"message", message, "sent", sent, "failed", failed)
+	}
+
+	// Composite-shift synthesis trigger: a significant rating change is one of
+	// the three synthesis inputs. Spawn best-effort; 24h debounce prevents storms.
+	if synthGen != nil && math.Abs(event.NewPercentile-event.OldPercentile) >= 10 &&
+		!ml.RecentlySynthesized(ctx, pool, event.EntityType, event.EntityID, event.Sport, 24*time.Hour) {
+		go func() {
+			_, _ = synthGen.Generate(ctx, ml.VibeSynthesisRequest{
+				EntityType:  event.EntityType,
+				EntityID:    event.EntityID,
+				EntityName:  entityName,
+				Sport:       event.Sport,
+				TriggerType: "composite_shift",
+				Trigger:     map[string]any{"stat_key": event.StatKey, "delta": event.NewPercentile - event.OldPercentile},
+			})
+		}()
 	}
 }
 

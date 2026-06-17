@@ -470,7 +470,7 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    ),
 		    lv AS (
 		        SELECT DISTINCT ON (entity_type, entity_id) entity_type, entity_id, generated_at
-		        FROM vibe_scores WHERE sport = $1 AND sentiment IS NOT NULL
+		        FROM sentiment_scores WHERE sport = $1 AND sentiment IS NOT NULL
 		        ORDER BY entity_type, entity_id, generated_at DESC
 		    ),
 		    ls AS (

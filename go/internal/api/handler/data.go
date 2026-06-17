@@ -123,12 +123,12 @@ func (h *Handler) GetLeagueProfilePage(w http.ResponseWriter, r *http.Request) {
 // Each row carries BOTH the Composite and Specialist score (+ the specialty label),
 // so a single payload feeds the leaderboard board, the meta card, and the sparkline.
 // @Summary Get rating leaderboard
-// @Description Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Specialist in one payload.
+// @Description Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Sigil in one payload.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Board type: player (default) or team"
-// @Param scope query string false "Board: composite (default), specialist, or a specialty label (e.g. Sacks)"
+// @Param scope query string false "Board: composite (default), sigil, or a sigil label (e.g. Sacks)"
 // @Param season query int false "Season year (defaults to the latest rated season)"
 // @Param position query string false "Filter to a position (player boards only)"
 // @Param league_id query int false "Filter to a league (football)"
@@ -408,7 +408,7 @@ func (h *Handler) GetTeamResults(w http.ResponseWriter, r *http.Request) {
 // GetRoster returns a team's roster with each player's season Composite +
 // Specialist rating, ranked by the sum of the two.
 // @Summary Get team roster (rating)
-// @Description Players on the team's season roster with season Composite/Specialist (+ ranks + specialty), ordered by the Composite+Specialist sum. Player names link to the player profile.
+// @Description Players on the team's season roster with season Composite/Sigil (+ ranks + sigil label), ordered by the Composite+Sigil sum. Player names link to the player profile.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

@@ -298,22 +298,23 @@ func (s *SynthesisGenerator) loadMomentumPillar(ctx context.Context, entityType 
 	}
 
 	// Composite trend: last 10 events from the appropriate event table
-	var compTable string
+	var compTable, idCol string
 	switch entityType {
 	case "player":
-		compTable = "event_box_scores"
+		compTable, idCol = "event_box_scores", "player_id"
 	default:
-		compTable = "event_team_stats"
+		compTable, idCol = "event_team_stats", "team_id"
 	}
 	q := fmt.Sprintf(`
-		SELECT rating_composite_pct FROM public.%s
-		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-		  AND rating_composite_pct IS NOT NULL
-		  AND ($4::int IS NULL OR season = $4)
-		ORDER BY start_time DESC
-		LIMIT 10
-	`, compTable)
-	compRows, err := s.pool.Query(ctx, q, entityType, entityID, sport, season)
+		SELECT e.rating_composite_pct FROM public.%s e
+			JOIN public.fixtures f ON f.id = e.fixture_id
+			WHERE e.%s = $1 AND e.sport = $2
+			  AND e.rating_composite_pct IS NOT NULL
+			  AND ($3::int IS NULL OR e.season = $3)
+			ORDER BY f.start_time DESC
+			LIMIT 10
+		`, compTable, idCol)
+	compRows, err := s.pool.Query(ctx, q, entityID, sport, season)
 	if err != nil {
 		return m, err
 	}

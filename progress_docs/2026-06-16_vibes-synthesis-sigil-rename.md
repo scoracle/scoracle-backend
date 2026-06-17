@@ -126,3 +126,13 @@ scoracle-frontend/src/
   lib/router/share-url.ts
   lib/data/data-sources.ts
 ```
+
+## Deployed (2026-06-17) — LIVE on archbox
+
+Shipped from archbox: `main` `7f07b18`; migrations 088→091 applied (089 a no-op on the clean DB); `bin/scoracle-api` + cron `bin/pipeline`/`bin/statcommentary`/`bin/vibesynth` rebuilt (prior binary saved `scoracle-api.bak087`); `systemctl --user restart scoracle-api`. All data endpoints 200 internally + via `api.scoracle.com`.
+
+**Post-deploy fixes:**
+- `8c528e8` — the synthesis **momentum pillar** filtered the event tables by `entity_type`/`entity_id` (they key on `player_id`/`team_id`) and ordered by `start_time` (which lives on `fixtures`), so `vibe_synthesis` stayed empty (lazy-view, triggers, and nightly Stage 4 all hit it). Fixed → filter by the id column + join `fixtures`. Verified end-to-end: LeBron 237 → vibe 78 + three-pillar blurb, `divined_sigil="Playmaking"`.
+- `6dc05ff` — Swagger regen (`swag init`): dropped the phantom `/starline` route, added the live two-rail routes (`/sigil` `/news` `/transfers` `/vibes` `/trends`), switched scope param + descriptions to "sigil". Repointed `cron-vibe.sh` → `bin/sentiment` (superseded by `cron-pipeline.sh`); removed the orphaned `bin/vibe`.
+
+Frontend shipped the same day (`scoracle-frontend` `e6a5a08` → `npm run cf:deploy`, Cloudflare worker `beedc9b3`, live on scoracle.com). divined_sigil + vibe_synthesis populate broadly via the 3am `statcommentary` + midnight `pipeline` crons (+ event triggers / lazy-view); graceful fallbacks until then.

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Cron wrapper for the vibe binary.
+# Cron wrapper for the sentiment binary (cmd/sentiment, formerly 'vibe').
+# NOTE: superseded by cron-pipeline.sh — the staged pipeline runs the RSS sweep
+# and sentiment as stages now. Kept for manual/standalone sentiment-corpus runs.
 #
 # Cron strips the environment to almost nothing — no shell env, no .env,
 # no venv. This wrapper rebuilds shell state from the repo's .env files
-# so the vibe binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
+# so the sentiment binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
 #
 # Cron schedule — corpus mode once daily at midnight (local time):
 #   0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibe.sh -mode corpus
@@ -31,4 +33,4 @@ set -a
 [ -f .env.local ] && source .env.local
 set +a
 
-exec ./go/bin/vibe "$@"
+exec ./go/bin/sentiment "$@"

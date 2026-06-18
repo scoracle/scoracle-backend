@@ -727,9 +727,45 @@ RETURNS INTEGER AS $$
     RETURNING id;
 $$ LANGUAGE sql;
 
--- Finalize a fixture after seeding: recalculate percentiles, refresh views, mark seeded.
--- This is the single handoff point from the Python seeder to Postgres.
-CREATE OR REPLACE FUNCTION finalize_fixture(p_fixture_id INTEGER)
+-- One-pass whole-season derivation: percentiles + the z-rating engine + per-event
+-- starline + event percentiles + autofill matview. Extracted from finalize_fixture's
+-- tail so bulk historical backfill can run it ONCE per (sport, season) instead of
+-- per fixture (O(M) vs O(M^2)). Idempotent. See migration 092 + DEFERRED_PERCENTILE_BACKFILL.md.
+CREATE OR REPLACE FUNCTION recompute_season(p_sport TEXT, p_season INTEGER)
+RETURNS TABLE (players_updated INTEGER, teams_updated INTEGER) AS $$
+DECLARE
+    v_players INTEGER := 0;
+    v_teams   INTEGER := 0;
+BEGIN
+    SELECT rp.players_updated, rp.teams_updated
+    INTO v_players, v_teams
+    FROM recalculate_percentiles(p_sport, p_season) rp;
+
+    PERFORM recalculate_event_percentiles(p_sport, p_season);
+    PERFORM compute_rating(p_sport, p_season);
+    PERFORM compute_team_rating(p_sport, p_season);
+    PERFORM compute_event_starline(p_sport, p_season);
+    PERFORM compute_team_event_starline(p_sport, p_season);
+    PERFORM recalculate_event_rating_pct(p_sport, p_season);
+
+    IF    p_sport = 'NBA'      THEN REFRESH MATERIALIZED VIEW CONCURRENTLY nba.autofill_entities;
+    ELSIF p_sport = 'NFL'      THEN REFRESH MATERIALIZED VIEW CONCURRENTLY nfl.autofill_entities;
+    ELSIF p_sport = 'FOOTBALL' THEN REFRESH MATERIALIZED VIEW CONCURRENTLY football.autofill_entities;
+    END IF;
+
+    RETURN QUERY SELECT v_players, v_teams;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Finalize a fixture after seeding: per-fixture aggregation + (optional) whole-season
+-- recompute via recompute_season() + mark seeded. The single handoff point from the
+-- Python seeder to Postgres. p_recompute=FALSE defers the season recompute for bulk
+-- historical backfill (caller runs recompute_season once at the end). See migration 092.
+DROP FUNCTION IF EXISTS finalize_fixture(INTEGER);
+CREATE OR REPLACE FUNCTION finalize_fixture(
+    p_fixture_id INTEGER,
+    p_recompute  BOOLEAN DEFAULT TRUE
+)
 RETURNS TABLE (players_updated INTEGER, teams_updated INTEGER) AS $$
 DECLARE
     v_sport TEXT;
@@ -880,31 +916,15 @@ BEGIN
             updated_at = NOW();
     END IF;
 
-    -- Recalculate percentiles for the sport/season
-    SELECT rp.players_updated, rp.teams_updated
-    INTO v_players, v_teams
-    FROM recalculate_percentiles(v_sport, v_season) rp;
-
-    -- Derived recomputes — keep the LIVE season fresh on every seed (event
-    -- percentiles, the season z-rating engine for players + teams, the per-event
-    -- starline, and per-event rating percentiles). All are scoped to v_season, so
-    -- prior (completed) seasons are untouched here and stay FROZEN until a deliberate
-    -- recompute. (Lineage: migrations 017/027/028/029; restored in migration 050 after
-    -- 049 inadvertently dropped them by rebuilding finalize_fixture from a stale shared.sql.)
-    PERFORM recalculate_event_percentiles(v_sport, v_season);
-    PERFORM compute_rating(v_sport, v_season);
-    PERFORM compute_team_rating(v_sport, v_season);
-    PERFORM compute_event_starline(v_sport, v_season);
-    PERFORM compute_team_event_starline(v_sport, v_season);
-    PERFORM recalculate_event_rating_pct(v_sport, v_season);
-
-    -- Refresh per-sport materialized views used by autofill/search
-    IF v_sport = 'NBA' THEN
-        REFRESH MATERIALIZED VIEW CONCURRENTLY nba.autofill_entities;
-    ELSIF v_sport = 'NFL' THEN
-        REFRESH MATERIALIZED VIEW CONCURRENTLY nfl.autofill_entities;
-    ELSIF v_sport = 'FOOTBALL' THEN
-        REFRESH MATERIALIZED VIEW CONCURRENTLY football.autofill_entities;
+    -- Whole-season recompute — gated. Default TRUE = live per-fixture freshness;
+    -- bulk historical backfill passes FALSE and runs recompute_season() once at the
+    -- end (O(M) not O(M^2)). All work is scoped to v_season, so prior (completed)
+    -- seasons stay FROZEN until a deliberate recompute. (Lineage: migrations
+    -- 017/027/028/029; restored in 050; split into recompute_season in migration 092.)
+    IF p_recompute THEN
+        SELECT rs.players_updated, rs.teams_updated
+        INTO v_players, v_teams
+        FROM recompute_season(v_sport, v_season) rs;
     END IF;
 
     -- Look up final score for each team from event_team_stats.

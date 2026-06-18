@@ -18,6 +18,8 @@ from shared.api_errors import RateLimitExhausted
 from shared.db import check_connectivity, create_pool, get_conn
 from shared.upsert import (
     finalize_fixture,
+    recompute_season,
+    snapshot_rating_history,
     upsert_event_box_score,
     upsert_event_team_stats,
     upsert_player,
@@ -59,7 +61,7 @@ def _resolve_external_fixture_id(
 
 
 def _seed_fixture_box_scores(
-    conn: psycopg.Connection, fixture: FixtureRow, handler: Any
+    conn: psycopg.Connection, fixture: FixtureRow, handler: Any, recompute: bool = True
 ) -> tuple[int, int, int, int]:
     provider = _PROVIDER_BY_SPORT[fixture.sport]
     external_fixture_id = _resolve_external_fixture_id(conn, fixture, provider)
@@ -109,7 +111,7 @@ def _seed_fixture_box_scores(
             )
         upsert_event_team_stats(conn, fixture.sport, season, league_id, row)
 
-    players_updated, teams_updated = finalize_fixture(conn, fixture.id)
+    players_updated, teams_updated = finalize_fixture(conn, fixture.id, recompute)
     return len(player_rows), len(team_rows), players_updated, teams_updated
 
 
@@ -430,8 +432,29 @@ def load_fixtures(
 @click.option(
     "--max", "max_fixtures", type=int, default=None, help="Max fixtures to process"
 )
-def process(sport: str | None, season: int | None, max_fixtures: int | None) -> None:
-    """Process pending fixtures and seed event-level box scores/team stats."""
+@click.option(
+    "--batch/--no-batch",
+    "batch",
+    default=None,
+    help=(
+        "Defer the expensive whole-season recompute to ONE pass at the end "
+        "(fast historical backfill, O(M) vs O(M^2)). Default: auto — defer "
+        "concluded seasons (season < sports.current_season), recompute per "
+        "fixture for the live season."
+    ),
+)
+def process(
+    sport: str | None,
+    season: int | None,
+    max_fixtures: int | None,
+    batch: bool | None,
+) -> None:
+    """Process pending fixtures and seed event-level box scores/team stats.
+
+    By default the whole-season percentile/rating recompute runs per fixture for
+    the live (current) season and is deferred to one end-of-run pass for
+    concluded historical seasons. Force with --batch / --no-batch.
+    """
     cfg = config_mod.load()
     pool = create_pool(cfg)
 
@@ -459,6 +482,33 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
             click.echo(f"Processing {len(pending)} fixtures")
 
             pending_sports = {fixture.sport for fixture in pending}
+
+            # Resolve current_season once per sport, up front, and commit — so the
+            # per-fixture `with conn.transaction()` blocks below each run as their
+            # own real transaction (a lazy lookup mid-loop would open an implicit
+            # txn and demote those to never-committed savepoints). Drives the auto
+            # batch decision: defer concluded seasons, recompute the live one.
+            current_season: dict[str, int] = {}
+            if batch is None:
+                for _sp in pending_sports:
+                    _row = conn.execute(
+                        "SELECT current_season FROM sports WHERE id = %s", (_sp,)
+                    ).fetchone()
+                    current_season[_sp] = int(_row["current_season"]) if _row else 0
+                conn.commit()
+
+            def _is_recompute(fx: FixtureRow) -> bool:
+                """Whether to run the whole-season recompute on this fixture's
+                finalize. Forced by --batch/--no-batch; otherwise auto: defer
+                concluded seasons (frozen), recompute the live season per fixture.
+                Falls back to recompute=True when current_season is unknown."""
+                if batch is True:
+                    return False
+                if batch is False:
+                    return True
+                cur = current_season.get(fx.sport, 0)
+                return cur == 0 or fx.season >= cur
+
             handlers: dict[str, Any] = {}
             if ("NBA" in pending_sports or "NFL" in pending_sports) and not cfg.bdl_api_key:
                 click.echo(
@@ -487,6 +537,7 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
                 total_team_rows = 0
                 total_players_updated = 0
                 total_teams_updated = 0
+                deferred: set[tuple[str, int]] = set()
 
                 for fixture in pending:
                     handler = handlers.get(fixture.sport)
@@ -498,6 +549,7 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
                         failed += 1
                         continue
 
+                    recompute = _is_recompute(fixture)
                     try:
                         with conn.transaction():
                             (
@@ -505,7 +557,11 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
                                 team_rows,
                                 players_updated,
                                 teams_updated,
-                            ) = _seed_fixture_box_scores(conn, fixture, handler)
+                            ) = _seed_fixture_box_scores(
+                                conn, fixture, handler, recompute
+                            )
+                        if not recompute:
+                            deferred.add((fixture.sport, fixture.season))
                         processed += 1
                         total_box_rows += box_rows
                         total_team_rows += team_rows
@@ -541,6 +597,33 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
                             err=True,
                         )
 
+                # Deferred whole-season recompute: one pass per (sport, season)
+                # whose fixtures skipped the per-fixture recompute. Plus a frozen
+                # rating_history snapshot for the season. Only reached on normal
+                # completion (a rate-limit exit above leaves resume state intact;
+                # re-run, or use `event recompute`).
+                if deferred:
+                    click.echo(
+                        f"Deferred recompute for {len(deferred)} (sport, season) pair(s)…"
+                    )
+                    for d_sport, d_season in sorted(deferred):
+                        with conn.transaction():
+                            p_up, t_up = recompute_season(conn, d_sport, d_season)
+                            snaps = snapshot_rating_history(
+                                conn, d_sport, d_season, "seed"
+                            )
+                        total_players_updated += p_up
+                        total_teams_updated += t_up
+                        click.echo(
+                            f"  recomputed {d_sport} {d_season}: "
+                            f"players={p_up} teams={t_up} rating_history+={snaps}"
+                        )
+                    click.echo(
+                        "Note: once ALL historical seasons of a sport are loaded, "
+                        "refresh cross-season all-time ranks ONCE: "
+                        "`scoracle-seed event recompute --sport <s> --season <latest> --alltime`"
+                    )
+
                 click.echo(
                     "Done: "
                     f"fixtures_seeded={processed} "
@@ -553,6 +636,66 @@ def process(sport: str | None, season: int | None, max_fixtures: int | None) -> 
             finally:
                 for handler in handlers.values():
                     handler.close()
+    finally:
+        pool.close()
+
+
+@cli.command("recompute")
+@click.option(
+    "--sport",
+    type=click.Choice(["nba", "nfl", "football"], case_sensitive=False),
+    required=True,
+)
+@click.option("--season", type=int, required=True, help="Season year")
+@click.option(
+    "--alltime",
+    is_flag=True,
+    help="Also refresh cross-season all-time ranks for the sport (run ONCE after "
+    "all historical seasons are loaded).",
+)
+@click.option(
+    "--snapshot/--no-snapshot",
+    default=True,
+    help="Append rating_history snapshots after the recompute (default on).",
+)
+def recompute(sport: str, season: int, alltime: bool, snapshot: bool) -> None:
+    """One-pass percentile/composite/rating recompute for a (sport, season).
+
+    Use after an interrupted deferred backfill (`process --batch`), or to
+    deliberately re-derive an otherwise-frozen historical season.
+    """
+    cfg = config_mod.load()
+    pool = create_pool(cfg)
+    try:
+        if not check_connectivity(pool):
+            click.echo("Database connectivity check failed", err=True)
+            sys.exit(1)
+
+        sport_u = sport.upper()
+        with get_conn(pool) as conn:
+            with conn.transaction():
+                p_up, t_up = recompute_season(conn, sport_u, season)
+                snaps = (
+                    snapshot_rating_history(conn, sport_u, season, "manual")
+                    if snapshot
+                    else 0
+                )
+            click.echo(
+                f"Recomputed {sport_u} {season}: "
+                f"players={p_up} teams={t_up} rating_history+={snaps}"
+            )
+
+            if alltime:
+                with conn.transaction():
+                    row = conn.execute(
+                        "SELECT players_updated, teams_updated "
+                        "FROM recalculate_alltime_ranks(%s, NULL)",
+                        (sport_u,),
+                    ).fetchone()
+                click.echo(
+                    f"All-time ranks refreshed for {sport_u}: "
+                    f"players={row['players_updated']} teams={row['teams_updated']}"
+                )
     finally:
         pool.close()
 

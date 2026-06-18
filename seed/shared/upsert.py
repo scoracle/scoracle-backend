@@ -314,10 +314,46 @@ def upsert_provider_fixture_map(
     )
 
 
-def finalize_fixture(conn: psycopg.Connection, fixture_id: int) -> tuple[int, int]:
-    """Call Postgres finalize_fixture() — recalculates percentiles, refreshes
-    views, marks fixture seeded. Returns (players_updated, teams_updated)."""
-    row = conn.execute("SELECT * FROM finalize_fixture(%s)", (fixture_id,)).fetchone()
+def finalize_fixture(
+    conn: psycopg.Connection, fixture_id: int, recompute: bool = True
+) -> tuple[int, int]:
+    """Call Postgres finalize_fixture() — per-fixture aggregation + (when
+    recompute=True, the default) the whole-season percentile/rating recompute +
+    refresh views, then mark fixture seeded. Returns (players_updated,
+    teams_updated).
+
+    Pass recompute=False for bulk historical backfill to skip the expensive
+    per-fixture whole-season recompute, then call recompute_season() once at the
+    end (O(M) instead of O(M^2)). mark_fixture_seeded still runs, so resume state
+    stays correct."""
+    row = conn.execute(
+        "SELECT * FROM finalize_fixture(%s, %s)", (fixture_id, recompute)
+    ).fetchone()
     if row:
         return row["players_updated"], row["teams_updated"]
     return 0, 0
+
+
+def recompute_season(
+    conn: psycopg.Connection, sport: str, season: int
+) -> tuple[int, int]:
+    """One-pass whole-season percentile + rating-engine recompute for
+    (sport, season). Use once after a deferred (recompute=False) backfill run.
+    Idempotent. Returns (players_updated, teams_updated)."""
+    row = conn.execute(
+        "SELECT * FROM recompute_season(%s, %s)", (sport, season)
+    ).fetchone()
+    if row:
+        return row["players_updated"], row["teams_updated"]
+    return 0, 0
+
+
+def snapshot_rating_history(
+    conn: psycopg.Connection, sport: str, season: int, trigger: str = "recompute"
+) -> int:
+    """Append per-entity rating snapshots for (sport, season) into rating_history
+    (debounced insert-if-changed). Returns the number of rows inserted."""
+    row = conn.execute(
+        "SELECT snapshot_rating_history(%s, %s, %s) AS n", (sport, season, trigger)
+    ).fetchone()
+    return row["n"] if row and row["n"] is not None else 0

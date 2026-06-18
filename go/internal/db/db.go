@@ -826,7 +826,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY vs.generated_at DESC LIMIT 14
 		)
 		SELECT json_build_object(
-			'page', 'vibes',
+			'page', 'sigil',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
@@ -1016,7 +1016,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
 		)
 		SELECT json_build_object(
-			'page', 'sigil',
+			'page', 'rating',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT etype FROM req),
 			'entity_id', (SELECT eid FROM req),
@@ -1841,7 +1841,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		GROUP BY 1
 	)
 	SELECT json_build_object(
-		'page', 'trends',
+		'page', 'momentum',
 		'sport', '` + sportTag + `',
 		'entity_type', req.entity_type,
 		'entity_id', req.entity_id,

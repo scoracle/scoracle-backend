@@ -667,7 +667,7 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard/vibes": {
             "get": {
-                "description": "Sport-wide board of entities ranked by latest vibe sentiment (1-100). Enriched sibling of /vibe/hottest.",
+                "description": "Sport-wide board of entities ranked by latest vibe sentiment (1-100). With the Vibe felt-read blurb.",
                 "produces": [
                     "application/json"
                 ],
@@ -1524,6 +1524,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/{sport}/{entityType}/{id}/momentum": {
+            "get": {
+                "description": "Returns the entity's last-3 event averages and peer-cohort season averages so the frontend can derive recent direction relative to peers. Raw values only.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get momentum (rating + vibe trajectory)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Season year",
+                        "name": "season",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "League ID filter",
+                        "name": "league_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{sport}/{entityType}/{id}/news": {
             "get": {
                 "description": "The entity's latest Gemma narratives (hottest first) ranked by per-narrative impact.",
@@ -1589,16 +1666,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/{entityType}/{id}/sigil": {
+        "/{sport}/{entityType}/{id}/rating": {
             "get": {
-                "description": "The entity's sigil rating, the sigil datapoints, and the Gemma stat commentary.",
+                "description": "The entity's positionless magnitude score, divined defining strength, and the Gemma stat-identity blurb.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity sigil + commentary",
+                "summary": "Get the entity rating (magnitude + strength + identity blurb)",
                 "parameters": [
                     {
                         "enum": [
@@ -1641,6 +1718,71 @@ const docTemplate = `{
                         "description": "League ID filter",
                         "name": "league_id",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/{entityType}/{id}/sigil": {
+            "get": {
+                "description": "The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Get the entity Sigil (crown synthesis)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "player",
+                            "team"
+                        ],
+                        "type": "string",
+                        "description": "Entity type",
+                        "name": "entityType",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Entity ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -1817,7 +1959,7 @@ const docTemplate = `{
                 "tags": [
                     "data"
                 ],
-                "summary": "Get trends page",
+                "summary": "Get momentum (rating + vibe trajectory)",
                 "parameters": [
                     {
                         "enum": [
@@ -1887,14 +2029,14 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/vibes": {
             "get": {
-                "description": "The entity's current vibe sentiment (1-100) plus a bounded history for the trend sparkline.",
+                "description": "The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity vibe sentiment",
+                "summary": "Get the entity Sigil (crown synthesis)",
                 "parameters": [
                     {
                         "enum": [

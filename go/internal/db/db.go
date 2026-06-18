@@ -490,6 +490,113 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Trending leaderboards — the RISERS: entities ranked by the rise (delta = latest − earliest)
+		// of their recent trajectory. Two metrics (the handler picks by ?metric=):
+		//   vibe   → rise of vibe_scores.sentiment over 21d (the vibe trajectory)
+		//   rating → rise of event rating_composite_pct over 60d (the rating trajectory)
+		// score = the rise (latest − earliest) over the window. Risers only (delta > 0),
+		// ≥3 data points. Same enriched row shape as the vibes board.
+		"trending_vibe_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport, COALESCE($2::int, 30) AS lim, NULLIF(lower($3::text), '') AS entity_type
+		),
+		slopes AS (
+			SELECT entity_type, entity_id, slope FROM (
+				SELECT vs.entity_type, vs.entity_id,
+				       ((array_agg(vs.sentiment ORDER BY vs.generated_at DESC))[1] - (array_agg(vs.sentiment ORDER BY vs.generated_at ASC))[1]) AS slope,
+				       count(*) AS n
+				FROM public.vibe_scores vs, req
+				WHERE vs.sport = req.sport AND vs.sentiment IS NOT NULL
+				  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
+				  AND vs.generated_at > NOW() - INTERVAL '21 days'
+				GROUP BY vs.entity_type, vs.entity_id
+			) s WHERE s.n >= 3 AND s.slope > 0
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
+				FROM slopes sl
+				JOIN public.players p ON p.id = sl.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN LATERAL (
+					SELECT ps.team_id FROM public.player_stats ps
+					WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+					ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
+				WHERE sl.entity_type = 'player'
+				UNION ALL
+				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
+				FROM slopes sl
+				JOIN public.teams t ON t.id = sl.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE sl.entity_type = 'team'
+			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'trending_leaderboard', 'metric', 'vibe',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
+		)`,
+
+		"trending_rating_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport, COALESCE($2::int, 30) AS lim, NULLIF(lower($3::text), '') AS entity_type
+		),
+		slopes AS (
+			SELECT entity_type, entity_id, slope FROM (
+				SELECT 'player'::text AS entity_type, e.player_id AS entity_id,
+				       ((array_agg(e.rating_composite_pct ORDER BY f.start_time DESC))[1] - (array_agg(e.rating_composite_pct ORDER BY f.start_time ASC))[1]) AS slope,
+				       count(*) AS n
+				FROM public.event_box_scores e JOIN public.fixtures f ON f.id = e.fixture_id, req
+				WHERE e.sport = req.sport AND e.rating_composite_pct IS NOT NULL
+				  AND (req.entity_type IS NULL OR req.entity_type = 'player')
+				  AND f.start_time > NOW() - INTERVAL '60 days'
+				GROUP BY e.player_id
+				UNION ALL
+				SELECT 'team'::text, e.team_id,
+				       ((array_agg(e.rating_composite_pct ORDER BY f.start_time DESC))[1] - (array_agg(e.rating_composite_pct ORDER BY f.start_time ASC))[1]) AS slope,
+				       count(*) AS n
+				FROM public.event_team_stats e JOIN public.fixtures f ON f.id = e.fixture_id, req
+				WHERE e.sport = req.sport AND e.rating_composite_pct IS NOT NULL
+				  AND (req.entity_type IS NULL OR req.entity_type = 'team')
+				  AND f.start_time > NOW() - INTERVAL '60 days'
+				GROUP BY e.team_id
+			) s WHERE s.n >= 3 AND s.slope > 0
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
+				FROM slopes sl
+				JOIN public.players p ON p.id = sl.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN LATERAL (
+					SELECT ps.team_id FROM public.player_stats ps
+					WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+					ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
+				WHERE sl.entity_type = 'player'
+				UNION ALL
+				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
+				FROM slopes sl
+				JOIN public.teams t ON t.id = sl.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE sl.entity_type = 'team'
+			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'trending_leaderboard', 'metric', 'rating',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
+		)`,
+
 		// News leaderboard — "most mentioned" entities in the rolling window. Counts
 		// distinct article links per entity from news_article_entities, joined to
 		// players/teams for the same enriched row shape as the vibes board.

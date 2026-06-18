@@ -110,15 +110,22 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, sy
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
 			// Canonical sport routes (vNext)
 			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
-			// Per-product endpoints — each card is its own product. "news" + "stats"
-			// are the two sources; the cards are self-contained derivatives.
-			//   stats source: /stats (season rating + per-event series), /special
-			//     (lean specialist + Gemma commentary), /trends (the season sparkline).
-			//   news source:  /news (narratives), /transfers (vetted rumor heat),
-			//     /vibes (current + history).
+			// Per-product endpoints — each card is its own product. The two rails
+			// (stats, news) refine into end products that converge into the Sigil
+			// (Rating + Vibe + Momentum → Sigil). See wiki "Sigil" / "Product Narrative".
+			//   stats rail:  /stats (composite + scopes), /rating (Gemma's divined
+			//     statistical read = the stat end product), /momentum (rating+vibe trajectory).
+			//   news rail:   /news (narratives), /transfers (vetted rumor heat),
+			//     /vibes (the Vibe end product).
+			//   convergence: /sigil (the crown synthesis — repointed in Phase 3).
+			// Transitional (Sigil rename): /rating + /momentum are the new product paths;
+			// /sigil (today = the divined read) and /trends remain until the frontend cuts
+			// over, then /sigil is repointed to the synthesis and /trends retired (Phase 3).
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
+			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
+			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)

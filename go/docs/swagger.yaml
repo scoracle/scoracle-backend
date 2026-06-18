@@ -140,56 +140,11 @@ paths:
       summary: Get per-entity identity metadata
       tags:
       - data
-  /{sport}/{entityType}/{id}/news:
+  /{sport}/{entityType}/{id}/momentum:
     get:
-      description: The entity's latest Gemma narratives (hottest first) ranked by
-        per-narrative impact.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Entity type
-        enum:
-        - player
-        - team
-        in: path
-        name: entityType
-        required: true
-        type: string
-      - description: Entity ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity news narratives
-      tags:
-      - data
-  /{sport}/{entityType}/{id}/sigil:
-    get:
-      description: The entity's sigil rating, the sigil datapoints, and the Gemma
-        stat commentary.
+      description: Returns the entity's last-3 event averages and peer-cohort season
+        averages so the frontend can derive recent direction relative to peers. Raw
+        values only.
       parameters:
       - description: Sport
         enum:
@@ -237,7 +192,153 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity sigil + commentary
+      summary: Get momentum (rating + vibe trajectory)
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/news:
+    get:
+      description: The entity's latest Gemma narratives (hottest first) ranked by
+        per-narrative impact.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity news narratives
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/rating:
+    get:
+      description: The entity's positionless magnitude score, divined defining strength,
+        and the Gemma stat-identity blurb.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Season year
+        in: query
+        name: season
+        type: integer
+      - description: League ID filter
+        in: query
+        name: league_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity rating (magnitude + strength + identity blurb)
+      tags:
+      - data
+  /{sport}/{entityType}/{id}/sigil:
+    get:
+      description: The entity's holistic Sigil synthesis — score (1-100) + blurb fusing
+        Rating + Vibe + Momentum — plus a bounded history.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: Entity type
+        enum:
+        - player
+        - team
+        in: path
+        name: entityType
+        required: true
+        type: string
+      - description: Entity ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the entity Sigil (crown synthesis)
       tags:
       - data
   /{sport}/{entityType}/{id}/stats:
@@ -392,13 +493,13 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get trends page
+      summary: Get momentum (rating + vibe trajectory)
       tags:
       - data
   /{sport}/{entityType}/{id}/vibes:
     get:
-      description: The entity's current vibe sentiment (1-100) plus a bounded history
-        for the trend sparkline.
+      description: The entity's holistic Sigil synthesis — score (1-100) + blurb fusing
+        Rating + Vibe + Momentum — plus a bounded history.
       parameters:
       - description: Sport
         enum:
@@ -438,7 +539,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Get the entity vibe sentiment
+      summary: Get the entity Sigil (crown synthesis)
       tags:
       - data
   /{sport}/autofill:
@@ -656,7 +757,7 @@ paths:
   /{sport}/leaderboard/vibes:
     get:
       description: Sport-wide board of entities ranked by latest vibe sentiment (1-100).
-        Enriched sibling of /vibe/hottest.
+        With the Vibe felt-read blurb.
       parameters:
       - description: Sport
         enum:

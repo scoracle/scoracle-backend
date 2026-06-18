@@ -114,18 +114,17 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, sy
 			// (stats, news) refine into end products that converge into the Sigil
 			// (Rating + Vibe + Momentum → Sigil). See wiki "Sigil" / "Product Narrative".
 			//   stats rail:  /stats (composite + scopes), /rating (Gemma's divined
-			//     statistical read = the stat end product), /momentum (rating+vibe trajectory).
+			//     statistical read = the stat end product).
 			//   news rail:   /news (narratives), /transfers (vetted rumor heat),
-			//     /vibes (the Vibe end product).
-			//   convergence: /sigil (the crown synthesis — repointed in Phase 3).
-			// Transitional (Sigil rename): /rating + /momentum are the new product paths;
-			// /sigil (today = the divined read) and /trends remain until the frontend cuts
-			// over, then /sigil is repointed to the synthesis and /trends retired (Phase 3).
+			//     /vibes (the Vibe end product → the leaderboard Vibe board).
+			//   convergence: /momentum (rating+vibe trajectory), /sigil (the CROWN synthesis).
+			// Phase 3 done: /sigil serves the crown synthesis (= /vibes' synthesis); /rating
+			// serves the divined stat read. /vibes + /trends kept as deprecated aliases.
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
-			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntitySigil)
-			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
+			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntityVibes)
 			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
+			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)

@@ -191,7 +191,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 // GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by
 // their latest sentiment score (1-100) in the last 48h, enriched with name/image/team.
 // @Summary Vibes leaderboard
-// @Description Sport-wide board of entities ranked by latest vibe sentiment (1-100). Enriched sibling of /vibe/hottest.
+// @Description Sport-wide board of entities ranked by latest vibe sentiment (1-100). With the Vibe felt-read blurb.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -280,7 +280,7 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
-// @Summary Get trends page
+// @Summary Get momentum (rating + vibe trajectory)
 // @Description Returns the entity's last-3 event averages and peer-cohort season averages so the frontend can derive recent direction relative to peers. Raw values only.
 // @Tags data
 // @Produce json
@@ -292,6 +292,7 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/momentum [get]
 // @Router /{sport}/{entityType}/{id}/trends [get]
 func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
@@ -508,11 +509,12 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
 }
 
-// GetEntityVibes returns the entity's VIBES product — the current sentiment plus a
-// bounded history (for the trend sparkline). The single vibe product, read by the
-// Vibe card AND the meta corner score.
-// @Summary Get the entity vibe sentiment
-// @Description The entity's current vibe sentiment (1-100) plus a bounded history for the trend sparkline.
+// GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score
+// 1-100 + blurb, fusing Rating + Vibe + Momentum) plus a bounded history. Read by
+// the Sigil card AND the meta centre score. Canonical at /sigil; /vibes is a kept
+// deprecated alias.
+// @Summary Get the entity Sigil (crown synthesis)
+// @Description The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -521,6 +523,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/sigil [get]
 // @Router /{sport}/{entityType}/{id}/vibes [get]
 func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
@@ -565,8 +568,8 @@ func (h *Handler) maybeSynthesizeLazy(ctx context.Context, sport, entityType str
 
 // GetEntityStats returns the entity's STATS product — the full season rating
 // (Composite breakdown, modes, fantasy, template, scoped ranks) + available
-// seasons. The Composite card + the ContentShell control strip read this. The
-// per-event series moved to /trends; the commentary to /special.
+// seasons. The Stats card + the ContentShell control strip read this. The
+// per-event series moved to /trends; the Gemma stat read to /rating.
 // @Summary Get the entity season rating
 // @Description The entity's season Composite rating (breakdown, modes, fantasy, scoped ranks) + available seasons.
 // @Tags data
@@ -605,12 +608,12 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 		sport, entityType, id, season, leagueID)
 }
 
-// GetEntitySigil returns the entity's SIGIL product — the lean sigil
-// projection (peak skill + the sigil datapoints) plus the Gemma stat
-// commentary. The Sigil card reads this. Distinct from /stats (no fantasy/
-// template/datapoints blocks).
-// @Summary Get the entity sigil + commentary
-// @Description The entity's sigil rating, the sigil datapoints, and the Gemma stat commentary.
+// GetEntitySigil returns the entity's RATING product — the statistical rail's end
+// product: the positionless magnitude score + the divined defining strength + the
+// Gemma on-field identity blurb. The Rating card reads this. Served at /rating
+// (the legacy /sigil path now serves the crown synthesis — GetEntityVibes).
+// @Summary Get the entity rating (magnitude + strength + identity blurb)
+// @Description The entity's positionless magnitude score, divined defining strength, and the Gemma stat-identity blurb.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -621,7 +624,7 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/sigil [get]
+// @Router /{sport}/{entityType}/{id}/rating [get]
 func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {

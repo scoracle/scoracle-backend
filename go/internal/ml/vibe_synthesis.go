@@ -33,7 +33,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const vibeSynthesisPromptVersion = "s1"
+// s1: original three-pillar synthesis (narrative / sigil identity / momentum).
+// s2: consumes the Vibe end product's felt-read PROMPT (vibe_scores.prompt) as
+//
+//	the emotional signal's headline — Sigil = f(Vibe, Rating, Momentum).
+const vibeSynthesisPromptVersion = "s2"
 
 // VibeSynthesisRequest describes the entity and the trigger that initiated
 // this synthesis run.
@@ -204,10 +208,11 @@ type synthSigil struct {
 }
 
 type synthMomentum struct {
-	sentimentSlope  float64 // positive = trending up; derived from last 14 vibe_scores rows
-	compositeSlope  float64 // from last 10 event composite scores
-	latestSentiment *int
-	latestComposite *float64
+	sentimentSlope   float64 // positive = trending up; derived from last 14 vibe_scores rows
+	compositeSlope   float64 // from last 10 event composite scores
+	latestSentiment  *int
+	latestComposite  *float64
+	latestVibePrompt string // the Vibe end product's felt read (latest vibe_scores.prompt)
 }
 
 func (m synthMomentum) empty() bool {
@@ -264,9 +269,10 @@ func (s *SynthesisGenerator) loadSigilPillar(ctx context.Context, entityType str
 func (s *SynthesisGenerator) loadMomentumPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (synthMomentum, error) {
 	var m synthMomentum
 
-	// Sentiment trend: last 14 rows from vibe_scores
+	// Sentiment trend: last 14 rows from vibe_scores. Also capture the latest
+	// row's felt-read prompt — the Vibe end product's prose, fed into the Sigil.
 	sentRows, err := s.pool.Query(ctx, `
-		SELECT sentiment FROM vibe_scores
+		SELECT sentiment, COALESCE(prompt, '') FROM vibe_scores
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND sentiment IS NOT NULL
 		ORDER BY generated_at DESC
@@ -279,8 +285,12 @@ func (s *SynthesisGenerator) loadMomentumPillar(ctx context.Context, entityType 
 	var sentScores []float64
 	for sentRows.Next() {
 		var v int
-		if err := sentRows.Scan(&v); err != nil {
+		var p string
+		if err := sentRows.Scan(&v, &p); err != nil {
 			return m, err
+		}
+		if len(sentScores) == 0 {
+			m.latestVibePrompt = p // first row is the most recent (DESC)
 		}
 		sentScores = append(sentScores, float64(v))
 	}
@@ -388,6 +398,9 @@ func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigi
 	if mom.latestComposite != nil {
 		out["latest_composite"] = round1(*mom.latestComposite)
 	}
+	if mom.latestVibePrompt != "" {
+		out["latest_vibe_prompt"] = mom.latestVibePrompt
+	}
 	return out
 }
 
@@ -442,6 +455,9 @@ func buildSynthesisPrompt(req VibeSynthesisRequest, narratives []synthNarrative,
 	if mom.latestSentiment != nil {
 		dir := trendDir(mom.sentimentSlope)
 		b.WriteString(fmt.Sprintf("News sentiment: %d/100 (%s)\n", *mom.latestSentiment, dir))
+	}
+	if mom.latestVibePrompt != "" {
+		b.WriteString(fmt.Sprintf("Vibe (the felt read): %s\n", mom.latestVibePrompt))
 	}
 	if mom.latestComposite != nil {
 		dir := trendDir(mom.compositeSlope)

@@ -1,7 +1,7 @@
 package ml
 
-// Vibe synthesis — the holistic three-pillar vibe score that replaces the
-// single-source sentiment as what the product shows on the Vibe card.
+// Sigil synthesis — the holistic three-pillar score that replaces the
+// single-source sentiment as what the product shows on the Sigil card.
 //
 // Three pillars:
 //   P1 — News narrative (transfers-informed): the entity's latest narratives
@@ -37,7 +37,7 @@ import (
 // s2: consumes the Vibe end product's felt-read PROMPT (vibe_scores.prompt) as
 //
 //	the emotional signal's headline — Sigil = f(Vibe, Rating, Momentum).
-const sigilPromptVersion = "s2"
+const sigilPromptVersion = "s3"
 
 // SigilRequest describes the entity and the trigger that initiated
 // this synthesis run.
@@ -140,7 +140,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 		}
 	}
 
-	// Load previous score for the delta display on the Vibe card.
+	// Load previous score for the delta display on the Sigil card.
 	prev, _ := s.lastScore(ctx, req.EntityType, req.EntityID, sport)
 
 	prompt := buildSynthesisPrompt(req, narratives, sigilData, momentum)
@@ -408,7 +408,7 @@ func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigi
 // Prompt
 // ---------------------------------------------------------------------------
 
-const sigilSystemPrompt = `You are a holistic sports analyst synthesizing three signals — news narrative, statistical identity, and momentum — into a single VIBE score and a short blurb.
+const sigilSystemPrompt = `You are a holistic sports analyst synthesizing three signals — news narrative, statistical identity, and momentum — into a single SIGIL score and a short blurb.
 
 The vibe is SLOW-MOVING and SEASON-AWARE: it reflects the entity's whole-season arc, not a single game.
 

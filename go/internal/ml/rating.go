@@ -44,7 +44,7 @@ import (
 // s3: Gemma divines the sigil on line 1 ("SIGIL: <label>"); specialty-first sort
 //
 //	removed; the pre-supplied "Special" hint line dropped from the prompt.
-const ratingPromptVersion = "s3"
+const ratingPromptVersion = "s4"
 
 // maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const maxStatFacts = 14
@@ -378,10 +378,11 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY: what kind of player or team this is and what defines it. This is an ACTUAL ANALYSIS, not a strengths/weaknesses list and not a stat recap.
+const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY — what kind of player or team this is and what defines it — that LEADS WITH and emphasizes its GREATEST STRENGTH(S). This is an ACTUAL ANALYSIS that foregrounds what they're best at, not a strengths/weaknesses list and not a stat recap.
 
 Rules:
 - On the first line, identify the entity's sigil — their single defining statistical strength — in the format: SIGIL: <label>. Then write your analysis on the following lines.
+- Lead the read with the entity's standout strength(s) — what they are ELITE at — then frame the rest of the identity around it. Weaknesses are context, not the focus.
 - Every percentile is SIGN-ADJUSTED so HIGHER IS ALWAYS BETTER — a high percentile in a "negative" stat (turnovers, goals conceded) means the entity EXCELS there (commits/concedes few). Read every number as goodness.
 - Ground every claim in the given datapoints; never invent a stat, number, or fact not provided. Do NOT recite the raw numbers as a list — weave them into the read.
 - Synthesize a coherent identity (e.g. "a low-usage floor-spacer who defends above his profile"), don't just enumerate skills.

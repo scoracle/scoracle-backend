@@ -32,7 +32,12 @@ import (
 //
 //	user-visible product. Round-number guardrails removed — a sincere score
 //	is more useful than a cosmetically spread-out one.
-const sentimentPromptVersion = "v5"
+//
+// v6: the Vibe end product is score + PROMPT (Sigil-convergence model). Gemma now
+//
+//	emits a one-sentence "felt read" alongside the score (SCORE: / VIBE: lines),
+//	persisted to vibe_scores.prompt and fed into the Sigil synthesis.
+const sentimentPromptVersion = "v6"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
 //
@@ -73,6 +78,7 @@ type SentimentRequest struct {
 // SkippedNoCorpus == true.
 type SentimentResult struct {
 	Sentiment       int
+	Prompt          string // one-sentence felt read (the Vibe's "prompt"); fed into the Sigil
 	SkippedNoCorpus bool
 	Model           string
 	PromptVersion   string
@@ -150,7 +156,7 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 	}
 	duration := time.Since(start)
 
-	sentiment, err := parseSentiment(gen.Response)
+	sentiment, vibePrompt, err := parseSentimentAndPrompt(gen.Response)
 	if err != nil {
 		return nil, fmt.Errorf("parse sentiment (raw=%q prompt_len=%d): %w",
 			truncate(gen.Response, 120), len(prompt), err)
@@ -158,12 +164,13 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 
 	// input_news_ids = the narratives' source articles (provenance); tweets are
 	// no longer a vibe input (the derived layer supersedes raw feeds).
-	if err := g.persistSentiment(ctx, req, sport, sentiment, gen.Model, newsIDs, nil); err != nil {
+	if err := g.persistSentiment(ctx, req, sport, sentiment, vibePrompt, gen.Model, newsIDs, nil); err != nil {
 		return nil, fmt.Errorf("persist vibe: %w", err)
 	}
 
 	return &SentimentResult{
 		Sentiment:     sentiment,
+		Prompt:        vibePrompt,
 		Model:         gen.Model,
 		PromptVersion: sentimentPromptVersion,
 		InputNewsIDs:  newsIDs,
@@ -274,12 +281,15 @@ func dedupeInt64(in []int64) []int64 {
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const sentimentSystemPrompt = `You determine overall sentiment toward a sports entity from the NARRATIVES forming around it and its current TRANSFER/TRADE activity — the derived signals, not raw headlines.
-Reply with ONLY a single integer from 1 to 100.
-1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive.
-Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening.
-If the material is thin or neutral, answer somewhere in 45-55 — don't invent drama.
-No words, no punctuation, no explanation. Just the number.`
+const sentimentSystemPrompt = `You read the NARRATIVES forming around a sports entity and its current TRANSFER/TRADE activity — the derived signals, not raw headlines — and produce two things: an overall SENTIMENT score and a one-sentence "felt read" (the vibe).
+
+SENTIMENT (1-100): 1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive. Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening. If the material is thin or neutral, answer 45-55 — don't invent drama.
+
+VIBE: ONE concise sentence capturing how this entity feels in the narrative right now — the felt read a fan would nod at. Plain prose, no number, no headline.
+
+Respond on EXACTLY two lines, nothing else:
+SCORE: <integer 1-100>
+VIBE: <one sentence>`
 
 func buildSentimentPrompt(req SentimentRequest, narratives []narrativeItem, heat []heatItem) string {
 	var b strings.Builder
@@ -302,7 +312,7 @@ func buildSentimentPrompt(req SentimentRequest, narratives []narrativeItem, heat
 		writeHeatLines(&b, heat)
 	}
 
-	b.WriteString("\nReply with the sentiment score (1-100) now.")
+	b.WriteString("\nRespond now (SCORE line, then VIBE line).")
 	return b.String()
 }
 
@@ -334,10 +344,51 @@ func parseSentiment(raw string) (int, error) {
 	return n, nil
 }
 
+// parseSentimentAndPrompt extracts the SENTIMENT score (1-100) and the one-line
+// felt-read "prompt" from Gemma's two-line v6 reply (SCORE: / VIBE:). The score
+// falls back to the first integer anywhere (back-compat / format drift); the
+// prompt is "" when absent (nullable column).
+func parseSentimentAndPrompt(raw string) (int, string, error) {
+	var score int
+	var prompt string
+	lines := strings.Split(strings.TrimSpace(raw), "\n")
+	for i, line := range lines {
+		t := strings.TrimSpace(line)
+		up := strings.ToUpper(t)
+		switch {
+		case score == 0 && strings.HasPrefix(up, "SCORE:"):
+			if n, err := strconv.Atoi(strings.TrimSpace(t[len("SCORE:"):])); err == nil {
+				if n < 1 {
+					n = 1
+				} else if n > 100 {
+					n = 100
+				}
+				score = n
+			}
+		case prompt == "" && strings.HasPrefix(up, "VIBE:"):
+			prompt = strings.TrimSpace(t[len("VIBE:"):])
+			for _, extra := range lines[i+1:] {
+				if e := strings.TrimSpace(extra); e != "" {
+					prompt += " " + e
+				}
+			}
+		}
+	}
+	if score == 0 {
+		// No SCORE: label parsed — fall back to the first integer anywhere.
+		n, err := parseSentiment(raw)
+		if err != nil {
+			return 0, "", err
+		}
+		score = n
+	}
+	return score, prompt, nil
+}
+
 func (g *Generator) persistSentiment(
 	ctx context.Context,
 	req SentimentRequest,
-	sport string, sentiment int, model string,
+	sport string, sentiment int, vibePrompt string, model string,
 	newsIDs []int64,
 	tweetIDs []string,
 ) error {
@@ -354,17 +405,22 @@ func (g *Generator) persistSentiment(
 	if tweetIDs == nil {
 		tweetIDs = []string{}
 	}
+	// Store an empty felt read as NULL (the column is nullable).
+	var promptArg any
+	if vibePrompt != "" {
+		promptArg = vibePrompt
+	}
 	_, err = g.pool.Exec(ctx, `
 		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
-		    sentiment, input_news_ids, input_tweet_ids,
+		    sentiment, prompt, input_news_ids, input_tweet_ids,
 		    model_version, prompt_version
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 	`,
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
-		sentiment, newsIDs, tweetIDs,
+		sentiment, promptArg, newsIDs, tweetIDs,
 		model, sentimentPromptVersion,
 	)
 	return err

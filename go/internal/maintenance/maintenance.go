@@ -280,6 +280,34 @@ func recalcAlltimeRanks(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		logger.Info("All-time rank: recomputed",
 			"sport", sport, "scope", map[bool]string{true: "full", false: "current"}[fullRebaseline],
 			"players", players, "teams", teams)
+
+		// Append to the rating_history time-series after the all-time ranks are
+		// fresh (the snapshot reads season_composite_rank_alltime). Current season
+		// → in-season trajectory; on rollover, also stamp the just-concluded
+		// season's final frozen row. Debounced insert-if-changed, so unchanged
+		// entities add nothing.
+		snapshotRatingHistory(ctx, pool, sport, current, "in_season", logger)
+		if fullRebaseline && seen && prev != current {
+			snapshotRatingHistory(ctx, pool, sport, prev, "season_close", logger)
+		}
+	}
+}
+
+// snapshotRatingHistory appends per-entity rating snapshots for (sport, season)
+// into rating_history (debounced insert-if-changed). Best-effort — a snapshot
+// failure must never stall the all-time-rank ticker.
+func snapshotRatingHistory(ctx context.Context, pool *pgxpool.Pool, sport string, season int, trigger string, logger *slog.Logger) {
+	var inserted int
+	if err := pool.QueryRow(ctx,
+		`SELECT snapshot_rating_history($1, $2, $3)`, sport, season, trigger,
+	).Scan(&inserted); err != nil {
+		logger.Warn("Rating history: snapshot failed",
+			"sport", sport, "season", season, "trigger", trigger, "error", err)
+		return
+	}
+	if inserted > 0 {
+		logger.Info("Rating history: snapshot",
+			"sport", sport, "season", season, "trigger", trigger, "rows", inserted)
 	}
 }
 

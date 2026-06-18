@@ -142,6 +142,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, sy
 			r.Get("/leaderboard/vibes", h.GetVibesLeaderboard)
 			r.Get("/leaderboard/news", h.GetNewsLeaderboard)
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
+			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}", h.GetLeagueProfilePage)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/trends", h.GetLeagueTrendsPage)
 			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)

@@ -158,8 +158,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	case "transfers":
 		h.GetTransfersLeaderboard(w, r)
 		return
+	case "trending":
+		h.GetTrendingLeaderboard(w, r)
+		return
 	default:
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, news, transfers")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, news, transfers, trending")
 		return
 	}
 
@@ -215,6 +218,40 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 	entityType := optionalTextQuery(r, "entity_type")
 
 	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType)
+}
+
+// GetTrendingLeaderboard returns the sport-wide TRENDING board — the risers: entities
+// ranked by the slope of their recent trajectory. ?metric=vibe (default) ranks the
+// vibe-sentiment trend; ?metric=rating ranks the composite-rating trend. score is the
+// fitted per-week rise.
+// @Summary Trending leaderboard (risers)
+// @Description Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param metric query string false "Trajectory: vibe (default) or rating"
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param limit query int false "Max rows (default 30)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/trending [get]
+func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+	entityType := optionalTextQuery(r, "entity_type")
+	stmt := "trending_vibe_leaderboard"
+	if strings.ToLower(strings.TrimSpace(r.URL.Query().Get("metric"))) == "rating" {
+		stmt = "trending_rating_leaderboard"
+	}
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false,
 		sport, limit, entityType)
 }
 

@@ -234,7 +234,7 @@ func recentlySentimentScored(pool *pgxpool.Pool, e corpus.Entity, skipRecentHour
 	var exists bool
 	err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM sentiment_scores
+			SELECT 1 FROM vibe_scores
 			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 			  AND generated_at > NOW() - ($4 || ' hours')::interval
 		)

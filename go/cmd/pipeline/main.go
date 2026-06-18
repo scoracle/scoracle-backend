@@ -243,7 +243,7 @@ func runNarratives(ctx context.Context, pool *pgxpool.Pool, o opts, touched []co
 func runVibe(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
 	ok, fail, skipped, noCorpus := 0, 0, 0, 0
 	for i, e := range touched {
-		if debounced(ctx, pool, "sentiment_scores", e, o.vibeSkip) {
+		if debounced(ctx, pool, "vibe_scores", e, o.vibeSkip) {
 			skipped++
 			continue
 		}

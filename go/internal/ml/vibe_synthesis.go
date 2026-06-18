@@ -9,7 +9,7 @@ package ml
 //   P2 — Sigil identity: the divined statistical identity from stat_summaries
 //        (what kind of player/team this is, its defining strength).
 //   P3 — Momentum: recent sentiment trend (slope over last 14 rows in
-//        sentiment_scores) + composite trend (slope over last 10 events).
+//        vibe_scores) + composite trend (slope over last 10 events).
 //
 // Generated event-driven + debounced (24h window per trigger type), not on a
 // schedule. The SkipUnchanged gate hashes the three pillar inputs and skips
@@ -48,7 +48,7 @@ type VibeSynthesisRequest struct {
 	SkipUnchanged bool // skip Gemma call when input hash matches last row
 }
 
-// VibeSynthesisResult is what Generate produces and persists to vibe_synthesis.
+// VibeSynthesisResult is what Generate produces and persists to sigil_synthesis.
 type VibeSynthesisResult struct {
 	Score            int
 	PreviousScore    int // last non-null score before this run; 0 if none
@@ -80,7 +80,7 @@ func NewSynthesisGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *SynthesisG
 // ---------------------------------------------------------------------------
 
 // Generate loads the three pillar inputs, optionally skips when unchanged,
-// asks Gemma for the synthesis, and persists one vibe_synthesis row.
+// asks Gemma for the synthesis, and persists one sigil_synthesis row.
 func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequest) (*VibeSynthesisResult, error) {
 	if s.pool == nil {
 		return nil, fmt.Errorf("synthesis generator: no db pool")
@@ -180,7 +180,7 @@ func RecentlySynthesized(ctx context.Context, pool *pgxpool.Pool, entityType str
 	var exists bool
 	err := pool.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1 FROM vibe_synthesis
+			SELECT 1 FROM sigil_synthesis
 			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 			  AND generated_at > NOW() - $4::interval
 		)`, entityType, entityID, sport, window).Scan(&exists)
@@ -204,7 +204,7 @@ type synthSigil struct {
 }
 
 type synthMomentum struct {
-	sentimentSlope  float64 // positive = trending up; derived from last 14 sentiment_scores rows
+	sentimentSlope  float64 // positive = trending up; derived from last 14 vibe_scores rows
 	compositeSlope  float64 // from last 10 event composite scores
 	latestSentiment *int
 	latestComposite *float64
@@ -264,9 +264,9 @@ func (s *SynthesisGenerator) loadSigilPillar(ctx context.Context, entityType str
 func (s *SynthesisGenerator) loadMomentumPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (synthMomentum, error) {
 	var m synthMomentum
 
-	// Sentiment trend: last 14 rows from sentiment_scores
+	// Sentiment trend: last 14 rows from vibe_scores
 	sentRows, err := s.pool.Query(ctx, `
-		SELECT sentiment FROM sentiment_scores
+		SELECT sentiment FROM vibe_scores
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND sentiment IS NOT NULL
 		ORDER BY generated_at DESC
@@ -527,7 +527,7 @@ func (s *SynthesisGenerator) persist(ctx context.Context, req VibeSynthesisReque
 	}
 
 	_, err = s.pool.Exec(ctx, `
-		INSERT INTO vibe_synthesis (
+		INSERT INTO sigil_synthesis (
 		    entity_type, entity_id, sport, season, trigger_type, trigger_payload,
 		    score, previous_score, blurb, input_components, input_hash,
 		    model_version, prompt_version, generated_at
@@ -541,7 +541,7 @@ func (s *SynthesisGenerator) persist(ctx context.Context, req VibeSynthesisReque
 func (s *SynthesisGenerator) lastSynthesisHash(ctx context.Context, entityType string, entityID int, sport string) (string, error) {
 	var hash *string
 	err := s.pool.QueryRow(ctx, `
-		SELECT input_hash FROM vibe_synthesis
+		SELECT input_hash FROM sigil_synthesis
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND score IS NOT NULL
 		ORDER BY generated_at DESC
@@ -561,7 +561,7 @@ func (s *SynthesisGenerator) lastSynthesisHash(ctx context.Context, entityType s
 func (s *SynthesisGenerator) lastScore(ctx context.Context, entityType string, entityID int, sport string) (int, error) {
 	var score *int
 	err := s.pool.QueryRow(ctx, `
-		SELECT score FROM vibe_synthesis
+		SELECT score FROM sigil_synthesis
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND score IS NOT NULL
 		ORDER BY generated_at DESC

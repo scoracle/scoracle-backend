@@ -369,9 +369,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 					ps.position, ps.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ps.league_id, 0) AS league_id,
-					ps.rating_composite, ps.rating_specialist AS rating_sigil, ps.rating_specialty AS rating_sigil_label,
-					ps.rating_composite_rank, ps.rating_specialist_rank AS rating_sigil_rank,
-					ps.rating_composite_score, ps.rating_specialist_score AS rating_sigil_score,
+					ps.rating_composite, ps.rating_specialist AS rating_peak, ps.rating_specialty AS rating_peak_label,
+					ps.rating_composite_rank, ps.rating_specialist_rank AS rating_peak_rank,
+					ps.rating_composite_score, ps.rating_specialist_score AS rating_peak_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
@@ -394,9 +394,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 					NULL::text AS position, t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ts.league_id, 0) AS league_id,
-					ts.rating_composite, ts.rating_specialist AS rating_sigil, ts.rating_specialty AS rating_sigil_label,
-					ts.rating_composite_rank, ts.rating_specialist_rank AS rating_sigil_rank,
-					ts.rating_composite_score, ts.rating_specialist_score AS rating_sigil_score,
+					ts.rating_composite, ts.rating_specialist AS rating_peak, ts.rating_specialty AS rating_peak_label,
+					ts.rating_composite_rank, ts.rating_specialist_rank AS rating_peak_rank,
+					ts.rating_composite_score, ts.rating_specialist_score AS rating_peak_score,
 					NULL::numeric AS fantasy_points,
 					NULL::numeric AS fantasy_rank,
 					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
@@ -714,9 +714,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		ranked AS (
 			SELECT p.id, p.name, p.photo_url AS image, ps.position, (ps.stats->>'fantasy_points')::numeric AS fantasy_points,
-				ps.rating_composite, ps.rating_specialist AS rating_sigil, ps.rating_specialty AS rating_sigil_label,
-				ps.rating_composite_rank, ps.rating_specialist_rank AS rating_sigil_rank,
-				ps.rating_composite_score, ps.rating_specialist_score AS rating_sigil_score,
+				ps.rating_composite, ps.rating_specialist AS rating_peak, ps.rating_specialty AS rating_peak_label,
+				ps.rating_composite_rank, ps.rating_specialist_rank AS rating_peak_rank,
+				ps.rating_composite_score, ps.rating_specialist_score AS rating_peak_score,
 				row_number() OVER (
 					ORDER BY (COALESCE(ps.rating_composite, 0) + COALESCE(ps.rating_specialist, 0)) DESC
 				) AS rank
@@ -894,12 +894,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		season_rating AS (
 			SELECT season, league_id, position, rating_composite, rating_composite_rank, rating_composite_score,
-			       rating_sigil, rating_sigil_rank, rating_sigil_score, rating_sigil_label, rating_breakdown,
+			       rating_peak, rating_peak_rank, rating_peak_score, rating_peak_label, rating_breakdown,
 			       rating_categories, rating_scoped_ranks, rating_scoped_scores, rating_modes, conference, division, team, fantasy, template, datapoints FROM (
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank, ps.rating_composite_score,
-				       ps.rating_specialist AS rating_sigil, ps.rating_specialist_rank AS rating_sigil_rank, ps.rating_specialist_score AS rating_sigil_score, ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown,
-				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes,
+				       ps.rating_specialist AS rating_peak, ps.rating_specialist_rank AS rating_peak_rank, ps.rating_specialist_score AS rating_peak_score, ps.rating_specialty AS rating_peak_label, ps.rating_breakdown,
+				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('peak', rm_v->'specialist', 'peak_rank', rm_v->'specialist_rank', 'peak_score', rm_v->'specialist_score', 'peak_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes,
 				       NULL::text AS conference, NULL::text AS division,
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
@@ -914,7 +914,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				UNION ALL
 				SELECT ts.season, NULLIF(ts.league_id, 0), NULL::text,
 				       ts.rating_composite, ts.rating_composite_rank, ts.rating_composite_score,
-				       ts.rating_specialist AS rating_sigil, ts.rating_specialist_rank AS rating_sigil_rank, ts.rating_specialist_score AS rating_sigil_score, ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown,
+				       ts.rating_specialist AS rating_peak, ts.rating_specialist_rank AS rating_peak_rank, ts.rating_specialist_score AS rating_peak_score, ts.rating_specialty AS rating_peak_label, ts.rating_breakdown,
 				       ts.rating_categories, ts.rating_scoped_ranks, ts.rating_scoped_scores, NULL::jsonb AS rating_modes,
 				       tmc.conference, tmc.division,
 				       json_build_object('id', tmc.id, 'name', tmc.name, 'short_code', tmc.short_code, 'logo_url', tmc.logo_url),
@@ -930,9 +930,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) u ORDER BY rating_composite DESC NULLS LAST, jsonb_array_length(rating_breakdown) DESC NULLS LAST LIMIT 1
 		),
 		event_series AS (
-			SELECT fixture_id, start_time, rating_composite, rating_sigil, rating_sigil_label, rating_composite_pct, rating_sigil_pct FROM (
+			SELECT fixture_id, start_time, rating_composite, rating_peak, rating_peak_label, rating_composite_pct, rating_peak_pct FROM (
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist AS rating_sigil, e.rating_specialty AS rating_sigil_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_sigil_pct
+				       e.rating_composite, e.rating_specialist AS rating_peak, e.rating_specialty AS rating_peak_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_peak_pct
 				FROM public.event_box_scores e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -942,7 +942,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND e.rating_composite IS NOT NULL
 				UNION ALL
 				SELECT e.fixture_id, f.start_time,
-				       e.rating_composite, e.rating_specialist AS rating_sigil, e.rating_specialty AS rating_sigil_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_sigil_pct
+				       e.rating_composite, e.rating_specialist AS rating_peak, e.rating_specialty AS rating_peak_label, e.rating_composite_pct, e.rating_specialist_pct AS rating_peak_pct
 				FROM public.event_team_stats e
 				JOIN public.fixtures f ON f.id = e.fixture_id
 				CROSS JOIN req CROSS JOIN season_pick sp
@@ -998,17 +998,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			) AS season
 		),
 		spec_rating AS (
-			SELECT season, position, rating_sigil, rating_sigil_rank, rating_sigil_score,
-			       rating_sigil_label, rating_composite_score, rating_composite_rank, rating_breakdown, rating_modes FROM (
-				SELECT ps.season, ps.position, ps.rating_specialist AS rating_sigil, ps.rating_specialist_rank AS rating_sigil_rank, ps.rating_specialist_score AS rating_sigil_score,
-				       ps.rating_composite_score, ps.rating_composite_rank, ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
+			SELECT season, position, rating_peak, rating_peak_rank, rating_peak_score,
+			       rating_peak_label, rating_composite_score, rating_composite_rank, rating_breakdown, rating_modes FROM (
+				SELECT ps.season, ps.position, ps.rating_specialist AS rating_peak, ps.rating_specialist_rank AS rating_peak_rank, ps.rating_specialist_score AS rating_peak_score,
+				       ps.rating_composite_score, ps.rating_composite_rank, ps.rating_specialty AS rating_peak_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('peak', rm_v->'specialist', 'peak_rank', rm_v->'specialist_rank', 'peak_score', rm_v->'specialist_score', 'peak_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 				UNION ALL
-				SELECT ts.season, NULL::text, ts.rating_specialist AS rating_sigil, ts.rating_specialist_rank AS rating_sigil_rank, ts.rating_specialist_score AS rating_sigil_score,
-				       ts.rating_composite_score, ts.rating_composite_rank, ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
+				SELECT ts.season, NULL::text, ts.rating_specialist AS rating_peak, ts.rating_specialist_rank AS rating_peak_rank, ts.rating_specialist_score AS rating_peak_score,
+				       ts.rating_composite_score, ts.rating_composite_rank, ts.rating_specialty AS rating_peak_label, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
 				FROM public.team_stats ts CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season

@@ -432,7 +432,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. Joined
 		// to players/teams so the row carries name/image/team (one shape across every
 		// single-entity board the /leaderboard page renders). The partial index
-		// idx_sigil_synthesis_sport_score covers the inner scan.
+		// idx_vibe_scores_sport_sentiment covers the inner scan.
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
@@ -441,11 +441,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		latest AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
-			       vs.entity_type, vs.entity_id, vs.score, vs.generated_at
-			FROM public.sigil_synthesis vs, req
+			       vs.entity_type, vs.entity_id, vs.sentiment AS score, vs.prompt AS blurb, vs.generated_at
+			FROM public.vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND vs.score IS NOT NULL AND vs.blurb IS NOT NULL
+			  AND vs.sentiment IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '48 hours'
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
 		),
@@ -455,7 +455,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.generated_at
+				       l.score, l.blurb, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				-- current club: latest-season player_stats.team_id (canonical:
@@ -471,7 +471,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.generated_at
+				       l.score, l.blurb, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'

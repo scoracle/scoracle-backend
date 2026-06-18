@@ -385,7 +385,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ps.rating_composite IS NOT NULL
 				  AND (req.position IS NULL OR ps.position = req.position)
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
-				  AND (req.scope IN ('composite', 'sigil', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
+				  AND (req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
 				  AND (req.scope <> 'fantasy' OR COALESCE((ps.stats->>'fantasy_points')::numeric, 0) > 0)
 			) pl
 			UNION ALL
@@ -409,7 +409,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
 				  AND (req.conference IS NULL OR t.conference = req.conference)
 				  AND (req.division IS NULL OR t.division = req.division)
-				  AND (req.scope IN ('composite', 'sigil') OR lower(ts.rating_specialty) = req.scope)
+				  AND (req.scope IN ('composite') OR lower(ts.rating_specialty) = req.scope)
 			) tm
 			ORDER BY rank
 			LIMIT (SELECT lim FROM req)

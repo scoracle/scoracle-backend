@@ -78,7 +78,7 @@ func main() {
 		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
 		os.Exit(1)
 	}
-	gen := ml.NewGenerator(pool, ollama)
+	gen := ml.NewVibeGenerator(pool, ollama)
 
 	switch *mode {
 	case "single":
@@ -96,7 +96,7 @@ func main() {
 // ---------------------------------------------------------------------------
 
 func runSingle(
-	pool *pgxpool.Pool, gen *ml.Generator,
+	pool *pgxpool.Pool, gen *ml.VibeGenerator,
 	entityType string, entityID int,
 	sport string, trigger string,
 	timeout time.Duration, logger *slog.Logger,
@@ -116,7 +116,7 @@ func runSingle(
 		os.Exit(1)
 	}
 
-	result, err := gen.Generate(ctx, ml.SentimentRequest{
+	result, err := gen.Generate(ctx, ml.VibeRequest{
 		EntityType:  entityType,
 		EntityID:    entityID,
 		EntityName:  entityName,
@@ -144,7 +144,7 @@ func runSingle(
 // ---------------------------------------------------------------------------
 
 func runCorpus(
-	pool *pgxpool.Pool, gen *ml.Generator,
+	pool *pgxpool.Pool, gen *ml.VibeGenerator,
 	sportArg string, skipRecentHours, throttleMs, rssPauseMs, rssLimit int,
 	gemmaTimeout time.Duration, logger *slog.Logger,
 ) {
@@ -186,7 +186,7 @@ func runCorpus(
 		}
 
 		gctx, cancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
-		result, err := gen.Generate(gctx, ml.SentimentRequest{
+		result, err := gen.Generate(gctx, ml.VibeRequest{
 			EntityType:  e.EntityType,
 			EntityID:    e.EntityID,
 			EntityName:  name,

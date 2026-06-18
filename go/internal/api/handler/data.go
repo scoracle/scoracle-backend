@@ -554,7 +554,7 @@ func (h *Handler) maybeSynthesizeLazy(ctx context.Context, sport, entityType str
 	if err != nil || name == "" {
 		return
 	}
-	_, _ = h.synthGen.Generate(ctx, ml.VibeSynthesisRequest{
+	_, _ = h.synthGen.Generate(ctx, ml.SigilRequest{
 		EntityType:  entityType,
 		EntityID:    id,
 		EntityName:  name,

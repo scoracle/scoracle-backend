@@ -55,7 +55,7 @@ type NewsVolumeEvent struct {
 //
 // narrator/gen/synthGen may be nil — in that case those stages are skipped.
 // That's the degraded mode when Ollama is unreachable at startup.
-func StartNewsVolume(ctx context.Context, dbURL string, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.Generator, synthGen *ml.SynthesisGenerator, logger *slog.Logger) {
+func StartNewsVolume(ctx context.Context, dbURL string, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.VibeGenerator, synthGen *ml.SigilGenerator, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
 	for {
@@ -75,7 +75,7 @@ func StartNewsVolume(ctx context.Context, dbURL string, pool *pgxpool.Pool, narr
 	}
 }
 
-func newsVolumeLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.Generator, synthGen *ml.SynthesisGenerator, logger *slog.Logger) error {
+func newsVolumeLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.VibeGenerator, synthGen *ml.SigilGenerator, logger *slog.Logger) error {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -117,7 +117,7 @@ func newsVolumeLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, narra
 //   - Stage 2: refresh the entity's NARRATIVES (30m debounce)
 //   - Stage 3: determine SENTIMENT from fresh narratives + heat (30m debounce)
 //   - Stage 4: holistic VIBE SYNTHESIS from all three pillars (24h debounce)
-func dispatchNewsVolume(ctx context.Context, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.Generator, synthGen *ml.SynthesisGenerator, event NewsVolumeEvent, logger *slog.Logger) {
+func dispatchNewsVolume(ctx context.Context, pool *pgxpool.Pool, narrator *ml.NewsNarrator, gen *ml.VibeGenerator, synthGen *ml.SigilGenerator, event NewsVolumeEvent, logger *slog.Logger) {
 	name, err := lookupEntityName(ctx, pool, event.EntityType, event.EntityID, event.Sport)
 	if err != nil || name == "" {
 		logger.Warn("news-volume: entity lookup failed",
@@ -155,7 +155,7 @@ func dispatchNewsVolume(ctx context.Context, pool *pgxpool.Pool, narrator *ml.Ne
 	if recentlySentimentScored(ctx, pool, event) {
 		return
 	}
-	result, err := gen.Generate(ctx, ml.SentimentRequest{
+	result, err := gen.Generate(ctx, ml.VibeRequest{
 		EntityType:  event.EntityType,
 		EntityID:    event.EntityID,
 		EntityName:  name,
@@ -186,7 +186,7 @@ func dispatchNewsVolume(ctx context.Context, pool *pgxpool.Pool, narrator *ml.Ne
 	if synthGen == nil || ml.RecentlySynthesized(ctx, pool, event.EntityType, event.EntityID, event.Sport, 24*time.Hour) {
 		return
 	}
-	sres, err := synthGen.Generate(ctx, ml.VibeSynthesisRequest{
+	sres, err := synthGen.Generate(ctx, ml.SigilRequest{
 		EntityType:  event.EntityType,
 		EntityID:    event.EntityID,
 		EntityName:  name,

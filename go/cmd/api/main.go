@@ -80,7 +80,7 @@ func main() {
 
 	// synthGen is set inside the dbPool block when Ollama is reachable; stays nil
 	// otherwise. Declared here so NewRouter can receive it at the outer scope.
-	var synthGen *ml.SynthesisGenerator
+	var synthGen *ml.SigilGenerator
 
 	if dbPool != nil {
 		// Start notification dispatch worker (if FCM is configured)
@@ -97,7 +97,7 @@ func main() {
 		// gracefully if Ollama isn't reachable — the LISTEN goroutine still
 		// starts (events are logged) so we observe spikes even when the
 		// model is offline.
-		var newsVolumeGen *ml.Generator
+		var newsVolumeGen *ml.VibeGenerator
 		var newsVolumeNarrator *ml.NewsNarrator
 		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
 		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
@@ -106,9 +106,9 @@ func main() {
 				"base_url", cfg.OllamaBaseURL, "error", err)
 		} else {
 			logger.Info("News-volume vibe enabled", "model", cfg.OllamaModel)
-			newsVolumeGen = ml.NewGenerator(dbPool, ollamaCli)
+			newsVolumeGen = ml.NewVibeGenerator(dbPool, ollamaCli)
 			newsVolumeNarrator = ml.NewNewsNarrator(dbPool, ollamaCli)
-			synthGen = ml.NewSynthesisGenerator(dbPool, ollamaCli)
+			synthGen = ml.NewSigilGenerator(dbPool, ollamaCli)
 		}
 		pingCancel()
 

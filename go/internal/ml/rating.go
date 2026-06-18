@@ -44,13 +44,13 @@ import (
 // s3: Gemma divines the sigil on line 1 ("SIGIL: <label>"); specialty-first sort
 //
 //	removed; the pre-supplied "Special" hint line dropped from the prompt.
-const statCommentaryPromptVersion = "s3"
+const ratingPromptVersion = "s3"
 
 // maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const maxStatFacts = 14
 
-// StatCommentaryRequest describes the entity whose rating profile to narrate.
-type StatCommentaryRequest struct {
+// RatingRequest describes the entity whose rating profile to narrate.
+type RatingRequest struct {
 	EntityType  string // 'player' | 'team'
 	EntityID    int
 	EntityName  string
@@ -65,9 +65,9 @@ type StatCommentaryRequest struct {
 	SkipUnchanged bool
 }
 
-// StatCommentaryResult is what Generate produces. SkippedNoStats is true when the
+// RatingResult is what Generate produces. SkippedNoStats is true when the
 // entity has no usable rating row; SkippedUnchanged when SkipUnchanged short-circuited.
-type StatCommentaryResult struct {
+type RatingResult struct {
 	Body                 string
 	DivinedSigil         string // extracted from "SIGIL: <label>" first line; empty if absent
 	Notability           int
@@ -83,20 +83,20 @@ type StatCommentaryResult struct {
 	Duration             time.Duration
 }
 
-// StatCommentator wires Ollama to the Postgres rating tables.
-type StatCommentator struct {
+// RatingGenerator wires Ollama to the Postgres rating tables.
+type RatingGenerator struct {
 	pool   *pgxpool.Pool
 	ollama *OllamaClient
 }
 
-func NewStatCommentator(pool *pgxpool.Pool, ollama *OllamaClient) *StatCommentator {
-	return &StatCommentator{pool: pool, ollama: ollama}
+func NewRatingGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *RatingGenerator {
+	return &RatingGenerator{pool: pool, ollama: ollama}
 }
 
 // Generate loads the entity's latest rating profile, computes a deterministic
 // notability, asks Gemma for the on-field identity analysis (length scaled to
 // notability), and persists one stat_summaries row.
-func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryRequest) (*StatCommentaryResult, error) {
+func (a *RatingGenerator) Generate(ctx context.Context, req RatingRequest) (*RatingResult, error) {
 	if a.pool == nil {
 		return nil, fmt.Errorf("stat commentator: no db pool")
 	}
@@ -115,11 +115,11 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 	// persist a NULL-body marker so the read path returns "no profile" and the
 	// cadence skips until the rating changes.
 	if profile == nil || (profile.compositeScore == nil && len(profile.breakdown) == 0) {
-		res := &StatCommentaryResult{
+		res := &RatingResult{
 			SkippedNoStats: true,
 			Season:         derefOrZero(req.Season),
 			Model:          a.ollama.Model(),
-			PromptVersion:  statCommentaryPromptVersion,
+			PromptVersion:  ratingPromptVersion,
 			GeneratedAt:    now,
 		}
 		if !req.DryRun {
@@ -137,12 +137,12 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 	if req.SkipUnchanged {
 		last, err := a.lastCommentaryHash(ctx, req.EntityType, req.EntityID, sport, profile.season)
 		if err == nil && last != "" && last == hash {
-			return &StatCommentaryResult{
+			return &RatingResult{
 				SkippedUnchanged: true,
 				Season:           profile.season,
 				InputHash:        hash,
 				Model:            a.ollama.Model(),
-				PromptVersion:    statCommentaryPromptVersion,
+				PromptVersion:    ratingPromptVersion,
 				GeneratedAt:      now,
 			}, nil
 		}
@@ -153,7 +153,7 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 
 	start := time.Now()
 	gen, err := a.ollama.Generate(ctx, prompt, GenerateOptions{
-		System:      statCommentarySystemPrompt,
+		System:      ratingSystemPrompt,
 		Temperature: 0.6,
 		// A few sentences of prose on top of Gemma 4's internal reasoning budget.
 		NumPredict: 2000,
@@ -169,7 +169,7 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 		return nil, fmt.Errorf("empty commentary (raw=%q prompt_len=%d)", truncate(gen.Response, 160), len(prompt))
 	}
 
-	res := &StatCommentaryResult{
+	res := &RatingResult{
 		Body:                 body,
 		DivinedSigil:         divinedSigil,
 		Notability:           notability,
@@ -178,7 +178,7 @@ func (a *StatCommentator) Generate(ctx context.Context, req StatCommentaryReques
 		Season:               profile.season,
 		InputHash:            hash,
 		Model:                gen.Model,
-		PromptVersion:        statCommentaryPromptVersion,
+		PromptVersion:        ratingPromptVersion,
 		GeneratedAt:          now,
 		Duration:             duration,
 	}
@@ -378,7 +378,7 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const statCommentarySystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY: what kind of player or team this is and what defines it. This is an ACTUAL ANALYSIS, not a strengths/weaknesses list and not a stat recap.
+const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY: what kind of player or team this is and what defines it. This is an ACTUAL ANALYSIS, not a strengths/weaknesses list and not a stat recap.
 
 Rules:
 - On the first line, identify the entity's sigil — their single defining statistical strength — in the format: SIGIL: <label>. Then write your analysis on the following lines.
@@ -388,7 +388,7 @@ Rules:
 - You may also be given RATE-ADJUSTED (per-x, e.g. per-36 / per-90) standouts. When an entity produces at an ELITE per-x rate even if its raw totals are modest — a young or limited-minutes player whose efficiency the box score hides — call that out. Surfacing that hidden value is exactly the point.
 - After the SIGIL line, return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
 
-func buildStatPrompt(req StatCommentaryRequest, p *ratingProfile, notability int) string {
+func buildStatPrompt(req RatingRequest, p *ratingProfile, notability int) string {
 	var b strings.Builder
 
 	header := fmt.Sprintf("%s %s", req.Sport, req.EntityType)
@@ -523,7 +523,7 @@ func cleanCommentary(raw string) string {
 	return strings.TrimSpace(s)
 }
 
-func (a *StatCommentator) persist(ctx context.Context, req StatCommentaryRequest, sport string, res *StatCommentaryResult) error {
+func (a *RatingGenerator) persist(ctx context.Context, req RatingRequest, sport string, res *RatingResult) error {
 	triggerJSON, err := json.Marshal(req.Trigger)
 	if err != nil {
 		return err
@@ -564,13 +564,13 @@ func (a *StatCommentator) persist(ctx context.Context, req StatCommentaryRequest
 		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14,$15)`,
 		req.EntityType, req.EntityID, sport, season, req.TriggerType, triggerJSON,
 		body, notability, ncomp, icomp, inputHash,
-		res.Model, statCommentaryPromptVersion, res.GeneratedAt, divinedSigil)
+		res.Model, ratingPromptVersion, res.GeneratedAt, divinedSigil)
 	return err
 }
 
 // lastCommentaryHash returns the input_hash of the entity-season's most recent
 // real (non-marker) commentary, or "" if none — the nightly skip signal.
-func (a *StatCommentator) lastCommentaryHash(ctx context.Context, entityType string, entityID int, sport string, season int) (string, error) {
+func (a *RatingGenerator) lastCommentaryHash(ctx context.Context, entityType string, entityID int, sport string, season int) (string, error) {
 	var hash *string
 	err := a.pool.QueryRow(ctx, `
 		SELECT input_hash FROM stat_summaries

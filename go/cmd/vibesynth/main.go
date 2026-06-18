@@ -65,7 +65,7 @@ func main() {
 		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
 		os.Exit(1)
 	}
-	gen := ml.NewSynthesisGenerator(pool, ollama)
+	gen := ml.NewSigilGenerator(pool, ollama)
 
 	switch *mode {
 	case "single":
@@ -80,7 +80,7 @@ func main() {
 	}
 }
 
-func runSingle(pool *pgxpool.Pool, gen *ml.SynthesisGenerator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
+func runSingle(pool *pgxpool.Pool, gen *ml.SigilGenerator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
 	if entityID <= 0 || sport == "" {
 		fmt.Fprintln(os.Stderr, "-entity-id and -sport are required in single mode")
 		os.Exit(2)
@@ -95,7 +95,7 @@ func runSingle(pool *pgxpool.Pool, gen *ml.SynthesisGenerator, entityType string
 		os.Exit(1)
 	}
 
-	req := ml.VibeSynthesisRequest{
+	req := ml.SigilRequest{
 		EntityType:  entityType,
 		EntityID:    entityID,
 		EntityName:  name,
@@ -141,7 +141,7 @@ type target struct {
 	sportName  string
 }
 
-func runCorpus(pool *pgxpool.Pool, gen *ml.SynthesisGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
+func runCorpus(pool *pgxpool.Pool, gen *ml.SigilGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.TrimSpace(sportArg); s != "" && strings.ToLower(s) != "all" {
 		sports = []string{strings.ToUpper(s)}
@@ -176,7 +176,7 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.SynthesisGenerator, nightly bool, spo
 		}
 
 		gctx, gcancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
-		res, err := gen.Generate(gctx, ml.VibeSynthesisRequest{
+		res, err := gen.Generate(gctx, ml.SigilRequest{
 			EntityType:    t.entityType,
 			EntityID:      t.entityID,
 			EntityName:    name,

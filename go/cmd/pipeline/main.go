@@ -88,8 +88,8 @@ func main() {
 
 	transferGen := ml.NewTransferGenerator(pool, ollama)
 	narrator := ml.NewNewsNarrator(pool, ollama)
-	vibeGen := ml.NewGenerator(pool, ollama)
-	synthGen := ml.NewSynthesisGenerator(pool, ollama)
+	vibeGen := ml.NewVibeGenerator(pool, ollama)
+	synthGen := ml.NewSigilGenerator(pool, ollama)
 
 	runCorpus(pool, opts{
 		transferGen:      transferGen,
@@ -115,8 +115,8 @@ func main() {
 type opts struct {
 	transferGen      *ml.TransferGenerator
 	narrator         *ml.NewsNarrator
-	vibeGen          *ml.Generator
-	synthGen         *ml.SynthesisGenerator
+	vibeGen          *ml.VibeGenerator
+	synthGen         *ml.SigilGenerator
 	gemmaTimeout     time.Duration
 	sportArg         string
 	minArticles      int
@@ -253,7 +253,7 @@ func runVibe(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.E
 			continue
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.vibeGen.Generate(gctx, ml.SentimentRequest{
+		res, err := o.vibeGen.Generate(gctx, ml.VibeRequest{
 			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
 		})
 		cancel()
@@ -291,7 +291,7 @@ func runSynthesis(ctx context.Context, pool *pgxpool.Pool, o opts, touched []cor
 			continue
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.synthGen.Generate(gctx, ml.VibeSynthesisRequest{
+		res, err := o.synthGen.Generate(gctx, ml.SigilRequest{
 			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
 		})
 		cancel()

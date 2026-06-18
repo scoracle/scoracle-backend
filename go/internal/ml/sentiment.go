@@ -13,7 +13,7 @@ import (
 )
 
 // Prompt version — bump when the prompt text below materially changes so
-// we can trace which prompt produced which score in sentiment_scores.
+// we can trace which prompt produced which score in vibe_scores.
 //
 // v2: 1-10 internal scale, x10 multiplier on persist. Always landed on
 //
@@ -63,7 +63,7 @@ type SentimentRequest struct {
 	Trigger     map[string]any // milestone fact (stat key, value, percentile)
 }
 
-// SentimentResult is what the generator persists to sentiment_scores and returns
+// SentimentResult is what the generator persists to vibe_scores and returns
 // to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale,
 // produced directly by Gemma (v3 prompt).
 //
@@ -94,7 +94,7 @@ func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
 
 // Generate determines an overall 1-100 sentiment for the entity from the DERIVED
 // layer — its latest narratives (ml/news_narratives.go) + current transfer heat —
-// persists it to sentiment_scores, and returns the result. This is stage 3 of
+// persists it to vibe_scores, and returns the result. This is stage 3 of
 // the pipeline (raw → scrub → narratives → transfer heat → VIBE): by now Gemma
 // reasons over the curated storylines, not raw headlines (the richest context).
 func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*SentimentResult, error) {
@@ -181,7 +181,7 @@ func (g *Generator) persistNoCorpus(ctx context.Context, req SentimentRequest, s
 		return err
 	}
 	_, err = g.pool.Exec(ctx, `
-		INSERT INTO sentiment_scores (
+		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
 		    sentiment, input_news_ids, input_tweet_ids,
@@ -355,7 +355,7 @@ func (g *Generator) persistSentiment(
 		tweetIDs = []string{}
 	}
 	_, err = g.pool.Exec(ctx, `
-		INSERT INTO sentiment_scores (
+		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
 		    sentiment, input_news_ids, input_tweet_ids,

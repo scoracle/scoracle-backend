@@ -151,7 +151,7 @@ func LoadTouchedEntities(ctx context.Context, pool *pgxpool.Pool, since time.Tim
 				  LIMIT 1
 			  )
 			  AND NOT EXISTS (
-				  SELECT 1 FROM sentiment_scores v
+				  SELECT 1 FROM vibe_scores v
 				  WHERE v.entity_type = 'team' AND v.entity_id = t.id AND v.sport = t.sport
 					AND v.generated_at > NOW() - INTERVAL '18 hours'
 			  )
@@ -180,7 +180,7 @@ func LoadTouchedEntities(ctx context.Context, pool *pgxpool.Pool, since time.Tim
 // RecentlyGenerated reports whether `table` already holds a row for this entity
 // newer than `within` ago — the shared per-stage debounce so a batch run doesn't
 // re-do what a real-time spike worker just produced. Works for the entity-keyed
-// generation tables (sentiment_scores, news_summaries). `table` MUST be a trusted
+// generation tables (vibe_scores, news_summaries). `table` MUST be a trusted
 // constant — it is interpolated, not parameterized. Fails open (returns false) on
 // a transient error: better to over-generate than silently drop an entity.
 func RecentlyGenerated(ctx context.Context, pool *pgxpool.Pool, table string, e Entity, within time.Duration) bool {

@@ -432,7 +432,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. Joined
 		// to players/teams so the row carries name/image/team (one shape across every
 		// single-entity board the /leaderboard page renders). The partial index
-		// idx_vibe_synthesis_sport_score covers the inner scan.
+		// idx_sigil_synthesis_sport_score covers the inner scan.
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
@@ -442,7 +442,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		latest AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
 			       vs.entity_type, vs.entity_id, vs.score, vs.generated_at
-			FROM public.vibe_synthesis vs, req
+			FROM public.sigil_synthesis vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
 			  AND vs.score IS NOT NULL AND vs.blurb IS NOT NULL
@@ -705,7 +705,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		vibe_cur AS (
 			SELECT vs.score, vs.blurb, vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
-			FROM public.vibe_synthesis vs CROSS JOIN req
+			FROM public.sigil_synthesis vs CROSS JOIN req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '72 hours'
@@ -713,7 +713,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		vibe_hist AS (
 			SELECT vs.score, vs.generated_at
-			FROM public.vibe_synthesis vs CROSS JOIN req
+			FROM public.sigil_synthesis vs CROSS JOIN req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
 			ORDER BY vs.generated_at DESC LIMIT 14
@@ -1681,10 +1681,10 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 	),
 	vibe_window AS (
 		-- Last 7 days of Gemma sentiment scores (1-100) for this entity.
-		-- sentiment_scores is append-only (BIGSERIAL PK + INSERT-only writes).
+		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes).
 		-- Legacy blurb-only rows have sentiment IS NULL — exclude them.
 		SELECT vs.sentiment, vs.generated_at, vs.trigger_type
-		FROM sentiment_scores vs, req
+		FROM vibe_scores vs, req
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'
@@ -1723,7 +1723,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			DATE_TRUNC('day', vs.generated_at AT TIME ZONE 'UTC')::date AS day,
 			ROUND(AVG(vs.sentiment)::numeric, 0)::int AS sentiment_avg,
 			COUNT(*)::int AS snapshot_count
-		FROM sentiment_scores vs, req, vibe_season_anchor anchor
+		FROM vibe_scores vs, req, vibe_season_anchor anchor
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
 		  AND vs.sport = '` + sportID + `'

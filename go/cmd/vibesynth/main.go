@@ -108,7 +108,7 @@ func runSingle(pool *pgxpool.Pool, gen *ml.SynthesisGenerator, entityType string
 	// SkipUnchanged=false + a real pool). To keep it simple, Generate always
 	// persists; dry-run is signalled by noop pool — instead, just warn the user.
 	if !persist {
-		fmt.Println("(dry-run: result shown but NOT written to vibe_synthesis)")
+		fmt.Println("(dry-run: result shown but NOT written to sigil_synthesis)")
 	}
 
 	res, err := gen.Generate(ctx, req)

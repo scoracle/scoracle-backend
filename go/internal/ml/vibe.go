@@ -37,7 +37,7 @@ import (
 //
 //	emits a one-sentence "felt read" alongside the score (SCORE: / VIBE: lines),
 //	persisted to vibe_scores.prompt and fed into the Sigil synthesis.
-const sentimentPromptVersion = "v6"
+const vibePromptVersion = "v6"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
 //
@@ -58,8 +58,8 @@ const (
 // any external boundary.
 const newsLookback = NewsLookback
 
-// SentimentRequest describes the entity to score and the triggering fact (if any).
-type SentimentRequest struct {
+// VibeRequest describes the entity to score and the triggering fact (if any).
+type VibeRequest struct {
 	EntityType  string // 'player' or 'team'
 	EntityID    int
 	EntityName  string         // used in the prompt for Gemma's reference
@@ -68,7 +68,7 @@ type SentimentRequest struct {
 	Trigger     map[string]any // milestone fact (stat key, value, percentile)
 }
 
-// SentimentResult is what the generator persists to vibe_scores and returns
+// VibeResult is what the generator persists to vibe_scores and returns
 // to callers (CLI / HTTP endpoint). Sentiment is on a 1-100 scale,
 // produced directly by Gemma (v3 prompt).
 //
@@ -76,7 +76,7 @@ type SentimentRequest struct {
 // the Gemma call and writes a row with NULL sentiment as an explicit
 // "no data" signal for the frontend. In that case Sentiment == 0 and
 // SkippedNoCorpus == true.
-type SentimentResult struct {
+type VibeResult struct {
 	Sentiment       int
 	Prompt          string // one-sentence felt read (the Vibe's "prompt"); fed into the Sigil
 	SkippedNoCorpus bool
@@ -87,15 +87,15 @@ type SentimentResult struct {
 	Duration        time.Duration
 }
 
-// Generator wires Ollama to the Postgres corpus. Reused by CLI,
+// VibeGenerator wires Ollama to the Postgres corpus. Reused by CLI,
 // HTTP endpoint, and the milestone listener — single primitive.
-type Generator struct {
+type VibeGenerator struct {
 	pool   *pgxpool.Pool
 	ollama *OllamaClient
 }
 
-func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
-	return &Generator{pool: pool, ollama: ollama}
+func NewVibeGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *VibeGenerator {
+	return &VibeGenerator{pool: pool, ollama: ollama}
 }
 
 // Generate determines an overall 1-100 sentiment for the entity from the DERIVED
@@ -103,7 +103,7 @@ func NewGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *Generator {
 // persists it to vibe_scores, and returns the result. This is stage 3 of
 // the pipeline (raw → scrub → narratives → transfer heat → VIBE): by now Gemma
 // reasons over the curated storylines, not raw headlines (the richest context).
-func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*SentimentResult, error) {
+func (g *VibeGenerator) Generate(ctx context.Context, req VibeRequest) (*VibeResult, error) {
 	if g.pool == nil {
 		return nil, fmt.Errorf("vibe generator: no db pool")
 	}
@@ -130,10 +130,10 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 		if err := g.persistNoCorpus(ctx, req, sport); err != nil {
 			return nil, fmt.Errorf("persist no-corpus marker: %w", err)
 		}
-		return &SentimentResult{
+		return &VibeResult{
 			SkippedNoCorpus: true,
 			Model:           g.ollama.Model(),
-			PromptVersion:   sentimentPromptVersion,
+			PromptVersion:   vibePromptVersion,
 			InputNewsIDs:    []int64{},
 			InputTweetIDs:   []string{},
 		}, nil
@@ -147,7 +147,7 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 	// over the narratives + heat context; the cost is dominated by eval_count
 	// (a single digit), not the cap.
 	gen, err := g.ollama.Generate(ctx, prompt, GenerateOptions{
-		System:      sentimentSystemPrompt,
+		System:      vibeSystemPrompt,
 		Temperature: 0.7,
 		NumPredict:  1200,
 	})
@@ -168,11 +168,11 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 		return nil, fmt.Errorf("persist vibe: %w", err)
 	}
 
-	return &SentimentResult{
+	return &VibeResult{
 		Sentiment:     sentiment,
 		Prompt:        vibePrompt,
 		Model:         gen.Model,
-		PromptVersion: sentimentPromptVersion,
+		PromptVersion: vibePromptVersion,
 		InputNewsIDs:  newsIDs,
 		InputTweetIDs: []string{},
 		Duration:      duration,
@@ -182,7 +182,7 @@ func (g *Generator) Generate(ctx context.Context, req SentimentRequest) (*Sentim
 // persistNoCorpus writes a row with NULL sentiment so the API returns
 // {"sentiment": null} and the batch debounce stops re-running this entity
 // until something in the corpus changes.
-func (g *Generator) persistNoCorpus(ctx context.Context, req SentimentRequest, sport string) error {
+func (g *VibeGenerator) persistNoCorpus(ctx context.Context, req VibeRequest, sport string) error {
 	triggerJSON, err := json.Marshal(req.Trigger)
 	if err != nil {
 		return err
@@ -197,7 +197,7 @@ func (g *Generator) persistNoCorpus(ctx context.Context, req SentimentRequest, s
 	`,
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
-		g.ollama.Model(), sentimentPromptVersion,
+		g.ollama.Model(), vibePromptVersion,
 	)
 	return err
 }
@@ -231,7 +231,7 @@ type narrativeItem struct {
 // generation (news_summaries; ml/news_narratives.go), hottest first, plus the
 // deduped union of their source article ids for provenance. Empty when the latest
 // generation was a no-narratives marker or the entity has none yet.
-func (g *Generator) loadLatestNarratives(
+func (g *VibeGenerator) loadLatestNarratives(
 	ctx context.Context, entityType string, entityID int, sport string,
 ) ([]narrativeItem, []int64, error) {
 	rows, err := g.pool.Query(ctx, `
@@ -281,7 +281,7 @@ func dedupeInt64(in []int64) []int64 {
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const sentimentSystemPrompt = `You read the NARRATIVES forming around a sports entity and its current TRANSFER/TRADE activity — the derived signals, not raw headlines — and produce two things: an overall SENTIMENT score and a one-sentence "felt read" (the vibe).
+const vibeSystemPrompt = `You read the NARRATIVES forming around a sports entity and its current TRANSFER/TRADE activity — the derived signals, not raw headlines — and produce two things: an overall SENTIMENT score and a one-sentence "felt read" (the vibe).
 
 SENTIMENT (1-100): 1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive. Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening. If the material is thin or neutral, answer 45-55 — don't invent drama.
 
@@ -291,7 +291,7 @@ Respond on EXACTLY two lines, nothing else:
 SCORE: <integer 1-100>
 VIBE: <one sentence>`
 
-func buildSentimentPrompt(req SentimentRequest, narratives []narrativeItem, heat []heatItem) string {
+func buildSentimentPrompt(req VibeRequest, narratives []narrativeItem, heat []heatItem) string {
 	var b strings.Builder
 
 	b.WriteString(fmt.Sprintf("Entity: %s %s (%s)\n", strings.Title(req.EntityType), req.EntityName, req.Sport))
@@ -385,9 +385,9 @@ func parseSentimentAndPrompt(raw string) (int, string, error) {
 	return score, prompt, nil
 }
 
-func (g *Generator) persistSentiment(
+func (g *VibeGenerator) persistSentiment(
 	ctx context.Context,
-	req SentimentRequest,
+	req VibeRequest,
 	sport string, sentiment int, vibePrompt string, model string,
 	newsIDs []int64,
 	tweetIDs []string,
@@ -421,7 +421,7 @@ func (g *Generator) persistSentiment(
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
 		sentiment, promptArg, newsIDs, tweetIDs,
-		model, sentimentPromptVersion,
+		model, vibePromptVersion,
 	)
 	return err
 }

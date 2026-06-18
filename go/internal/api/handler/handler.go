@@ -25,12 +25,12 @@ type Handler struct {
 	news     *thirdparty.NewsService
 	twitter  *thirdparty.TwitterService
 	auth     *auth.Tokens
-	synthGen *ml.SynthesisGenerator // optional; nil = lazy-view synthesis disabled
+	synthGen *ml.SigilGenerator // optional; nil = lazy-view synthesis disabled
 }
 
 // SetSynthGen wires the vibe synthesis generator for lazy-view triggering on
 // cold entities. Call once after New, before serving requests.
-func (h *Handler) SetSynthGen(g *ml.SynthesisGenerator) { h.synthGen = g }
+func (h *Handler) SetSynthGen(g *ml.SigilGenerator) { h.synthGen = g }
 
 // New creates a Handler with shared dependencies.
 func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.Tokens) *Handler {

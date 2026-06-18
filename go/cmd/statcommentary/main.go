@@ -70,7 +70,7 @@ func main() {
 		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
 		os.Exit(1)
 	}
-	gen := ml.NewStatCommentator(pool, ollama)
+	gen := ml.NewRatingGenerator(pool, ollama)
 
 	switch *mode {
 	case "single":
@@ -89,7 +89,7 @@ func main() {
 // Single mode
 // ---------------------------------------------------------------------------
 
-func runSingle(pool *pgxpool.Pool, gen *ml.StatCommentator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
+func runSingle(pool *pgxpool.Pool, gen *ml.RatingGenerator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
 	if entityID <= 0 || sport == "" {
 		fmt.Fprintln(os.Stderr, "-entity-id and -sport are required in single mode")
 		os.Exit(2)
@@ -104,7 +104,7 @@ func runSingle(pool *pgxpool.Pool, gen *ml.StatCommentator, entityType string, e
 		os.Exit(1)
 	}
 
-	res, err := gen.Generate(ctx, ml.StatCommentaryRequest{
+	res, err := gen.Generate(ctx, ml.RatingRequest{
 		EntityType:  entityType,
 		EntityID:    entityID,
 		EntityName:  name,
@@ -146,7 +146,7 @@ type target struct {
 	sportName  string
 }
 
-func runCorpus(pool *pgxpool.Pool, gen *ml.StatCommentator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
+func runCorpus(pool *pgxpool.Pool, gen *ml.RatingGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
 		sports = []string{strings.ToUpper(sportArg)}
@@ -194,7 +194,7 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.StatCommentator, nightly bool, sportA
 			continue
 		}
 		gctx, cancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
-		res, err := gen.Generate(gctx, ml.StatCommentaryRequest{
+		res, err := gen.Generate(gctx, ml.RatingRequest{
 			EntityType:    t.entityType,
 			EntityID:      t.entityID,
 			EntityName:    name,

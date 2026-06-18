@@ -1,6 +1,6 @@
 package ml
 
-// Transfer/Trade rumor analyzer — clones the Vibe Generator pattern at the PAIR
+// Transfer/Trade rumor analyzer — clones the VibeGenerator pattern at the PAIR
 // grain. For a team, it walks co-mention candidate players, computes the
 // DETERMINISTIC heat index (compute_transfer_heat, migration 032), and uses
 // Gemma ONLY to VET each pair — is it a real rumor, direction, stage, a grounded

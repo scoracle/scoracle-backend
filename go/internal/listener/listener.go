@@ -49,7 +49,7 @@ type PercentileChangeEvent struct {
 // Start opens a dedicated connection and listens on the percentile_changed
 // channel. It reconnects automatically on connection loss. Blocks until ctx
 // is cancelled. synthGen is optional — nil disables composite-shift synthesis.
-func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, logger *slog.Logger) {
+func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
 	for {
@@ -73,7 +73,7 @@ func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifi
 
 // listenLoop runs a single listen session. Returns when the connection drops
 // or the context is cancelled.
-func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, logger *slog.Logger) error {
+func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, logger *slog.Logger) error {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -114,7 +114,7 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 
 // handlePercentileChange resolves followers for the entity, dispatches FCM
 // push notifications, and optionally triggers vibe synthesis on composite shifts.
-func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SynthesisGenerator, event PercentileChangeEvent, logger *slog.Logger) {
+func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, event PercentileChangeEvent, logger *slog.Logger) {
 	// Find followers for this entity
 	followers, err := notifications.GetFollowers(ctx, pool, event.EntityType, event.EntityID, event.Sport)
 	if err != nil {
@@ -175,7 +175,7 @@ func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *not
 	if synthGen != nil && math.Abs(event.NewPercentile-event.OldPercentile) >= 10 &&
 		!ml.RecentlySynthesized(ctx, pool, event.EntityType, event.EntityID, event.Sport, 24*time.Hour) {
 		go func() {
-			_, _ = synthGen.Generate(ctx, ml.VibeSynthesisRequest{
+			_, _ = synthGen.Generate(ctx, ml.SigilRequest{
 				EntityType:  event.EntityType,
 				EntityID:    event.EntityID,
 				EntityName:  entityName,

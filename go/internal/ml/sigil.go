@@ -37,11 +37,11 @@ import (
 // s2: consumes the Vibe end product's felt-read PROMPT (vibe_scores.prompt) as
 //
 //	the emotional signal's headline — Sigil = f(Vibe, Rating, Momentum).
-const vibeSynthesisPromptVersion = "s2"
+const sigilPromptVersion = "s2"
 
-// VibeSynthesisRequest describes the entity and the trigger that initiated
+// SigilRequest describes the entity and the trigger that initiated
 // this synthesis run.
-type VibeSynthesisRequest struct {
+type SigilRequest struct {
 	EntityType    string // 'player' | 'team'
 	EntityID      int
 	EntityName    string
@@ -52,8 +52,8 @@ type VibeSynthesisRequest struct {
 	SkipUnchanged bool // skip Gemma call when input hash matches last row
 }
 
-// VibeSynthesisResult is what Generate produces and persists to sigil_synthesis.
-type VibeSynthesisResult struct {
+// SigilResult is what Generate produces and persists to sigil_synthesis.
+type SigilResult struct {
 	Score            int
 	PreviousScore    int // last non-null score before this run; 0 if none
 	Blurb            string
@@ -67,16 +67,16 @@ type VibeSynthesisResult struct {
 	SkippedUnchanged bool // input hash matched last row
 }
 
-// SynthesisGenerator wires Ollama to the Postgres tables for vibe synthesis.
-// It is a separate type from Generator (the sentiment generator) to keep
+// SigilGenerator wires Ollama to the Postgres tables for vibe synthesis.
+// It is a separate type from VibeGenerator (the sentiment generator) to keep
 // the two pipelines independent.
-type SynthesisGenerator struct {
+type SigilGenerator struct {
 	pool   *pgxpool.Pool
 	ollama *OllamaClient
 }
 
-func NewSynthesisGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *SynthesisGenerator {
-	return &SynthesisGenerator{pool: pool, ollama: ollama}
+func NewSigilGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *SigilGenerator {
+	return &SigilGenerator{pool: pool, ollama: ollama}
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ func NewSynthesisGenerator(pool *pgxpool.Pool, ollama *OllamaClient) *SynthesisG
 
 // Generate loads the three pillar inputs, optionally skips when unchanged,
 // asks Gemma for the synthesis, and persists one sigil_synthesis row.
-func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequest) (*VibeSynthesisResult, error) {
+func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*SigilResult, error) {
 	if s.pool == nil {
 		return nil, fmt.Errorf("synthesis generator: no db pool")
 	}
@@ -112,10 +112,10 @@ func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequ
 	// No-pillar path: persist a marker row without a Gemma call so the read
 	// path returns "no synthesis yet" and callers skip until data arrives.
 	if len(narratives) == 0 && sigilData == nil && momentum.empty() {
-		res := &VibeSynthesisResult{
+		res := &SigilResult{
 			SkippedNoPillars: true,
 			Model:            s.ollama.Model(),
-			PromptVersion:    vibeSynthesisPromptVersion,
+			PromptVersion:    sigilPromptVersion,
 			GeneratedAt:      now,
 		}
 		if err := s.persist(ctx, req, sport, res); err != nil {
@@ -130,11 +130,11 @@ func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequ
 	if req.SkipUnchanged {
 		last, err := s.lastSynthesisHash(ctx, req.EntityType, req.EntityID, sport)
 		if err == nil && last != "" && last == hash {
-			return &VibeSynthesisResult{
+			return &SigilResult{
 				SkippedUnchanged: true,
 				InputHash:        hash,
 				Model:            s.ollama.Model(),
-				PromptVersion:    vibeSynthesisPromptVersion,
+				PromptVersion:    sigilPromptVersion,
 				GeneratedAt:      now,
 			}, nil
 		}
@@ -147,7 +147,7 @@ func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequ
 
 	start := time.Now()
 	gen, err := s.ollama.Generate(ctx, prompt, GenerateOptions{
-		System:      vibeSynthesisSystemPrompt,
+		System:      sigilSystemPrompt,
 		Temperature: 0.6,
 		NumPredict:  1000,
 	})
@@ -161,14 +161,14 @@ func (s *SynthesisGenerator) Generate(ctx context.Context, req VibeSynthesisRequ
 		return nil, fmt.Errorf("synthesis: could not parse score from response (raw=%q)", truncate(gen.Response, 200))
 	}
 
-	res := &VibeSynthesisResult{
+	res := &SigilResult{
 		Score:           score,
 		PreviousScore:   prev,
 		Blurb:           blurb,
 		InputComponents: ic,
 		InputHash:       hash,
 		Model:           gen.Model,
-		PromptVersion:   vibeSynthesisPromptVersion,
+		PromptVersion:   sigilPromptVersion,
 		GeneratedAt:     now,
 		Duration:        duration,
 	}
@@ -219,7 +219,7 @@ func (m synthMomentum) empty() bool {
 	return m.latestSentiment == nil && m.latestComposite == nil
 }
 
-func (s *SynthesisGenerator) loadNarrativePillar(ctx context.Context, entityType string, entityID int, sport string) ([]synthNarrative, error) {
+func (s *SigilGenerator) loadNarrativePillar(ctx context.Context, entityType string, entityID int, sport string) ([]synthNarrative, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT narrative_title, body, COALESCE(impact, 0)
 		FROM news_summaries
@@ -246,7 +246,7 @@ func (s *SynthesisGenerator) loadNarrativePillar(ctx context.Context, entityType
 	return out, rows.Err()
 }
 
-func (s *SynthesisGenerator) loadSigilPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthSigil, error) {
+func (s *SigilGenerator) loadSigilPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthSigil, error) {
 	var sig synthSigil
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(divined_sigil, ''), body, COALESCE(notability, 0)
@@ -266,7 +266,7 @@ func (s *SynthesisGenerator) loadSigilPillar(ctx context.Context, entityType str
 	return &sig, nil
 }
 
-func (s *SynthesisGenerator) loadMomentumPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (synthMomentum, error) {
+func (s *SigilGenerator) loadMomentumPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (synthMomentum, error) {
 	var m synthMomentum
 
 	// Sentiment trend: last 14 rows from vibe_scores. Also capture the latest
@@ -408,7 +408,7 @@ func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigi
 // Prompt
 // ---------------------------------------------------------------------------
 
-const vibeSynthesisSystemPrompt = `You are a holistic sports analyst synthesizing three signals — news narrative, statistical identity, and momentum — into a single VIBE score and a short blurb.
+const sigilSystemPrompt = `You are a holistic sports analyst synthesizing three signals — news narrative, statistical identity, and momentum — into a single VIBE score and a short blurb.
 
 The vibe is SLOW-MOVING and SEASON-AWARE: it reflects the entity's whole-season arc, not a single game.
 
@@ -421,7 +421,7 @@ Rules:
     BLURB: <1-2 sentences>
 - No other text, no preamble, no explanation.`
 
-func buildSynthesisPrompt(req VibeSynthesisRequest, narratives []synthNarrative, sigil *synthSigil, mom synthMomentum) string {
+func buildSynthesisPrompt(req SigilRequest, narratives []synthNarrative, sigil *synthSigil, mom synthMomentum) string {
 	var b strings.Builder
 
 	header := fmt.Sprintf("%s %s", req.Sport, req.EntityType)
@@ -520,7 +520,7 @@ func parseSynthesisResponse(raw string) (score int, blurb string) {
 // Persistence
 // ---------------------------------------------------------------------------
 
-func (s *SynthesisGenerator) persist(ctx context.Context, req VibeSynthesisRequest, sport string, res *VibeSynthesisResult) error {
+func (s *SigilGenerator) persist(ctx context.Context, req SigilRequest, sport string, res *SigilResult) error {
 	triggerJSON, err := json.Marshal(orEmptyMap(req.Trigger))
 	if err != nil {
 		return err
@@ -550,11 +550,11 @@ func (s *SynthesisGenerator) persist(ctx context.Context, req VibeSynthesisReque
 		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14)`,
 		req.EntityType, req.EntityID, sport, req.Season, req.TriggerType, triggerJSON,
 		score, prevScore, blurb, icomp, inputHash,
-		res.Model, vibeSynthesisPromptVersion, res.GeneratedAt)
+		res.Model, sigilPromptVersion, res.GeneratedAt)
 	return err
 }
 
-func (s *SynthesisGenerator) lastSynthesisHash(ctx context.Context, entityType string, entityID int, sport string) (string, error) {
+func (s *SigilGenerator) lastSynthesisHash(ctx context.Context, entityType string, entityID int, sport string) (string, error) {
 	var hash *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT input_hash FROM sigil_synthesis
@@ -574,7 +574,7 @@ func (s *SynthesisGenerator) lastSynthesisHash(ctx context.Context, entityType s
 	return *hash, nil
 }
 
-func (s *SynthesisGenerator) lastScore(ctx context.Context, entityType string, entityID int, sport string) (int, error) {
+func (s *SigilGenerator) lastScore(ctx context.Context, entityType string, entityID int, sport string) (int, error) {
 	var score *int
 	err := s.pool.QueryRow(ctx, `
 		SELECT score FROM sigil_synthesis

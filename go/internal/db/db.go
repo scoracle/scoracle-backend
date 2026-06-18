@@ -892,16 +892,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		spec_rating AS (
 			SELECT season, position, rating_sigil, rating_sigil_rank, rating_sigil_score,
-			       rating_sigil_label, rating_breakdown, rating_modes FROM (
+			       rating_sigil_label, rating_composite_score, rating_composite_rank, rating_breakdown, rating_modes FROM (
 				SELECT ps.season, ps.position, ps.rating_specialist AS rating_sigil, ps.rating_specialist_rank AS rating_sigil_rank, ps.rating_specialist_score AS rating_sigil_score,
-				       ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
+				       ps.rating_composite_score, ps.rating_composite_rank, ps.rating_specialty AS rating_sigil_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('sigil', rm_v->'specialist', 'sigil_rank', rm_v->'specialist_rank', 'sigil_score', rm_v->'specialist_score', 'sigil_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 				UNION ALL
 				SELECT ts.season, NULL::text, ts.rating_specialist AS rating_sigil, ts.rating_specialist_rank AS rating_sigil_rank, ts.rating_specialist_score AS rating_sigil_score,
-				       ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
+				       ts.rating_composite_score, ts.rating_composite_rank, ts.rating_specialty AS rating_sigil_label, ts.rating_breakdown, NULL::jsonb AS rating_modes, ts.rating_composite
 				FROM public.team_stats ts CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'team' AND ts.sport = req.sport
 				  AND ts.team_id = req.eid AND ts.season = sp.season

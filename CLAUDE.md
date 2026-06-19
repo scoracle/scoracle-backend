@@ -22,12 +22,14 @@ Frontend (Solid)
 
 ### Go API — Unified Public API (port 8000)
 
-The Go API owns all public HTTP endpoints:
+The Go API owns all public HTTP endpoints. **We own all the data** — every serving endpoint is a
+precomputed read from our own Postgres; there is **no third-party call on a serving request** (the
+Google-RSS compile lives in the background pipeline, off the request path).
 
-- Sport data endpoints (canonical profile, meta, and health plus league-scoped variants)
-- Third-party integrations (news + journalist tweets)
+- Sport data endpoints (canonical profile + the per-product card endpoints, meta, health, league-scoped variants)
+- Derived-product endpoints — `/news` (Gemma narratives), `/transfers`, `/rating`, `/momentum`, `/sigil` (the synthesis) — all served from precomputed tables
 - Health/docs endpoints
-- Background workers (notifications, maintenance, LISTEN/NOTIFY)
+- Background workers — the self-hosted Gemma news/stats pipeline (the compile→scrub→derive that *does* call Google RSS, off the request path), notifications, maintenance, LISTEN/NOTIFY
 
 Go handlers must remain thin:
 
@@ -77,10 +79,10 @@ Canonical public route shape:
 - `/api/v1/{sport}/health` (data freshness)
 - `/api/v1/{sport}/leagues/{leagueId}/...` (league-scoped variants)
 
-Integrations:
+Legacy integration routes (being retired — we own all data now):
 
-- `/api/v1/news/...`
-- `/api/v1/twitter/...`
+- `/api/v1/news/...` — live Google-RSS lookup; **superseded** by the precomputed `/{sport}/{type}/{id}/news` narratives the eager News card reads. Slated for removal.
+- `/api/v1/twitter/...` — **PARKED** (X parked 2026-06-13; routes wired but gated `TWITTER_ENABLED=false`, slated for removal).
 
 ## Implementation Boundaries
 
@@ -218,10 +220,9 @@ Required for local operation:
 Common optional:
 
 - `API_PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED`
-- `NEWS_API_KEY`
-- `TWITTER_BEARER_TOKEN`, `TWITTER_LIST_NBA`, `TWITTER_LIST_NFL`, `TWITTER_LIST_FOOTBALL`
-- `TWITTER_CACHE_TTL_SECONDS` (default `1200`)
+- `DB_POOL_MAX_CONNS` (default `25` — sized for the eager profile fan-out of ~6–9 concurrent reads)
 - `FIREBASE_CREDENTIALS_FILE`
+- *Parked (X parked 2026-06-13 — only needed if Twitter is ever revived):* `TWITTER_ENABLED`, `TWITTER_BEARER_TOKEN`, `TWITTER_LIST_{NBA,NFL,FOOTBALL}`, `TWITTER_CACHE_TTL_SECONDS`
 
 ## Key Files
 

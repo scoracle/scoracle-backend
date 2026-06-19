@@ -100,7 +100,7 @@ func Load() (*Config, error) {
 	return &Config{
 		DatabaseURL:    dbURL,
 		DBPoolMinConns: envInt("DB_POOL_MIN_CONNS", 2),
-		DBPoolMaxConns: envInt("DB_POOL_MAX_CONNS", 10),
+		DBPoolMaxConns: envInt("DB_POOL_MAX_CONNS", 25),
 		DBPoolMaxLife:  time.Duration(envInt("DB_POOL_MAX_LIFE_MINUTES", 30)) * time.Minute,
 
 		APIHost:     envOr("API_HOST", "0.0.0.0"),

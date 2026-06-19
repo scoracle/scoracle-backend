@@ -14,8 +14,6 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/cache"
-	"github.com/albapepper/scoracle-data/internal/corpus"
-	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
 var validSports = map[string]struct{}{
@@ -358,7 +356,7 @@ func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stmt := sport + "_trends_page"
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType, id, season, leagueID)
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLMomentum, false, entityType, id, season, leagueID)
 }
 
 // GetLeagueTrendsPage returns league-scoped last-3 entity event averages vs peer-cohort season averages.
@@ -402,7 +400,7 @@ func (h *Handler) GetLeagueTrendsPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stmt := sport + "_trends_page"
-	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, entityType, id, season, leagueID)
+	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLMomentum, false, entityType, id, season, leagueID)
 }
 
 // GetTeamResults returns a team's finalized scorelines for a season.
@@ -575,32 +573,7 @@ func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Lazy-view synthesis: if this entity has no recent synthesis row, kick off
-	// a background generation so the next view (after a few seconds) has a blurb.
-	if h.synthGen != nil {
-		go h.maybeSynthesizeLazy(r.Context(), sport, entityType, id)
-	}
 	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
-}
-
-// maybeSynthesizeLazy triggers a lazy-view vibe synthesis for cold entities —
-// those that have no synthesis row in the last 24 hours. Runs in a goroutine;
-// errors are silently dropped (best-effort enrichment, not a request dependency).
-func (h *Handler) maybeSynthesizeLazy(ctx context.Context, sport, entityType string, id int) {
-	if ml.RecentlySynthesized(ctx, h.pool, entityType, id, strings.ToUpper(sport), 24*time.Hour) {
-		return
-	}
-	name, err := corpus.LookupEntityName(ctx, h.pool, entityType, id, strings.ToUpper(sport))
-	if err != nil || name == "" {
-		return
-	}
-	_, _ = h.synthGen.Generate(ctx, ml.SigilRequest{
-		EntityType:  entityType,
-		EntityID:    id,
-		EntityName:  name,
-		Sport:       strings.ToUpper(sport),
-		TriggerType: "lazy_view",
-	})
 }
 
 // GetEntityStats returns the entity's STATS product — the full season rating
@@ -893,6 +866,17 @@ func (h *Handler) GetLeagueHealthPage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSONNoCache(w, r, stmt, leagueID)
 }
 
+// dbQueryTimeout bounds a single coalesced DB load in serveStatementJSON. The
+// load runs on a detached context (not the caller's) so one client disconnecting
+// cannot cancel the shared single-flight result for the others.
+const dbQueryTimeout = 8 * time.Second
+
+// cachedPayload is the single-flight result shared across coalesced cache misses.
+type cachedPayload struct {
+	data []byte
+	etag string
+}
+
 func (h *Handler) serveStatementJSON(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -916,8 +900,25 @@ func (h *Handler) serveStatementJSON(
 		return
 	}
 
-	var data []byte
-	err := h.pool.QueryRow(r.Context(), stmt, args...).Scan(&data)
+	// Single-flight the miss. An eager profile open fans out ~6-9 endpoints at
+	// once, and many visitors can miss the same hot entity simultaneously;
+	// coalesce identical (cacheKey) loads so only ONE runs the SQL and the rest
+	// share its result. The load runs on a detached, timeout-bounded context so
+	// one caller disconnecting can't cancel the shared query for the others.
+	v, err, _ := h.flight.Do(cacheKey, func() (any, error) {
+		// Another flight may have filled the cache between our miss and here.
+		if data, etag, ok := h.cache.Get(cacheKey); ok {
+			return cachedPayload{data, etag}, nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), dbQueryTimeout)
+		defer cancel()
+		var data []byte
+		if err := h.pool.QueryRow(ctx, stmt, args...).Scan(&data); err != nil {
+			return nil, err
+		}
+		etag := h.cache.Set(cacheKey, data, ttl)
+		return cachedPayload{data, etag}, nil
+	})
 	if err != nil {
 		if notFoundOnNoRows && errors.Is(err, pgx.ErrNoRows) {
 			respond.WriteError(w, http.StatusNotFound, "NOT_FOUND", "resource not found")
@@ -926,9 +927,8 @@ func (h *Handler) serveStatementJSON(
 		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
 		return
 	}
-
-	etag := h.cache.Set(cacheKey, data, ttl)
-	respond.WriteJSON(w, data, etag, ttl, false)
+	res := v.(cachedPayload)
+	respond.WriteJSON(w, res.data, res.etag, ttl, false)
 }
 
 func (h *Handler) serveStatementJSONNoCache(
@@ -942,8 +942,10 @@ func (h *Handler) serveStatementJSONNoCache(
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(r.Context(), dbQueryTimeout)
+	defer cancel()
 	var data []byte
-	err := h.pool.QueryRow(r.Context(), stmt, args...).Scan(&data)
+	err := h.pool.QueryRow(ctx, stmt, args...).Scan(&data)
 	if err != nil {
 		respond.WriteError(w, http.StatusInternalServerError, "DB_ERROR", "database query failed")
 		return

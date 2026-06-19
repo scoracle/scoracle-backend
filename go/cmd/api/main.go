@@ -166,8 +166,8 @@ func main() {
 		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}
 
-	// Create router (synthGen wires lazy-view synthesis; nil when Ollama is down)
-	router := api.NewRouter(dbPool, appCache, cfg, synthGen)
+	// Create router
+	router := api.NewRouter(dbPool, appCache, cfg)
 
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.APIHost, cfg.APIPort)

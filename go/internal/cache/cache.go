@@ -12,6 +12,11 @@ import (
 const (
 	TTLNews = 10 * time.Minute
 	TTLData = 5 * time.Minute
+	// TTLMomentum caches the heavy /momentum peer-cohort aggregation. Its inputs
+	// (per-cohort averages, per-event series, vibe trajectory) only change when the
+	// pipeline/finalize runs, and the trajectory is slow-moving by definition, so a
+	// longer TTL keeps the expensive live aggregation from re-running every window.
+	TTLMomentum = 30 * time.Minute
 )
 
 type entry struct {

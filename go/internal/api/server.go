@@ -18,12 +18,10 @@ import (
 	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
-	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
 // NewRouter creates and configures the Chi router with all middleware and routes.
-// synthGen is optional; pass nil to disable lazy-view vibe synthesis.
-func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, synthGen ...*ml.SigilGenerator) *chi.Mux {
+func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *chi.Mux {
 	r := chi.NewRouter()
 	if appCache == nil {
 		appCache = cache.New(false)
@@ -73,9 +71,6 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config, sy
 	// --- Handler dependencies ---
 	tokens := auth.New(cfg)
 	h := handler.New(pool, appCache, cfg, tokens)
-	if len(synthGen) > 0 && synthGen[0] != nil {
-		h.SetSynthGen(synthGen[0])
-	}
 
 	// --- Routes ---
 

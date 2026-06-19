@@ -1,8 +1,8 @@
 // statcommentary — CLI for the Gemma stats-rail commentary (the on-field IDENTITY
 // analysis derived from an entity's rating-engine datapoints: composite = how well,
-// special = how, + the per-x lens).
+// peak = how, + the per-x lens).
 //
-// Three modes:
+// Four modes:
 //
 //	single (default) — one entity (dry-run unless -persist).
 //	  go run ./cmd/statcommentary -entity-type player -entity-id 15 -sport NBA
@@ -18,7 +18,12 @@
 //	          snapshot changed (input_hash differs) — the "work only on new data" gate.
 //	  go run ./cmd/statcommentary -mode nightly
 //
-// Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
+//	restamp — one-time vocabulary migration (no Gemma): rename the input-component
+//	          keys "sigil_label"/"sigil_score" → "peak_label"/"peak_score" + recompute
+//	          input_hash on existing rows, so the key rename does not re-generate the corpus.
+//	  go run ./cmd/statcommentary -mode restamp
+//
+// Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (restamp needs only the DB).
 package main
 
 import (
@@ -46,6 +51,7 @@ func main() {
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (single requires it; corpus defaults to all)")
 	trigger := flag.String("trigger", "manual", "[single] manual | periodic | stat_change")
 	persist := flag.Bool("persist", false, "[single] persist (default: dry-run)")
+	skipUnchanged := flag.Bool("skip-unchanged", false, "[single] short-circuit (no Gemma) when the rating snapshot is unchanged — verifies the debounce gate")
 	throttleMs := flag.Int("throttle-ms", 0, "[backfill/nightly] pause N ms between entities")
 	limit := flag.Int("limit", 0, "[backfill/nightly] cap GENERATIONS (Gemma calls) per run; 0 = unbounded (hash-skips don't count)")
 	flag.Parse()
@@ -66,21 +72,26 @@ func main() {
 	defer pool.Close()
 
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
-	if err := ollama.Ping(context.Background()); err != nil {
-		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
-		os.Exit(1)
+	// restamp is a pure DB vocabulary migration (no Gemma), so skip the Ollama ping.
+	if *mode != "restamp" {
+		if err := ollama.Ping(context.Background()); err != nil {
+			logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
+			os.Exit(1)
+		}
 	}
 	gen := ml.NewRatingGenerator(pool, ollama)
 
 	switch *mode {
 	case "single":
-		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, cfg.OllamaTimeout, logger)
+		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, *skipUnchanged, cfg.OllamaTimeout, logger)
 	case "backfill":
 		runCorpus(pool, gen, false, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
 	case "nightly":
 		runCorpus(pool, gen, true, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+	case "restamp":
+		runReStamp(pool, gen, *sport, logger)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly | restamp\n", *mode)
 		os.Exit(2)
 	}
 }
@@ -89,7 +100,7 @@ func main() {
 // Single mode
 // ---------------------------------------------------------------------------
 
-func runSingle(pool *pgxpool.Pool, gen *ml.RatingGenerator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
+func runSingle(pool *pgxpool.Pool, gen *ml.RatingGenerator, entityType string, entityID, season int, sport, trigger string, persist, skipUnchanged bool, timeout time.Duration, logger *slog.Logger) {
 	if entityID <= 0 || sport == "" {
 		fmt.Fprintln(os.Stderr, "-entity-id and -sport are required in single mode")
 		os.Exit(2)
@@ -105,13 +116,14 @@ func runSingle(pool *pgxpool.Pool, gen *ml.RatingGenerator, entityType string, e
 	}
 
 	res, err := gen.Generate(ctx, ml.RatingRequest{
-		EntityType:  entityType,
-		EntityID:    entityID,
-		EntityName:  name,
-		Sport:       sportUpper,
-		Season:      seasonPtr(season),
-		TriggerType: trigger,
-		DryRun:      !persist,
+		EntityType:    entityType,
+		EntityID:      entityID,
+		EntityName:    name,
+		Sport:         sportUpper,
+		Season:        seasonPtr(season),
+		TriggerType:   trigger,
+		DryRun:        !persist,
+		SkipUnchanged: skipUnchanged,
 	})
 	if err != nil {
 		logger.Error("stat commentary generation failed", "error", err)
@@ -308,6 +320,77 @@ func scanTargets(rows interface {
 		out = append(out, t)
 	}
 	return out, rows.Err()
+}
+
+// ---------------------------------------------------------------------------
+// Re-stamp mode (one-time vocabulary migration — no Gemma)
+// ---------------------------------------------------------------------------
+
+// runReStamp migrates every commentary row's input-component keys from the legacy
+// "sigil_label"/"sigil_score" to "peak_label"/"peak_score" and recomputes input_hash,
+// WITHOUT a Gemma call (see RatingGenerator.ReStampPeakKeys). Run it once, right after
+// deploying the renamed binary and BEFORE the nightly statcommentary tick, so the
+// de-sigiled keys don't spuriously re-generate the corpus.
+//
+//	go run ./cmd/statcommentary -mode restamp            # all sports
+//	go run ./cmd/statcommentary -mode restamp -sport NBA # one sport
+func runReStamp(pool *pgxpool.Pool, gen *ml.RatingGenerator, sportArg string, logger *slog.Logger) {
+	sports := []string{"NBA", "NFL", "FOOTBALL"}
+	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
+		sports = []string{strings.ToUpper(sportArg)}
+	}
+	ctx := context.Background()
+	start := time.Now()
+
+	var targets []target
+	for _, sp := range sports {
+		ts, err := enumSummarized(ctx, pool, sp)
+		if err != nil {
+			logger.Error("statcommentary restamp: enumerate failed", "sport", sp, "error", err)
+			continue
+		}
+		targets = append(targets, ts...)
+	}
+	logger.Info("statcommentary restamp: starting", "targets", len(targets))
+
+	rewritten, noop, fail := 0, 0, 0
+	for i, t := range targets {
+		rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+		ok, err := gen.ReStampPeakKeys(rctx, t.entityType, t.entityID, t.sportName, t.season)
+		rcancel()
+		switch {
+		case err != nil:
+			fail++
+			logger.Warn("statcommentary restamp: failed", "sport", t.sportName, "type", t.entityType, "id", t.entityID, "season", t.season, "error", err)
+		case ok:
+			rewritten++
+		default:
+			noop++
+		}
+		if (i+1)%100 == 0 {
+			logger.Info("statcommentary restamp: progress", "done", i+1, "total", len(targets),
+				"rewritten", rewritten, "noop", noop, "fail", fail)
+		}
+	}
+	logger.Info("statcommentary restamp: complete",
+		"rewritten", rewritten, "noop", noop, "fail", fail,
+		"elapsed", time.Since(start).Round(time.Second))
+}
+
+// enumSummarized returns every (entity, season) with a real commentary row — the
+// corpus the re-stamp walks (the latest row per entity-season is rewritten inside
+// ReStampPeakKeys, matching what the nightly gate reads).
+func enumSummarized(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target, error) {
+	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	rows, err := pool.Query(qctx, `
+		SELECT DISTINCT entity_type, entity_id, season FROM stat_summaries
+		WHERE sport = $1 AND body IS NOT NULL
+		ORDER BY entity_type, entity_id`, sport)
+	if err != nil {
+		return nil, err
+	}
+	return scanTargets(rows, sport)
 }
 
 func seasonPtr(s int) *int {

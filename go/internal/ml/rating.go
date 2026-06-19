@@ -220,8 +220,8 @@ type ratingProfile struct {
 	season         int
 	position       string // players only
 	compositeScore *float64
-	sigilScore     *float64
-	sigilLabel     string
+	peakScore      *float64 // engine peak datapoint (rating_specialist*; "peak" post-convergence)
+	peakLabel      string
 	breakdown      []ratingDatapoint
 	scopedRanks    map[string]float64           // rating_scoped_ranks (entity-level cohort percentiles)
 	rateModes      map[string][]ratingDatapoint // rating_modes — per-x breakdowns (per_36, per_90, …)
@@ -270,7 +270,7 @@ func loadRatingProfile(ctx context.Context, pool *pgxpool.Pool, entityType strin
 	)
 	err := pool.QueryRow(ctx, q, sport, entityID, season).Scan(
 		&p.season, &p.position,
-		&p.compositeScore, &p.sigilScore, &p.sigilLabel,
+		&p.compositeScore, &p.peakScore, &p.peakLabel,
 		&breakdownRaw, &scopedRaw, &modesRaw,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -314,9 +314,9 @@ func (p *ratingProfile) inputComponents() map[string]any {
 		facts = append(facts, map[string]any{"label": d.Label, "pct": round1(d.Pct), "is_specialty": d.IsSpecialty})
 	}
 	out := map[string]any{
-		"season":      p.season,
-		"sigil_label": p.sigilLabel,
-		"datapoints":  facts,
+		"season":     p.season,
+		"peak_label": p.peakLabel,
+		"datapoints": facts,
 	}
 	if rs := collectRateStandouts(p); len(rs) > 0 {
 		rates := make([]map[string]any, 0, len(rs))
@@ -328,8 +328,8 @@ func (p *ratingProfile) inputComponents() map[string]any {
 	if p.compositeScore != nil {
 		out["composite_score"] = round1(*p.compositeScore)
 	}
-	if p.sigilScore != nil {
-		out["sigil_score"] = round1(*p.sigilScore)
+	if p.peakScore != nil {
+		out["peak_score"] = round1(*p.peakScore)
 	}
 	if p.position != "" {
 		out["position"] = p.position
@@ -606,6 +606,62 @@ func (a *RatingGenerator) lastCommentaryHash(ctx context.Context, entityType str
 		return "", nil
 	}
 	return *hash, nil
+}
+
+// ReStampPeakKeys migrates a single entity-season's latest commentary row from the
+// legacy "sigil_label"/"sigil_score" input-component keys to "peak_label"/"peak_score"
+// and recomputes input_hash — NO Gemma call; body / divined_peak / prompt_version are
+// left untouched. Same pattern as the crown's ReStampDivinedKey: it rewrites only the
+// keys in the STORED input_components, so for an unchanged entity the next nightly run
+// recomputes the identical hash and SKIPS (the key rename causes no spurious regen);
+// genuinely-changed entities still regenerate. Returns true when a row was rewritten.
+func (a *RatingGenerator) ReStampPeakKeys(ctx context.Context, entityType string, entityID int, sport string, season int) (bool, error) {
+	sport = strings.ToUpper(sport)
+	var id int64
+	var icRaw []byte
+	err := a.pool.QueryRow(ctx, `
+		SELECT id, input_components FROM stat_summaries
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+		  AND body IS NOT NULL
+		ORDER BY generated_at DESC
+		LIMIT 1`, entityType, entityID, sport, season).Scan(&id, &icRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	var ic map[string]any
+	if err := json.Unmarshal(icRaw, &ic); err != nil {
+		return false, fmt.Errorf("unmarshal input_components (id=%d): %w", id, err)
+	}
+	changed := false
+	if v, ok := ic["sigil_label"]; ok {
+		delete(ic, "sigil_label")
+		ic["peak_label"] = v
+		changed = true
+	}
+	if v, ok := ic["sigil_score"]; ok {
+		delete(ic, "sigil_score")
+		ic["peak_score"] = v
+		changed = true
+	}
+	if !changed {
+		return false, nil // already migrated, or the keys were absent
+	}
+
+	newHash := hashComponents(ic)
+	newIC, err := json.Marshal(ic)
+	if err != nil {
+		return false, err
+	}
+	if _, err := a.pool.Exec(ctx, `
+		UPDATE stat_summaries SET input_components = $1, input_hash = $2 WHERE id = $3`,
+		newIC, newHash, id); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // hashComponents is a stable hash of the grounding facts. encoding/json marshals

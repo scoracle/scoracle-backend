@@ -10,6 +10,10 @@ venv/
 # Go
 bin/
 go/bin/
+# stray binaries from `go build ./cmd/api` (etc.) run outside go/bin/
+/go/api
+/go/vibesynth
+/go/statcommentary
 
 # Environment
 # .env is the committed template (safe defaults, no secrets).

@@ -1024,7 +1024,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'rating', (SELECT row_to_json(spec_rating) FROM spec_rating),
 			'commentary', (
 				SELECT row_to_json(c) FROM (
-					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_sigil
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_peak
 					FROM public.stat_summaries s
 					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
 					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick) AND s.body IS NOT NULL

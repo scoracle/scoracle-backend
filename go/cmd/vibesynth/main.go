@@ -13,7 +13,12 @@
 //	nightly — current season only, hash-gated (skip when inputs unchanged).
 //	  go run ./cmd/vibesynth -mode nightly
 //
-// Env: DATABASE_PRIVATE_URL + OLLAMA_* (see config.go).
+//	restamp — one-time vocabulary migration (no Gemma): rename the crown's
+//	  "divined_sigil" input-component key → "divined_peak" + recompute input_hash
+//	  on existing rows, so the s4 key rename does not re-synthesize the corpus.
+//	  go run ./cmd/vibesynth -mode restamp
+//
+// Env: DATABASE_PRIVATE_URL + OLLAMA_* (see config.go; restamp needs only the DB).
 package main
 
 import (
@@ -34,13 +39,14 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "single", "single | backfill | nightly")
+	mode := flag.String("mode", "single", "single | backfill | nightly | restamp")
 	entityType := flag.String("entity-type", "player", "[single] player | team")
 	entityID := flag.Int("entity-id", 0, "[single] canonical entity id")
 	season := flag.Int("season", 0, "[single] season (0 = latest)")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all")
 	trigger := flag.String("trigger", "manual", "[single] trigger_type")
 	persist := flag.Bool("persist", false, "[single] persist (default: dry-run via SkipUnchanged=false, non-persist)")
+	skipUnchanged := flag.Bool("skip-unchanged", false, "[single] short-circuit (no Gemma) when inputs are unchanged — verifies the debounce gate")
 	throttleMs := flag.Int("throttle-ms", 0, "[backfill/nightly] ms pause between entities")
 	limit := flag.Int("limit", 0, "[backfill/nightly] cap Gemma generations per run; 0 = unbounded")
 	flag.Parse()
@@ -61,26 +67,31 @@ func main() {
 	defer pool.Close()
 
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
-	if err := ollama.Ping(context.Background()); err != nil {
-		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
-		os.Exit(1)
+	// restamp is a pure DB vocabulary migration (no Gemma), so skip the Ollama ping.
+	if *mode != "restamp" {
+		if err := ollama.Ping(context.Background()); err != nil {
+			logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
+			os.Exit(1)
+		}
 	}
 	gen := ml.NewSigilGenerator(pool, ollama)
 
 	switch *mode {
 	case "single":
-		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, cfg.OllamaTimeout, logger)
+		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, *skipUnchanged, cfg.OllamaTimeout, logger)
 	case "backfill":
 		runCorpus(pool, gen, false, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
 	case "nightly":
 		runCorpus(pool, gen, true, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+	case "restamp":
+		runReStamp(pool, gen, *sport, logger)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly | restamp\n", *mode)
 		os.Exit(2)
 	}
 }
 
-func runSingle(pool *pgxpool.Pool, gen *ml.SigilGenerator, entityType string, entityID, season int, sport, trigger string, persist bool, timeout time.Duration, logger *slog.Logger) {
+func runSingle(pool *pgxpool.Pool, gen *ml.SigilGenerator, entityType string, entityID, season int, sport, trigger string, persist, skipUnchanged bool, timeout time.Duration, logger *slog.Logger) {
 	if entityID <= 0 || sport == "" {
 		fmt.Fprintln(os.Stderr, "-entity-id and -sport are required in single mode")
 		os.Exit(2)
@@ -96,12 +107,13 @@ func runSingle(pool *pgxpool.Pool, gen *ml.SigilGenerator, entityType string, en
 	}
 
 	req := ml.SigilRequest{
-		EntityType:  entityType,
-		EntityID:    entityID,
-		EntityName:  name,
-		Sport:       sportUpper,
-		Season:      seasonPtr(season),
-		TriggerType: trigger,
+		EntityType:    entityType,
+		EntityID:      entityID,
+		EntityName:    name,
+		Sport:         sportUpper,
+		Season:        seasonPtr(season),
+		TriggerType:   trigger,
+		SkipUnchanged: skipUnchanged,
 	}
 	// Single mode: skip persistence by running and not saving (we call Generate
 	// directly; persist is handled by the function when -persist is set via
@@ -240,6 +252,80 @@ func enumRated(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target,
 			return nil, err
 		}
 		t.sportName = sport
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ---------------------------------------------------------------------------
+// Re-stamp mode (one-time vocabulary migration — no Gemma)
+// ---------------------------------------------------------------------------
+
+// runReStamp migrates every scored synthesis row's input-component key from the
+// legacy "divined_sigil" to "divined_peak" and recomputes input_hash, WITHOUT a
+// Gemma call (see SigilGenerator.ReStampDivinedKey). Run it once, right after the
+// 094 rename + API restart and BEFORE the next nightly tick, so the renamed crown
+// hash key does not spuriously re-synthesize the existing corpus.
+//
+//	go run ./cmd/vibesynth -mode restamp            # all sports
+//	go run ./cmd/vibesynth -mode restamp -sport NBA # one sport
+func runReStamp(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, logger *slog.Logger) {
+	ctx := context.Background()
+	start := time.Now()
+	targets, err := enumSynthesized(ctx, pool, sportArg)
+	if err != nil {
+		logger.Error("vibesynth restamp: enumerate failed", "error", err)
+		os.Exit(1)
+	}
+	logger.Info("vibesynth restamp: starting", "targets", len(targets))
+
+	rewritten, noop, fail := 0, 0, 0
+	for i, t := range targets {
+		rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+		ok, err := gen.ReStampDivinedKey(rctx, t.entityType, t.entityID, t.sportName)
+		rcancel()
+		switch {
+		case err != nil:
+			fail++
+			logger.Warn("vibesynth restamp: failed", "sport", t.sportName, "type", t.entityType, "id", t.entityID, "error", err)
+		case ok:
+			rewritten++
+		default:
+			noop++
+		}
+		if (i+1)%50 == 0 {
+			logger.Info("vibesynth restamp: progress", "done", i+1, "total", len(targets),
+				"rewritten", rewritten, "noop", noop, "fail", fail)
+		}
+	}
+	logger.Info("vibesynth restamp: complete",
+		"rewritten", rewritten, "noop", noop, "fail", fail,
+		"elapsed", time.Since(start).Round(time.Second))
+}
+
+// enumSynthesized returns every entity with a scored synthesis row — the corpus
+// the re-stamp walks (one latest row per entity is rewritten inside ReStamp).
+func enumSynthesized(ctx context.Context, pool *pgxpool.Pool, sportArg string) ([]target, error) {
+	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	q := `SELECT DISTINCT entity_type, entity_id, sport FROM sigil_synthesis WHERE score IS NOT NULL`
+	var args []any
+	if s := strings.TrimSpace(sportArg); s != "" && strings.ToLower(s) != "all" {
+		q += ` AND sport = $1`
+		args = append(args, strings.ToUpper(s))
+	}
+	q += ` ORDER BY sport, entity_type, entity_id`
+	rows, err := pool.Query(qctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []target
+	for rows.Next() {
+		var t target
+		if err := rows.Scan(&t.entityType, &t.entityID, &t.sportName); err != nil {
+			return nil, err
+		}
 		out = append(out, t)
 	}
 	return out, rows.Err()

@@ -6,10 +6,10 @@ package ml
 // cohort-scoped percentiles) and asks Gemma for the entity's ON-FIELD IDENTITY —
 // a few sentences of actual analysis, NOT a strengths/weaknesses list.
 //
-// Framing (Scott): our COMPOSITE shows how WELL an entity performs, our SIGIL
+// Framing (Scott): our COMPOSITE shows how WELL an entity performs, our PEAK
 // shows HOW it performs; the commentary narrates the "how" (the identity) with the
-// composite setting the quality register. Gemma divines the entity's SIGIL — its
-// single defining statistical strength — on the first output line ("SIGIL: <label>"),
+// composite setting the quality register. Gemma divines the entity's PEAK — its
+// single defining statistical strength — on the first output line ("PEAK: <label>"),
 // then writes the identity analysis. Gemma works only from the engine's curated
 // datapoints (the deterministic scrub), never raw box scores, and the percentiles
 // are passed as FACTS so it never invents a number.
@@ -44,7 +44,12 @@ import (
 // s3: Gemma divines the sigil on line 1 ("SIGIL: <label>"); specialty-first sort
 //
 //	removed; the pre-supplied "Special" hint line dropped from the prompt.
-const ratingPromptVersion = "s4"
+//
+// s5: the divined-label marker renamed SIGIL: → PEAK: (de-sigil — post-convergence
+//
+//	"sigil" means only the crown; this peak-strength label is "peak"). The parser
+//	still accepts the legacy SIGIL: prefix for any in-flight responses.
+const ratingPromptVersion = "s5"
 
 // maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const maxStatFacts = 14
@@ -69,7 +74,7 @@ type RatingRequest struct {
 // entity has no usable rating row; SkippedUnchanged when SkipUnchanged short-circuited.
 type RatingResult struct {
 	Body                 string
-	DivinedSigil         string // extracted from "SIGIL: <label>" first line; empty if absent
+	DivinedPeak          string // extracted from "PEAK: <label>" first line; empty if absent
 	Notability           int
 	NotabilityComponents map[string]any
 	InputComponents      map[string]any
@@ -163,7 +168,7 @@ func (a *RatingGenerator) Generate(ctx context.Context, req RatingRequest) (*Rat
 	}
 	duration := time.Since(start)
 
-	divinedSigil, rawBody := parseSigilCommentary(gen.Response)
+	divinedPeak, rawBody := parsePeakCommentary(gen.Response)
 	body := cleanCommentary(rawBody)
 	if body == "" {
 		return nil, fmt.Errorf("empty commentary (raw=%q prompt_len=%d)", truncate(gen.Response, 160), len(prompt))
@@ -171,7 +176,7 @@ func (a *RatingGenerator) Generate(ctx context.Context, req RatingRequest) (*Rat
 
 	res := &RatingResult{
 		Body:                 body,
-		DivinedSigil:         divinedSigil,
+		DivinedPeak:          divinedPeak,
 		Notability:           notability,
 		NotabilityComponents: ncomp,
 		InputComponents:      ic,
@@ -378,16 +383,16 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and SIGIL shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY — what kind of player or team this is and what defines it — that LEADS WITH and emphasizes its GREATEST STRENGTH(S). This is an ACTUAL ANALYSIS that foregrounds what they're best at, not a strengths/weaknesses list and not a stat recap.
+const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and PEAK shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY — what kind of player or team this is and what defines it — that LEADS WITH and emphasizes its GREATEST STRENGTH(S). This is an ACTUAL ANALYSIS that foregrounds what they're best at, not a strengths/weaknesses list and not a stat recap.
 
 Rules:
-- On the first line, identify the entity's sigil — their single defining statistical strength — in the format: SIGIL: <label>. Then write your analysis on the following lines.
+- On the first line, identify the entity's peak — their single defining statistical strength — in the format: PEAK: <label>. Then write your analysis on the following lines.
 - Lead the read with the entity's standout strength(s) — what they are ELITE at — then frame the rest of the identity around it. Weaknesses are context, not the focus.
 - Every percentile is SIGN-ADJUSTED so HIGHER IS ALWAYS BETTER — a high percentile in a "negative" stat (turnovers, goals conceded) means the entity EXCELS there (commits/concedes few). Read every number as goodness.
 - Ground every claim in the given datapoints; never invent a stat, number, or fact not provided. Do NOT recite the raw numbers as a list — weave them into the read.
 - Synthesize a coherent identity (e.g. "a low-usage floor-spacer who defends above his profile"), don't just enumerate skills.
 - You may also be given RATE-ADJUSTED (per-x, e.g. per-36 / per-90) standouts. When an entity produces at an ELITE per-x rate even if its raw totals are modest — a young or limited-minutes player whose efficiency the box score hides — call that out. Surfacing that hidden value is exactly the point.
-- After the SIGIL line, return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
+- After the PEAK line, return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
 
 func buildStatPrompt(req RatingRequest, p *ratingProfile, notability int) string {
 	var b strings.Builder
@@ -488,26 +493,38 @@ func lengthGuidance(notability int) string {
 // Output + persistence
 // ---------------------------------------------------------------------------
 
-// parseSigilCommentary extracts the divined sigil label from the first line
-// ("SIGIL: <label>") and returns (divinedSigil, body). The body is everything
-// after that line. If the model omits the SIGIL line the whole response becomes
-// the body and divinedSigil is empty.
-func parseSigilCommentary(raw string) (divinedSigil, body string) {
+// parsePeakCommentary extracts the divined peak-strength label from the first
+// line ("PEAK: <label>") and returns (divinedPeak, body). The body is everything
+// after that line. If the model omits the marker line the whole response becomes
+// the body and divinedPeak is empty. The legacy "SIGIL: " prefix is still accepted
+// (forward-only marker rename, s5) so any in-flight pre-s5 response still parses.
+func parsePeakCommentary(raw string) (divinedPeak, body string) {
 	trimmed := strings.TrimSpace(raw)
 	idx := strings.Index(trimmed, "\n")
 	if idx >= 0 {
 		firstLine := strings.TrimSpace(trimmed[:idx])
 		rest := strings.TrimSpace(trimmed[idx+1:])
-		if strings.HasPrefix(firstLine, "SIGIL: ") {
-			return strings.TrimSpace(strings.TrimPrefix(firstLine, "SIGIL: ")), rest
+		if label, ok := trimMarker(firstLine); ok {
+			return label, rest
 		}
 		return "", trimmed
 	}
-	// single-line response — could be just a bare SIGIL line with no body
-	if strings.HasPrefix(trimmed, "SIGIL: ") {
-		return strings.TrimSpace(strings.TrimPrefix(trimmed, "SIGIL: ")), ""
+	// single-line response — could be just a bare marker line with no body
+	if label, ok := trimMarker(trimmed); ok {
+		return label, ""
 	}
 	return "", trimmed
+}
+
+// trimMarker strips the divined-label marker ("PEAK: " or the legacy "SIGIL: ")
+// from a line, returning the label and whether a marker was present.
+func trimMarker(line string) (label string, ok bool) {
+	for _, prefix := range [...]string{"PEAK: ", "SIGIL: "} {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), true
+		}
+	}
+	return "", false
 }
 
 // cleanCommentary trims Gemma's prose and strips a leading "Analysis:"-style
@@ -540,12 +557,12 @@ func (a *RatingGenerator) persist(ctx context.Context, req RatingRequest, sport 
 
 	var body any
 	var notability any
-	var divinedSigil any
+	var divinedPeak any
 	if !res.SkippedNoStats {
 		body = res.Body
 		notability = res.Notability
-		if res.DivinedSigil != "" {
-			divinedSigil = res.DivinedSigil
+		if res.DivinedPeak != "" {
+			divinedPeak = res.DivinedPeak
 		}
 	}
 	var season any
@@ -561,11 +578,11 @@ func (a *RatingGenerator) persist(ctx context.Context, req RatingRequest, sport 
 		INSERT INTO stat_summaries (
 		    entity_type, entity_id, sport, season, trigger_type, trigger_payload,
 		    body, notability, notability_components, input_components, input_hash,
-		    model_version, prompt_version, generated_at, divined_sigil
+		    model_version, prompt_version, generated_at, divined_peak
 		) VALUES ($1,$2,$3,$4,$5,$6, $7,$8,$9,$10,$11, $12,$13,$14,$15)`,
 		req.EntityType, req.EntityID, sport, season, req.TriggerType, triggerJSON,
 		body, notability, ncomp, icomp, inputHash,
-		res.Model, ratingPromptVersion, res.GeneratedAt, divinedSigil)
+		res.Model, ratingPromptVersion, res.GeneratedAt, divinedPeak)
 	return err
 }
 

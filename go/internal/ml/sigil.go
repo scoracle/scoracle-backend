@@ -37,7 +37,14 @@ import (
 // s2: consumes the Vibe end product's felt-read PROMPT (vibe_scores.prompt) as
 //
 //	the emotional signal's headline — Sigil = f(Vibe, Rating, Momentum).
-const sigilPromptVersion = "s3"
+//
+// s4: the stat-identity pillar's divined-strength label de-sigiled — read from
+//
+//	stat_summaries.divined_peak (was divined_sigil), the input-component key is
+//	"divined_peak", and the P2 prompt section is relabeled PEAK. Pre-s4 rows are
+//	re-stamped to the new input_hash by `vibesynth --restamp-vocab` (no Gemma
+//	re-synthesis; existing scores/blurbs preserved).
+const sigilPromptVersion = "s4"
 
 // SigilRequest describes the entity and the trigger that initiated
 // this synthesis run.
@@ -202,9 +209,9 @@ type synthNarrative struct {
 }
 
 type synthSigil struct {
-	divinedSigil string
-	body         string
-	notability   int
+	divinedPeak string
+	body        string
+	notability  int
 }
 
 type synthMomentum struct {
@@ -249,14 +256,14 @@ func (s *SigilGenerator) loadNarrativePillar(ctx context.Context, entityType str
 func (s *SigilGenerator) loadSigilPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthSigil, error) {
 	var sig synthSigil
 	err := s.pool.QueryRow(ctx, `
-		SELECT COALESCE(divined_sigil, ''), body, COALESCE(notability, 0)
+		SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0)
 		FROM stat_summaries
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
 		  AND body IS NOT NULL
 		  AND ($4::int IS NULL OR season = $4)
 		ORDER BY generated_at DESC
 		LIMIT 1
-	`, entityType, entityID, sport, season).Scan(&sig.divinedSigil, &sig.body, &sig.notability)
+	`, entityType, entityID, sport, season).Scan(&sig.divinedPeak, &sig.body, &sig.notability)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -389,7 +396,11 @@ func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigi
 	out["narrative_titles"] = titles
 
 	if sigil != nil {
-		out["divined_sigil"] = sigil.divinedSigil
+		// Input-component key (de-sigiled s4). This string is hashed into input_hash
+		// (the synthesis debounce gate), so renaming it changes every entity's hash.
+		// Pre-s4 rows were re-stamped to this key by `vibesynth --restamp-vocab` so the
+		// next run still skips (no spurious re-synthesis).
+		out["divined_peak"] = sigil.divinedPeak
 		out["notability"] = sigil.notability
 	}
 	if mom.latestSentiment != nil {
@@ -438,10 +449,10 @@ func buildSynthesisPrompt(req SigilRequest, narratives []synthNarrative, sigil *
 	}
 
 	// P2 — Sigil identity
-	b.WriteString("\n=== SIGIL IDENTITY (how the entity performs, not how well) ===\n")
+	b.WriteString("\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n")
 	if sigil != nil {
-		if sigil.divinedSigil != "" {
-			b.WriteString(fmt.Sprintf("Sigil: %s (notability %d/100)\n", sigil.divinedSigil, sigil.notability))
+		if sigil.divinedPeak != "" {
+			b.WriteString(fmt.Sprintf("Peak: %s (notability %d/100)\n", sigil.divinedPeak, sigil.notability))
 		}
 		if sigil.body != "" {
 			b.WriteString(sigil.body + "\n")
@@ -586,4 +597,56 @@ func (s *SigilGenerator) lastScore(ctx context.Context, entityType string, entit
 		return 0, nil
 	}
 	return *score, err
+}
+
+// ReStampDivinedKey migrates a single entity's latest scored synthesis row from
+// the legacy "divined_sigil" input-component key to "divined_peak", recomputing
+// input_hash — NO Gemma call; score / blurb / prompt_version are left untouched.
+//
+// It operates on the row's STORED input_components, renaming only the key, so this
+// is a pure vocabulary migration of the debounce gate: if the entity's inputs are
+// otherwise unchanged, the next synthesis run recomputes the identical hash and
+// SKIPS (no spurious re-synthesis from the rename); if the data genuinely changed
+// since this row, the run still regenerates as normal. Returns true when a row was
+// rewritten, false when there is nothing to migrate (no scored row, or the key is
+// already migrated / was absent because the stat pillar was empty at generation).
+func (s *SigilGenerator) ReStampDivinedKey(ctx context.Context, entityType string, entityID int, sport string) (bool, error) {
+	sport = strings.ToUpper(sport)
+	var id int64
+	var icRaw []byte
+	err := s.pool.QueryRow(ctx, `
+		SELECT id, input_components FROM sigil_synthesis
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+		  AND score IS NOT NULL
+		ORDER BY generated_at DESC
+		LIMIT 1`, entityType, entityID, sport).Scan(&id, &icRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	var ic map[string]any
+	if err := json.Unmarshal(icRaw, &ic); err != nil {
+		return false, fmt.Errorf("unmarshal input_components (id=%d): %w", id, err)
+	}
+	v, ok := ic["divined_sigil"]
+	if !ok {
+		return false, nil // already migrated, or the stat pillar was empty at generation
+	}
+	delete(ic, "divined_sigil")
+	ic["divined_peak"] = v
+
+	newHash := hashComponents(ic)
+	newIC, err := json.Marshal(ic)
+	if err != nil {
+		return false, err
+	}
+	if _, err := s.pool.Exec(ctx, `
+		UPDATE sigil_synthesis SET input_components = $1, input_hash = $2 WHERE id = $3`,
+		newIC, newHash, id); err != nil {
+		return false, err
+	}
+	return true, nil
 }

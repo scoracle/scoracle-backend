@@ -1,3 +1,0 @@
-scoracle_seed
-services
-shared

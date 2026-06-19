@@ -33,7 +33,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// s1: original three-pillar synthesis (narrative / sigil identity / momentum).
+// s1: original three-pillar synthesis (narrative / rating identity / momentum).
 // s2: consumes the Vibe end product's felt-read PROMPT (vibe_scores.prompt) as
 //
 //	the emotional signal's headline — Sigil = f(Vibe, Rating, Momentum).
@@ -107,9 +107,9 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	if err != nil {
 		return nil, fmt.Errorf("narrative pillar: %w", err)
 	}
-	sigilData, err := s.loadSigilPillar(ctx, req.EntityType, req.EntityID, sport, req.Season)
+	ratingData, err := s.loadRatingPillar(ctx, req.EntityType, req.EntityID, sport, req.Season)
 	if err != nil {
-		return nil, fmt.Errorf("sigil pillar: %w", err)
+		return nil, fmt.Errorf("rating pillar: %w", err)
 	}
 	momentum, err := s.loadMomentumPillar(ctx, req.EntityType, req.EntityID, sport, req.Season)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 
 	// No-pillar path: persist a marker row without a Gemma call so the read
 	// path returns "no synthesis yet" and callers skip until data arrives.
-	if len(narratives) == 0 && sigilData == nil && momentum.empty() {
+	if len(narratives) == 0 && ratingData == nil && momentum.empty() {
 		res := &SigilResult{
 			SkippedNoPillars: true,
 			Model:            s.ollama.Model(),
@@ -132,7 +132,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	}
 
 	// Build input components + hash for the debounce gate.
-	ic := buildSynthesisInputComponents(narratives, sigilData, momentum)
+	ic := buildSynthesisInputComponents(narratives, ratingData, momentum)
 	hash := hashComponents(ic) // reuse from stat_commentary.go (same package)
 	if req.SkipUnchanged {
 		last, err := s.lastSynthesisHash(ctx, req.EntityType, req.EntityID, sport)
@@ -150,7 +150,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	// Load previous score for the delta display on the Sigil card.
 	prev, _ := s.lastScore(ctx, req.EntityType, req.EntityID, sport)
 
-	prompt := buildSynthesisPrompt(req, narratives, sigilData, momentum)
+	prompt := buildSynthesisPrompt(req, narratives, ratingData, momentum)
 
 	start := time.Now()
 	gen, err := s.ollama.Generate(ctx, prompt, GenerateOptions{
@@ -208,7 +208,7 @@ type synthNarrative struct {
 	impact float64
 }
 
-type synthSigil struct {
+type synthRating struct {
 	divinedPeak string
 	body        string
 	notability  int
@@ -253,8 +253,8 @@ func (s *SigilGenerator) loadNarrativePillar(ctx context.Context, entityType str
 	return out, rows.Err()
 }
 
-func (s *SigilGenerator) loadSigilPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthSigil, error) {
-	var sig synthSigil
+func (s *SigilGenerator) loadRatingPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthRating, error) {
+	var sig synthRating
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0)
 		FROM stat_summaries
@@ -385,7 +385,7 @@ func linearSlope(vals []float64) float64 {
 // Input components + hash
 // ---------------------------------------------------------------------------
 
-func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigil, mom synthMomentum) map[string]any {
+func buildSynthesisInputComponents(narratives []synthNarrative, rating *synthRating, mom synthMomentum) map[string]any {
 	out := map[string]any{}
 
 	titles := make([]string, len(narratives))
@@ -395,13 +395,13 @@ func buildSynthesisInputComponents(narratives []synthNarrative, sigil *synthSigi
 	sort.Strings(titles)
 	out["narrative_titles"] = titles
 
-	if sigil != nil {
+	if rating != nil {
 		// Input-component key (de-sigiled s4). This string is hashed into input_hash
 		// (the synthesis debounce gate), so renaming it changes every entity's hash.
-		// Pre-s4 rows were re-stamped to this key by `vibesynth --restamp-vocab` so the
+		// Pre-s4 rows were re-stamped to this key by `vibesynth -mode restamp` so the
 		// next run still skips (no spurious re-synthesis).
-		out["divined_peak"] = sigil.divinedPeak
-		out["notability"] = sigil.notability
+		out["divined_peak"] = rating.divinedPeak
+		out["notability"] = rating.notability
 	}
 	if mom.latestSentiment != nil {
 		out["latest_sentiment"] = *mom.latestSentiment
@@ -432,7 +432,7 @@ Rules:
     BLURB: <1-2 sentences>
 - No other text, no preamble, no explanation.`
 
-func buildSynthesisPrompt(req SigilRequest, narratives []synthNarrative, sigil *synthSigil, mom synthMomentum) string {
+func buildSynthesisPrompt(req SigilRequest, narratives []synthNarrative, rating *synthRating, mom synthMomentum) string {
 	var b strings.Builder
 
 	header := fmt.Sprintf("%s %s", req.Sport, req.EntityType)
@@ -448,14 +448,14 @@ func buildSynthesisPrompt(req SigilRequest, narratives []synthNarrative, sigil *
 		b.WriteString("\n=== NEWS NARRATIVE ===\n(no recent narratives)\n")
 	}
 
-	// P2 — Sigil identity
+	// P2 — Rating identity (the stat end product)
 	b.WriteString("\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n")
-	if sigil != nil {
-		if sigil.divinedPeak != "" {
-			b.WriteString(fmt.Sprintf("Peak: %s (notability %d/100)\n", sigil.divinedPeak, sigil.notability))
+	if rating != nil {
+		if rating.divinedPeak != "" {
+			b.WriteString(fmt.Sprintf("Peak: %s (notability %d/100)\n", rating.divinedPeak, rating.notability))
 		}
-		if sigil.body != "" {
-			b.WriteString(sigil.body + "\n")
+		if rating.body != "" {
+			b.WriteString(rating.body + "\n")
 		}
 	} else {
 		b.WriteString("(no stat commentary available)\n")

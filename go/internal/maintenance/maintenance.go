@@ -270,6 +270,14 @@ func recalcAlltimeRanks(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 // snapshotRatingHistory appends per-entity rating snapshots for (sport, season)
 // into rating_history (debounced insert-if-changed). Best-effort — a snapshot
 // failure must never stall the all-time-rank ticker.
+//
+// O3 (Optimization Ledger): rating_history is intentionally WRITE-ONLY today — an
+// ML archive + the FUTURE trajectory source for /momentum. It only began accruing
+// 2026-06-17 (migration 092), so it currently holds ~1-2 points per entity, far too
+// shallow to drive the momentum sparkline (which reads per-event composite_score off
+// event_box_scores/event_team_stats instead). Once it has multi-point depth per
+// entity, wire it as the /momentum trajectory source (pairs with O1's cohort
+// precompute). Until then, leave it as the archive — do NOT add a reader.
 func snapshotRatingHistory(ctx context.Context, pool *pgxpool.Pool, sport string, season int, trigger string, logger *slog.Logger) {
 	var inserted int
 	if err := pool.QueryRow(ctx,

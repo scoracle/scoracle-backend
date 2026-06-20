@@ -33,7 +33,7 @@ func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.To
 		pool:  pool,
 		cache: c,
 		cfg:   cfg,
-		news:  thirdparty.NewNewsService(pool),
+		news:  thirdparty.NewNewsService(pool, nil),
 		auth:  tokens,
 	}
 }

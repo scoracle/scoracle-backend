@@ -490,7 +490,7 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    WITH in_scope AS (
 		        SELECT DISTINCT nae.entity_type, nae.entity_id
 		        FROM news_article_entities nae JOIN news_articles a ON a.id = nae.article_id
-		        WHERE nae.sport = $1 AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
+		        WHERE nae.sport = $1 AND nae.vetted IS TRUE
 		          AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours')
 		    ),
 		    lv AS (

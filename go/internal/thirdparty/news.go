@@ -8,7 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -87,6 +87,7 @@ type entityPool struct {
 type NewsService struct {
 	httpClient *http.Client
 	pool       *pgxpool.Pool
+	logger     *slog.Logger
 
 	entityMu    sync.RWMutex
 	entityPools map[string]*entityPool // keyed by sport, lowercased
@@ -94,13 +95,17 @@ type NewsService struct {
 
 // NewNewsService creates a news service. If pool is non-nil, fetched
 // articles are written to news_articles / news_article_entities on each
-// successful entity match.
-func NewNewsService(pool *pgxpool.Pool) *NewsService {
+// successful entity match. If logger is nil, a default no-op logger is used.
+func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	return &NewsService{
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
 		pool:        pool,
+		logger:      logger,
 		entityPools: make(map[string]*entityPool),
 	}
 }
@@ -142,7 +147,7 @@ func (s *NewsService) GetEntityNews(
 	// Non-fatal — a failed persist shouldn't break the response.
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
 		if perr := s.persistArticles(ctx, sport, entityType, entityID, matched); perr != nil {
-			log.Printf("[news] persist failed sport=%s entity=%s/%d: %v", sport, entityType, entityID, perr)
+			s.logger.Warn("persist failed", "sport", sport, "entity_type", entityType, "entity_id", entityID, "error", perr)
 		}
 	}
 
@@ -172,7 +177,7 @@ func (s *NewsService) persistArticles(
 	sportUpper := strings.ToUpper(sport)
 	pool, err := s.getEntityPool(ctx, sportUpper)
 	if err != nil {
-		log.Printf("[news] entity pool load failed sport=%s: %v", sportUpper, err)
+		s.logger.Warn("entity pool load failed", "sport", sportUpper, "error", err)
 		pool = nil
 	}
 
@@ -349,7 +354,7 @@ func (s *NewsService) loadEntityPool(ctx context.Context, sport string) ([]cache
 	}
 	playerRows.Close()
 
-	log.Printf("[news] loaded entity pool sport=%s count=%d", sport, len(out))
+	s.logger.Info("loaded entity pool", "sport", sport, "count", len(out))
 	return out, nil
 }
 
@@ -598,7 +603,7 @@ func (s *NewsService) fetchFromRSS(
 		for _, hours := range timeWindows {
 			articles, err := s.fetchRSS(query, hours)
 			if err != nil {
-				log.Printf("[news] RSS fetch error (window=%dh): %v", hours, err)
+				s.logger.Warn("RSS fetch error", "window_hours", hours, "error", err)
 				continue
 			}
 

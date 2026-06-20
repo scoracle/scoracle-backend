@@ -150,6 +150,9 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	case "vibes":
 		h.GetVibesLeaderboard(w, r)
 		return
+	case "sigil":
+		h.GetSigilLeaderboard(w, r)
+		return
 	case "news":
 		h.GetNewsLeaderboard(w, r)
 		return
@@ -160,7 +163,7 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 		h.GetTrendingLeaderboard(w, r)
 		return
 	default:
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, news, transfers, trending")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, trending")
 		return
 	}
 
@@ -216,6 +219,37 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 	entityType := optionalTextQuery(r, "entity_type")
 
 	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType)
+}
+
+// GetSigilLeaderboard returns the sport-wide Sigil board: entities ranked by their
+// latest Sigil synthesis score (1-100) — the holistic Rating+Vibe crown — enriched
+// with name/image/team and carrying previous_score for the crown's delta.
+// @Summary Sigil leaderboard
+// @Description Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Sigil blurb + previous_score delta.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/sigil [get]
+func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	entityType := optionalTextQuery(r, "entity_type")
+
+	h.serveStatementJSON(w, r, "sigil_leaderboard", dataCacheKey(r), cache.TTLData, false,
 		sport, limit, entityType)
 }
 

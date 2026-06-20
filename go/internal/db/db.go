@@ -490,6 +490,72 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
+		// Sigil leaderboard (Optimization Ledger O19) — the sport-wide CROWN board: entities
+		// ranked by their LATEST Sigil synthesis score (1-100), the holistic Rating+Vibe crown
+		// the Product Narrative wants stack-ranked at the front door. Mirrors vibes_leaderboard's
+		// shape exactly (DISTINCT ON latest scored row, enriched name/image/team) so the
+		// /leaderboard page renders one row shape across every board. Sources sigil_synthesis
+		// (append-only, latest-per-entity); the partial index idx_sigil_synthesis_sport_score
+		// — (sport, score DESC, generated_at DESC) WHERE score IS NOT NULL AND blurb IS NOT NULL
+		// — covers the inner scan. Carries previous_score so the front door can show the crown's
+		// delta (sibling boards don't have a native previous; the Sigil synthesis does).
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
+		"sigil_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 50) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type
+		),
+		latest AS (
+			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
+			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.generated_at
+			FROM public.sigil_synthesis ss, req
+			WHERE ss.sport = req.sport
+			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
+			  AND ss.score IS NOT NULL
+			  AND ss.blurb IS NOT NULL
+			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
+			FROM (
+				-- PLAYER
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.score, l.previous_score, l.blurb, l.generated_at
+				FROM latest l
+				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
+				-- current club: latest-season player_stats.team_id (canonical:
+				-- public.player_current_team), NOT players.team_id which is last-seeded.
+				LEFT JOIN LATERAL (
+				    SELECT ps.team_id FROM public.player_stats ps
+				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'player'
+				UNION ALL
+				-- TEAM
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       l.score, l.previous_score, l.blurb, l.generated_at
+				FROM latest l
+				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE l.entity_type = 'team'
+			) u
+			ORDER BY u.score DESC, u.generated_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'sigil_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE(
+				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
+				'[]'::json
+			)
+		)`,
+
 		// Trending leaderboards — the RISERS: entities ranked by the rise (delta = latest − earliest)
 		// of their recent trajectory. Two metrics (the handler picks by ?metric=):
 		//   vibe   → rise of vibe_scores.sentiment over 21d (the vibe trajectory)

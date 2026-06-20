@@ -135,6 +135,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/health", h.GetSportHealthPage)
 			r.Get("/leaderboard", h.GetLeaderboard)
 			r.Get("/leaderboard/vibes", h.GetVibesLeaderboard)
+			r.Get("/leaderboard/sigil", h.GetSigilLeaderboard)
 			r.Get("/leaderboard/news", h.GetNewsLeaderboard)
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
 			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)

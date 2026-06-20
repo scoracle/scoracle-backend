@@ -579,6 +579,45 @@ one row shape shared with the news board below.
 }
 ```
 
+### `GET /api/v1/{sport}/leaderboard/sigil`
+
+The sport-wide **Sigil** board — entities ranked by their latest **Sigil crown score** (1-100),
+the holistic Rating+Vibe synthesis the Product Narrative stack-ranks at the front door. Same
+enriched row shape as the vibe board (`name` / `image` / `team_*`), plus `previous_score` so the
+front door can render the crown's delta. Sourced from `sigil_synthesis` (latest scored row per
+entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
+
+| Param | Type | Default | Notes |
+|---|---|---|---|
+| `entity_type` | string | both | `player` or `team`; omit for a mixed board. |
+| `limit` | integer | `50` | Max rows. |
+
+```jsonc
+{
+  "page": "sigil_leaderboard",
+  "sport": "nba",
+  "entity_type": "player",            // echoes the request, "all" when unfiltered
+  "count": 3,
+  "leaders": [
+    {
+      "entity_type": "player",         // "player" | "team"
+      "id": 15,
+      "name": "Giannis Antetokounmpo",
+      "image": "https://…",            // player photo_url | team logo_url (may be null)
+      "team_id": 17,
+      "team_name": "Milwaukee Bucks",
+      "team_code": "MIL",
+      "team_logo": "https://…",
+      "score": 95,                     // latest Sigil crown score (1-100)
+      "previous_score": 91,            // prior crown score (may be null) — for the delta
+      "blurb": "…",                    // the Sigil felt-read
+      "generated_at": "2026-06-18T14:33:22-04:00",
+      "rank": 1
+    }
+  ]
+}
+```
+
 ### `GET /api/v1/{sport}/leaderboard/news`
 
 The sport-wide **news** board — the **hottest Gemma narratives**, ranked by per-narrative

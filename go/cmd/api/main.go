@@ -35,7 +35,6 @@ import (
 	"github.com/albapepper/scoracle-data/internal/maintenance"
 	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/notifications"
-	"github.com/albapepper/scoracle-data/internal/thirdparty"
 
 	_ "github.com/albapepper/scoracle-data/docs" // swagger docs
 )
@@ -153,15 +152,6 @@ func main() {
 		}
 		mc.StatsInterval = cfg.PipelineStatsInterval
 		go maintenance.Start(ctx, dbPool, mc, newsScrubber, logger)
-
-		// Seed twitter_lists rows for configured sports so status endpoints can
-		// report cold-cache state before the first refresh.
-		if len(cfg.TwitterLists) > 0 {
-			tw := thirdparty.NewTwitterService(dbPool, cfg.TwitterEnabled, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL)
-			if err := tw.SyncLists(ctx); err != nil {
-				logger.Warn("Failed to sync twitter_lists", "error", err)
-			}
-		}
 	} else {
 		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}

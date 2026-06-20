@@ -20,86 +20,12 @@ Supported entity type values:
 - `player`
 - `team`
 
-### `GET /api/v1/{sport}/{entityType}/{id}`
+### `GET /api/v1/{sport}/{entityType}/{id}` — REMOVED (O16)
 
-Returns the canonical profile payload for a sport entity (player or team).
-
-> Not to be confused with `GET /api/v1/{sport}/{entityType}/{id}/stats` — that's the **stats product** (season rating + `available_seasons` + the per-event series), one of the per-product endpoints (see the stats source below). The Gemma **on-field identity analysis** (`commentary`) lives on its sibling `/special`.
-
-Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` for a 304.
-
-#### Path parameters
-
-| Name | Type | Notes |
-|---|---|---|
-| `sport` | string | `nba`, `nfl`, or `football` |
-| `entityType` | string | `player` or `team` |
-| `id` | integer | Entity ID |
-
-#### Query parameters
-
-| Name | Type | Notes |
-|---|---|---|
-| `season` | integer (optional) | Filter to a specific season year (e.g. `2024`). When omitted, the most recent season the entity has data for is returned. |
-| `league_id` | integer (optional) | Filter by league. For football, scopes the response (and `available_seasons`) to that league. NBA/NFL are single-league and ignore it. |
-
-#### Response shape
-
-Top-level keys:
-
-| Field | Type | Description |
-|---|---|---|
-| `page` | string | Literal `"profile"` |
-| `sport` | string | Echo of the path param |
-| `entity_type` | string | Echo (`"player"` or `"team"`) |
-| `entity` | object | Entity profile: identifiers, names, position, team/league context, and a `stats` JSONB with all aggregated season stats keyed by canonical stat name. |
-| `percentiles` | `{stat: number}` | Sport-wide percentiles, partitioned by position (player) or none (team). Keys mirror `entity.stats`. |
-| `percentile_metadata` | object | `{position_group, sample_size}` for players; `{sample_size}` for teams. |
-| `scoped_percentiles` | `{stat: number}` | Narrower-cohort percentiles — partitioned by `(position, conference)` for NBA/NFL, `(position, league)` for Football. Same shape as `percentiles`. |
-| `scoped_percentile_metadata` | object | Adds `scope_type` (`"conference"` / `"league"`), `scope_id`, `scope_name` on top of the base metadata. |
-| `stat_definitions` | object[] | Sport's full stat catalog (key_name, display_name, category, is_inverse, is_derived, is_percentile_eligible, sort_order, unit, comparable). `unit` is one of `rate_pct` / `per_game_avg` / `cumulative_total` / `special`; `comparable` is the flag the trends endpoint filters on. |
-| `meta` | object | Resolved scope + season selector data — see below. |
-| `league_context` | object \| null | Football only: `{id, name, country, logo_url, is_benchmark, is_active}` of the league in scope. `null` for NBA/NFL or unscoped football. |
-
-`meta` object:
-
-| Field | Type | Description |
-|---|---|---|
-| `meta.season` | integer | The season this response is for. Echoes `?season=` if provided, else the entity's most recent season. The frontend should treat this as the "selected" value of its season picker. |
-| `meta.league_id` | integer \| null | League actually used (after football's natural-league fallback). `null` for NBA/NFL and for unscoped football responses. |
-| `meta.available_seasons` | int[] | **All seasons this entity has data for**, within the current league scope, sorted newest first. See dedicated section below. |
-| `meta.season_composite_score` | number \| null | The entity's season composite — AVG of season per-stat percentile ranks for eligible stats (migration 020). `[0, 100]`, cross-season comparable (relative-to-cohort). Good for trajectory/year-over-year. `null` if no eligible season stats. |
-| `meta.season_composite_rank` | number \| null | Percentile rank of `season_composite_score` within the **current-season** cohort (`(sport, season, position)` players / `(sport, season)` teams). Uniform `[0, 100]`, top = 100 (migration 021). The **in-season leaderboard/headline number**. `null` if no eligible season stats. |
-| `meta.season_composite_rank_alltime` | number \| null | Percentile rank of `season_composite_score` against **all seasons in the DB** for the cohort (migrations 022-024). "Best season we've recorded?" — 100 only if it's the most dominant-relative-to-peers season in the data. Refreshed nightly; prior seasons frozen. `null` if no eligible season stats. |
-| `meta.season_composite_rank_absolute` | number \| null | **Players only** (NULL for teams). Cross-position in-season rank (migration 026) — answers "best player overall this season regardless of position." Uniform `[0, 100]` within `(sport, season)`. |
-| `meta.season_composite_rank_alltime_absolute` | number \| null | **Players only.** Cross-position all-time rank (migration 026). "Best player-season overall, ever recorded, regardless of position." Refreshed nightly with the position-partitioned all-time rank. |
-
-#### Season selection (`meta.available_seasons`)
-
-The profile payload tells the frontend exactly which seasons it can ask for, so a season selector renders with **no dead options**.
-
-**Semantics:**
-
-- It's the list of distinct `season` values in `player_stats` (for `entity_type=player`) or `team_stats` (for `entity_type=team`) where the row matches the requested `sport` and `entity_id`.
-- When the request is **league-scoped** (`/leagues/{leagueId}/...` or `?league_id=N`), the list is filtered to seasons the entity appeared in **that league**. A footballer who played in the Bundesliga in 2023 and the Premier League in 2024 returns `[2024]` for `?league_id=8` (Premier League) and `[2023]` for `?league_id=82` (Bundesliga).
-- When the request is **unscoped**, the list spans every league. For NBA/NFL (single league) this is just every season the entity has stats for.
-- Sorted **newest first**. Always an array — never `null`. Empty `[]` when the entity exists in `players`/`teams` but has no `*_stats` rows in scope (rare; profile would typically 404 first).
-- Each integer in the list is a valid value for the `?season=` query parameter — passing it back is guaranteed to return populated stats for this entity, within the same league scope.
-
-**Frontend usage pattern:**
-
-```ts
-// On profile load
-const res = await fetch(`/api/v1/${sport}/${entityType}/${id}?season=${selected ?? ''}`);
-const { meta, entity, stats, percentiles } = await res.json();
-
-// Render dropdown from meta.available_seasons; mark meta.season as current.
-// On change:
-const next = await fetch(`/api/v1/${sport}/${entityType}/${id}?season=${newSeason}`);
-// → returns the same shape, with meta.season === newSeason.
-```
-
-**Cross-entity navigation:** if the user picked 2023 on entity A and navigates to entity B which doesn't have 2023 (`available_seasons` lacks it), fall back to entity B's newest. Keep the user-preferred season in URL/state and reconcile per-page.
+The bundled all-in-one profile route was removed 2026-06-19. Its page-shell payload is
+now delivered by the per-product endpoints in the eager model: `available_seasons` +
+`stat_definitions` ride **`/stats`**, entity identity is **`/meta`**, and the season
+composite score/ranks come from **`/stats`** and **`/rating`**.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/momentum`
 
@@ -849,17 +775,11 @@ Composite + Specialist + Vibes together). The raw `rating_composite` /
 
 League-scoped routes are required for football (which has multiple leagues) and preferred when league context is explicit.
 
-### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
+### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}` — REMOVED (O16)
 
-Returns profile payload scoped to a specific league. Body shape is identical to the canonical route — `meta.league_id` reflects the path param, and `meta.available_seasons` is filtered to seasons the entity appeared in **this league** (so a multi-league football player gets a different list per league-scoped URL).
-
-Path parameters:
-- `leagueId` - League identifier (e.g., 8 for Premier League)
-- `entityType` - `player` or `team`
-- `id` - Entity ID
-
-Query parameters:
-- `season` (optional integer)
+The bundled league profile route was removed with its non-league sibling. Use the
+per-product league routes (e.g. `/leagues/{leagueId}/{entityType}/{id}/momentum`,
+`/leagues/{leagueId}/meta`).
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/momentum`
 

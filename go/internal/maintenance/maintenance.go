@@ -25,6 +25,7 @@ type Config struct {
 	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
 	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
 	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
+	PeerCohortInterval  time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
 }
 
 // DefaultConfig returns sensible production defaults.
@@ -39,6 +40,7 @@ func DefaultConfig() Config {
 		NewsScrubInterval:   30 * time.Minute,
 		NewsScrubBatch:      15,
 		StatsInterval:       24 * time.Hour,
+		PeerCohortInterval:  24 * time.Hour,
 	}
 }
 
@@ -62,9 +64,10 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		"tweet_ttl", cfg.TweetTTLInterval,
 		"tweet_age", cfg.TweetTTL,
 		"news_scrub", cfg.NewsScrubInterval,
-		"pipeline_stats", cfg.StatsInterval)
+		"pipeline_stats", cfg.StatsInterval,
+		"peer_cohort", cfg.PeerCohortInterval)
 
-	tickers := make([]*time.Ticker, 0, 7)
+	tickers := make([]*time.Ticker, 0, 8)
 	defer func() {
 		for _, t := range tickers {
 			t.Stop()
@@ -134,6 +137,19 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		t := time.NewTicker(cfg.StatsInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "pipeline_stats", func() { writePipelineStats(ctx, pool, logger) })
+	}
+
+	// Peer-cohort aggregates (O1): refresh the precomputed per-cohort season
+	// aggregates that /momentum reads instead of scanning the whole peer cohort
+	// live. Pure SQL (refresh_peer_cohort_aggregates). The season-rolled stats it
+	// summarizes only move on seeding/finalize, so a daily rebuild keeps the
+	// trajectory peer-deltas current. Once on startup for post-deploy freshness,
+	// then on the interval.
+	if cfg.PeerCohortInterval > 0 {
+		refreshPeerCohortAggregates(ctx, pool, logger)
+		t := time.NewTicker(cfg.PeerCohortInterval)
+		tickers = append(tickers, t)
+		go runLoop(ctx, t.C, "peer_cohort", func() { refreshPeerCohortAggregates(ctx, pool, logger) })
 	}
 
 	<-ctx.Done()
@@ -355,6 +371,21 @@ func catchUpSweep(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) 
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("Catch-up sweep: created missed notifications", "count", tag.RowsAffected())
 	}
+}
+
+// refreshPeerCohortAggregates rebuilds peer_cohort_aggregate (Optimization Ledger
+// O1) — the precomputed per-cohort season aggregates that /momentum reconstructs
+// exact leave-one-out peer deltas from, instead of scanning the whole peer cohort
+// live on every read. Pure SQL; refresh_peer_cohort_aggregates() does a
+// transactional DELETE+INSERT so readers see the prior snapshot until commit. On
+// error the existing snapshot is left in place and the read path keeps serving it.
+func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT public.refresh_peer_cohort_aggregates()`).Scan(&n); err != nil {
+		logger.Warn("Peer-cohort refresh failed", "error", err)
+		return
+	}
+	logger.Info("Peer-cohort aggregates refreshed", "cohorts", n)
 }
 
 // scrubNewsLinks is the Gemma ID-gate sweep — the async "scrub". Two bounded,

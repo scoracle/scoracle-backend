@@ -1798,59 +1798,60 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			WHERE jsonb_typeof(kv.value) = 'number'
 		) s
 	),
-	player_peer_cohort AS (
-		SELECT ps.stats, ps.season_composite_score
-		FROM player_stats ps, req, resolved_season rs, effective_league el, player_position pp
-		WHERE req.entity_type = 'player'
-		  AND ps.sport = '` + sportID + `'
-		  AND ps.season = rs.season
-		  AND ps.position = pp.position
-		  AND ps.player_id <> req.entity_id
-		  AND (el.league_id IS NULL OR ps.league_id = el.league_id)
-	),
-	team_peer_cohort AS (
-		SELECT ts.stats, ts.season_composite_score
-		FROM team_stats ts, req, resolved_season rs, effective_league el
-		WHERE req.entity_type = 'team'
-		  AND ts.sport = '` + sportID + `'
-		  AND ts.season = rs.season
-		  AND ts.team_id <> req.entity_id
-		  AND (el.league_id IS NULL OR ts.league_id = el.league_id)
-	),
-	peer_cohort AS (
-		SELECT stats, season_composite_score FROM player_peer_cohort
-		UNION ALL
-		SELECT stats, season_composite_score FROM team_peer_cohort
+	cohort_lookup AS (
+		-- O1: the precomputed full-cohort season aggregate (peer_cohort_aggregate,
+		-- refreshed nightly) for THIS entity's cohort — replacing the live per-read
+		-- 248-member jsonb_each + AVG scan (~17.6 ms). Cohort key: the requesting
+		-- entity's resolved position (player) or '' (team); league = COALESCE(
+		-- effective_league, 0) — football resolves to the entity's own league,
+		-- NBA/NFL collapse to 0 (their league_id is uniformly 0). A NULL player
+		-- position matches no cohort (same as the prior ps.position = pp.position).
+		SELECT pca.key_sums, pca.key_cnts, pca.score_sum, pca.score_cnt, pca.member_count
+		FROM public.peer_cohort_aggregate pca, req, resolved_season rs, effective_league el
+		WHERE pca.sport = '` + sportID + `'
+		  AND pca.season = rs.season
+		  AND pca.league_id = COALESCE(el.league_id, 0)
+		  AND pca.entity_type = req.entity_type
+		  AND pca.position = CASE WHEN req.entity_type = 'player'
+		                          THEN (SELECT position FROM player_position)
+		                          ELSE '' END
 	),
 	peer_aggregate AS (
-		-- Average peer-cohort season values per stat key, filtered to
-		-- comparable keys. Cumulative totals are normalized to per-game by
-		-- dividing each peer's value by their own games-played key — that
-		-- per-team division has to happen INSIDE the AVG so we don't bias
-		-- toward teams that played more games.
+		-- O1: reconstruct the EXACT leave-one-out cohort averages from the precompute
+		-- by subtracting the entity's own normalized season values
+		-- (entity_season_aggregate — identical normalization formula) and decrementing
+		-- the per-key count. Bit-identical to the prior live cohort scan (validated
+		-- across all sports × entity types incl. the highest/lowest-rated outliers).
+		-- For keys the entity itself lacks, the full-cohort average already IS the
+		-- leave-one-out average (it never contributed to that key). cohort_size and the
+		-- peer season-score avg are likewise reconstructed leave-one-out (self is a
+		-- cohort member iff it has a season stats row → entity_self_row exists).
 		SELECT
-			COALESCE((SELECT jsonb_object_agg(key, avg_val) FROM (
-				SELECT kv.key, AVG(
-					CASE
-						WHEN sd.unit = 'cumulative_total' THEN
-							(kv.value)::numeric
-							/ NULLIF((pc.stats->>'` + divisorKey + `')::numeric, 0)
-						ELSE
-							(kv.value)::numeric
-					END
-				) AS avg_val
-				FROM peer_cohort pc
-				CROSS JOIN req
-				CROSS JOIN LATERAL jsonb_each(pc.stats) kv
-				JOIN stat_definitions sd
-				  ON sd.sport = '` + sportID + `'
-				 AND sd.entity_type = req.entity_type
-				 AND sd.key_name = kv.key
-				 AND sd.comparable = true
-				WHERE jsonb_typeof(kv.value) = 'number'
-				GROUP BY kv.key
-			) t), '{}'::jsonb) AS avgs,
-			(SELECT COUNT(*) FROM peer_cohort) AS cohort_size
+			COALESCE((
+				SELECT jsonb_object_agg(k, v) FROM (
+					SELECT k,
+						CASE WHEN esa.avgs ? k
+							 THEN ((cl.key_sums->>k)::numeric - (esa.avgs->>k)::numeric)
+							      / NULLIF((cl.key_cnts->>k)::numeric - 1, 0)
+							 ELSE (cl.key_sums->>k)::numeric
+							      / NULLIF((cl.key_cnts->>k)::numeric, 0)
+						END AS v
+					FROM cohort_lookup cl
+					CROSS JOIN entity_season_aggregate esa
+					CROSS JOIN LATERAL jsonb_object_keys(cl.key_sums) k
+				) s WHERE v IS NOT NULL
+			), '{}'::jsonb) AS avgs,
+			COALESCE((
+				SELECT cl.member_count - (CASE WHEN EXISTS (SELECT 1 FROM entity_self_row) THEN 1 ELSE 0 END)
+				FROM cohort_lookup cl
+			), 0) AS cohort_size,
+			(
+				SELECT ROUND(
+					(cl.score_sum - COALESCE((SELECT season_composite_score FROM entity_self_row), 0))
+					/ NULLIF(cl.score_cnt - (CASE WHEN (SELECT season_composite_score FROM entity_self_row) IS NOT NULL THEN 1 ELSE 0 END), 0),
+					1)
+				FROM cohort_lookup cl
+			) AS score_avg
 	),
 	vibe_window AS (
 		-- Last 7 days of Gemma sentiment scores (1-100) for this entity.
@@ -1946,7 +1947,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		'entity_alltime_score_rank',          (SELECT season_composite_rank_alltime FROM entity_self_row),
 		'entity_season_score_rank_absolute',  (SELECT season_composite_rank_absolute FROM entity_self_row),
 		'entity_alltime_score_rank_absolute', (SELECT season_composite_rank_alltime_absolute FROM entity_self_row),
-		'peer_season_score_avg',              (SELECT ROUND(AVG(season_composite_score), 1) FROM peer_cohort),
+		'peer_season_score_avg',              (SELECT score_avg FROM peer_aggregate),
 		'vibes', json_build_object(
 			'window_days', 7,
 			'snapshots', COALESCE((

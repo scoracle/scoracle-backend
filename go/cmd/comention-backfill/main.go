@@ -44,7 +44,7 @@ func main() {
 	}
 	defer pool.Close()
 
-	svc := thirdparty.NewNewsService(pool)
+	svc := thirdparty.NewNewsService(pool, logger)
 
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if *sport != "" && strings.ToLower(*sport) != "all" {

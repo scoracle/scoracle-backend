@@ -558,7 +558,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		narr AS (
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
-			       ns.source_attribution, ns.input_news_ids, ns.generated_at
+			       ns.source_attribution, ns.input_news_ids, ns.model_version, ns.prompt_version, ns.generated_at
 			FROM public.news_summaries ns CROSS JOIN req
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
@@ -574,7 +574,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
-			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids, generated_at FROM narr) n), '[]'::json)
+			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids, model_version, prompt_version, generated_at FROM narr) n), '[]'::json)
 		)`,
 		"entity_transfers": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id

@@ -43,7 +43,7 @@ type Entity struct {
 // LoadTouchedEntities filters on. ok/fail count the RSS calls. Honors ctx
 // cancellation between teams.
 func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (time.Time, int, int) {
-	news := thirdparty.NewNewsService(pool)
+	news := thirdparty.NewNewsService(pool, logger)
 	runStart := time.Now().UTC()
 
 	ok, fail := 0, 0

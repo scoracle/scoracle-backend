@@ -198,7 +198,7 @@ func (a *NewsNarrator) loadVettedCorpus(
 		FROM news_article_entities nae
 		JOIN news_articles a ON a.id = nae.article_id
 		WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-		  AND (nae.vetted IS TRUE OR nae.scrubbed_at IS NULL)
+		  AND nae.vetted IS TRUE
 		  AND (a.published_at IS NULL OR a.published_at > NOW() - $4::interval)
 		ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
 		LIMIT $5

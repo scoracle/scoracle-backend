@@ -277,11 +277,9 @@ func (g *TransferGenerator) loadCandidates(ctx context.Context, teamID int, spor
 		) pos ON true
 		WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
 		  AND te.created_at > NOW() - INTERVAL '14 days'
-		  -- Scrub gate (transition): both the team and player link must be Gemma-vetted
-		  -- as genuine, or not yet scrubbed. The 033 proximity gate below stays until
-		  -- task 5 retires it (the scrub becomes the sole precision pass then).
-		  AND (te.vetted IS TRUE OR te.scrubbed_at IS NULL)
-		  AND (pe.vetted IS TRUE OR pe.scrubbed_at IS NULL)
+		  -- Scrub gate: both the team and player link must be Gemma-vetted as genuine.
+		  AND te.vetted IS TRUE
+		  AND pe.vetted IS TRUE
 		  AND (te.title_pos IS NULL OR pe.title_pos IS NULL
 		       OR abs(te.title_pos - pe.title_pos) <= $5)
 		GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pos.position

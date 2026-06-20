@@ -113,18 +113,17 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			//   news rail:   /news (narratives), /transfers (vetted rumor heat),
 			//     /vibes (the Vibe end product → the leaderboard Vibe board).
 			//   convergence: /momentum (rating+vibe trajectory), /sigil (the CROWN synthesis).
-			// Phase 3 done: /sigil serves the crown synthesis (= /vibes' synthesis); /rating
-			// serves the divined stat read. /vibes + /trends kept as deprecated aliases.
+			// /sigil serves the crown synthesis; /rating serves the divined stat read.
+			// O14 dropped the deprecated /vibes + /trends per-entity aliases (the live web
+			// uses /sigil + /momentum; iOS repoints in its convergence rename iB4).
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
-			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntitySigil)
+			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntityRating)
 			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntityVibes)
 			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
-			r.Get("/{entityType:player|team}/{id}/trends", h.GetTrendsPage)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
-			r.Get("/{entityType:player|team}/{id}/vibes", h.GetEntityVibes)
 			// Per-entity identity metadata (drives the page header). Distinct from the
 			// sport-level /meta (search index → /autofill).
 			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)
@@ -140,22 +139,14 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
 			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}", h.GetLeagueProfilePage)
-			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/trends", h.GetLeagueTrendsPage)
+			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/momentum", h.GetLeagueTrendsPage)
 			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)
 			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)
 			r.Get("/leagues/{leagueId}/health", h.GetLeagueHealthPage)
-
-			// Sport-scoped twitter lazy cache
-			r.Get("/twitter/feed", h.GetSportTweets)
-			r.Get("/twitter/{entityType:player|team}/{id}", h.GetEntityTweets)
-
 		})
-		// News
-		r.Get("/news/status", h.GetNewsStatus)
-		r.Get("/news/{entityType}/{entityID}", h.GetEntityNews)
-
-		// Twitter
-		r.Get("/twitter/status", h.GetTwitterStatus)
+		// O12: legacy live-RSS serving routes (/news/status, /news/{type}/{id}) removed —
+		// the eager News card reads the precomputed /{sport}/{type}/{id}/news narratives.
+		// O13: Twitter serving routes (/twitter/*) removed — X permanently decommissioned.
 
 		// Mobile auth (device-identity JWT). /device + /refresh are public;
 		// /device/push + /logout require a valid access token.

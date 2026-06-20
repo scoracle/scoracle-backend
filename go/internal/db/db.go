@@ -1043,7 +1043,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'[]'::json
 			)
 		)`,
-		"entity_sigil": `WITH req AS (
+		"entity_rating": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS etype,
 			       $3::int AS eid, $4::int AS season, $5::int AS league_id
 		),
@@ -1277,9 +1277,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		) health`,
 
 		// Entity name lookup (news handlers + notifications)
-		"team_name_lookup":   "SELECT name FROM teams WHERE id = $1 AND sport = $2",
-		"team_news_lookup":   "SELECT name, search_aliases FROM teams WHERE id = $1 AND sport = $2",
-		"player_news_lookup": "SELECT name, first_name, last_name, team_id, search_aliases FROM players WHERE id = $1 AND sport = $2",
+		"team_name_lookup": "SELECT name FROM teams WHERE id = $1 AND sport = $2",
+		// O12: player_news_lookup + team_news_lookup removed with the live-RSS serving
+		// handler (handler/news.go). team_name_lookup stays — notifications/store.go uses it.
 
 		// Twitter lazy cache (see sql/migrations/002_add_twitter_cache.sql)
 		"twitter_list_get": `SELECT list_id, ttl_seconds, since_id, last_fetched_at

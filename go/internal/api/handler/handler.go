@@ -19,24 +19,22 @@ import (
 
 // Handler holds shared dependencies for all endpoint handlers.
 type Handler struct {
-	pool    *pgxpool.Pool
-	cache   *cache.Cache
-	cfg     *config.Config
-	news    *thirdparty.NewsService
-	twitter *thirdparty.TwitterService
-	auth    *auth.Tokens
-	flight  singleflight.Group // coalesces concurrent cache-miss loads by cache key
+	pool   *pgxpool.Pool
+	cache  *cache.Cache
+	cfg    *config.Config
+	news   *thirdparty.NewsService
+	auth   *auth.Tokens
+	flight singleflight.Group // coalesces concurrent cache-miss loads by cache key
 }
 
 // New creates a Handler with shared dependencies.
 func New(pool *pgxpool.Pool, c *cache.Cache, cfg *config.Config, tokens *auth.Tokens) *Handler {
 	return &Handler{
-		pool:    pool,
-		cache:   c,
-		cfg:     cfg,
-		news:    thirdparty.NewNewsService(pool),
-		twitter: thirdparty.NewTwitterService(pool, cfg.TwitterEnabled, cfg.TwitterBearerToken, cfg.TwitterLists, cfg.TwitterCacheTTL),
-		auth:    tokens,
+		pool:  pool,
+		cache: c,
+		cfg:   cfg,
+		news:  thirdparty.NewNewsService(pool),
+		auth:  tokens,
 	}
 }
 

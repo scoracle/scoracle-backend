@@ -101,7 +101,7 @@ const next = await fetch(`/api/v1/${sport}/${entityType}/${id}?season=${newSeaso
 
 **Cross-entity navigation:** if the user picked 2023 on entity A and navigates to entity B which doesn't have 2023 (`available_seasons` lacks it), fall back to entity B's newest. Keep the user-preferred season in URL/state and reconcile per-page.
 
-### `GET /api/v1/{sport}/{entityType}/{id}/trends`
+### `GET /api/v1/{sport}/{entityType}/{id}/momentum`
 
 Combines **stats trend + narrative trend** in one read-only payload so a profile page can render "is this entity hot right now" without juggling multiple endpoint calls.
 
@@ -128,13 +128,13 @@ Cache: 5 min TTL (`X-Cache: HIT/MISS`), ETag-enabled — send `If-None-Match` fo
 | `season` | integer (optional) | Defaults to the sport's `current_season` |
 | `league_id` | integer (optional) | Filter to a specific league. **For football**, when omitted the entity's natural league is used so the cohort doesn't span multiple leagues. NBA/NFL ignore it. |
 
-The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends` is an alias that takes `leagueId` from the path instead of the query string — identical payload.
+The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/momentum` is an alias that takes `leagueId` from the path instead of the query string — identical payload.
 
 #### Response fields
 
 | Field | Type | Description |
 |---|---|---|
-| `page` | string | Literal `"trends"` |
+| `page` | string | Literal `"momentum"` |
 | `sport`, `entity_type`, `entity_id` | echo of inputs | |
 | `window.games_used` | integer | How many events fed `entity_recent_avgs` (0–3) |
 | `window.fixture_ids` | int[] | Fixture IDs of those events, newest first |
@@ -475,11 +475,11 @@ datapoint against the whole population. Two complementary scores, **never merged
   (offense / defense / special-teams facets, mean-of-z per facet, summed) so recording
   granularity doesn't silently weight defense 2×. NBA + football players and **all teams
   are flat** (Σ z) — a team is multi-phase, so no facet-balancing.
-- **`rating_specialist`** — peak z over the positive counting set (irreplaceability →
+- **`rating_peak`** — peak z over the positive counting set (irreplaceability →
   difference-makers).
-- **`rating_specialty`** — the argmax datapoint label (e.g. `"Rim Protection"`,
+- **`rating_peak_label`** — the argmax datapoint label (e.g. `"Rim Protection"`,
   `"Sacks"`, `"Goalscoring"`; teams e.g. `"Steals"`, `"Goals For"`).
-- **`rating_composite_rank` / `rating_specialist_rank`** — positionless `percent_rank` ×
+- **`rating_composite_rank` / `rating_peak_rank`** — positionless `percent_rank` ×
   100 (0–100), a friendly headline number; the raw z drives ordering.
 
 No weighting, no hand-picked baselines — the z-score *is* the scarcity weighting (a rare
@@ -527,10 +527,10 @@ payload feeds the board and a meta card.
       "team_logo": "https://…",
       "league_id": null,
       "rating_composite": 12.5226,
-      "rating_specialist": 6.1058,
-      "rating_specialty": "Rim Protection",
+      "rating_peak": 6.1058,
+      "rating_peak_label": "Rim Protection",
       "rating_composite_rank": 100.0,
-      "rating_specialist_rank": 100.0,
+      "rating_peak_rank": 100.0,
       "rank": 1
     }
   ]
@@ -731,11 +731,11 @@ rather than by a single scope.
       "image": null,                   // player photo_url (may be null)
       "position": "G",
       "rating_composite": 8.6853,
-      "rating_specialist": 3.0034,
-      "rating_specialty": "Scoring",
+      "rating_peak": 3.0034,
+      "rating_peak_label": "Scoring",
       "rating_composite_rank": 98.4,
-      "rating_specialist_rank": 94.4,
-      "rank": 1                          // 1-based, by (rating_composite + rating_specialist) DESC
+      "rating_peak_rank": 94.4,
+      "rank": 1                          // 1-based, by (rating_composite + rating_peak) DESC
     }
   ]
 }
@@ -746,7 +746,7 @@ rather than by a single scope.
 
 > **Shared shape — board ⇄ roster.** `leaderboard.leaders[]` and `roster.players[]`
 > are the **same rating-row shape** (`id`, `name`, `image`, `position`,
-> `rating_composite` / `rating_specialist` `(+ _rank)`, `rating_specialty`,
+> `rating_composite` / `rating_peak` `(+ _rank)`, `rating_peak_label`,
 > `rank`). Roster is just that player board narrowed to one team and re-sorted by
 > the Composite+Specialist sum — which is exactly why one frontend list component
 > (`RatingList`) renders both. Any future "board over a different slice" (a
@@ -759,7 +759,7 @@ rather than by a single scope.
 > stats source. The query parameters + the rating/event field shapes below are unchanged —
 > they now live on `/stats` (rating + `available_seasons` + the per-event `events` series)
 > and `/special` (the lean specialist projection — specialty + its datapoints — plus the
-> Gemma `commentary`). `/trends` carries the season sparkline (rating series × vibe series).
+> Gemma `commentary`). `/momentum` carries the season sparkline (rating series × vibe series).
 
 The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
 numbers a meta card shows), **that season's team**, **and** the per-event dual-sparkline
@@ -791,9 +791,9 @@ series. `entityType` (`player` or `team`) comes from the path — team stats rea
     },                               //   team they played for that year; teams: themselves. null if unknown.
     "rating_composite": 12.5226,
     "rating_composite_rank": 100.0,
-    "rating_specialist": 6.1058,
-    "rating_specialist_rank": 100.0,
-    "rating_specialty": "Rim Protection",
+    "rating_peak": 6.1058,
+    "rating_peak_rank": 100.0,
+    "rating_peak_label": "Rim Protection",
     "rating_categories": null,       // TEAMS ONLY: {facet → {z, pct}} ready-made, e.g.
                                      // {"offense":{"z":0.60,"pct":86.2},"defense":{"z":0.93,"pct":93.1}}
     "rating_breakdown": [            // per-datapoint transparency (migrations 030/037/038)
@@ -809,8 +809,8 @@ series. `entityType` (`player` or `team`) comes from the path — team stats rea
   },
   "events": [                        // the dual-sparkline series, chronological
     { "fixture_id": 12345, "start_time": "2025-10-26T…",
-      "rating_composite": 16.015, "rating_specialist": 6.85, "rating_specialty": "Rim Protection",
-      "rating_composite_pct": 99.4, "rating_specialist_pct": 96.2 }
+      "rating_composite": 16.015, "rating_peak": 6.85, "rating_peak_label": "Rim Protection",
+      "rating_composite_pct": 99.4, "rating_peak_pct": 96.2 }
   ]
 }
 ```
@@ -823,7 +823,7 @@ z-scores. Each carries the raw `z`, its 0–100 `pct` (`percent_rank` of `sign*z
 within the `(sport, season, label)` population, so negative datapoints like
 turnovers read correctly: low raw value → high pct), the `in_comp` / `in_spec` /
 `sign` / `facet` config, and `is_specialty` (the single peak skill — exactly one
-per entity, matching `rating_specialty`). **Stored as raw z, served as a
+per entity, matching `rating_peak_label`). **Stored as raw z, served as a
 percentile** — `pct` is what the UI draws (the Composite tab pizzas the `in_comp`
 rows by `pct`; the Specialist tab heros the `is_specialty` row). Each datapoint also
 carries **`value`** (migration 038) — the raw volume behind the z (e.g. `27.3` ppg),
@@ -837,13 +837,13 @@ is the mean of `sign*z` over that facet's `in_comp` datapoints and `pct` its
 (football cards/injuries) which carry no category score. Margins (point/goal
 differential) are intentionally **not** rated — teams are scored on the HOW, not outcomes.
 
-Each event also carries **`rating_composite_pct` / `rating_specialist_pct`**
+Each event also carries **`rating_composite_pct` / `rating_peak_pct`**
 (migration 029): the **0–100 positionless percentile** of that event's z within the
 `(sport, season)` event population — a `percent_rank × 100` over the per-event z's,
 the same normalization the season ranks use. These let the per-event lines be drawn
 on the same **0–100 axis** as the vibe series (the frontend Trends sparkline plots
 Composite + Specialist + Vibes together). The raw `rating_composite` /
-`rating_specialist` z's are unchanged; the pct columns sit beside them.
+`rating_peak` z's are unchanged; the pct columns sit beside them.
 
 ## League-Scoped Endpoints
 
@@ -861,11 +861,11 @@ Path parameters:
 Query parameters:
 - `season` (optional integer)
 
-### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends`
+### `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/momentum`
 
-League-scoped alias for the trends endpoint above. `leagueId` is taken from the URL path instead of the `league_id` query parameter; **the response body is identical** to the canonical route. Useful when the calling page already has league context (e.g., a Premier League team profile) and you want to keep that context in the URL.
+League-scoped alias for the momentum endpoint above. `leagueId` is taken from the URL path instead of the `league_id` query parameter; **the response body is identical** to the canonical route. Useful when the calling page already has league context (e.g., a Premier League team profile) and you want to keep that context in the URL.
 
-Example: `GET /api/v1/football/leagues/8/team/18/trends` is equivalent to `GET /api/v1/football/team/18/trends?league_id=8`.
+Example: `GET /api/v1/football/leagues/8/team/18/momentum` is equivalent to `GET /api/v1/football/team/18/momentum?league_id=8`.
 
 ### `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 
@@ -875,76 +875,14 @@ Returns metadata payload scoped to a specific league.
 
 Returns health/freshness payload scoped to a specific league.
 
-## News Endpoints
-
-### `GET /api/v1/news/status`
-
-News provider configuration status. Reports the Google News RSS source only — NewsAPI was removed; RSS is the sole provider.
-
-### `GET /api/v1/news/{entityType}/{entityID}`
-
-Returns news articles for a player or team, pulled from Google News RSS. Matched articles are also **write-through persisted** to the `news_articles` and `news_article_entities` tables, with cross-entity linking against a cached pool of all teams + players for the sport (confidence 1.0 for the queried entity, 0.8 for co-mentioned entities).
-
-Path parameters:
-- `entityType` - `player` or `team`
-- `entityID` - Entity ID (integer)
-
-Query parameters:
-- `sport` (required) - `NBA`, `NFL`, or `FOOTBALL`
-- `team` (optional) - Team name for player context
-- `limit` (optional, 1-50) - Number of articles to return
-
-## Twitter / X Endpoints
-
-X is used for a user-facing journalist feed and as a real-time context signal for the vibe generator. Tweet data is subject to a hard 24h TTL (ToS compliance — no long-term storage for ML training).
-
-### `GET /api/v1/twitter/status`
-
-Per-sport Twitter list configuration + cache state + daily cost telemetry.
-
-Response includes, per sport:
-- `sport`, `list_id`, `configured`, `ttl_seconds`
-- `last_fetched_at`, `since_id`, `last_error`, `last_error_at`
-- `calls_today` - X API calls made today (resets 00:00 UTC)
-- `tweets_today` - tweets returned from those calls today
-
-Plus service-level fields:
-- `bearer_token_configured`, `cache_ttl_seconds`
-- `rate_limit` - human-readable limit string
-- `architecture: "lazy_cache"`
-
-### `GET /api/v1/{sport}/twitter/feed`
-
-Cached journalist tweets for a sport. Refreshes on demand from X when the cache is older than the list TTL (default 20 min). Concurrent refreshes are coalesced via singleflight; stale cache is served if the upstream call fails.
-
-Path parameters:
-- `sport` - `nba`, `nfl`, or `football`
-
-Query parameters:
-- `limit` (optional, 1-100, default 25)
-
-### `GET /api/v1/{sport}/twitter/{entityType}/{id}`
-
-Cached tweets linked to a specific player or team via the shared `search_aliases` matcher.
-
-Path parameters:
-- `sport` - `nba`, `nfl`, or `football`
-- `entityType` - `player` or `team`
-- `id` - Entity ID
-
-Query parameters:
-- `limit` (optional, 1-100, default 25)
-
-## Vibe (Gemma Blurb) Endpoints
-
-Vibe blurbs are ~140-character narrative summaries produced by a local Ollama-hosted Gemma 4 e4b model, informed by recent news (last 72h) and recent tweets (last 24h) for the entity. Blurbs are NOT generated on request — they land via the vibe CLI (`go/cmd/vibe`) or the milestone listener worker (fires on `percentile_changed` events for `tier=headliner` entities crossing the 90th percentile, with a 30-min per-entity debounce). These endpoints serve what has already been generated.
-
-### News source — three per-product endpoints
+## News-Source Products (per-entity card endpoints)
 
 The old bundled **news rail** (`/news` = narratives + transfers + vibe in one payload)
-was split into three self-contained products on 2026-06-15. `news` is the data
-**source**; each card fetches exactly its own product. All three take the same path
-params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`).
+was split into self-contained products on 2026-06-15. `news` is the data
+**source**; each card fetches exactly its own product. Both take the same path
+params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`). The
+per-entity **vibe** product is no longer served here — it is folded into the Sigil
+crown synthesis at `GET /api/v1/{sport}/{entityType}/{id}/sigil`.
 
 **`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's latest Gemma
 **narratives** (hottest first by `impact`). News is a post-transfers pipeline layer, so
@@ -967,14 +905,6 @@ heat list (the pre-narrative data). The counterparty is the OTHER entity type: f
   ] }
 ```
 `transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25); `[]` when none.
-
-**`GET /api/v1/{sport}/{entityType}/{id}/vibes`** — current sentiment + bounded history.
-```json
-{ "page": "vibes", "sport": "football", "entity_type": "team", "entity_id": 18,
-  "current": {"sentiment": 73, "model_version": "gemma4:e4b", "prompt_version": "v4", "generated_at": "..."},
-  "history": [{"sentiment": 73, "generated_at": "..."}] }
-```
-`current`: latest fresh sentiment (`prompt_version != 'v2'`, < 72h) or `null`; `history`: up to 14 recent points for the trend sparkline.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 
@@ -1010,8 +940,8 @@ Team response:
 
 ### ~~`GET /api/v1/{sport}/vibe/{entityType}/{id}` · `/history` · `/vibe/hottest`~~ (retired 2026-06-15)
 
-The per-entity vibe endpoints were retired and superseded by the per-product model:
-- latest + history → **`GET /api/v1/{sport}/{entityType}/{id}/vibes`** (`current` + bounded `history` in one payload).
+The per-entity vibe endpoints were retired and superseded:
+- per-entity vibe → folded into the **`GET /api/v1/{sport}/{entityType}/{id}/sigil`** crown synthesis (the per-entity `/vibes` alias was dropped).
 - `/vibe/hottest` → **`GET /api/v1/{sport}/leaderboard/vibes`** (the enriched sport-wide hottest-by-sentiment board).
 
 The vibe *data* (vibe_scores) and its writers (CLI / listener / cron) are unchanged — only these read routes moved.
@@ -1227,8 +1157,6 @@ if (response.status === 304) {
 Cache TTL:
 - Default data endpoints: 5 minutes
 - News: 10 minutes (in addition to permanent write-through to `news_articles`)
-- Twitter cache: per-sport, default 20 minutes (configurable via `TWITTER_CACHE_TTL_SECONDS`)
-- Tweet retention: hard 24h TTL enforced by the maintenance ticker (ToS)
 
 ## Data Retention Summary
 
@@ -1238,7 +1166,6 @@ Different consumers have different persistence rules:
 |---|---|---|
 | `news_articles` (Google RSS) | Permanent, for training + RAG corpus | No TTL — grows indefinitely |
 | `news_article_entities` | Same | Cascade on article delete |
-| `tweets` + `tweet_entities` | Inference cache only | 24h hard TTL |
 | `vibe_scores` | Permanent, with `model_version` + `prompt_version` | No TTL |
 
 ## Entity Tiering
@@ -1300,16 +1227,12 @@ identity persists via the refresh token in the device Keychain. Full design:
 
 - Router: `go/internal/api/server.go`
 - Data handlers: `go/internal/api/handler/data.go`
-- News handler: `go/internal/api/handler/news.go`
-- Twitter handler: `go/internal/api/handler/twitter.go`
-- Vibe handlers: `go/internal/api/handler/vibe.go`
 - Auth handlers (mobile JWT): `go/internal/api/handler/auth.go`
 - Auth token issue/verify: `go/internal/auth/auth.go`; bearer middleware: `go/internal/api/middleware.go` (`RequireAuth`)
-- News write-through + entity pool: `go/internal/thirdparty/news.go`
-- Twitter service + telemetry: `go/internal/thirdparty/twitter.go`
-- Ollama client + vibe generator: `go/internal/ml/ollama.go`, `go/internal/ml/vibe.go`
-- Listener (vibe dispatch): `go/internal/listener/listener.go`, `go/internal/listener/vibe_worker.go`
-- Maintenance tickers (tweet TTL purge, etc.): `go/internal/maintenance/maintenance.go`
+- News corpus methods (background pipeline only — no serving route): `go/internal/thirdparty/news.go`
+- Ollama client + sentiment generator: `go/internal/ml/ollama.go`, `go/internal/ml/vibe.go`
+- Listener (synthesis dispatch): `go/internal/listener/listener.go`, `go/internal/listener/news_volume_worker.go`
+- Maintenance tickers: `go/internal/maintenance/maintenance.go`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
 - Swagger docs: `go/docs/swagger.json`, `go/docs/swagger.yaml`

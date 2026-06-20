@@ -19,10 +19,10 @@ func TestRouteOwnershipSplit(t *testing.T) {
 		path       string
 		wantStatus int
 	}{
-		{name: "canonical profile route registered", path: "/api/v1/nba/player/1", wantStatus: http.StatusServiceUnavailable},
+		{name: "bundled profile route removed (O16)", path: "/api/v1/nba/player/1", wantStatus: http.StatusNotFound},
 		{name: "canonical meta route registered", path: "/api/v1/nba/meta", wantStatus: http.StatusServiceUnavailable},
 		{name: "canonical sport health route registered", path: "/api/v1/nba/health", wantStatus: http.StatusServiceUnavailable},
-		{name: "league profile route registered", path: "/api/v1/football/leagues/8/player/1", wantStatus: http.StatusServiceUnavailable},
+		{name: "bundled league profile route removed (O16)", path: "/api/v1/football/leagues/8/player/1", wantStatus: http.StatusNotFound},
 		{name: "league meta route registered", path: "/api/v1/football/leagues/8/meta", wantStatus: http.StatusServiceUnavailable},
 		{name: "league health route registered", path: "/api/v1/football/leagues/8/health", wantStatus: http.StatusServiceUnavailable},
 		{name: "canonical momentum route registered", path: "/api/v1/nba/player/1/momentum", wantStatus: http.StatusServiceUnavailable},

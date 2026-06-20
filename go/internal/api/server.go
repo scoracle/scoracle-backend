@@ -103,8 +103,10 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
-			// Canonical sport routes (vNext)
-			r.Get("/{entityType:player|team}/{id}", h.GetProfilePage)
+			// O16: the bundled profile route (/{sport}/{type}/{id}) was removed — its
+			// page-shell payload (entity + stat_definitions + available_seasons + season
+			// score) is delivered by the per-product endpoints in the eager model
+			// (available_seasons + stat_definitions ride /stats; entity is /meta).
 			// Per-product endpoints — each card is its own product. The two rails
 			// (stats, news) refine into end products that converge into the Sigil
 			// (Rating + Vibe + Momentum → Sigil). See wiki "Sigil" / "Product Narrative".
@@ -138,7 +140,6 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leaderboard/news", h.GetNewsLeaderboard)
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
 			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)
-			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}", h.GetLeagueProfilePage)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/momentum", h.GetLeagueTrendsPage)
 			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)
 			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)

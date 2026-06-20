@@ -652,10 +652,11 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 		sport, entityType, id, season, leagueID)
 }
 
-// GetEntitySigil returns the entity's RATING product — the statistical rail's end
+// GetEntityRating returns the entity's RATING product — the statistical rail's end
 // product: the positionless magnitude score + the divined defining strength + the
 // Gemma on-field identity blurb. The Rating card reads this. Served at /rating
-// (the legacy /sigil path now serves the crown synthesis — GetEntityVibes).
+// (the /sigil path serves the crown synthesis — GetEntityVibes). Renamed from
+// GetEntitySigil (O17): the handler + its prepared statement now match the product.
 // @Summary Get the entity rating (magnitude + strength + identity blurb)
 // @Description The entity's positionless magnitude score, divined defining strength, and the Gemma stat-identity blurb.
 // @Tags data
@@ -669,7 +670,7 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/rating [get]
-func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetEntityRating(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -690,7 +691,7 @@ func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_sigil", dataCacheKey(r), cache.TTLData, false,
+	h.serveStatementJSON(w, r, "entity_rating", dataCacheKey(r), cache.TTLData, false,
 		sport, entityType, id, season, leagueID)
 }
 

@@ -44,6 +44,26 @@ func TestRouteOwnershipSplit(t *testing.T) {
 	}
 }
 
+// TestHealthReadinessRequiresDB asserts that both health endpoints reflect DB
+// readiness. With no pool (degraded startup / DB unreachable) they must report
+// 503 — a database-less API is not serviceable, so it must not look healthy to
+// a readiness probe. (Launch-hardening audit, Session 2.)
+func TestHealthReadinessRequiresDB(t *testing.T) {
+	cfg := &config.Config{CORSAllowOrigins: []string{"http://localhost:3000"}}
+	router := NewRouter(nil, cache.New(false), cfg)
+
+	for _, path := range []string{"/health", "/health/db"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status for %s = %d, want %d", path, rec.Code, http.StatusServiceUnavailable)
+			}
+		})
+	}
+}
+
 func TestGoSpecProxyUsesRequestHost(t *testing.T) {
 	cfg := &config.Config{
 		CORSAllowOrigins: []string{"http://localhost:3000"},

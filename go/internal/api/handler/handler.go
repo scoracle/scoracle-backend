@@ -4,6 +4,8 @@
 package handler
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -12,10 +14,14 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/auth"
+	"github.com/albapepper/scoracle-data/internal/buildinfo"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
+
+// errNoPool reports that the handler has no database pool (degraded startup).
+var errNoPool = errors.New("database pool unavailable")
 
 // Handler holds shared dependencies for all endpoint handlers.
 type Handler struct {
@@ -50,6 +56,8 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 		"name":    "Scoracle Data API",
 		"version": "2.0.0",
 		"status":  "running",
+		"commit":  buildinfo.Commit,
+		"built":   buildinfo.BuildTime,
 		"docs":    "/docs",
 		"optimizations": []string{
 			"pgxpool_connection_pooling",
@@ -62,16 +70,43 @@ func (h *Handler) Root(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HealthCheck returns basic health status.
+// dbReady returns nil when the database pool exists and answers a trivial
+// query, and an error otherwise. It is the single source of truth shared by the
+// liveness/readiness endpoints so they cannot disagree about DB reachability.
+func (h *Handler) dbReady(ctx context.Context) error {
+	if h.pool == nil {
+		return errNoPool
+	}
+	var n int
+	return h.pool.QueryRow(ctx, "health_check").Scan(&n)
+}
+
+// HealthCheck reports serving readiness, including database reachability.
+//
+// Every data endpoint is a precomputed read from Postgres, so an API that can't
+// reach its database is not actually serviceable. This endpoint therefore
+// returns 503 when the database is unreachable rather than reporting a process
+// that is up-but-useless as healthy (the launch-hardening audit calls this out:
+// a readiness probe pointed at /health must reflect DB readiness).
 // @Summary Health check
-// @Description Returns basic health status and timestamp.
+// @Description Returns serving readiness; 503 when the database is unreachable.
 // @Tags health
 // @Produce json
 // @Success 200 {object} map[string]interface{}
+// @Failure 503 {object} map[string]interface{}
 // @Router /health [get]
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	if err := h.dbReady(r.Context()); err != nil {
+		respond.WriteJSONObject(w, http.StatusServiceUnavailable, map[string]interface{}{
+			"status":    "unhealthy",
+			"database":  "disconnected",
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
+		return
+	}
 	respond.WriteJSONObject(w, http.StatusOK, map[string]interface{}{
 		"status":    "healthy",
+		"database":  "connected",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 }
@@ -85,23 +120,11 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 // @Failure 503 {object} map[string]interface{}
 // @Router /health/db [get]
 func (h *Handler) HealthCheckDB(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if err := h.dbReady(r.Context()); err != nil {
 		respond.WriteJSONObject(w, http.StatusServiceUnavailable, map[string]interface{}{
 			"status":    "unhealthy",
 			"database":  "disconnected",
-			"error":     "Database pool unavailable",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		})
-		return
-	}
-
-	var n int
-	err := h.pool.QueryRow(r.Context(), "health_check").Scan(&n)
-	if err != nil {
-		respond.WriteJSONObject(w, http.StatusServiceUnavailable, map[string]interface{}{
-			"status":    "unhealthy",
-			"database":  "disconnected",
-			"error":     "Database connection check failed",
+			"error":     "database connectivity check failed",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})
 		return

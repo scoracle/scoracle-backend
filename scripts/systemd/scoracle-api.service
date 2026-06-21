@@ -1,29 +1,35 @@
 [Unit]
-Description=Scoracle Data API
+Description=Scoracle Data API (self-hosted)
 After=network-online.target
 Wants=network-online.target
-# Cap rapid-crash restarts. If we're crashing 5 times in 60s something
-# is genuinely wrong — stop trying. (systemd wants these in [Unit], not
-# [Service].)
-StartLimitBurst=5
-StartLimitIntervalSec=60
+# Unlimited automatic restarts — matches the proven live policy. The API fails
+# fast in production when Postgres is unavailable (see go/cmd/api/main.go), and
+# we WANT it to come straight back the instant Postgres returns. Disabling the
+# rapid-crash backstop (StartLimitIntervalSec=0) is deliberate: a Postgres
+# restart must not be able to wedge the API permanently into a failed state.
+# (StartLimitIntervalSec belongs in [Unit], not [Service].)
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-WorkingDirectory=/home/sheneveld/scoracle-backend
-# EnvironmentFile order matters here: systemd loads sequentially, but unlike
-# godotenv systemd DOES overwrite on later files. Load .env first (template
-# with empty defaults), then .env.local (real values) wins.
-EnvironmentFile=-/home/sheneveld/scoracle-backend/.env
-EnvironmentFile=-/home/sheneveld/scoracle-backend/.env.local
-ExecStart=/home/sheneveld/scoracle-backend/go/bin/scoracle-api
-Restart=on-failure
-RestartSec=5
+# __SCORACLE_REPO_ROOT__ is rendered to the real repo path by
+# scripts/hosting/install.sh at install time. Do not hardcode a path here —
+# that is exactly the stale-path defect Session 2 of the audit removed.
+WorkingDirectory=__SCORACLE_REPO_ROOT__
+# EnvironmentFile order matters: systemd loads sequentially and DOES overwrite
+# on later files. Load .env first (committed template with empty defaults),
+# then .env.local (real values) wins.
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
+ExecStart=__SCORACLE_REPO_ROOT__/go/bin/scoracle-api
+Restart=always
+RestartSec=3
 
 # Logs go to the journal; view with:
 #   journalctl --user -u scoracle-api -f
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=scoracle-api
 
 [Install]
 WantedBy=default.target

@@ -15,12 +15,18 @@ Description=Restart scoracle-api when its binary is rebuilt
 # the temp file's close-write event, which is enough to trigger restart
 # right around when the new binary is actually in place.
 #
-# Side note: building any other binary into go/bin/ (e.g. cmd/vibe) will
-# also trigger a restart. Fine — you're not rebuilding sibling binaries
-# in production.
+# Side note: building/replacing any other binary in go/bin/ (e.g. when
+# scripts/hosting/release.sh stages pipeline/statcommentary/vibesynth) also
+# fires this. That's harmless: each restart just re-execs the API onto
+# whatever scoracle-api binary is currently in place, and release.sh ends
+# with an explicit restart + health check that settles the final state.
 
 [Path]
-PathChanged=/home/sheneveld/scoracle-backend/go/bin/
+# __SCORACLE_REPO_ROOT__ is rendered by scripts/hosting/install.sh. The stale
+# pre-consolidation path that lived here (/home/sheneveld/scoracle-backend/...)
+# silently broke auto-restart-on-rebuild — the watcher pointed at a directory
+# the deployed binary no longer lived in. (Audit Session 2.)
+PathChanged=__SCORACLE_REPO_ROOT__/go/bin/
 # Triggers the oneshot restart helper, NOT the service directly, because
 # a Path unit triggers `systemctl start <Unit>` — and start is a no-op
 # when the service is already running.

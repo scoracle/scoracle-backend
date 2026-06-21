@@ -22,12 +22,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
 	"github.com/albapepper/scoracle-data/internal/api"
+	"github.com/albapepper/scoracle-data/internal/buildinfo"
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
@@ -42,6 +44,7 @@ import (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
+	logger.Info("Scoracle Data API build", "commit", buildinfo.Commit, "built", buildinfo.BuildTime)
 
 	// Load .env.local (real values, gitignored) then .env (committed template).
 	// godotenv does not overwrite already-set vars, so .env.local wins.
@@ -54,8 +57,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Context with signal handling
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	// Context with signal handling. SIGINT (os.Interrupt) covers a Ctrl-C in an
+	// interactive shell; SIGTERM is what systemd `stop`/`restart` and container
+	// runtimes send — without it the process would be SIGKILLed after the stop
+	// timeout instead of shutting down gracefully.
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
 	// Connect to database
@@ -63,8 +69,18 @@ func main() {
 	pool, err := db.New(ctx, cfg)
 	var dbPool *pgxpool.Pool
 	if err != nil {
+		// Every serving endpoint is a precomputed read from Postgres, so a
+		// database-less API serves nothing useful. In production we fail fast and
+		// let systemd's Restart=always bring us straight back when Postgres
+		// returns, rather than parking a healthy-looking but useless process.
+		// Non-production keeps degraded startup so local dev / CI can boot the
+		// HTTP surface without a database.
+		if cfg.Environment == "production" {
+			logger.Error("Failed to connect to database; refusing to start in production", "error", err)
+			os.Exit(1)
+		}
 		logger.Error("Failed to connect to database", "error", err)
-		logger.Warn("Starting in degraded mode without database connectivity")
+		logger.Warn("Starting in degraded mode without database connectivity", "environment", cfg.Environment)
 	} else {
 		dbPool = pool.Pool
 		defer pool.Close()

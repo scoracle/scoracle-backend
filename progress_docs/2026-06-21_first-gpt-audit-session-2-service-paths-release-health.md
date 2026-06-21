@@ -1,5 +1,7 @@
 # First GPT Audit — Session 2: Service paths, release mechanics, health checks
 
+**Status: DONE — shipped to production 2026-06-21 (commit `fb92498`).**
+
 **Worked:** 2026-06-21 (archbox)
 
 **Plan:** `planning_docs/FIRST-GPT-AUDIT.md`, Session 2
@@ -97,27 +99,51 @@ Existing hardcoded-`cd` cron wrappers are unaffected (they don't capture `cd` in
 
 ### Audit "Done when" — A clean machine can reproduce the deployment without manual path surgery
 
-Met for the repo artifacts. Not yet applied to the live machine (Decision 2): the running API still
-serves the Session-1 binary, the installed `.path` watcher is still the stale one, and the live
-restart policy is unchanged until Scott runs `release.sh`.
+Met for the repo artifacts **and applied to the live machine** (see Deploy below).
+
+## Deploy (2026-06-21, archbox)
+
+Deployed on a follow-up go-ahead after the original "verify-only" decision. Built from a **clean
+detached `git worktree`** at the then-current `origin/main` tip rather than the shared working tree
+— the parallel Session 3 session had uncommitted Python/shell work in the tree, and a clean worktree
+guarantees the binaries contain zero Session-3 code and stamp an honest commit.
+
+- **Deployed commit:** `fb92498` (= Session 2 `c27e6de` + one planning-doc-only commit; no code diff,
+  so the binaries are exactly Session 2's code, and the stamp matches `origin/main`).
+- **Pre-flight (no schema drift):** repo's highest migration is `098` (applied per Session 1), no
+  migration changed since the deployed binary's commit, and the only `db.go` change references
+  `model_version`/`prompt_version` columns added by applied migrations ≤ 098. `db.New` therefore
+  registers all prepared statements against the live schema.
+- **Method:** clean-worktree build of all four binaries (`-trimpath -buildvcs=false`, ldflags
+  stamping) → atomic placement into `go/bin` → `install.sh` (render units + daemon-reload) →
+  `systemctl --user restart scoracle-api` → health verify → `systemctl --user restart
+  scoracle-api.path`. Previous binaries were backed up first; an auto-rollback guard was in place
+  (not needed — health came up first try).
+- **Verified live:** service `active (running)` with `Restart=always`/`RestartSec=3s`; `GET /` reports
+  `commit=fb9249851c0d`; `/health`, `/health/db`, and `/api/v1/nba/meta` all 200; `.path` watcher now
+  armed on the correct `…/scoracle/scoracle-backend/go/bin` (stale-watcher bug fixed in prod). All
+  four deployed binary hashes matched the clean-worktree build exactly. The parallel Session 3
+  working tree was left fully intact.
+
+Result: the running API, cron binaries, units, and restart policy now all describe commit `fb92498`.
+The one-commit release also advanced `pipeline`/`statcommentary`/`vibesynth` (previously hand-built
+from older commits) to current `main`; they next exercise on their nightly cron.
 
 ## Deliberately NOT done (scope discipline)
 
-- No live deploy / unit reinstall / production restart (Decision 2).
 - `tunnel-smoke.sh` still labels `/health` "Liveness" and still probes retired `/news/status` +
   `/twitter/status` routes — documentation/route reconciliation is **Session 17**.
 - `cmd/api/main.go` Swagger `@description` still mentions "journalist tweets" — **Session 17**.
-- Did not touch the unrelated untracked `planning_docs/TOP_DOWN_ROSTER_COVERAGE.md` (parallel session).
+- Did not touch the unrelated `planning_docs/TOP_DOWN_ROSTER_COVERAGE.md` or any parallel Session 3 work.
 
-## To deploy (when ready)
+## Re-deploying later
 
 ```bash
 scripts/hosting/release.sh      # build all 4 @ one commit, reinstall units, restart, verify health
 ```
 
-Re-enable the now-correct path watcher (it was stale): `systemctl --user restart scoracle-api.path`
-is implicit via `install.sh` daemon-reload, but confirm with
-`systemctl --user show scoracle-api.path -p Paths`.
+Note `release.sh` builds from the working tree; when the tree is dirty (e.g. a concurrent session),
+build from a clean `git worktree` at the target commit as done above, or commit/stash first.
 
 ## Files changed
 

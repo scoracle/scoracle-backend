@@ -11,6 +11,29 @@ This document converts the first full backend audit into a sequence of focused i
 
 Each numbered improvement is intended to be handled in its own dedicated session. Some sessions have dependencies, noted below. Avoid combining unrelated fixes merely because they touch the same language or directory.
 
+## Product authority and invariants
+
+The wiki **Product Narrative** is authoritative when this audit and the product model differ. Backend
+hardening must preserve these invariants:
+
+- Scoracle is a curated derivation engine built around **compile → scrub → reveal**, not a passthrough
+  aggregator.
+- The statistical and emotional rails are equal sources. The statistical rail ends in **Rating**;
+  the emotional rail ends in **Vibe**.
+- **Momentum** is the combination of the Rating trajectory and the Vibe trajectory over time. It
+  does not belong to either rail alone.
+- **Sigil** is a separate convergence product synthesized from **Rating + Vibe + Momentum**. It is
+  not the final stage of the news rail.
+- Sigil generation is event-driven and debounced. Scheduled execution may repair or backfill missed
+  work, but must not become the normal source of Sigil generations.
+- Transfers is a scope within News. A backend `/transfers` contract may support that scope, but it
+  must not be modeled as an independent card, tab, headline score, or leaderboard dimension.
+- Vibe is an internal/end-product signal with no standalone card. It feeds Meta, Momentum, and Sigil.
+- Derived outputs are append-only and time-stamped. Marker rows may change the current projection,
+  but must never delete, overwrite, or invalidate historical derivations.
+- Public contracts remain product-oriented and presentation-free: `/meta`, `/stats`, `/rating`,
+  `/news` (including its Transfers scope), `/roster`, `/momentum`, and `/sigil`.
+
 The guiding principle is:
 
 > Prefer explicit, durable state over timing assumptions, in-memory watermarks, best-effort notifications, or clever recovery behavior.
@@ -28,9 +51,9 @@ Provider schedules
   → finalize_fixture()
   → season aggregates, percentiles, ratings, event scores
   → Gemma 4 stat commentary
-  → stat_summaries
+  → stat_summaries / Rating generations
   → prepared PostgreSQL JSON queries
-  → Go /stats, /rating, /momentum endpoints
+  → Go /stats and /rating endpoints
 ```
 
 ### News rail
@@ -42,10 +65,24 @@ Google News RSS
   → vetted links
   → transfer analysis
   → narratives
-  → Vibe
-  → Sigil
+  → Vibe generations
   → prepared PostgreSQL JSON queries
-  → Go /news, /transfers, /sigil endpoints
+  → Go /news endpoint and its Transfers scope
+```
+
+### Convergence
+
+```text
+Rating generations ───────────────┐
+                                  ├→ Rating trajectory ─┐
+Vibe generations ─────────────────┤                     ├→ Momentum
+                                  └→ Vibe trajectory ───┘
+
+Rating + Vibe + Momentum
+  → event-driven, debounced Gemma 4 synthesis
+  → append-only Sigil generation
+  → prepared PostgreSQL JSON queries
+  → Go /momentum and /sigil endpoints
 ```
 
 The component boundaries are generally good. The primary weakness is that transitions between components are often represented by timestamps, process-local state, cron timing, or transient `LISTEN/NOTIFY` messages instead of durable work records.
@@ -63,11 +100,11 @@ The component boundaries are generally good. The primary weakness is that transi
 5. Repair BDL error and rate-limit propagation.
 6. Make deferred season recomputation durable.
 7. Introduce durable news-pipeline work state.
-8. Make compile → scrub → derive an ordered pipeline.
+8. Make compile → scrub → derive → reveal an ordered pipeline.
 9. Repair real-time news trigger semantics.
 10. Make transfer validation fail closed.
 11. Standardize latest-generation marker semantics.
-12. Repair Sigil coverage, season scoping, and dry-run behavior.
+12. Repair convergence and the event-driven Sigil lifecycle.
 13. Make batch jobs report failure and prevent overlap.
 14. Harden Ollama/Gemma lifecycle management.
 15. Harden backup, restore, and migration operations.
@@ -389,7 +426,10 @@ CREATE TABLE pipeline_work (
   - an article/entity link is inserted;
   - a link becomes vetted;
   - a transfer verdict changes;
-  - a rating input changes, if Sigil work is unified here later.
+  - a Rating generation changes;
+  - a Vibe generation changes;
+  - either trajectory changes and therefore changes Momentum;
+  - any Rating, Vibe, or Momentum input changes and therefore requires Sigil convergence.
 - Store an input hash/version where useful instead of relying only on elapsed time.
 
 ## Keep it simple
@@ -409,7 +449,7 @@ The database can answer: “What backend derivation work is pending, running, or
 
 ---
 
-# Session 8 — Make compile → scrub → derive an ordered pipeline
+# Session 8 — Make compile → scrub → derive → reveal an ordered pipeline
 
 ## Problems
 
@@ -430,9 +470,13 @@ Complete Session 7 first.
 - After an article is fully scrubbed, enqueue affected entities for:
   - transfer analysis;
   - narratives;
-  - Vibe;
-  - Sigil.
+  - Vibe.
 - Process those stages in declared order.
+- When a Vibe generation changes, enqueue trajectory/Momentum recomputation.
+- When Rating or Vibe changes, recompute the affected trajectory pair and append a Momentum
+  generation when its input version changes.
+- Enqueue Sigil convergence only after the current Rating, Vibe, and Momentum inputs are available.
+- Generate Sigil from those three versioned inputs, never directly from “news pipeline complete.”
 - Retain the maintenance scrub ticker only for old backlog and failed-item repair.
 - Remove `runStart` as the correctness boundary.
 - Make stage transitions explicit in durable work state.
@@ -448,7 +492,11 @@ RSS fetch
   → transfers
   → narratives
   → Vibe
+  → recompute Rating/Vibe trajectories
+  → Momentum
+  → converge Rating + Vibe + Momentum
   → Sigil
+  → reveal through product endpoints
 ```
 
 ## Verification
@@ -506,7 +554,7 @@ Notifications improve latency but are never required for correctness.
 ## Problems
 
 - Gemma timeout or parse failure writes `is_rumor=TRUE`.
-- Public endpoints interpret `TRUE` as vetted.
+- The News Transfers-scope read path interprets `TRUE` as vetted.
 - Internal transfer heat used by narratives and Vibe does not filter `is_rumor`.
 - Cleared rumors can continue influencing downstream prose and scores.
 - `compute_transfer_heat` still permits unscrubbed links.
@@ -521,8 +569,7 @@ Notifications improve latency but are never required for correctness.
 - On Gemma error or parse failure, persist `NULL`, not `TRUE`.
 - Retry unknown rows through durable work.
 - Require `is_rumor IS TRUE` in:
-  - public transfer endpoints;
-  - transfer leaderboards;
+  - the `/transfers` contract used by the News Transfers scope;
   - narrative grounding;
   - Vibe inputs;
   - pipeline statistics.
@@ -563,6 +610,9 @@ Generators write marker rows for “no narratives,” “no stats,” and “no 
   - Sigil leaderboard
   - any Vibe read where a null marker should clear prior data
 - Decide whether markers expire old history or only current state.
+- Preserve all prior generations permanently. A marker changes only the current projection; it does
+  not erase, supersede historically, or make prior derivations unavailable to archive/time-series
+  queries.
 - Add an explicit marker reason if useful:
   - `no_corpus`
   - `no_stats`
@@ -602,7 +652,7 @@ All endpoint products agree on what the latest generation means.
 
 ---
 
-# Session 12 — Repair Sigil generation lifecycle
+# Session 12 — Repair convergence and the event-driven Sigil lifecycle
 
 ## Problems
 
@@ -613,13 +663,20 @@ All endpoint products agree on what the latest generation means.
 - Processing older seasons after current seasons can make old output current.
 - Sigil input hash, previous score, and recent debounce are not season-scoped.
 - Single-mode “dry run” still persists.
-- Nightly Sigil cron is not installed by default, leaving major coverage gaps.
+- Existing nightly behavior is being treated as a generation path even though the product model
+  requires event-driven, debounced convergence.
+- Current orchestration does not make Rating + Vibe + Momentum explicit, versioned prerequisites.
 
 ## Work
 
 - Move Sigil generation outside notification/follower logic.
 - Treat notification delivery and product generation as separate concerns.
-- Make nightly enumeration use `sports.current_season`.
+- Define one convergence input record/hash from the current season-aware Rating, Vibe, and Momentum
+  generations.
+- Trigger convergence when any of those three inputs changes.
+- Debounce duplicate events by convergence input hash, not by elapsed time alone.
+- Require all three valid inputs before producing a scored Sigil; append a truthful marker when the
+  product contract calls for a current no-data state.
 - Decide product semantics:
   - If Sigil is current-season only, enforce that everywhere.
   - If historical Sigils are supported, require season in endpoint selection and hashes.
@@ -631,21 +688,28 @@ All endpoint products agree on what the latest generation means.
   by season.
 - Add a real `DryRun` field to `SigilRequest`, matching stat commentary.
 - Ensure marker and successful Sigil reads obey Session 11.
-- Once fixed, install a bounded nightly backfill/current-season cron.
-- Backfill current-season coverage before launch.
+- Convert nightly execution into a bounded reconciliation/backfill job only:
+  - enumerate current-season entities;
+  - detect missing or stale convergence hashes;
+  - enqueue the same event-driven convergence work;
+  - do not synthesize an unchanged Sigil merely because a schedule fired.
+- Reconcile current-season coverage before launch.
 
 ## Verification
 
 - Entity with zero followers receives Sigil generation.
 - FCM disabled does not disable Sigil.
-- Nightly target list contains only current-season rows.
+- Rating, Vibe, or Momentum input change enqueues one debounced convergence generation.
+- Unchanged convergence inputs do not append a scheduled duplicate.
+- Reconciliation targets only current-season missing/stale rows.
 - Historical synthesis cannot replace current-season endpoint output.
 - Single dry-run produces no database write.
 - Current-season rated entities reach an agreed coverage threshold.
 
 ## Done when
 
-Sigil availability depends on product inputs, not whether somebody follows the entity or whether push notifications are configured.
+Sigil availability depends on current Rating, Vibe, and Momentum inputs—not followers, push
+configuration, or a nightly generation schedule.
 
 ---
 
@@ -799,7 +863,8 @@ Add tests around behavior, not implementation trivia.
 - Transfer fail-closed behavior.
 - Cleared rumors excluded from downstream heat.
 - Sigil dry-run.
-- Current-season Sigil enumeration.
+- Event-driven convergence from Rating + Vibe + Momentum.
+- Current-season Sigil reconciliation without duplicate scheduled generations.
 - Season-scoped hashes and previous scores.
 
 ### SQL/integration tests
@@ -851,6 +916,8 @@ Backend documentation still describes removed routes and retired integrations. O
 - Document durable work tables and repair commands.
 - Document release, rollback, backup, and restore procedures.
 - Document which jobs are cron-driven and which are event-driven.
+- Document that Sigil is event-driven and debounced, with cron limited to reconciliation/backfill.
+- Document Transfers as a News scope even if `/transfers` remains a supporting backend contract.
 - Ensure comments in code use current Rating/Vibe/Sigil vocabulary.
 
 ## Verification
@@ -943,7 +1010,7 @@ Before public launch, run one deliberate end-to-end proof for every sport.
 2. Confirm it is not eligible before finality.
 3. Process complete final box scores.
 4. Confirm event rows, season aggregates, ratings, and commentary.
-5. Confirm `/stats`, `/rating`, and `/momentum`.
+5. Confirm `/stats` and `/rating`.
 6. Re-run and verify idempotency.
 
 ## News proof
@@ -952,10 +1019,19 @@ Before public launch, run one deliberate end-to-end proof for every sport.
 2. Confirm exact links are scrubbed.
 3. Confirm rejected links do not reach consumers.
 4. Confirm accepted links enqueue durable work.
-5. Confirm transfer verdict, narratives, Vibe, and Sigil.
-6. Confirm `/news`, `/transfers`, and `/sigil`.
+5. Confirm transfer verdict, narratives, and Vibe.
+6. Confirm `/news` and its Transfers scope.
 7. Append a no-data marker and confirm old current content clears.
 8. Simulate process death between stages and confirm recovery.
+
+## Convergence proof
+
+1. Change a current Rating or Vibe input.
+2. Confirm both trajectories are recomputed into Momentum.
+3. Confirm Rating + Vibe + Momentum enqueue one debounced Sigil convergence.
+4. Confirm `/momentum` exposes both trajectories and `/sigil` exposes the holistic synthesis.
+5. Re-run reconciliation with unchanged inputs and confirm no duplicate Sigil is appended.
+6. Confirm prior Momentum and Sigil generations remain available as append-only history.
 
 ## Operations proof
 
@@ -975,7 +1051,9 @@ Launch only when:
 - no pipeline stage depends on an ephemeral notification for correctness;
 - unverified content cannot be served as verified;
 - marker rows clear stale current products;
-- Sigil is season-correct and broadly populated;
+- Momentum combines both rail trajectories;
+- Sigil is season-correct, broadly populated, and generated from Rating + Vibe + Momentum;
+- scheduled work only reconciles missing/stale Sigils and never creates unchanged duplicates;
 - health checks reflect actual serving readiness;
 - a verified off-host restore can boot the backend;
 - the deployed binaries, schema, service files, cron, and documentation all describe the same system.

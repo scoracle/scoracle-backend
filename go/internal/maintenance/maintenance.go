@@ -101,9 +101,12 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		go runLoop(ctx, t.C, "alltime_rank", func() { recalcAlltimeRanks(ctx, pool, logger) })
 	}
 
-	// News scrub: the Gemma ID-gate sweep over unscrubbed news_article_entities
-	// links. Skipped when Ollama is unreachable (scrubber == nil) so a model
-	// outage never stalls the rest of maintenance.
+	// News scrub: BACKLOG + repair only (FIRST-GPT-AUDIT Session 8). The daily
+	// cmd/pipeline now scrubs its own freshly-ingested batch in-run, so this ticker
+	// no longer drives fresh content into derivation — it mops up the older
+	// unscrubbed tail, real-time inserts between pipeline runs, and links a failed
+	// in-run scrub left behind. Skipped when Ollama is unreachable (scrubber == nil)
+	// so a model outage never stalls the rest of maintenance.
 	if cfg.NewsScrubInterval > 0 && scrubber != nil {
 		t := time.NewTicker(cfg.NewsScrubInterval)
 		tickers = append(tickers, t)
@@ -354,8 +357,11 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 	logger.Info("Peer-cohort aggregates refreshed", "cohorts", n)
 }
 
-// scrubNewsLinks is the Gemma ID-gate sweep — the async "scrub". Two bounded,
-// non-destructive phases per tick:
+// scrubNewsLinks is the Gemma ID-gate sweep — the async "scrub". Since
+// FIRST-GPT-AUDIT Session 8 this is the BACKLOG/repair path, not the primary
+// scrub: the daily pipeline scrubs the batch it just ingested in-run, so what
+// reaches this newest-first sweep is the older tail, real-time inserts, and
+// failed-in-run links. Two bounded, non-destructive phases per tick:
 //
 //  1. Auto-vet primaries (cheap SQL, no Gemma): links at match_confidence >= 1.0
 //     are the entity the article was fetched for — deterministically relevant, no

@@ -79,7 +79,7 @@ relying on them.
   bulk run.
 
 ### F-007 — `pipeline_work` is entity-keyed; scrub stays article-keyed
-- **Found:** Session 7 · **Status:** Folded into Session 8
+- **Found:** Session 7 · **Status:** Resolved (Session 8)
 - The durable work queue (`pipeline_work`, migration 102) is keyed by entity and covers the
   per-entity *derive* stages (transfers, narratives, vibe, momentum, sigil). **Scrub is
   article-keyed** and already has a durable queue: `news_article_entities.scrubbed_at IS NULL`
@@ -97,3 +97,82 @@ relying on them.
 - **Action:** Session 16 — provision the test DB, set `TEST_DATABASE_URL` in CI, and the
   work-queue concurrency tests (already authored) plus the prepared-statement-registration check
   come along for free.
+
+### F-009 — Transfers are now FRESH-NEWS-SCOPED, not all-teams-nightly
+- **Found:** Session 8 · **Status:** Ops note
+- Pre-S8 the nightly pipeline ran transfer analysis across **every** team each run. S8 made it
+  event-driven: only teams that gained a **fresh vetted link** this run are enqueued for
+  `transfers`. A team with no new corpus gets **no new transfer generation** — this is intended
+  (transfer heat decay is read-time: the `/transfers` read filters to heat>0 within 14d, so a
+  stale rumor ages out of the served set without needing re-generation). Net effect: far fewer
+  Gemma calls, and "no fresh news ⇒ no work" holds for transfers too.
+- **Action:** if a *coverage* refresh of all teams is ever wanted (e.g. before launch), add it as a
+  bounded **reconciliation** job (mirror the Session 12 reconciliation pattern), not by reverting to
+  unconditional all-teams generation.
+
+### F-010 — Sigil terminal stage is wired minimally in S8; convergence lifecycle is still S12
+- **Found:** Session 8 · **Status:** Watch (Session 12)
+- S8 wires Sigil as the terminal queue stage: a completed `vibe` item enqueues a `sigil` item
+  (before the vibe row is completed, so a crash re-runs vibe rather than dropping the sigil), and the
+  drain calls the **existing** `SigilGenerator.Generate(..., SkipUnchanged: true)` — which already
+  reads its 3 pillars live and skips the Gemma call on an unchanged input hash. S8 deliberately did
+  **not** rebuild the convergence lifecycle. Still owned by **Session 12**: season-scoping the hash /
+  previous-score / debounce, moving generation out of follower/FCM early-returns, the real `DryRun`
+  field, and converting the nightly run into reconciliation/backfill-only.
+- **Action (also S12):** S8 only wires the **news-rail** producer (vibe→sigil). The **stats-rail**
+  producer — *Rating change ⇒ enqueue sigil* (and the Momentum input, see F-011) — is NOT wired by
+  S8. S12 (or a stats-rail/finalize hook) must add the `rating`/`momentum`→`sigil` enqueue so a stat
+  change alone reconverges the Sigil.
+
+### F-011 — Momentum is still read-derived; "append a Momentum generation" is blocked → S12
+- **Found:** Session 8 · **Status:** Watch (Session 12)
+- The audit S8 work list says "append a Momentum generation when its input version changes," but in
+  the live code **Momentum is not a generation** — it is computed at read time (peer-cohort
+  precompute + per-event composite slope inside `SigilGenerator.loadMomentumPillar`), and
+  `rating_history` is still **write-only** (per its own comment, too shallow to be the trajectory
+  source yet). So there is no momentum row to enqueue or version. S8 leaves momentum read-derived and
+  Sigil reads it live.
+- **Action:** when `rating_history` has multi-point depth (or a dedicated momentum generation lands),
+  Session 12 can make Momentum a versioned input feeding the Sigil convergence hash. Until then the
+  Rating+Vibe+Momentum "three versioned inputs" model is partial by necessity.
+
+### F-012 — Pipeline overlap is not yet guarded (advisory lock is Session 13)
+- **Found:** Session 8 · **Status:** Watch (Session 13)
+- The S8 pipeline has **no advisory lock**, so two concurrent `cmd/pipeline` runs could both claim/
+  process work. The blast radius is bounded: `Claim` uses `FOR UPDATE SKIP LOCKED` (two runs get
+  disjoint rows) and `Complete`/`Fail` are status-guarded. The real risk is `RequeueStale` at
+  startup stealing a slow-but-alive prior run's in-flight rows — mitigated by a **30-minute** stale
+  lease (longer than any single item's budget, incl. `perTeamTimeout`=10m for transfers), but not
+  eliminated. Separately, the in-API maintenance scrub ticker (30m) and the nightly pipeline can both
+  scrub the same article (idempotent, just wasteful).
+- **Action:** Session 13 adds the per-job PostgreSQL advisory lock (and the `pipeline_runs` record);
+  a shared Gemma concurrency governor is Session 14. Until then, rely on the single nightly cron slot
+  + the 30m lease.
+
+### F-013 — `GetEntityNews` signature changed; only the sweep calls it, but the API recompiles it
+- **Found:** Session 8 · **Status:** Ops note
+- `thirdparty.NewsService.GetEntityNews` now returns a 3rd value (affected article IDs). Its **only**
+  caller is `corpus.Sweep` (the live `/news` RSS routes are retired), so behavior is unchanged
+  elsewhere — but the symbol is still compiled into `scoracle-api`. The running API keeps its old
+  binary until rebuilt+restarted; an API restart is **not required for S8 correctness** (S8's queue is
+  driven by `cmd/pipeline`, a cron binary; the API doesn't touch `pipeline_work` until Session 9). The
+  pipeline "deploy" is simply rebuilding `go/bin/pipeline` (cron execs it fresh each night — no
+  systemctl restart). Just ensure the **next** `scoracle-api` rebuild includes these shared-package
+  changes (corpus/news/maintenance); `go build ./...` is clean.
+
+### F-014 — Ollama cold-start can blow the 180s timeout (capacity → Session 14)
+- **Found:** Session 8 verification · **Status:** Watch (Session 14)
+- During the S8 smoke, the first two scrub Gemma calls after idle each hit the
+  `OLLAMA_TIMEOUT_SECONDS=180` client timeout and failed (`Client.Timeout exceeded while awaiting
+  headers`). Once `gemma4:e4b` was warm (resident in VRAM) the SAME generation dropped to **~7.5s**.
+  Root cause is capacity, not the pipeline: `gemma4:e4b` is an **8B** model **partially
+  CPU-offloaded** — only ~3.6GB of its ~10GB sits in the **8GB** GPU (which already shows ~6.5GB
+  used) — so the cold load + first inference is slow enough to exceed 180s under any contention.
+- **Impact on S8:** the pipeline behaves **correctly** — a timed-out scrub is fail-closed (nothing
+  vetted ⇒ nothing enqueued ⇒ no derivation), so cold runs simply *under-derive* (the maintenance
+  backlog re-scrubs later) rather than publish bad data. But a cold nightly run could leave much of
+  the batch un-derived.
+- **Action (Session 14):** confirm the production Ollama timeout from measurement (operation-specific
+  — narratives may need longer than scrub); separate worker readiness from the one-time API boot
+  ping / add a model warm-up; add a shared GPU concurrency governor. Consider that the 8B model does
+  not fully fit the 8GB GPU — quantization/offload tuning or a smaller model may be the real fix.

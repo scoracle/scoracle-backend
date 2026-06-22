@@ -368,6 +368,10 @@ CREATE TABLE IF NOT EXISTS fixtures (
     seeded_at TIMESTAMPTZ,
     seed_attempts INTEGER DEFAULT 0,
     last_seed_error TEXT,
+    -- Why the latest provider payload failed the completeness contract
+    -- (seed/services/event/completeness.py). Distinct from last_seed_error
+    -- (transport/processing failures). Cleared by mark_fixture_seeded().
+    last_incomplete_reason TEXT,
     home_score INTEGER,
     away_score INTEGER,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -678,6 +682,8 @@ BEGIN
         status = 'seeded', seeded_at = NOW(),
         home_score = COALESCE(p_home_score, home_score),
         away_score = COALESCE(p_away_score, away_score),
+        last_seed_error = NULL,
+        last_incomplete_reason = NULL,
         updated_at = NOW()
     WHERE id = p_fixture_id;
 END;

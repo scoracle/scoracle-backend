@@ -9,8 +9,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable
 
+from shared.api_errors import RateLimitExhausted
 from shared.bdl_client import BDLClient
 from shared.models import (
+    BoxScoreResult,
     EventBoxScore,
     EventTeamStats,
     Player,
@@ -160,6 +162,8 @@ class NBAHandler:
         for params in param_candidates:
             try:
                 items = self.client.get_all_pages("/nba/v1/games", params)
+            except RateLimitExhausted:
+                raise
             except Exception:
                 continue
             if items:
@@ -261,20 +265,28 @@ class NBAHandler:
 
     def get_box_score(
         self, external_game_id: int, fixture_id: int
-    ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
+    ) -> BoxScoreResult:
         """Fetch one game's box score and return event-level player/team lines."""
         raw_lines = self._fetch_box_score_lines(external_game_id)
         if not raw_lines:
-            return [], []
+            return BoxScoreResult()
 
         players: list[EventBoxScore] = []
         team_stats_acc: dict[int, dict[str, float]] = {}
         team_scores: dict[int, int] = {}
+        provider_status: str | None = None
 
         for raw in raw_lines:
             player_raw = raw.get("player")
             team_raw = raw.get("team")
             game_raw = raw.get("game")
+
+            # Capture the provider finality label from the embedded game (e.g.
+            # "Final"); the completeness gate interprets it.
+            if provider_status is None and isinstance(game_raw, dict):
+                status_val = game_raw.get("status")
+                if isinstance(status_val, str):
+                    provider_status = status_val
 
             if not isinstance(team_raw, dict):
                 continue
@@ -356,7 +368,9 @@ class NBAHandler:
                 )
             )
 
-        return players, teams
+        return BoxScoreResult(
+            players=players, teams=teams, provider_status=provider_status
+        )
 
     def _fetch_box_score_lines(self, external_game_id: int) -> list[dict[str, Any]]:
         """Fetch player stats for a game."""
@@ -364,6 +378,8 @@ class NBAHandler:
         params = {"game_ids[]": external_game_id, "per_page": 100}
         try:
             return self.client.get_all_pages("/nba/v1/stats", params)
+        except RateLimitExhausted:
+            raise
         except Exception as e:
             logger.warning(f"Failed to fetch stats for game {external_game_id}: {e}")
             return []

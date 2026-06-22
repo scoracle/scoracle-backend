@@ -4,33 +4,53 @@
 #   crontab scripts/hosting/crontab.example
 # or merge into your existing crontab with `crontab -e`.
 #
-# IMPORTANT: cron runs in the system local timezone unless you set TZ.
+# IMPORTANT: cron runs in the system local timezone unless you set CRON_TZ.
 # Arch defaults to whatever timedatectl reports. Check with:
 #   timedatectl status
 # If your system is in UTC, translate 23:00 ET:
 #   EDT (Mar-Nov): 03:00 UTC next day  →  0 3 * * *
 #   EST (Nov-Mar): 04:00 UTC next day  →  0 4 * * *
-# Or set TZ=America/New_York at the top of this file to sidestep it.
+# CRON_TZ controls schedule interpretation; TZ controls each job's environment.
+CRON_TZ=America/New_York
 TZ=America/New_York
 
 # Make sure logs dir exists before cron writes to it:
 #   mkdir -p /home/sheneveld/scoracle/scoracle-backend/logs
 
 # ---------------------------------------------------------------------------
+# NBA / NFL live polling — current-season-aware, bounded, and offset
+# ---------------------------------------------------------------------------
+# `cron-live-fixtures.sh` resolves sports.current_season at runtime, so the
+# jobs roll over with the DB instead of the crontab. NBA/NFL share one BDL key,
+# so the wrapper serializes all BDL jobs; an overlapping tick exits cleanly.
+#
+# Schedule refresh is cheap because it only reloads a bounded date window:
+#   NBA: yesterday .. +10 days   (~1 BDL /games page on a normal week)
+#   NFL: 3 days ago .. +21 days  (~1 BDL /games page on a normal week)
+#
+# Completed-fixture drains run every 30 minutes. The seeder stops the whole
+# run with exit 2 on a provider 429 without incrementing fixture retry counts,
+# so the next tick resumes cleanly once the quota window clears.
+7 8 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nba-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nba.log 2>&1
+12 8 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nfl-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nfl.log 2>&1
+*/30 * * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nba-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nba.log 2>&1
+15,45 * * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh nfl-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-nfl.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Football event draining — daily
 # ---------------------------------------------------------------------------
 # Runs at 23:00 ET. Late enough that every European match of the day has
-# finished AND SportMonks has finalized lineup data. See
-# planning_docs/CRON_SEEDING_STRATEGY.md for the reasoning.
-0 23 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-scoseed.sh event process --sport football --season 2025 >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
+# finished AND SportMonks has finalized lineup data. The wrapper resolves the
+# live football season from Postgres, so there is no year rollover edit.
+0 23 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-process >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Football schedule + roster refresh — weekly (Monday 23:00 ET)
 # ---------------------------------------------------------------------------
 # Catches postponements, new signings, jersey changes. Larger call count
 # (~400 SportMonks req) but only once a week.
-0 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-scoseed.sh event load-fixtures football --season 2025 >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
-30 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-scoseed.sh meta seed football --season 2025 >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
+0 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-refresh >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
+30 23 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-live-fixtures.sh football-meta >> /home/sheneveld/scoracle/scoracle-backend/logs/cron-football.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Postgres backup — nightly 04:00 local
@@ -82,7 +102,16 @@ TZ=America/New_York
 0 2 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/tier-recompute.log 2>&1
 
 # ---------------------------------------------------------------------------
-# NBA / NFL event seeding — intentionally absent from cron.
-# BDL supports webhook subscriptions; those will drive event processing
-# when wired up (see planning_docs/CRON_SEEDING_STRATEGY.md).
+# Sigil (crown) synthesis — nightly, bounded (Optimization Ledger O2)
+# ---------------------------------------------------------------------------
+# Drains the Sigil backlog (~95% empty at the time of writing) at a bounded
+# rate. NOTE: audit Session 12 will convert this nightly run into a
+# reconciliation/backfill-only job (event-driven, debounced convergence becomes
+# the normal generation path). Until that lands, keep this entry so the backlog
+# keeps draining — do not drop it.
+0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 150 -throttle-ms 250 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
+
+# ---------------------------------------------------------------------------
+# Future: BDL webhooks can replace the polling drains once implemented.
+# Until then, the cron jobs above are the durable live-ingestion path.
 # ---------------------------------------------------------------------------

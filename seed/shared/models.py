@@ -93,3 +93,18 @@ class EventTeamStats:
     team: Team | None = None
     stats: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] | None = None
+
+
+@dataclass
+class BoxScoreResult:
+    """One fixture's full box score as returned by a provider handler.
+
+    `provider_status` is the raw provider finality label (e.g. BallDontLie
+    "Final", SportMonks "FT"/"NS"); None when the payload carried none. The
+    completeness gate (services/event/completeness.py) interprets it per sport
+    — handlers stay thin and do not decide finality themselves.
+    """
+
+    players: list[EventBoxScore] = field(default_factory=list)
+    teams: list[EventTeamStats] = field(default_factory=list)
+    provider_status: str | None = None

@@ -1,24 +1,31 @@
-// pipeline — the once-daily staged Gemma orchestrator.
+// pipeline — the once-daily compile → scrub → derive → reveal orchestrator.
 //
-// Runs the full chain IN ORDER, in one process so the cross-stage "which entities
-// were touched this run" handoff (the in-process runStart watermark) holds:
+// FIRST-GPT-AUDIT Session 8 turned this from an in-process-watermark chain into
+// an ordered, durable, crash-recoverable pipeline. The handoff between stages is
+// the pipeline_work queue (migration 102, go/internal/work), not the old runStart
+// watermark — so a kill mid-run resumes from the database, and a re-run with no
+// fresh input does no Gemma work:
 //
-//	sweep → transfers → narratives → sentiment → synthesis
-//	  0        1            2            3            4
+//	requeue stale → sweep → scrub(fresh batch) → enqueue derive work
+//	  → drain transfers → narratives → vibe → sigil   (in declared order)
 //
-// Stage 0 RSS-refreshes the corpus (the async scrub ticker vets it). Stage 1 vets
-// transfer heat off the scrubbed corpus (all teams). Stages 2/3/4 process every
-// entity whose corpus changed this run: narratives first (grounded on the fresh
-// stage-1 heat — see ml/news_narratives.go), then sentiment (the internal ingredient),
-// then vibe synthesis (the three-pillar holistic score the product shows).
-// Per-stage batches; the DB is the handoff between stages.
+//	Stage 0  RSS sweep returns the articles that gained a FRESH link this run.
+//	Stage 1  those exact articles are scrubbed IN-RUN (Gemma ID-gate, vetted=TRUE),
+//	         then each vetted entity is enqueued for its derive stages — teams also
+//	         for transfers. input_version is a corpus fingerprint, so an unchanged
+//	         corpus dedupes and a changed one reopens.
+//	Stages   each stage is drained from the queue in order (Claim → run → Complete/
+//	         Fail); narratives ground on the fresh transfer heat, vibe reads the
+//	         fresh narratives, and a completed vibe enqueues its sigil convergence.
+//
+// The async maintenance scrub ticker is now backlog/repair only — the daily run
+// scrubs its own fresh batch here. Real-time coverage between runs is still the
+// in-API LISTEN/NOTIFY workers (Session 9 converts those to enqueue durable work).
+// The terminal sigil stage uses the existing SigilGenerator (3 pillars + input-hash
+// SkipUnchanged); the full event-driven Sigil convergence lifecycle is Session 12.
 //
 //	go run ./cmd/pipeline -mode corpus
 //	go run ./cmd/pipeline -mode corpus -sport FOOTBALL   # one-sport smoke
-//
-// Real-time coverage between daily runs is the in-API LISTEN/NOTIFY workers
-// (news-volume → narrate+vibe; transfer_trigger → transfer). pipeline_stats is
-// written by the maintenance ticker, not here.
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
 package main
@@ -29,6 +36,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -38,11 +46,26 @@ import (
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
 	"github.com/albapepper/scoracle-data/internal/ml"
+	"github.com/albapepper/scoracle-data/internal/work"
 )
 
-// perTeamTimeout bounds one team's transfer analysis (many Gemma calls, one per
-// candidate). Generous — the candidate count is the real bound.
-const perTeamTimeout = 10 * time.Minute
+const (
+	// perTeamTimeout bounds one team's transfer analysis (many Gemma calls, one
+	// per candidate). Generous — the candidate count is the real bound.
+	perTeamTimeout = 10 * time.Minute
+	// staleLease is how long a 'running' row may sit before RequeueStale treats it
+	// as a crashed worker's abandoned lease and re-opens it. Longer than any single
+	// item's processing budget (transfers can take perTeamTimeout) so a slow-but-
+	// alive prior run is not stolen. Overlap prevention proper is Session 13.
+	staleLease = 30 * time.Minute
+	// failBackoff delays a failed item before it is claimable again; after
+	// maxAttempts it is parked as a visible dead-letter.
+	failBackoff = 30 * time.Minute
+	maxAttempts = 5
+	// claimBatch is how many ready rows a stage leases per Claim. Ollama serializes
+	// generation anyway, so this just bounds the lease set, not real concurrency.
+	claimBatch = 10
+)
 
 func main() {
 	mode := flag.String("mode", "corpus", "corpus (the only mode)")
@@ -50,14 +73,12 @@ func main() {
 	minArticles := flag.Int("min-articles", 2, "[transfers] candidate pre-filter: min distinct co-mention articles (14d)")
 	rssLimit := flag.Int("rss-limit", 10, "[sweep] articles per team RSS call")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
-	transferThrottleMs := flag.Int("transfer-throttle-ms", 0, "[stage 1] pause between teams")
-	narrateThrottleMs := flag.Int("narrate-throttle-ms", 0, "[stage 2] pause between entities")
-	vibeThrottleMs := flag.Int("vibe-throttle-ms", 0, "[stage 3] pause between entities")
-	synthThrottleMs := flag.Int("synth-throttle-ms", 0, "[stage 4] pause between entities")
-	narrateSkipHours := flag.Int("narrate-skip-recent-hours", 10, "[stage 2] skip entities narrated within this window")
-	vibeSkipHours := flag.Int("vibe-skip-recent-hours", 10, "[stage 3] skip entities vibed within this window")
-	synthSkipHours := flag.Int("synth-skip-recent-hours", 24, "[stage 4] skip entities synthesized within this window")
-	limit := flag.Int("limit", 0, "cap teams (stage 1) and touched entities (stages 2/3/4); 0 = no cap. For smoke runs.")
+	scrubLimit := flag.Int("scrub-limit", 0, "[scrub] cap freshly-ingested articles scrubbed this run; 0 = no cap (smoke runs)")
+	transferThrottleMs := flag.Int("transfer-throttle-ms", 0, "[transfers] pause between teams")
+	narrateThrottleMs := flag.Int("narrate-throttle-ms", 0, "[narratives] pause between entities")
+	vibeThrottleMs := flag.Int("vibe-throttle-ms", 0, "[vibe] pause between entities")
+	synthThrottleMs := flag.Int("synth-throttle-ms", 0, "[sigil] pause between entities")
+	limit := flag.Int("limit", 0, "cap items processed per drained stage; 0 = no cap (smoke runs)")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -86,33 +107,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	transferGen := ml.NewTransferGenerator(pool, ollama)
-	narrator := ml.NewNewsNarrator(pool, ollama)
-	vibeGen := ml.NewVibeGenerator(pool, ollama)
-	synthGen := ml.NewSigilGenerator(pool, ollama)
-
 	runCorpus(pool, opts{
-		transferGen:      transferGen,
-		narrator:         narrator,
-		vibeGen:          vibeGen,
-		synthGen:         synthGen,
+		scrubber:         ml.NewNewsScrubber(pool, ollama),
+		transferGen:      ml.NewTransferGenerator(pool, ollama),
+		narrator:         ml.NewNewsNarrator(pool, ollama),
+		vibeGen:          ml.NewVibeGenerator(pool, ollama),
+		synthGen:         ml.NewSigilGenerator(pool, ollama),
 		gemmaTimeout:     cfg.OllamaTimeout,
 		sportArg:         *sport,
 		minArticles:      *minArticles,
 		rssLimit:         *rssLimit,
 		rssPauseMs:       *rssPauseMs,
+		scrubLimit:       *scrubLimit,
 		transferThrottle: *transferThrottleMs,
 		narrateThrottle:  *narrateThrottleMs,
 		vibeThrottle:     *vibeThrottleMs,
 		synthThrottle:    *synthThrottleMs,
-		narrateSkip:      time.Duration(*narrateSkipHours) * time.Hour,
-		vibeSkip:         time.Duration(*vibeSkipHours) * time.Hour,
-		synthSkip:        time.Duration(*synthSkipHours) * time.Hour,
 		limit:            *limit,
 	}, logger)
 }
 
 type opts struct {
+	scrubber         *ml.NewsScrubber
 	transferGen      *ml.TransferGenerator
 	narrator         *ml.NewsNarrator
 	vibeGen          *ml.VibeGenerator
@@ -122,13 +138,11 @@ type opts struct {
 	minArticles      int
 	rssLimit         int
 	rssPauseMs       int
+	scrubLimit       int
 	transferThrottle int
 	narrateThrottle  int
 	vibeThrottle     int
 	synthThrottle    int
-	narrateSkip      time.Duration
-	vibeSkip         time.Duration
-	synthSkip        time.Duration
 	limit            int
 }
 
@@ -141,198 +155,286 @@ func runCorpus(pool *pgxpool.Pool, o opts, logger *slog.Logger) {
 	start := time.Now()
 	logger.Info("pipeline: starting", "sports", sports)
 
-	// Stage 0 — RSS sweep refreshes the corpus; runStart bounds "fresh this run".
-	runStart, _, _ := corpus.Sweep(ctx, pool, sports, o.rssLimit, o.rssPauseMs, logger)
-
-	// Stage 1 — transfer heat + Gemma vetting off the scrubbed corpus (all teams).
-	runTransfers(ctx, pool, o, sports, logger)
-
-	// Stages 2/3 operate on the entities whose corpus changed this run.
-	touched, err := corpus.LoadTouchedEntities(ctx, pool, runStart, sports)
-	if err != nil {
-		logger.Error("pipeline: load touch-set failed", "error", err)
-		return
+	// Recover work abandoned by a crashed prior run before claiming anything new.
+	if n, err := work.RequeueStale(ctx, pool, staleLease); err != nil {
+		logger.Warn("pipeline: requeue stale failed", "error", err)
+	} else if n > 0 {
+		logger.Info("pipeline: recovered stale work", "rows", n)
 	}
-	if o.limit > 0 && len(touched) > o.limit {
-		logger.Info("pipeline: capping touched entities", "from", len(touched), "to", o.limit)
-		touched = touched[:o.limit]
-	}
-	logger.Info("pipeline: touched entities", "count", len(touched))
 
-	// Stage 2 — narratives (grounded on the fresh stage-1 transfer heat).
-	runNarratives(ctx, pool, o, touched, logger)
-	// Stage 3 — sentiment from the fresh narratives + heat.
-	runVibe(ctx, pool, o, touched, logger)
-	// Stage 4 — vibe synthesis (three-pillar holistic score — the LAST stage).
-	runSynthesis(ctx, pool, o, touched, logger)
+	// Stage 0 — RSS sweep. affected = articles that gained a FRESH link this run.
+	_, affected, ok, fail := corpus.Sweep(ctx, pool, sports, o.rssLimit, o.rssPauseMs, logger)
+	logger.Info("pipeline: sweep done", "rss_ok", ok, "rss_fail", fail, "fresh_articles", len(affected))
 
+	// Stage 1 — scrub the fresh batch IN-RUN, then enqueue derive work for the
+	// entities Gemma vetted. Fresh content is vetted before it can derive.
+	scrubAndEnqueue(ctx, pool, o, affected, logger)
+
+	// Stages 2–5 — drain the durable queue in declared order. pipeline_work is the
+	// cross-stage handoff; the queue (not a process watermark) survives a crash.
+	drainTransfers(ctx, pool, o, logger)
+	drainNarratives(ctx, pool, o, logger)
+	drainVibe(ctx, pool, o, logger) // each completion enqueues a sigil convergence
+	drainSigil(ctx, pool, o, logger)
+
+	logRemaining(ctx, pool, logger)
 	logger.Info("pipeline: complete", "elapsed", time.Since(start).Round(time.Second))
 }
 
-// Stage 1 — transfers across every team (mirrors cmd/transfer corpus mode).
-func runTransfers(ctx context.Context, pool *pgxpool.Pool, o opts, sports []string, logger *slog.Logger) {
-	done := 0
-	for _, sp := range sports {
-		teams, err := corpus.LoadTeams(ctx, pool, sp)
+// scrubAndEnqueue scrubs the freshly-ingested articles (Gemma ID-gate, persisting
+// vetted=TRUE + scrubbed_at) and enqueues each vetted entity's derive work as soon
+// as ITS article is scrubbed — narratives + vibe for every entity, plus transfers
+// for teams. Per-article (not batch-at-end) so a crash mid-batch preserves the work
+// already scrubbed: the next run's sweep won't re-detect an already-persisted
+// article, so the enqueue must be the durable handoff right behind each scrub. The
+// corpus fingerprint is the input_version, so an unchanged corpus dedupes and a
+// changed one reopens completed/failed work. (Session 9 adds the vetted-transition
+// trigger that closes the residual single-article scrub→enqueue window.)
+func scrubAndEnqueue(ctx context.Context, pool *pgxpool.Pool, o opts, affected map[int64]string, logger *slog.Logger) {
+	if len(affected) == 0 {
+		logger.Info("pipeline/scrub: no fresh articles; nothing to derive")
+		return
+	}
+
+	ids := make([]int64, 0, len(affected))
+	for id := range affected {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] }) // deterministic
+	if o.scrubLimit > 0 && len(ids) > o.scrubLimit {
+		logger.Info("pipeline/scrub: capping batch", "from", len(ids), "to", o.scrubLimit)
+		ids = ids[:o.scrubLimit]
+	}
+
+	scrubbed, failed, enq := 0, 0, 0
+	seen := make(map[corpus.Entity]bool) // dedupe an entity co-mentioned across articles
+	for _, id := range ids {
+		if ctx.Err() != nil {
+			break
+		}
+		sctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
+		_, err := o.scrubber.ScrubArticle(sctx, id, affected[id], false /* persist */)
+		cancel()
 		if err != nil {
-			logger.Error("pipeline/transfers: load teams failed", "sport", sp, "error", err)
+			failed++
+			logger.Warn("pipeline/scrub: article failed", "article_id", id, "sport", affected[id], "error", err)
 			continue
 		}
-		logger.Info("pipeline/transfers: sport start", "sport", sp, "teams", len(teams))
-		var rumors, cleared int
-		for _, t := range teams {
-			if o.limit > 0 && done >= o.limit {
-				break
-			}
-			done++
-			tctx, cancel := context.WithTimeout(ctx, perTeamTimeout)
-			res, err := o.transferGen.GenerateForTeam(tctx, ml.TransferRequest{
-				TeamID: t.ID, TeamName: t.Name, Sport: sp, TriggerType: "periodic", MinArticles: o.minArticles,
-			})
-			cancel()
-			if err != nil {
-				logger.Warn("pipeline/transfers: team failed", "team", t.Name, "error", err)
+		scrubbed++
+
+		// Durable handoff: enqueue this article's vetted entities now.
+		entities, err := corpus.AffectedVettedEntities(ctx, pool, []int64{id})
+		if err != nil {
+			logger.Warn("pipeline/scrub: load vetted entities failed", "article_id", id, "error", err)
+			continue
+		}
+		for _, e := range entities {
+			if seen[e] {
 				continue
 			}
-			rumors += res.Rumors
-			cleared += res.Cleared
-			if o.transferThrottle > 0 {
-				time.Sleep(time.Duration(o.transferThrottle) * time.Millisecond)
+			seen[e] = true
+			enqueueDerive(ctx, pool, e, logger)
+			enq++
+		}
+	}
+	logger.Info("pipeline/scrub: done", "scrubbed", scrubbed, "failed", failed, "entities_enqueued", enq)
+}
+
+// enqueueDerive enqueues an entity's derive stages (narratives + vibe; teams also
+// transfers) keyed by its current corpus fingerprint, so an unchanged corpus is an
+// idempotent no-op and a changed one reopens the work.
+func enqueueDerive(ctx context.Context, pool *pgxpool.Pool, e corpus.Entity, logger *slog.Logger) {
+	ver, verr := corpus.CorpusVersion(ctx, pool, e)
+	if verr != nil {
+		logger.Warn("pipeline/scrub: corpus version failed",
+			"entity_type", e.EntityType, "entity_id", e.EntityID, "sport", e.Sport, "error", verr)
+	}
+	base := work.Item{EntityType: e.EntityType, EntityID: e.EntityID, Sport: e.Sport, InputVersion: ver}
+	stages := []work.Stage{work.StageNarratives, work.StageVibe}
+	if e.EntityType == "team" {
+		stages = append(stages, work.StageTransfers)
+	}
+	for _, st := range stages {
+		it := base
+		it.Stage = st
+		if err := work.Enqueue(ctx, pool, it); err != nil {
+			logger.Warn("pipeline/scrub: enqueue failed", "stage", st,
+				"entity_type", e.EntityType, "entity_id", e.EntityID, "sport", e.Sport, "error", err)
+		}
+	}
+}
+
+// drainStage claims and runs ready work for one stage until the queue drains.
+// On success the row is deleted (Complete); on error it is failed with backoff
+// (dead-lettered after maxAttempts). run owns its own per-item timeout — stages
+// differ (a team's transfer analysis is many Gemma calls). Honors o.limit as a
+// per-stage processing cap for smoke runs.
+func drainStage(ctx context.Context, pool *pgxpool.Pool, stage work.Stage, throttle, limit int, run func(context.Context, work.Item) error, logger *slog.Logger) {
+	ok, fail, processed := 0, 0, 0
+	for ctx.Err() == nil {
+		batch := claimBatch
+		if limit > 0 {
+			remaining := limit - processed
+			if remaining <= 0 {
+				break
+			}
+			if remaining < batch {
+				batch = remaining
 			}
 		}
-		logger.Info("pipeline/transfers: sport done", "sport", sp, "rumors", rumors, "cleared", cleared)
+		items, err := work.Claim(ctx, pool, stage, batch)
+		if err != nil {
+			logger.Error("pipeline: claim failed", "stage", stage, "error", err)
+			break
+		}
+		if len(items) == 0 {
+			break
+		}
+		for _, it := range items {
+			if rerr := run(ctx, it); rerr != nil {
+				fail++
+				logger.Warn("pipeline: work failed", "stage", stage,
+					"entity_type", it.EntityType, "entity_id", it.EntityID, "sport", it.Sport,
+					"attempt", it.Attempts+1, "error", rerr)
+				if ferr := work.Fail(ctx, pool, it, rerr.Error(), failBackoff, maxAttempts); ferr != nil {
+					logger.Error("pipeline: mark-failed failed", "stage", stage, "error", ferr)
+				}
+			} else {
+				ok++
+				if cerr := work.Complete(ctx, pool, it); cerr != nil {
+					logger.Error("pipeline: complete failed", "stage", stage, "error", cerr)
+				}
+			}
+			processed++
+			if throttle > 0 {
+				time.Sleep(time.Duration(throttle) * time.Millisecond)
+			}
+		}
 	}
+	logger.Info("pipeline: stage drained", "stage", stage, "ok", ok, "fail", fail)
 }
 
-// Stage 2 — narratives for every touched entity.
-func runNarratives(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
-	ok, fail, skipped, noCorpus := 0, 0, 0, 0
-	for i, e := range touched {
-		if dbg := debounced(ctx, pool, "news_summaries", e, o.narrateSkip); dbg {
-			skipped++
-			continue
+// drainTransfers — team-scoped transfer analysis off the fresh, scrubbed corpus.
+func drainTransfers(ctx context.Context, pool *pgxpool.Pool, o opts, logger *slog.Logger) {
+	drainStage(ctx, pool, work.StageTransfers, o.transferThrottle, o.limit, func(ctx context.Context, it work.Item) error {
+		if it.EntityType != "team" {
+			return fmt.Errorf("transfers: non-team entity %s/%d", it.EntityType, it.EntityID)
 		}
-		name := lookup(ctx, pool, e, logger)
-		if name == "" {
-			fail++
-			continue
+		name, err := nameOf(ctx, pool, it)
+		if err != nil {
+			return err
+		}
+		tctx, cancel := context.WithTimeout(ctx, perTeamTimeout)
+		defer cancel()
+		_, gerr := o.transferGen.GenerateForTeam(tctx, ml.TransferRequest{
+			TeamID: it.EntityID, TeamName: name, Sport: it.Sport, TriggerType: "periodic", MinArticles: o.minArticles,
+		})
+		return gerr
+	}, logger)
+}
+
+// drainNarratives — per-entity narratives, grounded on the fresh transfer heat.
+func drainNarratives(ctx context.Context, pool *pgxpool.Pool, o opts, logger *slog.Logger) {
+	drainStage(ctx, pool, work.StageNarratives, o.narrateThrottle, o.limit, func(ctx context.Context, it work.Item) error {
+		name, err := nameOf(ctx, pool, it)
+		if err != nil {
+			return err
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.narrator.Generate(gctx, ml.NarrativesRequest{
-			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
+		defer cancel()
+		_, gerr := o.narrator.Generate(gctx, ml.NarrativesRequest{
+			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport, TriggerType: "periodic",
 		})
-		cancel()
-		switch {
-		case err != nil:
-			fail++
-			logger.Warn("pipeline/narratives: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
-		case res.SkippedNoCorpus:
-			noCorpus++
-		default:
-			ok++
-		}
-		progress(logger, "pipeline/narratives", i+1, len(touched), ok, fail, skipped, noCorpus)
-		if o.narrateThrottle > 0 {
-			time.Sleep(time.Duration(o.narrateThrottle) * time.Millisecond)
-		}
-	}
-	logger.Info("pipeline/narratives: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus)
+		return gerr
+	}, logger)
 }
 
-// Stage 3 — sentiment for every touched entity (reads the stage-2 narratives + heat).
-func runVibe(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
-	ok, fail, skipped, noCorpus := 0, 0, 0, 0
-	for i, e := range touched {
-		if debounced(ctx, pool, "vibe_scores", e, o.vibeSkip) {
-			skipped++
-			continue
-		}
-		name := lookup(ctx, pool, e, logger)
-		if name == "" {
-			fail++
-			continue
+// drainVibe — per-entity sentiment off the fresh narratives + heat. A completed
+// vibe enqueues its sigil convergence BEFORE the vibe item is completed, so a
+// crash in between re-runs vibe (idempotent) rather than dropping the sigil.
+func drainVibe(ctx context.Context, pool *pgxpool.Pool, o opts, logger *slog.Logger) {
+	drainStage(ctx, pool, work.StageVibe, o.vibeThrottle, o.limit, func(ctx context.Context, it work.Item) error {
+		name, err := nameOf(ctx, pool, it)
+		if err != nil {
+			return err
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.vibeGen.Generate(gctx, ml.VibeRequest{
-			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
+		res, gerr := o.vibeGen.Generate(gctx, ml.VibeRequest{
+			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport, TriggerType: "periodic",
 		})
 		cancel()
-		switch {
-		case err != nil:
-			fail++
-			logger.Warn("pipeline/sentiment: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
-		case res.SkippedNoCorpus:
-			noCorpus++
-		default:
-			ok++
+		if gerr != nil {
+			return gerr
 		}
-		progress(logger, "pipeline/sentiment", i+1, len(touched), ok, fail, skipped, noCorpus)
-		if o.vibeThrottle > 0 {
-			time.Sleep(time.Duration(o.vibeThrottle) * time.Millisecond)
+		sig := work.Item{
+			Stage: work.StageSigil, EntityType: it.EntityType, EntityID: it.EntityID, Sport: it.Sport,
+			InputVersion: vibeVersion(res),
 		}
-	}
-	logger.Info("pipeline/sentiment: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_corpus", noCorpus)
+		if eerr := work.Enqueue(ctx, pool, sig); eerr != nil {
+			logger.Warn("pipeline/vibe: enqueue sigil failed",
+				"entity_type", it.EntityType, "entity_id", it.EntityID, "sport", it.Sport, "error", eerr)
+		}
+		return nil
+	}, logger)
 }
 
-// Stage 4 — vibe synthesis for every touched entity.
-func runSynthesis(ctx context.Context, pool *pgxpool.Pool, o opts, touched []corpus.Entity, logger *slog.Logger) {
-	ok, fail, skipped, noPillars := 0, 0, 0, 0
-	for i, e := range touched {
-		dctx, dcancel := context.WithTimeout(ctx, 5*time.Second)
-		recent := ml.RecentlySynthesized(dctx, pool, e.EntityType, e.EntityID, e.Sport, o.synthSkip)
-		dcancel()
-		if recent {
-			skipped++
-			continue
-		}
-		name := lookup(ctx, pool, e, logger)
-		if name == "" {
-			fail++
-			continue
+// drainSigil — terminal convergence. The SigilGenerator reads its three pillars
+// live and skips the Gemma call on an unchanged input hash (SkipUnchanged), so an
+// unchanged-pillar enqueue is a cheap no-op. The full event-driven Sigil lifecycle
+// (season-scoping, follower/FCM decoupling, nightly→reconciliation) is Session 12.
+func drainSigil(ctx context.Context, pool *pgxpool.Pool, o opts, logger *slog.Logger) {
+	drainStage(ctx, pool, work.StageSigil, o.synthThrottle, o.limit, func(ctx context.Context, it work.Item) error {
+		name, err := nameOf(ctx, pool, it)
+		if err != nil {
+			return err
 		}
 		gctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
-		res, err := o.synthGen.Generate(gctx, ml.SigilRequest{
-			EntityType: e.EntityType, EntityID: e.EntityID, EntityName: name, Sport: e.Sport, TriggerType: "periodic",
+		defer cancel()
+		_, gerr := o.synthGen.Generate(gctx, ml.SigilRequest{
+			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport,
+			TriggerType: "periodic", SkipUnchanged: true,
 		})
-		cancel()
-		switch {
-		case err != nil:
-			fail++
-			logger.Warn("pipeline/synthesis: generate failed", "sport", e.Sport, "entity", name, "id", e.EntityID, "error", err)
-		case res.SkippedNoPillars:
-			noPillars++
-		default:
-			ok++
-		}
-		progress(logger, "pipeline/synthesis", i+1, len(touched), ok, fail, skipped, noPillars)
-		if o.synthThrottle > 0 {
-			time.Sleep(time.Duration(o.synthThrottle) * time.Millisecond)
-		}
-	}
-	logger.Info("pipeline/synthesis: done", "ok", ok, "fail", fail, "skipped_recent", skipped, "no_pillars", noPillars)
+		return gerr
+	}, logger)
 }
 
-func debounced(ctx context.Context, pool *pgxpool.Pool, table string, e corpus.Entity, within time.Duration) bool {
-	dctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	return corpus.RecentlyGenerated(dctx, pool, table, e, within)
-}
-
-func lookup(ctx context.Context, pool *pgxpool.Pool, e corpus.Entity, logger *slog.Logger) string {
+// nameOf resolves the entity display name for a Gemma prompt, treating an empty
+// name as an error so the work item fails (and retries) rather than silently
+// generating against a blank prompt.
+func nameOf(ctx context.Context, pool *pgxpool.Pool, it work.Item) (string, error) {
 	lctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	name, err := corpus.LookupEntityName(lctx, pool, e.EntityType, e.EntityID, e.Sport)
-	if err != nil || name == "" {
-		logger.Warn("pipeline: entity lookup failed",
-			"entity_type", e.EntityType, "entity_id", e.EntityID, "sport", e.Sport, "error", err)
-		return ""
+	name, err := corpus.LookupEntityName(lctx, pool, it.EntityType, it.EntityID, it.Sport)
+	if err != nil {
+		return "", fmt.Errorf("lookup %s/%d (%s): %w", it.EntityType, it.EntityID, it.Sport, err)
 	}
-	return name
+	if name == "" {
+		return "", fmt.Errorf("empty name for %s/%d (%s)", it.EntityType, it.EntityID, it.Sport)
+	}
+	return name, nil
 }
 
-func progress(logger *slog.Logger, stage string, done, total, ok, fail, skipped, noCorpus int) {
-	if done%25 == 0 {
-		logger.Info(stage+": progress",
-			"done", done, "total", total, "ok", ok, "fail", fail, "skipped", skipped, "no_corpus", noCorpus)
+// vibeVersion fingerprints a vibe result for the sigil queue's input_version. It
+// is coarse on purpose — the SigilGenerator's own pillar input-hash is the real
+// convergence gate; this only keeps the queue row's reopen/dedupe sane.
+func vibeVersion(res *ml.VibeResult) string {
+	if res == nil {
+		return ""
+	}
+	return fmt.Sprintf("s%d", res.Sentiment)
+}
+
+// logRemaining prints the pipeline_work backlog after the run — the operator's
+// "what's still pending/running/failed?" snapshot (anything left is real-time or
+// dead-lettered work for the maintenance/Session-9 path to drain).
+func logRemaining(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	counts, err := work.Counts(ctx, pool)
+	if err != nil {
+		logger.Warn("pipeline: work counts failed", "error", err)
+		return
+	}
+	for _, c := range counts {
+		logger.Info("pipeline: work remaining",
+			"stage", c.Stage, "status", c.Status, "n", c.Count, "max_attempts", c.MaxAttempts)
 	}
 }

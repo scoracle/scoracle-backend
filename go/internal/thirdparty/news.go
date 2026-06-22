@@ -122,6 +122,10 @@ func (s *NewsService) Status() map[string]interface{} {
 // entityType ("player"|"team") and entityID drive the write-through —
 // matched articles are linked back to the requested entity in
 // news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
+//
+// The second return is the article IDs that gained a fresh link on this call —
+// the exact batch the pipeline scrubs in-run (FIRST-GPT-AUDIT Session 8). It is
+// nil when write-through is skipped or the persist failed.
 func (s *NewsService) GetEntityNews(
 	ctx context.Context,
 	entityType string,
@@ -130,7 +134,7 @@ func (s *NewsService) GetEntityNews(
 	limit int,
 	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, error) {
+) (map[string]interface{}, []int64, error) {
 	if limit < 1 {
 		limit = newsDefaultLimit
 	}
@@ -140,18 +144,24 @@ func (s *NewsService) GetEntityNews(
 
 	result, matched, err := s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Write-through: persist the matched articles and link them to this entity.
-	// Non-fatal — a failed persist shouldn't break the response.
+	// Non-fatal — a failed persist shouldn't break the response. affected is the
+	// set of articles that gained a NEW link this call (the ones the pipeline must
+	// scrub); it stays nil on the serving path / on persist failure.
+	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
-		if perr := s.persistArticles(ctx, sport, entityType, entityID, matched); perr != nil {
+		ids, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
+		if perr != nil {
 			s.logger.Warn("persist failed", "sport", sport, "entity_type", entityType, "entity_id", entityID, "error", perr)
+		} else {
+			affected = ids
 		}
 	}
 
-	return result, nil
+	return result, affected, nil
 }
 
 // persistArticles upserts articles by URL hash and links them to the primary
@@ -161,16 +171,19 @@ func (s *NewsService) GetEntityNews(
 // Durant even if only Durant was the queried entity.
 //
 // Runs in a single transaction. Errors are returned to the caller but don't
-// break the response path — the caller logs and moves on.
+// break the response path — the caller logs and moves on. The returned slice is
+// the article IDs that gained a NEW entity link (a fresh primary or secondary
+// link, RowsAffected>0) — i.e. the articles with unscrubbed links the pipeline
+// must scrub this run. An article re-seen with only pre-existing links is omitted.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
-) error {
+) ([]int64, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -180,6 +193,8 @@ func (s *NewsService) persistArticles(
 		s.logger.Warn("entity pool load failed", "sport", sportUpper, "error", err)
 		pool = nil
 	}
+
+	affected := make(map[int64]bool)
 
 	// The primary entity's own match input — needed to record its title position
 	// for the co-mention proximity gate. The fetch filter guarantees the primary
@@ -216,7 +231,7 @@ func (s *NewsService) persistArticles(
 			RETURNING id
 		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt).Scan(&articleID)
 		if err != nil {
-			return fmt.Errorf("upsert article: %w", err)
+			return nil, fmt.Errorf("upsert article: %w", err)
 		}
 
 		// Primary link — the entity that was queried. Record its title position
@@ -225,12 +240,16 @@ func (s *NewsService) persistArticles(
 		if primaryMatch != nil {
 			primaryPos = FirstMatchPos(a.Title, *primaryMatch)
 		}
-		if _, err := tx.Exec(ctx, `
+		ct, err := tx.Exec(ctx, `
 			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
 			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0, posOrNil(primaryPos)); err != nil {
-			return fmt.Errorf("link primary entity: %w", err)
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0, posOrNil(primaryPos))
+		if err != nil {
+			return nil, fmt.Errorf("link primary entity: %w", err)
+		}
+		if ct.RowsAffected() > 0 {
+			affected[articleID] = true
 		}
 
 		// Secondary links — scan the title against the cached entity pool
@@ -247,17 +266,29 @@ func (s *NewsService) persistArticles(
 			if pos < 0 {
 				continue
 			}
-			if _, err := tx.Exec(ctx, `
+			ct, err := tx.Exec(ctx, `
 				INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
 				VALUES ($1, $2, $3, $4, $5, $6)
 				ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-			`, articleID, e.entityType, e.entityID, sportUpper, 0.8, posOrNil(pos)); err != nil {
-				return fmt.Errorf("link secondary entity: %w", err)
+			`, articleID, e.entityType, e.entityID, sportUpper, 0.8, posOrNil(pos))
+			if err != nil {
+				return nil, fmt.Errorf("link secondary entity: %w", err)
+			}
+			if ct.RowsAffected() > 0 {
+				affected[articleID] = true
 			}
 		}
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	ids := make([]int64, 0, len(affected))
+	for id := range affected {
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // getEntityPool returns (and refreshes on staleness) the cached list of

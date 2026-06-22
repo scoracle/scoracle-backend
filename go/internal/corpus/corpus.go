@@ -38,15 +38,24 @@ type Entity struct {
 }
 
 // Sweep RSS-fetches every team in scope, writing through to news_article_entities
-// (cross-entity linking pulls in co-mentioned players for free), and returns the
-// watermark captured BEFORE the sweep — the "fresh corpus from this run" boundary
-// LoadTouchedEntities filters on. ok/fail count the RSS calls. Honors ctx
-// cancellation between teams.
-func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (time.Time, int, int) {
+// (cross-entity linking pulls in co-mentioned players for free). It returns two
+// handoffs:
+//
+//   - runStart: the watermark captured BEFORE the sweep — the legacy "fresh
+//     corpus from this run" boundary the cmd/sentiment corpus mode still filters
+//     LoadTouchedEntities on.
+//   - affected: article_id → sport for every article that gained a FRESH link
+//     this run. This is the explicit batch the FIRST-GPT-AUDIT Session 8 pipeline
+//     scrubs in-run and then enqueues derive work from — replacing the runStart
+//     watermark as the correctness boundary (no more starvation when a re-seen
+//     URL lands no new link rows).
+//
+// ok/fail count the RSS calls. Honors ctx cancellation between teams.
+func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (runStart time.Time, affected map[int64]string, ok, fail int) {
 	news := thirdparty.NewNewsService(pool, logger)
-	runStart := time.Now().UTC()
+	runStart = time.Now().UTC()
+	affected = make(map[int64]string)
 
-	ok, fail := 0, 0
 	for _, sport := range sports {
 		teams, err := LoadTeams(ctx, pool, sport)
 		if err != nil {
@@ -57,16 +66,19 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 
 		for _, t := range teams {
 			if ctx.Err() != nil {
-				return runStart, ok, fail
+				return runStart, affected, ok, fail
 			}
 			tctx, cancel := context.WithTimeout(ctx, sweepTimeout)
-			_, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, "", rssLimit, "", "", t.Aliases)
+			_, ids, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, "", rssLimit, "", "", t.Aliases)
 			cancel()
 			if err != nil {
 				fail++
 				logger.Warn("corpus: rss fetch failed", "sport", sport, "team", t.Name, "id", t.ID, "error", err)
 			} else {
 				ok++
+				for _, id := range ids {
+					affected[id] = t.Sport
+				}
 			}
 			if rssPauseMs > 0 {
 				time.Sleep(time.Duration(rssPauseMs) * time.Millisecond)
@@ -74,8 +86,8 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		}
 	}
 	logger.Info("corpus: rss sweep complete",
-		"ok", ok, "fail", fail, "elapsed", time.Since(runStart).Round(time.Second))
-	return runStart, ok, fail
+		"ok", ok, "fail", fail, "fresh_articles", len(affected), "elapsed", time.Since(runStart).Round(time.Second))
+	return runStart, affected, ok, fail
 }
 
 // LoadTeams returns every team in the sport (no tier filter — coverage shouldn't
@@ -198,6 +210,67 @@ func RecentlyGenerated(ctx context.Context, pool *pgxpool.Pool, table string, e 
 		return false
 	}
 	return exists
+}
+
+// AffectedVettedEntities returns the distinct (entity_type, entity_id, sport)
+// that the scrub stage marked vetted=TRUE on the given freshly-ingested articles
+// — the entities the Session 8 pipeline enqueues derive work for. Only vetted
+// links count: a Gemma-dropped same-name candidate never reaches the queue.
+func AffectedVettedEntities(ctx context.Context, pool *pgxpool.Pool, articleIDs []int64) ([]Entity, error) {
+	if len(articleIDs) == 0 {
+		return nil, nil
+	}
+	qctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	rows, err := pool.Query(qctx, `
+		SELECT DISTINCT entity_type, entity_id, sport
+		FROM news_article_entities
+		WHERE article_id = ANY($1::bigint[])
+		  AND vetted IS TRUE
+		ORDER BY sport, entity_type, entity_id
+	`, articleIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Entity
+	for rows.Next() {
+		var e Entity
+		if err := rows.Scan(&e.EntityType, &e.EntityID, &e.Sport); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+// CorpusVersion fingerprints an entity's current vetted, in-lookback corpus so a
+// changed corpus reopens its queued derivation work (pipeline_work.input_version)
+// and an unchanged one dedupes — the audit's "prefer an input hash over elapsed
+// time." The fingerprint is the link count plus the latest scrub time over the
+// articles the generators actually read (published within ml.NewsLookback); a new
+// vetted link advances both. Best-effort: returns "" on error (the queue then
+// falls back to plain idempotent enqueue).
+func CorpusVersion(ctx context.Context, pool *pgxpool.Pool, e Entity) (string, error) {
+	qctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	lookbackSecs := int(ml.NewsLookback.Seconds())
+	var count int
+	var maxEpoch int64
+	err := pool.QueryRow(qctx, `
+		SELECT count(*),
+		       COALESCE(EXTRACT(EPOCH FROM max(nae.scrubbed_at))::bigint, 0)
+		FROM news_article_entities nae
+		JOIN news_articles a ON a.id = nae.article_id
+		WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
+		  AND nae.vetted IS TRUE
+		  AND (a.published_at IS NULL OR a.published_at > NOW() - ($4 || ' seconds')::interval)
+	`, e.EntityType, e.EntityID, e.Sport, fmt.Sprintf("%d", lookbackSecs)).Scan(&count, &maxEpoch)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%d:%d", count, maxEpoch), nil
 }
 
 // LookupEntityName resolves the display name for a Gemma prompt.

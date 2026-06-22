@@ -156,7 +156,9 @@ func runCorpus(
 	ctx := context.Background()
 
 	// Phase 1 — RSS sweep refreshes the corpus; runStart marks "fresh from this run".
-	runStart, _, _ := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
+	// (The cmd/pipeline orchestrator drives the durable Session-8 queue off Sweep's
+	// affected-articles return instead; this ad-hoc sibling keeps the watermark path.)
+	runStart, _, _, _ := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
 
 	// Phase 2 — Gemma queue every entity whose corpus changed since runStart
 	// (the queried teams + any players/teams co-mentioned via cross-entity linking).

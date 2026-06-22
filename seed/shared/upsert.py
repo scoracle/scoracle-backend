@@ -357,3 +357,69 @@ def snapshot_rating_history(
         "SELECT snapshot_rating_history(%s, %s, %s) AS n", (sport, season, trigger)
     ).fetchone()
     return row["n"] if row and row["n"] is not None else 0
+
+
+# ---------------------------------------------------------------------------
+# Durable deferred-recompute queue (FIRST-GPT-AUDIT Session 6)
+#
+# A deferred backfill finalizes fixtures with recompute=False and owes the
+# season ONE recompute_season + rating_history snapshot at end-of-run. These
+# helpers make that "still owed" state durable in season_recompute_needed
+# (migration 101) instead of an in-memory Python set, so a process death cannot
+# strand a seeded-but-unrecomputed season invisibly.
+# ---------------------------------------------------------------------------
+
+
+def mark_season_recompute_needed(
+    conn: psycopg.Connection, sport: str, season: int
+) -> None:
+    """Record that (sport, season) has a fixture finalized in deferred mode and
+    still owes a whole-season recompute + rating_history snapshot. Idempotent.
+
+    Call inside the SAME transaction that finalizes the deferred fixture, so a
+    crash before the end-of-run drain cannot lose the dirty marker."""
+    conn.execute(
+        """
+        INSERT INTO season_recompute_needed (sport, season)
+        VALUES (%s, %s)
+        ON CONFLICT (sport, season) DO NOTHING
+        """,
+        (sport, season),
+    )
+
+
+def load_dirty_seasons(conn: psycopg.Connection) -> list[tuple[str, int]]:
+    """Return every (sport, season) awaiting a deferred recompute, oldest
+    request first."""
+    rows = conn.execute(
+        "SELECT sport, season FROM season_recompute_needed "
+        "ORDER BY requested_at, sport, season"
+    ).fetchall()
+    return [(r["sport"], r["season"]) for r in rows]
+
+
+def clear_season_recompute_needed(
+    conn: psycopg.Connection, sport: str, season: int
+) -> None:
+    """Delete the dirty marker for (sport, season). Call ONLY after a successful
+    recompute_season + snapshot_rating_history (ideally in the same transaction,
+    so the delete commits atomically with the recompute)."""
+    conn.execute(
+        "DELETE FROM season_recompute_needed WHERE sport = %s AND season = %s",
+        (sport, season),
+    )
+
+
+def record_recompute_failure(
+    conn: psycopg.Connection, sport: str, season: int, error: str
+) -> None:
+    """Bump the attempt count and record the latest error for a dirty season
+    whose recompute failed, leaving the marker in place for a later retry."""
+    conn.execute(
+        """
+        UPDATE season_recompute_needed
+           SET attempts = attempts + 1, last_error = %s
+         WHERE sport = %s AND season = %s
+        """,
+        (error[:1000], sport, season),
+    )

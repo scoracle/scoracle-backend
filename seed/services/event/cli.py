@@ -27,15 +27,23 @@ from shared.upsert import (
     upsert_provider_fixture_map,
     upsert_team,
 )
+from .completeness import IncompleteFixtureError, evaluate_completeness
 from .fixtures import (
     FixtureRow,
+    get_by_id,
     get_pending,
     get_provider_fixture_id,
     record_failure,
+    record_incomplete,
     upsert_fixture,
 )
 
 _PROVIDER_BY_SPORT = {"NBA": "bdl", "NFL": "bdl", "FOOTBALL": "sportmonks"}
+_FIXTURE_SEED_DELAY_HOURS = {
+    "NBA": 4,
+    "NFL": 6,
+    "FOOTBALL": 3,
+}
 
 
 @click.group(name="event")
@@ -60,17 +68,57 @@ def _resolve_external_fixture_id(
         ) from exc
 
 
+def _fixture_seed_delay_hours(sport: str) -> int:
+    """Delay eligibility long enough for polling jobs to miss live games."""
+    return _FIXTURE_SEED_DELAY_HOURS[sport]
+
+
 def _seed_fixture_box_scores(
-    conn: psycopg.Connection, fixture: FixtureRow, handler: Any, recompute: bool = True
+    conn: psycopg.Connection,
+    fixture: FixtureRow,
+    handler: Any,
+    recompute: bool = True,
+    force: bool = False,
 ) -> tuple[int, int, int, int]:
     provider = _PROVIDER_BY_SPORT[fixture.sport]
     external_fixture_id = _resolve_external_fixture_id(conn, fixture, provider)
-    player_rows, team_rows = handler.get_box_score(external_fixture_id, fixture.id)
+    result = handler.get_box_score(external_fixture_id, fixture.id)
+    player_rows = result.players
+    team_rows = result.teams
 
+    # Completeness gate — evaluated BEFORE mutating the event tables so a
+    # rejected payload leaves existing rows intact and the fixture stays
+    # pending/retryable (never half-seeded). An empty payload is never
+    # seedable, even with --force.
     if not player_rows and not team_rows:
-        raise RuntimeError(
-            f"provider returned no event rows for fixture_id={fixture.id} external_id={external_fixture_id}"
+        raise IncompleteFixtureError(
+            f"provider returned no event rows for fixture_id={fixture.id} "
+            f"external_id={external_fixture_id}"
         )
+
+    if not force:
+        verdict = evaluate_completeness(
+            fixture.sport, fixture.home_team_id, fixture.away_team_id, result
+        )
+        if not verdict.accepted:
+            raise IncompleteFixtureError(
+                f"fixture_id={fixture.id} external_id={external_fixture_id}: "
+                f"{verdict.reason}"
+            )
+
+        # Reject a replacement that would shrink the player-row count — a
+        # smaller re-seed almost always means a partial/regressed provider
+        # response, not a legitimate correction. --force overrides.
+        existing = conn.execute(
+            "SELECT COUNT(*) AS n FROM event_box_scores WHERE fixture_id = %s",
+            (fixture.id,),
+        ).fetchone()
+        existing_players = existing["n"] if existing else 0
+        if existing_players > 0 and len(player_rows) < existing_players:
+            raise IncompleteFixtureError(
+                f"fixture_id={fixture.id} replacement shrinks player rows "
+                f"{existing_players} -> {len(player_rows)} (use --force to override)"
+            )
 
     season = fixture.season
     league_id = fixture.league_id or 0
@@ -203,7 +251,7 @@ def load_fixtures(
                             round_name=(
                                 str(game["round"]) if game.get("round") is not None else None
                             ),
-                            seed_delay_hours=0,
+                            seed_delay_hours=_fixture_seed_delay_hours("NBA"),
                         )
                         upsert_provider_fixture_map(
                             conn, "bdl", "NBA", str(external_id), fixture_id
@@ -271,7 +319,7 @@ def load_fixtures(
                             round_name=(
                                 str(game["round"]) if game.get("round") is not None else None
                             ),
-                            seed_delay_hours=0,
+                            seed_delay_hours=_fixture_seed_delay_hours("NFL"),
                         )
                         upsert_provider_fixture_map(
                             conn, "bdl", "NFL", str(external_id), fixture_id
@@ -394,7 +442,7 @@ def load_fixtures(
                                     if fixture.get("round") is not None
                                     else None
                                 ),
-                                seed_delay_hours=0,
+                                seed_delay_hours=_fixture_seed_delay_hours("FOOTBALL"),
                             )
                             upsert_provider_fixture_map(
                                 conn, "sportmonks", "FOOTBALL",
@@ -433,6 +481,26 @@ def load_fixtures(
     "--max", "max_fixtures", type=int, default=None, help="Max fixtures to process"
 )
 @click.option(
+    "--fixture-id",
+    "fixture_id",
+    type=int,
+    default=None,
+    help=(
+        "Process exactly this fixture by id, ignoring pending status/delay/"
+        "retry-cap filters. Repair path for a single fixture; pair with --force."
+    ),
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help=(
+        "Bypass the completeness contract (finality, both teams, both scores, "
+        "min player rows) and the shrink-on-re-seed guard for a legitimate "
+        "exceptional fixture. An empty provider payload is still never seeded."
+    ),
+)
+@click.option(
     "--batch/--no-batch",
     "batch",
     default=None,
@@ -447,6 +515,8 @@ def process(
     sport: str | None,
     season: int | None,
     max_fixtures: int | None,
+    fixture_id: int | None,
+    force: bool,
     batch: bool | None,
 ) -> None:
     """Process pending fixtures and seed event-level box scores/team stats.
@@ -454,6 +524,11 @@ def process(
     By default the whole-season percentile/rating recompute runs per fixture for
     the live (current) season and is deferred to one end-of-run pass for
     concluded historical seasons. Force with --batch / --no-batch.
+
+    A fixture is only marked seeded when its provider payload is complete enough
+    to serve (provider not still reporting the game unfinished, both expected
+    teams present with a final score, and a meaningful player-row count). Use
+    --fixture-id with --force to repair a legitimate exceptional fixture.
     """
     cfg = config_mod.load()
     pool = create_pool(cfg)
@@ -470,9 +545,18 @@ def process(
             from .handlers.bdl_nfl import NFLHandler
             from .handlers.sportmonks_football import FootballHandler
 
-            pending = get_pending(conn, sport=sport_filter, limit=max_fixtures)
-            if season is not None:
-                pending = [fixture for fixture in pending if fixture.season == season]
+            if fixture_id is not None:
+                # Repair path: target one fixture regardless of pending
+                # status/delay/retry-cap. --sport/--season/--max are ignored.
+                target = get_by_id(conn, fixture_id)
+                if target is None:
+                    click.echo(f"Fixture {fixture_id} not found", err=True)
+                    sys.exit(1)
+                pending = [target]
+            else:
+                pending = get_pending(conn, sport=sport_filter, limit=max_fixtures)
+                if season is not None:
+                    pending = [f for f in pending if f.season == season]
 
             if not pending:
                 click.echo("No pending fixtures")
@@ -533,6 +617,7 @@ def process(
 
                 processed = 0
                 failed = 0
+                incomplete = 0
                 total_box_rows = 0
                 total_team_rows = 0
                 total_players_updated = 0
@@ -558,7 +643,7 @@ def process(
                                 players_updated,
                                 teams_updated,
                             ) = _seed_fixture_box_scores(
-                                conn, fixture, handler, recompute
+                                conn, fixture, handler, recompute, force
                             )
                         if not recompute:
                             deferred.add((fixture.sport, fixture.season))
@@ -575,7 +660,7 @@ def process(
                         # Pause the whole run instead of marking fixtures failed.
                         # seed_attempts stays untouched so the next process run
                         # picks these up without retry-cap churn.
-                        remaining = len(pending) - processed - failed
+                        remaining = len(pending) - processed - failed - incomplete
                         click.echo(
                             f"\n⏸  Rate limit reached on {exc.provider} "
                             f"({exc.detail or 'no detail'}).\n"
@@ -587,6 +672,19 @@ def process(
                             err=True,
                         )
                         sys.exit(2)
+                    except IncompleteFixtureError as exc:
+                        # Incompleteness is recorded separately from transport
+                        # failures (last_incomplete_reason, not last_seed_error).
+                        # The fixture stays pending/retryable — nothing was
+                        # written because the gate runs before any mutation.
+                        reason = str(exc).strip() or exc.__class__.__name__
+                        with conn.transaction():
+                            record_incomplete(conn, fixture.id, reason[:1000])
+                        incomplete += 1
+                        click.echo(
+                            f"Incomplete fixture {fixture.id} ({fixture.sport}): {reason}",
+                            err=True,
+                        )
                     except Exception as exc:
                         error_msg = str(exc).strip() or exc.__class__.__name__
                         with conn.transaction():
@@ -627,6 +725,7 @@ def process(
                 click.echo(
                     "Done: "
                     f"fixtures_seeded={processed} "
+                    f"incomplete={incomplete} "
                     f"failed={failed} "
                     f"event_box_rows={total_box_rows} "
                     f"event_team_rows={total_team_rows} "

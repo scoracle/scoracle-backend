@@ -90,7 +90,7 @@ def get_by_id(conn: psycopg.Connection, fixture_id: int) -> FixtureRow | None:
 
 
 def record_failure(conn: psycopg.Connection, fixture_id: int, error_msg: str) -> None:
-    """Increment seed_attempts and record the error."""
+    """Increment seed_attempts and record a transport/processing error."""
     conn.execute(
         """UPDATE fixtures
            SET seed_attempts = seed_attempts + 1,
@@ -98,6 +98,27 @@ def record_failure(conn: psycopg.Connection, fixture_id: int, error_msg: str) ->
                updated_at = NOW()
            WHERE id = %s""",
         (error_msg, fixture_id),
+    )
+
+
+def record_incomplete(
+    conn: psycopg.Connection, fixture_id: int, reason: str
+) -> None:
+    """Record an incompleteness rejection — distinct from a transport failure.
+
+    Increments seed_attempts (so a permanently-incomplete fixture is bounded by
+    the retry cap rather than retried forever) and stores the reason in
+    fixtures.last_incomplete_reason, leaving last_seed_error untouched so the two
+    failure modes stay separable. mark_fixture_seeded() clears the reason once a
+    later run finalizes the fixture.
+    """
+    conn.execute(
+        """UPDATE fixtures
+           SET seed_attempts = seed_attempts + 1,
+               last_incomplete_reason = %s,
+               updated_at = NOW()
+           WHERE id = %s""",
+        (reason, fixture_id),
     )
 
 

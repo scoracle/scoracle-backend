@@ -10,6 +10,7 @@ import logging
 from typing import Any, Callable
 
 from shared.models import (
+    BoxScoreResult,
     EventBoxScore,
     EventTeamStats,
     Player,
@@ -236,7 +237,7 @@ class FootballHandler:
 
     def get_box_score(
         self, external_fixture_id: int, fixture_id: int
-    ) -> tuple[list[EventBoxScore], list[EventTeamStats]]:
+    ) -> BoxScoreResult:
         """Fetch one fixture's lineups, events, and scores. Return raw data.
 
         Python's job: flatten nested API structures into per-player stat dicts.
@@ -244,9 +245,10 @@ class FootballHandler:
         """
         resp = self.client.get(
             f"/fixtures/{external_fixture_id}",
-            {"include": "lineups.player;lineups.details.type;events;scores;participants;statistics.type"},
+            {"include": "lineups.player;lineups.details.type;events;scores;participants;statistics.type;state"},
         )
         data = resp.get("data", {})
+        provider_status = _extract_fixture_state(data)
         team_scores: dict[int, int] = _extract_fixture_scores(data)
         # Authoritative team-level stats (possession %, corners, attacks, etc.)
         # that can't be derived by summing player rows. Applied after player
@@ -354,7 +356,9 @@ class FootballHandler:
                 )
             )
 
-        return players, teams
+        return BoxScoreResult(
+            players=players, teams=teams, provider_status=provider_status
+        )
 
 
 # --------------------------------------------------------------------------
@@ -599,6 +603,22 @@ def _team_id_from_relation(raw: Any) -> int | None:
         team_id = raw.get("id")
         if isinstance(team_id, int):
             return team_id
+    return None
+
+
+def _extract_fixture_state(raw: dict[str, Any]) -> str | None:
+    """Pull the SportMonks finality state code (e.g. "FT", "NS") for the fixture.
+
+    Prefers the short `state` code from the `state` include; falls back to
+    `developer_name`/`short_name`. Returns None when no state include is present
+    — the completeness gate then defers to the structural checks.
+    """
+    state_raw = raw.get("state")
+    if isinstance(state_raw, dict):
+        for key in ("state", "developer_name", "short_name", "name"):
+            val = state_raw.get(key)
+            if isinstance(val, str) and val.strip():
+                return val
     return None
 
 

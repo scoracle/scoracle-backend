@@ -49,11 +49,12 @@ cron binaries on a different commit than the API.
 | `../systemd/cloudflared.service` | CF Tunnel runner |
 | `release.sh` | single release command — build all 4 binaries from one commit, install, restart, verify |
 | `cron-scoseed.sh` | wrapper that loads `.venv` + env vars so cron can invoke `scoracle-seed` |
+| `cron-live-fixtures.sh` | current-season-aware live polling wrapper for NBA/NFL/Football fixture jobs |
 | `cron-pipeline.sh` | wrapper for the staged Gemma pipeline (sweep → transfers → narratives → vibe) |
 | `cron-statcommentary.sh` | wrapper for the stats-rail commentary job |
 | `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation/backfill |
 | `recompute-tiers.sh` | weekly entity-tier recomputation |
-| `crontab.example` | paste-ready crontab — daily football drain, weekly refresh, nightly backup |
+| `crontab.example` | paste-ready crontab — NBA/NFL polling, football refresh/drain, nightly backup |
 | `backup-postgres.sh` | nightly `pg_dump` with 14-daily + 12-monthly retention |
 | `restore-drill.sh` | tests a backup restore into a throwaway DB and diffs row counts |
 | `tunnel-smoke.sh` | endpoint smoke test (local or via CF Tunnel) |
@@ -81,6 +82,8 @@ long-running tests.
 journalctl --user -u scoracle-api -f
 
 # Cron (plaintext, rotated by logrotate)
+tail -f logs/cron-nba.log
+tail -f logs/cron-nfl.log
 tail -f logs/cron-football.log
 tail -f logs/backup.log
 

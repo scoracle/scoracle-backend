@@ -79,7 +79,7 @@ relying on them.
   bulk run.
 
 ### F-007 — `pipeline_work` is entity-keyed; scrub stays article-keyed
-- **Found:** Session 7 · **Status:** Resolved (Session 8)
+- **Found:** Session 7 · **Status:** Resolved (Session 8, `937df44`)
 - The durable work queue (`pipeline_work`, migration 102) is keyed by entity and covers the
   per-entity *derive* stages (transfers, narratives, vibe, momentum, sigil). **Scrub is
   article-keyed** and already has a durable queue: `news_article_entities.scrubbed_at IS NULL`

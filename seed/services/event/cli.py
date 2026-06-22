@@ -465,6 +465,19 @@ def load_fixtures(
                     )
                 finally:
                     handler.close()
+    except RateLimitExhausted as exc:
+        # A schedule-refresh 429 is not a data error — stop cleanly and let the
+        # next run resume. Schedule loads are idempotent upserts, so nothing is
+        # left half-written. Exit 2 matches `event process` so cron can tell a
+        # rate-limit pause apart from a real failure.
+        click.echo(
+            f"\n⏸  Rate limit reached on {exc.provider} "
+            f"({exc.detail or 'no detail'}) during schedule refresh.\n"
+            f"   Loaded {loaded} fixtures before pausing (skipped={skipped}).\n"
+            f"   Re-run the same command later to resume.",
+            err=True,
+        )
+        sys.exit(2)
     finally:
         pool.close()
 

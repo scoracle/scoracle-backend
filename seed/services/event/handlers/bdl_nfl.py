@@ -45,6 +45,17 @@ _TEAM_STAT_MAP: dict[str, str] = {
 }
 
 
+def _pick_score(primary: Any, fallback: Any) -> Any:
+    """Return primary unless it is absent (None); a legitimate 0 is kept.
+
+    BDL ships the away score as ``visitor_team_score``; ``away_team_score`` is a
+    defensive fallback for schema drift. A plain ``primary or fallback`` would
+    drop a real 0 — and an NFL shutout (a team scoring exactly 0) is common — so
+    fall back only when the primary key is truly absent.
+    """
+    return primary if primary is not None else fallback
+
+
 class NFLHandler:
     """Fetches NFL data from BallDontLie and returns canonical models."""
 
@@ -130,15 +141,25 @@ class NFLHandler:
         param_candidates.extend([primary, fallback])
 
         items: list[dict[str, Any]] = []
+        last_exc: Exception | None = None
+        succeeded = False
         for params in param_candidates:
             try:
                 items = self.client.get_all_pages("/nfl/v1/games", params)
+                succeeded = True
             except RateLimitExhausted:
                 raise
-            except Exception:
+            except Exception as exc:
+                last_exc = exc
                 continue
             if items:
                 break
+        # If EVERY candidate request failed (transport/protocol error), surface
+        # the last error instead of masquerading as an empty schedule — a
+        # request that succeeds with no rows is a legitimately empty window and
+        # falls through to return [].
+        if not succeeded and last_exc is not None:
+            raise last_exc
         games: list[dict[str, Any]] = []
 
         for raw in items:
@@ -177,8 +198,9 @@ class NFLHandler:
                     "season": raw.get("season", season),
                     "round": str(raw.get("week") or raw.get("status") or ""),
                     "home_score": raw.get("home_team_score"),
-                    "away_score": raw.get("visitor_team_score")
-                    or raw.get("away_team_score"),
+                    "away_score": _pick_score(
+                        raw.get("visitor_team_score"), raw.get("away_team_score")
+                    ),
                 }
             )
 
@@ -196,6 +218,8 @@ class NFLHandler:
         try:
             resp = self.client.get(f"/nfl/v1/players/{player_id}")
             return resp.get("data")
+        except RateLimitExhausted:
+            raise
         except Exception as e:
             logger.warning(f"Failed to fetch player {player_id}: {e}")
             return None
@@ -219,6 +243,8 @@ class NFLHandler:
                 if limit_val is not None and len(items) >= limit_val:
                     return items[:limit_val]
             return items
+        except RateLimitExhausted:
+            raise
         except Exception as e:
             logger.warning(f"Failed to fetch all players for season {season}: {e}")
             return []
@@ -306,8 +332,9 @@ class NFLHandler:
                     or game_raw.get("away_team_id")
                 )
                 home_score = game_raw.get("home_team_score")
-                away_score = game_raw.get("visitor_team_score") or game_raw.get(
-                    "away_team_score"
+                away_score = _pick_score(
+                    game_raw.get("visitor_team_score"),
+                    game_raw.get("away_team_score"),
                 )
                 if isinstance(home_team_id, int) and isinstance(home_score, int):
                     team_scores[home_team_id] = home_score

@@ -17,7 +17,11 @@ from shared import config as config_mod
 from shared.api_errors import RateLimitExhausted
 from shared.db import check_connectivity, create_pool, get_conn
 from shared.upsert import (
+    clear_season_recompute_needed,
     finalize_fixture,
+    load_dirty_seasons,
+    mark_season_recompute_needed,
+    record_recompute_failure,
     recompute_season,
     snapshot_rating_history,
     upsert_event_box_score,
@@ -160,7 +164,50 @@ def _seed_fixture_box_scores(
         upsert_event_team_stats(conn, fixture.sport, season, league_id, row)
 
     players_updated, teams_updated = finalize_fixture(conn, fixture.id, recompute)
+    if not recompute:
+        # Deferred finalize: the season still owes a whole-season recompute +
+        # snapshot. Record it durably in the SAME transaction as finalize so a
+        # crash before the end-of-run drain can't strand it (Session 6).
+        mark_season_recompute_needed(conn, fixture.sport, fixture.season)
     return len(player_rows), len(team_rows), players_updated, teams_updated
+
+
+def _drain_dirty_seasons(conn: psycopg.Connection) -> tuple[int, int, int]:
+    """Recompute every (sport, season) marked dirty in season_recompute_needed —
+    this run's deferrals plus any stranded by an earlier crash. Each marker is
+    deleted in the same transaction as its recompute + snapshot, so it clears
+    only on full success; a failure leaves the marker in place (attempts/
+    last_error bumped) and does not abort the drain.
+
+    Returns (pairs_seen, players_updated, teams_updated)."""
+    dirty = load_dirty_seasons(conn)
+    if not dirty:
+        return 0, 0, 0
+
+    click.echo(f"Deferred recompute for {len(dirty)} (sport, season) pair(s)…")
+    total_players = 0
+    total_teams = 0
+    for d_sport, d_season in dirty:
+        try:
+            with conn.transaction():
+                p_up, t_up = recompute_season(conn, d_sport, d_season)
+                snaps = snapshot_rating_history(conn, d_sport, d_season, "seed")
+                clear_season_recompute_needed(conn, d_sport, d_season)
+            total_players += p_up
+            total_teams += t_up
+            click.echo(
+                f"  recomputed {d_sport} {d_season}: "
+                f"players={p_up} teams={t_up} rating_history+={snaps}"
+            )
+        except Exception as exc:
+            reason = str(exc).strip() or exc.__class__.__name__
+            with conn.transaction():
+                record_recompute_failure(conn, d_sport, d_season, reason)
+            click.echo(
+                f"  recompute FAILED for {d_sport} {d_season}: {reason}",
+                err=True,
+            )
+    return len(dirty), total_players, total_teams
 
 
 @cli.command("load-fixtures")
@@ -635,7 +682,6 @@ def process(
                 total_team_rows = 0
                 total_players_updated = 0
                 total_teams_updated = 0
-                deferred: set[tuple[str, int]] = set()
 
                 for fixture in pending:
                     handler = handlers.get(fixture.sport)
@@ -658,8 +704,6 @@ def process(
                             ) = _seed_fixture_box_scores(
                                 conn, fixture, handler, recompute, force
                             )
-                        if not recompute:
-                            deferred.add((fixture.sport, fixture.season))
                         processed += 1
                         total_box_rows += box_rows
                         total_team_rows += team_rows
@@ -708,27 +752,15 @@ def process(
                             err=True,
                         )
 
-                # Deferred whole-season recompute: one pass per (sport, season)
-                # whose fixtures skipped the per-fixture recompute. Plus a frozen
-                # rating_history snapshot for the season. Only reached on normal
-                # completion (a rate-limit exit above leaves resume state intact;
-                # re-run, or use `event recompute`).
-                if deferred:
-                    click.echo(
-                        f"Deferred recompute for {len(deferred)} (sport, season) pair(s)…"
-                    )
-                    for d_sport, d_season in sorted(deferred):
-                        with conn.transaction():
-                            p_up, t_up = recompute_season(conn, d_sport, d_season)
-                            snaps = snapshot_rating_history(
-                                conn, d_sport, d_season, "seed"
-                            )
-                        total_players_updated += p_up
-                        total_teams_updated += t_up
-                        click.echo(
-                            f"  recomputed {d_sport} {d_season}: "
-                            f"players={p_up} teams={t_up} rating_history+={snaps}"
-                        )
+                # Deferred whole-season recompute: drain the durable dirty-season
+                # queue (this run's deferrals + anything an earlier crash left
+                # behind). Only reached on normal completion — a rate-limit exit
+                # above leaves the markers in place; re-run, or `event
+                # recompute-drain`.
+                pairs, p_up, t_up = _drain_dirty_seasons(conn)
+                total_players_updated += p_up
+                total_teams_updated += t_up
+                if pairs:
                     click.echo(
                         "Note: once ALL historical seasons of a sport are loaded, "
                         "refresh cross-season all-time ranks ONCE: "
@@ -792,6 +824,9 @@ def recompute(sport: str, season: int, alltime: bool, snapshot: bool) -> None:
                     if snapshot
                     else 0
                 )
+                # Whatever owed this season a recompute is now paid — clear the
+                # durable dirty marker atomically with the recompute (Session 6).
+                clear_season_recompute_needed(conn, sport_u, season)
             click.echo(
                 f"Recomputed {sport_u} {season}: "
                 f"players={p_up} teams={t_up} rating_history+={snaps}"
@@ -807,6 +842,35 @@ def recompute(sport: str, season: int, alltime: bool, snapshot: bool) -> None:
                 click.echo(
                     f"All-time ranks refreshed for {sport_u}: "
                     f"players={row['players_updated']} teams={row['teams_updated']}"
+                )
+    finally:
+        pool.close()
+
+
+@cli.command("recompute-drain")
+def recompute_drain() -> None:
+    """Recompute every (sport, season) left dirty by an interrupted deferred
+    backfill (rows in season_recompute_needed).
+
+    Clears each marker only after a successful recompute + snapshot. No-op when
+    nothing is pending; safe to run anytime — e.g. after a `process --batch` was
+    killed before its end-of-run drain.
+    """
+    cfg = config_mod.load()
+    pool = create_pool(cfg)
+    try:
+        if not check_connectivity(pool):
+            click.echo("Database connectivity check failed", err=True)
+            sys.exit(1)
+
+        with get_conn(pool) as conn:
+            pairs, p_up, t_up = _drain_dirty_seasons(conn)
+            if pairs == 0:
+                click.echo("No dirty seasons pending recompute.")
+            else:
+                click.echo(
+                    f"Drained {pairs} (sport, season) pair(s): "
+                    f"players_updated={p_up} teams_updated={t_up}"
                 )
     finally:
         pool.close()

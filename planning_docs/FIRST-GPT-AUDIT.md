@@ -11,6 +11,17 @@ This document converts the first full backend audit into a sequence of focused i
 
 Each numbered improvement is intended to be handled in its own dedicated session. Some sessions have dependencies, noted below. Avoid combining unrelated fixes merely because they touch the same language or directory.
 
+## Findings ledger
+
+Every session surfaces things outside its own scope — surprises, cross-session dependencies,
+deliberate deferrals, operational gotchas, and "fix this in Session N" notes. **At the end of
+every session, record those in `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md`** (one entry each), so
+the knowledge compounds across sessions instead of living only in per-session progress docs or
+operator memory. That ledger is append-only: when a later session acts on a finding, update its
+**Status** rather than deleting it. What belongs there is anything a *future* session, the launch
+gate, or an operator should know — **not** the work the current session actually did (that goes
+in the session's `progress_docs/` entry).
+
 ## Product authority and invariants
 
 The wiki **Product Narrative** is authoritative when this audit and the product model differ. Backend

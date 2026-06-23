@@ -721,6 +721,28 @@ All endpoint products agree on what the latest generation means.
 
 # Session 12 — Repair convergence and the event-driven Sigil lifecycle
 
+> **✅ COMPLETE — deployed live 2026-06-23 (archbox).** Code `331f76706f68`. **Code-only — NO migration**
+> (next free stays **106**; the parallel session took 105 — F-031). Sigil convergence is now event-driven,
+> debounced by the three-pillar input hash, and **season-correct (historical supported — Scott's call,
+> F-026):** `/sigil` + `/leaderboard/sigil` take an optional `?season` (no param ⇒ the live view = current
+> season + legacy NULL rows, so an older season can never become the current crown; `?season=N` ⇒ that
+> season exactly). Every generation STAMPS a concrete season (`resolveSeason`: nil ⇒ `sports.current_season`),
+> so the real-time queue is current-season and only explicit-season **backfill** writes history.
+> **F-017** fixed: the percentile listener ENQUEUES durable `pipeline_work(sigil)` on a composite shift,
+> **before** the follower early-return — zero-follower entities still converge (simplification A); inline
+> Gemma off the NOTIFY + `RecentlySynthesized` removed. **F-023** fixed: the generation-side pillar/debounce
+> loaders (`sigil.go` `loadRatingPillar`/`lastSynthesisHash`/`lastScore`, `rating.go`
+> `lastCommentaryHash`/`ReStampPeakKeys`) now apply the S11 canonical latest-generation rule + season scope.
+> Real **`DryRun`** added to `SigilRequest` (a single dry-run no longer persists). **`vibesynth -mode nightly`**
+> converted to bounded reconciliation (enumerate current-season missing/stale → enqueue `pipeline_work(sigil)`;
+> no inline synth, no Ollama, no scheduled duplicates); `backfill` is per-season + only-missing; cron docs
+> rewritten, nightly line kept (F-002). All prepared statements re-validated against the live schema (F-025);
+> deployed via `release.sh` (F-016); 11 restart-stranded `vibe` rows requeued (F-018). Progress doc:
+> `progress_docs/2026-06-23_first-gpt-audit-session-12-convergence-sigil-lifecycle.md`. Findings:
+> **F-002/F-010/F-017/F-023** RESOLVED, **F-011** clarified; **F-026** (season decision), **F-027** (72h-window
+> follow-up), **F-028** (NULL-season transition), **F-029** (historical news/vibe not season-scoped), **F-030**
+> (NFL/FOOTBALL current-season coverage gap → launch-gate), **F-031** (migration 105 taken) added.
+
 ## Problems
 
 - Composite-shift synthesis occurs after follower and FCM-specific early returns.

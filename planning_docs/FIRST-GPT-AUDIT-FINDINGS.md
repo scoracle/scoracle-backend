@@ -201,19 +201,23 @@ relying on them.
   revert 088's recorded-but-partial state, and apply/retract 093–095. Session 17 docs must use the ACTUAL
   live names. Launch-gate item ("deployed schema, migrations, and docs describe the same system").
 
-### F-016 — `scoracle-api.path` watcher is now ACTIVE (memory says inert); release double-restarts
-- **Found:** Session 9 deploy · **Status:** Ops note
-- The `backend-api-restart-mechanics` memory records the path-watcher as "inert (stale path)". No longer
-  true: `scripts/hosting/install.sh` (run by `release.sh`) re-renders the units with the correct path, so
-  `scoracle-api.path` → `scoracle-api-restart.service` now restarts the API whenever `go/bin/scoracle-api`
-  changes. During the S9 release this raced `release.sh`'s own explicit `systemctl restart`, producing ~4
-  rapid restarts in one second before settling (systemd `NRestarts` stayed 0 — path-triggered, not
-  crash-restarts). The flap cancelled an in-flight `DrainAll` mid-Gemma, leaving 2 orphaned `running`
-  `pipeline_work` rows; `RequeueStale` (30m lease) would have recovered them (durable model degrading
-  gracefully, as designed) — they were manually requeued to verify the drain in-session.
-- **Action:** decide whether to keep the path-watcher (auto-restart on rebuild). If yes, `release.sh`'s
-  explicit restart is redundant and could be dropped to avoid the double-fire; if no, disable
-  `scoracle-api.path`. Update the `backend-api-restart-mechanics` memory either way.
+### F-016 — `scoracle-api.path` rebuild-watcher flaps the API across a release (now costs Gemma work)
+- **Found:** Session 9 deploy · **Status:** Resolved (S9 — `release.sh` masks the watcher during placement)
+- NOT a regression: `scoracle-api.path` (watches `go/bin/`, restarts the API on rebuild) was DELIBERATELY
+  fixed to the correct consolidated path in **Session 2** and has been active since. The
+  `backend-api-restart-mechanics` memory calling it "inert" was simply **stale** (now corrected). The
+  unit even documents the multi-restart as expected/harmless. What's NEW is the **cost**: `release.sh`
+  places 4 binaries → 4 directory-change events → ~4 restarts (plus its own explicit restart) before
+  settling; pre-S9 that was harmless (listeners just reconnected), but S9's in-API derive worker means
+  each spurious restart now **cancels an in-flight Gemma drain** (orphaned `running` rows, recovered by
+  `RequeueStale`; wasted GPU on the contended 8GB card, F-014).
+- **Resolved:** `release.sh` now `systemctl --user stop scoracle-api.path` before placing the binaries and
+  re-arms it on exit (cleanup trap), so only its single authoritative restart fires. The watcher is kept
+  for ad-hoc `go build` outside `release.sh` (its actual value); the `backend-api-restart-mechanics`
+  memory is updated to reflect it is active.
+- **Residual (not fixed):** the watch is on the whole `go/bin/` directory (intentional — `go build`
+  renames temp→final so a file watch would miss it), so a standalone `go build -o bin/pipeline` outside
+  `release.sh` still restarts the API. Low-frequency; narrowing it reliably is hard. Left as-is.
 
 ### F-017 — composite_shift → Sigil still runs Gemma directly off the percentile NOTIFY (not durable)
 - **Found:** Session 9 · **Status:** Watch (Session 12)

@@ -243,11 +243,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// — (sport, score DESC, generated_at DESC) WHERE score IS NOT NULL AND blurb IS NOT NULL
 		// — covers the inner scan. Carries previous_score so the front door can show the crown's
 		// delta (sibling boards don't have a native previous; the Sigil synthesis does).
-		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 season
+		// (NULL ⇒ live/current view).
 		"sigil_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
-			       NULLIF(lower($3::text), '') AS entity_type
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       $4::int AS want_season,
+			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
 		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
@@ -255,12 +258,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- newer marker therefore removes the entity from the crown board instead of the
 		-- old behavior, which filtered markers BEFORE the DISTINCT ON and left a stale
 		-- scored row ranked.
+		-- Season scope (Session 12): no ?season ⇒ the LIVE view (current season + legacy
+		-- NULL-season rows), so an older season's crown can never rank as current; an
+		-- explicit ?season=N ranks that season's board exactly.
 		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
 			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.generated_at
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
+			  AND CASE WHEN req.want_season IS NULL
+			           THEN (ss.season = req.cur_season OR ss.season IS NULL)
+			           ELSE ss.season = req.want_season END
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
 		),
 		latest AS (
@@ -300,6 +309,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'page', 'sigil_leaderboard',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
 			'count', (SELECT count(*) FROM ranked),
 			'leaders', COALESCE(
 				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked),
@@ -647,33 +657,47 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
 			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, gemma_summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
+		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ live/current view).
 		"entity_vibes": `WITH req AS (
-			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
+			       $4::int AS want_season,
+			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
+		),
+		-- Season scope (FIRST-GPT-AUDIT Session 12): no ?season ⇒ the LIVE view — the
+		-- current season plus legacy NULL-season rows (the pre-S12 event-driven default) —
+		-- so synthesizing an OLDER season can never become the current crown. An explicit
+		-- ?season=N selects that season exactly (its final crown, no freshness window).
+		latest_gen AS (
+			-- Canonical latest-generation rule (Session 11): the latest synthesis WITHIN
+			-- the season scope, REGARDLESS of nullability.
+			SELECT max(vs.generated_at) AS g
+			FROM public.sigil_synthesis vs, req
+			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
+			  AND CASE WHEN req.want_season IS NULL
+			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
+			           ELSE vs.season = req.want_season END
 		),
 		vibe_cur AS (
-			-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take the
-			-- latest synthesis REGARDLESS of nullability (unfiltered max), then surface
-			-- it only when it is a real scored row AND fresh. A newer no-pillar marker
-			-- (score NULL) thus becomes the latest generation and the score IS NOT NULL
-			-- guard yields zero rows → current null, clearing the stale crown. (History
-			-- below intentionally keeps only scored points — a marker changes the current
-			-- projection, never the sparkline.)
+			-- Surface the latest generation only when it is a real scored row AND (for the
+			-- live view) fresh. A newer no-pillar marker (score NULL) is the latest
+			-- generation → the score IS NOT NULL guard yields zero rows → current null,
+			-- clearing the stale crown. (History below keeps only scored points — a marker
+			-- changes the current projection, never the sparkline.)
 			SELECT vs.score, vs.blurb, vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
-			FROM public.sigil_synthesis vs CROSS JOIN req
+			FROM public.sigil_synthesis vs, req, latest_gen
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
-			  AND vs.generated_at = (
-			      SELECT max(generated_at) FROM public.sigil_synthesis
-			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
-			        AND sport = (SELECT sport FROM req)
-			  )
+			  AND vs.generated_at = latest_gen.g
 			  AND vs.score IS NOT NULL
-			  AND vs.generated_at > NOW() - INTERVAL '72 hours'
+			  AND (req.want_season IS NOT NULL OR vs.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		vibe_hist AS (
 			SELECT vs.score, vs.generated_at
-			FROM public.sigil_synthesis vs CROSS JOIN req
+			FROM public.sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
+			  AND CASE WHEN req.want_season IS NULL
+			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
+			           ELSE vs.season = req.want_season END
 			ORDER BY vs.generated_at DESC LIMIT 14
 		)
 		SELECT json_build_object(
@@ -681,6 +705,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
+			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
 			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,

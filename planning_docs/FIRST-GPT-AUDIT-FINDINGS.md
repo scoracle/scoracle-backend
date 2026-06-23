@@ -38,9 +38,14 @@ relying on them.
   statement at boot and fails fast on a drifted schema).
 
 ### F-002 — Keep the nightly `cron-vibesynth.sh` Sigil line until Session 12 _(carried)_
-- **Found:** Session 3 · **Status:** Watch (Session 12)
+- **Found:** Session 3 · **Status:** Resolved (Session 12, `cron-vibesynth.sh` + `crontab.example`)
 - The S3 crontab rewrite had dropped the nightly Sigil generation line; it was restored. Do not
   drop it before Session 12, which converts that nightly run into reconciliation/backfill-only.
+- **Resolved (Session 12):** `-mode nightly` is now bounded RECONCILIATION — it enumerates
+  current-season rated entities whose Sigil is missing/stale and ENQUEUES `pipeline_work(sigil)`
+  for the derive worker to drain (no inline synthesis, no Ollama). The cron line is KEPT (now
+  `-limit 500`, `-throttle-ms` dropped); the script + `crontab.example` comments were rewritten to
+  describe the reconciliation/backstop role.
 
 ### F-003 — Rating engine has sub-display percentile tie-break non-determinism _(carried)_
 - **Found:** deferred-finalize work (pre-S6) · **Status:** Open
@@ -111,7 +116,12 @@ relying on them.
   unconditional all-teams generation.
 
 ### F-010 — Sigil terminal stage is wired minimally in S8; convergence lifecycle is still S12
-- **Found:** Session 8 · **Status:** Watch (Session 12)
+- **Found:** Session 8 · **Status:** Resolved (Session 12)
+- **Resolved (Session 12):** the STATS-rail producer now exists — the percentile listener enqueues a
+  durable `pipeline_work(sigil)` item on a composite shift (F-017), independent of followers. Combined
+  with S8's news-rail vibe→sigil producer and the nightly reconciliation backstop (F-002), every input
+  change reconverges the Sigil through the one drain path. Season-scoping, the real `DryRun`, and
+  follower/FCM decoupling all landed (see the S12 progress doc).
 - S8 wires Sigil as the terminal queue stage: a completed `vibe` item enqueues a `sigil` item
   (before the vibe row is completed, so a crash re-runs vibe rather than dropping the sigil), and the
   drain calls the **existing** `SigilGenerator.Generate(..., SkipUnchanged: true)` — which already
@@ -125,7 +135,14 @@ relying on them.
   change alone reconverges the Sigil.
 
 ### F-011 — Momentum is still read-derived; "append a Momentum generation" is blocked → S12
-- **Found:** Session 8 · **Status:** Watch (Session 12)
+- **Found:** Session 8 · **Status:** Partially addressed (Session 12); a dedicated Momentum generation remains future
+- **Update (Session 12):** the Sigil convergence input hash already combines all three pillars
+  (narrative titles + rating divined_peak/notability + momentum latest_sentiment/composite/vibe_prompt),
+  and S12 makes the rating + composite-momentum pillars SEASON-EXACT, so "trigger convergence when any of
+  the three changes, debounce by that hash" is satisfied without a separate Momentum row. Momentum is
+  still read-derived (no `momentum_generations` table; `rating_history` still too shallow), so a *versioned
+  Momentum generation* feeding the hash remains future work. The vibe/news component is NOT season-scoped
+  (see F-029), which is the real residual gap in the three-versioned-inputs model.
 - The audit S8 work list says "append a Momentum generation when its input version changes," but in
   the live code **Momentum is not a generation** — it is computed at read time (peer-cohort
   precompute + per-event composite slope inside `SigilGenerator.loadMomentumPillar`), and
@@ -220,7 +237,13 @@ relying on them.
   `release.sh` still restarts the API. Low-frequency; narrowing it reliably is hard. Left as-is.
 
 ### F-017 — composite_shift → Sigil still runs Gemma directly off the percentile NOTIFY (not durable)
-- **Found:** Session 9 · **Status:** Watch (Session 12)
+- **Found:** Session 9 · **Status:** Resolved (Session 12, `internal/listener/listener.go`)
+- **Resolved (Session 12):** `handlePercentileChange` now ENQUEUES a durable `pipeline_work(sigil)` item
+  on a ≥10 composite delta (input_version `composite:<season>:<pctile>`) instead of calling
+  `SigilGenerator.Generate` inline off the transient NOTIFY. The enqueue runs BEFORE the follower
+  early-return, so zero-follower entities still reconverge (simplification A). `RecentlySynthesized` (the
+  inline 24h time-debounce) was deleted — the queue + the generator's input-hash gate handle dedup. The
+  listener no longer takes a `*ml.SigilGenerator` (the API still builds one for the derive worker).
 - S9 routed the NEWS-rail real-time triggers (narratives/vibe/transfers) through the durable
   `pipeline_work` queue, but deliberately left the STATS-rail real-time path untouched: the percentile
   listener (`internal/listener/listener.go`) still calls `SigilGenerator.Generate` DIRECTLY on a
@@ -322,7 +345,13 @@ relying on them.
   pre-drop schema, deploy it first, then drop. Reserve "migrate-then-restart" for ADDITIVE migrations.
 
 ### F-023 — Sigil generation-side pillar/debounce loaders do NOT apply the canonical latest-generation rule
-- **Found:** Session 11 · **Status:** Watch (Session 12)
+- **Found:** Session 11 · **Status:** Resolved (Session 12, `ml/sigil.go` + `ml/rating.go`)
+- **Resolved (Session 12):** `loadRatingPillar`, `lastSynthesisHash`, `lastScore` (sigil.go) and
+  `lastCommentaryHash`, `ReStampPeakKeys` (rating.go) all dropped the `body/score IS NOT NULL` pre-filter
+  and now take the entity('s season')'s LATEST generation regardless of nullability: a marker suppresses
+  the rating pillar (returns nil), and a marker's NULL input_hash → "" so the debounce never wrongly skips
+  against a superseded real generation. These also became SEASON-scoped (sigil.go's took a new `season`
+  arg; rating.go's were already season-scoped).
 - Session 11 fixed the *serving reads* to honor markers (latest generation regardless of nullability →
   marker clears current). The *generation-side* loaders that feed Sigil convergence and the regen-debounce
   were left as-is because they belong to the Sigil/convergence lifecycle (Session 12), but they are
@@ -370,3 +399,75 @@ relying on them.
   against the live (or a prod-cloned) schema before `release.sh`. Worth promoting to a kept
   `cmd/validate-stmts` (or a `go test` that prepares every statement against a migrated test DB) under
   Session 16 (CI) so the check is permanent rather than re-created per session.
+  - **Used again (Session 12):** the same throwaway validated `entity_vibes` + `sigil_leaderboard` (both
+    gained a `$4 season` param + a `sports.current_season` subselect) → `OK`; removed after.
+
+### F-026 — Sigil season semantics: HISTORICAL-supported (Scott's call); `/sigil` + crown board take `?season`
+- **Found:** Session 12 · **Status:** Resolved (Session 12) — product-contract decision
+- The audit asked to decide current-season-only vs. historical. Scott chose **historical supported**:
+  `/sigil/{...}` and `/leaderboard/sigil` accept an optional `?season=N`; with no param they serve the
+  **live view** = the current season PLUS legacy NULL-season rows (the pre-S12 event-driven default), so an
+  older season's crown can never become current (the bug: NBA player/4's most-recently-*generated* row was a
+  `season=2024` row scoring 35, which the old "latest generated_at" read served as the live crown). An
+  explicit `?season=N` returns that season exactly (no NULL, no 72h freshness window). Every generation now
+  STAMPS a concrete season (`SigilGenerator.resolveSeason`: nil ⇒ `sports.current_season`), so real-time/
+  manual convergence targets the current season and only an explicit-season backfill writes historical rows.
+  Both reads now also emit a `season` field. Debounce hash / previous-score / latest-gen are all season-scoped.
+- **Action:** the iOS/web clients can add a season selector to the Sigil card/board; until then the default
+  (no param) live view is unchanged in shape (additive `season` field).
+
+### F-027 — `/sigil`'s 72h freshness window is a residual timing-assumption (kept for now)
+- **Found:** Session 12 · **Status:** Open (follow-up; deferred deliberately)
+- `entity_vibes` (per-entity `/sigil`) still gates the current crown on `generated_at > NOW() - 72h` (it
+  predates marker semantics). The audit's guiding principle is "explicit, durable state over timing
+  assumptions," and markers now clear stale crowns explicitly — so the time window is redundant in principle.
+  S12 KEPT it (only on the live view; an explicit `?season` ignores it) to avoid a serving-behavior change
+  during a live deploy AND because it's the current safety net for stale legacy NULL-season rows. Side effect:
+  a steady current-season entity whose inputs don't change for 3+ days drops off the per-entity card while
+  still ranking on the crown board (which has no freshness window) — a pre-existing inconsistency, not a
+  regression.
+- **Action:** once reconciliation has stamped every current-season entity (so NULL-season rows are gone,
+  F-028) replace the 72h window with pure marker-based clearing, making per-entity `/sigil` and the crown
+  board agree on "current" without a time gate.
+
+### F-028 — Legacy NULL-season Sigil rows are served as "current" via a transition allowance
+- **Found:** Session 12 · **Status:** Ops note / launch-gate
+- 715 pre-S12 `sigil_synthesis` rows have `season IS NULL` (the event-driven paths never stamped a season).
+  The live view deliberately includes `season IS NULL` so deploy does NOT drop coverage — those crowns keep
+  serving. Reconciliation enqueues every current-season entity lacking a season-STAMPED row (NULL-only
+  entities count as missing), so over time each NULL crown is superseded by a season-stamped one (newer
+  `generated_at` ⇒ wins the latest-gen pick). Do NOT remove the `season IS NULL` allowance from the live
+  reads until coverage is fully season-stamped, or those entities lose their crown.
+
+### F-029 — Historical Sigils reuse CURRENT news/vibe pillars (news/vibe are not season-scoped)
+- **Found:** Session 12 · **Status:** Open (limitation of "historical supported")
+- The Rating pillar (`stat_summaries.season`) and the composite-Momentum pillar (`event_*.season`) ARE
+  season-exact, but the narrative pillar (`news_summaries`) and the sentiment half of Momentum
+  (`vibe_scores`) have NO season column — news is "now." So a backfilled historical-season Sigil grounds its
+  news/vibe component on the LATEST news, not that season's. Historical differentiation is therefore mostly
+  the Rating + composite-Momentum pillars. Acceptable (you can't reconstruct a past season's news sentiment),
+  but worth knowing before leaning on historical Sigils as faithful season snapshots.
+- **Action:** if faithful historical news is ever needed, season-stamp `news_summaries`/`vibe_scores` (large
+  change) — otherwise document `/sigil?season=<past>` as "current narrative over that season's stats."
+
+### F-030 — Current-season Sigil coverage gap (NFL/FOOTBALL have ZERO season-stamped rows) → launch-gate
+- **Found:** Session 12 · **Status:** Watch (launch gate) — reconcile before launch
+- Under strict season stamping, NBA 2025 needs only ~9 (a prior backfill passed `-season`, so 278 rows are
+  2025-stamped), but **NFL (1072) and FOOTBALL (2147) current-season entities have NO `season=2025`-stamped
+  Sigil** — their crowns are all legacy NULL-season rows (they still serve via F-028, but aren't season-
+  stamped). Reconciliation (`vibesynth -mode nightly`) will enqueue all of them; at GPU throughput (F-014)
+  that drains over several nights, plus the always-on derive worker + event-driven convergence. Separately,
+  reconciliation can re-enqueue a "timestamp-stale but content-unchanged" entity each night (a new input row
+  whose content doesn't move the Sigil hash) — the drain then SkipsUnchanged cheaply (no Gemma, no new row),
+  so it's wasteful-but-bounded and non-converging for those few.
+- **Action:** before launch, run a larger reconcile/backfill to season-stamp current-season NFL/FOOTBALL
+  (e.g. `vibesynth -mode backfill -sport NFL` once, GPU-bound), then assert current-season coverage.
+
+### F-031 — Parallel session claimed migration 105 (`105_vibe_scores_shadow.sql`); next free = 106
+- **Found:** Session 12 · **Status:** Ops note
+- The plan/memory assumed "next free migration = 105," but the parallel Sonnet (Rust scrubber / vibe-parity)
+  session had already created `sql/migrations/105_vibe_scores_shadow.sql` (untracked) in the shared tree.
+  S12 needed NO migration (code-only, like S11), so there was no collision — but the next session must use
+  **106** and coordinate with the parallel work (which also left tracked edits to `rust/*` + `.gitignore`
+  uncommitted in the shared tree, and new untracked `rust/src/{lib,vibe}.rs`, `rust/src/bin/`,
+  `go/internal/ml/vibe_parity_test.go`). `git fetch` + inspect before any bulk migrate or commit (F-006).

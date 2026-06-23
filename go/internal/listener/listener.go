@@ -2,11 +2,15 @@
 // notifications. It holds a dedicated pgx connection (not from the pool) and
 // listens on the percentile_changed channel: significant stat-line percentile
 // crossings (90/95/99 or delta >= 10) become push notifications, and a large
-// composite shift also triggers Sigil synthesis (one of its three inputs).
+// composite shift ENQUEUES durable Sigil convergence work (one of its three inputs).
 //
 // The old news-rail consumers (vibe_trigger / transfer_trigger, which ran Gemma
 // directly off a transient NOTIFY) were retired in FIRST-GPT-AUDIT Session 9 in
-// favour of the durable pipeline_work queue drained by internal/derive.
+// favour of the durable pipeline_work queue drained by internal/derive. Session 12
+// (F-017) brings the STATS-rail composite_shift trigger into that same model: instead
+// of running Gemma inline off the transient NOTIFY, it enqueues a sigil pipeline_work
+// item the derive worker drains — and does so independently of followers/FCM, so an
+// entity with zero followers still reconverges its crown (simplification A).
 package listener
 
 import (
@@ -20,8 +24,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/notifications"
+	"github.com/albapepper/scoracle-data/internal/work"
 )
 
 const (
@@ -44,15 +48,13 @@ type PercentileChangeEvent struct {
 
 // Start opens a dedicated connection and listens on the percentile_changed
 // channel. It reconnects automatically on connection loss. Blocks until ctx
-// is cancelled. Intended to be called with `go`.
-// Start opens a dedicated connection and listens on the percentile_changed
-// channel. It reconnects automatically on connection loss. Blocks until ctx
-// is cancelled. synthGen is optional — nil disables composite-shift synthesis.
-func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, logger *slog.Logger) {
+// is cancelled. Intended to be called with `go`. Composite-shift Sigil convergence
+// is enqueued as durable pipeline_work (no inline generator dependency).
+func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
 	for {
-		err := listenLoop(ctx, dbURL, pool, sender, synthGen, logger)
+		err := listenLoop(ctx, dbURL, pool, sender, logger)
 		if ctx.Err() != nil {
 			logger.Info("Percentile listener stopped (context cancelled)")
 			return
@@ -72,7 +74,7 @@ func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifi
 
 // listenLoop runs a single listen session. Returns when the connection drops
 // or the context is cancelled.
-func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, logger *slog.Logger) error {
+func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) error {
 	conn, err := pgx.Connect(ctx, dbURL)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -107,14 +109,35 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 			"new_pctile", event.NewPercentile)
 
 		// Process asynchronously to avoid blocking the listener.
-		go handlePercentileChange(ctx, pool, sender, synthGen, event, logger)
+		go handlePercentileChange(ctx, pool, sender, event, logger)
 	}
 }
 
-// handlePercentileChange resolves followers for the entity, dispatches FCM
-// push notifications, and optionally triggers vibe synthesis on composite shifts.
-func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, synthGen *ml.SigilGenerator, event PercentileChangeEvent, logger *slog.Logger) {
-	// Find followers for this entity
+// handlePercentileChange enqueues stats-rail Sigil convergence on a large composite
+// shift (a durable concern, independent of followers), then dispatches FCM push
+// notifications to any followers (a separate delivery concern).
+func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, event PercentileChangeEvent, logger *slog.Logger) {
+	// Stats-rail Sigil convergence (FIRST-GPT-AUDIT Session 12, F-017 + simplification A):
+	// a significant composite move is one of the three Sigil inputs. Enqueue a DURABLE
+	// sigil pipeline_work item so the derive worker drains it like every other stage —
+	// no inline Gemma off the transient NOTIFY, no follower gate. The drain resolves the
+	// sport's current_season and the SigilGenerator's input-hash gate skips a Gemma call
+	// when nothing material changed, so a same-percentile re-fire is a cheap no-op.
+	if math.Abs(event.NewPercentile-event.OldPercentile) >= 10 {
+		iv := fmt.Sprintf("composite:%d:%.0f", event.Season, event.NewPercentile)
+		if err := work.Enqueue(ctx, pool, work.Item{
+			Stage:        work.StageSigil,
+			EntityType:   event.EntityType,
+			EntityID:     event.EntityID,
+			Sport:        event.Sport,
+			InputVersion: iv,
+		}); err != nil {
+			logger.Warn("listener: enqueue sigil (composite_shift) failed",
+				"entity_type", event.EntityType, "entity_id", event.EntityID, "sport", event.Sport, "error", err)
+		}
+	}
+
+	// Find followers for this entity (FCM push delivery — a separate concern)
 	followers, err := notifications.GetFollowers(ctx, pool, event.EntityType, event.EntityID, event.Sport)
 	if err != nil {
 		logger.Warn("Failed to get followers for percentile change",
@@ -167,22 +190,6 @@ func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *not
 	if sent+failed > 0 {
 		logger.Info("Percentile notifications dispatched",
 			"message", message, "sent", sent, "failed", failed)
-	}
-
-	// Composite-shift synthesis trigger: a significant rating change is one of
-	// the three synthesis inputs. Spawn best-effort; 24h debounce prevents storms.
-	if synthGen != nil && math.Abs(event.NewPercentile-event.OldPercentile) >= 10 &&
-		!ml.RecentlySynthesized(ctx, pool, event.EntityType, event.EntityID, event.Sport, 24*time.Hour) {
-		go func() {
-			_, _ = synthGen.Generate(ctx, ml.SigilRequest{
-				EntityType:  event.EntityType,
-				EntityID:    event.EntityID,
-				EntityName:  entityName,
-				Sport:       event.Sport,
-				TriggerType: "composite_shift",
-				Trigger:     map[string]any{"stat_key": event.StatKey, "delta": event.NewPercentile - event.OldPercentile},
-			})
-		}()
 	}
 }
 

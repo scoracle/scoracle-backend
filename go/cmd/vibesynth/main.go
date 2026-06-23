@@ -1,24 +1,29 @@
-// vibesynth — CLI for the holistic three-pillar vibe synthesis (Phase B).
+// vibesynth — CLI for the holistic three-pillar Sigil synthesis (Phase B).
 //
-// Three modes:
+// Modes:
 //
-//	single (default) — one entity (dry-run; use -persist to write).
+//	single (default) — one entity. Dry-run by default (NO write); -persist to write.
 //	  go run ./cmd/vibesynth -entity-type player -entity-id 237 -sport NBA
 //	  go run ./cmd/vibesynth -entity-type team -entity-id 10 -sport NFL -persist
 //
-//	backfill — every entity with a rating but no synthesis row yet.
-//	  go run ./cmd/vibesynth -mode backfill
-//	  go run ./cmd/vibesynth -mode backfill -sport NBA -limit 50
+//	backfill — directly synthesize every (entity, season) that has a rating but no
+//	  Sigil for that season yet (per-season; populates current + historical gaps).
+//	  Needs Ollama. go run ./cmd/vibesynth -mode backfill [-sport NBA -limit 50]
 //
-//	nightly — current season only, hash-gated (skip when inputs unchanged).
-//	  go run ./cmd/vibesynth -mode nightly
+//	nightly | reconcile — bounded reconciliation (FIRST-GPT-AUDIT Session 12): enumerate
+//	  CURRENT-SEASON rated entities whose current-season Sigil is missing or stale (an
+//	  input generation is newer than the Sigil) and ENQUEUE durable sigil pipeline_work;
+//	  the always-on derive worker drains it (current-season, hash-gated). It NEVER
+//	  synthesizes inline and never regenerates an unchanged Sigil because a schedule
+//	  fired. Needs only the DB (no Ollama). go run ./cmd/vibesynth -mode nightly [-limit N]
 //
 //	restamp — one-time vocabulary migration (no Gemma): rename the crown's
 //	  "divined_sigil" input-component key → "divined_peak" + recompute input_hash
 //	  on existing rows, so the s4 key rename does not re-synthesize the corpus.
 //	  go run ./cmd/vibesynth -mode restamp
 //
-// Env: DATABASE_PRIVATE_URL + OLLAMA_* (see config.go; restamp needs only the DB).
+// Env: DATABASE_PRIVATE_URL + OLLAMA_* (see config.go; nightly/reconcile + restamp
+// need only the DB).
 package main
 
 import (
@@ -36,6 +41,7 @@ import (
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
 	"github.com/albapepper/scoracle-data/internal/ml"
+	"github.com/albapepper/scoracle-data/internal/work"
 )
 
 func main() {
@@ -67,8 +73,10 @@ func main() {
 	defer pool.Close()
 
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
-	// restamp is a pure DB vocabulary migration (no Gemma), so skip the Ollama ping.
-	if *mode != "restamp" {
+	// Only the modes that actually call Gemma need Ollama. nightly/reconcile only
+	// enqueues durable work and restamp is a pure DB vocab migration — both run DB-only.
+	needsOllama := *mode == "single" || *mode == "backfill"
+	if needsOllama {
 		if err := ollama.Ping(context.Background()); err != nil {
 			logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
 			os.Exit(1)
@@ -80,13 +88,13 @@ func main() {
 	case "single":
 		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, *skipUnchanged, cfg.OllamaTimeout, logger)
 	case "backfill":
-		runCorpus(pool, gen, false, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
-	case "nightly":
-		runCorpus(pool, gen, true, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+		runBackfill(pool, gen, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+	case "nightly", "reconcile":
+		runReconcile(pool, *sport, *limit, logger)
 	case "restamp":
 		runReStamp(pool, gen, *sport, logger)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly | restamp\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: single | backfill | nightly | reconcile | restamp\n", *mode)
 		os.Exit(2)
 	}
 }
@@ -114,11 +122,8 @@ func runSingle(pool *pgxpool.Pool, gen *ml.SigilGenerator, entityType string, en
 		Season:        seasonPtr(season),
 		TriggerType:   trigger,
 		SkipUnchanged: skipUnchanged,
+		DryRun:        !persist, // dry-run loads + scores but never writes (real DryRun)
 	}
-	// Single mode: skip persistence by running and not saving (we call Generate
-	// directly; persist is handled by the function when -persist is set via
-	// SkipUnchanged=false + a real pool). To keep it simple, Generate always
-	// persists; dry-run is signalled by noop pool — instead, just warn the user.
 	if !persist {
 		fmt.Println("(dry-run: result shown but NOT written to sigil_synthesis)")
 	}
@@ -153,30 +158,30 @@ type target struct {
 	sportName  string
 }
 
-func runCorpus(pool *pgxpool.Pool, gen *ml.SigilGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
-	sports := []string{"NBA", "NFL", "FOOTBALL"}
-	if s := strings.TrimSpace(sportArg); s != "" && strings.ToLower(s) != "all" {
-		sports = []string{strings.ToUpper(s)}
-	}
+// runBackfill directly synthesizes the (entity, season) pairs that have a rating but
+// no Sigil for that season yet — filling current-season AND historical gaps. Needs
+// Ollama. Generate stamps the season (passed explicitly), so every backfilled row is
+// season-correct.
+func runBackfill(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
+	sports := resolveSports(sportArg)
 	ctx := context.Background()
-	label := map[bool]string{true: "nightly", false: "backfill"}[nightly]
 	start := time.Now()
 
 	var targets []target
 	for _, sp := range sports {
-		ts, err := enumRated(ctx, pool, sp)
+		ts, err := enumRatedMissing(ctx, pool, sp)
 		if err != nil {
-			logger.Error("vibesynth: enumerate failed", "mode", label, "sport", sp, "error", err)
+			logger.Error("vibesynth backfill: enumerate failed", "sport", sp, "error", err)
 			continue
 		}
 		targets = append(targets, ts...)
 	}
-	logger.Info("vibesynth: starting", "mode", label, "sports", sports, "targets", len(targets), "gen_limit", limit)
+	logger.Info("vibesynth backfill: starting", "sports", sports, "targets", len(targets), "gen_limit", limit)
 
-	ok, skippedUnchanged, noPillars, fail := 0, 0, 0, 0
+	ok, noPillars, fail := 0, 0, 0
 	for i, t := range targets {
 		if limit > 0 && ok >= limit {
-			logger.Info("vibesynth: generation limit reached", "mode", label, "limit", limit, "scanned", i)
+			logger.Info("vibesynth backfill: generation limit reached", "limit", limit, "scanned", i)
 			break
 		}
 		lctx, lcancel := context.WithTimeout(ctx, 5*time.Second)
@@ -189,49 +194,106 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.SigilGenerator, nightly bool, sportAr
 
 		gctx, gcancel := context.WithTimeout(ctx, gemmaTimeout+10*time.Second)
 		res, err := gen.Generate(gctx, ml.SigilRequest{
-			EntityType:    t.entityType,
-			EntityID:      t.entityID,
-			EntityName:    name,
-			Sport:         t.sportName,
-			Season:        seasonPtr(t.season),
-			TriggerType:   "periodic",
-			SkipUnchanged: nightly,
+			EntityType:  t.entityType,
+			EntityID:    t.entityID,
+			EntityName:  name,
+			Sport:       t.sportName,
+			Season:      seasonPtr(t.season),
+			TriggerType: "periodic",
 		})
 		gcancel()
 
 		switch {
 		case err != nil:
 			fail++
-			logger.Warn("vibesynth: generate failed", "sport", t.sportName, "entity", name, "id", t.entityID, "error", err)
-		case res.SkippedUnchanged:
-			skippedUnchanged++
+			logger.Warn("vibesynth backfill: generate failed", "sport", t.sportName, "entity", name, "id", t.entityID, "season", t.season, "error", err)
 		case res.SkippedNoPillars:
 			noPillars++
 		default:
 			ok++
 		}
 		if (i+1)%25 == 0 {
-			logger.Info("vibesynth: progress", "mode", label, "done", i+1, "total", len(targets),
-				"ok", ok, "unchanged", skippedUnchanged, "no_pillars", noPillars, "fail", fail)
+			logger.Info("vibesynth backfill: progress", "done", i+1, "total", len(targets),
+				"ok", ok, "no_pillars", noPillars, "fail", fail)
 		}
 		if throttleMs > 0 {
 			time.Sleep(time.Duration(throttleMs) * time.Millisecond)
 		}
 	}
-	logger.Info("vibesynth: complete", "mode", label,
-		"ok", ok, "unchanged", skippedUnchanged, "no_pillars", noPillars, "fail", fail,
+	logger.Info("vibesynth backfill: complete",
+		"ok", ok, "no_pillars", noPillars, "fail", fail,
 		"elapsed", time.Since(start).Round(time.Second))
 }
 
-// enumRated returns every current-season entity with a rating row — the full
-// corpus for synthesis (both backfill and nightly use the same list; the
-// SkipUnchanged gate inside Generate handles the nightly "only work on new
-// data" filter).
-func enumRated(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target, error) {
+// runReconcile is the bounded current-season reconciliation (FIRST-GPT-AUDIT Session 12):
+// it enumerates current-season rated entities whose current-season Sigil is missing or
+// stale and ENQUEUES a durable sigil pipeline_work item for each — it never synthesizes
+// inline. The always-on derive worker drains the queue (resolving current_season and
+// hash-gating the Gemma call), so an unchanged Sigil is a cheap skip, never a duplicate
+// scheduled generation. DB-only (no Ollama).
+func runReconcile(pool *pgxpool.Pool, sportArg string, limit int, logger *slog.Logger) {
+	sports := resolveSports(sportArg)
+	ctx := context.Background()
+	start := time.Now()
+
+	totalEnq := 0
+	for _, sp := range sports {
+		cur, err := currentSeason(ctx, pool, sp)
+		if err != nil {
+			logger.Error("vibesynth reconcile: current_season lookup failed", "sport", sp, "error", err)
+			continue
+		}
+		targets, err := enumStaleSigil(ctx, pool, sp, cur)
+		if err != nil {
+			logger.Error("vibesynth reconcile: enumerate failed", "sport", sp, "season", cur, "error", err)
+			continue
+		}
+		enq := 0
+		for _, t := range targets {
+			if limit > 0 && totalEnq >= limit {
+				logger.Info("vibesynth reconcile: enqueue limit reached", "limit", limit)
+				break
+			}
+			if err := work.Enqueue(ctx, pool, work.Item{
+				Stage: work.StageSigil, EntityType: t.entityType, EntityID: t.entityID, Sport: sp,
+			}); err != nil {
+				logger.Warn("vibesynth reconcile: enqueue failed", "sport", sp, "type", t.entityType, "id", t.entityID, "error", err)
+				continue
+			}
+			enq++
+			totalEnq++
+		}
+		logger.Info("vibesynth reconcile: sport done", "sport", sp, "season", cur, "candidates", len(targets), "enqueued", enq)
+	}
+	logger.Info("vibesynth reconcile: complete", "enqueued", totalEnq, "elapsed", time.Since(start).Round(time.Second))
+}
+
+// resolveSports expands the -sport flag to the sports to process ("" / "all" ⇒ all three).
+func resolveSports(sportArg string) []string {
+	if s := strings.TrimSpace(sportArg); s != "" && strings.ToLower(s) != "all" {
+		return []string{strings.ToUpper(s)}
+	}
+	return []string{"NBA", "NFL", "FOOTBALL"}
+}
+
+// currentSeason resolves the sport's current_season from public.sports.
+func currentSeason(ctx context.Context, pool *pgxpool.Pool, sport string) (int, error) {
+	qctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	var s int
+	err := pool.QueryRow(qctx, `SELECT current_season FROM public.sports WHERE id = $1`, strings.ToUpper(sport)).Scan(&s)
+	return s, err
+}
+
+// enumRatedMissing returns every (entity, season) with a rating row but NO Sigil for
+// that exact season — the backfill work list (current-season + historical gaps). Once
+// a season has a Sigil row it drops off the list, so re-running backfill only fills
+// gaps rather than regenerating the whole corpus.
+func enumRatedMissing(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target, error) {
 	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	rows, err := pool.Query(qctx, `
-		SELECT c.et, c.id, c.season FROM (
+		WITH rated AS (
 		    SELECT 'player'::text AS et, player_id AS id, season FROM player_stats
 		     WHERE sport = $1 AND rating_composite_score IS NOT NULL
 		     GROUP BY player_id, season
@@ -239,8 +301,13 @@ func enumRated(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target,
 		    SELECT 'team'::text, team_id, season FROM team_stats
 		     WHERE sport = $1 AND rating_composite_score IS NOT NULL
 		     GROUP BY team_id, season
-		) c
-		ORDER BY c.season DESC, c.et, c.id`, sport)
+		)
+		SELECT r.et, r.id, r.season FROM rated r
+		WHERE NOT EXISTS (
+		    SELECT 1 FROM public.sigil_synthesis s
+		    WHERE s.sport = $1 AND s.entity_type = r.et AND s.entity_id = r.id AND s.season = r.season
+		)
+		ORDER BY r.season DESC, r.et, r.id`, sport)
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +318,63 @@ func enumRated(ctx context.Context, pool *pgxpool.Pool, sport string) ([]target,
 		if err := rows.Scan(&t.entityType, &t.entityID, &t.season); err != nil {
 			return nil, err
 		}
+		t.sportName = sport
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// enumStaleSigil returns the current-season rated entities whose current-season Sigil
+// is MISSING (no season-stamped row — includes entities that only have legacy
+// NULL-season rows) or STALE (an input generation — stat commentary for this season,
+// or news/vibe — is newer than the Sigil). It is the reconciliation candidate list.
+// GREATEST() ignores NULL inputs, so an entity with no inputs is never flagged stale.
+func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, season int) ([]target, error) {
+	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	rows, err := pool.Query(qctx, `
+		WITH rated AS (
+		    SELECT 'player'::text AS et, player_id AS id FROM player_stats
+		     WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL GROUP BY player_id
+		    UNION ALL
+		    SELECT 'team'::text, team_id FROM team_stats
+		     WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL GROUP BY team_id
+		),
+		sig AS (
+		    SELECT entity_type AS et, entity_id AS id, max(generated_at) AS g
+		    FROM public.sigil_synthesis WHERE sport = $1 AND season = $2 GROUP BY entity_type, entity_id
+		),
+		st AS (
+		    SELECT entity_type AS et, entity_id AS id, max(generated_at) AS g
+		    FROM public.stat_summaries WHERE sport = $1 AND season = $2 GROUP BY entity_type, entity_id
+		),
+		vb AS (
+		    SELECT entity_type AS et, entity_id AS id, max(generated_at) AS g
+		    FROM public.vibe_scores WHERE sport = $1 GROUP BY entity_type, entity_id
+		),
+		nw AS (
+		    SELECT entity_type AS et, entity_id AS id, max(generated_at) AS g
+		    FROM public.news_summaries WHERE sport = $1 GROUP BY entity_type, entity_id
+		)
+		SELECT r.et, r.id FROM rated r
+		LEFT JOIN sig ON sig.et = r.et AND sig.id = r.id
+		LEFT JOIN st  ON st.et  = r.et AND st.id  = r.id
+		LEFT JOIN vb  ON vb.et  = r.et AND vb.id  = r.id
+		LEFT JOIN nw  ON nw.et  = r.et AND nw.id  = r.id
+		WHERE sig.g IS NULL
+		   OR sig.g < GREATEST(st.g, vb.g, nw.g)
+		ORDER BY r.et, r.id`, sport, season)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []target
+	for rows.Next() {
+		var t target
+		if err := rows.Scan(&t.entityType, &t.entityID); err != nil {
+			return nil, err
+		}
+		t.season = season
 		t.sportName = sport
 		out = append(out, t)
 	}

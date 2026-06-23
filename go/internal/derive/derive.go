@@ -205,10 +205,12 @@ func (d *Drainer) drainVibe(ctx context.Context) {
 	})
 }
 
-// drainSigil — terminal convergence. The SigilGenerator reads its three pillars live
-// and skips the Gemma call on an unchanged input hash (SkipUnchanged), so an
-// unchanged-pillar enqueue is a cheap no-op. The full event-driven Sigil lifecycle
-// (season-scoping, follower/FCM decoupling, nightly→reconciliation) is Session 12.
+// drainSigil — terminal convergence. The real-time queue is inherently CURRENT-SEASON:
+// the SigilGenerator resolves the sport's current_season (SigilRequest.Season nil →
+// current) and STAMPS it, reads its three pillars season-exact, and skips the Gemma
+// call on an unchanged input hash (SkipUnchanged) — so an unchanged-pillar enqueue is a
+// cheap no-op (FIRST-GPT-AUDIT Session 12). Historical seasons are only (re)synthesized
+// by an explicit-season backfill, never by this queue.
 func (d *Drainer) drainSigil(ctx context.Context) {
 	d.drainStage(ctx, work.StageSigil, d.SynthThrottle, func(ctx context.Context, it work.Item) error {
 		name, err := d.nameOf(ctx, it)

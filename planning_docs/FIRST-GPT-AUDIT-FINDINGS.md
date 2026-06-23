@@ -251,7 +251,7 @@ relying on them.
   restart.
 
 ### F-019 — NewsNarrator treats an empty `{"narratives": []}` as a parse FAILURE (now dead-letters)
-- **Found:** Session 9 deploy · **Status:** Watch (Session 10/11)
+- **Found:** Session 9 deploy · **Status:** RESOLVED (Session 11)
 - Surfaced live by S9's durable queue: two thin-corpus NFL players (`player/1447`, `player/39`) failed
   the `narratives` stage with `parse narratives failed (raw="{\"narratives\": []}")`. Gemma legitimately
   returned an EMPTY narratives array (nothing worth narrating for a thin/short corpus), but the narrator's
@@ -269,6 +269,16 @@ relying on them.
   Post-S10 deploy these 3 `parse narratives failed (raw="{\"narratives\": []}")` rows (`player/33934357`,
   `player/1447`, `player/39`, all NFL) are the **only** dead-letters in `pipeline_work`. Cleanly isolates the
   remaining work for **Session 11**.
+- **Resolved (Session 11):** `parseNarratives` now reports whether the response was *parseable as a
+  narratives document*, not whether it carried narratives. A cleanly-closed array — including the empty
+  `{"narratives": []}` — returns `ok=true` with zero narratives, so `Generate` falls through to the existing
+  no-corpus marker path (`groundNarratives` empty → NULL-narrative `news_summaries` row) and the queue item
+  **Completes** instead of failing. A genuinely malformed/truncated response (no `"narratives"` key, no `[`,
+  or EOF before any object closed AND nothing salvaged) still returns `ok=false` → error → retry, so
+  `generation_failed` never masquerades as no-data. Locked by `news_narratives_test.go`
+  (`TestParseNarrativesEmptyArrayIsNoData`). By deploy time the dead-letter set had rotated/grown to **11
+  failed `narratives` rows, all `{"narratives": []}`** (the bug kept producing them under the old binary);
+  all were requeued post-deploy and Completed as markers (see progress doc).
 
 ### F-020 — Transfer fail-closed does NOT rewrite historical fail-OPEN rows (append-only); a handful were still served
 - **Found:** Session 10 · **Status:** Resolved-by-re-vet (`1486b7b` + migration 104); launch-gate check
@@ -310,3 +320,37 @@ relying on them.
   stop needed.
 - **Action:** for any future column/param **drop**, make the new binary backward-compatible with the
   pre-drop schema, deploy it first, then drop. Reserve "migrate-then-restart" for ADDITIVE migrations.
+
+### F-023 — Sigil generation-side pillar/debounce loaders do NOT apply the canonical latest-generation rule
+- **Found:** Session 11 · **Status:** Watch (Session 12)
+- Session 11 fixed the *serving reads* to honor markers (latest generation regardless of nullability →
+  marker clears current). The *generation-side* loaders that feed Sigil convergence and the regen-debounce
+  were left as-is because they belong to the Sigil/convergence lifecycle (Session 12), but they are
+  inconsistent with the new rule: `ml/sigil.go loadRatingPillar` and `lastSynthesisHash`/`lastScore`, and
+  `ml/rating.go lastCommentaryHash`/`ReStampPeakKeys` all select the latest **non-marker** row
+  (`... WHERE body/score IS NOT NULL ORDER BY generated_at DESC LIMIT 1`) rather than "latest generation,
+  skip if marker." Consequence: if an entity's latest commentary is a no-stats marker but an older real
+  commentary exists, `loadRatingPillar` still feeds the OLD body into a new Sigil, and the rating-rail
+  debounce hash compares against the OLD generation — so a marker doesn't fully propagate into convergence.
+  Low impact today (`stat_summaries` has **0** markers live; the rating commentary generator rarely hits its
+  no-stats path), which is why it was deferred rather than fixed here. (`loadNarrativePillar` already uses the
+  correct unfiltered-max pattern, so the narrative pillar is fine.)
+- **Action:** Session 12 — when reworking convergence inputs, apply the same canonical rule to the Sigil
+  pillar loaders and the rating/sigil debounce queries so a marker suppresses the corresponding pillar and
+  the debounce keys off the true latest generation. Pairs with the season-scoping work in S12.
+
+### F-024 — Explicit marker-reason column deliberately deferred (markers stay NULL-body rows)
+- **Found:** Session 11 · **Status:** Deferred (optional; revisit at S12/simplification D)
+- The audit suggested an optional `marker_reason` (`no_corpus` / `no_stats` / `no_pillars`) so a marker's
+  cause is legible, with the hard rule that `generation_failed` must NOT masquerade as no-data. Session 11
+  did NOT add the column: the failure/no-data distinction is already encoded in **control flow** — a real
+  failure returns an `error` (the queue retries / dead-letters), while a no-data outcome writes a NULL-body
+  marker row and Completes — so correctness does not need a column, and the per-product reason is implicit
+  in which table the marker lives in (`news_summaries` = no-corpus, `stat_summaries` = no-stats,
+  `sigil_synthesis` = no-pillars). Avoiding a schema change kept S11 read-path-only (just `release.sh`, no
+  migration), which was preferable with the parallel Sonnet session sharing the tree and the F-015 schema-drift
+  risk.
+- **Action:** if observability later wants the reason surfaced (e.g. an operator dashboard distinguishing
+  "thin corpus" from "model error"), add `marker_reason` as an ADDITIVE column under simplification D
+  (standardize generation tables) — set it on every marker-writing path; never write `generation_failed` as a
+  marker (keep that an error/retry). Additive → migrate-before-restart (F-001), not the F-022 reverse order.

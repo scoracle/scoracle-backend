@@ -130,10 +130,11 @@ func main() {
 		}
 		pingCancel()
 
-		// Percentile listener: FCM push on significant stat-line percentile crossings
-		// + the composite_shift Sigil trigger (stats-rail / Sigil convergence — kept
-		// as-is; its event-driven lifecycle is Session 12).
-		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, synthGen, logger)
+		// Percentile listener: FCM push on significant stat-line percentile crossings.
+		// A large composite shift also ENQUEUES durable Sigil convergence work
+		// (FIRST-GPT-AUDIT Session 12, F-017) — drained by the derive worker below, not
+		// generated inline — so it no longer needs the SigilGenerator.
+		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
 
 		// Real-time derive worker (FIRST-GPT-AUDIT Session 9): drains the durable
 		// pipeline_work queue, woken by NOTIFY pipeline_work_ready (the migration-103

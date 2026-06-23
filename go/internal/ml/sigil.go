@@ -55,8 +55,9 @@ type SigilRequest struct {
 	Sport         string // 'NBA' | 'NFL' | 'FOOTBALL'
 	TriggerType   string // 'narrative_change' | 'sentiment_break' | 'composite_shift' | 'lazy_view' | 'periodic' | 'manual'
 	Trigger       map[string]any
-	Season        *int
+	Season        *int // nil ⇒ the sport's current_season (resolved + stamped in Generate)
 	SkipUnchanged bool // skip Gemma call when input hash matches last row
+	DryRun        bool // load + score but never persist (matches RatingRequest.DryRun)
 }
 
 // SigilResult is what Generate produces and persists to sigil_synthesis.
@@ -102,16 +103,27 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	sport := strings.ToUpper(req.Sport)
 	now := time.Now()
 
-	// --- Load the three pillars ---
+	// Resolve the season this convergence is for and STAMP it on req so every
+	// persisted row carries a concrete season (never NULL) — the basis for the
+	// season-scoped /sigil + crown board reads (FIRST-GPT-AUDIT Session 12). A
+	// real-time/manual trigger (Season nil) targets current_season; an explicit
+	// season (backfill) is honored as-is. The three pillars load season-exact.
+	season, err := s.resolveSeason(ctx, sport, req.Season)
+	if err != nil {
+		return nil, err
+	}
+	req.Season = &season
+
+	// --- Load the three pillars (season-exact) ---
 	narratives, err := s.loadNarrativePillar(ctx, req.EntityType, req.EntityID, sport)
 	if err != nil {
 		return nil, fmt.Errorf("narrative pillar: %w", err)
 	}
-	ratingData, err := s.loadRatingPillar(ctx, req.EntityType, req.EntityID, sport, req.Season)
+	ratingData, err := s.loadRatingPillar(ctx, req.EntityType, req.EntityID, sport, &season)
 	if err != nil {
 		return nil, fmt.Errorf("rating pillar: %w", err)
 	}
-	momentum, err := s.loadMomentumPillar(ctx, req.EntityType, req.EntityID, sport, req.Season)
+	momentum, err := s.loadMomentumPillar(ctx, req.EntityType, req.EntityID, sport, &season)
 	if err != nil {
 		return nil, fmt.Errorf("momentum pillar: %w", err)
 	}
@@ -125,8 +137,10 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 			PromptVersion:    sigilPromptVersion,
 			GeneratedAt:      now,
 		}
-		if err := s.persist(ctx, req, sport, res); err != nil {
-			return nil, fmt.Errorf("persist no-pillars marker: %w", err)
+		if !req.DryRun {
+			if err := s.persist(ctx, req, sport, res); err != nil {
+				return nil, fmt.Errorf("persist no-pillars marker: %w", err)
+			}
 		}
 		return res, nil
 	}
@@ -135,7 +149,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	ic := buildSynthesisInputComponents(narratives, ratingData, momentum)
 	hash := hashComponents(ic) // reuse from stat_commentary.go (same package)
 	if req.SkipUnchanged {
-		last, err := s.lastSynthesisHash(ctx, req.EntityType, req.EntityID, sport)
+		last, err := s.lastSynthesisHash(ctx, req.EntityType, req.EntityID, sport, season)
 		if err == nil && last != "" && last == hash {
 			return &SigilResult{
 				SkippedUnchanged: true,
@@ -148,7 +162,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 	}
 
 	// Load previous score for the delta display on the Sigil card.
-	prev, _ := s.lastScore(ctx, req.EntityType, req.EntityID, sport)
+	prev, _ := s.lastScore(ctx, req.EntityType, req.EntityID, sport, season)
 
 	prompt := buildSynthesisPrompt(req, narratives, ratingData, momentum)
 
@@ -179,23 +193,30 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 		GeneratedAt:     now,
 		Duration:        duration,
 	}
-	if err := s.persist(ctx, req, sport, res); err != nil {
-		return nil, fmt.Errorf("persist synthesis: %w", err)
+	if !req.DryRun {
+		if err := s.persist(ctx, req, sport, res); err != nil {
+			return nil, fmt.Errorf("persist synthesis: %w", err)
+		}
 	}
 	return res, nil
 }
 
-// RecentlySynthesized returns true when a synthesis row exists for this entity
-// within the given window. Used for debouncing across callers.
-func RecentlySynthesized(ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string, window time.Duration) bool {
-	var exists bool
-	err := pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM sigil_synthesis
-			WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-			  AND generated_at > NOW() - $4::interval
-		)`, entityType, entityID, sport, window).Scan(&exists)
-	return err == nil && exists
+// resolveSeason returns the concrete season this synthesis is for: the caller's
+// explicit season when given, else the sport's current_season. Real-time and
+// manual convergence (Season nil) always target the current season; historical
+// seasons are only (re)synthesized by an explicit-season backfill. Stamping a
+// concrete season on every row — never NULL — is what lets /sigil and the crown
+// board scope by season (FIRST-GPT-AUDIT Session 12).
+func (s *SigilGenerator) resolveSeason(ctx context.Context, sport string, want *int) (int, error) {
+	if want != nil {
+		return *want, nil
+	}
+	var cur int
+	if err := s.pool.QueryRow(ctx,
+		`SELECT current_season FROM public.sports WHERE id = $1`, sport).Scan(&cur); err != nil {
+		return 0, fmt.Errorf("resolve current_season for %s: %w", sport, err)
+	}
+	return cur, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -254,23 +275,32 @@ func (s *SigilGenerator) loadNarrativePillar(ctx context.Context, entityType str
 }
 
 func (s *SigilGenerator) loadRatingPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (*synthRating, error) {
-	var sig synthRating
+	var divinedPeak string
+	var body *string
+	var notability int
+	// Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11 / F-023): take the
+	// entity-season's LATEST commentary regardless of nullability (no `body IS NOT NULL`
+	// pre-filter), then suppress the pillar if that latest generation is a no-stats
+	// marker (body NULL) — never fall back to an older real commentary that a marker has
+	// superseded.
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0)
 		FROM stat_summaries
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-		  AND body IS NOT NULL
 		  AND ($4::int IS NULL OR season = $4)
 		ORDER BY generated_at DESC
 		LIMIT 1
-	`, entityType, entityID, sport, season).Scan(&sig.divinedPeak, &sig.body, &sig.notability)
+	`, entityType, entityID, sport, season).Scan(&divinedPeak, &body, &notability)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &sig, nil
+	if body == nil {
+		return nil, nil // latest generation is a marker → pillar suppressed
+	}
+	return &synthRating{divinedPeak: divinedPeak, body: *body, notability: notability}, nil
 }
 
 func (s *SigilGenerator) loadMomentumPillar(ctx context.Context, entityType string, entityID int, sport string, season *int) (synthMomentum, error) {
@@ -565,14 +595,18 @@ func (s *SigilGenerator) persist(ctx context.Context, req SigilRequest, sport st
 	return err
 }
 
-func (s *SigilGenerator) lastSynthesisHash(ctx context.Context, entityType string, entityID int, sport string) (string, error) {
+// lastSynthesisHash returns the input_hash of the entity-season's LATEST synthesis
+// generation (the regen-debounce key). Canonical latest-generation rule (Session 11
+// / F-023): take the latest row regardless of nullability and season-scoped; a marker
+// (no-pillar) row has a NULL input_hash → "" → the next run never wrongly skips, so a
+// marker propagates into convergence instead of comparing against a stale scored gen.
+func (s *SigilGenerator) lastSynthesisHash(ctx context.Context, entityType string, entityID int, sport string, season int) (string, error) {
 	var hash *string
 	err := s.pool.QueryRow(ctx, `
 		SELECT input_hash FROM sigil_synthesis
-		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-		  AND score IS NOT NULL
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
 		ORDER BY generated_at DESC
-		LIMIT 1`, entityType, entityID, sport).Scan(&hash)
+		LIMIT 1`, entityType, entityID, sport, season).Scan(&hash)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", nil
 	}
@@ -585,14 +619,17 @@ func (s *SigilGenerator) lastSynthesisHash(ctx context.Context, entityType strin
 	return *hash, nil
 }
 
-func (s *SigilGenerator) lastScore(ctx context.Context, entityType string, entityID int, sport string) (int, error) {
+// lastScore returns the previous_score baseline for the delta display: the
+// entity-season's LATEST generation's score. Canonical rule (Session 11 / F-023):
+// if the latest generation is a marker (score NULL) the current crown is cleared,
+// so the baseline is 0 — do not surface the delta against a pre-marker score.
+func (s *SigilGenerator) lastScore(ctx context.Context, entityType string, entityID int, sport string, season int) (int, error) {
 	var score *int
 	err := s.pool.QueryRow(ctx, `
 		SELECT score FROM sigil_synthesis
-		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-		  AND score IS NOT NULL
+		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
 		ORDER BY generated_at DESC
-		LIMIT 1`, entityType, entityID, sport).Scan(&score)
+		LIMIT 1`, entityType, entityID, sport, season).Scan(&score)
 	if errors.Is(err, pgx.ErrNoRows) || score == nil {
 		return 0, nil
 	}

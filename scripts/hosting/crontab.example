@@ -102,14 +102,14 @@ TZ=America/New_York
 0 2 * * 1 /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/recompute-tiers.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/tier-recompute.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Sigil (crown) synthesis — nightly, bounded (Optimization Ledger O2)
+# Sigil (crown) reconciliation — nightly, bounded (FIRST-GPT-AUDIT Session 12)
 # ---------------------------------------------------------------------------
-# Drains the Sigil backlog (~95% empty at the time of writing) at a bounded
-# rate. NOTE: audit Session 12 will convert this nightly run into a
-# reconciliation/backfill-only job (event-driven, debounced convergence becomes
-# the normal generation path). Until that lands, keep this entry so the backlog
-# keeps draining — do not drop it.
-0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 150 -throttle-ms 250 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
+# Event-driven, debounced convergence is the normal generation path (news
+# vibe→sigil, composite_shift→sigil, both via the durable pipeline_work queue).
+# This nightly run is the BACKSTOP only: it enqueues current-season entities whose
+# Sigil is missing or stale for the derive worker to drain (no inline synthesis, no
+# unchanged-Sigil duplicates, no Ollama). -limit caps items enqueued per run.
+0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh -mode nightly -limit 500 >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Future: BDL webhooks can replace the polling drains once implemented.

@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# cron-vibesynth.sh — nightly Sigil (crown) synthesis (Optimization Ledger O2).
+# cron-vibesynth.sh — nightly Sigil (crown) reconciliation (FIRST-GPT-AUDIT Session 12).
 #
-# Resolves the Sigil warm gap: after A1 removed the on-read lazy synth, a rated
-# entity has no sigil_synthesis row until a background trigger fires — and the
-# composite-shift trigger is gated behind a follower check, so most entities
-# never warm. As of 2026-06-19, ~95% of rated entities had no Sigil (the Sigil
-# card + the O19 Sigil leaderboard board serve `current:null` for them).
+# Session 12 converted `-mode nightly` from inline synthesis into bounded
+# RECONCILIATION: it enumerates CURRENT-SEASON rated entities whose current-season
+# Sigil is missing or stale (an input generation is newer than the Sigil) and ENQUEUES
+# a durable `sigil` pipeline_work item for each. The always-on in-API derive worker
+# drains the queue — resolving current_season and hash-gating the Gemma call — so the
+# schedule NEVER synthesizes inline and never regenerates an unchanged Sigil because a
+# schedule fired. Real-time convergence (news vibe→sigil, composite_shift→sigil) keeps
+# the corpus warm between runs; this is the backstop that fills coverage gaps.
 #
-# This runs `vibesynth -mode nightly`, which regenerates entities whose synthesis
-# inputs changed AND backfills those with no synthesis row yet, capped by -limit.
-# nightly mode skips unchanged inputs, so steady-state cost is small; the initial
-# backlog drains -limit entities per night (~35s/generation on gemma4:e4b).
+# Because it only enqueues, this run needs ONLY the database (no Ollama / GPU). -limit
+# caps the number of items enqueued per run; -throttle-ms is ignored in nightly mode.
+# To populate current + historical gaps directly (needs Ollama), run a backfill:
+#   ./go/bin/vibesynth -mode backfill -limit N        # one-time, GPU-bound
 #
-# Scheduling is a GPU-budget decision (see the recommended crontab line below).
 # Off-peak (05:00) avoids the corpus pipeline (00:00) and statcommentary (03:00).
-# Tune -limit to the nightly GPU budget; to drain the backlog faster, run a
-# one-time larger backfill manually: ./go/bin/vibesynth -mode backfill -limit N
 #
-# Recommended crontab entry (NOT installed by default — enable per GPU budget):
+# Recommended crontab entry (NOT installed by default — enable per coverage needs):
 #   0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh \
-#       -mode nightly -limit 150 -throttle-ms 250 \
+#       -mode nightly -limit 500 \
 #       >> /home/sheneveld/scoracle/scoracle-backend/logs/vibesynth.log 2>&1
 
 set -euo pipefail

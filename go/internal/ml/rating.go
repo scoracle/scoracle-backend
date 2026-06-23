@@ -586,14 +586,16 @@ func (a *RatingGenerator) persist(ctx context.Context, req RatingRequest, sport 
 	return err
 }
 
-// lastCommentaryHash returns the input_hash of the entity-season's most recent
-// real (non-marker) commentary, or "" if none — the nightly skip signal.
+// lastCommentaryHash returns the input_hash of the entity-season's LATEST commentary
+// generation — the nightly skip signal. Canonical latest-generation rule (Session 11
+// / F-023): take the latest row regardless of nullability (no `body IS NOT NULL`
+// pre-filter); a no-stats marker has a NULL input_hash → "" → the next run never wrongly
+// skips against an older real commentary the marker has superseded.
 func (a *RatingGenerator) lastCommentaryHash(ctx context.Context, entityType string, entityID int, sport string, season int) (string, error) {
 	var hash *string
 	err := a.pool.QueryRow(ctx, `
 		SELECT input_hash FROM stat_summaries
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-		  AND body IS NOT NULL
 		ORDER BY generated_at DESC
 		LIMIT 1`, entityType, entityID, sport, season).Scan(&hash)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -619,10 +621,13 @@ func (a *RatingGenerator) ReStampPeakKeys(ctx context.Context, entityType string
 	sport = strings.ToUpper(sport)
 	var id int64
 	var icRaw []byte
+	// Canonical latest-generation rule (Session 11 / F-023): operate on the entity-
+	// season's latest generation regardless of nullability. If that latest row is a
+	// marker its input_components is '{}' (no legacy keys) → the restamp is a no-op,
+	// so a marker is never bypassed to restamp an older real row.
 	err := a.pool.QueryRow(ctx, `
 		SELECT id, input_components FROM stat_summaries
 		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-		  AND body IS NOT NULL
 		ORDER BY generated_at DESC
 		LIMIT 1`, entityType, entityID, sport, season).Scan(&id, &icRaw)
 	if errors.Is(err, pgx.ErrNoRows) {

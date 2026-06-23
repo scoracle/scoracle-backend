@@ -142,6 +142,7 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param limit query int false "Max rows (default 50)"
+// @Param season query int false "Season year (default current)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -159,8 +160,13 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	entityType := optionalTextQuery(r, "entity_type")
 
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+
 	h.serveStatementJSON(w, r, "sigil_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType)
+		sport, limit, entityType, season)
 }
 
 // GetTrendingLeaderboard returns the sport-wide TRENDING board — the risers: entities
@@ -499,6 +505,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
+// @Param season query int false "Season year (default current)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -517,7 +524,11 @@ func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
 }
 
 // GetEntityStats returns the entity's STATS product — the full season rating

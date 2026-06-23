@@ -55,6 +55,15 @@ type Config struct {
 	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
 	PipelineStatsInterval time.Duration
 
+	// Real-time derive worker (FIRST-GPT-AUDIT Session 9): the in-API drain of the
+	// durable pipeline_work queue. Woken by NOTIFY pipeline_work_ready (fired by the
+	// migration-103 vetted-transition trigger), it also drains on startup and on the
+	// safety-net interval, so a missed NOTIFY never costs correctness. Replaces the
+	// old news-volume + transfer LISTEN workers, which ran Gemma directly off a
+	// transient NOTIFY.
+	DeriveWorkerEnabled bool          // master switch (default true)
+	DeriveDrainInterval time.Duration // safety-net drain cadence between wake-up NOTIFYs
+
 	// Cache
 	CacheEnabled bool
 
@@ -119,6 +128,9 @@ func Load() (*Config, error) {
 		NewsScrubBatch:    envInt("NEWS_SCRUB_BATCH", 15),
 
 		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
+
+		DeriveWorkerEnabled: envBool("DERIVE_WORKER_ENABLED", true),
+		DeriveDrainInterval: time.Duration(envInt("DERIVE_DRAIN_INTERVAL_SECONDS", 30)) * time.Second,
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

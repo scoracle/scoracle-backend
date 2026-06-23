@@ -185,17 +185,33 @@ func (s *NewsScrubber) loadCandidates(ctx context.Context, articleID int64, spor
 // can compare fuzzy-vs-vetted before consumers trust the flag. Every candidate
 // (kept and dropped) is stamped so the async worker knows the article is scrubbed;
 // the primary link is always vetted=true (ScrubArticle marks it relevant).
+//
+// One UPDATE per article (over unnest'd parallel arrays), not one per link: the
+// whole article's scrub lands in a SINGLE transaction. That matters for the
+// migration-103 enqueue trigger (AFTER UPDATE OF vetted) — its per-row firings all
+// see the article's final vetted state and its constant-payload pg_notify de-dups
+// to one wake-up per article — and it makes the persist atomic (no partial write
+// on a mid-batch error).
 func (s *NewsScrubber) applyVerdicts(ctx context.Context, articleID int64, sport string, verdicts []ScrubVerdict) error {
-	for _, v := range verdicts {
-		if _, err := s.pool.Exec(ctx, `
-			UPDATE news_article_entities
-			   SET vetted = $5, scrubbed_at = NOW()
-			 WHERE article_id = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-		`, articleID, v.EntityType, v.EntityID, sport, v.Relevant); err != nil {
-			return err
-		}
+	if len(verdicts) == 0 {
+		return nil
 	}
-	return nil
+	entityTypes := make([]string, len(verdicts))
+	entityIDs := make([]int, len(verdicts))
+	relevants := make([]bool, len(verdicts))
+	for i, v := range verdicts {
+		entityTypes[i] = v.EntityType
+		entityIDs[i] = v.EntityID
+		relevants[i] = v.Relevant
+	}
+	_, err := s.pool.Exec(ctx, `
+		UPDATE news_article_entities n
+		   SET vetted = v.relevant, scrubbed_at = NOW()
+		  FROM unnest($2::text[], $3::int[], $4::bool[]) AS v(entity_type, entity_id, relevant)
+		 WHERE n.article_id = $1 AND n.sport = $5
+		   AND n.entity_type = v.entity_type AND n.entity_id = v.entity_id
+	`, articleID, entityTypes, entityIDs, relevants, sport)
+	return err
 }
 
 // ---------------------------------------------------------------------------

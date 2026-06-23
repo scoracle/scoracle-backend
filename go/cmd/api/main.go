@@ -33,6 +33,7 @@ import (
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
+	"github.com/albapepper/scoracle-data/internal/derive"
 	"github.com/albapepper/scoracle-data/internal/listener"
 	"github.com/albapepper/scoracle-data/internal/maintenance"
 	"github.com/albapepper/scoracle-data/internal/ml"
@@ -94,7 +95,7 @@ func main() {
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
 
 	// synthGen is set inside the dbPool block when Ollama is reachable; stays nil
-	// otherwise. Declared here so NewRouter can receive it at the outer scope.
+	// otherwise. It feeds the percentile listener's composite_shift Sigil trigger.
 	var synthGen *ml.SigilGenerator
 
 	if dbPool != nil {
@@ -107,56 +108,58 @@ func main() {
 			logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
 		}
 
-		// News-volume vibe worker: listens on the vibe_trigger channel and
-		// runs Gemma when an entity's news article count spikes. Disabled
-		// gracefully if Ollama isn't reachable — the LISTEN goroutine still
-		// starts (events are logged) so we observe spikes even when the
-		// model is offline.
-		var newsVolumeGen *ml.VibeGenerator
-		var newsVolumeNarrator *ml.NewsNarrator
+		// Gemma generators, gated on Ollama being reachable at boot. They stay nil
+		// when Ollama is unreachable — which disables the derive worker + the
+		// maintenance scrub (degraded mode) while the rest of the API keeps serving.
+		var narrator *ml.NewsNarrator
+		var vibeGen *ml.VibeGenerator
+		var transferGen *ml.TransferGenerator
+		var newsScrubber *ml.NewsScrubber
 		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
 		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
 		if err := ollamaCli.Ping(pingCtx); err != nil {
-			logger.Warn("News-volume vibe disabled (Ollama unreachable)",
+			logger.Warn("Gemma workers disabled (Ollama unreachable)",
 				"base_url", cfg.OllamaBaseURL, "error", err)
 		} else {
-			logger.Info("News-volume vibe enabled", "model", cfg.OllamaModel)
-			newsVolumeGen = ml.NewVibeGenerator(dbPool, ollamaCli)
-			newsVolumeNarrator = ml.NewNewsNarrator(dbPool, ollamaCli)
+			logger.Info("Gemma workers enabled", "model", cfg.OllamaModel)
+			narrator = ml.NewNewsNarrator(dbPool, ollamaCli)
+			vibeGen = ml.NewVibeGenerator(dbPool, ollamaCli)
+			transferGen = ml.NewTransferGenerator(dbPool, ollamaCli)
 			synthGen = ml.NewSigilGenerator(dbPool, ollamaCli)
+			newsScrubber = ml.NewNewsScrubber(dbPool, ollamaCli)
 		}
 		pingCancel()
 
-		// Start LISTEN/NOTIFY consumers (one goroutine per channel). On a news
-		// spike the news-volume worker refreshes narratives (stage 2), sentiment
-		// (stage 3), then vibe synthesis (stage 4, 24h debounced).
+		// Percentile listener: FCM push on significant stat-line percentile crossings
+		// + the composite_shift Sigil trigger (stats-rail / Sigil convergence — kept
+		// as-is; its event-driven lifecycle is Session 12).
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, synthGen, logger)
-		go listener.StartNewsVolume(ctx, cfg.DatabaseURL, dbPool, newsVolumeNarrator, newsVolumeGen, synthGen, logger)
 
-		// Transfer-rumor news-spike worker. Reuses the SAME ollamaCli (no second
-		// ping) — newsVolumeGen != nil is exactly "Ollama reachable". nil gen → the
-		// listener still runs, logging spikes without generating.
-		if cfg.TransferEnabled {
-			var transferGen *ml.TransferGenerator
-			if newsVolumeGen != nil {
-				transferGen = ml.NewTransferGenerator(dbPool, ollamaCli)
-				logger.Info("Transfer rumor worker enabled", "model", cfg.OllamaModel,
-					"max_concurrent", cfg.TransferMaxConcurrent)
-			} else {
-				logger.Warn("Transfer rumor worker degraded (Ollama unreachable) — spikes logged only")
+		// Real-time derive worker (FIRST-GPT-AUDIT Session 9): drains the durable
+		// pipeline_work queue, woken by NOTIFY pipeline_work_ready (the migration-103
+		// vetted-transition trigger), and on startup + a safety-net interval so a
+		// missed NOTIFY never costs correctness. Replaces the old news-volume +
+		// transfer LISTEN workers that ran Gemma directly off a transient NOTIFY.
+		// Started only when the generators exist — otherwise every claimed item would
+		// fail and burn its retries; durable work simply waits for the next start.
+		switch {
+		case !cfg.DeriveWorkerEnabled:
+			logger.Info("Real-time derive worker disabled (DERIVE_WORKER_ENABLED=false)")
+		case vibeGen == nil:
+			logger.Warn("Real-time derive worker disabled (Ollama unreachable) — durable work drains on next start with Ollama up")
+		default:
+			drainer := &derive.Drainer{
+				Pool:         dbPool,
+				TransferGen:  transferGen,
+				Narrator:     narrator,
+				VibeGen:      vibeGen,
+				SynthGen:     synthGen,
+				GemmaTimeout: cfg.OllamaTimeout,
+				MinArticles:  cfg.TransferMinArticles,
+				Logger:       logger,
 			}
-			go listener.StartTransfer(ctx, cfg.DatabaseURL, dbPool, transferGen, listener.TransferConfig{
-				MaxConcurrent: cfg.TransferMaxConcurrent,
-				Debounce:      cfg.TransferDebounce,
-				MinArticles:   cfg.TransferMinArticles,
-			}, logger)
-		}
-
-		// News scrub sweep (Gemma ID-gate). Reuses the SAME ollamaCli; nil when
-		// Ollama is unreachable (newsVolumeGen == nil) → maintenance skips the sweep.
-		var newsScrubber *ml.NewsScrubber
-		if newsVolumeGen != nil {
-			newsScrubber = ml.NewNewsScrubber(dbPool, ollamaCli)
+			go derive.StartWorker(ctx, cfg.DatabaseURL, drainer, cfg.DeriveDrainInterval, logger)
+			logger.Info("Real-time derive worker started", "safety_net", cfg.DeriveDrainInterval)
 		}
 
 		// Start maintenance tickers (cleanup, digest, catch-up, ranks, news scrub)

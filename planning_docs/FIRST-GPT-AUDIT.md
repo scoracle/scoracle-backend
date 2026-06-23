@@ -634,7 +634,7 @@ Only a successful positive Gemma verdict can become a served or downstream-consu
 
 # Session 11 — Standardize append-only marker semantics
 
-> **✅ COMPLETE — deployed live 2026-06-23 (archbox).** Code `__COMMIT__`. **Read-path + narrator only —
+> **✅ COMPLETE — deployed live 2026-06-23 (archbox).** Code `fcff1d9`. **Read-path + narrator only —
 > NO migration** (next free number stays 105). One canonical latest-generation rule now governs every
 > product read: resolve the entity's latest generation REGARDLESS of nullability, then return its content
 > (or empty/null if that generation is a marker) — killing the "filter nulls before picking the latest"

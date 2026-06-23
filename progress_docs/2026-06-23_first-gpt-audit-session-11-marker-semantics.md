@@ -86,7 +86,31 @@ sparklines keep only real points.
 
 ## Deploy + live verification
 
-<!-- FILLED POST-DEPLOY -->
+Code committed `fcff1d92197b` (clean tree → clean stamp; `099_team_rosters.sql` left untracked).
+Deployed with `scripts/hosting/release.sh` → built all 4 binaries @ `fcff1d9`, reinstalled units,
+restarted the API, `/health/db` healthy ("serving commit fcff1d92197b"). The API log shows the clean
+handoff: old worker (PID 2144376) cancelled mid-drain → new worker (PID 2203928) "Real-time derive worker
+started" + "connected", **no prepared-statement / degraded / panic errors**.
+
+- **F-018 mitigation:** the restart stranded the old worker's leased batch (10 `narratives` @ 06:58, 10
+  `transfers` @ 06:59 — `running`, <30m so not auto-recovered). Requeued exactly those (cutoff
+  `updated_at < 07:00`), leaving the new worker's fresh 07:07 transfers lease untouched. Then requeued all
+  8 failed `{"narratives": []}` rows (`attempts=0, available_at=NOW()`).
+- **Canonical read rule (live):**
+  - `entity_news` — stale `player/37296248` FOOTBALL (latest gen is a marker) `/news`: **1 → 0** narratives.
+  - `narratives_leaderboard` (NFL) old-vs-new SQL: **372 → 362** entities (10 stale-marker entities dropped,
+    **0** added) — markers now clear the board.
+  - All six edited reads serve **HTTP 200 + valid JSON** post-restart (`/leaderboard/{news,sigil,vibes}`
+    across NFL/NBA/FOOTBALL; per-entity `/sigil`, `/rating`, `/news`).
+- **F-019 (live, full loop):**
+  - Unit: `TestParseNarrativesEmptyArrayIsNoData` (8 cases) green.
+  - `newsnarrate` dry-run on `player/86` NFL (Jameis Winston, a prior dead-letter): returns
+    `(no usable narratives — null marker)`, **exit 0** — was the hard `parse narratives failed` error.
+  - Queue path (throwaway `drainnarr`, exact `work.Claim → Generate → Complete` logic, removed after):
+    3/3 requeued items **COMPLETED** (Napoli 4, Tez Johnson 1, Juventus 4 narratives) — none re-failed.
+  - Post-verify queue: **0** failed narratives, **0** empty-array dead-letters; stages draining normally
+    (the in-API worker is on the transfers backlog; narratives + the requeued rows drain behind it — the
+    Complete-not-fail behavior is proven, so they cannot re-dead-letter on the empty-array path).
 
 ## Quick reference
 

@@ -525,6 +525,18 @@ One successful pipeline run means all accepted new inputs have reached their int
 
 # Session 9 — Repair real-time trigger semantics
 
+> **✅ COMPLETE — deployed live 2026-06-22 (archbox).** Code `cc23b68`; F-016 release fix `795a9dd`.
+> Migration **103** `enqueue_derive_on_vetted` applied (per-file). The `vetted=TRUE` transition now
+> ENQUEUES `pipeline_work` and `pg_notify`s only as a wake-up; the in-API `internal/derive` worker
+> drains the queue on wake / startup / a safety-net timeout; the two in-process LISTEN workers
+> (news-volume + transfer) were deleted. Verified end-to-end live (all four stages drained; rejected
+> and stale links enqueue nothing; a burst collapses to ≤1 in-flight per stage). Progress doc:
+> `progress_docs/2026-06-22_first-gpt-audit-session-9-realtime-trigger-semantics.md`. Findings surfaced:
+> **F-015** live schema drift / migration-ledger ≠ live schema (→ S15/17), **F-016** path-watcher
+> release flap (resolved), **F-017** `composite_shift`→sigil still inline (→ S12), **F-018**
+> restart-mid-drain strands the worker's lease (→ S13/14), **F-019** narrator empty-array parsed as a
+> failure → dead-letters (→ S10/11).
+
 ## Problems
 
 - News-volume notifications fire on raw link insert.

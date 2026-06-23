@@ -263,3 +263,50 @@ relying on them.
 - **Action:** make `NewsNarrator.Generate` return a successful empty/`SkippedNoCorpus`-style result (or a
   marker row) on `{"narratives": []}` instead of erroring, so thin-corpus entities Complete cleanly rather
   than dead-lettering. Fits Session 11 (append-only marker semantics) / narrator robustness.
+- **Update (Session 10):** still **Open** — S10 is transfers-only and did NOT touch `NewsNarrator`. The
+  TRANSFER fail-closed path applies the same failure-as-retryable philosophy correctly (a model failure →
+  `is_rumor=NULL`, retried, never served), but the NARRATIVES generator still hard-errors on an empty array.
+  Post-S10 deploy these 3 `parse narratives failed (raw="{\"narratives\": []}")` rows (`player/33934357`,
+  `player/1447`, `player/39`, all NFL) are the **only** dead-letters in `pipeline_work`. Cleanly isolates the
+  remaining work for **Session 11**.
+
+### F-020 — Transfer fail-closed does NOT rewrite historical fail-OPEN rows (append-only); a handful were still served
+- **Found:** Session 10 · **Status:** Resolved-by-re-vet (`1486b7b` + migration 104); launch-gate check
+- S10 stops NEW fail-open rows, but ~1383 PRE-EXISTING `is_rumor=TRUE, model_version IS NULL` rows remained:
+  **1308** from the now-dropped Phase-1 `seed_transfer_rumors` heat-only seeder (`prompt_version='heat-v1'`)
+  + **75** from the old Go provisional fallback (`t1`/`t2`, no model). The migration deliberately does NOT
+  mutate them — the product invariant is append-only ("a marker must never overwrite/invalidate historical
+  derivations"). Of the 1383, only **6** were actually SERVED (latest-per-pair, heat>0, within the 14-day
+  read window); the rest had already aged out. Rather than an in-place UPDATE, S10 **enqueued the 3 teams**
+  behind those 6 pairs (NBA team 1, NFL teams 1 & 3) into `pipeline_work(transfers)` so the now-fail-closed
+  derive worker re-vets them and APPENDS a real verdict that supersedes the fail-open TRUE — on-philosophy.
+- **Action:** launch gate — assert no SERVED rumor lacks a Gemma `model_version`
+  (`is_rumor IS TRUE AND model_version IS NULL` among latest-per-pair, heat>0, <14d should be 0). Any future
+  stragglers self-heal: they age out of the 14-day window or are superseded on the pair's next re-vet.
+
+### F-021 — Transfer retry is TEAM-grained: one unknown pair re-runs the whole team's Gemma vet
+- **Found:** Session 10 · **Status:** Watch (optimization; not launch-blocking)
+- `pipeline_work` keys transfers by **team**, so S10's fail-closed retry (drainTransfers returns an error when
+  `res.Unknown>0` ⇒ `work.Fail` ⇒ backoff re-enqueue) re-runs `GenerateForTeam` for the ENTIRE team — every
+  candidate pair is re-vetted by Gemma, even the ones that already resolved TRUE/FALSE. Correct and bounded
+  (`maxAttempts`=5 × `failBackoff`=30m, then dead-letter; append-only so duplicate TRUE/FALSE rows are
+  harmless — latest-per-pair wins), but wasteful on the contended 8GB GPU (F-014) when a single pair keeps
+  failing. Chosen deliberately over inventing a finer-grained per-pair queue (the audit says reuse the
+  existing transfers stage, don't add a mechanism).
+- **Action:** optional optimization — have `GenerateForTeam` skip pairs that already have a FRESH successful
+  verdict (input-hash / recency debounce, simplification B) so a retry only re-vets the still-unknown pairs.
+  Pairs with Session 14 (Gemma capacity) and simplification B (input-hash over time-debounce).
+
+### F-022 — Column-DROP migrations: release the NEW binary FIRST, then migrate (reverse of the usual order)
+- **Found:** Session 10 · **Status:** Ops note
+- The standard rule (F-001) is "apply the migration BEFORE the API restart" because `db.New` prepares
+  statements at boot. That assumes the migration only ADDS capability the new binary needs. When a migration
+  DROPS a column/function-param that the OLD binary still writes/reads (here: `input_tweet_ids` and
+  `compute_transfer_heat`'s 4th OUT param), the order **inverts**: the OLD binary breaks on the new schema,
+  but the NEW binary is written to tolerate BOTH (it omits the dropped column from INSERTs — default fills it
+  — and SELECTs a named OUT-param subset that works with or without the dropped param). S10 shipped no new/
+  changed prepared statements, so `db.New` boots cleanly against either schema. Sequence used: commit →
+  `release.sh` (new binary live, API restarted) → apply migration 104 → verify. Zero broken window, no API
+  stop needed.
+- **Action:** for any future column/param **drop**, make the new binary backward-compatible with the
+  pre-drop schema, deploy it first, then drop. Reserve "migrate-then-restart" for ADDITIVE migrations.

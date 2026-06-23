@@ -574,6 +574,25 @@ Notifications improve latency but are never required for correctness.
 
 # Session 10 — Make transfer validation fail closed
 
+> **✅ COMPLETE — deployed live 2026-06-22 (archbox).** Code `1486b7b`; migration **104**
+> `104_transfer_fail_closed` applied (per-file) + recorded. A Gemma timeout, unparseable output, or a
+> verdict with no `is_rumor` field now persists `is_rumor=NULL` (UNKNOWN) instead of the old provisional
+> `is_rumor=TRUE` — UNKNOWN is never served (every read requires `is_rumor IS TRUE`) and is re-enqueued
+> through the existing `pipeline_work(transfers)` stage (`drainTransfers` fails the item on `res.Unknown>0`
+> ⇒ queue backoff retry; no new mechanism). `is_rumor IS TRUE` now gates narrative/Vibe heat grounding
+> (`loadTransferHeat`) and `pipeline_stats.transfer_rumors_active` (the `/transfers` read contract already
+> had it). `compute_transfer_heat` now requires BOTH links `vetted IS TRUE` (dropped the unscrubbed-link
+> allowance — empirically 56/1950 active pairs lose heat that was unvetted, monotonic, 0 gained). Removed
+> simplification-C tweet vestigials: dropped the unused fail-OPEN `seed_transfer_rumors`, the
+> `compute_transfer_heat` `tweet_ids` OUT param, and `input_tweet_ids` on `transfer_rumors`+`vibe_scores`
+> (+ `loadPairTweets`/`tweetItem`/tweet consts in Go). Verified live: new binary writes only model-stamped
+> TRUE/FALSE (0 fail-open), `/transfers` + leaderboard 200, a newer FALSE/NULL supersedes an older TRUE in
+> grounding. Deploy order INVERTED (F-022): released the new binary first (tolerates both schemas), then
+> migrated. Progress doc: `progress_docs/2026-06-22_first-gpt-audit-session-10-transfer-fail-closed.md`.
+> Findings surfaced: **F-020** (historical fail-open rows left append-only; 3 teams re-vet-enqueued →
+> launch gate), **F-021** (team-grained retry re-runs the whole team → optimization), **F-022** (drop-column
+> deploy order). **F-019** confirmed still open (narratives empty-array → Session 11; the only dead-letters).
+
 ## Problems
 
 - Gemma timeout or parse failure writes `is_rumor=TRUE`.

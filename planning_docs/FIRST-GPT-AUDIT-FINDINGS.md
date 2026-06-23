@@ -249,3 +249,17 @@ relying on them.
   `running`. Pairs with S13 (advisory lock / overlap) and S14 (Gemma lifecycle). Until then: prefer
   releasing when `pipeline_work` is quiet, or manually requeue stale `running` rows after a mid-drain
   restart.
+
+### F-019 — NewsNarrator treats an empty `{"narratives": []}` as a parse FAILURE (now dead-letters)
+- **Found:** Session 9 deploy · **Status:** Watch (Session 10/11)
+- Surfaced live by S9's durable queue: two thin-corpus NFL players (`player/1447`, `player/39`) failed
+  the `narratives` stage with `parse narratives failed (raw="{\"narratives\": []}")`. Gemma legitimately
+  returned an EMPTY narratives array (nothing worth narrating for a thin/short corpus), but the narrator's
+  parser treats empty as a hard error. PRE-EXISTING narrator behavior (S9 didn't touch `NewsNarrator`) —
+  before S9 the in-API news-volume worker just logged-and-dropped it; now the durable queue retries it
+  `maxAttempts`=5× and then **dead-letters** it. That's the queue working as intended ("what work is
+  failing?"), but the underlying semantics are wrong: an empty result should be a SUCCESSFUL no-data
+  outcome (a narratives marker), not a failure.
+- **Action:** make `NewsNarrator.Generate` return a successful empty/`SkippedNoCorpus`-style result (or a
+  marker row) on `{"narratives": []}` instead of erroring, so thin-corpus entities Complete cleanly rather
+  than dead-lettering. Fits Session 11 (append-only marker semantics) / narrator robustness.

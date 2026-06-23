@@ -148,6 +148,12 @@ relying on them.
 - **Action:** Session 13 adds the per-job PostgreSQL advisory lock (and the `pipeline_runs` record);
   a shared Gemma concurrency governor is Session 14. Until then, rely on the single nightly cron slot
   + the 30m lease.
+- **Update (Session 9):** there are now **two** drainers of `pipeline_work` — the nightly `cmd/pipeline`
+  cron AND the always-on in-API `derive.StartWorker`. They overlap by design every night. Cross-claim is
+  still safe (`FOR UPDATE SKIP LOCKED` → disjoint rows; both share `derive.StaleLease`=30m so neither
+  steals the other's live lease), but this makes S13's advisory lock more relevant, not less. The S9
+  deploy also demonstrated lease-recovery for real: a release-time restart flap (F-016) orphaned two
+  `running` rows that `RequeueStale` would have recovered.
 
 ### F-013 — `GetEntityNews` signature changed; only the sweep calls it, but the API recompiles it
 - **Found:** Session 8 · **Status:** Ops note
@@ -176,3 +182,47 @@ relying on them.
   — narratives may need longer than scrub); separate worker readiness from the one-time API boot
   ping / add a model warm-up; add a shared GPU concurrency governor. Consider that the 8B model does
   not fully fit the 8GB GPU — quantization/offload tuning or a smaller model may be the real fix.
+
+### F-015 — Live schema drift: the migration ledger != the live schema (088 half-applied; 093–095 unreflected)
+- **Found:** Session 9 · **Status:** Partially resolved (`cc23b68` / migration 103); remainder → Session 15/17
+- Verified DIRECTLY against the prod DB (not the migration files): `088_rename_vibe_to_sentiment` is
+  RECORDED in `schema_migrations`, but its table rename did **not** stick — the table is still
+  `vibe_scores` (no `sentiment_scores` exists), which is why all live Go still queries `vibe_scores`.
+  Yet 088's trigger/function half DID land, so `news_article_entities` carried **two** AFTER INSERT
+  triggers (`trg_vibe_trigger_on_news_link`→`notify_vibe_trigger` AND `sentiment_trigger`→
+  `notify_sentiment_trigger`), BOTH firing `pg_notify('vibe_trigger', …)` — every 4→5 crossing
+  double-fired (the 30m debounce masked it). `093/094/095` (sigil convergence rename) are likewise not
+  reflected (live functions/tables keep pre-rename names). **A version being in `schema_migrations` does
+  NOT mean its effects are live — read the live schema, never the files.**
+- **Resolved by S9:** migration 103 drops BOTH triggers + both notify functions and installs the single
+  `enqueue_derive_on_vetted` trigger, killing the double-fire.
+- **Action:** Session 15 (migration reconciliation) must square the ledger with reality — either finish
+  the `vibe_scores`→`sentiment_scores` rename (touches `db.go` prepared statements + many call sites) or
+  revert 088's recorded-but-partial state, and apply/retract 093–095. Session 17 docs must use the ACTUAL
+  live names. Launch-gate item ("deployed schema, migrations, and docs describe the same system").
+
+### F-016 — `scoracle-api.path` watcher is now ACTIVE (memory says inert); release double-restarts
+- **Found:** Session 9 deploy · **Status:** Ops note
+- The `backend-api-restart-mechanics` memory records the path-watcher as "inert (stale path)". No longer
+  true: `scripts/hosting/install.sh` (run by `release.sh`) re-renders the units with the correct path, so
+  `scoracle-api.path` → `scoracle-api-restart.service` now restarts the API whenever `go/bin/scoracle-api`
+  changes. During the S9 release this raced `release.sh`'s own explicit `systemctl restart`, producing ~4
+  rapid restarts in one second before settling (systemd `NRestarts` stayed 0 — path-triggered, not
+  crash-restarts). The flap cancelled an in-flight `DrainAll` mid-Gemma, leaving 2 orphaned `running`
+  `pipeline_work` rows; `RequeueStale` (30m lease) would have recovered them (durable model degrading
+  gracefully, as designed) — they were manually requeued to verify the drain in-session.
+- **Action:** decide whether to keep the path-watcher (auto-restart on rebuild). If yes, `release.sh`'s
+  explicit restart is redundant and could be dropped to avoid the double-fire; if no, disable
+  `scoracle-api.path`. Update the `backend-api-restart-mechanics` memory either way.
+
+### F-017 — composite_shift → Sigil still runs Gemma directly off the percentile NOTIFY (not durable)
+- **Found:** Session 9 · **Status:** Watch (Session 12)
+- S9 routed the NEWS-rail real-time triggers (narratives/vibe/transfers) through the durable
+  `pipeline_work` queue, but deliberately left the STATS-rail real-time path untouched: the percentile
+  listener (`internal/listener/listener.go`) still calls `SigilGenerator.Generate` DIRECTLY on a
+  `composite_shift` (≥10 percentile delta), in-process, off the transient `percentile_changed` NOTIFY,
+  with a 24h time-debounce — the same "transient NOTIFY drives Gemma, lost on restart" pattern S9 removed
+  from the news rail. It's Sigil convergence, which Session 12 owns.
+- **Action:** Session 12 should enqueue a durable `sigil` `pipeline_work` item on a Rating/composite
+  change (stats-rail producer; pairs with F-010) instead of generating inline, so the in-API derive
+  worker drains it like every other stage.

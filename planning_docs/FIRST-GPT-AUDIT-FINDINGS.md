@@ -354,3 +354,19 @@ relying on them.
   "thin corpus" from "model error"), add `marker_reason` as an ADDITIVE column under simplification D
   (standardize generation tables) — set it on every marker-writing path; never write `generation_failed` as a
   marker (keep that an error/retry). Additive → migrate-before-restart (F-001), not the F-022 reverse order.
+
+### F-025 — Validate prepared statements with a throwaway `db.New` boot BEFORE restarting prod
+- **Found:** Session 11 · **Status:** Technique (use for any API-touching session — S12 next)
+- F-001/F-015: `db.New` prepares EVERY statement at boot (validating columns + functions against the live
+  schema), so a SQL/column error in an edited read makes the restart boot **degraded** instead of failing
+  the edit at compile time — `go build` and `go vet` do NOT catch a bad column reference inside a prepared-
+  statement string. S11 edited 6 reads in `db.go`; to catch a degraded-boot risk *before* touching prod, a
+  throwaway `cmd/validate-stmts` called `db.New(ctx, cfg)` against the live DB — this runs the EXACT boot
+  path (`AfterConnect` → `registerPreparedStatements` → `Ping`) and returns an error on the first bad
+  statement, but starts **no** worker / listener / drainer (unlike running the full API binary, which would
+  spin up a second derive worker that races the live one for `pipeline_work` — F-018). Printed `OK`; removed
+  after. Faster + safer than booting a spare-port API, and authoritative (same code as boot).
+- **Action:** for any session that adds/edits a prepared statement, run this throwaway `db.New` check
+  against the live (or a prod-cloned) schema before `release.sh`. Worth promoting to a kept
+  `cmd/validate-stmts` (or a `go test` that prepares every statement against a migrated test DB) under
+  Session 16 (CI) so the check is permanent rather than re-created per session.

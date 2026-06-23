@@ -7,9 +7,14 @@ package ml
 // one-liner. Gemma never invents the number.
 //
 // Gemma's is_rumor=false is what removes the roster/match-report noise the
-// heat-only seed surfaces (e.g. a team's own players). On a Gemma failure /
-// unparseable output we fall back to a provisional heat-only row (is_rumor TRUE,
-// no classification) so the card never breaks.
+// heat-only seed surfaces (e.g. a team's own players).
+//
+// FAIL CLOSED (FIRST-GPT-AUDIT Session 10): a Gemma timeout, unparseable output,
+// or a verdict with no is_rumor field persists an UNKNOWN row (is_rumor NULL) — it
+// is NEVER served (every read requires is_rumor IS TRUE) and is counted as Unknown
+// so the team is re-enqueued through the durable transfers stage for a retry. Only
+// a successful POSITIVE Gemma verdict ever becomes a served or downstream-consumed
+// rumor; a model failure can never masquerade as a vetted one.
 
 import (
 	"context"
@@ -28,7 +33,6 @@ const transferPromptVersion = "t2"
 
 const (
 	transferMaxCorpusNews      = 12
-	transferMaxCorpusTweets    = 8
 	transferDefaultMinArticles = 2
 	transferMaxCandidates      = 40 // load governor: cap Gemma calls per team
 	// comentionProximityChars bounds how far apart (in title characters) a team
@@ -50,10 +54,11 @@ type TransferRequest struct {
 // TransferResult is a per-team summary.
 type TransferResult struct {
 	Candidates int
-	Rumors     int // is_rumor TRUE rows written (incl. provisional fallback)
+	Rumors     int // is_rumor TRUE rows written (Gemma-vetted positive)
 	Cleared    int // Gemma said is_rumor=false (roster/match-report noise)
+	Unknown    int // is_rumor NULL — model failure (timeout/unparseable); fail closed, retryable
 	Skipped    int // no corpus
-	Errored    int
+	Errored    int // DB/transport error on a pair (not a model verdict)
 	Duration   time.Duration
 }
 
@@ -130,11 +135,10 @@ func (g *TransferGenerator) analyzePair(
 	var heat *int
 	var components string
 	var newsIDs []int64
-	var tweetIDs []string
 	err := g.pool.QueryRow(ctx,
-		`SELECT heat, components, news_ids, tweet_ids FROM compute_transfer_heat($1,$2,$3)`,
+		`SELECT heat, components, news_ids FROM compute_transfer_heat($1,$2,$3)`,
 		teamID, c.playerID, sport,
-	).Scan(&heat, &components, &newsIDs, &tweetIDs)
+	).Scan(&heat, &components, &newsIDs)
 	if err != nil {
 		return err
 	}
@@ -147,13 +151,9 @@ func (g *TransferGenerator) analyzePair(
 	if err != nil {
 		return err
 	}
-	tweets, err := g.loadPairTweets(ctx, tweetIDs)
-	if err != nil {
-		return err
-	}
 
 	// Grounding: the credibility attribution comes from the CORPUS, not Gemma.
-	attribution, bestWeight := bestSource(news, tweets, tiers)
+	attribution, bestWeight := bestSource(news, tiers)
 
 	// Direction AND the noise filter key off the player's RELATIONSHIP to the team
 	// (computed deterministically from player_stats history), not Gemma's text
@@ -166,7 +166,7 @@ func (g *TransferGenerator) analyzePair(
 		return err
 	}
 
-	prompt := buildTransferPrompt(teamName, c, sport, rel, news, tweets)
+	prompt := buildTransferPrompt(teamName, c, sport, rel, news)
 	gen, gerr := g.ollama.Generate(ctx, prompt, GenerateOptions{
 		System:      transferSystemPrompt(sport),
 		Temperature: 0.3,
@@ -174,28 +174,30 @@ func (g *TransferGenerator) analyzePair(
 		JSONMode:    true,
 	})
 	if gerr != nil {
-		// Gemma down/slow → provisional heat-only row (the card still renders).
-		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, tweetIDs, res)
+		// Gemma down/slow → fail closed: UNKNOWN row (is_rumor NULL, never served),
+		// counted so the team is re-enqueued for a retry.
+		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, res)
 	}
 	verdict, ok := parseTransferVerdict(gen.Response)
-	if !ok {
-		// Unparseable output → same provisional fallback.
-		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, tweetIDs, res)
+	if !ok || verdict.IsRumor == nil {
+		// Unparseable output, or a verdict that never committed to is_rumor → same
+		// fail-closed UNKNOWN. A missing is_rumor is NOT a confident "cleared".
+		return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, nil, rel, attribution, newsIDs, res)
 	}
 	// Former-player gate (deterministic — gemma4:e4b doesn't reliably honor the
 	// prompt's "clear unless returning" instruction). A FORMER player is a live
 	// rumor only if the corpus actually signals a RETURN; otherwise the co-mention
 	// is historical background or a multi-entity-article artifact ("Everton want
 	// [Chelsea's Delap] and [Spurs' Gallagher]" links Gallagher↔Chelsea spuriously).
-	if rel == "former" && verdict.IsRumor != nil && *verdict.IsRumor && !hasReturnSignal(news, tweets) {
+	if rel == "former" && *verdict.IsRumor && !hasReturnSignal(news) {
 		cleared := false
 		verdict.IsRumor = &cleared
 	}
 	// Grounding guard: a claimed rumor with no credible (tier-1/2) source is suspect.
-	if verdict.IsRumor != nil && *verdict.IsRumor && bestWeight < 0.5 {
+	if *verdict.IsRumor && bestWeight < 0.5 {
 		verdict.Confidence *= 0.5
 	}
-	return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, &verdict, rel, attribution, newsIDs, tweetIDs, res)
+	return g.persist(ctx, teamID, c.playerID, sport, triggerType, heat, components, &verdict, rel, attribution, newsIDs, res)
 }
 
 // teamRelationship classifies the player's deterministic relationship to the team
@@ -326,33 +328,9 @@ func (g *TransferGenerator) loadPairNews(ctx context.Context, ids []int64) ([]ne
 	return out, rows.Err()
 }
 
-func (g *TransferGenerator) loadPairTweets(ctx context.Context, ids []string) ([]tweetItem, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	rows, err := g.pool.Query(ctx, `
-		SELECT id, author_username, text, posted_at
-		FROM tweets WHERE id = ANY($1)
-		ORDER BY posted_at DESC LIMIT $2
-	`, ids, transferMaxCorpusTweets)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []tweetItem
-	for rows.Next() {
-		var t tweetItem
-		if err := rows.Scan(&t.id, &t.author, &t.text, &t.postedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
-// bestSource returns the highest-credibility source present in the corpus and
+// bestSource returns the highest-credibility news source present in the corpus and
 // its weight (unknown sources default to 0.3). Used for grounded attribution.
-func bestSource(news []newsItem, tweets []tweetItem, tiers map[string]float64) (string, float64) {
+func bestSource(news []newsItem, tiers map[string]float64) (string, float64) {
 	best, bestW := "", 0.0
 	weightOf := func(kind, src string) float64 {
 		if w, ok := tiers[kind+":"+strings.ToLower(src)]; ok {
@@ -368,11 +346,6 @@ func bestSource(news []newsItem, tweets []tweetItem, tiers map[string]float64) (
 			bestW, best = w, n.source
 		}
 	}
-	for _, t := range tweets {
-		if w := weightOf("twitter", t.author); w > bestW {
-			bestW, best = w, "@"+t.author
-		}
-	}
 	return best, bestW
 }
 
@@ -384,7 +357,7 @@ var returnSignals = []string{
 }
 
 // hasReturnSignal reports whether the pair corpus contains return-move language.
-func hasReturnSignal(news []newsItem, tweets []tweetItem) bool {
+func hasReturnSignal(news []newsItem) bool {
 	contains := func(s string) bool {
 		l := strings.ToLower(s)
 		for _, kw := range returnSignals {
@@ -396,11 +369,6 @@ func hasReturnSignal(news []newsItem, tweets []tweetItem) bool {
 	}
 	for _, n := range news {
 		if contains(n.title) || contains(n.description) {
-			return true
-		}
-	}
-	for _, t := range tweets {
-		if contains(t.text) {
 			return true
 		}
 	}
@@ -433,7 +401,7 @@ Reply with ONLY a JSON object, no prose:
 direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving the team. If it is not a %s about THIS exact player, set is_rumor=false; still fill "subject" with who the sources are really about.`, noun, noun, noun)
 }
 
-func buildTransferPrompt(teamName string, c transferCandidate, sport, rel string, news []newsItem, tweets []tweetItem) string {
+func buildTransferPrompt(teamName string, c transferCandidate, sport, rel string, news []newsItem) string {
 	playerName := c.playerName
 	var b strings.Builder
 	b.WriteString(fmt.Sprintf("Sport: %s\nTeam: %s\nPlayer: %s\n", sport, teamName, playerName))
@@ -476,14 +444,6 @@ func buildTransferPrompt(teamName string, c transferCandidate, sport, rel string
 				b.WriteString(truncate(n.description, 160))
 			}
 			b.WriteString("\n")
-		}
-	}
-	b.WriteString("\nTweets:\n")
-	if len(tweets) == 0 {
-		b.WriteString("- (none)\n")
-	} else {
-		for _, t := range tweets {
-			b.WriteString(fmt.Sprintf("- @%s: %s\n", t.author, truncate(strings.ReplaceAll(t.text, "\n", " "), 200)))
 		}
 	}
 	b.WriteString("\nReturn the JSON verdict now.")
@@ -532,13 +492,19 @@ func clampConf(c float64) float64 {
 
 func strptr(s string) *string { return &s }
 
-// persist writes one transfer_rumors row. verdict == nil → provisional heat-only
-// (is_rumor TRUE, no classification). verdict.is_rumor=false → a "cleared" row
-// (hidden by the read filter — removes roster/match-report noise).
+// persist writes one transfer_rumors row.
+//
+//	verdict == nil          → UNKNOWN (is_rumor NULL): a model failure (Gemma
+//	                          timeout / unparseable / no verdict). FAIL CLOSED —
+//	                          never served (reads require is_rumor IS TRUE) and
+//	                          counted as Unknown so the team is re-enqueued for retry.
+//	verdict.is_rumor = true  → a vetted rumor (served).
+//	verdict.is_rumor = false → a "cleared" row (hidden by the read filter — removes
+//	                          roster/match-report noise; supersedes an older TRUE).
 func (g *TransferGenerator) persist(
 	ctx context.Context, teamID, playerID int, sport, triggerType string,
 	heat *int, components string, verdict *gemmaTransferVerdict, relationship string, attribution string,
-	newsIDs []int64, tweetIDs []string, res *TransferResult,
+	newsIDs []int64, res *TransferResult,
 ) error {
 	var (
 		isRumor    *bool
@@ -552,12 +518,14 @@ func (g *TransferGenerator) persist(
 
 	switch {
 	case verdict == nil:
-		t := true
-		isRumor = &t // provisional
+		// Model failure → leave is_rumor NULL (unknown). Keep the deterministic
+		// direction for the audit row; the read path never surfaces it.
 		direction = strptr(directionFor(relationship))
-		res.Rumors++
+		res.Unknown++
 	default:
-		ir := verdict.IsRumor != nil && *verdict.IsRumor
+		// is_rumor is guaranteed non-nil here (analyzePair routes a nil verdict
+		// field to the verdict==nil unknown path above).
+		ir := *verdict.IsRumor
 		isRumor = &ir
 		model = strptr(g.ollama.Model())
 		if ir {
@@ -581,9 +549,6 @@ func (g *TransferGenerator) persist(
 	if newsIDs == nil {
 		newsIDs = []int64{}
 	}
-	if tweetIDs == nil {
-		tweetIDs = []string{}
-	}
 
 	// Audit trail: stash who Gemma judged the sources to be about, so a discarded
 	// same-name impostor (is_rumor=false) leaves a record of what was filtered and
@@ -601,12 +566,12 @@ func (g *TransferGenerator) persist(
 		INSERT INTO transfer_rumors (
 		    team_id, player_id, sport, trigger_type, heat, heat_components,
 		    is_rumor, direction, stage, gemma_summary, source_attribution, confidence,
-		    input_news_ids, input_tweet_ids, model_version, prompt_version, trigger_payload
-		) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)
+		    input_news_ids, model_version, prompt_version, trigger_payload
+		) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
 	`,
 		teamID, playerID, sport, triggerType, heat, components,
 		isRumor, direction, stage, summary, attr, confidence,
-		newsIDs, tweetIDs, model, promptVer, triggerPayload,
+		newsIDs, model, promptVer, triggerPayload,
 	)
 	return err
 }

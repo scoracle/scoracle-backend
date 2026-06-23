@@ -104,8 +104,8 @@ func runSingle(pool *pgxpool.Pool, gen *ml.TransferGenerator, teamID int, sport,
 	fmt.Printf("\n--- %s rumors for %s (%s %d) ---\n",
 		map[bool]string{true: "Trade", false: "Transfer"}[sportUpper == "NBA" || sportUpper == "NFL"],
 		name, sportUpper, teamID)
-	fmt.Printf("candidates=%d  rumors=%d  cleared=%d  skipped=%d  errored=%d  duration=%s\n",
-		res.Candidates, res.Rumors, res.Cleared, res.Skipped, res.Errored,
+	fmt.Printf("candidates=%d  rumors=%d  cleared=%d  unknown=%d  skipped=%d  errored=%d  duration=%s\n",
+		res.Candidates, res.Rumors, res.Cleared, res.Unknown, res.Skipped, res.Errored,
 		res.Duration.Round(100*time.Millisecond))
 }
 
@@ -122,7 +122,7 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.TransferGenerator, sport, trigger str
 			continue
 		}
 		logger.Info("transfer corpus: sport start", "sport", sp, "teams", len(teams))
-		var totRumors, totCleared int
+		var totRumors, totCleared, totUnknown int
 		for _, t := range teams {
 			tctx, cancel := context.WithTimeout(ctx, perTeamTimeout)
 			res, err := gen.GenerateForTeam(tctx, ml.TransferRequest{
@@ -135,15 +135,16 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.TransferGenerator, sport, trigger str
 			}
 			if res.Candidates > 0 {
 				logger.Info("team done", "team", t.name, "candidates", res.Candidates,
-					"rumors", res.Rumors, "cleared", res.Cleared)
+					"rumors", res.Rumors, "cleared", res.Cleared, "unknown", res.Unknown)
 			}
 			totRumors += res.Rumors
 			totCleared += res.Cleared
+			totUnknown += res.Unknown
 			if throttleMs > 0 {
 				time.Sleep(time.Duration(throttleMs) * time.Millisecond)
 			}
 		}
-		logger.Info("transfer corpus: sport done", "sport", sp, "rumors", totRumors, "cleared", totCleared)
+		logger.Info("transfer corpus: sport done", "sport", sp, "rumors", totRumors, "cleared", totCleared, "unknown", totUnknown)
 	}
 }
 

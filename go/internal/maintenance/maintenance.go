@@ -485,12 +485,15 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    FROM news_article_entities WHERE sport = $1
 		) art,
 		(
+		    -- Active = latest row per pair, Gemma-VETTED (is_rumor IS TRUE), heat>0,
+		    -- within 14d — matches the /transfers read contract (S10 fail-closed): a
+		    -- newer cleared/unknown verdict drops the pair from the count.
 		    SELECT count(*) AS active FROM (
-		        SELECT DISTINCT ON (team_id, player_id) heat, generated_at
+		        SELECT DISTINCT ON (team_id, player_id) heat, is_rumor, generated_at
 		        FROM transfer_rumors WHERE sport = $1
 		        ORDER BY team_id, player_id, generated_at DESC
 		    ) latest
-		    WHERE heat > 0 AND generated_at > NOW() - INTERVAL '14 days'
+		    WHERE heat > 0 AND is_rumor IS TRUE AND generated_at > NOW() - INTERVAL '14 days'
 		) tr,
 		(
 		    WITH in_scope AS (

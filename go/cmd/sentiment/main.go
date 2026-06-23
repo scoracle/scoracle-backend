@@ -134,9 +134,9 @@ func runSingle(
 	} else {
 		fmt.Printf("Sentiment: %d/100\n", result.Sentiment)
 	}
-	fmt.Printf("\n(model=%s prompt=%s duration=%s news=%d tweets=%d)\n",
+	fmt.Printf("\n(model=%s prompt=%s duration=%s news=%d)\n",
 		result.Model, result.PromptVersion, result.Duration.Round(10*time.Millisecond),
-		len(result.InputNewsIDs), len(result.InputTweetIDs))
+		len(result.InputNewsIDs))
 }
 
 // ---------------------------------------------------------------------------

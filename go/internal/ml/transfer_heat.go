@@ -26,16 +26,21 @@ type heatItem struct {
 }
 
 // loadTransferHeat returns the entity's hottest active transfer/trade rumors
-// (latest per counterparty, heat > 0), naming the counterparty. Branches on
-// entity type: a team's player rumors vs a player's suitor clubs. Sport-agnostic
-// (the same rows back NBA/NFL trades and Football transfers).
+// (latest per counterparty, heat > 0, Gemma-vetted), naming the counterparty.
+// Branches on entity type: a team's player rumors vs a player's suitor clubs.
+// Sport-agnostic (the same rows back NBA/NFL trades and Football transfers).
+//
+// The is_rumor IS TRUE gate is applied AFTER picking the latest row per
+// counterparty (FIRST-GPT-AUDIT Session 10) so a newer cleared/unknown verdict
+// supersedes an older TRUE: a model failure (NULL) or a Gemma-cleared (FALSE) row
+// stops grounding narratives/Vibe, mirroring the /transfers read contract.
 func loadTransferHeat(
 	ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string,
 ) ([]heatItem, error) {
 	q := `
 		SELECT counterparty, heat, stage, direction FROM (
 		    SELECT DISTINCT ON (tr.team_id)
-		           t.name AS counterparty, tr.heat,
+		           t.name AS counterparty, tr.heat, tr.is_rumor,
 		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
 		           tr.generated_at
 		    FROM transfer_rumors tr
@@ -43,12 +48,12 @@ func loadTransferHeat(
 		    WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
 		    ORDER BY tr.team_id, tr.generated_at DESC
 		) latest
-		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
+		WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3`
 	if entityType == "team" {
 		q = `
 		SELECT counterparty, heat, stage, direction FROM (
 		    SELECT DISTINCT ON (tr.player_id)
-		           p.name AS counterparty, tr.heat,
+		           p.name AS counterparty, tr.heat, tr.is_rumor,
 		           COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
 		           tr.generated_at
 		    FROM transfer_rumors tr
@@ -56,7 +61,7 @@ func loadTransferHeat(
 		    WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
 		    ORDER BY tr.player_id, tr.generated_at DESC
 		) latest
-		WHERE heat > 0 ORDER BY heat DESC LIMIT $3`
+		WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3`
 	}
 	rows, err := pool.Query(ctx, q, entityID, sport, maxHeatItems)
 	if err != nil {

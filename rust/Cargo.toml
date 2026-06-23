@@ -1,0 +1,32 @@
+[package]
+name = "scoracle-scrubber"
+version = "0.0.0"
+edition = "2021"
+publish = false
+description = "Scoracle scrubbing layer: durable pipeline_work queue consumer + Ollama model router. Phase 0 scaffold — reusable queue/Ollama clients + LISTEN loop, no stage logic yet."
+
+[[bin]]
+name = "scoracle-scrubber"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }
+
+# Postgres — pool + LISTEN/NOTIFY (PgListener). We use the runtime query API
+# (sqlx::query / query_as), NOT the compile-time `query!` macros, so a build
+# needs no live DATABASE_URL. The DB is localhost with sslmode=disable, so no
+# TLS feature is selected. CONFIRM ON FIRST `cargo build`: if your sqlx version
+# rejects this feature set, the runtime/TLS feature names are the usual culprit
+# (e.g. add "tls-rustls" if you ever connect over TLS).
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres"] }
+
+# Ollama HTTP. http://localhost only, so no TLS backend pulled in.
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+async-trait = "0.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

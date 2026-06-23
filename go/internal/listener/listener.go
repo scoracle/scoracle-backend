@@ -1,13 +1,12 @@
-// Package listener provides Postgres LISTEN/NOTIFY consumers for real-time
-// event processing. Each consumer holds a dedicated pgx connection (not from
-// the pool) and listens on a single channel.
+// Package listener provides the Postgres LISTEN/NOTIFY consumer for FCM push
+// notifications. It holds a dedicated pgx connection (not from the pool) and
+// listens on the percentile_changed channel: significant stat-line percentile
+// crossings (90/95/99 or delta >= 10) become push notifications, and a large
+// composite shift also triggers Sigil synthesis (one of its three inputs).
 //
-// Channels currently consumed:
-//   - percentile_changed → FCM push notifications for significant stat-line
-//     percentile crossings (90/95/99 or delta >= 10).
-//   - vibe_trigger       → on-demand Gemma vibe generation when an entity
-//     accumulates a high volume of news articles inside a short window.
-//     See news_volume_worker.go.
+// The old news-rail consumers (vibe_trigger / transfer_trigger, which ran Gemma
+// directly off a transient NOTIFY) were retired in FIRST-GPT-AUDIT Session 9 in
+// favour of the durable pipeline_work queue drained by internal/derive.
 package listener
 
 import (

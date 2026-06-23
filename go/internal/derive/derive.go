@@ -129,6 +129,11 @@ func (d *Drainer) drainStage(ctx context.Context, stage work.Stage, throttle int
 }
 
 // drainTransfers — team-scoped transfer analysis off the fresh, scrubbed corpus.
+// A pair that hit a Gemma model failure is persisted UNKNOWN (is_rumor NULL, never
+// served) and reported as res.Unknown; we then FAIL the item so the queue's own
+// backoff re-enqueues this team's transfers stage — the fail-closed retry path
+// (FIRST-GPT-AUDIT Session 10), no new mechanism. After maxAttempts the item
+// dead-letters and the UNKNOWN rows simply stay unserved.
 func (d *Drainer) drainTransfers(ctx context.Context) {
 	d.drainStage(ctx, work.StageTransfers, d.TransferThrottle, func(ctx context.Context, it work.Item) error {
 		if it.EntityType != "team" {
@@ -140,10 +145,16 @@ func (d *Drainer) drainTransfers(ctx context.Context) {
 		}
 		tctx, cancel := context.WithTimeout(ctx, perTeamTimeout)
 		defer cancel()
-		_, gerr := d.TransferGen.GenerateForTeam(tctx, ml.TransferRequest{
+		res, gerr := d.TransferGen.GenerateForTeam(tctx, ml.TransferRequest{
 			TeamID: it.EntityID, TeamName: name, Sport: it.Sport, TriggerType: "periodic", MinArticles: d.MinArticles,
 		})
-		return gerr
+		if gerr != nil {
+			return gerr
+		}
+		if res != nil && res.Unknown > 0 {
+			return fmt.Errorf("transfers: %d unresolved pair(s) (model failure) — retrying team %d", res.Unknown, it.EntityID)
+		}
+		return nil
 	})
 }
 

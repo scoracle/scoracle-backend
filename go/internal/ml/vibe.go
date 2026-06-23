@@ -47,10 +47,8 @@ const vibePromptVersion = "v6"
 // alignment, an entity with a brand-new link to an old article gets
 // queued and then skipped inside Generate, producing a null marker.
 const (
-	NewsLookback  = 72 * time.Hour // 3 days
-	tweetLookback = 24 * time.Hour // matches the tweet TTL
-	maxNewsItems  = 12
-	maxTweetItems = 8
+	NewsLookback = 72 * time.Hour // 3 days
+	maxNewsItems = 12
 )
 
 // newsLookback is the unexported alias the rest of this package uses.
@@ -83,7 +81,6 @@ type VibeResult struct {
 	Model           string
 	PromptVersion   string
 	InputNewsIDs    []int64
-	InputTweetIDs   []string
 	Duration        time.Duration
 }
 
@@ -135,7 +132,6 @@ func (g *VibeGenerator) Generate(ctx context.Context, req VibeRequest) (*VibeRes
 			Model:           g.ollama.Model(),
 			PromptVersion:   vibePromptVersion,
 			InputNewsIDs:    []int64{},
-			InputTweetIDs:   []string{},
 		}, nil
 	}
 
@@ -162,9 +158,9 @@ func (g *VibeGenerator) Generate(ctx context.Context, req VibeRequest) (*VibeRes
 			truncate(gen.Response, 120), len(prompt), err)
 	}
 
-	// input_news_ids = the narratives' source articles (provenance); tweets are
-	// no longer a vibe input (the derived layer supersedes raw feeds).
-	if err := g.persistSentiment(ctx, req, sport, sentiment, vibePrompt, gen.Model, newsIDs, nil); err != nil {
+	// input_news_ids = the narratives' source articles (provenance). Tweets are no
+	// longer a vibe input (the derived layer supersedes raw feeds; X decommissioned).
+	if err := g.persistSentiment(ctx, req, sport, sentiment, vibePrompt, gen.Model, newsIDs); err != nil {
 		return nil, fmt.Errorf("persist vibe: %w", err)
 	}
 
@@ -174,7 +170,6 @@ func (g *VibeGenerator) Generate(ctx context.Context, req VibeRequest) (*VibeRes
 		Model:         gen.Model,
 		PromptVersion: vibePromptVersion,
 		InputNewsIDs:  newsIDs,
-		InputTweetIDs: []string{},
 		Duration:      duration,
 	}, nil
 }
@@ -191,9 +186,9 @@ func (g *VibeGenerator) persistNoCorpus(ctx context.Context, req VibeRequest, sp
 		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
-		    sentiment, input_news_ids, input_tweet_ids,
+		    sentiment, input_news_ids,
 		    model_version, prompt_version
-		) VALUES ($1,$2,$3,$4,$5,NULL,'{}','{}',$6,$7)
+		) VALUES ($1,$2,$3,$4,$5,NULL,'{}',$6,$7)
 	`,
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
@@ -212,13 +207,6 @@ type newsItem struct {
 	description string
 	source      string
 	publishedAt *time.Time
-}
-
-type tweetItem struct {
-	id       string
-	author   string
-	text     string
-	postedAt time.Time
 }
 
 type narrativeItem struct {
@@ -390,20 +378,16 @@ func (g *VibeGenerator) persistSentiment(
 	req VibeRequest,
 	sport string, sentiment int, vibePrompt string, model string,
 	newsIDs []int64,
-	tweetIDs []string,
 ) error {
 	triggerJSON, err := json.Marshal(req.Trigger)
 	if err != nil {
 		return err
 	}
-	// pgx encodes nil Go slices as NULL, but these columns are NOT NULL
-	// with default '{}'. Coerce nils to empty slices so the insert works
-	// even when there's no corpus context yet.
+	// pgx encodes nil Go slices as NULL, but input_news_ids is NOT NULL with
+	// default '{}'. Coerce a nil to an empty slice so the insert works even
+	// when there's no corpus context yet.
 	if newsIDs == nil {
 		newsIDs = []int64{}
-	}
-	if tweetIDs == nil {
-		tweetIDs = []string{}
 	}
 	// Store an empty felt read as NULL (the column is nullable).
 	var promptArg any
@@ -414,13 +398,13 @@ func (g *VibeGenerator) persistSentiment(
 		INSERT INTO vibe_scores (
 		    entity_type, entity_id, sport,
 		    trigger_type, trigger_payload,
-		    sentiment, prompt, input_news_ids, input_tweet_ids,
+		    sentiment, prompt, input_news_ids,
 		    model_version, prompt_version
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 	`,
 		req.EntityType, req.EntityID, sport,
 		req.TriggerType, triggerJSON,
-		sentiment, promptArg, newsIDs, tweetIDs,
+		sentiment, promptArg, newsIDs,
 		model, vibePromptVersion,
 	)
 	return err

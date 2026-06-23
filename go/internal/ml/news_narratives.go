@@ -146,6 +146,10 @@ func (a *NewsNarrator) Generate(ctx context.Context, req NarrativesRequest) (*Na
 	}
 	duration := time.Since(start)
 
+	// ok=false only for a genuinely malformed/truncated response (no parseable
+	// narratives document) — a real generation failure that must retry, not a
+	// no-data marker. An empty {"narratives": []} parses ok with zero narratives
+	// and falls through to the marker path below (F-019).
 	parsed, ok := parseNarratives(gen.Response)
 	if !ok {
 		return nil, fmt.Errorf("parse narratives failed (raw=%q prompt_len=%d)",
@@ -154,8 +158,9 @@ func (a *NewsNarrator) Generate(ctx context.Context, req NarrativesRequest) (*Na
 
 	narratives := groundNarratives(parsed, news)
 	if len(narratives) == 0 {
-		// Gemma returned no usable, article-grounded narrative — treat as no-corpus
-		// rather than persisting empty rows.
+		// Gemma returned no usable, article-grounded narrative (empty array, or every
+		// proposed narrative was ungrounded/vague) — a legitimate "no story this cycle"
+		// outcome: persist a NULL-narrative marker rather than empty rows or a failure.
 		res := &NarrativesResult{
 			SkippedNoCorpus: true,
 			Model:           gen.Model,
@@ -392,7 +397,16 @@ type gemmaNarratives struct {
 // mid-array or carry one malformed object; this scanner extracts every balanced
 // top-level {...} inside the "narratives" array (respecting strings/escapes),
 // unmarshals each on its own, and keeps the ones that parse. A truncated tail
-// just drops its last incomplete object. Succeeds when >= 1 narrative survives.
+// just drops its last incomplete object.
+//
+// The bool reports whether the response was PARSEABLE as a narratives document,
+// NOT whether it carried narratives. A cleanly-closed array — including an empty
+// {"narratives": []} — is a successful parse with zero narratives: a legitimate
+// "Gemma found no nameable storyline" no-data outcome that the caller turns into a
+// marker (FIRST-GPT-AUDIT Session 11, F-019), distinct from a malformed/truncated
+// response (no "narratives" key, no '[', or EOF before the array closed AND nothing
+// salvaged) which stays a failure so the work queue retries it rather than writing a
+// spurious marker. generation_failed must never masquerade as no-data.
 func parseNarratives(raw string) (gemmaNarratives, bool) {
 	var out gemmaNarratives
 	key := strings.Index(raw, `"narratives"`)
@@ -441,10 +455,16 @@ func parseNarratives(raw string) (gemmaNarratives, bool) {
 			}
 		case ']':
 			if depth == 0 {
-				return out, len(out.Narratives) > 0 // end of the array
+				// Array closed cleanly — a parseable document even when empty. An
+				// empty array is a real "no narratives this cycle" outcome (→ marker),
+				// not a parse failure (F-019).
+				return out, true // end of the array
 			}
 		}
 	}
+	// EOF before the array closed: a truncated/cut-off generation. Succeed only if we
+	// salvaged at least one complete narrative from the tail; otherwise it is a real
+	// failure (retry), never a silent no-data marker.
 	return out, len(out.Narratives) > 0
 }
 

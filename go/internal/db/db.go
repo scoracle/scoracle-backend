@@ -176,15 +176,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type
 		),
-		latest AS (
+		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take each
+		-- entity's latest vibe within the 48h window REGARDLESS of nullability
+		-- (latest_raw), then drop it if that latest generation is a no-corpus marker
+		-- (sentiment NULL). A newer marker thus clears the entity from the board
+		-- instead of leaving an older scored row ranked.
+		latest_raw AS (
 			SELECT DISTINCT ON (vs.entity_type, vs.entity_id)
 			       vs.entity_type, vs.entity_id, vs.sentiment AS score, vs.prompt AS blurb, vs.generated_at
 			FROM public.vibe_scores vs, req
 			WHERE vs.sport = req.sport
 			  AND (req.entity_type IS NULL OR vs.entity_type = req.entity_type)
-			  AND vs.sentiment IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '48 hours'
 			ORDER BY vs.entity_type, vs.entity_id, vs.generated_at DESC
+		),
+		latest AS (
+			SELECT * FROM latest_raw WHERE score IS NOT NULL
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
@@ -242,15 +249,22 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type
 		),
-		latest AS (
+		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take each
+		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
+		-- it if that latest generation is a no-pillar marker (score/blurb NULL). A
+		-- newer marker therefore removes the entity from the crown board instead of the
+		-- old behavior, which filtered markers BEFORE the DISTINCT ON and left a stale
+		-- scored row ranked.
+		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
 			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.generated_at
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
-			  AND ss.score IS NOT NULL
-			  AND ss.blurb IS NOT NULL
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
+		),
+		latest AS (
+			SELECT * FROM latest_raw WHERE score IS NOT NULL AND blurb IS NOT NULL
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
@@ -411,15 +425,31 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"narratives_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
 		),
-		latest AS (
-			SELECT DISTINCT ON (ns.entity_type, ns.entity_id)
-			       ns.entity_type, ns.entity_id, ns.narrative_title, ns.body, ns.impact, ns.generated_at
+		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): resolve each
+		-- entity's latest generation FIRST (unfiltered max), then keep only that
+		-- generation's content rows. A newer no-corpus marker becomes the latest
+		-- generation, yields no content, and the entity drops off the board — rather
+		-- than the old "latest non-null row" which let a marker leave stale narratives
+		-- ranked. The 7-day window applies to the latest generation's timestamp, so a
+		-- stale-but-real generation also ages off.
+		latest_gen AS (
+			SELECT ns.entity_type, ns.entity_id, max(ns.generated_at) AS gen
 			FROM public.news_summaries ns, req
 			WHERE ns.sport = req.sport
 			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
+			GROUP BY ns.entity_type, ns.entity_id
+		),
+		latest AS (
+			SELECT DISTINCT ON (ns.entity_type, ns.entity_id)
+			       ns.entity_type, ns.entity_id, ns.narrative_title, ns.body, ns.impact, ns.generated_at
+			FROM public.news_summaries ns
+			JOIN latest_gen lg ON lg.entity_type = ns.entity_type AND lg.entity_id = ns.entity_id
+			                  AND ns.generated_at = lg.gen
+			CROSS JOIN req
+			WHERE ns.sport = req.sport
 			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
 			  AND ns.generated_at > NOW() - INTERVAL '7 days'
-			ORDER BY ns.entity_type, ns.entity_id, ns.generated_at DESC, ns.impact DESC
+			ORDER BY ns.entity_type, ns.entity_id, ns.impact DESC
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
@@ -557,6 +587,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
 		),
 		narr AS (
+			-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): find the
+			-- latest generation REGARDLESS of nullability, then return only its content
+			-- rows. The inner max() is UNFILTERED, so a newer no-corpus marker (body
+			-- NULL) becomes the latest generation and the outer body IS NOT NULL yields
+			-- zero rows → empty narratives, clearing stale content. (Mirrors
+			-- ml/vibe.go loadLatestNarratives; the old body-filtered inner max let a
+			-- marker fail to clear older narratives.)
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.source_attribution, ns.input_news_ids, ns.model_version, ns.prompt_version, ns.generated_at
 			FROM public.news_summaries ns CROSS JOIN req
@@ -565,7 +602,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			  AND ns.generated_at = (
 			      SELECT max(generated_at) FROM public.news_summaries
 			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
-			        AND sport = (SELECT sport FROM req) AND body IS NOT NULL
+			        AND sport = (SELECT sport FROM req)
 			  )
 		)
 		SELECT json_build_object(
@@ -614,12 +651,23 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
 		),
 		vibe_cur AS (
+			-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take the
+			-- latest synthesis REGARDLESS of nullability (unfiltered max), then surface
+			-- it only when it is a real scored row AND fresh. A newer no-pillar marker
+			-- (score NULL) thus becomes the latest generation and the score IS NOT NULL
+			-- guard yields zero rows → current null, clearing the stale crown. (History
+			-- below intentionally keeps only scored points — a marker changes the current
+			-- projection, never the sparkline.)
 			SELECT vs.score, vs.blurb, vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
 			FROM public.sigil_synthesis vs CROSS JOIN req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
+			  AND vs.generated_at = (
+			      SELECT max(generated_at) FROM public.sigil_synthesis
+			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
+			        AND sport = (SELECT sport FROM req)
+			  )
 			  AND vs.score IS NOT NULL
 			  AND vs.generated_at > NOW() - INTERVAL '72 hours'
-			ORDER BY vs.generated_at DESC LIMIT 1
 		),
 		vibe_hist AS (
 			SELECT vs.score, vs.generated_at
@@ -826,11 +874,23 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'season', (SELECT season FROM season_pick),
 			'rating', (SELECT row_to_json(spec_rating) FROM spec_rating),
 			'commentary', (
+				-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): pick the
+				-- latest commentary generation for this entity-season REGARDLESS of
+				-- nullability (unfiltered max), then return it only when it carries a body.
+				-- A newer no-stats marker (body NULL) becomes the latest generation and
+				-- the body IS NOT NULL guard yields zero rows → null commentary, clearing
+				-- stale prose. Season-scoped so a new season's content is independent.
 				SELECT row_to_json(c) FROM (
 					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_peak
 					FROM public.stat_summaries s
 					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
-					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick) AND s.body IS NOT NULL
+					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick)
+					  AND s.body IS NOT NULL
+					  AND s.generated_at = (
+					      SELECT max(generated_at) FROM public.stat_summaries
+					      WHERE entity_type = (SELECT etype FROM req) AND entity_id = (SELECT eid FROM req)
+					        AND sport = (SELECT sport FROM req) AND season = (SELECT season FROM season_pick)
+					  )
 					ORDER BY s.generated_at DESC LIMIT 1
 				) c
 			)

@@ -634,6 +634,31 @@ Only a successful positive Gemma verdict can become a served or downstream-consu
 
 # Session 11 — Standardize append-only marker semantics
 
+> **✅ COMPLETE — deployed live 2026-06-23 (archbox).** Code `__COMMIT__`. **Read-path + narrator only —
+> NO migration** (next free number stays 105). One canonical latest-generation rule now governs every
+> product read: resolve the entity's latest generation REGARDLESS of nullability, then return its content
+> (or empty/null if that generation is a marker) — killing the "filter nulls before picking the latest"
+> bug where a newer no-data marker failed to clear stale content. Fixed in `go/internal/db/db.go`:
+> **`entity_news`** (inner `max(generated_at)` was body-filtered → unfiltered, matching
+> `ml/vibe.go loadLatestNarratives`), **`entity_vibes`** (the per-entity `/sigil` read — `vibe_cur` now
+> takes the latest synthesis then drops it if marker/stale; `vibe_hist` sparkline unchanged — markers
+> change current, never history), **`/rating` commentary** (latest `stat_summaries` gen within the season
+> scope, then body-gate), **`narratives_leaderboard`** (resolve each entity's latest gen via a `latest_gen`
+> CTE, then keep only its content → a newer marker drops the entity off the board), **`sigil_leaderboard`**
+> and **`vibes_leaderboard`** (`latest_raw` DISTINCT-ON unfiltered → `latest` filters markers). Prior
+> generations are untouched (append-only); a marker only changes the current projection.
+> **F-019** fixed in `go/internal/ml/news_narratives.go`: `parseNarratives` now reports *parseability*, so a
+> cleanly-closed (even empty) `{"narratives": []}` is a successful no-data outcome → existing no-corpus
+> marker path → the queue item Completes; only a genuinely malformed/truncated response still errors
+> (retry) — `generation_failed` never masquerades as no-data. Locked by `news_narratives_test.go`. All
+> prepared statements re-validated against the LIVE schema (a throwaway `db.New` boot) before the restart;
+> all 11 dead-lettered/failed `{"narratives": []}` rows requeued post-deploy and Completed as markers.
+> Deploy: `release.sh` (PID-specific rebuild + restart, masks the `scoracle-api.path` watcher — F-016),
+> then requeued stranded `running` rows (F-018). Progress doc:
+> `progress_docs/2026-06-23_first-gpt-audit-session-11-marker-semantics.md`. Findings: **F-019** RESOLVED;
+> **F-023** (Sigil generation-side pillar/debounce loaders still use latest-non-marker → Session 12),
+> **F-024** (explicit `marker_reason` column deliberately deferred).
+
 ## Problem
 
 Generators write marker rows for “no narratives,” “no stats,” and “no pillars,” but several read paths select the latest non-null successful row. A newer marker therefore fails to clear old content.

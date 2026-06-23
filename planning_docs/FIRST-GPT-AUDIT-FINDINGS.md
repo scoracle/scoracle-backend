@@ -230,3 +230,22 @@ relying on them.
 - **Action:** Session 12 should enqueue a durable `sigil` `pipeline_work` item on a Rating/composite
   change (stats-rail producer; pairs with F-010) instead of generating inline, so the in-API derive
   worker drains it like every other stage.
+
+### F-018 — An API restart mid-drain strands the derive worker's leased batch for up to staleLease (30m)
+- **Found:** Session 9 deploy · **Status:** Watch (Session 13/14)
+- The in-API `derive` worker's `DrainAll` claims a batch (up to `claimBatch`=10) as `running`, then
+  processes serially. A graceful shutdown (SIGTERM from ANY restart — release, manual, or the
+  `scoracle-api.path` trigger) cancels the drain ctx mid-item: the in-flight Gemma call errors with
+  "context canceled" AND `work.Complete`/`Fail` then also run on the cancelled ctx, so they no-op
+  ("mark-failed failed: context canceled") — the leased rows stay `running` (orphaned). The next start
+  runs `RequeueStale(StaleLease=30m)`, but the just-orphaned rows are <30m old so they are NOT recovered
+  until ~30m later. Net: a restart while the worker is mid-drain delays that batch by up to 30m.
+  Correctness is safe (work is never lost); observed live during the S9 deploy (orphans manually
+  requeued for promptness). Note this is independent of F-016's flap — it happens on a *single* clean
+  restart too.
+- **Action:** clean fix is for the worker to settle its claimed items on graceful shutdown using a FRESH
+  (non-cancelled) context — run `work.Complete`/`Fail`, or requeue-to-`pending`, on `context.Background()`
+  with a short timeout so a shutdown returns rows to claimable immediately instead of stranding them as
+  `running`. Pairs with S13 (advisory lock / overlap) and S14 (Gemma lifecycle). Until then: prefer
+  releasing when `pipeline_work` is quiet, or manually requeue stale `running` rows after a mid-drain
+  restart.

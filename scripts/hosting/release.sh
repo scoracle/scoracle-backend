@@ -61,7 +61,18 @@ echo "==> building ${#CMDS[@]} binaries @ ${COMMIT} (built ${BUILD_TIME})"
 # API.
 STAGE_PARENT="$(cd "$BIN_DIR/.." >/dev/null && pwd)"
 STAGE="$(mktemp -d "$STAGE_PARENT/.scoracle-release.XXXXXX")"
-cleanup() { rm -rf "$STAGE"; }
+# scoracle-api.path watches go/bin/ and restarts the API on any binary change. We
+# mask it across the placement below (see the placement step) so the 4 renames don't
+# each fire a spurious restart that cancels in-flight background work (e.g. the in-API
+# derive worker's Gemma drains); cleanup re-arms it on any exit. PATH_MASKED records
+# whether we actually stopped it, so we only restart what we stopped.
+PATH_MASKED=0
+cleanup() {
+    rm -rf "$STAGE"
+    if [ "$PATH_MASKED" -eq 1 ]; then
+        systemctl --user start scoracle-api.path 2>/dev/null || true
+    fi
+}
 trap cleanup EXIT
 
 (
@@ -71,6 +82,19 @@ trap cleanup EXIT
         CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o "$STAGE/${OUTS[$i]}" "./cmd/${CMDS[$i]}"
     done
 )
+
+# Mask the rebuild watcher across placement (full release only). The single explicit
+# `systemctl restart` after install is authoritative; without this, each of the 4
+# renames below trips scoracle-api.path → scoracle-api-restart.service, flapping the
+# API ~4x in a second and cancelling whatever the derive worker was mid-generating.
+# Ad-hoc `go build` outside release.sh still auto-restarts (the watcher is re-armed by
+# cleanup). Skipped for --build-only and when the watcher isn't running.
+if [ "$BUILD_ONLY" -eq 0 ] && systemctl --user -q is-active scoracle-api.path 2>/dev/null; then
+    echo "==> masking scoracle-api.path during placement (re-armed on exit)"
+    if systemctl --user stop scoracle-api.path; then
+        PATH_MASKED=1
+    fi
+fi
 
 echo "==> placing binaries into $BIN_DIR"
 for out in "${OUTS[@]}"; do

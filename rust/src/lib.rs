@@ -9,14 +9,17 @@
 //!
 //! Phase 0 shipped the foundation (queue + Ollama clients, worker loop); Phase 1 added
 //! the first handler — [`vibe`] — proven byte-for-byte against Go at temperature 0. The
-//! direction now is **library-first**: build the capability library (route · resolve ·
-//! extract+validate · embed+cluster · normalize · persist) and re-express `vibe` as its
-//! first composition. Canonical doc:
+//! direction is **library-first**: the capability library now exists — [`route`] (the model
+//! seam) and [`harness`] (the `Harness` context + the `extract` / persist / debounce / and
+//! the shaped Resolve · Embed · Normalize primitives) — and `vibe` is re-expressed as its
+//! first composition (`route + extract + persist`). Canonical doc:
 //! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`.
 
 pub mod config;
 pub mod db;
+pub mod harness;
 pub mod ollama;
+pub mod route;
 pub mod stage;
 pub mod util;
 pub mod vibe;

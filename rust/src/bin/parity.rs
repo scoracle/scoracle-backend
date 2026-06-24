@@ -19,12 +19,13 @@
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
-use scoracle_cognition::ollama::{GenerateOptions, OllamaClient};
-use scoracle_cognition::vibe::{
-    generate_vibe, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
-};
+use scoracle_cognition::harness::Harness;
+use scoracle_cognition::ollama::OllamaClient;
+use scoracle_cognition::route::Router;
+use scoracle_cognition::vibe::{generate_vibe, VibeOutput, VIBE_PROMPT_VERSION};
 use scoracle_cognition::{db, vibe};
 use sqlx::PgPool;
+use std::sync::Arc;
 
 /// The explicit, deterministic temperature the parity diff is taken at.
 const PARITY_TEMPERATURE: f64 = 0.0;
@@ -41,7 +42,19 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     let ollama = OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
-    ollama.ping().await.context("ollama must be reachable for the parity run")?;
+    ollama
+        .ping()
+        .await
+        .context("ollama must be reachable for the parity run")?;
+
+    // The same capability context the production worker builds — the L1 minimal router over
+    // the pinged client — so the parity run exercises the exact route + extract path. The
+    // harness writes nothing on its own; persistence here targets only the shadow table.
+    let harness = Harness {
+        pool,
+        router: Router::single(Arc::new(ollama)),
+        embedder: None,
+    };
 
     let specs = match parse_specs(std::env::args().skip(1))? {
         v if !v.is_empty() => v,
@@ -50,7 +63,7 @@ async fn main() -> Result<()> {
                 .ok()
                 .and_then(|s| s.parse().ok())
                 .unwrap_or(3);
-            auto_select(&pool, limit).await?
+            auto_select(&harness.pool, limit).await?
         }
     };
 
@@ -60,10 +73,9 @@ async fn main() -> Result<()> {
         if specs.len() == 1 { "y" } else { "ies" }
     );
 
-    let opts = parity_opts();
     let mut ok = 0usize;
     for s in &specs {
-        match run_one(&pool, &ollama, s, &opts).await {
+        match run_one(&harness, s).await {
             Ok(out) => {
                 ok += 1;
                 match out.sentiment {
@@ -87,32 +99,17 @@ async fn main() -> Result<()> {
             ),
         }
     }
-    println!("done — {ok}/{} entities written to vibe_scores_shadow", specs.len());
+    println!(
+        "done — {ok}/{} entities written to vibe_scores_shadow",
+        specs.len()
+    );
     Ok(())
 }
 
-/// parity_opts mirrors exactly what `generate_vibe` passes to the model, so the request
-/// body we persist for the diff is the one that was actually sent (only the temperature
-/// differs from production: an explicit 0).
-fn parity_opts() -> GenerateOptions {
-    GenerateOptions {
-        system: Some(VIBE_SYSTEM_PROMPT.to_string()),
-        temperature: Some(PARITY_TEMPERATURE),
-        num_predict: VIBE_NUM_PREDICT,
-        json_mode: false,
-    }
-}
-
-async fn run_one(
-    pool: &PgPool,
-    ollama: &OllamaClient,
-    s: &EntitySpec,
-    opts: &GenerateOptions,
-) -> Result<VibeOutput> {
-    let name = vibe::lookup_entity_name(pool, &s.entity_type, s.entity_id, &s.sport).await?;
+async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeOutput> {
+    let name = vibe::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
     let out = generate_vibe(
-        pool,
-        ollama,
+        hx,
         &s.entity_type,
         s.entity_id,
         &name,
@@ -121,15 +118,12 @@ async fn run_one(
     )
     .await?;
 
-    // The exact request body that was POSTed for this entity (None for the no-corpus
-    // marker, which makes no model call). Reconstructed from the same prompt + opts, via
-    // the client's single source of truth, so it can't drift from what generate sent.
-    let request = out
-        .built_prompt
-        .as_deref()
-        .map(|p| ollama.request_body(p, opts));
-
-    persist_shadow(pool, s, &out, request.as_ref()).await?;
+    // The exact request body that was POSTed for this entity is captured by `extract` and
+    // carried on the output (`None` for the no-corpus marker, which makes no model call) — it
+    // is the very body the call sent (the client's single source of truth), so it can't drift
+    // from what generate sent. The temperature inside it is the explicit `Some(0.0)` that
+    // pins determinism (generate_vibe was called at PARITY_TEMPERATURE).
+    persist_shadow(&hx.pool, s, &out, out.request_body.as_ref()).await?;
     Ok(out)
 }
 

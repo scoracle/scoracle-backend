@@ -15,14 +15,19 @@
 //! `scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
 
 use anyhow::Result;
+use scoracle_cognition::harness::Harness;
+use scoracle_cognition::route::Router;
 use scoracle_cognition::{config, db, ollama, stage, vibe, worker};
+use std::sync::Arc;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     let cfg = config::Config::from_env()?;
@@ -31,16 +36,28 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");
 
-    let ollama = ollama::OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
+    let ollama =
+        ollama::OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
     match ollama.ping().await {
         Ok(()) => info!(base_url = %cfg.ollama_base_url, "ollama reachable"),
-        Err(e) => warn!(error = %e, base_url = %cfg.ollama_base_url, "ollama not reachable (continuing; claimed items will fail until it is)"),
+        Err(e) => {
+            warn!(error = %e, base_url = %cfg.ollama_base_url, "ollama not reachable (continuing; claimed items will fail until it is)")
+        }
     }
+
+    // The capability context handed to every stage: the L1 minimal router (every Role → the
+    // one configured Gemma) over the pinged client, the lazy embedder (None until narratives),
+    // and the pool. L2 replaces the router with the config-driven role→model map.
+    let harness = Harness {
+        pool,
+        router: Router::single(Arc::new(ollama)),
+        embedder: None,
+    };
 
     // Registered stages. Each handler owns exactly one queue stage; register in
     // dependency order (transfers → narratives → vibe → sigil) as stages are ported.
     let handlers: Vec<Box<dyn stage::StageHandler>> = vec![Box::new(vibe::VibeHandler::new())];
 
-    let worker = worker::Worker::new(pool, ollama, handlers, cfg.safety_net, cfg.stale_lease);
+    let worker = worker::Worker::new(harness, handlers, cfg.safety_net, cfg.stale_lease);
     worker.run().await
 }

@@ -831,6 +831,8 @@ relying on them.
      session (no unpushed work mid-rewrite) and have archbox + archx220 re-clone/hard-reset. Exact commands in
      the progress doc.
 - **Action order (Scott):** rotate/revoke FIRST (closes the actual risk regardless of history), then purge.
+- **Repair runbook:** `PASSWORD-LEAK-REPAIR.md` (repo root) — the standalone step-by-step (Steps 1–3 +
+  redacted re-derivation + rollback + a next-session handoff prompt).
 
 ### F-047 — New operations runbook (`RUNBOOK.md`) is the durable home the audit was missing
 - **Found:** Session 17 · **Status:** Resolved (Session 17) — `RUNBOOK.md` written, reconciled to live.

@@ -19,12 +19,18 @@ pub struct OllamaClient {
 }
 
 /// GenerateOptions tunes a single call. Defaults mean "let Ollama default."
-/// `temperature` and `num_predict` are omitted from the payload when <= 0,
-/// matching the Go client.
+///
+/// `temperature` is an `Option` on purpose: `None` omits the field (Ollama uses
+/// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
+/// INCLUDING `Some(0.0)`. The Go client (and Phase 0's first cut here) dropped
+/// temperature when `<= 0`, which silently un-pins temp-0 to that random default.
+/// The Phase 1 parity harness MUST pin an explicit `Some(0.0)` so the temp-0 diff
+/// against Go is exact; production vibe uses `Some(0.7)`. `num_predict` is still
+/// omitted when `<= 0`.
 #[derive(Clone, Debug, Default)]
 pub struct GenerateOptions {
     pub system: Option<String>,
-    pub temperature: f64,
+    pub temperature: Option<f64>,
     pub num_predict: i32,
     pub json_mode: bool, // sets format="json"
 }
@@ -92,18 +98,19 @@ impl OllamaClient {
         &self.model
     }
 
-    /// generate performs a single non-streaming completion. We do NOT auto-retry
-    /// — the caller (a stage handler) decides, and the work queue handles backoff.
-    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+    /// build_request assembles the `/api/generate` request body for `(prompt, opts)`.
+    /// Single source of truth shared by `generate` (what we actually POST) and
+    /// `request_body` (what the parity harness records), so the stored request can
+    /// never drift from the sent one.
+    fn build_request<'a>(&'a self, prompt: &'a str, opts: &'a GenerateOptions) -> GenerateRequest<'a> {
         let mut options = serde_json::Map::new();
-        if opts.temperature > 0.0 {
-            options.insert("temperature".into(), serde_json::json!(opts.temperature));
+        if let Some(t) = opts.temperature {
+            options.insert("temperature".into(), serde_json::json!(t));
         }
         if opts.num_predict > 0 {
             options.insert("num_predict".into(), serde_json::json!(opts.num_predict));
         }
-
-        let req = GenerateRequest {
+        GenerateRequest {
             model: &self.model,
             prompt,
             system: opts.system.as_deref(),
@@ -114,7 +121,21 @@ impl OllamaClient {
             } else {
                 Some(serde_json::Value::Object(options))
             },
-        };
+        }
+    }
+
+    /// request_body returns the exact JSON body `generate` would POST for
+    /// `(prompt, opts)`. Used by the Phase 1 parity harness to persist the wire
+    /// request for the Go-vs-Rust diff (the Ollama JSON shape is the only coupling
+    /// per the plan §2, so a jsonb-equal body ⇒ equal temp-0 output).
+    pub fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
+        serde_json::to_value(self.build_request(prompt, opts)).unwrap_or(serde_json::Value::Null)
+    }
+
+    /// generate performs a single non-streaming completion. We do NOT auto-retry
+    /// — the caller (a stage handler) decides, and the work queue handles backoff.
+    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+        let req = self.build_request(prompt, opts);
 
         let url = format!("{}/api/generate", self.base_url);
         let resp = self

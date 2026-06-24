@@ -15,9 +15,10 @@ pub struct Config {
     pub ollama_timeout: Duration,
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,
-    /// A 'running' row idle longer than this is recovered to 'pending'.
-    /// TODO(phase-1): align with the Go `derive.StaleLease` value before any
-    /// shared-queue run, or the two workers can disagree on what's stale.
+    /// A 'running' row idle longer than this is recovered to 'pending'. Aligned with
+    /// the Go `derive.StaleLease` (30 min) so the Rust scrubber and the Go drainer
+    /// agree on what counts as a crashed lease when they share the queue — longer than
+    /// any single item's processing budget, so a slow-but-alive worker is never stolen.
     pub stale_lease: Duration,
 }
 
@@ -34,7 +35,8 @@ impl Config {
             ollama_model: env_or("OLLAMA_MODEL", "gemma4:e4b"),
             ollama_timeout: Duration::from_secs(env_int("OLLAMA_TIMEOUT_SECONDS", 60) as u64),
             safety_net: Duration::from_secs(env_int("SCRUBBER_SAFETY_NET_SECONDS", 30) as u64),
-            stale_lease: Duration::from_secs(env_int("SCRUBBER_STALE_LEASE_SECONDS", 600) as u64),
+            // 1800s = 30 min = Go derive.StaleLease.
+            stale_lease: Duration::from_secs(env_int("SCRUBBER_STALE_LEASE_SECONDS", 1800) as u64),
         })
     }
 }

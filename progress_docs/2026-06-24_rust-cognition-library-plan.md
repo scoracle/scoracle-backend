@@ -47,3 +47,21 @@ slots *inside* `StageHandler::handle`, whose signature generalizes `(pool, ollam
 See the vault note for: the six primitive interfaces (with the host piece each leans on), the
 Route/router design + eval discipline, the stage-by-stage composition map with effort sizing, and the
 landmines.
+
+## Status / build ledger
+
+The vault plan now carries an **append-only Build ledger + execution convention** (§7): each increment
+ends by passing its gate, appending a dated entry (what landed + commit, gate result, decisions,
+landmines) and the **handoff prompt** for the next increment, then a `progress_docs/` summary + a
+surgical commit. The ledger is the plan's running memory — a session resumes from the latest handoff
+prompt without re-deriving context.
+
+- **L0 + L1 — DONE 2026-06-24 (commit `a1f61d8`).** Capability-library scaffold (`rust/src/route.rs` +
+  `rust/src/harness.rs`: `Harness`, `Inference` over `OllamaClient`, real `extract`/persist/`Provenance`
+  + season-aware `debounce_unchanged`, shaped stubs for resolve/embed/normalize) + `vibe` re-expressed
+  as `route + extract + persist`. **Temp-0 parity re-passed 4/4 incl. the no-corpus marker** (rust vs go
+  identical on score / vibe / built-prompt bytes / Ollama request jsonb). Detail:
+  `progress_docs/2026-06-24_rust-cognition-harness-L0-L1.md`.
+- **Next — L2:** config-driven Router (`COGNITION_ROUTE_*` + `from_config`/`candidate_for`, still
+  all-Gemma & byte-identical) + the A/B eval bin (`rust/src/bin/eval.rs`). Full handoff prompt in the
+  vault plan §7.

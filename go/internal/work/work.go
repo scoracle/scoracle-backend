@@ -192,6 +192,26 @@ func Fail(ctx context.Context, q Querier, it Item, cause string, backoff time.Du
 	return nil
 }
 
+// Requeue hands a single leased ('running') item back to 'pending', immediately
+// claimable, WITHOUT counting an attempt. It is the graceful-shutdown counterpart
+// of RequeueStale: a worker shutting down mid-drain returns its leased rows now,
+// on a fresh context, instead of stranding them 'running' until the stale lease
+// expires (FIRST-GPT-AUDIT Session 13, F-018). Status-guarded like Complete/Fail —
+// a no-op unless the row is still 'running' (a newer input may already have
+// reopened it to 'pending'), so it never clobbers reopened work or another claim.
+func Requeue(ctx context.Context, q Querier, it Item) error {
+	_, err := q.Exec(ctx, `
+		UPDATE pipeline_work
+		   SET status = 'pending', updated_at = NOW(), available_at = NOW()
+		 WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+		   AND status = 'running'
+	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport)
+	if err != nil {
+		return fmt.Errorf("requeue %s %s/%d: %w", it.Stage, it.EntityType, it.EntityID, err)
+	}
+	return nil
+}
+
 // RequeueStale flips 'running' rows whose lease has expired (updated_at older
 // than lease) back to 'pending', recovering work abandoned by a crashed worker.
 // Returns the number of rows recovered.
@@ -237,6 +257,46 @@ func Counts(ctx context.Context, q Querier) ([]StageStatus, error) {
 			return nil, fmt.Errorf("work counts: scan: %w", err)
 		}
 		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// DeadLetter is a pipeline_work row that has exhausted its retries — the
+// F-019/F-020 dead-letter class: Fail parked it far in the future after
+// maxAttempts, so it will never retry on its own and needs an operator.
+type DeadLetter struct {
+	Stage      string
+	EntityType string
+	EntityID   int
+	Sport      string
+	Attempts   int
+	LastError  string
+	UpdatedAt  time.Time
+}
+
+// DeadLetters returns the dead-lettered work — 'failed' rows parked beyond any
+// real backoff. It keys off the far-future available_at that Fail sets at the
+// retry cap (NOW() + 100 years), so it stays correct regardless of the maxAttempts
+// constant. The operator answer to "what work is permanently stuck?"
+func DeadLetters(ctx context.Context, q Querier) ([]DeadLetter, error) {
+	rows, err := q.Query(ctx, `
+		SELECT stage, entity_type, entity_id, sport, attempts, COALESCE(last_error, ''), updated_at
+		FROM pipeline_work
+		WHERE status = 'failed' AND available_at > NOW() + INTERVAL '50 years'
+		ORDER BY updated_at DESC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("dead letters: %w", err)
+	}
+	defer rows.Close()
+
+	var out []DeadLetter
+	for rows.Next() {
+		var d DeadLetter
+		if err := rows.Scan(&d.Stage, &d.EntityType, &d.EntityID, &d.Sport, &d.Attempts, &d.LastError, &d.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("dead letters: scan: %w", err)
+		}
+		out = append(out, d)
 	}
 	return out, rows.Err()
 }

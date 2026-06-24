@@ -18,6 +18,21 @@ TZ=America/New_York
 #   mkdir -p /home/sheneveld/scoracle/scoracle-backend/logs
 
 # ---------------------------------------------------------------------------
+# Job observability + overlap (FIRST-GPT-AUDIT Session 13)
+# ---------------------------------------------------------------------------
+# The Gemma batch jobs (pipeline, statcommentary, vibesynth) each take a per-job
+# PostgreSQL advisory lock, so a manual run racing the cron exits 0 cleanly instead
+# of overlapping. Each run is recorded in the pipeline_runs table; ask
+#   SELECT * FROM pipeline_runs_latest;
+# to see whether last night's jobs completed without grepping the logs. Exit codes:
+#   0  success (or a clean overlap-skip)
+#   3  partial — some retryable per-entity failures (the work queue retries them)
+#   1  systemic — enumeration / a whole stage failed, or dead-lettered work remains
+# Cron treats any non-zero exit as a failure, so 1 (and optionally 3) will surface.
+# Inspect what is permanently stuck with:
+#   go run ./cmd/work dead-letters     # pipeline_work + fixtures at the retry cap
+
+# ---------------------------------------------------------------------------
 # NBA / NFL live polling — current-season-aware, bounded, and offset
 # ---------------------------------------------------------------------------
 # `cron-live-fixtures.sh` resolves sports.current_season at runtime, so the

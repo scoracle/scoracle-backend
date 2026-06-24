@@ -98,6 +98,12 @@ func main() {
 	// otherwise. It feeds the percentile listener's composite_shift Sigil trigger.
 	var synthGen *ml.SigilGenerator
 
+	// deriveDone is closed when the real-time derive worker has fully returned,
+	// including settling (handing back) its leased pipeline_work rows on a graceful
+	// shutdown (F-018). nil when the worker never started; the shutdown path waits on
+	// it only when non-nil.
+	var deriveDone chan struct{}
+
 	if dbPool != nil {
 		// Start notification dispatch worker (if FCM is configured)
 		fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
@@ -159,7 +165,11 @@ func main() {
 				MinArticles:  cfg.TransferMinArticles,
 				Logger:       logger,
 			}
-			go derive.StartWorker(ctx, cfg.DatabaseURL, drainer, cfg.DeriveDrainInterval, logger)
+			deriveDone = make(chan struct{})
+			go func() {
+				defer close(deriveDone)
+				derive.StartWorker(ctx, cfg.DatabaseURL, drainer, cfg.DeriveDrainInterval, logger)
+			}()
 			logger.Info("Real-time derive worker started", "safety_net", cfg.DeriveDrainInterval)
 		}
 
@@ -211,6 +221,20 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Shutdown error", "error", err)
+	}
+
+	// Give the derive worker a moment to settle (hand back) its leased pipeline_work
+	// rows on a fresh context before the deferred pool.Close() drops the pool (F-018):
+	// otherwise an in-flight batch would strand 'running' until the 30m stale lease.
+	// The worker requeues its batch the instant the drain ctx is cancelled, so this
+	// resolves fast; the bound just prevents a hung generation from blocking exit.
+	if deriveDone != nil {
+		select {
+		case <-deriveDone:
+			logger.Info("Derive worker settled its leased work")
+		case <-time.After(8 * time.Second):
+			logger.Warn("Derive worker did not settle within 8s; any leased rows wait for stale-lease recovery")
+		}
 	}
 	logger.Info("Server stopped")
 }

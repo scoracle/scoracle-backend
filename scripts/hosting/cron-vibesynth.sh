@@ -17,6 +17,12 @@
 #
 # Off-peak (05:00) avoids the corpus pipeline (00:00) and statcommentary (03:00).
 #
+# Observability + overlap (FIRST-GPT-AUDIT Session 13): nightly/reconcile + backfill
+# share a per-job advisory lock ("vibesynth"), so a manual backfill and the nightly
+# reconcile can't overlap — the loser exits 0. Each run is recorded in pipeline_runs.
+# Exit codes: 0 = success/overlap-skip; 3 = partial (some enqueues/syntheses failed);
+# 1 = all sports failed to enumerate (or, in backfill, every synthesis failed).
+#
 # Recommended crontab entry (NOT installed by default — enable per coverage needs):
 #   0 5 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-vibesynth.sh \
 #       -mode nightly -limit 500 \

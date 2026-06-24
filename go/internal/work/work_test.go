@@ -211,6 +211,107 @@ func TestRequeueStaleRecoversClaim(t *testing.T) {
 	}
 }
 
+func TestRequeueHandsBackLeasedRow(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	// Enqueue + claim → 'running' (a held lease).
+	if err := Enqueue(ctx, pool, item(StageVibe, 40, "v1")); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	claimed, err := Claim(ctx, pool, StageVibe, 10)
+	if err != nil || len(claimed) != 1 {
+		t.Fatalf("claim: %v len=%d", err, len(claimed))
+	}
+	if status, _ := countRows(t, pool, StageVibe, 40); status != "running" {
+		t.Fatalf("want running after claim, got %q", status)
+	}
+
+	// Requeue (graceful-shutdown hand-back) → 'pending' and immediately re-claimable.
+	if err := Requeue(ctx, pool, claimed[0]); err != nil {
+		t.Fatalf("requeue: %v", err)
+	}
+	if status, _ := countRows(t, pool, StageVibe, 40); status != "pending" {
+		t.Fatalf("want pending after requeue, got %q", status)
+	}
+	again, err := Claim(ctx, pool, StageVibe, 10)
+	if err != nil || len(again) != 1 {
+		t.Fatalf("want 1 re-claimable after requeue, got %d (%v)", len(again), err)
+	}
+	// Requeue does NOT burn an attempt — a shutdown is not the item's fault.
+	if again[0].Attempts != 0 {
+		t.Fatalf("requeue should not bump attempts, got %d", again[0].Attempts)
+	}
+}
+
+func TestRequeueIsStatusGuarded(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	// A 'pending' (not leased) row is left alone — Requeue only acts on 'running'.
+	if err := Enqueue(ctx, pool, item(StageSigil, 41, "v1")); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if err := Requeue(ctx, pool, item(StageSigil, 41, "v1")); err != nil {
+		t.Fatalf("requeue: %v", err)
+	}
+	if status, n := countRows(t, pool, StageSigil, 41); n != 1 || status != "pending" {
+		t.Fatalf("want untouched pending row, got status=%q n=%d", status, n)
+	}
+}
+
+func TestDeadLettersReportsParkedRows(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	// A row failed at the cap (maxAttempts=1) is dead-lettered (parked far future).
+	if err := Enqueue(ctx, pool, item(StageNarratives, 42, "")); err != nil {
+		t.Fatalf("enqueue dead: %v", err)
+	}
+	dead, err := Claim(ctx, pool, StageNarratives, 10)
+	if err != nil || len(dead) != 1 {
+		t.Fatalf("claim dead: %v len=%d", err, len(dead))
+	}
+	if err := Fail(ctx, pool, dead[0], "boom", time.Minute, 1); err != nil {
+		t.Fatalf("fail dead: %v", err)
+	}
+
+	// A second row failed but still retryable (cap=5) must NOT be reported.
+	if err := Enqueue(ctx, pool, item(StageNarratives, 43, "")); err != nil {
+		t.Fatalf("enqueue retryable: %v", err)
+	}
+	retry, err := Claim(ctx, pool, StageNarratives, 10)
+	if err != nil || len(retry) != 1 {
+		t.Fatalf("claim retryable: %v len=%d", err, len(retry))
+	}
+	if err := Fail(ctx, pool, retry[0], "transient", time.Minute, 5); err != nil {
+		t.Fatalf("fail retryable: %v", err)
+	}
+
+	dls, err := DeadLetters(ctx, pool)
+	if err != nil {
+		t.Fatalf("dead letters: %v", err)
+	}
+	var seen42, seen43 bool
+	for _, d := range dls {
+		if d.Sport != testSport {
+			continue
+		}
+		if d.EntityID == 42 {
+			seen42 = true
+		}
+		if d.EntityID == 43 {
+			seen43 = true
+		}
+	}
+	if !seen42 {
+		t.Fatalf("want the parked row (42) reported as a dead-letter")
+	}
+	if seen43 {
+		t.Fatalf("a still-retryable row (43) must not be reported as a dead-letter")
+	}
+}
+
 func TestFailBacksOffThenDeadLetters(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)

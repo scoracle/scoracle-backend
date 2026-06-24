@@ -40,6 +40,7 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
+	"github.com/albapepper/scoracle-data/internal/jobrun"
 	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/work"
 )
@@ -88,9 +89,9 @@ func main() {
 	case "single":
 		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, *skipUnchanged, cfg.OllamaTimeout, logger)
 	case "backfill":
-		runBackfill(pool, gen, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+		os.Exit(runBackfill(pool, gen, *sport, *throttleMs, *limit, cfg.OllamaTimeout, cfg.DatabaseURL, logger))
 	case "nightly", "reconcile":
-		runReconcile(pool, *sport, *limit, logger)
+		os.Exit(runReconcile(pool, *sport, *limit, cfg.DatabaseURL, logger))
 	case "restamp":
 		runReStamp(pool, gen, *sport, logger)
 	default:
@@ -162,19 +163,42 @@ type target struct {
 // no Sigil for that season yet — filling current-season AND historical gaps. Needs
 // Ollama. Generate stamps the season (passed explicitly), so every backfilled row is
 // season-correct.
-func runBackfill(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
+func runBackfill(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, dbURL string, logger *slog.Logger) int {
 	sports := resolveSports(sportArg)
 	ctx := context.Background()
 	start := time.Now()
 
+	// Overlap guard + durable run record (shared "vibesynth" lock with reconcile, so
+	// a manual backfill and the nightly reconcile cannot run at once).
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "vibesynth")
+	if err != nil {
+		logger.Error("vibesynth backfill: run-guard failed", "error", err)
+		return 1
+	}
+	if !acquired {
+		logger.Warn("vibesynth backfill: another vibesynth run holds the lock — exiting cleanly")
+		return 0
+	}
+	defer run.Close()
+
 	var targets []target
+	enumErrs := 0
 	for _, sp := range sports {
-		ts, err := enumRatedMissing(ctx, pool, sp)
-		if err != nil {
-			logger.Error("vibesynth backfill: enumerate failed", "sport", sp, "error", err)
+		ts, eerr := enumRatedMissing(ctx, pool, sp)
+		if eerr != nil {
+			enumErrs++
+			logger.Error("vibesynth backfill: enumerate failed", "sport", sp, "error", eerr)
 			continue
 		}
 		targets = append(targets, ts...)
+	}
+	if enumErrs == len(sports) {
+		runErr := fmt.Errorf("enumeration failed for all %d sport(s)", len(sports))
+		if ferr := run.Finish(ctx, jobrun.StatusFailed, jobrun.Counts{}, runErr); ferr != nil {
+			logger.Warn("vibesynth backfill: record run failed", "error", ferr)
+		}
+		logger.Error("vibesynth backfill: enumeration failed for all sports")
+		return 1
 	}
 	logger.Info("vibesynth backfill: starting", "sports", sports, "targets", len(targets), "gen_limit", limit)
 
@@ -220,9 +244,30 @@ func runBackfill(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, th
 			time.Sleep(time.Duration(throttleMs) * time.Millisecond)
 		}
 	}
-	logger.Info("vibesynth backfill: complete",
+	status := jobrun.StatusSuccess
+	exit := 0
+	var runErr error
+	switch {
+	case fail > 0 && ok == 0 && noPillars == 0:
+		status, exit = jobrun.StatusFailed, 1
+		runErr = fmt.Errorf("all %d attempted synthesis(es) failed", fail)
+	case fail > 0:
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("%d synthesis(es) failed", fail)
+	}
+	counts := jobrun.Counts{
+		Attempted: ok + noPillars + fail,
+		Succeeded: ok,
+		Skipped:   noPillars,
+		Failed:    fail,
+	}
+	if ferr := run.Finish(ctx, status, counts, runErr); ferr != nil {
+		logger.Warn("vibesynth backfill: record run failed", "error", ferr)
+	}
+	logger.Info("vibesynth backfill: complete", "status", status, "exit", exit,
 		"ok", ok, "no_pillars", noPillars, "fail", fail,
 		"elapsed", time.Since(start).Round(time.Second))
+	return exit
 }
 
 // runReconcile is the bounded current-season reconciliation (FIRST-GPT-AUDIT Session 12):
@@ -231,33 +276,49 @@ func runBackfill(pool *pgxpool.Pool, gen *ml.SigilGenerator, sportArg string, th
 // inline. The always-on derive worker drains the queue (resolving current_season and
 // hash-gating the Gemma call), so an unchanged Sigil is a cheap skip, never a duplicate
 // scheduled generation. DB-only (no Ollama).
-func runReconcile(pool *pgxpool.Pool, sportArg string, limit int, logger *slog.Logger) {
+func runReconcile(pool *pgxpool.Pool, sportArg string, limit int, dbURL string, logger *slog.Logger) int {
 	sports := resolveSports(sportArg)
 	ctx := context.Background()
 	start := time.Now()
 
-	totalEnq := 0
+	// Overlap guard + durable run record (shared "vibesynth" lock with backfill).
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "vibesynth")
+	if err != nil {
+		logger.Error("vibesynth reconcile: run-guard failed", "error", err)
+		return 1
+	}
+	if !acquired {
+		logger.Warn("vibesynth reconcile: another vibesynth run holds the lock — exiting cleanly")
+		return 0
+	}
+	defer run.Close()
+
+	totalEnq, candidates, enqFail, enumErrs := 0, 0, 0, 0
 	for _, sp := range sports {
-		cur, err := currentSeason(ctx, pool, sp)
-		if err != nil {
-			logger.Error("vibesynth reconcile: current_season lookup failed", "sport", sp, "error", err)
+		cur, cerr := currentSeason(ctx, pool, sp)
+		if cerr != nil {
+			enumErrs++
+			logger.Error("vibesynth reconcile: current_season lookup failed", "sport", sp, "error", cerr)
 			continue
 		}
-		targets, err := enumStaleSigil(ctx, pool, sp, cur)
-		if err != nil {
-			logger.Error("vibesynth reconcile: enumerate failed", "sport", sp, "season", cur, "error", err)
+		targets, terr := enumStaleSigil(ctx, pool, sp, cur)
+		if terr != nil {
+			enumErrs++
+			logger.Error("vibesynth reconcile: enumerate failed", "sport", sp, "season", cur, "error", terr)
 			continue
 		}
+		candidates += len(targets)
 		enq := 0
 		for _, t := range targets {
 			if limit > 0 && totalEnq >= limit {
 				logger.Info("vibesynth reconcile: enqueue limit reached", "limit", limit)
 				break
 			}
-			if err := work.Enqueue(ctx, pool, work.Item{
+			if eerr := work.Enqueue(ctx, pool, work.Item{
 				Stage: work.StageSigil, EntityType: t.entityType, EntityID: t.entityID, Sport: sp,
-			}); err != nil {
-				logger.Warn("vibesynth reconcile: enqueue failed", "sport", sp, "type", t.entityType, "id", t.entityID, "error", err)
+			}); eerr != nil {
+				enqFail++
+				logger.Warn("vibesynth reconcile: enqueue failed", "sport", sp, "type", t.entityType, "id", t.entityID, "error", eerr)
 				continue
 			}
 			enq++
@@ -265,7 +326,30 @@ func runReconcile(pool *pgxpool.Pool, sportArg string, limit int, logger *slog.L
 		}
 		logger.Info("vibesynth reconcile: sport done", "sport", sp, "season", cur, "candidates", len(targets), "enqueued", enq)
 	}
-	logger.Info("vibesynth reconcile: complete", "enqueued", totalEnq, "elapsed", time.Since(start).Round(time.Second))
+
+	status := jobrun.StatusSuccess
+	exit := 0
+	var runErr error
+	switch {
+	case enumErrs == len(sports):
+		status, exit = jobrun.StatusFailed, 1
+		runErr = fmt.Errorf("enumeration failed for all %d sport(s)", len(sports))
+	case enqFail > 0:
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("%d sigil enqueue(s) failed", enqFail)
+	}
+	counts := jobrun.Counts{
+		Attempted: candidates,
+		Succeeded: totalEnq,
+		Failed:    enqFail,
+	}
+	if ferr := run.Finish(ctx, status, counts, runErr); ferr != nil {
+		logger.Warn("vibesynth reconcile: record run failed", "error", ferr)
+	}
+	logger.Info("vibesynth reconcile: complete", "status", status, "exit", exit,
+		"enqueued", totalEnq, "candidates", candidates, "enqueue_fail", enqFail,
+		"elapsed", time.Since(start).Round(time.Second))
+	return exit
 }
 
 // resolveSports expands the -sport flag to the sports to process ("" / "all" ⇒ all three).

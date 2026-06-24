@@ -17,6 +17,13 @@
 # Previous seasons are immutable — backfilled ONCE, out of band:
 #   ./scripts/hosting/cron-statcommentary.sh -mode backfill        # all sports, all missing entity-seasons
 #   ./scripts/hosting/cron-statcommentary.sh -mode backfill -sport NBA -limit 100   # chunked
+#
+# Observability + overlap (FIRST-GPT-AUDIT Session 13): backfill/nightly take a
+# per-job advisory lock ("statcommentary"), so a manual backfill and the nightly
+# cron can't overlap — the loser exits 0. Each run is recorded in pipeline_runs.
+# Exit codes: 0 = success/overlap-skip; 3 = partial (some generations failed,
+# retried next run); 1 = all sports failed to enumerate, or every attempted
+# generation failed (systemic — e.g. Ollama down).
 
 set -euo pipefail
 cd /home/sheneveld/scoracle/scoracle-backend

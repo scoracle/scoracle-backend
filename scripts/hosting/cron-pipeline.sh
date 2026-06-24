@@ -17,6 +17,15 @@
 # LISTEN/NOTIFY workers: a news-volume spike (5 articles in 60 min) refreshes the
 # entity's narratives then its vibe; a team transfer spike re-vets that team's
 # rumors. No CLI involvement.
+#
+# Observability + overlap (FIRST-GPT-AUDIT Session 13):
+#   * The pipeline takes a per-job PostgreSQL advisory lock, so a second pipeline
+#     run (or a manual one racing this cron) exits 0 cleanly instead of overlapping.
+#   * Every run is recorded in pipeline_runs (commit, counts, outcome) — see
+#     `SELECT * FROM pipeline_runs_latest` for "did last night complete?".
+#   * Exit codes: 0 = success (or clean overlap-skip); 3 = partial (some retryable
+#     item failures); 1 = a derive stage failed wholesale, or dead-lettered work
+#     remains after retries. Inspect with `go run ./cmd/work dead-letters`.
 
 set -euo pipefail
 cd /home/sheneveld/scoracle/scoracle-backend

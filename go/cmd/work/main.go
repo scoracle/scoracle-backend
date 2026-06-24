@@ -5,6 +5,8 @@
 //	go run ./cmd/work status                 # pending/running/failed by stage
 //	go run ./cmd/work requeue-stale [lease]  # recover rows abandoned mid-lease
 //	                                         # (lease default 15m, e.g. "30m")
+//	go run ./cmd/work dead-letters [cap]     # work parked past the retry cap +
+//	                                         # fixtures at the seed-retry cap (default 3)
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) — see internal/config.
 package main
@@ -13,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"text/tabwriter"
 	"time"
 
@@ -57,6 +60,17 @@ func main() {
 			lease = d
 		}
 		runRequeueStale(ctx, pool, lease)
+	case "dead-letters", "deadletters":
+		retryCap := 3 // matches get_pending_fixtures' default p_max_retries
+		if len(os.Args) > 2 {
+			n, perr := strconv.Atoi(os.Args[2])
+			if perr != nil || n < 1 {
+				fmt.Fprintf(os.Stderr, "invalid retry cap %q\n", os.Args[2])
+				os.Exit(2)
+			}
+			retryCap = n
+		}
+		runDeadLetters(ctx, pool, retryCap)
 	default:
 		usage()
 	}
@@ -93,7 +107,91 @@ func runRequeueStale(ctx context.Context, pool *pgxpool.Pool, lease time.Duratio
 	fmt.Printf("Requeued %d stale 'running' row(s) (lease %s).\n", n, lease)
 }
 
+// runDeadLetters reports the two dead-letter classes an operator needs to see
+// (FIRST-GPT-AUDIT Session 13): pipeline_work rows parked past the retry cap (the
+// F-019/F-020 derive dead-letters), and fixtures stuck at the seed-retry cap (so
+// get_pending_fixtures no longer selects them — they will never seed on their own).
+func runDeadLetters(ctx context.Context, pool *pgxpool.Pool, retryCap int) {
+	// 1) pipeline_work dead-letters.
+	dls, err := work.DeadLetters(ctx, pool)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dead-letters (pipeline_work) failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("== pipeline_work dead-letters (%d) ==\n", len(dls))
+	if len(dls) == 0 {
+		fmt.Println("(none — no derive work is permanently stuck)")
+	} else {
+		tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+		fmt.Fprintln(tw, "STAGE\tENTITY\tSPORT\tATTEMPTS\tUPDATED\tLAST_ERROR")
+		for _, d := range dls {
+			fmt.Fprintf(tw, "%s\t%s/%d\t%s\t%d\t%s\t%s\n",
+				d.Stage, d.EntityType, d.EntityID, d.Sport, d.Attempts,
+				d.UpdatedAt.UTC().Format(time.RFC3339), oneLine(d.LastError, 80))
+		}
+		_ = tw.Flush()
+	}
+
+	// 2) Fixtures at the seed-retry cap: past their seed window, still unseeded, but
+	// excluded from get_pending_fixtures because seed_attempts >= the cap.
+	fmt.Printf("\n== fixtures at the seed-retry cap (seed_attempts >= %d) ==\n", retryCap)
+	rows, err := pool.Query(ctx, `
+		SELECT sport, season, id, seed_attempts, status,
+		       COALESCE(NULLIF(last_incomplete_reason, ''), NULLIF(last_seed_error, ''), '') AS reason,
+		       start_time
+		FROM fixtures
+		WHERE seed_attempts >= $1
+		  AND status IN ('scheduled', 'completed')
+		  AND NOW() >= start_time + (seed_delay_hours || ' hours')::INTERVAL
+		ORDER BY start_time DESC`, retryCap)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dead-letters (fixtures) failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer rows.Close()
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, "SPORT\tSEASON\tFIXTURE\tATTEMPTS\tSTATUS\tSTART\tREASON")
+	n := 0
+	for rows.Next() {
+		var sport, status, reason string
+		var season, id, attempts int
+		var start time.Time
+		if err := rows.Scan(&sport, &season, &id, &attempts, &status, &reason, &start); err != nil {
+			fmt.Fprintf(os.Stderr, "scan fixture: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintf(tw, "%s\t%d\t%d\t%d\t%s\t%s\t%s\n",
+			sport, season, id, attempts, status, start.UTC().Format(time.RFC3339), oneLine(reason, 80))
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "iterate fixtures: %v\n", err)
+		os.Exit(1)
+	}
+	if n == 0 {
+		fmt.Println("(none — no fixture is stuck at the retry cap)")
+	} else {
+		_ = tw.Flush()
+	}
+}
+
+// oneLine flattens an error/reason to a single bounded line for the table.
+func oneLine(s string, max int) string {
+	out := make([]rune, 0, len(s))
+	for _, r := range s {
+		if r == '\n' || r == '\t' || r == '\r' {
+			r = ' '
+		}
+		out = append(out, r)
+	}
+	s = string(out)
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
+}
+
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: work <status | requeue-stale [lease]>")
+	fmt.Fprintln(os.Stderr, "usage: work <status | requeue-stale [lease] | dead-letters [retry-cap]>")
 	os.Exit(2)
 }

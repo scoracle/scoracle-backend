@@ -40,6 +40,7 @@ import (
 
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/corpus"
+	"github.com/albapepper/scoracle-data/internal/jobrun"
 	"github.com/albapepper/scoracle-data/internal/ml"
 )
 
@@ -85,9 +86,9 @@ func main() {
 	case "single":
 		runSingle(pool, gen, *entityType, *entityID, *season, *sport, *trigger, *persist, *skipUnchanged, cfg.OllamaTimeout, logger)
 	case "backfill":
-		runCorpus(pool, gen, false, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+		os.Exit(runCorpus(pool, gen, false, *sport, *throttleMs, *limit, cfg.OllamaTimeout, cfg.DatabaseURL, logger))
 	case "nightly":
-		runCorpus(pool, gen, true, *sport, *throttleMs, *limit, cfg.OllamaTimeout, logger)
+		os.Exit(runCorpus(pool, gen, true, *sport, *throttleMs, *limit, cfg.OllamaTimeout, cfg.DatabaseURL, logger))
 	case "restamp":
 		runReStamp(pool, gen, *sport, logger)
 	default:
@@ -158,7 +159,12 @@ type target struct {
 	sportName  string
 }
 
-func runCorpus(pool *pgxpool.Pool, gen *ml.RatingGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, logger *slog.Logger) {
+// runCorpus runs backfill/nightly and returns a process exit code (FIRST-GPT-AUDIT
+// Session 13): 0 = success or clean overlap-skip; 1 = every sport's enumeration
+// failed, or every generation we attempted failed (systemic); 3 = partial (some
+// per-entity generations failed but the run made progress). The run is recorded in
+// pipeline_runs.
+func runCorpus(pool *pgxpool.Pool, gen *ml.RatingGenerator, nightly bool, sportArg string, throttleMs, limit int, gemmaTimeout time.Duration, dbURL string, logger *slog.Logger) int {
 	sports := []string{"NBA", "NFL", "FOOTBALL"}
 	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
 		sports = []string{strings.ToUpper(sportArg)}
@@ -167,25 +173,50 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.RatingGenerator, nightly bool, sportA
 	label := map[bool]string{true: "nightly", false: "backfill"}[nightly]
 	start := time.Now()
 
+	// Overlap guard + durable run record. A second statcommentary run (e.g. a manual
+	// backfill racing the nightly cron) finds the lock held and exits cleanly.
+	run, acquired, err := jobrun.Guard(ctx, pool, dbURL, "statcommentary")
+	if err != nil {
+		logger.Error("statcommentary: run-guard failed", "error", err)
+		return 1
+	}
+	if !acquired {
+		logger.Warn("statcommentary: another statcommentary run holds the lock — exiting cleanly")
+		return 0
+	}
+	defer run.Close()
+
 	var targets []target
+	enumErrs := 0
 	for _, sp := range sports {
 		var ts []target
-		var err error
+		var eerr error
 		if nightly {
 			season, serr := currentSeason(ctx, pool, sp)
 			if serr != nil || season == 0 {
+				enumErrs++
 				logger.Warn("statcommentary: current_season lookup failed", "sport", sp, "error", serr)
 				continue
 			}
-			ts, err = enumCurrentSeason(ctx, pool, sp, season)
+			ts, eerr = enumCurrentSeason(ctx, pool, sp, season)
 		} else {
-			ts, err = enumMissing(ctx, pool, sp)
+			ts, eerr = enumMissing(ctx, pool, sp)
 		}
-		if err != nil {
-			logger.Error("statcommentary: enumerate failed", "mode", label, "sport", sp, "error", err)
+		if eerr != nil {
+			enumErrs++
+			logger.Error("statcommentary: enumerate failed", "mode", label, "sport", sp, "error", eerr)
 			continue
 		}
 		targets = append(targets, ts...)
+	}
+	// If every sport failed to enumerate, the run could not even see its work-list.
+	if enumErrs == len(sports) {
+		runErr := fmt.Errorf("enumeration failed for all %d sport(s)", len(sports))
+		if ferr := run.Finish(ctx, jobrun.StatusFailed, jobrun.Counts{}, runErr); ferr != nil {
+			logger.Warn("statcommentary: record run failed", "error", ferr)
+		}
+		logger.Error("statcommentary: enumeration failed for all sports", "mode", label)
+		return 1
 	}
 	logger.Info("statcommentary: starting", "mode", label, "sports", sports, "targets", len(targets), "gen_limit", limit)
 
@@ -235,9 +266,33 @@ func runCorpus(pool *pgxpool.Pool, gen *ml.RatingGenerator, nightly bool, sportA
 			time.Sleep(time.Duration(throttleMs) * time.Millisecond)
 		}
 	}
-	logger.Info("statcommentary: complete", "mode", label,
+	// Decide the outcome. Everything-failed (we attempted generations but none
+	// succeeded) is treated as systemic ⇒ failure; some failures ⇒ partial.
+	status := jobrun.StatusSuccess
+	exit := 0
+	var runErr error
+	switch {
+	case fail > 0 && ok == 0 && skippedUnchanged == 0 && noStats == 0:
+		status, exit = jobrun.StatusFailed, 1
+		runErr = fmt.Errorf("all %d attempted generation(s) failed", fail)
+	case fail > 0:
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("%d generation(s) failed (retried next run)", fail)
+	}
+
+	counts := jobrun.Counts{
+		Attempted: ok + skippedUnchanged + noStats + fail,
+		Succeeded: ok,
+		Skipped:   skippedUnchanged + noStats,
+		Failed:    fail,
+	}
+	if ferr := run.Finish(ctx, status, counts, runErr); ferr != nil {
+		logger.Warn("statcommentary: record run failed", "error", ferr)
+	}
+	logger.Info("statcommentary: complete", "mode", label, "status", status, "exit", exit,
 		"ok", ok, "unchanged", skippedUnchanged, "no_stats", noStats, "fail", fail,
 		"elapsed", time.Since(start).Round(time.Second))
+	return exit
 }
 
 // ---------------------------------------------------------------------------

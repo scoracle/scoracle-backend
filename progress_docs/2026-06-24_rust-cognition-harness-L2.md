@@ -103,6 +103,14 @@ stays in Postgres.
   change); the **built_prompt-bytes + ollama_request-jsonb axes are** (deterministic,
   code-controlled, and here identical). NFL (70) + the NBA marker happened to land stable and
   matched outright.
+  - **Scope — this is the vibe *sentiment* SCORE (the LLM's soft 1–100 felt-read, production temp
+    0.7), NOT a concrete/derived stat.** The Composite/T-scores/percentiles/`compute_transfer_heat`
+    stay deterministic in Postgres and are untouched by this layer. The byte-identical prompt proves
+    the concrete inputs (incl. the heat) were stable — only the model's *interpretation* of an
+    identical prompt wobbled. This is an LLM-decoding property (GPU FP non-associativity on a
+    near-tied logit boundary), **not a data-integrity issue**. A ±6 wobble on a soft read that's
+    regenerated at 0.7 is within the noise floor of the product; the only casualty is using
+    SCORE/VIBE as a bit-exact test oracle.
 - **Safety:** only `vibe_scores_shadow` was written (by the parity bin + the Go test); `bin/eval`
   writes nothing. Neither touched `vibe_scores` or `pipeline_work`; the service binary was not
   run, so Go's `drainVibe` kept the live `vibe` stage.

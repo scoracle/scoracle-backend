@@ -68,8 +68,11 @@ didn't touch routing, and the rename predates S14.
   `vibesynth` backstop only; Transfers as a News scope); compile→scrub→derive→reveal pipeline;
   durable work tables + `cmd/work` repair commands + `pipeline_runs_latest`; S16 CI gate; health +
   incident quick-reference; bare-metal rebuild checklist; launch-gate carryovers.
-- **`SELF_HOSTING_OPS.md`** — scrubbed a hardcoded DB password (literal redacted) from two examples
-  (→ `PGPASSWORD` from env), added a historical banner + RUNBOOK pointer (F-046).
+- **🔴 Password-leak scrub (F-046)** — the leaked Postgres password was live in **two tracked files**:
+  `.claude/settings.local.json` (11 allowlisted `Bash(PGPASSWORD=… psql …)` rules → `REDACTED_ROTATE_ME`)
+  and `SELF_HOSTING_OPS.md` (two examples → `PGPASSWORD` from env, + historical banner). Working tree is
+  now clean (wiki + rest of tree verified clean); **the literal remains in git history (3 commits)** —
+  rotation + history-purge + untracking `settings.local.json` are the still-open widespread cleanup.
 - **Code comments** — `db.go` per-product stmt header corrected to live routing (`/rating`
   commentary, `/momentum` series); `cmd/api/main.go` Swagger `@description` de-Twittered.
 - **Findings F-044…F-048** appended; Session 17 marked ✅ COMPLETE.
@@ -80,7 +83,7 @@ didn't touch routing, and the rename predates S14.
 |---|---|---|
 | F-044 | Audit + memory both stale; docs disagreed with live router (the convergence rename) | Resolved (docs) |
 | F-045 | Committed Swagger (`go/docs/`) still lists removed `/twitter/*` + `/api/v1/news/*` | Open — `swag init` + redeploy |
-| F-046 | Leaked DB password + stale paths in `SELF_HOSTING_OPS.md` | Doc scrubbed; rotate password (Scott) |
+| F-046 | 🔴 Leaked Postgres password — `.claude/settings.local.json` (11 allowlist rules, tracked) + `SELF_HOSTING_OPS.md`, and in git history (3 commits) | Working-tree scrubbed S17; ROTATE + history-purge + untrack settings.local.json still TODO (Scott) |
 | F-047 | New `RUNBOOK.md` is the durable incident/rebuild home | Resolved |
 | F-048 | Scattered "tweet"/"sentiment" prose in non-serving comments | Open (cosmetic) |
 

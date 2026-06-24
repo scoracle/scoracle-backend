@@ -773,17 +773,36 @@ relying on them.
   route-inventory banner so a reader is warned at the point of use.
 - **Action (next deploy, not launch-blocking for the API itself):** regenerate Swagger and redeploy.
 
-### F-046 — Leaked DB password + stale repo paths in `planning_docs/SELF_HOSTING_OPS.md`
-- **Found:** Session 17 · **Status:** Doc scrubbed (Session 17); password rotation is a Scott infra call.
-- The committed strategy doc hardcoded a literal Postgres password (redacted here — the value is in
-  git history) in two example commands (`pg_dump`/`pg_restore`), and used the **old** repo path
-  `/home/sheneveld/scoracle-data` throughout
-  (live root is `/home/sheneveld/scoracle/scoracle-backend`). S17 replaced the literal with
-  `PGPASSWORD`-from-env (matching the live `backup-postgres.sh`, which greps `.env.local`) and added a
-  banner clarifying the doc is historical strategy + pointing to the new `RUNBOOK.md`. **The literal is
-  still in git history** — if that string is (or was) the real prod/local Postgres password, **rotate
-  it**; a doc edit can't un-leak history.
-- **Action (Scott):** rotate the Postgres password if that literal was ever real; otherwise no-op.
+### F-046 — 🔴 LEAKED Postgres PASSWORD committed across the repo + git history — SERIOUS, needs widespread cleanup
+- **Found:** Session 17 · **Status:** 🔴 OPEN — working-tree copies scrubbed (S17); **rotation + history purge + untracking still TODO** (treat the password as COMPROMISED).
+- A real local Postgres password (literal withheld here — it is in git history; do NOT re-add it to any
+  tracked file, incl. this ledger — the auto-mode classifier correctly blocked an S17 push that did) was
+  committed in **two** tracked locations:
+  1. **`.claude/settings.local.json`** — baked into **11 allowlisted Bash permission rules**
+     (`Bash(PGPASSWORD=… psql …)`, incl. a broad `psql *` grant). This file is **tracked** and `.claude`
+     is **not** in `.gitignore`, so ad-hoc permission grants (which is how this leaked — an allowlisted
+     `PGPASSWORD=… psql` command) get committed. Introduced `0ab6496`.
+  2. **`planning_docs/SELF_HOSTING_OPS.md`** — two example commands (`pg_dump`/`pg_restore`). Introduced
+     `374ba6a`. Also used the stale repo path `/home/sheneveld/scoracle-data` (live root is
+     `/home/sheneveld/scoracle/scoracle-backend`).
+- **Scope confirmed (S17, redacted searches):** `git log -S` shows the literal across **3 commits**
+  (`374ba6a`, `0ab6496`, and `a2038a1` = the S17 `SELF_HOSTING_OPS` scrub) touching those 2 paths. The
+  sibling `scoracleWiki` repo and the rest of the `scoracle` tree are **clean**. Frontend / iOS repos NOT
+  checked (not in these working dirs) — audit them in the cleanup.
+- **Done in S17 (working tree only):** scrubbed `SELF_HOSTING_OPS.md` (→ `PGPASSWORD`-from-env + a
+  historical banner) and `.claude/settings.local.json` (11 occurrences → `REDACTED_ROTATE_ME`). This
+  removes the **live** credential from the tracked tree but **does NOT touch git history**.
+- **Widespread cleanup still required (dedicated session + Scott — NOT done):**
+  1. **ROTATE the Postgres password** on archbox (and anywhere it's reused). This is the ONLY real fix —
+     a scrub can't un-leak history; assume the value is compromised. Update `.env.local` on every machine.
+  2. **Purge from git history** (`git filter-repo` / BFG over the 2 paths) then **force-push** — DISRUPTIVE:
+     rewrites shared history across **archbox + archx220**; both machines must re-clone or hard-reset, and
+     any open work must be coordinated first. Scott's call on timing.
+  3. **Stop tracking local settings:** add `.claude/settings.local.json` to `.gitignore` and
+     `git rm --cached` it, so accruing ad-hoc permission grants never leak a secret again. (Coordinate with
+     archx220's local copy — a bare `git rm --cached` + pull can drop that machine's settings.)
+  4. **Audit reuse:** check the frontend + iOS repos and any CI/secret stores for the same literal.
+- **Action (Scott / next cleanup session):** rotate first (closes the actual risk), then untrack + history-purge.
 
 ### F-047 — New operations runbook (`RUNBOOK.md`) is the durable home the audit was missing
 - **Found:** Session 17 · **Status:** Resolved (Session 17) — `RUNBOOK.md` written, reconciled to live.

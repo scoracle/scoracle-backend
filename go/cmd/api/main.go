@@ -7,7 +7,7 @@
 
 // @title Scoracle Data API
 // @version 2.0.0
-// @description Unified Scoracle API serving sport data pages, news, journalist tweets, health checks, and operational endpoints.
+// @description Unified Scoracle API serving sport data pages, derived Gemma products (narratives, transfer heat, Vibe, Sigil), health checks, and operational endpoints.
 // @host localhost:8000
 // @BasePath /api/v1
 // @schemes http https

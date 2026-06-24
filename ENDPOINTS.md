@@ -1,11 +1,43 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-05-30 (cold-start guard for early-season composites + cross-position absolute ranks for players, per the composite-enhancements proposal)
+> Last updated: 2026-06-24 (FIRST-GPT-AUDIT S17 — reconciled to the live router: convergence
+> rename `/special`→`/rating`, `/trends`→`/momentum`, per-entity `/vibes`→`/sigil`; removed
+> `/api/v1/news/*` + `/api/v1/twitter/*` integration routes; bundled profile route removed).
 
 Single public API base URL:
 
 - Production: `https://api.scoracle.com` (Cloudflare Tunnel → self-hosted Go API)
 - Local: `http://localhost:8000`
+
+## Authoritative route inventory
+
+The only source of truth is `go/internal/api/server.go`. Every route wired there, as of S17:
+
+| Route | Notes |
+|---|---|
+| `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
+| `GET /api/v1/{sport}/{entityType}/{id}/rating` | Gemma "divined" stat read + stat commentary (was `/special`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis (was per-entity `/vibes`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/news` | Gemma narratives |
+| `GET /api/v1/{sport}/{entityType}/{id}/transfers` | vetted transfer/trade rumor heat |
+| `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
+| `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · team's rating board |
+| `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | search index (→ `/autofill`) · search index · freshness |
+| `GET /api/v1/{sport}/leaderboard` | rating board; `?board=rating\|vibes\|sigil\|news\|transfers` |
+| `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,trending}` | dedicated boards |
+| `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |
+| `GET /` · `/health` · `/health/db` · `/health/cache` · `/docs/` · `/docs/go.json` | operational |
+| `POST /api/v1/auth/{device,refresh,device/push,logout}` | mobile device-identity JWT |
+
+**Removed (no longer wired — kept here so this file matches reality):** the bundled profile
+route `/{sport}/{entityType}/{id}` (O16); the per-entity aliases `/special`, `/trends`,
+`/vibes` (O14 convergence rename); the live integration routes `/api/v1/news/*` (O12) and
+`/api/v1/twitter/*` (O13, X decommissioned O15); the legacy `/sparkline`/`/starline`.
+
+> **Swagger drift (S17 finding F-045):** the committed spec under `go/docs/` still lists the
+> removed `/twitter/*` and `/api/v1/news/*` routes, so the live `/docs/` UI is stale until
+> `swag init` is re-run and the API redeployed. Trust this file + `server.go`, not `/docs/`.
 
 ## Core Data Endpoints (Canonical)
 
@@ -177,7 +209,7 @@ Known limitation — **NFL/football player trends** have a small intersection be
 
 ```json
 {
-  "page": "trends",
+  "page": "momentum",
   "sport": "nba",
   "entity_type": "player",
   "entity_id": 123,
@@ -224,7 +256,7 @@ Known limitation — **NFL/football player trends** have a small intersection be
 
 ```json
 {
-  "page": "trends",
+  "page": "momentum",
   "sport": "football",
   "entity_type": "team",
   "entity_id": 18,
@@ -622,6 +654,18 @@ into it 2026-06-15).
 }
 ```
 
+### `GET /api/v1/{sport}/leaderboard/trending`
+
+The sport-wide **risers** board — entities whose Vibe or Rating is climbing fastest. Pass
+`?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`. Same enriched row
+shape as the other boards (`name` / `image` / `team_*`). Reached via the dedicated path only
+(`?board=trending` on `/leaderboard` is not among the `board=` values). `entity_type` and `limit`
+query params apply.
+
+```jsonc
+{ "page": "trending_leaderboard", "sport": "nba", "metric": "vibe", "count": 50, "leaders": [ /* … */ ] }
+```
+
 ### `GET /api/v1/{sport}/team/{id}/roster`
 
 **The leaderboard's player board, scoped to one team.** Returns every rated player
@@ -679,13 +723,14 @@ rather than by a single scope.
 > conference board, a draft-class board, …) is the same recipe: identical row,
 > different `WHERE` filter + `ORDER BY`.
 
-### `GET /api/v1/{sport}/{entityType}/{id}/stats` &nbsp;·&nbsp; `/special` &nbsp;(stats source)
+### `GET /api/v1/{sport}/{entityType}/{id}/stats` &nbsp;·&nbsp; `/rating` &nbsp;(stats source)
 
-> **`/sparkline` + `/starline` were retired 2026-06-15** and split into the per-product
-> stats source. The query parameters + the rating/event field shapes below are unchanged —
-> they now live on `/stats` (rating + `available_seasons` + the per-event `events` series)
-> and `/special` (the lean specialist projection — specialty + its datapoints — plus the
-> Gemma `commentary`). `/momentum` carries the season sparkline (rating series × vibe series).
+> **Convergence rename (O14):** `/special` is gone — its lean specialist projection + the
+> Gemma stat `commentary` folded into **`/rating`** (the "divined" statistical read). The
+> retired `/sparkline` + `/starline` (2026-06-15) were split into the per-product stats
+> source: `/stats` carries the rating + `available_seasons` + the per-event `events` series;
+> `/momentum` carries the season sparkline (rating series × vibe series). The query
+> parameters + rating/event field shapes below are unchanged.
 
 The dedicated rating dataset for **one entity**: the season Composite/Specialist (the
 numbers a meta card shows), **that season's team**, **and** the per-event dual-sparkline
@@ -703,7 +748,7 @@ series. `entityType` (`player` or `team`) comes from the path — team stats rea
 
 ```jsonc
 {
-  "page": "sparkline",
+  "page": "stats",
   "sport": "nba",
   "entity_type": "player",
   "entity_id": 56677822,
@@ -770,6 +815,36 @@ the same normalization the season ranks use. These let the per-event lines be dr
 on the same **0–100 axis** as the vibe series (the frontend Trends sparkline plots
 Composite + Specialist + Vibes together). The raw `rating_composite` /
 `rating_peak` z's are unchanged; the pct columns sit beside them.
+
+### `GET /api/v1/{sport}/{entityType}/{id}/rating`
+
+The stats-rail **end product** (convergence rename O14 — absorbed the old `/special`): the
+lean specialist projection plus Gemma's "divined" stat commentary. Same path params and
+`season`/`league_id` query params as `/stats`.
+
+```jsonc
+{
+  "page": "rating",
+  "sport": "nba",
+  "entity_type": "player",
+  "entity_id": 56677822,
+  "season": 2025,
+  "rating": {                        // the lean specialist projection (no fantasy/template/datapoints)
+    "rating_composite": 12.5226, "rating_composite_score": 100.0, "rating_composite_rank": 100.0,
+    "rating_peak": 6.1058, "rating_peak_rank": 100.0, "rating_peak_score": 100.0,
+    "rating_peak_label": "Rim Protection", "rating_breakdown": [ /* … */ ], "rating_modes": { /* … */ }
+  },
+  "commentary": {                    // latest stat_summaries generation that carries a body; null otherwise
+    "body": "…", "notability": 88, "notability_components": {}, "season": 2025,
+    "prompt_version": "…", "generated_at": "2026-06-20T…", "divined_peak": "Rim Protection"
+  }
+}
+```
+
+`commentary` is `null` when the latest `stat_summaries` generation for the entity-season is a
+no-stats marker (body `NULL`) — the canonical latest-generation rule (Session 11) clears stale
+prose rather than serving it. `divined_peak` is the commentary's headline skill (renamed from
+`divined_sigil` by migration 094).
 
 ## League-Scoped Endpoints
 
@@ -877,7 +952,12 @@ The vibe *data* (vibe_scores) and its writers (CLI / listener / cron) are unchan
 
 ## Response Structure
 
-### Profile Response Example (Player)
+> **Historical (route removed).** The bundled `/{sport}/{entityType}/{id}` profile route was
+> removed (O16); the two "Profile Response Example" blocks below describe its old payload and are
+> kept only as a reference for the percentile/scoped-percentile shapes (which still ride `/stats`).
+> The live page is assembled from the per-product endpoints in the inventory at the top of this file.
+
+### Profile Response Example (Player) — historical (bundled route removed)
 
 ```json
 {
@@ -1150,13 +1230,15 @@ identity persists via the refresh token in the device Keychain. Full design:
 - Auth handlers (mobile JWT): `go/internal/api/handler/auth.go`
 - Auth token issue/verify: `go/internal/auth/auth.go`; bearer middleware: `go/internal/api/middleware.go` (`RequireAuth`)
 - News corpus methods (background pipeline only — no serving route): `go/internal/thirdparty/news.go`
-- Ollama client + sentiment generator: `go/internal/ml/ollama.go`, `go/internal/ml/vibe.go`
-- Listener (synthesis dispatch): `go/internal/listener/listener.go`, `go/internal/listener/news_volume_worker.go`
-- Maintenance tickers: `go/internal/maintenance/maintenance.go`
+- Ollama client + Gemma generators: `go/internal/ml/ollama.go`, `ml/vibe.go` (Vibe), `ml/sigil.go` (Sigil crown), `ml/news_narratives.go`, `ml/news_scrub.go`, `ml/transfer.go`, `ml/rating.go`
+- Durable derive worker (in-API queue drainer): `go/internal/derive/{derive.go,worker.go}`; the work queue itself: `go/internal/work/work.go`; operator CLI: `go/cmd/work`
+- LISTEN/NOTIFY listener (wakes the derive worker on `pipeline_work_ready`): `go/internal/listener/listener.go`
+- Maintenance tickers (news-scrub sweep, pipeline-stats snapshot): `go/internal/maintenance/maintenance.go`
+- Cron job wrappers + shared run-recording: `go/cmd/{pipeline,statcommentary,vibesynth}`, `go/internal/jobrun/jobrun.go`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
-- Swagger docs: `go/docs/swagger.json`, `go/docs/swagger.yaml`
+- Swagger docs (generated; stale per F-045): `go/docs/`
 
 ---
 
-**Note:** Legacy endpoints (`/players/`, `/teams/`, `/standings/`, `/leaders/`, `/search/`, `/autofill/`, `/similarity/`) have been removed. Use the canonical `/api/v1/{sport}/{entityType}/{id}` routes. Comparison-style features should live on the frontend using data from the profile + meta endpoints.
+**Note:** Legacy endpoints (`/players/`, `/teams/`, `/standings/`, `/leaders/`, `/search/`, `/autofill/`, `/similarity/`) were removed long ago, and the bundled `/api/v1/{sport}/{entityType}/{id}` profile route was removed (O16). Use the per-product endpoints in the route inventory at the top of this file. Comparison-style features should live on the frontend using data from the per-product + meta endpoints.

@@ -6,9 +6,11 @@ Backend data pipeline and unified API for Scoracle sports data.
 
 Scoracle runs as a single public Go API backed by PostgreSQL, plus a Python seeder.
 
-- **Go API (`:8000`)** serves curated sport data pages, third-party integrations (news, journalist tweets), health/docs endpoints, and background workers.
+- **Go API (`:8000`)** serves curated sport data pages, derived Gemma products (narratives, transfer heat, Vibe, Sigil), health/docs endpoints, and background workers (the self-hosted Gemma pipeline + the durable derive worker). **We own all the data** — every serving response is a precomputed read from our own Postgres; there is no third-party call on a serving request.
 - **Python Seeder (`seed/`)** ingests provider data and upserts raw rows to PostgreSQL.
 - **PostgreSQL (`sql/`)** is the source of truth for schema, derived stats, percentiles, views, and API-shaping SQL.
+
+> Operating the backend (release/rollback, backup/restore, jobs, durable work queue + repair commands): see **[`RUNBOOK.md`](RUNBOOK.md)**.
 
 The frontend calls one API origin and receives page-shaped JSON payloads designed for direct rendering.
 
@@ -16,51 +18,62 @@ The frontend calls one API origin and receives page-shaped JSON payloads designe
 
 | Component | Responsibility | Location |
 |---|---|---|
-| Go API | Public HTTP API, caching, ETags, CORS, rate limiting, integrations, worker runtime | `go/` |
+| Go API | Public HTTP API, caching, ETags, CORS, rate limiting, mobile auth, background-worker runtime (Gemma pipeline + derive queue drainer) | `go/` |
 | Python Seeder | Provider ingestion and fixture processing | `seed/` |
 | PostgreSQL | Data model, stat normalization, derived metrics, percentile logic, shaping views/functions | `sql/` |
 
 ## API Surface
 
-Canonical data routes are sport-scoped. **`news` and `stats` are the two data
-sources; each card is a self-contained product with its own endpoint:**
+Canonical data routes are sport-scoped (`{sport}` ∈ `nba|nfl|football`). The page is
+assembled from **per-product card endpoints** — the bundled all-in-one profile route
+was removed (O16). The two data **sources** (stats, news) refine into end products that
+converge into the **Sigil**. Route shape is authoritative in `go/internal/api/server.go`.
 
-- `GET /api/v1/{sport}/{entityType}/{id}` (profile)
+Per-entity products (`{entityType}` ∈ `player|team`):
+
 - **stats source:**
-  - `GET /api/v1/{sport}/{entityType}/{id}/stats` (season Composite rating — breakdown, modes, fantasy, scoped ranks — + `available_seasons` + the per-event series)
-  - `GET /api/v1/{sport}/{entityType}/{id}/special` (lean specialist projection — specialty + its datapoints — + the Gemma stat commentary)
-  - `GET /api/v1/{sport}/{entityType}/{id}/trends` (the season sparkline: per-event rating series + daily vibe series + peer-cohort form)
+  - `GET /api/v1/{sport}/{entityType}/{id}/stats` — season Composite rating (breakdown, modes, fantasy, scoped ranks) + `available_seasons` + the per-event series
+  - `GET /api/v1/{sport}/{entityType}/{id}/rating` — Gemma's "divined" statistical read + the stat commentary (`stat_summaries`)
 - **news source:**
-  - `GET /api/v1/{sport}/{entityType}/{id}/news` (the entity's latest Gemma narratives, hottest first by impact)
-  - `GET /api/v1/{sport}/{entityType}/{id}/transfers` (vetted transfer/trade rumors by heat — team→players, player→clubs)
-  - `GET /api/v1/{sport}/{entityType}/{id}/vibes` (current sentiment + bounded history)
-- `GET /api/v1/{sport}/team/{id}/results` (team's finalized scorelines for a season, framed from the team's perspective)
-- `GET /api/v1/{sport}/meta`
-- `GET /api/v1/{sport}/health`
-- `GET /api/v1/{sport}/leaderboard` (rating engine board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; positionless z-score Composite + Specialist)
-- `GET /api/v1/{sport}/leaderboard/vibes` (sport-wide vibe board — entities by latest sentiment 1-100; `entity_type`, `limit`)
-- `GET /api/v1/{sport}/leaderboard/news` (sport-wide news board — hottest Gemma narratives ranked by per-narrative impact; `entity_type`, `limit`)
-- `GET /api/v1/{sport}/leaderboard/transfers` (sport-wide transfer board — Gemma-vetted rumors by heat 0-100; `limit`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/news` — latest Gemma narratives, hottest first by impact (`news_summaries`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/transfers` — vetted transfer/trade rumors by heat — team→players, player→clubs (`transfer_rumors`)
+- **convergence:**
+  - `GET /api/v1/{sport}/{entityType}/{id}/momentum` — Rating-trajectory × Vibe-trajectory (stats trend + narrative trend)
+  - `GET /api/v1/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
+- `GET /api/v1/{sport}/{entityType}/{id}/meta` — per-entity identity (page header); 404 when the entity is unknown
+- `GET /api/v1/{sport}/team/{id}/results` — a team's finalized scorelines for a season
+- `GET /api/v1/{sport}/team/{id}/roster` — the rating board narrowed to one team
 
-> The bundled `/news` rail (narratives+transfers+vibe) and `/sparkline` (rating+events) were split into the per-product endpoints above on 2026-06-15; `/sparkline` + `/starline` are retired.
+> **Convergence rename (O14):** the earlier per-product names `/special`, `/trends`, and
+> per-entity `/vibes` are **gone** — `/special` folded into `/rating`, `/trends` became
+> `/momentum`, and per-entity `/vibes` became `/sigil` (the crown). The bundled `/news`
+> rail and `/sparkline`/`/starline` were retired earlier (2026-06-15).
+
+Sport-level + leaderboard routes:
+
+- `GET /api/v1/{sport}/meta` (search index — being repointed to `/autofill`), `GET /api/v1/{sport}/autofill`, `GET /api/v1/{sport}/health`
+- `GET /api/v1/{sport}/leaderboard` (rating board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; also `?board=rating|vibes|sigil|news|transfers`)
+- `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
+- `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
+- `GET /api/v1/{sport}/leaderboard/news` — hottest Gemma narratives by per-narrative impact
+- `GET /api/v1/{sport}/leaderboard/transfers` — Gemma-vetted rumors by heat 0-100
+- `GET /api/v1/{sport}/leaderboard/trending` — vibe & rating risers
 
 League-scoped variants (preferred for multi-league precision):
 
-- `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}`
-- `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/trends`
+- `GET /api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/momentum`
 - `GET /api/v1/{sport}/leagues/{leagueId}/team/{id}/results`
 - `GET /api/v1/{sport}/leagues/{leagueId}/meta`
 - `GET /api/v1/{sport}/leagues/{leagueId}/health`
 
-Integrations and operational routes:
+Operational + mobile-auth routes:
 
-- `GET /api/v1/news/status`
-- `GET /api/v1/news/{entityType}/{entityID}`
-- `GET /api/v1/twitter/status`
-- `GET /api/v1/{sport}/twitter/feed`
-- `GET /api/v1/{sport}/twitter/{entityType}/{id}`
-- `GET /health`, `GET /health/db`, `GET /health/cache`
-- `GET /docs/`
+- `GET /`, `GET /health`, `GET /health/db`, `GET /health/cache`
+- `GET /docs/`, `GET /docs/go.json` (Swagger UI + spec)
+- `POST /api/v1/auth/device`, `POST /api/v1/auth/refresh` (public); `POST /api/v1/auth/device/push`, `POST /api/v1/auth/logout` (bearer)
+
+> The live `/api/v1/news/*` and `/api/v1/twitter/*` integration routes were **removed**
+> (O12/O13); X was decommissioned (O15). They are no longer wired in `server.go`.
 
 See `ENDPOINTS.md` for full contract details.
 
@@ -69,7 +82,8 @@ See `ENDPOINTS.md` for full contract details.
 - Core data handlers live in `go/internal/api/handler/data.go` and follow a strict thin pattern (validate -> cache -> prepared statement -> passthrough JSON).
 - Prepared statements for canonical payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
 - Sport routes are constrained to `nba`, `nfl`, and `football` at the router level.
-- Data endpoints use in-memory caching with ETag support (`TTLData=5m`), while integrations use their own TTL strategy.
+- Data endpoints use in-memory caching with ETag support (`TTLData=5m`).
+- Background workers (the in-API derive-queue drainer, news-scrub ticker, maintenance, notifications) run inside the API process — they are not on the serving path. See `RUNBOOK.md`.
 
 ## Repository Layout
 
@@ -133,23 +147,25 @@ cd go && go build -o bin/scoracle-api ./cmd/api
 ## Environment Variables
 
 See `.env` (committed template) and copy to `.env.local` (gitignored) for real values.
-DB URL priority: `DATABASE_PRIVATE_URL` > `RAILWAY_DATABASE_URL` > `DATABASE_URL`.
+DB URL priority (per `go/internal/config/config.go`): `DATABASE_PRIVATE_URL` > `DATABASE_URL`.
 
 Required for local operation:
 
 - `DATABASE_PRIVATE_URL` (or `DATABASE_URL`)
-- `BALLDONTLIE_API_KEY` (seeder)
-- `SPORTMONKS_API_TOKEN` (seeder)
+- `BALLDONTLIE_API_KEY` (seeder, NBA/NFL)
+- `SPORTMONKS_API_TOKEN` (seeder, football)
 
-Common optional:
+Common optional (full list + defaults in `config.go`):
 
-- `API_PORT`
-- `CACHE_ENABLED`
-- `RATE_LIMIT_ENABLED`
-- `TWITTER_BEARER_TOKEN`
-- `TWITTER_LIST_NBA`, `TWITTER_LIST_NFL`, `TWITTER_LIST_FOOTBALL` (per-sport curated X List IDs)
-- `TWITTER_CACHE_TTL_SECONDS` (default `1200` / 20 min)
-- `FIREBASE_CREDENTIALS_FILE`
+- `API_PORT`/`PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED`
+- `DB_POOL_MAX_CONNS` (default `25`), `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_LIFE_MINUTES`
+- `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS`
+- Gemma/Ollama: `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (`gemma4:e4b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_SHORT_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` (1), `OLLAMA_KEEP_ALIVE`
+- Workers: `DERIVE_WORKER_ENABLED`, `DERIVE_DRAIN_INTERVAL_SECONDS`, `NEWS_SCRUB_ENABLED`/`_INTERVAL_MINUTES`/`_BATCH`, `TRANSFER_ENABLED`/`_DEBOUNCE_MINUTES`/`_MIN_ARTICLES`/`_MAX_CONCURRENT`, `PIPELINE_STATS_INTERVAL_MINUTES`
+- Mobile auth: `JWT_SECRET` (unset ⇒ `/auth/*` returns 503), `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`
+- `FIREBASE_CREDENTIALS_FILE`; seeder third key `API_SPORTS_KEY`
+
+> X/Twitter was permanently decommissioned (O15, 2026-06-19) — there are **no** `TWITTER_*` env vars anymore.
 
 ## Trademarks & Nominative Fair Use
 

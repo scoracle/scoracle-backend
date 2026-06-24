@@ -354,6 +354,11 @@ These surfaced during the audit and are pre-launch work (see `planning_docs/FIRS
 - **F-043** — `docker-compose build: seed/` references a non-existent `seed/Dockerfile` (minor).
 - **F-045** — regenerate Swagger (`swag init`) so `/docs/` stops advertising the removed `/twitter/*`
   + `/api/v1/news/*` routes; ships on the next `release.sh`.
+- **F-046 🔴 (security)** — a Postgres password leaked into tracked files (`.claude/settings.local.json`
+  + `SELF_HOSTING_OPS.md`) and is still in git history. Working-tree copies were scrubbed; **rotate the
+  password** (the only real fix — treat as compromised), then purge history (`git filter-repo`/BFG +
+  force-push, coordinating archbox + archx220) and untrack `.claude/settings.local.json`. Details in
+  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046.
 
 The remaining pre-launch milestone is the **Final launch gate** in `FIRST-GPT-AUDIT.md` —
 stats/news/convergence/operations end-to-end proofs, per sport.

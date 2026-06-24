@@ -192,7 +192,16 @@ relying on them.
   changes (corpus/news/maintenance); `go build ./...` is clean.
 
 ### F-014 — Ollama cold-start can blow the 180s timeout (capacity → Session 14)
-- **Found:** Session 8 verification · **Status:** Watch (Session 14)
+- **Found:** Session 8 verification · **Status:** Resolved (Session 14, `cf4f26069df6`)
+- **Resolved (Session 14):** worker readiness is decoupled from the boot ping (generators built
+  unconditionally; `derive.DrainAll` reachability-pre-gates and DEFERS when Ollama is down — no
+  claims, no burned retries — so pending work drains on recovery with no API restart). Operation-
+  specific timeouts replace the flat 600s stopgap: `OLLAMA_TIMEOUT_SECONDS` (300, long/narratives +
+  HTTP backstop) vs `OLLAMA_SHORT_TIMEOUT_SECONDS` (120, scrub/vibe/sigil/transfer). `keep_alive=30m`
+  keeps gemma4:e4b resident so the true cold load (the 180s trigger) is rare — measured warm
+  `load_ms ≈ 350` post-deploy. A shared GPU governor (`OLLAMA_MAX_CONCURRENT`, default 1) serializes
+  all in-process Gemma. The 8B-on-8GB partial-offload reality is unchanged but is now *tolerated*
+  rather than fatal. See the S14 progress doc + F-035 (explicit cross-process governor).
 - During the S8 smoke, the first two scrub Gemma calls after idle each hit the
   `OLLAMA_TIMEOUT_SECONDS=180` client timeout and failed (`Client.Timeout exceeded while awaiting
   headers`). Once `gemma4:e4b` was warm (resident in VRAM) the SAME generation dropped to **~7.5s**.
@@ -528,3 +537,65 @@ relying on them.
   are run-scoped only (no dead-letter gate) — only the pipeline owns the queue-health signal.
 - **Action:** none required. If the conflation ever becomes noisy, split "this run failed" from "queue has
   dead-letters" into distinct exit codes, or scope the dead-letter check to stages the run touched.
+- **Update (Session 14):** a new exit condition — `cmd/pipeline` now reports `partial` (`exit 3`) when the
+  derive drain DEFERS because Ollama was unreachable (`res.Deferred`), distinct from `WholeStageFailure`.
+  Raw ingestion still happened (sweep); the work is pending, not failed. Note `res.Deferred` is checked
+  FIRST so an outage reads as retryable-partial, not a hard failure.
+
+### F-034 — Simplification A (move the derive worker out of the API) deliberately deferred
+- **Found:** Session 14 · **Status:** Deferred (scope with Scott)
+- The audit's simplification A proposes splitting background derivation into its own worker process so API
+  restarts don't govern ML availability. Session 14 did NOT do this — F-014's readiness decoupling already
+  removes the main motivation: an API restart no longer DISABLES ML until the next restart (the worker
+  defers-and-recovers on its own), and F-018 already settles the leased batch on a restart. What remains
+  true of the in-API model: an API restart still CANCELS an in-flight Gemma drain (F-018 requeues it, so no
+  loss, but the wasted GPU time on the contended card is real), and the API process owns more concerns than
+  pure serving. Those are smaller wins than the "ML disabled until restart" bug S14 fixed.
+- **Action:** if/when the API restart cadence (releases, `scoracle-api.path` ad-hoc rebuilds) makes the
+  cancel-in-flight cost annoying, OR the blast-radius argument wins, lift the derive worker + maintenance
+  Gemma tickers into a dedicated `cmd/worker` binary (its own systemd unit, NOT restarted by `release.sh`'s
+  API restart). Scope with Scott first — it changes the deploy topology (a new unit, new cron/`install.sh`
+  wiring) and the `scoracle-api.path` story.
+
+### F-035 — Explicit cross-process Gemma governor (`OLLAMA_NUM_PARALLEL=1`) is NOT set on the ollama service
+- **Found:** Session 14 · **Status:** Ops note (recommended follow-up)
+- The S14 `OLLAMA_MAX_CONCURRENT` semaphore is **process-wide** — it bounds the API's own goroutines
+  (derive worker + maintenance scrub), but it can NOT coordinate across the separate `cmd/pipeline` cron
+  process and the API. Cross-process, the only thing serializing GPU work is Ollama's own server-side
+  scheduling. The ollama systemd service currently sets NEITHER `OLLAMA_NUM_PARALLEL` nor
+  `OLLAMA_MAX_LOADED_MODELS` (verified: no drop-in). For a 10GB model that barely fits the 8GB GPU, the
+  authoritative cross-process governor is `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1` — this
+  guarantees Ollama never tries to run two gemma4:e4b requests (or load a second copy) at once, which would
+  thrash/OOM the card. Today the box happens to serialize anyway (observed), but it is not pinned.
+- **Action:** add an ollama systemd drop-in (root):
+  `Environment=OLLAMA_NUM_PARALLEL=1` and `Environment=OLLAMA_MAX_LOADED_MODELS=1`, then
+  `systemctl daemon-reload && systemctl restart ollama`. Do it during a quiet `pipeline_work` window (the
+  restart drops the resident model; the API derive worker will defer-and-recover via F-014). Low risk,
+  makes the cross-process bound explicit rather than incidental.
+
+### F-036 — Gemma per-call metrics are LOG-only (no durable run-record metric)
+- **Found:** Session 14 · **Status:** Deferred (optional observability)
+- S14 added per-call Gemma timing as a structured slog line (`op`, `wall_ms`, `eval_count`, outcome) —
+  `journalctl --user -u scoracle-api | grep 'gemma call'` gives an operator real model latency. It is NOT
+  hung off `pipeline_runs` (the audit's literal ask) because the in-API derive worker — which makes most of
+  the real-time Gemma calls — does NOT own a `pipeline_runs` row (only the cron jobs do), and a durable
+  per-call metric would need a new table or `pipeline_runs` columns (a migration). Logs were the
+  zero-migration, parallel-session-safe choice, consistent with S13's "avoid a complex observability stack."
+- **Action:** if a durable/aggregated Gemma latency surface is wanted later (a dashboard distinguishing slow
+  vs timed-out vs unavailable over time), add a `gemma_calls` metrics table (or timing columns on a
+  per-stage run record) under Session 16/17 — additive migration, set on every `Generate`. Pairs with
+  moving the worker out of the API (F-034), which would give it a natural run-record owner.
+
+### F-037 — Transfers per-pair Gemma call is bounded by the team budget, not the short timeout
+- **Found:** Session 14 · **Status:** Watch (optimization; pairs with F-021)
+- The new operation-specific short timeout (`OLLAMA_SHORT_TIMEOUT_SECONDS`, 120s) is applied per-stage by
+  the drainer for vibe/sigil and per-article for scrub. Transfers stay TEAM-scoped (`perTeamTimeout`=10m for
+  the whole team's many pair calls); an individual pair's Gemma call is bounded only by the HTTP client
+  backstop (= `OLLAMA_TIMEOUT_SECONDS`, 300s), not the 120s short budget — because the pair call uses the
+  team context directly inside `transfer.go analyzePair`. So one wedged pair could run up to 300s within the
+  team's 10m. Acceptable (pairs are short, NumPredict 1200; ~2 such wedges fit the team budget) and avoids
+  threading a per-pair timeout through `GenerateForTeam`, but it is the one stage where the short budget
+  isn't enforced per-call.
+- **Action:** when F-021 (per-pair transfer retry / skip-already-vetted) is implemented, wrap each pair's
+  Gemma call in a `GemmaShortTimeout` context at the same time, so a single slow pair fails fast like the
+  other short ops.

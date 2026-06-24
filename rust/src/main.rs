@@ -53,6 +53,7 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
         embedder: None,
+        resolve: cfg.resolve.clone(),
     };
 
     // Registered stages. Each handler owns exactly one queue stage; register in

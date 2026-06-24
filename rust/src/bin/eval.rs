@@ -109,6 +109,7 @@ async fn main() -> Result<()> {
         pool,
         router,
         embedder: None,
+        resolve: cfg.resolve.clone(),
     };
 
     let incumbent = harness.router.for_role(EVAL_ROLE);

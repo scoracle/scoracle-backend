@@ -3,6 +3,7 @@
 //! the same `.env.local`. DB URL precedence matches Go: DATABASE_PRIVATE_URL
 //! wins over DATABASE_URL.
 
+use crate::embed::Pooling;
 use crate::route::Role;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
@@ -26,6 +27,14 @@ pub struct Config {
     /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is all-Gemma and
     /// byte-identical to the L1 single router; `COGNITION_ROUTE_*` overrides per role.
     pub route: RouteConfig,
+    /// Embedding-model config (the Embed primitive, Plan §1.4) — `COGNITION_EMBED_*`. Read by
+    /// the experiment harness and (once the hybrid Resolve gate lands) the service; the model
+    /// is named here, never in stage code (the same boundary the router holds for generation).
+    pub embed: EmbedConfig,
+    /// Embedding-Resolve hybrid policy (the Plan §1.3 gate) — `COGNITION_RESOLVE_*`. The cosine
+    /// bands that auto-decide a candidate without a model call; the ambiguous middle goes to the
+    /// model. Defaults are the conservative band the L4 experiment measured (AUC 0.88).
+    pub resolve: ResolveConfig,
 }
 
 impl Config {
@@ -51,7 +60,73 @@ impl Config {
             // 1800s = 30 min = Go derive.StaleLease.
             stale_lease: Duration::from_secs(env_int("COGNITION_STALE_LEASE_SECONDS", 1800) as u64),
             route,
+            embed: EmbedConfig::from_env(),
+            resolve: ResolveConfig::from_env(),
         })
+    }
+}
+
+/// EmbedConfig names the embedding model the Embed primitive loads (Plan §1.4). The default is
+/// BGE-small-en-v1.5 (BERT-arch, strong English, fast on CPU) with its correct `Cls` pooling;
+/// `nomic-embed-text` is the multilingual upgrade (it also unlocks the §1.5 Multilang HORIZON),
+/// swapped via `COGNITION_EMBED_MODEL` + `COGNITION_EMBED_POOLING=mean` — config, never code.
+#[derive(Clone, Debug)]
+pub struct EmbedConfig {
+    /// HF repo id, e.g. `BAAI/bge-small-en-v1.5`.
+    pub model_repo: String,
+    /// Git revision / branch to pin (`main` by default).
+    pub revision: String,
+    /// The model's pooling (BGE → `Cls`; MiniLM/nomic → `Mean`).
+    pub pooling: Pooling,
+    /// Truncate inputs to this many tokens (a news title+blurb is short; bounds CPU cost).
+    pub max_tokens: usize,
+}
+
+impl EmbedConfig {
+    /// from_env reads `COGNITION_EMBED_*`, defaulting to BGE-small-en-v1.5 / cls / 256 tokens.
+    pub fn from_env() -> Self {
+        Self {
+            model_repo: env_or("COGNITION_EMBED_MODEL", "BAAI/bge-small-en-v1.5"),
+            revision: env_or("COGNITION_EMBED_REVISION", "main"),
+            pooling: Pooling::from_str_or_cls(&env_or("COGNITION_EMBED_POOLING", "cls")),
+            max_tokens: env_int("COGNITION_EMBED_MAX_TOKENS", 256) as usize,
+        }
+    }
+}
+
+/// ResolveConfig is the embedding-Resolve hybrid's cosine bands (Plan §1.3). A candidate whose
+/// article↔identity cosine is `≥ keep_threshold` is auto-kept and one `< drop_threshold` is
+/// auto-dropped — both WITHOUT a model call (the cheap CPU pre-filter). The `[drop, keep)` middle
+/// is the ambiguous band the model adjudicates. Defaults are the conservative band the L4
+/// experiment measured on the live vetted-label set (AUC 0.88): keep 0.75 (≈97% agree with Gemma),
+/// drop 0.60 (≈0% genuine links lost) → Gemma runs on ≈45% of secondary links (≈55% GPU saved).
+#[derive(Clone, Debug)]
+pub struct ResolveConfig {
+    /// cosine ≥ this → auto-keep (no model call).
+    pub keep_threshold: f32,
+    /// cosine < this → auto-drop (no model call). Should be ≤ `keep_threshold`.
+    pub drop_threshold: f32,
+}
+
+impl Default for ResolveConfig {
+    fn default() -> Self {
+        Self {
+            keep_threshold: 0.75,
+            drop_threshold: 0.60,
+        }
+    }
+}
+
+impl ResolveConfig {
+    /// from_env reads `COGNITION_RESOLVE_{KEEP,DROP}_THRESHOLD`, defaulting to the measured
+    /// conservative band. A wider band (raise keep / lower drop) sends more to the model
+    /// (safer, less savings); a narrower band saves more GPU at some precision cost.
+    pub fn from_env() -> Self {
+        let d = Self::default();
+        Self {
+            keep_threshold: env_float("COGNITION_RESOLVE_KEEP_THRESHOLD", d.keep_threshold),
+            drop_threshold: env_float("COGNITION_RESOLVE_DROP_THRESHOLD", d.drop_threshold),
+        }
     }
 }
 
@@ -135,5 +210,9 @@ fn env_or(key: &str, default: &str) -> String {
 }
 
 fn env_int(key: &str, default: i64) -> i64 {
+    env_opt(key).and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+
+fn env_float(key: &str, default: f32) -> f32 {
     env_opt(key).and_then(|v| v.parse().ok()).unwrap_or(default)
 }

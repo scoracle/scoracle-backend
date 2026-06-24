@@ -933,6 +933,30 @@ Ollama downtime delays enrichment but neither loses work nor changes truth seman
 
 # Session 15 — Harden backups, restores, and migrations
 
+> **✅ COMPLETE — 2026-06-24 (archbox).** Scripts + one new Go cmd + a versioned schema snapshot;
+> **NO migration, NO API restart** (backup/restore/migration tooling, not the serving path; next free
+> migration stays **107**). **"We have backups" is now "we can restore a backend that boots."**
+> `restore-drill.sh` rewritten into a 5-stage proof: `pg_restore` failure fatal (the `|| true` defect
+> was already gone — the audit described an older file); missing/empty critical table fatal;
+> migration-ledger **lineage** check (forked lineage fatal, "N behind" informational); stable
+> structural assertions (functions, derive trigger, every critical table's PK, a key CHECK); and the
+> **prepared-statement boot check** (F-025) via the new kept `go/cmd/validate-stmts` — a restore now has
+> to *boot*, not just hold data. Row-count drift vs the live source is informational (the source moves
+> on). `backup-postgres.sh` adds an **independent off-disk mirror** (`OFFHOST_BACKUP_DIR`, default the
+> root SSD `sda` — Postgres data + primary backups both live on the one NVMe) with same-device +
+> free-space guards; off-DISK now, off-SITE is a one-env-var repoint (Scott's pre-launch infra call).
+> `migrate.sh` apply+record is now **atomic** — single psql process, `--single-transaction` wrapping
+> plain-DDL files with their ledger INSERT (crash ⇒ neither applied nor recorded); `CONCURRENTLY` files
+> run autocommit in one process; self-managing files self-record (now REQUIRED — README +
+> `sql/migration_template.sql`). A **versioned schema snapshot** (`sql/schema/`, via
+> `snapshot-schema.sh`) gives a prod-independent recovery path and makes `ledger == live == repo`
+> diffable. **F-015 RESOLVED:** re-verified live — the S9 drift was transient (093 reverts 088's
+> rename, 094 renames the column, 103 dropped the double-fire); the ledger already equals the live
+> schema, so the "finish-vs-revert the rename" decision is moot. **Verified:** corrupt dump → FAIL;
+> dump missing a critical table → FAIL; valid off-disk dump → PASS + bootable; `--single-transaction`
+> failure rolls back both DDL and ledger; build/vet/gofmt clean. Findings **F-038–F-041**; progress doc
+> `progress_docs/2026-06-24_first-gpt-audit-session-15-backups-restore-migrations.md`.
+
 ## Problems
 
 - Restore drill ignores `pg_restore` failure with `|| true`.

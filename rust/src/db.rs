@@ -6,7 +6,7 @@ use sqlx::PgPool;
 use std::time::Duration;
 
 /// build_pool opens a bounded connection pool. Keep `max_conns` small — the
-/// scrubber's concurrency ceiling is the GPU, not Postgres, so a handful of
+/// harness's concurrency ceiling is the GPU, not Postgres, so a handful of
 /// connections is plenty (default 5).
 pub async fn build_pool(database_url: &str, max_conns: u32) -> Result<PgPool> {
     PgPoolOptions::new()

@@ -1,9 +1,15 @@
-# scoracle-scrubber (Rust scrubbing layer — Phase 0 scaffold)
+# scoracle-cognition — the Rust Cognition Harness
 
-The Rust home for the LLM-derivation ("scrubbing") layer. It is a durable
-`pipeline_work` queue consumer + Ollama client, wired to a LISTEN/NOTIFY drain
-loop — the foundation the per-stage handlers plug into. **Phase 0 ships no stage
-logic.** Full plan: [`scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md`](../../../scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md).
+> **Naming:** this crate is the **Rust Cognition Harness** — the layer that *empowers* the local models. Package + binary: `scoracle-cognition` (renamed from `scoracle-scrubber` — the original clean-the-data framing). Canonical architecture: [`scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`](../../../scoracleWiki/wiki/Architecture/Rust%20Cognition%20Harness.md).
+
+The Rust home for all LLM derivation (cognition). It is a durable `pipeline_work`
+queue consumer + Ollama client, wired to a LISTEN/NOTIFY drain loop — the **host**
+the per-stage handlers plug into. **Status:** Phase 0 host + Phase 1 `vibe` handler
+(temp-0 parity proven) shipped; the direction now is **library-first** — build the
+capability library, then re-express `vibe` as its first composition (not a
+parity-port of all five Go stages). The older phased plan is
+[`scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md`](../../../scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md)
+(superseded on *sequencing*; its integration contract still holds).
 
 ## Why a separate layer (and why Rust)
 The whole platform is joined at one seam: the Postgres `pipeline_work` queue.
@@ -46,8 +52,8 @@ Install Rust if needed: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.
 
 Env (same names as the Go backend; loaded from your shell / `.env.local`):
 `DATABASE_PRIVATE_URL` (or `DATABASE_URL`), `OLLAMA_BASE_URL`, `OLLAMA_MODEL`,
-`OLLAMA_TIMEOUT_SECONDS`, plus `SCRUBBER_DB_MAX_CONNS`,
-`SCRUBBER_SAFETY_NET_SECONDS`, `SCRUBBER_STALE_LEASE_SECONDS`.
+`OLLAMA_TIMEOUT_SECONDS`, plus `COGNITION_DB_MAX_CONNS`,
+`COGNITION_SAFETY_NET_SECONDS`, `COGNITION_STALE_LEASE_SECONDS`.
 
 ## Phase 0 safety property
 With **no handlers registered**, the worker connects, pings Ollama, LISTENs, and
@@ -61,10 +67,13 @@ drain). Safe to run against any DB while reviewing the foundation.
   the **reqwest** feature set.
 - `#![allow(dead_code)]` is set in Phase 0 (the client API is complete but not
   all called until handlers land). Remove it with the first handler.
-- TODO before any shared-queue run: align `SCRUBBER_STALE_LEASE_SECONDS` with the
+- TODO before any shared-queue run: align `COGNITION_STALE_LEASE_SECONDS` with the
   Go `derive.StaleLease` value (see `config.rs`).
 
-## Next (Phase 1)
-Implement `vibe` as the first handler (it's the emotional-interpretation stage —
-where Mistral routing lands — and the simplest to parity-test). Shadow table +
-**temp-0 parity diff** vs the Go vibe output. Details in the plan.
+## Next (library-first)
+Phase 1 `vibe` is done (temp-0 parity proven). The next move is **not** porting the
+remaining four Go stages to parity — it is building the **capability library**
+(route · resolve · extract+validate · embed+cluster · normalize · persist) and
+re-expressing `vibe` as its first composition. Every later stage is then a
+composition + a prompt + a role. See
+[`Rust Cognition Harness`](../../../scoracleWiki/wiki/Architecture/Rust%20Cognition%20Harness.md).

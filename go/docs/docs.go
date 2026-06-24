@@ -65,7 +65,7 @@ const docTemplate = `{
                     "503": {
                         "description": "Service Unavailable",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -96,7 +96,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -127,7 +127,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -157,7 +157,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -165,7 +165,7 @@ const docTemplate = `{
         },
         "/health": {
             "get": {
-                "description": "Returns basic health status and timestamp.",
+                "description": "Returns serving readiness; 503 when the database is unreachable.",
                 "produces": [
                     "application/json"
                 ],
@@ -176,6 +176,13 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -233,131 +240,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/news/status": {
-            "get": {
-                "description": "Returns configuration state for the Google News RSS source.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "news"
-                ],
-                "summary": "News service status",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/news/{entityType}/{entityID}": {
-            "get": {
-                "description": "Returns news articles about a player or team from Google News RSS. Supports time-window escalation and strict name matching.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "news"
-                ],
-                "summary": "Get entity news",
-                "parameters": [
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "entityID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "NBA",
-                            "NFL",
-                            "FOOTBALL"
-                        ],
-                        "type": "string",
-                        "description": "Sport identifier",
-                        "name": "sport",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Team name for player context",
-                        "name": "team",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max articles (1-50, default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/twitter/status": {
-            "get": {
-                "description": "Returns per-sport cache state, since_id, last_fetched_at, and bearer-token configuration.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "twitter"
-                ],
-                "summary": "Twitter service status",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/{sport}/autofill": {
             "get": {
                 "description": "The sport's autofill + search payload for frontend local hydration — the dedicated home for what /meta historically served.",
@@ -399,13 +281,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -452,13 +334,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -535,13 +417,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -600,13 +482,78 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/leaderboard/sigil": {
+            "get": {
+                "description": "Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Sigil blurb + previous_score delta.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Sigil leaderboard",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: player or team (default both)",
+                        "name": "entity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max rows (default 50)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Season year (default current)",
+                        "name": "season",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -653,13 +600,78 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/{sport}/leaderboard/trending": {
+            "get": {
+                "description": "Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Trending leaderboard (risers)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trajectory: vibe (default) or rating",
+                        "name": "metric",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: player or team (default both)",
+                        "name": "entity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max rows (default 30)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -712,13 +724,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -766,13 +778,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -820,13 +832,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -887,97 +899,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/leagues/{leagueId}/{entityType}/{id}": {
-            "get": {
-                "description": "Returns the sport profile payload scoped to a specific league.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get league profile page",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "League ID",
-                        "name": "leagueId",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Season year",
-                        "name": "season",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1049,13 +977,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1102,13 +1030,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1168,13 +1096,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1234,226 +1162,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/twitter/feed": {
-            "get": {
-                "description": "Returns cached tweets from the sport's curated X List. Refreshes on demand when older than the TTL; concurrent refreshes are coalesced via singleflight.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "twitter"
-                ],
-                "summary": "Sport tweet feed",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max tweets (1-100, default 25)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "502": {
-                        "description": "Bad Gateway",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/twitter/{entityType}/{id}": {
-            "get": {
-                "description": "Returns cached tweets mentioning the given player or team. Matching uses the shared search_aliases logic.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "twitter"
-                ],
-                "summary": "Entity tweet feed",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Max tweets (1-100, default 25)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "503": {
-                        "description": "Service Unavailable",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/{entityType}/{id}": {
-            "get": {
-                "description": "Returns the sport profile payload for an entity type and ID.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Get profile page",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "player",
-                            "team"
-                        ],
-                        "type": "string",
-                        "description": "Entity type",
-                        "name": "entityType",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Entity ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Season year",
-                        "name": "season",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "League ID filter",
-                        "name": "league_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1512,13 +1227,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1589,13 +1304,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1654,13 +1369,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1731,13 +1446,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1783,6 +1498,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Season year (default current)",
+                        "name": "season",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1796,13 +1517,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1873,13 +1594,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -1938,13 +1659,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -2015,13 +1736,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -2067,6 +1788,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Season year (default current)",
+                        "name": "season",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2080,13 +1807,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
+                            "$ref": "#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse"
                         }
                     }
                 }
@@ -2094,7 +1821,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "respond.ErrorResponse": {
+        "github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -2123,7 +1850,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/api/v1",
 	Schemes:          []string{"http", "https"},
 	Title:            "Scoracle Data API",
-	Description:      "Unified Scoracle API serving sport data pages, news, journalist tweets, health checks, and operational endpoints.",
+	Description:      "Unified Scoracle API serving sport data pages, derived Gemma products (narratives, transfer heat, Vibe, Sigil), health checks, and operational endpoints.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

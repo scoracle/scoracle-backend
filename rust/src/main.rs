@@ -17,7 +17,7 @@
 use anyhow::Result;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, ollama, stage, vibe, worker};
+use scoracle_cognition::{config, db, ollama, sigil, stage, vibe, worker};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -57,7 +57,13 @@ async fn main() -> Result<()> {
 
     // Registered stages. Each handler owns exactly one queue stage; register in
     // dependency order (transfers → narratives → vibe → sigil) as stages are ported.
-    let handlers: Vec<Box<dyn stage::StageHandler>> = vec![Box::new(vibe::VibeHandler::new())];
+    // NB: registration ≠ cutover — do NOT run this binary against a DB whose Go drainer still
+    // owns these stages (it would double-claim the queue). The per-stage cutover (flag-gating
+    // the Go drain) is the step after each stage's temp-0 parity proof.
+    let handlers: Vec<Box<dyn stage::StageHandler>> = vec![
+        Box::new(vibe::VibeHandler::new()),
+        Box::new(sigil::SigilHandler::new()),
+    ];
 
     let worker = worker::Worker::new(harness, handlers, cfg.safety_net, cfg.stale_lease);
     worker.run().await

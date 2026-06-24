@@ -921,9 +921,11 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "hex",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "tokio",
  "tracing",

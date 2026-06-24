@@ -21,6 +21,7 @@ pub mod db;
 pub mod harness;
 pub mod ollama;
 pub mod route;
+pub mod sigil;
 pub mod stage;
 pub mod util;
 pub mod vibe;

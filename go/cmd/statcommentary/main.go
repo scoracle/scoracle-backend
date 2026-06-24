@@ -72,7 +72,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent) // shared GPU governor (Session 14)
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
+	ollama.SetKeepAlive(cfg.OllamaKeepAlive) // keep the model warm across entities
 	// restamp is a pure DB vocabulary migration (no Gemma), so skip the Ollama ping.
 	if *mode != "restamp" {
 		if err := ollama.Ping(context.Background()); err != nil {

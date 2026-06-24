@@ -97,6 +97,7 @@ func (s *NewsScrubber) ScrubArticle(ctx context.Context, articleID int64, sport 
 		System:      newsScrubSystemPrompt,
 		Temperature: 0.2, // a judgment call; keep it tight + repeatable
 		NumPredict:  1200,
+		Op:          "scrub",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)

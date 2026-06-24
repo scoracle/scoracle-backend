@@ -172,6 +172,7 @@ func (g *TransferGenerator) analyzePair(
 		Temperature: 0.3,
 		NumPredict:  1200,
 		JSONMode:    true,
+		Op:          "transfer",
 	})
 	if gerr != nil {
 		// Gemma down/slow → fail closed: UNKNOWN row (is_rumor NULL, never served),

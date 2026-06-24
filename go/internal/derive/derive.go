@@ -41,19 +41,29 @@ const (
 	// claimBatch is how many ready rows a stage leases per Claim. Ollama serializes
 	// generation anyway, so this just bounds the lease set, not real concurrency.
 	claimBatch = 10
+	// reachPingTimeout bounds the cheap pre-drain Ollama reachability check. A GET
+	// /api/tags normally answers in <50ms; if it can't answer in this window we treat
+	// Ollama as down and defer the drain rather than claim work we can't process.
+	reachPingTimeout = 5 * time.Second
 )
 
 // Drainer holds the generators + tuning the stage runners need. Build it with a
 // struct literal; the real-time worker leaves the throttles/Limit at zero, while
 // cmd/pipeline wires them from its smoke-run flags.
 type Drainer struct {
-	Pool         *pgxpool.Pool
-	TransferGen  *ml.TransferGenerator
-	Narrator     *ml.NewsNarrator
-	VibeGen      *ml.VibeGenerator
-	SynthGen     *ml.SigilGenerator
-	GemmaTimeout time.Duration
-	MinArticles  int // [transfers] candidate pre-filter
+	Pool        *pgxpool.Pool
+	Ollama      *ml.OllamaClient // reachability pre-gate (FIRST-GPT-AUDIT Session 14); nil skips the gate
+	TransferGen *ml.TransferGenerator
+	Narrator    *ml.NewsNarrator
+	VibeGen     *ml.VibeGenerator
+	SynthGen    *ml.SigilGenerator
+	// GemmaTimeout is the LONG-op budget (narratives). GemmaShortTimeout bounds the
+	// quick stages (vibe, sigil) so they fail fast and retry rather than waiting out
+	// the narrative budget (FIRST-GPT-AUDIT Session 14). Transfers stay team-scoped
+	// (perTeamTimeout) — each pair Gemma call is bounded by the client backstop.
+	GemmaTimeout      time.Duration
+	GemmaShortTimeout time.Duration
+	MinArticles       int // [transfers] candidate pre-filter
 
 	// Smoke-run governors (0 = off). The real-time worker uses 0 throughout.
 	TransferThrottle int
@@ -76,9 +86,13 @@ type StageResult struct {
 }
 
 // Result aggregates the per-stage outcomes of one DrainAll, so a caller (e.g.
-// cmd/pipeline) can decide an exit code from real counts.
+// cmd/pipeline) can decide an exit code from real counts. Deferred is true when the
+// drain was skipped because Ollama was unreachable — NOT a failure: nothing was
+// claimed, no attempt was burned, and the durable work simply waits for the next
+// drain after Ollama returns (FIRST-GPT-AUDIT Session 14).
 type Result struct {
-	Stages []StageResult
+	Stages   []StageResult
+	Deferred bool
 }
 
 // Totals sums the per-stage counts.
@@ -110,6 +124,21 @@ func (r Result) WholeStageFailure() string {
 // a graceful shutdown hands the leased-but-unprocessed batch back to 'pending'
 // (F-018). Returns the per-stage outcome.
 func (d *Drainer) DrainAll(ctx context.Context) Result {
+	// Reachability pre-gate (FIRST-GPT-AUDIT Session 14): if Ollama is unreachable,
+	// DEFER the whole drain — claim nothing, burn no retries. The durable queue is the
+	// source of truth, so the work waits and drains on the next cycle once Ollama
+	// returns; no API restart needed (F-014). This is the primary outage protection;
+	// the per-item IsUnavailable handling in drainStage covers an outage that begins
+	// mid-drain. The maintenance scrub ticker has the same gate.
+	if d.Ollama != nil {
+		pctx, cancel := context.WithTimeout(ctx, reachPingTimeout)
+		err := d.Ollama.Ping(pctx)
+		cancel()
+		if err != nil {
+			d.Logger.Warn("derive: Ollama unreachable — deferring drain (work stays pending, no attempts burned)", "error", err)
+			return Result{Deferred: true}
+		}
+	}
 	return Result{Stages: []StageResult{
 		d.drainTransfers(ctx),
 		d.drainNarratives(ctx),
@@ -171,6 +200,16 @@ func (d *Drainer) drainStage(ctx context.Context, stage work.Stage, throttle int
 				res.Requeued += d.requeueLeased(items[i:], stage)
 				d.logStage(res)
 				return res
+			case ml.IsUnavailable(rerr):
+				// Ollama went down mid-drain (not this item's fault) — hand back this
+				// item and the rest of the leased batch WITHOUT burning an attempt, and
+				// stop the stage. An outage must never dead-letter good work (F-014);
+				// DrainAll re-gates on reachability next cycle and resumes once Ollama
+				// returns.
+				d.Logger.Warn("derive: Ollama unreachable mid-drain — requeueing leased batch", "stage", stage, "error", rerr)
+				res.Requeued += d.requeueLeased(items[i:], stage)
+				d.logStage(res)
+				return res
 			default:
 				res.Failed++
 				d.Logger.Warn("derive: work failed", "stage", stage,
@@ -186,6 +225,15 @@ func (d *Drainer) drainStage(ctx context.Context, stage work.Stage, throttle int
 	}
 	d.logStage(res)
 	return res
+}
+
+// shortTimeout is the budget for the quick Gemma stages (vibe, sigil), falling back
+// to the long GemmaTimeout when a caller left GemmaShortTimeout unset.
+func (d *Drainer) shortTimeout() time.Duration {
+	if d.GemmaShortTimeout > 0 {
+		return d.GemmaShortTimeout
+	}
+	return d.GemmaTimeout
 }
 
 // complete deletes a finished work item on a context detached from the drain, so a
@@ -277,7 +325,7 @@ func (d *Drainer) drainNarratives(ctx context.Context) StageResult {
 		if err != nil {
 			return err
 		}
-		gctx, cancel := context.WithTimeout(ctx, d.GemmaTimeout+10*time.Second)
+		gctx, cancel := context.WithTimeout(ctx, d.GemmaTimeout) // long op (NumPredict 4000)
 		defer cancel()
 		_, gerr := d.Narrator.Generate(gctx, ml.NarrativesRequest{
 			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport, TriggerType: "periodic",
@@ -297,7 +345,7 @@ func (d *Drainer) drainVibe(ctx context.Context) StageResult {
 		if err != nil {
 			return err
 		}
-		gctx, cancel := context.WithTimeout(ctx, d.GemmaTimeout+10*time.Second)
+		gctx, cancel := context.WithTimeout(ctx, d.shortTimeout())
 		res, gerr := d.VibeGen.Generate(gctx, ml.VibeRequest{
 			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport, TriggerType: "periodic",
 		})
@@ -334,7 +382,7 @@ func (d *Drainer) drainSigil(ctx context.Context) StageResult {
 		if err != nil {
 			return err
 		}
-		gctx, cancel := context.WithTimeout(ctx, d.GemmaTimeout+10*time.Second)
+		gctx, cancel := context.WithTimeout(ctx, d.shortTimeout())
 		defer cancel()
 		_, gerr := d.SynthGen.Generate(gctx, ml.SigilRequest{
 			EntityType: it.EntityType, EntityID: it.EntityID, EntityName: name, Sport: it.Sport,

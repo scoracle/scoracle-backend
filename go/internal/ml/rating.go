@@ -162,6 +162,7 @@ func (a *RatingGenerator) Generate(ctx context.Context, req RatingRequest) (*Rat
 		Temperature: 0.6,
 		// A few sentences of prose on top of Gemma 4's internal reasoning budget.
 		NumPredict: 2000,
+		Op:         "rating",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)

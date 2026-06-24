@@ -140,6 +140,7 @@ func (a *NewsNarrator) Generate(ctx context.Context, req NarrativesRequest) (*Na
 		// internal reasoning budget — give it real room. The prompt caps the count
 		// and body length; the tolerant parser salvages a truncated tail regardless.
 		NumPredict: 4000,
+		Op:         "narratives",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)

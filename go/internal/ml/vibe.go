@@ -146,6 +146,7 @@ func (g *VibeGenerator) Generate(ctx context.Context, req VibeRequest) (*VibeRes
 		System:      vibeSystemPrompt,
 		Temperature: 0.7,
 		NumPredict:  1200,
+		Op:          "vibe",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)

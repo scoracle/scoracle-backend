@@ -494,7 +494,10 @@ relying on them.
   except S13's own files; only `099_team_rosters.sql` remained untracked (left alone). **Next free = 107.**
 
 ### F-032 — Two pre-fix narratives dead-letters persisted past the S11 fix; surfaced by the new report
-- **Found:** Session 13 · **Status:** Open (operator requeue — needs prod-write approval)
+- **Found:** Session 13 · **Status:** Resolved (requeued 2026-06-24; `cmd/work dead-letters` → 0). The two
+  rows (FOOTBALL `team/6898`, `team/3513`) were requeued (`failed`→`pending`, attempts reset) and are
+  draining behind the existing narratives backlog under the fixed binary; the dead-letter state is cleared,
+  so the nightly pipeline no longer exits 1 on them.
 - The new `go run ./cmd/work dead-letters` immediately surfaced **2** dead-lettered `narratives` rows —
   FOOTBALL `team/6898` and `team/3513`, both `attempts=5`, `last_error=parse narratives failed
   (raw="{\"narratives\": []}")`, dead-lettered ~19:09 ET 2026-06-23. This is the exact F-019 empty-array

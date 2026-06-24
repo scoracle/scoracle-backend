@@ -478,7 +478,8 @@ relying on them.
   change) — otherwise document `/sigil?season=<past>` as "current narrative over that season's stats."
 
 ### F-030 — Current-season Sigil coverage gap (NFL/FOOTBALL have ZERO season-stamped rows) → launch-gate
-- **Found:** Session 12 · **Status:** Watch (launch gate) — reconcile before launch
+- **Found:** Session 12 · **Status:** Watch (launch gate) — diagnosed + measured (LAUNCH-GATE S1, 2026-06-24);
+  resolution is a dedicated GPU grind, GATED ON SCOTT (a quiet GPU window + the F-035 governor)
 - Under strict season stamping, NBA 2025 needs only ~9 (a prior backfill passed `-season`, so 278 rows are
   2025-stamped), but **NFL (1072) and FOOTBALL (2147) current-season entities have NO `season=2025`-stamped
   Sigil** — their crowns are all legacy NULL-season rows (they still serve via F-028, but aren't season-
@@ -489,6 +490,33 @@ relying on them.
   so it's wasteful-but-bounded and non-converging for those few.
 - **Action:** before launch, run a larger reconcile/backfill to season-stamp current-season NFL/FOOTBALL
   (e.g. `vibesynth -mode backfill -sport NFL` once, GPU-bound), then assert current-season coverage.
+- **Update (LAUNCH-GATE Session 1, 2026-06-24) — diagnosed, measured, NOT run (GPU contention):**
+  - **Live baseline (the real gap):** by `sigil_synthesis` season-stamp, current-season *rated* entities
+    missing a `season=2025` Sigil = **NFL 1072/1072, FOOTBALL 2147/2147** (literally zero stamped for either),
+    **NBA 5/283** (≈278 already stamped — effectively done). Total grind = **3219** first-time syntheses.
+    All NFL/FOOTBALL crowns today are the legacy NULL-season rows (still serving via F-028).
+  - **Why the nightly cron won't close it in time:** `cron-vibesynth.sh -mode nightly -limit 150` (O2-sized
+    for maintenance) — the 2026-06-24 05:00 run detected **3307 candidates but enqueued only 150** (the cap).
+    At 150/night, draining 3219 is ~21 nights. Worse, the always-on derive worker drains the queue
+    **transfers → narratives → vibe → sigil, sigil LAST**, so a perpetually-retrying transfers stage (model
+    failures, fail-closed per F-020) + a 277-item vibe backlog starve sigil: newest `season=2025` Sigil was
+    **~12h stale** (NBA, 2026-06-23 23:15) while vibe/news/stat were minutes-fresh. So neither the nightly
+    enqueue cap nor the worker drain order will produce 3219 NFL/FOOTBALL crowns at any useful rate.
+  - **Throughput measured:** a single dry-run synthesis (NFL `team/1`, New England Patriots → valid Score 42,
+    pillars present, season-stampable) took **102s** of Gemma wall under 3-way GPU contention (the parallel
+    Rust `parity` session + the `statcommentary` cron + the API derive worker all share the single 8GB GPU).
+    3219 × ~100s ≈ **~90 GPU-hours**; in a quiet window with the F-035 governor pinned, per-call should drop
+    to ~30–60s → **~40–90 GPU-hrs ≈ 1.5–4 nights**.
+  - **NOT run this session — deliberately:** the resolution is the dedicated `vibesynth -mode backfill` grind
+    (direct generation, holds the shared `vibesynth` jobrun lock, season-stamps each row, bypasses the starved
+    queue). It is a multi-night GPU job that contends with live serving + the parallel Rust session, with the
+    **F-035 cross-process governor still unset** (thrash/OOM risk on the 8GB card). Kicking it off
+    autonomously would interfere with the parallel session and risk the card — it is **Scott's operational
+    call.** The synthesis *path itself is proven working* for these sports (the `team/1` probe).
+  - **Runbook for Scott (the grind):** see `progress_docs/2026-06-24_LAUNCH-GATE-S1.md` §F-030 — set the F-035
+    governor first, pause the Rust parity session + confirm no `statcommentary`/`pipeline`/nightly-`vibesynth`
+    run is mid-flight, then `nohup ./go/bin/vibesynth -mode backfill -sport NFL -throttle-ms 250 &` followed by
+    `-sport FOOTBALL`; re-run the baseline coverage query until NFL/FOOTBALL `missing_2025_sigil → 0`.
 
 ### F-031 — Parallel session claimed migration 105 (`105_vibe_scores_shadow.sql`); next free = 106
 - **Found:** Session 12 · **Status:** Ops note
@@ -720,12 +748,21 @@ relying on them.
   unset, so `go test ./...` / `pytest` stay offline; CI sets the URL.
 
 ### F-043 — docker-compose `build: seed/` references a non-existent `seed/Dockerfile`
-- **Found:** Session 16 · **Status:** Open (minor; pre-existing) · Surfaced while wiring the CI docker step.
+- **Found:** Session 16 · **Status:** Resolved (LAUNCH-GATE S1, 2026-06-24) — `seed/Dockerfile` added.
 - `docker-compose.yml` builds the `seed` service from `seed/`, but there is **no `seed/Dockerfile`**
   (only `go/Dockerfile` exists). `docker compose build` would fail on the `seed` service. The S16 CI
   docker job builds **`go/`** only (the serving artifact, which is what launch needs). Cleanup later:
   add `seed/Dockerfile` (or drop the seed build target if the seeder runs from the host/cron, not a
   container). Not launch-blocking.
+- **Fix (LAUNCH-GATE S1):** added `seed/Dockerfile` (kept the build target — CLAUDE.md documents
+  `docker compose run --rm seed event process …`, so a working image is more useful than deleting the
+  service). `python:3.12-slim`, `pip install .` of the three installed packages from `pyproject.toml`
+  (`scoracle_seed*`/`services*`/`shared*`), non-root user, `ENTRYPOINT ["scoracle-seed"]` so
+  `docker compose run --rm seed <subcommand>` appends the args. `psycopg[binary]` ships its own libpq
+  wheel, so no build toolchain is needed. Added `seed/.dockerignore` (pycache/egg-info/tests). **Not
+  build-tested here** — the Docker daemon is not running on archbox — but verified structurally against the
+  live `pyproject.toml` + package layout (all three are real `__init__.py` packages; the CLI imports
+  `services.*`). The CI docker job (F-042) still builds only `go/`; extend it to `seed/` if desired.
 
 ### F-044 — The audit's S17 removal list was stale in BOTH directions; the docs disagreed with the live router on the per-entity products
 - **Found:** Session 17 · **Status:** Resolved (Session 17, docs-only) — verified against `server.go`, not the audit prose.
@@ -764,7 +801,8 @@ relying on them.
   independent "current" sources (the audit, the two-rail memory) were both behind the same commit.
 
 ### F-045 — Committed Swagger spec (`go/docs/`) still advertises the removed `/twitter/*` + `/api/v1/news/*` routes
-- **Found:** Session 17 · **Status:** Open — needs `swag init` + a redeploy (NOT S17; docs-only).
+- **Found:** Session 17 · **Status:** Resolved-pending-redeploy (LAUNCH-GATE S1, 2026-06-24) — spec
+  regenerated + committed; the live `/docs/` UI updates on the next `release.sh` (the spec is embedded).
 - `go/docs/docs.go` (and `swagger.json`/`.yaml`) are **generated** from handler annotations and were not
   regenerated after O12/O13 removed the live `/api/v1/news/*` and `/twitter/*` serving routes. The live
   `/docs/` Swagger UI (served from the embedded spec) therefore still lists endpoints that 404. The
@@ -772,6 +810,15 @@ relying on them.
   someone runs `swag init` in `go/` and ships it on the next `release.sh`. Recorded in `ENDPOINTS.md`'s
   route-inventory banner so a reader is warned at the point of use.
 - **Action (next deploy, not launch-blocking for the API itself):** regenerate Swagger and redeploy.
+- **Fix (LAUNCH-GATE S1):** ran `swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal` in
+  `go/` (swag v1.16.4; go.mod pins the library at v1.16.6 — generated output is compatible and the regenerated
+  `docs.go` builds clean). `twitter` + `/api/v1/news` mentions in the spec went **6 → 0**; the only `news`
+  paths left are the live `/{sport}/{entityType}/{id}/news` + `/{sport}/leaderboard/news` (correct, kept).
+  Net −736 lines of dead route docs across `docs.go`/`swagger.json`/`swagger.yaml`. `go build ./cmd/api`
+  passes, so the embedded spec is valid. **Redeploy still pending** — the spec ships embedded in the binary,
+  so `/docs/` only updates on the next `release.sh` (NOT done autonomously: a prod restart while the parallel
+  Rust session + nightly crons are active is Scott's call). Closes the launch criterion "docs describe the
+  same system" for the Swagger surface once redeployed.
 
 ### F-046 — 🔴 LEAKED CREDENTIALS committed across repos + git history — SERIOUS (scope much wider than S17 thought)
 - **Found:** Session 17 · **Reassessed + expanded:** Session 18 (this cleanup session) · **Status:** 🟡 IN

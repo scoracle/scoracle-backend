@@ -13,7 +13,7 @@ see the appendix.
 
 | Phase | State |
 |---|---|
-| Phase 0 — clear launch-blocking carryovers | ⏳ |
+| Phase 0 — clear launch-blocking carryovers | ⏳ S1: F-043 ✅ + F-045 ✅ done; F-030 diagnosed+measured (grind gated on Scott); F-035/F-040/F-046 Scott-gated |
 | Phase 1 — Stats proof (× nba/nfl/football) | ⏳ |
 | Phase 2 — News proof (× nba/nfl/football) | ⏳ |
 | Phase 3 — Convergence proof (× nba/nfl/football) — after F-030 | ⏳ |
@@ -46,19 +46,25 @@ see the appendix.
 ## Phase 0 — clear the launch-blocking carryovers (gate prerequisites)
 
 - [ ] **F-030 (LAUNCH-GATE):** NFL (1072) + FOOTBALL (2147) current-season entities have ZERO
-      season-2025-stamped Sigils. Run a larger reconcile/backfill (`vibesynth -mode nightly` with a
-      higher `-limit`, or a dedicated `-mode backfill`) and verify broad current-season coverage.
-      Required before the Convergence proof + the "Sigil broadly populated" launch criterion. (Relates
-      to **F-028** — don't drop the legacy NULL-season transition allowance until rows are season-stamped.)
-- [ ] **F-045:** regenerate Swagger — `swag init` in `go/`, redeploy via `release.sh` — so `/docs/`
-      stops advertising the removed `/twitter/*` + `/api/v1/news/*` routes. Required for the
-      Operations-proof "docs describe the same system" criterion.
+      season-2025-stamped Sigils. **S1 (2026-06-24): diagnosed + measured, grind NOT run — gated on Scott.**
+      Live baseline = 3219 missing (NFL 1072/1072, FOOTBALL 2147/2147; NBA effectively done at ~278/283).
+      The nightly cron caps enqueue at `-limit 150` and the worker drains sigil LAST (starved behind the
+      transfers churn + vibe backlog), so neither path closes it in time. ~100s/synthesis under contention →
+      ~40–90 GPU-hrs (~1.5–4 nights) of a dedicated `vibesynth -mode backfill`. Synthesis path PROVEN
+      (NFL `team/1` probe → Score 42). Resolution is a multi-night GPU grind in a quiet window (pause the
+      Rust parity session; set F-035 first) — **Scott's operational call.** Runbook: `progress_docs/
+      2026-06-24_LAUNCH-GATE-S1.md` §F-030. Required before the Convergence proof + the "Sigil broadly
+      populated" launch criterion. (Relates to **F-028** — keep the legacy NULL-season allowance until stamped.)
+- [x] **F-045:** ✅ S1 regenerated `go/docs/*` via `swag init` (twitter/news mentions 6→0; builds clean).
+      **Redeploy via `release.sh` still pending** (spec is embedded; `/docs/` updates on next deploy — Scott).
+      Satisfies the "docs describe the same system" criterion for the Swagger surface once redeployed.
 - [ ] **F-035:** set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
-      (needs sudo — guide Scott via `! <cmd>`). The Go GPU governor is in-process only.
+      (needs sudo — guide Scott via `! <cmd>`). The Go GPU governor is in-process only. **Do this BEFORE the
+      F-030 grind** — it pins the cross-process serialization the multi-process Gemma grind relies on.
 - [ ] **F-040:** pick the off-SITE backup target (cloud/NAS) — mechanism is ready (`OFFHOST_BACKUP_DIR`;
       off-disk mirror already live). Scott's infra call; required for the Operations-proof off-host restore.
-- [ ] **F-043:** fix or remove the `docker-compose build: seed/` reference to the non-existent
-      `seed/Dockerfile` (minor).
+- [x] **F-043:** ✅ S1 added `seed/Dockerfile` (+ `.dockerignore`) — `docker compose build seed` now has a
+      target. Verified structurally (no Docker daemon on archbox to build-test); CI still builds `go/` only.
 - [ ] **F-046 🔴:** the credential-leak repair runs on its own track via `PASSWORD-LEAK-REPAIR.md`
       (rotation + history purge, gated on Scott). A launch blocker — coordinate, but don't fold it into
       a proof session.

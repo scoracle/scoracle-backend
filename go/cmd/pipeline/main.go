@@ -83,49 +83,59 @@ func main() {
 	}
 	defer pool.Close()
 
+	ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent) // shared GPU governor (Session 14)
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
+	ollama.SetKeepAlive(cfg.OllamaKeepAlive)
+	// Non-fatal (Session 14): a Gemma outage must not stop raw ingestion. The RSS sweep
+	// still runs (raw articles persist durably) and the derive drain's reachability
+	// pre-gate defers the Gemma stages — pending work accumulates and drains once Ollama
+	// returns. The run records a partial outcome rather than a hard failure.
 	if err := ollama.Ping(context.Background()); err != nil {
-		logger.Error("ollama unreachable", "error", err, "base_url", cfg.OllamaBaseURL)
-		os.Exit(1)
+		logger.Warn("ollama unreachable — proceeding (sweep ingests; derive deferred until Ollama returns)",
+			"error", err, "base_url", cfg.OllamaBaseURL)
 	}
 
 	os.Exit(runCorpus(pool, opts{
-		scrubber:         ml.NewNewsScrubber(pool, ollama),
-		transferGen:      ml.NewTransferGenerator(pool, ollama),
-		narrator:         ml.NewNewsNarrator(pool, ollama),
-		vibeGen:          ml.NewVibeGenerator(pool, ollama),
-		synthGen:         ml.NewSigilGenerator(pool, ollama),
-		gemmaTimeout:     cfg.OllamaTimeout,
-		sportArg:         *sport,
-		minArticles:      *minArticles,
-		rssLimit:         *rssLimit,
-		rssPauseMs:       *rssPauseMs,
-		scrubLimit:       *scrubLimit,
-		transferThrottle: *transferThrottleMs,
-		narrateThrottle:  *narrateThrottleMs,
-		vibeThrottle:     *vibeThrottleMs,
-		synthThrottle:    *synthThrottleMs,
-		limit:            *limit,
+		ollama:            ollama,
+		scrubber:          ml.NewNewsScrubber(pool, ollama),
+		transferGen:       ml.NewTransferGenerator(pool, ollama),
+		narrator:          ml.NewNewsNarrator(pool, ollama),
+		vibeGen:           ml.NewVibeGenerator(pool, ollama),
+		synthGen:          ml.NewSigilGenerator(pool, ollama),
+		gemmaTimeout:      cfg.OllamaTimeout,
+		gemmaShortTimeout: cfg.OllamaShortTimeout,
+		sportArg:          *sport,
+		minArticles:       *minArticles,
+		rssLimit:          *rssLimit,
+		rssPauseMs:        *rssPauseMs,
+		scrubLimit:        *scrubLimit,
+		transferThrottle:  *transferThrottleMs,
+		narrateThrottle:   *narrateThrottleMs,
+		vibeThrottle:      *vibeThrottleMs,
+		synthThrottle:     *synthThrottleMs,
+		limit:             *limit,
 	}, cfg.DatabaseURL, logger))
 }
 
 type opts struct {
-	scrubber         *ml.NewsScrubber
-	transferGen      *ml.TransferGenerator
-	narrator         *ml.NewsNarrator
-	vibeGen          *ml.VibeGenerator
-	synthGen         *ml.SigilGenerator
-	gemmaTimeout     time.Duration
-	sportArg         string
-	minArticles      int
-	rssLimit         int
-	rssPauseMs       int
-	scrubLimit       int
-	transferThrottle int
-	narrateThrottle  int
-	vibeThrottle     int
-	synthThrottle    int
-	limit            int
+	ollama            *ml.OllamaClient
+	scrubber          *ml.NewsScrubber
+	transferGen       *ml.TransferGenerator
+	narrator          *ml.NewsNarrator
+	vibeGen           *ml.VibeGenerator
+	synthGen          *ml.SigilGenerator
+	gemmaTimeout      time.Duration
+	gemmaShortTimeout time.Duration
+	sportArg          string
+	minArticles       int
+	rssLimit          int
+	rssPauseMs        int
+	scrubLimit        int
+	transferThrottle  int
+	narrateThrottle   int
+	vibeThrottle      int
+	synthThrottle     int
+	limit             int
 }
 
 // runCorpus runs the full daily pipeline and returns a process exit code
@@ -182,19 +192,21 @@ func runCorpus(pool *pgxpool.Pool, o opts, dbURL string, logger *slog.Logger) in
 
 	// Stages 2–5 — drain the durable queue in declared order via the shared drainer.
 	drainer := &derive.Drainer{
-		Pool:             pool,
-		TransferGen:      o.transferGen,
-		Narrator:         o.narrator,
-		VibeGen:          o.vibeGen,
-		SynthGen:         o.synthGen,
-		GemmaTimeout:     o.gemmaTimeout,
-		MinArticles:      o.minArticles,
-		TransferThrottle: o.transferThrottle,
-		NarrateThrottle:  o.narrateThrottle,
-		VibeThrottle:     o.vibeThrottle,
-		SynthThrottle:    o.synthThrottle,
-		Limit:            o.limit,
-		Logger:           logger,
+		Pool:              pool,
+		Ollama:            o.ollama,
+		TransferGen:       o.transferGen,
+		Narrator:          o.narrator,
+		VibeGen:           o.vibeGen,
+		SynthGen:          o.synthGen,
+		GemmaTimeout:      o.gemmaTimeout,
+		GemmaShortTimeout: o.gemmaShortTimeout,
+		MinArticles:       o.minArticles,
+		TransferThrottle:  o.transferThrottle,
+		NarrateThrottle:   o.narrateThrottle,
+		VibeThrottle:      o.vibeThrottle,
+		SynthThrottle:     o.synthThrottle,
+		Limit:             o.limit,
+		Logger:            logger,
 	}
 	res := drainer.DrainAll(ctx)
 	drainOK, drainFail, _ := res.Totals()
@@ -213,6 +225,13 @@ func runCorpus(pool *pgxpool.Pool, o opts, dbURL string, logger *slog.Logger) in
 	exit := 0
 	var runErr error
 	switch {
+	case res.Deferred:
+		// Ollama was unreachable, so the derive drain was deferred (no work claimed,
+		// no retries burned). Raw articles were still ingested by the sweep; the
+		// pending queue drains once Ollama returns. Report partial/retryable, not a
+		// hard failure (Session 14).
+		status, exit = jobrun.StatusPartial, 3
+		runErr = fmt.Errorf("derive deferred: Ollama unreachable (work pending; drains on recovery)")
 	case res.WholeStageFailure() != "":
 		status, exit = jobrun.StatusFailed, 1
 		runErr = fmt.Errorf("derive stage %q failed entirely (0 succeeded, %d failed)", res.WholeStageFailure(), drainFail)
@@ -236,6 +255,15 @@ func runCorpus(pool *pgxpool.Pool, o opts, dbURL string, logger *slog.Logger) in
 		"scrubbed", scrubbed, "drain_ok", drainOK, "drain_fail", drainFail,
 		"dead_letters", len(dead), "elapsed", time.Since(start).Round(time.Second))
 	return exit
+}
+
+// scrubTimeout is the per-article Gemma bound for the in-run scrub — the short-op
+// budget, falling back to the long budget if unset (Session 14).
+func scrubTimeout(o opts) time.Duration {
+	if o.gemmaShortTimeout > 0 {
+		return o.gemmaShortTimeout
+	}
+	return o.gemmaTimeout
 }
 
 // scrubFresh scrubs the freshly-ingested articles (Gemma ID-gate, persisting
@@ -264,7 +292,7 @@ func scrubFresh(ctx context.Context, pool *pgxpool.Pool, o opts, affected map[in
 		if ctx.Err() != nil {
 			break
 		}
-		sctx, cancel := context.WithTimeout(ctx, o.gemmaTimeout+10*time.Second)
+		sctx, cancel := context.WithTimeout(ctx, scrubTimeout(o))
 		_, err := o.scrubber.ScrubArticle(sctx, id, affected[id], false /* persist */)
 		cancel()
 		if err != nil {

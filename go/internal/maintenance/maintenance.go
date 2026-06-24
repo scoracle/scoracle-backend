@@ -22,8 +22,14 @@ type Config struct {
 	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
 	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
 	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
+	NewsScrubTimeout    time.Duration // per-article Gemma bound for the scrub sweep (Session 14)
 	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
 	PeerCohortInterval  time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
+
+	// Ollama is used only for the scrub sweep's reachability pre-gate (Session 14):
+	// when it's unreachable the sweep does its cheap SQL auto-vet but skips the Gemma
+	// phase, so a model outage never burns a tick failing every article. nil = no gate.
+	Ollama *ml.OllamaClient
 }
 
 // DefaultConfig returns sensible production defaults.
@@ -35,6 +41,7 @@ func DefaultConfig() Config {
 		AlltimeRankInterval: 24 * time.Hour,
 		NewsScrubInterval:   30 * time.Minute,
 		NewsScrubBatch:      15,
+		NewsScrubTimeout:    120 * time.Second,
 		StatsInterval:       24 * time.Hour,
 		PeerCohortInterval:  24 * time.Hour,
 	}
@@ -111,7 +118,7 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 		t := time.NewTicker(cfg.NewsScrubInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "news_scrub", func() {
-			scrubNewsLinks(ctx, pool, scrubber, cfg.NewsScrubBatch, logger)
+			scrubNewsLinks(ctx, pool, scrubber, cfg, logger)
 		})
 	}
 
@@ -375,7 +382,8 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 // us a good GPU citizen — Ollama serializes anyway, so a reactive vibe/transfer
 // spike just waits one call. A single article's error is logged and skipped; the
 // sweep never aborts mid-batch.
-func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsScrubber, batch int, logger *slog.Logger) {
+func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsScrubber, cfg Config, logger *slog.Logger) {
+	batch := cfg.NewsScrubBatch
 	if scrubber == nil || batch <= 0 {
 		return
 	}
@@ -393,6 +401,25 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 		logger.Warn("News scrub: auto-vet primaries failed", "error", err)
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("News scrub: auto-vetted primary links", "count", tag.RowsAffected())
+	}
+
+	// Gemma reachability pre-gate (FIRST-GPT-AUDIT Session 14): the cheap SQL auto-vet
+	// above always runs, but skip the Gemma disambiguation phase when Ollama is down so a
+	// model outage doesn't burn this tick failing every article. The backlog stays
+	// unscrubbed and is swept on a later tick once Ollama returns.
+	if cfg.Ollama != nil {
+		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := cfg.Ollama.Ping(pctx)
+		cancel()
+		if err != nil {
+			logger.Warn("News scrub: Ollama unreachable — skipping Gemma phase this tick", "error", err)
+			return
+		}
+	}
+
+	scrubTimeout := cfg.NewsScrubTimeout
+	if scrubTimeout <= 0 {
+		scrubTimeout = 120 * time.Second
 	}
 
 	// Phase 2 — collect the newest candidate-rich articles (one row per article;
@@ -437,8 +464,16 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 		if ctx.Err() != nil {
 			break
 		}
-		res, err := scrubber.ScrubArticle(ctx, j.id, j.sport, false /* persist */)
+		sctx, cancel := context.WithTimeout(ctx, scrubTimeout)
+		res, err := scrubber.ScrubArticle(sctx, j.id, j.sport, false /* persist */)
+		cancel()
 		if err != nil {
+			// Ollama went down mid-sweep — stop hammering it; the rest of the backlog
+			// is swept on a later tick once it returns (Session 14).
+			if ml.IsUnavailable(err) {
+				logger.Warn("News scrub: Ollama unreachable mid-sweep — stopping", "error", err)
+				break
+			}
 			failed++
 			logger.Warn("News scrub: article failed", "article_id", j.id, "sport", j.sport, "error", err)
 			continue

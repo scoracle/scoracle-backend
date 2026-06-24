@@ -171,6 +171,7 @@ func (s *SigilGenerator) Generate(ctx context.Context, req SigilRequest) (*Sigil
 		System:      sigilSystemPrompt,
 		Temperature: 0.6,
 		NumPredict:  1000,
+		Op:          "sigil",
 	})
 	if err != nil {
 		return nil, fmt.Errorf("gemma generate: %w", err)

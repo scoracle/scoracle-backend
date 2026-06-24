@@ -42,9 +42,10 @@ const (
 // StartWorker opens a dedicated connection LISTEN'ing on pipeline_work_ready and
 // drains the durable derive queue (drainer) on wake-up, on startup, and on the
 // safety-net interval. Reconnects automatically on connection loss. Blocks until ctx
-// is cancelled. Intended to be called with `go`. The caller should only start this
-// when the drainer's generators are available (Ollama reachable) — otherwise every
-// claimed item would fail and burn its retries.
+// is cancelled. Intended to be called with `go`. It is safe to start even when Ollama
+// is unreachable (FIRST-GPT-AUDIT Session 14): DrainAll reachability-gates each cycle
+// and DEFERS — claiming nothing and burning no retries — until Ollama returns, so the
+// worker no longer needs the generators to be confirmed-available at startup.
 func StartWorker(ctx context.Context, dbURL string, drainer *Drainer, interval time.Duration, logger *slog.Logger) {
 	if interval <= 0 {
 		interval = 30 * time.Second

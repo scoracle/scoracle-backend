@@ -73,7 +73,9 @@ func main() {
 	}
 	defer pool.Close()
 
+	ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent) // shared GPU governor (Session 14)
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
+	ollama.SetKeepAlive(cfg.OllamaKeepAlive) // keep the model warm across entities
 	// Only the modes that actually call Gemma need Ollama. nightly/reconcile only
 	// enqueues durable work and restamp is a pure DB vocab migration — both run DB-only.
 	needsOllama := *mode == "single" || *mode == "backfill"

@@ -94,10 +94,6 @@ func main() {
 	appCache := cache.New(cfg.CacheEnabled)
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
 
-	// synthGen is set inside the dbPool block when Ollama is reachable; stays nil
-	// otherwise. It feeds the percentile listener's composite_shift Sigil trigger.
-	var synthGen *ml.SigilGenerator
-
 	// deriveDone is closed when the real-time derive worker has fully returned,
 	// including settling (handing back) its leased pipeline_work rows on a graceful
 	// shutdown (F-018). nil when the worker never started; the shutdown path waits on
@@ -114,25 +110,29 @@ func main() {
 			logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
 		}
 
-		// Gemma generators, gated on Ollama being reachable at boot. They stay nil
-		// when Ollama is unreachable — which disables the derive worker + the
-		// maintenance scrub (degraded mode) while the rest of the API keeps serving.
-		var narrator *ml.NewsNarrator
-		var vibeGen *ml.VibeGenerator
-		var transferGen *ml.TransferGenerator
-		var newsScrubber *ml.NewsScrubber
+		// Gemma generators (FIRST-GPT-AUDIT Session 14): built UNCONDITIONALLY — no
+		// longer gated on a one-time boot ping. If Ollama is unreachable now, the derive
+		// worker's per-drain reachability gate DEFERS work (claims nothing, burns no
+		// retries) and the maintenance scrub skips its Gemma phase; both resume the moment
+		// Ollama returns, with NO API restart (F-014). SetGemmaConcurrency installs the
+		// shared GPU governor that bounds the worker + scrub + any in-process Gemma together.
+		ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent)
 		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
+		ollamaCli.SetKeepAlive(cfg.OllamaKeepAlive)
+		narrator := ml.NewNewsNarrator(dbPool, ollamaCli)
+		vibeGen := ml.NewVibeGenerator(dbPool, ollamaCli)
+		transferGen := ml.NewTransferGenerator(dbPool, ollamaCli)
+		synthGen := ml.NewSigilGenerator(dbPool, ollamaCli)
+		newsScrubber := ml.NewNewsScrubber(dbPool, ollamaCli)
+		// Non-gating boot probe — operator visibility only; it changes no behavior.
 		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
 		if err := ollamaCli.Ping(pingCtx); err != nil {
-			logger.Warn("Gemma workers disabled (Ollama unreachable)",
+			logger.Warn("Ollama unreachable at boot — derive worker will defer work until it returns (no restart needed)",
 				"base_url", cfg.OllamaBaseURL, "error", err)
 		} else {
-			logger.Info("Gemma workers enabled", "model", cfg.OllamaModel)
-			narrator = ml.NewNewsNarrator(dbPool, ollamaCli)
-			vibeGen = ml.NewVibeGenerator(dbPool, ollamaCli)
-			transferGen = ml.NewTransferGenerator(dbPool, ollamaCli)
-			synthGen = ml.NewSigilGenerator(dbPool, ollamaCli)
-			newsScrubber = ml.NewNewsScrubber(dbPool, ollamaCli)
+			logger.Info("Ollama reachable",
+				"model", cfg.OllamaModel, "max_concurrent", cfg.OllamaMaxConcurrent,
+				"keep_alive", cfg.OllamaKeepAlive, "short_timeout", cfg.OllamaShortTimeout, "long_timeout", cfg.OllamaTimeout)
 		}
 		pingCancel()
 
@@ -147,23 +147,24 @@ func main() {
 		// vetted-transition trigger), and on startup + a safety-net interval so a
 		// missed NOTIFY never costs correctness. Replaces the old news-volume +
 		// transfer LISTEN workers that ran Gemma directly off a transient NOTIFY.
-		// Started only when the generators exist — otherwise every claimed item would
-		// fail and burn its retries; durable work simply waits for the next start.
-		switch {
-		case !cfg.DeriveWorkerEnabled:
+		// Started whenever it is enabled — Ollama availability is NO LONGER a gate
+		// (Session 14): the drainer's reachability pre-gate defers work while Ollama is
+		// down (no claims, no burned retries) and resumes automatically when it returns,
+		// so the worker no longer needs an API restart to come alive after an outage.
+		if !cfg.DeriveWorkerEnabled {
 			logger.Info("Real-time derive worker disabled (DERIVE_WORKER_ENABLED=false)")
-		case vibeGen == nil:
-			logger.Warn("Real-time derive worker disabled (Ollama unreachable) — durable work drains on next start with Ollama up")
-		default:
+		} else {
 			drainer := &derive.Drainer{
-				Pool:         dbPool,
-				TransferGen:  transferGen,
-				Narrator:     narrator,
-				VibeGen:      vibeGen,
-				SynthGen:     synthGen,
-				GemmaTimeout: cfg.OllamaTimeout,
-				MinArticles:  cfg.TransferMinArticles,
-				Logger:       logger,
+				Pool:              dbPool,
+				Ollama:            ollamaCli,
+				TransferGen:       transferGen,
+				Narrator:          narrator,
+				VibeGen:           vibeGen,
+				SynthGen:          synthGen,
+				GemmaTimeout:      cfg.OllamaTimeout,
+				GemmaShortTimeout: cfg.OllamaShortTimeout,
+				MinArticles:       cfg.TransferMinArticles,
+				Logger:            logger,
 			}
 			deriveDone = make(chan struct{})
 			go func() {
@@ -177,6 +178,8 @@ func main() {
 		mc := maintenance.DefaultConfig()
 		mc.NewsScrubInterval = cfg.NewsScrubInterval
 		mc.NewsScrubBatch = cfg.NewsScrubBatch
+		mc.NewsScrubTimeout = cfg.OllamaShortTimeout // per-article Gemma bound (Session 14)
+		mc.Ollama = ollamaCli                        // reachability pre-gate for the scrub sweep
 		if !cfg.NewsScrubEnabled {
 			mc.NewsScrubInterval = 0 // disable the scrub ticker
 		}

@@ -18,7 +18,9 @@
 //! its `sigil` convergence BEFORE the work row is completed, so a crash in between
 //! re-runs vibe (idempotent) rather than dropping the sigil.
 
-use crate::ollama::{GenerateOptions, OllamaClient};
+use crate::harness::{Harness, Parser, Provenance};
+use crate::ollama::GenerateOptions;
+use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::util::truncate;
 use crate::work::{self, Item, Stage};
@@ -92,6 +94,11 @@ pub struct VibeOutput {
     pub prompt_version: &'static str,
     /// The exact user prompt sent to the model; `None` for the no-corpus marker.
     pub built_prompt: Option<String>,
+    /// The exact Ollama request body that was POSTed — captured by `extract` from the same
+    /// backend + opts the call used (single source of truth), so it can't drift from what was
+    /// sent. `None` for the no-corpus marker (no model call). The production persist ignores
+    /// it; the parity harness records it as the jsonb axis of the temp-0 diff.
+    pub request_body: Option<serde_json::Value>,
     pub skipped_no_corpus: bool,
 }
 
@@ -101,6 +108,20 @@ pub struct VibeOutput {
 /// this only keeps the queue row's reopen/dedupe sane.
 pub fn vibe_version(out: &VibeOutput) -> String {
     format!("s{}", out.sentiment.unwrap_or(0))
+}
+
+impl VibeOutput {
+    /// provenance lifts the moat fields into the shared `Provenance` envelope (Plan §1.6).
+    /// Vibe does not debounce, so `input_hash` is `None`; the scored row and the no-corpus
+    /// marker produce the same envelope shape, differing only in the values they carry.
+    fn provenance(&self) -> Provenance {
+        Provenance {
+            model_version: self.model.clone(),
+            prompt_version: self.prompt_version,
+            input_ids: self.input_news_ids.clone(),
+            input_hash: None,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +164,11 @@ pub async fn load_latest_narratives(
     let mut ids: Vec<i64> = Vec::new();
     for (title, body, impact, mut nids) in rows {
         ids.append(&mut nids);
-        narratives.push(Narrative { title, body, impact });
+        narratives.push(Narrative {
+            title,
+            body,
+            impact,
+        });
     }
     Ok((narratives, dedupe_i64(ids)))
 }
@@ -397,19 +422,44 @@ fn parse_sentiment(raw: &str) -> Result<i32> {
     }
 }
 
+/// VibeReply is the validated two-line v6 answer — the SCORE (1-100) and the one-line felt
+/// read. The vibe Extract output shape (the `T` in `Parser<T>` / `Extracted<T>`).
+#[derive(Clone, Debug)]
+pub struct VibeReply {
+    pub sentiment: i32,
+    pub vibe_prompt: String,
+}
+
+/// VibeParser is the vibe stage's `Parser` plug-in: it wraps `parse_sentiment_and_prompt`
+/// (the byte-identical SCORE/VIBE parse) behind the capability library's `Parser<T>` seam.
+/// It never returns the fail-closed `Ok(None)` — vibe's only fail-closed path is the
+/// no-corpus short-circuit *before* the model call (a NULL marker), so an unparseable reply
+/// is a genuine failure → `Err` → the work item backs off, exactly as the Go stage does.
+pub struct VibeParser;
+
+impl Parser<VibeReply> for VibeParser {
+    fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
+        let (sentiment, vibe_prompt) = parse_sentiment_and_prompt(raw)
+            .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
+        Ok(Some(VibeReply {
+            sentiment,
+            vibe_prompt,
+        }))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // The core generate + the production handler.
 // ---------------------------------------------------------------------------
 
-/// generate_vibe runs the full vibe derivation for one entity at the given temperature
-/// and returns the un-persisted result. Shared by the production handler (temp 0.7 → it
-/// writes vibe_scores + enqueues sigil) and the parity harness (temp 0 → it writes the
-/// shadow table). Reproduces vibe.go's `Generate` minus persistence: validate, read
-/// narratives + heat, short-circuit to the no-corpus marker when both are empty, else
-/// build the prompt, call the model, parse.
+/// generate_vibe runs the full vibe derivation for one entity at the given temperature and
+/// returns the un-persisted result. Shared by the production handler (temp 0.7 → it writes
+/// vibe_scores + enqueues sigil) and the parity harness (temp 0 → it writes the shadow
+/// table). This is the L1 composition — `route(EmotionalNews) + extract(VibeParser)` — over
+/// the same byte-identical loaders + prompt: validate, read narratives + heat, short-circuit
+/// to the no-corpus marker when both are empty, else build the prompt and `extract`.
 pub async fn generate_vibe(
-    pool: &PgPool,
-    ollama: &OllamaClient,
+    hx: &Harness,
     entity_type: &str,
     entity_id: i32,
     entity_name: &str,
@@ -423,19 +473,21 @@ pub async fn generate_vibe(
     let sport = sport_raw.to_uppercase();
 
     let (narratives, news_ids) =
-        load_latest_narratives(pool, entity_type, entity_id, &sport).await?;
-    let heat = load_transfer_heat(pool, entity_type, entity_id, &sport).await?;
+        load_latest_narratives(&hx.pool, entity_type, entity_id, &sport).await?;
+    let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, &sport).await?;
 
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
-    // NULL-sentiment marker (handled by the caller); the read path returns "no data".
+    // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
+    // model call is made, so the marker's model_version is the role's configured model.
     if narratives.is_empty() && heat.is_empty() {
         return Ok(VibeOutput {
             sentiment: None,
             vibe_prompt: None,
             input_news_ids: Vec::new(),
-            model: ollama.model().to_string(),
+            model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
             prompt_version: VIBE_PROMPT_VERSION,
             built_prompt: None,
+            request_body: None,
             skipped_no_corpus: true,
         });
     }
@@ -448,25 +500,32 @@ pub async fn generate_vibe(
         json_mode: false,
     };
 
-    let gen = ollama
-        .generate(&prompt, &opts)
-        .await
-        .context("gemma generate")?;
+    // vibe = route(EmotionalNews) + extract(VibeParser). The fail-closed contract lives in
+    // the parser: an unparseable reply surfaces as its `Err` (item fails + backs off), and
+    // `extract` records the exact wire body it sent.
+    let extracted = hx
+        .extract(Role::EmotionalNews, &prompt, &opts, &VibeParser)
+        .await?;
 
-    let (sentiment, vibe_prompt) = parse_sentiment_and_prompt(&gen.response)
-        .with_context(|| format!("parse sentiment (raw={:?})", truncate(&gen.response, 120)))?;
+    // VibeParser only ever returns `Ok(Some)` on success (vibe's no-corpus marker is the
+    // pre-model short-circuit above, not a parser fail-closed), so a `None` here would be a
+    // contract violation — fail the item rather than fabricate a row.
+    let reply = extracted
+        .value
+        .ok_or_else(|| anyhow!("vibe: parser returned no value"))?;
 
     Ok(VibeOutput {
-        sentiment: Some(sentiment),
-        vibe_prompt: if vibe_prompt.is_empty() {
+        sentiment: Some(reply.sentiment),
+        vibe_prompt: if reply.vibe_prompt.is_empty() {
             None
         } else {
-            Some(vibe_prompt)
+            Some(reply.vibe_prompt)
         },
         input_news_ids: news_ids,
-        model: gen.model,
+        model: extracted.model,
         prompt_version: VIBE_PROMPT_VERSION,
-        built_prompt: Some(prompt),
+        built_prompt: Some(extracted.built_prompt),
+        request_body: Some(extracted.request_body),
         skipped_no_corpus: false,
     })
 }
@@ -481,6 +540,9 @@ async fn persist_to_vibe_scores(
     sport: &str,
     out: &VibeOutput,
 ) -> Result<()> {
+    // Route the moat fields through the shared Provenance envelope (vibe does not debounce,
+    // so input_hash is None); the typed INSERT stays the stage's own (Postgres-as-serializer).
+    let prov = out.provenance();
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
     sqlx::query(
         r#"
@@ -497,9 +559,9 @@ async fn persist_to_vibe_scores(
     .bind(sport)
     .bind(sentiment)
     .bind(out.vibe_prompt.as_deref())
-    .bind(out.input_news_ids.as_slice())
-    .bind(out.model.as_str())
-    .bind(out.prompt_version)
+    .bind(prov.input_ids.as_slice())
+    .bind(prov.model_version.as_str())
+    .bind(prov.prompt_version)
     .execute(pool)
     .await
     .context("persist vibe")?;
@@ -530,13 +592,13 @@ impl StageHandler for VibeHandler {
         Stage::Vibe
     }
 
-    async fn handle(&self, pool: &PgPool, ollama: &OllamaClient, item: &Item) -> Result<()> {
+    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         // nameOf: the name lookup uses the queue's raw sport value (drainVibe).
-        let name = lookup_entity_name(pool, &item.entity_type, item.entity_id, &item.sport).await?;
+        let name =
+            lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport).await?;
 
         let out = generate_vibe(
-            pool,
-            ollama,
+            hx,
             &item.entity_type,
             item.entity_id,
             &name,
@@ -546,7 +608,7 @@ impl StageHandler for VibeHandler {
         .await?;
 
         let sport = item.sport.to_uppercase();
-        persist_to_vibe_scores(pool, item, &sport, &out).await?;
+        persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
 
         // Enqueue the sigil convergence BEFORE completing (the work row is completed by
         // the worker only after this returns Ok). A crash between persist and complete
@@ -560,7 +622,7 @@ impl StageHandler for VibeHandler {
             input_version: Some(vibe_version(&out)),
             attempts: 0,
         };
-        if let Err(e) = work::enqueue(pool, &sig).await {
+        if let Err(e) = work::enqueue(&hx.pool, &sig).await {
             warn!(
                 entity_type = %item.entity_type,
                 entity_id = item.entity_id,
@@ -619,5 +681,22 @@ mod tests {
     #[test]
     fn dedupes_preserving_order() {
         assert_eq!(dedupe_i64(vec![3, 1, 3, 2, 1]), vec![3, 1, 2]);
+    }
+
+    #[test]
+    fn vibe_parser_wraps_valid_reply_as_some() {
+        let reply = VibeParser
+            .parse("SCORE: 73\nVIBE: Quietly surging into the playoff race.")
+            .unwrap()
+            .expect("a valid reply is Some, never the fail-closed None");
+        assert_eq!(reply.sentiment, 73);
+        assert_eq!(reply.vibe_prompt, "Quietly surging into the playoff race.");
+    }
+
+    #[test]
+    fn vibe_parser_errors_without_digits() {
+        // No digit anywhere ⇒ Err (retry/back-off), NOT Ok(None): vibe's only fail-closed
+        // path is the pre-model no-corpus marker, never an unparseable reply.
+        assert!(VibeParser.parse("no number here").is_err());
     }
 }

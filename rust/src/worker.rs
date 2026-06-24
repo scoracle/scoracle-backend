@@ -11,7 +11,7 @@
 //! LISTENs. It performs zero writes, so it is safe to run against any DB while
 //! you review the foundation.
 
-use crate::ollama::OllamaClient;
+use crate::harness::Harness;
 use crate::stage::StageHandler;
 use crate::work::{self, BACKOFF, CLAIM_BATCH, MAX_ATTEMPTS};
 use anyhow::Result;
@@ -23,8 +23,12 @@ use tracing::{debug, error, info, warn};
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
 
 pub struct Worker {
+    // The queue host owns the pool directly for its claim/complete/fail/LISTEN mechanics
+    // (platform plumbing, not cognition), and owns the `Harness` it hands to each stage
+    // (the capability context — same Arc-backed pool inside, plus the model router). The
+    // proven drain loop is unchanged; only the per-item `handle` call passes the harness.
     pool: PgPool,
-    ollama: OllamaClient,
+    harness: Harness,
     handlers: Vec<Box<dyn StageHandler>>,
     safety_net: Duration,
     stale_lease: Duration,
@@ -32,15 +36,15 @@ pub struct Worker {
 
 impl Worker {
     pub fn new(
-        pool: PgPool,
-        ollama: OllamaClient,
+        harness: Harness,
         handlers: Vec<Box<dyn StageHandler>>,
         safety_net: Duration,
         stale_lease: Duration,
     ) -> Self {
+        let pool = harness.pool.clone();
         Self {
             pool,
-            ollama,
+            harness,
             handlers,
             safety_net,
             stale_lease,
@@ -125,7 +129,7 @@ impl Worker {
                 }
                 debug!(%stage, n = items.len(), cause, "draining batch");
                 for item in &items {
-                    match handler.handle(&self.pool, &self.ollama, item).await {
+                    match handler.handle(&self.harness, item).await {
                         Ok(()) => {
                             if let Err(e) = work::complete(&self.pool, item).await {
                                 error!(error = %e, %stage, "complete failed");
@@ -134,7 +138,8 @@ impl Worker {
                         Err(e) => {
                             warn!(error = %e, %stage, entity = item.entity_id, "handler failed; backing off");
                             if let Err(e2) =
-                                work::fail(&self.pool, item, &e.to_string(), BACKOFF, MAX_ATTEMPTS).await
+                                work::fail(&self.pool, item, &e.to_string(), BACKOFF, MAX_ATTEMPTS)
+                                    .await
                             {
                                 error!(error = %e2, %stage, "fail bookkeeping failed");
                             }

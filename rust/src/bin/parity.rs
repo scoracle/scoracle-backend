@@ -18,12 +18,12 @@
 //!   parity player:237:NBA team:14:NBA   # explicit entities (entity_type:id:sport)
 
 use anyhow::{anyhow, Context, Result};
-use scoracle_scrubber::config::Config;
-use scoracle_scrubber::ollama::{GenerateOptions, OllamaClient};
-use scoracle_scrubber::vibe::{
+use scoracle_cognition::config::Config;
+use scoracle_cognition::ollama::{GenerateOptions, OllamaClient};
+use scoracle_cognition::vibe::{
     generate_vibe, VibeOutput, VIBE_NUM_PREDICT, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
-use scoracle_scrubber::{db, vibe};
+use scoracle_cognition::{db, vibe};
 use sqlx::PgPool;
 
 /// The explicit, deterministic temperature the parity diff is taken at.

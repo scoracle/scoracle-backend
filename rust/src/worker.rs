@@ -1,4 +1,4 @@
-//! The scrubber worker — a durable `pipeline_work` consumer.
+//! The Cognition Harness worker — a durable `pipeline_work` consumer.
 //!
 //! On start and on every wakeup it recovers stale leases, then drains each
 //! registered stage to empty. Wakeups come from a Postgres LISTEN on
@@ -50,7 +50,7 @@ impl Worker {
     /// Run until ctrl-c. Drains on start, on NOTIFY, and on the safety-net tick.
     pub async fn run(&self) -> Result<()> {
         let stages: Vec<&'static str> = self.handlers.iter().map(|h| h.stage().as_str()).collect();
-        info!(?stages, "scrubber worker starting");
+        info!(?stages, "cognition harness worker starting");
         if stages.is_empty() {
             warn!("no stage handlers registered — worker idles (Phase 0 scaffold)");
         }

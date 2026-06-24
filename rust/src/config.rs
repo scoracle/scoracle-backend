@@ -1,5 +1,5 @@
 //! Environment configuration. Variable names mirror the Go backend
-//! (`go/internal/config/config.go`) so the Rust scrubber and the Go API read
+//! (`go/internal/config/config.go`) so the Rust Cognition Harness and the Go API read
 //! the same `.env.local`. DB URL precedence matches Go: DATABASE_PRIVATE_URL
 //! wins over DATABASE_URL.
 
@@ -16,7 +16,7 @@ pub struct Config {
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,
     /// A 'running' row idle longer than this is recovered to 'pending'. Aligned with
-    /// the Go `derive.StaleLease` (30 min) so the Rust scrubber and the Go drainer
+    /// the Go `derive.StaleLease` (30 min) so the Rust Cognition Harness and the Go drainer
     /// agree on what counts as a crashed lease when they share the queue — longer than
     /// any single item's processing budget, so a slow-but-alive worker is never stolen.
     pub stale_lease: Duration,
@@ -30,13 +30,13 @@ impl Config {
 
         Ok(Self {
             database_url,
-            db_max_conns: env_int("SCRUBBER_DB_MAX_CONNS", 5) as u32,
+            db_max_conns: env_int("COGNITION_DB_MAX_CONNS", 5) as u32,
             ollama_base_url: env_or("OLLAMA_BASE_URL", "http://localhost:11434"),
             ollama_model: env_or("OLLAMA_MODEL", "gemma4:e4b"),
             ollama_timeout: Duration::from_secs(env_int("OLLAMA_TIMEOUT_SECONDS", 60) as u64),
-            safety_net: Duration::from_secs(env_int("SCRUBBER_SAFETY_NET_SECONDS", 30) as u64),
+            safety_net: Duration::from_secs(env_int("COGNITION_SAFETY_NET_SECONDS", 30) as u64),
             // 1800s = 30 min = Go derive.StaleLease.
-            stale_lease: Duration::from_secs(env_int("SCRUBBER_STALE_LEASE_SECONDS", 1800) as u64),
+            stale_lease: Duration::from_secs(env_int("COGNITION_STALE_LEASE_SECONDS", 1800) as u64),
         })
     }
 }

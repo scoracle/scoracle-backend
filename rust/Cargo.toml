@@ -1,16 +1,16 @@
 [package]
-name = "scoracle-scrubber"
+name = "scoracle-cognition"
 version = "0.0.0"
 edition = "2021"
 publish = false
-description = "Scoracle scrubbing layer: durable pipeline_work queue consumer + Ollama model router. Phase 0 scaffold — reusable queue/Ollama clients + LISTEN loop, no stage logic yet."
+description = "Scoracle Cognition Harness: durable pipeline_work queue consumer + Ollama model router — the Rust LLM-derivation (cognition) layer. Capability library + per-stage handlers."
 
 [lib]
-name = "scoracle_scrubber"
+name = "scoracle_cognition"
 path = "src/lib.rs"
 
 [[bin]]
-name = "scoracle-scrubber"
+name = "scoracle-cognition"
 path = "src/main.rs"
 
 # Offline vibe parity harness (Phase 1). Writes ONLY vibe_scores_shadow; never claims

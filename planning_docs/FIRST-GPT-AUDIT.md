@@ -804,6 +804,29 @@ configuration, or a nightly generation schedule.
 
 # Session 13 — Make jobs observable, non-overlapping, and correctly failing
 
+> **✅ COMPLETE — deployed live 2026-06-23 (archbox).** Code `c35e1ba`. Migration **106**
+> `106_pipeline_runs` applied per-file (F-006; next free = 107). Batch jobs are now observable,
+> non-overlapping, and correctly failing: an operator can tell whether last night's work completed from
+> `SELECT * FROM pipeline_runs_latest` instead of grepping logs. **`pipeline_runs`** (additive) records
+> one row per `cmd/pipeline|statcommentary|vibesynth` run (commit, outcome, attempted/succeeded/skipped/
+> failed counts, summarized error). **`internal/jobrun`** adds the per-job advisory lock
+> (`pg_try_advisory_lock(hashtext('scoracle.job.'+job))`) — F-012 RESOLVED: a second run (or a manual run
+> racing the cron) records a `skipped` row and exits 0; the in-API worker deliberately does NOT take it
+> (SKIP LOCKED already disjoints cron-vs-worker). **Exit codes:** `0` success/overlap-skip · `3` partial
+> (retryable item failures) · `1` enumeration/whole-stage failure OR dead-lettered work remains (F-033).
+> **F-018 RESOLVED:** the derive drain settles its leased rows on a context detached from the drain — a
+> graceful shutdown hands the leased-but-unprocessed batch back to `pending` (new `work.Requeue`) instead
+> of stranding it `running` for the 30m stale lease; `cmd/api` waits (≤8s) for the worker to settle before
+> the pool closes. **Dead-letter report:** `go run ./cmd/work dead-letters` lists `pipeline_work` rows
+> parked past the retry cap AND fixtures at `seed_attempts >= cap` — it immediately surfaced 2 pre-fix
+> empty-array narratives stragglers (F-032). Verified: build/vet/gofmt clean; `work` integration tests
+> (incl. `Requeue`/`DeadLetters`) + advisory-lock cross-session exclusion + `pipeline_runs` round-trip pass
+> on a throwaway PG; F-025 prepared-statement boot OK on live; deployed via `release.sh` (F-016); 1 orphan
+> requeued post-deploy (F-018, the last time — the fix is now live). Progress doc:
+> `progress_docs/2026-06-23_first-gpt-audit-session-13-observable-jobs.md`. Findings: **F-012**, **F-018**
+> RESOLVED; **F-031** updated (next free = 107); **F-032** (pre-fix narratives dead-letters → operator
+> requeue), **F-033** (pipeline exit-1 keys off global dead-letter state — by design) added.
+
 ## Problems
 
 - Pipeline, stat-commentary, and Sigil jobs count failures but frequently exit zero.

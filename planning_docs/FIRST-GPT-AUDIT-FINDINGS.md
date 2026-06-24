@@ -773,36 +773,64 @@ relying on them.
   route-inventory banner so a reader is warned at the point of use.
 - **Action (next deploy, not launch-blocking for the API itself):** regenerate Swagger and redeploy.
 
-### F-046 — 🔴 LEAKED Postgres PASSWORD committed across the repo + git history — SERIOUS, needs widespread cleanup
-- **Found:** Session 17 · **Status:** 🔴 OPEN — working-tree copies scrubbed (S17); **rotation + history purge + untracking still TODO** (treat the password as COMPROMISED).
-- A real local Postgres password (literal withheld here — it is in git history; do NOT re-add it to any
-  tracked file, incl. this ledger — the auto-mode classifier correctly blocked an S17 push that did) was
-  committed in **two** tracked locations:
-  1. **`.claude/settings.local.json`** — baked into **11 allowlisted Bash permission rules**
-     (`Bash(PGPASSWORD=… psql …)`, incl. a broad `psql *` grant). This file is **tracked** and `.claude`
-     is **not** in `.gitignore`, so ad-hoc permission grants (which is how this leaked — an allowlisted
-     `PGPASSWORD=… psql` command) get committed. Introduced `0ab6496`.
-  2. **`planning_docs/SELF_HOSTING_OPS.md`** — two example commands (`pg_dump`/`pg_restore`). Introduced
-     `374ba6a`. Also used the stale repo path `/home/sheneveld/scoracle-data` (live root is
-     `/home/sheneveld/scoracle/scoracle-backend`).
-- **Scope confirmed (S17, redacted searches):** `git log -S` shows the literal across **3 commits**
-  (`374ba6a`, `0ab6496`, and `a2038a1` = the S17 `SELF_HOSTING_OPS` scrub) touching those 2 paths. The
-  sibling `scoracleWiki` repo and the rest of the `scoracle` tree are **clean**. Frontend / iOS repos NOT
-  checked (not in these working dirs) — audit them in the cleanup.
-- **Done in S17 (working tree only):** scrubbed `SELF_HOSTING_OPS.md` (→ `PGPASSWORD`-from-env + a
-  historical banner) and `.claude/settings.local.json` (11 occurrences → `REDACTED_ROTATE_ME`). This
-  removes the **live** credential from the tracked tree but **does NOT touch git history**.
-- **Widespread cleanup still required (dedicated session + Scott — NOT done):**
-  1. **ROTATE the Postgres password** on archbox (and anywhere it's reused). This is the ONLY real fix —
-     a scrub can't un-leak history; assume the value is compromised. Update `.env.local` on every machine.
-  2. **Purge from git history** (`git filter-repo` / BFG over the 2 paths) then **force-push** — DISRUPTIVE:
-     rewrites shared history across **archbox + archx220**; both machines must re-clone or hard-reset, and
-     any open work must be coordinated first. Scott's call on timing.
-  3. **Stop tracking local settings:** add `.claude/settings.local.json` to `.gitignore` and
-     `git rm --cached` it, so accruing ad-hoc permission grants never leak a secret again. (Coordinate with
-     archx220's local copy — a bare `git rm --cached` + pull can drop that machine's settings.)
-  4. **Audit reuse:** check the frontend + iOS repos and any CI/secret stores for the same literal.
-- **Action (Scott / next cleanup session):** rotate first (closes the actual risk), then untrack + history-purge.
+### F-046 — 🔴 LEAKED CREDENTIALS committed across repos + git history — SERIOUS (scope much wider than S17 thought)
+- **Found:** Session 17 · **Reassessed + expanded:** Session 18 (this cleanup session) · **Status:** 🟡 IN
+  PROGRESS — full working-tree scrub now COMPLETE + leak vector stopped (untracked + gitignored), all scope
+  mapped; **rotation/revocation + history purge across 3 repos still TODO (gated on Scott).** Treat ALL of
+  the values below as COMPROMISED.
+- ⚠️ **Handling rule:** none of these literals appear in this ledger or any tracked file — the auto-mode
+  classifier correctly blocked an S17 push that reproduced one. A future session re-derives them with
+  redacted greps (see the progress doc) and must NEVER print or commit a literal.
+- **S18 correction — it is NOT "one local Postgres password in 3 commits / 2 paths." It is FOUR distinct
+  secrets across 3 repos and (in this repo) 3 paths incl. a historically-committed `.env.local`:**
+  1. **Neon CLOUD Postgres password** (`neondb_owner@…neon.tech`, legacy Python era; ≥3 endpoints —
+     `ep-morning-waterfall`, `ep-divine-term`, `ep-plain-bonus`). Internet-reachable → **highest external
+     risk.** In `.claude/settings.local.json` (10 conn-string + `PGPASSWORD=` rules) **and** the historical
+     `.env.local` (`NEON_DATABASE_URL_V2`). `git log -S` = **7 commits** here.
+  2. **Local archbox `scoracle` Postgres password** (the CURRENT prod DB password). In
+     `.claude/settings.local.json` (`PGPASSWORD=… psql -h localhost -U scoracle …`, incl. a broad `psql *`
+     grant) and `planning_docs/SELF_HOSTING_OPS.md`. `git log -S` = **4 commits**. This is the one S17 found.
+  3. **`API_SPORTS_KEY`** (api-sports.io provider key; CLAUDE.md still lists it as the seeder "third key" —
+     **confirm if active before deciding revoke-vs-rotate**). In historical `.env.local`. **4 commits** here.
+  4. **`TWITTER_BEARER_TOKEN`** (118-char X API token). In historical `.env.local`. **2 commits**. X was
+     decommissioned (O15) so the integration is gone — still **revoke** the token. (`TWITTER_JOURNALIST_LIST_ID`
+     also leaked — config, not a secret.)
+- **`.env.local` was TRACKED in the legacy era** (added in the Python/Neon era, deleted in `205c173`
+  "credential exposure"); it survives in history with all of secrets 1/3/4. It is gitignored now (good),
+  but history is the live leak.
+- **Cross-repo scope (S18, redacted scans of every `.git` under `/home/sheneveld`):**
+  - `scoracle-backend` — all 4 secrets in history; 3 paths (`.env.local`, `.claude/settings.local.json`,
+    `planning_docs/SELF_HOSTING_OPS.md`). **Working tree now CLEAN** (S18 scrub).
+  - **`dotfiles`** — Neon pw in **1 history commit** (new vector; working tree clean).
+  - **`/home/sheneveld/Scoracle`** (capital-S legacy clone) — `API_SPORTS_KEY` in **7 history commits**
+    (likely an abandoned old checkout — candidate for deletion rather than rewrite).
+  - **CLEAN (resolves the S17 "not checked" item):** `scoracle-frontend`, `scoracle-ios`, `scoracle-api-client`,
+    `scoracle-mobile-ui`, `scoracleWiki`, and the `scoracle` wrapper — **zero** of the four literals.
+- **S17 working-tree scrub was INCOMPLETE:** it scrubbed only the local-pw `PGPASSWORD=` form (11 → placeholder)
+  and **missed all 10 Neon-pw occurrences** in `.claude/settings.local.json` (they use conn-string/`NEON_*`
+  forms, plus one reused `PGPASSWORD=` rule). `.env.local` was never re-scrubbed (untracked in `205c173`).
+- **Done in S18 (this session, autonomous — committed):**
+  1. ✅ Completed the working-tree scrub — Neon pw 10 → `REDACTED_ROTATE_ME` in `.claude/settings.local.json`
+     (now 21 placeholders total; JSON still valid). Tracked tree is now clean of all four literals.
+  2. ✅ Stopped the leak vector — added `.claude/settings.local.json` to `.gitignore` + `git rm --cached`
+     (the SHARED `.claude/settings.json` + `.claude/hooks/` stay tracked on purpose). ⚠️ **archx220 + archbox:
+     this file is still tracked on the OTHER machine — `git pull` of the untrack commit will DELETE its local
+     copy. Back it up there before pulling, then it persists as an ignored untracked file.**
+  3. ✅ Mapped full scope (above) + wrote the exact, un-run history-purge recipe + rotation/revocation
+     checklist + rollback note → `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
+- **Still TODO — GATED ON SCOTT (the real fix; a scrub can't un-leak history):**
+  1. **Rotate / revoke** every value, in risk order: (a) **Neon** — delete the abandoned Neon projects (also
+     stops billing) or reset `neondb_owner`; (b) **local archbox `scoracle` pw** — `ALTER ROLE`, then update
+     `.env.local` on archbox **and** archx220, verify API + seeder + restore-drill authenticate; (c)
+     **API_SPORTS_KEY** — rotate at api-sports.io if active, else revoke; (d) **TWITTER_BEARER_TOKEN** — revoke
+     at the X dev portal.
+  2. **Purge history** across `scoracle-backend` (+ `dotfiles`, + delete/rewrite the `Scoracle` clone) with
+     `git filter-repo` (NOT installed — `pip install git-filter-repo` first): path-delete `.env.local` +
+     `.claude/settings.local.json` everywhere, `--replace-text` the local pw out of `SELF_HOSTING_OPS.md`
+     history, then **force-push** — DISRUPTIVE: rewrites shared history; coordinate with the parallel Rust
+     session (no unpushed work mid-rewrite) and have archbox + archx220 re-clone/hard-reset. Exact commands in
+     the progress doc.
+- **Action order (Scott):** rotate/revoke FIRST (closes the actual risk regardless of history), then purge.
 
 ### F-047 — New operations runbook (`RUNBOOK.md`) is the durable home the audit was missing
 - **Found:** Session 17 · **Status:** Resolved (Session 17) — `RUNBOOK.md` written, reconciled to live.

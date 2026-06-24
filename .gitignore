@@ -27,6 +27,11 @@ go/bin/
 # .env.local holds real values and is ignored.
 .env.local
 
+# Claude Code local settings (per-machine; accrues ad-hoc Bash permission grants
+# that can embed secrets — this is how the F-046 Postgres/Neon creds leaked).
+# The SHARED .claude/settings.json + .claude/hooks/ stay TRACKED on purpose.
+.claude/settings.local.json
+
 # Logs
 *.log
 logs/

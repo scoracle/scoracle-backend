@@ -354,11 +354,15 @@ These surfaced during the audit and are pre-launch work (see `planning_docs/FIRS
 - **F-043** — `docker-compose build: seed/` references a non-existent `seed/Dockerfile` (minor).
 - **F-045** — regenerate Swagger (`swag init`) so `/docs/` stops advertising the removed `/twitter/*`
   + `/api/v1/news/*` routes; ships on the next `release.sh`.
-- **F-046 🔴 (security)** — a Postgres password leaked into tracked files (`.claude/settings.local.json`
-  + `SELF_HOSTING_OPS.md`) and is still in git history. Working-tree copies were scrubbed; **rotate the
-  password** (the only real fix — treat as compromised), then purge history (`git filter-repo`/BFG +
-  force-push, coordinating archbox + archx220) and untrack `.claude/settings.local.json`. Details in
-  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046.
+- **F-046 🔴 (security)** — credential leak, scope wider than first thought: **4 distinct secrets** (Neon
+  cloud pw, local archbox `scoracle` pw, `API_SPORTS_KEY`, `TWITTER_BEARER_TOKEN`) across **3 repos**
+  (`scoracle-backend`, `dotfiles`, the capital-`Scoracle` legacy clone) and a historically-tracked
+  `.env.local`. **S18 done:** working tree fully scrubbed + `.claude/settings.local.json` untracked +
+  gitignored. **Still gated on Scott:** rotate/revoke all 4 (the only real fix — treat as compromised),
+  then purge history (`git filter-repo` — install first — + force-push, coordinating archbox + archx220
+  + the Rust session). Full scope, redacted re-derivation, exact purge recipe + rollback:
+  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046 and
+  `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 
 The remaining pre-launch milestone is the **Final launch gate** in `FIRST-GPT-AUDIT.md` —
 stats/news/convergence/operations end-to-end proofs, per sport.

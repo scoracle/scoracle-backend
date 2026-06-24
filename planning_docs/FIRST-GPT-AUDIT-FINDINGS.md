@@ -154,7 +154,15 @@ relying on them.
   Rating+Vibe+Momentum "three versioned inputs" model is partial by necessity.
 
 ### F-012 — Pipeline overlap is not yet guarded (advisory lock is Session 13)
-- **Found:** Session 8 · **Status:** Watch (Session 13)
+- **Found:** Session 8 · **Status:** Resolved (Session 13, `c35e1ba` — `internal/jobrun`)
+- **Resolved (Session 13):** `internal/jobrun.Guard` takes a per-job session advisory lock
+  (`pg_try_advisory_lock(hashtext('scoracle.job.'+job))`) on a dedicated connection held for the run's
+  life. `cmd/pipeline` ("pipeline"), `cmd/statcommentary` ("statcommentary"), and `cmd/vibesynth`
+  backfill+nightly/reconcile (shared "vibesynth") each Guard at start: a second run (or a manual run
+  racing the cron) finds the lock held, records a `skipped` `pipeline_runs` row, and exits 0. Verified
+  cross-session on a throwaway PG: same job → `f` (excluded), different job → `t` (isolated). NOTE this
+  guards JOB-vs-JOB only; the in-API derive worker deliberately does NOT take the lock — it is meant to
+  drain alongside the cron, and `FOR UPDATE SKIP LOCKED` already keeps their claimed rows disjoint.
 - The S8 pipeline has **no advisory lock**, so two concurrent `cmd/pipeline` runs could both claim/
   process work. The blast radius is bounded: `Claim` uses `FOR UPDATE SKIP LOCKED` (two runs get
   disjoint rows) and `Complete`/`Fail` are status-guarded. The real risk is `RequeueStale` at
@@ -255,7 +263,17 @@ relying on them.
   worker drains it like every other stage.
 
 ### F-018 — An API restart mid-drain strands the derive worker's leased batch for up to staleLease (30m)
-- **Found:** Session 9 deploy · **Status:** Watch (Session 13/14)
+- **Found:** Session 9 deploy · **Status:** Resolved (Session 13, `c35e1ba` — `internal/derive` + `cmd/api`)
+- **Resolved (Session 13):** the drain now settles its leased rows on a context DETACHED from the drain
+  context, so a graceful shutdown no longer no-ops the bookkeeping. `drainStage` runs Complete/Fail (and
+  the vibe→sigil enqueue) on a fresh `context.Background()` with a short timeout; on shutdown it hands the
+  leased-but-unprocessed batch back to `pending` via the new `work.Requeue` (single row, status-guarded,
+  no attempt burned) so the rows are immediately reclaimable instead of stranded `running` for 30m. A
+  successful generation still Completes even mid-shutdown; a shutdown-cancelled run requeues instead of
+  burning a retry. `cmd/api` waits (bounded 8s) on the worker goroutine's done channel before the pool
+  closes, so the settle actually lands. Locked by `work_test.go` (`TestRequeue*`). Note the deploy that
+  shipped this fix still ran under the OLD (pre-fix) binary's shutdown, so it stranded 1 `running` row
+  (transfers NBA team 14), requeued by timestamp post-deploy — the LAST time that toil is needed.
 - The in-API `derive` worker's `DrainAll` claims a batch (up to `claimBatch`=10) as `running`, then
   processes serially. A graceful shutdown (SIGTERM from ANY restart — release, manual, or the
   `scoracle-api.path` trigger) cancels the drain ctx mid-item: the in-flight Gemma call errors with
@@ -471,3 +489,39 @@ relying on them.
   **106** and coordinate with the parallel work (which also left tracked edits to `rust/*` + `.gitignore`
   uncommitted in the shared tree, and new untracked `rust/src/{lib,vibe}.rs`, `rust/src/bin/`,
   `go/internal/ml/vibe_parity_test.go`). `git fetch` + inspect before any bulk migrate or commit (F-006).
+- **Update (Session 13):** S13 took **106** (`106_pipeline_runs.sql`, applied per-file). At S13 start the
+  parallel work was already committed (`2b4f401`, on origin/main) — `105` is tracked and the tree was clean
+  except S13's own files; only `099_team_rosters.sql` remained untracked (left alone). **Next free = 107.**
+
+### F-032 — Two pre-fix narratives dead-letters persisted past the S11 fix; surfaced by the new report
+- **Found:** Session 13 · **Status:** Open (operator requeue — needs prod-write approval)
+- The new `go run ./cmd/work dead-letters` immediately surfaced **2** dead-lettered `narratives` rows —
+  FOOTBALL `team/6898` and `team/3513`, both `attempts=5`, `last_error=parse narratives failed
+  (raw="{\"narratives\": []}")`, dead-lettered ~19:09 ET 2026-06-23. This is the exact F-019 empty-array
+  class, but the CURRENTLY DEPLOYED `parseNarratives` returns `ok=true` for a clean `{"narratives": []}`
+  (→ marker, verified by reading the code), so these are **pre-fix stragglers**: they dead-lettered under a
+  pre-S11 binary and were NOT in the S11/S12 requeue sweeps (parked far-future ⇒ never retried ⇒ never
+  self-cleared). Requeuing them (`status='failed'`→`'pending'`, `attempts=0`) will let the fixed worker
+  reprocess → empty array → marker → Complete. The targeted requeue UPDATE was **denied by the deploy-mode
+  write guard** (it mutates prod records beyond the deploy itself), so it was left for an explicit operator
+  action.
+- **Consequence (intended):** until cleared, every nightly `cmd/pipeline` run ends `exit 1` /
+  `status=failed` in `pipeline_runs` (the "dead-lettered work remains" rule, F-033) — the new machinery
+  correctly nagging about stuck work, not a regression.
+- **Action:** requeue the two rows once
+  (`UPDATE pipeline_work SET status='pending', attempts=0, available_at=NOW(), last_error=NULL
+  WHERE stage='narratives' AND status='failed' AND available_at > NOW() + INTERVAL '50 years';`), confirm
+  they Complete as markers, and the pipeline returns to green. Consider a `cmd/work requeue-dead-letters`
+  subcommand (Session 16/17) so this is a blessed operator command rather than ad-hoc SQL.
+
+### F-033 — Pipeline exit-1 keys off GLOBAL dead-letter state, not just the current run
+- **Found:** Session 13 · **Status:** Ops note (deliberate design)
+- `cmd/pipeline` exits `1` whenever `work.DeadLetters` is non-empty at end of run — i.e. it reflects the
+  whole queue's dead-letter state, not only failures THIS run produced. This is deliberate (the audit lists
+  "work remains failed after retries" as an exit-non-zero condition) and gives cron a daily nag until an
+  operator clears the stuck work. Side effect: a pre-existing dead-letter (e.g. F-032) makes an otherwise
+  clean run report `failed`. Exit-code map: `0` success/overlap-skip · `3` partial (retryable item failures
+  this run) · `1` whole-stage failure OR any dead-letters remain. `statcommentary`/`vibesynth` exit codes
+  are run-scoped only (no dead-letter gate) — only the pipeline owns the queue-health signal.
+- **Action:** none required. If the conflation ever becomes noisy, split "this run failed" from "queue has
+  dead-letters" into distinct exit codes, or scope the dead-letter check to stages the run touched.

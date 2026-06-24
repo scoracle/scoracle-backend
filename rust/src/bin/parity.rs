@@ -25,7 +25,6 @@ use scoracle_cognition::route::Router;
 use scoracle_cognition::vibe::{generate_vibe, VibeOutput, VIBE_PROMPT_VERSION};
 use scoracle_cognition::{db, vibe};
 use sqlx::PgPool;
-use std::sync::Arc;
 
 /// The explicit, deterministic temperature the parity diff is taken at.
 const PARITY_TEMPERATURE: f64 = 0.0;
@@ -47,12 +46,13 @@ async fn main() -> Result<()> {
         .await
         .context("ollama must be reachable for the parity run")?;
 
-    // The same capability context the production worker builds — the L1 minimal router over
-    // the pinged client — so the parity run exercises the exact route + extract path. The
-    // harness writes nothing on its own; persistence here targets only the shadow table.
+    // The same capability context the production worker builds — the config-driven router
+    // (all-Gemma by default, byte-identical to L1) — so the parity run exercises the exact
+    // route + extract path the service does. The harness writes nothing on its own;
+    // persistence here targets only the shadow table.
     let harness = Harness {
         pool,
-        router: Router::single(Arc::new(ollama)),
+        router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
         embedder: None,
     };
 

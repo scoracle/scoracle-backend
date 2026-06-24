@@ -8,6 +8,8 @@ Backend data pipeline and unified API for the Scoracle sports platform.
 
 Why this is non-negotiable: scoracle is a solo, multi-machine project (**archx220** + **archbox**), and work is pushed to `origin` from whichever machine made it. Starting on a stale baseline burns time on duplicate or conflicting work — e.g. re-designing a feature that was already shipped on `origin/main`. A `SessionStart` git-sync hook in `.claude/settings.json` runs this check automatically, but treat the hook as a backstop, not a substitute for the habit.
 
+**End the session synced, too.** Before stopping, commit and push **the work *this session* did** — stage the files this session touched (`git add <paths>`), never a blanket `git add -A` that sweeps up unrelated or another machine's in-flight WIP. Leaving your own finished work (or an applied-but-uncommitted migration) unpushed is precisely the stale baseline the next session trips over; pre-existing changes that aren't yours stay untouched.
+
 ## Architecture — Two Components, One Database
 
 ```

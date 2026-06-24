@@ -1,0 +1,623 @@
+//! Vibe stage — the first ported derivation handler (Phase 1 beachhead).
+//!
+//! A faithful Rust port of the Go vibe stage. The Go source is the spec:
+//!   - `go/internal/ml/vibe.go`         — Generate, prompt assembly, parsing, persist
+//!   - `go/internal/ml/transfer_heat.go` — the shared transfer-heat primitive
+//!   - `go/internal/derive/derive.go`    — drainVibe: queue Item → request, sigil hand-off
+//!
+//! Parity is verified offline against the Go stage at `temperature: 0` (the model
+//! is deterministic there, proven), so a byte-identical prompt ⇒ identical SCORE/VIBE.
+//! Everything that can differ between the two implementations — the SQL reads, the
+//! prompt string, the request options, the parse — lives in this file and is mirrored
+//! line-for-line. See `src/bin/parity.rs` for the harness and migration 105 for the
+//! shadow table.
+//!
+//! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
+//! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
+//! path returns "no data"; the debounce stops re-running it). A completed vibe enqueues
+//! its `sigil` convergence BEFORE the work row is completed, so a crash in between
+//! re-runs vibe (idempotent) rather than dropping the sigil.
+
+use crate::ollama::{GenerateOptions, OllamaClient};
+use crate::stage::StageHandler;
+use crate::util::truncate;
+use crate::work::{self, Item, Stage};
+use anyhow::{anyhow, bail, Context, Result};
+use async_trait::async_trait;
+use sqlx::PgPool;
+use tracing::warn;
+
+/// Prompt version — mirrors `vibePromptVersion` in vibe.go. v6: the Vibe end product
+/// is SCORE + a one-sentence "felt read" (the Sigil-convergence model). Bump in lockstep
+/// with the Go const so the two stages stamp identical provenance.
+pub const VIBE_PROMPT_VERSION: &str = "v6";
+
+/// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
+/// this with an explicit 0.
+pub const VIBE_TEMPERATURE: f64 = 0.7;
+
+/// Token cap for the (number + one sentence) answer over the narratives+heat context.
+/// Mirrors vibe.go's NumPredict: 1200.
+pub const VIBE_NUM_PREDICT: i32 = 1200;
+
+/// Bounds the transfer rumors shown to the model as the entity's "transfer temperature".
+/// Mirrors `maxHeatItems` in transfer_heat.go.
+const MAX_HEAT_ITEMS: i64 = 6;
+
+/// Body truncation in the prompt — mirrors `truncate(n.body, 280)` in vibe.go.
+const BODY_TRUNCATE: usize = 280;
+
+/// vibeSystemPrompt, byte-for-byte from vibe.go. The em-dashes and straight quotes are
+/// significant — at temp 0 a single changed byte here would change the model's output.
+pub const VIBE_SYSTEM_PROMPT: &str = r#"You read the NARRATIVES forming around a sports entity and its current TRANSFER/TRADE activity — the derived signals, not raw headlines — and produce two things: an overall SENTIMENT score and a one-sentence "felt read" (the vibe).
+
+SENTIMENT (1-100): 1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive. Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening. If the material is thin or neutral, answer 45-55 — don't invent drama.
+
+VIBE: ONE concise sentence capturing how this entity feels in the narrative right now — the felt read a fan would nod at. Plain prose, no number, no headline.
+
+Respond on EXACTLY two lines, nothing else:
+SCORE: <integer 1-100>
+VIBE: <one sentence>"#;
+
+/// One narrative from the entity's latest generation (news_summaries).
+#[derive(Clone, Debug)]
+pub struct Narrative {
+    pub title: String,
+    pub body: String,
+    pub impact: i32,
+}
+
+/// One active transfer/trade rumor naming the counterparty. Mirrors `heatItem`.
+#[derive(Clone, Debug)]
+pub struct HeatItem {
+    pub counterparty: String,
+    pub heat: i32,
+    pub stage: String,
+    pub direction: String,
+}
+
+/// The result of running the vibe core for one entity, before persistence. Captures
+/// everything both the production handler (→ vibe_scores) and the parity harness
+/// (→ vibe_scores_shadow) need to persist.
+#[derive(Clone, Debug)]
+pub struct VibeOutput {
+    /// `None` ⇒ no-corpus NULL marker (no model call was made).
+    pub sentiment: Option<i32>,
+    /// The one-sentence felt read; `None` when empty (the column is nullable).
+    pub vibe_prompt: Option<String>,
+    /// Provenance: the narratives' source article ids, deduped in first-seen order.
+    pub input_news_ids: Vec<i64>,
+    /// no-corpus → the configured model name; scored → the model echoed in the response.
+    pub model: String,
+    pub prompt_version: &'static str,
+    /// The exact user prompt sent to the model; `None` for the no-corpus marker.
+    pub built_prompt: Option<String>,
+    pub skipped_no_corpus: bool,
+}
+
+/// vibe_version fingerprints a vibe result for the sigil queue's input_version, exactly
+/// as `vibeVersion` in derive.go: `s<sentiment>` (`s0` for the no-corpus marker). Coarse
+/// on purpose — the SigilGenerator's own pillar input-hash is the real convergence gate;
+/// this only keeps the queue row's reopen/dedupe sane.
+pub fn vibe_version(out: &VibeOutput) -> String {
+    format!("s{}", out.sentiment.unwrap_or(0))
+}
+
+// ---------------------------------------------------------------------------
+// Corpus loaders — byte-for-byte the same SQL the Go stage runs.
+// ---------------------------------------------------------------------------
+
+/// load_latest_narratives returns the narratives from the entity's most recent
+/// generation (news_summaries), hottest first, plus the deduped union of their source
+/// article ids. Empty when the latest generation was a no-narratives marker (body NULL)
+/// or the entity has none yet. Mirrors VibeGenerator.loadLatestNarratives.
+pub async fn load_latest_narratives(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<(Vec<Narrative>, Vec<i64>)> {
+    // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is
+    // int4 → scan as i32 (matches Go scanning into `int`).
+    let rows: Vec<(String, String, i32, Vec<i64>)> = sqlx::query_as(
+        r#"
+        SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids
+        FROM news_summaries
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          AND body IS NOT NULL
+          AND generated_at = (
+              SELECT max(generated_at) FROM news_summaries
+              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          )
+        ORDER BY impact DESC NULLS LAST
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
+
+    let mut narratives = Vec::with_capacity(rows.len());
+    let mut ids: Vec<i64> = Vec::new();
+    for (title, body, impact, mut nids) in rows {
+        ids.append(&mut nids);
+        narratives.push(Narrative { title, body, impact });
+    }
+    Ok((narratives, dedupe_i64(ids)))
+}
+
+/// dedupe_i64 removes duplicates preserving first-seen order. Mirrors `dedupeInt64`.
+fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
+    let mut out = Vec::with_capacity(input.len());
+    let mut seen = std::collections::HashSet::with_capacity(input.len());
+    for v in input {
+        if seen.insert(v) {
+            out.push(v);
+        }
+    }
+    out
+}
+
+/// load_transfer_heat returns the entity's hottest active transfer/trade rumors (latest
+/// per counterparty, heat > 0, Gemma-vetted), naming the counterparty. The `is_rumor IS
+/// TRUE` gate is applied AFTER picking the latest row per counterparty (FIRST-GPT-AUDIT
+/// Session 10), so a newer cleared/unknown verdict supersedes an older TRUE. Mirrors
+/// `loadTransferHeat`; branches on entity type exactly as the Go query does.
+pub async fn load_transfer_heat(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Vec<HeatItem>> {
+    let query = if entity_type == "team" {
+        r#"
+        SELECT counterparty, heat, stage, direction FROM (
+            SELECT DISTINCT ON (tr.player_id)
+                   p.name AS counterparty, tr.heat, tr.is_rumor,
+                   COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+                   tr.generated_at
+            FROM transfer_rumors tr
+            JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
+            WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+            ORDER BY tr.player_id, tr.generated_at DESC
+        ) latest
+        WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3
+        "#
+    } else {
+        r#"
+        SELECT counterparty, heat, stage, direction FROM (
+            SELECT DISTINCT ON (tr.team_id)
+                   t.name AS counterparty, tr.heat, tr.is_rumor,
+                   COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+                   tr.generated_at
+            FROM transfer_rumors tr
+            JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
+            WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+            ORDER BY tr.team_id, tr.generated_at DESC
+        ) latest
+        WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3
+        "#
+    };
+
+    // heat is int2 → scan as i16 (matches Go scanning into `int`, widened below).
+    let rows: Vec<(String, i16, String, String)> = sqlx::query_as(query)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(MAX_HEAT_ITEMS)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("load transfer heat {entity_type}/{entity_id}"))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(counterparty, heat, stage, direction)| HeatItem {
+            counterparty,
+            heat: heat as i32,
+            stage,
+            direction,
+        })
+        .collect())
+}
+
+/// lookup_entity_name resolves the display name for the prompt. Mirrors
+/// `corpus.LookupEntityName` + drainVibe's `nameOf` (an empty/missing name is an error,
+/// so the work item fails and retries rather than generating against a blank prompt).
+pub async fn lookup_entity_name(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<String> {
+    let query = if entity_type == "player" {
+        "SELECT name FROM players WHERE id = $1 AND sport = $2"
+    } else {
+        "SELECT name FROM teams WHERE id = $1 AND sport = $2"
+    };
+    let name: String = sqlx::query_scalar(query)
+        .bind(entity_id)
+        .bind(sport)
+        .fetch_one(pool)
+        .await
+        .with_context(|| format!("lookup {entity_type}/{entity_id} ({sport})"))?;
+    if name.is_empty() {
+        bail!("empty name for {entity_type}/{entity_id} ({sport})");
+    }
+    Ok(name)
+}
+
+// ---------------------------------------------------------------------------
+// Prompt assembly — must be byte-identical to buildSentimentPrompt.
+// ---------------------------------------------------------------------------
+
+/// build_sentiment_prompt assembles the user prompt, byte-for-byte the same as
+/// `buildSentimentPrompt` in vibe.go. `sport` is the original-case value the Go prompt
+/// uses (`req.Sport`); the SQL reads use the upper-cased form.
+pub fn build_sentiment_prompt(
+    entity_type: &str,
+    entity_name: &str,
+    sport: &str,
+    narratives: &[Narrative],
+    heat: &[HeatItem],
+) -> String {
+    let mut b = String::new();
+
+    b.push_str(&format!(
+        "Entity: {} {} ({})\n",
+        title_first(entity_type),
+        entity_name,
+        sport
+    ));
+
+    b.push_str("\nNarratives forming around them (impact in brackets):\n");
+    if narratives.is_empty() {
+        b.push_str("- (none this cycle)\n");
+    } else {
+        for n in narratives {
+            b.push_str(&format!(
+                "- [{}] {}: {}\n",
+                n.impact,
+                n.title,
+                truncate_body(&n.body, BODY_TRUNCATE)
+            ));
+        }
+    }
+
+    b.push_str("\nCurrent transfer/trade activity (heat 0-100):\n");
+    if heat.is_empty() {
+        b.push_str("- (none)\n");
+    } else {
+        write_heat_lines(&mut b, heat);
+    }
+
+    b.push_str("\nRespond now (SCORE line, then VIBE line).");
+    b
+}
+
+/// write_heat_lines renders heat bullets exactly as `writeHeatLines`:
+///   `- <counterparty> — heat <heat>[, <direction>][, <stage>]`
+fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
+    for h in heat {
+        let mut line = format!("- {} — heat {}", h.counterparty, h.heat);
+        if !h.direction.is_empty() {
+            line.push_str(", ");
+            line.push_str(&h.direction);
+        }
+        if !h.stage.is_empty() {
+            line.push_str(", ");
+            line.push_str(&h.stage);
+        }
+        b.push_str(&line);
+        b.push('\n');
+    }
+}
+
+/// title_first upper-cases the first character, mirroring `strings.Title` for the
+/// single-word entity types ("player" → "Player", "team" → "Team").
+fn title_first(s: &str) -> String {
+    let mut chars = s.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
+/// truncate_body mirrors vibe.go's byte-based `truncate(s, max)`: returns `s` unchanged
+/// when within `max` bytes, else the first `max` bytes + "...". Go slices raw bytes and
+/// appends "..."; on JSON-marshal Go replaces any partial multi-byte tail with U+FFFD —
+/// `from_utf8_lossy` does the same, so the wire prompt matches (identical for ASCII).
+fn truncate_body(s: &str, max: usize) -> String {
+    if s.len() <= max {
+        return s.to_string();
+    }
+    let mut out = String::from_utf8_lossy(&s.as_bytes()[..max]).into_owned();
+    out.push_str("...");
+    out
+}
+
+// ---------------------------------------------------------------------------
+// Output parsing — mirrors parseSentimentAndPrompt + parseSentiment.
+// ---------------------------------------------------------------------------
+
+/// parse_sentiment_and_prompt extracts the SCORE (1-100) and the one-line VIBE from the
+/// model's two-line v6 reply. The score falls back to the first integer anywhere
+/// (format drift); the prompt is "" when absent. Mirrors `parseSentimentAndPrompt`.
+pub fn parse_sentiment_and_prompt(raw: &str) -> Result<(i32, String)> {
+    let mut score: i32 = 0;
+    let mut prompt = String::new();
+    let lines: Vec<&str> = raw.trim().split('\n').collect();
+
+    for (i, line) in lines.iter().enumerate() {
+        let t = line.trim();
+        let up = t.to_uppercase();
+        if score == 0 && up.starts_with("SCORE:") {
+            // "SCORE:" is ASCII (6 bytes) regardless of case, so t[6..] is a boundary.
+            let rest = t[6..].trim();
+            if let Ok(n) = rest.parse::<i64>() {
+                score = n.clamp(1, 100) as i32;
+            }
+        } else if prompt.is_empty() && up.starts_with("VIBE:") {
+            prompt = t[5..].trim().to_string();
+            for extra in &lines[i + 1..] {
+                let e = extra.trim();
+                if !e.is_empty() {
+                    prompt.push(' ');
+                    prompt.push_str(e);
+                }
+            }
+        }
+    }
+
+    if score == 0 {
+        // No SCORE: label parsed — fall back to the first integer anywhere.
+        score = parse_sentiment(raw)?;
+    }
+    Ok((score, prompt))
+}
+
+/// parse_sentiment pulls the first run of ASCII digits out of the response and clamps it
+/// into 1-100; errors only when there are no digits at all (or the run overflows, as
+/// Go's strconv.Atoi does). Mirrors `parseSentiment` (the `\d+` regex path).
+fn parse_sentiment(raw: &str) -> Result<i32> {
+    let bytes = raw.as_bytes();
+    let start = match bytes.iter().position(|b| b.is_ascii_digit()) {
+        Some(i) => i,
+        None => return Err(anyhow!("no digit in response")),
+    };
+    let end = bytes[start..]
+        .iter()
+        .position(|b| !b.is_ascii_digit())
+        .map(|off| start + off)
+        .unwrap_or(bytes.len());
+    let digits = &raw[start..end];
+    match digits.parse::<i64>() {
+        Ok(n) => Ok(n.clamp(1, 100) as i32),
+        Err(_) => Err(anyhow!("parse digit {digits:?}")),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The core generate + the production handler.
+// ---------------------------------------------------------------------------
+
+/// generate_vibe runs the full vibe derivation for one entity at the given temperature
+/// and returns the un-persisted result. Shared by the production handler (temp 0.7 → it
+/// writes vibe_scores + enqueues sigil) and the parity harness (temp 0 → it writes the
+/// shadow table). Reproduces vibe.go's `Generate` minus persistence: validate, read
+/// narratives + heat, short-circuit to the no-corpus marker when both are empty, else
+/// build the prompt, call the model, parse.
+pub async fn generate_vibe(
+    pool: &PgPool,
+    ollama: &OllamaClient,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+    temperature: f64,
+) -> Result<VibeOutput> {
+    if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
+        bail!("vibe: entity context incomplete");
+    }
+    // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
+    let sport = sport_raw.to_uppercase();
+
+    let (narratives, news_ids) =
+        load_latest_narratives(pool, entity_type, entity_id, &sport).await?;
+    let heat = load_transfer_heat(pool, entity_type, entity_id, &sport).await?;
+
+    // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
+    // NULL-sentiment marker (handled by the caller); the read path returns "no data".
+    if narratives.is_empty() && heat.is_empty() {
+        return Ok(VibeOutput {
+            sentiment: None,
+            vibe_prompt: None,
+            input_news_ids: Vec::new(),
+            model: ollama.model().to_string(),
+            prompt_version: VIBE_PROMPT_VERSION,
+            built_prompt: None,
+            skipped_no_corpus: true,
+        });
+    }
+
+    let prompt = build_sentiment_prompt(entity_type, entity_name, sport_raw, &narratives, &heat);
+    let opts = GenerateOptions {
+        system: Some(VIBE_SYSTEM_PROMPT.to_string()),
+        temperature: Some(temperature),
+        num_predict: VIBE_NUM_PREDICT,
+        json_mode: false,
+    };
+
+    let gen = ollama
+        .generate(&prompt, &opts)
+        .await
+        .context("gemma generate")?;
+
+    let (sentiment, vibe_prompt) = parse_sentiment_and_prompt(&gen.response)
+        .with_context(|| format!("parse sentiment (raw={:?})", truncate(&gen.response, 120)))?;
+
+    Ok(VibeOutput {
+        sentiment: Some(sentiment),
+        vibe_prompt: if vibe_prompt.is_empty() {
+            None
+        } else {
+            Some(vibe_prompt)
+        },
+        input_news_ids: news_ids,
+        model: gen.model,
+        prompt_version: VIBE_PROMPT_VERSION,
+        built_prompt: Some(prompt),
+        skipped_no_corpus: false,
+    })
+}
+
+/// persist_to_vibe_scores writes one row to the LIVE vibe_scores table — both the scored
+/// row and the no-corpus NULL marker, which differ only in the bound values. Mirrors
+/// persistSentiment / persistNoCorpus: trigger_type 'periodic', trigger_payload the JSON
+/// `null` (marshal of a nil trigger map), empty felt-read stored as NULL.
+async fn persist_to_vibe_scores(
+    pool: &PgPool,
+    item: &Item,
+    sport: &str,
+    out: &VibeOutput,
+) -> Result<()> {
+    let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
+    sqlx::query(
+        r#"
+        INSERT INTO vibe_scores (
+            entity_type, entity_id, sport,
+            trigger_type, trigger_payload,
+            sentiment, prompt, input_news_ids,
+            model_version, prompt_version
+        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8)
+        "#,
+    )
+    .bind(&item.entity_type)
+    .bind(item.entity_id)
+    .bind(sport)
+    .bind(sentiment)
+    .bind(out.vibe_prompt.as_deref())
+    .bind(out.input_news_ids.as_slice())
+    .bind(out.model.as_str())
+    .bind(out.prompt_version)
+    .execute(pool)
+    .await
+    .context("persist vibe")?;
+    Ok(())
+}
+
+/// VibeHandler drains the durable `vibe` stage: read the fresh narratives + heat, score
+/// with the model, persist to vibe_scores, and enqueue the `sigil` convergence before
+/// completing. This is the production path for the Phase 2 cutover (registered in
+/// main.rs); the Phase 1 parity harness reuses the same core but writes the shadow table.
+pub struct VibeHandler;
+
+impl VibeHandler {
+    pub fn new() -> Self {
+        VibeHandler
+    }
+}
+
+impl Default for VibeHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl StageHandler for VibeHandler {
+    fn stage(&self) -> Stage {
+        Stage::Vibe
+    }
+
+    async fn handle(&self, pool: &PgPool, ollama: &OllamaClient, item: &Item) -> Result<()> {
+        // nameOf: the name lookup uses the queue's raw sport value (drainVibe).
+        let name = lookup_entity_name(pool, &item.entity_type, item.entity_id, &item.sport).await?;
+
+        let out = generate_vibe(
+            pool,
+            ollama,
+            &item.entity_type,
+            item.entity_id,
+            &name,
+            &item.sport,
+            VIBE_TEMPERATURE,
+        )
+        .await?;
+
+        let sport = item.sport.to_uppercase();
+        persist_to_vibe_scores(pool, item, &sport, &out).await?;
+
+        // Enqueue the sigil convergence BEFORE completing (the work row is completed by
+        // the worker only after this returns Ok). A crash between persist and complete
+        // re-runs vibe (idempotent) rather than dropping the sigil. Enqueue failure is
+        // logged, not fatal — matches drainVibe (warn + nil).
+        let sig = Item {
+            stage: Stage::Sigil,
+            entity_type: item.entity_type.clone(),
+            entity_id: item.entity_id,
+            sport: item.sport.clone(),
+            input_version: Some(vibe_version(&out)),
+            attempts: 0,
+        };
+        if let Err(e) = work::enqueue(pool, &sig).await {
+            warn!(
+                entity_type = %item.entity_type,
+                entity_id = item.entity_id,
+                sport = %item.sport,
+                error = %e,
+                "vibe: enqueue sigil failed"
+            );
+        }
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_two_line_reply() {
+        let (score, vibe) =
+            parse_sentiment_and_prompt("SCORE: 73\nVIBE: Quietly surging into the playoff race.")
+                .unwrap();
+        assert_eq!(score, 73);
+        assert_eq!(vibe, "Quietly surging into the playoff race.");
+    }
+
+    #[test]
+    fn clamps_and_joins_trailing_vibe_lines() {
+        let (score, vibe) =
+            parse_sentiment_and_prompt("SCORE: 250\nVIBE: line one\nline two").unwrap();
+        assert_eq!(score, 100);
+        assert_eq!(vibe, "line one line two");
+    }
+
+    #[test]
+    fn falls_back_to_first_integer() {
+        let (score, vibe) = parse_sentiment_and_prompt("the vibe is about 64 today").unwrap();
+        assert_eq!(score, 64);
+        assert_eq!(vibe, "");
+    }
+
+    #[test]
+    fn errors_without_digits() {
+        assert!(parse_sentiment_and_prompt("no number here").is_err());
+    }
+
+    #[test]
+    fn builds_prompt_with_empty_sections() {
+        let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[]);
+        assert_eq!(
+            p,
+            "Entity: Player Test Player (NBA)\n\nNarratives forming around them (impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line)."
+        );
+    }
+
+    #[test]
+    fn dedupes_preserving_order() {
+        assert_eq!(dedupe_i64(vec![3, 1, 3, 2, 1]), vec![3, 1, 2]);
+    }
+}

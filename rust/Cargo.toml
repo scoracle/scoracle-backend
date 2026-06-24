@@ -5,9 +5,19 @@ edition = "2021"
 publish = false
 description = "Scoracle scrubbing layer: durable pipeline_work queue consumer + Ollama model router. Phase 0 scaffold — reusable queue/Ollama clients + LISTEN loop, no stage logic yet."
 
+[lib]
+name = "scoracle_scrubber"
+path = "src/lib.rs"
+
 [[bin]]
 name = "scoracle-scrubber"
 path = "src/main.rs"
+
+# Offline vibe parity harness (Phase 1). Writes ONLY vibe_scores_shadow; never claims
+# the live pipeline_work queue or writes vibe_scores.
+[[bin]]
+name = "parity"
+path = "src/bin/parity.rs"
 
 [dependencies]
 # Async runtime.

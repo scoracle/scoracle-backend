@@ -74,17 +74,34 @@ Seeder does not own API response shaping.
 
 ## Route Conventions
 
-Canonical public route shape:
+Verify route shape against `go/internal/api/server.go` (the only source of truth) —
+the bundled all-in-one profile route `/{sport}/{entityType}/{id}` was **removed** (O16);
+the page is now assembled from per-product card endpoints (the "two rails → convergence"
+model). The convergence rename (O14) settled the per-entity product names below — `/vibes`,
+`/trends`, and `/special` are **gone** (renamed/folded), not current.
 
-- `/api/v1/{sport}/{entityType}/{id}` (player, team profiles)
-- `/api/v1/{sport}/meta` (metadata, autofill, stat definitions)
-- `/api/v1/{sport}/health` (data freshness)
-- `/api/v1/{sport}/leagues/{leagueId}/...` (league-scoped variants)
+Per-entity card endpoints (`{entityType}` ∈ `player|team`):
 
-Legacy integration routes (being retired — we own all data now):
+- `/{sport}/{entityType}/{id}/stats` — season Composite rating + per-event series + `available_seasons` + `stat_definitions`
+- `/{sport}/{entityType}/{id}/rating` — Gemma's "divined" statistical read + the stat commentary (`stat_summaries`)
+- `/{sport}/{entityType}/{id}/momentum` — Rating-trajectory × Vibe-trajectory (stats trend + narrative trend)
+- `/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
+- `/{sport}/{entityType}/{id}/news` — Gemma narratives (`news_summaries`)
+- `/{sport}/{entityType}/{id}/transfers` — vetted transfer/trade rumor heat (`transfer_rumors`)
+- `/{sport}/{entityType}/{id}/meta` — per-entity identity (page header); 404 when the entity is unknown
+- `/{sport}/team/{id}/results`, `/{sport}/team/{id}/roster`
 
-- `/api/v1/news/...` — live Google-RSS lookup; **superseded** by the precomputed `/{sport}/{type}/{id}/news` narratives the eager News card reads. Slated for removal.
-- `/api/v1/twitter/...` — **PARKED** (X parked 2026-06-13; routes wired but gated `TWITTER_ENABLED=false`, slated for removal).
+Sport-level + board routes:
+
+- `/{sport}/meta` (search index — being repointed to `/{sport}/autofill`), `/{sport}/autofill`, `/{sport}/health`
+- `/{sport}/leaderboard` (+ `?board=rating|vibes|sigil|news|transfers`), and the dedicated `/{sport}/leaderboard/{vibes,sigil,news,transfers,trending}`
+- `/{sport}/leagues/{leagueId}/...` (league-scoped variants of momentum, results, meta, health)
+- Mobile auth: `/api/v1/auth/{device,refresh,device/push,logout}`
+
+Removed integration routes (we own all data now — **gone from the router**, kept here so docs match reality):
+
+- `/api/v1/news/...` — live Google-RSS lookup; **removed** (O12). The eager News card reads the precomputed `/{sport}/{type}/{id}/news` narratives. (The Google-RSS *compile* still runs in the background pipeline, off the request path.)
+- `/api/v1/twitter/...` — **removed** (O13); X was permanently decommissioned (O15, 2026-06-19) — client, routes, env, and tweet tables are all gone.
 
 ## Implementation Boundaries
 
@@ -219,12 +236,21 @@ Required for local operation:
 - `BALLDONTLIE_API_KEY` (seeder, NBA/NFL)
 - `SPORTMONKS_API_TOKEN` (seeder, football)
 
-Common optional:
+Common optional (full list + defaults in `go/internal/config/config.go`):
 
-- `API_PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED`
-- `DB_POOL_MAX_CONNS` (default `25` — sized for the eager profile fan-out of ~6–9 concurrent reads)
+- `API_PORT` / `PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED` (+ `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`)
+- `DB_POOL_MAX_CONNS` (default `25` — sized for the eager profile fan-out of ~6–9 concurrent reads), `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_LIFE_MINUTES`
+- `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS` (the latter merged in only when `ENVIRONMENT=production`)
+- **Gemma/Ollama:** `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `gemma4:e4b`), `OLLAMA_TIMEOUT_SECONDS` (300, long-op budget), `OLLAMA_SHORT_TIMEOUT_SECONDS` (120), `OLLAMA_MAX_CONCURRENT` (1 — the single-GPU governor), `OLLAMA_KEEP_ALIVE` (`30m`)
+- **In-API derive worker:** `DERIVE_WORKER_ENABLED` (default true), `DERIVE_DRAIN_INTERVAL_SECONDS` (30, safety-net drain between `pipeline_work_ready` NOTIFYs)
+- **News scrub ticker:** `NEWS_SCRUB_ENABLED`, `NEWS_SCRUB_INTERVAL_MINUTES` (30), `NEWS_SCRUB_BATCH` (15)
+- **Transfer spike worker:** `TRANSFER_ENABLED`, `TRANSFER_DEBOUNCE_MINUTES` (60), `TRANSFER_MIN_ARTICLES` (2), `TRANSFER_MAX_CONCURRENT` (2)
+- `PIPELINE_STATS_INTERVAL_MINUTES` (1440; 0 disables the daily corpus snapshot)
+- **Mobile auth:** `JWT_SECRET` (unset ⇒ `/auth/*` returns 503; rest of API unaffected), `JWT_ACCESS_TTL_MINUTES` (30), `JWT_REFRESH_TTL_DAYS` (90)
 - `FIREBASE_CREDENTIALS_FILE`
-- *Parked (X parked 2026-06-13 — only needed if Twitter is ever revived):* `TWITTER_ENABLED`, `TWITTER_BEARER_TOKEN`, `TWITTER_LIST_{NBA,NFL,FOOTBALL}`, `TWITTER_CACHE_TTL_SECONDS`
+- Seeder-only third key: `API_SPORTS_KEY`
+
+> X/Twitter was permanently decommissioned (O15, 2026-06-19): there are **no** `TWITTER_*` env vars in `config.go` — the client, routes, env, and tweet tables are all gone.
 
 ## Key Files
 

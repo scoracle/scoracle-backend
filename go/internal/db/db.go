@@ -743,10 +743,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		WHERE (SELECT entity_type FROM req) = 'team' AND t.id = (SELECT entity_id FROM req) AND t.sport = (SELECT sport FROM req)`,
 
 		// --- Per-product stats source (split from sparkline) ---
-		// /stats = the full season rating (Composite card + ContentShell controls);
-		// /sigil = the lean specialist projection + Gemma commentary (Sigil card);
-		// /trends absorbs the per-event series (built in trendsStatement). The heavy
-		// fantasy/template/datapoints blocks live only in /stats. $1 sport · $2 type ·
+		// Live routing (server.go, post-O14 convergence rename):
+		//   /stats   = the full season rating (Composite card + ContentShell controls) — THIS statement;
+		//   /rating  = the lean specialist projection + Gemma stat commentary ("entity_rating" statement);
+		//   /momentum absorbs the per-event series (built in trendsStatement, GetTrendsPage).
+		// The heavy fantasy/template/datapoints blocks live only in /stats. $1 sport · $2 type ·
 		// $3 id · $4 season (NULL ⇒ latest rated) · $5 league_id.
 		"entity_stats": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS etype,

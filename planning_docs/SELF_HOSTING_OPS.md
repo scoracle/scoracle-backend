@@ -1,5 +1,12 @@
 # Self-Hosting Operations Plan
 
+> **This is the original strategy / first-time-setup doc.** For day-to-day operations
+> (release/rollback, backup/restore, jobs, the durable work queue, incident quick-reference)
+> use **[`../RUNBOOK.md`](../RUNBOOK.md)**, which is reconciled to the live system. The concrete
+> scripts live under `scripts/hosting/` (`scripts/hosting/README.md`). Some inline paths below are
+> historical (`/home/sheneveld/scoracle-data`); the live repo root is
+> `/home/sheneveld/scoracle/scoracle-backend`.
+
 What it takes to run the Scoracle stack reliably from the Arch desktop
 without needing a terminal open 24/7.
 
@@ -145,7 +152,9 @@ seeded game data, and every custom tuning.
    FILE="$BACKUP_DIR/scoracle-$DATE.dump"
    mkdir -p "$BACKUP_DIR"
 
-   PGPASSWORD="${DB_PASSWORD:-jester117}" pg_dump \
+   # Read the password from .env.local — never hardcode it (the live
+   # scripts/hosting/backup-postgres.sh greps it from .env.local).
+   PGPASSWORD="${PGPASSWORD:?set PGPASSWORD or source .env.local}" pg_dump \
      -h localhost -U scoracle -d scoracle \
      -Fc -Z 6 -f "$FILE"
 
@@ -171,10 +180,11 @@ maybe 100MB/month as the corpus accumulates. 14 dailies + 12 monthlies
 Don't skip: the only real test of a backup is restoring it.
 
 ```bash
-# Spin up a throwaway DB
+# Spin up a throwaway DB (or just use scripts/hosting/restore-drill.sh, which does
+# this plus a full bootable-backend proof — see RUNBOOK.md §4)
 createdb scoracle_restore
-PGPASSWORD=jester117 pg_restore -h localhost -U scoracle \
-  -d scoracle_restore /mnt/backup/scoracle/scoracle-<date>.dump
+pg_restore -h localhost -U scoracle \
+  -d scoracle_restore /mnt/backup/scoracle/scoracle-<date>.dump   # PGPASSWORD from env/.env.local
 
 # Verify: same tables + same row counts
 psql scoracle_restore -c "SELECT count(*) FROM news_articles;"

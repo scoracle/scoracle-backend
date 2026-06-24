@@ -1077,6 +1077,25 @@ The launch-critical invariants are executable checks rather than comments and op
 
 # Session 17 — Reconcile backend documentation and runbooks
 
+> **✅ COMPLETE — 2026-06-24 (archbox).** Docs + comments + one new runbook only — **NO migration,
+> NO deploy, NO API restart, no `release.sh`** (next free migration stays **107**). The repository
+> documentation now describes the **live** system, verified against `go/internal/api/server.go` /
+> `config.go` / `crontab.example` / `release.sh` rather than the audit prose. **Crux (F-044):** the
+> plan's removal list AND the kickoff's "keep /special /trends /vibes" were *both* stale — the O14
+> convergence rename already shipped (live + in the deployed S14 binary `cf4f260`), so `/special`→
+> `/rating`, `/trends`→`/momentum`, per-entity `/vibes`→`/sigil`, and the bundled profile route is
+> gone (O16). Reconciled `CLAUDE.md` (route conventions + env), `README.md` (API surface + env vars),
+> `ENDPOINTS.md` (date + authoritative route inventory + `/rating`/`/leaderboard/trending` + fixed
+> `page` literals + historical-profile note + implementation map), and two misleading code comments
+> (`db.go` stmt header, `cmd/api` Swagger `@description`). Added **`RUNBOOK.md`** (release/rollback,
+> backup/restore, cron-vs-event-driven jobs, the compile→scrub→derive→reveal pipeline, durable work
+> tables + `cmd/work` repair commands, CI gate, incident + rebuild checklists). Scrubbed a leaked DB
+> password from `SELF_HOSTING_OPS.md` (F-046). New findings **F-044…F-048** (incl. F-045 Swagger
+> drift — `/docs/` still lists removed routes until `swag init` + redeploy). Used the LIVE names
+> throughout (`vibe_scores`/`sigil_synthesis`/`divined_peak`; F-015 satisfied). **This is the final
+> audit session — S1–S17 complete.** Remaining pre-launch work is the *Final launch gate* below +
+> the launch-gate carryovers (F-030/F-040/F-035/F-043/F-045).
+
 ## Problems
 
 Backend documentation still describes removed routes and retired integrations. Operational instructions disagree about live paths and restart behavior.

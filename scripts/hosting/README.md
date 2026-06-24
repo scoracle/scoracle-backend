@@ -4,7 +4,9 @@ Everything needed to run Scoracle as a proper service on the Arch
 desktop: systemd units, cron wrappers, Postgres backups, log rotation,
 Cloudflare Tunnel stub.
 
-See `planning_docs/SELF_HOSTING_OPS.md` for the strategy + rationale.
+See `RUNBOOK.md` (repo root) for the operations runbook (release/rollback, backup/restore,
+jobs, durable work queue, incident quick-reference) and `planning_docs/SELF_HOSTING_OPS.md`
+for the original strategy + rationale.
 
 ## Install
 

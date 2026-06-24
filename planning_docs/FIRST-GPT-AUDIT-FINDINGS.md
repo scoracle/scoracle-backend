@@ -726,3 +726,86 @@ relying on them.
   docker job builds **`go/`** only (the serving artifact, which is what launch needs). Cleanup later:
   add `seed/Dockerfile` (or drop the seed build target if the seeder runs from the host/cron, not a
   container). Not launch-blocking.
+
+### F-044 — The audit's S17 removal list was stale in BOTH directions; the docs disagreed with the live router on the per-entity products
+- **Found:** Session 17 · **Status:** Resolved (Session 17, docs-only) — verified against `server.go`, not the audit prose.
+- The audit plan (written 2026-06-21) said "remove `/special`, `/trends`, per-entity `/vibes`." The S17
+  kickoff brief countered that those SHIPPED LIVE in the two-rail model (memory `two-rail-endpoint-model`,
+  2026-06-15) and must be KEPT. **Both were stale.** Read live against `go/internal/api/server.go`
+  (and confirmed identical in the **deployed** S14 binary `cf4f260`): the **O14 convergence rename**
+  already landed and `/special`, `/trends`, and per-entity `/vibes` are **gone** — `/special` folded
+  into `/rating`, `/trends` → `/momentum`, per-entity `/vibes` → `/sigil`. The live per-entity products
+  are: `/stats`, `/rating`, `/momentum`, `/sigil`, `/news`, `/transfers`, `/meta` (+ `team/{id}/results`,
+  `team/{id}/roster`). The bundled profile route `/{sport}/{entityType}/{id}` is removed (O16). The
+  audit was right that those names should leave the docs, but for the wrong reason (renamed, not deleted),
+  and the two-rail memory was a snapshot that the convergence rename superseded.
+- **What was actually out of date in the docs** (all reconciled this session):
+  - `README.md` — API surface listed `/special` `/trends` per-entity `/vibes`, the removed
+    `/api/v1/news/*` + `/api/v1/twitter/*` integration routes, "journalist tweets", a non-existent
+    `RAILWAY_DATABASE_URL` in the DB-URL priority, and dead `TWITTER_*` env vars; missing the Ollama/
+    derive/scrub/transfer/JWT env vars and the `sigil`/`trending` boards. Rewritten to match `server.go`
+    + `config.go`.
+  - `ENDPOINTS.md` — date was 2026-05-30; `/stats · /special` heading; stale `"page":"sparkline"`/
+    `"page":"trends"` example literals (live: `"stats"`/`"momentum"`); no `/rating` or
+    `/leaderboard/trending` contract; the bundled "Profile Response Example" still shown as canonical;
+    the Implementation Map cited a non-existent `listener/news_volume_worker.go` (replaced by the
+    `derive` worker) and the removed bundled route. Added an **authoritative route inventory** at the
+    top, `/rating` + `/leaderboard/trending` sections, fixed literals, marked the profile example
+    historical, corrected the map.
+  - `CLAUDE.md` — Route Conventions still listed the bundled profile route as canonical and the
+    `/news`+`/twitter` routes as "being retired/PARKED" (both already removed); Environment still
+    carried the "parked Twitter" env block. Rewritten to the per-product route list + the real optional
+    env vars; Twitter noted as fully decommissioned (O15).
+  - Code comments (in scope per S17, NO behavior change): `go/internal/db/db.go` prepared-statement
+    header mapped `/sigil`→commentary + `/trends`→series (both wrong vs live routing) → corrected to
+    `/rating`/`/momentum`; `go/cmd/api/main.go` Swagger `@description` "journalist tweets" → Gemma
+    products.
+- **Lesson:** the route source of truth is `server.go`, never a memory or an audit paragraph. Two
+  independent "current" sources (the audit, the two-rail memory) were both behind the same commit.
+
+### F-045 — Committed Swagger spec (`go/docs/`) still advertises the removed `/twitter/*` + `/api/v1/news/*` routes
+- **Found:** Session 17 · **Status:** Open — needs `swag init` + a redeploy (NOT S17; docs-only).
+- `go/docs/docs.go` (and `swagger.json`/`.yaml`) are **generated** from handler annotations and were not
+  regenerated after O12/O13 removed the live `/api/v1/news/*` and `/twitter/*` serving routes. The live
+  `/docs/` Swagger UI (served from the embedded spec) therefore still lists endpoints that 404. The
+  hand-written `ENDPOINTS.md` (now reconciled) + `server.go` are trustworthy; `/docs/` is not until
+  someone runs `swag init` in `go/` and ships it on the next `release.sh`. Recorded in `ENDPOINTS.md`'s
+  route-inventory banner so a reader is warned at the point of use.
+- **Action (next deploy, not launch-blocking for the API itself):** regenerate Swagger and redeploy.
+
+### F-046 — Leaked DB password + stale repo paths in `planning_docs/SELF_HOSTING_OPS.md`
+- **Found:** Session 17 · **Status:** Doc scrubbed (Session 17); password rotation is a Scott infra call.
+- The committed strategy doc hardcoded a literal Postgres password (redacted here — the value is in
+  git history) in two example commands (`pg_dump`/`pg_restore`), and used the **old** repo path
+  `/home/sheneveld/scoracle-data` throughout
+  (live root is `/home/sheneveld/scoracle/scoracle-backend`). S17 replaced the literal with
+  `PGPASSWORD`-from-env (matching the live `backup-postgres.sh`, which greps `.env.local`) and added a
+  banner clarifying the doc is historical strategy + pointing to the new `RUNBOOK.md`. **The literal is
+  still in git history** — if that string is (or was) the real prod/local Postgres password, **rotate
+  it**; a doc edit can't un-leak history.
+- **Action (Scott):** rotate the Postgres password if that literal was ever real; otherwise no-op.
+
+### F-047 — New operations runbook (`RUNBOOK.md`) is the durable home the audit was missing
+- **Found:** Session 17 · **Status:** Resolved (Session 17) — `RUNBOOK.md` written, reconciled to live.
+- The audit's "documentation trustworthy during an incident or rebuild" goal had no single incident-facing
+  doc — ops knowledge was scattered across `scripts/hosting/README.md`, the (historical) `SELF_HOSTING_OPS.md`,
+  script header comments, and operator memory. S17 added `RUNBOOK.md` at the repo root covering: the system
+  map (API + in-process workers, Postgres, Ollama, cron); release (`release.sh`, all-4-from-one-commit) +
+  the migrate-before-restart boot guard + the F-022 destructive-migration ordering; rollback (incl. the
+  `pkill`-by-pattern landmine F-001 and the schema-coupled-rollback caveat); backup + the 5-stage
+  bootable-backend restore drill + off-SITE gap (F-040); migrations (`migrate.sh` atomicity, `build.sh`
+  for fresh envs); **cron-vs-event-driven jobs** (Sigil is event-driven + debounced, cron `vibesynth` is
+  backstop only; Transfers as a News scope); the compile→scrub→derive→reveal pipeline; durable work tables
+  (`pipeline_work`/`pipeline_runs`/`season_recompute_needed`) + `cmd/work` repair commands +
+  `pipeline_runs_latest`; the S16 CI gate; health/incident quick-reference; a bare-metal rebuild checklist;
+  and the launch-gate carryovers. Cross-linked from `README.md` and `scripts/hosting/README.md`.
+
+### F-048 — Scattered "tweet"/"sentiment" vocabulary remains in non-serving code comments (cosmetic)
+- **Found:** Session 17 · **Status:** Open (cosmetic; intentionally NOT swept in a docs-only session).
+- Beyond the two comments S17 fixed, `go/internal/ml/{vibe,transfer}.go`, `thirdparty/{news,match}.go`,
+  `api/respond/respond.go`, and `api/handler/auth.go` still mention "tweets"/"twitter" in prose comments
+  describing historical pipeline behavior (X is decommissioned, O15). `ml/sigil.go` + `cmd/vibesynth`
+  reference `divined_sigil` **intentionally** — that's the legacy input-component key the convergence
+  migration converts to `divined_peak`; those are correct, not stale. Left untouched to keep the S17 diff
+  docs-focused and avoid churn in files the parallel Rust session is active in; fold into a future code
+  pass (audit simplification item, not launch-blocking).

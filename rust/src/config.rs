@@ -3,7 +3,9 @@
 //! the same `.env.local`. DB URL precedence matches Go: DATABASE_PRIVATE_URL
 //! wins over DATABASE_URL.
 
+use crate::route::Role;
 use anyhow::{anyhow, Result};
+use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
@@ -20,6 +22,10 @@ pub struct Config {
     /// agree on what counts as a crashed lease when they share the queue — longer than
     /// any single item's processing budget, so a slow-but-alive worker is never stolen.
     pub stale_lease: Duration,
+    /// Role → model map (the Route primitive's config, Plan §2.1). Every role defaults to
+    /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is all-Gemma and
+    /// byte-identical to the L1 single router; `COGNITION_ROUTE_*` overrides per role.
+    pub route: RouteConfig,
 }
 
 impl Config {
@@ -28,16 +34,95 @@ impl Config {
             .or_else(|| env_opt("DATABASE_URL"))
             .ok_or_else(|| anyhow!("DATABASE_PRIVATE_URL or DATABASE_URL must be set"))?;
 
+        // Bound as locals: they are both their own `Config` fields AND the per-role defaults
+        // the route map falls back to (so an un-configured deploy resolves every role to the
+        // one Ollama model — the byte-identical-to-L1 default).
+        let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
+        let ollama_model = env_or("OLLAMA_MODEL", "gemma4:e4b");
+        let route = RouteConfig::from_env(&ollama_model, &ollama_base_url);
+
         Ok(Self {
             database_url,
             db_max_conns: env_int("COGNITION_DB_MAX_CONNS", 5) as u32,
-            ollama_base_url: env_or("OLLAMA_BASE_URL", "http://localhost:11434"),
-            ollama_model: env_or("OLLAMA_MODEL", "gemma4:e4b"),
+            ollama_base_url,
+            ollama_model,
             ollama_timeout: Duration::from_secs(env_int("OLLAMA_TIMEOUT_SECONDS", 60) as u64),
             safety_net: Duration::from_secs(env_int("COGNITION_SAFETY_NET_SECONDS", 30) as u64),
             // 1800s = 30 min = Go derive.StaleLease.
             stale_lease: Duration::from_secs(env_int("COGNITION_STALE_LEASE_SECONDS", 1800) as u64),
+            route,
         })
+    }
+}
+
+/// Backend selects which `impl Inference` a [`ModelSpec`] constructs (Plan §2.1). Ollama is
+/// the only backend built today; vLLM lands as a second variant + a second `impl Inference`
+/// when it is real, not on speculation — at which point this enum and the match in
+/// `Router::from_config` each grow one arm. It is the *committed shape* of the backend swap.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Backend {
+    Ollama,
+}
+
+/// ModelSpec is the concrete model a [`Role`] resolves to — and the ONE place a model id may
+/// appear (Plan §1.1 boundary; stage code names a `Role`, never this). `backend` selects the
+/// impl, `model` is the concrete id (`gemma4:e4b`), `base_url` is where that backend lives —
+/// a role on a second GPU/port is simply a different `base_url` (the topology swap, Plan §2.1).
+#[derive(Clone, Debug)]
+pub struct ModelSpec {
+    pub backend: Backend,
+    pub model: String,
+    pub base_url: String,
+}
+
+/// RouteConfig is the role → model map driving the [`Router`](crate::route::Router) (Plan §2.1).
+/// `roles` is the incumbent each `Role` resolves to; `candidates` is the optional A/B
+/// challenger per role (eval-only, NEVER served — Plan §2.2). Built from `COGNITION_ROUTE_*`
+/// with every role defaulting to the one Ollama model, so an un-configured deploy is all-Gemma
+/// and byte-identical to the L1 single router.
+#[derive(Clone, Debug)]
+pub struct RouteConfig {
+    /// The incumbent model each role resolves to (`for_role`). Populated for EVERY role
+    /// (`Role::all`), so the router's `for_role` is total — a role always resolves.
+    pub roles: HashMap<Role, ModelSpec>,
+    /// The optional A/B challenger per role (`candidate_for`) — present only when
+    /// `COGNITION_ROUTE_<ROLE>_CANDIDATE` is set. Run by `bin/eval` against the incumbent;
+    /// adoption is a human editing `COGNITION_ROUTE_<ROLE>`, never an auto-promote.
+    pub candidates: HashMap<Role, ModelSpec>,
+}
+
+impl RouteConfig {
+    /// from_env reads `COGNITION_ROUTE_<ROLE>` for every role (e.g.
+    /// `COGNITION_ROUTE_EMOTIONAL_NEWS`), each defaulting to `default_model` on `base_url` —
+    /// so with nothing configured every role is the one Gemma and routing moves zero bytes
+    /// vs L1. `COGNITION_ROUTE_<ROLE>_CANDIDATE` adds the optional eval challenger. Today
+    /// every backend is Ollama on the shared `base_url`; per-role backend/base_url overrides
+    /// are the topology/backend swaps (HORIZON — Plan §2.1), added when they are real.
+    pub fn from_env(default_model: &str, base_url: &str) -> Self {
+        let mut roles = HashMap::new();
+        let mut candidates = HashMap::new();
+        for role in Role::all() {
+            let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
+            roles.insert(
+                role,
+                ModelSpec {
+                    backend: Backend::Ollama,
+                    model: env_or(&key, default_model),
+                    base_url: base_url.to_string(),
+                },
+            );
+            if let Some(candidate_model) = env_opt(&format!("{key}_CANDIDATE")) {
+                candidates.insert(
+                    role,
+                    ModelSpec {
+                        backend: Backend::Ollama,
+                        model: candidate_model,
+                        base_url: base_url.to_string(),
+                    },
+                );
+            }
+        }
+        Self { roles, candidates }
     }
 }
 

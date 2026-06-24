@@ -18,7 +18,6 @@ use anyhow::Result;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{config, db, ollama, stage, vibe, worker};
-use std::sync::Arc;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
@@ -36,21 +35,23 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");
 
-    let ollama =
+    // Boot reachability check against the shared Ollama base (every role's backend today).
+    // The router builds its own per-role clients from config below; this throwaway only pings.
+    let ping_client =
         ollama::OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
-    match ollama.ping().await {
+    match ping_client.ping().await {
         Ok(()) => info!(base_url = %cfg.ollama_base_url, "ollama reachable"),
         Err(e) => {
             warn!(error = %e, base_url = %cfg.ollama_base_url, "ollama not reachable (continuing; claimed items will fail until it is)")
         }
     }
 
-    // The capability context handed to every stage: the L1 minimal router (every Role → the
-    // one configured Gemma) over the pinged client, the lazy embedder (None until narratives),
-    // and the pool. L2 replaces the router with the config-driven role→model map.
+    // The capability context handed to every stage: the config-driven router (role → model
+    // from COGNITION_ROUTE_*, all-Gemma by default — byte-identical to L1), the lazy embedder
+    // (None until narratives), and the pool.
     let harness = Harness {
         pool,
-        router: Router::single(Arc::new(ollama)),
+        router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
         embedder: None,
     };
 

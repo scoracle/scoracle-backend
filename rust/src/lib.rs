@@ -4,8 +4,9 @@
 //! original clean-the-data framing.) A durable `pipeline_work`
 //! queue consumer plus an Ollama client, wired to a LISTEN/NOTIFY drain loop, with
 //! per-stage derivation handlers. This library crate holds the reusable modules; the
-//! long-running service binary is `src/main.rs` and the offline parity harness is
-//! `src/bin/parity.rs`, both built on top of it.
+//! long-running service binary is `src/main.rs`, the offline temp-0 parity harness is
+//! `src/bin/parity.rs`, and the offline A/B model eval harness is `src/bin/eval.rs` — all
+//! built on top of it.
 //!
 //! Phase 0 shipped the foundation (queue + Ollama clients, worker loop); Phase 1 added
 //! the first handler — [`vibe`] — proven byte-for-byte against Go at temperature 0. The

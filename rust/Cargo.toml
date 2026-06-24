@@ -19,6 +19,12 @@ path = "src/main.rs"
 name = "parity"
 path = "src/bin/parity.rs"
 
+# Offline A/B model eval harness (L2). Scores the role's incumbent vs candidate against
+# human labels; read-only on the pipeline. Never auto-promotes — a human edits COGNITION_ROUTE_*.
+[[bin]]
+name = "eval"
+path = "src/bin/eval.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

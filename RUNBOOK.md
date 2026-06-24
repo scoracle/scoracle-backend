@@ -360,8 +360,9 @@ These surfaced during the audit and are pre-launch work (see `planning_docs/FIRS
   `.env.local`. **S18 done:** working tree fully scrubbed + `.claude/settings.local.json` untracked +
   gitignored. **Still gated on Scott:** rotate/revoke all 4 (the only real fix — treat as compromised),
   then purge history (`git filter-repo` — install first — + force-push, coordinating archbox + archx220
-  + the Rust session). Full scope, redacted re-derivation, exact purge recipe + rollback:
-  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046 and
+  + the Rust session). **Repair runbook: `PASSWORD-LEAK-REPAIR.md`** (repo root — Steps 1–3, redacted
+  re-derivation, rollback, next-session prompt). Full scope:
+  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
   `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 
 The remaining pre-launch milestone is the **Final launch gate** in `FIRST-GPT-AUDIT.md` —

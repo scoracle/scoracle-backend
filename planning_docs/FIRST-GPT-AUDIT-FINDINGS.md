@@ -680,3 +680,49 @@ relying on them.
   coordination), but flag it: the migration *file* isn't in git, though the resulting schema now is, via the
   `sql/schema/` snapshot. The parallel (Rust scrubber) session should commit 099. **Next free = 107.**
   other short ops.
+
+### F-042 — S16: the launch-critical invariants are now executable checks + CI, not operator memory
+- **Found:** Session 16 · **Status:** Resolved (Session 16) · Code `e128d99` — **test files + a CI YAML only; NO migration, NO deploy, NO API restart.**
+- Coverage around the highest-risk state transitions was sparse and there was no committed CI. S16
+  added behavior-level **regression locks** (each would FAIL if the corresponding S1–S15 fix were
+  reverted) and a five-job GitHub Actions workflow that runs them on every main-bound change.
+- **Locks added:**
+  - **Transfer fail-closed (F-020)** — `ml/transfer_test.go`: `parseTransferVerdict` returns
+    `ok=false` for unparseable output and `IsRumor==nil` for a verdict that omits `is_rumor`, so the
+    caller's UNKNOWN routing keeps both off the served read path; a missing `is_rumor` is **not** a
+    confident "cleared". (+ `normStage`/`clampConf`.)
+  - **Scrub verdict gate** — `ml/news_scrub_test.go`: `parseScrubRelevant` drops out-of-range
+    indices, treats empty `{"relevant":[]}`/`{}` as a valid none-relevant verdict (scrub analog of
+    **F-019**), and fails on malformed output so the whole-article atomic `UPDATE` never applies a
+    wrong verdict (article stays unscrubbed + retryable).
+  - **Event-driven convergence (Rating+Vibe+Momentum)** — `ml/sigil_test.go`:
+    `buildSynthesisInputComponents`+`hashComponents` is deterministic and order/body-invariant,
+    reconverges on a real change in **every** pillar, and debounces noise (`round1` sub-0.1 composite
+    jitter; slope-only changes are display-only). + `parseSynthesisResponse`, `linearSlope`/`trendDir`,
+    `synthMomentum.empty()`.
+  - **No-duplicate-scheduled-generation** — `work/work_test.go`: a same-`input_version` re-enqueue
+    while a row is `running` is a no-op (current-season Sigil reconciliation schedules no second
+    generation); a new `input_version` while running reopens. DB-gated.
+  - **Fixture retry-cap** — `seed/tests/test_event_retry_cap.py`: `get_pending` forwards
+    `max_retries`; `record_failure`/`record_incomplete` both advance `seed_attempts` (bounded, not
+    retried forever) while writing separable columns.
+- **CI (`.github/workflows/ci.yml`):** **go** (gofmt/vet/build + `go test -race` with the DB-gated
+  queue tests and **`validate-stmts`** against a `postgres:18` provisioned **from
+  `sql/schema/schema.sql`** — the F-025/F-039 "prepared statements register against a migrated test
+  DB" check), **python** (compile + offline pytest), **shell** (`bash -n` + ShellCheck
+  `--severity=warning -x`), **docker** (`docker build go/`), **schema** (static: every migration ⊆
+  snapshot lineage). Proven end-to-end on a throwaway pg18 cluster this session.
+- **Test-DB provisioning note:** a from-snapshot DB needs **`CREATE ROLE web_user` before loading
+  `schema.sql`** — the snapshot's RLS policies (`notifications_own`, `user_devices_own`,
+  `user_follows_own`) reference it. Empty-DB **migration replay is NOT usable** (data-gates
+  045/046/048 fail) — load the snapshot, never replay (per `sql/README-migrations.md`).
+- **Offline invariant preserved:** all DB-backed Go tests gate on `TEST_DATABASE_URL` and skip when
+  unset, so `go test ./...` / `pytest` stay offline; CI sets the URL.
+
+### F-043 — docker-compose `build: seed/` references a non-existent `seed/Dockerfile`
+- **Found:** Session 16 · **Status:** Open (minor; pre-existing) · Surfaced while wiring the CI docker step.
+- `docker-compose.yml` builds the `seed` service from `seed/`, but there is **no `seed/Dockerfile`**
+  (only `go/Dockerfile` exists). `docker compose build` would fail on the `seed` service. The S16 CI
+  docker job builds **`go/`** only (the serving artifact, which is what launch needs). Cleanup later:
+  add `seed/Dockerfile` (or drop the seed build target if the seeder runs from the host/cron, not a
+  container). Not launch-blocking.

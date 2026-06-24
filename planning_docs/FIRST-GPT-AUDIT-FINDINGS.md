@@ -598,4 +598,85 @@ relying on them.
   isn't enforced per-call.
 - **Action:** when F-021 (per-pair transfer retry / skip-already-vetted) is implemented, wrap each pair's
   Gemma call in a `GemmaShortTimeout` context at the same time, so a single slow pair fails fast like the
+  other short ops — fold both into the F-021 change.
+
+### F-038 — F-015 RESOLVED: the ledger now equals the live schema (the vibe→sentiment→vibe rename round-tripped)
+- **Found:** Session 9 (as F-015) · **Status:** RESOLVED (Session 15) — re-verified directly against live prod
+- The S9 drift was **transient**, not a real divergence, and it has since closed. Read live (2026-06-24,
+  not the files): `088_rename_vibe_to_sentiment` renamed `vibe_scores → sentiment_scores`; `093_sigil_
+  convergence_rename` **reverts** that (`ALTER TABLE IF EXISTS sentiment_scores RENAME TO vibe_scores`) AND
+  renames `vibe_synthesis → sigil_synthesis` + adds `vibe_scores.prompt`; `094` renames
+  `stat_summaries.divined_sigil → divined_peak`; `103` already dropped 088's double-fire trigger half.
+  The live schema is now **exactly** what applying 088→093→094→095 as-written produces — every check matches:
+  `vibe_scores` present (no `sentiment_scores`, no `vibe_synthesis`), `sigil_synthesis` present, `vibe_scores.
+  prompt` present + `blurb` gone, `divined_peak` present (no `divined_sigil` column), constraint/indexes back
+  to `vibe_scores_*`, only the single `enqueue_derive_on_vetted` trigger. The lone `divined_sigil` *string*
+  anywhere in the dump is the breadcrumb in `divined_peak`'s own COMMENT ("Was divined_sigil pre-convergence").
+  So the audit's two options (finish the rename / revert 088) are **both moot** — reality already matches the
+  ledger. The 093 file's `IF EXISTS` guards are exactly what let it self-heal to the correct end state
+  regardless of whether 088's rename had stuck.
+- **What S15 added** so this is provable, not just asserted: a **versioned schema snapshot** (`sql/schema/
+  schema.sql` + `schema_migrations.txt`, written by `scripts/hosting/snapshot-schema.sh`) — `ledger == live ==
+  repo` is now a committed artifact a reviewer (or the S17 docs gate) can diff. Refresh it after every
+  migration (README step 5).
+- **Action:** S17 docs use the LIVE names (`vibe_scores` = the Vibe, `sigil_synthesis` = the Sigil crown,
+  `divined_peak`). Launch-gate "deployed schema, migrations, and docs describe the same system" is satisfied
+  for this surface.
+
+### F-039 — Restore drill: parts of the audit's defect list were already fixed; S15 turned it into a "bootable backend" proof
+- **Found:** Session 15 · **Status:** Resolved (Session 15)
+- Re-confirmed before acting (per F-015 discipline): the live `restore-drill.sh` **already** had no `tweets`
+  check and **no `|| true`** swallowing `pg_restore` (it used `--exit-on-error` under `set -e`). The audit's
+  Problems list described an OLDER version. What was genuinely missing — and what S15 added: (1) an explicit
+  fatal on `pg_restore` error (message, not just `set -e`); (2) **missing OR empty** critical table is fatal;
+  (3) **migration-ledger lineage** — the restore must be a *prefix* of the live source (any version the
+  restore has that the source lacks ⇒ forked lineage ⇒ FAIL; versions the source has that the restore lacks
+  ⇒ "N migrations behind", informational); (4) **stable structural assertions** (`finalize_fixture` +
+  `enqueue_derive_on_vetted` functions, the derive trigger, every critical table's PRIMARY KEY, the
+  `vibe_scores_trigger_type_check` CHECK) — catches `pg_restore` silently dropping objects; (5) the
+  **prepared-statement boot check** (F-025) via a new *kept* `go/cmd/validate-stmts` that runs the exact
+  `db.New → AfterConnect → registerPreparedStatements → Ping` path against the restore. Row-count drift vs the
+  LIVE source is **informational** (the source moves on after the dump — observed `transfer_rumors` +17), not
+  a failure; only missing/empty is fatal. Verified live: corrupt dump → FAIL(exit 1); dump missing
+  `sigil_synthesis` → FAIL; valid off-disk dump → PASS incl. "the backend would boot."
+- **Action / hand-off to S16:** `cmd/validate-stmts` is the permanent home for the F-025 technique — wire it
+  into CI (the audit's "prepared statements register against a migrated test database") and as a pre-`release.sh`
+  gate for any session that edits a `db.go` statement. Use `SKIP_STMT_CHECK=1` only when drilling a dump that
+  predates the current binary's schema (it would otherwise fail the boot check for the right reason).
+
+### F-040 — Backups shared the NVMe with Postgres; S15 added an independent off-disk mirror (off-DISK, not yet off-SITE)
+- **Found:** Session 15 · **Status:** Resolved-as-off-disk (Session 15); off-SITE still a Scott infra call
+- Confirmed the audit's concern: Postgres data (`/mnt/data/postgres/data`) and the primary backups
+  (`/mnt/data/backup/scoracle`) are both on **nvme0n1** — one drive failure loses both. The only other
+  physical drive on archbox is the root SSD (`sda`, ~37G free); no cloud/NAS/USB/rclone is configured.
+  Scott's call: mirror off-disk to root **now**. `backup-postgres.sh` now copies each dump to
+  `OFFHOST_BACKUP_DIR` (default `/home/sheneveld/scoracle-offdisk-backup` on `sda`) with: a **same-device
+  guard** (refuses to "mirror" onto the same filesystem — would be no protection), a **free-space guard**
+  (skips the mirror, loudly, rather than fill the OS disk; primary stays intact), and a tighter daily
+  retention (`OFFHOST_KEEP_DAYS`=7 + day-01 monthlies). It is **off-DISK, not off-SITE** — set
+  `OFFHOST_BACKUP_DIR` to a NAS/USB/cloud mount to also survive losing the host; the nightly mirror picks it
+  up with no code change. Verified: byte-identical mirror on `sda`, and the **restore drill against the
+  mirror boots the backend** (the S15 "done when").
+- **Action (pre-launch, Scott):** decide the true off-SITE target (cloud bucket via rclone / NAS) before the
+  corpus is irreplaceable; until then root-SSD mirror covers drive failure but not host loss / site loss.
+
+### F-041 — migrate.sh apply+record is now atomic (one psql process; one transaction for plain DDL)
+- **Found:** Session 15 · **Status:** Resolved (Session 15)
+- The old runner issued the migration (`psql -f`) and the ledger INSERT as **two separate psql processes** —
+  a crash between them left a migration applied-but-unrecorded (next run re-applies it; only safe because
+  migrations are idempotent). New runner: apply + record in a **single psql process**. For a plain-DDL file
+  with no transaction control AND no non-transactional statement, it wraps the DDL **and** the INSERT in one
+  transaction (`--single-transaction`) → genuinely atomic (crash ⇒ neither applied nor recorded). Files that
+  use `CONCURRENTLY`/`VACUUM` (e.g. 004, 096 — verified, 096 even documents its autocommit reliance) **cannot**
+  be wrapped, so they run autocommit in the one process (gap collapsed to a single process, not eliminated).
+  Files that manage their own `BEGIN;…COMMIT;` get true atomicity by **self-recording** the INSERT before
+  their COMMIT — now a REQUIRED convention (README step 4 + `sql/migration_template.sql`); the runner's INSERT
+  is an idempotent `ON CONFLICT` backstop. Verified on a throwaway: `--single-transaction` failure rolls back
+  BOTH the table and the ledger row; success records atomically; self-txn records in one process; real
+  `migrate.sh` is a clean no-op when every version is already recorded.
+- **Ops note (099):** `099_team_rosters` is **applied + recorded on prod** (the `team_rosters` table exists)
+  but its `sql/migrations/099_team_rosters.sql` file is still **untracked** in the tree (the parallel session
+  applied + recorded it without committing the file). Not S15's to commit (F-006 / parallel-session
+  coordination), but flag it: the migration *file* isn't in git, though the resulting schema now is, via the
+  `sql/schema/` snapshot. The parallel (Rust scrubber) session should commit 099. **Next free = 107.**
   other short ops.

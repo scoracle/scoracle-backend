@@ -20,6 +20,7 @@ go/bin/
 /go/api
 /go/vibesynth
 /go/statcommentary
+/go/validate-stmts
 
 # Environment
 # .env is the committed template (safe defaults, no secrets).

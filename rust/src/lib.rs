@@ -18,8 +18,10 @@
 
 pub mod config;
 pub mod db;
+pub mod embed;
 pub mod harness;
 pub mod ollama;
+pub mod resolve;
 pub mod route;
 pub mod sigil;
 pub mod stage;

@@ -56,6 +56,7 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
         embedder: None,
+        resolve: cfg.resolve.clone(),
     };
 
     let specs = match parse_specs(std::env::args().skip(1))? {

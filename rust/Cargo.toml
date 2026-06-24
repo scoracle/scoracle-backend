@@ -46,6 +46,14 @@ path = "src/bin/resolve_experiment.rs"
 name = "resolve_eval"
 path = "src/bin/resolve_eval.rs"
 
+# Offline Resolve SHADOW (L5). Runs the REAL hybrid resolve_set over the WHOLE labeled
+# secondary-link corpus, records every verdict beside Gemma's vetted in resolve_shadow (mig 108),
+# and reports auto-decide safety at scale (auto-keep precision + the auto-drop FN rate, sliced by
+# recent-mover) + bounded real-gate agreement. READ-ONLY on the pipeline (writes only resolve_shadow).
+[[bin]]
+name = "resolve_shadow"
+path = "src/bin/resolve_shadow.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

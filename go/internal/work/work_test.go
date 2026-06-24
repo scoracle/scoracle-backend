@@ -312,6 +312,77 @@ func TestDeadLettersReportsParkedRows(t *testing.T) {
 	}
 }
 
+// TestEnqueueSameVersionWhileRunningIsNoop locks the no-duplicate-scheduled-
+// generation guarantee the current-season Sigil reconciler depends on (FIRST-GPT-
+// AUDIT Session 12). A reconciler re-enqueues every current-season entity each
+// pass; if an entity is already mid-generation (a claimed 'running' row), a
+// re-enqueue carrying the SAME input_version must be a no-op — it must NOT reset
+// the row to 'pending', which would schedule a second, redundant generation after
+// the in-flight one completes. The ON CONFLICT WHERE clause (input_version IS
+// DISTINCT FROM EXCLUDED OR status='failed') is what enforces this.
+func TestEnqueueSameVersionWhileRunningIsNoop(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := Enqueue(ctx, pool, item(StageSigil, 50, "v1")); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	claimed, err := Claim(ctx, pool, StageSigil, 10)
+	if err != nil || len(claimed) != 1 {
+		t.Fatalf("claim: %v len=%d", err, len(claimed))
+	}
+	if status, _ := countRows(t, pool, StageSigil, 50); status != "running" {
+		t.Fatalf("want running after claim, got %q", status)
+	}
+
+	// Reconciler re-enqueues the same entity, same input_version, while it runs.
+	if err := Enqueue(ctx, pool, item(StageSigil, 50, "v1")); err != nil {
+		t.Fatalf("re-enqueue same version: %v", err)
+	}
+	if status, n := countRows(t, pool, StageSigil, 50); n != 1 || status != "running" {
+		t.Fatalf("want the in-flight row left untouched (running, 1 row), got status=%q n=%d", status, n)
+	}
+	// Nothing new is claimable — no duplicate generation was scheduled.
+	leftover, err := Claim(ctx, pool, StageSigil, 10)
+	if err != nil {
+		t.Fatalf("claim after re-enqueue: %v", err)
+	}
+	if len(leftover) != 0 {
+		t.Fatalf("a same-version re-enqueue during generation must schedule nothing, got %d claimable", len(leftover))
+	}
+}
+
+// TestEnqueueNewVersionWhileRunningReopens is the deliberate contrast to the
+// no-op above: when the entity's INPUTS changed (a new input_version) while a row
+// is running, the re-enqueue DOES reopen it to 'pending' so the newer inputs get
+// synthesized. Convergence on real change, debounce on no change.
+func TestEnqueueNewVersionWhileRunningReopens(t *testing.T) {
+	ctx := context.Background()
+	pool := testPool(t)
+
+	if err := Enqueue(ctx, pool, item(StageSigil, 51, "v1")); err != nil {
+		t.Fatalf("enqueue: %v", err)
+	}
+	if _, err := Claim(ctx, pool, StageSigil, 10); err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	if status, _ := countRows(t, pool, StageSigil, 51); status != "running" {
+		t.Fatalf("want running after claim, got %q", status)
+	}
+
+	// New inputs arrive mid-flight.
+	if err := Enqueue(ctx, pool, item(StageSigil, 51, "v2")); err != nil {
+		t.Fatalf("re-enqueue new version: %v", err)
+	}
+	if status, n := countRows(t, pool, StageSigil, 51); n != 1 || status != "pending" {
+		t.Fatalf("want a single reopened pending row, got status=%q n=%d", status, n)
+	}
+	again, err := Claim(ctx, pool, StageSigil, 10)
+	if err != nil || len(again) != 1 || again[0].InputVersion != "v2" {
+		t.Fatalf("want the reopened v2 work re-claimable, got %+v (%v)", again, err)
+	}
+}
+
 func TestFailBacksOffThenDeadLetters(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)

@@ -1,0 +1,184 @@
+# Scoracle backend CI (FIRST-GPT-AUDIT Session 16).
+#
+# Runs on every main-bound change so the launch-hardening from S1–S15 cannot
+# silently regress. Five independent jobs:
+#
+#   go      — gofmt/vet/build + the full Go suite, including the DB-gated work
+#             queue tests and `validate-stmts`, against a Postgres provisioned
+#             from the versioned schema snapshot (sql/schema/schema.sql).
+#   python  — compile + the offline seeder pytest suite (providers are mocked,
+#             so NO BALLDONTLIE/SPORTMONKS secrets are needed).
+#   shell   — `bash -n` syntax + ShellCheck on the hosting/ops scripts.
+#   docker  — the serving image builds (go/Dockerfile).
+#   schema  — pure-repo static check: every migration file is in the snapshot.
+#
+# The test-DB crux (see sql/README-migrations.md): an empty DB CANNOT be built by
+# replaying migrations — the data-dependent gates (045/046/048) fail on empty
+# tables. CI instead LOADS sql/schema/schema.sql (a pg_dump --schema-only of prod,
+# kept current by snapshot-schema.sh) into a clean Postgres. That yields the exact
+# live schema with no replay, so the prepared statements and queue tests run
+# against a faithful schema.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go (test + vet + validate-stmts)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # The schema.sql DB the queue tests + validate-stmts run against.
+      TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/scoracle_test?sslmode=disable
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: go/go.sum
+
+      - name: gofmt (no diffs)
+        working-directory: go
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needs to run on:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: go vet
+        working-directory: go
+        run: go vet ./...
+
+      - name: go build
+        working-directory: go
+        run: go build ./...
+
+      # The schema dump uses psql 18 directives (\restrict/\unrestrict) and a
+      # pg18-era dump format, so install a matching client rather than relying on
+      # the runner's bundled psql.
+      - name: Install PostgreSQL 18 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y postgresql-client-18
+
+      - name: Provision test DB from schema snapshot
+        run: |
+          # The RLS policies in the snapshot reference web_user; create it first.
+          psql -h localhost -U postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE web_user;"
+          createdb -h localhost -U postgres scoracle_test
+          psql -h localhost -U postgres -d scoracle_test -v ON_ERROR_STOP=1 -q -f sql/schema/schema.sql
+
+      - name: validate-stmts (prepared statements register against the schema)
+        working-directory: go
+        run: go run ./cmd/validate-stmts -db "$TEST_DATABASE_URL"
+
+      - name: go test (offline unit + DB-gated integration)
+        working-directory: go
+        run: go test ./... -race
+
+  python:
+    name: Python seeder (compile + pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install seeder + pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ./seed
+          pip install pytest
+
+      - name: Compile check
+        run: python -m compileall -q seed/scoracle_seed seed/services seed/shared
+
+      - name: pytest (offline — providers mocked)
+        working-directory: seed
+        run: pytest -q
+
+  shell:
+    name: Shell (syntax + ShellCheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: bash -n syntax
+        run: |
+          fail=0
+          while IFS= read -r f; do
+            bash -n "$f" || { echo "syntax error: $f"; fail=1; }
+          done < <(find scripts sql -name '*.sh')
+          exit "$fail"
+
+      # warning+ severity catches real bugs; -x follows sourced .env files so
+      # optional-source lines don't trip SC1091. Info/style nits are not failures.
+      - name: ShellCheck
+        run: |
+          shellcheck --version
+          shellcheck -x --severity=warning $(find scripts sql -name '*.sh' | sort)
+
+  docker:
+    name: Docker (serving image builds)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: docker build go/
+        run: docker build -t scoracle-api:ci go/
+
+  schema:
+    name: Schema (static migration/snapshot check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every committed migration must be recorded in the snapshot's lineage —
+      # a migration missing from schema_migrations.txt means the snapshot drifted
+      # from the migration set and the CI test DB would no longer match prod.
+      - name: Migration ⊆ snapshot lineage
+        run: |
+          snapshot=sql/schema/schema_migrations.txt
+          test -s "$snapshot" || { echo "missing/empty $snapshot"; exit 1; }
+          test -s sql/schema/schema.sql || { echo "missing/empty schema.sql"; exit 1; }
+          missing=0
+          for f in sql/migrations/*.sql; do
+            base="$(basename "$f" .sql)"
+            if ! grep -qxF "$base" "$snapshot"; then
+              echo "migration not recorded in snapshot lineage: $base"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Run sql/scripts snapshot-schema.sh against prod to refresh the snapshot."
+            exit 1
+          fi
+          echo "OK — all committed migrations are present in the snapshot lineage"

@@ -1000,6 +1000,24 @@ Ollama downtime delays enrichment but neither loses work nor changes truth seman
 
 # Session 16 — Add focused tests and CI
 
+> **✅ COMPLETE — 2026-06-24 (archbox).** Code `e128d99`. **Test files + a CI YAML only — NO
+> migration, NO deploy, NO API restart** (next free migration stays **107**). The launch-critical
+> invariants are now executable **regression locks** (each fails if its S1–S15 fix is reverted), not
+> comments + operator memory. Go offline units: transfer fail-closed (**F-020**), scrub verdict gate
+> (empty-array is no-data, malformed fails — scrub analog of **F-019**), and the marquee
+> **event-driven convergence** lock — `buildSynthesisInputComponents`+`hashComponents` is
+> deterministic/order-invariant, reconverges on every pillar (Rating/Vibe/Momentum), and debounces
+> `round1`/slope noise (+ `parseSynthesisResponse`, `linearSlope`/`trendDir`, `synthMomentum.empty`).
+> DB-gated: a same-`input_version` re-enqueue while `running` schedules **no duplicate generation**
+> (current-season Sigil reconciliation), new version reopens. Python: fixture **retry-cap** forwarding
+> + separable failure-mode counters. **CI** (`.github/workflows/ci.yml`, 5 jobs on push+PR to main):
+> go (gofmt/vet/build + `go test -race` + **`validate-stmts`** against a `postgres:18` provisioned
+> **from `sql/schema/schema.sql`** — the F-025/F-039 prepared-stmt check; empty-DB replay is unusable
+> per the data-gates), python (compile + offline pytest), shell (`bash -n` + ShellCheck), docker
+> (`docker build go/`), and a static migration⊆snapshot check. Proven end-to-end on a throwaway pg18
+> (schema loads after `CREATE ROLE web_user`; validate-stmts OK; all work tests pass). Offline suite
+> stays green without a DB (TEST_DATABASE_URL-gated tests skip). Findings **F-042/F-043**.
+
 ## Problems
 
 Current automated coverage is sparse around the highest-risk state transitions. There is no committed CI workflow.

@@ -869,6 +869,33 @@ An operator can tell whether last night’s backend work actually completed with
 
 # Session 14 — Harden Ollama/Gemma 4 lifecycle and capacity
 
+> **✅ COMPLETE — deployed live 2026-06-24 (archbox).** Code `cf4f26069df6`. **Code + `.env.local`
+> only — NO migration** (next free stays **107**). Ollama downtime now delays enrichment without
+> losing work or changing truth semantics. **F-014 RESOLVED:** `cmd/api` builds the Gemma generators
+> UNCONDITIONALLY and always starts the derive worker (gated only on `DERIVE_WORKER_ENABLED`) — the
+> one-time boot ping is gone. `derive.DrainAll` reachability-PRE-GATES each cycle and DEFERS when
+> Ollama is down (`Result.Deferred`; claims nothing, burns no retries); a mid-drain connection error
+> requeues the leased batch via the new `ml.IsUnavailable` classifier (no attempt burned). Pending
+> `pipeline_work` drains on the next cycle once Ollama returns — **no API restart**. The maintenance
+> scrub ticker got the same pre-gate (cheap SQL auto-vet still runs; Gemma phase skipped while down);
+> `cmd/pipeline`'s boot ping is now NON-FATAL (sweep keeps ingesting raw; run records `partial`, not
+> `exit 1`). **Shared GPU governor:** a process-wide semaphore in `internal/ml`
+> (`SetGemmaConcurrency`, default 1, `OLLAMA_MAX_CONCURRENT`) acquired around every `Generate` —
+> derive worker + maintenance scrub + cron Gemma serialize on the single 8GB card. **Operation-specific
+> timeouts:** `OLLAMA_TIMEOUT_SECONDS` is now the LONG-op budget (narratives, NumPredict 4000) + HTTP
+> backstop; new `OLLAMA_SHORT_TIMEOUT_SECONDS` (120s) bounds scrub/vibe/sigil/transfer; `keep_alive`
+> (`OLLAMA_KEEP_ALIVE`, 30m) keeps gemma4:e4b resident (measured warm `load_ms ≈ 350`, vs the 100s+
+> cold load that blew the old flat 600s stopgap). **Metrics:** the client logs one timed line per call
+> (`op`, `wall_ms`, `eval_count`, outcome). Verified: build/vet/gofmt/test clean; new tests for the
+> classifier, the gate, and DrainAll-defers; live boot loaded the new config with no degraded mode,
+> F-018 settle confirmed on the old shutdown (`requeued=7`), serving stayed responsive (`/health/db`
+> 0.6ms) under heavy drain, zero dead-letters. Deployed via `release.sh` (F-016). Progress doc:
+> `progress_docs/2026-06-24_first-gpt-audit-session-14-ollama-lifecycle-capacity.md`. Findings:
+> **F-014** RESOLVED; **F-034** (simplification A deferred — F-014 removed its main motivation),
+> **F-035** (explicit cross-process governor `OLLAMA_NUM_PARALLEL=1` on the ollama service — ops
+> follow-up), **F-036** (durable per-call Gemma metric deferred — log-only for now), **F-037**
+> (transfers per-pair timeout still team-scoped → pairs with F-021).
+
 ## Problems
 
 - API startup decides whether Gemma-backed workers exist.

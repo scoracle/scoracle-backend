@@ -105,3 +105,6 @@
 104_transfer_fail_closed
 105_vibe_scores_shadow
 106_pipeline_runs
+107_sigil_synthesis_shadow
+108_resolve_shadow
+109_pipeline_work_article_stage

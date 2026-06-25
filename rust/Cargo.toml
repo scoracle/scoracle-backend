@@ -54,6 +54,13 @@ path = "src/bin/resolve_eval.rs"
 name = "resolve_shadow"
 path = "src/bin/resolve_shadow.rs"
 
+# L6 exploration (read-only). Redundancy check: is each auto-dropped genuine link a near-duplicate
+# of another article the player keeps? Embeds the dropped article vs the player's surviving vetted
+# articles (the rigorous version of the title-match proxy). Writes nothing.
+[[bin]]
+name = "redundancy_check"
+path = "src/bin/redundancy_check.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

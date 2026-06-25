@@ -202,10 +202,30 @@ impl Harness {
 
 /// EntityType discriminates the two resolvable kinds. (The work queue carries the type as a
 /// string; Resolve and its candidates use this enum.)
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum EntityType {
     Player,
     Team,
+}
+
+impl EntityType {
+    /// as_str is the DB/queue string form (`news_article_entities.entity_type`, `pipeline_work`).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            EntityType::Player => "player",
+            EntityType::Team => "team",
+        }
+    }
+
+    /// from_db_str maps the DB string to the enum; an unknown value (e.g. the article-keyed scrub
+    /// stage's `'article'`, which is never a Resolve candidate) ⇒ `None`.
+    pub fn from_db_str(s: &str) -> Option<Self> {
+        match s {
+            "player" => Some(EntityType::Player),
+            "team" => Some(EntityType::Team),
+            _ => None,
+        }
+    }
 }
 
 /// IdentityCard holds the disambiguators that break a same-name tie. `current_club` is the

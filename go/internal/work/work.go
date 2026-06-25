@@ -30,12 +30,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Stage names the derivation step a work item belongs to. Scrub is article-keyed
-// and stays driven by news_article_entities.scrubbed_at; pipeline_work covers the
-// per-entity derive stages.
+// Stage names the derivation step a work item belongs to. Most stages are per-entity
+// (player/team); StageScrub is the exception — it is ARTICLE-keyed (entity_type='article',
+// entity_id=news_articles.id), the news ID-gate that on writing vetted fires the mig-103
+// trigger enqueuing the per-entity derive stages. The Rust ScrubHandler drains it (the Go
+// Drainer has no scrub handler); Go only ENQUEUES it (the maintenance scrub ticker, flag-gated).
 type Stage string
 
 const (
+	StageScrub      Stage = "scrub"
 	StageTransfers  Stage = "transfers"
 	StageNarratives Stage = "narratives"
 	StageVibe       Stage = "vibe"

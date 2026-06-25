@@ -23,6 +23,7 @@ pub mod harness;
 pub mod ollama;
 pub mod resolve;
 pub mod route;
+pub mod scrub;
 pub mod sigil;
 pub mod stage;
 pub mod util;

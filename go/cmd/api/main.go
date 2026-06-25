@@ -178,6 +178,7 @@ func main() {
 		mc := maintenance.DefaultConfig()
 		mc.NewsScrubInterval = cfg.NewsScrubInterval
 		mc.NewsScrubBatch = cfg.NewsScrubBatch
+		mc.NewsScrubViaQueue = cfg.NewsScrubViaQueue // L6: enqueue scrub to the Rust handler vs inline
 		mc.NewsScrubTimeout = cfg.OllamaShortTimeout // per-article Gemma bound (Session 14)
 		mc.Ollama = ollamaCli                        // reachability pre-gate for the scrub sweep
 		if !cfg.NewsScrubEnabled {

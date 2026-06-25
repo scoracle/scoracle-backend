@@ -2,17 +2,19 @@
 //!
 //! This is the foundational value the candle pivot buys: ONE tested disambiguation capability,
 //! reused by the scrub gate (`resolve_set`) and the transfer subject-test (`resolve_one`), instead
-//! of Go's scattered per-stage prompt-stuffing. It is a HYBRID, evidence-based on the L4 experiment
-//! (AUC 0.88 on the live vetted-label set):
+//! of Go's scattered per-stage prompt-stuffing. It is an ASYMMETRIC HYBRID (Plan §8), evidence-based
+//! on the L4 experiment (AUC 0.88) + the L5 at-scale shadow:
 //!
 //!   * a cheap **CPU embedding cosine** between the article context and each candidate's identity
-//!     card auto-decides the confident tails — `≥ keep_threshold` → keep, `< drop_threshold` → drop,
-//!     with NO model call;
-//!   * only the **ambiguous middle band** spends a Gemma adjudication (the scrub relevance prompt).
+//!     card may **fast-track an obvious keep** — `≥ keep_threshold` → keep, with NO model call;
+//!   * **everything below the keep line goes to the model.** The cheap proxy has NO authority to
+//!     EXCLUDE — the L5 shadow proved an auto-drop band loses distinct, non-redundant truth (0 of 9
+//!     dropped stories were captured elsewhere; one player erased), so the diviner, not the sieve,
+//!     makes every exclusion. *The sieve surfaces; the diviner judges; only the diviner excludes.*
 //!
-//! Net: the GPU runs on ~half the candidates it used to, disambiguation is more accurate than
-//! prompt-stuffing, and the gate is one place. The embeddings run on the CPU (Plan §1.4), so this
-//! REDUCES GPU load rather than adding to it.
+//! Net: the GPU still runs on only ~half the candidates (the auto-keeps skip it), disambiguation is
+//! more accurate than prompt-stuffing, the gate is one place, and no genuine link is ever condemned
+//! by a proxy. The embeddings run on the CPU (Plan §1.4), so this REDUCES GPU load rather than adding.
 //!
 //! Fail-closed (the §1.2 invariant, here too): an ambiguous candidate whose Gemma adjudication
 //! fails to parse is **dropped** (`resolve_set`) / yields **`None`** (`resolve_one`) — never a guess.
@@ -44,21 +46,25 @@ fn adjudication_opts() -> GenerateOptions {
     }
 }
 
-/// A candidate's band decision from the cosine pre-filter.
+/// A candidate's band decision from the cheap cosine pre-filter. ASYMMETRIC (Plan §8): the proxy may
+/// fast-track an obvious keep, but it has NO authority to exclude — everything below the keep line is
+/// `Ambiguous` and goes to the model. Only the model (or its fail-closed non-commitment) ever drops.
+/// There is deliberately no `Drop` variant.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Decision {
     Keep,
-    Drop,
     Ambiguous,
 }
 
-/// classify bands a cosine against the configured thresholds. `≥ keep` keep, `< drop` drop, else
-/// ambiguous (→ the model). With `drop ≤ keep` (the config invariant) the three are exhaustive.
+/// classify bands a cosine for the ASYMMETRIC gate (Plan §8): `≥ keep_threshold` is an auto-KEEP (the
+/// only thing the cheap proxy may decide on its own); everything else is `Ambiguous` and is routed to
+/// the model. The proxy NEVER auto-drops — the L5 shadow proved the auto-drop band lost distinct,
+/// non-redundant truth (0/9 dropped stories were captured elsewhere), so the diviner, not the sieve,
+/// makes every exclusion. `drop_threshold` stays in config for the OFFLINE banding analysis (the
+/// shadow/experiment bins); the live gate ignores it.
 fn classify(cosine: f32, cfg: &ResolveConfig) -> Decision {
     if cosine >= cfg.keep_threshold {
         Decision::Keep
-    } else if cosine < cfg.drop_threshold {
-        Decision::Drop
     } else {
         Decision::Ambiguous
     }
@@ -169,7 +175,6 @@ impl Harness {
             let cosine = cosine_similarity(ctx, &identities[i]);
             let kept = match classify(cosine, &self.resolve) {
                 Decision::Keep => true,
-                Decision::Drop => false,
                 Decision::Ambiguous => {
                     ambiguous.push(i);
                     false // placeholder; the adjudication below sets it
@@ -201,9 +206,10 @@ impl Harness {
 
     /// resolve_one settles which ONE candidate (if any) a mention is — the transfer subject-test
     /// shape (Plan §1.3). Embeds the context against each candidate identity, takes the best match,
-    /// and: auto-keeps it if confidently high, returns `None` if confidently low (not about any of
-    /// them), or asks the model to confirm the best candidate in the ambiguous band. Fail-closed:
-    /// ambiguous-and-unconfirmed ⇒ `None`, never a guess. `subject` records who it resolved to.
+    /// and either auto-keeps it (cosine `≥ keep_threshold`) or asks the model to confirm it (anything
+    /// below — the ASYMMETRIC gate, Plan §8: the proxy never excludes on its own). Fail-closed: an
+    /// unconfirmed / fail-closed model verdict ⇒ `None`, never a guess. `subject` records who it
+    /// resolved to.
     pub async fn resolve_one(
         &self,
         role: Role,
@@ -239,7 +245,6 @@ impl Harness {
 
         match classify(best.1, &self.resolve) {
             Decision::Keep => Ok(resolved()),
-            Decision::Drop => Ok(None), // the text is not about any candidate
             Decision::Ambiguous => {
                 // Confirm the single best candidate with the model. The raw token names the mention
                 // being resolved, so the model judges THIS surface form.
@@ -278,13 +283,14 @@ mod tests {
     }
 
     #[test]
-    fn classify_bands() {
+    fn classify_is_asymmetric() {
+        // Plan §8: ≥ keep auto-keeps; everything below is Ambiguous (→ the model). The proxy never
+        // auto-drops, so even a very low cosine is Ambiguous, NOT a drop.
         let cfg = ResolveConfig { keep_threshold: 0.75, drop_threshold: 0.60 };
         assert_eq!(classify(0.80, &cfg), Decision::Keep);
         assert_eq!(classify(0.75, &cfg), Decision::Keep); // inclusive
         assert_eq!(classify(0.70, &cfg), Decision::Ambiguous);
-        assert_eq!(classify(0.60, &cfg), Decision::Ambiguous); // drop is exclusive
-        assert_eq!(classify(0.59, &cfg), Decision::Drop);
+        assert_eq!(classify(0.10, &cfg), Decision::Ambiguous); // no auto-drop, even very low
     }
 
     #[test]

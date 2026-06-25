@@ -15,12 +15,14 @@ use anyhow::{Context, Result};
 use sqlx::PgPool;
 use std::time::Duration;
 
-/// Stage names the derivation step a work item belongs to. These are the
-/// durable per-entity stages held in `pipeline_work`. `scrub` is article-keyed
-/// and runs inline in the pipeline (it is the trigger source via migration 103),
-/// so it is not represented here.
+/// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages are
+/// per-entity (player/team); `Scrub` is the exception — it is ARTICLE-keyed (entity_type='article',
+/// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
+/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). Only the Rust
+/// `ScrubHandler` drains it — the Go Drainer has no scrub handler, so there is no double-claim.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
+    Scrub,
     Transfers,
     Narratives,
     Vibe,
@@ -31,6 +33,7 @@ pub enum Stage {
 impl Stage {
     pub fn as_str(self) -> &'static str {
         match self {
+            Stage::Scrub => "scrub",
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",

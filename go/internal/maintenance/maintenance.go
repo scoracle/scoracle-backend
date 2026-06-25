@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/albapepper/scoracle-data/internal/ml"
+	"github.com/albapepper/scoracle-data/internal/work"
 )
 
 // Config controls maintenance task intervals. Zero duration disables a task.
@@ -23,6 +24,7 @@ type Config struct {
 	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
 	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
 	NewsScrubTimeout    time.Duration // per-article Gemma bound for the scrub sweep (Session 14)
+	NewsScrubViaQueue   bool          // L6: enqueue scrub to pipeline_work (Rust handler) instead of inline Gemma
 	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
 	PeerCohortInterval  time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
 
@@ -407,7 +409,9 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 	// above always runs, but skip the Gemma disambiguation phase when Ollama is down so a
 	// model outage doesn't burn this tick failing every article. The backlog stays
 	// unscrubbed and is swept on a later tick once Ollama returns.
-	if cfg.Ollama != nil {
+	// The inline Gemma path needs Ollama up; the via-queue path does not — the Rust ScrubHandler
+	// runs the model, and a down model just fails+retries the durable work item — so it skips this.
+	if !cfg.NewsScrubViaQueue && cfg.Ollama != nil {
 		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		err := cfg.Ollama.Ping(pctx)
 		cancel()
@@ -456,6 +460,32 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 		return
 	}
 	if len(jobs) == 0 {
+		return
+	}
+
+	// L6 option (i): when enabled, ENQUEUE each candidate-rich article as a `scrub` pipeline_work
+	// item (article-keyed) instead of scrubbing inline. The Rust ScrubHandler drains it, runs the
+	// asymmetric gate, and writes vetted (firing the mig-103 trigger). Flag off (default) keeps the
+	// proven inline Gemma path below — instant rollback.
+	if cfg.NewsScrubViaQueue {
+		var enq, failed int
+		for _, j := range jobs {
+			if ctx.Err() != nil {
+				break
+			}
+			if err := work.Enqueue(ctx, pool, work.Item{
+				Stage:      work.StageScrub,
+				EntityType: "article",
+				EntityID:   int(j.id),
+				Sport:      j.sport,
+			}); err != nil {
+				failed++
+				logger.Warn("News scrub: enqueue failed", "article_id", j.id, "sport", j.sport, "error", err)
+				continue
+			}
+			enq++
+		}
+		logger.Info("News scrub: enqueued to Rust scrub stage", "enqueued", enq, "failed", failed, "batch", batch)
 		return
 	}
 

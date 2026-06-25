@@ -70,6 +70,7 @@ type Config struct {
 	NewsScrubEnabled  bool          // master switch (default true)
 	NewsScrubInterval time.Duration // sweep cadence
 	NewsScrubBatch    int           // max candidate-rich articles Gemma-scrubbed per tick
+	NewsScrubViaQueue bool          // L6: enqueue scrub to pipeline_work (Rust handler) vs inline Gemma
 
 	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
 	PipelineStatsInterval time.Duration
@@ -148,6 +149,7 @@ func Load() (*Config, error) {
 		NewsScrubEnabled:  envBool("NEWS_SCRUB_ENABLED", true),
 		NewsScrubInterval: time.Duration(envInt("NEWS_SCRUB_INTERVAL_MINUTES", 30)) * time.Minute,
 		NewsScrubBatch:    envInt("NEWS_SCRUB_BATCH", 15),
+		NewsScrubViaQueue: envBool("NEWS_SCRUB_VIA_QUEUE", false),
 
 		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
 

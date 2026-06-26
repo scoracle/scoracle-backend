@@ -1,16 +1,25 @@
 //! A/B model eval harness — the router's eval discipline made executable (Plan §2.2).
 //!
-//! Runs a human-labeled set through the role's INCUMBENT (`router.for_role`) AND its optional
-//! CANDIDATE (`router.candidate_for`), scores each against the labels, and prints the delta.
-//! This is what turns "add Mistral" from an assertion into an experiment: a model is adopted
-//! ONLY on a measured win, and adoption is a HUMAN editing `COGNITION_ROUTE_<ROLE>` after
-//! reading this report — the router NEVER auto-promotes. "A new model is a config change + an
-//! eval win — never an act of faith."
+//! Runs a labeled set through the role's INCUMBENT (`router.for_role`) AND its optional
+//! CANDIDATE (`router.candidate_for`), scoring each against the labels, and — for the L7
+//! news-model A/B — capturing each model's **prose** (the vibe felt-read) and **throughput**
+//! (Ollama's per-call eval tokens / generation time). This is what turns "add Mistral" from
+//! an assertion into an experiment: a model is adopted ONLY on a measured win, and adoption is
+//! a HUMAN editing `COGNITION_ROUTE_<ROLE>` after reading this report — the router NEVER
+//! auto-promotes. "A new model is a config change + an eval win — never an act of faith."
 //!
-//! Scope: L2 evaluates the vibe task (`Role::EmotionalNews`) — the only stage with a scoring
-//! function + labels today. The labeled set is `entity_type:id:sport=human_score` (the human's
-//! 1-100 sentiment read). When later stages land, this grows a per-role prompt+score builder;
-//! the `for_role` / `candidate_for` plumbing is already role-general.
+//! Two measurement axes, both label-free where they need to be:
+//!   - QUALITY: the side-by-side prose (SCORE + VIBE) per entity — the right axis for a
+//!     news/emotion model (a blind read of which felt-read is better). No labels required.
+//!   - THROUGHPUT: per-call tok/s from `GenerateResult` (eval_count / total_duration). The
+//!     batch runs all-incumbent then all-candidate, so the candidate's FIRST call carries the
+//!     single model-swap cost (cold load) and its warm calls show steady tok/s — exactly the
+//!     "sequential residence + batch-by-model" property L7 is testing on the one 1070.
+//!   - MAE (optional): when a case carries `=human_label`, mean absolute error vs the label.
+//!
+//! Scope: L2 evaluates the vibe task (`Role::EmotionalNews`) — the stage with a scoring
+//! function + the prose we care about. The labeled set is `entity_type:id:sport[=human_score]`;
+//! the `=human_score` is OPTIONAL (omit it for a label-free quality+throughput A/B).
 //!
 //! Scoring runs at temperature 0 (deterministic, so the comparison is reproducible and free
 //! of single-sample sampling noise) over the SAME public vibe loaders + prompt the production
@@ -22,11 +31,13 @@
 //!
 //! Usage (env from .env.local: DATABASE_PRIVATE_URL + OLLAMA_*):
 //!   eval                                       # print the resolved route table + usage
-//!   eval player:237:NBA=72 team:14:NBA=55      # A/B the EmotionalNews incumbent vs candidate
-//!   COGNITION_ROUTE_EMOTIONAL_NEWS_CANDIDATE=<model> eval player:237:NBA=72   # with a challenger
+//!   eval player:237:NBA team:14:NBA            # label-free quality+throughput A/B
+//!   eval player:237:NBA=72 team:14:NBA=55      # + MAE vs human labels
+//!   COGNITION_ROUTE_EMOTIONAL_NEWS_CANDIDATE=mistral:7b eval player:237:NBA   # with a challenger
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::{Config, RouteConfig};
+use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::route::{Inference, Role, Router};
@@ -34,8 +45,9 @@ use scoracle_cognition::vibe::{
     build_sentiment_prompt, load_latest_narratives, load_transfer_heat, lookup_entity_name,
     parse_sentiment_and_prompt, VIBE_NUM_PREDICT, VIBE_SYSTEM_PROMPT,
 };
-use scoracle_cognition::db;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 /// Deterministic eval temperature — the comparison is reproducible and free of sampling noise
 /// (production vibe runs at 0.7; the A/B compares each model's most-likely answer).
@@ -57,20 +69,43 @@ impl EntitySpec {
     }
 }
 
-/// EvalCase pairs an entity with its human label — the ground truth a model is scored against.
-/// For vibe (EmotionalNews) the label is a human sentiment read (1-100).
+/// EvalCase pairs an entity with its OPTIONAL human label — the ground truth a model is scored
+/// against. For vibe (EmotionalNews) the label is a human sentiment read (1-100); `None` runs a
+/// label-free quality+throughput A/B (the L7 news-model comparison).
 #[derive(Clone, Debug)]
 struct EvalCase {
     entity: EntitySpec,
-    label: f64,
+    label: Option<f64>,
+}
+
+/// CaseResult is one backend's answer for one entity: the parsed score (None = unparseable),
+/// the felt-read prose, and Ollama's perf metrics for the call (tokens + generation time).
+#[derive(Clone, Debug)]
+struct CaseResult {
+    key: String,
+    score: Option<i32>,
+    vibe: String,
+    total_duration: Duration,
+    eval_count: i32,
+}
+
+impl CaseResult {
+    fn tok_per_s(&self) -> f64 {
+        let s = self.total_duration.as_secs_f64();
+        if s > 0.0 && self.eval_count > 0 {
+            self.eval_count as f64 / s
+        } else {
+            0.0
+        }
+    }
 }
 
 /// ModelScore is how one backend did over the labeled set: mean absolute error vs the human
-/// labels, and how many cases produced a parseable score (no-corpus / unparseable are skipped).
+/// labels (when labels were given), and how many cases produced a parseable score.
 #[derive(Clone, Debug)]
 struct ModelScore {
     model: String,
-    /// Mean absolute error vs the human labels; `None` when nothing scored.
+    /// Mean absolute error vs the human labels; `None` when no labeled case scored.
     mae: Option<f64>,
     scored: usize,
 }
@@ -90,13 +125,14 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
     let cases = parse_cases(std::env::args().skip(1))?;
 
-    // No labeled set → just show what the config resolves to (a zero-DB, zero-Ollama smoke
-    // that proves `RouteConfig::from_env` parsed) and how to run a real A/B.
+    // No cases → just show what the config resolves to (a zero-DB, zero-Ollama smoke that
+    // proves `RouteConfig::from_env` parsed) and how to run a real A/B.
     if cases.is_empty() {
         print_route_table(&cfg.route);
         println!(
-            "\nusage: eval <entity_type:id:sport=human_label> ...\n  \
-             e.g. eval player:237:NBA=72 team:14:NBA=55\n  \
+            "\nusage: eval <entity_type:id:sport[=human_label]> ...\n  \
+             e.g. eval player:237:NBA team:14:NBA   (label-free quality+throughput A/B)\n  \
+             e.g. eval player:237:NBA=72            (+ MAE vs a human label)\n  \
              set COGNITION_ROUTE_{}_CANDIDATE=<model> to enable the A/B challenger",
             EVAL_ROLE.env_suffix()
         );
@@ -122,20 +158,21 @@ async fn main() -> Result<()> {
         EVAL_TEMPERATURE
     );
 
-    println!("\nincumbent: {}", incumbent.model());
-    let incumbent_score = score_backend(&harness, &incumbent, &cases).await?;
+    println!("\nincumbent: {} (drain all of this model first)", incumbent.model());
+    let (incumbent_score, inc_results) = score_backend(&harness, &incumbent, &cases).await?;
 
-    let candidate_score = match candidate.as_ref() {
+    let (candidate_score, cand_results) = match candidate.as_ref() {
         Some(c) => {
-            println!("\ncandidate: {}", c.model());
-            Some(score_backend(&harness, c, &cases).await?)
+            println!("\ncandidate: {} (ONE swap to here, then drain)", c.model());
+            let (s, r) = score_backend(&harness, c, &cases).await?;
+            (Some(s), Some(r))
         }
         None => {
             println!(
                 "\ncandidate: none (set COGNITION_ROUTE_{}_CANDIDATE=<model> to A/B)",
                 EVAL_ROLE.env_suffix()
             );
-            None
+            (None, None)
         }
     };
 
@@ -145,18 +182,33 @@ async fn main() -> Result<()> {
         candidate: candidate_score,
         n: cases.len(),
     });
+
+    // Throughput — the L7 axis. The candidate's first-call time carries the single model-swap
+    // cost (cold load); warm tok/s is the steady batch rate once resident.
+    println!("\n=== throughput (Ollama eval tokens / generation time) ===");
+    print_throughput(incumbent.model(), &inc_results);
+    if let Some(c) = candidate.as_ref() {
+        if let Some(cr) = cand_results.as_ref() {
+            print_throughput(c.model(), cr);
+        }
+    }
+
+    // Quality — the side-by-side prose for a blind read of which felt-read is better.
+    if let (Some(c), Some(cr)) = (candidate.as_ref(), cand_results.as_ref()) {
+        print_side_by_side(incumbent.model(), &inc_results, c.model(), cr);
+    }
     Ok(())
 }
 
-/// score_backend runs every case through one backend and returns its MAE vs the human labels.
-/// It reuses the SAME public vibe loaders + prompt the production handler runs (only the
-/// backend differs), at temperature 0. Cases with no corpus (no narratives AND no heat) and
-/// unparseable replies are skipped from the score, not counted as zero.
+/// score_backend runs every case through one backend and returns its MAE (over labeled cases)
+/// plus the per-case results (score, prose, perf). It reuses the SAME public vibe loaders +
+/// prompt the production handler runs (only the backend differs), at temperature 0. Cases with
+/// no corpus (no narratives AND no heat) are skipped — they carry no model judgment to compare.
 async fn score_backend(
     hx: &Harness,
     backend: &Arc<dyn Inference>,
     cases: &[EvalCase],
-) -> Result<ModelScore> {
+) -> Result<(ModelScore, Vec<CaseResult>)> {
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(EVAL_TEMPERATURE),
@@ -165,7 +217,8 @@ async fn score_backend(
     };
 
     let mut abs_err_sum = 0.0f64;
-    let mut scored = 0usize;
+    let mut mae_n = 0usize;
+    let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
         let prompt = match build_vibe_prompt(hx, &case.entity).await? {
             Some(p) => p,
@@ -174,30 +227,61 @@ async fn score_backend(
                 continue;
             }
         };
-        let gen = backend
-            .generate(&prompt, &opts)
-            .await
-            .with_context(|| format!("generate for {}", case.entity.key()))?;
-        match parse_sentiment_and_prompt(&gen.response) {
-            Ok((model_score, _vibe)) => {
-                let err = (model_score as f64 - case.label).abs();
-                abs_err_sum += err;
-                scored += 1;
-                println!(
-                    "  · {} : model={model_score} human={} |Δ|={err:.0}",
-                    case.entity.key(),
-                    case.label
-                );
+        let gen = match backend.generate(&prompt, &opts).await {
+            Ok(g) => g,
+            Err(e) => {
+                // Under GPU contention a call can time out waiting in Ollama's queue; skip it
+                // rather than abort the whole batch (a partial A/B is still useful).
+                println!("  ! {} : generate failed ({e:#}) — skipped", case.entity.key());
+                continue;
             }
-            Err(e) => println!("  ! {} : unparseable ({e:#})", case.entity.key()),
+        };
+        let (score, vibe) = match parse_sentiment_and_prompt(&gen.response) {
+            Ok((s, v)) => (Some(s), v),
+            Err(e) => {
+                println!("  ! {} : unparseable ({e:#})", case.entity.key());
+                (None, String::new())
+            }
+        };
+        let result = CaseResult {
+            key: case.entity.key(),
+            score,
+            vibe,
+            total_duration: gen.total_duration,
+            eval_count: gen.eval_count,
+        };
+        // MAE only when both a label and a parsed score exist.
+        if let (Some(s), Some(label)) = (score, case.label) {
+            abs_err_sum += (s as f64 - label).abs();
+            mae_n += 1;
         }
+        let label_note = match (score, case.label) {
+            (Some(s), Some(label)) => format!(" human={label} |Δ|={:.0}", (s as f64 - label).abs()),
+            _ => String::new(),
+        };
+        println!(
+            "  · {} : score={} {:.1} tok/s ({} tok / {:.1}s){label_note}",
+            result.key,
+            score.map(|s| s.to_string()).unwrap_or_else(|| "??".into()),
+            result.tok_per_s(),
+            result.eval_count,
+            result.total_duration.as_secs_f64(),
+        );
+        if !result.vibe.is_empty() {
+            println!("      vibe: {}", result.vibe);
+        }
+        results.push(result);
     }
 
-    Ok(ModelScore {
-        model: backend.model().to_string(),
-        mae: (scored > 0).then(|| abs_err_sum / scored as f64),
-        scored,
-    })
+    let scored = results.iter().filter(|r| r.score.is_some()).count();
+    Ok((
+        ModelScore {
+            model: backend.model().to_string(),
+            mae: (mae_n > 0).then(|| abs_err_sum / mae_n as f64),
+            scored,
+        },
+        results,
+    ))
 }
 
 /// build_vibe_prompt loads the entity's narratives + transfer heat and assembles the exact
@@ -221,6 +305,64 @@ async fn build_vibe_prompt(hx: &Harness, s: &EntitySpec) -> Result<Option<String
         &narratives,
         &heat,
     )))
+}
+
+/// print_throughput summarizes one model's batch: the first-call time (which for the candidate
+/// carries the single cold model-swap cost) and the WARM tok/s (calls 2..n, once resident) —
+/// the steady rate that matters for "drain the resident model's whole queue before swapping."
+fn print_throughput(model: &str, results: &[CaseResult]) {
+    let timed: Vec<&CaseResult> = results.iter().filter(|r| r.eval_count > 0).collect();
+    if timed.is_empty() {
+        println!("  {model:<16} no timed calls");
+        return;
+    }
+    let first = timed[0];
+    let warm = &timed[1..];
+    let (warm_tok, warm_sec) = warm.iter().fold((0i64, 0.0f64), |(t, s), r| {
+        (t + r.eval_count as i64, s + r.total_duration.as_secs_f64())
+    });
+    let warm_tokps = if warm_sec > 0.0 {
+        warm_tok as f64 / warm_sec
+    } else {
+        0.0
+    };
+    let warm_mean_s = if !warm.is_empty() {
+        warm_sec / warm.len() as f64
+    } else {
+        0.0
+    };
+    println!(
+        "  {model:<16} first-call {:.1}s ({} tok) | warm {:.2} tok/s, mean {:.1}s/call over {} calls",
+        first.total_duration.as_secs_f64(),
+        first.eval_count,
+        warm_tokps,
+        warm_mean_s,
+        warm.len(),
+    );
+}
+
+/// print_side_by_side renders incumbent-vs-candidate prose per entity — the blind quality read
+/// for "which felt-read is the better news/emotion answer." Matched by entity key (both
+/// backends skip the same no-corpus cases, so a missing side is rare and shown as such).
+fn print_side_by_side(inc_model: &str, inc: &[CaseResult], cand_model: &str, cand: &[CaseResult]) {
+    let cmap: HashMap<&str, &CaseResult> = cand.iter().map(|r| (r.key.as_str(), r)).collect();
+    println!("\n=== SIDE-BY-SIDE prose (blind A/B fodder) ===");
+    for a in inc {
+        println!("\n[{}]", a.key);
+        println!(
+            "  A {inc_model:<14} score={} | {}",
+            a.score.map(|s| s.to_string()).unwrap_or_else(|| "??".into()),
+            a.vibe,
+        );
+        match cmap.get(a.key.as_str()) {
+            Some(b) => println!(
+                "  B {cand_model:<14} score={} | {}",
+                b.score.map(|s| s.to_string()).unwrap_or_else(|| "??".into()),
+                b.vibe,
+            ),
+            None => println!("  B {cand_model:<14} (no result)"),
+        }
+    }
 }
 
 /// print_report renders the incumbent-vs-candidate verdict and — crucially — states that the
@@ -257,7 +399,10 @@ fn print_report(r: &EvalReport) {
                         println!("→ tie. Keep the incumbent (no measured win).");
                     }
                 }
-                _ => println!("→ not enough scored cases on both sides to call a winner."),
+                _ => println!(
+                    "→ no MAE winner (label-free run or too few labeled cases). Judge on the \
+                     side-by-side prose + throughput below."
+                ),
             }
         }
     }
@@ -266,7 +411,7 @@ fn print_report(r: &EvalReport) {
 fn fmt_score(s: &ModelScore, n: usize) -> String {
     match s.mae {
         Some(mae) => format!("MAE={mae:.2} (scored {}/{})", s.scored, n),
-        None => format!("MAE=n/a  (scored 0/{n})"),
+        None => format!("MAE=n/a  (scored {}/{n})", s.scored),
     }
 }
 
@@ -287,23 +432,28 @@ fn print_route_table(cfg: &RouteConfig) {
     }
 }
 
-/// parse_cases reads `entity_type:id:sport=human_label` tokens from the CLI args.
+/// parse_cases reads `entity_type:id:sport[=human_label]` tokens from the CLI args.
 fn parse_cases(args: impl Iterator<Item = String>) -> Result<Vec<EvalCase>> {
     args.map(|a| parse_case(&a)).collect()
 }
 
 fn parse_case(arg: &str) -> Result<EvalCase> {
-    let (entity_part, label_part) = arg
-        .split_once('=')
-        .ok_or_else(|| anyhow!("bad eval case {arg:?}; want entity_type:id:sport=human_label"))?;
-    let label: f64 = label_part
-        .trim()
-        .parse()
-        .with_context(|| format!("bad label in {arg:?}"))?;
-    Ok(EvalCase {
-        entity: parse_entity(entity_part)?,
-        label,
-    })
+    match arg.split_once('=') {
+        Some((entity_part, label_part)) => {
+            let label: f64 = label_part
+                .trim()
+                .parse()
+                .with_context(|| format!("bad label in {arg:?}"))?;
+            Ok(EvalCase {
+                entity: parse_entity(entity_part)?,
+                label: Some(label),
+            })
+        }
+        None => Ok(EvalCase {
+            entity: parse_entity(arg)?,
+            label: None,
+        }),
+    }
 }
 
 fn parse_entity(s: &str) -> Result<EntitySpec> {

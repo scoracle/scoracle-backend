@@ -85,9 +85,18 @@ consumer**, and **blitzing the 31k unscrubbed backlog would flood it.**
 `cargo clippy --all-targets -D warnings` clean · `cargo test --lib` 35+1 · `go build/vet/gofmt` clean ·
 live canary + 30-article ramp validated (0 failures; gate 49 keep / 7 drop = 87.5%, matching offline).
 
-## Not done (the new direction — see the L7 handoff)
+## Not done — L7 = two specialized models on one 1070 (see the L7 handoff)
 
-- Efficient 2025-derive throughput: `narratives` as `embed+cluster + route + extract + persist` (dedup
-  the corpus → fewer/shorter prompts → the heaviest GPU consumer gets cheaper); **Mistral 7b** as an
-  eval-gated router role-model; **model-affinity scheduling** (batch by model to amortize swaps).
-- The scrub steady-state flip (held — needs supervision + GPU headroom).
+The headline unlock: run **Mistral 7B (news/emotion) + Gemma 4B (stats/math)** on the single 1070 via
+**sequential residence + batch-by-model scheduling** — they can't co-reside in 8 GB, so the harness keeps
+one model hot and drains all its work before swapping once (Ollama would thrash per-request otherwise).
+The cheap-first sequence:
+1. **Eval Mistral-as-news offline** (`bin/eval` + the built `vibe` loaders) — measure the quality win
+   justifies the swap before committing; adopt on the result (models by role, eval-gated).
+2. **Model-affinity scheduler** (`worker.rs`) — drain grouped by routed model; two-pass per entity-batch
+   (news-pass [Mistral] → one swap → stats-pass [Gemma], since sigil/momentum read vibe). The actual unlock.
+3. **Port `narratives`** as `embed+cluster + route + extract + persist` — the biggest Mistral-news consumer
+   + `cluster()` dedup → shorter prompts on the heaviest GPU stage → the 2025 narrative backlog drains cheaper.
+
+Drain the 2025 backlog in bounded Rust sessions (not an always-up daemon). The scrub steady-state flip
+stays held (needs systemd-class supervision + GPU headroom).

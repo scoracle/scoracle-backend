@@ -191,7 +191,10 @@ fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
 /// per counterparty, heat > 0, Gemma-vetted), naming the counterparty. The `is_rumor IS
 /// TRUE` gate is applied AFTER picking the latest row per counterparty (FIRST-GPT-AUDIT
 /// Session 10), so a newer cleared/unknown verdict supersedes an older TRUE. Mirrors
-/// `loadTransferHeat`; branches on entity type exactly as the Go query does.
+/// `loadTransferHeat`; branches on entity type exactly as the Go query does. A 14-day
+/// freshness gate (L9) ages out rumors the re-vet no longer re-confirms, so a very old
+/// false positive can't ground prompts forever — mirrors the Go loader + the /transfers
+/// card read path's window, keeping the built-prompt bytes identical to Go.
 pub async fn load_transfer_heat(
     pool: &PgPool,
     entity_type: &str,
@@ -208,6 +211,7 @@ pub async fn load_transfer_heat(
             FROM transfer_rumors tr
             JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
             WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+              AND tr.generated_at > NOW() - INTERVAL '14 days'
             ORDER BY tr.player_id, tr.generated_at DESC
         ) latest
         WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3
@@ -222,6 +226,7 @@ pub async fn load_transfer_heat(
             FROM transfer_rumors tr
             JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
             WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+              AND tr.generated_at > NOW() - INTERVAL '14 days'
             ORDER BY tr.team_id, tr.generated_at DESC
         ) latest
         WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3

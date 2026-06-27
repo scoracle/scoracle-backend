@@ -34,6 +34,16 @@ type heatItem struct {
 // counterparty (FIRST-GPT-AUDIT Session 10) so a newer cleared/unknown verdict
 // supersedes an older TRUE: a model failure (NULL) or a Gemma-cleared (FALSE) row
 // stops grounding narratives/Vibe, mirroring the /transfers read contract.
+//
+// Freshness gate (L9): only rows regenerated within the last 14 days are
+// considered, so a rumor the re-vet has stopped re-confirming ages out instead
+// of grounding prompts forever. The re-vet (cmd/transfer -mode corpus) only
+// refreshes ACTIVE candidates (>=2 co-mentions/14d), so without this gate a very
+// old false positive — e.g. a pre-rivalry-clause heat-v1 row — serves
+// indefinitely (Wembanyama still showed a stale Milwaukee Bucks heat 6 dated
+// 06-02). Applied in the inner subquery before DISTINCT ON, matching the 14-day
+// window the /transfers card read path uses (db.go entity_transfers /
+// transfers_leaderboard) so the prompt grounds on the same set the card shows.
 func loadTransferHeat(
 	ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string,
 ) ([]heatItem, error) {
@@ -46,6 +56,7 @@ func loadTransferHeat(
 		    FROM transfer_rumors tr
 		    JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
 		    WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+		      AND tr.generated_at > NOW() - INTERVAL '14 days'
 		    ORDER BY tr.team_id, tr.generated_at DESC
 		) latest
 		WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3`
@@ -59,6 +70,7 @@ func loadTransferHeat(
 		    FROM transfer_rumors tr
 		    JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
 		    WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
+		      AND tr.generated_at > NOW() - INTERVAL '14 days'
 		    ORDER BY tr.player_id, tr.generated_at DESC
 		) latest
 		WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3`

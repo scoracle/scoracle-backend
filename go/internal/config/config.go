@@ -34,23 +34,24 @@ type Config struct {
 	RateLimitRequests int
 	RateLimitWindow   time.Duration
 
-	// Ollama (local Gemma inference)
+	// Ollama (local inference — Mistral 7B since the L7 cutover off gemma4:e4b)
 	OllamaBaseURL string // default http://localhost:11434
-	OllamaModel   string // default gemma4:e4b
+	OllamaModel   string // default mistral:7b
 	// OllamaTimeout is the LONG-operation budget — narrative generation
 	// (NumPredict 4000) genuinely needs it, and it doubles as the HTTP-client
 	// hard backstop, so it must be >= every per-operation deadline. Short ops are
 	// bounded tighter by OllamaShortTimeout via a per-call context (FIRST-GPT-AUDIT
-	// Session 14). gemma4:e4b is an 8B model partial-CPU-offloaded on an 8GB GPU, so
-	// a cold load + a queue wait behind another call can take a while — keep it roomy.
+	// Session 14). mistral:7b fits fully on the 8GB GPU (the L7 cutover off the
+	// partial-CPU-offloaded gemma4:e4b), but a cold load or a queue wait behind another
+	// call can still take a while — keep it roomy.
 	OllamaTimeout time.Duration
-	// OllamaShortTimeout bounds the quick Gemma calls (scrub, vibe, sigil,
+	// OllamaShortTimeout bounds the quick model calls (scrub, vibe, sigil,
 	// transfer-pair) so they fail fast and retry instead of waiting out the long
 	// narrative budget. Per-call, applied by the drainer / maintenance scrub via context.
 	OllamaShortTimeout time.Duration
-	// OllamaMaxConcurrent caps in-process concurrent Gemma calls (the shared GPU
+	// OllamaMaxConcurrent caps in-process concurrent model calls (the shared GPU
 	// governor, FIRST-GPT-AUDIT Session 14). 1 fully serializes — correct for a single
-	// 8GB GPU running one gemma4:e4b instance. Applied as a package-level semaphore in
+	// 8GB GPU running one mistral:7b instance. Applied as a package-level semaphore in
 	// internal/ml, so it bounds the derive worker + maintenance scrub together.
 	OllamaMaxConcurrent int
 	// OllamaKeepAlive is how long Ollama keeps the model resident after a call
@@ -135,7 +136,7 @@ func Load() (*Config, error) {
 		RateLimitWindow:   time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
 
 		OllamaBaseURL:       envOr("OLLAMA_BASE_URL", "http://localhost:11434"),
-		OllamaModel:         envOr("OLLAMA_MODEL", "gemma4:e4b"),
+		OllamaModel:         envOr("OLLAMA_MODEL", "mistral:7b"),
 		OllamaTimeout:       time.Duration(envInt("OLLAMA_TIMEOUT_SECONDS", 300)) * time.Second,
 		OllamaShortTimeout:  time.Duration(envInt("OLLAMA_SHORT_TIMEOUT_SECONDS", 120)) * time.Second,
 		OllamaMaxConcurrent: envInt("OLLAMA_MAX_CONCURRENT", 1),

@@ -47,7 +47,7 @@ impl Config {
         // the route map falls back to (so an un-configured deploy resolves every role to the
         // one Ollama model — the byte-identical-to-L1 default).
         let ollama_base_url = env_or("OLLAMA_BASE_URL", "http://localhost:11434");
-        let ollama_model = env_or("OLLAMA_MODEL", "gemma4:e4b");
+        let ollama_model = env_or("OLLAMA_MODEL", "mistral:7b");
         let route = RouteConfig::from_env(&ollama_model, &ollama_base_url);
 
         Ok(Self {
@@ -141,7 +141,7 @@ pub enum Backend {
 
 /// ModelSpec is the concrete model a [`Role`] resolves to — and the ONE place a model id may
 /// appear (Plan §1.1 boundary; stage code names a `Role`, never this). `backend` selects the
-/// impl, `model` is the concrete id (`gemma4:e4b`), `base_url` is where that backend lives —
+/// impl, `model` is the concrete id (`mistral:7b`), `base_url` is where that backend lives —
 /// a role on a second GPU/port is simply a different `base_url` (the topology swap, Plan §2.1).
 #[derive(Clone, Debug)]
 pub struct ModelSpec {

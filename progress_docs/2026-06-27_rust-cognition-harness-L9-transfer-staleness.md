@@ -101,3 +101,41 @@ the L0 whole-crate-fmt landmine).
   Embed + cluster + hybrid Resolve + the scrub cutover (HELD, GPU-bound). Next increment to be settled.
 - **Rating length** (from L8) — still occasionally ~3 short paragraphs for generational profiles at
   temp 0.6; acceptable; lever = tighter few-shot / lower `NumPredict`.
+
+## Session continuation — narratives investigation + the architecture pivot
+
+**Narratives n4 → NOT shipped (no measured win).** The user approved hardening n3→n4 (few-shot the
+draft/rivalry misread + a "cite ≥1 article" rule). Built two candidates and A/B'd them live (Wemby +
+Gonçalo Ramos + Mahomes controls):
+- **n4** (guard few-shot + transfer-list "sharpens-not-spawns" + article-citation) **regressed Mahomes**:
+  it leaked the internal heat index into prose (*"reached a stage five on our heat index"* — the exact
+  leak the prompt forbids and n3 avoided) and **invented** *"$50m"/"multiple draft picks and players."*
+- **n4b** (guard few-shot only) also leaked heat (*"trade heat level of 5"*). At temp 0.6 these behaviors
+  are **intermittent** and the model **under-obeys explicit rules** — prompt-tuning has hit its ceiling.
+- Note: `groundNarratives` already drops `articles:[]` narratives before persist (lines 263-265), so the
+  worst hallucination (*"Dallas acquiring Wembanyama", articles:[]*) never reaches production. The
+  *persisted* phantom is the **article-backed** draft misframe (*"Spurs drafting Wembanyama"* citing a
+  real article) — which the prompt can't reliably suppress.
+
+**The real root (deeper than the L9 narratives layers): the TRANSFER VET confirms roundup/listicle
+co-mentions as real interest.** Evidence — Mahomes' newest Denver row (`mistral:7b` t3, today):
+`stage=concrete_interest`, summary *"AFC Notes: Patrick Mahomes, around $50m bid attributed to Denver
+Broncos."* The t3 vet took an **"AFC Notes" roundup** (a multi-QB/team listicle co-mentioning
+Mahomes+Broncos+Chargers+Chiefs) and confirmed it as concrete interest with a **fabricated $50m bid**.
+Same class as L8's rivalry fix, but **roundups** — which the rivalry clause, the 50-char co-mention
+proximity, and `min-articles=2` don't catch. This false heat then feeds narratives → *"Broncos pursue
+Mahomes."* **No narratives prompt can fix a false input fact.** The fix (t3→t4: a roundup/listicle
+clause + "never invent a fee/bid not in the sources") is **deferred to the Rust transfer port** (below),
+so it lands single-home.
+
+**Architecture pivot (user-directed) — commit to the Go→Rust cutover.** The duplication pain this
+session (mirroring the heat-gate into both `transfer_heat.go` and `vibe.rs`) is a symptom of a **stalled
+migration**: the Rust harness built the library + parity-ported vibe/sigil + built/validated scrub, but
+**cut over zero stages** — paying the duplication tax with none of the payoff. The GPU bind that HELD the
+cutover (L6: backlog 146→192 and growing) **has eased** — live `pipeline_work` backlog is now **12
+pending / 0 claimed** (L7's Mistral ~2× did its job). Settled vision: **Go = ingest (scrape/RSS) +
+serve (consumer endpoints); Rust = ALL cognition (scrub·transfer·narratives·vibe·rating·sigil);
+Postgres = deterministic math.** The Go LLM layer is legacy-by-design and gets **retired stage-by-stage**
+via the per-stage parity-gate + flag-rollback discipline already built — NOT a big-bang. Next actions
+(this is the new through-line): **(1) cutover-readiness recon**, then **(2) reshape the vault build-plan
+into a CUTOVER PLAN.** The transfer t4 roundup fix is authored in Rust during the transfer port.

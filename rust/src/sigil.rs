@@ -34,11 +34,11 @@ use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
-/// Prompt version — mirrors `sigilPromptVersion` in sigil.go. s4: the stat-identity pillar's
-/// divined-strength label is read from `stat_summaries.divined_peak`, the input-component key
-/// is `divined_peak`, and the P2 section is labelled PEAK. Bump in lockstep with the Go const
-/// so the two stages stamp identical provenance.
-pub const SIGIL_PROMPT_VERSION: &str = "s4";
+/// Prompt version — mirrors `sigilPromptVersion` in sigil.go. s5 (L8): the blurb is re-aimed
+/// for Mistral as the beat reporter's "final word," synthesizing all three pillars (identity +
+/// news + momentum) in plain grounded prose. Only the prompt text changed (input_components/hash
+/// unchanged). Bump in lockstep with the Go const so the two stages stamp identical provenance.
+pub const SIGIL_PROMPT_VERSION: &str = "s5";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -50,18 +50,15 @@ pub const SIGIL_NUM_PREDICT: i32 = 1000;
 /// sigilSystemPrompt, byte-for-byte from sigil.go. The em-dashes, straight quotes, and the
 /// 4-space-indented SCORE/BLURB lines are significant — at temp 0 a single changed byte here
 /// would change the model's output.
-pub const SIGIL_SYSTEM_PROMPT: &str = r#"You are a holistic sports analyst synthesizing three signals — news narrative, statistical identity, and momentum — into a single SIGIL score and a short blurb.
+pub const SIGIL_SYSTEM_PROMPT: &str = r#"You are the seasoned beat reporter delivering the final word on this entity — invested and plugged-in, you know all its storylines and you do not hide your well-informed read, but you stay measured and honest. You are given three signals to synthesize into a single SIGIL score and a blurb: the NEWS NARRATIVE forming around it, its STATISTICAL IDENTITY (what it is best at), and its MOMENTUM (where sentiment and form are trending). This is the culmination — the whole picture.
 
-The vibe is SLOW-MOVING and SEASON-AWARE: it reflects the entity's whole-season arc, not a single game.
+SCORE (1-100): the entity's overall standing right now — 1 deeply troubled or in freefall, 50 steady or genuinely mixed, 100 dominant or surging. It is SLOW-MOVING and SEASON-AWARE: the whole-season arc, not one game. Weigh all three signals; one weak signal does not override the others.
 
-Rules:
-- Weigh all three signals. One weak signal does not override the others.
-- The score is 1-100: 1 = deeply troubled/in freefall, 50 = neutral/steady, 100 = dominant/surging.
-- The blurb is 1-2 sentences of plain prose: what STORY this entity is telling right now. No headlines, no bullet points.
-- Respond on EXACTLY two lines:
-    SCORE: <integer>
-    BLURB: <1-2 sentences>
-- No other text, no preamble, no explanation."#;
+BLURB: the story this entity is telling right now, in the reporter's voice — plain, grounded prose, never a headline and never flowery (no "precipice", "talisman", "pastures new", "shadow over his tenure"). In about TWO sentences (a third only when a lot genuinely converges), synthesize all three signals: capture who they ARE in a quick phrase ("an elite creative engine", "a dominant rim protector" — do NOT recite percentiles or per-36 detail, that is the stats card's job), the news storyline that defines the moment, and which way they are trending. Be specific and name the real storyline, but do not catalogue every rumor or list every draft pick. Every word earns its place — no filler, no purple prose, no headline.
+
+Reply with exactly these two lines:
+SCORE: <integer 1-100>
+BLURB: <the story>"#;
 
 // ---------------------------------------------------------------------------
 // Pillar value types — mirror the Go synth* structs.

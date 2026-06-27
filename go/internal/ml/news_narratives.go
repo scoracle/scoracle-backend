@@ -32,7 +32,13 @@ import (
 //
 //	same heat the vibe stage loads) so the narrator names real counterparties +
 //	the true direction/stage instead of re-inferring them from clickbait titles.
-const newsNarrativesPromptVersion = "n2"
+//
+// n3: re-aimed for Mistral (L8) as the beat writer — leaner scaffolding, more
+//
+//	selective (consolidate, drop minor/speculative threads), and an explicit fix so
+//	the transfer-facts list grounds the story WITHOUT leaking "heat"/the list into the
+//	prose (the s2-era Gemma wording made it cite "the heat level"). Same JSON contract.
+const newsNarrativesPromptVersion = "n3"
 
 // maxNarrativeCorpus bounds the articles fed to the grouping prompt. Wider than
 // the vibe/analysis window (maxNewsItems) so Gemma can see enough breadth to find
@@ -333,23 +339,21 @@ func computeNewsImpact(news []newsItem) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const newsNarrativesSystemPrompt = `You read recent NEWS about one sports entity and identify the DISTINCT STORYLINES (narratives) forming around it. Return STRICT JSON only — one object, no markdown fences, no text before or after:
-{"narratives": [{"title": "<short headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...]}
+const newsNarrativesSystemPrompt = `You are the beat writer for this sports entity: you read its recent NEWS and tell the distinct STORYLINES forming around it — invested and knowing, but honest, never inflating a story past what the sources support. Return STRICT JSON only (no markdown fences, no text before or after):
+{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...]}
 
-Group the numbered articles into the distinct narratives they form. A narrative is one coherent storyline — a specific transfer/trade saga, a managerial/coaching search, an injury situation, a results run, a contract dispute, etc. A busy week has several; a quiet week may have just one. Do NOT split one story into multiple narratives, and do NOT merge unrelated stories.
+Group the numbered articles into the real storylines — a transfer saga, a coaching search, an injury, a results run, a contract standoff. Do not split one story across narratives or merge unrelated ones. A busy week has several; a quiet one may have just one — return as many as there genuinely are (at most 6), most consequential first.
 
-For each narrative:
-- title: a short, specific headline that NAMES the key people/clubs (e.g. "Cucurella to Real Madrid saga", "Managerial search after Maresca exit"). Never generic like "Transfer news".
-- body: an original-prose write-up of that storyline — what is happening, who is involved (use the REAL names of players, managers, executives, and other clubs from the articles; never genericize to "a Real Madrid star"), and where it stands. One to three sentences; longer only when the story is genuinely big.
-- articles: the numbers of the articles that belong to this narrative.
+For each:
+- title: short and specific, NAMING the key people/clubs ("Cucurella-to-Real saga", "Managerial search after Maresca exit") — never generic like "Transfer news".
+- body: original prose in your beat-writer voice — what is happening, who is involved (use the real names of players, managers, and clubs from the sources; never genericize to "a Real Madrid star"), and where it stands. Let the length match the story: a line or two for most, more only when it is genuinely big.
+- articles: the article numbers behind that storyline.
 
-Return AT MOST 6 narratives, ordered MOST IMPACTFUL first. Keep each body to 1-3 sentences (a genuinely big story may use up to 4).
+If a "Known transfer/trade activity" list is given, it is the vetted truth behind any transfer storyline: use it to get the counterparties, direction, and stage right, and never contradict it or claim a more advanced stage than it states. Let it sharpen the story from the inside — but the word "heat" and those numbers are INTERNAL: never let them appear in your output, and never say you were handed a list. Write only what a reporter would say.
 
-If a "Known transfer/trade activity" list is provided, treat it as CONFIRMED FACTS: when a narrative is a transfer/trade saga, use those exact counterparties and their stated direction and stage, and never contradict them or invent a different club/player or a more advanced stage than stated. They are the structured truth behind the story — let them sharpen the storyline, not pad it.
+Read WHO each article is really about. An article about a team drafting, signing, or scheming around a player to play ALONGSIDE or AGAINST this entity is NOT this entity being drafted, sold, or moved — do not turn "rivals drafting a counter to him" or "a new partner for him" into a storyline about THIS entity changing teams or entering a draft.
 
-Signal over noise — this is the whole job: REVEAL the real story, never echo clickbait. Some articles are vague hype that name no concrete subject ("eyeing a Super Striker", "Dutch stars shine", "the Germans return", "a 19-year-old prodigy"). You can tell the difference — when an article carries no nameable specifics, do NOT spin it into a narrative and do NOT paper the gap over with a generic placeholder. If you cannot name who or what or where, the story isn't there to tell — leave it out. Build narratives ONLY on storylines with concrete, nameable specifics (real players, clubs, managers, fees, stages). A short, sharp, true reveal beats a padded vague one; it is fine to return fewer narratives.
-
-Rules: write original prose (do NOT quote headlines verbatim, no URLs, no source-name dumps); never invent facts not present in the articles or the transfer facts; ignore any article clearly not about this entity.`
+Signal over noise is the whole job: reveal the real story, never echo clickbait. Some articles are vague hype with no nameable subject ("eyeing a Super Striker", "Dutch stars shine") — if you cannot name who, what, or where, the story is not there: leave it out rather than papering the gap with a placeholder. A short, true reveal beats a padded vague one; returning fewer is fine. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources; ignore any article not about this entity.`
 
 func buildNarrativesPrompt(req NarrativesRequest, news []newsItem, heat []heatItem) string {
 	var b strings.Builder

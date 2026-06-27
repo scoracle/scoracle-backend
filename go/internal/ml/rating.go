@@ -49,7 +49,15 @@ import (
 //
 //	"sigil" means only the crown; this peak-strength label is "peak"). The parser
 //	still accepts the legacy SIGIL: prefix for any in-flight responses.
-const ratingPromptVersion = "s5"
+//
+// s6: re-aimed for Mistral (L8) as the on-air beat analyst. The prompt now also
+//
+//	carries the raw VALUE and the sign-adjusted Z (scarcity/scale) per datapoint, and
+//	a deterministic TIER label (pctBand: elite…poor) so the model verbalizes the
+//	spectrum instead of (mis)mapping percentile→quality itself — judge by the absolute
+//	tier, never vs the entity's own other marks. Strength-led + breadth-in-one-stroke,
+//	no forced negatives, honest mediocrity ("No standout skill"), one organic paragraph.
+const ratingPromptVersion = "s6"
 
 // maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const maxStatFacts = 14
@@ -384,16 +392,24 @@ func computeNotability(p *ratingProfile) (int, map[string]any) {
 // Prompt
 // ---------------------------------------------------------------------------
 
-const ratingSystemPrompt = `You are a sharp sports analyst. From an entity's RATING-ENGINE datapoints — already computed, COMPOSITE shows how WELL it performs and PEAK shows HOW — write a short, original-prose read of its ON-FIELD IDENTITY — what kind of player or team this is and what defines it — that LEADS WITH and emphasizes its GREATEST STRENGTH(S). This is an ACTUAL ANALYSIS that foregrounds what they're best at, not a strengths/weaknesses list and not a stat recap.
+const ratingSystemPrompt = `You are the respected analyst a national broadcast brings on to break down what this player or team is, statistically. You have the entity's RATING-ENGINE profile — already computed. COMPOSITE is how WELL it performs overall. Each skill is given as: VALUE (the raw stat) · PERCENTILE versus peers and its TIER (elite / strong / above average / average / below average / poor) · Z (standard deviations above the mean — the scarcity and scale of the edge; a high z is a rarer, more premium skill, the kind that decides games). Percentiles come at scopes — overall, versus position, and per-x (per-36 / per-90). Use them together: a modest raw output but an elite per-x mark means an efficient, lower-minutes contributor worth noting.
 
-Rules:
-- On the first line, identify the entity's peak — their single defining statistical strength — in the format: PEAK: <label>. Then write your analysis on the following lines.
-- Lead the read with the entity's standout strength(s) — what they are ELITE at — then frame the rest of the identity around it. Weaknesses are context, not the focus.
-- Every percentile is SIGN-ADJUSTED so HIGHER IS ALWAYS BETTER — a high percentile in a "negative" stat (turnovers, goals conceded) means the entity EXCELS there (commits/concedes few). Read every number as goodness.
-- Ground every claim in the given datapoints; never invent a stat, number, or fact not provided. Do NOT recite the raw numbers as a list — weave them into the read.
-- Synthesize a coherent identity (e.g. "a low-usage floor-spacer who defends above his profile"), don't just enumerate skills.
-- You may also be given RATE-ADJUSTED (per-x, e.g. per-36 / per-90) standouts. When an entity produces at an ELITE per-x rate even if its raw totals are modest — a young or limited-minutes player whose efficiency the box score hides — call that out. Surfacing that hidden value is exactly the point.
-- After the PEAK line, return ONLY the analysis prose — no title, no headers, no bullet points, no preamble like "Analysis:".`
+THE TIER IS THE TRUTH. Judge each skill by its labeled tier, never by how it stacks up against the entity's OWN other skills: a "strong" or "elite" mark is a strength even if it is this entity's lowest; a "poor" mark is a weakness even if it is their highest. The PEAK is simply the highest-percentile skill.
+
+Write the read of the entity's ON-FIELD IDENTITY in the analyst's voice:
+- First line exactly: PEAK: followed by EITHER the skill of the FIRST datapoint listed (the highest percentile), OR the exact words "No standout skill" if that first skill is not at least "strong" tier. Those are the ONLY two valid forms. The PEAK can NEVER be a skill labeled "average", "below average", or "poor" — if the top skill is not "strong" or "elite", you MUST write exactly "PEAK: No standout skill". (Do not pick the most eye-catching weakness — the peak is about the best skill, not the most notable one.)
+- Lead with the genuine strengths (the elite and strong skills). When the entity is strong across many areas, name its single most dominant skill, then capture the breadth in one stroke ("a dominant all-around offensive producer") rather than listing every skill. Cite the value and percentile, and when an edge holds up in the per-x numbers say so (proof it is not a fluke). Reserve "elite", "rare", "premium", "game-wrecking" for elite, high-z marks.
+- Do NOT force negatives, and never praise a mark below the 50th percentile — anything under 50 is below average by definition. Mention a weakness only when a skill is genuinely "below average" or "poor," and name it as the limitation it is. If NO skill rates "below average" or "poor," the entity has no statistical weakness — mention none at all, and never call a "strong" or "elite" mark "below par," "room for improvement," or a shortcoming just because the entity is even better elsewhere.
+- If nothing rates strong or better, say so plainly and point to their greatest impact with its percentile ("no standout skill, but his biggest impact is tackling, around the 59th percentile") — the number lets the reader judge.
+- Land it with a verdict on what this entity is — the line an analyst signs off with ("a legit two-way game-wrecker", "a low-usage floor-spacer who defends above his profile", "a replaceable rotation piece").
+
+Deliver it as ONE flowing paragraph, the way an analyst speaks on air — no line breaks, no "strengths / weaknesses / summary" sections. A modest profile is 2-3 sentences; a multi-skill standout up to five; never more. Pack several stats into a sentence; never give one its own sentence, and never walk the list in order. Cite a value as the plain figure given — never fabricate a per-game or per-90 rate that is not in the data. Ground every claim; never invent a number or a skill that is not there.
+
+Match this format and length exactly — it is a different, invented player, so take nothing factual from it, only the shape:
+PEAK: Elite finishing
+A ruthless penalty-box striker — 24 goals (97th percentile, a rare +3.1 z) with elite shot volume (92nd) and conversion that holds up per-90, the kind of scarce finishing that decides matches; beyond the box he offers little, with poor creation (28th) and pressing (22nd), but as a pure number nine he is among the league's best. A lethal poacher, plain and simple.
+
+After the PEAK line, return only the paragraph — no headers, no bullets, no preamble.`
 
 func buildStatPrompt(req RatingRequest, p *ratingProfile, notability int) string {
 	var b strings.Builder
@@ -404,31 +420,67 @@ func buildStatPrompt(req RatingRequest, p *ratingProfile, notability int) string
 	}
 	b.WriteString(fmt.Sprintf("Entity: %s (%s)\n", req.EntityName, header))
 
-	b.WriteString(fmt.Sprintf("\nLength: %s (notability %d/100 — scale the depth to how distinctive this profile is).\n",
-		lengthGuidance(notability), notability))
+	b.WriteString(fmt.Sprintf("\nProfile distinctiveness: %d/100 (higher = more standout skills — let a richer profile earn a fuller read).\n", notability))
 
 	if p.compositeScore != nil {
-		b.WriteString(fmt.Sprintf("\nComposite (how WELL — T-score, 50 = average): %.0f\n", *p.compositeScore))
+		b.WriteString(fmt.Sprintf("\nComposite (how WELL overall — T-score, 50 = average): %.0f\n", *p.compositeScore))
 	}
 
-	b.WriteString("\nDatapoints (percentile vs peers; higher = better; [cohort] when available):\n")
+	b.WriteString("\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n")
 	for _, d := range orderedFacts(p.breakdown) {
-		b.WriteString(fmt.Sprintf("- %s: %.0fth", d.Label, d.Pct))
+		dz := float64(d.Sign) * d.Z // sign-adjusted so + is always the good direction
+		b.WriteString(fmt.Sprintf("- %s: %s · %.0fth pct (%s) · z %+.1f", d.Label, trimFloat(d.Value), d.Pct, pctBand(d.Pct), dz))
 		if pos, ok := d.ScopedPct["position"]; ok {
-			b.WriteString(fmt.Sprintf(" [position: %.0fth]", pos))
+			b.WriteString(fmt.Sprintf(" [position: %.0fth, %s]", pos, pctBand(pos)))
 		}
 		b.WriteString("\n")
 	}
 
 	if rs := collectRateStandouts(p); len(rs) > 0 {
-		b.WriteString("\nRate-adjusted (per-x) standouts — elite production raw totals can hide:\n")
+		b.WriteString("\nRate-adjusted (per-x) corroboration — these also rate elite on a per-minute / per-90 basis (so the edge is not just a counting-stat artifact of heavy minutes):\n")
 		for _, r := range rs {
-			b.WriteString(fmt.Sprintf("- [%s] %s: %.0fth\n", strings.ReplaceAll(r.mode, "_", "-"), r.label, r.pct))
+			b.WriteString(fmt.Sprintf("- [%s] %s: %.0fth pct\n", strings.ReplaceAll(r.mode, "_", "-"), r.label, r.pct))
 		}
 	}
 
 	b.WriteString("\nWrite the identity analysis now.")
 	return b.String()
+}
+
+// pctBand maps a percentile to its quality tier — the deterministic part of
+// "read the spectrum," done in code so the model never has to map percentile→quality
+// itself (Mistral was inverting it, e.g. calling a 37th-percentile skill "above
+// average"). The model just verbalizes the labeled tier. Transient prompt-shaping
+// (like sigil's trendDir), not a stored derived stat.
+func pctBand(pct float64) string {
+	switch {
+	case pct >= 90:
+		return "elite"
+	case pct >= 75:
+		return "strong"
+	case pct >= 60:
+		return "above average"
+	case pct >= 50:
+		return "average"
+	case pct >= 35:
+		return "below average"
+	default:
+		return "poor"
+	}
+}
+
+// trimFloat renders a datapoint value compactly: integers without a decimal,
+// small fractions (percentages, rates < 1) with two places, everything else with
+// one — so the prompt shows "3" / "0.38" / "10.7" rather than "3.0" / "0.4".
+func trimFloat(f float64) string {
+	switch {
+	case f == math.Trunc(f):
+		return fmt.Sprintf("%.0f", f)
+	case math.Abs(f) < 1:
+		return fmt.Sprintf("%.2f", f)
+	default:
+		return fmt.Sprintf("%.1f", f)
+	}
 }
 
 type rateStandout struct {
@@ -477,17 +529,6 @@ func orderedFacts(in []ratingDatapoint) []ratingDatapoint {
 		facts = facts[:maxStatFacts]
 	}
 	return facts
-}
-
-func lengthGuidance(notability int) string {
-	switch {
-	case notability < 40:
-		return "one crisp sentence"
-	case notability < 70:
-		return "two sentences"
-	default:
-		return "three to four sentences"
-	}
 }
 
 // ---------------------------------------------------------------------------

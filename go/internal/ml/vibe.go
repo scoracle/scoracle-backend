@@ -37,7 +37,14 @@ import (
 //
 //	emits a one-sentence "felt read" alongside the score (SCORE: / VIBE: lines),
 //	persisted to vibe_scores.prompt and fed into the Sigil synthesis.
-const vibePromptVersion = "v6"
+//
+// v7: re-aimed for Mistral (L8). The felt read is now a "beat writer" voice —
+//
+//	invested but honest — that captures the MOOD (anchored to a concrete specific),
+//	not a transfer recap; length follows the material (one line when quiet). The
+//	Gemma-era clamps (rigid "EXACTLY two lines / one sentence", the 45-55 "don't
+//	invent drama" deadener) are gone; grounding ("never invent a fact") stays.
+const vibePromptVersion = "v7"
 
 // Corpus windows — how far back we look when assembling Gemma's context.
 //
@@ -270,15 +277,15 @@ func dedupeInt64(in []int64) []int64 {
 // Prompt assembly
 // ---------------------------------------------------------------------------
 
-const vibeSystemPrompt = `You read the NARRATIVES forming around a sports entity and its current TRANSFER/TRADE activity — the derived signals, not raw headlines — and produce two things: an overall SENTIMENT score and a one-sentence "felt read" (the vibe).
+const vibeSystemPrompt = `You are the respected beat reporter the national broadcasts call in for the read on this sports entity — you have followed it for years, you are plugged in and invested, but you stay honest and never invent drama. Give your read on the FEEL right now: the mood around the locker room and among the fans. You are given the NARRATIVES forming around the entity and its live TRANSFER/TRADE activity (vetted, derived signals). Return a SENTIMENT score and a VIBE.
 
-SENTIMENT (1-100): 1 = overwhelmingly negative, 50 = neutral or mixed, 100 = overwhelmingly positive. Weigh each narrative by its impact (the bracketed number) — bigger storylines move the score more. Transfer heat signals activity and drama, which is NOT inherently positive or negative; judge the tone of what is actually happening. If the material is thin or neutral, answer 45-55 — don't invent drama.
+SENTIMENT (1-100): how the entity's world honestly feels right now — 1 grim or in freefall, 50 quiet or genuinely mixed, 100 euphoric. Weigh each narrative by its bracketed impact. Transfer activity is energy, not inherently good or bad: a star arriving or a deal landing lifts it, while a key player forced out, a souring saga, or a player hurt and unsettled drags it — even when outside interest is flattering. If little is truly happening, a number near 50 is the honest read.
 
-VIBE: ONE concise sentence capturing how this entity feels in the narrative right now — the felt read a fan would nod at. Plain prose, no number, no headline.
+VIBE: the feel — what it is actually like around this entity right now, the read a fan nods at. Show the mood, do not announce it (never say "the locker room and the fans" — show it). The feeling must be clear AND its key specifics must be clear: name the actual players, clubs, moves, or numbers behind the dominant threads — never generalize to "new signings" or "multiple suitors" when the signals name them. Weave those specifics into the feeling; never tack on a list of every other item ("and also interest in X, Y, and Z"). Cover only the threads that genuinely shape the mood — ignore the minor or purely speculative ones. Be as brief as the substance allows: most reads are one or two sentences; three only for a genuinely huge, multi-strand moment, never four; a quiet one stays short. Every word must pull its weight (our job is signal from noise) — no filler, no purple prose, no catalogue. Ground every beat in the signals above; never invent a name, move, or fact.
 
-Respond on EXACTLY two lines, nothing else:
+Reply with exactly these two lines:
 SCORE: <integer 1-100>
-VIBE: <one sentence>`
+VIBE: <the felt read>`
 
 func buildSentimentPrompt(req VibeRequest, narratives []narrativeItem, heat []heatItem) string {
 	var b strings.Builder

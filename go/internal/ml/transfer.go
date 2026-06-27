@@ -29,7 +29,12 @@ import (
 
 // Bump when the transfer prompt materially changes.
 // t2: identity card + same-person test (require THIS exact player, name-collision guard).
-const transferPromptVersion = "t2"
+// t3: re-aimed for Mistral (L8) as the beat reporter — the summary now names the
+//
+//	counterparties AND any CAPITAL the sources state (a fee, "$50m", pick/asset
+//	compensation), attributed to the most credible single source; adds a liveness gate
+//	(stale/completed moves are not live rumors). Same-person disambiguation + JSON kept.
+const transferPromptVersion = "t3"
 
 const (
 	transferMaxCorpusNews      = 12
@@ -385,21 +390,25 @@ func transferSystemPrompt(sport string) string {
 	if sport == "NBA" || sport == "NFL" {
 		noun = "trade"
 	}
-	return fmt.Sprintf(`You analyze sports %s rumors STRICTLY from the provided news headlines and tweets. Never invent facts; use only what the sources say. Cite the source.
+	return fmt.Sprintf(`You are the seasoned beat reporter who tracks this team's %s market — you know a real move from noise, and you report only what the sources actually say, never inventing a fee or a deal.
 
-You are given an IDENTITY line describing ONE specific player (name, nationality, current club, position). Decide whether the sources genuinely report a %s involving BOTH the named team AND THIS EXACT player — the same human as the identity line — not merely someone who shares the name.
+You are given an IDENTITY line describing ONE specific player (name, nationality, current club, position), the team's relationship to them, and the news. Decide whether the sources genuinely report a LIVE %s involving BOTH the named team AND THIS EXACT player — the same human as the identity line, not merely someone who shares the name.
 
-Set is_rumor=false when ANY of these holds:
-- The sources are really about a DIFFERENT person who happens to share the name — a club president/owner, a manager/coach, an unrelated public figure, or a different player at another club. (Example: a midfielder named "Florentino" is NOT Florentino Pérez, the Real Madrid president — clear it.)
-- The current club or position in the sources contradicts the identity line — that means it is a different person.
-- It is a match report, a "who is better" comparison, an injury note, or routine coverage of a player already on the team.
+Set is_rumor=false when any of these holds:
+- The sources are really about a DIFFERENT person who shares the name — a club president/owner, a manager/coach, an unrelated figure, or a different player at another club (a midfielder named "Florentino" is NOT Florentino Pérez, the Real Madrid president — clear it).
+- The current club or position in the sources contradicts the identity line (a different person).
+- It is a match report, a head-to-head or "who is better" comparison, an injury note, trash-talk, or routine coverage of a player already on the team.
+- The player is mentioned only as an OPPONENT or RIVAL of the team — a game or playoff result, a "how to stop him" / "address the X problem" angle, a defender cast as his "stopper", or a draft pick aimed at countering him. Competing AGAINST a team is not joining it; clear these.
+- The move is not live — it already completed, or it is interest from a past window dredged up as background. Only a current, active rumor counts.
 
-Use the identity line — ESPECIALLY the current club — as your tie-breaker for same-name people. When unsure it is the same person, prefer is_rumor=false.
+Use the identity line — especially the current club — as the tie-breaker for same-name people. When unsure it is the same person, prefer is_rumor=false.
+
+When it IS a live rumor, make the summary worth reading: one tight sentence that names the real counterparties and any CAPITAL the sources state — a fee ("around $50m", "a £40m bid"), or asset/pick compensation ("picks headed to the Raiders", "a pick swap") — attributed to the single most credible source named (not a list of outlets). Name the names and the numbers; but never invent a fee, a club, or a stage the sources do not give.
 
 Reply with ONLY a JSON object, no prose:
-{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one short sentence grounded in and attributed to the sources", "confidence": 0.0-1.0}
+{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one tight sentence: who, which clubs, any fee or picks, attributed to the source", "confidence": 0.0-1.0}
 
-direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving the team. If it is not a %s about THIS exact player, set is_rumor=false; still fill "subject" with who the sources are really about.`, noun, noun, noun)
+direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving. "subject" is the person's NAME only (e.g. "Darwin Nunez") — never copy the identity-card line. Always return every field, including confidence. If it is not a live %s about THIS exact player, set is_rumor=false; still fill "subject" with who the sources are really about.`, noun, noun, noun)
 }
 
 func buildTransferPrompt(teamName string, c transferCandidate, sport, rel string, news []newsItem) string {

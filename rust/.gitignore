@@ -1,1 +1,5 @@
 /target
+# Deploy target for the supervised scoracle-cognition daemon: the systemd .path
+# watcher fires on a close-write here (narrow dir, like go/bin/), so the deploy
+# act is `cargo build && cp target/debug/scoracle-cognition bin/`. Build artifact.
+/bin

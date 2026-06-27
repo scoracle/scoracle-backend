@@ -1,0 +1,52 @@
+[Unit]
+Description=Scoracle Cognition Harness (Rust pipeline_work consumer)
+After=network-online.target
+Wants=network-online.target
+# Unlimited automatic restarts — same rationale as scoracle-api: the worker fails
+# fast when Postgres or Ollama is unavailable and we WANT it back the instant they
+# return. Disabling the rapid-crash backstop (StartLimitIntervalSec=0) is deliberate
+# so a Postgres/Ollama restart can never wedge the daemon permanently into a failed
+# state. (StartLimitIntervalSec belongs in [Unit], not [Service].)
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# __SCORACLE_REPO_ROOT__ is rendered to the real repo path by
+# scripts/hosting/install.sh at install time. Do not hardcode a path here.
+WorkingDirectory=__SCORACLE_REPO_ROOT__
+# EnvironmentFile order matters: systemd loads sequentially and DOES overwrite on
+# later files. Load .env first (committed template), then .env.local (real values)
+# wins. The Rust crate reads os::env directly (it does NOT load .env.local itself),
+# so these files are how the daemon gets DATABASE_PRIVATE_URL + OLLAMA_* — the same
+# files scoracle-api reads, so both processes see one config.
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
+EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
+# COGNITION_STAGES=scrub — the daemon registers ONLY the scrub handler. This is the
+# GPU-correctness constraint of the cutover, not a convenience: the Rust worker
+# drains sequentially with NO GPU governor, while the Go derive worker has its own
+# (OLLAMA_MAX_CONCURRENT gemmaGate). Running BOTH on stages they share would put two
+# uncoordinated callers on the single GPU. scrub is the ONE collision-free stage —
+# the Go Drainer has no scrub handler, so the Rust ScrubHandler can never double-claim
+# it. vibe/sigil/transfers/narratives stay with Go until the full cutover (Step 3),
+# at which point Go derive is turned OFF and Rust becomes the sole GPU user. Do NOT
+# add stages here without first retiring the matching Go drainer.
+Environment=COGNITION_STAGES=scrub
+ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
+Restart=always
+RestartSec=3
+# The worker's shutdown path listens for ctrl_c (SIGINT on Unix); systemd's default
+# stop signal is SIGTERM, which the worker does NOT catch. Send SIGINT so a
+# stop/restart lets the in-flight drain finish and the process exit cleanly, instead
+# of being SIGKILLed mid-item (which would strand a leased row until the 30-min
+# stale-lease recovery). A drain that overruns TimeoutStopSec is still SIGKILLed and
+# recovered by stale-lease — the backstop, not the path.
+KillSignal=SIGINT
+
+# Logs go to the journal; view with:
+#   journalctl --user -u scoracle-cognition -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=scoracle-cognition
+
+[Install]
+WantedBy=default.target

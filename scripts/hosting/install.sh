@@ -47,7 +47,9 @@ render_unit() {
 
 echo "==> rendering systemd units into $USER_SYSTEMD_DIR"
 mkdir -p "$USER_SYSTEMD_DIR"
-for unit in scoracle-api.service scoracle-api-restart.service scoracle-api.path cloudflared.service; do
+for unit in scoracle-api.service scoracle-api-restart.service scoracle-api.path \
+            scoracle-cognition.service scoracle-cognition-restart.service scoracle-cognition.path \
+            cloudflared.service; do
     render_unit "$REPO_ROOT/scripts/systemd/$unit" "$USER_SYSTEMD_DIR/$unit"
 done
 
@@ -82,6 +84,15 @@ cat <<EOF
        systemctl --user enable --now scoracle-api.path
        systemctl --user enable --now scoracle-api.service
        systemctl --user status scoracle-api
+
+  2b. (GPU box only) Start the Rust Cognition Harness daemon. It registers ONLY the
+      scrub stage (COGNITION_STAGES=scrub) and idles until you cut scrub over to it
+      with NEWS_SCRUB_VIA_QUEUE=true in .env.local + an scoracle-api restart. Deploy
+      the binary first: cargo build --manifest-path rust/Cargo.toml && \
+        cp rust/target/debug/scoracle-cognition rust/bin/scoracle-cognition
+       systemctl --user enable --now scoracle-cognition.path
+       systemctl --user enable --now scoracle-cognition.service
+       systemctl --user status scoracle-cognition
 
   3. Install crontab (edits user cron, no sudo needed):
        crontab scripts/hosting/crontab.example

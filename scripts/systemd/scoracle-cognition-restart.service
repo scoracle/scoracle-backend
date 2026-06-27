@@ -1,0 +1,11 @@
+[Unit]
+Description=Restart scoracle-cognition (path-trigger target)
+# A one-shot helper invoked by scoracle-cognition.path whenever rust/bin/ sees a
+# close-write (i.e. a deploy `cp` finished). Exists because systemd Path units
+# trigger `systemctl start <Unit>` — which is a no-op when the target service is
+# already running. This oneshot does an explicit restart so the new binary is
+# actually picked up.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user restart scoracle-cognition.service

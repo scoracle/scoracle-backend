@@ -17,7 +17,9 @@
 use anyhow::Result;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, embed, ollama, scrub, sigil, stage, transfer, vibe, worker};
+use scoracle_cognition::{
+    config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
+};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -57,10 +59,12 @@ async fn main() -> Result<()> {
         .filter(|s| !s.is_empty())
         .collect();
 
-    // The scrub gate needs the CPU embedder (the asymmetric resolve_set pre-filter); the per-entity
-    // stages don't, so it loads ONLY when scrub is enabled (a heavy resource — Plan §1.4).
-    let embedder = if enabled.contains("scrub") {
-        info!(model = %cfg.embed.model_repo, "loading embedder for the scrub gate (CPU)");
+    // The CPU embedder (candle, Plan §1.4) powers the scrub gate's asymmetric resolve_set pre-filter
+    // AND the narratives near-duplicate dedup. It is a heavy resource, so it loads ONLY when one of
+    // those stages is enabled; the other per-entity stages never embed. With it None, narratives'
+    // dedup is the identity (the byte-parity path) — which is exactly what the offline bins rely on.
+    let embedder = if enabled.contains("scrub") || enabled.contains("narratives") {
+        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for scrub/narratives");
         Some(embed::Embedder::from_config(&cfg.embed)?)
     } else {
         None
@@ -87,6 +91,12 @@ async fn main() -> Result<()> {
     // COGNITION_STAGES names it (archbox stays scrub-only).
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));
+    }
+    // narratives: REGISTERED but enable ONLY at its own cutover (Step 3) — the Go Drainer still owns
+    // this stage, so running both would double-claim the queue + burn the one GPU twice. Off unless
+    // COGNITION_STAGES names it (archbox stays scrub-only). Needs the embedder loaded above for dedup.
+    if enabled.contains("narratives") {
+        handlers.push(Box::new(narratives::NarrativesHandler::new()));
     }
     if enabled.contains("vibe") {
         handlers.push(Box::new(vibe::VibeHandler::new()));

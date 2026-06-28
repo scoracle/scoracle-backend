@@ -329,7 +329,12 @@ pub fn build_sentiment_prompt(
 
 /// write_heat_lines renders heat bullets exactly as `writeHeatLines`:
 ///   `- <counterparty> — heat <heat>[, <direction>][, <stage>]`
-fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
+///
+/// `pub` because it is the SHARED transfer-heat line format — Go homes it in `transfer_heat.go`
+/// and BOTH vibe and narratives render heat through it; the Rust single-home is here (alongside
+/// [`load_transfer_heat`] / [`HeatItem`]), so `narratives::build_narratives_prompt` reuses it
+/// rather than carrying a second copy (the L11/L12 single-home discipline).
+pub fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
     for h in heat {
         let mut line = format!("- {} — heat {}", h.counterparty, h.heat);
         if !h.direction.is_empty() {

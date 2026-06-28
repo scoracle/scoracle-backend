@@ -20,6 +20,7 @@ pub mod config;
 pub mod db;
 pub mod embed;
 pub mod harness;
+pub mod narratives;
 pub mod ollama;
 pub mod rating;
 pub mod resolve;

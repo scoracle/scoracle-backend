@@ -17,7 +17,7 @@
 use anyhow::Result;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{config, db, embed, ollama, scrub, sigil, stage, vibe, worker};
+use scoracle_cognition::{config, db, embed, ollama, scrub, sigil, stage, transfer, vibe, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
     // COGNITION_ROUTE_*, all-Gemma by default), the embedder (Some only for the scrub path), the pool.
     let harness = Harness {
         pool,
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
+        router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder,
         resolve: cfg.resolve.clone(),
     };
@@ -81,6 +81,12 @@ async fn main() -> Result<()> {
     let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
     if enabled.contains("scrub") {
         handlers.push(Box::new(scrub::ScrubHandler::new()));
+    }
+    // transfers: REGISTERED but enable ONLY at its own cutover (Step 3) — the Go Drainer still owns
+    // this stage, so running both would double-claim the queue + burn the one GPU twice. Off unless
+    // COGNITION_STAGES names it (archbox stays scrub-only).
+    if enabled.contains("transfers") {
+        handlers.push(Box::new(transfer::TransferHandler::new()));
     }
     if enabled.contains("vibe") {
         handlers.push(Box::new(vibe::VibeHandler::new()));

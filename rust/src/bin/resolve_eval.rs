@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
     let embedder = Embedder::from_config(&cfg.embed).context("load embedder")?;
     let hx = Harness {
         pool,
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
+        router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?, // offline; single-flight
         embedder: Some(embedder),
         resolve: cfg.resolve.clone(),
     };

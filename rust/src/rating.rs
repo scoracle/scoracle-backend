@@ -191,9 +191,23 @@ pub async fn load_rating_profile(
     sport: &str,
     season: Option<i32>,
 ) -> Result<Option<RatingProfile>> {
-    let (id_col, table, pos_select) = match entity_type {
-        "player" => ("player_id", "player_stats", "COALESCE(position, '')"),
-        "team" => ("team_id", "team_stats", "''::text"),
+    // `team_stats` has NO `rating_modes` column — per-x rate modes (per_36 / per_90) are a
+    // player/minutes concept — so the loader selects it ONLY for players; teams get an empty-modes
+    // literal. This is a DELIBERATE divergence from Go's verbatim loader, which `SELECT`s rating_modes
+    // from BOTH tables and therefore ERRORS on every team — the latent bug that left team rating
+    // commentary dormant (Go's cmd/statcommentary silently fails each team every run; 0 team rows in
+    // stat_summaries). Fixing it HERE — the cutover's single cognition home — is new Rust-only
+    // capability: team rating now loads + generates. It is validated by quality-eval, NOT Go
+    // byte-parity (Go has no team baseline to match); the player path is byte-identical to before, so
+    // player parity is untouched.
+    let (id_col, table, pos_select, modes_select) = match entity_type {
+        "player" => (
+            "player_id",
+            "player_stats",
+            "COALESCE(position, '')",
+            "COALESCE(rating_modes, '{}'::jsonb)::text",
+        ),
+        "team" => ("team_id", "team_stats", "''::text", "'{}'::text"),
         _ => bail!("unknown entity type {entity_type:?}"),
     };
     // The unscoped row first (NBA/NFL carry league_id 0/NULL), else the richest league row (the
@@ -204,7 +218,7 @@ pub async fn load_rating_profile(
                rating_composite_score::float8, rating_specialist_score::float8, COALESCE(rating_specialty, ''),
                COALESCE(rating_breakdown, '[]'::jsonb)::text,
                COALESCE(rating_scoped_ranks, '{{}}'::jsonb)::text,
-               COALESCE(rating_modes, '{{}}'::jsonb)::text
+               {modes_select}
         FROM public.{table}
         WHERE sport = $1 AND {id_col} = $2 AND ($3::int IS NULL OR season = $3)
         ORDER BY season DESC,

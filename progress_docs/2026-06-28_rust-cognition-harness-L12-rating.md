@@ -91,15 +91,23 @@ existing stages).
 
 ## Findings the gate surfaced
 
-- **Teams are DORMANT in this stage (a latent Go bug, faithfully reproduced).** `team_stats` lacks the
-  `rating_modes` column (only `player_stats` has it), so Go's verbatim `loadRatingProfile` `SELECT`s a
-  nonexistent column and **errors on every team** — confirmed: **0 team rows** in 4950 `stat_summaries`
-  (all players). Go's `cmd/statcommentary` enumerates teams (team_stats has `rating_composite_score`
-  rows) and silently fails each one every run. The Rust port reproduces the error identically (same SQL),
-  so PARITY HOLDS in the degenerate sense; the gate is run on PLAYERS (the live corpus). **The cutover
-  is the natural place to FIX team commentary** (select `rating_modes` only for `player_stats`) — a
-  post-parity IMPROVEMENT, deliberately NOT smuggled into this faithful port (it would diverge from Go
-  and break the "identical machinery" gate). Flagged for the user.
+- **Teams were DORMANT — a latent Go bug, now FIXED in Rust (user-directed).** `team_stats` lacks the
+  `rating_modes` column (per-x rate modes — per_36/per_90 — are a player/minutes concept; only
+  `player_stats` has it), so Go's verbatim `loadRatingProfile` `SELECT`s a nonexistent column and
+  **errors on every team** — confirmed: **0 team rows** in 4950 `stat_summaries`. Go's
+  `cmd/statcommentary` enumerates teams (team_stats has `rating_composite_score` rows) and silently
+  fails each one every run; team rating commentary has never existed. **The user directed fixing it in
+  the Rust port** (the cutover's single cognition home): the loader now selects `rating_modes` only for
+  players and gives teams an empty-modes literal, so teams LOAD + generate. This is a DELIBERATE
+  divergence from Go (an improvement Go's frozen loader can't make), so it is **new Rust-only
+  capability validated by QUALITY-eval, not Go byte-parity** (Go has no team baseline — the "accepted
+  quality gate for NEW capability" precedent, L4). **The player path is byte-identical to before, so
+  player parity is untouched — re-verified 6/6.** Validated: teams load across all 3 sports (Grizzlies
+  notability 41 / Buccaneers 62 / Man City 94, well-formed prompts — team header w/o position, composite
+  + datapoints, no rate section); live vet through the governor produced good team identity reads
+  (Man City → "Elite goal scoring and possession", verbalizing 96th-pct goals/possession; Grizzlies →
+  correctly "No standout skill"). The Go parity test now SKIPS teams gracefully (logs the Go-dormancy)
+  rather than failing on the loader error.
 - **`null` in `rating_breakdown` — a real port bug, found + fixed.** A sparse datapoint can carry an
   explicit `"value": null` (e.g. Luka Modrić's "Penalties Won"). Go's `encoding/json` tolerates null
   (keeps the zero value); serde's `#[serde(default)]` covers only a MISSING field, so serde **errored**
@@ -166,5 +174,6 @@ axes; a `*_shadow` table = mig 112).
 
 **Step 3 — full cutover** (after narratives lands + is parity-proven): `COGNITION_STAGES=scrub,
 transfers,narratives,vibe,sigil` (+ rating via its batch bin), `DERIVE_WORKER_ENABLED=false`, retire
-the Go cron drainer + inline scrub + statcommentary batch. Rust = sole GPU user. **Consider fixing team
-rating commentary here** (the dormant-stage finding above). vibe/sigil fold in.
+the Go cron drainer + inline scrub + statcommentary batch. Rust = sole GPU user. Team rating commentary
+is now LIVE-capable in Rust (the fix above) — the batch bin will generate it for the first time ever.
+vibe/sigil fold in.

@@ -16,6 +16,13 @@ pub struct Config {
     pub ollama_base_url: String,
     pub ollama_model: String,
     pub ollama_timeout: Duration,
+    /// The GPU governor — the max concurrent model calls the Router permits across ALL roles
+    /// (one shared semaphore, since there is one GPU). Reads `OLLAMA_MAX_CONCURRENT`, the SAME
+    /// var the Go `gemmaGate` reads, so Go derive and the Rust worker agree on the box's
+    /// concurrency budget during a transition overlap. Default 1 (the single-GPU governor); the
+    /// worker's sequential drain is an implicit 1, so this only bites under future parallelism or
+    /// a brief Go+Rust overlap. Clamped to ≥1 (0 would dead-lock every call).
+    pub ollama_max_concurrent: usize,
     /// Periodic drain even without a NOTIFY (Go worker default: 30s).
     pub safety_net: Duration,
     /// A 'running' row idle longer than this is recovered to 'pending'. Aligned with
@@ -56,6 +63,8 @@ impl Config {
             ollama_base_url,
             ollama_model,
             ollama_timeout: Duration::from_secs(env_int("OLLAMA_TIMEOUT_SECONDS", 60) as u64),
+            // ≥1: a 0-permit semaphore would block every model call forever.
+            ollama_max_concurrent: env_int("OLLAMA_MAX_CONCURRENT", 1).max(1) as usize,
             safety_net: Duration::from_secs(env_int("COGNITION_SAFETY_NET_SECONDS", 30) as u64),
             // 1800s = 30 min = Go derive.StaleLease.
             stale_lease: Duration::from_secs(env_int("COGNITION_STALE_LEASE_SECONDS", 1800) as u64),

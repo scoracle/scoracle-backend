@@ -26,6 +26,7 @@ pub mod route;
 pub mod scrub;
 pub mod sigil;
 pub mod stage;
+pub mod transfer;
 pub mod util;
 pub mod vibe;
 pub mod work;

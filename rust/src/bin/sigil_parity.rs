@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     // service does. The harness writes nothing on its own; persistence targets only the shadow.
     let harness = Harness {
         pool,
-        router: Router::from_config(&cfg.route, cfg.ollama_timeout)?,
+        router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?, // offline; single-flight
         embedder: None,
         resolve: cfg.resolve.clone(),
     };

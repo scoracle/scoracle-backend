@@ -19,11 +19,12 @@
 
 use crate::config::{Backend, ModelSpec, RouteConfig};
 use crate::ollama::{GenerateOptions, GenerateResult, OllamaClient};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Semaphore;
 
 /// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
 /// a concrete model. The one place a model id may appear is the router config (L2) — never
@@ -109,6 +110,44 @@ impl Inference for OllamaClient {
     }
 }
 
+/// GovernedInference is the GPU governor (the operational prerequisite the Cutover Plan §94.2
+/// names) — a decorator over any [`Inference`] backend that acquires a SHARED semaphore permit
+/// before each `generate`. The Router wraps every backend it builds in this, sharing ONE
+/// semaphore (`OLLAMA_MAX_CONCURRENT`), so the total in-flight model calls across ALL roles and
+/// models never exceeds the budget — there is one GPU, so one budget. The worker's sequential
+/// drain is already an implicit 1; this makes the bound explicit so a brief Go+Rust transition
+/// overlap (Go's own `gemmaGate` + the Rust worker) and any future parallel drain stay bounded,
+/// and it sits at the model-call SEAM so no caller can bypass it (every `for_role(_).generate`
+/// is governed, unlike a check in one handler). `model`/`request_body` are pure/local (no GPU),
+/// so they delegate WITHOUT a permit — only `generate`, the call that hits the GPU, is gated.
+struct GovernedInference {
+    inner: Arc<dyn Inference>,
+    gpu: Arc<Semaphore>,
+}
+
+#[async_trait]
+impl Inference for GovernedInference {
+    async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+        // The permit is held for the whole call and released on drop — success OR error — so a
+        // failed/timed-out call never leaks one. `acquire` only errors if the semaphore is
+        // closed, which we never do, so surface that as an error rather than panic.
+        let _permit = self
+            .gpu
+            .acquire()
+            .await
+            .map_err(|e| anyhow!("gpu governor semaphore closed: {e}"))?;
+        self.inner.generate(prompt, opts).await
+    }
+
+    fn model(&self) -> &str {
+        self.inner.model()
+    }
+
+    fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
+        self.inner.request_body(prompt, opts)
+    }
+}
+
 /// Router maps `Role` → concrete model at runtime — the Route primitive (Plan §2).
 ///
 /// Built by `from_config` from the [`RouteConfig`] table: `incumbents` is what every role
@@ -133,17 +172,23 @@ impl Router {
     /// router) — wired to each role's incumbent, plus any configured A/B challenger. `timeout`
     /// is the shared per-call budget (`OLLAMA_TIMEOUT_SECONDS`); per-backend timeouts move
     /// into `ModelSpec` when topology splits (HORIZON).
-    pub fn from_config(cfg: &RouteConfig, timeout: Duration) -> Result<Self> {
+    ///
+    /// `max_concurrent` is the GPU governor budget (`OLLAMA_MAX_CONCURRENT`): ONE semaphore,
+    /// built here and shared by every backend, caps total in-flight model calls across all
+    /// roles (one GPU → one budget). Clamped to ≥1 (0 would block every call forever).
+    pub fn from_config(cfg: &RouteConfig, timeout: Duration, max_concurrent: usize) -> Result<Self> {
+        // One shared GPU governor across every backend this router builds.
+        let gpu = Arc::new(Semaphore::new(max_concurrent.max(1)));
         // Cache keyed by the spec's identity, so two roles naming the same model get the same
         // backend Arc rather than two clients hammering one Ollama.
         let mut built: HashMap<String, Arc<dyn Inference>> = HashMap::new();
         let mut incumbents = HashMap::with_capacity(cfg.roles.len());
         for (role, spec) in &cfg.roles {
-            incumbents.insert(*role, build_backend(&mut built, spec, timeout)?);
+            incumbents.insert(*role, build_backend(&mut built, spec, timeout, &gpu)?);
         }
         let mut candidates = HashMap::with_capacity(cfg.candidates.len());
         for (role, spec) in &cfg.candidates {
-            candidates.insert(*role, build_backend(&mut built, spec, timeout)?);
+            candidates.insert(*role, build_backend(&mut built, spec, timeout, &gpu)?);
         }
         Ok(Self {
             incumbents,
@@ -171,22 +216,31 @@ impl Router {
 
 /// build_backend returns the `Arc<dyn Inference>` for a spec, constructing one per distinct
 /// (backend, model, base_url) and reusing it across roles. The `match` on `spec.backend` is
-/// where a new backend (vLLM) plugs in — one arm, alongside its new `impl Inference`.
+/// where a new backend (vLLM) plugs in — one arm, alongside its new `impl Inference`. Every
+/// constructed backend is wrapped in [`GovernedInference`] sharing the one `gpu` semaphore, so
+/// the cached (and role-shared) Arc is already governed — the bound is impossible to bypass.
 fn build_backend(
     built: &mut HashMap<String, Arc<dyn Inference>>,
     spec: &ModelSpec,
     timeout: Duration,
+    gpu: &Arc<Semaphore>,
 ) -> Result<Arc<dyn Inference>> {
     let key = format!("{:?}|{}|{}", spec.backend, spec.base_url, spec.model);
     if let Some(existing) = built.get(&key) {
         return Ok(Arc::clone(existing));
     }
-    let backend: Arc<dyn Inference> = match spec.backend {
+    let raw: Arc<dyn Inference> = match spec.backend {
         Backend::Ollama => Arc::new(
             OllamaClient::new(&spec.base_url, &spec.model, timeout)
                 .with_context(|| format!("build ollama backend for {}", spec.model))?,
         ),
     };
+    // Wrap in the shared GPU governor before caching — so every role resolving to this model
+    // shares both the one backend AND the one concurrency budget.
+    let backend: Arc<dyn Inference> = Arc::new(GovernedInference {
+        inner: raw,
+        gpu: Arc::clone(gpu),
+    });
     built.insert(key, Arc::clone(&backend));
     Ok(backend)
 }
@@ -216,7 +270,7 @@ mod tests {
             roles,
             candidates: HashMap::new(),
         };
-        let router = Router::from_config(&cfg, Duration::from_secs(60)).unwrap();
+        let router = Router::from_config(&cfg, Duration::from_secs(60), 1).unwrap();
 
         assert!(Arc::ptr_eq(
             &router.for_role(Role::EmotionalNews),
@@ -239,6 +293,7 @@ mod tests {
                 candidates: HashMap::new(),
             },
             Duration::from_secs(60),
+            1,
         )
         .unwrap();
         assert!(router.candidate_for(Role::EmotionalNews).is_none());
@@ -250,12 +305,84 @@ mod tests {
         let mut candidates = HashMap::new();
         candidates.insert(Role::EmotionalNews, spec("mistral:7b"));
         let router =
-            Router::from_config(&RouteConfig { roles, candidates }, Duration::from_secs(60))
+            Router::from_config(&RouteConfig { roles, candidates }, Duration::from_secs(60), 1)
                 .unwrap();
         assert_eq!(
             router.candidate_for(Role::EmotionalNews).unwrap().model(),
             "mistral:7b"
         );
         assert!(router.candidate_for(Role::StatsLogic).is_none()); // only EmotionalNews has one
+    }
+
+    // --- GPU governor (GovernedInference) ------------------------------------------------
+    // A mock backend that records the PEAK number of concurrent generate() calls — so a test
+    // can assert the shared semaphore caps in-flight model calls at the configured budget.
+    struct PeakCounter {
+        current: Arc<std::sync::atomic::AtomicUsize>,
+        peak: Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    #[async_trait]
+    impl Inference for PeakCounter {
+        async fn generate(&self, _p: &str, _o: &GenerateOptions) -> Result<GenerateResult> {
+            use std::sync::atomic::Ordering::SeqCst;
+            let now = self.current.fetch_add(1, SeqCst) + 1;
+            self.peak.fetch_max(now, SeqCst);
+            // Hold the permit across an await so concurrent callers actually contend.
+            tokio::time::sleep(Duration::from_millis(15)).await;
+            self.current.fetch_sub(1, SeqCst);
+            Ok(GenerateResult {
+                response: String::new(),
+                model: "mock".to_string(),
+                total_duration: Duration::ZERO,
+                eval_count: 0,
+            })
+        }
+        fn model(&self) -> &str {
+            "mock"
+        }
+        fn request_body(&self, _p: &str, _o: &GenerateOptions) -> serde_json::Value {
+            serde_json::Value::Null
+        }
+    }
+
+    /// fire N concurrent generate() calls through a governor with `permits` permits and return
+    /// the peak observed concurrency. Deterministic even on the current-thread test runtime:
+    /// the sleep yields, so all callers that CAN acquire a permit do before any releases.
+    async fn peak_under_governor(permits: usize, n: usize) -> usize {
+        use std::sync::atomic::AtomicUsize;
+        let current = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let governed: Arc<dyn Inference> = Arc::new(GovernedInference {
+            inner: Arc::new(PeakCounter {
+                current,
+                peak: Arc::clone(&peak),
+            }),
+            gpu: Arc::new(Semaphore::new(permits)),
+        });
+        let opts = GenerateOptions::default();
+        let mut handles = Vec::new();
+        for _ in 0..n {
+            let g = Arc::clone(&governed);
+            let o = opts.clone();
+            handles.push(tokio::spawn(async move { g.generate("x", &o).await }));
+        }
+        for h in handles {
+            h.await.unwrap().unwrap();
+        }
+        peak.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    #[tokio::test]
+    async fn governor_serializes_with_one_permit() {
+        // The single-GPU default: 5 concurrent calls, 1 permit ⇒ peak concurrency is exactly 1.
+        assert_eq!(peak_under_governor(1, 5).await, 1);
+    }
+
+    #[tokio::test]
+    async fn governor_allows_exactly_the_budget() {
+        // 2 permits ⇒ up to 2 in flight (and, with 6 contenders, exactly 2 — the bound is the
+        // budget, not a hard-coded 1).
+        assert_eq!(peak_under_governor(2, 6).await, 2);
     }
 }

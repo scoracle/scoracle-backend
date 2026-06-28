@@ -140,7 +140,8 @@ async fn main() -> Result<()> {
     }
 
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
-    let router = Router::from_config(&cfg.route, cfg.ollama_timeout)?;
+    // Offline A/B harness — single-flight, so the GPU governor is moot; pin 1.
+    let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
     let harness = Harness {
         pool,
         router,

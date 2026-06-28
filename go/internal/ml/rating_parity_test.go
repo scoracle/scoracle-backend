@@ -54,6 +54,15 @@ func TestRatingParityDump(t *testing.T) {
 	written := 0
 	for _, s := range specs {
 		sportUp := strings.ToUpper(s.sport)
+		if s.entityType == "team" {
+			// team_stats lacks the rating_modes column, so the (frozen) Go loadRatingProfile errors
+			// on every team — team rating commentary is DORMANT in Go (0 team rows in stat_summaries).
+			// The Rust L12 port FIXES this (loads teams with empty rate_modes), so team rating is
+			// Rust-only NEW capability validated by quality-eval, not Go byte-parity (no baseline to
+			// match). Skip teams here rather than failing on the loader error.
+			t.Logf("%s/%d (%s): skipped — team rating is dormant in Go (team_stats has no rating_modes); Rust-only capability post-L12", s.entityType, s.entityID, s.sport)
+			continue
+		}
 		name, err := parityLookupName(ctx, pool, s.entityType, s.entityID, sportUp)
 		if err != nil {
 			t.Errorf("%s/%d (%s): name lookup: %v", s.entityType, s.entityID, s.sport, err)

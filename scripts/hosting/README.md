@@ -30,30 +30,37 @@ SCORACLE_SYSTEMD_DIR=$(mktemp -d) scripts/hosting/install.sh
 ## Release
 
 ```bash
-scripts/hosting/release.sh                # build all 4 binaries + install + restart + verify
-scripts/hosting/release.sh --build-only   # build + stamp + place binaries only (no live changes)
+scripts/hosting/release.sh                # build all 5 binaries + install + restart + verify
+scripts/hosting/release.sh --build-only   # build + place binaries only (no live changes)
 ```
 
-`release.sh` is the single release command: it builds `scoracle-api`,
-`pipeline`, `statcommentary`, and `vibesynth` **from one commit**, stamps the
-commit + build time into them (queryable at `GET /` and logged at startup),
-(re)installs the units, restarts the API, and verifies `/health/db`. All four
-binaries are built before any is placed, so a failed build can never leave the
-cron binaries on a different commit than the API.
+`release.sh` is the single release command: post the Step-3 cutover it builds
+the three live Go binaries (`scoracle-api`, `pipeline`, `vibesynth`) and the two
+Rust cognition binaries (`scoracle-cognition` daemon, `statcommentary` rating
+batch) **from one commit**, stamps the commit + build time into the Go binaries
+(queryable at `GET /` and logged at startup), masks both the `scoracle-api.path`
+and `scoracle-cognition.path` rebuild watchers during placement, (re)installs
+the units, restarts the API + the Rust daemon, and verifies `/health/db`. All
+five binaries are built before any is placed, so a failed build can never leave
+the cron binaries or the daemon on a different commit than the API.
 
 ## What's in here
 
 | File | Purpose |
 |---|---|
+| `../systemd/scoracle-cognition.service` | systemd user unit (templated) — long-running Rust cognition daemon |
+| `../systemd/scoracle-cognition.path` | path watcher — auto-restart when a Rust binary is deployed to `rust/bin/` |
+| `../systemd/scoracle-cognition-restart.service` | oneshot restart helper fired by the cognition path watcher |
 | `../systemd/scoracle-api.service` | systemd user unit (templated) — long-running Go API |
 | `../systemd/scoracle-api.path` | path watcher — auto-restart when `go build` replaces the binary |
 | `../systemd/scoracle-api-restart.service` | oneshot restart helper fired by the path watcher |
 | `../systemd/cloudflared.service` | CF Tunnel runner |
-| `release.sh` | single release command — build all 4 binaries from one commit, install, restart, verify |
+| `release.sh` | single release command — build all 5 binaries (3 Go + 2 Rust) from one commit, install, restart, verify |
 | `cron-scoseed.sh` | wrapper that loads `.venv` + env vars so cron can invoke `scoracle-seed` |
 | `cron-live-fixtures.sh` | current-season-aware live polling wrapper for NBA/NFL/Football fixture jobs |
-| `cron-pipeline.sh` | wrapper for the staged Gemma pipeline (sweep → transfers → narratives → vibe) |
-| `cron-statcommentary.sh` | wrapper for the stats-rail commentary job |
+| `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — RSS sweep only post Step-3 cutover) |
+| `cron-statcommentary.sh` | legacy wrapper for the retired Go stats-rail batch; rollback aid (cron points at `cron-rust-statcommentary.sh`) |
+| `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
 | `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation/backfill |
 | `recompute-tiers.sh` | weekly entity-tier recomputation |
 | `crontab.example` | paste-ready crontab — NBA/NFL polling, football refresh/drain, nightly backup |

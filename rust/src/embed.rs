@@ -11,7 +11,8 @@
 //! the same "models by role, never by name" discipline the router holds for generation.
 //!
 //! Validation is by QUALITY, not byte-parity (the L4 pivot): the embeddings feed a measured
-//! experiment against Gemma's `news_article_entities.vetted` labels (see `bin/resolve_experiment`).
+//! gate against Gemma's `news_article_entities.vetted` labels (the L4–L6 measurement bins that
+//! settled the bands are removed post-Step-3; their findings live on in `ResolveConfig` defaults).
 
 use crate::config::EmbedConfig;
 use crate::harness::Vector;
@@ -68,7 +69,12 @@ impl Embedder {
     /// (cached under `~/.cache/huggingface` after the first run), builds the BERT model on the
     /// **CPU**, and configures the tokenizer to pad-to-longest + truncate at `max_tokens`. The
     /// network fetch is the only blocking I/O; it runs once at construction.
-    pub fn load(model_repo: &str, revision: &str, pooling: Pooling, max_tokens: usize) -> Result<Self> {
+    pub fn load(
+        model_repo: &str,
+        revision: &str,
+        pooling: Pooling,
+        max_tokens: usize,
+    ) -> Result<Self> {
         let device = Device::Cpu;
         let api = Api::new().context("init hf-hub api")?;
         let repo = api.repo(Repo::with_revision(
@@ -82,9 +88,8 @@ impl Embedder {
             .get("model.safetensors")
             .context("fetch model.safetensors")?;
 
-        let bert_config: BertConfig =
-            serde_json::from_str(&std::fs::read_to_string(&config_path)?)
-                .context("parse bert config.json")?;
+        let bert_config: BertConfig = serde_json::from_str(&std::fs::read_to_string(&config_path)?)
+            .context("parse bert config.json")?;
 
         let mut tokenizer =
             Tokenizer::from_file(&tokenizer_path).map_err(|e| anyhow!("load tokenizer: {e}"))?;
@@ -236,6 +241,9 @@ mod tests {
         assert_eq!(v[0].len(), e.dim);
         let para = cosine_similarity(&v[0], &v[1]);
         let unrel = cosine_similarity(&v[0], &v[2]);
-        assert!(para > unrel, "paraphrase {para} should exceed unrelated {unrel}");
+        assert!(
+            para > unrel,
+            "paraphrase {para} should exceed unrelated {unrel}"
+        );
     }
 }

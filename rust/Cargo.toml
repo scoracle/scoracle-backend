@@ -31,36 +31,6 @@ path = "src/bin/eval.rs"
 name = "sigil_parity"
 path = "src/bin/sigil_parity.rs"
 
-# Offline Resolve experiment (L4 — the candle de-risk). Embeds article↔candidate identity for
-# Gemma's labeled scrub verdicts (news_article_entities.vetted) and measures whether cosine
-# separates genuine links from same-name false-positives. READ-ONLY on the pipeline: SELECTs
-# the labeled set, writes a report + CSV to scratchpad, never the queue or product tables.
-[[bin]]
-name = "resolve_experiment"
-path = "src/bin/resolve_experiment.rs"
-
-# Offline Resolve EVAL (L4). Runs the REAL hybrid resolve_set gate end-to-end over a sample of
-# labeled articles and reports agreement vs Gemma's vetted labels + the live auto-decide/Gemma
-# split (the GPU savings in situ). Needs Ollama up (the ambiguous band). READ-ONLY on the pipeline.
-[[bin]]
-name = "resolve_eval"
-path = "src/bin/resolve_eval.rs"
-
-# Offline Resolve SHADOW (L5). Runs the REAL hybrid resolve_set over the WHOLE labeled
-# secondary-link corpus, records every verdict beside Gemma's vetted in resolve_shadow (mig 108),
-# and reports auto-decide safety at scale (auto-keep precision + the auto-drop FN rate, sliced by
-# recent-mover) + bounded real-gate agreement. READ-ONLY on the pipeline (writes only resolve_shadow).
-[[bin]]
-name = "resolve_shadow"
-path = "src/bin/resolve_shadow.rs"
-
-# L6 exploration (read-only). Redundancy check: is each auto-dropped genuine link a near-duplicate
-# of another article the player keeps? Embeds the dropped article vs the player's surviving vetted
-# articles (the rigorous version of the title-match proxy). Writes nothing.
-[[bin]]
-name = "redundancy_check"
-path = "src/bin/redundancy_check.rs"
-
 # Step-3 rating batch. Rust replacement for go/cmd/statcommentary: single,
 # nightly, and backfill modes over the L12 rating core. Not a pipeline_work stage.
 [[bin]]

@@ -59,15 +59,13 @@ rust/
     ├── vibe.rs              # vibe stage: the sentiment + felt-read
     ├── sigil.rs             # sigil stage: the crown convergence of rating + vibe + momentum
     └── bin/
-        ├── parity.rs          # offline vibe temp-0 parity harness (writes vibe_scores_shadow)
-        ├── sigil_parity.rs    # offline sigil temp-0 parity harness (writes sigil_synthesis_shadow)
-        ├── rating_parity.rs   # offline rating parity harness (writes stat_summaries_shadow)
-        ├── transfer_parity.rs # offline transfers parity harness (writes transfer_rumors_shadow)
-        ├── narratives_parity.rs # offline narratives parity harness (writes news_summaries_shadow)
-        ├── eval.rs            # offline A/B model eval harness (incumbent vs candidate per role)
-        ├── resolve_experiment.rs / resolve_eval.rs / resolve_shadow.rs / redundancy_check.rs
-        │                       # L4–L6 development-measurement bins (the candle Resolve gate proof) — HORIZON dev scaffolding
-        └── statcommentary.rs  # the rating batch bin (single / nightly / backfill over rust/src/rating.rs)
+        ├── parity.rs             # offline vibe temp-0 parity harness (writes vibe_scores_shadow)
+        ├── sigil_parity.rs       # offline sigil temp-0 parity harness (writes sigil_synthesis_shadow)
+        ├── rating_parity.rs      # offline rating parity harness (writes stat_summaries_shadow)
+        ├── transfer_parity.rs    # offline transfers parity harness (writes transfer_rumors_shadow)
+        ├── narratives_parity.rs  # offline narratives parity harness (writes news_summaries_shadow)
+        ├── eval.rs               # offline A/B model eval harness (incumbent vs candidate per role)
+        └── statcommentary.rs     # the rating batch bin (single / nightly / backfill over rust/src/rating.rs)
 ```
 
 `work.rs` and `ollama.rs` mirror `go/internal/work/work.go` and `go/internal/ml/ollama.go` —
@@ -182,6 +180,3 @@ shared go_json_* / hash_components (those are the debounce pre-image).
   future tidy (`build.rs` reading `git rev-parse` into a `const`).
 - `work::Item.entity_id` is `i32`; the article-keyed scrub stage casts to `i64`, which fits
   today but would wrap past 2bn article ids. A future widening when convenient.
-- The L4–L6 development-measurement bins (`resolve_experiment`, `resolve_eval`,
-  `resolve_shadow`, `redundancy_check`) answered their questions; they're dev scaffolding
-  re-built on every cargo run, candidates for removal in a future cleanup pass.

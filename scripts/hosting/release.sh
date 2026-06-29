@@ -73,8 +73,8 @@ GO_CMDS=(api pipeline vibesynth)
 GO_OUTS=(scoracle-api pipeline vibesynth)
 
 # Rust live binaries (from rust/Cargo.toml). The daemon + the rating batch —
-# deliberately NOT all bins (the offline parity / eval / resolve_experiment
-# harnesses would waste a release cycle compiling).
+# deliberately NOT all bins (the offline parity / eval harnesses would waste a
+# release cycle compiling).
 RUST_BINS=(scoracle-cognition statcommentary)
 
 echo "==> building ${#GO_CMDS[@]} Go + ${#RUST_BINS[@]} Rust binaries @ ${COMMIT} (built ${BUILD_TIME})"

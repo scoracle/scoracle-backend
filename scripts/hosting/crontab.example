@@ -74,24 +74,14 @@ TZ=America/New_York
 0 4 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Gemma pipeline corpus — the full staged chain, once daily overnight
+# Corpus ingest — once daily overnight (Go funnel; Rust derives)
 # ---------------------------------------------------------------------------
-# One process runs the stages IN ORDER so each enriches the next:
-#   sweep -> transfers -> narratives -> vibe
-# Stage 0 RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
-# coverage doesn't collapse in the offseason); the async scrub ticker vets the new
-# links. Stage 1 vets transfer heat off the scrubbed corpus. Stage 2 narrates the
-# touched entities (grounded on the fresh stage-1 heat). Stage 3 determines the
-# vibe from those narratives + heat. Cross-entity linking surfaces co-mentioned
-# players for free, so the player layer rides along without per-player RSS calls.
-#
-# This REPLACES the former separate cron-vibe.sh + cron-transfer.sh entries —
-# running this alongside them would double-run vibe/transfer. One pass per day
-# (midnight ET) gives every team a full overnight refresh; the in-API
-# LISTEN/NOTIFY workers (news-volume -> narrate+vibe; transfer_trigger -> transfer)
-# cover breaking cycles in real time. Per-stage -*-skip-recent-hours 10 guards
-# against re-doing what a spike worker just covered.
-0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode corpus >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-corpus.log 2>&1
+# RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so coverage
+# does not collapse in the offseason). This is ingest-only: the Rust Cognition
+# Harness owns scrub -> transfers -> narratives -> vibe -> sigil from the durable
+# pipeline_work queue. Do not run `-mode corpus` after the Step-3 cutover; that is
+# the legacy Go LLM chain.
+0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Stats-rail commentary — nightly, current season, regenerate only on new data
@@ -106,7 +96,7 @@ TZ=America/New_York
 # whole current season (DB-only), while the initial fill is bounded to ~400 writes/
 # night (undone-first, so it progresses) and steady state rarely hits the cap.
 # Deep/previous seasons are deferred — backfilled in batches out of band (-mode backfill).
-0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
+0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-rust-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)

@@ -59,7 +59,6 @@ the cron binaries or the daemon on a different commit than the API.
 | `cron-scoseed.sh` | wrapper that loads `.venv` + env vars so cron can invoke `scoracle-seed` |
 | `cron-live-fixtures.sh` | current-season-aware live polling wrapper for NBA/NFL/Football fixture jobs |
 | `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — RSS sweep only post Step-3 cutover) |
-| `cron-statcommentary.sh` | legacy wrapper for the retired Go stats-rail batch; rollback aid (cron points at `cron-rust-statcommentary.sh`) |
 | `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
 | `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation/backfill |
 | `recompute-tiers.sh` | weekly entity-tier recomputation |

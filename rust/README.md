@@ -6,10 +6,11 @@
 > [`scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`](../../../scoracle-wiki/wiki/Architecture/Rust%20Cognition%20Harness.md).
 
 The Rust home for **all LLM derivation (cognition)** on the Scoracle platform. Post the
-**Step-3 cutover (2026-06-28)**, the five Go LLM derive stages are retired into Rust:
+**Step-3 cutover (2026-06-28)** and the **Headlines feature (2026-06-29)**, the Go LLM derive
+stages are retired into Rust:
 
-- **5 queue stages** — `scrub` → `transfers` → `narratives` → `vibe` → `sigil` — drained
-  by the long-running **`scoracle-cognition`** daemon.
+- **6 queue stages** — `scrub` → `headlines` → `transfers` → `narratives` → `vibe` → `sigil` —
+  drained by the long-running **`scoracle-cognition`** daemon.
 - **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
   stage — same shape as the retired Go `cmd/statcommentary`).
 
@@ -55,6 +56,7 @@ rust/
     ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
     ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
     ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
+    ├── headline.rs          # headlines stage: breaking-news bulletin extraction (Headlines feature v1)
     ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t4 prompt
     ├── narratives.rs        # narratives stage: news storyline clustering + summarization
     ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)
@@ -168,9 +170,8 @@ shared go_json_* / hash_components (those are the debounce pre-image).
   to pin a running binary while you investigate.
 - **One-flag rollback (the Step-3 revert):** `DERIVE_WORKER_ENABLED=true` in `.env.local` +
   `systemctl --user restart scoracle-api.service` re-arms Go derive; `systemctl --user stop
-  scoracle-cognition.service` keeps Rust off. The legacy `cron-statcommentary.sh` + Go
-  `go/bin/statcommentary` binary + crontab backup are the durable rollback aid; see
-  RUNBOOK.md §3.
+  scoracle-cognition.service` keeps Rust off. This only restores Go queue draining — the Go
+  stats-rail rating batch was retired with Step 3 and is no longer present.
 - **Logs:** `journalctl --user -u scoracle-cognition -f` (the daemon has no HTTP probe —
   its readiness IS the systemd unit state + the journal).
 

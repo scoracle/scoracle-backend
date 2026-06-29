@@ -58,7 +58,7 @@ mkdir -p "$REPO_ROOT/logs"
 
 echo "==> setting executable bits on hosting scripts"
 # All hosting wrappers, not just the seeder/backup set — the cron-pipeline,
-# cron-statcommentary, and cron-vibesynth wrappers are active hosting entry
+# cron-rust-statcommentary, and cron-vibesynth wrappers are active hosting entry
 # points and must be executable on a fresh machine too (audit Session 2).
 chmod +x "$REPO_ROOT"/scripts/hosting/*.sh
 

@@ -69,11 +69,14 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	case "transfers":
 		h.GetTransfersLeaderboard(w, r)
 		return
+	case "headlines":
+		h.GetHeadlinesLeaderboard(w, r)
+		return
 	case "trending":
 		h.GetTrendingLeaderboard(w, r)
 		return
 	default:
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, trending")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, headlines, trending")
 		return
 	}
 
@@ -262,6 +265,36 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
 		sport, limit)
+}
+
+// GetHeadlinesLeaderboard returns the sport-wide "most breaking news" board:
+// entities ranked by headline count in the 2-day window.
+// @Summary Headlines leaderboard
+// @Description Sport-wide board of entities with the most breaking-news bulletins in the last 2 days.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param limit query int false "Max rows (default 50)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/leaderboard/headlines [get]
+func (h *Handler) GetHeadlinesLeaderboard(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+
+	entityType := optionalTextQuery(r, "entity_type")
+
+	h.serveStatementJSON(w, r, "headlines_leaderboard", dataCacheKey(r), cache.TTLData, false,
+		sport, limit, entityType)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
@@ -492,6 +525,40 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+}
+
+// GetEntityHeadlines returns the entity's HEADLINES product — breaking-news
+// bulletins for the news rail, filtered to the 2-day window and sorted newest first.
+// @Summary Get the entity headlines
+// @Description The entity's breaking-news bulletins (transfer, injury, coaching, contract, other) from the last 2 days.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param limit query int false "Max rows (default 20)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/headlines [get]
+func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	limit, ok := optionalIntQuery(w, r, "limit")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLData, false, sport, entityType, id, limit)
 }
 
 // GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score

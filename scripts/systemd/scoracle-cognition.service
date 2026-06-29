@@ -21,10 +21,11 @@ WorkingDirectory=__SCORACLE_REPO_ROOT__
 # files scoracle-api reads, so both processes see one config.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
-# Step 3 full cutover: Rust owns every pipeline_work LLM stage; Go is ingest + serve.
+# Step 3 full cutover + Headlines feature: Rust owns every pipeline_work LLM stage
+# (scrub → headlines → transfers → narratives → vibe → sigil); Go is ingest + serve.
 # Keep DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not claim these
 # same stages. Rating remains a separate Rust batch (`rust/bin/statcommentary`).
-Environment=COGNITION_STAGES=scrub,transfers,narratives,vibe,sigil
+Environment=COGNITION_STAGES=scrub,headlines,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

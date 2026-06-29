@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
+    config, db, embed, headline, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -59,11 +59,11 @@ async fn main() -> Result<()> {
     }
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
-    // Post Step-3 cutover the daemon owns all five stages; the Go derive worker is retired. To
-    // revert Step 3 in an emergency, set DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this
-    // service — see RUNBOOK.md §3 "Step-3 cognition rollback".
+    // Post Step-3 cutover the daemon owns all six stages (headlines added as the third news-rail
+    // product); the Go derive worker is retired. To revert Step 3 in an emergency, set
+    // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled: HashSet<String> = std::env::var("COGNITION_STAGES")
-        .unwrap_or_else(|_| "scrub,transfers,narratives,vibe,sigil".to_string())
+        .unwrap_or_else(|_| "scrub,headlines,transfers,narratives,vibe,sigil".to_string())
         .split(',')
         .map(|s| s.trim().to_lowercase())
         .filter(|s| !s.is_empty())
@@ -96,6 +96,9 @@ async fn main() -> Result<()> {
     let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
     if enabled.contains("scrub") {
         handlers.push(Box::new(scrub::ScrubHandler::new()));
+    }
+    if enabled.contains("headlines") {
+        handlers.push(Box::new(headline::HeadlinesHandler::new()));
     }
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));

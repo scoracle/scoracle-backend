@@ -538,6 +538,53 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				'[]'::json
 			)
 		)`,
+		// Headlines leaderboard — entities with the most breaking-news bulletins in
+		// the 2-day window. Ranked by headline count, then by most recent headline.
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
+		"headlines_leaderboard": `WITH req AS (
+			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
+		),
+		counts AS (
+			SELECT h.entity_type, h.entity_id, count(*) AS headline_count, max(h.published_at) AS latest_at
+			FROM public.headlines h, req
+			WHERE h.sport = req.sport
+			  AND (req.entity_type IS NULL OR h.entity_type = req.entity_type)
+			  AND h.published_at > NOW() - INTERVAL '2 days'
+			GROUP BY h.entity_type, h.entity_id
+		),
+		ranked AS (
+			SELECT u.*, row_number() OVER (ORDER BY u.headline_count DESC, u.latest_at DESC) AS rank
+			FROM (
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       c.headline_count AS score, c.latest_at AS generated_at
+				FROM counts c
+				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
+				LEFT JOIN LATERAL (
+				    SELECT ps.team_id FROM public.player_stats ps
+				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
+				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
+				) cur ON true
+				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
+				WHERE c.entity_type = 'player'
+				UNION ALL
+				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				       c.headline_count AS score, c.latest_at AS generated_at
+				FROM counts c
+				JOIN public.teams t ON t.id = c.entity_id AND t.sport = (SELECT sport FROM req)
+				WHERE c.entity_type = 'team'
+			) u
+			ORDER BY u.score DESC, u.generated_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'headlines_leaderboard',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'count', (SELECT count(*) FROM ranked),
+			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
+		)`,
 
 		// Roster (rating engine, per team) — every player on the team's season
 		// roster with their season Composite + Specialist (+ ranks + specialty),
@@ -656,6 +703,28 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_id', (SELECT entity_id FROM req),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
 			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, gemma_summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
+		)`,
+		// Entity headlines — breaking-news bulletins for the news rail. Filtered to the
+		// 2-day expiration window, sorted recency-first. $1 sport · $2 entity_type ·
+		// $3 entity_id · $4 limit (NULL ⇒ 20).
+		"entity_headlines": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
+			       COALESCE($4::int, 20) AS lim
+		),
+		recent AS (
+			SELECT h.id, h.title, h.category, h.source_url, h.source_name, h.published_at
+			FROM public.headlines h CROSS JOIN req
+			WHERE h.sport = req.sport AND h.entity_type = req.entity_type AND h.entity_id = req.entity_id
+			  AND h.published_at > NOW() - INTERVAL '2 days'
+			ORDER BY h.published_at DESC
+			LIMIT (SELECT lim FROM req)
+		)
+		SELECT json_build_object(
+			'page', 'headlines',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT entity_type FROM req),
+			'entity_id', (SELECT entity_id FROM req),
+			'headlines', COALESCE((SELECT json_agg(row_to_json(recent) ORDER BY recent.published_at DESC) FROM recent), '[]'::json)
 		)`,
 		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ live/current view).
 		"entity_vibes": `WITH req AS (

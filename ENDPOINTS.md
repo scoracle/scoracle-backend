@@ -14,10 +14,10 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | Route | Notes |
 |---|---|
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
-| `GET /api/v1/{sport}/{entityType}/{id}/rating` | Gemma "divined" stat read + stat commentary (was `/special`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-divined stat read + stat commentary (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis (was per-entity `/vibes`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/news` | Gemma narratives |
+| `GET /api/v1/{sport}/{entityType}/{id}/news` | model narratives |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | vetted transfer/trade rumor heat |
 | `GET /api/v1/{sport}/{entityType}/{id}/headlines` | breaking-news bulletins (2-day window) |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
@@ -64,7 +64,7 @@ Combines **stats trend + narrative trend** in one read-only payload so a profile
 
 What you get, per request:
 - **Stats trend** — the entity's average per stat over its **last 3 fixtures** alongside the **peer cohort's season averages**. The asymmetry is intentional: the entity carries the recent signal, the cohort carries the stable baseline.
-- **Narrative trend** — the entity's **last 7 days** of Gemma sentiment scores (1–100) from `vibe_scores`, newest first.
+- **Narrative trend** — the entity's **last 7 days** of model sentiment scores (1–100) from `vibe_scores`, newest first.
 
 **Raw values only.** No "trending up" verdict, no deltas pre-computed. The frontend decides what the gap (or the slope) means visually.
 
@@ -448,7 +448,7 @@ apps; NFL ≥8 GP (players). Teams: all rated.
 The board view. Each row carries **both** Composite and Specialist (+ specialty), so one
 payload feeds the board and a meta card.
 
-**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, or `transfers`. The dedicated `/leaderboard/{board}` routes below remain for now (the frontend will migrate to `?board=`, then they're retired). The **`news` board now ranks the hottest Gemma narratives by per-narrative impact** (each row = an entity's top current narrative), superseding the old raw mention-count board.
+**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, or `transfers`. The dedicated `/leaderboard/{board}` routes below remain for now (the frontend will migrate to `?board=`, then they're retired). The **`news` board now ranks the hottest model narratives by per-narrative impact** (each row = an entity's top current narrative), superseding the old raw mention-count board.
 
 #### Query parameters
 
@@ -502,7 +502,7 @@ Examples:
 
 ### `GET /api/v1/{sport}/leaderboard/vibes`
 
-The sport-wide **vibe** board — entities ranked by their latest Gemma sentiment score
+The sport-wide **vibe** board — entities ranked by their latest model sentiment score
 (1-100) in the last 48h: the sport-wide hottest-by-sentiment board (same window + filters,
 but each row is joined to `players`/`teams` so it carries `name` / `image` / `team_*` —
 one row shape shared with the news board below.
@@ -577,7 +577,7 @@ entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
 
 ### `GET /api/v1/{sport}/leaderboard/news`
 
-The sport-wide **news** board — the **hottest Gemma narratives**, ranked by per-narrative
+The sport-wide **news** board — the **hottest model narratives**, ranked by per-narrative
 `impact`. Each row is an entity's TOP current narrative (latest generation, ≤7 days), enriched
 like the vibe board (player/team name, image, current club) plus `narrative_title`, `body`, and
 `score` = impact. Supersedes the old mention-count board (`news_article_entities`). Also reachable
@@ -615,7 +615,7 @@ as `/leaderboard?board=news`.
 
 ### `GET /api/v1/{sport}/leaderboard/transfers`
 
-The sport-wide **transfers** board — the hottest Gemma-vetted `(team, player)` rumors,
+The sport-wide **transfers** board — the hottest model-vetted `(team, player)` rumors,
 ranked by deterministic `heat` (0-100): latest row per pair (`DISTINCT ON`),
 `is_rumor IS TRUE`, with **both** sides of the pair on each row. The per-entity
 transfer scope is the `/{entityType}/{id}/transfers` product (the old team-only
@@ -761,7 +761,7 @@ rather than by a single scope.
 ### `GET /api/v1/{sport}/{entityType}/{id}/stats` &nbsp;·&nbsp; `/rating` &nbsp;(stats source)
 
 > **Convergence rename (O14):** `/special` is gone — its lean specialist projection + the
-> Gemma stat `commentary` folded into **`/rating`** (the "divined" statistical read). The
+> Model stat `commentary` folded into **`/rating`** (the "divined" statistical read). The
 > retired `/sparkline` + `/starline` (2026-06-15) were split into the per-product stats
 > source: `/stats` carries the rating + `available_seasons` + the per-event `events` series;
 > `/momentum` carries the season sparkline (rating series × vibe series). The query
@@ -854,7 +854,7 @@ Composite + Specialist + Vibes together). The raw `rating_composite` /
 ### `GET /api/v1/{sport}/{entityType}/{id}/rating`
 
 The stats-rail **end product** (convergence rename O14 — absorbed the old `/special`): the
-lean specialist projection plus Gemma's "divined" stat commentary. Same path params and
+lean specialist projection plus the model's "divined" stat commentary. Same path params and
 `season`/`league_id` query params as `/stats`.
 
 ```jsonc
@@ -914,7 +914,7 @@ params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`). T
 per-entity **vibe** product is no longer served here — it is folded into the Sigil
 crown synthesis at `GET /api/v1/{sport}/{entityType}/{id}/sigil`.
 
-**`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's latest Gemma
+**`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's latest model
 **narratives** (hottest first by `impact`). News is a post-transfers pipeline layer, so
 the narratives already carry transfer context; this is narratives-only.
 ```json
@@ -1276,11 +1276,11 @@ identity persists via the refresh token in the device Keychain. Full design:
 - Auth handlers (mobile JWT): `go/internal/api/handler/auth.go`
 - Auth token issue/verify: `go/internal/auth/auth.go`; bearer middleware: `go/internal/api/middleware.go` (`RequireAuth`)
 - News corpus methods (background pipeline only — no serving route): `go/internal/thirdparty/news.go`
-- Ollama client + Gemma generators: `go/internal/ml/ollama.go`, `ml/vibe.go` (Vibe), `ml/sigil.go` (Sigil crown), `ml/news_narratives.go`, `ml/news_scrub.go`, `ml/transfer.go`, `ml/rating.go`
-- Durable derive worker (in-API queue drainer): `go/internal/derive/{derive.go,worker.go}`; the work queue itself: `go/internal/work/work.go`; operator CLI: `go/cmd/work`
-- LISTEN/NOTIFY listener (wakes the derive worker on `pipeline_work_ready`): `go/internal/listener/listener.go`
-- Maintenance tickers (news-scrub sweep, pipeline-stats snapshot): `go/internal/maintenance/maintenance.go`
-- Cron job wrappers + shared run-recording: `go/cmd/{pipeline,statcommentary,vibesynth}`, `go/internal/jobrun/jobrun.go`
+- Durable queue contract + operator CLI: `go/internal/work/work.go`, `go/cmd/work`
+- LISTEN/NOTIFY listener (enqueues durable sigil work on percentile events): `go/internal/listener/listener.go`
+- Maintenance tickers (news-scrub auto-vet + enqueue, pipeline-stats snapshot): `go/internal/maintenance/maintenance.go`
+- Cron job wrappers + shared run-recording: `go/cmd/{pipeline,vibesynth}`, `go/internal/jobrun/jobrun.go`
+- Rust cognition handlers (all model inference stages + rating batch): `rust/src/{scrub,headline,transfer,narratives,vibe,sigil,rating}.rs`, `rust/src/main.rs`, `rust/src/bin/statcommentary.rs`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
 - Swagger docs (generated; stale per F-045): `go/docs/`

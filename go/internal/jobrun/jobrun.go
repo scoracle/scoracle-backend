@@ -21,7 +21,7 @@
 // The advisory lock is a session lock held on a dedicated connection for the life
 // of the run; closing that connection (Close) releases it. pipeline_work (the
 // per-entity queue) is unaffected — Guard governs whole JOBS, while
-// FOR UPDATE SKIP LOCKED governs individual work items (the in-API derive worker
+// FOR UPDATE SKIP LOCKED governs individual work items (the Rust cognition worker
 // is meant to drain alongside a cron run, so it deliberately does not take this
 // lock).
 package jobrun

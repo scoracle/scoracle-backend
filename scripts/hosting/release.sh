@@ -7,7 +7,7 @@
 #
 # Post Step-3 cutover (2026-06-28) the Go LLM derive stages are retired: Go now
 # serves the API, sweeps RSS (pipeline -mode ingest), and runs the nightly sigil
-# reconcile backstop (vibesynth, DB-only — no Gemma). The Rust cognition layer
+# reconcile backstop (vibesynth, DB-only — no inline model call). The Rust cognition layer
 # owns every LLM stage: the long-running daemon (scoracle-cognition) + the rating
 # batch (statcommentary). Go's retired statcommentary binary is no longer present.
 #
@@ -89,8 +89,8 @@ STAGE="$(mktemp -d "$STAGE_PARENT/.scoracle-release.XXXXXX")"
 # scoracle-api.path watches go/bin/ and scoracle-cognition.path watches rust/bin/;
 # both fire a restart service on any close-write in their dir. We mask both across
 # the placement below (see the placement step) so the renames don't each fire a
-# spurious restart that cancels in-flight work (the in-API workers' Gemma drains
-# on the Go side, the in-flight pipeline_work drain on the Rust side); cleanup
+# spurious restart that cancels in-flight work (API-side SQL maintenance/notification
+# workers, plus the in-flight pipeline_work drain on the Rust side); cleanup
 # re-arms whatever we actually stopped. The masks are records, so we only
 # restart what we stopped.
 API_PATH_MASKED=0

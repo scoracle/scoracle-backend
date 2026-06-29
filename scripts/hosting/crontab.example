@@ -31,7 +31,7 @@ TZ=America/New_York
 # Cron treats any non-zero exit as a failure, so 1 (and optionally 3) will surface.
 # Inspect what is permanently stuck with:
 #   go run ./cmd/work dead-letters     # pipeline_work + fixtures at the retry cap
-# Note: pipeline is RSS ingest only (no Gemma); statcommentary + the cognition
+# Note: pipeline is RSS ingest only (no inline model call); statcommentary + the cognition
 # daemon are the Rust LLM stages; vibesynth nightly reconcile is DB-only.
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ TZ=America/New_York
 # rated entities and regenerates one ONLY when its rating snapshot changed
 # (input_hash differs) — most nights just the entities who played. Runs at 03:00,
 # after the news pipeline (00:00) and the football drain (23:00) so ratings are
-# fresh, and offset to ease the shared Archbox GPU. -limit caps GENERATIONS (Gemma
+# fresh, and offset to ease the shared Archbox GPU. -limit caps GENERATIONS (model
 # calls) per night, NOT entities scanned — so a filled night still hash-checks the
 # whole current season (DB-only), while the initial fill is bounded to ~400 writes/
 # night (undone-first, so it progresses) and steady state rarely hits the cap.

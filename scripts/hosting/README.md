@@ -60,7 +60,7 @@ the cron binaries or the daemon on a different commit than the API.
 | `cron-live-fixtures.sh` | current-season-aware live polling wrapper for NBA/NFL/Football fixture jobs |
 | `cron-pipeline.sh` | wrapper for the Go ingestion binary (`-mode ingest` — RSS sweep only post Step-3 cutover) |
 | `cron-rust-statcommentary.sh` | wrapper for the Rust stats-rail rating batch (the post Step-3 cutover path) |
-| `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation/backfill |
+| `cron-vibesynth.sh` | wrapper for nightly Sigil reconciliation (DB-only enqueue) |
 | `recompute-tiers.sh` | weekly entity-tier recomputation |
 | `crontab.example` | paste-ready crontab — NBA/NFL polling, football refresh/drain, nightly backup |
 | `backup-postgres.sh` | nightly `pg_dump` with 14-daily + 12-monthly retention |

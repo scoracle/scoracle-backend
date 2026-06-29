@@ -11,15 +11,15 @@ What you need during an incident or a machine rebuild. Companion to:
 `go/internal/config/config.go` for env, `scripts/hosting/crontab.example` for cron,
 `scripts/hosting/release.sh` for the build). Where a doc and the code disagree, the code wins.
 
-Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama + `gemma4:e4b`
-(`systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust Cognition Harness
-daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a Cloudflare Tunnel exposing
-`api.scoracle.com`.
+Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama (default model
+`mistral:7b`, `systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust
+Cognition Harness daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a
+Cloudflare Tunnel exposing `api.scoracle.com`.
 
-Post the **Step-3 cutover (2026-06-28)** the Go LLM derive stages are retired; Rust owns all LLM
-cognition (scrub → transfers → narratives → vibe → sigil as queue stages, rating as a batch bin).
-The Go API serves precomputed data + enqueues scrub work; `DERIVE_WORKER_ENABLED=false` keeps its
-derive path off. Rollback is flag-gated (§3).
+Post the **Step-3 cutover (2026-06-28)** and follow-up Go prune (2026-06-29), the Go LLM derive
+stages are retired; Rust owns all LLM cognition (scrub -> headlines -> transfers -> narratives ->
+vibe -> sigil as queue stages, rating as a batch bin). The Go API serves precomputed data and runs
+SQL-only maintenance/notification workers.
 
 ---
 
@@ -29,16 +29,15 @@ derive path off. Rollback is flag-gated (§3).
                        cron (crontab.example)            systemd --user
   providers ──► seeder ──► Postgres 18 ◄──────────────── scoracle-api.service
  (BDL/SM)     (Python)     │   │   ▲                       ├─ HTTP serving (read-only, precomputed)
-                           │   │   │  NOTIFY               ├─ news-scrub ticker (enqueues scrub work)
-                           │   │   └──── pipeline_work ────┤  notifications (FCM)
-                           │   │              ready        │  pipeline-stats snapshot ticker
-                           │   │                            `─ DERIVE_WORKER_ENABLED=false (Step-3)
-                           │   └──────► scoracle-cognition.service  ◄── drains the durable
-                           │                     │              pipeline_work queue:
-                           ▼                     │                scrub, transfers, narratives,
-                      Ollama + Gemma  ◄──────────┘                vibe, sigil
-                      (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1; the Rust
-                       GPU governor + sequential drain ARE the bound)
+                           │   │   │  NOTIFY               ├─ SQL maintenance (news-scrub enqueue,
+                           │   │   └──── pipeline_work ────┤   pipeline-stats)
+                           │   │              ready        │  notifications/listener (FCM + enqueue)
+                           │   └──────► scoracle-cognition.service  ◄── durable queue stages:
+                           │                     │                scrub, headlines, transfers,
+                           │                     ▼                narratives, vibe, sigil
+                           │                 statcommentary (cron batch)
+                           ▼
+                        Ollama (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1)
 ```
 
 Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust):
@@ -191,14 +190,14 @@ The correctness path is **event-driven**; cron is **reconciliation/backstop**. N
 depends on an ephemeral notification for correctness — every stage hands off through the durable
 `pipeline_work` queue, so a missed NOTIFY or a process death never loses work.
 
-### Event-driven (real time, inside `scoracle-api`)
+### Event-driven (real time; queue is drained by Rust)
 
 | Trigger | What happens |
 |---|---|
-| Scrub vets a news link (`enqueue_derive_on_vetted` trigger, migration 103) → `NOTIFY pipeline_work_ready` | The **derive worker** wakes and drains `pipeline_work` in stage order: narratives → Vibe (teams also transfers). Single goroutine, ≤1 Gemma call in flight (shared GPU). |
+| Scrub vets a news link (`enqueue_derive_on_vetted` trigger, migration 103) → `NOTIFY pipeline_work_ready` | Durable `pipeline_work` items are created; `scoracle-cognition` drains stage order and retries on failure. |
 | A Vibe generation completes | enqueues the terminal **Sigil** convergence for that entity. |
 | Rating/Vibe/Momentum input changes | enqueues **one debounced** Sigil convergence (input-hash + round/slope debounce — no duplicate Sigil for unchanged inputs). |
-| Startup, and every `DERIVE_DRAIN_INTERVAL_SECONDS` (30s) | the worker re-drains + `RequeueStale` recovers rows abandoned mid-lease — so a missed NOTIFY costs latency, never correctness. |
+| Startup + safety-net cadence (`COGNITION_SAFETY_NET_SECONDS`) | the Rust worker re-drains + `RequeueStale` recovers rows abandoned mid-lease — a missed NOTIFY costs latency, never correctness. |
 
 ### Cron-driven (see `scripts/hosting/crontab.example` for exact times — `CRON_TZ=America/New_York`)
 
@@ -207,21 +206,21 @@ depends on an ephemeral notification for correctness — every stage hands off t
 | `cron-live-fixtures.sh` (NBA/NFL refresh + process) | refresh 08:xx; process every 30m / :15,:45 | live ingestion (current-season-aware; serializes the shared BDL key) |
 | `cron-live-fixtures.sh football-process` | daily 23:00 | drain finished European matches |
 | `cron-live-fixtures.sh football-refresh/-meta` | weekly Mon 23:00 | schedule + roster/meta refresh |
-| `cron-pipeline.sh -mode corpus` | daily 00:00 | the staged Gemma corpus: sweep → transfers → narratives → vibe (in order; each enriches the next) |
+| `cron-pipeline.sh -mode ingest` | daily 00:00 | RSS ingest sweep only; writes corpus rows and lets durable queue stages derive products |
 | `cron-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary; regenerates only when a rating snapshot's `input_hash` changed |
-| `cron-vibesynth.sh -mode nightly -limit 500` | daily 05:00 | **Sigil BACKSTOP only** — enqueues current-season entities whose Sigil is missing/stale for the derive worker to drain; no inline synthesis, no Ollama, no unchanged-Sigil duplicates |
+| `cron-vibesynth.sh -mode nightly -limit 500` | daily 05:00 | **Sigil BACKSTOP only** — enqueues current-season entities whose Sigil is missing/stale for Rust to drain; no inline synthesis, no unchanged-Sigil duplicates |
 | `recompute-tiers.sh` | weekly Mon 02:00 | entity tier recompute (drives vibe scheduling) |
 | `backup-postgres.sh` | daily 04:00 | nightly dump + off-disk mirror (§4) |
 
 **Sigil is event-driven + debounced.** The nightly `vibesynth` line is reconciliation only — it
-never creates an unchanged duplicate and never calls Gemma inline.
+never creates an unchanged duplicate and never calls the model inline.
 
 **Transfers** are a **News scope** (a facet of the news pipeline), even though `/transfers` remains a
 supporting per-entity contract.
 
 ### Overlap + observability
 
-The three Gemma batch jobs (`pipeline`, `statcommentary`, `vibesynth`) each take a per-job Postgres
+The three batch jobs (`pipeline`, `statcommentary`, `vibesynth`) each take a per-job Postgres
 advisory lock, so a manual run racing the cron exits 0 cleanly instead of overlapping. Every run is
 recorded in `pipeline_runs`:
 
@@ -234,28 +233,25 @@ the queue retries) · `1` systemic (enumeration/stage failure, or dead-lettered 
 
 ---
 
-## 7. The pipeline: compile → scrub → derive → reveal
+## 7. The pipeline: ingest → queue → derive → reveal
 
-The once-daily `cmd/pipeline -mode corpus` run (and the real-time derive worker share one drainer):
+The once-daily `cmd/pipeline -mode ingest` run feeds the durable queue; Rust drains the stages:
 
 ```
-requeue stale → sweep → scrub(fresh batch) → drain transfers → narratives → vibe → sigil
+sweep ingest -> enqueue/notify -> scrub -> headlines -> transfers -> narratives -> vibe -> sigil
 ```
 
 1. **Compile (sweep):** RSS-sweep every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
    offseason coverage doesn't collapse); persist to `news_articles` / `news_article_entities`.
    Returns the articles that gained a **fresh** link this run.
-2. **Scrub:** those exact articles are Gemma ID-gated **in-run** (`vetted=TRUE`). The scrub `UPDATE`
-   fires the migration-103 trigger, which is the **sole enqueuer** of derive work — each vetted
-   entity's narratives + Vibe (teams also transfers) land on `pipeline_work`.
-3. **Derive:** the shared `derive.Drainer` claims → runs → completes/fails each queued stage **in
-   declared order** (Claim → run → Complete/Fail). A completed Vibe enqueues its **Sigil**
-   convergence.
+2. **Enqueue:** vetted transitions (and other stage handoffs) enqueue durable `pipeline_work` rows.
+3. **Derive:** `scoracle-cognition` claims → runs → completes/fails each queued stage in declared
+   order (claim → run → complete/fail), with retry + stale-lease recovery.
 4. **Reveal:** the precomputed products (`news_summaries`, `transfer_rumors`, `vibe_scores`,
    `sigil_synthesis`, `stat_summaries`) are what the per-product serving endpoints read.
 
-The async maintenance **news-scrub ticker** (`NEWS_SCRUB_*`) is backlog/repair only — it vets the
-links the nightly sweep left for it.
+The async maintenance **news-scrub ticker** (`NEWS_SCRUB_ENABLED`) is backlog/repair only — SQL
+auto-vet + enqueue for Rust scrub handling.
 
 **Live table → product names:** `vibe_scores` = Vibe · `sigil_synthesis` = Sigil crown ·
 `news_summaries` = narratives · `stat_summaries` (`divined_peak`) = stat commentary ·
@@ -320,7 +316,7 @@ psql "$DATABASE_PRIVATE_URL" -c "SELECT * FROM pipeline_runs_latest;"
 go run ./cmd/work status                   # from go/ — derive queue health
 
 # Cron logs (plaintext, logrotated):
-tail -f logs/cron-nba.log logs/pipeline-corpus.log logs/statcommentary.log logs/vibesynth.log logs/backup.log
+tail -f logs/cron-nba.log logs/pipeline-ingest.log logs/statcommentary.log logs/vibesynth.log logs/backup.log
 ```
 
 Common incidents:
@@ -328,9 +324,9 @@ Common incidents:
 - **API won't boot after a deploy** → almost always schema drift (the boot guard). Apply the pending
   migration (`sql/migrate.sh`), or roll the binary back (§3). Check `journalctl` for the failing
   prepared statement.
-- **Gemma products stale** → check `cmd/work status` / `dead-letters`; check Ollama is up and the
-  model is resident (`OLLAMA_KEEP_ALIVE`); a cold GPU reload can time out — the work re-drains.
-- **GPU thrash** → `OLLAMA_MAX_CONCURRENT=1` serializes Gemma; the systemd drop-in
+- **Derived products stale** → check `cmd/work status` / `dead-letters`; check `scoracle-cognition`
+  service health and Ollama reachability; a cold model load can time out, then retry/re-drain.
+- **GPU thrash** → `OLLAMA_MAX_CONCURRENT=1` serializes model calls; the systemd drop-in
   `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1` is **not yet set** (F-035, needs sudo).
 
 ---
@@ -340,7 +336,7 @@ Common incidents:
 Full first-time setup + rationale: `planning_docs/SELF_HOSTING_OPS.md`. Mechanics:
 `scripts/hosting/README.md`. Short path:
 
-1. Install Postgres 18, Ollama + `gemma4:e4b`, Go toolchain, the Python venv.
+1. Install Postgres 18, Ollama + `mistral:7b`, Go toolchain, the Python venv.
 2. Clone the repo; create `.env.local` (DB creds, provider keys, `JWT_SECRET`).
 3. Restore the latest **off-disk/off-site** dump (§4) and `sql/migrate.sh` it to the latest schema.
 4. `scripts/hosting/install.sh` (renders systemd units), `loginctl enable-linger sheneveld`,
@@ -358,8 +354,7 @@ Full first-time setup + rationale: `planning_docs/SELF_HOSTING_OPS.md`. Mechanic
 These surfaced during the audit and are pre-launch work (see `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md`):
 
 - **F-030** — NFL (1072) + FOOTBALL (2147) current-season entities have **zero** season-2025-stamped
-  Sigils. Run a larger reconcile/backfill (`vibesynth -mode nightly` with a higher `-limit`, or a
-  dedicated backfill) before launch.
+  Sigils. Run larger reconciliation passes (`vibesynth -mode nightly` with a higher `-limit`) before launch.
 - **F-040** — pick the off-SITE backup target (cloud/NAS); mechanism is ready via
   `OFFHOST_BACKUP_DIR`.
 - **F-035** — set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`

@@ -1,9 +1,6 @@
-// Package corpus holds the shared "RSS sweep + touched-entity selection"
-// primitives for the staged Gemma pipeline. The sweep refreshes
-// news_article_entities; LoadTouchedEntities then returns exactly the entities
-// whose corpus changed in this run (the in-process runStart watermark is the
-// cross-stage handoff). Extracted from cmd/vibe so the cmd/pipeline orchestrator
-// and the ad-hoc cmd/vibe corpus mode share one implementation.
+// Package corpus holds shared RSS sweep + touched-entity selection primitives.
+// The sweep refreshes news_article_entities and returns the fresh article set
+// for downstream durable queue work.
 package corpus
 
 import (
@@ -48,9 +45,8 @@ type Entity struct {
 // (cross-entity linking pulls in co-mentioned players for free). It returns two
 // handoffs:
 //
-//   - runStart: the watermark captured BEFORE the sweep — the legacy "fresh
-//     corpus from this run" boundary the cmd/sentiment corpus mode still filters
-//     LoadTouchedEntities on.
+//   - runStart: the watermark captured BEFORE the sweep — legacy freshness
+//     boundary kept for helper queries that still take a `since` window.
 //   - affected: article_id → sport for every article that gained a FRESH link
 //     this run. This is the explicit batch the FIRST-GPT-AUDIT Session 8 pipeline
 //     scrubs in-run and then enqueues derive work from — replacing the runStart
@@ -141,8 +137,7 @@ func LoadTeams(ctx context.Context, pool *pgxpool.Pool, sport string) ([]Team, e
 //     along via cross-entity linking in from_run, and real-time players are caught
 //     by the news-volume LISTEN/NOTIFY worker.
 //
-// An entity with only fresh links pointing to stale articles is dropped here —
-// stale evidence isn't worth Gemma's time.
+// An entity with only fresh links pointing to stale articles is dropped here.
 func LoadTouchedEntities(ctx context.Context, pool *pgxpool.Pool, since time.Time, sports []string) ([]Entity, error) {
 	qctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -222,7 +217,7 @@ func RecentlyGenerated(ctx context.Context, pool *pgxpool.Pool, table string, e 
 // AffectedVettedEntities returns the distinct (entity_type, entity_id, sport)
 // that the scrub stage marked vetted=TRUE on the given freshly-ingested articles
 // — the entities the Session 8 pipeline enqueues derive work for. Only vetted
-// links count: a Gemma-dropped same-name candidate never reaches the queue.
+// links count: a model-dropped same-name candidate never reaches the queue.
 func AffectedVettedEntities(ctx context.Context, pool *pgxpool.Pool, articleIDs []int64) ([]Entity, error) {
 	if len(articleIDs) == 0 {
 		return nil, nil
@@ -280,7 +275,7 @@ func CorpusVersion(ctx context.Context, pool *pgxpool.Pool, e Entity) (string, e
 	return fmt.Sprintf("%d:%d", count, maxEpoch), nil
 }
 
-// LookupEntityName resolves the display name for a Gemma prompt.
+// LookupEntityName resolves the display name for model prompts.
 func LookupEntityName(ctx context.Context, pool *pgxpool.Pool, entityType string, id int, sport string) (string, error) {
 	q := `SELECT name FROM teams WHERE id = $1 AND sport = $2`
 	if entityType == "player" {

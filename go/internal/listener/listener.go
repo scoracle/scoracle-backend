@@ -6,10 +6,10 @@
 //
 // The old news-rail consumers (vibe_trigger / transfer_trigger, which ran Gemma
 // directly off a transient NOTIFY) were retired in FIRST-GPT-AUDIT Session 9 in
-// favour of the durable pipeline_work queue drained by internal/derive. Session 12
+// favour of the durable pipeline_work queue. Session 12
 // (F-017) brings the STATS-rail composite_shift trigger into that same model: instead
 // of running Gemma inline off the transient NOTIFY, it enqueues a sigil pipeline_work
-// item the derive worker drains — and does so independently of followers/FCM, so an
+// item the Rust cognition daemon drains — and does so independently of followers/FCM, so an
 // entity with zero followers still reconverges its crown (simplification A).
 package listener
 

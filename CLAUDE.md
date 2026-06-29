@@ -10,13 +10,13 @@ Why this is non-negotiable: scoracle is a solo, multi-machine project (**archx22
 
 **End the session synced, too.** Before stopping, commit and push **the work *this session* did** — stage the files this session touched (`git add <paths>`), never a blanket `git add -A` that sweeps up unrelated or another machine's in-flight WIP. Leaving your own finished work (or an applied-but-uncommitted migration) unpushed is precisely the stale baseline the next session trips over; pre-existing changes that aren't yours stay untouched.
 
-## Architecture — Two Components, One Database
+## Architecture — Three Components, One Database
 
 ```
 Frontend (Solid)
     └── Curated sport pages + integrations ──► Go API (:8000)
                                               │
-                                   Connects to PostgreSQL
+                                   Connects to PostgreSQL ◄── Rust Cognition Harness
                                               ▲
                                               │
                                    Python Seeder (ingestion)
@@ -29,9 +29,9 @@ precomputed read from our own Postgres; there is **no third-party call on a serv
 Google-RSS compile lives in the background pipeline, off the request path).
 
 - Sport data endpoints (canonical profile + the per-product card endpoints, meta, health, league-scoped variants)
-- Derived-product endpoints — `/news` (Gemma narratives), `/transfers`, `/rating`, `/momentum`, `/sigil` (the synthesis) — all served from precomputed tables
+- Derived-product endpoints — `/news` (model narratives), `/transfers`, `/rating`, `/momentum`, `/sigil` (the synthesis) — all served from precomputed tables
 - Health/docs endpoints
-- Background workers — the self-hosted Gemma news/stats pipeline (the compile→scrub→derive that *does* call Google RSS, off the request path), notifications, maintenance, LISTEN/NOTIFY
+- Background workers — SQL-only maintenance/enqueue + notifications/LISTEN workers; model inference runs in Rust (`scoracle-cognition` daemon + `statcommentary` batch)
 
 Go handlers must remain thin:
 
@@ -83,10 +83,10 @@ model). The convergence rename (O14) settled the per-entity product names below 
 Per-entity card endpoints (`{entityType}` ∈ `player|team`):
 
 - `/{sport}/{entityType}/{id}/stats` — season Composite rating + per-event series + `available_seasons` + `stat_definitions`
-- `/{sport}/{entityType}/{id}/rating` — Gemma's "divined" statistical read + the stat commentary (`stat_summaries`)
+- `/{sport}/{entityType}/{id}/rating` — model-divined statistical read + the stat commentary (`stat_summaries`)
 - `/{sport}/{entityType}/{id}/momentum` — Rating-trajectory × Vibe-trajectory (stats trend + narrative trend)
 - `/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
-- `/{sport}/{entityType}/{id}/news` — Gemma narratives (`news_summaries`)
+- `/{sport}/{entityType}/{id}/news` — model narratives (`news_summaries`)
 - `/{sport}/{entityType}/{id}/transfers` — vetted transfer/trade rumor heat (`transfer_rumors`)
 - `/{sport}/{entityType}/{id}/meta` — per-entity identity (page header); 404 when the entity is unknown
 - `/{sport}/team/{id}/results`, `/{sport}/team/{id}/roster`
@@ -241,10 +241,8 @@ Common optional (full list + defaults in `go/internal/config/config.go`):
 - `API_PORT` / `PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED` (+ `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`)
 - `DB_POOL_MAX_CONNS` (default `25` — sized for the eager profile fan-out of ~6–9 concurrent reads), `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_LIFE_MINUTES`
 - `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS` (the latter merged in only when `ENVIRONMENT=production`)
-- **Gemma/Ollama:** `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `gemma4:e4b`), `OLLAMA_TIMEOUT_SECONDS` (300, long-op budget), `OLLAMA_SHORT_TIMEOUT_SECONDS` (120), `OLLAMA_MAX_CONCURRENT` (1 — the single-GPU governor), `OLLAMA_KEEP_ALIVE` (`30m`)
-- **In-API derive worker:** `DERIVE_WORKER_ENABLED` (default true), `DERIVE_DRAIN_INTERVAL_SECONDS` (30, safety-net drain between `pipeline_work_ready` NOTIFYs)
-- **News scrub ticker:** `NEWS_SCRUB_ENABLED`, `NEWS_SCRUB_INTERVAL_MINUTES` (30), `NEWS_SCRUB_BATCH` (15)
-- **Transfer spike worker:** `TRANSFER_ENABLED`, `TRANSFER_DEBOUNCE_MINUTES` (60), `TRANSFER_MIN_ARTICLES` (2), `TRANSFER_MAX_CONCURRENT` (2)
+- **Rust cognition:** `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `mistral:7b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT`, plus `COGNITION_*` stage/router controls in `rust/src/config.rs`
+- **Go maintenance ticker:** `NEWS_SCRUB_ENABLED` (master switch; cadence/batch are code defaults in `internal/maintenance`)
 - `PIPELINE_STATS_INTERVAL_MINUTES` (1440; 0 disables the daily corpus snapshot)
 - **Mobile auth:** `JWT_SECRET` (unset ⇒ `/auth/*` returns 503; rest of API unaffected), `JWT_ACCESS_TTL_MINUTES` (30), `JWT_REFRESH_TTL_DAYS` (90)
 - `FIREBASE_CREDENTIALS_FILE`

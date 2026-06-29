@@ -3,7 +3,7 @@
 #
 # RSS sweep only; Rust owns LLM derivation. This wrapper runs the once-daily
 # Google News RSS sweep that writes news_articles + news_article_entities;
-# every Gemma stage (scrub, transfers, narratives, vibe, sigil, rating) is
+# every model stage (scrub, transfers, narratives, vibe, sigil, rating) is
 # drained from the durable pipeline_work queue by the Rust Cognition Harness
 # (scoracle-cognition daemon + the rust/bin/statcommentary rating batch).
 #

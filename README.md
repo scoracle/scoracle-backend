@@ -4,9 +4,10 @@ Backend data pipeline and unified API for Scoracle sports data.
 
 ## Architecture
 
-Scoracle runs as a single public Go API backed by PostgreSQL, plus a Python seeder.
+Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL, plus a Python seeder.
 
-- **Go API (`:8000`)** serves curated sport data pages, derived Gemma products (narratives, transfer heat, Vibe, Sigil), health/docs endpoints, and background workers (the self-hosted Gemma pipeline + the durable derive worker). **We own all the data** — every serving response is a precomputed read from our own Postgres; there is no third-party call on a serving request.
+- **Go API (`:8000`)** serves curated sport data pages and health/docs endpoints from precomputed Postgres tables. It runs SQL-only maintenance/notification workers and the ingest funnel wiring, but does not execute model inference.
+- **Rust Cognition Harness (`rust/`)** owns all model inference stages (scrub, headlines, transfers, narratives, vibe, sigil) via `pipeline_work`, plus the `statcommentary` rating batch.
 - **Python Seeder (`seed/`)** ingests provider data and upserts raw rows to PostgreSQL.
 - **PostgreSQL (`sql/`)** is the source of truth for schema, derived stats, percentiles, views, and API-shaping SQL.
 
@@ -18,7 +19,8 @@ The frontend calls one API origin and receives page-shaped JSON payloads designe
 
 | Component | Responsibility | Location |
 |---|---|---|
-| Go API | Public HTTP API, caching, ETags, CORS, rate limiting, mobile auth, background-worker runtime (Gemma pipeline + derive queue drainer) | `go/` |
+| Go API | Public HTTP API, caching, ETags, CORS, rate limiting, mobile auth, SQL-only maintenance + notifications | `go/` |
+| Rust Cognition Harness | Queue-stage model inference + rating batch (`statcommentary`) | `rust/` |
 | Python Seeder | Provider ingestion and fixture processing | `seed/` |
 | PostgreSQL | Data model, stat normalization, derived metrics, percentile logic, shaping views/functions | `sql/` |
 
@@ -33,9 +35,9 @@ Per-entity products (`{entityType}` ∈ `player|team`):
 
 - **stats source:**
   - `GET /api/v1/{sport}/{entityType}/{id}/stats` — season Composite rating (breakdown, modes, fantasy, scoped ranks) + `available_seasons` + the per-event series
-  - `GET /api/v1/{sport}/{entityType}/{id}/rating` — Gemma's "divined" statistical read + the stat commentary (`stat_summaries`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/rating` — model-divined statistical read + the stat commentary (`stat_summaries`)
 - **news source:**
-  - `GET /api/v1/{sport}/{entityType}/{id}/news` — latest Gemma narratives, hottest first by impact (`news_summaries`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/news` — latest model narratives, hottest first by impact (`news_summaries`)
   - `GET /api/v1/{sport}/{entityType}/{id}/transfers` — vetted transfer/trade rumors by heat — team→players, player→clubs (`transfer_rumors`)
 - **convergence:**
   - `GET /api/v1/{sport}/{entityType}/{id}/momentum` — Rating-trajectory × Vibe-trajectory (stats trend + narrative trend)
@@ -55,8 +57,8 @@ Sport-level + leaderboard routes:
 - `GET /api/v1/{sport}/leaderboard` (rating board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; also `?board=rating|vibes|sigil|news|transfers`)
 - `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
-- `GET /api/v1/{sport}/leaderboard/news` — hottest Gemma narratives by per-narrative impact
-- `GET /api/v1/{sport}/leaderboard/transfers` — Gemma-vetted rumors by heat 0-100
+- `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact
+- `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100
 - `GET /api/v1/{sport}/leaderboard/trending` — vibe & rating risers
 
 League-scoped variants (preferred for multi-league precision):
@@ -83,7 +85,7 @@ See `ENDPOINTS.md` for full contract details.
 - Prepared statements for canonical payloads are registered in `go/internal/db/db.go` and return final JSON documents for frontend widgets.
 - Sport routes are constrained to `nba`, `nfl`, and `football` at the router level.
 - Data endpoints use in-memory caching with ETag support (`TTLData=5m`).
-- Background workers (the in-API derive-queue drainer, news-scrub ticker, maintenance, notifications) run inside the API process — they are not on the serving path. See `RUNBOOK.md`.
+- Background workers in the API process are SQL-only (maintenance/news-scrub enqueue + notifications/listener) and are not on the serving path. Model inference runs in Rust (`scoracle-cognition` + `statcommentary`). See `RUNBOOK.md`.
 
 ## Repository Layout
 
@@ -160,8 +162,8 @@ Common optional (full list + defaults in `config.go`):
 - `API_PORT`/`PORT`, `CACHE_ENABLED`, `RATE_LIMIT_ENABLED`
 - `DB_POOL_MAX_CONNS` (default `25`), `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_LIFE_MINUTES`
 - `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS`
-- Gemma/Ollama: `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (`gemma4:e4b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_SHORT_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` (1), `OLLAMA_KEEP_ALIVE`
-- Workers: `DERIVE_WORKER_ENABLED`, `DERIVE_DRAIN_INTERVAL_SECONDS`, `NEWS_SCRUB_ENABLED`/`_INTERVAL_MINUTES`/`_BATCH`, `TRANSFER_ENABLED`/`_DEBOUNCE_MINUTES`/`_MIN_ARTICLES`/`_MAX_CONCURRENT`, `PIPELINE_STATS_INTERVAL_MINUTES`
+- Rust cognition (read by Rust config, not Go): `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `mistral:7b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT`
+- Go workers: `NEWS_SCRUB_ENABLED`, `PIPELINE_STATS_INTERVAL_MINUTES`
 - Mobile auth: `JWT_SECRET` (unset ⇒ `/auth/*` returns 503), `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`
 - `FIREBASE_CREDENTIALS_FILE`; seeder third key `API_SPORTS_KEY`
 

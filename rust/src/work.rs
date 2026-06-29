@@ -20,13 +20,17 @@ use std::time::Duration;
 /// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
 /// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). Only the Rust
 /// `ScrubHandler` drains it — the Go Drainer has no scrub handler, so there is no double-claim.
+///
+/// `Momentum` is intentionally NOT a queue stage — it's a served product assembled at read time
+/// from the rating + vibe trend series (`news_summaries` + `vibe_scores` deltas), not a derived
+/// product a worker drains. It was briefly sketched as a Stage variant early on and never used;
+/// removed post-Step-3 audit so the enum is exactly the stages the harness daemon registers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,
     Transfers,
     Narratives,
     Vibe,
-    Momentum,
     Sigil,
 }
 
@@ -37,7 +41,6 @@ impl Stage {
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",
-            Stage::Momentum => "momentum",
             Stage::Sigil => "sigil",
         }
     }

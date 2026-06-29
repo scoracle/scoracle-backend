@@ -207,7 +207,7 @@ pub fn build_headlines_prompt(
     b
 }
 
-/// A headline normalized for persistence, with resolved source info.
+/// A headline normalized for persistence, with resolved source info + provenance.
 #[derive(Clone, Debug)]
 pub struct HeadlineRow {
     pub title: String,
@@ -215,6 +215,8 @@ pub struct HeadlineRow {
     pub source_url: String,
     pub source_name: String,
     pub published_at_epoch: Option<i64>,
+    /// Article IDs from the vetted corpus cited by the model for this headline.
+    pub input_news_ids: Vec<i64>,
 }
 
 /// Generate headlines for one entity. Returns an empty vector when the corpus is empty
@@ -264,16 +266,17 @@ pub async fn generate_headlines(
             continue;
         }
 
-        // Resolve source info from the first valid cited article, else the newest article.
-        let source_item = verdict
+        // Resolve source info + cited article IDs from the first valid cited article,
+        // falling back to the newest article when the model cites none or out-of-range ids.
+        let cited: Vec<&CorpusItem> = verdict
             .article_numbers
             .iter()
             .filter_map(|n| {
                 let idx = (*n).saturating_sub(1) as usize;
                 corpus.get(idx)
             })
-            .next()
-            .unwrap_or(&corpus[0]);
+            .collect();
+        let source_item = cited.first().copied().unwrap_or(&corpus[0]);
 
         rows.push(HeadlineRow {
             title: verdict.title.trim().to_string(),
@@ -281,6 +284,7 @@ pub async fn generate_headlines(
             source_url: source_item.url.clone(),
             source_name: source_item.source.clone(),
             published_at_epoch: source_item.published_at_epoch,
+            input_news_ids: cited.iter().map(|item| item.id).collect(),
         });
     }
 
@@ -299,20 +303,25 @@ fn normalize_category(raw: &str) -> String {
     }
 }
 
-/// Persist generated headlines to the live `headlines` table.
+/// Persist generated headlines to the live `headlines` table with full provenance.
 async fn persist_headlines(
     pool: &PgPool,
     item: &Item,
     sport: &str,
     rows: &[HeadlineRow],
+    model_version: &str,
 ) -> Result<()> {
     for row in rows {
         sqlx::query(
             r#"
             INSERT INTO headlines (
                 sport, entity_type, entity_id,
-                title, category, source_url, source_name, published_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8))
+                title, category, source_url, source_name, published_at,
+                input_news_ids, model_version, prompt_version, trigger_type, generated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, to_timestamp($8),
+                $9, $10, $11, $12, NOW()
+            )
             "#,
         )
         .bind(sport)
@@ -323,6 +332,10 @@ async fn persist_headlines(
         .bind(&row.source_url)
         .bind(&row.source_name)
         .bind(row.published_at_epoch)
+        .bind(&row.input_news_ids)
+        .bind(model_version)
+        .bind(HEADLINES_PROMPT_VERSION)
+        .bind("news_spike")
         .execute(pool)
         .await
         .context("persist headline")?;
@@ -355,7 +368,7 @@ impl StageHandler for HeadlinesHandler {
         let name = lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport)
             .await?;
 
-        let (rows, _model) = generate_headlines(
+        let (rows, model_version) = generate_headlines(
             hx,
             &item.entity_type,
             item.entity_id,
@@ -366,7 +379,7 @@ impl StageHandler for HeadlinesHandler {
 
         if !rows.is_empty() {
             let sport = item.sport.to_uppercase();
-            persist_headlines(&hx.pool, item, &sport, &rows).await?;
+            persist_headlines(&hx.pool, item, &sport, &rows, &model_version).await?;
         }
 
         Ok(())
@@ -432,5 +445,12 @@ mod tests {
         assert!(p.contains("1. [S1] T1"));
         assert!(p.contains("2. [S2] T2"));
         assert!(p.contains("Bowen"));
+    }
+
+    #[test]
+    fn parser_accepts_article_numbers_array() {
+        let raw = r#"{"headlines": [{"title": "A", "category": "other", "article_numbers": [1, 2]}]}"#;
+        let parsed = HeadlinesParser.parse(raw).unwrap().unwrap();
+        assert_eq!(parsed.headlines[0].article_numbers, vec![1, 2]);
     }
 }

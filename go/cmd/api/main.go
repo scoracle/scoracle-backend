@@ -196,10 +196,13 @@ func main() {
 	// Create HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.APIHost, cfg.APIPort)
 	srv := &http.Server{
-		Addr:         addr,
-		Handler:      router,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		Addr:        addr,
+		Handler:     router,
+		ReadTimeout: 10 * time.Second,
+		// Keep WriteTimeout disabled so long-lived streaming endpoints can stay
+		// open. This is required for OpenCode's browser/SSE sessions through the
+		// reverse proxy; net/http does not support path-specific write timeouts.
+		WriteTimeout: 0,
 		IdleTimeout:  60 * time.Second,
 	}
 

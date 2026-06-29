@@ -6,6 +6,7 @@
 #   cloudflared tunnel login              # opens browser, picks a CF zone
 #   cloudflared tunnel create scoracle    # records the tunnel id
 #   cloudflared tunnel route dns scoracle api.your-domain.com
+#   cloudflared tunnel route dns scoracle opencode.your-domain.com
 #   # Copy this file to ~/.cloudflared/config.yml and edit
 #   systemctl --user enable --now cloudflared.service
 #
@@ -22,6 +23,13 @@ ingress:
     service: http://localhost:8000
     originRequest:
       # Bearer/custom headers pass through unchanged.
+      noTLSVerify: false
+      connectTimeout: 10s
+  # Browser UI for local OpenCode Server. Protect this hostname with
+  # Cloudflare Access; the Go API proxies it to http://127.0.0.1:4096.
+  - hostname: opencode.your-domain.com
+    service: http://localhost:8000
+    originRequest:
       noTLSVerify: false
       connectTimeout: 10s
   # Catch-all: any other hostname that somehow hits the tunnel gets a 404.

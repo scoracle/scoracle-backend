@@ -18,6 +18,7 @@
 //! `scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
 
 use anyhow::Result;
+use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
@@ -36,7 +37,12 @@ async fn main() -> Result<()> {
         .init();
 
     let cfg = config::Config::from_env()?;
-    info!(model = %cfg.ollama_model, "scoracle-cognition starting");
+    info!(
+        model = %cfg.ollama_model,
+        commit = buildinfo::COMMIT,
+        built = buildinfo::BUILD_TIME,
+        "scoracle-cognition starting",
+    );
 
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");

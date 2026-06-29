@@ -177,7 +177,7 @@ shared go_json_* / hash_components (those are the debounce pre-image).
 
 ## Carry / known limits
 
-- `099_team_rosters.sql` is not ours (untracked migration owned by another contributor).
+- Team-roster Phase 2 (top-down roster seeding + purge rewrite) is still pending.
 - **F-046** — a DB password sits in git history; coordination needed before any force-push.
 - `work::Item.entity_id` is `i32`; the article-keyed scrub stage casts to `i64`, which fits
   today but would wrap past 2bn article ids. A future widening when convenient.

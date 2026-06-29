@@ -558,7 +558,7 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLData, false, sport, entityType, id, limit)
+	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, limit)
 }
 
 // GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score

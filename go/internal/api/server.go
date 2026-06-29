@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -14,6 +15,7 @@ import (
 
 	apidocs "github.com/albapepper/scoracle-data/docs"
 	"github.com/albapepper/scoracle-data/internal/api/handler"
+	"github.com/albapepper/scoracle-data/internal/api/opencodeproxy"
 	"github.com/albapepper/scoracle-data/internal/api/respond"
 	"github.com/albapepper/scoracle-data/internal/auth"
 	"github.com/albapepper/scoracle-data/internal/cache"
@@ -31,7 +33,19 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(TimingMiddleware)
-	r.Use(middleware.Compress(5)) // gzip
+	compress := middleware.Compress(5) // gzip
+	r.Use(func(next http.Handler) http.Handler {
+		compressed := compress(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// The OpenCode proxy must preserve upstream headers and stream bytes as
+			// OpenCode writes them, so bypass response compression for that mount.
+			if isOpenCodeProxyRequest(req) {
+				next.ServeHTTP(w, req)
+				return
+			}
+			compressed.ServeHTTP(w, req)
+		})
+	})
 
 	// CORS
 	//
@@ -56,7 +70,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			_, ok := allowed[origin]
 			return ok
 		},
-		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS", "POST"},
+		AllowedMethods:   []string{"GET", "HEAD", "OPTIONS", "POST", "DELETE", "PUT", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Accept-Encoding", "Content-Type", "If-None-Match", "Cache-Control", "Authorization"},
 		ExposedHeaders:   []string{"X-Process-Time", "X-Cache", "Link", "ETag"},
 		AllowCredentials: false,
@@ -67,6 +81,21 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	if cfg.RateLimitEnabled {
 		r.Use(RateLimitMiddleware(cfg.RateLimitRequests, cfg.RateLimitWindow))
 	}
+
+	// Browser OpenCode UI route. Cloudflare Tunnel sends opencode.scoracle.com
+	// to this same Go API, and Cloudflare Access should protect that hostname at
+	// the edge. Keeping this host-mounted at / avoids breaking OpenCode's UI
+	// assets and absolute API paths.
+	opencodeHostHandler := opencodeproxy.NewDefaultHostHandler()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if opencodeproxy.IsHost(req.Host) {
+				opencodeHostHandler.ServeHTTP(w, req)
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
 
 	// --- Handler dependencies ---
 	tokens := auth.New(cfg)
@@ -100,6 +129,13 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 		httpSwagger.URL("/docs/go.json"),
 	))
 
+	// Authenticated OpenCode proxy. OpenCode stays bound to 127.0.0.1:4096;
+	// the public Cloudflare path terminates here and reuses the API bearer auth.
+	r.Group(func(r chi.Router) {
+		r.Use(RequireAuth(tokens))
+		r.Mount(opencodeproxy.MountPath, opencodeproxy.NewDefaultHandler())
+	})
+
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
@@ -126,6 +162,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
+			r.Get("/{entityType:player|team}/{id}/headlines", h.GetEntityHeadlines)
 			// Per-entity identity metadata (drives the page header). Distinct from the
 			// sport-level /meta (search index → /autofill).
 			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)
@@ -139,6 +176,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leaderboard/sigil", h.GetSigilLeaderboard)
 			r.Get("/leaderboard/news", h.GetNewsLeaderboard)
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
+			r.Get("/leaderboard/headlines", h.GetHeadlinesLeaderboard)
 			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/momentum", h.GetLeagueTrendsPage)
 			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)
@@ -163,6 +201,13 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	})
 
 	return r
+}
+
+func isOpenCodeProxyRequest(r *http.Request) bool {
+	if opencodeproxy.IsHost(r.Host) {
+		return true
+	}
+	return r.URL != nil && (r.URL.Path == opencodeproxy.MountPath || strings.HasPrefix(r.URL.Path, opencodeproxy.MountPath+"/"))
 }
 
 func requestBaseURL(r *http.Request) string {

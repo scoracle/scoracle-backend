@@ -27,11 +27,10 @@ use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
-use crate::util::truncate;
+use crate::util::{go_json_float, go_json_string, hash_components, truncate};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use sha2::{Digest, Sha256};
 use sqlx::PgPool;
 
 /// Prompt version — mirrors `sigilPromptVersion` in sigil.go. s5 (L8): the blurb is re-aimed
@@ -472,50 +471,11 @@ pub fn build_synthesis_input_components(
     out
 }
 
-/// hash_components is the stable hash of the canonical components JSON — the debounce signal.
-/// Mirrors `hashComponents`: SHA-256, then the lowercase hex of the first 16 bytes (128-bit
-/// prefix is ample for a change signal).
-pub fn hash_components(canonical_json: &str) -> String {
-    let digest = Sha256::digest(canonical_json.as_bytes());
-    hex::encode(&digest[..16])
-}
-
-/// go_json_string quotes + escapes a string EXACTLY as Go's `encoding/json` does by default
-/// (HTMLEscape on): `"` `\` and the control chars `\n` `\r` `\t` get short escapes, every
-/// other byte < 0x20 becomes `\u00XX` (lowercase), `<` `>` `&` become `</3e/26`, and
-/// U+2028 / U+2029 become ` /9`. Everything else passes through as UTF-8. This is what
-/// makes the SHA-256 over the components match Go's `input_hash`.
-fn go_json_string(s: &str) -> String {
-    let mut out = String::with_capacity(s.len() + 2);
-    out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '<' => out.push_str("\\u003c"),
-            '>' => out.push_str("\\u003e"),
-            '&' => out.push_str("\\u0026"),
-            '\u{2028}' => out.push_str("\\u2028"),
-            '\u{2029}' => out.push_str("\\u2029"),
-            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
-/// go_json_float renders an f64 EXACTLY as Go's `encoding/json` does for our domain. Go uses
-/// `strconv.AppendFloat(f, 'f', -1, 64)` for |f| in [1e-6, 1e21) — the shortest positional
-/// form with NO trailing ".0". Our inputs are `round1` of a 0..100 percentile, so Rust's f64
-/// `Display` (also shortest-positional, also no ".0" — that is the Debug form) matches Go
-/// byte-for-byte. (serde_json would emit "85.0"; this deliberately does not.)
-fn go_json_float(f: f64) -> String {
-    format!("{f}")
-}
+// hash_components + the Go-JSON leaf encoders (`go_json_string` / `go_json_float`) are
+// single-homed in `crate::util` (single-homing landed in L12 for rating; sigil was the L3
+// original home and kept its own copies to avoid perturbing the proven stage — the L12
+// carry closed post-Step-3). The behavior is byte-identical; the existing shadow-table
+// parity gate is the regression check.
 
 // ---------------------------------------------------------------------------
 // Prompt assembly — must be byte-identical to buildSynthesisPrompt.
@@ -980,23 +940,10 @@ mod tests {
     }
 
     #[test]
-    fn go_json_float_omits_trailing_zero() {
-        // The serde_json divergence trap: Go (and this) emit "73", not "73.0".
-        assert_eq!(go_json_float(73.0), "73");
-        assert_eq!(go_json_float(72.4), "72.4");
-        assert_eq!(go_json_float(0.0), "0");
-    }
-
-    #[test]
-    fn go_json_string_html_escapes_like_go() {
-        // & < > are HTML-escaped (Go default); " and control chars get the JSON escapes.
-        // These escaped forms are what makes input_hash match Go. Expected values use a
-        // runtime backslash (bs) so the source carries no literal backslash-u token.
-        let bs = '\\';
-        assert_eq!(go_json_string("A & B"), format!("\"A {bs}u0026 B\""));
-        assert_eq!(go_json_string("<x>"), format!("\"{bs}u003cx{bs}u003e\""));
-        assert_eq!(go_json_string("a\"b\nc"), r#""a\"b\nc""#);
-        assert_eq!(go_json_string("plain"), r#""plain""#);
+    fn go_json_encoders_single_homed_in_util() {
+        // The leaf encoders + hash now live in `crate::util` (single-homed post-L12); the
+        // shadow-table parity gate is the regression check, and util.rs carries its own
+        // pinning tests for them. Sigil re-pins the COMPOSITION here (see the next test).
     }
 
     #[test]
@@ -1036,15 +983,6 @@ mod tests {
             got,
             r#"{"divined_peak":"Spacer","narrative_titles":[],"notability":40}"#
         );
-    }
-
-    #[test]
-    fn hash_is_stable_and_128_bit_hex() {
-        let json = r#"{"narrative_titles":[],"notability":40}"#;
-        let h = hash_components(json);
-        assert_eq!(h.len(), 32); // 16 bytes → 32 lowercase hex chars
-        assert_eq!(h, hash_components(json)); // deterministic
-        assert!(h.chars().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
     }
 
     #[test]

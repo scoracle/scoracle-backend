@@ -22,7 +22,10 @@ def upsert_team(conn: psycopg.Connection, sport: str, team: Team) -> None:
     """Upsert a team into the teams table."""
     # Generate search aliases if not already set.
     aliases = team.search_aliases or generate_team_aliases(
-        team.name, sport, team.short_code, team.meta,
+        team.name,
+        sport,
+        team.short_code,
+        team.meta,
     )
 
     conn.execute(
@@ -75,7 +78,11 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
     """
     # Generate search aliases if not already set.
     aliases = player.search_aliases or generate_player_aliases(
-        player.name, sport, player.first_name, player.last_name, player.meta,
+        player.name,
+        sport,
+        player.first_name,
+        player.last_name,
+        player.meta,
     )
 
     conn.execute(
@@ -311,6 +318,115 @@ def upsert_provider_fixture_map(
             fixture_id,
             json.dumps(meta or {}),
         ),
+    )
+
+
+def upsert_team_roster(
+    conn: psycopg.Connection,
+    sport: str,
+    season: int,
+    team_id: int,
+    player_id: int,
+    *,
+    jersey_number: str | None = None,
+    position: str | None = None,
+    source: str | None = None,
+) -> None:
+    """Upsert one season-scoped team_rosters membership row.
+
+    position_group is resolved in SQL via public.position_group(sport, position)
+    so it stays aligned with the database's canonical mapping.
+    """
+    conn.execute(
+        """
+        INSERT INTO team_rosters (
+            sport, season, team_id, player_id,
+            jersey_number, position, position_group,
+            is_active, source, first_seen, last_seen
+        ) VALUES (
+            %s, %s, %s, %s,
+            %s, %s, position_group(%s, %s),
+            TRUE, %s, NOW(), NOW()
+        )
+        ON CONFLICT (sport, season, team_id, player_id) DO UPDATE SET
+            jersey_number = COALESCE(EXCLUDED.jersey_number, team_rosters.jersey_number),
+            position = COALESCE(EXCLUDED.position, team_rosters.position),
+            position_group = COALESCE(EXCLUDED.position_group, team_rosters.position_group),
+            is_active = TRUE,
+            source = COALESCE(EXCLUDED.source, team_rosters.source),
+            last_seen = NOW()
+        """,
+        (
+            sport,
+            season,
+            team_id,
+            player_id,
+            jersey_number,
+            position,
+            sport,
+            position,
+            source,
+        ),
+    )
+
+
+def deactivate_missing_team_rosters(
+    conn: psycopg.Connection,
+    sport: str,
+    season: int,
+    team_id: int,
+    active_player_ids: list[int],
+) -> int:
+    """Mark team_rosters rows inactive when they are absent from the latest pull.
+
+    Returns the number of rows marked inactive.
+    """
+    if active_player_ids:
+        cur = conn.execute(
+            """
+            UPDATE team_rosters
+            SET is_active = FALSE, last_seen = NOW()
+            WHERE sport = %s
+              AND season = %s
+              AND team_id = %s
+              AND is_active
+              AND NOT (player_id = ANY(%s))
+            """,
+            (sport, season, team_id, active_player_ids),
+        )
+    else:
+        cur = conn.execute(
+            """
+            UPDATE team_rosters
+            SET is_active = FALSE, last_seen = NOW()
+            WHERE sport = %s
+              AND season = %s
+              AND team_id = %s
+              AND is_active
+            """,
+            (sport, season, team_id),
+        )
+    return cur.rowcount
+
+
+def sync_player_team_membership(
+    conn: psycopg.Connection,
+    sport: str,
+    player_id: int,
+    team_id: int | None,
+    league_id: int | None,
+) -> None:
+    """Refresh players.team_id / players.league_id from current roster membership."""
+    conn.execute(
+        """
+        UPDATE players
+        SET team_id = %s,
+            league_id = %s,
+            updated_at = NOW()
+        WHERE id = %s
+          AND sport = %s
+        """,
+        (team_id, league_id, player_id, sport),
     )
 
 

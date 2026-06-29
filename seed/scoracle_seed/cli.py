@@ -3,6 +3,7 @@
 Usage:
   scoracle-seed event [command]    # Box scores, fixtures
   scoracle-seed meta [command]     # Profiles, metadata, images, purge
+  scoracle-seed roster [command]   # Team roster memberships
 """
 
 from __future__ import annotations
@@ -29,15 +30,18 @@ def cli() -> None:
     Services:
       event  — Box scores and fixture data
       meta   — Player/team profiles, images, purge-inactive
+      roster — Team roster memberships (team_rosters)
     """
     _setup_logging()
 
 
 from services.event.cli import cli as event_cli
 from services.meta.cli import cli as meta_cli
+from services.roster.cli import cli as roster_cli
 
 cli.add_command(event_cli, name="event")
 cli.add_command(meta_cli, name="meta")
+cli.add_command(roster_cli, name="roster")
 
 
 if __name__ == "__main__":

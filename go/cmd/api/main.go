@@ -7,7 +7,7 @@
 
 // @title Scoracle Data API
 // @version 2.0.0
-// @description Unified Scoracle API serving sport data pages, derived Gemma products (narratives, transfer heat, Vibe, Sigil), health checks, and operational endpoints.
+// @description Unified Scoracle API serving sport data pages, derived products (narratives, transfer heat, Vibe, Sigil — precomputed by the Rust cognition layer), health checks, and operational endpoints.
 // @host localhost:8000
 // @BasePath /api/v1
 // @schemes http https
@@ -33,10 +33,8 @@ import (
 	"github.com/albapepper/scoracle-data/internal/cache"
 	"github.com/albapepper/scoracle-data/internal/config"
 	"github.com/albapepper/scoracle-data/internal/db"
-	"github.com/albapepper/scoracle-data/internal/derive"
 	"github.com/albapepper/scoracle-data/internal/listener"
 	"github.com/albapepper/scoracle-data/internal/maintenance"
-	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/notifications"
 
 	_ "github.com/albapepper/scoracle-data/docs" // swagger docs
@@ -94,12 +92,13 @@ func main() {
 	appCache := cache.New(cfg.CacheEnabled)
 	logger.Info("Cache initialized", "enabled", cfg.CacheEnabled)
 
-	// deriveDone is closed when the real-time derive worker has fully returned,
-	// including settling (handing back) its leased pipeline_work rows on a graceful
-	// shutdown (F-018). nil when the worker never started; the shutdown path waits on
-	// it only when non-nil.
-	var deriveDone chan struct{}
-
+	// The API serves precomputed reads from Postgres — it performs no model
+	// calls on serving requests. Every LLM derivation stage is owned by the
+	// Rust Cognition Harness (scoracle-cognition daemon + the rust/bin
+	// statcommentary rating batch), which drains the durable pipeline_work
+	// queue. Go's background workers below are model-free: FCM notification
+	// dispatch, the percentile LISTEN worker (FCM push + durable sigil-convergence
+	// enqueue), and the SQL-only maintenance tickers.
 	if dbPool != nil {
 		// Start notification dispatch worker (if FCM is configured)
 		fcmSender := notifications.NewFCMSender(cfg.FCMCredentialsFile, logger)
@@ -110,82 +109,22 @@ func main() {
 			logger.Info("Notification dispatch worker disabled (no FIREBASE_CREDENTIALS_FILE)")
 		}
 
-		// Gemma generators (FIRST-GPT-AUDIT Session 14): built UNCONDITIONALLY — no
-		// longer gated on a one-time boot ping. If Ollama is unreachable now, the derive
-		// worker's per-drain reachability gate DEFERS work (claims nothing, burns no
-		// retries) and the maintenance scrub skips its Gemma phase; both resume the moment
-		// Ollama returns, with NO API restart (F-014). SetGemmaConcurrency installs the
-		// shared GPU governor that bounds the worker + scrub + any in-process Gemma together.
-		ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent)
-		ollamaCli := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
-		ollamaCli.SetKeepAlive(cfg.OllamaKeepAlive)
-		narrator := ml.NewNewsNarrator(dbPool, ollamaCli)
-		vibeGen := ml.NewVibeGenerator(dbPool, ollamaCli)
-		transferGen := ml.NewTransferGenerator(dbPool, ollamaCli)
-		synthGen := ml.NewSigilGenerator(dbPool, ollamaCli)
-		newsScrubber := ml.NewNewsScrubber(dbPool, ollamaCli)
-		// Non-gating boot probe — operator visibility only; it changes no behavior.
-		pingCtx, pingCancel := context.WithTimeout(ctx, 3*time.Second)
-		if err := ollamaCli.Ping(pingCtx); err != nil {
-			logger.Warn("Ollama unreachable at boot — derive worker will defer work until it returns (no restart needed)",
-				"base_url", cfg.OllamaBaseURL, "error", err)
-		} else {
-			logger.Info("Ollama reachable",
-				"model", cfg.OllamaModel, "max_concurrent", cfg.OllamaMaxConcurrent,
-				"keep_alive", cfg.OllamaKeepAlive, "short_timeout", cfg.OllamaShortTimeout, "long_timeout", cfg.OllamaTimeout)
-		}
-		pingCancel()
-
-		// Percentile listener: FCM push on significant stat-line percentile crossings.
-		// A large composite shift also ENQUEUES durable Sigil convergence work
-		// (FIRST-GPT-AUDIT Session 12, F-017) — drained by the derive worker below, not
-		// generated inline — so it no longer needs the SigilGenerator.
+		// Percentile listener: FCM push on significant stat-line percentile
+		// crossings. A large composite shift also ENQUEUES durable Sigil
+		// convergence work (FIRST-GPT-AUDIT Session 12, F-017) — drained by the
+		// Rust cognition daemon, not generated inline.
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
 
-		// Real-time derive worker (FIRST-GPT-AUDIT Session 9): drains the durable
-		// pipeline_work queue, woken by NOTIFY pipeline_work_ready (the migration-103
-		// vetted-transition trigger), and on startup + a safety-net interval so a
-		// missed NOTIFY never costs correctness. Replaces the old news-volume +
-		// transfer LISTEN workers that ran Gemma directly off a transient NOTIFY.
-		// Started whenever it is enabled — Ollama availability is NO LONGER a gate
-		// (Session 14): the drainer's reachability pre-gate defers work while Ollama is
-		// down (no claims, no burned retries) and resumes automatically when it returns,
-		// so the worker no longer needs an API restart to come alive after an outage.
-		if !cfg.DeriveWorkerEnabled {
-			logger.Info("Real-time derive worker disabled (DERIVE_WORKER_ENABLED=false)")
-		} else {
-			drainer := &derive.Drainer{
-				Pool:              dbPool,
-				Ollama:            ollamaCli,
-				TransferGen:       transferGen,
-				Narrator:          narrator,
-				VibeGen:           vibeGen,
-				SynthGen:          synthGen,
-				GemmaTimeout:      cfg.OllamaTimeout,
-				GemmaShortTimeout: cfg.OllamaShortTimeout,
-				MinArticles:       cfg.TransferMinArticles,
-				Logger:            logger,
-			}
-			deriveDone = make(chan struct{})
-			go func() {
-				defer close(deriveDone)
-				derive.StartWorker(ctx, cfg.DatabaseURL, drainer, cfg.DeriveDrainInterval, logger)
-			}()
-			logger.Info("Real-time derive worker started", "safety_net", cfg.DeriveDrainInterval)
-		}
-
-		// Start maintenance tickers (cleanup, digest, catch-up, ranks, news scrub)
+		// Start maintenance tickers (cleanup, digest, catch-up, ranks, news
+		// scrub auto-vet + enqueue, pipeline stats, peer cohorts). The scrub
+		// ticker is SQL-only: auto-vets primaries + enqueues candidate-rich
+		// secondaries to pipeline_work for the Rust ScrubHandler.
 		mc := maintenance.DefaultConfig()
-		mc.NewsScrubInterval = cfg.NewsScrubInterval
-		mc.NewsScrubBatch = cfg.NewsScrubBatch
-		mc.NewsScrubViaQueue = cfg.NewsScrubViaQueue // L6: enqueue scrub to the Rust handler vs inline
-		mc.NewsScrubTimeout = cfg.OllamaShortTimeout // per-article Gemma bound (Session 14)
-		mc.Ollama = ollamaCli                        // reachability pre-gate for the scrub sweep
 		if !cfg.NewsScrubEnabled {
 			mc.NewsScrubInterval = 0 // disable the scrub ticker
 		}
 		mc.StatsInterval = cfg.PipelineStatsInterval
-		go maintenance.Start(ctx, dbPool, mc, newsScrubber, logger)
+		go maintenance.Start(ctx, dbPool, mc, logger)
 	} else {
 		logger.Warn("Database-backed background workers disabled in degraded mode")
 	}
@@ -228,20 +167,6 @@ func main() {
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("Shutdown error", "error", err)
-	}
-
-	// Give the derive worker a moment to settle (hand back) its leased pipeline_work
-	// rows on a fresh context before the deferred pool.Close() drops the pool (F-018):
-	// otherwise an in-flight batch would strand 'running' until the 30m stale lease.
-	// The worker requeues its batch the instant the drain ctx is cancelled, so this
-	// resolves fast; the bound just prevents a hung generation from blocking exit.
-	if deriveDone != nil {
-		select {
-		case <-deriveDone:
-			logger.Info("Derive worker settled its leased work")
-		case <-time.After(8 * time.Second):
-			logger.Warn("Derive worker did not settle within 8s; any leased rows wait for stale-lease recovery")
-		}
 	}
 	logger.Info("Server stopped")
 }

@@ -14,13 +14,20 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
 // sweepTimeout caps one team's RSS call. The RSS HTTP client already times out
 // at 15s; this is the outer ctx budget per team.
 const sweepTimeout = 30 * time.Second
+
+// NewsLookback is the corpus window — how far back we look when assembling an
+// entity's context (the articles whose links are "fresh enough to be worth
+// scoring"). Shared by the candidate-selection queries here and by the model
+// generators so an entity with a brand-new link to an old article is not queued
+// only to be skipped inside generation (which would write a null marker).
+// Canonical home since the Go AI prune; the Rust cognition layer mirrors it.
+const NewsLookback = 72 * time.Hour // 3 days
 
 // Team is a team we sweep RSS for.
 type Team struct {
@@ -121,11 +128,11 @@ func LoadTeams(ctx context.Context, pool *pgxpool.Pool, sport string) ([]Team, e
 // Two sources are unioned:
 //
 //  1. from_run — entities with a news_article_entities row created at-or-after
-//     `since` whose linked article was published within ml.NewsLookback. The two
+//     `since` whose linked article was published within NewsLookback. The two
 //     filters together guarantee a non-empty corpus inside the generators, so the
 //     run never writes null markers from this branch.
 //
-//  2. stale_teams — popular teams whose ml.NewsLookback corpus has any fresh
+//  2. stale_teams — popular teams whose NewsLookback corpus has any fresh
 //     article AND who haven't been scored in 18h. Rescues teams starved by
 //     from_run because users continuously hit /news/team/{id} between runs (by the
 //     time the sweep runs, every Google News URL it ingests is already in
@@ -139,7 +146,7 @@ func LoadTeams(ctx context.Context, pool *pgxpool.Pool, sport string) ([]Team, e
 func LoadTouchedEntities(ctx context.Context, pool *pgxpool.Pool, since time.Time, sports []string) ([]Entity, error) {
 	qctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	lookbackSecs := int(ml.NewsLookback.Seconds())
+	lookbackSecs := int(NewsLookback.Seconds())
 	rows, err := pool.Query(qctx, `
 		WITH from_run AS (
 			SELECT nae.entity_type, nae.entity_id, nae.sport
@@ -249,13 +256,13 @@ func AffectedVettedEntities(ctx context.Context, pool *pgxpool.Pool, articleIDs 
 // changed corpus reopens its queued derivation work (pipeline_work.input_version)
 // and an unchanged one dedupes — the audit's "prefer an input hash over elapsed
 // time." The fingerprint is the link count plus the latest scrub time over the
-// articles the generators actually read (published within ml.NewsLookback); a new
+// articles the generators actually read (published within NewsLookback); a new
 // vetted link advances both. Best-effort: returns "" on error (the queue then
 // falls back to plain idempotent enqueue).
 func CorpusVersion(ctx context.Context, pool *pgxpool.Pool, e Entity) (string, error) {
 	qctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	lookbackSecs := int(ml.NewsLookback.Seconds())
+	lookbackSecs := int(NewsLookback.Seconds())
 	var count int
 	var maxEpoch int64
 	err := pool.QueryRow(qctx, `

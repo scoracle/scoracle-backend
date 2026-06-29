@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/albapepper/scoracle-data/internal/ml"
 	"github.com/albapepper/scoracle-data/internal/work"
 )
 
@@ -21,17 +20,10 @@ type Config struct {
 	DigestInterval      time.Duration // Batch digest generation
 	CatchUpInterval     time.Duration // Sweep for missed NOTIFY events
 	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
-	NewsScrubInterval   time.Duration // Gemma ID-gate sweep over unscrubbed news links
-	NewsScrubBatch      int           // max candidate-rich articles Gemma-scrubbed per tick
-	NewsScrubTimeout    time.Duration // per-article Gemma bound for the scrub sweep (Session 14)
-	NewsScrubViaQueue   bool          // L6: enqueue scrub to pipeline_work (Rust handler) instead of inline Gemma
+	NewsScrubInterval   time.Duration // news-link scrub sweep cadence (SQL auto-vet + enqueue to Rust)
+	NewsScrubBatch      int           // max candidate-rich articles enqueued per tick
 	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
 	PeerCohortInterval  time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
-
-	// Ollama is used only for the scrub sweep's reachability pre-gate (Session 14):
-	// when it's unreachable the sweep does its cheap SQL auto-vet but skips the Gemma
-	// phase, so a model outage never burns a tick failing every article. nil = no gate.
-	Ollama *ml.OllamaClient
 }
 
 // DefaultConfig returns sensible production defaults.
@@ -43,7 +35,6 @@ func DefaultConfig() Config {
 		AlltimeRankInterval: 24 * time.Hour,
 		NewsScrubInterval:   30 * time.Minute,
 		NewsScrubBatch:      15,
-		NewsScrubTimeout:    120 * time.Second,
 		StatsInterval:       24 * time.Hour,
 		PeerCohortInterval:  24 * time.Hour,
 	}
@@ -61,7 +52,7 @@ var alltimeRankSports = []string{"NBA", "NFL", "FOOTBALL"}
 
 // Start launches all configured maintenance tickers. Blocks until ctx is
 // cancelled. Intended to be called with `go`.
-func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.NewsScrubber, logger *slog.Logger) {
+func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
 	logger.Info("Maintenance tickers started",
 		"cleanup", cfg.CleanupInterval,
 		"digest", cfg.DigestInterval,
@@ -114,13 +105,14 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, scrubber *ml.New
 	// cmd/pipeline now scrubs its own freshly-ingested batch in-run, so this ticker
 	// no longer drives fresh content into derivation — it mops up the older
 	// unscrubbed tail, real-time inserts between pipeline runs, and links a failed
-	// in-run scrub left behind. Skipped when Ollama is unreachable (scrubber == nil)
-	// so a model outage never stalls the rest of maintenance.
-	if cfg.NewsScrubInterval > 0 && scrubber != nil {
+	// in-run scrub left behind. SQL-only here: auto-vets primaries (cheap UPDATE)
+	// and enqueues candidate-rich secondaries to pipeline_work for the Rust
+	// ScrubHandler to disambiguate. No Gemma runs in Go.
+	if cfg.NewsScrubInterval > 0 {
 		t := time.NewTicker(cfg.NewsScrubInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "news_scrub", func() {
-			scrubNewsLinks(ctx, pool, scrubber, cfg, logger)
+			scrubNewsLinks(ctx, pool, cfg, logger)
 		})
 	}
 
@@ -366,31 +358,31 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 	logger.Info("Peer-cohort aggregates refreshed", "cohorts", n)
 }
 
-// scrubNewsLinks is the Gemma ID-gate sweep — the async "scrub". Since
-// FIRST-GPT-AUDIT Session 8 this is the BACKLOG/repair path, not the primary
-// scrub: the daily pipeline scrubs the batch it just ingested in-run, so what
-// reaches this newest-first sweep is the older tail, real-time inserts, and
-// failed-in-run links. Two bounded, non-destructive phases per tick:
+// scrubNewsLinks is the news-link scrub sweep — the async backlog/repair path.
+// Since FIRST-GPT-AUDIT Session 8 this is not the primary scrub: the daily
+// pipeline scrubs the batch it just ingested in-run, so what reaches this
+// newest-first sweep is the older tail, real-time inserts, and failed-in-run
+// links. SQL-only here (no Gemma runs in Go): two bounded, non-destructive
+// phases per tick:
 //
-//  1. Auto-vet primaries (cheap SQL, no Gemma): links at match_confidence >= 1.0
+//  1. Auto-vet primaries (cheap SQL, no model): links at match_confidence >= 1.0
 //     are the entity the article was fetched for — deterministically relevant, no
 //     disambiguation needed. Stamp them vetted=true in one bounded UPDATE.
-//  2. Gemma pass: take the newest `batch` candidate-rich articles (those with an
-//     unscrubbed SECONDARY link, conf < 1.0 — the ones that actually need
-//     disambiguation) and scrub each serially, writing vetted verdicts.
+//  2. Enqueue candidate-rich secondaries: take the newest `batch` articles with
+//     an unscrubbed SECONDARY link (conf < 1.0 — the ones that actually need
+//     disambiguation) and enqueue each as a `scrub` pipeline_work item. The Rust
+//     ScrubHandler drains it, runs the asymmetric gate, and writes vetted (firing
+//     the mig-103 trigger).
 //
 // Newest-first so the recent window the consumers read stays scrubbed; the
-// ancient tail is harmless (consumers filter by recency). Serial Gemma calls keep
-// us a good GPU citizen — Ollama serializes anyway, so a reactive vibe/transfer
-// spike just waits one call. A single article's error is logged and skipped; the
-// sweep never aborts mid-batch.
-func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsScrubber, cfg Config, logger *slog.Logger) {
+// ancient tail is harmless (consumers filter by recency).
+func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
 	batch := cfg.NewsScrubBatch
-	if scrubber == nil || batch <= 0 {
+	if batch <= 0 {
 		return
 	}
 
-	// Phase 1 — auto-vet unscrubbed primaries (bounded, no Gemma).
+	// Phase 1 — auto-vet unscrubbed primaries (bounded, no model).
 	if tag, err := pool.Exec(ctx, `
 		WITH b AS (
 			SELECT ctid FROM news_article_entities
@@ -405,29 +397,8 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 		logger.Info("News scrub: auto-vetted primary links", "count", tag.RowsAffected())
 	}
 
-	// Gemma reachability pre-gate (FIRST-GPT-AUDIT Session 14): the cheap SQL auto-vet
-	// above always runs, but skip the Gemma disambiguation phase when Ollama is down so a
-	// model outage doesn't burn this tick failing every article. The backlog stays
-	// unscrubbed and is swept on a later tick once Ollama returns.
-	// The inline Gemma path needs Ollama up; the via-queue path does not — the Rust ScrubHandler
-	// runs the model, and a down model just fails+retries the durable work item — so it skips this.
-	if !cfg.NewsScrubViaQueue && cfg.Ollama != nil {
-		pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := cfg.Ollama.Ping(pctx)
-		cancel()
-		if err != nil {
-			logger.Warn("News scrub: Ollama unreachable — skipping Gemma phase this tick", "error", err)
-			return
-		}
-	}
-
-	scrubTimeout := cfg.NewsScrubTimeout
-	if scrubTimeout <= 0 {
-		scrubTimeout = 120 * time.Second
-	}
-
 	// Phase 2 — collect the newest candidate-rich articles (one row per article;
-	// drained into a slice before the slow Gemma loop so we don't hold a cursor).
+	// drained into a slice before the enqueue loop so we don't hold a cursor).
 	type job struct {
 		id    int64
 		sport string
@@ -463,62 +434,27 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, scrubber *ml.NewsSc
 		return
 	}
 
-	// L6 option (i): when enabled, ENQUEUE each candidate-rich article as a `scrub` pipeline_work
-	// item (article-keyed) instead of scrubbing inline. The Rust ScrubHandler drains it, runs the
-	// asymmetric gate, and writes vetted (firing the mig-103 trigger). Flag off (default) keeps the
-	// proven inline Gemma path below — instant rollback.
-	if cfg.NewsScrubViaQueue {
-		var enq, failed int
-		for _, j := range jobs {
-			if ctx.Err() != nil {
-				break
-			}
-			if err := work.Enqueue(ctx, pool, work.Item{
-				Stage:      work.StageScrub,
-				EntityType: "article",
-				EntityID:   int(j.id),
-				Sport:      j.sport,
-			}); err != nil {
-				failed++
-				logger.Warn("News scrub: enqueue failed", "article_id", j.id, "sport", j.sport, "error", err)
-				continue
-			}
-			enq++
-		}
-		logger.Info("News scrub: enqueued to Rust scrub stage", "enqueued", enq, "failed", failed, "batch", batch)
-		return
-	}
-
-	var articles, kept, dropped, failed int
+	// Enqueue each candidate-rich article as a `scrub` pipeline_work item
+	// (article-keyed). The Rust ScrubHandler drains it, runs the asymmetric gate,
+	// and writes vetted (firing the mig-103 trigger).
+	var enq, failed int
 	for _, j := range jobs {
 		if ctx.Err() != nil {
 			break
 		}
-		sctx, cancel := context.WithTimeout(ctx, scrubTimeout)
-		res, err := scrubber.ScrubArticle(sctx, j.id, j.sport, false /* persist */)
-		cancel()
-		if err != nil {
-			// Ollama went down mid-sweep — stop hammering it; the rest of the backlog
-			// is swept on a later tick once it returns (Session 14).
-			if ml.IsUnavailable(err) {
-				logger.Warn("News scrub: Ollama unreachable mid-sweep — stopping", "error", err)
-				break
-			}
+		if err := work.Enqueue(ctx, pool, work.Item{
+			Stage:      work.StageScrub,
+			EntityType: "article",
+			EntityID:   int(j.id),
+			Sport:      j.sport,
+		}); err != nil {
 			failed++
-			logger.Warn("News scrub: article failed", "article_id", j.id, "sport", j.sport, "error", err)
+			logger.Warn("News scrub: enqueue failed", "article_id", j.id, "sport", j.sport, "error", err)
 			continue
 		}
-		articles++
-		for _, v := range res.Verdicts {
-			if v.Relevant {
-				kept++
-			} else {
-				dropped++
-			}
-		}
+		enq++
 	}
-	logger.Info("News scrub: swept",
-		"articles", articles, "kept", kept, "dropped", dropped, "failed", failed, "batch", batch)
+	logger.Info("News scrub: enqueued to Rust scrub stage", "enqueued", enq, "failed", failed, "batch", batch)
 }
 
 // pipelineStatsSports are the sports a daily pipeline_stats snapshot is written for.

@@ -48,12 +48,11 @@ Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust
 | `scoracle-api` | HTTP serving (precomputed) + enqueue scrub work + maintenance tickers | `scoracle-api.service` (always on) |
 | `pipeline` | RSS ingest funnel (`-mode ingest`; the Go LLM drainer is retired) | cron (`cron-pipeline.sh`) |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: drains scrub → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: drains scrub → headlines → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 The Python seeder runs from the host venv via `cron-scoseed.sh` / `cron-live-fixtures.sh` — it is
-ingestion-only and is **not** a `release.sh` binary. The retired `go/bin/statcommentary` binary is
-the Step-3 rollback aid (its cron wrapper + crontab restore path) — NOT rebuilt by `release.sh`.
+ingestion-only and is **not** a `release.sh` binary.
 
 The running API reports its build at `GET /` (`{"commit": "...", "build_time": "..."}`) and logs it
 at startup — the authoritative "what's deployed" check for the Go side. The Rust daemon has no HTTP
@@ -117,22 +116,6 @@ curl -s localhost:8000/ | grep commit   # confirm the served commit matches
 - **Never** `pkill` backend processes by name pattern — prod shares the repo `bin/` path and a
   pattern-kill caused a prod outage once (F-001). Always use `systemctl --user restart
   scoracle-api.service` or a PID-specific kill.
-- **Step-3 cognition rollback (one-flag, no rebuild):** if the Rust cognition path fails (a stage
-  regresses, daemon wedges, etc.), re-arm the Go derive path without rolling the commit:
-  ```bash
-  # 1. Re-arm Go's derive worker:
-  sed -i 's/^DERIVE_WORKER_ENABLED=.*/DERIVE_WORKER_ENABLED=true/' .env.local
-  systemctl --user restart scoracle-api.service
-  # 2. Stop the Rust daemon (it WILL keep draining if you don't):
-  systemctl --user stop scoracle-cognition.service
-  # 3. Restore the crontab backup (~/.cache/crontab/crontab.bak) if the Go nightly
-  #    statcommentary cron must resume (cron-statcommentary.sh execs go/bin/statcommentary,
-  #    the retired binary left in place precisely for this rollback).
-  crontab ~/.cache/crontab/crontab.bak
-  ```
-  Go's derive worker resumes draining from `pipeline_work`. Reverse the steps to flip back to Rust.
-  The legacy Go `statcommentary` binary at `go/bin/statcommentary` is the rollback aid; **not** rebuilt
-  by `release.sh` — kept deliberately in place post cutover.
 
 ---
 

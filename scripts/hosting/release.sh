@@ -9,9 +9,7 @@
 # serves the API, sweeps RSS (pipeline -mode ingest), and runs the nightly sigil
 # reconcile backstop (vibesynth, DB-only — no Gemma). The Rust cognition layer
 # owns every LLM stage: the long-running daemon (scoracle-cognition) + the rating
-# batch (statcommentary). Go's retired statcommentary binary is NOT rebuilt here;
-# an existing go/bin/statcommentary stays in place as a one-flag rollback aid
-# (cron-statcommentary.sh restored from the crontab backup re-points at it).
+# batch (statcommentary). Go's retired statcommentary binary is no longer present.
 #
 # Usage:
 #   scripts/hosting/release.sh                 # full release (build + install + restart + verify)

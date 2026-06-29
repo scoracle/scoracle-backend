@@ -1,7 +1,7 @@
 # Go AI Layer Pruning Plan
 
 **Date:** 2026-06-29
-**Status:** Plan — not yet executed
+**Status:** Executed through Phase 9 (2026-06-29). Go AI/LLM layer removed; `internal/ml` + `internal/derive` deleted; `cmd/pipeline` is ingest-only; `cmd/vibesynth` is DB-only (`nightly|reconcile|restamp`).
 **Goal:** Remove all remaining AI/LLM/Gemma handling from the Go codebase, leaving Go responsible only for **ingest → queue → serve**. Every model call lives in the Rust Cognition Harness.
 
 ## Background

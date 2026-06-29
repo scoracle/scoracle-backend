@@ -553,7 +553,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			GROUP BY h.entity_type, h.entity_id
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.headline_count DESC, u.latest_at DESC) AS rank
+			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
 			FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,

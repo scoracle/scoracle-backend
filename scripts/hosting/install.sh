@@ -85,14 +85,20 @@ cat <<EOF
        systemctl --user enable --now scoracle-api.service
        systemctl --user status scoracle-api
 
-  2b. (GPU box only) Start the Rust Cognition Harness daemon. In the Step-3 cutover
+2b. (GPU box only) Start the Rust Cognition Harness daemon. In the Step-3 cutover
       it owns scrub, transfers, narratives, vibe, and sigil; keep
       DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not also claim
-      the queue. Deploy the binary first: cargo build --manifest-path rust/Cargo.toml && \
+      the queue. The systemd units are rendered ABOVE; the binaries are deployed
+      by the standard release flow (scripts/hosting/release.sh builds both the
+      daemon and the rating batch). For a one-time first deploy BEFORE the
+      first release, build + place by hand:
+        cargo build --manifest-path rust/Cargo.toml --bin scoracle-cognition --bin statcommentary
+        mkdir -p rust/bin
         cp rust/target/debug/scoracle-cognition rust/bin/scoracle-cognition
-       systemctl --user enable --now scoracle-cognition.path
-       systemctl --user enable --now scoracle-cognition.service
-       systemctl --user status scoracle-cognition
+        cp rust/target/debug/statcommentary  rust/bin/statcommentary
+      systemctl --user enable --now scoracle-cognition.path
+      systemctl --user enable --now scoracle-cognition.service
+      systemctl --user status scoracle-cognition
 
   3. Install crontab (edits user cron, no sudo needed):
        crontab scripts/hosting/crontab.example

@@ -12,8 +12,14 @@ What you need during an incident or a machine rebuild. Companion to:
 `scripts/hosting/release.sh` for the build). Where a doc and the code disagree, the code wins.
 
 Prod runs on **archbox** (Arch desktop): Postgres 18 (system unit), Ollama + `gemma4:e4b`
-(`systemd --user`), the Go API + its in-process workers (`systemd --user`, `scoracle-api.service`),
-cron jobs, and a Cloudflare Tunnel exposing `api.scoracle.com`.
+(`systemd --user`), the Go API (`systemd --user`, `scoracle-api.service`), the Rust Cognition Harness
+daemon (`systemd --user`, `scoracle-cognition.service`), cron jobs, and a Cloudflare Tunnel exposing
+`api.scoracle.com`.
+
+Post the **Step-3 cutover (2026-06-28)** the Go LLM derive stages are retired; Rust owns all LLM
+cognition (scrub → transfers → narratives → vibe → sigil as queue stages, rating as a batch bin).
+The Go API serves precomputed data + enqueues scrub work; `DERIVE_WORKER_ENABLED=false` keeps its
+derive path off. Rollback is flag-gated (§3).
 
 ---
 
@@ -22,50 +28,58 @@ cron jobs, and a Cloudflare Tunnel exposing `api.scoracle.com`.
 ```
                        cron (crontab.example)            systemd --user
   providers ──► seeder ──► Postgres 18 ◄──────────────── scoracle-api.service
- (BDL/SM)     (Python)     │   ▲                          ├─ HTTP serving (read-only, precomputed)
-                           │   │ LISTEN/NOTIFY            ├─ derive worker (drains pipeline_work)
-                           │   └──────────────────────────┤  woken by NOTIFY pipeline_work_ready
-                           │                              ├─ news-scrub ticker (maintenance)
-                           ▼                              ├─ pipeline-stats snapshot ticker
-                      Ollama + Gemma  ◄───────────────────┘  notifications (FCM)
-                      (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1)
+ (BDL/SM)     (Python)     │   │   ▲                       ├─ HTTP serving (read-only, precomputed)
+                           │   │   │  NOTIFY               ├─ news-scrub ticker (enqueues scrub work)
+                           │   │   └──── pipeline_work ────┤  notifications (FCM)
+                           │   │              ready        │  pipeline-stats snapshot ticker
+                           │   │                            `─ DERIVE_WORKER_ENABLED=false (Step-3)
+                           │   └──────► scoracle-cognition.service  ◄── drains the durable
+                           │                     │              pipeline_work queue:
+                           ▼                     │                scrub, transfers, narratives,
+                      Ollama + Gemma  ◄──────────┘                vibe, sigil
+                      (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1; the Rust
+                       GPU governor + sequential drain ARE the bound)
 ```
 
-Four deployed binaries, all built from one commit by `release.sh`:
+Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust):
 
 | Binary | Role | Lifecycle |
 |---|---|---|
-| `scoracle-api` | HTTP serving **+** in-process background workers | `scoracle-api.service` (always on) |
-| `pipeline` | nightly compile → scrub → derive → reveal corpus run | cron (`cron-pipeline.sh`) |
-| `statcommentary` | nightly stats-rail Gemma commentary | cron (`cron-statcommentary.sh`) |
-| `vibesynth` | nightly Sigil reconciliation/backfill (enqueue only) | cron (`cron-vibesynth.sh`) |
+| `scoracle-api` | HTTP serving (precomputed) + enqueue scrub work + maintenance tickers | `scoracle-api.service` (always on) |
+| `pipeline` | RSS ingest funnel (`-mode ingest`; the Go LLM drainer is retired) | cron (`cron-pipeline.sh`) |
+| `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
+| `scoracle-cognition` | the Rust daemon: drains scrub → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 The Python seeder runs from the host venv via `cron-scoseed.sh` / `cron-live-fixtures.sh` — it is
-ingestion-only and is **not** a `release.sh` binary.
+ingestion-only and is **not** a `release.sh` binary. The retired `go/bin/statcommentary` binary is
+the Step-3 rollback aid (its cron wrapper + crontab restore path) — NOT rebuilt by `release.sh`.
 
 The running API reports its build at `GET /` (`{"commit": "...", "build_time": "..."}`) and logs it
-at startup — the authoritative "what's deployed" check.
+at startup — the authoritative "what's deployed" check for the Go side. The Rust daemon has no HTTP
+probe; check its state with `systemctl --user status scoracle-cognition` and the journal.
 
 ---
 
 ## 2. Release
 
-`scripts/hosting/release.sh` is the **single** release command. It builds all four binaries from one
-commit (stamping commit + build time), masks the `scoracle-api.path` rebuild watcher during
-placement, reinstalls the systemd units, restarts the API, and verifies `/health/db` + the served
-commit.
+`scripts/hosting/release.sh` is the **single** release command. It builds all five binaries from one
+commit (3 Go + 2 Rust; stamping commit + build time into the Go side), masks both the
+`scoracle-api.path` and `scoracle-cognition.path` rebuild watchers during placement, reinstalls the
+systemd units, restarts the API + the Rust cognition daemon, and verifies `/health/db` + the served
+commit + the daemon's `is-active`.
 
 ```bash
 cd /home/sheneveld/scoracle/scoracle-backend
 git fetch && git status            # confirm synced with origin/main FIRST (CLAUDE.md rule)
-scripts/hosting/release.sh          # build all 4 + install + restart + verify
-scripts/hosting/release.sh --build-only   # build + stamp + place only (no live changes)
+scripts/hosting/release.sh          # build all 5 + install + restart + verify
+scripts/hosting/release.sh --build-only   # build + place only (no live changes)
 ```
 
-Why "all four from one commit" matters: a Session-2 audit finding was that hand-built binaries
-drifted across commits. `release.sh` builds **every** binary before placing **any**, so a failed
-build aborts (`set -e`) before a single binary moves — the cron binaries can never end up on a
-different commit than the API.
+Why "all five from one commit" matters: a Session-2 audit finding was that hand-built binaries
+drifted across commits. `release.sh` builds **every** binary (Go + Rust) before placing **any**, so a
+failed build aborts (`set -e`) before a single binary moves — the cron binaries + the daemon can
+never end up on a different commit than the API.
 
 **Migrations + restart ordering** (the boot guard, `sql/README-migrations.md`):
 `db.New` prepares every statement at boot, validating columns + functions against the live schema,
@@ -89,7 +103,7 @@ drill both diff against it). **Next free migration number = 107.**
 cd /home/sheneveld/scoracle/scoracle-backend
 git fetch
 git checkout <last-good-commit>     # detached HEAD is fine for a hotfix rollback
-scripts/hosting/release.sh          # rebuilds + restarts all 4 at the good commit
+scripts/hosting/release.sh          # rebuilds + restarts all 5 (3 Go + 2 Rust) at the good commit
 curl -s localhost:8000/ | grep commit   # confirm the served commit matches
 ```
 
@@ -103,6 +117,22 @@ curl -s localhost:8000/ | grep commit   # confirm the served commit matches
 - **Never** `pkill` backend processes by name pattern — prod shares the repo `bin/` path and a
   pattern-kill caused a prod outage once (F-001). Always use `systemctl --user restart
   scoracle-api.service` or a PID-specific kill.
+- **Step-3 cognition rollback (one-flag, no rebuild):** if the Rust cognition path fails (a stage
+  regresses, daemon wedges, etc.), re-arm the Go derive path without rolling the commit:
+  ```bash
+  # 1. Re-arm Go's derive worker:
+  sed -i 's/^DERIVE_WORKER_ENABLED=.*/DERIVE_WORKER_ENABLED=true/' .env.local
+  systemctl --user restart scoracle-api.service
+  # 2. Stop the Rust daemon (it WILL keep draining if you don't):
+  systemctl --user stop scoracle-cognition.service
+  # 3. Restore the crontab backup (~/.cache/crontab/crontab.bak) if the Go nightly
+  #    statcommentary cron must resume (cron-statcommentary.sh execs go/bin/statcommentary,
+  #    the retired binary left in place precisely for this rollback).
+  crontab ~/.cache/crontab/crontab.bak
+  ```
+  Go's derive worker resumes draining from `pipeline_work`. Reverse the steps to flip back to Rust.
+  The legacy Go `statcommentary` binary at `go/bin/statcommentary` is the rollback aid; **not** rebuilt
+  by `release.sh` — kept deliberately in place post cutover.
 
 ---
 

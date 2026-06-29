@@ -16,6 +16,7 @@
 //! first composition (`route + extract + persist`). Canonical doc:
 //! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`.
 
+pub mod buildinfo;
 pub mod config;
 pub mod db;
 pub mod embed;

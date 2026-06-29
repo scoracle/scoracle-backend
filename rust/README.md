@@ -41,6 +41,8 @@ rust/
 ├── Cargo.toml
 └── src/
     ├── main.rs              # the scoracle-cognition daemon: boots Harness, registers handlers, runs Worker
+    ├── build.rs             # stamps commit + build-time into the binary at compile time
+    ├── buildinfo.rs         # exposes BUILD_COMMIT / BUILD_TIME (set by build.rs via env!)
     ├── config.rs            # env config; mirrors Go var names (.env.local)
     ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
     ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue + the Stage enum
@@ -176,7 +178,5 @@ shared go_json_* / hash_components (those are the debounce pre-image).
 
 - `099_team_rosters.sql` is not ours (untracked migration owned by another contributor).
 - **F-046** — a DB password sits in git history; coordination needed before any force-push.
-- The Rust binaries do **not** stamp commit/build-time the way Go's LDFLAGS build does — a
-  future tidy (`build.rs` reading `git rev-parse` into a `const`).
 - `work::Item.entity_id` is `i32`; the article-keyed scrub stage casts to `i64`, which fits
   today but would wrap past 2bn article ids. A future widening when convenient.

@@ -5,6 +5,28 @@
 read end-to-end. Verdicts on what to **preserve**, what to **clean up**, and what to
 **watch** as the system grows past the Step-3 cutover.
 
+## Execution status (post-audit session)
+
+- **C1 — sigil.rs private `go_json_*`/`hash_components` deduped to `util`** — done ae64efb.
+- **C2 — deadcode `Stage::Momentum` dropped** — done ae64efb.
+- **C3 — main.rs `[COGNITION_STAGES]` default refreshed to the production set** — done ae64efb.
+- **C4 — rust/README.md rewritten for the post-Step-3 crate** — done ae64efb.
+- **B1 — the four L4–L6 development-measurement bins deleted** — done e1bdcd5
+  (1562 LoC out; cargo cycles ~30% faster; release.sh's cargo pass no longer re-touches them).
+  `Harness::resolve_one` preserved with its HORIZON doc + the resolve.rs unit tests as the
+  right amount of structural debt for the deferred transfer-subject upgrade.
+- **B2 — Rust build-time commit/build-time stamp** — done via `build.rs` +
+  `src/buildinfo.rs` + the boot log line in `src/main.rs`. The daemon now reports its commit
+  + build-time at startup (`journalctl --user -u scoracle-cognition`), matching the Go
+  `buildinfo` LDFLAGS path.
+- **B3 — widen `work::Item.entity_id` to `i64`** — deferred (multi-file touch, lower-value;
+  article ids fit comfortably in i32 today).
+- **C5 — keep `cron-statcommentary.sh` + `go/bin/statcommentary` Step-3 rollback aid** —
+  deferred until Step 3 has bedded in comfortably (user's call — say 4 weeks clean).
+- **B4 — stage-port shape recipe** — landed as part of C4 (the README refresh).
+
+The original audit findings are kept below for reference.
+
 ## Vision alignment (the brief: a foundation for something special)
 
 The thesis the user named — **Go ingestion → Postgres data handling → Rust empowers

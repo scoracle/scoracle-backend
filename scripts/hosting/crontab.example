@@ -20,7 +20,7 @@ TZ=America/New_York
 # ---------------------------------------------------------------------------
 # Job observability + overlap (FIRST-GPT-AUDIT Session 13)
 # ---------------------------------------------------------------------------
-# The Gemma batch jobs (pipeline, statcommentary, vibesynth) each take a per-job
+# The nightly batch jobs (pipeline, statcommentary, vibesynth) each take a per-job
 # PostgreSQL advisory lock, so a manual run racing the cron exits 0 cleanly instead
 # of overlapping. Each run is recorded in the pipeline_runs table; ask
 #   SELECT * FROM pipeline_runs_latest;
@@ -31,6 +31,8 @@ TZ=America/New_York
 # Cron treats any non-zero exit as a failure, so 1 (and optionally 3) will surface.
 # Inspect what is permanently stuck with:
 #   go run ./cmd/work dead-letters     # pipeline_work + fixtures at the retry cap
+# Note: pipeline is RSS ingest only (no Gemma); statcommentary + the cognition
+# daemon are the Rust LLM stages; vibesynth nightly reconcile is DB-only.
 
 # ---------------------------------------------------------------------------
 # NBA / NFL live polling — current-season-aware, bounded, and offset

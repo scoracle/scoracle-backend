@@ -1,31 +1,24 @@
 #!/usr/bin/env bash
-# Cron wrapper for the staged Gemma pipeline (sweep -> transfers -> narratives -> vibe).
+# Cron wrapper for the RSS ingest sweep (pipeline -mode ingest).
+#
+# RSS sweep only; Rust owns LLM derivation. This wrapper runs the once-daily
+# Google News RSS sweep that writes news_articles + news_article_entities;
+# every Gemma stage (scrub, transfers, narratives, vibe, sigil, rating) is
+# drained from the durable pipeline_work queue by the Rust Cognition Harness
+# (scoracle-cognition daemon + the rust/bin/statcommentary rating batch).
 #
 # Cron strips the environment to almost nothing — no shell env, no .env, no venv.
 # This wrapper rebuilds shell state from the repo's .env files so the pipeline
-# binary can resolve DATABASE_*, OLLAMA_*, and provider keys.
+# binary can resolve DATABASE_* and provider keys (no OLLAMA_* needed — Go does
+# no model calls).
 #
-# Cron schedule — the full chain once daily, overnight (local time):
-#   0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode corpus
+# Cron schedule — the ingest sweep once daily, overnight (local time):
+#   0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest
 #
-# This REPLACES the former separate cron-vibe.sh + cron-transfer.sh entries: the
-# pipeline runs the stages IN ORDER in one process so each stage enriches the next
-# (transfers ground the narratives; the vibe reads the fresh narratives + heat).
-# Running it alongside the old two would double-run vibe/transfer — pick one.
-#
-# Real-time coverage between daily runs is handled inside the API by the
-# LISTEN/NOTIFY workers: a news-volume spike (5 articles in 60 min) refreshes the
-# entity's narratives then its vibe; a team transfer spike re-vets that team's
-# rumors. No CLI involvement.
-#
-# Observability + overlap (FIRST-GPT-AUDIT Session 13):
-#   * The pipeline takes a per-job PostgreSQL advisory lock, so a second pipeline
-#     run (or a manual one racing this cron) exits 0 cleanly instead of overlapping.
-#   * Every run is recorded in pipeline_runs (commit, counts, outcome) — see
-#     `SELECT * FROM pipeline_runs_latest` for "did last night complete?".
-#   * Exit codes: 0 = success (or clean overlap-skip); 3 = partial (some retryable
-#     item failures); 1 = a derive stage failed wholesale, or dead-lettered work
-#     remains after retries. Inspect with `go run ./cmd/work dead-letters`.
+# Observability: the sweep logs rss_ok / rss_fail / fresh_articles per run.
+# Exit codes: 0 = success; 3 = partial (some RSS calls failed, retryable next
+# run); 1 = every RSS call failed. The durable derive stages are owned by Rust
+# and observed via pipeline_runs + the cognition journal.
 
 set -euo pipefail
 cd /home/sheneveld/scoracle/scoracle-backend

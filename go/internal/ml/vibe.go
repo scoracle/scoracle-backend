@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/albapepper/scoracle-data/internal/corpus"
 )
 
 // Prompt version — bump when the prompt text below materially changes so
@@ -46,22 +48,14 @@ import (
 //	invent drama" deadener) are gone; grounding ("never invent a fact") stays.
 const vibePromptVersion = "v7"
 
-// Corpus windows — how far back we look when assembling Gemma's context.
-//
-// NewsLookback is exported so callers that *select candidates* (e.g.
-// cmd/vibe corpus mode) can apply the same window when picking entities
-// whose links are "fresh enough to be worth scoring." Without that
-// alignment, an entity with a brand-new link to an old article gets
-// queued and then skipped inside Generate, producing a null marker.
-const (
-	NewsLookback = 72 * time.Hour // 3 days
-	maxNewsItems = 12
-)
+// Corpus window — how far back we look when assembling the model's context.
+// The canonical home is internal/corpus (NewsLookback); this unexported alias
+// keeps the package's call sites reading naturally and preserves a single
+// source of truth.
+const newsLookback = corpus.NewsLookback
 
-// newsLookback is the unexported alias the rest of this package uses.
-// Kept so existing call sites read naturally; switch to NewsLookback at
-// any external boundary.
-const newsLookback = NewsLookback
+// maxNewsItems caps how many articles the generators fold into one context.
+const maxNewsItems = 12
 
 // VibeRequest describes the entity to score and the triggering fact (if any).
 type VibeRequest struct {

@@ -65,25 +65,13 @@ type Config struct {
 	TransferMinArticles   int           // candidate pre-filter
 	TransferMaxConcurrent int           // global cap on concurrent team analyses (shared GPU)
 
-	// News scrub sweep (Gemma ID-gate over unscrubbed news_article_entities
-	// links). Runs as a maintenance ticker: auto-vets primaries (cheap SQL) +
-	// disambiguates candidate-rich secondaries via Gemma. See ml/news_scrub.go.
-	NewsScrubEnabled  bool          // master switch (default true)
-	NewsScrubInterval time.Duration // sweep cadence
-	NewsScrubBatch    int           // max candidate-rich articles Gemma-scrubbed per tick
-	NewsScrubViaQueue bool          // L6: enqueue scrub to pipeline_work (Rust handler) vs inline Gemma
+	// News scrub sweep master switch. When disabled the maintenance ticker's
+	// cadence is zeroed. The SQL auto-vet of primaries + enqueue to pipeline_work
+	// runs at maintenance.DefaultConfig's cadence (30 min, batch 15).
+	NewsScrubEnabled bool // master switch (default true)
 
 	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
 	PipelineStatsInterval time.Duration
-
-	// Real-time derive worker (FIRST-GPT-AUDIT Session 9): the in-API drain of the
-	// durable pipeline_work queue. Woken by NOTIFY pipeline_work_ready (fired by the
-	// migration-103 vetted-transition trigger), it also drains on startup and on the
-	// safety-net interval, so a missed NOTIFY never costs correctness. Replaces the
-	// old news-volume + transfer LISTEN workers, which ran Gemma directly off a
-	// transient NOTIFY.
-	DeriveWorkerEnabled bool          // master switch (default true)
-	DeriveDrainInterval time.Duration // safety-net drain cadence between wake-up NOTIFYs
 
 	// Cache
 	CacheEnabled bool
@@ -147,15 +135,9 @@ func Load() (*Config, error) {
 		TransferMinArticles:   envInt("TRANSFER_MIN_ARTICLES", 2),
 		TransferMaxConcurrent: envInt("TRANSFER_MAX_CONCURRENT", 2),
 
-		NewsScrubEnabled:  envBool("NEWS_SCRUB_ENABLED", true),
-		NewsScrubInterval: time.Duration(envInt("NEWS_SCRUB_INTERVAL_MINUTES", 30)) * time.Minute,
-		NewsScrubBatch:    envInt("NEWS_SCRUB_BATCH", 15),
-		NewsScrubViaQueue: envBool("NEWS_SCRUB_VIA_QUEUE", false),
+		NewsScrubEnabled: envBool("NEWS_SCRUB_ENABLED", true),
 
 		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
-
-		DeriveWorkerEnabled: envBool("DERIVE_WORKER_ENABLED", true),
-		DeriveDrainInterval: time.Duration(envInt("DERIVE_DRAIN_INTERVAL_SECONDS", 30)) * time.Second,
 
 		CacheEnabled: envBool("CACHE_ENABLED", true),
 

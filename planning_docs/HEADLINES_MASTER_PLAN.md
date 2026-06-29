@@ -1,173 +1,174 @@
 # HEADLINES FEATURE - MASTER PLAN
 
 **Project:** Add Headlines to News Rail
-**Status:** Approved - Ready for Implementation
-**Date:** 2026-06-28
+**Status:** Approved - Revised
+**Date:** 2026-06-29
 **Author:** Scotty Heneveld / Scoracle
 
 ---
 
 ## Executive Summary
 
-Add headlines as a third product in the news rail, alongside existing narratives and transfers. Headlines are entity-scoped breaking news bulletins - one-sentence blurbs about high-impact, time-sensitive events for a specific player or team.
+Add headlines as a third product in the news rail, alongside existing narratives and transfers. Headlines are entity-scoped breaking-news bulletins — one-sentence blurbs about high-impact, time-sensitive events for a specific player or team.
 
-CRITICAL: Headlines follow the SAME entity-scoped pattern as narratives and transfers.
+This revision prunes v1 scope so the feature slots cleanly into the live architecture:
 
-Examples:
-- On Jarrod Bowen page: Bowen signs 5-year extension, Bowen named to England squad
-- On Chelsea page: Chelsea hires new manager, Chelsea completes record transfer
+```
+Go ingestion → Postgres → Rust Cognition Harness → Go endpoints
+```
+
+The news rail flow becomes:
+
+```
+ingestion → scrub (candle) → headlines → transfers → narratives → vibe
+                                      ↓
+                                 momentum (stats rail + vibe)
+                                      ↓
+                                     sigil (stats + vibe + momentum)
+```
+
+Headlines is a new Rust queue stage. It does **not** gate transfers or narratives; those stages continue to run on the full vetted corpus and may read the `headlines` table as enrichment in future iterations.
 
 ---
 
 ## All Decisions Locked In
 
-Aspect | Decision
-------|----------
-Data Source | Google RSS requests (existing Go layer)
-Pipeline | NEW step BEFORE transfers: Mistral 7b identifies breaking news
-Categories | transfer, injury, coaching, contract, other
-Expiration | Auto-expire after 2 days
-Sorting | published_at DESC (recency, NOT heat)
-Related Entities | NO for v1 (simplicity)
-Time Format | Relative (2h ago)
-Source Display | Same prominence as transfers
-Heat Score | Not needed for this product
-Entity Links | Clickable if in DB
-Endpoint | GET /api/v1/{sport}/{entityType}/{id}/headlines
+| Aspect | Decision |
+|--------|----------|
+| Data source | Google RSS ingest (existing Go layer) |
+| Pipeline | New Rust `headlines` stage after scrub, before transfers |
+| Classification | Single structured-extraction prompt per entity (no YES/NO gate) |
+| Categories | `transfer`, `injury`, `coaching`, `contract`, `other` |
+| Expiration | Auto-expire after 2 days |
+| Sorting | `published_at DESC` (recency, not heat) |
+| Related entities | NO for v1 |
+| Time format | Relative ("2h ago"), client-only |
+| Source display | Same prominence as transfers |
+| Heat score | Not needed |
+| Entity links | **Deferred to v2** |
+| Leaderboard | **Deferred to v2** |
+| Endpoint | `GET /api/v1/{sport}/{entityType}/{id}/headlines` |
 
 ---
 
 ## Pipeline Flow
 
-Google RSS Feed -> Rust Candle (initial scrub) -> Mistral 7b: Is this breaking headline news? -> YES: Create one-sentence blurb, store as HEADLINE -> NO: Continue to existing flow -> Mistral 7b: Is this transfer news? -> YES: Store as TRANSFER -> NO: Continue -> Mistral 7b: Generate narrative, store as NARRATIVE
+```
+Go RSS sweep
+    → Postgres (news_articles / news_article_entities)
+    → Rust ScrubHandler (candle embed + model gate)
+    → Postgres vetted=TRUE
+    → migration-103 trigger enqueues headlines (plus transfers, narratives, vibe)
+    → Rust HeadlinesHandler
+    → Postgres headlines table
+    → Rust TransferHandler / NarrativesHandler / VibeHandler / SigilHandler
+    → Go endpoints
+```
 
 ---
 
 ## Team Plans
 
 ### Backend
-File: scoracle-backend/planning_docs/HEADLINES_FEATURE.md
-Lead: Backend team
-Estimated: 17-27 hours
+**File:** `scoracle-backend/planning_docs/HEADLINES_FEATURE.md`
+**Estimated:** 13–18 hours
 
-Phases:
-1. Database (2-3h) - headlines table with expiration
-2. Pipeline Integration (8-12h) - add headline determination step
-3. API Handler (4-6h) - GET /{sport}/{type}/{id}/headlines
-4. Leaderboard Integration (2-4h) - support board=headlines
-5. Documentation (1-2h) - update ENDPOINTS.md, swagger
+1. Database (2h) — `headlines` table + trigger update
+2. Rust Stage (8–12h) — `HeadlinesHandler`, prompt, parser, registration
+3. API Handler (2–3h) — endpoint, prepared statement, route
+4. Documentation (1h) — `ENDPOINTS.md`, Swagger
 
-Key Files:
-- go/internal/api/handler/headlines.go (new)
-- sql/migrations/XXXX_create_headlines_table.sql (new)
-- go/internal/api/server.go (modified)
-- ENDPOINTS.md (modified)
+**Key files:**
+- `rust/src/work.rs`
+- `rust/src/headlines.rs` (new)
+- `rust/src/main.rs`
+- `scripts/systemd/scoracle-cognition.service`
+- `sql/migrations/113_create_headlines_table.sql`
+- `sql/migrations/114_enqueue_headlines_stage.sql` (or edit 103)
+- `go/internal/db/db.go`
+- `go/internal/api/handler/data.go`
+- `go/internal/api/server.go`
 
 ### Frontend
-File: scoracle-frontend/planning_docs/HEADLINES_FEATURE.md
-Lead: Frontend team
-Estimated: 14-22 hours
+**File:** `scoracle-frontend/planning_docs/HEADLINES_FEATURE.md`
+**Estimated:** 8–12 hours
 
-Phases:
-1. Type Updates (1h) - extend NewsScope type
-2. Data Layer (2-3h) - getHeadlines() server function
-3. NewsCard Updates (4-6h) - add headlines rendering
-4. CSS Styling (2-3h) - headline-specific styles
-5. ScopeRail Integration (1-2h) - add dropdown option
-6. Entity Linking (2-3h, optional) - clickable entity names
-7. Testing (4-6h) - full test coverage
+1. Types & URL plumbing (1h)
+2. Data layer (1–2h)
+3. NewsCard rendering (3–4h)
+4. CSS (1–2h)
+5. Relative-time utility (1h)
+6. Testing (2–3h)
 
-Key Files:
-- src/lib/data/headlines.server.ts (new)
-- src/contexts/profile.ts (modified)
-- src/components/solid/NewsCard.tsx (modified)
-- src/components/solid/NewsCard.css (modified)
-- ScopeRail component (modified)
+**Key files:**
+- `src/contexts/profile.ts`
+- `src/routes/profile.tsx`
+- `src/components/solid/ContentShell.tsx`
+- `src/lib/utils/data-sources.ts`
+- `src/lib/data/headlines.server.ts` (new)
+- `src/components/solid/card-registry.tsx`
+- `src/components/solid/NewsCard.tsx`
+- `src/components/solid/NewsCard.css`
+- `src/lib/utils/date.ts`
 
 ---
 
 ## Combined Timeline
 
-Phase | Backend | Frontend | Notes
-------|---------|----------|------
-Week 1 | Database + Pipeline | Types + Data Layer | Can work in parallel
-Week 1 | API Handler | NewsCard + CSS | Backend leads
-Week 2 | Leaderboard + Docs | ScopeRail + Testing | Frontend catches up
-Week 2 | Testing | Polish | Joint effort
-Total | 17-27h | 14-22h | 25-41h combined
+| Phase | Backend | Frontend | Notes |
+|-------|---------|----------|-------|
+| Day 1 | DB + Rust stage skeleton | Types + data layer | Parallel |
+| Day 2 | Rust prompt/parser + Go endpoint | NewsCard + CSS | Backend endpoint unblocks frontend |
+| Day 3 | Tests + docs | Relative time + tests | Joint polish |
 
-Realistic timeline: 1 week of focused work
+Realistic timeline: **one focused week**.
 
 ---
 
 ## Definition of Done
 
 ### Backend
-- Endpoint works
-- Headlines properly linked to entities
-- Headlines sorted by published_at DESC (newest first)
-- Caching works (5 min TTL)
-- Expiration works (2 day cutoff)
-- Leaderboard integration works
-- All existing endpoints remain functional
-- Documentation updated
-- Pipeline correctly routes: headline -> transfer -> narrative
-- Tests passing
+- `headlines` Rust stage runs after scrub and before transfers.
+- Endpoint works for all sports and entity types.
+- Headlines properly linked to entities.
+- Sorted by `published_at DESC`.
+- 10-minute cache works.
+- 2-day expiration works.
+- All existing endpoints remain functional.
+- Documentation updated.
+- Tests passing.
 
 ### Frontend
-- Headlines option visible in ScopeRail dropdown
-- Selecting Headlines displays breaking news for current entity
-- Headlines render with: title, category, relative time, source
-- Switching between scopes is smooth and instant
-- Empty state shows appropriate message
-- All existing news/transfers functionality unchanged
-- Mobile responsive design works correctly
-- Entity links work (if implemented)
-- All tests passing
-
-### Both
-- End-to-end flow works (RSS -> headline -> API -> frontend)
-- Performance acceptable (< 500ms endpoint response)
-- Ready for production deployment
-
----
-
-## Team Coordination
-
-Backend Team: Database, pipeline, API handler, leaderboard, docs, testing
-Frontend Team: Types, data layer, components, styling, testing
-Joint: End-to-end integration, performance, edge cases, final QA
+- Headlines option visible in scope dropdown.
+- Selecting Headlines displays breaking news for current entity.
+- Headlines render with title, category, relative time, source.
+- Scope switching is instant (eager fetch).
+- Empty state shows appropriate message.
+- Existing news/transfers unchanged.
+- Mobile responsive.
+- Tests passing.
 
 ---
 
 ## Communication
 
-Slack channel: #headlines-feature
-Daily sync: 15 min standup during active development
-Weekly demo: Friday to stakeholders
-Final review: Before production deployment
+- Slack: #headlines-feature
+- Daily 15-min standup during active development
+- Final review before production deployment
 
 ---
 
 ## Next Steps
 
-1. Backend starts - Database + Pipeline Integration (Phase 1)
-2. Frontend starts - Types + Data Layer (Phase 1, parallel)
-3. Daily coordination - Sync on progress and blockers
-4. Midpoint review - After backend API is working
-5. Final testing - Joint end-to-end validation
-6. Deploy - Backend first, then frontend
+1. Backend: database migration + Rust `HeadlinesHandler` skeleton
+2. Frontend: types + `getHeadlines` data layer (can use mock until endpoint is live)
+3. Joint: end-to-end integration, performance check, edge cases
+4. Deploy backend first, then frontend
 
 ---
 
 ## Related Documents
 
-- Backend Detailed Plan: scoracle-backend/planning_docs/HEADLINES_FEATURE.md
-- Frontend Detailed Plan: scoracle-frontend/planning_docs/HEADLINES_FEATURE.md
-- Current ENDPOINTS.md: scoracle-backend/ENDPOINTS.md
-
----
-
-## Status
-
-All decisions locked in per Scotty input on 2026-06-28. Ready for implementation.
+- Backend Detailed Plan: `scoracle-backend/planning_docs/HEADLINES_FEATURE.md`
+- Frontend Detailed Plan: `scoracle-frontend/planning_docs/HEADLINES_FEATURE.md`
+- Current ENDPOINTS.md: `scoracle-backend/ENDPOINTS.md`

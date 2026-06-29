@@ -1,146 +1,193 @@
 # Headlines Feature - Backend Implementation Plan
 
-**Status:** Approved
-**Date:** 2026-06-28
+**Status:** Approved - Revised
+**Date:** 2026-06-29
 **Author:** Scotty Heneveld / Scoracle
 
 ---
 
 ## Overview
 
-Add headlines as a third product to the news rail, alongside narratives and transfers. Headlines are entity-scoped breaking news bulletins - one-sentence blurbs about high-impact events for a specific player or team.
+Add headlines as a third product in the news rail, alongside narratives and transfers. Headlines are entity-scoped breaking-news bulletins — one-sentence blurbs about high-impact events for a specific player or team.
 
-### Key Decisions
-- Data Source: Google RSS requests (existing Go layer)
-- Pipeline: NEW step BEFORE transfers - Mistral 7b determines if breaking headline news
-- Categories: transfer, injury, coaching, contract, other
-- Expiration: Auto-expire after 2 days
-- Sorting: published_at DESC (recency, NOT heat)
-- Related Entities: NO for v1 (simplicity)
-- Heat Score: Not needed for this product
+This plan was pruned during audit to fit the live architecture: Go ingestion → Postgres → Rust Cognition Harness → Go endpoints.
+
+### Key Decisions (Locked)
+
+| Aspect | Decision |
+|--------|----------|
+| Data source | Google RSS ingest (existing Go `corpus.Sweep`) |
+| Pipeline | New Rust stage `headlines` after scrub, before transfers |
+| Classification | Single structured-extraction prompt per entity (no YES/NO gate) |
+| Categories | `transfer`, `injury`, `coaching`, `contract`, `other` |
+| Expiration | Auto-expire after 2 days |
+| Sorting | `published_at DESC` (recency, not heat) |
+| Related entities | NO for v1 |
+| Heat score | Not needed |
+| Leaderboard | Deferred to v2 |
+| Entity links | Deferred to v2 |
 
 ### Data Flow
-Google RSS Feed -> Rust Candle (initial scrub) -> Mistral 7b: Is this breaking headline news? -> YES: Create one-sentence blurb, store as HEADLINE -> NO: Continue to transfers stage -> Mistral 7b: Is this transfer news? -> YES: Store as TRANSFER -> NO: Continue to narratives stage -> Mistral 7b: Generate narrative -> Store as NARRATIVE
+
+```
+Go RSS sweep → Postgres news_articles / news_article_entities
+                    ↓
+             Rust ScrubHandler (candle embed + model gate)
+                    ↓
+             Postgres vetted=TRUE
+                    ↓
+             trigger enqueue_derive_on_vetted adds 'headlines' stage
+                    ↓
+             Rust HeadlinesHandler
+                    ↓
+             Postgres headlines table
+                    ↓
+             Rust TransferHandler / NarrativesHandler (can read headlines as enrichment)
+                    ↓
+             Rust VibeHandler → Rust SigilHandler
+                    ↓
+             Go endpoint GET /{sport}/{entityType}/{id}/headlines
+```
+
+Headlines are an independent product, not a gate. Transfers and narratives continue to run on the full vetted corpus and may optionally read the `headlines` table for enrichment.
 
 ---
 
 ## Architecture
 
 ### Endpoint
-GET /api/v1/{sport}/{entityType}/{id}/headlines
 
-Follows the exact same pattern as /news and /transfers.
+```
+GET /api/v1/{sport}/{entityType}/{id}/headlines
+```
+
+Same shape as `/news` and `/transfers`.
 
 ### Database Table
-- id SERIAL PRIMARY KEY
-- sport VARCHAR(20) NOT NULL
-- entity_type VARCHAR(10) NOT NULL (player or team)
-- entity_id INTEGER NOT NULL
-- title TEXT NOT NULL
-- category VARCHAR(50) NOT NULL
-- source_url TEXT
-- source_name VARCHAR(100)
-- published_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+
+```sql
+CREATE TABLE headlines (
+    id              BIGSERIAL PRIMARY KEY,
+    sport           TEXT NOT NULL REFERENCES sports(id),
+    entity_type     TEXT NOT NULL CHECK (entity_type IN ('player', 'team')),
+    entity_id       INTEGER NOT NULL,
+
+    title           TEXT NOT NULL,
+    category        TEXT NOT NULL CHECK (category IN ('transfer', 'injury', 'coaching', 'contract', 'other')),
+
+    source_url      TEXT,
+    source_name     TEXT,
+    published_at    TIMESTAMPTZ NOT NULL,
+
+    -- Provenance (matches news_summaries / transfer_rumors)
+    input_news_ids  BIGINT[] NOT NULL DEFAULT '{}',
+    model_version   TEXT,
+    prompt_version  TEXT,
+    trigger_type    TEXT NOT NULL CHECK (trigger_type IN ('news_spike', 'periodic', 'manual')),
+    generated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
 
 ### Indexes
-- idx_headlines_entity ON headlines(sport, entity_type, entity_id, published_at DESC)
-- idx_headlines_category ON headlines(category)
-- idx_headlines_published ON headlines(published_at DESC)
+
+- `idx_headlines_entity` on `(sport, entity_type, entity_id, published_at DESC)`
+- `idx_headlines_category` on `(category)`
+- `idx_headlines_published` on `(published_at DESC)`
 
 ### Expiration
-Headlines auto-expire after 2 days. Query filter: WHERE published_at > NOW() - INTERVAL 2 days
+
+Return only rows where `published_at > NOW() - INTERVAL '2 days'`.
 
 ---
 
 ## Implementation Tasks
 
-### Phase 1: Database (2-3 hours)
-- Create migration for headlines table
-- Add expiration logic (query filter)
+### Phase 1: Database (2h)
+- [ ] Create `sql/migrations/113_create_headlines_table.sql`
+- [ ] Create follow-on migration to add `'headlines'` to `enqueue_derive_on_vetted()` `v_stages`
+- [ ] Apply migrations **before** the next API restart
 
-### Phase 2: Pipeline Integration (8-12 hours)
-- Add headline determination step to existing RSS pipeline
-- Modify Rust Candle output to feed Mistral 7b for headline check
-- Mistral 7b prompt: Is this breaking headline news? Respond YES or NO only
-- If YES: Generate one-sentence blurb, store in headlines table
-- If NO: Continue existing flow to transfers
-- Ensure entity linking works (map RSS item to entity_id)
+### Phase 2: Rust Stage (8–12h)
+- [ ] Add `Stage::Headlines` to `rust/src/work.rs`
+- [ ] Create `rust/src/headlines.rs`:
+  - Load entity's vetted recent corpus (reuse narratives loader pattern)
+  - Single prompt returning `{ "headlines": [{ "title", "category", "article_index" }] }`
+  - Parser validates category and article index bounds
+  - Persist one row per headline with provenance
+  - Return `Ok(())` with zero headlines when none qualify (not a failure)
+- [ ] Register handler in `rust/src/main.rs`
+- [ ] Update `scripts/systemd/scoracle-cognition.service` `COGNITION_STAGES` to `scrub,headlines,transfers,narratives,vibe,sigil`
 
-### Phase 3: API Handler (4-6 hours)
-- Create go/internal/api/handler/headlines.go
-- Register route in go/internal/api/server.go
-- Implement GetHeadlines function
-- Support query param: ?limit=20 (default 20)
-- Cache: 5 min TTL (matching narratives/transfers)
-- Auto-filter expired headlines in query
-- Return 200 with empty array if no headlines
+### Phase 3: Go API Handler (2–3h)
+- [ ] Add prepared statement `entity_headlines` to `go/internal/db/db.go`
+- [ ] Add `GetEntityHeadlines` to `go/internal/api/handler/data.go`
+- [ ] Register route in `go/internal/api/server.go`
+- [ ] Support `?limit=N` (default 20)
+- [ ] Cache: `cache.TTLNews` (10 min)
+- [ ] Filter expired rows in SQL
 
-### Phase 4: Leaderboard Integration (2-4 hours)
-- Extend GET /api/v1/{sport}/leaderboard to support ?board=headlines
-- Returns top entities by headline count
-
-### Phase 5: Documentation (1-2 hours)
-- Update ENDPOINTS.md with new endpoint
-- Update swagger spec
+### Phase 4: Documentation (1h)
+- [ ] Update `ENDPOINTS.md`
+- [ ] Update Swagger annotations
 
 ---
 
 ## API Response Example
 
-GET /api/v1/football/player/1592/headlines
-
-Response contains page, sport, entity_type, entity_id, and headlines array with id, title, category, source_url, source_name, published_at.
+```json
+{
+  "page": "headlines",
+  "sport": "football",
+  "entity_type": "player",
+  "entity_id": 1592,
+  "headlines": [
+    {
+      "id": 42,
+      "title": "Jarrod Bowen signs 5-year extension",
+      "category": "contract",
+      "source_url": "https://...",
+      "source_name": "BBC Sport",
+      "published_at": "2026-06-29T10:00:00Z"
+    }
+  ]
+}
+```
 
 ---
 
 ## Performance
-1. Caching: 5 min TTL
-2. ETags: Implement ETag/If-None-Match
-3. Query optimization: Index on (sport, entity_type, entity_id, published_at)
-4. Expiration: Filter expired in query
-5. Pagination: Support ?offset=20 and ?limit=20
+
+- Single model call per entity per pipeline cycle.
+- Cached 10 min TTL (`TTLNews`).
+- ETag/If-None-Match via `serveStatementJSON`.
+- Expiration filter in SQL.
 
 ---
 
 ## Testing
-- Unit tests for handler logic
-- Integration tests for endpoint
-- Test with all sports (nba, nfl, football)
-- Test with both player and team entities
-- Test filtering and pagination
-- Verify cache headers
-- Test expiration (headlines older than 2 days not returned)
-- Test pipeline: RSS -> headline determination -> storage
 
----
-
-## Timeline
-Phase | Time
-------|------
-Database | 2-3h
-Pipeline Integration | 8-12h
-API Handler | 4-6h
-Leaderboard Integration | 2-4h
-Documentation | 1-2h
-Total | 17-27 hours
+- [ ] Rust unit tests for prompt parser and category validation
+- [ ] Rust integration test: empty corpus → zero rows
+- [ ] Go handler test: 200 + empty array when no headlines
+- [ ] Go test: expiration filter (2-day cutoff)
+- [ ] Go test: all sports × player/team
+- [ ] Pipeline test: vetted link enqueues `headlines` stage
 
 ---
 
 ## Dependencies
-- Frontend: Must implement UI to display headlines
-- Existing RSS pipeline: Must be accessible for modification
-- Entity Database: Must have entity lookup for linking headlines
+
+- Frontend scope dropdown implementation
+- Existing RSS sweep and scrub pipeline
 
 ---
 
 ## Success Criteria
-- Endpoint works
-- Headlines properly linked to entities
-- Headlines appear in correct order (newest first by published_at)
-- Caching works (5 min TTL)
-- Expiration works (2 day cutoff)
-- Leaderboard integration works
-- All existing endpoints remain functional
-- Documentation updated
-- Pipeline correctly routes: headline -> transfer -> narrative
-- Tests passing
+
+- `GET /{sport}/{type}/{id}/headlines` returns 200 with headlines or empty array.
+- Headlines are linked to entities.
+- Sorted `published_at DESC`.
+- Expired rows (≥2 days) not returned.
+- Rust stage runs without blocking transfers/narratives.
+- All existing endpoints remain functional.
+- Tests pass.

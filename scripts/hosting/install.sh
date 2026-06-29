@@ -85,10 +85,10 @@ cat <<EOF
        systemctl --user enable --now scoracle-api.service
        systemctl --user status scoracle-api
 
-  2b. (GPU box only) Start the Rust Cognition Harness daemon. It registers ONLY the
-      scrub stage (COGNITION_STAGES=scrub) and idles until you cut scrub over to it
-      with NEWS_SCRUB_VIA_QUEUE=true in .env.local + an scoracle-api restart. Deploy
-      the binary first: cargo build --manifest-path rust/Cargo.toml && \
+  2b. (GPU box only) Start the Rust Cognition Harness daemon. In the Step-3 cutover
+      it owns scrub, transfers, narratives, vibe, and sigil; keep
+      DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not also claim
+      the queue. Deploy the binary first: cargo build --manifest-path rust/Cargo.toml && \
         cp rust/target/debug/scoracle-cognition rust/bin/scoracle-cognition
        systemctl --user enable --now scoracle-cognition.path
        systemctl --user enable --now scoracle-cognition.service
@@ -112,7 +112,7 @@ cat <<EOF
   7. Cloudflare Tunnel (optional, whenever you're ready to expose publicly):
        See scripts/hosting/cloudflared-config.example.yml for full flow.
 
-  Subsequent releases: use scripts/hosting/release.sh — it builds all four
+  Subsequent releases: use scripts/hosting/release.sh — it builds the Go
   binaries from one commit, re-renders + reinstalls the units, restarts the
   API, and verifies health.
 EOF

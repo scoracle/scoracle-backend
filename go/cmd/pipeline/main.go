@@ -1,4 +1,4 @@
-// pipeline — the once-daily compile → scrub → derive → reveal orchestrator.
+// pipeline — the once-daily corpus ingest plus the legacy compile → scrub → derive orchestrator.
 //
 // FIRST-GPT-AUDIT Session 8 turned this from an in-process-watermark chain into an
 // ordered, durable, crash-recoverable pipeline. The handoff between stages is the
@@ -22,7 +22,8 @@
 // residual scrub→enqueue window). The async maintenance scrub ticker remains
 // backlog/repair only.
 //
-//	go run ./cmd/pipeline -mode corpus
+//	go run ./cmd/pipeline -mode ingest   # Step 3: RSS ingest only; Rust owns LLM derivation
+//	go run ./cmd/pipeline -mode corpus    # legacy pre-Step-3 full Go LLM chain
 //	go run ./cmd/pipeline -mode corpus -sport FOOTBALL   # one-sport smoke
 //
 // Env: DATABASE_PRIVATE_URL (or fallbacks) + OLLAMA_* (see config.go).
@@ -50,7 +51,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "corpus", "corpus (the only mode)")
+	mode := flag.String("mode", "corpus", "ingest | corpus")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
 	minArticles := flag.Int("min-articles", 2, "[transfers] candidate pre-filter: min distinct co-mention articles (14d)")
 	rssLimit := flag.Int("rss-limit", 10, "[sweep] articles per team RSS call")
@@ -71,8 +72,8 @@ func main() {
 		logger.Error("config load failed", "error", err)
 		os.Exit(1)
 	}
-	if *mode != "corpus" {
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: corpus\n", *mode)
+	if *mode != "corpus" && *mode != "ingest" {
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: ingest | corpus\n", *mode)
 		os.Exit(2)
 	}
 
@@ -86,6 +87,10 @@ func main() {
 	ml.SetGemmaConcurrency(cfg.OllamaMaxConcurrent) // shared GPU governor (Session 14)
 	ollama := ml.NewOllamaClient(cfg.OllamaBaseURL, cfg.OllamaModel, cfg.OllamaTimeout)
 	ollama.SetKeepAlive(cfg.OllamaKeepAlive)
+	if *mode == "ingest" {
+		os.Exit(runIngestOnly(pool, *sport, *rssLimit, *rssPauseMs, logger))
+	}
+
 	// Non-fatal (Session 14): a Gemma outage must not stop raw ingestion. The RSS sweep
 	// still runs (raw articles persist durably) and the derive drain's reachability
 	// pre-gate defers the Gemma stages — pending work accumulates and drains once Ollama
@@ -115,6 +120,23 @@ func main() {
 		synthThrottle:     *synthThrottleMs,
 		limit:             *limit,
 	}, cfg.DatabaseURL, logger))
+}
+
+func runIngestOnly(pool *pgxpool.Pool, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {
+	sports := []string{"NBA", "NFL", "FOOTBALL"}
+	if s := strings.ToLower(strings.TrimSpace(sportArg)); s != "" && s != "all" {
+		sports = []string{strings.ToUpper(sportArg)}
+	}
+	ctx := context.Background()
+	_, affected, ok, fail := corpus.Sweep(ctx, pool, sports, rssLimit, rssPauseMs, logger)
+	logger.Info("pipeline ingest: complete", "sports", sports, "rss_ok", ok, "rss_fail", fail, "fresh_articles", len(affected))
+	if ok == 0 && fail > 0 {
+		return 1
+	}
+	if fail > 0 {
+		return 3
+	}
+	return 0
 }
 
 type opts struct {

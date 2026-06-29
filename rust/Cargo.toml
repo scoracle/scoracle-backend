@@ -61,6 +61,12 @@ path = "src/bin/resolve_shadow.rs"
 name = "redundancy_check"
 path = "src/bin/redundancy_check.rs"
 
+# Step-3 rating batch. Rust replacement for go/cmd/statcommentary: single,
+# nightly, and backfill modes over the L12 rating core. Not a pipeline_work stage.
+[[bin]]
+name = "statcommentary"
+path = "src/bin/statcommentary.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

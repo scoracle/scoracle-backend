@@ -22,10 +22,10 @@
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
+use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::db;
 use scoracle_cognition::sigil::{generate_sigil, SigilOutput};
 use sqlx::PgPool;
 
@@ -112,9 +112,13 @@ async fn main() -> Result<()> {
 }
 
 async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
-    let name =
-        scoracle_cognition::vibe::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport)
-            .await?;
+    let name = scoracle_cognition::vibe::lookup_entity_name(
+        &hx.pool,
+        &s.entity_type,
+        s.entity_id,
+        &s.sport,
+    )
+    .await?;
     let out = generate_sigil(
         hx,
         &s.entity_type,

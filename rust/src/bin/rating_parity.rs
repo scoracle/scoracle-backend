@@ -26,7 +26,7 @@ use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::rating::{
-    build_rating_request, generate_rating, RatingBuild, RatingReady, RatingReq, RatingOutput,
+    build_rating_request, generate_rating, RatingBuild, RatingOutput, RatingReady, RatingReq,
     RATING_PROMPT_VERSION,
 };
 use scoracle_cognition::route::Router;
@@ -50,7 +50,8 @@ async fn main() -> Result<()> {
     let vet = std::env::var("RATING_PARITY_VET").is_ok_and(|v| !v.is_empty() && v != "0");
     if vet {
         // Only the --vet path calls the model; ping so a dead Ollama fails fast.
-        let ollama = OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
+        let ollama =
+            OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
         ollama
             .ping()
             .await
@@ -85,7 +86,10 @@ async fn main() -> Result<()> {
                 "  · {}/{} ({}) → skipped (no usable rating profile)",
                 s.entity_type, s.entity_id, s.sport
             ),
-            Err(e) => println!("  ✗ {}/{} ({}) → {e:#}", s.entity_type, s.entity_id, s.sport),
+            Err(e) => println!(
+                "  ✗ {}/{} ({}) → {e:#}",
+                s.entity_type, s.entity_id, s.sport
+            ),
         }
     }
 
@@ -196,7 +200,9 @@ fn parse_specs(args: impl Iterator<Item = String>) -> Result<Vec<EntitySpec>> {
         if entity_type != "player" && entity_type != "team" {
             return Err(anyhow!("bad spec {a:?}; entity_type must be player|team"));
         }
-        let entity_id: i32 = parts[1].parse().with_context(|| format!("bad id in {a:?}"))?;
+        let entity_id: i32 = parts[1]
+            .parse()
+            .with_context(|| format!("bad id in {a:?}"))?;
         out.push(EntitySpec {
             entity_type,
             entity_id,

@@ -176,7 +176,11 @@ impl Router {
     /// `max_concurrent` is the GPU governor budget (`OLLAMA_MAX_CONCURRENT`): ONE semaphore,
     /// built here and shared by every backend, caps total in-flight model calls across all
     /// roles (one GPU → one budget). Clamped to ≥1 (0 would block every call forever).
-    pub fn from_config(cfg: &RouteConfig, timeout: Duration, max_concurrent: usize) -> Result<Self> {
+    pub fn from_config(
+        cfg: &RouteConfig,
+        timeout: Duration,
+        max_concurrent: usize,
+    ) -> Result<Self> {
         // One shared GPU governor across every backend this router builds.
         let gpu = Arc::new(Semaphore::new(max_concurrent.max(1)));
         // Cache keyed by the spec's identity, so two roles naming the same model get the same
@@ -286,7 +290,10 @@ mod tests {
 
     #[test]
     fn candidate_for_is_none_without_a_challenger() {
-        let roles = Role::all().into_iter().map(|r| (r, spec("gemma4:e4b"))).collect();
+        let roles = Role::all()
+            .into_iter()
+            .map(|r| (r, spec("gemma4:e4b")))
+            .collect();
         let router = Router::from_config(
             &RouteConfig {
                 roles,
@@ -301,12 +308,18 @@ mod tests {
 
     #[test]
     fn candidate_for_resolves_a_configured_challenger() {
-        let roles = Role::all().into_iter().map(|r| (r, spec("gemma4:e4b"))).collect();
+        let roles = Role::all()
+            .into_iter()
+            .map(|r| (r, spec("gemma4:e4b")))
+            .collect();
         let mut candidates = HashMap::new();
         candidates.insert(Role::EmotionalNews, spec("mistral:7b"));
-        let router =
-            Router::from_config(&RouteConfig { roles, candidates }, Duration::from_secs(60), 1)
-                .unwrap();
+        let router = Router::from_config(
+            &RouteConfig { roles, candidates },
+            Duration::from_secs(60),
+            1,
+        )
+        .unwrap();
         assert_eq!(
             router.candidate_for(Role::EmotionalNews).unwrap().model(),
             "mistral:7b"

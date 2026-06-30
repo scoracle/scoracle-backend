@@ -23,11 +23,11 @@
 //! (in [`crate::harness`]) with no change to them — the Plan §5 test that the library was drawn
 //! right. Requires `Harness.embedder = Some(..)`; an embed-less Harness errors (a wiring bug).
 
+use crate::config::ResolveConfig;
+use crate::embed::cosine_similarity;
 use crate::harness::{Candidate, EntityType, Harness, Parser, Resolution, Resolved};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::config::ResolveConfig;
-use crate::embed::cosine_similarity;
 use anyhow::Result;
 use serde::Deserialize;
 
@@ -191,7 +191,12 @@ impl Harness {
             let amb: Vec<&Candidate> = ambiguous.iter().map(|&i| &candidates[i]).collect();
             let prompt = build_relevance_prompt(context, &amb);
             let extracted = self
-                .extract(role, &prompt, &adjudication_opts(), &RelevanceParser { n: amb.len() })
+                .extract(
+                    role,
+                    &prompt,
+                    &adjudication_opts(),
+                    &RelevanceParser { n: amb.len() },
+                )
                 .await?;
             if let Some(relevant) = extracted.value {
                 // relevant is 1-indexed over `amb`, in band order.
@@ -253,7 +258,12 @@ impl Harness {
                     build_relevance_prompt(context, &[chosen])
                 );
                 let extracted = self
-                    .extract(role, &prompt, &adjudication_opts(), &RelevanceParser { n: 1 })
+                    .extract(
+                        role,
+                        &prompt,
+                        &adjudication_opts(),
+                        &RelevanceParser { n: 1 },
+                    )
                     .await?;
                 match extracted.value {
                     Some(relevant) if relevant.contains(&1) => Ok(resolved()),
@@ -269,7 +279,12 @@ mod tests {
     use super::*;
     use crate::harness::{Candidate, IdentityCard};
 
-    fn player(name: &str, nationality: Option<&str>, club: Option<&str>, position: Option<&str>) -> Candidate {
+    fn player(
+        name: &str,
+        nationality: Option<&str>,
+        club: Option<&str>,
+        position: Option<&str>,
+    ) -> Candidate {
         Candidate {
             entity_type: EntityType::Player,
             entity_id: 1,
@@ -286,7 +301,10 @@ mod tests {
     fn classify_is_asymmetric() {
         // Plan §8: ≥ keep auto-keeps; everything below is Ambiguous (→ the model). The proxy never
         // auto-drops, so even a very low cosine is Ambiguous, NOT a drop.
-        let cfg = ResolveConfig { keep_threshold: 0.75, drop_threshold: 0.60 };
+        let cfg = ResolveConfig {
+            keep_threshold: 0.75,
+            drop_threshold: 0.60,
+        };
         assert_eq!(classify(0.80, &cfg), Decision::Keep);
         assert_eq!(classify(0.75, &cfg), Decision::Keep); // inclusive
         assert_eq!(classify(0.70, &cfg), Decision::Ambiguous);
@@ -295,8 +313,16 @@ mod tests {
 
     #[test]
     fn identity_text_player_and_team() {
-        let p = player("João Silva", Some("Portuguese"), Some("Benfica"), Some("midfielder"));
-        assert_eq!(identity_text(&p), "João Silva, a Portuguese midfielder, currently at Benfica.");
+        let p = player(
+            "João Silva",
+            Some("Portuguese"),
+            Some("Benfica"),
+            Some("midfielder"),
+        );
+        assert_eq!(
+            identity_text(&p),
+            "João Silva, a Portuguese midfielder, currently at Benfica."
+        );
         let sparse = player("X", None, None, None);
         assert_eq!(identity_text(&sparse), "X, current club unknown.");
         let team = Candidate {
@@ -318,9 +344,12 @@ mod tests {
         // Valid → the in-range relevant set; out-of-range filtered.
         assert_eq!(p.parse(r#"{"relevant":[1,3]}"#).unwrap(), Some(vec![1, 3]));
         assert_eq!(p.parse(r#"{"relevant":[2,9,0]}"#).unwrap(), Some(vec![2])); // 9,0 dropped
-        // Missing key → empty set (everything ambiguous gets dropped, the conservative call).
+                                                                                // Missing key → empty set (everything ambiguous gets dropped, the conservative call).
         assert_eq!(p.parse(r#"{"other":true}"#).unwrap(), Some(vec![]));
         // Wrapped in prose → salvaged.
-        assert_eq!(p.parse("here:\n{\"relevant\":[2]}\nok").unwrap(), Some(vec![2]));
+        assert_eq!(
+            p.parse("here:\n{\"relevant\":[2]}\nok").unwrap(),
+            Some(vec![2])
+        );
     }
 }

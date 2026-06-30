@@ -100,13 +100,14 @@ async fn main() -> Result<()> {
 
     let mut pairs = 0usize;
     for s in &specs {
-        let team_name = match vibe::lookup_entity_name(&harness.pool, "team", s.team_id, &s.sport).await {
-            Ok(n) => n,
-            Err(e) => {
-                println!("  ✗ team/{} ({}) → name lookup: {e:#}", s.team_id, s.sport);
-                continue;
-            }
-        };
+        let team_name =
+            match vibe::lookup_entity_name(&harness.pool, "team", s.team_id, &s.sport).await {
+                Ok(n) => n,
+                Err(e) => {
+                    println!("  ✗ team/{} ({}) → name lookup: {e:#}", s.team_id, s.sport);
+                    continue;
+                }
+            };
         let tiers = match load_tier_map(&harness.pool).await {
             Ok(t) => t,
             Err(e) => {
@@ -114,16 +115,20 @@ async fn main() -> Result<()> {
                 continue;
             }
         };
-        let mut candidates =
-            match load_candidates(&harness.pool, s.team_id, &s.sport, TRANSFER_DEFAULT_MIN_ARTICLES)
-                .await
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("  ✗ team/{} → load candidates: {e:#}", s.team_id);
-                    continue;
-                }
-            };
+        let mut candidates = match load_candidates(
+            &harness.pool,
+            s.team_id,
+            &s.sport,
+            TRANSFER_DEFAULT_MIN_ARTICLES,
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                println!("  ✗ team/{} → load candidates: {e:#}", s.team_id);
+                continue;
+            }
+        };
         // Deterministic, Go-matchable cap: sort by player_id, take the first N.
         candidates.sort_by_key(|c| c.player_id);
         candidates.truncate(max_pairs);
@@ -166,8 +171,16 @@ async fn run_pair(
     tiers: &std::collections::HashMap<String, f64>,
     vet: bool,
 ) -> Result<bool> {
-    let ready = match build_pair_request(hx, s.team_id, team_name, c, &s.sport, tiers, PARITY_TEMPERATURE)
-        .await?
+    let ready = match build_pair_request(
+        hx,
+        s.team_id,
+        team_name,
+        c,
+        &s.sport,
+        tiers,
+        PARITY_TEMPERATURE,
+    )
+    .await?
     {
         PairBuild::Skipped { .. } => return Ok(false),
         PairBuild::Ready(r) => *r,
@@ -175,7 +188,18 @@ async fn run_pair(
 
     // Optional model vetting (temp 0) — verdict columns for INSPECTION only (never the gate).
     let vetted: Option<TransferPairOutput> = if vet {
-        Some(analyze_pair(hx, s.team_id, team_name, c, &s.sport, tiers, PARITY_TEMPERATURE).await?)
+        Some(
+            analyze_pair(
+                hx,
+                s.team_id,
+                team_name,
+                c,
+                &s.sport,
+                tiers,
+                PARITY_TEMPERATURE,
+            )
+            .await?,
+        )
     } else {
         None
     };
@@ -268,7 +292,9 @@ fn parse_specs(args: impl Iterator<Item = String>) -> Result<Vec<TeamSpec>> {
             return Err(anyhow!("bad spec {a:?}; want team:id:sport"));
         }
         if parts[0].to_lowercase() != "team" {
-            return Err(anyhow!("bad spec {a:?}; transfers is team-keyed (want team:id:sport)"));
+            return Err(anyhow!(
+                "bad spec {a:?}; transfers is team-keyed (want team:id:sport)"
+            ));
         }
         let team_id: i32 = parts[1]
             .parse()

@@ -77,7 +77,11 @@ impl OllamaClient {
     /// new builds a client. `base_url` like "http://localhost:11434", `model`
     /// like "gemma4:e4b". A zero timeout defaults to 60s (Gemma e4b on a
     /// consumer GPU is typically 2-8s but can spike).
-    pub fn new(base_url: impl Into<String>, model: impl Into<String>, timeout: Duration) -> Result<Self> {
+    pub fn new(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        timeout: Duration,
+    ) -> Result<Self> {
         let timeout = if timeout.is_zero() {
             Duration::from_secs(60)
         } else {
@@ -102,7 +106,11 @@ impl OllamaClient {
     /// Single source of truth shared by `generate` (what we actually POST) and
     /// `request_body` (what the parity harness records), so the stored request can
     /// never drift from the sent one.
-    fn build_request<'a>(&'a self, prompt: &'a str, opts: &'a GenerateOptions) -> GenerateRequest<'a> {
+    fn build_request<'a>(
+        &'a self,
+        prompt: &'a str,
+        opts: &'a GenerateOptions,
+    ) -> GenerateRequest<'a> {
         let mut options = serde_json::Map::new();
         if let Some(t) = opts.temperature {
             options.insert("temperature".into(), serde_json::json!(t));
@@ -149,7 +157,11 @@ impl OllamaClient {
         let status = resp.status();
         let raw = resp.text().await.context("read ollama response")?;
         if !status.is_success() {
-            return Err(anyhow!("ollama HTTP {}: {}", status.as_u16(), truncate(&raw, 300)));
+            return Err(anyhow!(
+                "ollama HTTP {}: {}",
+                status.as_u16(),
+                truncate(&raw, 300)
+            ));
         }
 
         let parsed: GenerateResponse = serde_json::from_str(&raw)

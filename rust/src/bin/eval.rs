@@ -159,7 +159,10 @@ async fn main() -> Result<()> {
         EVAL_TEMPERATURE
     );
 
-    println!("\nincumbent: {} (drain all of this model first)", incumbent.model());
+    println!(
+        "\nincumbent: {} (drain all of this model first)",
+        incumbent.model()
+    );
     let (incumbent_score, inc_results) = score_backend(&harness, &incumbent, &cases).await?;
 
     let (candidate_score, cand_results) = match candidate.as_ref() {
@@ -233,7 +236,10 @@ async fn score_backend(
             Err(e) => {
                 // Under GPU contention a call can time out waiting in Ollama's queue; skip it
                 // rather than abort the whole batch (a partial A/B is still useful).
-                println!("  ! {} : generate failed ({e:#}) — skipped", case.entity.key());
+                println!(
+                    "  ! {} : generate failed ({e:#}) — skipped",
+                    case.entity.key()
+                );
                 continue;
             }
         };
@@ -352,13 +358,17 @@ fn print_side_by_side(inc_model: &str, inc: &[CaseResult], cand_model: &str, can
         println!("\n[{}]", a.key);
         println!(
             "  A {inc_model:<14} score={} | {}",
-            a.score.map(|s| s.to_string()).unwrap_or_else(|| "??".into()),
+            a.score
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "??".into()),
             a.vibe,
         );
         match cmap.get(a.key.as_str()) {
             Some(b) => println!(
                 "  B {cand_model:<14} score={} | {}",
-                b.score.map(|s| s.to_string()).unwrap_or_else(|| "??".into()),
+                b.score
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "??".into()),
                 b.vibe,
             ),
             None => println!("  B {cand_model:<14} (no result)"),
@@ -427,7 +437,11 @@ fn print_route_table(cfg: &RouteConfig) {
             .map(|s| s.model.as_str())
             .unwrap_or("<unset>");
         match cfg.candidates.get(&role) {
-            Some(c) => println!("  {:<14} → {incumbent}  [candidate: {}]", role.as_str(), c.model),
+            Some(c) => println!(
+                "  {:<14} → {incumbent}  [candidate: {}]",
+                role.as_str(),
+                c.model
+            ),
             None => println!("  {:<14} → {incumbent}", role.as_str()),
         }
     }

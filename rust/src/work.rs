@@ -60,10 +60,21 @@ impl std::fmt::Display for Stage {
 pub struct Item {
     pub stage: Stage,
     pub entity_type: String, // "player" | "team"
-    pub entity_id: i32,
+    pub entity_id: i64,
     pub sport: String,
     pub input_version: Option<String>,
     pub attempts: i32, // failures so far (populated by claim)
+}
+
+impl Item {
+    pub fn entity_id_i32(&self) -> Result<i32> {
+        i32::try_from(self.entity_id).with_context(|| {
+            format!(
+                "{} {}/{} entity_id outside i32 range",
+                self.stage, self.entity_type, self.entity_id
+            )
+        })
+    }
 }
 
 /// Drainer policy, matching the Go defaults.
@@ -80,7 +91,7 @@ pub const BACKOFF: Duration = Duration::from_secs(30 * 60);
 /// with FOR UPDATE SKIP LOCKED is already atomic under auto-commit, so we run
 /// it directly against the pool.
 pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
-    let rows: Vec<(String, i32, String, Option<String>, i32)> = sqlx::query_as(
+    let rows: Vec<(String, i64, String, Option<String>, i32)> = sqlx::query_as(
         r#"
         WITH ready AS (
             SELECT entity_type, entity_id, sport
@@ -110,14 +121,16 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
 
     Ok(rows
         .into_iter()
-        .map(|(entity_type, entity_id, sport, input_version, attempts)| Item {
-            stage,
-            entity_type,
-            entity_id,
-            sport,
-            input_version,
-            attempts,
-        })
+        .map(
+            |(entity_type, entity_id, sport, input_version, attempts)| Item {
+                stage,
+                entity_type,
+                entity_id,
+                sport,
+                input_version,
+                attempts,
+            },
+        )
         .collect())
 }
 

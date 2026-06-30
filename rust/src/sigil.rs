@@ -247,8 +247,8 @@ pub async fn load_rating_pillar(
     .with_context(|| format!("load rating pillar {entity_type}/{entity_id}"))?;
 
     match row {
-        None => Ok(None),                  // pgx.ErrNoRows → pillar absent
-        Some((_, None, _)) => Ok(None),    // latest generation is a marker (body NULL) → suppressed
+        None => Ok(None),               // pgx.ErrNoRows → pillar absent
+        Some((_, None, _)) => Ok(None), // latest generation is a marker (body NULL) → suppressed
         Some((divined_peak, Some(body), notability)) => Ok(Some(SynthRating {
             divined_peak,
             body,
@@ -454,7 +454,10 @@ pub fn build_synthesis_input_components(
         pairs.push(("latest_composite", go_json_float(round1(c))));
     }
     if !mom.latest_vibe_prompt.is_empty() {
-        pairs.push(("latest_vibe_prompt", go_json_string(&mom.latest_vibe_prompt)));
+        pairs.push((
+            "latest_vibe_prompt",
+            go_json_string(&mom.latest_vibe_prompt),
+        ));
     }
 
     pairs.sort_by(|a, b| a.0.cmp(b.0));
@@ -495,13 +498,18 @@ pub fn build_synthesis_prompt(
     let mut b = String::new();
 
     // header = "<Sport> <entityType>" (raw entity_type), e.g. "NBA player".
-    b.push_str(&format!("Entity: {entity_name} ({sport_raw} {entity_type})\n"));
+    b.push_str(&format!(
+        "Entity: {entity_name} ({sport_raw} {entity_type})\n"
+    ));
 
     // P1 — News narrative
     if !narratives.is_empty() {
         b.push_str("\n=== NEWS NARRATIVE ===\n");
         for n in narratives {
-            b.push_str(&format!("[impact {:.0}] {}\n{}\n\n", n.impact, n.title, n.body));
+            b.push_str(&format!(
+                "[impact {:.0}] {}\n{}\n\n",
+                n.impact, n.title, n.body
+            ));
         }
     } else {
         b.push_str("\n=== NEWS NARRATIVE ===\n(no recent narratives)\n");
@@ -531,7 +539,10 @@ pub fn build_synthesis_prompt(
         b.push_str(&format!("News sentiment: {s}/100 ({dir})\n"));
     }
     if !mom.latest_vibe_prompt.is_empty() {
-        b.push_str(&format!("Vibe (the felt read): {}\n", mom.latest_vibe_prompt));
+        b.push_str(&format!(
+            "Vibe (the felt read): {}\n",
+            mom.latest_vibe_prompt
+        ));
     }
     if let Some(c) = mom.latest_composite {
         let dir = trend_dir(mom.composite_slope);
@@ -649,8 +660,14 @@ pub async fn generate_sigil(
         build_synthesis_input_components(&narratives, rating.as_ref(), &momentum);
     let input_hash = hash_components(&input_components_json);
 
-    let prompt =
-        build_synthesis_prompt(entity_type, entity_name, sport_raw, &narratives, rating.as_ref(), &momentum);
+    let prompt = build_synthesis_prompt(
+        entity_type,
+        entity_name,
+        sport_raw,
+        &narratives,
+        rating.as_ref(),
+        &momentum,
+    );
     let opts = GenerateOptions {
         system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -696,6 +713,7 @@ async fn persist_to_sigil_synthesis(
     previous_score: Option<i16>,
 ) -> Result<()> {
     let prov = out.provenance();
+    let entity_id = item.entity_id_i32()?;
     let score: Option<i16> = out.score.map(|n| n as i16);
     sqlx::query(
         r#"
@@ -707,7 +725,7 @@ async fn persist_to_sigil_synthesis(
         "#,
     )
     .bind(&item.entity_type)
-    .bind(item.entity_id)
+    .bind(entity_id)
     .bind(sport)
     .bind(season)
     .bind(score)
@@ -779,18 +797,15 @@ impl StageHandler for SigilHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        let entity_id = item.entity_id_i32()?;
         // nameOf: the name lookup uses the queue's raw sport value (drainSigil → corpus lookup).
-        let name = crate::vibe::lookup_entity_name(
-            &hx.pool,
-            &item.entity_type,
-            item.entity_id,
-            &item.sport,
-        )
-        .await?;
+        let name =
+            crate::vibe::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
+                .await?;
 
         let sport = item.sport.to_uppercase();
         let (season, narratives, rating, momentum) =
-            load_pillars(hx, &item.entity_type, item.entity_id, &sport).await?;
+            load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
         // No-pillar marker (no model call).
         if narratives.is_empty() && rating.is_none() && momentum.empty() {
@@ -817,7 +832,7 @@ impl StageHandler for SigilHandler {
         let input_hash = hash_components(&input_components_json);
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
-            entity_id: item.entity_id,
+            entity_id,
             sport: sport.clone(),
             season: Some(season),
         };
@@ -828,7 +843,7 @@ impl StageHandler for SigilHandler {
             return Ok(()); // unchanged → cheap no-op (no model call, no persist)
         }
 
-        let prev = last_score(&hx.pool, &item.entity_type, item.entity_id, &sport, season).await?;
+        let prev = last_score(&hx.pool, &item.entity_type, entity_id, &sport, season).await?;
 
         let prompt = build_synthesis_prompt(
             &item.entity_type,
@@ -952,10 +967,22 @@ mod tests {
         // canonical JSON whose SHA-256 is the input_hash. Compare against the exact bytes Go's
         // json.Marshal would emit for the same map.
         let narratives = vec![
-            SynthNarrative { title: "B & C".into(), body: "x".into(), impact: 5.0 },
-            SynthNarrative { title: "Alpha".into(), body: "y".into(), impact: 3.0 },
+            SynthNarrative {
+                title: "B & C".into(),
+                body: "x".into(),
+                impact: 5.0,
+            },
+            SynthNarrative {
+                title: "Alpha".into(),
+                body: "y".into(),
+                impact: 3.0,
+            },
         ];
-        let rating = SynthRating { divined_peak: "Rim Protector".into(), body: "z".into(), notability: 88 };
+        let rating = SynthRating {
+            divined_peak: "Rim Protector".into(),
+            body: "z".into(),
+            notability: 88,
+        };
         let mom = SynthMomentum {
             sentiment_slope: 1.0,
             composite_slope: 0.0,
@@ -977,7 +1004,11 @@ mod tests {
     #[test]
     fn input_components_narrative_titles_always_present() {
         // Rating-only entity: narrative_titles is still present as [] (Go adds it unconditionally).
-        let rating = SynthRating { divined_peak: "Spacer".into(), body: "b".into(), notability: 40 };
+        let rating = SynthRating {
+            divined_peak: "Spacer".into(),
+            body: "b".into(),
+            notability: 40,
+        };
         let got = build_synthesis_input_components(&[], Some(&rating), &SynthMomentum::default());
         assert_eq!(
             got,
@@ -988,7 +1019,11 @@ mod tests {
     #[test]
     fn builds_prompt_raw_entity_type_and_sections() {
         // entity_type is raw ("player", not "Player"); sport uses the passed (raw) case.
-        let narratives = vec![SynthNarrative { title: "Trade buzz".into(), body: "details".into(), impact: 7.0 }];
+        let narratives = vec![SynthNarrative {
+            title: "Trade buzz".into(),
+            body: "details".into(),
+            impact: 7.0,
+        }];
         let mom = SynthMomentum {
             sentiment_slope: 0.5,
             composite_slope: 0.0,
@@ -1005,7 +1040,14 @@ mod tests {
 
     #[test]
     fn no_momentum_data_line_when_both_absent() {
-        let p = build_synthesis_prompt("team", "Test Team", "NFL", &[], None, &SynthMomentum::default());
+        let p = build_synthesis_prompt(
+            "team",
+            "Test Team",
+            "NFL",
+            &[],
+            None,
+            &SynthMomentum::default(),
+        );
         assert_eq!(
             p,
             "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\n(no momentum data)\n\nRespond now."

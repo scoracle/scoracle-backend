@@ -110,7 +110,7 @@ direction is relative to the named team: "incoming" = the team is signing the pl
 pub struct TransferCandidate {
     pub player_id: i32,
     pub player_name: String,
-    pub nationality: String, // empty when unknown
+    pub nationality: String,  // empty when unknown
     pub current_club: String, // latest-season club (player_current_team), NOT the stale players.team_id
     pub position: String,
 }
@@ -724,32 +724,37 @@ pub async fn analyze_pair(
     tiers: &HashMap<String, f64>,
     temperature: f64,
 ) -> Result<TransferPairOutput> {
-    let ready = match build_pair_request(hx, team_id, team_name, c, sport, tiers, temperature).await?
-    {
-        PairBuild::Skipped {
-            components,
-            news_ids,
-        } => {
-            return Ok(TransferPairOutput {
-                player_id: c.player_id,
-                heat: None,
+    let ready =
+        match build_pair_request(hx, team_id, team_name, c, sport, tiers, temperature).await? {
+            PairBuild::Skipped {
                 components,
                 news_ids,
-                outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
-                row: None,
-                built_prompt: None,
-                request_body: None,
-                prompt_version: TRANSFER_PROMPT_VERSION,
-            });
-        }
-        PairBuild::Ready(r) => *r,
-    };
+            } => {
+                return Ok(TransferPairOutput {
+                    player_id: c.player_id,
+                    heat: None,
+                    components,
+                    news_ids,
+                    outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
+                    row: None,
+                    built_prompt: None,
+                    request_body: None,
+                    prompt_version: TRANSFER_PROMPT_VERSION,
+                });
+            }
+            PairBuild::Ready(r) => *r,
+        };
 
     // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
     let (verdict, built_prompt, request_body) = match hx
-        .extract(Role::EmotionalNews, &ready.built_prompt, &ready.opts, &TransferParser)
+        .extract(
+            Role::EmotionalNews,
+            &ready.built_prompt,
+            &ready.opts,
+            &TransferParser,
+        )
         .await
     {
         Ok(extracted) => (
@@ -852,9 +857,9 @@ pub async fn persist_transfer_row(
 /// TransferHandler drains the team-keyed `transfers` stage: load the co-mention candidates and vet
 /// each pair, persisting to transfer_rumors. Terminal — it enqueues nothing (the heat it writes is
 /// read by vibe/narratives, which the mig-103 trigger enqueues). Any pair that hit a model failure
-/// (UNKNOWN) fails the team's item so the queue's backoff re-runs it (the fail-closed retry —
-/// mirrors `drainTransfers`). REGISTERED but NOT enabled until the transfers cutover (Step 3): the
-/// Go Drainer still owns this stage, so running both would double-claim the one GPU.
+/// (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
+/// re-runs it. REGISTERED but NOT enabled until the transfers cutover (Step 3): the Go Drainer
+/// still owns this stage, so running both would double-claim the one GPU.
 pub struct TransferHandler;
 
 impl TransferHandler {
@@ -883,23 +888,25 @@ impl StageHandler for TransferHandler {
                 item.entity_id
             );
         }
+        let team_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let team_name =
-            crate::vibe::lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport)
+            crate::vibe::lookup_entity_name(&hx.pool, &item.entity_type, team_id, &item.sport)
                 .await?;
         let tiers = load_tier_map(&hx.pool).await?;
         let candidates =
-            load_candidates(&hx.pool, item.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
+            load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
 
         let mut unknown = 0usize;
+        let mut errored = 0usize;
         for c in &candidates {
-            // One bad pair (DB/transport error, or a persist failure) must not kill the run — Go
-            // counts it as Errored and moves on. The model-failure UNKNOWN is NOT an error here; it
-            // is a successful fail-closed row that the `unknown` tally turns into a team retry.
+            // Model-failure UNKNOWN is not an infrastructure error: it is a successful fail-closed
+            // row that the `unknown` tally turns into a team retry. DB/build/persist errors are
+            // infrastructure failures; keep scanning pairs for visibility, then fail the team item.
             let pair = async {
                 let out = analyze_pair(
                     hx,
-                    item.entity_id,
+                    team_id,
                     &team_name,
                     c,
                     &sport,
@@ -910,7 +917,7 @@ impl StageHandler for TransferHandler {
                 if let Some(row) = &out.row {
                     persist_transfer_row(
                         &hx.pool,
-                        item.entity_id,
+                        team_id,
                         c.player_id,
                         &sport,
                         "periodic",
@@ -925,15 +932,24 @@ impl StageHandler for TransferHandler {
             match pair {
                 Ok(Outcome::Unknown) => unknown += 1,
                 Ok(_) => {}
-                Err(e) => warn!(
-                    team = item.entity_id,
-                    player = c.player_id,
-                    error = %e,
-                    "transfers: pair errored; skipping (one bad pair won't kill the run)"
-                ),
+                Err(e) => {
+                    errored += 1;
+                    warn!(
+                        team = team_id,
+                        player = c.player_id,
+                        error = %e,
+                        "transfers: pair infrastructure/persist error"
+                    );
+                }
             }
         }
 
+        if errored > 0 {
+            bail!(
+                "transfers: {errored} pair infrastructure/persist error(s) — retrying team {}",
+                item.entity_id
+            );
+        }
         if unknown > 0 {
             bail!(
                 "transfers: {unknown} unresolved pair(s) (model failure) — retrying team {}",

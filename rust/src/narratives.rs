@@ -768,13 +768,13 @@ impl StageHandler for NarrativesHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        let entity_id = item.entity_id_i32()?;
         // nameOf uses the queue's raw sport value (drainNarratives), as does the prompt's req.Sport.
         let name =
-            vibe::lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport)
-                .await?;
+            vibe::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
         let req = NarrativesReq {
             entity_type: item.entity_type.clone(),
-            entity_id: item.entity_id,
+            entity_id,
             entity_name: name,
             sport: item.sport.clone(),
             trigger_type: "periodic".to_string(),
@@ -787,7 +787,7 @@ impl StageHandler for NarrativesHandler {
         persist_narratives(
             &hx.pool,
             &item.entity_type,
-            item.entity_id,
+            entity_id,
             &sport_up,
             &req.trigger_type,
             &serde_json::Value::Null,

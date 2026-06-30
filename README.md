@@ -2,6 +2,63 @@
 
 Backend data pipeline and unified API for Scoracle sports data.
 
+## Start Here
+
+Before working in this repo, read these in order:
+
+1. This README
+2. [../scoracle-wiki/PRODUCT_NARRATIVE.md](../scoracle-wiki/PRODUCT_NARRATIVE.md)
+3. [../scoracle-wiki/DATA_FLOW.md](../scoracle-wiki/DATA_FLOW.md)
+
+The wiki owns product direction and cross-repo data-flow doctrine. This repo owns ingestion, storage, derivation, and serving implementation.
+
+## Pillars
+
+Scoracle is lean, nimble, and durable.
+
+Elegance comes through simplicity. Simple and durable beats clever and fragile. The flow of information must be clear and clean.
+
+Our role is to eliminate noise around entities and divine the facts. Backend code should do the same: preserve clean source data, make derivation durable and observable, empower the model layer with clear context, and serve precomputed products through simple contracts.
+
+## Repo Role
+
+- Type: `backend/data-serving`
+- Owns: provider ingestion, PostgreSQL schema and derivation, durable work queues, Rust cognition, Go public API, mobile auth, backend operations, and product endpoint contracts.
+- Does not own: client presentation, shared visual doctrine, or product narrative changes without updating `scoracle-wiki`.
+- Primary consumers: `scoracle-frontend`, `scoracle-ios`, future Scoracle clients, and backend operators.
+
+## Session Workflow
+
+1. Read this README.
+2. Sync safely:
+
+```bash
+git fetch
+git status --short --branch
+```
+
+Pull only when the working tree is clean and the branch has not diverged.
+
+3. Read [../scoracle-wiki/PRODUCT_NARRATIVE.md](../scoracle-wiki/PRODUCT_NARRATIVE.md).
+4. Read [../scoracle-wiki/DATA_FLOW.md](../scoracle-wiki/DATA_FLOW.md).
+5. Perform the task in the smallest useful chunk.
+6. Add a local progress doc in `progress_docs/YYYY-MM-DD_short-description.md`.
+7. If the change is a product, API, data-flow, pipeline, migration, or architecture landmark, also add a progress doc in `../scoracle-wiki/progress_docs/`.
+8. Run verification.
+9. Commit and push.
+10. For unfinished multi-step work, leave a copyable handoff.
+
+## Working Context
+
+Most backend tasks need only:
+
+```text
+scoracle-backend/
+../scoracle-wiki/
+```
+
+Add client repos only for contract-consumer verification. Add `../scoracle-tokens/` only if a task explicitly touches client-facing visual output.
+
 ## Architecture
 
 Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL, plus a Python seeder.
@@ -14,6 +71,8 @@ Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL, plus a Py
 > Operating the backend (release/rollback, backup/restore, jobs, durable work queue + repair commands): see **[`RUNBOOK.md`](RUNBOOK.md)**.
 
 The frontend calls one API origin and receives page-shaped JSON payloads designed for direct rendering.
+
+Canonical cross-repo flow: [../scoracle-wiki/DATA_FLOW.md](../scoracle-wiki/DATA_FLOW.md).
 
 ## Service Responsibilities
 
@@ -148,6 +207,68 @@ scoracle-seed meta seed nba --season 2025
 
 See [`planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md`](planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md)
 for the current recommendation on whether the Rust cognition layer should become its own repo.
+
+## Progress Docs
+
+Every meaningful backend session adds:
+
+```text
+progress_docs/YYYY-MM-DD_short-description.md
+```
+
+Suggested format:
+
+```md
+# YYYY-MM-DD - <Title>
+
+## Goal
+
+## What Changed
+
+## Files Changed
+
+## Verification
+
+## Result
+
+## Follow-Up
+```
+
+Landmark changes also go to:
+
+```text
+../scoracle-wiki/progress_docs/YYYY-MM-DD_short-description.md
+```
+
+Landmarks include product contract changes, endpoint changes, migrations, ingestion-flow changes, cognition-stage changes, release/operations changes, and anything future cross-repo sessions need to find quickly.
+
+## Handoff Format
+
+For unfinished multi-step work, end with:
+
+```text
+Continue work in scoracle-backend on branch <branch>.
+
+Read first:
+1. README.md
+2. ../scoracle-wiki/PRODUCT_NARRATIVE.md
+3. ../scoracle-wiki/DATA_FLOW.md
+
+Last completed:
+- <summary>
+
+Changed files:
+- <files>
+
+Verification run:
+- <commands/results>
+
+Next task:
+- <specific next step>
+
+Known risks:
+- <risks or none>
+```
 
 ## Environment Variables
 

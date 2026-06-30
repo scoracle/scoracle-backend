@@ -143,6 +143,8 @@ See `ENDPOINTS.md` for full contract details.
 - Data endpoints use in-memory caching with ETag support (`TTLData=5m`).
 - Background workers in the API process are SQL-only (maintenance/news-scrub enqueue + notifications/listener) and are not on the serving path. Model inference runs in Rust (`scoracle-cognition` + `statcommentary`). See `RUNBOOK.md`.
 
+Detailed repo-local development rules live in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+
 ## Repository Layout
 
 ```text

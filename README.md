@@ -155,6 +155,7 @@ See `ENDPOINTS.md` for full contract details.
 - Background workers in the API process are SQL-only (maintenance/news-scrub enqueue + notifications/listener) and are not on the serving path. Model inference runs in Rust (`scoracle-cognition` + `statcommentary`). See `RUNBOOK.md`.
 
 Detailed repo-local development rules live in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+AI-layer work should start in [rust/README.md](rust/README.md).
 
 ## Repository Layout
 

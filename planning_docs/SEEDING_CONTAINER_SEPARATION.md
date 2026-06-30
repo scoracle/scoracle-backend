@@ -13,7 +13,7 @@ Each language/tool handles what it does best:
 
 - **PostgreSQL** — Owns ALL data logic: normalization, derived stats, percentiles, change detection, event emission
 - **Python** — Thin seeding layer: calls provider APIs, navigates JSON, inserts raw data, calls `finalize_fixture()`
-- **Go** — Third-party integrations (news, Twitter) and reacts to Postgres events for notifications
+- **Go** — API serving, Google RSS corpus ingestion, maintenance, and Postgres-event notifications
 - **PostgREST** — Serves data to frontend
 
 Python has zero notification awareness. Go has zero seeding awareness. Postgres is the event boundary.
@@ -46,7 +46,7 @@ Provider APIs (BDL, SportMonks)
    v                  v
 +----------+  +----------------+
 | PostgREST|  |  Go API        |  INTEGRATIONS + NOTIFICATIONS:
-| (:3000)  |  |  (:8000)       |  -- news, twitter feeds
+| (:3000)  |  |  (:8000)       |  -- Google RSS corpus
 | Stats API|  |                |  -- LISTEN percentile_changed
 +----------+  |                |  -- follower lookup + FCM push
               |                |  -- maintenance tickers
@@ -74,7 +74,7 @@ Provider APIs (BDL, SportMonks)
 | Looking up followers, building messages | Go API |
 | Scheduling delivery (timezone-aware) | Go API |
 | Sending push notifications (FCM) | Go API |
-| Serving news + Twitter feeds | Go API |
+| Google RSS corpus ingestion | Go API |
 | Maintenance (cleanup, catch-up sweep) | Go API |
 | Serving stats, profiles, standings, search | PostgREST |
 
@@ -242,8 +242,8 @@ scoracle-seed percentiles --sport NBA --season 2025
 
 - `go/internal/notifications/` (dispatch worker, store, schedule, sender)
 - `go/internal/maintenance/` (cleanup, catch-up sweep)
-- `go/internal/api/handler/` (news, twitter)
-- `go/internal/thirdparty/` (news, twitter clients)
+- `go/internal/api/handler/` (served API products)
+- `go/internal/thirdparty/` (Google RSS client)
 - `go/internal/cache/`
 
 ## Docker Integration

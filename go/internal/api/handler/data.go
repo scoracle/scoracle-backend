@@ -311,7 +311,6 @@ func (h *Handler) GetHeadlinesLeaderboard(w http.ResponseWriter, r *http.Request
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/momentum [get]
-// @Router /{sport}/{entityType}/{id}/trends [get]
 func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
@@ -343,8 +342,8 @@ func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetLeagueTrendsPage returns league-scoped last-3 entity event averages vs peer-cohort season averages.
-// @Summary Get league trends page
-// @Description League-scoped trends payload. Mirrors GetTrendsPage with leagueId taken from the URL path.
+// @Summary Get league momentum page
+// @Description League-scoped momentum payload. Mirrors GetTrendsPage with leagueId taken from the URL path.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -355,7 +354,7 @@ func (h *Handler) GetTrendsPage(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/leagues/{leagueId}/{entityType}/{id}/trends [get]
+// @Router /{sport}/leagues/{leagueId}/{entityType}/{id}/momentum [get]
 func (h *Handler) GetLeagueTrendsPage(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
@@ -563,8 +562,7 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 
 // GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score
 // 1-100 + blurb, fusing Rating + Vibe + Momentum) plus a bounded history. Read by
-// the Sigil card AND the meta centre score. Canonical at /sigil; /vibes is a kept
-// deprecated alias.
+// the Sigil card AND the meta centre score. Canonical at /sigil.
 // @Summary Get the entity Sigil (crown synthesis)
 // @Description The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history.
 // @Tags data
@@ -577,7 +575,6 @@ func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/sigil [get]
-// @Router /{sport}/{entityType}/{id}/vibes [get]
 func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {

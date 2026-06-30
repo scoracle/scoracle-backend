@@ -38,7 +38,7 @@ type tokenResponse struct {
 }
 
 // authReady guards the auth endpoints when no signing secret is configured.
-// Mirrors the twitter "not configured" pattern — the rest of the API is fine.
+// The rest of the API is fine when mobile auth is unavailable.
 func (h *Handler) authReady(w http.ResponseWriter) bool {
 	if h.auth == nil || !h.auth.Configured() {
 		respond.WriteError(w, http.StatusServiceUnavailable, "AUTH_UNCONFIGURED",

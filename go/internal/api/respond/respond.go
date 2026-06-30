@@ -45,7 +45,7 @@ func WriteError(w http.ResponseWriter, status int, code, message string) {
 }
 
 // WriteJSONObject marshals a Go value to JSON and writes it.
-// Used for non-Postgres responses (health checks, news, twitter).
+// Used for non-Postgres responses such as health checks.
 func WriteJSONObject(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)

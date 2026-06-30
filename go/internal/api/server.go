@@ -183,9 +183,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leagues/{leagueId}/meta", h.GetLeagueMetaPage)
 			r.Get("/leagues/{leagueId}/health", h.GetLeagueHealthPage)
 		})
-		// O12: legacy live-RSS serving routes (/news/status, /news/{type}/{id}) removed —
-		// the eager News card reads the precomputed /{sport}/{type}/{id}/news narratives.
-		// O13: Twitter serving routes (/twitter/*) removed — X permanently decommissioned.
+		// The eager News card reads the precomputed /{sport}/{type}/{id}/news narratives.
 
 		// Mobile auth (device-identity JWT). /device + /refresh are public;
 		// /device/push + /logout require a valid access token.

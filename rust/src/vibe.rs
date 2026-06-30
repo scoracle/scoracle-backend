@@ -27,7 +27,6 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
-use tracing::warn;
 
 /// Prompt version — mirrors `vibePromptVersion` in vibe.go. v7 (L8): the felt read is
 /// re-aimed for Mistral as a "beat writer" voice — invested but honest, capturing the
@@ -554,6 +553,7 @@ async fn persist_to_vibe_scores(
 ) -> Result<()> {
     // Route the moat fields through the shared Provenance envelope (vibe does not debounce,
     // so input_hash is None); the typed INSERT stays the stage's own (Postgres-as-serializer).
+    let entity_id = item.entity_id_i32()?;
     let prov = out.provenance();
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
     sqlx::query(
@@ -567,7 +567,7 @@ async fn persist_to_vibe_scores(
         "#,
     )
     .bind(&item.entity_type)
-    .bind(item.entity_id)
+    .bind(entity_id)
     .bind(sport)
     .bind(sentiment)
     .bind(out.vibe_prompt.as_deref())
@@ -605,14 +605,14 @@ impl StageHandler for VibeHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        let entity_id = item.entity_id_i32()?;
         // nameOf: the name lookup uses the queue's raw sport value (drainVibe).
-        let name =
-            lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport).await?;
+        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
 
         let out = generate_vibe(
             hx,
             &item.entity_type,
-            item.entity_id,
+            entity_id,
             &name,
             &item.sport,
             VIBE_TEMPERATURE,
@@ -623,9 +623,8 @@ impl StageHandler for VibeHandler {
         persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
 
         // Enqueue the sigil convergence BEFORE completing (the work row is completed by
-        // the worker only after this returns Ok). A crash between persist and complete
-        // re-runs vibe (idempotent) rather than dropping the sigil. Enqueue failure is
-        // logged, not fatal — matches drainVibe (warn + nil).
+        // the worker only after this returns Ok). A crash or enqueue failure after persist
+        // fails this vibe item, so the queue retries instead of silently dropping sigil.
         let sig = Item {
             stage: Stage::Sigil,
             entity_type: item.entity_type.clone(),
@@ -634,15 +633,7 @@ impl StageHandler for VibeHandler {
             input_version: Some(vibe_version(&out)),
             attempts: 0,
         };
-        if let Err(e) = work::enqueue(&hx.pool, &sig).await {
-            warn!(
-                entity_type = %item.entity_type,
-                entity_id = item.entity_id,
-                sport = %item.sport,
-                error = %e,
-                "vibe: enqueue sigil failed"
-            );
-        }
+        work::enqueue(&hx.pool, &sig).await?;
 
         Ok(())
     }

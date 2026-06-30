@@ -55,7 +55,7 @@ impl StageHandler for ScrubHandler {
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         // The scrub item is article-keyed: entity_type='article', entity_id=news_articles.id.
-        let article_id = i64::from(item.entity_id);
+        let article_id = item.entity_id;
         let sport = item.sport.to_uppercase();
 
         let row = sqlx::query(
@@ -97,8 +97,10 @@ impl StageHandler for ScrubHandler {
 
         // A verdict for every link: primary kept by rule, secondary by the gate (default-drop on a
         // missing verdict — the conservative call, mirroring the Go fail-closed).
-        let entity_types: Vec<String> =
-            cands.iter().map(|c| c.entity_type.as_str().to_string()).collect();
+        let entity_types: Vec<String> = cands
+            .iter()
+            .map(|c| c.entity_type.as_str().to_string())
+            .collect();
         let entity_ids: Vec<i32> = cands.iter().map(|c| c.entity_id).collect();
         let relevants: Vec<bool> = cands
             .iter()
@@ -111,7 +113,15 @@ impl StageHandler for ScrubHandler {
             })
             .collect();
 
-        apply_verdicts(hx, article_id, &sport, &entity_types, &entity_ids, &relevants).await
+        apply_verdicts(
+            hx,
+            article_id,
+            &sport,
+            &entity_types,
+            &entity_ids,
+            &relevants,
+        )
+        .await
     }
 }
 
@@ -141,7 +151,11 @@ fn to_candidate(c: &ScrubCandidate) -> Candidate {
 /// of `news_scrub.go::loadCandidates` (current club from `player_current_team`, position from the
 /// latest stats row). `match_confidence` is cast `::float8` (sqlx has no numeric→f64 without the
 /// decimal feature — the L5 landmine).
-async fn load_candidates(hx: &Harness, article_id: i64, sport: &str) -> Result<Vec<ScrubCandidate>> {
+async fn load_candidates(
+    hx: &Harness,
+    article_id: i64,
+    sport: &str,
+) -> Result<Vec<ScrubCandidate>> {
     let rows = sqlx::query(
         r#"
         SELECT nae.entity_type, nae.entity_id,

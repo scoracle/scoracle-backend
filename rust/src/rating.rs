@@ -317,8 +317,9 @@ pub fn compute_notability(p: &RatingProfile) -> (i32, serde_json::Value) {
         }
     }
     let comp = p.composite_score.unwrap_or(50.0); // average T-score anchor when no composite
-    let score =
-        0.6 * peak + (elite_count as f64 * 10.0).min(30.0) + clamp_f(-10.0, 10.0, (comp - 50.0) * 0.4);
+    let score = 0.6 * peak
+        + (elite_count as f64 * 10.0).min(30.0)
+        + clamp_f(-10.0, 10.0, (comp - 50.0) * 0.4);
     let n = clamp_f(0.0, 100.0, score).round() as i32;
     let comps = serde_json::json!({
         "peak_pct": round1(peak),
@@ -365,7 +366,11 @@ fn trim_float(f: f64) -> String {
 /// so equal-pct ties keep their stored order, matching Go given the same breakdown input order.
 fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
     let mut facts = breakdown.to_vec();
-    facts.sort_by(|a, b| b.pct.partial_cmp(&a.pct).unwrap_or(std::cmp::Ordering::Equal));
+    facts.sort_by(|a, b| {
+        b.pct
+            .partial_cmp(&a.pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     facts.truncate(MAX_STAT_FACTS);
     facts
 }
@@ -381,7 +386,11 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     let mut out = Vec::new();
     for m in modes {
         let mut dps = p.rate_modes[m].clone();
-        dps.sort_by(|a, b| b.pct.partial_cmp(&a.pct).unwrap_or(std::cmp::Ordering::Equal));
+        dps.sort_by(|a, b| {
+            b.pct
+                .partial_cmp(&a.pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         let mut cnt = 0;
         for d in &dps {
             if d.pct < 80.0 {
@@ -687,8 +696,14 @@ pub async fn build_rating_request(
     req: &RatingReq,
     temperature: f64,
 ) -> Result<RatingBuild> {
-    let Some(profile) =
-        load_rating_profile(&hx.pool, &req.entity_type, req.entity_id, &req.sport, req.season).await?
+    let Some(profile) = load_rating_profile(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        req.season,
+    )
+    .await?
     else {
         return Ok(RatingBuild::NoStats {
             season: req.season.unwrap_or(0),
@@ -783,9 +798,14 @@ pub async fn generate_rating(
     };
 
     if skip_unchanged {
-        if let Some(last) =
-            last_commentary_hash(&hx.pool, &req.entity_type, req.entity_id, &req.sport, ready.season)
-                .await?
+        if let Some(last) = last_commentary_hash(
+            &hx.pool,
+            &req.entity_type,
+            req.entity_id,
+            &req.sport,
+            ready.season,
+        )
+        .await?
         {
             if last == ready.input_hash {
                 return Ok(RatingOutput {
@@ -808,7 +828,12 @@ pub async fn generate_rating(
     }
 
     let extracted = hx
-        .extract(Role::StatsLogic, &ready.built_prompt, &ready.opts, &RatingParser)
+        .extract(
+            Role::StatsLogic,
+            &ready.built_prompt,
+            &ready.opts,
+            &RatingParser,
+        )
         .await?;
     let reply = extracted
         .value
@@ -916,7 +941,14 @@ pub async fn persist_stat_summary(
 mod tests {
     use super::*;
 
-    fn dp(label: &str, value: f64, z: f64, pct: f64, sign: i32, specialty: bool) -> RatingDatapoint {
+    fn dp(
+        label: &str,
+        value: f64,
+        z: f64,
+        pct: f64,
+        sign: i32,
+        specialty: bool,
+    ) -> RatingDatapoint {
         RatingDatapoint {
             label: label.to_string(),
             value,
@@ -1138,7 +1170,10 @@ mod tests {
 
     #[test]
     fn clean_commentary_strips_fences_and_labels() {
-        assert_eq!(clean_commentary("`Analysis: A solid two-way wing.`"), "A solid two-way wing.");
+        assert_eq!(
+            clean_commentary("`Analysis: A solid two-way wing.`"),
+            "A solid two-way wing."
+        );
         assert_eq!(clean_commentary("  Identity: A poacher.  "), "A poacher.");
         assert_eq!(clean_commentary("Plain prose."), "Plain prose.");
     }
@@ -1147,7 +1182,10 @@ mod tests {
     fn rating_parser_never_fails_closed() {
         // Even garbage parses to Some (rating's only marker is pre-model); an empty body is the
         // caller's hard error, not a served UNKNOWN.
-        let reply = RatingParser.parse("PEAK: X\nbody").unwrap().expect("always Some");
+        let reply = RatingParser
+            .parse("PEAK: X\nbody")
+            .unwrap()
+            .expect("always Some");
         assert_eq!(reply.divined_peak, "X");
         assert_eq!(reply.body, "body");
         assert!(RatingParser.parse("").unwrap().is_some());

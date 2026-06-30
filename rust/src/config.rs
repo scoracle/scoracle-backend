@@ -5,7 +5,7 @@
 
 use crate::embed::Pooling;
 use crate::route::Role;
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -59,18 +59,18 @@ impl Config {
 
         Ok(Self {
             database_url,
-            db_max_conns: env_int("COGNITION_DB_MAX_CONNS", 5) as u32,
+            db_max_conns: env_u32("COGNITION_DB_MAX_CONNS", 5)?,
             ollama_base_url,
             ollama_model,
-            ollama_timeout: Duration::from_secs(env_int("OLLAMA_TIMEOUT_SECONDS", 60) as u64),
+            ollama_timeout: Duration::from_secs(env_u64("OLLAMA_TIMEOUT_SECONDS", 60)?),
             // ≥1: a 0-permit semaphore would block every model call forever.
-            ollama_max_concurrent: env_int("OLLAMA_MAX_CONCURRENT", 1).max(1) as usize,
-            safety_net: Duration::from_secs(env_int("COGNITION_SAFETY_NET_SECONDS", 30) as u64),
+            ollama_max_concurrent: env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1),
+            safety_net: Duration::from_secs(env_u64("COGNITION_SAFETY_NET_SECONDS", 30)?),
             // 1800s = 30 min = Go derive.StaleLease.
-            stale_lease: Duration::from_secs(env_int("COGNITION_STALE_LEASE_SECONDS", 1800) as u64),
+            stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
-            embed: EmbedConfig::from_env(),
-            resolve: ResolveConfig::from_env(),
+            embed: EmbedConfig::from_env()?,
+            resolve: ResolveConfig::from_env()?,
         })
     }
 }
@@ -93,13 +93,13 @@ pub struct EmbedConfig {
 
 impl EmbedConfig {
     /// from_env reads `COGNITION_EMBED_*`, defaulting to BGE-small-en-v1.5 / cls / 256 tokens.
-    pub fn from_env() -> Self {
-        Self {
+    pub fn from_env() -> Result<Self> {
+        Ok(Self {
             model_repo: env_or("COGNITION_EMBED_MODEL", "BAAI/bge-small-en-v1.5"),
             revision: env_or("COGNITION_EMBED_REVISION", "main"),
             pooling: Pooling::from_str_or_cls(&env_or("COGNITION_EMBED_POOLING", "cls")),
-            max_tokens: env_int("COGNITION_EMBED_MAX_TOKENS", 256) as usize,
-        }
+            max_tokens: env_usize("COGNITION_EMBED_MAX_TOKENS", 256)?,
+        })
     }
 }
 
@@ -130,12 +130,12 @@ impl ResolveConfig {
     /// from_env reads `COGNITION_RESOLVE_{KEEP,DROP}_THRESHOLD`, defaulting to the measured
     /// conservative band. A wider band (raise keep / lower drop) sends more to the model
     /// (safer, less savings); a narrower band saves more GPU at some precision cost.
-    pub fn from_env() -> Self {
+    pub fn from_env() -> Result<Self> {
         let d = Self::default();
-        Self {
-            keep_threshold: env_float("COGNITION_RESOLVE_KEEP_THRESHOLD", d.keep_threshold),
-            drop_threshold: env_float("COGNITION_RESOLVE_DROP_THRESHOLD", d.drop_threshold),
-        }
+        Ok(Self {
+            keep_threshold: env_f32("COGNITION_RESOLVE_KEEP_THRESHOLD", d.keep_threshold)?,
+            drop_threshold: env_f32("COGNITION_RESOLVE_DROP_THRESHOLD", d.drop_threshold)?,
+        })
     }
 }
 
@@ -218,10 +218,71 @@ fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
 }
 
-fn env_int(key: &str, default: i64) -> i64 {
-    env_opt(key).and_then(|v| v.parse().ok()).unwrap_or(default)
+fn env_u32(key: &str, default: u32) -> Result<u32> {
+    let Some(raw) = env_opt(key) else {
+        return Ok(default);
+    };
+    raw.parse::<u32>()
+        .with_context(|| format!("{key} must be an unsigned 32-bit integer, got {raw:?}"))
 }
 
-fn env_float(key: &str, default: f32) -> f32 {
-    env_opt(key).and_then(|v| v.parse().ok()).unwrap_or(default)
+fn env_u64(key: &str, default: u64) -> Result<u64> {
+    let Some(raw) = env_opt(key) else {
+        return Ok(default);
+    };
+    raw.parse::<u64>()
+        .with_context(|| format!("{key} must be an unsigned integer, got {raw:?}"))
+}
+
+fn env_usize(key: &str, default: usize) -> Result<usize> {
+    let Some(raw) = env_opt(key) else {
+        return Ok(default);
+    };
+    raw.parse::<usize>()
+        .with_context(|| format!("{key} must be an unsigned integer, got {raw:?}"))
+}
+
+fn env_f32(key: &str, default: f32) -> Result<f32> {
+    let Some(raw) = env_opt(key) else {
+        return Ok(default);
+    };
+    let value = raw
+        .parse::<f32>()
+        .with_context(|| format!("{key} must be a finite float, got {raw:?}"))?;
+    if !value.is_finite() {
+        anyhow::bail!("{key} must be a finite float, got {raw:?}");
+    }
+    Ok(value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn env_u32_rejects_invalid_numeric_value() {
+        let key = "__SCORACLE_TEST_BAD_U32";
+        std::env::set_var(key, "five");
+        let err = env_u32(key, 5).unwrap_err();
+        std::env::remove_var(key);
+        assert!(format!("{err:#}").contains(key));
+    }
+
+    #[test]
+    fn env_u64_rejects_negative_value() {
+        let key = "__SCORACLE_TEST_BAD_U64";
+        std::env::set_var(key, "-1");
+        let err = env_u64(key, 60).unwrap_err();
+        std::env::remove_var(key);
+        assert!(format!("{err:#}").contains(key));
+    }
+
+    #[test]
+    fn env_f32_rejects_non_finite_value() {
+        let key = "__SCORACLE_TEST_BAD_F32";
+        std::env::set_var(key, "NaN");
+        let err = env_f32(key, 0.5).unwrap_err();
+        std::env::remove_var(key);
+        assert!(format!("{err:#}").contains(key));
+    }
 }

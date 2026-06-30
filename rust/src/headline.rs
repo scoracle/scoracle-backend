@@ -148,14 +148,16 @@ pub async fn load_vetted_corpus(
 
     Ok(rows
         .into_iter()
-        .map(|(id, title, description, source, url, published_at_epoch)| CorpusItem {
-            id,
-            title,
-            description: description.unwrap_or_default(),
-            source,
-            url,
-            published_at_epoch,
-        })
+        .map(
+            |(id, title, description, source, url, published_at_epoch)| CorpusItem {
+                id,
+                title,
+                description: description.unwrap_or_default(),
+                source,
+                url,
+                published_at_epoch,
+            },
+        )
         .collect())
 }
 
@@ -311,6 +313,7 @@ async fn persist_headlines(
     rows: &[HeadlineRow],
     model_version: &str,
 ) -> Result<()> {
+    let entity_id = item.entity_id_i32()?;
     for row in rows {
         sqlx::query(
             r#"
@@ -326,7 +329,7 @@ async fn persist_headlines(
         )
         .bind(sport)
         .bind(&item.entity_type)
-        .bind(item.entity_id)
+        .bind(entity_id)
         .bind(&row.title)
         .bind(&row.category)
         .bind(&row.source_url)
@@ -365,17 +368,11 @@ impl StageHandler for HeadlinesHandler {
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        let name = lookup_entity_name(&hx.pool, &item.entity_type, item.entity_id, &item.sport)
-            .await?;
+        let entity_id = item.entity_id_i32()?;
+        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
 
-        let (rows, model_version) = generate_headlines(
-            hx,
-            &item.entity_type,
-            item.entity_id,
-            &name,
-            &item.sport,
-        )
-        .await?;
+        let (rows, model_version) =
+            generate_headlines(hx, &item.entity_type, entity_id, &name, &item.sport).await?;
 
         if !rows.is_empty() {
             let sport = item.sport.to_uppercase();
@@ -449,7 +446,8 @@ mod tests {
 
     #[test]
     fn parser_accepts_article_numbers_array() {
-        let raw = r#"{"headlines": [{"title": "A", "category": "other", "article_numbers": [1, 2]}]}"#;
+        let raw =
+            r#"{"headlines": [{"title": "A", "category": "other", "article_numbers": [1, 2]}]}"#;
         let parsed = HeadlinesParser.parse(raw).unwrap().unwrap();
         assert_eq!(parsed.headlines[0].article_numbers, vec![1, 2]);
     }

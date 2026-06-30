@@ -52,7 +52,8 @@ async fn main() -> Result<()> {
     let cfg = Config::from_env()?;
 
     if args.mode != "single" {
-        let ollama = OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
+        let ollama =
+            OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
         ollama
             .ping()
             .await
@@ -82,7 +83,8 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
         return Err(anyhow!("-entity-id and -sport are required in single mode"));
     }
     let sport = args.sport.to_uppercase();
-    let name = vibe::lookup_entity_name(&hx.pool, &args.entity_type, args.entity_id, &sport).await?;
+    let name =
+        vibe::lookup_entity_name(&hx.pool, &args.entity_type, args.entity_id, &sport).await?;
     let req = RatingReq {
         entity_type: args.entity_type.clone(),
         entity_id: args.entity_id,
@@ -309,11 +311,12 @@ struct JobLock {
 impl JobLock {
     async fn acquire(pool: &PgPool, _db_url: &str, key: &str) -> Result<Option<Self>> {
         let mut conn = pool.acquire().await.context("acquire advisory-lock conn")?;
-        let acquired: bool = sqlx::query_scalar("SELECT pg_try_advisory_lock(hashtext($1)::bigint)")
-            .bind(key)
-            .fetch_one(&mut *conn)
-            .await
-            .with_context(|| format!("acquire advisory lock {key}"))?;
+        let acquired: bool =
+            sqlx::query_scalar("SELECT pg_try_advisory_lock(hashtext($1)::bigint)")
+                .bind(key)
+                .fetch_one(&mut *conn)
+                .await
+                .with_context(|| format!("acquire advisory lock {key}"))?;
         Ok(acquired.then(|| Self {
             conn,
             key: key.to_string(),
@@ -321,12 +324,11 @@ impl JobLock {
     }
 
     async fn release(mut self) -> Result<()> {
-        let unlocked: bool =
-            sqlx::query_scalar("SELECT pg_advisory_unlock(hashtext($1)::bigint)")
-                .bind(&self.key)
-                .fetch_one(&mut *self.conn)
-                .await
-                .with_context(|| format!("release advisory lock {}", self.key))?;
+        let unlocked: bool = sqlx::query_scalar("SELECT pg_advisory_unlock(hashtext($1)::bigint)")
+            .bind(&self.key)
+            .fetch_one(&mut *self.conn)
+            .await
+            .with_context(|| format!("release advisory lock {}", self.key))?;
         if !unlocked {
             eprintln!("statcommentary: advisory lock was not held at release");
         }
@@ -399,8 +401,7 @@ fn next_value(
     it: &mut std::iter::Peekable<impl Iterator<Item = String>>,
     flag: &str,
 ) -> Result<String> {
-    it.next()
-        .ok_or_else(|| anyhow!("{flag} requires a value"))
+    it.next().ok_or_else(|| anyhow!("{flag} requires a value"))
 }
 
 fn print_help() {

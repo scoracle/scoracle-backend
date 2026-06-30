@@ -289,10 +289,9 @@ impl Harness {
     /// a programming error (only embed-using stages should call this, and they construct the
     /// `Harness` with `Some(embedder)`).
     pub async fn embed(&self, texts: &[String]) -> Result<Vec<Vector>> {
-        let embedder = self
-            .embedder
-            .as_ref()
-            .ok_or_else(|| anyhow!("embed called but no Embedder loaded (Harness.embedder is None)"))?;
+        let embedder = self.embedder.as_ref().ok_or_else(|| {
+            anyhow!("embed called but no Embedder loaded (Harness.embedder is None)")
+        })?;
         tokio::task::block_in_place(|| embedder.embed_batch(texts))
     }
 }
@@ -380,11 +379,11 @@ mod tests {
     fn cluster_groups_similar_separates_dissimilar() {
         // Two tight pairs along different axes + one singleton.
         let v = vec![
-            vec![1.0, 0.0, 0.0],  // 0 ─┐ axis x
+            vec![1.0, 0.0, 0.0],   // 0 ─┐ axis x
             vec![0.99, 0.01, 0.0], // 1 ─┘
-            vec![0.0, 1.0, 0.0],  // 2 ─┐ axis y
+            vec![0.0, 1.0, 0.0],   // 2 ─┐ axis y
             vec![0.0, 0.98, 0.02], // 3 ─┘
-            vec![0.0, 0.0, 1.0],  // 4    axis z (alone)
+            vec![0.0, 0.0, 1.0],   // 4    axis z (alone)
         ];
         let clusters = cluster(&v, 0.9);
         assert_eq!(clusters.len(), 3);

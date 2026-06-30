@@ -1,4 +1,4 @@
-// Package thirdparty provides clients for third-party APIs (news, twitter).
+// Package thirdparty provides clients for third-party APIs.
 package thirdparty
 
 import (

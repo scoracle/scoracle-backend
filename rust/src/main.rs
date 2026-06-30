@@ -17,7 +17,7 @@
 //! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md` (the older phased plan
 //! `scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
@@ -62,12 +62,10 @@ async fn main() -> Result<()> {
     // Post Step-3 cutover the daemon owns all six stages (headlines added as the third news-rail
     // product); the Go derive worker is retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
-    let enabled: HashSet<String> = std::env::var("COGNITION_STAGES")
-        .unwrap_or_else(|_| "scrub,headlines,transfers,narratives,vibe,sigil".to_string())
-        .split(',')
-        .map(|s| s.trim().to_lowercase())
-        .filter(|s| !s.is_empty())
-        .collect();
+    let enabled = parse_enabled_stages(
+        &std::env::var("COGNITION_STAGES")
+            .unwrap_or_else(|_| "scrub,headlines,transfers,narratives,vibe,sigil".to_string()),
+    )?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub gate's asymmetric resolve_set pre-filter
     // AND the narratives near-duplicate dedup. It is a heavy resource, so it loads ONLY when one of
@@ -117,4 +115,60 @@ async fn main() -> Result<()> {
 
     let worker = worker::Worker::new(harness, handlers, cfg.safety_net, cfg.stale_lease);
     worker.run().await
+}
+
+fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
+    const KNOWN: &[&str] = &[
+        "scrub",
+        "headlines",
+        "transfers",
+        "narratives",
+        "vibe",
+        "sigil",
+    ];
+
+    let mut stages = HashSet::new();
+    let mut unknown = Vec::new();
+    for stage in raw
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+    {
+        if KNOWN.contains(&stage.as_str()) {
+            stages.insert(stage);
+        } else {
+            unknown.push(stage);
+        }
+    }
+    if !unknown.is_empty() {
+        return Err(anyhow!(
+            "unknown COGNITION_STAGES value(s): {}; allowed: {}",
+            unknown.join(","),
+            KNOWN.join(",")
+        ));
+    }
+    Ok(stages)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_enabled_stages;
+
+    #[test]
+    fn parse_enabled_stages_normalizes_and_dedupes() {
+        let stages = parse_enabled_stages(" Scrub, vibe, VIBE ,,sigil ").unwrap();
+        assert_eq!(stages.len(), 3);
+        assert!(stages.contains("scrub"));
+        assert!(stages.contains("vibe"));
+        assert!(stages.contains("sigil"));
+    }
+
+    #[test]
+    fn parse_enabled_stages_rejects_unknown_values() {
+        let err = parse_enabled_stages("scrub,headlinez")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("headlinez"));
+        assert!(err.contains("headlines"));
+    }
 }

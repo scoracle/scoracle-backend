@@ -805,7 +805,7 @@ pub async fn analyze_pair(
 
 /// persist_transfer_row writes ONE row to the LIVE transfer_rumors table — the scored rumor, the
 /// cleared row, and the UNKNOWN marker, which differ only in the bound values. Mirrors
-/// `transfer.go::persist` (input_tweet_ids defaults to '{}', generated_at defaults NOW()).
+/// `transfer.go::persist` (generated_at defaults NOW()).
 /// `confidence` is bound float8 then cast to the numeric(3,2) column (sqlx has no numeric encode
 /// without the decimal feature — the dual of the scrub `::float8` read landmine).
 #[allow(clippy::too_many_arguments)]

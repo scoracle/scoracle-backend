@@ -74,9 +74,6 @@ Operational + mobile-auth routes:
 - `GET /docs/`, `GET /docs/go.json` (Swagger UI + spec)
 - `POST /api/v1/auth/device`, `POST /api/v1/auth/refresh` (public); `POST /api/v1/auth/device/push`, `POST /api/v1/auth/logout` (bearer)
 
-> The live `/api/v1/news/*` and `/api/v1/twitter/*` integration routes were **removed**
-> (O12/O13); X was decommissioned (O15). They are no longer wired in `server.go`.
-
 See `ENDPOINTS.md` for full contract details.
 
 ## Implementation Notes
@@ -101,6 +98,7 @@ scoracle-backend/
 │   ├── docs/
 │   ├── Dockerfile
 │   └── go.mod
+├── rust/                   # Rust Cognition Harness: queue-stage model inference + rating batch
 ├── seed/                   # Python seeder and provider clients
 ├── planning_docs/
 └── progress_docs/
@@ -142,9 +140,14 @@ scoracle-seed meta seed nba --season 2025
 ## Testing
 
 ```bash
-cd go && go test ./...
-cd go && go build -o bin/scoracle-api ./cmd/api
+(cd go && go test ./...)
+(cd go && go build -o bin/scoracle-api ./cmd/api)
+(cd rust && cargo test --lib)
+(cd rust && cargo build --bin scoracle-cognition --bin statcommentary)
 ```
+
+See [`planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md`](planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md)
+for the current recommendation on whether the Rust cognition layer should become its own repo.
 
 ## Environment Variables
 
@@ -166,8 +169,6 @@ Common optional (full list + defaults in `config.go`):
 - Go workers: `NEWS_SCRUB_ENABLED`, `PIPELINE_STATS_INTERVAL_MINUTES`
 - Mobile auth: `JWT_SECRET` (unset ⇒ `/auth/*` returns 503), `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`
 - `FIREBASE_CREDENTIALS_FILE`; seeder third key `API_SPORTS_KEY`
-
-> X/Twitter was permanently decommissioned (O15, 2026-06-19) — there are **no** `TWITTER_*` env vars anymore.
 
 ## Trademarks & Nominative Fair Use
 

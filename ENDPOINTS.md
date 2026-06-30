@@ -31,12 +31,8 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 
 **Removed (no longer wired — kept here so this file matches reality):** the bundled profile
 route `/{sport}/{entityType}/{id}` (O16); the per-entity aliases `/special`, `/trends`,
-`/vibes` (O14 convergence rename); the live integration routes `/api/v1/news/*` (O12) and
-`/api/v1/twitter/*` (O13, X decommissioned O15); the legacy `/sparkline`/`/starline`.
-
-> **Swagger drift (S17 finding F-045):** the committed spec under `go/docs/` still lists the
-> removed `/twitter/*` and `/api/v1/news/*` routes, so the live `/docs/` UI is stale until
-> `swag init` is re-run and the API redeployed. Trust this file + `server.go`, not `/docs/`.
+`/vibes` (O14 convergence rename); the old live integration routes; the legacy
+`/sparkline`/`/starline`.
 
 ## Core Data Endpoints (Canonical)
 
@@ -996,126 +992,6 @@ The vibe *data* (vibe_scores) and its writers (CLI / listener / cron) are unchan
 - `GET /docs/` - Swagger UI documentation
 - `GET /docs/go.json` - OpenAPI/Swagger JSON spec
 
-## Response Structure
-
-> **Historical (route removed).** The bundled `/{sport}/{entityType}/{id}` profile route was
-> removed (O16); the two "Profile Response Example" blocks below describe its old payload and are
-> kept only as a reference for the percentile/scoped-percentile shapes (which still ride `/stats`).
-> The live page is assembled from the per-product endpoints in the inventory at the top of this file.
-
-### Profile Response Example (Player) — historical (bundled route removed)
-
-```json
-{
-  "page": "profile",
-  "sport": "nba",
-  "entity_type": "player",
-  "entity": {
-    "id": 666609,
-    "name": "Rui Hachimura",
-    "first_name": "Rui",
-    "last_name": "Hachimura",
-    "position": "F",
-    "nationality": "Japan",
-    "height": "6-8",
-    "weight": "230",
-    "team": {
-      "id": 14,
-      "name": "Lakers",
-      "abbreviation": "LAL",
-      "city": "Los Angeles",
-      "conference": "West",
-      "division": "Pacific"
-    },
-    "season": 2025
-  },
-  "stats": {
-    "pts": 18.0,
-    "reb": 5.0,
-    "ast": 1.0,
-    "games_played": 1
-  },
-  "percentiles": {
-    "pts": 100.0,
-    "reb": 50.0,
-    "ast": 0.0
-  },
-  "percentile_metadata": {
-    "position_group": "F",
-    "sample_size": 13
-  },
-  "scoped_percentiles": {
-    "pts": 92.3,
-    "reb": 61.5,
-    "ast": 7.7
-  },
-  "scoped_percentile_metadata": {
-    "scope_type": "conference",
-    "scope_id": "West",
-    "scope_name": "West",
-    "position_group": "F",
-    "sample_size": 13
-  },
-  "meta": {
-    "season": 2025,
-    "league_id": null,
-    "available_seasons": [2025, 2024, 2023]
-  }
-}
-```
-
-`percentiles` is sport-wide (partitioned by player position). `scoped_percentiles` is partitioned by **(position, conference)** for NBA/NFL and **(position, league)** for Football — same percentile semantics, narrower comparison set. Both are emitted; clients can show either or both.
-
-### Profile Response Example (Team)
-
-```json
-{
-  "page": "profile",
-  "sport": "nba",
-  "entity_type": "team",
-  "entity": {
-    "id": 18,
-    "name": "Timberwolves",
-    "short_code": "MIN",
-    "city": "Minnesota",
-    "conference": "West",
-    "division": "Northwest",
-    "season": 2025
-  },
-  "stats": {
-    "wins": 0,
-    "losses": 1,
-    "pts": 103.0,
-    "games_played": 1
-  },
-  "percentiles": {
-    "wins": 0.0,
-    "pts": 0.0
-  },
-  "percentile_metadata": {
-    "sample_size": 30
-  },
-  "scoped_percentiles": {
-    "wins": 0.0,
-    "pts": 6.7
-  },
-  "scoped_percentile_metadata": {
-    "scope_type": "conference",
-    "scope_id": "West",
-    "scope_name": "West",
-    "sample_size": 15
-  },
-  "stat_definitions": [...],
-  "meta": {
-    "season": 2025,
-    "league_id": null,
-    "available_seasons": [2025, 2024, 2023]
-  }
-}
-```
-
-For teams, `scoped_percentiles` is partitioned by **conference** (NBA/NFL) or **league** (Football) — no position dimension since teams don't have positions.
-
 ### Meta Response Example
 
 ```json
@@ -1283,7 +1159,7 @@ identity persists via the refresh token in the device Keychain. Full design:
 - Rust cognition handlers (all model inference stages + rating batch): `rust/src/{scrub,headline,transfer,narratives,vibe,sigil,rating}.rs`, `rust/src/main.rs`, `rust/src/bin/statcommentary.rs`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
-- Swagger docs (generated; stale per F-045): `go/docs/`
+- Swagger docs (generated from handler annotations): `go/docs/`
 
 ---
 

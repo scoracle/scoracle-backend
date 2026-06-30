@@ -98,11 +98,6 @@ Sport-level + board routes:
 - `/{sport}/leagues/{leagueId}/...` (league-scoped variants of momentum, results, meta, health)
 - Mobile auth: `/api/v1/auth/{device,refresh,device/push,logout}`
 
-Removed integration routes (we own all data now — **gone from the router**, kept here so docs match reality):
-
-- `/api/v1/news/...` — live Google-RSS lookup; **removed** (O12). The eager News card reads the precomputed `/{sport}/{type}/{id}/news` narratives. (The Google-RSS *compile* still runs in the background pipeline, off the request path.)
-- `/api/v1/twitter/...` — **removed** (O13); X was permanently decommissioned (O15, 2026-06-19) — client, routes, env, and tweet tables are all gone.
-
 ## Implementation Boundaries
 
 - Route wiring belongs in `go/internal/api/server.go`.
@@ -247,8 +242,6 @@ Common optional (full list + defaults in `go/internal/config/config.go`):
 - **Mobile auth:** `JWT_SECRET` (unset ⇒ `/auth/*` returns 503; rest of API unaffected), `JWT_ACCESS_TTL_MINUTES` (30), `JWT_REFRESH_TTL_DAYS` (90)
 - `FIREBASE_CREDENTIALS_FILE`
 - Seeder-only third key: `API_SPORTS_KEY`
-
-> X/Twitter was permanently decommissioned (O15, 2026-06-19): there are **no** `TWITTER_*` env vars in `config.go` — the client, routes, env, and tweet tables are all gone.
 
 ## Key Files
 

@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Tunnel / API smoke test.
 #
-# Exercises the half-dozen endpoints that actually matter for a frontend
-# connection: health, status endpoints, vibe reads, a profile page,
-# and CORS preflight. Skip the write-through endpoints (news fetch,
-# twitter refresh) by default since they spend real provider quota.
+# Exercises the endpoints that actually matter for a frontend connection:
+# process health, sport health, per-product entity reads, leaderboards, and
+# CORS preflight. Historical live integration routes are intentionally not probed.
 #
 # Run after any of these changes:
 #   - Cloudflare Tunnel config edited
@@ -17,7 +16,7 @@
 #   scripts/hosting/tunnel-smoke.sh                              # local API
 #   scripts/hosting/tunnel-smoke.sh https://api.<YOUR-DOMAIN>    # via CF Tunnel
 #   scripts/hosting/tunnel-smoke.sh https://api.<YOUR-DOMAIN> https://app.<YOUR-DOMAIN>
-#   scripts/hosting/tunnel-smoke.sh --full https://api.<YOUR-DOMAIN>
+#   scripts/hosting/tunnel-smoke.sh --full https://api.<YOUR-DOMAIN>  # accepted for old runbooks; no extra checks
 #
 # Replace <YOUR-DOMAIN> with a domain YOU OWN and have tunneled — not a
 # placeholder. Running against an unowned domain will get generic CF
@@ -51,7 +50,7 @@ fi
 ORIGIN=${2:-$DEFAULT_ORIGIN}
 
 # Known test entities — adjust if your DB doesn't have these. NBA 115 is
-# Stephen Curry; 14 is the Lakers. Both likely have vibes / data.
+# Stephen Curry; 14 is the Lakers. Both likely have data.
 PLAYER_ID=${SCORACLE_TEST_PLAYER_ID:-115}
 TEAM_ID=${SCORACLE_TEST_TEAM_ID:-14}
 
@@ -88,13 +87,6 @@ probe() {
          -w '%{http_code} %{time_total}s %{size_download}B' \
          --max-time 15 \
          "$url" 2>/tmp/smoke-err.$$ || echo "000 err -"
-}
-
-probe_with_body() {
-    local url=$1
-    probe "$url"
-    cat /tmp/smoke-body.$$ 2>/dev/null
-    rm -f /tmp/smoke-body.$$ /tmp/smoke-err.$$
 }
 
 # CORS preflight — OPTIONS with Origin + Access-Control-Request-Method.
@@ -136,8 +128,8 @@ check_200() {
 }
 
 check_200_or_404() {
-    # For the vibe endpoint: 404 is a legitimate "no blurb yet" answer,
-    # not an infra failure. Distinguish in output.
+    # For generated entity products, 404 can be a legitimate "not generated
+    # yet" answer, not an infra failure. Distinguish in output.
     local label=$1 url=$2
     local result status
     result=$(probe "$url")
@@ -196,25 +188,30 @@ check_200 "GET /health/db"             "$HOST/health/db"
 check_200 "GET /health/cache"          "$HOST/health/cache"
 
 echo
-echo "-- Status endpoints --"
-check_200 "GET /api/v1/news/status"    "$HOST/api/v1/news/status"
-check_200 "GET /api/v1/twitter/status" "$HOST/api/v1/twitter/status"
+echo "-- Sport health --"
+check_200 "GET /api/v1/nba/health" "$HOST/api/v1/nba/health"
 
 echo
-echo "-- Vibe reads --"
-check_200_or_404 "GET vibe player=$PLAYER_ID"     "$HOST/api/v1/nba/vibe/player/$PLAYER_ID"
-check_200_or_404 "GET vibe team=$TEAM_ID"         "$HOST/api/v1/nba/vibe/team/$TEAM_ID"
-check_200_or_404 "GET vibe history player=$PLAYER_ID" "$HOST/api/v1/nba/vibe/player/$PLAYER_ID/history?limit=3"
+echo "-- Entity products --"
+check_200_or_404 "GET meta player=$PLAYER_ID"      "$HOST/api/v1/nba/player/$PLAYER_ID/meta"
+check_200_or_404 "GET stats player=$PLAYER_ID"     "$HOST/api/v1/nba/player/$PLAYER_ID/stats"
+check_200_or_404 "GET rating player=$PLAYER_ID"    "$HOST/api/v1/nba/player/$PLAYER_ID/rating"
+check_200_or_404 "GET sigil player=$PLAYER_ID"     "$HOST/api/v1/nba/player/$PLAYER_ID/sigil"
+check_200_or_404 "GET news player=$PLAYER_ID"      "$HOST/api/v1/nba/player/$PLAYER_ID/news"
+check_200_or_404 "GET headlines player=$PLAYER_ID" "$HOST/api/v1/nba/player/$PLAYER_ID/headlines"
+check_200_or_404 "GET sigil team=$TEAM_ID"         "$HOST/api/v1/nba/team/$TEAM_ID/sigil"
 
 echo
 echo "-- Sport data --"
-check_200 "GET profile player=$PLAYER_ID" "$HOST/api/v1/nba/player/$PLAYER_ID"
-check_200 "GET meta nba"                  "$HOST/api/v1/nba/meta"
+check_200 "GET meta nba"              "$HOST/api/v1/nba/meta"
+check_200 "GET autofill nba"          "$HOST/api/v1/nba/autofill"
+check_200 "GET leaderboard nba"       "$HOST/api/v1/nba/leaderboard?limit=3"
+check_200 "GET leaderboard sigil nba" "$HOST/api/v1/nba/leaderboard/sigil?limit=3"
 
 echo
 echo "-- CORS preflight --"
 check_cors "OPTIONS /api/v1/nba/meta" "$HOST/api/v1/nba/meta" "$ORIGIN"
-check_cors "OPTIONS /api/v1/news/status" "$HOST/api/v1/news/status" "$ORIGIN"
+check_cors "OPTIONS entity meta" "$HOST/api/v1/nba/player/$PLAYER_ID/meta" "$ORIGIN"
 
 echo
 echo "-- Origin-less GET (server-to-server / SSR fetch path) --"
@@ -224,14 +221,7 @@ check_origin_less "GET /health/db (no Origin)"           "$HOST/health/db"
 if [[ $FULL -eq 1 ]]; then
     echo
     echo "-- Write-through (--full) --"
-    echo "    These hit real providers. Skip without --full to save quota."
-    check_200 "GET news player=$PLAYER_ID (fetch+persist)" "$HOST/api/v1/news/player/$PLAYER_ID?sport=NBA"
-    check_200 "GET twitter feed nba"                       "$HOST/api/v1/nba/twitter/feed?limit=3"
-else
-    echo
-    echo "-- Write-through (skipped; pass --full to exercise) --"
-    emit skip "GET news player=$PLAYER_ID"  "hits Google RSS"
-    emit skip "GET twitter feed nba"        "hits X API (charges credits)"
+    emit skip "--full" "no live provider-quota checks remain"
 fi
 
 # ---------------------------------------------------------------------------

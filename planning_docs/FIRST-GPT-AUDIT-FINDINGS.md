@@ -361,7 +361,7 @@ relying on them.
 - **Found:** Session 10 · **Status:** Ops note
 - The standard rule (F-001) is "apply the migration BEFORE the API restart" because `db.New` prepares
   statements at boot. That assumes the migration only ADDS capability the new binary needs. When a migration
-  DROPS a column/function-param that the OLD binary still writes/reads (here: `input_tweet_ids` and
+  DROPS a column/function-param that the OLD binary still writes/reads (here: legacy social-feed ids and
   `compute_transfer_heat`'s 4th OUT param), the order **inverts**: the OLD binary breaks on the new schema,
   but the NEW binary is written to tolerate BOTH (it omits the dropped column from INSERTs — default fills it
   — and SELECTs a named OUT-param subset that works with or without the dropped param). S10 shipped no new/
@@ -653,7 +653,7 @@ relying on them.
 
 ### F-039 — Restore drill: parts of the audit's defect list were already fixed; S15 turned it into a "bootable backend" proof
 - **Found:** Session 15 · **Status:** Resolved (Session 15)
-- Re-confirmed before acting (per F-015 discipline): the live `restore-drill.sh` **already** had no `tweets`
+- Re-confirmed before acting (per F-015 discipline): the live `restore-drill.sh` **already** had no legacy social-feed table
   check and **no `|| true`** swallowing `pg_restore` (it used `--exit-on-error` under `set -e`). The audit's
   Problems list described an OLDER version. What was genuinely missing — and what S15 added: (1) an explicit
   fatal on `pg_restore` error (message, not just `set -e`); (2) **missing OR empty** critical table is fatal;
@@ -778,8 +778,8 @@ relying on them.
   and the two-rail memory was a snapshot that the convergence rename superseded.
 - **What was actually out of date in the docs** (all reconciled this session):
   - `README.md` — API surface listed `/special` `/trends` per-entity `/vibes`, the removed
-    `/api/v1/news/*` + `/api/v1/twitter/*` integration routes, "journalist tweets", a non-existent
-    `RAILWAY_DATABASE_URL` in the DB-URL priority, and dead `TWITTER_*` env vars; missing the Ollama/
+    removed live integration routes, old social-feed prose, a non-existent
+    `RAILWAY_DATABASE_URL` in the DB-URL priority, and dead social-provider env vars; missing the Ollama/
     derive/scrub/transfer/JWT env vars and the `sigil`/`trending` boards. Rewritten to match `server.go`
     + `config.go`.
   - `ENDPOINTS.md` — date was 2026-05-30; `/stats · /special` heading; stale `"page":"sparkline"`/
@@ -790,21 +790,21 @@ relying on them.
     top, `/rating` + `/leaderboard/trending` sections, fixed literals, marked the profile example
     historical, corrected the map.
   - `CLAUDE.md` — Route Conventions still listed the bundled profile route as canonical and the
-    `/news`+`/twitter` routes as "being retired/PARKED" (both already removed); Environment still
-    carried the "parked Twitter" env block. Rewritten to the per-product route list + the real optional
-    env vars; Twitter noted as fully decommissioned (O15).
+    removed live integration routes as "being retired/PARKED"; Environment still
+    carried a parked social-provider env block. Rewritten to the per-product route list + the real optional
+    env vars.
   - Code comments (in scope per S17, NO behavior change): `go/internal/db/db.go` prepared-statement
     header mapped `/sigil`→commentary + `/trends`→series (both wrong vs live routing) → corrected to
-    `/rating`/`/momentum`; `go/cmd/api/main.go` Swagger `@description` "journalist tweets" → Gemma
+    `/rating`/`/momentum`; `go/cmd/api/main.go` Swagger `@description` old social-feed prose → Gemma
     products.
 - **Lesson:** the route source of truth is `server.go`, never a memory or an audit paragraph. Two
   independent "current" sources (the audit, the two-rail memory) were both behind the same commit.
 
-### F-045 — Committed Swagger spec (`go/docs/`) still advertises the removed `/twitter/*` + `/api/v1/news/*` routes
+### F-045 — Committed Swagger spec (`go/docs/`) still advertises removed live integration routes
 - **Found:** Session 17 · **Status:** Resolved-pending-redeploy (LAUNCH-GATE S1, 2026-06-24) — spec
   regenerated + committed; the live `/docs/` UI updates on the next `release.sh` (the spec is embedded).
 - `go/docs/docs.go` (and `swagger.json`/`.yaml`) are **generated** from handler annotations and were not
-  regenerated after O12/O13 removed the live `/api/v1/news/*` and `/twitter/*` serving routes. The live
+  regenerated after O12/O13 removed the live integration serving routes. The live
   `/docs/` Swagger UI (served from the embedded spec) therefore still lists endpoints that 404. The
   hand-written `ENDPOINTS.md` (now reconciled) + `server.go` are trustworthy; `/docs/` is not until
   someone runs `swag init` in `go/` and ships it on the next `release.sh`. Recorded in `ENDPOINTS.md`'s
@@ -812,7 +812,7 @@ relying on them.
 - **Action (next deploy, not launch-blocking for the API itself):** regenerate Swagger and redeploy.
 - **Fix (LAUNCH-GATE S1):** ran `swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal` in
   `go/` (swag v1.16.4; go.mod pins the library at v1.16.6 — generated output is compatible and the regenerated
-  `docs.go` builds clean). `twitter` + `/api/v1/news` mentions in the spec went **6 → 0**; the only `news`
+  `docs.go` builds clean). Stale integration mentions in the spec went **6 → 0**; the only `news`
   paths left are the live `/{sport}/{entityType}/{id}/news` + `/{sport}/leaderboard/news` (correct, kept).
   Net −736 lines of dead route docs across `docs.go`/`swagger.json`/`swagger.yaml`. `go build ./cmd/api`
   passes, so the embedded spec is valid. **Redeploy still pending** — the spec ships embedded in the binary,
@@ -839,9 +839,8 @@ relying on them.
      grant) and `planning_docs/SELF_HOSTING_OPS.md`. `git log -S` = **4 commits**. This is the one S17 found.
   3. **`API_SPORTS_KEY`** (api-sports.io provider key; CLAUDE.md still lists it as the seeder "third key" —
      **confirm if active before deciding revoke-vs-rotate**). In historical `.env.local`. **4 commits** here.
-  4. **`TWITTER_BEARER_TOKEN`** (118-char X API token). In historical `.env.local`. **2 commits**. X was
-     decommissioned (O15) so the integration is gone — still **revoke** the token. (`TWITTER_JOURNALIST_LIST_ID`
-     also leaked — config, not a secret.)
+  4. **Retired social-provider bearer token**. In historical `.env.local`. **2 commits**. The integration
+     is gone — still **revoke** the token. A related non-secret list id also leaked.
 - **`.env.local` was TRACKED in the legacy era** (added in the Python/Neon era, deleted in `205c173`
   "credential exposure"); it survives in history with all of secrets 1/3/4. It is gitignored now (good),
   but history is the live leak.
@@ -869,8 +868,7 @@ relying on them.
   1. **Rotate / revoke** every value, in risk order: (a) **Neon** — delete the abandoned Neon projects (also
      stops billing) or reset `neondb_owner`; (b) **local archbox `scoracle` pw** — `ALTER ROLE`, then update
      `.env.local` on archbox **and** archx220, verify API + seeder + restore-drill authenticate; (c)
-     **API_SPORTS_KEY** — rotate at api-sports.io if active, else revoke; (d) **TWITTER_BEARER_TOKEN** — revoke
-     at the X dev portal.
+     **API_SPORTS_KEY** — rotate at api-sports.io if active, else revoke; (d) retired social-provider token — revoke.
   2. **Purge history** across `scoracle-backend` (+ `dotfiles`, + delete/rewrite the `Scoracle` clone) with
      `git filter-repo` (NOT installed — `pip install git-filter-repo` first): path-delete `.env.local` +
      `.claude/settings.local.json` everywhere, `--replace-text` the local pw out of `SELF_HOSTING_OPS.md`
@@ -896,10 +894,10 @@ relying on them.
   `pipeline_runs_latest`; the S16 CI gate; health/incident quick-reference; a bare-metal rebuild checklist;
   and the launch-gate carryovers. Cross-linked from `README.md` and `scripts/hosting/README.md`.
 
-### F-048 — Scattered "tweet"/"sentiment" vocabulary remains in non-serving code comments (cosmetic)
+### F-048 — Scattered legacy social-feed vocabulary remains in non-serving code comments (cosmetic)
 - **Found:** Session 17 · **Status:** Open (cosmetic; intentionally NOT swept in a docs-only session).
 - Beyond the two comments S17 fixed, `go/internal/ml/{vibe,transfer}.go`, `thirdparty/{news,match}.go`,
-  `api/respond/respond.go`, and `api/handler/auth.go` still mention "tweets"/"twitter" in prose comments
+  `api/respond/respond.go`, and `api/handler/auth.go` still mention legacy social-feed terms in prose comments
   describing historical pipeline behavior (X is decommissioned, O15). `ml/sigil.go` + `cmd/vibesynth`
   reference `divined_sigil` **intentionally** — that's the legacy input-component key the convergence
   migration converts to `divined_peak`; those are correct, not stale. Left untouched to keep the S17 diff

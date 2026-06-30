@@ -23,8 +23,8 @@ type EntityMatchInput struct {
 }
 
 // MatchesEntity reports whether the supplied text mentions the given entity.
-// The logic is shared between news article filtering and tweet entity linking,
-// so behaviour stays consistent across integrations (see architecture notes).
+// The logic is shared by news article filtering and downstream corpus stages,
+// so behavior stays consistent across the news rail.
 func MatchesEntity(text string, in EntityMatchInput) bool {
 	return nameInText(
 		in.Name,

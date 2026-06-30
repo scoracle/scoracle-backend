@@ -151,7 +151,7 @@ Body: { "p_season": 2025, "p_stat_name": "pts" }
 - `go/internal/config/config.go` — unchanged
 - `go/internal/db/db.go` — 16 active prepared statements unchanged (8 dead ones removed)
 - `docker-compose.yml` — unchanged
-- Go API server, handlers for news/twitter — unchanged
+- Go API server and news corpus handlers — unchanged
 
 ## Sport File Structure
 

@@ -55,7 +55,7 @@ see the appendix.
       Rust parity session; set F-035 first) — **Scott's operational call.** Runbook: `progress_docs/
       2026-06-24_LAUNCH-GATE-S1.md` §F-030. Required before the Convergence proof + the "Sigil broadly
       populated" launch criterion. (Relates to **F-028** — keep the legacy NULL-season allowance until stamped.)
-- [x] **F-045:** ✅ S1 regenerated `go/docs/*` via `swag init` (twitter/news mentions 6→0; builds clean).
+- [x] **F-045:** ✅ S1 regenerated `go/docs/*` via `swag init` (stale route mentions removed; builds clean).
       **Redeploy via `release.sh` still pending** (spec is embedded; `/docs/` updates on next deploy — Scott).
       Satisfies the "docs describe the same system" criterion for the Swagger surface once redeployed.
 - [ ] **F-035:** set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`

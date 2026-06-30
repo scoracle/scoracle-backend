@@ -359,11 +359,8 @@ These surfaced during the audit and are pre-launch work (see `planning_docs/FIRS
   `OFFHOST_BACKUP_DIR`.
 - **F-035** — set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
   (needs sudo).
-- **F-043** — `docker-compose build: seed/` references a non-existent `seed/Dockerfile` (minor).
-- **F-045** — regenerate Swagger (`swag init`) so `/docs/` stops advertising the removed `/twitter/*`
-  + `/api/v1/news/*` routes; ships on the next `release.sh`.
 - **F-046 🔴 (security)** — credential leak, scope wider than first thought: **4 distinct secrets** (Neon
-  cloud pw, local archbox `scoracle` pw, `API_SPORTS_KEY`, `TWITTER_BEARER_TOKEN`) across **3 repos**
+  cloud pw, local archbox `scoracle` pw, `API_SPORTS_KEY`, retired provider bearer token) across **3 repos**
   (`scoracle-backend`, `dotfiles`, the capital-`Scoracle` legacy clone) and a historically-tracked
   `.env.local`. **S18 done:** working tree fully scrubbed + `.claude/settings.local.json` untracked +
   gitignored. **Still gated on Scott:** rotate/revoke all 4 (the only real fix — treat as compromised),

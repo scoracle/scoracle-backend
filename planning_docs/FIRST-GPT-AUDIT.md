@@ -583,9 +583,9 @@ Notifications improve latency but are never required for correctness.
 > (`loadTransferHeat`) and `pipeline_stats.transfer_rumors_active` (the `/transfers` read contract already
 > had it). `compute_transfer_heat` now requires BOTH links `vetted IS TRUE` (dropped the unscrubbed-link
 > allowance — empirically 56/1950 active pairs lose heat that was unvetted, monotonic, 0 gained). Removed
-> simplification-C tweet vestigials: dropped the unused fail-OPEN `seed_transfer_rumors`, the
-> `compute_transfer_heat` `tweet_ids` OUT param, and `input_tweet_ids` on `transfer_rumors`+`vibe_scores`
-> (+ `loadPairTweets`/`tweetItem`/tweet consts in Go). Verified live: new binary writes only model-stamped
+> simplification-C legacy social-feed vestigials: dropped the unused fail-OPEN `seed_transfer_rumors`,
+> the legacy social id OUT param, and legacy social id columns on `transfer_rumors`+`vibe_scores`
+> (+ old pair loaders/items/consts in Go). Verified live: new binary writes only model-stamped
 > TRUE/FALSE (0 fail-open), `/transfers` + leaderboard 200, a newer FALSE/NULL supersedes an older TRUE in
 > grounding. Deploy order INVERTED (F-022): released the new binary first (tolerates both schemas), then
 > migrated. Progress doc: `progress_docs/2026-06-22_first-gpt-audit-session-10-transfer-fail-closed.md`.
@@ -600,7 +600,7 @@ Notifications improve latency but are never required for correctness.
 - Internal transfer heat used by narratives and Vibe does not filter `is_rumor`.
 - Cleared rumors can continue influencing downstream prose and scores.
 - `compute_transfer_heat` still permits unscrubbed links.
-- Vestigial tweet fields and loaders remain after Twitter table removal.
+- Vestigial legacy social-feed fields and loaders remain after table removal.
 
 ## Work
 
@@ -616,7 +616,7 @@ Notifications improve latency but are never required for correctness.
   - Vibe inputs;
   - pipeline statistics.
 - Require both article/entity links to be `vetted IS TRUE` in `compute_transfer_heat`.
-- Remove remaining tweet loaders, constants, output parameters, and columns if no compatibility consumer remains.
+- Remove remaining legacy social-feed loaders, constants, output parameters, and columns if no compatibility consumer remains.
 - Consider distinguishing deterministic heat from validated rumor status in naming and API contracts.
 
 ## Verification
@@ -960,7 +960,7 @@ Ollama downtime delays enrichment but neither loses work nor changes truth seman
 ## Problems
 
 - Restore drill ignores `pg_restore` failure with `|| true`.
-- The drill checks the dropped `tweets` table.
+- The drill checks a dropped legacy social-feed table.
 - Two failed queries returning `n/a` can be labeled `ok`.
 - Default backups are on the same physical storage as Postgres.
 - Migration application and migration-ledger recording are separate transactions/processes.
@@ -1108,7 +1108,7 @@ Backend documentation still describes removed routes and retired integrations. O
 - Remove references to:
   - bundled profile route;
   - retired live RSS routes;
-  - Twitter routes/configuration;
+  - retired social-feed routes/configuration;
   - `/special`;
   - `/trends`;
   - per-entity `/vibes` where `/rating`, `/momentum`, or `/sigil` are current.
@@ -1172,14 +1172,14 @@ This avoids API restarts controlling ML availability and reduces production blas
 
 Time windows can remain as load governors, but should not be the sole correctness gate.
 
-## C. Remove vestigial Twitter compatibility
+## C. Remove vestigial social-feed compatibility
 
 Once confirmed unused, remove:
 
-- tweet ID output from `compute_transfer_heat`;
-- tweet columns in transfer and Vibe products;
-- `loadPairTweets`;
-- tweet constants and logging;
+- legacy social id output from `compute_transfer_heat`;
+- legacy social id columns in transfer and Vibe products;
+- old pair loaders;
+- legacy social constants and logging;
 - obsolete comments and documentation.
 
 This reduces mental overhead in one of the most correctness-sensitive flows.

@@ -12,6 +12,16 @@ Before working in this repo, read these in order:
 
 The wiki owns product direction and cross-repo data-flow doctrine. This repo owns ingestion, storage, derivation, and serving implementation.
 
+## Shared Organization Docs
+
+Shared process, vocabulary, and history live in `scoracle-wiki`, not this repo:
+
+- [../scoracle-wiki/wiki/CONVENTIONS.md](../scoracle-wiki/wiki/CONVENTIONS.md) - how shared docs, progress, glossary entries, and changelog entries are organized.
+- [../scoracle-wiki/wiki/Glossary.md](../scoracle-wiki/wiki/Glossary.md) - cross-repo product and architecture vocabulary.
+- [../scoracle-wiki/wiki/Changelog.md](../scoracle-wiki/wiki/Changelog.md) - landmark architecture and product shifts.
+
+Use those docs when adding shared language, recording landmarks, or checking historical context. Keep backend-only implementation detail in this README, [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), `RUNBOOK.md`, or `ENDPOINTS.md`.
+
 ## Pillars
 
 Scoracle is lean, nimble, and durable.
@@ -44,9 +54,10 @@ Pull only when the working tree is clean and the branch has not diverged.
 5. Perform the task in the smallest useful chunk.
 6. Add a local progress doc in `progress_docs/YYYY-MM-DD_short-description.md`.
 7. If the change is a product, API, data-flow, pipeline, migration, or architecture landmark, also add a progress doc in `../scoracle-wiki/progress_docs/`.
-8. Run verification.
-9. Commit and push.
-10. For unfinished multi-step work, leave a copyable handoff.
+8. If the change introduces shared vocabulary or a landmark shift, update `../scoracle-wiki/wiki/Glossary.md` or `../scoracle-wiki/wiki/Changelog.md`.
+9. Run verification.
+10. Commit and push.
+11. For unfinished multi-step work, leave a copyable handoff.
 
 ## Working Context
 

@@ -83,7 +83,7 @@ type entityPool struct {
 //
 // When constructed with a non-nil pool, every matched article is also
 // persisted to news_articles + news_article_entities as a write-through.
-// That populates the long-term corpus Gemma reads from.
+// That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
 	pool       *pgxpool.Pool
@@ -124,8 +124,8 @@ func (s *NewsService) Status() map[string]interface{} {
 // news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
 //
 // The second return is the article IDs that gained a fresh link on this call —
-// the exact batch the pipeline scrubs in-run (FIRST-GPT-AUDIT Session 8). It is
-// nil when write-through is skipped or the persist failed.
+// the batch the caller can hand to queueing/scrub logic. It is nil when
+// write-through is skipped or the persist failed.
 func (s *NewsService) GetEntityNews(
 	ctx context.Context,
 	entityType string,
@@ -166,9 +166,9 @@ func (s *NewsService) GetEntityNews(
 
 // persistArticles upserts articles by URL hash and links them to the primary
 // requested entity plus any other teams/players mentioned in the title (cross-
-// entity linking). The secondary pass catches relational patterns Gemma can
-// learn from — e.g. "Warriors trade talks for Durant" links to Warriors AND
-// Durant even if only Durant was the queried entity.
+// entity linking). The secondary pass catches relational patterns such as
+// "Warriors trade talks for Durant", linking both Warriors and Durant even if
+// only Durant was the queried entity.
 //
 // Runs in a single transaction. Errors are returned to the caller but don't
 // break the response path — the caller logs and moves on. The returned slice is

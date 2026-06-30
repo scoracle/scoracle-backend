@@ -191,8 +191,8 @@ paths:
       - data
   /{sport}/{entityType}/{id}/news:
     get:
-      description: The entity's latest Gemma narratives (hottest first) ranked by
-        per-narrative impact.
+      description: The entity's latest precomputed narratives (hottest first) ranked
+        by per-narrative impact.
       parameters:
       - description: Sport
         enum:
@@ -238,7 +238,7 @@ paths:
   /{sport}/{entityType}/{id}/rating:
     get:
       description: The entity's positionless magnitude score, divined defining strength,
-        and the Gemma stat-identity blurb.
+        and precomputed stat-identity blurb.
       parameters:
       - description: Sport
         enum:
@@ -703,7 +703,7 @@ paths:
       - data
   /{sport}/leaderboard/transfers:
     get:
-      description: Sport-wide board of the hottest Gemma-vetted transfer rumors, ranked
+      description: Sport-wide board of the hottest model-vetted transfer rumors, ranked
         by heat (0-100).
       parameters:
       - description: Sport

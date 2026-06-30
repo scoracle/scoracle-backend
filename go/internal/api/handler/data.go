@@ -240,10 +240,10 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 		sport, limit, entityType)
 }
 
-// GetTransfersLeaderboard returns the sport-wide transfer board: Gemma-vetted
+// GetTransfersLeaderboard returns the sport-wide transfer board: model-vetted
 // (team, player) rumors ranked by heat (0-100), enriched with both sides of the pair.
 // @Summary Transfers leaderboard
-// @Description Sport-wide board of the hottest Gemma-vetted transfer rumors, ranked by heat (0-100).
+// @Description Sport-wide board of the hottest model-vetted transfer rumors, ranked by heat (0-100).
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -464,13 +464,11 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 // GetTransfers + GetPlayerSuitors retired 2026-06-15 — the transfer scope is now
 // its own product (GetEntityTransfers, /{type}/{id}/transfers).
 
-// GetEntityNarratives returns the entity's NEWS product — the latest Gemma
-// narratives (hottest first). Per-product split of the old news rail; transfers +
-// vibe are their own products now (/transfers, /vibes). Narratives already carry
-// transfer context (news is a post-transfers pipeline layer), so this is
-// narratives-only. (Named to avoid the older GetEntityNews raw-articles handler.)
+// GetEntityNarratives returns the entity's NEWS product: the latest precomputed
+// narratives, hottest first. Transfer rumors and vibe history are served by
+// their own product endpoints.
 // @Summary Get the entity news narratives
-// @Description The entity's latest Gemma narratives (hottest first) ranked by per-narrative impact.
+// @Description The entity's latest precomputed narratives (hottest first) ranked by per-narrative impact.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -598,7 +596,7 @@ func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 // GetEntityStats returns the entity's STATS product — the full season rating
 // (Composite breakdown, modes, fantasy, template, scoped ranks) + available
 // seasons. The Stats card + the ContentShell control strip read this. The
-// per-event series moved to /trends; the Gemma stat read to /rating.
+// per-event series moved to /momentum; the stat read lives at /rating.
 // @Summary Get the entity season rating
 // @Description The entity's season Composite rating (breakdown, modes, fantasy, scoped ranks) + available seasons.
 // @Tags data
@@ -639,11 +637,10 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 
 // GetEntityRating returns the entity's RATING product — the statistical rail's end
 // product: the positionless magnitude score + the divined defining strength + the
-// Gemma on-field identity blurb. The Rating card reads this. Served at /rating
-// (the /sigil path serves the crown synthesis — GetEntityVibes). Renamed from
-// GetEntitySigil (O17): the handler + its prepared statement now match the product.
+// precomputed on-field identity blurb. The Rating card reads this. Served at
+// /rating; the /sigil path serves the crown synthesis.
 // @Summary Get the entity rating (magnitude + strength + identity blurb)
-// @Description The entity's positionless magnitude score, divined defining strength, and the Gemma stat-identity blurb.
+// @Description The entity's positionless magnitude score, divined defining strength, and precomputed stat-identity blurb.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

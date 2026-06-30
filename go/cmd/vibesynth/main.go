@@ -2,7 +2,7 @@
 //
 // Modes:
 //
-//	nightly | reconcile (default) - bounded reconciliation (FIRST-GPT-AUDIT Session 12):
+//	nightly | reconcile (default) - bounded reconciliation:
 //	  enumerate CURRENT-SEASON rated entities whose current-season Sigil is missing
 //	  or stale (an input generation is newer than the Sigil) and enqueue durable
 //	  sigil pipeline_work; the Rust cognition daemon drains it (current-season,
@@ -10,19 +10,11 @@
 //	  Sigil because a schedule fired. DB-only.
 //	  go run ./cmd/vibesynth -mode nightly [-limit N]
 //
-//	restamp - one-time vocabulary migration (no model call): rename the crown's
-//	  "divined_sigil" input-component key -> "divined_peak" + recompute input_hash
-//	  on existing rows, so the s4 key rename does not re-synthesize the corpus.
-//	  go run ./cmd/vibesynth -mode restamp
-//
 // Env: DATABASE_PRIVATE_URL (see config.go).
 package main
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -30,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
@@ -40,7 +31,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "nightly", "nightly | reconcile | restamp")
+	mode := flag.String("mode", "nightly", "nightly | reconcile")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all")
 	limit := flag.Int("limit", 0, "[nightly] cap enqueues per run; 0 = unbounded")
 	flag.Parse()
@@ -63,10 +54,8 @@ func main() {
 	switch *mode {
 	case "nightly", "reconcile":
 		os.Exit(runReconcile(pool, *sport, *limit, cfg.DatabaseURL, logger))
-	case "restamp":
-		runReStamp(pool, *sport, logger)
 	default:
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: nightly | reconcile | restamp\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; valid: nightly | reconcile\n", *mode)
 		os.Exit(2)
 	}
 }
@@ -78,11 +67,10 @@ type target struct {
 	sportName  string
 }
 
-// runReconcile is the bounded current-season reconciliation (FIRST-GPT-AUDIT Session 12):
-// it enumerates current-season rated entities whose current-season Sigil is missing or
-// stale and enqueues a durable sigil pipeline_work item for each - it never synthesizes
-// inline. The always-on cognition daemon drains the queue, so an unchanged Sigil is a
-// cheap skip, never a duplicate scheduled generation. DB-only.
+// runReconcile enumerates current-season rated entities whose current-season
+// Sigil is missing or stale, then enqueues durable sigil work. The Rust
+// cognition daemon owns synthesis and hash-gated skips; this command only
+// reconciles the queue.
 func runReconcile(pool *pgxpool.Pool, sportArg string, limit int, dbURL string, logger *slog.Logger) int {
 	sports := resolveSports(sportArg)
 	ctx := context.Background()
@@ -229,126 +217,4 @@ func enumStaleSigil(ctx context.Context, pool *pgxpool.Pool, sport string, seaso
 		out = append(out, t)
 	}
 	return out, rows.Err()
-}
-
-// runReStamp migrates every scored synthesis row's input-component key from the
-// legacy "divined_sigil" to "divined_peak" and recomputes input_hash, without a
-// model call.
-func runReStamp(pool *pgxpool.Pool, sportArg string, logger *slog.Logger) {
-	ctx := context.Background()
-	start := time.Now()
-	targets, err := enumSynthesized(ctx, pool, sportArg)
-	if err != nil {
-		logger.Error("vibesynth restamp: enumerate failed", "error", err)
-		os.Exit(1)
-	}
-	logger.Info("vibesynth restamp: starting", "targets", len(targets))
-
-	rewritten, noop, fail := 0, 0, 0
-	for i, t := range targets {
-		rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
-		ok, err := restampDivinedKey(rctx, pool, t.entityType, t.entityID, t.sportName)
-		rcancel()
-		switch {
-		case err != nil:
-			fail++
-			logger.Warn("vibesynth restamp: failed", "sport", t.sportName, "type", t.entityType, "id", t.entityID, "error", err)
-		case ok:
-			rewritten++
-		default:
-			noop++
-		}
-		if (i+1)%50 == 0 {
-			logger.Info("vibesynth restamp: progress", "done", i+1, "total", len(targets),
-				"rewritten", rewritten, "noop", noop, "fail", fail)
-		}
-	}
-	logger.Info("vibesynth restamp: complete",
-		"rewritten", rewritten, "noop", noop, "fail", fail,
-		"elapsed", time.Since(start).Round(time.Second))
-}
-
-// enumSynthesized returns every entity with a scored synthesis row.
-func enumSynthesized(ctx context.Context, pool *pgxpool.Pool, sportArg string) ([]target, error) {
-	qctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-	defer cancel()
-	q := `SELECT DISTINCT entity_type, entity_id, sport FROM sigil_synthesis WHERE score IS NOT NULL`
-	var args []any
-	if s := strings.TrimSpace(sportArg); s != "" && strings.ToLower(s) != "all" {
-		q += ` AND sport = $1`
-		args = append(args, strings.ToUpper(s))
-	}
-	q += ` ORDER BY sport, entity_type, entity_id`
-	rows, err := pool.Query(qctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []target
-	for rows.Next() {
-		var t target
-		if err := rows.Scan(&t.entityType, &t.entityID, &t.sportName); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
-func restampDivinedKey(ctx context.Context, pool *pgxpool.Pool, entityType string, entityID int, sport string) (bool, error) {
-	sport = strings.ToUpper(sport)
-	var id int64
-	var icRaw []byte
-	err := pool.QueryRow(ctx, `
-		SELECT id, input_components FROM sigil_synthesis
-		WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-		  AND score IS NOT NULL
-		ORDER BY generated_at DESC
-		LIMIT 1`, entityType, entityID, sport).Scan(&id, &icRaw)
-	if err == pgx.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	var ic map[string]any
-	if err := json.Unmarshal(icRaw, &ic); err != nil {
-		return false, fmt.Errorf("unmarshal input_components (id=%d): %w", id, err)
-	}
-	v, ok := ic["divined_sigil"]
-	if !ok {
-		return false, nil
-	}
-	delete(ic, "divined_sigil")
-	ic["divined_peak"] = v
-
-	newHash := hashComponents(ic)
-	newIC, err := json.Marshal(orEmptyMap(ic))
-	if err != nil {
-		return false, err
-	}
-	if _, err := pool.Exec(ctx, `
-		UPDATE sigil_synthesis SET input_components = $1, input_hash = $2 WHERE id = $3`,
-		newIC, newHash, id); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func hashComponents(ic map[string]any) string {
-	b, err := json.Marshal(orEmptyMap(ic))
-	if err != nil {
-		return ""
-	}
-	sum := sha256.Sum256(b)
-	return hex.EncodeToString(sum[:16])
-}
-
-func orEmptyMap(m map[string]any) map[string]any {
-	if m == nil {
-		return map[string]any{}
-	}
-	return m
 }

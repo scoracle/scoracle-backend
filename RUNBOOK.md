@@ -2,7 +2,8 @@
 
 What you need during an incident or a machine rebuild. Companion to:
 
-- `CLAUDE.md` — architecture + route/env conventions
+- `README.md` — repo entry point, architecture, route/env overview
+- `docs/DEVELOPMENT.md` — development rules and implementation boundaries
 - `ENDPOINTS.md` — API contracts (authoritative route inventory at the top)
 - `scripts/hosting/README.md` — script reference
 - `planning_docs/SELF_HOSTING_OPS.md` — original strategy / first-time setup
@@ -69,7 +70,7 @@ commit + the daemon's `is-active`.
 
 ```bash
 cd /home/sheneveld/scoracle/scoracle-backend
-git fetch && git status            # confirm synced with origin/main FIRST (CLAUDE.md rule)
+git fetch && git status            # confirm synced with origin/main FIRST (README rule)
 scripts/hosting/release.sh          # build all 5 + install + restart + verify
 scripts/hosting/release.sh --build-only   # build + place only (no live changes)
 ```

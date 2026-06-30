@@ -620,7 +620,7 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard/transfers": {
             "get": {
-                "description": "Sport-wide board of the hottest Gemma-vetted transfer rumors, ranked by heat (0-100).",
+                "description": "Sport-wide board of the hottest model-vetted transfer rumors, ranked by heat (0-100).",
                 "produces": [
                     "application/json"
                 ],
@@ -1448,7 +1448,7 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/news": {
             "get": {
-                "description": "The entity's latest Gemma narratives (hottest first) ranked by per-narrative impact.",
+                "description": "The entity's latest precomputed narratives (hottest first) ranked by per-narrative impact.",
                 "produces": [
                     "application/json"
                 ],
@@ -1513,7 +1513,7 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/rating": {
             "get": {
-                "description": "The entity's positionless magnitude score, divined defining strength, and the Gemma stat-identity blurb.",
+                "description": "The entity's positionless magnitude score, divined defining strength, and precomputed stat-identity blurb.",
                 "produces": [
                     "application/json"
                 ],

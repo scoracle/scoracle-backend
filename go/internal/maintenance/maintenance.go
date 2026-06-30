@@ -41,7 +41,7 @@ func DefaultConfig() Config {
 }
 
 // newsScrubPrimaryBatch bounds the cheap per-tick auto-vet of primary links
-// (match_confidence >= 1.0 — deterministically relevant, no Gemma). Generous
+// (match_confidence >= 1.0 — deterministically relevant). Generous
 // because it's a single-column SQL UPDATE on uncontended rows; drains the
 // backlog over a few ticks without ever holding a large lock.
 const newsScrubPrimaryBatch = 20000
@@ -101,13 +101,10 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		go runLoop(ctx, t.C, "alltime_rank", func() { recalcAlltimeRanks(ctx, pool, logger) })
 	}
 
-	// News scrub: BACKLOG + repair only (FIRST-GPT-AUDIT Session 8). The daily
-	// cmd/pipeline now scrubs its own freshly-ingested batch in-run, so this ticker
-	// no longer drives fresh content into derivation — it mops up the older
-	// unscrubbed tail, real-time inserts between pipeline runs, and links a failed
-	// in-run scrub left behind. SQL-only here: auto-vets primaries (cheap UPDATE)
-	// and enqueues candidate-rich secondaries to pipeline_work for the Rust
-	// ScrubHandler to disambiguate. No Gemma runs in Go.
+	// News scrub: backlog + repair only. It mops up the older unscrubbed tail,
+	// real-time inserts between pipeline runs, and links a failed in-run scrub
+	// left behind. SQL-only here: auto-vet primaries and enqueue candidate-rich
+	// secondaries to pipeline_work for Rust to disambiguate.
 	if cfg.NewsScrubInterval > 0 {
 		t := time.NewTicker(cfg.NewsScrubInterval)
 		tickers = append(tickers, t)
@@ -117,8 +114,8 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 	}
 
 	// Pipeline stats: the daily corpus snapshot (news + vibes + transfers growth +
-	// coverage) into pipeline_stats. Pure SQL — no Gemma, so it runs regardless of
-	// model availability. Once on startup for an immediate row, then on the interval.
+	// coverage) into pipeline_stats. Pure SQL. Once on startup for an immediate
+	// row, then on the interval.
 	if cfg.StatsInterval > 0 {
 		writePipelineStats(ctx, pool, logger)
 		t := time.NewTicker(cfg.StatsInterval)
@@ -359,11 +356,9 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 }
 
 // scrubNewsLinks is the news-link scrub sweep — the async backlog/repair path.
-// Since FIRST-GPT-AUDIT Session 8 this is not the primary scrub: the daily
-// pipeline scrubs the batch it just ingested in-run, so what reaches this
-// newest-first sweep is the older tail, real-time inserts, and failed-in-run
-// links. SQL-only here (no Gemma runs in Go): two bounded, non-destructive
-// phases per tick:
+// This newest-first sweep handles the older tail, real-time inserts, and
+// failed-in-run links. SQL-only here: two bounded, non-destructive phases per
+// tick:
 //
 //  1. Auto-vet primaries (cheap SQL, no model): links at match_confidence >= 1.0
 //     are the entity the article was fetched for — deterministically relevant, no
@@ -486,7 +481,7 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		    FROM news_article_entities WHERE sport = $1
 		) art,
 		(
-		    -- Active = latest row per pair, Gemma-VETTED (is_rumor IS TRUE), heat>0,
+		    -- Active = latest row per pair, model-vetted (is_rumor IS TRUE), heat>0,
 		    -- within 14d — matches the /transfers read contract (S10 fail-closed): a
 		    -- newer cleared/unknown verdict drops the pair from the count.
 		    SELECT count(*) AS active FROM (

@@ -176,7 +176,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type
 		),
-		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take each
+		-- Canonical latest-generation rule: take each
 		-- entity's latest vibe within the 48h window REGARDLESS of nullability
 		-- (latest_raw), then drop it if that latest generation is a no-corpus marker
 		-- (sentiment NULL). A newer marker thus clears the entity from the board
@@ -252,13 +252,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       $4::int AS want_season,
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
-		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): take each
+		-- Canonical latest-generation rule: take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
 		-- it if that latest generation is a no-pillar marker (score/blurb NULL). A
 		-- newer marker therefore removes the entity from the crown board instead of the
 		-- old behavior, which filtered markers BEFORE the DISTINCT ON and left a stale
 		-- scored row ranked.
-		-- Season scope (Session 12): no ?season ⇒ the LIVE view (current season + legacy
+		-- Season scope: no ?season ⇒ the LIVE view (current season + legacy
 		-- NULL-season rows), so an older season's crown can never rank as current; an
 		-- explicit ?season=N ranks that season's board exactly.
 		latest_raw AS (
@@ -435,7 +435,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"narratives_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
 		),
-		-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): resolve each
+		-- Canonical latest-generation rule: resolve each
 		-- entity's latest generation FIRST (unfiltered max), then keep only that
 		-- generation's content rows. A newer no-corpus marker becomes the latest
 		-- generation, yields no content, and the entity drops off the board — rather
@@ -497,7 +497,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 
 		// Transfers leaderboard — the sport-wide "hottest rumors" board. The
 		// sport-scoped sibling of team_transfers/player_suitors: latest row per
-		// (team, player) pair (DISTINCT ON), Gemma-vetted (is_rumor IS TRUE), ranked
+		// (team, player) pair (DISTINCT ON), model-vetted (is_rumor IS TRUE), ranked
 		// by heat desc. Each row carries BOTH sides of the pair (player + team).
 		// $1 sport · $2 limit (NULL ⇒ 50).
 		"transfers_leaderboard": `WITH req AS (
@@ -526,7 +526,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
-			-- is_rumor IS TRUE = Gemma-vetted; heat > 0 drops zero-signal stragglers.
+			-- is_rumor IS TRUE = model-vetted; heat > 0 drops zero-signal stragglers.
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
 		)
 		SELECT json_build_object(
@@ -644,13 +644,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
 		),
 		narr AS (
-			-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): find the
+			-- Canonical latest-generation rule: find the
 			-- latest generation REGARDLESS of nullability, then return only its content
 			-- rows. The inner max() is UNFILTERED, so a newer no-corpus marker (body
 			-- NULL) becomes the latest generation and the outer body IS NOT NULL yields
-			-- zero rows → empty narratives, clearing stale content. (Mirrors
-			-- ml/vibe.go loadLatestNarratives; the old body-filtered inner max let a
-			-- marker fail to clear older narratives.)
+			-- zero rows → empty narratives, clearing stale content. The old
+			-- body-filtered inner max let a marker fail to clear older narratives.
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.source_attribution, ns.input_news_ids, ns.model_version, ns.prompt_version, ns.generated_at
 			FROM public.news_summaries ns CROSS JOIN req
@@ -732,12 +731,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       $4::int AS want_season,
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
 		),
-		-- Season scope (FIRST-GPT-AUDIT Session 12): no ?season ⇒ the LIVE view — the
+		-- Season scope: no ?season ⇒ the LIVE view — the
 		-- current season plus legacy NULL-season rows (the pre-S12 event-driven default) —
 		-- so synthesizing an OLDER season can never become the current crown. An explicit
 		-- ?season=N selects that season exactly (its final crown, no freshness window).
 		latest_gen AS (
-			-- Canonical latest-generation rule (Session 11): the latest synthesis WITHIN
+			-- Canonical latest-generation rule: the latest synthesis WITHIN
 			-- the season scope, REGARDLESS of nullability.
 			SELECT max(vs.generated_at) AS g
 			FROM public.sigil_synthesis vs, req
@@ -812,9 +811,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		WHERE (SELECT entity_type FROM req) = 'team' AND t.id = (SELECT entity_id FROM req) AND t.sport = (SELECT sport FROM req)`,
 
 		// --- Per-product stats source (split from sparkline) ---
-		// Live routing (server.go, post-O14 convergence rename):
+		// Live routing:
 		//   /stats   = the full season rating (Composite card + ContentShell controls) — THIS statement;
-		//   /rating  = the lean specialist projection + Gemma stat commentary ("entity_rating" statement);
+		//   /rating  = the lean specialist projection + stat commentary ("entity_rating" statement);
 		//   /momentum absorbs the per-event series (built in trendsStatement, GetTrendsPage).
 		// The heavy fantasy/template/datapoints blocks live only in /stats. $1 sport · $2 type ·
 		// $3 id · $4 season (NULL ⇒ latest rated) · $5 league_id.
@@ -969,7 +968,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'season', (SELECT season FROM season_pick),
 			'rating', (SELECT row_to_json(spec_rating) FROM spec_rating),
 			'commentary', (
-				-- Canonical latest-generation rule (FIRST-GPT-AUDIT Session 11): pick the
+				-- Canonical latest-generation rule: pick the
 				-- latest commentary generation for this entity-season REGARDLESS of
 				-- nullability (unfiltered max), then return it only when it carries a body.
 				-- A newer no-stats marker (body NULL) becomes the latest generation and
@@ -1612,7 +1611,7 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 			) AS score_avg
 	),
 	vibe_window AS (
-		-- Last 7 days of Gemma sentiment scores (1-100) for this entity.
+		-- Last 7 days of sentiment scores (1-100) for this entity.
 		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes).
 		-- Legacy blurb-only rows have sentiment IS NULL — exclude them.
 		SELECT vs.sentiment, vs.generated_at, vs.trigger_type

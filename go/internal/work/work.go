@@ -1,9 +1,6 @@
-// Package work is the durable per-entity derivation work queue introduced by
-// FIRST-GPT-AUDIT Session 7. It replaces the news pipeline's in-process
-// `runStart` watermark and best-effort LISTEN/NOTIFY with explicit, durable
-// state in the pipeline_work table (migration 102): the database can answer
-// "what derivation work is pending, running, or failed?" and a crash can no
-// longer lose the set of affected entities.
+// Package work is the durable derivation work queue. It stores explicit state
+// in the pipeline_work table so the database can answer "what work is pending,
+// running, or failed?" and a crash cannot lose the set of affected entities.
 //
 // Lifecycle of a row:
 //
@@ -15,9 +12,6 @@
 //
 // Only outstanding work is ever stored — completed rows are removed — so a
 // simple GROUP BY (the pipeline_work_status view) is the operator dashboard.
-//
-// The producers (where Enqueue is called) and the consumer (which drains a
-// stage) are wired in Session 8; this package is the substrate they build on.
 package work
 
 import (
@@ -33,8 +27,8 @@ import (
 // Stage names the derivation step a work item belongs to. Most stages are per-entity
 // (player/team); StageScrub is the exception — it is ARTICLE-keyed (entity_type='article',
 // entity_id=news_articles.id), the news ID-gate that on writing vetted fires the mig-103
-// trigger enqueuing the per-entity derive stages. The Rust ScrubHandler drains it (the Go
-// Drainer has no scrub handler); Go only ENQUEUES it (the maintenance scrub ticker, flag-gated).
+// trigger enqueuing the per-entity derive stages. Rust drains it; Go only
+// enqueues it from ingest/listener/maintenance paths.
 type Stage string
 
 const (
@@ -199,9 +193,9 @@ func Fail(ctx context.Context, q Querier, it Item, cause string, backoff time.Du
 // claimable, WITHOUT counting an attempt. It is the graceful-shutdown counterpart
 // of RequeueStale: a worker shutting down mid-drain returns its leased rows now,
 // on a fresh context, instead of stranding them 'running' until the stale lease
-// expires (FIRST-GPT-AUDIT Session 13, F-018). Status-guarded like Complete/Fail —
-// a no-op unless the row is still 'running' (a newer input may already have
-// reopened it to 'pending'), so it never clobbers reopened work or another claim.
+// expires. Status-guarded like Complete/Fail: a no-op unless the row is still
+// 'running' (a newer input may already have reopened it to 'pending'), so it
+// never clobbers reopened work or another claim.
 func Requeue(ctx context.Context, q Querier, it Item) error {
 	_, err := q.Exec(ctx, `
 		UPDATE pipeline_work
@@ -264,9 +258,9 @@ func Counts(ctx context.Context, q Querier) ([]StageStatus, error) {
 	return out, rows.Err()
 }
 
-// DeadLetter is a pipeline_work row that has exhausted its retries — the
-// F-019/F-020 dead-letter class: Fail parked it far in the future after
-// maxAttempts, so it will never retry on its own and needs an operator.
+// DeadLetter is a pipeline_work row that has exhausted its retries. Fail parked
+// it far in the future after maxAttempts, so it will never retry on its own and
+// needs an operator.
 type DeadLetter struct {
 	Stage      string
 	EntityType string

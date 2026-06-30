@@ -139,21 +139,11 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
-			// O16: the bundled profile route (/{sport}/{type}/{id}) was removed — its
-			// page-shell payload (entity + stat_definitions + available_seasons + season
-			// score) is delivered by the per-product endpoints in the eager model
-			// (available_seasons + stat_definitions ride /stats; entity is /meta).
-			// Per-product endpoints — each card is its own product. The two rails
-			// (stats, news) refine into end products that converge into the Sigil
-			// (Rating + Vibe + Momentum → Sigil). See wiki "Sigil" / "Product Narrative".
-			//   stats rail:  /stats (composite + scopes), /rating (Gemma's divined
-			//     statistical read = the stat end product).
-			//   news rail:   /news (narratives), /transfers (vetted rumor heat),
-			//     /vibes (the Vibe end product → the leaderboard Vibe board).
-			//   convergence: /momentum (rating+vibe trajectory), /sigil (the CROWN synthesis).
-			// /sigil serves the crown synthesis; /rating serves the divined stat read.
-			// O14 dropped the deprecated /vibes + /trends per-entity aliases (the live web
-			// uses /sigil + /momentum; iOS repoints in its convergence rename iB4).
+			// Per-product endpoints keep each card independently cacheable and avoid
+			// rebuilding a bundled profile payload on every page load. /stats carries
+			// structured season data, /rating the stat read, /news and /transfers the
+			// news products, /momentum the trajectory data, and /sigil the final crown
+			// synthesis.
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntityRating)
 			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntityVibes)

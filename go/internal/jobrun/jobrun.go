@@ -1,5 +1,5 @@
-// Package jobrun makes the backend batch jobs observable and non-overlapping
-// (FIRST-GPT-AUDIT Session 13). It bundles two things every cron job needs:
+// Package jobrun makes backend batch jobs observable and non-overlapping. It
+// bundles two things every cron job needs:
 //
 //   - a per-job PostgreSQL advisory lock so two runs of the same job (e.g. the
 //     nightly cron racing a manual invocation, or two crons) cannot overlap — the

@@ -1,6 +1,5 @@
-// work — operator CLI for the durable pipeline_work queue (FIRST-GPT-AUDIT
-// Session 7). The database is the source of truth for backend derivation work;
-// this is the human window onto it.
+// work — operator CLI for the durable pipeline_work queue. The database is the
+// source of truth for backend derivation work; this is the human window onto it.
 //
 //	go run ./cmd/work status                 # pending/running/failed by stage
 //	go run ./cmd/work requeue-stale [lease]  # recover rows abandoned mid-lease
@@ -107,10 +106,9 @@ func runRequeueStale(ctx context.Context, pool *pgxpool.Pool, lease time.Duratio
 	fmt.Printf("Requeued %d stale 'running' row(s) (lease %s).\n", n, lease)
 }
 
-// runDeadLetters reports the two dead-letter classes an operator needs to see
-// (FIRST-GPT-AUDIT Session 13): pipeline_work rows parked past the retry cap (the
-// F-019/F-020 derive dead-letters), and fixtures stuck at the seed-retry cap (so
-// get_pending_fixtures no longer selects them — they will never seed on their own).
+// runDeadLetters reports the two dead-letter classes an operator needs to see:
+// pipeline_work rows parked past the retry cap, and fixtures stuck at the
+// seed-retry cap so get_pending_fixtures no longer selects them.
 func runDeadLetters(ctx context.Context, pool *pgxpool.Pool, retryCap int) {
 	// 1) pipeline_work dead-letters.
 	dls, err := work.DeadLetters(ctx, pool)

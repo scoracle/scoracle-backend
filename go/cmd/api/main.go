@@ -110,9 +110,8 @@ func main() {
 		}
 
 		// Percentile listener: FCM push on significant stat-line percentile
-		// crossings. A large composite shift also ENQUEUES durable Sigil
-		// convergence work (FIRST-GPT-AUDIT Session 12, F-017) — drained by the
-		// Rust cognition daemon, not generated inline.
+		// crossings. A large composite shift also enqueues durable Sigil
+		// convergence work for the Rust cognition daemon.
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
 
 		// Start maintenance tickers (cleanup, digest, catch-up, ranks, news

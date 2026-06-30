@@ -1,19 +1,17 @@
 // validate-stmts — boot the EXACT prepared-statement registration path against a
 // target database and exit 0 only if every statement registers cleanly.
 //
-// This is the F-025 technique promoted to a kept tool: db.New runs
-// AfterConnect → registerPreparedStatements → Ping, validating every prepared
-// statement's columns/functions against the live schema. `go build`/`go vet` do
-// NOT catch a bad column reference inside a prepared-statement string — this does,
-// without starting any worker / listener / drainer (so it never races the live
-// derive worker for pipeline_work, unlike booting the full API binary).
+// db.New runs AfterConnect → registerPreparedStatements → Ping, validating
+// every prepared statement's columns/functions against the live schema.
+// `go build`/`go vet` do NOT catch a bad column reference inside a prepared
+// statement string — this does, without starting any worker or listener.
 //
 // Uses:
 //   - restore-drill.sh — prove a RESTORED database can register the API's
 //     statements (i.e. the restored backend would actually boot).
 //   - pre-deploy — validate edited reads against the live (or a prod-cloned)
 //     schema before release.sh restarts prod.
-//   - Session 16 CI — prepare every statement against a migrated test DB.
+//   - CI — prepare every statement against a migrated test DB.
 //
 // Usage:
 //

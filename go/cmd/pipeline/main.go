@@ -1,10 +1,10 @@
 // pipeline — the RSS ingest sweep for the Scoracle corpus.
 //
-// Production runs only -mode ingest: fetch articles via Google News RSS,
-// normalize, and write news_articles + news_article_entities. Every LLM
+// Fetch articles via Google News RSS, normalize, and write news_articles +
+// news_article_entities. Every LLM
 // derivation stage (scrub, transfers, narratives, vibe, sigil, rating) lives
 // in the Rust Cognition Harness (rust/src), which drains the durable
-// pipeline_work queue. This binary does no Gemma work.
+// pipeline_work queue. This binary performs no model work.
 //
 //	go run ./cmd/pipeline -mode ingest
 //	go run ./cmd/pipeline -mode ingest -sport FOOTBALL   # one-sport smoke
@@ -28,7 +28,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "ingest", "ingest (RSS sweep only; Rust owns LLM derivation)")
+	mode := flag.String("mode", "ingest", "compatibility flag; only ingest is supported")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
 	rssLimit := flag.Int("rss-limit", 10, "[sweep] articles per team RSS call")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
@@ -43,7 +43,7 @@ func main() {
 		os.Exit(1)
 	}
 	if *mode != "ingest" {
-		fmt.Fprintf(os.Stderr, "unknown -mode %q; the only supported mode is ingest (Rust owns LLM derivation)\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown -mode %q; the only supported mode is ingest\n", *mode)
 		os.Exit(2)
 	}
 

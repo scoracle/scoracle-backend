@@ -1,16 +1,9 @@
 // Package listener provides the Postgres LISTEN/NOTIFY consumer for FCM push
 // notifications. It holds a dedicated pgx connection (not from the pool) and
 // listens on the percentile_changed channel: significant stat-line percentile
-// crossings (90/95/99 or delta >= 10) become push notifications, and a large
-// composite shift ENQUEUES durable Sigil convergence work (one of its three inputs).
-//
-// The old news-rail consumers (vibe_trigger / transfer_trigger, which ran Gemma
-// directly off a transient NOTIFY) were retired in FIRST-GPT-AUDIT Session 9 in
-// favour of the durable pipeline_work queue. Session 12
-// (F-017) brings the STATS-rail composite_shift trigger into that same model: instead
-// of running Gemma inline off the transient NOTIFY, it enqueues a sigil pipeline_work
-// item the Rust cognition daemon drains — and does so independently of followers/FCM, so an
-// entity with zero followers still reconverges its crown (simplification A).
+// crossings (90/95/99 or delta >= 10) become push notifications. A large
+// composite shift also enqueues durable Sigil convergence work for the Rust
+// cognition daemon to drain, independent of whether the entity has followers.
 package listener
 
 import (
@@ -48,8 +41,7 @@ type PercentileChangeEvent struct {
 
 // Start opens a dedicated connection and listens on the percentile_changed
 // channel. It reconnects automatically on connection loss. Blocks until ctx
-// is cancelled. Intended to be called with `go`. Composite-shift Sigil convergence
-// is enqueued as durable pipeline_work (no inline generator dependency).
+// is cancelled. Intended to be called with `go`.
 func Start(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *notifications.FCMSender, logger *slog.Logger) {
 	backoff := reconnectBackoff
 
@@ -117,12 +109,8 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 // shift (a durable concern, independent of followers), then dispatches FCM push
 // notifications to any followers (a separate delivery concern).
 func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, event PercentileChangeEvent, logger *slog.Logger) {
-	// Stats-rail Sigil convergence (FIRST-GPT-AUDIT Session 12, F-017 + simplification A):
-	// a significant composite move is one of the three Sigil inputs. Enqueue a DURABLE
-	// sigil pipeline_work item so the derive worker drains it like every other stage —
-	// no inline Gemma off the transient NOTIFY, no follower gate. The drain resolves the
-	// sport's current_season and the SigilGenerator's input-hash gate skips a Gemma call
-	// when nothing material changed, so a same-percentile re-fire is a cheap no-op.
+	// A significant composite move is one Sigil input. Enqueue durable work and
+	// let the Rust cognition daemon resolve season scope and skip unchanged inputs.
 	if math.Abs(event.NewPercentile-event.OldPercentile) >= 10 {
 		iv := fmt.Sprintf("composite:%d:%.0f", event.Season, event.NewPercentile)
 		if err := work.Enqueue(ctx, pool, work.Item{

@@ -20,10 +20,8 @@ const sweepTimeout = 30 * time.Second
 
 // NewsLookback is the corpus window — how far back we look when assembling an
 // entity's context (the articles whose links are "fresh enough to be worth
-// scoring"). Shared by the candidate-selection queries here and by the model
-// generators so an entity with a brand-new link to an old article is not queued
-// only to be skipped inside generation (which would write a null marker).
-// Canonical home since the Go AI prune; the Rust cognition layer mirrors it.
+// scoring"). Shared by the candidate-selection queries here and mirrored by
+// the Rust cognition layer so stale articles do not reopen derivation work.
 const NewsLookback = 72 * time.Hour // 3 days
 
 // Team is a team we sweep RSS for.
@@ -45,13 +43,10 @@ type Entity struct {
 // (cross-entity linking pulls in co-mentioned players for free). It returns two
 // handoffs:
 //
-//   - runStart: the watermark captured BEFORE the sweep — legacy freshness
-//     boundary kept for helper queries that still take a `since` window.
+//   - runStart: the watermark captured before the sweep for helper queries
+//     that still take a `since` window.
 //   - affected: article_id → sport for every article that gained a FRESH link
-//     this run. This is the explicit batch the FIRST-GPT-AUDIT Session 8 pipeline
-//     scrubs in-run and then enqueues derive work from — replacing the runStart
-//     watermark as the correctness boundary (no more starvation when a re-seen
-//     URL lands no new link rows).
+//     this run. This is the explicit batch the queueing layer derives from.
 //
 // ok/fail count the RSS calls. Honors ctx cancellation between teams.
 func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (runStart time.Time, affected map[int64]string, ok, fail int) {
@@ -216,8 +211,8 @@ func RecentlyGenerated(ctx context.Context, pool *pgxpool.Pool, table string, e 
 
 // AffectedVettedEntities returns the distinct (entity_type, entity_id, sport)
 // that the scrub stage marked vetted=TRUE on the given freshly-ingested articles
-// — the entities the Session 8 pipeline enqueues derive work for. Only vetted
-// links count: a model-dropped same-name candidate never reaches the queue.
+// — the entities that should reopen derivation work. Only vetted links count:
+// a dropped same-name candidate never reaches the queue.
 func AffectedVettedEntities(ctx context.Context, pool *pgxpool.Pool, articleIDs []int64) ([]Entity, error) {
 	if len(articleIDs) == 0 {
 		return nil, nil

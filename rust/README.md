@@ -1,183 +1,436 @@
-# scoracle-cognition — the Rust Cognition Harness
+# scoracle-cognition
 
-> **Naming:** this crate is the **Rust Cognition Harness** — the layer that *empowers* the
-> local models. Package + binary: `scoracle-cognition` (renamed from `scoracle-scrubber` —
-> the original clean-the-data framing). Canonical architecture:
-> [`scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`](../../../scoracle-wiki/wiki/Architecture/Rust%20Cognition%20Harness.md).
+Rust Cognition Harness for Scoracle: the AI derivation layer that empowers local models, drains durable model work, and writes precomputed products for the Go API to serve.
 
-The Rust home for **all LLM derivation (cognition)** on the Scoracle platform. Post the
-**Step-3 cutover (2026-06-28)** and the **Headlines feature (2026-06-29)**, the Go LLM derive
-stages are retired into Rust:
+This folder is not a side experiment. It is the production cognition layer for Scoracle.
 
-- **6 queue stages** — `scrub` → `headlines` → `transfers` → `narratives` → `vibe` → `sigil` —
-  drained by the long-running **`scoracle-cognition`** daemon.
-- **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
-  stage — same shape as the retired Go `cmd/statcommentary`).
+## Start Here
 
-The Go API serves the precomputed tables the daemon + batch write; it no longer calls the
-model on a serving request, and its background derive worker is retired
-(`DERIVE_WORKER_ENABLED=false`). The system architecture is
-**Go ingestion → Postgres data handling → Rust empowers the models → Go serves endpoints**.
-For build ledger + the L0–L13 + Step-3 history see `progress_docs/`.
+Before working in this folder, read these in order:
 
-## Why a separate layer (and why Rust)
+1. `../README.md`
+2. `../../scoracle-wiki/PRODUCT_NARRATIVE.md`
+3. `../../scoracle-wiki/DATA_FLOW.md`
+4. This README
+5. `../docs/DEVELOPMENT.md`
+6. `../RUNBOOK.md` for release, rollback, and production operations
 
-The whole platform is joined at one seam: the Postgres `pipeline_work` queue. Stages read
-inputs from SQL tables and write outputs to SQL tables; work is leased via
-`FOR UPDATE SKIP LOCKED`. So a Rust worker drops in beside — or in place of — the Go
-Drainer with **zero changes to Python, Postgres, or Go serving**, and cuts over one stage
-at a time, reversibly.
+Shared process, vocabulary, and landmark history live in:
 
-Honest scope: this does **not** make orchestration faster than Go (the GPU is the throughput
-ceiling). It exists to (a) own the per-role **model router** (one role per job — see `route::Role`),
-(b) make the **fail-closed semantics compiler-enforced** — validity IS the type (`Option<bool>`
-for `is_rumor`, etc., never a fabricated-valid row), and (c) seat future compute-bound work
-on the otherwise-idle CPU — **candle embeddings**, the embedding-backed asymmetric same-name
-Resolve gate, the deterministic storyline cluster.
+- `../../scoracle-wiki/wiki/CONVENTIONS.md`
+- `../../scoracle-wiki/wiki/Glossary.md`
+- `../../scoracle-wiki/wiki/Changelog.md`
 
-## Layout
+## Layer Role
 
+- Type: `backend/ai-cognition`
+- Owns: model routing, model calls, extraction, fail-closed parsing, model-derived products, queue-stage draining, rating commentary batch, offline parity/eval harnesses, and CPU embedding helpers.
+- Does not own: provider ingestion, public API serving, client presentation, product doctrine, or visual doctrine.
+- Primary consumers: Postgres product tables, Go API prepared reads, and client cards through those API reads.
+
+The system shape:
+
+```text
+Python ingest + Go RSS sweep
+  -> Postgres source tables and pipeline_work
+  -> Rust cognition stages and rating batch
+  -> Postgres product tables
+  -> Go API endpoints
+  -> web/iOS cards
 ```
+
+Serving requests must never call this layer directly. The Go API serves precomputed rows written by this layer.
+
+## Product Pillars
+
+Scoracle is lean, nimble, and durable.
+
+Elegance comes through simplicity. Simple and durable beats clever and fragile. The flow of information must be clear and clean.
+
+For this folder, that means:
+
+- Make model inputs explicit.
+- Make stage handoffs durable.
+- Parse model outputs fail-closed.
+- Persist provenance with every derived output.
+- Prefer clear typed gates over clever recovery behavior.
+- Keep GPU usage bounded and intentional.
+
+## Current Production Shape
+
+Post Step-3 cutover, Rust owns every live LLM queue stage:
+
+```text
+scrub -> headlines -> transfers -> narratives -> vibe -> sigil
+```
+
+The long-running daemon is:
+
+```text
+scoracle-cognition
+```
+
+Rating commentary is not a queue stage. It runs as the Rust batch binary:
+
+```text
+statcommentary
+```
+
+Go no longer performs model inference on the serving path. The Go API handles serving, SQL-only maintenance, queue notification, and ingest funnel wiring.
+
+## Mental Model
+
+This layer has one durable boundary: Postgres.
+
+Stages claim work from `pipeline_work`, read their source context from Postgres, call the configured local model through the router, parse and validate the response, write a product row, and enqueue downstream work when needed.
+
+```text
+claim work
+  -> load context
+  -> build deterministic request
+  -> route role to model
+  -> extract typed output
+  -> persist product + provenance
+  -> enqueue downstream work
+  -> complete work row
+```
+
+Failures should be visible and recoverable:
+
+```text
+pending -> running -> complete/delete
+pending -> running -> failed/backoff -> pending retry
+running stale -> pending recovery
+failed past retry cap -> dead-letter for human repair
+```
+
+## Stage Map
+
+| Stage | File | Input | Output | Notes |
+|---|---|---|---|---|
+| `scrub` | `src/scrub.rs` | `news_articles`, entity context | `news_article_entities.vetted` | Article-keyed ID gate; uses embedding-assisted resolve. |
+| `headlines` | `src/headline.rs` | vetted corpus | headline rows | Breaking-news bulletin extraction. |
+| `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat; fail closed on uncertain validity. |
+| `narratives` | `src/narratives.rs` | vetted/link clusters | `news_summaries` | Storyline grouping and summarization. |
+| `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
+| `sigil` | `src/sigil.rs` | Rating + Vibe + Momentum inputs | `sigil_synthesis` | Crown convergence; event-driven and debounced. |
+| rating batch | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read; not `pipeline_work`. |
+
+Momentum is not a queue stage. It is a served product assembled from Rating and Vibe trajectories.
+
+## Repository Layout
+
+```text
 rust/
 ├── Cargo.toml
+├── README.md
+├── build.rs
 └── src/
-    ├── main.rs              # the scoracle-cognition daemon: boots Harness, registers handlers, runs Worker
-    ├── build.rs             # stamps commit + build-time into the binary at compile time
-    ├── buildinfo.rs         # exposes BUILD_COMMIT / BUILD_TIME (set by build.rs via env!)
-    ├── config.rs            # env config; mirrors Go var names (.env.local)
-    ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
-    ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue + the Stage enum
-    ├── ollama.rs            # Ollama HTTP client (mirrors go/internal/ml/ollama.go)
-    ├── stage.rs             # StageHandler trait — the per-stage plug-in point
-    ├── worker.rs            # LISTEN(pipeline_work_ready) + safety-net drain loop
-    ├── route.rs             # the model-call seam (Role → concrete model); the GPU governor lives here
-    ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, resolve, embed, cluster (Plan §1)
-    ├── util.rs              # shared helpers: truncate, go_json_* (Go-encoding/json byte parity), hash_components
-    ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
-    ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
-    ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
-    ├── headline.rs          # headlines stage: breaking-news bulletin extraction (Headlines feature v1)
-    ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t4 prompt
-    ├── narratives.rs        # narratives stage: news storyline clustering + summarization
-    ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)
-    ├── vibe.rs              # vibe stage: the sentiment + felt-read
-    ├── sigil.rs             # sigil stage: the crown convergence of rating + vibe + momentum
+    ├── main.rs                  # scoracle-cognition daemon
+    ├── lib.rs                   # library exports
+    ├── config.rs                # env config; mirrors Go env names
+    ├── db.rs                    # sqlx Postgres pool
+    ├── work.rs                  # pipeline_work client and Stage enum
+    ├── worker.rs                # LISTEN/NOTIFY + safety-net drain loop
+    ├── stage.rs                 # StageHandler trait
+    ├── harness.rs               # shared context and capability primitives
+    ├── route.rs                 # Role -> model routing and GPU governor
+    ├── ollama.rs                # Ollama backend
+    ├── embed.rs                 # CPU embeddings
+    ├── resolve.rs               # entity/article relevance gate
+    ├── scrub.rs
+    ├── headline.rs
+    ├── transfer.rs
+    ├── narratives.rs
+    ├── vibe.rs
+    ├── sigil.rs
+    ├── rating.rs
+    ├── util.rs
     └── bin/
-        ├── parity.rs             # offline vibe temp-0 parity harness (writes vibe_scores_shadow)
-        ├── sigil_parity.rs       # offline sigil temp-0 parity harness (writes sigil_synthesis_shadow)
-        ├── rating_parity.rs      # offline rating parity harness (writes stat_summaries_shadow)
-        ├── transfer_parity.rs    # offline transfers parity harness (writes transfer_rumors_shadow)
-        ├── narratives_parity.rs  # offline narratives parity harness (writes news_summaries_shadow)
-        ├── eval.rs               # offline A/B model eval harness (incumbent vs candidate per role)
-        └── statcommentary.rs     # the rating batch bin (single / nightly / backfill over rust/src/rating.rs)
+        ├── statcommentary.rs
+        ├── eval.rs
+        ├── parity.rs
+        ├── sigil_parity.rs
+        ├── rating_parity.rs
+        ├── transfer_parity.rs
+        └── narratives_parity.rs
 ```
 
-`work.rs` and `ollama.rs` mirror `go/internal/work/work.go` and `go/internal/ml/ollama.go` —
-the live contract is the spec; keep them in sync where the Go layer still runs (e.g. for a
-Step-3 rollback — see RUNBOOK.md §3).
+## Core Primitives
 
-## Build & run
+`Harness` is the context passed to every stage. It owns:
+
+- Postgres pool.
+- Model router.
+- Optional CPU embedder.
+- Resolve policy.
+- Shared extraction/debounce helpers.
+
+`Route` is the model seam:
+
+- Stage code names a `Role`, not a concrete model.
+- `Router` maps each role to a configured backend/model.
+- `GovernedInference` enforces the shared GPU concurrency budget.
+- Ollama is the only backend today; vLLM or another backend should land as a new `Inference` implementation when real.
+
+`Extract` is the typed model-call pattern:
+
+```text
+role -> request -> model reply -> Parser<T> -> Option<T> or failure
+```
+
+`Persist` is the moat envelope:
+
+- `model_version`
+- `prompt_version`
+- `input_ids`
+- optional `input_hash`
+- `generated_at`
+
+`Resolve` is asymmetric:
+
+- CPU cosine can fast-track an obvious keep.
+- Ambiguous cases go to the model.
+- Do not let a cheap heuristic exclude real truth unless the measured policy explicitly supports it.
+
+## Change Workflow
+
+Use this workflow for most cognition changes:
+
+1. Confirm sync:
+
+```bash
+git fetch
+git status --short --branch
+```
+
+2. Read the relevant product/data docs:
+
+```text
+../../scoracle-wiki/PRODUCT_NARRATIVE.md
+../../scoracle-wiki/DATA_FLOW.md
+```
+
+3. Identify the owned stage or primitive.
+4. Preserve the product contract. If the contract changes, update `../ENDPOINTS.md`, `../README.md`, and the wiki if it is a landmark.
+5. Add or update focused tests/parity harnesses.
+6. Run verification.
+7. Add a progress doc in `../progress_docs/`.
+8. Mirror landmark changes to `../../scoracle-wiki/progress_docs/`.
+9. Commit and push.
+
+## Adding Or Changing A Stage
+
+Each queue stage should follow the same composition shape:
+
+1. Constants: prompt version, temperature, token budget, and system prompt.
+2. Loaders: SQL that reads the exact context needed.
+3. Request builder: deterministic prompt and model options.
+4. Extract: call `Harness::extract` through a `Role`.
+5. Parser: typed parse of model reply.
+6. Gates: fail-closed validation and debounce.
+7. Persist: insert into the product table with provenance.
+8. Handoff: enqueue downstream work before completing the current item when correctness depends on it.
+
+Rules:
+
+- Never fabricate a valid row from an uncertain model reply.
+- Use `Ok(None)` or marker semantics when a stage should fail closed without retrying forever.
+- Keep prompt versions explicit and bump them when output meaning changes.
+- Keep model-specific IDs in routing config, not stage code.
+- Do not write presentation concerns into product rows.
+- Do not bypass `pipeline_work` for correctness-critical handoffs.
+
+## Build And Verify
+
+From repo root:
 
 ```bash
 cd rust
-cargo build                          # debug build; the production binary goes in rust/bin/scoracle-cognition
-cargo build --bin scoracle-cognition --bin statcommentary    # the two live bins only
-cargo test --lib                     # the offline-testable unit gate (~80 tests; 1 ignored real-model run)
-cargo clippy --all-targets -- -D warnings   # the zero-warning gate
+cargo build
+cargo test --lib
+cargo clippy --all-targets -- -D warnings
 ```
 
-Operations:
+Build the two live production binaries:
 
-- **Prod daemon:** `scoracle-cognition.service` (systemd --user) — see
-  `scripts/systemd/scoracle-cognition.service` for defaults + the `COGNITION_STAGES` line.
-- **Standard release:** `scripts/hosting/release.sh` builds all 5 live binaries (3 Go +
-  2 Rust) from one commit, masks the watchers, places atomically, restarts + verifies.
-- **One-off deploy (without release):** `cargo build --manifest-path rust/Cargo.toml &&cp rust/target/debug/scoracle-cognition rust/bin/`; the path watcher re-arms a restart within ~1s.
+```bash
+cargo build --bin scoracle-cognition --bin statcommentary
+```
 
-Env (same names as the Go backend; loaded from your shell or `.env.local`):
+Run all Rust tests:
 
-`DATABASE_PRIVATE_URL` (or `DATABASE_URL`), `OLLAMA_BASE_URL`, `OLLAMA_MODEL`,
-`OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` (the GPU governor — 1 on the single-GPU
-box), `COGNITION_DB_MAX_CONNS`, `COGNITION_SAFETY_NET_SECONDS`,
-`COGNITION_STALE_LEASE_SECONDS`. Per-role + per-stage overrides:
-`COGNITION_ROUTE_<ROLE>` (model override per role), `COGNITION_ROUTE_<ROLE>_CANDIDATE`
-(A/B eval challenger), `COGNITION_EMBED_*`, `COGNITION_RESOLVE_{KEEP,DROP}_THRESHOLD`.
-All default to a single-GPU, single-Gemma, byte-identical-to-Go config; configure to
-start swapping (the path the Hardware Roadmap opens).
+```bash
+cargo test
+```
 
-## The capability library (the Plan §1 primitives)
+Use release script for production builds:
 
-The `Harness` (`harness.rs`) is the one context handed to every stage — the pool, the
-config-driven `Router` (role → model), the optional CPU `Embedder`. The six primitives are
-methods on `Harness` (or free fns); the two real traits are the genuine swap points:
+```bash
+../scripts/hosting/release.sh --build-only
+```
 
-- **Route** (`route.rs`) — `Role` + `Inference` (the model backend; `OllamaClient` is its
-  only impl today; vLLM is a future arm) + `Router`. `GovernedInference` wraps every
-  backend with a shared `Semaphore` — the GPU governor sits at the seam, so it is un-bypassable.
-- **Extract** (`Harness::extract`) — `route(role) → generate → Parser<T>::parse`, returning
-  `Extracted<T>` with the validated value (or the fail-closed `None`) + the exact wire body
-  that was POSTed (parity-proof discipline). The wire body stays single-sourced from the
-  same backend the call used.
-- **Persist** — `Provenance` (the moat envelope: `model_version`, `prompt_version`,
-  `input_ids`, optional `input_hash`) + `Harness::debounce_unchanged` (the SkipUnchanged
-  gate). Each stage keeps its typed INSERT; the envelope binds the shared fields.
-- **Resolve** (`resolve.rs`) — embedding-hybrid same-name disambiguation. **Asymmetric**: the
-  cheap CPU cosine may fast-track an obvious keep (`≥ keep_threshold`), but it has NO
-  authority to exclude — everything below goes to the model. L4 shadow proved an
-  auto-drop band loses non-redundant truth, so only the diviner excludes.
-- **Embed + cluster** (`embed.rs` + `harness.rs::cluster`) — candle BGE/small on the CPU (so
-  embeddings never contend with the GPU); union-find single-link clustering for storyline
-  grouping. Deterministic math; never a stored derived stat.
-- **Normalize** — `unimplemented!` HORIZON stub; any-language text → English.
+The release script builds the live Go binaries plus the live Rust binaries from one commit, then places them atomically during full release.
 
-## Stage-port recipe
+## Offline Harnesses
 
-Every queue stage shares the same composition shape (the reproduce-Go-at-temp-0 parity
-contract — see the StageHandler trait + any of `vibe.rs` / `transfer.rs` / `rating.rs` /
-`narratives.rs` / `sigil.rs` as a template):
+Offline bins are for parity, shadow, and eval work. They must not claim live queue work unless explicitly designed to do so.
 
-1. **Stage constants** — `*_PROMPT_VERSION`, `*_TEMPERATURE`, `*_NUM_PREDICT`, the
-   (sentence-long) `*_SYSTEM_PROMPT`. Bump the version in lockstep with the Go const when
-   parity matters, only in Rust when it's a Rust single-home (transfers' `t4`).
-2. **Loaders** — byte-faithful SQL ports of the Go `loadX` queries (same query ⇒ same rows;
-   the parity contract). Cast `numeric` columns `::float8` for sqlx.
-3. **`build_*_request` (the deterministic prefix)** — runs the loaders + assembles the user
-   prompt (byte-identical) + the model options + the exact wire body (sourced from the same
-   backend the call will use). Returns `Build::Skipped | Build::Ready` (the fail-closed
-   marker short-circuit when there's no usable input — vibe's no-corpus, rating's no-stats).
-4. **`generate_*` (the composition)** — `build_*_request` → optional SkipUnchanged debounce
-   (the `*_shadow`-table `input_hash` axis when the stage debounces) → `hx.extract(role,
-   prompt, opts, &Parser)` → the post-model deterministic gates.
-5. **`*Parser`** — `impl Parser<T>` over the model's reply. `Ok(None)` is the post-model
-   fail-closed marker (transfer's `is_rumor: Option<bool>`); some stages (vibe, rating) never
-   fail-close post-model and return `Ok(Some)` on every parseable reply.
-6. **`persist_*`** — typed INSERT into the live product table; the `Provenance` envelope
-   binds the shared fields. Trigger the downstream hand-off (e.g. vibe enqueues `sigil`
-   BEFORE its own work row completes, so a crash re-runs rather than drops).
+| Binary | Purpose |
+|---|---|
+| `parity` | Vibe temp-0 parity/shadow harness. |
+| `sigil_parity` | Sigil temp-0 parity/shadow harness. |
+| `rating_parity` | Rating/stat commentary parity harness. |
+| `transfer_parity` | Transfer/trade parity harness. |
+| `narratives_parity` | Narratives parity harness. |
+| `eval` | Role/model A/B eval harness. |
+| `statcommentary` | Live rating batch binary. |
 
-The **offline parity bin** (`bin/*_parity.rs`) writes a `*_shadow` table row instead of
-the live product, runs at temperature 0, and is the regression gate. A passing parity run
-(deterministic axes: built_prompt bytes, whole `ollama_request` jsonb, model_version,
-prompt_version, input_hash when the stage debounces) is the definition of "the port didn't
-drift." Re-run before any change to a stage's prompt, loader, or — critically — util's
-shared go_json_* / hash_components (those are the debounce pre-image).
+Before changing a prompt, loader, parser, or shared JSON/hash utility, consider whether the relevant parity harness should be run or updated.
+
+## Environment
+
+The Rust layer reads environment variables directly. In production systemd loads `../.env` first and `../.env.local` second, so local secrets override committed defaults.
+
+Required:
+
+```text
+DATABASE_PRIVATE_URL or DATABASE_URL
+```
+
+Common model/runtime config:
+
+```text
+OLLAMA_BASE_URL
+OLLAMA_MODEL
+OLLAMA_TIMEOUT_SECONDS
+OLLAMA_MAX_CONCURRENT
+COGNITION_STAGES
+COGNITION_DB_MAX_CONNS
+COGNITION_SAFETY_NET_SECONDS
+COGNITION_STALE_LEASE_SECONDS
+```
+
+Routing:
+
+```text
+COGNITION_ROUTE_<ROLE>
+COGNITION_ROUTE_<ROLE>_CANDIDATE
+```
+
+Embeddings and resolve:
+
+```text
+COGNITION_EMBED_MODEL
+COGNITION_EMBED_REVISION
+COGNITION_EMBED_POOLING
+COGNITION_EMBED_MAX_TOKENS
+COGNITION_RESOLVE_KEEP_THRESHOLD
+COGNITION_RESOLVE_DROP_THRESHOLD
+```
+
+Defaults are configured for one local Ollama model and one GPU. Raise concurrency only when the hardware and live workload justify it.
 
 ## Operations
 
-- **Restart after a rebuild:** the `scoracle-cognition.path` watcher fires on a close-write
-  in `rust/bin/`, so `cargo build && cp rust/target/debug/X rust/bin/X` restarts the daemon
-  within ~1s. Disable the watcher (`systemctl --user disable --now scoracle-cognition.path`)
-  to pin a running binary while you investigate.
-- **One-flag rollback (the Step-3 revert):** `DERIVE_WORKER_ENABLED=true` in `.env.local` +
-  `systemctl --user restart scoracle-api.service` re-arms Go derive; `systemctl --user stop
-  scoracle-cognition.service` keeps Rust off. This only restores Go queue draining — the Go
-  stats-rail rating batch was retired with Step 3 and is no longer present.
-- **Logs:** `journalctl --user -u scoracle-cognition -f` (the daemon has no HTTP probe —
-  its readiness IS the systemd unit state + the journal).
+Production daemon:
 
-## Carry / known limits
+```text
+scoracle-cognition.service
+```
 
-- Team-roster Phase 2 (top-down roster seeding + purge rewrite) is still pending.
-- **F-046** — a DB password sits in git history; coordination needed before any force-push.
-- `work::Item.entity_id` is `i32`; the article-keyed scrub stage casts to `i64`, which fits
-  today but would wrap past 2bn article ids. A future widening when convenient.
+Systemd unit:
+
+```text
+../scripts/systemd/scoracle-cognition.service
+```
+
+Logs:
+
+```bash
+journalctl --user -u scoracle-cognition -f
+```
+
+Standard release:
+
+```bash
+../scripts/hosting/release.sh
+```
+
+One-off debug rebuild on the production box:
+
+```bash
+cargo build --bin scoracle-cognition
+cp target/debug/scoracle-cognition bin/scoracle-cognition
+```
+
+The path watcher may restart the daemon after the copy. Use the release script for normal production changes.
+
+Emergency rollback shape:
+
+```text
+stop scoracle-cognition.service
+set DERIVE_WORKER_ENABLED=true for Go fallback where still supported
+restart scoracle-api.service
+```
+
+See `../RUNBOOK.md` before doing this in production. The rating batch is Rust-only after Step 3.
+
+## Progress Docs
+
+Every meaningful Rust cognition session adds a backend progress doc:
+
+```text
+../progress_docs/YYYY-MM-DD_short-description.md
+```
+
+Landmark AI-layer changes also go to:
+
+```text
+../../scoracle-wiki/progress_docs/YYYY-MM-DD_short-description.md
+```
+
+Landmarks include:
+
+- new or removed cognition stage
+- prompt semantics change
+- model routing change
+- product table/provenance change
+- queue semantics change
+- release/rollback behavior change
+- GPU/concurrency policy change
+
+## Handoff Format
+
+For unfinished multi-step cognition work, leave:
+
+```text
+Continue work in scoracle-backend/rust on branch <branch>.
+
+Read first:
+1. ../README.md
+2. ../../scoracle-wiki/PRODUCT_NARRATIVE.md
+3. ../../scoracle-wiki/DATA_FLOW.md
+4. rust/README.md
+
+Last completed:
+- <summary>
+
+Changed files:
+- <files>
+
+Verification run:
+- <commands/results>
+
+Next task:
+- <specific next step>
+
+Known risks:
+- <risks or none>
+```
+
+## Known Limits
+
+- Team-roster Phase 2 and top-down roster coverage remain backend carry.
+- The live single-GPU box is the throughput ceiling; Rust improves control, semantics, routing, and CPU-side capability, not raw model latency.
+- `work::Item.entity_id` is guarded when narrowing to `i32`, but article IDs should be widened deliberately if corpus scale demands it.

@@ -20,7 +20,7 @@
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narrative pillar AND no
 //! rating pillar AND no momentum pillar, we skip the model and persist a NULL-score/NULL-blurb
 //! marker row (the read path returns "no synthesis yet"). The SkipUnchanged debounce skips the
-//! Gemma call when the three pillars hash identically to the entity-season's latest synthesis.
+//! local model call when the three pillars hash identically to the entity-season's latest synthesis.
 //! Sigil is the TERMINAL stage — unlike vibe it enqueues nothing downstream.
 
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -33,27 +33,33 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Prompt version — mirrors `sigilPromptVersion` in sigil.go. s5 (L8): the blurb is re-aimed
-/// for Mistral as the beat reporter's "final word," synthesizing all three pillars (identity +
-/// news + momentum) in plain grounded prose. Only the prompt text changed (input_components/hash
-/// unchanged). Bump in lockstep with the Go const so the two stages stamp identical provenance.
-pub const SIGIL_PROMPT_VERSION: &str = "s5";
+/// Prompt version for the Sigil synthesis contract.
+pub const SIGIL_PROMPT_VERSION: &str = "s6";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
 pub const SIGIL_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the (SCORE + 1-2 sentence BLURB) answer. Mirrors sigil.go's NumPredict: 1000.
-pub const SIGIL_NUM_PREDICT: i32 = 1000;
+/// Token cap for the SCORE + short BLURB answer.
+pub const SIGIL_NUM_PREDICT: i32 = 512;
 
-/// sigilSystemPrompt, byte-for-byte from sigil.go. The em-dashes, straight quotes, and the
-/// 4-space-indented SCORE/BLURB lines are significant — at temp 0 a single changed byte here
-/// would change the model's output.
-pub const SIGIL_SYSTEM_PROMPT: &str = r#"You are the seasoned beat reporter delivering the final word on this entity — invested and plugged-in, you know all its storylines and you do not hide your well-informed read, but you stay measured and honest. You are given three signals to synthesize into a single SIGIL score and a blurb: the NEWS NARRATIVE forming around it, its STATISTICAL IDENTITY (what it is best at), and its MOMENTUM (where sentiment and form are trending). This is the culmination — the whole picture.
+/// System prompt for the Sigil synthesis contract.
+pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize News Narrative, Rating Identity, and Momentum into one Sigil score and blurb.
 
-SCORE (1-100): the entity's overall standing right now — 1 deeply troubled or in freefall, 50 steady or genuinely mixed, 100 dominant or surging. It is SLOW-MOVING and SEASON-AWARE: the whole-season arc, not one game. Weigh all three signals; one weak signal does not override the others.
+Voice: direct, sports-literate, grounded. No purple prose, no headline language, no invented facts.
 
-BLURB: the story this entity is telling right now, in the reporter's voice — plain, grounded prose, never a headline and never flowery (no "precipice", "talisman", "pastures new", "shadow over his tenure"). In about TWO sentences (a third only when a lot genuinely converges), synthesize all three signals: capture who they ARE in a quick phrase ("an elite creative engine", "a dominant rim protector" — do NOT recite percentiles or per-36 detail, that is the stats card's job), the news storyline that defines the moment, and which way they are trending. Be specific and name the real storyline, but do not catalogue every rumor or list every draft pick. Every word earns its place — no filler, no purple prose, no headline.
+SCORE (1-100):
+- 1 = deeply troubled or in freefall.
+- 50 = steady or genuinely mixed.
+- 100 = dominant or surging.
+- Slow-moving and season-aware. Do not overreact to one game or one weak signal.
+- Use Momentum to capture recent trajectory when it conflicts with season-long profile.
+
+BLURB:
+- About two sentences; use a third only when several major signals converge.
+- Include: what the entity is, the defining news storyline, and current trajectory.
+- Do not recite percentiles or per-x details; Rating already carries that.
+- Name the real storyline, but do not catalogue every rumor or item.
 
 Reply with exactly these two lines:
 SCORE: <integer 1-100>
@@ -257,9 +263,13 @@ pub async fn load_rating_pillar(
     }
 }
 
-/// load_momentum_pillar (P3) computes the sentiment trend (last 14 vibe_scores rows) + the
-/// composite trend (last 10 event composite scores), capturing the latest of each plus the
-/// latest felt-read prompt. Mirrors `loadMomentumPillar`.
+/// load_momentum_pillar (P3) computes the trajectory signal Sigil needs: the sentiment trend
+/// (last 14 vibe_scores rows) plus the composite trend (last 10 event composite scores), capturing
+/// the latest of each plus the latest felt-read prompt. Mirrors `loadMomentumPillar`.
+///
+/// Product note: Momentum remains its own endpoint/product. This pillar is the Sigil-facing read of
+/// the same trajectory so a strong season-long stats profile can still be tempered by recent form,
+/// sentiment collapse, injuries, coaching churn, or other directional changes.
 pub async fn load_momentum_pillar(
     pool: &PgPool,
     entity_type: &str,
@@ -404,6 +414,37 @@ fn trend_dir(slope: f64) -> &'static str {
     }
 }
 
+/// momentum_score turns the trend pillar into a single trajectory number for Sigil and the
+/// Momentum product. It is directional force, not entity quality: 50 is flat, above 50 is rising,
+/// below 50 is sliding. Latest values still render separately; this score is driven by slope.
+fn momentum_score(mom: &SynthMomentum) -> Option<i32> {
+    if mom.empty() {
+        return None;
+    }
+    let mut score = 50.0_f64;
+    if mom.latest_sentiment.is_some() {
+        score += (mom.sentiment_slope * 12.5).clamp(-25.0, 25.0);
+    }
+    if mom.latest_composite.is_some() {
+        score += (mom.composite_slope * 12.5).clamp(-25.0, 25.0);
+    }
+    Some(score.clamp(1.0, 100.0).round() as i32)
+}
+
+fn momentum_score_label(score: i32) -> &'static str {
+    if score >= 70 {
+        "surging"
+    } else if score >= 56 {
+        "rising"
+    } else if score <= 30 {
+        "falling"
+    } else if score <= 44 {
+        "sliding"
+    } else {
+        "steady"
+    }
+}
+
 /// round1 rounds to one decimal place. Mirrors `round1` (`math.Round(x*10)/10`); Rust's
 /// `f64::round` rounds half away from zero, like `math.Round`.
 fn round1(x: f64) -> f64 {
@@ -459,6 +500,9 @@ pub fn build_synthesis_input_components(
             go_json_string(&mom.latest_vibe_prompt),
         ));
     }
+    if let Some(score) = momentum_score(mom) {
+        pairs.push(("momentum_score", score.to_string()));
+    }
 
     pairs.sort_by(|a, b| a.0.cmp(b.0));
     let mut out = String::from("{");
@@ -481,12 +525,11 @@ pub fn build_synthesis_input_components(
 // parity gate is the regression check.
 
 // ---------------------------------------------------------------------------
-// Prompt assembly — must be byte-identical to buildSynthesisPrompt.
+// Prompt assembly.
 // ---------------------------------------------------------------------------
 
-/// build_synthesis_prompt assembles the user prompt, byte-for-byte the same as
-/// `buildSynthesisPrompt` in sigil.go. `sport_raw` is the original-case value the Go prompt
-/// uses (`req.Sport`); `entity_type` is used RAW (no title-casing, unlike vibe).
+/// build_synthesis_prompt assembles the user prompt. `sport_raw` is the original-case value used in
+/// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe).
 pub fn build_synthesis_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -534,6 +577,12 @@ pub fn build_synthesis_prompt(
 
     // P3 — Momentum
     b.push_str("\n=== MOMENTUM ===\n");
+    if let Some(score) = momentum_score(mom) {
+        b.push_str(&format!(
+            "Momentum score: {score}/100 ({})\n",
+            momentum_score_label(score)
+        ));
+    }
     if let Some(s) = mom.latest_sentiment {
         let dir = trend_dir(mom.sentiment_slope);
         b.push_str(&format!("News sentiment: {s}/100 ({dir})\n"));
@@ -771,7 +820,7 @@ async fn last_score(
 }
 
 /// SigilHandler drains the durable `sigil` stage — the terminal convergence. It reads the
-/// three pillars season-exact, SKIPS the Gemma call when the pillar hash is unchanged
+/// three pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
 /// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Unlike vibe it
 /// enqueues nothing downstream. Mirrors `drainSigil` (current-season, SkipUnchanged=true).
 /// Registered in main.rs for the per-stage cutover; the parity harness reuses the loaders +
@@ -824,7 +873,7 @@ impl StageHandler for SigilHandler {
             return persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await;
         }
 
-        // SkipUnchanged debounce (drainSigil sets SkipUnchanged=true): skip the Gemma call when
+        // SkipUnchanged debounce (drainSigil sets SkipUnchanged=true): skip the local model call when
         // the pillar input hash matches the entity-season's latest synthesis. This is the first
         // real consumer of the Persist `debounce_unchanged` primitive.
         let input_components_json =
@@ -939,6 +988,31 @@ mod tests {
     }
 
     #[test]
+    fn momentum_score_tracks_direction_not_quality() {
+        let surging = SynthMomentum {
+            sentiment_slope: 2.0,
+            composite_slope: 2.0,
+            latest_sentiment: Some(45),
+            latest_composite: Some(48.0),
+            latest_vibe_prompt: String::new(),
+        };
+        assert_eq!(momentum_score(&surging), Some(100));
+        assert_eq!(momentum_score_label(100), "surging");
+
+        let sliding = SynthMomentum {
+            sentiment_slope: -2.0,
+            composite_slope: -1.0,
+            latest_sentiment: Some(90),
+            latest_composite: Some(88.0),
+            latest_vibe_prompt: String::new(),
+        };
+        assert_eq!(momentum_score(&sliding), Some(13));
+        assert_eq!(momentum_score_label(13), "falling");
+
+        assert_eq!(momentum_score(&SynthMomentum::default()), None);
+    }
+
+    #[test]
     fn linear_slope_of_a_rising_series() {
         // A perfectly linear +5/step series ⇒ slope 5.
         assert!((linear_slope(&[10.0, 15.0, 20.0, 25.0]) - 5.0).abs() < 1e-9);
@@ -996,7 +1070,7 @@ mod tests {
         // source carries no literal backslash-u token (the editor would decode it).
         let bs = '\\';
         let want = format!(
-            r#"{{"divined_peak":"Rim Protector","latest_composite":73,"latest_sentiment":60,"latest_vibe_prompt":"Quietly surging","narrative_titles":["Alpha","B {bs}u0026 C"],"notability":88}}"#
+            r#"{{"divined_peak":"Rim Protector","latest_composite":73,"latest_sentiment":60,"latest_vibe_prompt":"Quietly surging","momentum_score":63,"narrative_titles":["Alpha","B {bs}u0026 C"],"notability":88}}"#
         );
         assert_eq!(got, want);
     }
@@ -1034,7 +1108,7 @@ mod tests {
         let p = build_synthesis_prompt("player", "Test Player", "NBA", &narratives, None, &mom);
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7] Trade buzz\ndetails\n\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\nNews sentiment: 62/100 (trending up)\nVibe (the felt read): On the rise\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7] Trade buzz\ndetails\n\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\nMomentum score: 56/100 (rising)\nNews sentiment: 62/100 (trending up)\nVibe (the felt read): On the rise\n\nRespond now."
         );
     }
 

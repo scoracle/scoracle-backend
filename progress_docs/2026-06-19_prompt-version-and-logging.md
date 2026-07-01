@@ -77,5 +77,5 @@ Migrated all `log.Printf` calls in the news package to structured `slog` logging
 
 - [[Product Narrative]] — the curated derivation engine
 - [[Backend Architecture]] — the Go API design
-- [[AI Architecture]] — the Gemma pipeline
+- [[AI Architecture]] — the local model pipeline
 - [progress_docs/2026-06-19_scrub-wiring-complete.md](2026-06-19_scrub-wiring-complete.md) — the scrub precision pass this complements

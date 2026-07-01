@@ -1,4 +1,4 @@
--- Vibe blurb storage — ~140 char narrative summaries produced by Gemma.
+-- Vibe blurb storage — ~140 char narrative summaries produced by local model.
 --
 -- Not a numerical rating. The blurb is qualitative, news/tweet-driven,
 -- with the milestone fact sprinkled in lightly.
@@ -16,11 +16,11 @@ CREATE TABLE IF NOT EXISTS vibe_scores (
     trigger_type     TEXT        NOT NULL CHECK (trigger_type IN ('milestone', 'manual', 'periodic')),
     trigger_payload  JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
-    -- The Gemma output.
+    -- The local model output.
     blurb            TEXT        NOT NULL,
 
     -- Traceability: which corpus rows informed this specific blurb.
-    -- Useful for "why did Gemma say that" debugging and for cost/quality
+    -- Useful for "why did local model say that" debugging and for cost/quality
     -- analysis when we iterate prompts.
     input_news_ids   BIGINT[]    NOT NULL DEFAULT '{}',
     input_tweet_ids  TEXT[]      NOT NULL DEFAULT '{}',

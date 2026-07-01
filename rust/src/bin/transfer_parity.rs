@@ -2,18 +2,17 @@
 //!
 //! For each (team, player) candidate pair it runs the SAME deterministic prefix the production
 //! `TransferHandler` uses — `build_pair_request` (compute_transfer_heat → corpus → relationship →
-//! `build_transfer_prompt` → the t4 options → the exact wire body) — and writes a source='rust' row
+//! `build_transfer_prompt` → the t5 options → the exact wire body) — and writes a source='rust' row
 //! to `transfer_rumors_shadow` with the parity axes: `built_prompt`, `ollama_request`,
 //! `model_version`, `prompt_version`. The Go side (`go/internal/ml/transfer_parity_test.go`) writes
 //! source='go' rows the same way; the proof is a self-join diff in that table.
 //!
 //! NO MODEL CALL by default (the L2 finding): the parity axes are all deterministic — the verdict
 //! (is_rumor/stage/summary) is NOT a temp-0 parity axis, so the gate needs no GPU and is fully
-//! deterministic. The diff expects `built_prompt` byte-equal and `ollama_request` equal EXCEPT the
-//! `system` field — the ONE intended divergence (Go's frozen t3 vs Rust's t4: the roundup/listicle
-//! clause + never-invent-a-fee, the L9 false-heat root fix single-homed in Rust). Set
+//! deterministic. The diff expects `built_prompt` byte-equal and lets the model request reflect the
+//! current Rust prompt contract. Set
 //! `TRANSFER_PARITY_VET=1` to ALSO run the model at temp 0 and record the verdict columns — for
-//! eyeballing that t4 actually clears roundups / never invents a fee (inspection, not the gate).
+//! eyeballing that the prompt clears roundups and never invents a fee (inspection, not the gate).
 //!
 //! Pair set: `load_candidates` (the production loader — identical SQL to Go) then SORT BY player_id
 //! then take `TRANSFER_PARITY_MAX_PAIRS` (default 4) — a bin-only deterministic cap so the Rust and
@@ -253,7 +252,7 @@ async fn persist_shadow(
         r#"
         INSERT INTO transfer_rumors_shadow (
             source, team_id, player_id, sport, trigger_type, trigger_payload,
-            heat, heat_components, is_rumor, direction, stage, gemma_summary,
+            heat, heat_components, is_rumor, direction, stage, model_summary,
             source_attribution, confidence, input_news_ids, model_version, prompt_version,
             temperature, built_prompt, ollama_request
         ) VALUES ('rust',$1,$2,$3,'periodic',$4::jsonb,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb)

@@ -21,7 +21,7 @@ fix in v3.
 
 - **Cron schedule.** `0 0,12 * * * cron-vibe.sh -mode corpus` (midnight
   + noon ET). Replaces the old `0 3 * * * -mode batch` line. Corpus
-  mode RSS-sweeps every team in NBA/NFL/FOOTBALL and runs Gemma only on
+  mode RSS-sweeps every team in NBA/NFL/FOOTBALL and runs local model only on
   entities whose corpus picked up something fresh — independent of
   fixtures, so offseason and eliminated teams don't go dark.
 - **Drop legacy fixture-driven paths entirely.** `runBatch` and
@@ -65,7 +65,7 @@ Backup of previous crontab at `~/.cache/crontab/crontab.bak`.
 Ran `cron-vibe.sh -mode corpus` immediately to refresh stale data
 without waiting for noon. Final tally:
 - RSS sweep: 158 teams, 0 failures, 3 min.
-- Gemma queue: 334 candidates, 306 fresh v3 scores, 0 failures, 0
+- local model queue: 334 candidates, 306 fresh v3 scores, 0 failures, 0
   no-corpus markers, 28 skipped (already-recent), 1h 58m.
 - Detroit Pistons (NBA team_id=9): now 58, prompt v3, 2026-05-10
   11:01:54 — non-round, current.
@@ -124,7 +124,7 @@ psql "$DATABASE_PRIVATE_URL" -c "
   FROM pg_trigger
   WHERE tgname = 'trg_vibe_trigger_on_news_link';"
 ```
-Direct NOTIFY for an end-to-end sanity check (will run Gemma against
+Direct NOTIFY for an end-to-end sanity check (will run local model against
 the entity if it has fresh corpus + isn't inside the 30-min debounce):
 ```
 psql "$DATABASE_PRIVATE_URL" -c "
@@ -173,7 +173,7 @@ go/
 │   ├── api/handler/vibe.go          # filters: sentiment ✓, prompt_version, 72h cap
 │   ├── listener/
 │   │   ├── listener.go              # percentile_changed → FCM
-│   │   └── news_volume_worker.go    # vibe_trigger → Gemma
+│   │   └── news_volume_worker.go    # vibe_trigger → local model
 │   └── ml/vibe.go                   # generator (unchanged)
 sql/migrations/
 ├── 007_vibe_scores.sql              # base table

@@ -1,7 +1,7 @@
 //! Rating stage — the stats-rail on-field IDENTITY commentary, ported from Go (Cutover Step 2, L12).
 //!
 //! The Go source is the machinery spec. `rating.go` is the loader + the deterministic
-//! notability/pctBand/trimFloat/ordered-facts assembly + the s6 prompt, parse, persist;
+//! notability/pctBand/trimFloat/ordered-facts assembly + parse + persist;
 //! `cmd/statcommentary` is the BATCH driver (its own Generate loop — NOT the pipeline_work queue,
 //! NOT DrainAll). So rating is the first stage with no queue `Stage` variant; its cutover is a Rust
 //! batch bin (Step 3), and THIS port builds the per-entity core that bin will loop over.
@@ -15,18 +15,15 @@
 //! precedent it lives in the stage, exactly as Go does it. The L8 BREAKTHROUGH is preserved: the
 //! percentile→tier mapping (`pctBand`) is done DETERMINISTICALLY in code and fed to the model as a
 //! labeled FACT, and the model only VERBALIZES the labeled tier — it never maps percentile→quality
-//! itself (Mistral was inverting it, e.g. calling a 37th-pct skill "above average").
+//! itself (some local models invert this, e.g. calling a 37th-pct skill "above average").
 //!
 //! FAIL CLOSED: rating's ONLY marker is the PRE-model no-stats path (no usable rating row → a
 //! NULL-body marker, like vibe's no-corpus marker). There is no post-model fail-closed marker — an
 //! empty model body is a hard error (the work fails + retries), never a served row (Go returns an
 //! error too). So `RatingParser` never returns `Ok(None)` (like `VibeParser`).
 //!
-//! PARITY: this is a FAITHFUL port — no single-home prompt divergence (unlike L11 transfers' t4). The
-//! s6 system prompt is carried VERBATIM, so the parity gate is the whole ollama_request jsonb
-//! (INCLUDING `system`) + built_prompt bytes + model_version + prompt_version + input_hash. The 5th
-//! axis (input_hash) is new vs transfers: rating debounces on it, so the canonical input-components
-//! JSON must reproduce Go's `hashComponents` byte-for-byte (the shared `util::go_json_*` helpers).
+//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s7 prompt is
+//! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
@@ -37,45 +34,49 @@ use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 
-/// Prompt version — mirrors Go's `ratingPromptVersion`. This is a faithful port, so it stays "s6"
-/// (no single-home bump; the whole ollama_request including `system` is a parity axis).
-pub const RATING_PROMPT_VERSION: &str = "s6";
+/// Prompt version for the Rating identity commentary contract.
+pub const RATING_PROMPT_VERSION: &str = "s7";
 
 /// Production rating temperature (rating.go uses 0.6 — a touch of voice on the analyst prose). The
 /// parity harness overrides to 0 (the deterministic axes need no model call anyway).
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
-/// Token cap. Mirrors rating.go's `NumPredict: 2000` (a few sentences on top of the model's reasoning
-/// budget). The lever for the ~3-short-paragraph length is a tighter few-shot / lower NumPredict — a
-/// future tune, never a hard clamp.
-pub const RATING_NUM_PREDICT: i32 = 2000;
+/// Token cap for the PEAK line plus one identity paragraph.
+pub const RATING_NUM_PREDICT: i32 = 1200;
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
 const MAX_STAT_FACTS: usize = 14;
 
-/// The s6 system prompt — BYTE-IDENTICAL to `rating.go::ratingSystemPrompt` (a parity axis: the whole
-/// ollama_request, including `system`, is diffed). The `·` (U+00B7) and `—` (U+2014) are significant
-/// bytes. Authored once in Go; carried verbatim here (faithful port, no t4-style divergence). This is
-/// the L8 instruction set: THE TIER IS THE TRUTH — the model verbalizes the labeled tier pctBand
-/// supplies, it never maps percentile→quality itself.
-pub const RATING_SYSTEM_PROMPT: &str = r#"You are the respected analyst a national broadcast brings on to break down what this player or team is, statistically. You have the entity's RATING-ENGINE profile — already computed. COMPOSITE is how WELL it performs overall. Each skill is given as: VALUE (the raw stat) · PERCENTILE versus peers and its TIER (elite / strong / above average / average / below average / poor) · Z (standard deviations above the mean — the scarcity and scale of the edge; a high z is a rarer, more premium skill, the kind that decides games). Percentiles come at scopes — overall, versus position, and per-x (per-36 / per-90). Use them together: a modest raw output but an elite per-x mark means an efficient, lower-minutes contributor worth noting.
+/// System prompt for the Rating identity commentary contract.
+pub const RATING_SYSTEM_PROMPT: &str = r#"Task: write the entity's on-field statistical identity from the supplied Rating Engine profile.
 
-THE TIER IS THE TRUTH. Judge each skill by its labeled tier, never by how it stacks up against the entity's OWN other skills: a "strong" or "elite" mark is a strength even if it is this entity's lowest; a "poor" mark is a weakness even if it is their highest. The PEAK is simply the highest-percentile skill.
+Voice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied datapoints.
 
-Write the read of the entity's ON-FIELD IDENTITY in the analyst's voice:
-- First line exactly: PEAK: followed by EITHER the skill of the FIRST datapoint listed (the highest percentile), OR the exact words "No standout skill" if that first skill is not at least "strong" tier. Those are the ONLY two valid forms. The PEAK can NEVER be a skill labeled "average", "below average", or "poor" — if the top skill is not "strong" or "elite", you MUST write exactly "PEAK: No standout skill". (Do not pick the most eye-catching weakness — the peak is about the best skill, not the most notable one.)
-- Lead with the genuine strengths (the elite and strong skills). When the entity is strong across many areas, name its single most dominant skill, then capture the breadth in one stroke ("a dominant all-around offensive producer") rather than listing every skill. Cite the value and percentile, and when an edge holds up in the per-x numbers say so (proof it is not a fluke). Reserve "elite", "rare", "premium", "game-wrecking" for elite, high-z marks.
-- Do NOT force negatives, and never praise a mark below the 50th percentile — anything under 50 is below average by definition. Mention a weakness only when a skill is genuinely "below average" or "poor," and name it as the limitation it is. If NO skill rates "below average" or "poor," the entity has no statistical weakness — mention none at all, and never call a "strong" or "elite" mark "below par," "room for improvement," or a shortcoming just because the entity is even better elsewhere.
-- If nothing rates strong or better, say so plainly and point to their greatest impact with its percentile ("no standout skill, but his biggest impact is tackling, around the 59th percentile") — the number lets the reader judge.
-- Land it with a verdict on what this entity is — the line an analyst signs off with ("a legit two-way game-wrecker", "a low-usage floor-spacer who defends above his profile", "a replaceable rotation piece").
+Definitions:
+- COMPOSITE = how well the entity performs overall.
+- Each skill gives value, percentile, tier, and z-score.
+- TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.
+- Per-x marks can support an efficient lower-minutes or per-90 edge.
 
-Deliver it as ONE flowing paragraph, the way an analyst speaks on air — no line breaks, no "strengths / weaknesses / summary" sections. A modest profile is 2-3 sentences; a multi-skill standout up to five; never more. Pack several stats into a sentence; never give one its own sentence, and never walk the list in order. Cite a value as the plain figure given — never fabricate a per-game or per-90 rate that is not in the data. Ground every claim; never invent a number or a skill that is not there.
+Output:
+1. First line exactly: PEAK: <label>
+2. Then one flowing paragraph, no headers or bullets.
 
-Match this format and length exactly — it is a different, invented player, so take nothing factual from it, only the shape:
-PEAK: Elite finishing
-A ruthless penalty-box striker — 24 goals (97th percentile, a rare +3.1 z) with elite shot volume (92nd) and conversion that holds up per-90, the kind of scarce finishing that decides matches; beyond the box he offers little, with poor creation (28th) and pressing (22nd), but as a pure number nine he is among the league's best. A lethal poacher, plain and simple.
+PEAK rules:
+- Use the first datapoint's skill only if it is strong or elite.
+- If the first datapoint is not strong or elite, write exactly: PEAK: No standout skill.
+- Never choose an average, below average, or poor skill as the peak.
 
-After the PEAK line, return only the paragraph — no headers, no bullets, no preamble."#;
+Paragraph rules:
+- Lead with real strengths: strong and elite skills.
+- Cite values and percentiles as given.
+- Mention per-x support when it confirms the edge.
+- Do not praise marks below the 50th percentile.
+- Mention weaknesses only when a skill is below average or poor.
+- If nothing is strong or elite, say that plainly and name the best available impact with its percentile.
+- End with a clear verdict on what kind of player/team this is.
+- Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.
+- Never invent a number, rate, role, or skill not in the data."#;
 
 /// The entity whose rating profile to narrate — the Rust analog of `RatingRequest`'s parity-relevant
 /// fields. `sport` is UPPER-cased by the caller (the Go CLI passes `sportUpper`); the header line uses
@@ -688,7 +689,7 @@ pub struct RatingReady {
 }
 
 /// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
-/// canonical input-components + hash, the notability, `build_stat_prompt`, the s6 options, and the
+/// canonical input-components + hash, the notability, `build_stat_prompt`, the s7 options, and the
 /// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
 /// [`Role::StatsLogic`] (rating is its first consumer).
 pub async fn build_rating_request(
@@ -988,8 +989,8 @@ mod tests {
     }
 
     // --- build_stat_prompt byte-fixtures: the deterministic parity axis. The expected strings are
-    // computed by hand from Go's buildStatPrompt, so a drift in the Rust assembly fails here (offline,
-    // no model) before the live diff ever runs. ------------------------------------------------------
+    // computed by hand from the Rust assembly, so prompt drift fails here (offline, no model).
+    // -----------------------------------------------------------------------------------------------
 
     #[test]
     fn prompt_player_composite_datapoints_and_scoped_position() {

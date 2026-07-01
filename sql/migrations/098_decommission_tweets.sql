@@ -1,7 +1,7 @@
 -- 098_decommission_tweets.sql  (Optimization Ledger O15)
 --
 -- X / Twitter is permanently decommissioned (parked 2026-06-13; news + transfer
--- heat now derive entirely from the Google-RSS → Gemma corpus). The serving routes,
+-- heat now derive entirely from the Google-RSS → local model corpus). The serving routes,
 -- handler, thirdparty client, prepared statements, config, and the tweet-TTL purge
 -- ticker were removed in the Go change that ships with this migration.
 --

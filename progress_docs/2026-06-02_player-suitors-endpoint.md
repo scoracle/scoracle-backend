@@ -19,7 +19,7 @@ of the existing team transfers endpoint, over the same pair-level `transfer_rumo
   `(player_id, sport, generated_at DESC)` index already shipped in migration 031.
 
 Payload: `{page:'suitors', sport, player_id, count, suitors:[{id, name, image,
-heat, heat_components, direction, stage, gemma_summary, source_attribution,
+heat, heat_components, direction, stage, model_summary, source_attribution,
 rank}]}` — same shape as transfers, teams instead of players.
 
 ## Verification
@@ -32,11 +32,11 @@ rank}]}` — same shape as transfers, teams instead of players.
 
 ## Notes
 
-- `direction` is `null` for pairs that are still heat-only **seed** rows (Gemma
+- `direction` is `null` for pairs that are still heat-only **seed** rows (local model
   sets direction only when a team's pairs are vetted). Only Chelsea + West Ham have
-  been Gemma-run so far; the daily transfer corpus cron (just installed) will vet
+  been local model-run so far; the daily transfer corpus cron (just installed) will vet
   the rest and fill direction/stage/summary across the board. Heat ranking is valid
-  in the meantime — the Phase-1 "heat renders before Gemma" property holds here too.
+  in the meantime — the Phase-1 "heat renders before local model" property holds here too.
 - No frontend yet — this is the endpoint only. A player-profile "Linked with"
   card would be the natural next step if/when wanted (clone TransfersCard, swap
   player rows for team rows).

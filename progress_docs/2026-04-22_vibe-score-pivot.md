@@ -4,18 +4,18 @@
 
 Replace the narrative Vibe blurb with a single numeric sentiment score (1-100)
 so the frontend can paint its own emoji/color bucket. Primary motivation: cut
-Gemma output tokens per call so we can score the long tail of entities and
+local model output tokens per call so we can score the long tail of entities and
 support a "hottest" feed, instead of the blurb path's headliner-only real-time
 / starters-only daily budget.
 
 ## Decisions
 
-- **Scale**: Gemma rates 1-10 internally, generator multiplies by 10 to store
+- **Scale**: local model rates 1-10 internally, generator multiplies by 10 to store
   1-100. Smaller output space stabilizes quantization on a small model; the
   column stays 1-100 so we can widen later without another migration.
 - **Keep `blurb` column (nullable)** for future hybrid mode (score + short
   internal rationale). Generator currently writes NULL.
-- **`NumPredict: 1200`** — ended up *higher* than I'd hoped. Gemma 4 e4b burns
+- **`NumPredict: 1200`** — ended up *higher* than I'd hoped. local model e4b burns
   predict tokens on internal chain-of-thought before any visible output; too
   low a cap returns empty (`done_reason=length`, response empty). 256, 768
   both silently failed on large-corpus prompts (~3.8k chars). 1200 is empirically
@@ -74,7 +74,7 @@ curl ':8000/api/v1/nba/vibe/hottest?entityType=player&limit=5'
 - **Team prompts are slow** (Lakers = 50s on local CPU-bound Ollama). If we
   want the long-tail coverage the pivot was designed to unlock, we may need
   to either trim `maxNewsItems`/`maxTweetItems` for team entities, or test
-  whether `think: false` works on Gemma 4 via the Ollama API to skip
+  whether `think: false` works on local model via the Ollama API to skip
   reasoning entirely.
 - **Batch coverage expansion**: current batch still filters to
   `starter`/`headliner` tiers. With score-only generation we could reasonably

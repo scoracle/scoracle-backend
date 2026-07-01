@@ -3,7 +3,7 @@
 -- Deterministic transfer/trade heat index — pure SQL over the news+tweet
 -- co-mention corpus for a (team, player) pair. The engine stores the number;
 -- it is fully decomposable (heat_components), exactly like rating_breakdown.
--- Gemma never touches this — it only vets (migration 033 + ml/transfer.go).
+-- local model never touches this — it only vets (migration 033 + ml/transfer.go).
 --
 -- Heat = 100 · tier_weight · recency · (0.6·volume + 0.4·recent_frac)
 --   volume       = LEAST(1, distinct_sources / 5)      — breadth of coverage
@@ -84,10 +84,10 @@ CREATE OR REPLACE FUNCTION compute_transfer_heat(
 $$;
 
 -- ---------------------------------------------------------------------------
--- seed_transfer_rumors(sport) — heat-only backfill (Phase 1, no Gemma). Walks
+-- seed_transfer_rumors(sport) — heat-only backfill (Phase 1, no local model). Walks
 -- co-mention candidate pairs (team co-mentioned with a player in >= min_articles
 -- distinct articles, 14d) and appends a heat row per pair with a positive heat.
--- is_rumor=TRUE / stage='speculation' are PROVISIONAL until Gemma vets (Phase 2).
+-- is_rumor=TRUE / stage='speculation' are PROVISIONAL until local model vets (Phase 2).
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION seed_transfer_rumors(p_sport TEXT, p_min_articles INTEGER DEFAULT 2)
 RETURNS INTEGER LANGUAGE plpgsql AS $$

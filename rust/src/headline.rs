@@ -1,12 +1,13 @@
-//! Headlines stage — entity-scoped breaking-news bulletins (Headlines feature v1).
+//! Headlines stage — entity-scoped breaking-news bulletins for the News product.
 //!
 //! Runs immediately after scrub on the vetted article stream: for each entity with a fresh
-//! vetted corpus, ask the model to identify high-impact, time-sensitive headlines and emit
+//! vetted corpus, ask the local model to identify high-impact, time-sensitive headlines and emit
 //! one-sentence blurbs with categories (transfer, injury, coaching, contract, other).
 //!
-//! This is a NEW stage in the news rail, sitting before transfers/narratives conceptually
-//! but operating as an independent per-entity queue stage (`Stage::Headlines`) so it
-//! composes the same `route + extract + persist` primitives as the other handlers.
+//! This is a News component stage, not a standalone product pillar. It sits before
+//! transfers/narratives conceptually but operates as an independent per-entity queue stage
+//! (`Stage::Headlines`) so it composes the same `route + extract + persist` primitives as the
+//! other handlers. The Go API should package it under News/Meta surfaces.
 
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
@@ -18,16 +19,17 @@ use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 use sqlx::PgPool;
+use std::collections::{HashMap, HashSet};
 use tracing::warn;
 
 /// Prompt version for provenance. Bump when the headline prompt changes.
-pub const HEADLINES_PROMPT_VERSION: &str = "h1";
+pub const HEADLINES_PROMPT_VERSION: &str = "h2";
 
 /// Low temperature for a classification/extraction task.
 pub const HEADLINES_TEMPERATURE: f64 = 0.3;
 
 /// Enough room for a few one-sentence headlines in JSON.
-pub const HEADLINES_NUM_PREDICT: i32 = 2000;
+pub const HEADLINES_NUM_PREDICT: i32 = 1200;
 
 /// Cap the corpus fed to the headline detector (same 72h window as narratives, bounded count).
 const MAX_HEADLINE_CORPUS: i64 = 15;
@@ -39,7 +41,7 @@ const HEADLINES_LOOKBACK_SECS: f64 = 259_200.0;
 const DESC_TRUNCATE: usize = 200;
 
 /// System prompt: classify breaking headline news and emit structured JSON.
-pub const HEADLINES_SYSTEM_PROMPT: &str = r#"You are a sports news editor scanning recent articles about ONE specific entity. Identify BREAKING HEADLINE news — high-impact, time-sensitive events that deserve a one-sentence bulletin on that entity's page.
+pub const HEADLINES_SYSTEM_PROMPT: &str = r#"Task: identify breaking headline news about ONE specific sports entity.
 
 Categories: transfer, injury, coaching, contract, other.
 
@@ -47,7 +49,7 @@ Return STRICT JSON only (no markdown fences, no text before or after):
 {"headlines": [{"title": "one-sentence breaking-news blurb", "category": "transfer|injury|coaching|contract|other", "article_numbers": [1]}]}
 
 Rules:
-- Only flag genuinely time-sensitive, high-impact news ABOUT this entity.
+- Only flag time-sensitive, high-impact news ABOUT this entity.
 - transfer = a current move/interest involving this entity (not background or historical).
 - injury = a significant injury or absence reported for this entity.
 - coaching = a coaching/managerial change involving this entity.
@@ -55,7 +57,7 @@ Rules:
 - other = any other unexpected, notable event (suspension, retirement, record broken, etc.).
 - Do NOT flag routine match reports, general praise, power rankings, listicles, mailbags, notes columns, or passing mentions.
 - If no breaking headline is present, return {"headlines": []}.
-- Each title must be ONE tight sentence naming the key people/clubs and what happened.
+- Each title must be one concrete sentence naming the key people/clubs and what happened.
 - article_numbers refers to the numbered articles in the user prompt (1-indexed)."#;
 
 /// One article in the entity's recent vetted corpus.
@@ -290,7 +292,7 @@ pub async fn generate_headlines(
         });
     }
 
-    Ok((rows, extracted.model))
+    Ok((dedupe_headline_rows(rows), extracted.model))
 }
 
 /// Normalize a model-returned category to the allowed set.
@@ -303,6 +305,61 @@ fn normalize_category(raw: &str) -> String {
         "other" => "other".to_string(),
         _ => String::new(),
     }
+}
+
+fn headline_dedupe_key(row: &HeadlineRow) -> String {
+    let source_url = row.source_url.trim().to_lowercase();
+    if !source_url.is_empty() {
+        return format!("url:{source_url}");
+    }
+
+    format!(
+        "source-title:{}:{}",
+        row.source_name.trim().to_lowercase(),
+        row.title
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase()
+    )
+}
+
+fn category_rank(category: &str) -> i32 {
+    match category {
+        "transfer" | "injury" | "coaching" | "contract" => 2,
+        "other" => 1,
+        _ => 0,
+    }
+}
+
+fn merge_article_ids(dst: &mut Vec<i64>, src: &[i64]) {
+    let mut seen: HashSet<i64> = dst.iter().copied().collect();
+    for id in src {
+        if seen.insert(*id) {
+            dst.push(*id);
+        }
+    }
+}
+
+fn dedupe_headline_rows(rows: Vec<HeadlineRow>) -> Vec<HeadlineRow> {
+    let mut out: Vec<HeadlineRow> = Vec::new();
+    let mut positions: HashMap<String, usize> = HashMap::new();
+
+    for row in rows {
+        let key = headline_dedupe_key(&row);
+        if let Some(&idx) = positions.get(&key) {
+            if category_rank(&row.category) > category_rank(&out[idx].category) {
+                out[idx].category = row.category.clone();
+            }
+            merge_article_ids(&mut out[idx].input_news_ids, &row.input_news_ids);
+            continue;
+        }
+
+        positions.insert(key, out.len());
+        out.push(row);
+    }
+
+    out
 }
 
 /// Persist generated headlines to the live `headlines` table with full provenance.
@@ -325,6 +382,7 @@ async fn persist_headlines(
                 $1, $2, $3, $4, $5, $6, $7, to_timestamp($8),
                 $9, $10, $11, $12, NOW()
             )
+            ON CONFLICT DO NOTHING
             "#,
         )
         .bind(sport)
@@ -450,5 +508,65 @@ mod tests {
             r#"{"headlines": [{"title": "A", "category": "other", "article_numbers": [1, 2]}]}"#;
         let parsed = HeadlinesParser.parse(raw).unwrap().unwrap();
         assert_eq!(parsed.headlines[0].article_numbers, vec![1, 2]);
+    }
+
+    #[test]
+    fn dedupe_rows_collapses_same_source_url_and_prefers_specific_category() {
+        let rows = vec![
+            HeadlineRow {
+                title: "Sam Kerr signs with Gotham FC after Chelsea exit".to_string(),
+                category: "other".to_string(),
+                source_url: "https://example.com/kerr".to_string(),
+                source_name: "Al Jazeera".to_string(),
+                published_at_epoch: Some(10),
+                input_news_ids: vec![1],
+            },
+            HeadlineRow {
+                title: "Sam Kerr signs with Gotham FC after Chelsea exit".to_string(),
+                category: "transfer".to_string(),
+                source_url: " https://example.com/kerr ".to_string(),
+                source_name: "Al Jazeera".to_string(),
+                published_at_epoch: Some(10),
+                input_news_ids: vec![1, 2],
+            },
+        ];
+
+        let deduped = dedupe_headline_rows(rows);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(deduped[0].category, "transfer");
+        assert_eq!(deduped[0].input_news_ids, vec![1, 2]);
+    }
+
+    #[test]
+    fn dedupe_rows_uses_source_and_title_when_url_missing() {
+        let rows = vec![
+            HeadlineRow {
+                title:
+                    "Australian football legend Sam Kerr signs with Gotham FC after Chelsea exit"
+                        .to_string(),
+                category: "other".to_string(),
+                source_url: "".to_string(),
+                source_name: "Al Jazeera".to_string(),
+                published_at_epoch: Some(10),
+                input_news_ids: vec![1],
+            },
+            HeadlineRow {
+                title:
+                    "Australian   football legend Sam Kerr signs with Gotham FC after Chelsea exit"
+                        .to_string(),
+                category: "transfer".to_string(),
+                source_url: "".to_string(),
+                source_name: "al jazeera".to_string(),
+                published_at_epoch: Some(10),
+                input_news_ids: vec![2],
+            },
+        ];
+
+        let deduped = dedupe_headline_rows(rows);
+
+        assert_eq!(deduped.len(), 1);
+        assert_eq!(deduped[0].category, "transfer");
+        assert_eq!(deduped[0].input_news_ids, vec![1, 2]);
     }
 }

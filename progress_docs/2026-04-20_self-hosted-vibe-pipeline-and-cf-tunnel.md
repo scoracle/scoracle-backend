@@ -5,12 +5,12 @@
 ## Goal
 
 Turn the Scoracle backend into a properly self-hosted service running
-on the local Arch desktop, with a Gemma-driven vibe generation layer
+on the local Arch desktop, with a local model-driven vibe generation layer
 wired end-to-end and the frontend at `scoracle.com` pulling from it
 over a Cloudflare Tunnel.
 
 Start state: fresh hardware. Local Postgres just installed on a new
-2TB KingSpec NVMe. Ollama installed with Gemma 4 e4b. Backend code
+2TB KingSpec NVMe. Ollama installed with local model e4b. Backend code
 previously lived on Railway + Neon.
 
 End state: the API is systemd-managed on the dev box, Cloudflare
@@ -26,7 +26,7 @@ chronologically, grouping by area:
 - New Arch box with a KingSpec XG7000 2TB NVMe mounted at `/mnt/data`.
 - Postgres 18.3 relocated to `/mnt/data/postgres/data` via a systemd
   drop-in.
-- Ollama serving `gemma4:e4b` (~8GB VRAM, fits the consumer GPU).
+- Ollama serving `local-model:tag` (~8GB VRAM, fits the consumer GPU).
 - Backend repo pulled clean; schema from `sql/*.sql` applied to the
   local DB in sequence.
 
@@ -59,7 +59,7 @@ chronologically, grouping by area:
   `event_box_scores` row older than `--grace-days`. Dropped **13,083**
   junk player rows. NBA 827, NFL 2,675, Football 3,254 after purge.
 
-### News corpus for Gemma
+### News corpus for local model
 - `news_articles` + `news_article_entities` tables (migration 006).
 - Extended the existing news fetcher to write-through: every matched
   article persists, with cross-entity linking against a cached
@@ -68,7 +68,7 @@ chronologically, grouping by area:
 - One-time backfill CLI (`scoracle-seed news backfill --teams-only` for
   NFL/football, full for NBA). Pulled 2,644 articles, 4,889 entity
   links across 484 distinct entities. Later **removed** from the CLI
-  after Gemma was validated on the corpus — organic write-through
+  after local model was validated on the corpus — organic write-through
   keeps the corpus fresh in steady state.
 
 ### X / Twitter wiring + telemetry
@@ -84,12 +84,12 @@ chronologically, grouping by area:
   `tweets_today`, reset at UTC midnight. Surfaced in
   `/api/v1/twitter/status` so we can watch actual spend.
 
-### Gemma vibe generation
+### local model vibe generation
 - New `go/internal/ml/` package: `OllamaClient` + `Generator` +
   `VibeRequest / VibeResult`.
 - System prompt: ~140-char conversational fan blurb, news/tweets carry
   the sentiment, stats sprinkled in lightly. Tuned `num_predict=800`
-  after discovering Gemma 4 needs reasoning headroom before it emits
+  after discovering local model needs reasoning headroom before it emits
   visible output.
 - `vibe_scores` table (migration 007) stores blurb + input corpus IDs
   (news + tweet) + model_version + prompt_version for traceability.
@@ -177,7 +177,7 @@ chronologically, grouping by area:
 
 2. **Tweet data is inference-only.** 24h hard TTL via maintenance
    ticker, documented inline so a future contributor doesn't extend
-   the window for "more Gemma context." News is the training corpus;
+   the window for "more local model context." News is the training corpus;
    tweets are the realtime layer only.
 
 3. **Vibe generator is lazy-only on tweets.** The worker reads the
@@ -231,7 +231,7 @@ scripts/hosting/restore-drill.sh /mnt/data/backup/scoracle/scoracle-<date>.dump
 https://api.scoracle.com/health
 https://api.scoracle.com/api/v1/{sport}/{entityType}/{id}          # profile
 https://api.scoracle.com/api/v1/{sport}/meta
-https://api.scoracle.com/api/v1/{sport}/vibe/{entityType}/{id}     # Gemma blurb
+https://api.scoracle.com/api/v1/{sport}/vibe/{entityType}/{id}     # local model blurb
 https://api.scoracle.com/api/v1/{sport}/vibe/{entityType}/{id}/history
 https://api.scoracle.com/api/v1/news/{entityType}/{entityID}       # + persist
 https://api.scoracle.com/api/v1/news/status
@@ -335,7 +335,7 @@ ad07763 Add news_articles + news_article_entities tables
 cc657ea Add meta purge-inactive command for player cleanup
 42a58ee Cross-entity linking in news write-through
 1cfe6bb Add --teams-only flag to news backfill
-7532fcd Add Ollama HTTP client for local Gemma inference
+7532fcd Add Ollama HTTP client for local local model inference
 821c1b0 Add entity tier + daily vibe batch (scales to 10k entities)
 ec99bdd Fix: pass interval hour counts as strings in batch query
 374ba6a Add self-hosting scripts: systemd units, cron, backups, CF Tunnel

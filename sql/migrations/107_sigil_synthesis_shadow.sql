@@ -25,7 +25,7 @@
 -- input_hash is the 4th DETERMINISTIC parity axis (a pure SHA-256 of the canonical
 -- pillar-component JSON — no model call), so it is compared byte-for-byte exactly like
 -- built_prompt / ollama_request. SCORE/BLURB are NOT a regression signal across model
--- loads (gemma4:e4b temp-0 is not reliably deterministic — L2 FINDING); compare those
+-- loads (local-model:tag temp-0 is not reliably deterministic — L2 FINDING); compare those
 -- only within ONE model-load window.
 --
 -- previous_score is deliberately OMITTED — it is a display-only delta (last crown vs

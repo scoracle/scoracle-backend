@@ -3,14 +3,12 @@
 //! **embed+cluster** primitive (group near-duplicate articles and drop them BEFORE the model call —
 //! the dedup the Go pipeline never had) with `route(EmotionalNews) + extract + persist`.
 //!
-//! Faithful port of `go/internal/ml/news_narratives.go`:
+//! Rust implementation of the news narrative stage:
 //! - `load_vetted_corpus` is the verbatim Go SQL (only the `published_at` column is returned as an
 //!   epoch `bigint` so the deterministic recency math needs no datetime crate; rows + order match).
-//! - `build_narratives_prompt` is **byte-identical** to Go's `buildNarrativesPrompt`, including the
-//!   shared transfer-heat grounding lines ([`vibe::write_heat_lines`], the same format Go shares
-//!   from `transfer_heat.go`).
-//! - The **n3 system prompt is carried VERBATIM** from Go (a faithful port — no t4-style single-home
-//!   bump), so the WHOLE `ollama_request` including `system` is a parity axis (the cleaner gate).
+//! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
+//!   vibe via [`vibe::write_heat_lines`].
+//! - The n4 system prompt is model-neutral and schema-first for smaller local models.
 //! - `parse_narratives` mirrors Go's tolerant balanced-brace salvager byte-for-byte (a truncated tail
 //!   drops its last incomplete object; an empty `{"narratives": []}` is a successful parse → marker).
 //! - `compute_news_impact` reproduces the deterministic per-narrative impact (volume + corroboration
@@ -21,8 +19,7 @@
 //! improvement, NOT a parity break (Plan §1.4 boundary: transient compute feeding a model → Rust,
 //! never a stored derived stat). It runs ONLY when an `Embedder` is loaded (the live handler builds
 //! `Harness { embedder: Some(..) }`); the offline parity bins build `embedder: None` → the dedup is
-//! the identity → the assembled prompt is byte-identical to Go and the deterministic axes diff equal
-//! (Plan §3 gate, read on the deterministic axes per the L2 finding).
+//! the identity → the assembled prompt remains deterministic for inspection and shadow comparisons.
 //!
 //! Like `TransferHandler`, `NarrativesHandler` is **REGISTERED but NOT enabled** (gated on
 //! `COGNITION_STAGES`): the Go Drainer owns the live narratives stage until the Step-3 full cutover,
@@ -47,19 +44,15 @@ use tracing::warn;
 // Constants — mirror news_narratives.go.
 // ---------------------------------------------------------------------------
 
-/// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`). Carried
-/// VERBATIM from Go's `newsNarrativesPromptVersion` — a faithful port, so the whole request
-/// (system included) is a parity axis (unlike transfers' deliberate t4≠t3 single-home bump).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n3";
+/// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
+pub const NARRATIVES_PROMPT_VERSION: &str = "n4";
 
 /// Production decode temperature (`ollama.Generate` in Go). The parity gate pins temp 0 (the
 /// deterministic-axes diff); production narrates at 0.6.
 pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 
-/// Several multi-sentence narratives on top of the model's reasoning budget — give it real room
-/// (Go's `NumPredict: 4000`). The prompt caps the count + body length; the tolerant parser salvages
-/// a truncated tail regardless.
-pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
+/// Several multi-sentence narratives; the prompt caps count + body length.
+pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
 
 /// Bounds the articles fed to the grouping prompt — wider than the vibe window so the model sees
 /// enough breadth to find the distinct storylines (Go's `maxNarrativeCorpus`).
@@ -85,23 +78,30 @@ const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 /// if live tuning ever demands it.
 pub const DEDUP_THRESHOLD: f32 = 0.85;
 
-/// The n3 system prompt — carried VERBATIM from Go's `newsNarrativesSystemPrompt` (a faithful port,
-/// so `system` is part of the parity axis). A single byte drift here fails the gate.
-pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"You are the beat writer for this sports entity: you read its recent NEWS and tell the distinct STORYLINES forming around it — invested and knowing, but honest, never inflating a story past what the sources support. Return STRICT JSON only (no markdown fences, no text before or after):
+/// System prompt for grouping recent vetted news into distinct storylines.
+pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: group recent vetted news into distinct storylines about ONE sports entity.
+
+Voice: direct, sports-literate, grounded. No hype, no source list, no invented facts.
+
+Return STRICT JSON only (no markdown fences, no text before or after):
 {"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...]}
 
-Group the numbered articles into the real storylines — a transfer saga, a coaching search, an injury, a results run, a contract standoff. Do not split one story across narratives or merge unrelated ones. A busy week has several; a quiet one may have just one — return as many as there genuinely are (at most 6), most consequential first.
+Rules:
+- Return at most 6 narratives, most consequential first.
+- Do not split one story across narratives.
+- Do not merge unrelated stories.
+- A quiet cycle can return one narrative or none.
+- Ignore vague hype when the sources do not name who, what, and where.
+- Ignore articles that are not actually about this entity.
 
 For each:
-- title: short and specific, NAMING the key people/clubs ("Cucurella-to-Real saga", "Managerial search after Maresca exit") — never generic like "Transfer news".
-- body: original prose in your beat-writer voice — what is happening, who is involved (use the real names of players, managers, and clubs from the sources; never genericize to "a Real Madrid star"), and where it stands. Let the length match the story: a line or two for most, more only when it is genuinely big.
+- title: short and specific, naming the key people/clubs; never generic like "Transfer news".
+- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story.
 - articles: the article numbers behind that storyline.
 
-If a "Known transfer/trade activity" list is given, it is the vetted truth behind any transfer storyline: use it to get the counterparties, direction, and stage right, and never contradict it or claim a more advanced stage than it states. Let it sharpen the story from the inside — but the word "heat" and those numbers are INTERNAL: never let them appear in your output, and never say you were handed a list. Write only what a reporter would say.
+If a "Known transfer/trade activity" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word "heat" and its numbers are internal; never mention them.
 
-Read WHO each article is really about. An article about a team drafting, signing, or scheming around a player to play ALONGSIDE or AGAINST this entity is NOT this entity being drafted, sold, or moved — do not turn "rivals drafting a counter to him" or "a new partner for him" into a storyline about THIS entity changing teams or entering a draft.
-
-Signal over noise is the whole job: reveal the real story, never echo clickbait. Some articles are vague hype with no nameable subject ("eyeing a Super Striker", "Dutch stars shine") — if you cannot name who, what, or where, the story is not there: leave it out rather than papering the gap with a placeholder. A short, true reveal beats a padded vague one; returning fewer is fine. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources; ignore any article not about this entity."#;
+Do not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources."#;
 
 // ---------------------------------------------------------------------------
 // Types.
@@ -142,12 +142,12 @@ pub struct Narrative {
     pub input_news_ids: Vec<i64>,
 }
 
-/// GemmaNarrative is one object the model returns. `#[serde(default)]` per field mirrors Go's
+/// ModelNarrative is one object the local model returns. `#[serde(default)]` per field mirrors Go's
 /// `encoding/json` tolerance of missing fields; an explicit `"articles": null` (or a non-int element)
 /// makes serde skip the object at parse — net-identical to Go, which keeps it then drops it in
 /// grounding for having no valid article (either way it is excluded).
 #[derive(Clone, Debug, Default, Deserialize)]
-struct GemmaNarrative {
+struct ModelNarrative {
     #[serde(default)]
     title: String,
     #[serde(default)]
@@ -159,7 +159,7 @@ struct GemmaNarrative {
 /// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields.
 #[derive(Clone, Debug, Default)]
 pub struct ParsedNarratives {
-    narratives: Vec<GemmaNarrative>,
+    narratives: Vec<ModelNarrative>,
 }
 
 /// NarrativesParser runs the tolerant salvager. It returns `Ok(Some(parsed))` for a PARSEABLE
@@ -327,8 +327,8 @@ pub fn build_narratives_prompt(
 /// successful parse with zero narratives (a legitimate no-data outcome → marker), distinct from a
 /// malformed/truncated reply (no `"narratives"` key, no `[`, or EOF before the array closed AND
 /// nothing salvaged) which is a failure so the work queue retries it.
-fn parse_narratives(raw: &str) -> (Vec<GemmaNarrative>, bool) {
-    let mut out: Vec<GemmaNarrative> = Vec::new();
+fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
+    let mut out: Vec<ModelNarrative> = Vec::new();
     let Some(key) = raw.find("\"narratives\"") else {
         return (out, false);
     };
@@ -372,7 +372,7 @@ fn parse_narratives(raw: &str) -> (Vec<GemmaNarrative>, bool) {
                         // json.Unmarshal, which also requires valid UTF-8 (a bad slice → skip, as Go's
                         // err != nil does).
                         if let Ok(txt) = std::str::from_utf8(&s[start as usize..=i]) {
-                            if let Ok(n) = serde_json::from_str::<GemmaNarrative>(txt) {
+                            if let Ok(n) = serde_json::from_str::<ModelNarrative>(txt) {
                                 out.push(n);
                             }
                         }
@@ -403,7 +403,7 @@ fn parse_narratives(raw: &str) -> (Vec<GemmaNarrative>, bool) {
 /// a body, and ≥1 valid article. Byte-for-byte Go's `groundNarratives`. `now_epoch` is the recency
 /// reference (Unix seconds), captured once per generation.
 fn ground_narratives(
-    parsed: &[GemmaNarrative],
+    parsed: &[ModelNarrative],
     news: &[CorpusItem],
     now_epoch: i64,
 ) -> Vec<Narrative> {
@@ -527,7 +527,7 @@ pub struct NarrativesReady {
 
 /// build_narratives_request runs the deterministic prefix: load the vetted corpus, (if an embedder is
 /// loaded) dedup near-duplicates, load the transfer heat for grounding, then `build_narratives_prompt`
-/// plus the n3 options and the exact wire body. NO model call — these are the parity axes (the L2
+/// plus the n4 options and the exact wire body. NO model call — these are the deterministic axes (the L2
 /// finding: the storyline grouping is not a temp-0 parity axis). The role is [`Role::EmotionalNews`]
 /// (the news/transfer reasoner — narratives shares it with vibe/transfers).
 pub async fn build_narratives_request(
@@ -822,9 +822,7 @@ mod tests {
         }
     }
 
-    // --- build_narratives_prompt byte-fixtures: the deterministic parity axis. The expected strings
-    // are computed by hand from Go's buildNarrativesPrompt, so a drift in the Rust assembly fails here
-    // (offline, no model) before the live diff ever runs. -------------------------------------------
+    // --- build_narratives_prompt byte-fixtures: deterministic prompt assembly. ----------------------
 
     #[test]
     fn prompt_numbered_news_no_heat() {
@@ -944,17 +942,17 @@ mod tests {
             item(101, "ESPN", "two", "", Some(2_000)),
         ];
         let parsed = vec![
-            GemmaNarrative {
+            ModelNarrative {
                 title: " Title ".to_string(), // trimmed
                 body: "Body".to_string(),
                 articles: vec![1, 1, 2, 9, 0, -3], // dup 1, out-of-range 9/0/-3 dropped
             },
-            GemmaNarrative {
+            ModelNarrative {
                 title: "".to_string(), // empty title → dropped
                 body: "x".to_string(),
                 articles: vec![1],
             },
-            GemmaNarrative {
+            ModelNarrative {
                 title: "no articles".to_string(),
                 body: "y".to_string(),
                 articles: vec![9, 0], // all out of range → ungrounded → dropped

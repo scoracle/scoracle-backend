@@ -69,7 +69,7 @@ not transfers.
 
 ## Result — Transfers feature complete
 
-Phases 0–3 in: schema + deterministic heat + endpoint/card (P1), Gemma vetting +
+Phases 0–3 in: schema + deterministic heat + endpoint/card (P1), local model vetting +
 deterministic roster-direction + former-player gate (P2 + refinement), co-mention
 proximity precision, and now real-time automation (P3). Follow-ups: the vibe
 `news_spike` CHECK fix; a two-team-flood load test of the concurrency cap (logic

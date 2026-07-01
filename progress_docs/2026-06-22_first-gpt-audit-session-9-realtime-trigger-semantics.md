@@ -10,7 +10,7 @@
 Make the real-time news path (between nightly `cmd/pipeline` runs) obey the audit invariant:
 **notifications improve latency but are never required for correctness.** Pre-S9, a trigger fired
 `pg_notify('vibe_trigger'/'transfer_trigger', …)` on a raw link INSERT (a "5 articles in 60 min"
-volume spike, *before* scrub), and two in-API listeners ran Gemma directly off that transient
+volume spike, *before* scrub), and two in-API listeners ran local model directly off that transient
 NOTIFY, holding the affected-entity set in process memory (lost on restart; a missed NOTIFY never
 recovered; in-process governors that don't work across replicas).
 

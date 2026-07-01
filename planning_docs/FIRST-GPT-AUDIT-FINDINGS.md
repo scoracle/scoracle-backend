@@ -110,7 +110,7 @@ relying on them.
   `transfers`. A team with no new corpus gets **no new transfer generation** — this is intended
   (transfer heat decay is read-time: the `/transfers` read filters to heat>0 within 14d, so a
   stale rumor ages out of the served set without needing re-generation). Net effect: far fewer
-  Gemma calls, and "no fresh news ⇒ no work" holds for transfers too.
+  local model calls, and "no fresh news ⇒ no work" holds for transfers too.
 - **Action:** if a *coverage* refresh of all teams is ever wanted (e.g. before launch), add it as a
   bounded **reconciliation** job (mirror the Session 12 reconciliation pattern), not by reverting to
   unconditional all-teams generation.
@@ -125,7 +125,7 @@ relying on them.
 - S8 wires Sigil as the terminal queue stage: a completed `vibe` item enqueues a `sigil` item
   (before the vibe row is completed, so a crash re-runs vibe rather than dropping the sigil), and the
   drain calls the **existing** `SigilGenerator.Generate(..., SkipUnchanged: true)` — which already
-  reads its 3 pillars live and skips the Gemma call on an unchanged input hash. S8 deliberately did
+  reads its 3 pillars live and skips the local model call on an unchanged input hash. S8 deliberately did
   **not** rebuild the convergence lifecycle. Still owned by **Session 12**: season-scoping the hash /
   previous-score / debounce, moving generation out of follower/FCM early-returns, the real `DryRun`
   field, and converting the nightly run into reconciliation/backfill-only.
@@ -171,7 +171,7 @@ relying on them.
   eliminated. Separately, the in-API maintenance scrub ticker (30m) and the nightly pipeline can both
   scrub the same article (idempotent, just wasteful).
 - **Action:** Session 13 adds the per-job PostgreSQL advisory lock (and the `pipeline_runs` record);
-  a shared Gemma concurrency governor is Session 14. Until then, rely on the single nightly cron slot
+  a shared local model concurrency governor is Session 14. Until then, rely on the single nightly cron slot
   + the 30m lease.
 - **Update (Session 9):** there are now **two** drainers of `pipeline_work` — the nightly `cmd/pipeline`
   cron AND the always-on in-API `derive.StartWorker`. They overlap by design every night. Cross-claim is
@@ -198,14 +198,14 @@ relying on them.
   claims, no burned retries — so pending work drains on recovery with no API restart). Operation-
   specific timeouts replace the flat 600s stopgap: `OLLAMA_TIMEOUT_SECONDS` (300, long/narratives +
   HTTP backstop) vs `OLLAMA_SHORT_TIMEOUT_SECONDS` (120, scrub/vibe/sigil/transfer). `keep_alive=30m`
-  keeps gemma4:e4b resident so the true cold load (the 180s trigger) is rare — measured warm
+  keeps local-model:tag resident so the true cold load (the 180s trigger) is rare — measured warm
   `load_ms ≈ 350` post-deploy. A shared GPU governor (`OLLAMA_MAX_CONCURRENT`, default 1) serializes
-  all in-process Gemma. The 8B-on-8GB partial-offload reality is unchanged but is now *tolerated*
+  all in-process local model. The 8B-on-8GB partial-offload reality is unchanged but is now *tolerated*
   rather than fatal. See the S14 progress doc + F-035 (explicit cross-process governor).
-- During the S8 smoke, the first two scrub Gemma calls after idle each hit the
+- During the S8 smoke, the first two scrub local model calls after idle each hit the
   `OLLAMA_TIMEOUT_SECONDS=180` client timeout and failed (`Client.Timeout exceeded while awaiting
-  headers`). Once `gemma4:e4b` was warm (resident in VRAM) the SAME generation dropped to **~7.5s**.
-  Root cause is capacity, not the pipeline: `gemma4:e4b` is an **8B** model **partially
+  headers`). Once `local-model:tag` was warm (resident in VRAM) the SAME generation dropped to **~7.5s**.
+  Root cause is capacity, not the pipeline: `local-model:tag` is an **8B** model **partially
   CPU-offloaded** — only ~3.6GB of its ~10GB sits in the **8GB** GPU (which already shows ~6.5GB
   used) — so the cold load + first inference is slow enough to exceed 180s under any contention.
 - **Impact on S8:** the pipeline behaves **correctly** — a timed-out scrub is fail-closed (nothing
@@ -235,7 +235,7 @@ relying on them.
   revert 088's recorded-but-partial state, and apply/retract 093–095. Session 17 docs must use the ACTUAL
   live names. Launch-gate item ("deployed schema, migrations, and docs describe the same system").
 
-### F-016 — `scoracle-api.path` rebuild-watcher flaps the API across a release (now costs Gemma work)
+### F-016 — `scoracle-api.path` rebuild-watcher flaps the API across a release (now costs local model work)
 - **Found:** Session 9 deploy · **Status:** Resolved (S9 — `release.sh` masks the watcher during placement)
 - NOT a regression: `scoracle-api.path` (watches `go/bin/`, restarts the API on rebuild) was DELIBERATELY
   fixed to the correct consolidated path in **Session 2** and has been active since. The
@@ -243,7 +243,7 @@ relying on them.
   unit even documents the multi-restart as expected/harmless. What's NEW is the **cost**: `release.sh`
   places 4 binaries → 4 directory-change events → ~4 restarts (plus its own explicit restart) before
   settling; pre-S9 that was harmless (listeners just reconnected), but S9's in-API derive worker means
-  each spurious restart now **cancels an in-flight Gemma drain** (orphaned `running` rows, recovered by
+  each spurious restart now **cancels an in-flight local model drain** (orphaned `running` rows, recovered by
   `RequeueStale`; wasted GPU on the contended 8GB card, F-014).
 - **Resolved:** `release.sh` now `systemctl --user stop scoracle-api.path` before placing the binaries and
   re-arms it on exit (cleanup trap), so only its single authoritative restart fires. The watcher is kept
@@ -253,7 +253,7 @@ relying on them.
   renames temp→final so a file watch would miss it), so a standalone `go build -o bin/pipeline` outside
   `release.sh` still restarts the API. Low-frequency; narrowing it reliably is hard. Left as-is.
 
-### F-017 — composite_shift → Sigil still runs Gemma directly off the percentile NOTIFY (not durable)
+### F-017 — composite_shift → Sigil still runs local model directly off the percentile NOTIFY (not durable)
 - **Found:** Session 9 · **Status:** Resolved (Session 12, `internal/listener/listener.go`)
 - **Resolved (Session 12):** `handlePercentileChange` now ENQUEUES a durable `pipeline_work(sigil)` item
   on a ≥10 composite delta (input_version `composite:<season>:<pctile>`) instead of calling
@@ -265,7 +265,7 @@ relying on them.
   `pipeline_work` queue, but deliberately left the STATS-rail real-time path untouched: the percentile
   listener (`internal/listener/listener.go`) still calls `SigilGenerator.Generate` DIRECTLY on a
   `composite_shift` (≥10 percentile delta), in-process, off the transient `percentile_changed` NOTIFY,
-  with a 24h time-debounce — the same "transient NOTIFY drives Gemma, lost on restart" pattern S9 removed
+  with a 24h time-debounce — the same "transient NOTIFY drives local model, lost on restart" pattern S9 removed
   from the news rail. It's Sigil convergence, which Session 12 owns.
 - **Action:** Session 12 should enqueue a durable `sigil` `pipeline_work` item on a Rating/composite
   change (stats-rail producer; pairs with F-010) instead of generating inline, so the in-API derive
@@ -285,7 +285,7 @@ relying on them.
   (transfers NBA team 14), requeued by timestamp post-deploy — the LAST time that toil is needed.
 - The in-API `derive` worker's `DrainAll` claims a batch (up to `claimBatch`=10) as `running`, then
   processes serially. A graceful shutdown (SIGTERM from ANY restart — release, manual, or the
-  `scoracle-api.path` trigger) cancels the drain ctx mid-item: the in-flight Gemma call errors with
+  `scoracle-api.path` trigger) cancels the drain ctx mid-item: the in-flight local model call errors with
   "context canceled" AND `work.Complete`/`Fail` then also run on the cancelled ctx, so they no-op
   ("mark-failed failed: context canceled") — the leased rows stay `running` (orphaned). The next start
   runs `RequeueStale(StaleLease=30m)`, but the just-orphaned rows are <30m old so they are NOT recovered
@@ -296,14 +296,14 @@ relying on them.
 - **Action:** clean fix is for the worker to settle its claimed items on graceful shutdown using a FRESH
   (non-cancelled) context — run `work.Complete`/`Fail`, or requeue-to-`pending`, on `context.Background()`
   with a short timeout so a shutdown returns rows to claimable immediately instead of stranding them as
-  `running`. Pairs with S13 (advisory lock / overlap) and S14 (Gemma lifecycle). Until then: prefer
+  `running`. Pairs with S13 (advisory lock / overlap) and S14 (local model lifecycle). Until then: prefer
   releasing when `pipeline_work` is quiet, or manually requeue stale `running` rows after a mid-drain
   restart.
 
 ### F-019 — NewsNarrator treats an empty `{"narratives": []}` as a parse FAILURE (now dead-letters)
 - **Found:** Session 9 deploy · **Status:** RESOLVED (Session 11)
 - Surfaced live by S9's durable queue: two thin-corpus NFL players (`player/1447`, `player/39`) failed
-  the `narratives` stage with `parse narratives failed (raw="{\"narratives\": []}")`. Gemma legitimately
+  the `narratives` stage with `parse narratives failed (raw="{\"narratives\": []}")`. local model legitimately
   returned an EMPTY narratives array (nothing worth narrating for a thin/short corpus), but the narrator's
   parser treats empty as a hard error. PRE-EXISTING narrator behavior (S9 didn't touch `NewsNarrator`) —
   before S9 the in-API news-volume worker just logged-and-dropped it; now the durable queue retries it
@@ -340,22 +340,22 @@ relying on them.
   read window); the rest had already aged out. Rather than an in-place UPDATE, S10 **enqueued the 3 teams**
   behind those 6 pairs (NBA team 1, NFL teams 1 & 3) into `pipeline_work(transfers)` so the now-fail-closed
   derive worker re-vets them and APPENDS a real verdict that supersedes the fail-open TRUE — on-philosophy.
-- **Action:** launch gate — assert no SERVED rumor lacks a Gemma `model_version`
+- **Action:** launch gate — assert no SERVED rumor lacks a local model `model_version`
   (`is_rumor IS TRUE AND model_version IS NULL` among latest-per-pair, heat>0, <14d should be 0). Any future
   stragglers self-heal: they age out of the 14-day window or are superseded on the pair's next re-vet.
 
-### F-021 — Transfer retry is TEAM-grained: one unknown pair re-runs the whole team's Gemma vet
+### F-021 — Transfer retry is TEAM-grained: one unknown pair re-runs the whole team's local model vet
 - **Found:** Session 10 · **Status:** Watch (optimization; not launch-blocking)
 - `pipeline_work` keys transfers by **team**, so S10's fail-closed retry (drainTransfers returns an error when
   `res.Unknown>0` ⇒ `work.Fail` ⇒ backoff re-enqueue) re-runs `GenerateForTeam` for the ENTIRE team — every
-  candidate pair is re-vetted by Gemma, even the ones that already resolved TRUE/FALSE. Correct and bounded
+  candidate pair is re-vetted by local model, even the ones that already resolved TRUE/FALSE. Correct and bounded
   (`maxAttempts`=5 × `failBackoff`=30m, then dead-letter; append-only so duplicate TRUE/FALSE rows are
   harmless — latest-per-pair wins), but wasteful on the contended 8GB GPU (F-014) when a single pair keeps
   failing. Chosen deliberately over inventing a finer-grained per-pair queue (the audit says reuse the
   existing transfers stage, don't add a mechanism).
 - **Action:** optional optimization — have `GenerateForTeam` skip pairs that already have a FRESH successful
   verdict (input-hash / recency debounce, simplification B) so a retry only re-vets the still-unknown pairs.
-  Pairs with Session 14 (Gemma capacity) and simplification B (input-hash over time-debounce).
+  Pairs with Session 14 (local model capacity) and simplification B (input-hash over time-debounce).
 
 ### F-022 — Column-DROP migrations: release the NEW binary FIRST, then migrate (reverse of the usual order)
 - **Found:** Session 10 · **Status:** Ops note
@@ -486,7 +486,7 @@ relying on them.
   stamped). Reconciliation (`vibesynth -mode nightly`) will enqueue all of them; at GPU throughput (F-014)
   that drains over several nights, plus the always-on derive worker + event-driven convergence. Separately,
   reconciliation can re-enqueue a "timestamp-stale but content-unchanged" entity each night (a new input row
-  whose content doesn't move the Sigil hash) — the drain then SkipsUnchanged cheaply (no Gemma, no new row),
+  whose content doesn't move the Sigil hash) — the drain then SkipsUnchanged cheaply (no local model, no new row),
   so it's wasteful-but-bounded and non-converging for those few.
 - **Action:** before launch, run a larger reconcile/backfill to season-stamp current-season NFL/FOOTBALL
   (e.g. `vibesynth -mode backfill -sport NFL` once, GPU-bound), then assert current-season coverage.
@@ -503,7 +503,7 @@ relying on them.
     **~12h stale** (NBA, 2026-06-23 23:15) while vibe/news/stat were minutes-fresh. So neither the nightly
     enqueue cap nor the worker drain order will produce 3219 NFL/FOOTBALL crowns at any useful rate.
   - **Throughput measured:** a single dry-run synthesis (NFL `team/1`, New England Patriots → valid Score 42,
-    pillars present, season-stampable) took **102s** of Gemma wall under 3-way GPU contention (the parallel
+    pillars present, season-stampable) took **102s** of local model wall under 3-way GPU contention (the parallel
     Rust `parity` session + the `statcommentary` cron + the API derive worker all share the single 8GB GPU).
     3219 × ~100s ≈ **~90 GPU-hours**; in a quiet window with the F-035 governor pinned, per-call should drop
     to ~30–60s → **~40–90 GPU-hrs ≈ 1.5–4 nights**.
@@ -576,16 +576,16 @@ relying on them.
   restarts don't govern ML availability. Session 14 did NOT do this — F-014's readiness decoupling already
   removes the main motivation: an API restart no longer DISABLES ML until the next restart (the worker
   defers-and-recovers on its own), and F-018 already settles the leased batch on a restart. What remains
-  true of the in-API model: an API restart still CANCELS an in-flight Gemma drain (F-018 requeues it, so no
+  true of the in-API model: an API restart still CANCELS an in-flight local model drain (F-018 requeues it, so no
   loss, but the wasted GPU time on the contended card is real), and the API process owns more concerns than
   pure serving. Those are smaller wins than the "ML disabled until restart" bug S14 fixed.
 - **Action:** if/when the API restart cadence (releases, `scoracle-api.path` ad-hoc rebuilds) makes the
   cancel-in-flight cost annoying, OR the blast-radius argument wins, lift the derive worker + maintenance
-  Gemma tickers into a dedicated `cmd/worker` binary (its own systemd unit, NOT restarted by `release.sh`'s
+  local model tickers into a dedicated `cmd/worker` binary (its own systemd unit, NOT restarted by `release.sh`'s
   API restart). Scope with Scott first — it changes the deploy topology (a new unit, new cron/`install.sh`
   wiring) and the `scoracle-api.path` story.
 
-### F-035 — Explicit cross-process Gemma governor (`OLLAMA_NUM_PARALLEL=1`) is NOT set on the ollama service
+### F-035 — Explicit cross-process local model governor (`OLLAMA_NUM_PARALLEL=1`) is NOT set on the ollama service
 - **Found:** Session 14 · **Status:** Ops note (recommended follow-up)
 - The S14 `OLLAMA_MAX_CONCURRENT` semaphore is **process-wide** — it bounds the API's own goroutines
   (derive worker + maintenance scrub), but it can NOT coordinate across the separate `cmd/pipeline` cron
@@ -593,7 +593,7 @@ relying on them.
   scheduling. The ollama systemd service currently sets NEITHER `OLLAMA_NUM_PARALLEL` nor
   `OLLAMA_MAX_LOADED_MODELS` (verified: no drop-in). For a 10GB model that barely fits the 8GB GPU, the
   authoritative cross-process governor is `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1` — this
-  guarantees Ollama never tries to run two gemma4:e4b requests (or load a second copy) at once, which would
+  guarantees Ollama never tries to run two local-model:tag requests (or load a second copy) at once, which would
   thrash/OOM the card. Today the box happens to serialize anyway (observed), but it is not pinned.
 - **Action:** add an ollama systemd drop-in (root):
   `Environment=OLLAMA_NUM_PARALLEL=1` and `Environment=OLLAMA_MAX_LOADED_MODELS=1`, then
@@ -601,31 +601,31 @@ relying on them.
   restart drops the resident model; the API derive worker will defer-and-recover via F-014). Low risk,
   makes the cross-process bound explicit rather than incidental.
 
-### F-036 — Gemma per-call metrics are LOG-only (no durable run-record metric)
+### F-036 — local model per-call metrics are LOG-only (no durable run-record metric)
 - **Found:** Session 14 · **Status:** Deferred (optional observability)
-- S14 added per-call Gemma timing as a structured slog line (`op`, `wall_ms`, `eval_count`, outcome) —
-  `journalctl --user -u scoracle-api | grep 'gemma call'` gives an operator real model latency. It is NOT
+- S14 added per-call local model timing as a structured slog line (`op`, `wall_ms`, `eval_count`, outcome) —
+  `journalctl --user -u scoracle-api | grep 'model call'` gives an operator real model latency. It is NOT
   hung off `pipeline_runs` (the audit's literal ask) because the in-API derive worker — which makes most of
-  the real-time Gemma calls — does NOT own a `pipeline_runs` row (only the cron jobs do), and a durable
+  the real-time local model calls — does NOT own a `pipeline_runs` row (only the cron jobs do), and a durable
   per-call metric would need a new table or `pipeline_runs` columns (a migration). Logs were the
   zero-migration, parallel-session-safe choice, consistent with S13's "avoid a complex observability stack."
-- **Action:** if a durable/aggregated Gemma latency surface is wanted later (a dashboard distinguishing slow
-  vs timed-out vs unavailable over time), add a `gemma_calls` metrics table (or timing columns on a
+- **Action:** if a durable/aggregated local model latency surface is wanted later (a dashboard distinguishing slow
+  vs timed-out vs unavailable over time), add a `model_calls` metrics table (or timing columns on a
   per-stage run record) under Session 16/17 — additive migration, set on every `Generate`. Pairs with
   moving the worker out of the API (F-034), which would give it a natural run-record owner.
 
-### F-037 — Transfers per-pair Gemma call is bounded by the team budget, not the short timeout
+### F-037 — Transfers per-pair local model call is bounded by the team budget, not the short timeout
 - **Found:** Session 14 · **Status:** Watch (optimization; pairs with F-021)
 - The new operation-specific short timeout (`OLLAMA_SHORT_TIMEOUT_SECONDS`, 120s) is applied per-stage by
   the drainer for vibe/sigil and per-article for scrub. Transfers stay TEAM-scoped (`perTeamTimeout`=10m for
-  the whole team's many pair calls); an individual pair's Gemma call is bounded only by the HTTP client
+  the whole team's many pair calls); an individual pair's local model call is bounded only by the HTTP client
   backstop (= `OLLAMA_TIMEOUT_SECONDS`, 300s), not the 120s short budget — because the pair call uses the
   team context directly inside `transfer.go analyzePair`. So one wedged pair could run up to 300s within the
   team's 10m. Acceptable (pairs are short, NumPredict 1200; ~2 such wedges fit the team budget) and avoids
   threading a per-pair timeout through `GenerateForTeam`, but it is the one stage where the short budget
   isn't enforced per-call.
 - **Action:** when F-021 (per-pair transfer retry / skip-already-vetted) is implemented, wrap each pair's
-  Gemma call in a `GemmaShortTimeout` context at the same time, so a single slow pair fails fast like the
+  local model call in a `local modelShortTimeout` context at the same time, so a single slow pair fails fast like the
   other short ops — fold both into the F-021 change.
 
 ### F-038 — F-015 RESOLVED: the ledger now equals the live schema (the vibe→sentiment→vibe rename round-tripped)
@@ -795,7 +795,7 @@ relying on them.
     env vars.
   - Code comments (in scope per S17, NO behavior change): `go/internal/db/db.go` prepared-statement
     header mapped `/sigil`→commentary + `/trends`→series (both wrong vs live routing) → corrected to
-    `/rating`/`/momentum`; `go/cmd/api/main.go` Swagger `@description` old social-feed prose → Gemma
+    `/rating`/`/momentum`; `go/cmd/api/main.go` Swagger `@description` old social-feed prose → local model
     products.
 - **Lesson:** the route source of truth is `server.go`, never a memory or an audit paragraph. Two
   independent "current" sources (the audit, the two-rail memory) were both behind the same commit.

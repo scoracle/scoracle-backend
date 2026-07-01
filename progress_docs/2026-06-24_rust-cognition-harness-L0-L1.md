@@ -24,7 +24,7 @@ only to make a model smarter about it**; fail-closed lives in the type system.
   so `impl Inference for OllamaClient` (in `route.rs`) is a thin delegation. `ollama.rs` is
   byte-unchanged — the struct stays, the trait wraps it.
 - **L1 router is deliberately minimal.** `Router::single(Arc<dyn Inference>)` → every `Role`
-  resolves to the one configured Gemma. Enough for vibe to route `EmotionalNews → Gemma`
+  resolves to the one configured local model. Enough for vibe to route `EmotionalNews → local model`
   byte-identically. L2 swaps `single` for the config-driven `from_config`/`candidate_for` map
   (`COGNITION_ROUTE_*` + the A/B eval) **without `for_role`'s contract — or any stage — moving**.
 - **`extract` captures the EXACT wire body it sent.** `Harness::extract` sources
@@ -102,7 +102,7 @@ only to make a model smarter about it**; fail-closed lives in the type system.
   | team/597 FOOTBALL | 68 | 68 | ✓ | ✓ | ✓ (1722/1722) | ✓ | ✓ | ✓ |
 
   SCORE identical, VIBE sentence identical, built-prompt byte-identical, Ollama request body
-  jsonb-identical, model `gemma4:e4b`, prompt_version `v6` — including the fail-closed no-corpus
+  jsonb-identical, model `local-model:tag`, prompt_version `v6` — including the fail-closed no-corpus
   NULL marker. **The bytes did not move: the refactor preserved the stage exactly.**
 - **Safety:** the parity harness wrote only `vibe_scores_shadow`; it never touched `vibe_scores`
   or `pipeline_work` (it never invokes `VibeHandler`, and `generate_vibe` does not persist). The
@@ -112,7 +112,7 @@ only to make a model smarter about it**; fail-closed lives in the type system.
 ```bash
 cd scoracle-backend && export PATH="$HOME/.cargo/bin:$PATH"
 export DATABASE_PRIVATE_URL=…           # from .env.local (postgresql://…@localhost:5432/scoracle)
-export OLLAMA_BASE_URL=http://localhost:11434 OLLAMA_MODEL=gemma4:e4b OLLAMA_TIMEOUT_SECONDS=300
+export OLLAMA_BASE_URL=http://localhost:11434 OLLAMA_MODEL=local-model:tag OLLAMA_TIMEOUT_SECONDS=300
 cargo build --manifest-path rust/Cargo.toml
 ./rust/target/debug/parity team:597:FOOTBALL player:13874268:NFL player:1:NBA   # source='rust'
 ( export VIBE_PARITY_DB=1 VIBE_PARITY_ENTITIES="team:597:FOOTBALL player:13874268:NFL player:1:NBA"
@@ -142,7 +142,7 @@ and burn the GPU twice while Go still owns the stage).
 
 ## Next (L2 — per the plan §3 build order)
 - **Stand up the Router properly:** `RouteConfig`/`ModelSpec` + `Router::from_config` reading
-  `COGNITION_ROUTE_*` (every role still → Gemma today, byte-identical) + `candidate_for`.
+  `COGNITION_ROUTE_*` (every role still → local model today, byte-identical) + `candidate_for`.
 - **`bin/eval.rs`** — the A/B eval hook (labeled set through incumbent vs candidate, print the
   delta; the router NEVER auto-promotes — a human edits `COGNITION_ROUTE_*` on a measured win).
 - Then every later stage is additive composition (rating → narratives → transfers → sigil →

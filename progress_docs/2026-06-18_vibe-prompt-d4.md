@@ -8,11 +8,11 @@
 
 In the Rating/Vibe/Momentum/Sigil model the Vibe (the emotional rail's end product) is a sentiment
 score **plus a one-sentence "prompt" (felt read)** that feeds the Sigil. The `prompt` column shipped
-in migration 093; this lands the Gemma emission + the synthesis wiring. No migration.
+in migration 093; this lands the local model emission + the synthesis wiring. No migration.
 
 ## What Was Done
 
-**`ml/sentiment.go` (prompt v5 → v6):** Gemma now emits two lines — `SCORE: <1-100>` and
+**`ml/sentiment.go` (prompt v5 → v6):** local model now emits two lines — `SCORE: <1-100>` and
 `VIBE: <one sentence>` — the felt read a fan would nod at. Persisted to `vibe_scores.prompt`
 (NULL when empty). `parseSentimentAndPrompt` extracts both and **falls back to the first integer
 anywhere for the score**, so model/format drift can never break sentiment generation.
@@ -30,7 +30,7 @@ code now matches `f(Vibe, Rating, Momentum)`.
 ## Verification
 
 - `go build` / `go vet` / `gofmt` clean.
-- **End-to-end vs local Ollama (`gemma4:e4b`):**
+- **End-to-end vs local Ollama (`local-model:tag`):**
   - `sentiment -mode single` (LeBron 237) → score **88** + `vibe_scores.prompt` = *"The Lakers are the
     favorite, but the drama surrounding old teammates keeps the speculation burning hot."* (v6).
   - `vibesynth` dry-run (LeBron) → score 78, blurb reflects the felt read (*"...intense speculation

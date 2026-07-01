@@ -3,15 +3,15 @@
 //! This is the "genuine compute win" the conception names: a sentence-embedding model
 //! (default BGE-small-en-v1.5, a BERT-arch model) loaded once and run **on the CPU**
 //! (candle's `gemm` backend → AVX2/FMA on Archbox's i7-7700; NO CUDA feature). Running on
-//! the CPU is the whole point — embeddings never contend with Gemma's GPU, and because the
+//! the CPU is the whole point — embeddings never contend with the generation GPU, and because the
 //! embedding-backed Resolve hybrid (§1.3) uses them to *pre-filter* candidates before the
-//! expensive Gemma call, every embedding computed here is GPU time SAVED.
+//! expensive local model call, every embedding computed here is GPU time SAVED.
 //!
 //! The model is addressed by config (`COGNITION_EMBED_*`), never hard-coded in stage code —
 //! the same "models by role, never by name" discipline the router holds for generation.
 //!
 //! Validation is by QUALITY, not byte-parity (the L4 pivot): the embeddings feed a measured
-//! gate against Gemma's `news_article_entities.vetted` labels (the L4–L6 measurement bins that
+//! gate against the model-vetted `news_article_entities.vetted` labels (the L4–L6 measurement bins that
 //! settled the bands are removed post-Step-3; their findings live on in `ResolveConfig` defaults).
 
 use crate::config::EmbedConfig;

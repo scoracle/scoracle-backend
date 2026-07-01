@@ -3,11 +3,11 @@
 **Audit date:** 2026-06-21  
 **Audited branch:** `main`  
 **Audited commit:** `1e08b493958e1a0882f326838dec03f7e7346c3b`  
-**Scope:** Backend only — ingestion/seeding, both data rails (stats and news), Gemma 4 processing, PostgreSQL derivation, Go endpoint serving, and backend operations. Frontend work is explicitly excluded.
+**Scope:** Backend only — ingestion/seeding, both data rails (stats and news), local model processing, PostgreSQL derivation, Go endpoint serving, and backend operations. Frontend work is explicitly excluded.
 
 ## Purpose
 
-This document converts the first full backend audit into a sequence of focused implementation sessions. The work should be performed on the machine that has access to the production database, Ollama/Gemma 4, installed cron jobs, and live systemd services.
+This document converts the first full backend audit into a sequence of focused implementation sessions. The work should be performed on the machine that has access to the production database, Ollama/local model, installed cron jobs, and live systemd services.
 
 Each numbered improvement is intended to be handled in its own dedicated session. Some sessions have dependencies, noted below. Avoid combining unrelated fixes merely because they touch the same language or directory.
 
@@ -61,7 +61,7 @@ Provider schedules
   → event_box_scores / event_team_stats
   → finalize_fixture()
   → season aggregates, percentiles, ratings, event scores
-  → Gemma 4 stat commentary
+  → local model stat commentary
   → stat_summaries / Rating generations
   → prepared PostgreSQL JSON queries
   → Go /stats and /rating endpoints
@@ -72,7 +72,7 @@ Provider schedules
 ```text
 Google News RSS
   → news_articles / news_article_entities
-  → Gemma 4 entity scrub
+  → local model entity scrub
   → vetted links
   → transfer analysis
   → narratives
@@ -90,7 +90,7 @@ Vibe generations ─────────────────┤         
                                   └→ Vibe trajectory ───┘
 
 Rating + Vibe + Momentum
-  → event-driven, debounced Gemma 4 synthesis
+  → event-driven, debounced local model synthesis
   → append-only Sigil generation
   → prepared PostgreSQL JSON queries
   → Go /momentum and /sigil endpoints
@@ -117,7 +117,7 @@ The component boundaries are generally good. The primary weakness is that transi
 11. Standardize latest-generation marker semantics.
 12. Repair convergence and the event-driven Sigil lifecycle.
 13. Make batch jobs report failure and prevent overlap.
-14. Harden Ollama/Gemma lifecycle management.
+14. Harden Ollama/local model lifecycle management.
 15. Harden backup, restore, and migration operations.
 16. Add focused automated tests and CI.
 17. Reconcile backend documentation and runbooks.
@@ -515,7 +515,7 @@ RSS fetch
 - Insert a brand-new article and run the pipeline once.
 - Confirm it is scrubbed and reflected in derived outputs in that same run.
 - Kill the pipeline after scrub, restart it, and confirm derivation resumes.
-- Re-run unchanged input and confirm expensive Gemma work is skipped.
+- Re-run unchanged input and confirm expensive local model work is skipped.
 
 ## Done when
 
@@ -556,7 +556,7 @@ Sessions 7 and 8 should define the work model first.
 - Use `NOTIFY` only as a low-latency wake-up signal.
 - On wake-up, drain durable pending work.
 - Ensure startup drains pending work even if a notification was missed.
-- Add bounded concurrency for news-volume Gemma work.
+- Add bounded concurrency for news-volume local model work.
 - Add per-entity in-flight protection.
 - Ensure multi-replica API deployment cannot duplicate the same work.
 
@@ -575,7 +575,7 @@ Notifications improve latency but are never required for correctness.
 # Session 10 — Make transfer validation fail closed
 
 > **✅ COMPLETE — deployed live 2026-06-22 (archbox).** Code `1486b7b`; migration **104**
-> `104_transfer_fail_closed` applied (per-file) + recorded. A Gemma timeout, unparseable output, or a
+> `104_transfer_fail_closed` applied (per-file) + recorded. A local model timeout, unparseable output, or a
 > verdict with no `is_rumor` field now persists `is_rumor=NULL` (UNKNOWN) instead of the old provisional
 > `is_rumor=TRUE` — UNKNOWN is never served (every read requires `is_rumor IS TRUE`) and is re-enqueued
 > through the existing `pipeline_work(transfers)` stage (`drainTransfers` fails the item on `res.Unknown>0`
@@ -595,7 +595,7 @@ Notifications improve latency but are never required for correctness.
 
 ## Problems
 
-- Gemma timeout or parse failure writes `is_rumor=TRUE`.
+- local model timeout or parse failure writes `is_rumor=TRUE`.
 - The News Transfers-scope read path interprets `TRUE` as vetted.
 - Internal transfer heat used by narratives and Vibe does not filter `is_rumor`.
 - Cleared rumors can continue influencing downstream prose and scores.
@@ -605,10 +605,10 @@ Notifications improve latency but are never required for correctness.
 ## Work
 
 - Define transfer verdict states clearly:
-  - `TRUE`: Gemma-vetted rumor.
-  - `FALSE`: Gemma-cleared.
+  - `TRUE`: local model-vetted rumor.
+  - `FALSE`: local model-cleared.
   - `NULL`: unknown/unprocessed/model failure.
-- On Gemma error or parse failure, persist `NULL`, not `TRUE`.
+- On local model error or parse failure, persist `NULL`, not `TRUE`.
 - Retry unknown rows through durable work.
 - Require `is_rumor IS TRUE` in:
   - the `/transfers` contract used by the News Transfers scope;
@@ -628,7 +628,7 @@ Notifications improve latency but are never required for correctness.
 
 ## Done when
 
-Only a successful positive Gemma verdict can become a served or downstream-consumed rumor.
+Only a successful positive local model verdict can become a served or downstream-consumed rumor.
 
 ---
 
@@ -730,7 +730,7 @@ All endpoint products agree on what the latest generation means.
 > so the real-time queue is current-season and only explicit-season **backfill** writes history.
 > **F-017** fixed: the percentile listener ENQUEUES durable `pipeline_work(sigil)` on a composite shift,
 > **before** the follower early-return — zero-follower entities still converge (simplification A); inline
-> Gemma off the NOTIFY + `RecentlySynthesized` removed. **F-023** fixed: the generation-side pillar/debounce
+> local model off the NOTIFY + `RecentlySynthesized` removed. **F-023** fixed: the generation-side pillar/debounce
 > loaders (`sigil.go` `loadRatingPillar`/`lastSynthesisHash`/`lastScore`, `rating.go`
 > `lastCommentaryHash`/`ReStampPeakKeys`) now apply the S11 canonical latest-generation rule + season scope.
 > Real **`DryRun`** added to `SigilRequest` (a single dry-run no longer persists). **`vibesynth -mode nightly`**
@@ -867,24 +867,24 @@ An operator can tell whether last night’s backend work actually completed with
 
 ---
 
-# Session 14 — Harden Ollama/Gemma 4 lifecycle and capacity
+# Session 14 — Harden Ollama/local model lifecycle and capacity
 
 > **✅ COMPLETE — deployed live 2026-06-24 (archbox).** Code `cf4f26069df6`. **Code + `.env.local`
 > only — NO migration** (next free stays **107**). Ollama downtime now delays enrichment without
-> losing work or changing truth semantics. **F-014 RESOLVED:** `cmd/api` builds the Gemma generators
+> losing work or changing truth semantics. **F-014 RESOLVED:** `cmd/api` builds the local model generators
 > UNCONDITIONALLY and always starts the derive worker (gated only on `DERIVE_WORKER_ENABLED`) — the
 > one-time boot ping is gone. `derive.DrainAll` reachability-PRE-GATES each cycle and DEFERS when
 > Ollama is down (`Result.Deferred`; claims nothing, burns no retries); a mid-drain connection error
 > requeues the leased batch via the new `ml.IsUnavailable` classifier (no attempt burned). Pending
 > `pipeline_work` drains on the next cycle once Ollama returns — **no API restart**. The maintenance
-> scrub ticker got the same pre-gate (cheap SQL auto-vet still runs; Gemma phase skipped while down);
+> scrub ticker got the same pre-gate (cheap SQL auto-vet still runs; local model phase skipped while down);
 > `cmd/pipeline`'s boot ping is now NON-FATAL (sweep keeps ingesting raw; run records `partial`, not
 > `exit 1`). **Shared GPU governor:** a process-wide semaphore in `internal/ml`
-> (`SetGemmaConcurrency`, default 1, `OLLAMA_MAX_CONCURRENT`) acquired around every `Generate` —
-> derive worker + maintenance scrub + cron Gemma serialize on the single 8GB card. **Operation-specific
+> (`Setlocal modelConcurrency`, default 1, `OLLAMA_MAX_CONCURRENT`) acquired around every `Generate` —
+> derive worker + maintenance scrub + cron local model serialize on the single 8GB card. **Operation-specific
 > timeouts:** `OLLAMA_TIMEOUT_SECONDS` is now the LONG-op budget (narratives, NumPredict 4000) + HTTP
 > backstop; new `OLLAMA_SHORT_TIMEOUT_SECONDS` (120s) bounds scrub/vibe/sigil/transfer; `keep_alive`
-> (`OLLAMA_KEEP_ALIVE`, 30m) keeps gemma4:e4b resident (measured warm `load_ms ≈ 350`, vs the 100s+
+> (`OLLAMA_KEEP_ALIVE`, 30m) keeps local-model:tag resident (measured warm `load_ms ≈ 350`, vs the 100s+
 > cold load that blew the old flat 600s stopgap). **Metrics:** the client logs one timed line per call
 > (`op`, `wall_ms`, `eval_count`, outcome). Verified: build/vet/gofmt/test clean; new tests for the
 > classifier, the gate, and DrainAll-defers; live boot loaded the new config with no degraded mode,
@@ -893,12 +893,12 @@ An operator can tell whether last night’s backend work actually completed with
 > `progress_docs/2026-06-24_first-gpt-audit-session-14-ollama-lifecycle-capacity.md`. Findings:
 > **F-014** RESOLVED; **F-034** (simplification A deferred — F-014 removed its main motivation),
 > **F-035** (explicit cross-process governor `OLLAMA_NUM_PARALLEL=1` on the ollama service — ops
-> follow-up), **F-036** (durable per-call Gemma metric deferred — log-only for now), **F-037**
+> follow-up), **F-036** (durable per-call local model metric deferred — log-only for now), **F-037**
 > (transfers per-pair timeout still team-scoped → pairs with F-021).
 
 ## Problems
 
-- API startup decides whether Gemma-backed workers exist.
+- API startup decides whether local model-backed workers exist.
 - If Ollama is down at startup, workers remain disabled until API restart.
 - Default generation timeout is 60 seconds, while narrative generation may exceed it.
 - The API, maintenance scrub, real-time workers, and cron jobs share one GPU.
@@ -908,7 +908,7 @@ An operator can tell whether last night’s backend work actually completed with
 
 - Separate worker readiness from a one-time API boot ping.
 - Prefer workers that attempt work and record retryable failure when Ollama is unavailable.
-- Add a shared concurrency governor for all Gemma work on the machine.
+- Add a shared concurrency governor for all local model work on the machine.
 - Confirm the intended Ollama timeout from production measurements.
 - Use operation-specific timeouts if narrative generation genuinely needs longer than scrub or Vibe.
 - Add per-call timing and timeout metrics to run records.
@@ -1148,7 +1148,7 @@ The API currently owns:
 - transfer listener;
 - maintenance;
 - news scrub;
-- Gemma client initialization.
+- local model client initialization.
 
 The simpler long-term boundary is:
 

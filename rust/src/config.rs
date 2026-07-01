@@ -18,7 +18,7 @@ pub struct Config {
     pub ollama_timeout: Duration,
     /// The GPU governor — the max concurrent model calls the Router permits across ALL roles
     /// (one shared semaphore, since there is one GPU). Reads `OLLAMA_MAX_CONCURRENT`, the SAME
-    /// var the Go `gemmaGate` reads, so Go derive and the Rust worker agree on the box's
+    /// var the Go worker's model gate reads, so Go derive and the Rust worker agree on the box's
     /// concurrency budget during a transition overlap. Default 1 (the single-GPU governor); the
     /// worker's sequential drain is an implicit 1, so this only bites under future parallelism or
     /// a brief Go+Rust overlap. Clamped to ≥1 (0 would dead-lock every call).
@@ -31,8 +31,8 @@ pub struct Config {
     /// any single item's processing budget, so a slow-but-alive worker is never stolen.
     pub stale_lease: Duration,
     /// Role → model map (the Route primitive's config, Plan §2.1). Every role defaults to
-    /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is all-Gemma and
-    /// byte-identical to the L1 single router; `COGNITION_ROUTE_*` overrides per role.
+    /// `ollama_model` on `ollama_base_url`, so an un-configured deploy is single-local-model;
+    /// `COGNITION_ROUTE_*` overrides per role.
     pub route: RouteConfig,
     /// Embedding-model config (the Embed primitive, Plan §1.4) — `COGNITION_EMBED_*`. Read by
     /// the experiment harness and (once the hybrid Resolve gate lands) the service; the model
@@ -107,8 +107,9 @@ impl EmbedConfig {
 /// article↔identity cosine is `≥ keep_threshold` is auto-kept and one `< drop_threshold` is
 /// auto-dropped — both WITHOUT a model call (the cheap CPU pre-filter). The `[drop, keep)` middle
 /// is the ambiguous band the model adjudicates. Defaults are the conservative band the L4
-/// experiment measured on the live vetted-label set (AUC 0.88): keep 0.75 (≈97% agree with Gemma),
-/// drop 0.60 (≈0% genuine links lost) → Gemma runs on ≈45% of secondary links (≈55% GPU saved).
+/// experiment measured on the live vetted-label set (AUC 0.88): keep 0.75 (high agreement with
+/// the model adjudicator), drop 0.60 (near-zero genuine links lost in the shadow set). The live
+/// asymmetric gate now only uses the keep line; everything else goes to the local model.
 #[derive(Clone, Debug)]
 pub struct ResolveConfig {
     /// cosine ≥ this → auto-keep (no model call).
@@ -162,8 +163,8 @@ pub struct ModelSpec {
 /// RouteConfig is the role → model map driving the [`Router`](crate::route::Router) (Plan §2.1).
 /// `roles` is the incumbent each `Role` resolves to; `candidates` is the optional A/B
 /// challenger per role (eval-only, NEVER served — Plan §2.2). Built from `COGNITION_ROUTE_*`
-/// with every role defaulting to the one Ollama model, so an un-configured deploy is all-Gemma
-/// and byte-identical to the L1 single router.
+/// with every role defaulting to the one Ollama model, so an un-configured deploy is
+/// single-local-model and byte-identical to the L1 single router.
 #[derive(Clone, Debug)]
 pub struct RouteConfig {
     /// The incumbent model each role resolves to (`for_role`). Populated for EVERY role
@@ -178,7 +179,7 @@ pub struct RouteConfig {
 impl RouteConfig {
     /// from_env reads `COGNITION_ROUTE_<ROLE>` for every role (e.g.
     /// `COGNITION_ROUTE_EMOTIONAL_NEWS`), each defaulting to `default_model` on `base_url` —
-    /// so with nothing configured every role is the one Gemma and routing moves zero bytes
+    /// so with nothing configured every role is the one local model and routing moves zero bytes
     /// vs L1. `COGNITION_ROUTE_<ROLE>_CANDIDATE` adds the optional eval challenger. Today
     /// every backend is Ollama on the shared `base_url`; per-role backend/base_url overrides
     /// are the topology/backend swaps (HORIZON — Plan §2.1), added when they are real.

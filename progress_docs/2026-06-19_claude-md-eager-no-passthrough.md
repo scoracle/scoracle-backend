@@ -9,7 +9,7 @@ read; the third-party (Google RSS) compile lives in the background pipeline, nev
 ## What Was Done
 - Architecture / endpoint list: reframed "Third-party integrations (news + journalist tweets)" → a
   precomputed derived-product surface (`/news`, `/transfers`, `/rating`, `/momentum`, `/sigil`), with a
-  "no third-party call on a serving request" statement; the Gemma pipeline (which *does* call RSS, off
+  "no third-party call on a serving request" statement; the local model pipeline (which *does* call RSS, off
   the request path) noted under background workers.
 - Route conventions: the `/api/v1/news/...` (live-RSS) and `/api/v1/twitter/...` routes are now marked
   **legacy/being-retired** and **PARKED** respectively.

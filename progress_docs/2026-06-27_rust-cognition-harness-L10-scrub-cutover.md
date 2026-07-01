@@ -16,7 +16,7 @@ instant one-flag rollback.
 ## Why scrub is the right (and only) Step-1 slice
 
 The Rust worker drains sequentially and has **no GPU governor**; the Go derive worker has its own
-(`OLLAMA_MAX_CONCURRENT` gemmaGate). Two live workers draining stages they **share** would put two
+(`OLLAMA_MAX_CONCURRENT` local-model gate). Two live workers draining stages they **share** would put two
 uncoordinated callers on the single GTX 1070 Ti. **scrub is the one stage the Go Drainer has no
 handler for** (it drains transfers/narratives/vibe/sigil only), so the Rust `ScrubHandler` can never
 double-claim it. Every other stage waits for the full cutover (Step 3, Go derive OFF → Rust sole GPU

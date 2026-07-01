@@ -23,7 +23,7 @@ Widened the CHECK to include `'news_spike'`, matching the full set the code emit
 `cron-vibe.sh` / `cron-transfer.sh` header comments) — vibe corpus
 `0 0,12 * * *` → `0 0 * * *` (midnight only). The former noon pass existed to keep
 every team within ~12h of fresh news; the news-spike worker (5 articles in 60 min
-→ immediate Gemma rescoring) now covers breaking cycles in real time, so the second
+→ immediate local model rescoring) now covers breaking cycles in real time, so the second
 batch is redundant. `cron-transfer.sh`'s recommended stagger updated to `30 0` to
 follow the single daily vibe run.
 

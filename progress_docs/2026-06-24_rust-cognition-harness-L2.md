@@ -19,7 +19,7 @@ stays in Postgres.
   challenger); `ModelSpec { backend, model, base_url }` is the concrete model — the ONE place a
   model id may appear. `config.rs` ↔ `route.rs` reference each other (no cycle — same crate).
 - **Default every role → `OLLAMA_MODEL` on `OLLAMA_BASE_URL`.** With nothing configured, all four
-  roles resolve to the one Gemma on the shared base — so an un-configured deploy is all-Gemma and
+  roles resolve to the one local model on the shared base — so an un-configured deploy is all-local model and
   **byte-identical to the L1 single router**. `COGNITION_ROUTE_<ROLE>` overrides per role
   (`EMOTIONAL_NEWS` / `STATS_LOGIC` / `MULTILANG` / `SQL`); `COGNITION_ROUTE_<ROLE>_CANDIDATE`
   adds the eval challenger.
@@ -73,10 +73,10 @@ stays in Postgres.
 ## Verification
 - `cargo build --all-targets` → Finished, **0 warnings**. `cargo test --lib` → **11/11 pass**
   (8 existing + 3 new router tests). `cargo clippy --all-targets -- -D warnings` → clean.
-- **`bin/eval` smoke — PASS.** No-arg prints the route table (all four roles → `gemma4:e4b`, no
+- **`bin/eval` smoke — PASS.** No-arg prints the route table (all four roles → `local-model:tag`, no
   candidate — proving `RouteConfig::from_env` parsed). One-case incumbent run
-  (`eval team:597:FOOTBALL=68`) loaded the corpus, ran `gemma4:e4b` at temp 0, parsed SCORE,
-  reported `MAE=0.00 (scored 1/1)`. The A/B path (`COGNITION_ROUTE_EMOTIONAL_NEWS_CANDIDATE=gemma:latest`)
+  (`eval team:597:FOOTBALL=68`) loaded the corpus, ran `local-model:tag` at temp 0, parsed SCORE,
+  reported `MAE=0.00 (scored 1/1)`. The A/B path (`COGNITION_ROUTE_EMOTIONAL_NEWS_CANDIDATE=model:latest`)
   resolved + invoked the candidate (it ran past the 2-min shell timeout only because the
   single-GPU model swap cold-loads the second model — not a code issue).
 - **Temp-0 parity GATE — config-driven routing moved ZERO bytes (proven on the deterministic
@@ -87,15 +87,15 @@ stays in Postgres.
 
   | entity | model_ver | prompt_ver | temperature | built_prompt bytes | ollama_request jsonb | SCORE |
   |---|---|---|---|---|---|---|
-  | player/1 NBA (marker) | ✓ gemma4:e4b | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | NULL = NULL ✓ |
-  | player/13874268 NFL | ✓ gemma4:e4b | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | 70 = 70 ✓ |
-  | team/597 FOOTBALL | ✓ gemma4:e4b | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | 68 vs 62 ✗ (model) |
+  | player/1 NBA (marker) | ✓ local-model:tag | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | NULL = NULL ✓ |
+  | player/13874268 NFL | ✓ local-model:tag | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | 70 = 70 ✓ |
+  | team/597 FOOTBALL | ✓ local-model:tag | ✓ v6 | ✓ 0 | ✓ identical | ✓ identical | 68 vs 62 ✗ (model) |
 
   **Every deterministic, code-controlled axis is identical (3/3):** the config-driven router
   resolves the same `model_version` Go stamps, and the `built_prompt` (byte-identical) +
   `ollama_request` (jsonb-identical; go sends `temperature:0` int, rust `0.0` float — jsonb `=`
   treats them equal) are exactly what Go produces. **The bytes the harness sends did not move.**
-- **FINDING — gemma4:e4b temp-0 is NOT reliably deterministic for these prompts.** team:597's
+- **FINDING — local-model:tag temp-0 is NOT reliably deterministic for these prompts.** team:597's
   SCORE oscillates **62 ↔ 68** over a *proven byte-identical prompt* and a *stable corpus*: the
   **same rust binary** produced 62 on one run and 68 on the next (go landed 62 in between); the
   VIBE sentence varied with it. The L1 "4/4 deterministic" was a single-window snapshot. So the
@@ -119,7 +119,7 @@ stays in Postgres.
 ```bash
 cd scoracle-backend && export PATH="$HOME/.cargo/bin:$PATH"
 export DATABASE_PRIVATE_URL=…           # from .env.local (the Rust crate does NOT load it)
-export OLLAMA_BASE_URL=http://localhost:11434 OLLAMA_MODEL=gemma4:e4b OLLAMA_TIMEOUT_SECONDS=300
+export OLLAMA_BASE_URL=http://localhost:11434 OLLAMA_MODEL=local-model:tag OLLAMA_TIMEOUT_SECONDS=300
 cargo build --manifest-path rust/Cargo.toml
 ./rust/target/debug/eval                                   # smoke: prints the route table
 ./rust/target/debug/parity team:597:FOOTBALL player:13874268:NFL player:1:NBA   # source='rust'
@@ -132,14 +132,14 @@ cargo build --manifest-path rust/Cargo.toml
 ```
 
 ## Result
-L2 done and proven. The Router is config-driven (`COGNITION_ROUTE_*`, all-Gemma by default,
+L2 done and proven. The Router is config-driven (`COGNITION_ROUTE_*`, all-local model by default,
 byte-identical to L1), the A/B eval hook exists (`bin/eval`, manual adoption only), and the
 deterministic parity axes confirm **config-driven routing moves zero bytes**. A new model is now
 a config change + an eval win — never a code edit, never an act of faith. The next stage port
 (rating or sigil) is an additive composition over the existing primitives.
 
 ## Landmines / notes
-- **Temp-0 parity must be read on the byte axes, not SCORE/VIBE.** gemma4:e4b at temp 0 is not
+- **Temp-0 parity must be read on the byte axes, not SCORE/VIBE.** local-model:tag at temp 0 is not
   reliably deterministic across invocations/reloads (team:597 SCORE flips 62↔68 over an identical
   prompt). For every future stage-port gate: assert **built_prompt bytes + ollama_request jsonb +
   model_version** identical; compare SCORE/VIBE only within ONE model-load window and never treat
@@ -150,7 +150,7 @@ a config change + an eval win — never a code edit, never an act of faith. The 
   single load window.
 - **The Rust crate does not load `.env.local`.** Export `DATABASE_PRIVATE_URL` + `OLLAMA_*`
   manually (the Go `TestVibeParityDump` reads `os.Getenv` too). `OLLAMA_BASE_URL`/`OLLAMA_MODEL`
-  are absent from `.env.local`, so the crate defaults (`http://localhost:11434` / `gemma4:e4b`)
+  are absent from `.env.local`, so the crate defaults (`http://localhost:11434` / `local-model:tag`)
   apply unless exported.
 - **`vibe_scores_shadow` accrues rows** (no unique key) — diff with `DISTINCT ON (source,entity)
   … id DESC`. Throwaway diagnostic; drop after the vibe cutover.

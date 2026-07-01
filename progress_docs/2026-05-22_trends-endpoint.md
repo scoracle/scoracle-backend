@@ -94,13 +94,13 @@ survive the lift.
 ## Addendum — vibes block added to the same payload
 
 Same session, follow-up scope. The trends payload now also carries the entity's
-last-7-days of Gemma sentiment scores so the frontend can present "stats trend"
+last-7-days of local model sentiment scores so the frontend can present "stats trend"
 and "narrative trend" from a single endpoint call.
 
 - **No schema change required.** `vibe_scores` (migration 007) is already
   `BIGSERIAL PRIMARY KEY` + INSERT-only writes (verified — only `INSERT INTO
   vibe_scores` exists in `go/internal/ml/vibe.go`, no `UPDATE`). Every score
-  Gemma generates is preserved, so the record-keeping the feature relies on
+  local model generates is preserved, so the record-keeping the feature relies on
   was already in place.
 - **`trendsStatement` gains one CTE.** `vibe_window` filters `vibe_scores` for
   the entity's last 7 days, excluding legacy `sentiment IS NULL` rows for

@@ -1,15 +1,15 @@
 # 2026-06-14 — Flip consumers onto the vetted link set (task 4)
 
-Task 4 of the News→Gemma pipeline. Built + verified non-regressive, committed — **NOT deployed**
+Task 4 of the News→local model pipeline. Built + verified non-regressive, committed — **NOT deployed**
 (rebuild + apply 084 + restart is gated). Follows tasks 1–3 (foundation + vetted-flag scrub + async
 sweep, all live in prod).
 
 ## Goal
-Point every consumer of `news_article_entities` at the Gemma-vetted set so news/vibe/transfers stop
+Point every consumer of `news_article_entities` at the local model-vetted set so news/vibe/transfers stop
 reading fuzzy false-positive links — without regressing while coverage is still building.
 
 ## Transition filter (non-regressive)
-Every consumer gains `(<link>.vetted IS TRUE OR <link>.scrubbed_at IS NULL)` — keep links Gemma
+Every consumer gains `(<link>.vetted IS TRUE OR <link>.scrubbed_at IS NULL)` — keep links local model
 confirmed genuine, plus any not yet scrubbed (shown until judged). Only links the scrub explicitly
 rejected (`vetted = FALSE`) are dropped. A later step tightens to `vetted IS TRUE` once coverage is
 high. The **033 title-proximity gate is RETAINED** here — it retires with the fuzzy matcher in task 5.
@@ -34,7 +34,7 @@ high. The **033 title-proximity gate is RETAINED** here — it retires with the 
 - Committed, NOT deployed. Deploy = rebuild `bin/scoracle-api` + apply `084` (before restart) + manual
   `systemctl --user restart`. The flip is non-regressive, so it can deploy anytime; precision ramps
   as the scrub ticker builds coverage.
-- NOTE (2026-06-14): Scott proposed a Gemma-stage progression — raw → scrubbed → **narratives
+- NOTE (2026-06-14): Scott proposed a local model-stage progression — raw → scrubbed → **narratives
   (multiple per entity, each its own write-up)** → transfer heat → **vibe last (richest context)**.
   This reshapes task 6 (generator cadence/order) + the narrative storage model (multi-narrative, not
   one summary) + sentiment-last. Captured for re-planning before task 6; does not affect tasks 4/5.

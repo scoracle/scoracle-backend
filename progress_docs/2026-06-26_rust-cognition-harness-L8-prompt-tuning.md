@@ -6,7 +6,7 @@ derived product's prompt for quality + voice instead of wrangling a model that w
 
 ## Goal & outcome
 
-Tune the prompt + desired output for all five derived products on `mistral:7b`, strip the Gemma-era
+Tune the prompt + desired output for all five derived products on `mistral:7b`, strip the local model-era
 defensive clamps, and unify the voice. **Outcome:** all five re-aimed and locked, validated, with a
 new all-stage A/B harness — plus a real upstream data bug (false transfer signals) traced and fixed.
 

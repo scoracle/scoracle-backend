@@ -1,4 +1,4 @@
--- News persistence for Gemma 4 context + training corpus.
+-- News persistence for local model context + training corpus.
 --
 -- news_articles holds the raw article metadata (title + description + source).
 -- We do NOT scrape article bodies — RSS snippets are sufficient per the

@@ -8,9 +8,9 @@
 //! (narratives/vibe/transfers) exactly as today — so scrub joins the queue without changing the
 //! downstream contract. Terminal: the handler enqueues nothing itself (the trigger does).
 //!
-//! The gate spends Gemma only on the ambiguous band; the auto-keeps skip it (the ~50% GPU win). The
-//! proxy never auto-drops (the L5 shadow proved that loses non-redundant truth), so every exclusion
-//! is the model's — fail-closed when the model won't commit.
+//! The gate spends local-model time only on the ambiguous band; the auto-keeps skip it. The proxy
+//! never auto-drops (the L5 shadow proved that loses non-redundant truth), so every exclusion is the
+//! model's — fail-closed when the model won't commit.
 
 use crate::harness::{Candidate, EntityType, Harness, IdentityCard};
 use crate::route::Role;

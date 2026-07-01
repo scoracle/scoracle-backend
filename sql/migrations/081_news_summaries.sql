@@ -1,18 +1,18 @@
 -- 081_news_summaries.sql
 --
 -- News-summary feature — schema. Clones the vibe_scores (007) / transfer_rumors
--- (031) pattern at the ENTITY grain: one Gemma-written news summary per entity
+-- (031) pattern at the ENTITY grain: one local model-written news summary per entity
 -- per generation. Append model (a new row each run; reads take latest-per-entity
 -- via DISTINCT ON), which also gives us the time-scope rail ("summary as it stood
 -- N weeks ago") for free off `generated_at`.
 --
 -- Written by the unified per-entity analysis (Stage-2a) that ALSO writes the
--- sentiment row to vibe_scores from the same Gemma call — sentiment stays in
+-- sentiment row to vibe_scores from the same local model call — sentiment stays in
 -- vibe_scores (feeds the Trends sparkline, unchanged); the prose summary lives
 -- here. `impact` is the "how big is this news cycle" score (the news analog of
 -- transfers' heat) that ranks the news leaderboard; like heat it is meant to be
 -- DETERMINISTIC + transparent (computed from the corpus — article count, source
--- tier, recency, velocity — Gemma never invents the number), stored with its
+-- tier, recency, velocity — local model never invents the number), stored with its
 -- components. Nullable everywhere: NULL summary/impact = no corpus this cycle
 -- (the persistNoCorpus analog).
 --
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS news_summaries (
     trigger_type     TEXT        NOT NULL CHECK (trigger_type IN ('news_spike', 'periodic', 'manual')),
     trigger_payload  JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
-    -- Gemma output. summary NULL = no relevant corpus this cycle.
+    -- local model output. summary NULL = no relevant corpus this cycle.
     summary          TEXT,
     trending_topics  JSONB       NOT NULL DEFAULT '[]'::jsonb,
 

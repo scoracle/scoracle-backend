@@ -9,7 +9,7 @@ stale transfer-heat rows that serve forever) and the L7 cross-machine debt (the 
 1. **Finish the bad-data fix** — the L8 re-vet cleared 263 *active* false transfer rows, but
    `loadTransferHeat` has **no recency gate**, so very-old false rows ground prompts forever.
 2. **Cross-machine durability** — the Mistral cutover was an archbox `.env.local` override; flip the
-   committed default so a fresh checkout (archx220) boots on Mistral, not Gemma.
+   committed default so a fresh checkout (archx220) boots on Mistral, not local model.
 3. **Verify** the Wemby "draft/debut" phantom is gone — *and report honestly where it is not.*
 
 ## What changed
@@ -18,7 +18,7 @@ stale transfer-heat rows that serve forever) and the L7 cross-machine debt (the 
 |---|---|---|
 | **Transfer-heat freshness gate** | `go/internal/ml/transfer_heat.go` | Both branches (player suitors / team's players) now gate `AND tr.generated_at > NOW() - INTERVAL '14 days'` in the inner subquery, before `DISTINCT ON`. A counterparty whose newest row has aged out drops entirely. |
 | **Parity mirror** | `rust/src/vibe.rs` (`load_transfer_heat`) | Same 14-day gate mirrored into both Rust branches, so the Go↔Rust temp-0 **built-prompt bytes stay identical** (both queries must return the same rows). |
-| **Committed model default (Go)** | `go/internal/config/config.go` | `OLLAMA_MODEL` default `gemma4:e4b` → **`mistral:7b`**; dated comments (the gemma4 CPU-offload rationale, "Gemma calls") refreshed for the L7 cutover. |
+| **Committed model default (Go)** | `go/internal/config/config.go` | `OLLAMA_MODEL` default `local-model:tag` → **`mistral:7b`**; dated comments (the local model CPU-offload rationale, "local model calls") refreshed for the L7 cutover. |
 | **Committed model default (Rust)** | `rust/src/config.rs` | `env_or("OLLAMA_MODEL", …)` default → `mistral:7b`; the `ModelSpec` doc example id updated. |
 | **Committed env template** | `.env` | New "Local inference (Ollama)" section documenting `OLLAMA_MODEL=mistral:7b` + the per-host `ollama pull` note (the template had no Ollama section). |
 

@@ -1,7 +1,7 @@
 -- 085_news_summaries_per_narrative.sql
 --
 -- Restructure news_summaries from one-summary-per-generation (081) to ONE ROW PER
--- NARRATIVE. The Gemma news stage (ml/news_narratives.go) now groups an entity's
+-- NARRATIVE. The local model news stage (ml/news_narratives.go) now groups an entity's
 -- vetted corpus into the DISTINCT storylines forming around it and writes each up
 -- separately. A "generation" is the set of rows sharing
 -- (entity_type, entity_id, sport, generated_at); reads take the latest generation,

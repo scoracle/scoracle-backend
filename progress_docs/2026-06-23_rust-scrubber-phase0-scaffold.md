@@ -13,7 +13,7 @@ reusable foundation only (queue + Ollama clients + LISTEN loop). No stage logic.
   orchestration** (new); Go = serving + news fetch. The Rust layer makes the
   **Go** derive code redundant — **not Python** (Python was never in the LLM path).
 - Why Rust (honest case): one typed home for all model logic; compiler-enforced
-  fail-closed semantics; the model router (Gemma/Mistral/SQLCoder per role); a
+  fail-closed semantics; the model router (local model/Mistral/SQLCoder per role); a
   seat for future CPU-bound work (embeddings, in-process inference). **Not** a
   speed/energy win — the LLM layer is GPU-bound, so the orchestrator language is
   a sliver of cost.

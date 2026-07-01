@@ -66,7 +66,7 @@ served it as the live crown. Post-fix the live view returns the latest **2025** 
 ### `go/internal/listener/listener.go` — F-017 + simplification A
 - `handlePercentileChange` ENQUEUES `pipeline_work(sigil)` on a ≥10 composite delta (input_version
   `composite:<season>:<pctile>`), **before** the follower early-return — zero-follower entities still
-  converge. No inline Gemma off the transient NOTIFY. `Start`/`listenLoop`/`handlePercentileChange` no
+  converge. No inline local model off the transient NOTIFY. `Start`/`listenLoop`/`handlePercentileChange` no
   longer take `*ml.SigilGenerator` (`cmd/api/main.go` updated; the API still builds one for the drainer).
 
 ### `go/internal/db/db.go` + `handler/data.go` — season-scoped reads
@@ -102,7 +102,7 @@ served it as the live crown. Post-fix the live view returns the latest **2025** 
 Committed `331f76706f68` (clean stamp — the parallel session's 5 tracked edits were `git stash`'d for
 the build, then `git stash pop`'d back cleanly, no conflict). Deployed via `scripts/hosting/release.sh`
 (built all 4 binaries @ `331f767`, reinstalled units, masked the `scoracle-api.path` watcher — F-016,
-restarted the API). `/health/db` → `healthy; serving commit 331f76706f68`. Log: "Gemma workers enabled",
+restarted the API). `/health/db` → `healthy; serving commit 331f76706f68`. Log: "local model workers enabled",
 "Real-time derive worker started", "Percentile listener connected" — **no degraded / prepared-statement /
 panic errors**.
 

@@ -1,6 +1,6 @@
 -- 102_pipeline_work.sql  (FIRST-GPT-AUDIT Session 7 — durable news-pipeline work state)
 --
--- The Gemma derive pipeline (transfers → narratives → vibe → momentum → sigil)
+-- The local model derive pipeline (transfers → narratives → vibe → momentum → sigil)
 -- currently hands off between stages with an in-process `runStart` watermark and
 -- relies on transient LISTEN/NOTIFY. A crash loses the set of affected entities,
 -- and time-only debounce can skip changed inputs. This table is the durable

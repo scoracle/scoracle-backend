@@ -8,7 +8,7 @@ per-stage cutover (Phase 2). Builds on the Phase 0 scaffold (commit `6d2c3a5`).
 
 ## Context / decisions
 - **Parity is provable because temp 0 is deterministic.** Verified empirically up front:
-  `gemma4:e4b` with an EXPLICIT `temperature: 0` returns byte-identical output across
+  `local-model:tag` with an EXPLICIT `temperature: 0` returns byte-identical output across
   calls. So a byte-identical prompt + identical options ⇒ identical SCORE/VIBE; any diff
   is a port bug (SQL read, prompt string, options, or parse), not model noise.
 - **The temperature landmine.** BOTH the Go and Rust Ollama clients omit `temperature`
@@ -75,7 +75,7 @@ per-stage cutover (Phase 2). Builds on the Phase 0 scaffold (commit `6d2c3a5`).
 
   **4/4 on every axis** — SCORE identical, VIBE identical, built prompt byte-identical
   (octet_length 412/1429/1890 equal), Ollama request body jsonb-identical, model
-  `gemma4:e4b`, prompt_version `v6`. Including the fail-closed no-corpus NULL marker.
+  `local-model:tag`, prompt_version `v6`. Including the fail-closed no-corpus NULL marker.
 - **Latency**: Rust 111.5s vs Go 112.6s for the same 3 model calls (~1%, well within the
   ~10% bar). Orchestration is I/O-bound; the GPU eval dominates either language.
 - **Safety**: harness wrote only `vibe_scores_shadow` (8 rows: 4 rust + 4 go); live

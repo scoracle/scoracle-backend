@@ -49,4 +49,4 @@ dropped tables are never queried. Trivial future cleanup: drop the vestigial `tw
 
 ## Result
 O13 + O15 ✅ — X/Twitter fully decommissioned end-to-end. The transfer-heat pipeline now derives purely
-from the Google-RSS → Gemma corpus, matching the platform's owned-data model.
+from the Google-RSS → local model corpus, matching the platform's owned-data model.

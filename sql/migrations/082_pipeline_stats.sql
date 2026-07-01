@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS pipeline_stats (
     total_articles         INTEGER     NOT NULL DEFAULT 0,
     new_articles           INTEGER     NOT NULL DEFAULT 0,
 
-    -- Gemma output coverage (distinct entities with a CURRENT row, i.e. analysis
+    -- local model output coverage (distinct entities with a CURRENT row, i.e. analysis
     -- generated within the freshness window).
     entities_with_summary  INTEGER     NOT NULL DEFAULT 0,
     entities_with_vibe     INTEGER     NOT NULL DEFAULT 0,

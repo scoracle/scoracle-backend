@@ -5,7 +5,7 @@ verified, committed — db.go-only (prepared statements), so it lands with the b
 
 ## Reassessment (honest correction)
 The sample-payload "legacy noise" (Son / Pedro / dup João Pedro) was an **over-flag**: that sample
-queried raw `heat>0`, but the SERVED reads filter `is_rumor IS TRUE`, and the Gemma vet had already
+queried raw `heat>0`, but the SERVED reads filter `is_rumor IS TRUE`, and the local model vet had already
 **cleared** that noise (Son/Pedro/André/Nícolas → is_rumor=false; the wrong same-name João Pedro →
 is_rumor=false, the real one true). Served set = 21 vs 31 raw for Chelsea — the 10 dropped were exactly
 the false positives. So the served transfers were already clean; the disambiguation works.
@@ -33,7 +33,7 @@ The three transfer reads (`transfers_leaderboard`, `team_transfers`, `player_sui
 - Committed, NOT deployed (db.go changes ride the batched binary deploy with tasks 4/6/9).
 - Operational at deploy: a one-off `cmd/transfer -mode corpus` regeneration off the vetted corpus; then
   the task-10 cadence keeps it fresh.
-- DEFERRED (optional bake): the transfer Gemma vet→determine promotion (Roadmap 1a — read heat_components
+- DEFERRED (optional bake): the transfer local model vet→determine promotion (Roadmap 1a — read heat_components
   to produce the surfaced heat). The current vet is working well, so not blocking.
 - Next: task 12 (ground narratives on the vetted transfers), task 10 (orchestrate), task 5 (open gates),
   batched deploy, task 7 (frontend).

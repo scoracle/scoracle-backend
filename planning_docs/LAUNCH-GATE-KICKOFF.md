@@ -23,7 +23,7 @@ see the appendix.
 ## Setup / ground truth
 
 - The repo IS `scoracle-backend` (its own `.git`) — `cd scoracle-backend` for all git ops.
-- archbox = prod (prod DB, Ollama/Gemma, cron, systemd). Three sports: `nba`, `nfl`, `football`;
+- archbox = prod (prod DB, Ollama/local model, cron, systemd). Three sports: `nba`, `nfl`, `football`;
   `current_season` = 2025 for all.
 - Live per-entity products: `/stats /rating /momentum /sigil /news /transfers /meta` (+
   `team/{id}/results`, `team/{id}/roster`). **Route truth = `go/internal/api/server.go`, never
@@ -60,7 +60,7 @@ see the appendix.
       Satisfies the "docs describe the same system" criterion for the Swagger surface once redeployed.
 - [ ] **F-035:** set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
       (needs sudo — guide Scott via `! <cmd>`). The Go GPU governor is in-process only. **Do this BEFORE the
-      F-030 grind** — it pins the cross-process serialization the multi-process Gemma grind relies on.
+      F-030 grind** — it pins the cross-process serialization the multi-process local model grind relies on.
 - [ ] **F-040:** pick the off-SITE backup target (cloud/NAS) — mechanism is ready (`OFFHOST_BACKUP_DIR`;
       off-disk mirror already live). Scott's infra call; required for the Operations-proof off-host restore.
 - [x] **F-043:** ✅ S1 added `seed/Dockerfile` (+ `.dockerignore`) — `docker compose build seed` now has a

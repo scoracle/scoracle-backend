@@ -1,4 +1,4 @@
-# FIRST-GPT-AUDIT Session 14 — Harden Ollama/Gemma lifecycle and capacity
+# FIRST-GPT-AUDIT Session 14 — Harden Ollama/local model lifecycle and capacity
 
 **Date:** 2026-06-24 (archbox, production)
 **Commit:** `cf4f26069df6` (code) — deployed live via `release.sh`; API serving `cf4f26069df6`, `/health/db` 200.
@@ -8,13 +8,13 @@
 
 Make Ollama downtime *delay* enrichment without losing work or changing truth
 semantics; stop gating worker availability on a one-time API boot ping; bound all
-Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
+local model work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
 
 ## What shipped
 
 ### 1. F-014 — worker readiness decoupled from the boot ping
 
-- **`cmd/api`** now builds the Gemma generators **unconditionally** and always starts
+- **`cmd/api`** now builds the local model generators **unconditionally** and always starts
   the derive worker (gated only on `DERIVE_WORKER_ENABLED`). The old `Ping → generators
   nil → worker+scrub disabled until restart` gate is gone. A boot probe remains but only
   **logs** ("Ollama reachable" / "unreachable … will defer"); it changes no behavior.
@@ -27,7 +27,7 @@ Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
   **requeues** the leased batch via `work.Requeue` (no attempt burned) and stops the
   stage. So an outage that begins mid-drain still can't dead-letter good work.
 - **Maintenance scrub ticker** got the same pre-gate: the cheap SQL auto-vet of primaries
-  still runs, but the Gemma disambiguation phase is skipped while Ollama is down (and
+  still runs, but the local model disambiguation phase is skipped while Ollama is down (and
   stops mid-sweep on an `IsUnavailable` error).
 - **`cmd/pipeline`** boot ping is now **non-fatal**: the RSS sweep keeps ingesting raw
   articles (durable), the derive drain defers, and the run records a **partial** outcome
@@ -36,15 +36,15 @@ Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
 
 ### 2. Shared GPU concurrency governor
 
-- A **process-wide** semaphore in `internal/ml` (`SetGemmaConcurrency`, default **1**,
+- A **process-wide** semaphore in `internal/ml` (`Setlocal modelConcurrency`, default **1**,
   env `OLLAMA_MAX_CONCURRENT`), acquired around **every** `OllamaClient.Generate`. It is
   package-level, not per-client, so the derive worker + maintenance scrub + any in-process
-  Gemma serialize on the single 8GB card together instead of piling on and ballooning each
+  local model serialize on the single 8GB card together instead of piling on and ballooning each
   call's wall time. Acquire respects `ctx` (a per-op deadline or shutdown unblocks the
   wait). `cmd/api`, `cmd/pipeline`, `cmd/statcommentary`, `cmd/vibesynth` all call
-  `SetGemmaConcurrency` at startup; un-configured binaries serialize at 1.
+  `Setlocal modelConcurrency` at startup; un-configured binaries serialize at 1.
 - **Cross-process** note: the Go gate bounds one process. Cron-vs-API-worker overlap is
-  governed by Ollama's own server-side serialization (a single gemma4:e4b instance). The
+  governed by Ollama's own server-side serialization (a single local-model:tag instance). The
   *explicit* cross-process governor — `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
   on the ollama systemd service — is **not** set (a root systemd change); recommended as
   an ops follow-up (F-035).
@@ -55,9 +55,9 @@ Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
   **and** the HTTP hard backstop (so a per-call context deadline always governs). New
   `OLLAMA_SHORT_TIMEOUT_SECONDS` (default **120s**) bounds scrub/vibe/sigil/transfer so
   they fail fast and retry instead of waiting the long budget. The drainer applies them
-  per-stage (`GemmaTimeout` for narratives, `GemmaShortTimeout` for vibe/sigil); maintenance
+  per-stage (`local modelTimeout` for narratives, `local modelShortTimeout` for vibe/sigil); maintenance
   scrub uses the short budget; transfers stay team-scoped (`perTeamTimeout`).
-- `OLLAMA_KEEP_ALIVE` (default **30m**), sent on every request, keeps gemma4:e4b resident
+- `OLLAMA_KEEP_ALIVE` (default **30m**), sent on every request, keeps local-model:tag resident
   between calls so the cold reload that blew the old flat 600s timeout is rare. Measured
   live: back-to-back calls show `load_ms ≈ 350` (warm) — a true cold load is 100s+.
 - This **supersedes the F-014 600s stopgap** (`.env.local`): the same value for every op
@@ -83,18 +83,18 @@ Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
 
 - **Build / vet / gofmt / `go test ./...`** all clean.
 - New tests: `ml.TestIsUnavailable` (outage vs slow-op vs parse-error classification),
-  `ml.TestGemmaGate` / `TestGemmaConcurrencyTwo` (bound + ctx-cancellation),
+  `ml.Testlocal modelGate` / `Testlocal modelConcurrencyTwo` (bound + ctx-cancellation),
   `derive.TestDrainAllDefersWhenOllamaUnreachable` (DrainAll defers, claims nothing — no DB
   needed, the pre-gate returns before any claim), `derive.TestShortTimeoutFallback`.
 - **Live, post-deploy:**
-  - New process booted with `Ollama reachable model=gemma4:e4b max_concurrent=1
+  - New process booted with `Ollama reachable model=local-model:tag max_concurrent=1
     keep_alive=30m short_timeout=2m0s long_timeout=5m0s` — all config loaded; no degraded mode.
   - F-018 confirmed again on the OLD process's shutdown: "Derive worker settled its leased
     work" + narratives `requeued=7` (leased rows handed back, not stranded).
-  - Worker draining: serial `gemma call op=transfer wall_ms=5000–16000` lines (the governor
+  - Worker draining: serial `model call op=transfer wall_ms=5000–16000` lines (the governor
     keeps calls one-at-a-time); `load_ms ≈ 350` proves the model stays warm.
   - Serving stays responsive under heavy drain: `/health/db` 0.6ms, `/api/v1/nba/meta` 27ms
-    (Gemma is off the request path).
+    (local model is off the request path).
   - Zero dead-letters; no spurious defer/unavailable events (Ollama up).
 - **Outage drill (defer→recover) is proven by test**, not run live: bouncing the *system*
   ollama.service needs root and would disturb the in-flight nightly. Operator drill to run
@@ -126,4 +126,4 @@ Gemma work on the box by a shared governor. (FIRST-GPT-AUDIT Session 14.)
 
 - Outage behavior: raw ingestion continues (sweep), durable `pipeline_work` accumulates,
   no unverified output published (scrub/transfer fail-closed unchanged), drains on recovery.
-- Per-call latency: `journalctl --user -u scoracle-api | grep 'gemma call'`.
+- Per-call latency: `journalctl --user -u scoracle-api | grep 'model call'`.

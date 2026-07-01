@@ -1,9 +1,9 @@
-# 2026-06-14 — News→Gemma pipeline: foundation DEPLOYED + scrub vetted-flag
+# 2026-06-14 — News→local model pipeline: foundation DEPLOYED + scrub vetted-flag
 
 Picks up the 2026-06-13 foundation session. Two things this session: (1) **deployed**
 the batched foundation to prod (the first prod change of this project), and (2) built the
 **vetted-flag** scrub semantics (integration Plan Phase 2, step 1). Companion plans:
-`~/scoracleWiki/wiki/Plan - News to Gemma Summaries.md` (what) +
+`~/scoracleWiki/wiki/Plan - News to local model Summaries.md` (what) +
 `Plan - News pipeline integration.md` (how/next).
 
 ## Goal
@@ -29,7 +29,7 @@ new tables) and convert the scrub from destructive (DELETE dropped links) to non
 - `083_news_entity_vetting.sql`: `news_article_entities.vetted BOOLEAN` + `scrubbed_at
   TIMESTAMPTZ` (both nullable; NULL vetted = unscrubbed) + partial index
   `idx_news_entities_unscrubbed (article_id) WHERE scrubbed_at IS NULL` for the async worker
-  backlog query. Verdict semantics: TRUE kept · FALSE Gemma-dropped · NULL unscrubbed.
+  backlog query. Verdict semantics: TRUE kept · FALSE local model-dropped · NULL unscrubbed.
 - `ml/news_scrub.go` `applyVerdicts`: DELETE → `UPDATE ... SET vetted = <verdict>,
   scrubbed_at = NOW()` for **every** candidate (kept + dropped), so the article is auditable
   and the worker knows it's scrubbed. Primary link (conf 1.0) still always vetted=true.
@@ -53,4 +53,4 @@ new tables) and convert the scrub from destructive (DELETE dropped links) to non
   task 3 (wire the scrub async over unscrubbed candidate-rich articles), task 4 (flip
   consumers onto `vetted IS TRUE OR scrubbed_at IS NULL`), task 5 (open gates + retire 033
   together), task 6 (generators into cron/vibe_trigger), task 7 (frontend). Then the parked
-  stats-rail fast-follow (`Plan - Gemma stat-profile summaries.md`).
+  stats-rail fast-follow (`Plan - local model stat-profile summaries.md`).

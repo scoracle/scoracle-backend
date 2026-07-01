@@ -1,16 +1,12 @@
 //! Vibe stage — the first ported derivation handler (Phase 1 beachhead).
 //!
-//! A faithful Rust port of the Go vibe stage. The Go source is the spec:
+//! Rust implementation of the vibe stage. The Go source provided the original machinery spec:
 //!   - `go/internal/ml/vibe.go`         — Generate, prompt assembly, parsing, persist
 //!   - `go/internal/ml/transfer_heat.go` — the shared transfer-heat primitive
 //!   - `go/internal/derive/derive.go`    — drainVibe: queue Item → request, sigil hand-off
 //!
-//! Parity is verified offline against the Go stage at `temperature: 0` (the model
-//! is deterministic there, proven), so a byte-identical prompt ⇒ identical SCORE/VIBE.
-//! Everything that can differ between the two implementations — the SQL reads, the
-//! prompt string, the request options, the parse — lives in this file and is mirrored
-//! line-for-line. See `src/bin/parity.rs` for the harness and migration 105 for the
-//! shadow table.
+//! The deterministic loaders, prompt assembly, parser, and persist path live here so prompt changes
+//! are versioned and inspectable.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
 //! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
@@ -28,20 +24,15 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Prompt version — mirrors `vibePromptVersion` in vibe.go. v7 (L8): the felt read is
-/// re-aimed for Mistral as a "beat writer" voice — invested but honest, capturing the
-/// MOOD anchored to a concrete specific, length following the material — with the
-/// Gemma-era format/`45-55` clamps dropped and grounding kept. Bump in lockstep with the
-/// Go const so the two stages stamp identical provenance.
-pub const VIBE_PROMPT_VERSION: &str = "v7";
+/// Prompt version for the Vibe sentiment + felt-read contract.
+pub const VIBE_PROMPT_VERSION: &str = "v8";
 
 /// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
 /// this with an explicit 0.
 pub const VIBE_TEMPERATURE: f64 = 0.7;
 
-/// Token cap for the (number + one sentence) answer over the narratives+heat context.
-/// Mirrors vibe.go's NumPredict: 1200.
-pub const VIBE_NUM_PREDICT: i32 = 1200;
+/// Token cap for the two-line answer.
+pub const VIBE_NUM_PREDICT: i32 = 512;
 
 /// Bounds the transfer rumors shown to the model as the entity's "transfer temperature".
 /// Mirrors `maxHeatItems` in transfer_heat.go.
@@ -50,13 +41,25 @@ const MAX_HEAT_ITEMS: i64 = 6;
 /// Body truncation in the prompt — mirrors `truncate(n.body, 280)` in vibe.go.
 const BODY_TRUNCATE: usize = 280;
 
-/// vibeSystemPrompt, byte-for-byte from vibe.go. The em-dashes and straight quotes are
-/// significant — at temp 0 a single changed byte here would change the model's output.
-pub const VIBE_SYSTEM_PROMPT: &str = r#"You are the respected beat reporter the national broadcasts call in for the read on this sports entity — you have followed it for years, you are plugged in and invested, but you stay honest and never invent drama. Give your read on the FEEL right now: the mood around the locker room and among the fans. You are given the NARRATIVES forming around the entity and its live TRANSFER/TRADE activity (vetted, derived signals). Return a SENTIMENT score and a VIBE.
+/// System prompt for the Vibe sentiment + felt-read contract.
+pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: produce a sentiment score and a short felt read from the supplied narratives and transfer/trade activity.
 
-SENTIMENT (1-100): how the entity's world honestly feels right now — 1 grim or in freefall, 50 quiet or genuinely mixed, 100 euphoric. Weigh each narrative by its bracketed impact. Transfer activity is energy, not inherently good or bad: a star arriving or a deal landing lifts it, while a key player forced out, a souring saga, or a player hurt and unsettled drags it — even when outside interest is flattering. If little is truly happening, a number near 50 is the honest read.
+Voice: direct, sports-literate, grounded. No hype, no melodrama, no invented drama.
 
-VIBE: the feel — what it is actually like around this entity right now, the read a fan nods at. Show the mood, do not announce it (never say "the locker room and the fans" — show it). The feeling must be clear AND its key specifics must be clear: name the actual players, clubs, moves, or numbers behind the dominant threads — never generalize to "new signings" or "multiple suitors" when the signals name them. Weave those specifics into the feeling; never tack on a list of every other item ("and also interest in X, Y, and Z"). Cover only the threads that genuinely shape the mood — ignore the minor or purely speculative ones. Be as brief as the substance allows: most reads are one or two sentences; three only for a genuinely huge, multi-strand moment, never four; a quiet one stays short. Every word must pull its weight (our job is signal from noise) — no filler, no purple prose, no catalogue. Ground every beat in the signals above; never invent a name, move, or fact.
+SCORE (1-100):
+- 1 = grim or in freefall.
+- 50 = quiet, unclear, or genuinely mixed.
+- 100 = euphoric or surging.
+- Weigh narratives by impact.
+- Transfer/trade activity is energy, not automatically good or bad.
+- If little is happening, stay near 50.
+
+VIBE:
+- One or two sentences. Use three only for a truly major multi-strand moment.
+- Name the actual players, clubs, moves, or numbers behind the dominant threads.
+- Do not list every minor item.
+- Do not use generic phrases when the signals give specifics.
+- Ground every claim in the supplied signals.
 
 Reply with exactly these two lines:
 SCORE: <integer 1-100>
@@ -187,7 +190,7 @@ fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
 }
 
 /// load_transfer_heat returns the entity's hottest active transfer/trade rumors (latest
-/// per counterparty, heat > 0, Gemma-vetted), naming the counterparty. The `is_rumor IS
+/// per counterparty, heat > 0, model-vetted), naming the counterparty. The `is_rumor IS
 /// TRUE` gate is applied AFTER picking the latest row per counterparty (FIRST-GPT-AUDIT
 /// Session 10), so a newer cleared/unknown verdict supersedes an older TRUE. Mirrors
 /// `loadTransferHeat`; branches on entity type exactly as the Go query does. A 14-day
@@ -279,12 +282,11 @@ pub async fn lookup_entity_name(
 }
 
 // ---------------------------------------------------------------------------
-// Prompt assembly — must be byte-identical to buildSentimentPrompt.
+// Prompt assembly.
 // ---------------------------------------------------------------------------
 
-/// build_sentiment_prompt assembles the user prompt, byte-for-byte the same as
-/// `buildSentimentPrompt` in vibe.go. `sport` is the original-case value the Go prompt
-/// uses (`req.Sport`); the SQL reads use the upper-cased form.
+/// build_sentiment_prompt assembles the user prompt. `sport` is the original-case value used in
+/// the prompt; the SQL reads use the upper-cased form.
 pub fn build_sentiment_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -433,7 +435,7 @@ fn parse_sentiment(raw: &str) -> Result<i32> {
     }
 }
 
-/// VibeReply is the validated two-line v6 answer — the SCORE (1-100) and the one-line felt
+/// VibeReply is the validated two-line answer — the SCORE (1-100) and the one-line felt
 /// read. The vibe Extract output shape (the `T` in `Parser<T>` / `Extracted<T>`).
 #[derive(Clone, Debug)]
 pub struct VibeReply {
@@ -442,7 +444,7 @@ pub struct VibeReply {
 }
 
 /// VibeParser is the vibe stage's `Parser` plug-in: it wraps `parse_sentiment_and_prompt`
-/// (the byte-identical SCORE/VIBE parse) behind the capability library's `Parser<T>` seam.
+/// behind the capability library's `Parser<T>` seam.
 /// It never returns the fail-closed `Ok(None)` — vibe's only fail-closed path is the
 /// no-corpus short-circuit *before* the model call (a NULL marker), so an unparseable reply
 /// is a genuine failure → `Err` → the work item backs off, exactly as the Go stage does.
@@ -467,7 +469,7 @@ impl Parser<VibeReply> for VibeParser {
 /// returns the un-persisted result. Shared by the production handler (temp 0.7 → it writes
 /// vibe_scores + enqueues sigil) and the parity harness (temp 0 → it writes the shadow
 /// table). This is the L1 composition — `route(EmotionalNews) + extract(VibeParser)` — over
-/// the same byte-identical loaders + prompt: validate, read narratives + heat, short-circuit
+/// the same loaders + prompt: validate, read narratives + heat, short-circuit
 /// to the no-corpus marker when both are empty, else build the prompt and `extract`.
 pub async fn generate_vibe(
     hx: &Harness,

@@ -640,7 +640,7 @@ into it 2026-06-15).
       "heat_components": { "volume": 1.0, "recency": 0.994, "tier_weight": 1.0, "distinct_sources": 9, "…": "…" },
       "direction": "incoming",          // "incoming" | "outgoing" | "unclear" | null
       "stage": "speculation",           // speculation | concrete_interest | advanced_talks | here_we_go | null
-      "gemma_summary": "…",
+      "summary": "…",
       "source_attribution": "…",
       "generated_at": "2026-06-04T…",
       "rank": 1
@@ -927,7 +927,7 @@ heat list (the pre-narrative data). The counterparty is the OTHER entity type: f
 ```json
 { "page": "transfers", "sport": "football", "entity_type": "team", "entity_id": 18,
   "transfers": [
-    {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "gemma_summary": "...", "source_attribution": "...", "rank": 1}
+    {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "summary": "...", "source_attribution": "...", "rank": 1}
   ] }
 ```
 `transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25); `[]` when none.

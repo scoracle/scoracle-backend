@@ -2,7 +2,7 @@
 
 ## Goal
 
-Fix two related direction/precision issues the heat+Gemma layer surfaced: (1)
+Fix two related direction/precision issues the heat+local model layer surfaced: (1)
 direction was binary (on-roster→outgoing / off→incoming), which mislabeled
 former players; (2) FORMER players generated false rumors from historical /
 multi-entity co-mentions (e.g. "Everton want [Chelsea's Delap] and [Spurs'
@@ -15,10 +15,10 @@ mostly background noise.
 **3-way team relationship** (replaces the `isOnRoster` bool). `teamRelationship()`
 classifies from `player_stats` history: `current` (latest season on the team) →
 **outgoing**; `former` (on the team in a past season, not now) / `none` (never) →
-**incoming**. Fed into the prompt so Gemma frames summaries correctly, and used
-for the deterministic direction (Gemma's direction field is ignored).
+**incoming**. Fed into the prompt so local model frames summaries correctly, and used
+for the deterministic direction (local model's direction field is ignored).
 
-**Former-player return gate** (deterministic). gemma4:e4b did NOT reliably honor
+**Former-player return gate** (deterministic). local-model:tag did NOT reliably honor
 the prompt's "clear unless returning" instruction (it kept flagging Gallagher).
 So: a `former` player is a live rumor ONLY if the pair corpus contains a
 return-signal phrase (`return to`, `rejoin`, `re-sign`, `back to`, `comeback`,

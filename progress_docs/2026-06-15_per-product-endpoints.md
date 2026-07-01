@@ -12,7 +12,7 @@ handler, and route. Cards own their data; the client does zero shaping.
   carry transfer context — `/news` is narratives-only and the News card drops its
   transfers scope.
 - **`/sparkline` → `/stats` (full season rating + `available_seasons` + the per-event
-  `events` series) + `/special` (lean specialist projection + Gemma `commentary`).** The
+  `events` series) + `/special` (lean specialist projection + local model `commentary`).** The
   heavy `fantasy/template/datapoints` blocks live only in `/stats`; `/special` omits them.
   The per-event series is stats data, so it stays in `/stats` (Trends reads it).
 - One `/vibes` product serves both the Vibe card and the meta corner score.

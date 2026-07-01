@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-29
 **Status:** Executed through Phase 9 (2026-06-29). Go AI/LLM layer removed; `internal/ml` + `internal/derive` deleted; `cmd/pipeline` is ingest-only; `cmd/vibesynth` is DB-only (`nightly|reconcile|restamp`).
-**Goal:** Remove all remaining AI/LLM/Gemma handling from the Go codebase, leaving Go responsible only for **ingest → queue → serve**. Every model call lives in the Rust Cognition Harness.
+**Goal:** Remove all remaining AI/LLM/local model handling from the Go codebase, leaving Go responsible only for **ingest → queue → serve**. Every model call lives in the Rust Cognition Harness.
 
 ## Background
 
@@ -25,9 +25,9 @@ Production already runs with `DERIVE_WORKER_ENABLED=false`, the Go `statcommenta
 |---|---|
 | `cmd/api` | HTTP serving from Postgres; auth; cache; ETags; maintenance tickers. **No model calls on serving requests.** |
 | `cmd/pipeline -mode ingest` | RSS sweep only: fetch articles, normalize, write `news_articles` + `news_article_entities`. |
-| `cmd/vibesynth -mode nightly/reconcile/restamp` | DB-only Sigil reconciliation / vocab migration. **No Gemma.** |
+| `cmd/vibesynth -mode nightly/reconcile/restamp` | DB-only Sigil reconciliation / vocab migration. **No local model.** |
 | `internal/corpus` | RSS sweep logic + entity-name lookup. |
-| `internal/maintenance` | SQL auto-vet of `news_article_entities` primaries + enqueue scrub work to `pipeline_work`. Rust does the Gemma disambiguation. |
+| `internal/maintenance` | SQL auto-vet of `news_article_entities` primaries + enqueue scrub work to `pipeline_work`. Rust does the local model disambiguation. |
 | `internal/work` | Durable queue client (used by maintenance + admin tools). |
 | `cmd/work` / `cmd/validate-stmts` | Admin + validation tooling. |
 
@@ -51,7 +51,7 @@ These are no longer built by `release.sh` and are archaeological:
 
 - [ ] Remove `-mode corpus` support and the `runCorpus` path.
 - [ ] Remove imports of `internal/ml` and `internal/derive`.
-- [ ] Remove `ml.SetGemmaConcurrency`, `ml.NewOllamaClient`, `NewNewsScrubber`, `NewTransferGenerator`, `NewNewsNarrator`, `NewVibeGenerator`, `NewSigilGenerator`.
+- [ ] Remove `ml.Setlocal modelConcurrency`, `ml.NewOllamaClient`, `NewNewsScrubber`, `NewTransferGenerator`, `NewNewsNarrator`, `NewVibeGenerator`, `NewSigilGenerator`.
 - [ ] Make `ingest` the only mode.
 - [ ] Update `scripts/hosting/cron-pipeline.sh` header comment to say "RSS sweep only; Rust owns LLM derivation."
 
@@ -60,10 +60,10 @@ These are no longer built by `release.sh` and are archaeological:
 The API still builds an `OllamaClient` and every generator, then conditionally starts the real-time derive worker when `DERIVE_WORKER_ENABLED=true`. Production runs `DERIVE_WORKER_ENABLED=false`.
 
 - [ ] Remove the derive-worker startup block (`if !cfg.DeriveWorkerEnabled { ... }`).
-- [ ] Remove `ml.SetGemmaConcurrency`, `ml.NewOllamaClient`, and all generator construction.
+- [ ] Remove `ml.Setlocal modelConcurrency`, `ml.NewOllamaClient`, and all generator construction.
 - [ ] Remove the NewsScrubber wiring for the maintenance ticker.
 - [ ] Remove the `deriveDone` shutdown wait.
-- [ ] Update the Swagger package description if it implies the API performs Gemma calls.
+- [ ] Update the Swagger package description if it implies the API performs local model calls.
 
 ### Phase 4 — Delete `internal/derive`
 
@@ -73,9 +73,9 @@ Once `cmd/api` and `cmd/pipeline` no longer use it:
 
 ### Phase 5 — Simplify `internal/maintenance` to SQL-only
 
-`maintenance.go` still accepts `*ml.NewsScrubber` and `*ml.OllamaClient` and has an inline Gemma scrub branch guarded by `NewsScrubViaQueue`. The live path is `NewsScrubViaQueue=true`.
+`maintenance.go` still accepts `*ml.NewsScrubber` and `*ml.OllamaClient` and has an inline local model scrub branch guarded by `NewsScrubViaQueue`. The live path is `NewsScrubViaQueue=true`.
 
-- [ ] Remove the inline Gemma scrub branch.
+- [ ] Remove the inline local model scrub branch.
 - [ ] Remove `Ollama` from `maintenance.Config` and the `scrubber *ml.NewsScrubber` parameter.
 - [ ] Keep only the SQL auto-vet of primaries + enqueue of scrub work.
 - [ ] Remove `NewsScrubViaQueue` config or make it a no-op constant `true` before dropping it in Phase 7.
@@ -103,13 +103,13 @@ After no live code imports `internal/ml`:
 - [ ] Remove the corresponding env-var reads.
 - [ ] Keep `OLLAMA_*` env vars out of Go entirely — Rust reads them directly.
 
-### Phase 9 — Optional: strip Gemma modes from `cmd/vibesynth`
+### Phase 9 — Optional: strip local model modes from `cmd/vibesynth`
 
-`-mode single` and `-mode backfill` call Gemma inline. `-mode nightly/reconcile/restamp` are DB-only and stay.
+`-mode single` and `-mode backfill` call local model inline. `-mode nightly/reconcile/restamp` are DB-only and stay.
 
 - [ ] Remove `-mode single` and `-mode backfill`.
-- [ ] Remove `ml.SetGemmaConcurrency`, `ml.NewOllamaClient`, `ml.NewSigilGenerator` wiring.
-- [ ] Decision point: do we want a manual Go backfill path, or should all Gemma work route through Rust? If the latter, execute this phase. If manual backfill is still operationally useful, defer.
+- [ ] Remove `ml.Setlocal modelConcurrency`, `ml.NewOllamaClient`, `ml.NewSigilGenerator` wiring.
+- [ ] Decision point: do we want a manual Go backfill path, or should all local model work route through Rust? If the latter, execute this phase. If manual backfill is still operationally useful, defer.
 
 ### Phase 10 — Final verification
 
@@ -125,7 +125,7 @@ After no live code imports `internal/ml`:
 |---|---|
 | Deleting `internal/ml` breaks `corpus.go` constants | Phase 6 moves the constants first. |
 | `cmd/vibesynth -mode backfill` is still used manually | Phase 9 is optional; decide before executing. |
-| Some `go/docs` swagger annotations still reference Go Gemma paths | Regenerate swagger (`swag init`) or update annotations; no runtime impact. |
+| Some `go/docs` swagger annotations still reference Go local model paths | Regenerate swagger (`swag init`) or update annotations; no runtime impact. |
 | Historical progress docs reference deleted files | Leave progress docs untouched — they are archival. |
 | `internal/derive` tests may be the only users of some `internal/ml` paths | Delete tests alongside the package; Rust tests now cover the live behavior. |
 

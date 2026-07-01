@@ -1,7 +1,7 @@
 # 2026-06-14 — Task 12 (narratives grounding) + Task 10 (pipeline cadence)
 
-Continuation of the News→Gemma staged pipeline build (see
-`2026-06-14_SESSION-HANDOFF_news-gemma-pipeline.md`). These two tasks complete the
+Continuation of the News→local model staged pipeline build (see
+`2026-06-14_SESSION-HANDOFF_news-model-pipeline.md`). These two tasks complete the
 pre-deploy coding work; everything here is committed but **awaits the batched binary deploy**.
 
 ## Goal

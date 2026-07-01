@@ -15,7 +15,7 @@
 ## Left intentionally as-is (NOT part of the wire rename)
 - The leaderboard **scope** alias `IN ('composite','sigil',…)` — a vestigial board-selector value.
 - `sigil_synthesis` table, `/sigil` page, `entity_sigil` statement key — the CROWN (correct).
-- `divined_sigil` column + the Gemma `SIGIL:` prompt marker — a SEPARATE column (the divined
+- `divined_sigil` column + the local model `SIGIL:` prompt marker — a SEPARATE column (the divined
   strength label); renaming it is an engine migration, out of D1's wire-field scope.
 
 ## Verification

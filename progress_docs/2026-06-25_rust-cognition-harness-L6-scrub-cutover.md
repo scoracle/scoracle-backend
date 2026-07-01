@@ -9,7 +9,7 @@ L6 = **option (i)** of the live-scrub flip: scrub becomes a first-class `pipelin
 handler and the **asymmetric gate**. The foundation is **built (Phase A, committed `ae346cd`)** and
 **validated live** (canary + ramp). But the ramp surfaced the decisive fact: **the pipeline is GPU-bound
 and the derive backlog is growing.** So the steady-state flip is **HELD**, and — per the user's steer
-(2026-06-25) — the build **pivots to throughput/efficiency on the 1070 Ti**: get the 2025 Gemma-derived
+(2026-06-25) — the build **pivots to throughput/efficiency on the 1070 Ti**: get the 2025 local model-derived
 products computed, then keep the news side current until the 2026 seasons start.
 
 ## Accomplishments (Phase A — all committed `ae346cd`, inert until flipped)
@@ -45,7 +45,7 @@ The **derive backlog GREW during the ramp: 146 → 192** (narratives 98 / vibe 6
 backlog **pre-existed** the scrub work (the canary added only 6) — the news/derive pipeline is **already
 GPU-bound and falling behind.** The GTX 1070 Ti (8 GB, Pascal) forces `OLLAMA_MAX_CONCURRENT=1` (no
 request parallelism), and scrubbing *adds* derive work faster than the single GPU clears it. So the
-asymmetric gate's ~50% scrub saving is real but **derive (esp. narratives) is the heavier Gemma
+asymmetric gate's ~50% scrub saving is real but **derive (esp. narratives) is the heavier local model
 consumer**, and **blitzing the 31k unscrubbed backlog would flood it.**
 
 (An RTX A5000 would ~5–10× this — ~3× bandwidth, tensor-core prefill, and 24 GB for concurrency or a
@@ -59,8 +59,8 @@ consumer**, and **blitzing the 31k unscrubbed backlog would flood it.**
   underwater. Go's in-process inline scrub handles steady-state news fine. Use the Rust `scrub` stage
   only for **bounded** backlog drains when the GPU is idle.
 - **NEW PRIORITY (user steer, 2026-06-25): efficient 2025-derive throughput on the 1070.** Use Rust to
-  make the available models (**Gemma 4b + Mistral 7b**, the latter not yet implemented) handle their
-  roles **more efficiently** — fewer/shorter Gemma calls, the right model per role (eval-gated), and
+  make the available models (**local modelb + Mistral 7b**, the latter not yet implemented) handle their
+  roles **more efficiently** — fewer/shorter local model calls, the right model per role (eval-gated), and
   **batch-by-model scheduling** to amortize the single-GPU model-swap cost. Then keep up with the news
   side until the 2026 seasons kick off. See the L7 handoff (plan §7).
 
@@ -87,14 +87,14 @@ live canary + 30-article ramp validated (0 failures; gate 49 keep / 7 drop = 87.
 
 ## Not done — L7 = two specialized models on one 1070 (see the L7 handoff)
 
-The headline unlock: run **Mistral 7B (news/emotion) + Gemma 4B (stats/math)** on the single 1070 via
+The headline unlock: run **Mistral 7B (news/emotion) + local modelB (stats/math)** on the single 1070 via
 **sequential residence + batch-by-model scheduling** — they can't co-reside in 8 GB, so the harness keeps
 one model hot and drains all its work before swapping once (Ollama would thrash per-request otherwise).
 The cheap-first sequence:
 1. **Eval Mistral-as-news offline** (`bin/eval` + the built `vibe` loaders) — measure the quality win
    justifies the swap before committing; adopt on the result (models by role, eval-gated).
 2. **Model-affinity scheduler** (`worker.rs`) — drain grouped by routed model; two-pass per entity-batch
-   (news-pass [Mistral] → one swap → stats-pass [Gemma], since sigil/momentum read vibe). The actual unlock.
+   (news-pass [Mistral] → one swap → stats-pass [local model], since sigil/momentum read vibe). The actual unlock.
 3. **Port `narratives`** as `embed+cluster + route + extract + persist` — the biggest Mistral-news consumer
    + `cluster()` dedup → shorter prompts on the heaviest GPU stage → the 2025 narrative backlog drains cheaper.
 

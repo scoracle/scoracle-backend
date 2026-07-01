@@ -285,7 +285,7 @@ pub struct Cluster {
 impl Harness {
     /// embed vectorizes texts on the CPU (candle, batched — Plan §1.4) via the loaded
     /// [`Embedder`]. CPU-bound work, so it is wrapped in `block_in_place` to keep it off the
-    /// async reactor (it never contends with Gemma's GPU). Errors if no embedder is loaded —
+    /// async reactor (it never contends with the generation GPU). Errors if no embedder is loaded —
     /// a programming error (only embed-using stages should call this, and they construct the
     /// `Harness` with `Some(embedder)`).
     pub async fn embed(&self, texts: &[String]) -> Result<Vec<Vector>> {

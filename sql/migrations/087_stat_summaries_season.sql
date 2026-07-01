@@ -9,8 +9,8 @@
 --     when its rating actually moved.
 --
 -- input_hash is that "did the numbers move?" signal: a hash of input_components
--- (the rating snapshot fed to Gemma). The nightly pass compares the current hash to
--- the entity-season's last commentary and skips the Gemma call when unchanged —
+-- (the rating snapshot fed to local model). The nightly pass compares the current hash to
+-- the entity-season's last commentary and skips the local model call when unchanged —
 -- robust to the spurious player_stats/team_stats row-touches the nightly all-time
 -- rank recompute causes (which would make a bare updated_at check regenerate the
 -- whole league every night).
@@ -28,6 +28,6 @@ CREATE INDEX IF NOT EXISTS idx_stat_summaries_entity_recent
 COMMENT ON COLUMN stat_summaries.season IS
     'The season the commentary describes; reads are latest-per-(entity,sport,season). Previous seasons are immutable (backfilled once); the nightly cadence regenerates only the current season, and only when input_hash changes.';
 COMMENT ON COLUMN stat_summaries.input_hash IS
-    'Hash of input_components (the rating snapshot fed to Gemma) — the nightly skip-unless-changed signal.';
+    'Hash of input_components (the rating snapshot fed to local model) — the nightly skip-unless-changed signal.';
 
 COMMIT;

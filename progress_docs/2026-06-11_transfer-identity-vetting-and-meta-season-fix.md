@@ -26,20 +26,20 @@ times and attributes coverage to the wrong entity. Examples from prod
 ### Architecture (as-is)
 `go/internal/ml/transfer.go` is **pair-grained**: for a team it finds co-mentioned
 players (`loadCandidates`, ~line 254), computes deterministic heat in SQL
-(`compute_transfer_heat`, migration 032), and calls Gemma **once per (team, player) pair**
-to vet it (`analyzePair`, ~line 121). Gemma returns
+(`compute_transfer_heat`, migration 032), and calls local model **once per (team, player) pair**
+to vet it (`analyzePair`, ~line 121). local model returns
 `{is_rumor, direction, stage, summary, confidence}`. Rows with `is_rumor=false` are
 **already filtered out** by the read (`db.go` transfer leaderboard stmt, `WHERE is_rumor IS TRUE`).
 
 ### Root cause
 The candidate seed (`loadCandidates`) joins `news_article_entities`, which is populated by
 the **loose lexical matcher** in `go/internal/thirdparty/match.go` (substring + first/last-name
-word-boundary). Every name collision becomes a spurious (team, player) candidate. Gemma is
+word-boundary). Every name collision becomes a spurious (team, player) candidate. local model is
 then asked the wrong question — "is this a rumor about <name>?" — and never "is this the
 **same** person?", so it confirms name-collision noise.
 
 ### The fix (lean — agreed direction)
-Don't add a pass or a matcher. **Sharpen the one question Gemma already answers** and let the
+Don't add a pass or a matcher. **Sharpen the one question local model already answers** and let the
 existing `is_rumor=false` discard path do the work. Key insight: **discard is lossless** — the
 wide net also links the article to the *correct* entity, so that pair is already in the
 candidate set; dropping the impostor loses nothing (so NO need to reroute to the right entity).
@@ -53,7 +53,7 @@ Concrete changes, all in `ml/transfer.go`, **no migration, capture untouched**:
 3. **Rewrite `transferSystemPrompt`** so `is_rumor=true` requires it's **THIS exact player**
    AND a real transfer. Add a name-collision warning with the president example. Identity
    folds into `is_rumor` — no new column needed.
-4. **Have Gemma also return `subject`** (who the sources are actually about) and stash it in
+4. **Have local model also return `subject`** (who the sources are actually about) and stash it in
    the existing `trigger_payload` JSONB for an audit trail of what got discarded. No migration.
 
 ### Explicitly CUT (avoid over-engineering)

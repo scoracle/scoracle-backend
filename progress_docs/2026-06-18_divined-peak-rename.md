@@ -1,10 +1,10 @@
-# `divined_sigil` → `divined_peak` — de-sigil the Gemma peak-strength label (Item A)
+# `divined_sigil` → `divined_peak` — de-sigil the local model peak-strength label (Item A)
 
 **Date:** 2026-06-18  ·  Backend, **deployed** (migration 094 + API restart + re-stamp).
 
 ## Goal
 Close Item A of the [[Handoff - divined_sigil rename + OG meta fix]] — the last "sigil = strength"
-leftover. `stat_summaries.divined_sigil` is the Gemma-divined peak-strength label (e.g. "Playmaking"),
+leftover. `stat_summaries.divined_sigil` is the local model-divined peak-strength label (e.g. "Playmaking"),
 the Rating card's hero label. Post-convergence "sigil" means ONLY the crown, so this column / wire /
 prompt rename to **`divined_peak`** (parallel to the shipped `rating_peak*` D1 rename). A real stored
 column → coordinated rename across SQL + Go + the crown synthesis hash + frontend.
@@ -12,7 +12,7 @@ column → coordinated rename across SQL + Go + the crown synthesis hash + front
 ## What Was Done
 - **Migration 094** — `ALTER TABLE stat_summaries RENAME COLUMN divined_sigil TO divined_peak`
   (idempotent `DO`-block; reverse noted in-comment). No SQL function/trigger/view references it
-  (Gemma-written, not engine-computed) → plain rename, no L1 late-binding risk.
+  (local model-written, not engine-computed) → plain rename, no L1 late-binding risk.
 - **`ml/rating.go`** (writer) — `DivinedSigil`→`DivinedPeak`, INSERT col `divined_peak`, parser
   `parseSigilCommentary`→`parsePeakCommentary`. Prompt marker `SIGIL:`→`PEAK:` (prompt s4→**s5**); the
   parser still accepts the legacy `SIGIL:` prefix for in-flight responses. (Regen gate keys only on the
@@ -24,12 +24,12 @@ column → coordinated rename across SQL + Go + the crown synthesis hash + front
   key follows the column name automatically.
 - **Plan A re-stamp** (`ml/sigil.go` `ReStampDivinedKey` + `cmd/vibesynth -mode restamp`) — the crown's
   input-component key is hashed into `input_hash` (the synthesis debounce gate), so renaming it would
-  change every entity's hash and re-synthesize all 381 Sigils (Gemma recompute, score/blurb drift).
+  change every entity's hash and re-synthesize all 381 Sigils (local model recompute, score/blurb drift).
   Instead, a one-time pass rewrites each existing row's STORED `input_components` (rename only the key)
-  and recomputes `input_hash` via the canonical `hashComponents` — **no Gemma**, scores/blurbs/`prompt_version`
+  and recomputes `input_hash` via the canonical `hashComponents` — **no local model**, scores/blurbs/`prompt_version`
   untouched. Operating on stored (not fresh) components keeps it a pure vocabulary migration: unchanged
   entities still skip; genuinely-changed ones still regenerate.
-- Added `cmd/vibesynth -mode single -skip-unchanged` (verify the gate for one entity without a Gemma call).
+- Added `cmd/vibesynth -mode single -skip-unchanged` (verify the gate for one entity without a local model call).
 
 ## Files Changed
 `sql/migrations/094_rename_divined_sigil_to_divined_peak.sql` (new) · `go/internal/ml/rating.go` ·

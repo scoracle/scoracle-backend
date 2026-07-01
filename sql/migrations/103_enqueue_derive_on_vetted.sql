@@ -2,7 +2,7 @@
 --
 -- The pre-S9 real-time path fired pg_notify('vibe_trigger'/'transfer_trigger', ...)
 -- on a raw link INSERT (a "5 articles in 60 min" volume spike) — BEFORE scrub, so it
--- could fire for links that are never vetted — and the in-API listeners ran Gemma
+-- could fire for links that are never vetted — and the in-API listeners ran local model
 -- directly off that transient NOTIFY, holding the affected-entity set in process
 -- memory (lost on restart, never recovered on a missed NOTIFY).
 --

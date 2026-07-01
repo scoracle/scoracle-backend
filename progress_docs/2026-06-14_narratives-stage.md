@@ -1,11 +1,11 @@
 # 2026-06-14 — Narratives stage: per-narrative model + generator (task 6)
 
-Stage 2 of the confirmed Gemma progression (raw → scrub → **NARRATIVES** → transfer heat → vibe).
+Stage 2 of the confirmed local model progression (raw → scrub → **NARRATIVES** → transfer heat → vibe).
 Built + verified (dry-run), committed — migration 085 **NOT applied** + persist NOT verified (gated).
 
 ## Goal
 Replace the single-summary model with **multiple narratives per entity, each its own write-up**:
-Gemma groups an entity's vetted corpus into the distinct storylines, scores each with a deterministic
+local model groups an entity's vetted corpus into the distinct storylines, scores each with a deterministic
 per-narrative impact, and we store one row per narrative.
 
 ## What was done
@@ -15,7 +15,7 @@ per-narrative impact, and we store one row per narrative.
   leaderboard; `input_news_ids` = that narrative's articles; NULL title/body = no-narratives marker.
   Leaderboard index recreated on `body`.
 - **ml/news_narratives.go** (new `NewsNarrator`): loads the vetted corpus (wider window,
-  maxNarrativeCorpus=25), asks Gemma to group it into narratives — `{title, body, articles[]}` each —
+  maxNarrativeCorpus=25), asks local model to group it into narratives — `{title, body, articles[]}` each —
   grounds each narrative back to its articles, computes per-narrative impact (computeNewsImpact over
   that subset), and persists one row per narrative in a single tx sharing generated_at. Sentiment is
   NOT produced here (it moves to the vibe-last stage).

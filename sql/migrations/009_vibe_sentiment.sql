@@ -1,11 +1,11 @@
 -- Vibe pivot: qualitative blurb → numeric sentiment score (1-100).
 --
--- Migration 007 treated vibe as a narrative blurb. That required Gemma to
+-- Migration 007 treated vibe as a narrative blurb. That required local model to
 -- generate ~140 char prose per call with NumPredict=800 worth of reasoning
 -- headroom — too expensive to cover more than headliners on real-time
 -- triggers and starters in daily batch.
 --
--- The new shape asks Gemma for a single integer. Output tokens drop by
+-- The new shape asks local model for a single integer. Output tokens drop by
 -- ~50x, which lets us score the long tail and power new surfaces like
 -- "hottest entities." The frontend owns all presentation (emoji, color).
 --

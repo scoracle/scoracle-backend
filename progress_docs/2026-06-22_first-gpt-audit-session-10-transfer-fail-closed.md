@@ -5,18 +5,18 @@
 
 ## Goal
 
-Only a successful **positive Gemma verdict** can become a served or downstream-consumed transfer rumor. A
+Only a successful **positive local model verdict** can become a served or downstream-consumed transfer rumor. A
 model failure (timeout / unparseable output / a verdict that never commits to `is_rumor`) must never
 masquerade as a vetted rumor — it must fail closed (unknown) and be retryable.
 
 ## What was wrong
 
-- `ml/transfer.go` wrote a **provisional `is_rumor=TRUE`** row on any Gemma error or parse failure ("so the
+- `ml/transfer.go` wrote a **provisional `is_rumor=TRUE`** row on any local model error or parse failure ("so the
   card never breaks"). That is fail-OPEN: a timeout produced a served rumor.
 - Narrative/Vibe heat grounding (`loadTransferHeat`) and `pipeline_stats.transfer_rumors_active` did **not**
   filter `is_rumor`, so a cleared/unknown verdict still influenced downstream prose, scores, and metrics.
 - `compute_transfer_heat` allowed `(vetted IS TRUE OR scrubbed_at IS NULL)` — i.e. **unscrubbed** links
-  contributed heat before Gemma ever saw them (the candidate selector already required `vetted IS TRUE`, so
+  contributed heat before local model ever saw them (the candidate selector already required `vetted IS TRUE`, so
   the two disagreed).
 - Vestigial tweet plumbing (`input_tweet_ids` columns, `tweet_ids` OUT param, `loadPairTweets`, `tweetItem`,
   the fail-OPEN `seed_transfer_rumors` Phase-1 seeder) lingered after X was decommissioned (migration 098).
@@ -42,7 +42,7 @@ masquerade as a vetted rumor — it must fail closed (unknown) and be retryable.
 
 ### Go (`1486b7b`)
 - `internal/ml/transfer.go` — fail-closed `persist` (verdict==nil ⇒ `is_rumor NULL` + `res.Unknown++`);
-  `analyzePair` routes Gemma error / `!ok` / `verdict.IsRumor==nil` to the unknown path; removed
+  `analyzePair` routes local model error / `!ok` / `verdict.IsRumor==nil` to the unknown path; removed
   `loadPairTweets`, `transferMaxCorpusTweets`, the `tweet_ids` scan (now `SELECT heat, components, news_ids`),
   the `input_tweet_ids` INSERT column, and the `tweets` params on `bestSource`/`hasReturnSignal`/
   `buildTransferPrompt`. Added `TransferResult.Unknown`.
@@ -98,7 +98,7 @@ Post-deploy (live):
 ## Quick reference
 
 ```bash
-# served rows must all be Gemma-vetted (launch gate — expect 0):
+# served rows must all be local model-vetted (launch gate — expect 0):
 SELECT count(*) FROM (
   SELECT DISTINCT ON (team_id,player_id,sport) is_rumor, model_version, heat, generated_at
   FROM transfer_rumors ORDER BY team_id,player_id,sport,generated_at DESC) l

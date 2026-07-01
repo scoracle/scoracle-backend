@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         .context("ollama must be reachable for the parity run")?;
 
     // The same capability context the production worker builds — the config-driven router
-    // (all-Gemma by default, byte-identical to L1) — so the parity run exercises the exact
+    // (single-local-model by default, byte-identical to L1) — so the parity run exercises the exact
     // route + extract path the service does. The harness writes nothing on its own;
     // persistence here targets only the shadow table.
     let harness = Harness {

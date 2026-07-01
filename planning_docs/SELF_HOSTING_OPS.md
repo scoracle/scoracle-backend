@@ -15,7 +15,7 @@ without needing a terminal open 24/7.
 | Component | Lifecycle | Survives logout? |
 |---|---|---|
 | Postgres 18.3 | systemd system unit | ✅ yes |
-| Ollama + Gemma 4 e4b | `systemd --user` service (default install) | ❌ no (needs linger) |
+| Ollama + local model e4b | `systemd --user` service (default install) | ❌ no (needs linger) |
 | Go API (`scoracle-api`) | manual `./go/bin/scoracle-api` in a terminal | ❌ no |
 | Python seeder | manual CLI calls | ❌ no |
 
@@ -302,7 +302,7 @@ Paste-ready checklist:
   `systemctl --user status scoracle-api`.
 - **Disk fills from article corpus**: news_articles grows ~1M
   rows/year. At ~1KB per row ≈ 1GB/year. Not tight; but monitor.
-- **Ollama VRAM exhaustion**: gemma4:e4b uses ~8GB. If you add other
+- **Ollama VRAM exhaustion**: local-model:tag uses ~8GB. If you add other
   models, watch `nvidia-smi` — they'll swap in/out and slow
   inference dramatically.
 - **Port 8000 conflict**: if you install any other web tool locally

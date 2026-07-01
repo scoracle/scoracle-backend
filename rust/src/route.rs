@@ -8,7 +8,7 @@
 //! L2 ships the config-driven router: `Router::from_config` builds the per-role map from
 //! [`RouteConfig`] (the `COGNITION_ROUTE_*` table), one `Arc<dyn Inference>` per DISTINCT
 //! model (so roles sharing a model share a backend), plus the optional A/B `candidate_for`
-//! challenger. With nothing configured every role resolves to the one Gemma, so this moved
+//! challenger. With nothing configured every role resolves to the one local model, so this moved
 //! ZERO bytes vs the L1 single router — `for_role`'s contract is unchanged, which is why the
 //! identity/topology/backend swaps (Plan §2.1) never move a stage.
 //!
@@ -116,7 +116,7 @@ impl Inference for OllamaClient {
 /// semaphore (`OLLAMA_MAX_CONCURRENT`), so the total in-flight model calls across ALL roles and
 /// models never exceeds the budget — there is one GPU, so one budget. The worker's sequential
 /// drain is already an implicit 1; this makes the bound explicit so a brief Go+Rust transition
-/// overlap (Go's own `gemmaGate` + the Rust worker) and any future parallel drain stay bounded,
+/// overlap (Go's own model gate + the Rust worker) and any future parallel drain stay bounded,
 /// and it sits at the model-call SEAM so no caller can bypass it (every `for_role(_).generate`
 /// is governed, unlike a check in one handler). `model`/`request_body` are pure/local (no GPU),
 /// so they delegate WITHOUT a permit — only `generate`, the call that hits the GPU, is gated.
@@ -167,7 +167,7 @@ pub struct Router {
 
 impl Router {
     /// from_config builds the router from the `COGNITION_ROUTE_*` table: one
-    /// `Arc<dyn Inference>` per DISTINCT (backend, model, base_url) — so the all-Gemma default
+    /// `Arc<dyn Inference>` per DISTINCT (backend, model, base_url) — so the single-model default
     /// builds exactly one backend shared by every role (byte-identical to the L1 single
     /// router) — wired to each role's incumbent, plus any configured A/B challenger. `timeout`
     /// is the shared per-call budget (`OLLAMA_TIMEOUT_SECONDS`); per-backend timeouts move
@@ -267,8 +267,8 @@ mod tests {
     #[test]
     fn shares_one_backend_per_distinct_model() {
         let mut roles = HashMap::new();
-        roles.insert(Role::EmotionalNews, spec("gemma4:e4b"));
-        roles.insert(Role::StatsLogic, spec("gemma4:e4b")); // same model → shared Arc
+        roles.insert(Role::EmotionalNews, spec("local-news:latest"));
+        roles.insert(Role::StatsLogic, spec("local-news:latest")); // same model → shared Arc
         roles.insert(Role::Sql, spec("sqlcoder:7b")); // distinct → its own Arc
         let cfg = RouteConfig {
             roles,
@@ -284,7 +284,10 @@ mod tests {
             &router.for_role(Role::EmotionalNews),
             &router.for_role(Role::Sql),
         ));
-        assert_eq!(router.for_role(Role::EmotionalNews).model(), "gemma4:e4b");
+        assert_eq!(
+            router.for_role(Role::EmotionalNews).model(),
+            "local-news:latest"
+        );
         assert_eq!(router.for_role(Role::Sql).model(), "sqlcoder:7b");
     }
 
@@ -292,7 +295,7 @@ mod tests {
     fn candidate_for_is_none_without_a_challenger() {
         let roles = Role::all()
             .into_iter()
-            .map(|r| (r, spec("gemma4:e4b")))
+            .map(|r| (r, spec("local-news:latest")))
             .collect();
         let router = Router::from_config(
             &RouteConfig {
@@ -310,10 +313,10 @@ mod tests {
     fn candidate_for_resolves_a_configured_challenger() {
         let roles = Role::all()
             .into_iter()
-            .map(|r| (r, spec("gemma4:e4b")))
+            .map(|r| (r, spec("local-news:latest")))
             .collect();
         let mut candidates = HashMap::new();
-        candidates.insert(Role::EmotionalNews, spec("mistral:7b"));
+        candidates.insert(Role::EmotionalNews, spec("candidate-news:latest"));
         let router = Router::from_config(
             &RouteConfig { roles, candidates },
             Duration::from_secs(60),
@@ -322,7 +325,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             router.candidate_for(Role::EmotionalNews).unwrap().model(),
-            "mistral:7b"
+            "candidate-news:latest"
         );
         assert!(router.candidate_for(Role::StatsLogic).is_none()); // only EmotionalNews has one
     }

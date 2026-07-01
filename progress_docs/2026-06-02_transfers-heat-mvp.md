@@ -5,7 +5,7 @@
 Stand up the Transfers/Trades feature's foundation + MVP per the plan
 (`~/.claude/plans/zany-dazzling-hamster.md`): a transparent, deterministic rumor
 **heat index** over the existing news co-mention graph, served on the team
-profile — **before** any Gemma vetting, to de-risk the shared-GPU integration.
+profile — **before** any local model vetting, to de-risk the shared-GPU integration.
 
 ## What Was Done
 
@@ -14,7 +14,7 @@ news publications AND tweet author handles — the tier-1 transfer sources
 Romano/Ornstein/Woj/Shams/Schefter appear as *tweet authors*, never as a news
 source; seeded ~20 known-good, unknowns default low). `transfer_rumors`
 (pair-level: team↔player, append model like `vibe_scores`, `heat` +
-`heat_components` JSONB, nullable Gemma fields = "not vetted / cleared", all three
+`heat_components` JSONB, nullable local model fields = "not vetted / cleared", all three
 trigger_types in the CHECK from day one — closes the `vibe_scores` `news_spike`
 gap). Three indexes (team-by-heat partial, pair-recent, player).
 
@@ -47,15 +47,15 @@ go/internal/api/server.go                     (route)
   aggregator discount, a few hot; max 68).
 - Content validates: Chelsea ← Elliot Anderson (55), Liverpool ← Son (59) — real
   rumors, all tier-1.00. Roster co-mention also surfaces (Spurs ← Wembanyama 54,
-  53 sources) — exactly the noise Gemma's `is_rumor` filter removes in Phase 2.
+  53 sources) — exactly the noise local model's `is_rumor` filter removes in Phase 2.
 - `curl …/football/team/18/transfers` (Chelsea) → 26 ranked rumors with heat +
   components; `GET …/team/591/transfers` (PSG) → 3.
 
 ## Result — MVP in, KNOWN follow-ups
 
 Deterministic heat card is live and fully transparent **without the LLM**, as
-designed. Next: **Phase 2** (Gemma analyzer — `is_rumor`/direction/stage/grounded
+designed. Next: **Phase 2** (local model analyzer — `is_rumor`/direction/stage/grounded
 summary, JSON-mode + defensive parse + deterministic fallback) then **Phase 3**
 (news-spike trigger + listener + cron). Caveat: heat-only currently shows
 "most co-mentioned players" — includes current-roster noise + a few bad entity
-matches (e.g. "Capita"); Gemma vetting is what turns it into "actual rumors."
+matches (e.g. "Capita"); local model vetting is what turns it into "actual rumors."

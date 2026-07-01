@@ -16,7 +16,7 @@
 //! more accurate than prompt-stuffing, the gate is one place, and no genuine link is ever condemned
 //! by a proxy. The embeddings run on the CPU (Plan §1.4), so this REDUCES GPU load rather than adding.
 //!
-//! Fail-closed (the §1.2 invariant, here too): an ambiguous candidate whose Gemma adjudication
+//! Fail-closed (the §1.2 invariant, here too): an ambiguous candidate whose model adjudication
 //! fails to parse is **dropped** (`resolve_set`) / yields **`None`** (`resolve_one`) — never a guess.
 //!
 //! These `impl Harness` methods drop in BEHIND the existing `resolve_one`/`resolve_set` signatures
@@ -31,9 +31,8 @@ use crate::route::Role;
 use anyhow::Result;
 use serde::Deserialize;
 
-/// The relevance system prompt — the same disambiguation framing the Go scrub uses (current club is
-/// the strongest same-name tie-breaker), asking for the JSON `{"relevant":[…]}` contract.
-const RESOLVE_SYSTEM_PROMPT: &str = "You decide which of the listed players/teams a news article is GENUINELY ABOUT, so we tag it correctly. Same-name people are common — use each player's identity (nationality, current club, position) to tell them apart; CURRENT CLUB is the strongest tie-breaker.\n\nA candidate is RELEVANT if the article genuinely concerns that EXACT person/team — a real subject or a meaningful mention. A candidate is NOT relevant when:\n- it is a DIFFERENT same-name person — the article's club/position/role contradicts the identity (e.g. a club president or a manager, or a different player at another club). When the identity's current club is contradicted by the article, it is a different person.\n- the name appears only as incidental noise (a long roundup where they are not actually discussed).\n\nBe inclusive for genuine mentions, strict on same-name confusion. Reply with ONLY a JSON object, no prose:\n{\"relevant\": [<the candidate numbers that are genuinely about this article>]}";
+/// The relevance system prompt: disambiguate same-name candidates and return only the JSON contract.
+const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
 
 /// The model budget for one adjudication call. Temperature 0.2 mirrors the scrub's "tight but a
 /// judgment call"; JSON mode tightens adherence to the `{"relevant":[…]}` contract.

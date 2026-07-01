@@ -508,7 +508,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- supersedes an older heat-only seed row.
 			SELECT DISTINCT ON (tr.team_id, tr.player_id)
 			       tr.team_id, tr.player_id, tr.heat, tr.heat_components,
-			       tr.direction, tr.stage, tr.gemma_summary, tr.source_attribution,
+				       tr.direction, tr.stage, tr.model_summary, tr.source_attribution,
 			       tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr, req
 			WHERE tr.sport = req.sport
@@ -521,7 +521,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT p.id AS player_id, p.name AS player_name, p.photo_url AS player_image,
 			       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 			       l.heat, l.heat_components, l.direction, l.stage,
-			       l.gemma_summary, l.source_attribution, l.generated_at,
+				       l.model_summary AS summary, l.source_attribution, l.generated_at,
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST, l.generated_at DESC) AS rank
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
@@ -544,12 +544,29 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"headlines_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
 		),
+		deduped AS (
+			SELECT entity_type, entity_id, published_at
+			FROM (
+				SELECT h.entity_type, h.entity_id, h.published_at,
+				       row_number() OVER (
+				           PARTITION BY h.entity_type, h.entity_id,
+				                        COALESCE(
+				                            'url:' || NULLIF(lower(btrim(h.source_url)), ''),
+				                            'source-title:' || NULLIF(lower(btrim(h.source_name)), '') || ':' || lower(btrim(h.title)),
+				                            'row:' || h.id::text
+				                        )
+				           ORDER BY h.generated_at DESC NULLS LAST, h.published_at DESC, h.id DESC
+				       ) AS dup_rank
+				FROM public.headlines h, req
+				WHERE h.sport = req.sport
+				  AND (req.entity_type IS NULL OR h.entity_type = req.entity_type)
+				  AND h.published_at > NOW() - INTERVAL '2 days'
+			) d
+			WHERE dup_rank = 1
+		),
 		counts AS (
 			SELECT h.entity_type, h.entity_id, count(*) AS headline_count, max(h.published_at) AS latest_at
-			FROM public.headlines h, req
-			WHERE h.sport = req.sport
-			  AND (req.entity_type IS NULL OR h.entity_type = req.entity_type)
-			  AND h.published_at > NOW() - INTERVAL '2 days'
+			FROM deduped h
 			GROUP BY h.entity_type, h.entity_id
 		),
 		ranked AS (
@@ -675,7 +692,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		tr_latest AS (
 			SELECT DISTINCT ON (tr.team_id, tr.player_id)
 			       tr.team_id, tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
-			       tr.gemma_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
+				       tr.model_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
 			FROM public.transfer_rumors tr CROSS JOIN req
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
@@ -688,7 +705,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.id        ELSE t.id       END AS id,
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.name      ELSE t.name     END AS name,
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.photo_url ELSE t.logo_url END AS image,
-			    l.heat, l.heat_components, l.direction, l.stage, l.gemma_summary, l.source_attribution,
+				    l.heat, l.heat_components, l.direction, l.stage, l.model_summary AS summary, l.source_attribution,
 			    row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM tr_latest l
 			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
@@ -701,7 +718,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
-			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, gemma_summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
+			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
 		// Entity headlines — breaking-news bulletins for the news rail. Filtered to the
 		// 2-day expiration window, sorted recency-first. $1 sport · $2 entity_type ·
@@ -712,9 +729,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		recent AS (
 			SELECT h.id, h.title, h.category, h.source_url, h.source_name, h.published_at
-			FROM public.headlines h CROSS JOIN req
-			WHERE h.sport = req.sport AND h.entity_type = req.entity_type AND h.entity_id = req.entity_id
-			  AND h.published_at > NOW() - INTERVAL '2 days'
+			FROM (
+				SELECT h.id, h.title, h.category, h.source_url, h.source_name, h.published_at, h.generated_at,
+				       row_number() OVER (
+				           PARTITION BY COALESCE(
+				               'url:' || NULLIF(lower(btrim(h.source_url)), ''),
+				               'source-title:' || NULLIF(lower(btrim(h.source_name)), '') || ':' || lower(btrim(h.title)),
+				               'row:' || h.id::text
+				           )
+				           ORDER BY h.generated_at DESC NULLS LAST, h.published_at DESC, h.id DESC
+				       ) AS dup_rank
+				FROM public.headlines h CROSS JOIN req
+				WHERE h.sport = req.sport AND h.entity_type = req.entity_type AND h.entity_id = req.entity_id
+				  AND h.published_at > NOW() - INTERVAL '2 days'
+			) h
+			WHERE h.dup_rank = 1
 			ORDER BY h.published_at DESC
 			LIMIT (SELECT lim FROM req)
 		)

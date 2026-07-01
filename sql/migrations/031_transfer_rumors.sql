@@ -3,12 +3,12 @@
 -- Transfers/Trades feature — schema. Clones the vibe_scores pattern (007) at the
 -- PAIR grain: one rumor is a (team, player) link mined from the news co-mention
 -- graph (news_article_entities), scored with a DETERMINISTIC heat index, and
--- VETTED by Gemma (the Gemma fields are nullable — NULL = not-yet-vetted / no
+-- VETTED by local model (the local model fields are nullable — NULL = not-yet-vetted / no
 -- rumor / cleared, the persistNoCorpus analog). Append model like vibe_scores:
 -- a new row per generation; reads take latest-per-pair via DISTINCT ON.
 --
 -- Heat is computed in SQL (migration 032), stored with its components for
--- transparency (like rating_breakdown, 030). Gemma never invents the number.
+-- transparency (like rating_breakdown, 030). local model never invents the number.
 
 BEGIN;
 
@@ -76,11 +76,11 @@ CREATE TABLE IF NOT EXISTS transfer_rumors (
     heat               SMALLINT    CHECK (heat IS NULL OR heat BETWEEN 0 AND 100),
     heat_components    JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
-    -- Gemma vetting — all nullable. NULL = not vetted yet / no corpus / cleared.
+    -- local model vetting — all nullable. NULL = not vetted yet / no corpus / cleared.
     is_rumor           BOOLEAN,
     direction          TEXT        CHECK (direction IS NULL OR direction IN ('incoming', 'outgoing', 'unclear')),
     stage              TEXT        CHECK (stage IS NULL OR stage IN ('speculation', 'concrete_interest', 'advanced_talks', 'here_we_go')),
-    gemma_summary      TEXT,
+    model_summary      TEXT,
     source_attribution TEXT,
     confidence         NUMERIC(3,2),
 
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS transfer_rumors (
     input_news_ids     BIGINT[]    NOT NULL DEFAULT '{}',
     input_tweet_ids    TEXT[]      NOT NULL DEFAULT '{}',
 
-    -- Versioning (nullable — heat-only rows have no model; set on Gemma vet).
+    -- Versioning (nullable — heat-only rows have no model; set on local model vet).
     model_version      TEXT,
     prompt_version     TEXT,
 

@@ -26,8 +26,8 @@ machinery parity with Go offline before any cutover.
   resolve both), so governing the backend makes the bound **un-bypassable** — no caller can sneak a
   GPU call past it (a check in one handler could be forgotten). The worker's sequential drain is
   already an implicit 1; this makes it explicit so a brief Go+Rust transition overlap (Go's own
-  `gemmaGate` + the Rust daemon) and any future parallel drain stay bounded.
-- Config: `ollama_max_concurrent` reads `OLLAMA_MAX_CONCURRENT` (the SAME var Go's gemmaGate reads),
+  local-model gate + the Rust daemon) and any future parallel drain stay bounded.
+- Config: `ollama_max_concurrent` reads `OLLAMA_MAX_CONCURRENT` (the SAME var Go's local-model gate reads),
   default 1, clamped ≥1. Production (main.rs) passes `cfg.ollama_max_concurrent`; the offline bins pin
   1 (single-flight).
 - Tests: `governor_serializes_with_one_permit` (5 concurrent calls, 1 permit → peak 1) and

@@ -48,7 +48,7 @@ The plan's direction was right; three corrections + one scope expansion (per Sco
     ~39% covered, so club + position carry it).
   - `transferSystemPrompt` rewritten: `is_rumor=true` ⇒ THIS exact player AND a real
     transfer; explicit name-collision guard (the president example).
-  - Gemma returns `subject`; persisted into the existing `trigger_payload` JSONB as a
+  - local model returns `subject`; persisted into the existing `trigger_payload` JSONB as a
     discard audit trail (no migration — column exists since 031).
   - Discard stays lossless: the wide net also links the correct entity, so the existing
     `is_rumor=false` read filter does the dropping. No `match.go` / capture change.

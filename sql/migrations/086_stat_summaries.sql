@@ -3,7 +3,7 @@
 -- Stat-commentary feature — schema. The STATS-rail twin of news_summaries (081/085):
 -- the symmetric other half of the two-rail narrative engine. Where the news rail
 -- narrates the scrubbed NEWS corpus, the stats rail narrates the scrubbed DATA — the
--- rating engine is the deterministic "scrub", and Gemma derives the entity's ON-FIELD
+-- rating engine is the deterministic "scrub", and local model derives the entity's ON-FIELD
 -- IDENTITY from the engine's already-curated datapoints (rating_breakdown, composite,
 -- specialist, scoped percentiles), NEVER raw box scores.
 --
@@ -20,7 +20,7 @@
 --
 -- `notability` is the stats-rail analog of news `impact` / transfers `heat`: a
 -- DETERMINISTIC 0-100 score of how DISTINCTIVE the entity's profile is (computed from the
--- engine's percentiles — extremity, spread, count of elite buckets — Gemma never invents
+-- engine's percentiles — extremity, spread, count of elite buckets — local model never invents
 -- it), stored with transparent components. It drives the DYNAMIC length (a distinctive
 -- specialist earns a fuller analysis; an average profile a terse line) and can rank a
 -- "most distinctive identities" board. NULL body/notability = insufficient stats this
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS stat_summaries (
     trigger_type     TEXT        NOT NULL CHECK (trigger_type IN ('stat_change', 'periodic', 'manual')),
     trigger_payload  JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
-    -- Gemma output: the on-field identity analysis (original prose).
+    -- local model output: the on-field identity analysis (original prose).
     -- NULL = insufficient/uninteresting stats this cycle (marker row).
     body             TEXT,
 
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS stat_summaries (
     notability       SMALLINT    CHECK (notability IS NULL OR notability BETWEEN 0 AND 100),
     notability_components JSONB   NOT NULL DEFAULT '{}'::jsonb,
 
-    -- The scrubbed datapoints fed to Gemma as FACTS (composite, special, the salient
+    -- The scrubbed datapoints fed to local model as FACTS (composite, special, the salient
     -- scoped percentiles) — provenance + the grounding trace that keeps the prose honest.
     input_components JSONB       NOT NULL DEFAULT '{}'::jsonb,
 
@@ -73,6 +73,6 @@ CREATE INDEX IF NOT EXISTS idx_stat_summaries_sport_notability
     WHERE body IS NOT NULL AND notability IS NOT NULL;
 
 COMMENT ON TABLE stat_summaries IS
-    'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: Gemma''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, special=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/stat_commentary.go.';
+    'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, special=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/stat_commentary.go.';
 
 COMMIT;

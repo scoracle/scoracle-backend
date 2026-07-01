@@ -3,7 +3,7 @@
 //! Runs a labeled set through the role's INCUMBENT (`router.for_role`) AND its optional
 //! CANDIDATE (`router.candidate_for`), scoring each against the labels, and — for the L7
 //! news-model A/B — capturing each model's **prose** (the vibe felt-read) and **throughput**
-//! (Ollama's per-call eval tokens / generation time). This is what turns "add Mistral" from
+//! (Ollama's per-call eval tokens / generation time). This is what turns "add a model" from
 //! an assertion into an experiment: a model is adopted ONLY on a measured win, and adoption is
 //! a HUMAN editing `COGNITION_ROUTE_<ROLE>` after reading this report — the router NEVER
 //! auto-promotes. "A new model is a config change + an eval win — never an act of faith."

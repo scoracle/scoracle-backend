@@ -3,7 +3,7 @@
 ## Goal
 Twitter's live X-API fetch was the platform's only multi-second upstream (~11s cold when
 an entity-feed request triggered a stale sport-feed refresh). With the product value moving
-to Gemma news summaries (see vault `wiki/Plan - News to Gemma Summaries.md`), suspend the
+to local model news summaries (see vault `wiki/Plan - News to local model Summaries.md`), suspend the
 live integration cleanly — keep the code, flip it off by default.
 
 ## What Was Done
@@ -21,7 +21,7 @@ explicit `TWITTER_ENABLED=true` opt-in.
 - `handler.go` + `cmd/api/main.go`: pass `cfg.TwitterEnabled` into `NewTwitterService`.
 - `.env`: documented `TWITTER_ENABLED=false`.
 
-Vibes are unaffected: `ml/vibe.go` reads tweets cache-only + news and only skips Gemma when
+Vibes are unaffected: `ml/vibe.go` reads tweets cache-only + news and only skips local model when
 *both* are empty — with news present it keeps generating sentiment; it just stops ingesting
 fresh tweets.
 

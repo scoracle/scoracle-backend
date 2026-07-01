@@ -1,17 +1,17 @@
 -- 104_transfer_fail_closed.sql  (FIRST-GPT-AUDIT Session 10 — make transfer validation fail closed)
 --
--- Three changes, all tightening "only a successful POSITIVE Gemma verdict can become
+-- Three changes, all tightening "only a successful POSITIVE local model verdict can become
 -- a served or downstream-consumed rumor":
 --
 --   1. Drop the unused Phase-1 fail-OPEN seeder seed_transfer_rumors(). It inserts
---      is_rumor=TRUE straight off the deterministic heat with NO Gemma vet — exactly
+--      is_rumor=TRUE straight off the deterministic heat with NO local model vet — exactly
 --      the fail-open path this session removes from ml/transfer.go. It has no live
---      callers (the Gemma-vetting worker GenerateForTeam replaced it; verified by grep
+--      callers (the local model-vetting worker GenerateForTeam replaced it; verified by grep
 --      + against the live DB) so it is dropped, not kept around as a foot-gun.
 --
 --   2. Redefine compute_transfer_heat to require BOTH the team and player link to be
 --      vetted IS TRUE. The live def allowed `(vetted IS TRUE OR scrubbed_at IS NULL)`,
---      i.e. it let UNSCRUBBED links contribute heat — heat could exist before Gemma
+--      i.e. it let UNSCRUBBED links contribute heat — heat could exist before local model
 --      ever saw the link. The candidate selector (loadCandidates) already required
 --      vetted IS TRUE on both sides; this makes the heat primitive agree. Audit:
 --      "Require both article/entity links to be vetted IS TRUE in compute_transfer_heat."
@@ -58,7 +58,7 @@ CREATE FUNCTION public.compute_transfer_heat(
 AS $function$
     WITH corpus AS (
         -- News articles linking BOTH the team and the player, in PROXIMITY and
-        -- Gemma-VETTED on both sides. S10: an unscrubbed link no longer contributes
+        -- local model-VETTED on both sides. S10: an unscrubbed link no longer contributes
         -- heat — heat now requires a positive scrub verdict (vetted IS TRUE), so a
         -- rumor's deterministic heat can never exist ahead of its validation.
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts

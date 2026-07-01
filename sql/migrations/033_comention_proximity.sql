@@ -5,7 +5,7 @@
 --   "Everton want Chelsea striker Liam Delap and Spurs midfielder Conor Gallagher"
 -- links Chelsea↔Gallagher even though Gallagher is Spurs' player in that sentence
 -- (66 title-chars from "Chelsea"). That spurious pair fed the heat engine and
--- forced the downstream Gemma/former-player gate to clean it up after the fact.
+-- forced the downstream local model/former-player gate to clean it up after the fact.
 --
 -- Fix: news_article_entities now records title_pos (the character offset where the
 -- entity is mentioned in the article title — written by the Go matcher,

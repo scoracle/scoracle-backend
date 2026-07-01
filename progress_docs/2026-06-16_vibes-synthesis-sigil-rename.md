@@ -21,9 +21,9 @@
 
 ## Goals
 
-1. Promote the 1-100 Gemma-generated sentiment score to an internal ingredient (renamed `sentiment_scores`); remove cosmetic round-number guardrails.
+1. Promote the 1-100 local model-generated sentiment score to an internal ingredient (renamed `sentiment_scores`); remove cosmetic round-number guardrails.
 2. Replace the vibe product with a holistic three-pillar synthesis: news narrative + Sigil identity + momentum.
-3. Rename "Special/Specialist" to "Sigil" throughout; have Gemma divine the Sigil label rather than receiving it pre-supplied.
+3. Rename "Special/Specialist" to "Sigil" throughout; have local model divine the Sigil label rather than receiving it pre-supplied.
 
 ## Decisions
 
@@ -31,7 +31,7 @@
 - **SynthesisGenerator is a new type** (`ml.SynthesisGenerator`), not mixed into the existing `Generator`. Bounding blast radius.
 - **`RecentlySynthesized` exported** so `listener` and `handler` packages can call it without a `corpus.*` wrapper.
 - **Variadic `NewRouter`** accepts `synthGen ...*ml.SynthesisGenerator` to keep existing call sites unbroken.
-- **`heroLabel` in SigilCard** prefers `commentary.divined_sigil` (Gemma s3+) but falls back to the engine's breakdown label. Art icon always uses the engine label for stability.
+- **`heroLabel` in SigilCard** prefers `commentary.divined_sigil` (local model s3+) but falls back to the engine's breakdown label. Art icon always uses the engine label for stability.
 - **Outer-scope `synthGen` declaration** in `cmd/api/main.go` so it can be wired into both `listener.Start` and `api.NewRouter` from outside the `if dbPool != nil` block.
 
 ## Accomplishments
@@ -44,7 +44,7 @@
 
 ### Backend Go
 - `vibe.go` → `sentiment.go`: types `VibeRequest`→`SentimentRequest`, `VibeResult`→`SentimentResult`; prompt de-shackled (round-number guardrails removed); version `v4`→`v5`
-- `stat_commentary.go` (D.2): Gemma now divines the Sigil (`SIGIL: <label>` on line 1); `parseSigilCommentary` extractor; `DivinedSigil` in result + persisted to `stat_summaries.divined_sigil`; prompt version `s2`→`s3`
+- `stat_commentary.go` (D.2): local model now divines the Sigil (`SIGIL: <label>` on line 1); `parseSigilCommentary` extractor; `DivinedSigil` in result + persisted to `stat_summaries.divined_sigil`; prompt version `s2`→`s3`
 - `vibe_synthesis.go` (new): three-pillar generator (P1=narratives, P2=sigil, P3=momentum slope); `SkipUnchanged` input-hash debounce; `RecentlySynthesized` exported; `parseSynthesisResponse` SCORE/BLURB extractor
 - `cmd/vibesynth/main.go` (new): single / backfill / nightly corpus modes
 - `db.go`: `entity_vibes` + `vibes_leaderboard` CTEs rewritten to read from `vibe_synthesis`; `entity_sigil` commentary subquery adds `divined_sigil`. **Read-layer Sigil aliasing** (post-audit): leaderboard, roster, `entity_stats`, `entity_sigil`, and the event series select `rating_specialist AS rating_sigil` (etc.); `rating_modes` JSON keys remapped `specialist→sigil`. `stat_commentary.go` `loadRatingProfile` reverted to the physical `rating_specialist*` columns.

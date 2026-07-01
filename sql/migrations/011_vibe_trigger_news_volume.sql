@@ -2,7 +2,7 @@
 --
 -- When an entity (player or team) accumulates 5 distinct news articles
 -- inside a 60-minute rolling window, fire pg_notify('vibe_trigger', ...)
--- so the Go listener can run Gemma against the entity. The crossing
+-- so the Go listener can run local model against the entity. The crossing
 -- semantic (count == 4 immediately before this insert, so this insert
 -- makes 5) ensures NOTIFY fires exactly once per spike — even if 50
 -- articles arrive in a few minutes, we get one notification, not 46.

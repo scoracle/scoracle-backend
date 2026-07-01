@@ -2,16 +2,15 @@
 //!
 //! For each entity (player|team) it runs the SAME deterministic prefix the production path uses —
 //! `build_rating_request` (load_rating_profile → input_components/hash → notability →
-//! `build_stat_prompt` → the s6 options → the exact wire body) — and writes a source='rust' row to
+//! `build_stat_prompt` → the s7 options → the exact wire body) — and writes a source='rust' row to
 //! `stat_summaries_shadow` with the parity axes: `built_prompt`, `ollama_request`, `model_version`,
 //! `prompt_version`, AND `input_hash` (the 5th axis transfers lacked — rating debounces on it). The
 //! Go side (`go/internal/ml/rating_parity_test.go`) writes source='go' rows the same way; the proof
 //! is a self-join diff in that table.
 //!
 //! NO MODEL CALL by default (the L2 finding): the parity axes are all deterministic — the prose
-//! (body/divined_peak) is NOT a temp-0 parity axis, so the gate needs no GPU. Unlike L11 transfers
-//! (t4≠t3 by design), rating is a FAITHFUL port: the WHOLE ollama_request is expected jsonb-equal,
-//! `system` INCLUDED (the s6 prompt carried verbatim). Set `RATING_PARITY_VET=1` to ALSO run the
+//! (body/divined_peak) is NOT a temp-0 parity axis, so the gate needs no GPU. Set
+//! `RATING_PARITY_VET=1` to ALSO run the
 //! model at temp 0 and record body/divined_peak/notability — for eyeballing that the model verbalizes
 //! the labeled TIER pctBand supplies and writes ~3 short paragraphs (inspection, not the gate).
 //!

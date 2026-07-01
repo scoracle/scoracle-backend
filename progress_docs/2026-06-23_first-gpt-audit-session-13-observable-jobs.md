@@ -7,7 +7,7 @@
 > An operator can tell whether last night's backend work actually completed without reading thousands of
 > log lines — jobs are non-overlapping, report a durable per-run record, and exit non-zero on real failure.
 
-The three Gemma batch jobs (`cmd/pipeline`, `cmd/statcommentary`, `cmd/vibesynth`) counted their failures
+The three local model batch jobs (`cmd/pipeline`, `cmd/statcommentary`, `cmd/vibesynth`) counted their failures
 but frequently exited 0, had no overlap guard, no durable run record, and no dead-letter report. Plus a
 known correctness gap: an API restart mid-drain stranded the derive worker's leased batch for up to 30m
 (F-018).
@@ -77,7 +77,7 @@ and the `pipeline_runs_latest` / `cmd/work dead-letters` operator queries.
 - **Overlap is not an error** → exit 0 + a `skipped` run row (the schedule is visibly skipped, not silently
   missed), rather than exit non-zero.
 - **Settle on a detached context** rather than threading a second context everywhere — the drain ctx governs
-  Claim + the Gemma run; bookkeeping always lands.
+  Claim + the local model run; bookkeeping always lands.
 - **Pipeline exit-1 on any dead-letter** (global queue state, not just this run) — deliberate daily nag
   until cleared (F-033).
 

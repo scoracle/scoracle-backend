@@ -1,12 +1,12 @@
 # 2026-06-14 — News scrub wired async (maintenance ticker)
 
-Task 3 of the News→Gemma pipeline (companion: `~/scoracleWiki/wiki/Plan - News pipeline
+Task 3 of the News→local model pipeline (companion: `~/scoracleWiki/wiki/Plan - News pipeline
 integration.md`, Phase 2 wiring). Built + SQL-validated, committed — **NOT deployed** (needs a
 binary rebuild + restart, which is gated). Follows task 1 (foundation deployed) + task 2
 (vetted-flag scrub).
 
 ## Goal
-Run the Gemma scrub automatically + off the request path: a deliberate-cadence sweep that vets
+Run the local model scrub automatically + off the request path: a deliberate-cadence sweep that vets
 newly-linked `news_article_entities` rows, so consumers can later read the clean (vetted) set.
 
 ## Decision — fold into the maintenance ticker (not the reactive listeners)
@@ -21,10 +21,10 @@ deliberate cadence with no cross-contention — the established `maintenance.go`
 - **maintenance.go**: `Start()` now takes a `*ml.NewsScrubber`; new `news_scrub` ticker (skipped if
   Ollama unreachable → scrubber nil, or interval 0). `scrubNewsLinks()` runs two bounded,
   non-destructive phases per tick:
-  1. **Auto-vet primaries** (cheap SQL, no Gemma): `match_confidence >= 1.0` links are the entity the
+  1. **Auto-vet primaries** (cheap SQL, no local model): `match_confidence >= 1.0` links are the entity the
      article was fetched for — deterministically relevant. Bounded UPDATE (`newsScrubPrimaryBatch =
      20000`/tick) sets `vetted=true, scrubbed_at=NOW()`.
-  2. **Gemma pass**: newest `batch` candidate-rich articles (those with an unscrubbed SECONDARY link,
+  2. **local model pass**: newest `batch` candidate-rich articles (those with an unscrubbed SECONDARY link,
      conf < 1.0 — the disambiguation cases), scrubbed serially via `ScrubArticle(..., persist=true)`.
      Serial = good GPU citizen (Ollama serializes anyway). Per-article errors logged + skipped.
 - **main.go**: construct `NewsScrubber` off the existing `ollamaCli` (nil when Ollama unreachable);

@@ -9,7 +9,7 @@
 ## Goal
 
 One canonical "latest generation" rule across every product read, so a newer marker row (no-data) clears
-stale current content — and fix the narrator so an empty Gemma result becomes a successful marker instead
+stale current content — and fix the narrator so an empty local model result becomes a successful marker instead
 of a hard failure (F-019).
 
 ## The bug pattern (killed)

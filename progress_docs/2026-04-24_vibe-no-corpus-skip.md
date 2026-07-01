@@ -1,17 +1,17 @@
-# Vibe: skip Gemma when corpus is empty
+# Vibe: skip local model when corpus is empty
 
 ## Goal
 
 Stop writing `sentiment=50` for entities that have zero matching news and
 zero matching tweets. The first batch run after the v2 pivot exposed this:
-73 of 78 football players landed at exactly 50 because Gemma was obeying
+73 of 78 football players landed at exactly 50 because local model was obeying
 the system prompt's "answer around 5 if material is thin" fallback. The
 flat-50s polluted `/vibe/hottest` and looked like real neutral scores.
 
 ## Decision
 
 When both `loadRecentNews` and `loadRecentTweets` return empty, skip the
-Gemma call entirely and write a row with `sentiment=NULL`. The API
+local model call entirely and write a row with `sentiment=NULL`. The API
 surfaces NULL as an explicit `"sentiment": null` in JSON (vibeRow.Sentiment
 is already `*int`). Frontend renders that as a "no vibe yet" state.
 

@@ -75,8 +75,8 @@ struct GenerateResponse {
 
 impl OllamaClient {
     /// new builds a client. `base_url` like "http://localhost:11434", `model`
-    /// like "gemma4:e4b". A zero timeout defaults to 60s (Gemma e4b on a
-    /// consumer GPU is typically 2-8s but can spike).
+    /// is the resolved local model tag. A zero timeout defaults to 60s because local models on
+    /// consumer GPUs are typically quick but can spike under load.
     pub fn new(
         base_url: impl Into<String>,
         model: impl Into<String>,

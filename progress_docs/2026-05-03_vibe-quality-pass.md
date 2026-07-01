@@ -9,7 +9,7 @@ Three issues surfaced after a day of corpus-mode runs:
    refreshing `fetched_at` on tweets whose `posted_at` was weeks old. The
    read endpoints had no `posted_at` filter, so users saw 4/16 posts on
    5/3.
-2. **Sentiments were always multiples of 10.** The v2 prompt asked Gemma
+2. **Sentiments were always multiples of 10.** The v2 prompt asked local model
    for 1-10 then multiplied by 10 on persist. Output read low-resolution
    (always 50/60/70/80/90).
 3. **Corpus mode was still writing null-sentiment markers.** `loadTouchedEntities`
@@ -82,7 +82,7 @@ Smoke run (`./go/bin/vibe -mode corpus -sport NFL
 
 ```
 corpus: rss sweep complete  ok=32 fail=0 elapsed=35s
-corpus: gemma queue starting  candidates=50
+corpus: model queue starting  candidates=50
 corpus: complete              ok=50 fail=0 skipped=0 no_corpus=0
 ```
 

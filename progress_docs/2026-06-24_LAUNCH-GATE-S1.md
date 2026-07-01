@@ -63,7 +63,7 @@ F-028 transition allowance. **Total grind = 3219** first-time syntheses.
 
 ### Throughput measured
 - Single dry-run synthesis, NFL `team/1` (New England Patriots): valid **Score 42**, coherent blurb, pillars
-  present, season-stampable. **Gemma wall = 102s** — but under **3-way GPU contention**: the parallel Rust
+  present, season-stampable. **local model wall = 102s** — but under **3-way GPU contention**: the parallel Rust
   `parity` process, the `statcommentary` nightly cron (still running ~8h), and the API derive worker all share
   the single 8GB card.
 - 3219 × ~100s ≈ **~90 GPU-hrs**. In a quiet window with the F-035 governor pinned, per-call should fall to
@@ -73,13 +73,13 @@ F-028 transition allowance. **Total grind = 3219** first-time syntheses.
 The resolution is a dedicated `vibesynth -mode backfill` (direct generation; holds the shared `vibesynth`
 jobrun lock; season-stamps each row; bypasses the starved queue). It is a **multi-night GPU job** that contends
 with live serving + the parallel Rust session, and the **F-035 cross-process governor is still unset**
-(`OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` absent → thrash/OOM risk on the 8GB card when ≥2 Gemma
+(`OLLAMA_NUM_PARALLEL`/`OLLAMA_MAX_LOADED_MODELS` absent → thrash/OOM risk on the 8GB card when ≥2 local model
 processes hit Ollama). At session start the GPU was already running the Rust `parity` job. Kicking off a fourth
-Gemma driver autonomously would interfere with the parallel session and risk the card — **Scott's operational
+local model driver autonomously would interfere with the parallel session and risk the card — **Scott's operational
 call.** The synthesis path itself is proven for these sports (the probe).
 
 ### Runbook for Scott — the F-030 grind
-1. **F-035 first** (pin the cross-process governor — see below). The grind runs ≥2 Gemma processes; without it
+1. **F-035 first** (pin the cross-process governor — see below). The grind runs ≥2 local model processes; without it
    they can collide on the 8GB card.
 2. **Quiet the GPU:** pause/await the parallel Rust `parity` session (coordinate); confirm no
    `statcommentary` / `cmd/pipeline` / nightly `vibesynth` (05:00) run is mid-flight (`ps`, `pipeline_runs`).

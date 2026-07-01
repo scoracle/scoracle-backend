@@ -42,7 +42,7 @@ DO $$ BEGIN
 END $$;
 
 -- 3. The Vibe end product gains its prompt (D4). 088 dropped the legacy blurb; this is
---    the short text Gemma will emit alongside the sentiment score and feed into the Sigil.
+--    the short text local model will emit alongside the sentiment score and feed into the Sigil.
 ALTER TABLE vibe_scores ADD COLUMN IF NOT EXISTS prompt TEXT;
 
 COMMENT ON TABLE sigil_synthesis IS

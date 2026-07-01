@@ -8,8 +8,8 @@
 //! `go/internal/ml/sigil_parity_test.go`) writes `source='go'` rows for the same entities the
 //! same way. The proof is a single self-join in that table: identical built_prompt bytes,
 //! jsonb-equal ollama_request, identical model_version, and identical input_hash (the four
-//! DETERMINISTIC axes). SCORE/BLURB are compared only within ONE model-load window — gemma4:e4b
-//! at temp 0 is not reliably deterministic (L2 FINDING), so they are not a regression signal.
+//! DETERMINISTIC axes). SCORE/BLURB are compared only within ONE model-load window because local
+//! models at temp 0 can still drift across loads (L2 FINDING), so they are not a regression signal.
 //!
 //! SAFETY: this harness is read-only on the live pipeline. It NEVER writes sigil_synthesis,
 //! NEVER claims/enqueues pipeline_work, and NEVER runs the Go stage. It only reads the pillar
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
         .context("ollama must be reachable for the parity run")?;
 
     // The same capability context the production worker builds — the config-driven router
-    // (all-Gemma by default) — so the parity run exercises the exact route + extract path the
+    // (single-local-model by default) — so the parity run exercises the exact route + extract path the
     // service does. The harness writes nothing on its own; persistence targets only the shadow.
     let harness = Harness {
         pool,

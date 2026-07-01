@@ -1,12 +1,12 @@
 -- 084_transfer_vetted_corpus.sql
 --
--- Flip the transfer SQL onto the Gemma-vetted link set (task 4). compute_transfer_heat
+-- Flip the transfer SQL onto the local model-vetted link set (task 4). compute_transfer_heat
 -- (032/033) and seed_transfer_rumors read team+player co-mentions straight off
 -- news_article_entities; now that the scrub (ml/news_scrub.go, migration 083) records a
 -- per-link verdict, both honor it.
 --
 -- Transition filter on each link: `(vetted IS TRUE OR scrubbed_at IS NULL)` — keep links
--- Gemma confirmed as genuine, plus any not yet scrubbed (shown until judged). Drops only
+-- local model confirmed as genuine, plus any not yet scrubbed (shown until judged). Drops only
 -- the links the scrub explicitly rejected (vetted = FALSE), so it is non-regressive while
 -- coverage builds. A later step tightens to `vetted IS TRUE`.
 --

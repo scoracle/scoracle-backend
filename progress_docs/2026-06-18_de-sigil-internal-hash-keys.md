@@ -12,10 +12,10 @@ an `input_hash` gate — so the same **re-stamp** pattern is needed, not a drive
 - Go fields `ratingProfile.sigilScore`/`sigilLabel` → `peakScore`/`peakLabel` (+ scan).
 - `inputComponents()` map keys **`sigil_label`/`sigil_score` → `peak_label`/`peak_score`** — these are
   hashed into `stat_summaries.input_hash` (the rating debounce gate), so renaming them would
-  re-generate the whole rating corpus (Gemma).
+  re-generate the whole rating corpus (local model).
 - **`RatingGenerator.ReStampPeakKeys`** + **`statcommentary -mode restamp`**: rewrite each entity-season's
   latest stored `input_components` (rename only the keys) + recompute `input_hash` via the canonical
-  `hashComponents` — **no Gemma**, body/divined_peak/prompt_version preserved. Plus
+  `hashComponents` — **no local model**, body/divined_peak/prompt_version preserved. Plus
   `statcommentary -mode single -skip-unchanged` to verify the gate.
 
 **(b) `sigil.go` — the crown's P2-pillar internal naming (NOT hashed → pure rename).**

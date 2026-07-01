@@ -12,6 +12,6 @@
 BEGIN;
 
 COMMENT ON TABLE stat_summaries IS
-    'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: Gemma''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/rating.go.';
+    'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/rating.go.';
 
 COMMIT;

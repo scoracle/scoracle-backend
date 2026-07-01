@@ -1,12 +1,12 @@
 # 2026-06-14 — Vibe as the final stage (task 9)
 
-Stage 4 of the confirmed Gemma progression (raw → scrub → narratives → transfer heat → **VIBE**).
+Stage 4 of the confirmed local model progression (raw → scrub → narratives → transfer heat → **VIBE**).
 Built + verified, committed — NOT deployed (binary rebuild is the batched task 4/6/9 deploy). No
 migration (reuses vibe_scores unchanged).
 
 ## Goal
 Promote the vibe from a thin pass over raw news/tweets to a **determine** step over the DERIVED
-layer: Gemma reads the entity's latest narratives + transfer heat (the richest context, available
+layer: local model reads the entity's latest narratives + transfer heat (the richest context, available
 only after the earlier stages run) and produces ONE overall 1-100 sentiment.
 
 ## What was done (ml/vibe.go, prompt v3 → v4)

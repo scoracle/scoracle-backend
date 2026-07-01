@@ -1,4 +1,4 @@
-# Vibe: corpus-driven mode (RSS pre-warm + Gemma queue)
+# Vibe: corpus-driven mode (RSS pre-warm + local model queue)
 
 ## Goal
 
@@ -19,7 +19,7 @@ Two phases in a new `-mode corpus`:
    `NewsService.GetEntityNews` — same code path as the public `/news`
    endpoint, so write-through and cross-entity linking are identical
    to user traffic.
-2. **Gemma queue** runs only against the `news_article_entities` rows
+2. **local model queue** runs only against the `news_article_entities` rows
    created at-or-after `runStart`. The set includes the queried teams
    plus any players co-mentioned in article titles via the existing
    cross-entity matcher in `persistArticles`. Player coverage is free.
@@ -50,7 +50,7 @@ NFL smoke run (`-sport NFL -corpus-skip-recent-hours 0
 ```
 corpus: rss sweep starting    sport=NFL teams=32
 corpus: rss sweep complete    ok=32 fail=0 elapsed=35s
-corpus: gemma queue starting  candidates=59
+corpus: model queue starting  candidates=59
 corpus: progress              done=25 total=59 ok=25 fail=0 skipped=0 no_corpus=0
 ```
 
@@ -88,7 +88,7 @@ Recommended crontab (local time, twice daily):
 ## Follow-ups
 
 - Per-run wall time scales with touch-set size. NFL smoke was ~12s per
-  Gemma call; a full 3-sport run could be 60–90 minutes. If it bumps
+  local model call; a full 3-sport run could be 60–90 minutes. If it bumps
   the next cron run, raise `-corpus-skip-recent-hours` past 12.
 - Decide whether to retire the fixture-driven `-mode batch`. Probably
   yes — strictly dominated by corpus mode for the headliner+starter

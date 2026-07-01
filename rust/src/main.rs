@@ -5,8 +5,8 @@
 //! leases, and drains each REGISTERED stage to empty; with no handlers it idles.
 //!
 //! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
-//! Post Step-3 cutover (2026-06-28) the Rust daemon owns ALL five LLM queue stages —
-//! scrub, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
+//! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
+//! scrub, headlines, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
 //! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
 //! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
 //! default only fires when the unit isn't the one starting the process (a fresh-box boot
@@ -59,8 +59,9 @@ async fn main() -> Result<()> {
     }
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
-    // Post Step-3 cutover the daemon owns all six stages (headlines added as the third news-rail
-    // product); the Go derive worker is retired. To revert Step 3 in an emergency, set
+    // Post Step-3 cutover the daemon owns all six stages. `headlines` is a News component staged
+    // before transfer/narrative derivation, not a separate product pillar. The Go derive worker is
+    // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(
         &std::env::var("COGNITION_STAGES")
@@ -78,8 +79,8 @@ async fn main() -> Result<()> {
         None
     };
 
-    // The capability context handed to every stage: the config-driven router (role → model from
-    // COGNITION_ROUTE_*, all-Gemma by default), the embedder (Some only for the scrub path), the pool.
+    // The capability context handed to every stage: the config-driven router (role → local model
+    // from COGNITION_ROUTE_*), the embedder (Some only for scrub/narratives), the pool.
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
@@ -87,7 +88,7 @@ async fn main() -> Result<()> {
         resolve: cfg.resolve.clone(),
     };
 
-    // Each handler owns exactly one queue stage. Post Step-3 the daemon owns all five; the
+    // Each handler owns exactly one queue stage. Post Step-3 the daemon owns all six; the
     // Go derive path is off (DERIVE_WORKER_ENABLED=false). The COGNITION_STAGES env can
     // still be narrowed (e.g. a debug run that wants only `vibe`), but the systemd unit on
     // the prod box hardcodes the full set.

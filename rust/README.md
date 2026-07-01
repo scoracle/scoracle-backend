@@ -4,6 +4,14 @@ Rust Cognition Harness for Scoracle: the AI derivation layer that empowers local
 
 This folder is not a side experiment. It is the production cognition layer for Scoracle.
 
+Post the **Step-3 cutover (2026-06-28)** and the **News headlines component (2026-06-29)**, the Go LLM derive stages are retired into Rust:
+
+- **6 queue stages** — `scrub` → `headlines` → `transfers` → `narratives` → `vibe` → `sigil` —
+  drained by the long-running **`scoracle-cognition`** daemon. `headlines`, `transfers`, and
+  `narratives` are News product components, not separate product pillars.
+- **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
+  stage — same shape as the retired Go `cmd/statcommentary`).
+
 ## Start Here
 
 Before working in this folder, read these in order:
@@ -126,26 +134,27 @@ rust/
 ├── README.md
 ├── build.rs
 └── src/
-    ├── main.rs                  # scoracle-cognition daemon
-    ├── lib.rs                   # library exports
-    ├── config.rs                # env config; mirrors Go env names
-    ├── db.rs                    # sqlx Postgres pool
-    ├── work.rs                  # pipeline_work client and Stage enum
-    ├── worker.rs                # LISTEN/NOTIFY + safety-net drain loop
-    ├── stage.rs                 # StageHandler trait
-    ├── harness.rs               # shared context and capability primitives
-    ├── route.rs                 # Role -> model routing and GPU governor
-    ├── ollama.rs                # Ollama backend
-    ├── embed.rs                 # CPU embeddings
-    ├── resolve.rs               # entity/article relevance gate
-    ├── scrub.rs
-    ├── headline.rs
-    ├── transfer.rs
-    ├── narratives.rs
-    ├── vibe.rs
-    ├── sigil.rs
-    ├── rating.rs
-    ├── util.rs
+    ├── main.rs              # the scoracle-cognition daemon: boots Harness, registers handlers, runs Worker
+    ├── lib.rs               # library exports
+    ├── buildinfo.rs         # exposes BUILD_COMMIT / BUILD_TIME (set by build.rs via env!)
+    ├── config.rs            # env config; mirrors Go var names (.env.local)
+    ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
+    ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue + the Stage enum
+    ├── ollama.rs            # Ollama HTTP client (mirrors go/internal/ml/ollama.go)
+    ├── stage.rs             # StageHandler trait — the per-stage plug-in point
+    ├── worker.rs            # LISTEN(pipeline_work_ready) + safety-net drain loop
+    ├── route.rs             # the model-call seam (Role → concrete model); the GPU governor lives here
+    ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, resolve, embed, cluster (Plan §1)
+    ├── util.rs              # shared helpers: truncate, go_json_* (Go-encoding/json byte parity), hash_components
+    ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
+    ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
+    ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
+    ├── headline.rs          # headlines stage: breaking-news bulletin extraction for News
+    ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t5 prompt
+    ├── narratives.rs        # narratives stage: news storyline clustering + summarization
+    ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)
+    ├── vibe.rs              # vibe stage: the sentiment + felt-read
+    ├── sigil.rs             # sigil stage: the crown convergence of rating + vibe + momentum
     └── bin/
         ├── statcommentary.rs
         ├── eval.rs

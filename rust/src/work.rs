@@ -21,10 +21,12 @@ use std::time::Duration;
 /// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). Only the Rust
 /// `ScrubHandler` drains it — the Go Drainer has no scrub handler, so there is no double-claim.
 ///
-/// `Momentum` is intentionally NOT a queue stage — it's a served product assembled at read time
-/// from the rating + vibe trend series (`news_summaries` + `vibe_scores` deltas), not a derived
-/// product a worker drains. It was briefly sketched as a Stage variant early on and never used;
-/// removed post-Step-3 audit so the enum is exactly the stages the harness daemon registers.
+/// `Momentum` is intentionally NOT a queue stage. It is its own served product: the rating and
+/// vibe trajectories over time, assembled from persisted rating/vibe series rather than drained as
+/// a standalone worker task. Sigil reads that trajectory as one of its pillars.
+///
+/// `Headlines` is a queue stage because it derives a News component. It is not a public product
+/// pillar separate from News.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,

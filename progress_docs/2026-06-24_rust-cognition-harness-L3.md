@@ -68,7 +68,7 @@ New stage module + harness, all mirroring `go/internal/ml/sigil.go` line-for-lin
 - **Static:** `cargo build` 0 warnings · `cargo test --lib` **26/26** (15 new sigil) ·
   `cargo clippy --all-targets -- -D warnings` clean · all bins build · Go parity test compiles
   + skip-gates · `gofmt` clean.
-- **Temp-0 parity (live DB + Ollama gemma4:e4b)** over a stable 5-entity corpus
+- **Temp-0 parity (live DB + Ollama local-model:tag)** over a stable 5-entity corpus
   (`team:14:FOOTBALL player:23278674:FOOTBALL team:7:NBA team:3:NBA` + the marker
   `player:2169:NBA`): **5 / 5 pass all 4 DETERMINISTIC axes** — `built_prompt` bytes +
   `ollama_request` jsonb + `model_version` + `input_hash` IDENTICAL rust-vs-go (incl. the
@@ -76,7 +76,7 @@ New stage module + harness, all mirroring `go/internal/ml/sigil.go` line-for-lin
   production is exact (and keeps the eventual cutover free of spurious regens).
 - **Bonus:** SCORE + BLURB also matched 4/4 — but only because both sides ran in ONE
   model-load window. Per the L2 FINDING, SCORE/BLURB are **not** a regression signal across
-  model loads (gemma4:e4b temp-0 is not reliably deterministic); the gate is the 4 byte axes.
+  model loads (local-model:tag temp-0 is not reliably deterministic); the gate is the 4 byte axes.
 
 ## Decisions carried
 
@@ -118,7 +118,7 @@ New stage module + harness, all mirroring `go/internal/ml/sigil.go` line-for-lin
 ```bash
 cd scoracle-backend && export PATH="$HOME/.cargo/bin:$PATH"
 export DATABASE_PRIVATE_URL=…   # crate does NOT load .env.local
-export OLLAMA_TIMEOUT_SECONDS=300   # OLLAMA_BASE_URL/MODEL default to localhost:11434 / gemma4:e4b
+export OLLAMA_TIMEOUT_SECONDS=300   # OLLAMA_BASE_URL/MODEL default to localhost:11434 / local-model:tag
 
 cargo build  --manifest-path rust/Cargo.toml
 cargo test   --manifest-path rust/Cargo.toml --lib

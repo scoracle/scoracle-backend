@@ -7,9 +7,9 @@ the news entity-linker treats a flat article TITLE as a bag of entities, so a
 multi-subject roundup like *"Everton want Chelsea striker Liam Delap and Tottenham
 Hotspur midfielder Conor Gallagher"* links **Chelsea↔Gallagher** even though
 Gallagher is Spurs' player in that sentence (66 title-chars from "Chelsea"). That
-spurious co-mention fed the heat engine and the Gemma/former-gate had to scrub it
+spurious co-mention fed the heat engine and the local model/former-gate had to scrub it
 after the fact. Lifts quality for **News** (fewer irrelevant articles per entity)
-and **Transfers** (cleaner candidates before Gemma).
+and **Transfers** (cleaner candidates before local model).
 
 ## Approach — proximity, not clause-splitting
 
@@ -53,7 +53,7 @@ never silently drops data it can't place.
   artifacts — **Conor Gallagher (0 proximate articles)**, Richarlison (0), Elliot
   Anderson (4→1), Andrey Santos (4→1), André (4→1), Jorrel Hato (2→1). Every
   genuine squad member / target survives (Enzo 51, Pedro 24, Palmer 19, Delap 5,
-  Son 7, Mbappé 3…). **This happens before Gemma runs — independent of the
+  Son 7, Mbappé 3…). **This happens before local model runs — independent of the
   former-gate.**
 - End-to-end `transfer-cli -team-id 18`: `candidates=24 rumors=17 cleared=7
   errored=0`. Live `/api/v1/football/team/18/transfers` → 17 rows, **none** of the
@@ -64,7 +64,7 @@ never silently drops data it can't place.
 ## Caveats / follow-ups
 
 - **Window = 50 is tunable.** A genuinely far-but-real co-mention (e.g. an `" as "`
-  two-clause headline ~26 chars apart) still passes; the Gemma + former-gate remain
+  two-clause headline ~26 chars apart) still passes; the local model + former-gate remain
   the backstop for those. Andrey Santos (a real Chelsea loanee) dropping to 1
   proximate article is the precision/recall edge — acceptable, revisit if recall
   complaints appear.

@@ -5,13 +5,13 @@
 ## Goal
 The platform is moving to a fully-owned-data, **eager-loading** model — every card fetches its
 product on profile open and renders as received; nothing is rendered from a third-party passthrough.
-An audit found the backend not ready for that fan-out: the read path ran **Gemma synthesis on every
+An audit found the backend not ready for that fan-out: the read path ran **local model synthesis on every
 cold `/sigil` open**, the cache-miss path had **no request coalescing**, `/momentum` **re-aggregated
 the whole peer cohort live on every read**, and the pool was too small for ~6–9 concurrent reads per
 profile open. Phase A makes the read path eager-safe (sequenced *before* the frontend mount-all).
 
 ## What Was Done
-- **A1 — Removed on-read Gemma synthesis.** Deleted `maybeSynthesizeLazy` and its spawn in
+- **A1 — Removed on-read local model synthesis.** Deleted `maybeSynthesizeLazy` and its spawn in
   `GetEntityVibes`, so `/sigil` (and its `/vibes` alias) is now a pure precomputed read. Pruned the
   now-dead `synthGen` field, `SetSynthGen`, and the `NewRouter` variadic param across
   `handler.go` / `server.go` / `cmd/api/main.go` (main.go keeps the `synthGen` local for the
@@ -45,7 +45,7 @@ profile open. Phase A makes the read path eager-safe (sequenced *before* the fro
 (`internal/api`, `auth`, `config`, `ml`, `thirdparty`).
 
 ## Result
-The eager fan-out (~6–9 concurrent reads per profile open) is now safe: no Gemma on the read path,
+The eager fan-out (~6–9 concurrent reads per profile open) is now safe: no local model on the read path,
 concurrent misses coalesced to one DB hit, the one heavy aggregation cached long, and the pool sized
 for the burst. `/sigil` serves a clean empty state for never-synthesized entities (a background path
 fills them in).

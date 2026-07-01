@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS transfer_rumors_shadow (
     is_rumor           boolean,
     direction          text,
     stage              text,
-    gemma_summary      text,
+    model_summary      text,
     source_attribution text,
     confidence         real,
 

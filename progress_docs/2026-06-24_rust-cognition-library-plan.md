@@ -63,5 +63,5 @@ prompt without re-deriving context.
   identical on score / vibe / built-prompt bytes / Ollama request jsonb). Detail:
   `progress_docs/2026-06-24_rust-cognition-harness-L0-L1.md`.
 - **Next — L2:** config-driven Router (`COGNITION_ROUTE_*` + `from_config`/`candidate_for`, still
-  all-Gemma & byte-identical) + the A/B eval bin (`rust/src/bin/eval.rs`). Full handoff prompt in the
+  all-local model & byte-identical) + the A/B eval bin (`rust/src/bin/eval.rs`). Full handoff prompt in the
   vault plan §7.

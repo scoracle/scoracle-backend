@@ -105,7 +105,7 @@ Enqueue at (each inside the txn that wrote the input, using `work.Enqueue`):
 - Rating or Vibe generation changes → `momentum`;
 - trajectory changes → `momentum`; Rating/Vibe/Momentum change → `sigil`.
 
-Consumer: a stage drainer (`Claim` → run Gemma → `Complete`/`Fail`) replacing the `runStart`
+Consumer: a stage drainer (`Claim` → run local model → `Complete`/`Fail`) replacing the `runStart`
 handoff in `cmd/pipeline`, ordered per the target flow; `RequeueStale` on a maintenance tick.
 Session 9 then converts the real-time `LISTEN/NOTIFY` triggers to enqueue durable work rather
 than representing completed eligibility directly.

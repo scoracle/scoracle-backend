@@ -12,7 +12,7 @@
 //! the team relationship are SQL/Postgres (the model never computes the number or the direction);
 //! the model ONLY vets — is this a live rumor about THIS exact player, what stage, a grounded
 //! one-line summary. The subject same-person test is realised as the verdict's `subject` field plus
-//! the t4 identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
+//! the t5 identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
 //! JSON, exactly as Go does); the standalone embedding-backed `resolve_one` for transfers is a
 //! HORIZON refinement — it would restructure the one fused call into two and break Go-machinery
 //! parity, so it waits (Plan §1.3 "an improvement, not parity").
@@ -22,15 +22,8 @@
 //! NEVER served (every read requires `is_rumor IS TRUE`) and is counted so the team's stage item is
 //! re-enqueued for a retry. Only a successful POSITIVE verdict ever becomes a served rumor.
 //!
-//! THE t4 PROMPT (the single-home change — this is its ONLY home, Go stays frozen at t3 to be
-//! retired): t4 adds the **roundup/listicle clause** (a name in a multi-subject roundup / notes
-//! column / power ranking / listicle is NOT a live rumor) and strengthens **never-invent-a-fee**
-//! (state a fee/bid/figure/stage ONLY when the sources give it — no fabrication, no stage upgrade),
-//! with an explicit stage-evidence ladder. This is the L9 false-heat root fix (mistral t3 confirmed
-//! an "AFC Notes" roundup as concrete_interest + a fabricated $50m bid → false heat that then fed
-//! the narratives draft a phantom). Everything else — loaders, the user prompt, options, persist —
-//! is byte-faithful to Go t3 (the parity contract: `bin/transfer_parity` + the Go dump diff only
-//! the `system` field, the deliberate t4 divergence).
+//! THE t5 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
+//! but rewrites the instructions as schema-first rules for smaller local models.
 
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
@@ -45,16 +38,14 @@ use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use tracing::warn;
 
-/// Prompt version — the single-home bump from Go's frozen `t3`. t4 = t3 + the roundup/listicle
-/// clause + the strengthened never-invent-a-fee/stage instruction (the L9 false-heat root fix).
-/// Go's `transferPromptVersion` stays "t3" (to be retired at cutover); this is the only "t4".
-pub const TRANSFER_PROMPT_VERSION: &str = "t4";
+/// Prompt version for the transfer/trade vetting contract.
+pub const TRANSFER_PROMPT_VERSION: &str = "t5";
 
 /// Production vetting temperature (transfer.go uses 0.3). The parity harness overrides to 0.
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
 
-/// Token cap for the JSON verdict. Mirrors transfer.go's NumPredict: 1200.
-pub const TRANSFER_NUM_PREDICT: i32 = 1200;
+/// Token cap for the JSON verdict.
+pub const TRANSFER_NUM_PREDICT: i32 = 900;
 
 /// Corpus + candidate governors — mirror transfer.go's consts exactly (the parity contract).
 const TRANSFER_MAX_CORPUS_NEWS: i64 = 12;
@@ -68,10 +59,8 @@ const COMENTION_PROXIMITY_CHARS: i32 = 50;
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
 
-/// transfer_system_prompt is the t4 system prompt. `noun` is "trade" for NBA/NFL and "transfer"
-/// otherwise (mirrors transfer.go). The JSON contract + field order are byte-identical to t3; the
-/// added paragraphs are the roundup clause, the strengthened never-invent-a-fee, and the
-/// stage-evidence ladder — the only intended divergence from Go (the parity diff localises here).
+/// transfer_system_prompt is the model-neutral transfer/trade vetting prompt. `noun` is "trade" for
+/// NBA/NFL and "transfer" otherwise.
 pub fn transfer_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {
         "trade"
@@ -79,28 +68,34 @@ pub fn transfer_system_prompt(sport: &str) -> String {
         "transfer"
     };
     format!(
-        r#"You are the seasoned beat reporter who tracks this team's {noun} market — you know a real move from noise, and you report only what the sources actually say, never inventing a fee, a bid, or a deal.
+        r#"Task: decide whether the news reports a current {noun} involving BOTH the named team and the exact player in the identity line.
 
-You are given an IDENTITY line describing ONE specific player (name, nationality, current club, position), the team's relationship to them, and the news. Decide whether the sources genuinely report a LIVE {noun} involving BOTH the named team AND THIS EXACT player — the same human as the identity line, not merely someone who shares the name.
+Use the identity line to disambiguate same-name people. Current club and position are strong tie-breakers. When unsure it is the same person, set is_rumor=false.
 
 Set is_rumor=false when any of these holds:
-- The sources are really about a DIFFERENT person who shares the name — a club president/owner, a manager/coach, an unrelated figure, or a different player at another club (a midfielder named "Florentino" is NOT Florentino Pérez, the Real Madrid president — clear it).
-- The current club or position in the sources contradicts the identity line (a different person).
+- The sources are about a different same-name person: owner, president, manager, coach, unrelated figure, or another player at another club.
+- The source club, role, or position contradicts the identity line.
 - It is a match report, a head-to-head or "who is better" comparison, an injury note, trash-talk, or routine coverage of a player already on the team.
-- The player is mentioned only as an OPPONENT or RIVAL of the team — a game or playoff result, a "how to stop him" / "address the X problem" angle, a defender cast as his "stopper", or a draft pick aimed at countering him. Competing AGAINST a team is not joining it; clear these.
-- The move is not live — it already completed, or it is interest from a past window dredged up as background. Only a current, active rumor counts.
-- The player is just one name in a multi-subject ROUNDUP, mailbag, notes column, power ranking, rumour wrap, or "X things to watch"/listicle that rattles off many players in passing. A name on a list is NOT a live rumor about THIS player — clear it unless the sources actually report active, specific interest in this exact player (not merely a passing mention among others).
+- The player is mentioned only as an opponent/rival, game-plan problem, draft counter, or comparison target.
+- The move is complete, historical, or background from an old window.
+- The player is only one name in a roundup, mailbag, notes column, power ranking, rumor wrap, or listicle. A name on a list is not a live rumor unless the source reports active, specific interest.
 
-Use the identity line — especially the current club — as the tie-breaker for same-name people. When unsure it is the same person, prefer is_rumor=false.
+When is_rumor=true:
+- summary: one tight sentence naming the real counterparties and any fee, bid, pick, or asset compensation explicitly stated by the sources.
+- Never estimate, round, or invent money, picks, stage, or deal status.
+- Attribute the substance to the strongest named source when available.
 
-When it IS a live rumor, make the summary worth reading: one tight sentence that names the real counterparties and any CAPITAL the sources state — a fee ("around $50m", "a £40m bid"), or asset/pick compensation ("picks headed to the Raiders", "a pick swap") — attributed to the single most credible source named (not a list of outlets). Name the names; but state a fee, a bid, a figure, or a stage ONLY when the sources give it in words. If the sources name NO number, your summary names NO number — never estimate, round, or invent one (a fabricated "$50m" is a failure), and never upgrade the stage beyond what the sources actually report.
+Stage ladder:
+- speculation = a mention, link, monitoring, or thin report.
+- concrete_interest = the source says the club is actively pursuing the player.
+- advanced_talks = reported active negotiation.
+- here_we_go = agreed or imminent deal.
+- If evidence is thin, use speculation.
 
-The stage must match the evidence the sources give: "speculation" for a mention, a link, or a roundup name-drop; "concrete_interest" only when the sources report the club actively pursuing this player; "advanced_talks"/"here_we_go" only for reported active negotiation or an agreed/imminent deal. When the evidence is thin, "speculation".
-
-Reply with ONLY a JSON object, no prose:
+Return only this JSON object, with every field present:
 {{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one tight sentence: who, which clubs, any fee or picks the sources actually state, attributed to the source", "confidence": 0.0-1.0}}
 
-direction is relative to the named team: "incoming" = the team is signing the player; "outgoing" = the player is leaving. "subject" is the person's NAME only (e.g. "Darwin Nunez") — never copy the identity-card line. Always return every field, including confidence. If it is not a live {noun} about THIS exact player, set is_rumor=false; still fill "subject" with who the sources are really about."#
+direction is relative to the named team: incoming = joining the team; outgoing = leaving the team. subject is the person's name only, never the full identity line. If it is not a live {noun} about this exact player, set is_rumor=false and set subject to who the sources are really about."#
     )
 }
 
@@ -126,7 +121,7 @@ pub struct NewsItem {
 
 /// The model's JSON verdict (defensively parsed) — the `T` in `Parser<T>`. `is_rumor: Option<bool>`
 /// is the fail-closed carrier (Plan §1.2): `None` ⇒ the model never committed ⇒ the UNKNOWN marker,
-/// unrepresentable as a served row. Mirrors `gemmaTransferVerdict`.
+/// unrepresentable as a served row. Mirrors `transferVerdict`.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct TransferVerdict {
     pub is_rumor: Option<bool>,
@@ -655,7 +650,7 @@ pub struct PairReady {
 
 /// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
 /// stays Postgres), the pair corpus, the deterministic team relationship, then `build_transfer_prompt`
-/// with the t4 options and the exact wire body. NO model call — these are the parity axes (the L2
+/// with the t5 options and the exact wire body. NO model call — these are the deterministic axes (the L2
 /// finding: the verdict is not a temp-0 parity axis, so the gate needs no GPU). The role is
 /// [`Role::EmotionalNews`] (the news/transfer reasoner).
 pub async fn build_pair_request(
@@ -827,7 +822,7 @@ pub async fn persist_transfer_row(
         r#"
         INSERT INTO transfer_rumors (
             team_id, player_id, sport, trigger_type, heat, heat_components,
-            is_rumor, direction, stage, gemma_summary, source_attribution, confidence,
+            is_rumor, direction, stage, model_summary, source_attribution, confidence,
             input_news_ids, model_version, prompt_version, trigger_payload
         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,$14,$15,$16::jsonb)
         "#,
@@ -975,8 +970,8 @@ mod tests {
     }
 
     // --- build_transfer_prompt byte-fixtures: the deterministic parity axis. The expected strings
-    // are computed by hand from Go's buildTransferPrompt, so a drift in the Rust assembly fails here
-    // (offline, no model) before the live diff ever runs. -------------------------------------------
+    // are computed by hand from the Rust assembly, so prompt drift fails here (offline, no model).
+    // -----------------------------------------------------------------------------------------------
 
     #[test]
     fn prompt_current_with_full_identity_and_news() {
@@ -1158,13 +1153,13 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     }
 
     #[test]
-    fn t4_system_prompt_carries_the_single_home_fix() {
-        // The two t4 clauses that fix the L9 false-heat root must be present (and noun-correct).
+    fn t5_system_prompt_carries_the_false_heat_guards() {
+        // The false-heat guards must be present and noun-correct.
         let football = transfer_system_prompt("FOOTBALL");
-        assert!(football.contains("transfer market"));
-        assert!(football.contains("ROUNDUP")); // the roundup/listicle clause
-        assert!(football.contains("a fabricated \"$50m\" is a failure")); // never-invent-a-fee
+        assert!(football.contains("current transfer involving BOTH"));
+        assert!(football.contains("roundup"));
+        assert!(football.contains("Never estimate, round, or invent money"));
         let nba = transfer_system_prompt("NBA");
-        assert!(nba.contains("trade market")); // noun swap for NBA/NFL
+        assert!(nba.contains("current trade involving BOTH")); // noun swap for NBA/NFL
     }
 }

@@ -16,7 +16,7 @@ implemented separately.
 Turn `cmd/pipeline` from an in-process-watermark chain into an **ordered, durable,
 crash-recoverable** pipeline where the database (`pipeline_work`) is the cross-stage
 handoff. After one successful run, every accepted new input has reached its derived
-products — and a re-run with no fresh input does no Gemma work.
+products — and a re-run with no fresh input does no local model work.
 
 The pre-S8 pipeline RSS-swept, then derived against a `runStart` watermark while
 scrubbing happened **asynchronously** in a separate maintenance ticker — so fresh
@@ -74,7 +74,7 @@ requeue stale → RSS sweep → scrub(fresh batch) → enqueue vetted entities
 - `RequeueStale` (30-min lease) runs at startup to recover a crashed prior run's
   in-flight rows before anything new is claimed.
 - Re-run with no fresh input ⇒ sweep returns an empty affected set ⇒ nothing scrubbed
-  or enqueued ⇒ **no Gemma work** (the audit's "re-run unchanged input is skipped").
+  or enqueued ⇒ **no local model work** (the audit's "re-run unchanged input is skipped").
 - Kill after scrub ⇒ restart drains the still-pending `pipeline_work` rows ⇒ derivation
   resumes from the database, not from memory.
 
@@ -102,18 +102,18 @@ No migration: `pipeline_work` already exists (S7, migration 102).
   (S7 substrate still inert); `AffectedVettedEntities` and `CorpusVersion` queries
   execute and return the expected shapes (e.g. a FOOTBALL team fingerprinting to
   `89 vetted links : <epoch>` — a new vetted link advances both halves and reopens work).
-- **Bounded end-to-end smokes** (real RSS + real Gemma, against prod):
+- **Bounded end-to-end smokes** (real RSS + real local model, against prod):
   - NBA (`-scrub-limit 2`): sweep `ok=30 fail=0 fresh_articles=274` — the **new
     affected-IDs return works** (274 freshly-linked articles surfaced); `scrub-limit`
     capped 274→2.
   - NFL (`-scrub-limit 1`): sweep `fresh_articles=303`, capped 303→1.
-  - In BOTH, the scrub Gemma calls hit the 180s Ollama timeout (cold/contended GPU,
+  - In BOTH, the scrub local model calls hit the 180s Ollama timeout (cold/contended GPU,
     see F-014) and the pipeline was **correctly fail-closed**: `scrubbed=0 →
     entities_enqueued=0 →` every drain `ok=0 fail=0 →` clean `EXIT=0`. A failed scrub
     produced **no** derivation and **no** queue rows — the fail-closed invariant holds.
-  - Ollama capacity was diagnosed (F-014): `gemma4:e4b` (8B) is partially CPU-offloaded
+  - Ollama capacity was diagnosed (F-014): `local-model:tag` (8B) is partially CPU-offloaded
     on the 8GB GPU; warm latency for a small generation is ~7.5s, but the 1200-token
-    scrub under contention with the API's own Gemma workers exceeds 180s.
+    scrub under contention with the API's own local model workers exceeds 180s.
   - **Happy-path confirmation** (raised `OLLAMA_TIMEOUT_SECONDS=600` to clear the
     environmental blocker, `-scrub-limit 1 -limit 1 -min-articles 5`): the full chain
     ran end-to-end — `scrub: done scrubbed=1 failed=0 entities_enqueued=2`, then every

@@ -2020,7 +2020,7 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
     AS $$
     WITH corpus AS (
         -- News articles linking BOTH the team and the player, in PROXIMITY and
-        -- Gemma-VETTED on both sides. S10: an unscrubbed link no longer contributes
+        -- local model-VETTED on both sides. S10: an unscrubbed link no longer contributes
         -- heat — heat now requires a positive scrub verdict (vetted IS TRUE), so a
         -- rumor's deterministic heat can never exist ahead of its validation.
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts
@@ -4992,14 +4992,14 @@ COMMENT ON COLUMN public.news_article_entities.title_pos IS 'Character offset of
 -- Name: COLUMN news_article_entities.vetted; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_article_entities.vetted IS 'Gemma scrub verdict: TRUE genuinely the subject, FALSE fuzzy false positive, NULL not yet scrubbed. See ml/news_scrub.go.';
+COMMENT ON COLUMN public.news_article_entities.vetted IS 'local model scrub verdict: TRUE genuinely the subject, FALSE fuzzy false positive, NULL not yet scrubbed. See ml/news_scrub.go.';
 
 
 --
 -- Name: COLUMN news_article_entities.scrubbed_at; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the Gemma scrub last judged this link (NULL = unscrubbed). Drives the async scrub worker backlog query.';
+COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the local model scrub last judged this link (NULL = unscrubbed). Drives the async scrub worker backlog query.';
 
 
 --
@@ -5729,7 +5729,7 @@ CREATE TABLE public.stat_summaries (
 -- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: Gemma''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/rating.go.';
+COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/rating.go.';
 
 
 --
@@ -5743,14 +5743,14 @@ COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary des
 -- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to Gemma) — the nightly skip-unless-changed signal.';
+COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to local model) — the nightly skip-unless-changed signal.';
 
 
 --
 -- Name: COLUMN stat_summaries.divined_peak; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.divined_peak IS 'Gemma-divined peak-strength label (e.g. "Rim Protection"), parsed from the rating prompt''s "PEAK: <label>" first line; the Rating card hero label. Was divined_sigil pre-convergence.';
+COMMENT ON COLUMN public.stat_summaries.divined_peak IS 'local model-divined peak-strength label (e.g. "Rim Protection"), parsed from the rating prompt''s "PEAK: <label>" first line; the Rating card hero label. Was divined_sigil pre-convergence.';
 
 
 --
@@ -5815,7 +5815,7 @@ CREATE TABLE public.transfer_rumors (
     is_rumor boolean,
     direction text,
     stage text,
-    gemma_summary text,
+    model_summary text,
     source_attribution text,
     confidence numeric(3,2),
     input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,

@@ -31,7 +31,7 @@ use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::util::truncate_bytes;
 use crate::work::{Item, Stage};
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
@@ -192,21 +192,12 @@ impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser
             Ok(v) => v,
             Err(_) => return Ok(None),
         };
-        if !matches!(
-            adj.decision.as_str(),
-            "apply" | "reject" | "manual_review"
-        ) {
+        if !matches!(adj.decision.as_str(), "apply" | "reject" | "manual_review") {
             return Ok(None);
         }
         if !matches!(
             adj.event_type.as_str(),
-            "transfer"
-                | "trade"
-                | "loan"
-                | "signing"
-                | "extension"
-                | "rumor"
-                | "false_positive"
+            "transfer" | "trade" | "loan" | "signing" | "extension" | "rumor" | "false_positive"
         ) {
             return Ok(None);
         }
@@ -1096,6 +1087,76 @@ async fn record_transfer_identity_failure(
     Ok(())
 }
 
+fn autofill_view_for_sport(sport: &str) -> Result<&'static str> {
+    match sport {
+        "NBA" => Ok("nba.autofill_entities"),
+        "NFL" => Ok("nfl.autofill_entities"),
+        "FOOTBALL" => Ok("football.autofill_entities"),
+        _ => Err(anyhow!("unsupported sport for autofill refresh: {sport}")),
+    }
+}
+
+async fn refresh_sport_autofill_concurrently(
+    pool: &PgPool,
+    sport: &str,
+    reason: &str,
+) -> Result<()> {
+    let view = autofill_view_for_sport(sport)?;
+    sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")
+        .bind(sport)
+        .bind(reason)
+        .execute(pool)
+        .await
+        .context("mark sport autofill refreshing")?;
+
+    if let Err(err) = sqlx::query(&format!("REFRESH MATERIALIZED VIEW CONCURRENTLY {view}"))
+        .execute(pool)
+        .await
+    {
+        let _ = sqlx::query("SELECT public.fail_sport_autofill_refresh($1, $2)")
+            .bind(sport)
+            .bind(err.to_string())
+            .execute(pool)
+            .await;
+        return Err(err).context("refresh sport autofill concurrently");
+    }
+
+    let total: i32 = match sqlx::query_scalar(&format!("SELECT COUNT(*)::int FROM {view}"))
+        .fetch_one(pool)
+        .await
+    {
+        Ok(total) => total,
+        Err(err) => {
+            let _ = sqlx::query("SELECT public.fail_sport_autofill_refresh($1, $2)")
+                .bind(sport)
+                .bind(err.to_string())
+                .execute(pool)
+                .await;
+            return Err(err).context("count refreshed sport autofill entities");
+        }
+    };
+
+    sqlx::query("SELECT public.complete_sport_autofill_refresh($1, $2, $3)")
+        .bind(sport)
+        .bind(total)
+        .bind(reason)
+        .execute(pool)
+        .await
+        .context("complete sport autofill refresh")?;
+    Ok(())
+}
+
+async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bool> {
+    let pending: bool = sqlx::query_scalar(
+        "SELECT COALESCE((SELECT status <> 'ready' FROM public.sport_autofill_versions WHERE sport = $1), false)",
+    )
+    .bind(sport)
+    .fetch_one(pool)
+    .await
+    .context("check sport autofill refresh status")?;
+    Ok(pending)
+}
+
 async fn maybe_apply_transfer_identity(
     hx: &Harness,
     team_id: i32,
@@ -1117,7 +1178,10 @@ async fn maybe_apply_transfer_identity(
 
     let deterministic_confidence = f64::from(heat) / 100.0;
     let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
-        warn!(sport, "transfers: missing identity threshold config; skipping apply");
+        warn!(
+            sport,
+            "transfers: missing identity threshold config; skipping apply"
+        );
         return Ok(());
     };
     if heat < threshold.min_heat
@@ -1126,9 +1190,12 @@ async fn maybe_apply_transfer_identity(
         return Ok(());
     }
 
-    let (old_team_id, old_team_name) =
-        current_identity_team(&hx.pool, sport, c.player_id).await?;
+    let (old_team_id, old_team_name) = current_identity_team(&hx.pool, sport, c.player_id).await?;
     if old_team_id == Some(team_id) {
+        if sport_autofill_refresh_pending(&hx.pool, sport).await? {
+            refresh_sport_autofill_concurrently(&hx.pool, sport, "applied_transfer_identity")
+                .await?;
+        }
         return Ok(());
     }
 
@@ -1207,8 +1274,8 @@ async fn maybe_apply_transfer_identity(
         return Ok(());
     };
 
-    let adjudication_json = serde_json::to_value(&adjudication)
-        .context("serialize transfer identity adjudication")?;
+    let adjudication_json =
+        serde_json::to_value(&adjudication).context("serialize transfer identity adjudication")?;
     let raw = adjudication_json.to_string();
     let result = sqlx::query(
         r#"
@@ -1244,6 +1311,7 @@ async fn maybe_apply_transfer_identity(
             player = c.player_id,
             "transfers: applied current identity override"
         );
+        refresh_sport_autofill_concurrently(&hx.pool, sport, "applied_transfer_identity").await?;
     }
     Ok(())
 }

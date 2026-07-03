@@ -123,7 +123,8 @@ Per-entity products (`{entityType}` ∈ `player|team`):
 
 Sport-level + leaderboard routes:
 
-- `GET /api/v1/{sport}/meta` (search index — being repointed to `/autofill`), `GET /api/v1/{sport}/autofill`, `GET /api/v1/{sport}/health`
+- `GET /api/v1/entities` (alias: `/api/v1/autofill`) — universal text-only player/team directory for home search
+- `GET /api/v1/{sport}/meta`, `GET /api/v1/{sport}/autofill`, `GET /api/v1/{sport}/health` — legacy sport-wide metadata/search payload, legacy sport autofill, freshness
 - `GET /api/v1/{sport}/leaderboard` (rating board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; also `?board=rating|vibes|sigil|news|transfers`)
 - `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)

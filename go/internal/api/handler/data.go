@@ -680,7 +680,8 @@ func (h *Handler) GetEntityRating(w http.ResponseWriter, r *http.Request) {
 // GetEntityMeta returns the entity's IDENTITY metadata (two-rail model) — name,
 // image, physicals, current team/club, position, tier — the payload that drives
 // the page header and is eager-loaded first. 404 when the entity doesn't exist.
-// Distinct from the sport-level /{sport}/meta (the search index, now at /autofill).
+// It is one of the dedicated page-island hydration endpoints; the frontend's
+// only local DB should be the small universal /api/v1/entities search directory.
 // @Summary Get per-entity identity metadata
 // @Description The entity's identity for the page header: name, image, physicals, current team/club, position, tier.
 // @Tags data
@@ -749,9 +750,11 @@ func (h *Handler) GetLeagueTeamResults(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, id, season, leagueID)
 }
 
-// GetMetaPage returns the canonical metadata payload used for frontend local DB hydration.
-// @Summary Get meta page
-// @Description Returns complete metadata and search payload for a sport.
+// GetMetaPage returns the legacy sport-wide metadata/search payload. New
+// frontend surfaces should hydrate metadata from dedicated per-island endpoints;
+// home search should use /api/v1/entities.
+// @Summary Get legacy sport metadata/search payload
+// @Description Returns the legacy complete metadata and search payload for a sport.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -775,13 +778,11 @@ func (h *Handler) GetMetaPage(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
 }
 
-// GetAutofill returns the sport's instant-search / autofill index — the payload the
-// frontend bundles for zero-latency search. Same data the legacy /{sport}/meta route
-// serves today; this is its dedicated home in the two-rail model (where /meta is
-// repurposed to per-entity metadata). Additive: /{sport}/meta stays until the
-// frontend's search migrates here, then it's retired.
-// @Summary Get the sport autofill/search index
-// @Description The sport's autofill + search payload for frontend local hydration — the dedicated home for what /meta historically served.
+// GetAutofill returns the legacy sport-scoped autofill payload. Keep this
+// behavior unchanged for downstream/profile-specific consumers; the home page's
+// universal search DB is /api/v1/entities.
+// @Summary Get the legacy sport autofill/search payload
+// @Description The sport-scoped autofill/search payload for existing consumers. Use /api/v1/entities for universal home search.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -803,6 +804,21 @@ func (h *Handler) GetAutofill(w http.ResponseWriter, r *http.Request) {
 
 	stmt := sport + "_meta_page"
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false, leagueID)
+}
+
+// GetEntities returns a universal, lightweight, text-only entity directory for
+// the home-page search. It deliberately reads canonical public.players/public.teams
+// instead of the sport-scoped autofill materialized views, because those views
+// can be stat-filtered and carry profile hydration metadata.
+// @Summary Get universal entity autofill directory
+// @Description Cross-sport text-only directory of players and teams for home-page search.
+// @Tags data
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /entities [get]
+func (h *Handler) GetEntities(w http.ResponseWriter, r *http.Request) {
+	h.serveStatementJSON(w, r, "entities_directory", dataCacheKey(r), cache.TTLData, false)
 }
 
 // GetLeagueMetaPage returns league-scoped metadata payload for a sport.

@@ -29,14 +29,8 @@ const universalEntitiesStatement = `WITH player_rows AS (
 		aliases.tokens AS aliases,
 		search.tokens AS search_tokens
 	FROM public.players p
-	LEFT JOIN LATERAL (
-		SELECT ps.team_id, ps.position, ps.league_id
-		FROM public.player_stats ps
-		WHERE ps.player_id = p.id AND ps.sport = p.sport
-		ORDER BY ps.season DESC NULLS LAST, ps.updated_at DESC NULLS LAST
-		LIMIT 1
-	) cur ON true
-	LEFT JOIN public.teams t ON t.id = COALESCE(cur.team_id, p.team_id) AND t.sport = p.sport
+	LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = p.sport
+	LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = p.sport
 	LEFT JOIN public.leagues l ON l.id = COALESCE(NULLIF(cur.league_id, 0), p.league_id) AND l.sport = p.sport
 	LEFT JOIN LATERAL (
 		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
@@ -340,13 +334,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       l.score, l.blurb, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
-				-- current club: latest-season player_stats.team_id (canonical:
-				-- public.player_current_team), NOT players.team_id which is last-seeded.
-				LEFT JOIN LATERAL (
-				    SELECT ps.team_id FROM public.player_stats ps
-				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
 				UNION ALL
@@ -422,13 +410,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       l.score, l.previous_score, l.blurb, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
-				-- current club: latest-season player_stats.team_id (canonical:
-				-- public.player_current_team), NOT players.team_id which is last-seeded.
-				LEFT JOIN LATERAL (
-				    SELECT ps.team_id FROM public.player_stats ps
-				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
 				UNION ALL
@@ -483,11 +465,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
 				FROM slopes sl
 				JOIN public.players p ON p.id = sl.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN LATERAL (
-					SELECT ps.team_id FROM public.player_stats ps
-					WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-					ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'player'
 				UNION ALL
@@ -538,11 +516,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       round(sl.slope::numeric, 1) AS score, round(sl.slope::numeric, 3) AS slope
 				FROM slopes sl
 				JOIN public.players p ON p.id = sl.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN LATERAL (
-					SELECT ps.team_id FROM public.player_stats ps
-					WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-					ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'player'
 				UNION ALL
@@ -607,11 +581,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       l.narrative_title, l.body, l.impact AS score, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN LATERAL (
-				    SELECT ps.team_id FROM public.player_stats ps
-				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
 				UNION ALL
@@ -664,8 +634,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			JOIN public.teams t ON t.id = l.team_id AND t.sport = (SELECT sport FROM req)
+			LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
 			-- is_rumor IS TRUE = model-vetted; heat > 0 drops zero-signal stragglers.
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
+			  AND NOT (
+			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
+			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
+			  )
 		)
 		SELECT json_build_object(
 			'page', 'transfers_leaderboard',
@@ -715,11 +690,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				       c.headline_count AS score, c.latest_at AS generated_at
 				FROM counts c
 				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN LATERAL (
-				    SELECT ps.team_id FROM public.player_stats ps
-				    WHERE ps.player_id = p.id AND ps.sport = (SELECT sport FROM req) AND ps.team_id IS NOT NULL
-				    ORDER BY ps.season DESC NULLS LAST LIMIT 1
-				) cur ON true
+				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE c.entity_type = 'player'
 				UNION ALL
@@ -848,7 +819,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM tr_latest l
 			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
+			LEFT JOIN public.player_current_identity pci ON pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
+			  AND NOT (
+			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
+			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
+			  )
 		)
 		SELECT json_build_object(
 			'page', 'transfers',
@@ -945,8 +921,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
-		// image, physicals, current team/club (player_current_team), position (latest
-		// player_stats), tier. UNION-gated on entity_type so a missing entity returns 0
+		// image, physicals, current team/club and position (player_current_identity),
+		// tier. UNION-gated on entity_type so a missing entity returns 0
 		// rows (404). This hydrates the page-header island directly; the only local
 		// frontend search DB should be the universal /api/v1/entities directory.
 		// $1 sport · $2 entity_type · $3 entity_id.
@@ -957,17 +933,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', 'player', 'id', p.id, 'sport', lower(p.sport), 'name', p.name,
 			'first_name', p.first_name, 'last_name', p.last_name, 'image', p.photo_url,
 			'nationality', p.nationality, 'date_of_birth', p.date_of_birth, 'height', p.height, 'weight', p.weight,
-			'position', pos.position, 'tier', p.tier,
+			'position', NULLIF(pci.position, 'Unknown'), 'tier', p.tier,
 			'team', CASE WHEN t.id IS NOT NULL THEN json_build_object('id', t.id, 'name', t.name, 'short_code', t.short_code, 'image', t.logo_url) ELSE NULL END
 		) AS meta
 		FROM public.players p
-		LEFT JOIN public.player_current_team pct ON pct.player_id = p.id AND pct.sport = p.sport
-		LEFT JOIN public.teams t ON t.id = pct.team_id AND t.sport = p.sport
-		LEFT JOIN LATERAL (
-			SELECT ps.position FROM public.player_stats ps
-			WHERE ps.player_id = p.id AND ps.sport = p.sport AND ps.position IS NOT NULL
-			ORDER BY ps.season DESC LIMIT 1
-		) pos ON true
+		LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+		LEFT JOIN public.teams t ON t.id = pci.team_id AND t.sport = p.sport
 		WHERE (SELECT entity_type FROM req) = 'player' AND p.id = (SELECT entity_id FROM req) AND p.sport = (SELECT sport FROM req)
 		UNION ALL
 		SELECT json_build_object(

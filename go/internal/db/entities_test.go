@@ -1,6 +1,7 @@
 package db
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -60,6 +61,30 @@ func TestUniversalEntitiesStatementDoesNotReuseSportAutofillViews(t *testing.T) 
 	} {
 		if strings.Contains(universalEntitiesStatement, needle) {
 			t.Fatalf("universal entities statement must not reuse stat-filtered sport autofill view %q", needle)
+		}
+	}
+}
+
+func TestCurrentIdentityContractInDBStatements(t *testing.T) {
+	srcBytes, err := os.ReadFile("db.go")
+	if err != nil {
+		t.Fatalf("read db.go: %v", err)
+	}
+	src := string(srcBytes)
+
+	if !strings.Contains(universalEntitiesStatement, "public.player_current_identity") {
+		t.Fatalf("universal entities must resolve team/position from player_current_identity")
+	}
+	if strings.Contains(src, "SELECT ps.team_id FROM public.player_stats ps") {
+		t.Fatalf("db statements must not derive current team directly from latest player_stats")
+	}
+	for _, needle := range []string{
+		"LEFT JOIN public.player_current_identity pci",
+		"pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming'",
+		"pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing'",
+	} {
+		if !strings.Contains(src, needle) {
+			t.Fatalf("db transfer reads missing current-identity guard %q", needle)
 		}
 	}
 }

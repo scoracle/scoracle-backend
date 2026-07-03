@@ -148,8 +148,8 @@ fn to_candidate(c: &ScrubCandidate) -> Candidate {
 }
 
 /// load_candidates returns every entity linked to the article with its identity card — the Rust port
-/// of `news_scrub.go::loadCandidates` (current club from `player_current_team`, position from the
-/// latest stats row). `match_confidence` is cast `::float8` (sqlx has no numeric→f64 without the
+/// of `news_scrub.go::loadCandidates` (current club and position from `player_current_identity`).
+/// `match_confidence` is cast `::float8` (sqlx has no numeric→f64 without the
 /// decimal feature — the L5 landmine).
 async fn load_candidates(
     hx: &Harness,
@@ -162,18 +162,13 @@ async fn load_candidates(
                COALESCE(p.name, t.name, '')                  AS name,
                COALESCE(p.nationality, '')                   AS nationality,
                COALESCE(ct.name, '')                         AS current_club,
-               COALESCE(NULLIF(pos.position, 'Unknown'), '') AS position,
+               COALESCE(NULLIF(pci.position, 'Unknown'), '') AS position,
                nae.match_confidence::float8                  AS confidence
         FROM news_article_entities nae
         LEFT JOIN players p ON nae.entity_type = 'player' AND p.id = nae.entity_id AND p.sport = nae.sport
         LEFT JOIN teams   t ON nae.entity_type = 'team'   AND t.id = nae.entity_id AND t.sport = nae.sport
-        LEFT JOIN public.player_current_team pct ON nae.entity_type = 'player' AND pct.player_id = nae.entity_id AND pct.sport = nae.sport
-        LEFT JOIN teams ct ON ct.id = pct.team_id AND ct.sport = nae.sport
-        LEFT JOIN LATERAL (
-            SELECT ps.position FROM player_stats ps
-            WHERE ps.player_id = nae.entity_id AND ps.sport = nae.sport
-            ORDER BY ps.season DESC NULLS LAST LIMIT 1
-        ) pos ON nae.entity_type = 'player'
+        LEFT JOIN public.player_current_identity pci ON nae.entity_type = 'player' AND pci.player_id = nae.entity_id AND pci.sport = nae.sport
+        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = nae.sport
         WHERE nae.article_id = $1 AND nae.sport = $2
         ORDER BY nae.match_confidence DESC, nae.entity_type, nae.entity_id
         "#,

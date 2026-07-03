@@ -112,7 +112,7 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
            AND w.entity_type = r.entity_type
            AND w.entity_id = r.entity_id
            AND w.sport = r.sport
-        RETURNING w.entity_type, w.entity_id, w.sport, w.input_version, w.attempts
+        RETURNING w.entity_type, w.entity_id::bigint, w.sport, w.input_version, w.attempts
         "#,
     )
     .bind(stage.as_str())

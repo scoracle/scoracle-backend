@@ -89,14 +89,15 @@ TZ=America/New_York
 # Stats-rail commentary — nightly, current season, regenerate only on new data
 # ---------------------------------------------------------------------------
 # The on-field IDENTITY analysis (the stats-rail twin of the news narrative).
-# Stats only move on game days, so -mode nightly enumerates the current season's
-# rated entities and regenerates one ONLY when its rating snapshot changed
-# (input_hash differs) — most nights just the entities who played. Runs at 03:00,
-# after the news pipeline (00:00) and the football drain (23:00) so ratings are
-# fresh, and offset to ease the shared Archbox GPU. -limit caps GENERATIONS (model
-# calls) per night, NOT entities scanned — so a filled night still hash-checks the
-# whole current season (DB-only), while the initial fill is bounded to ~400 writes/
-# night (undone-first, so it progresses) and steady state rarely hits the cap.
+# Stats only move on game days, so -mode nightly first DB-filters to entities whose
+# selected current-season stats row is newer than their latest stat_summaries row,
+# or whose latest summary has no input_hash. The input_hash debounce still skips
+# non-material recomputes before any model call. Offseason nights should therefore
+# find little or no stats-rail GPU work. Runs at 03:00, after the news pipeline
+# (00:00) and the football drain (23:00) so ratings are fresh, and offset to ease
+# the shared Archbox GPU. -limit caps GENERATIONS (model calls) per night, NOT
+# entities scanned; the initial fill is bounded to ~400 writes/night
+# (undone-first, so it progresses) and steady state rarely hits the cap.
 # Deep/previous seasons are deferred — backfilled in batches out of band (-mode backfill).
 0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-rust-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
 

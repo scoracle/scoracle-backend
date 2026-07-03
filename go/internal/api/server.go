@@ -138,6 +138,12 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
+		// Universal home-page entity directory. This is intentionally separate from
+		// the sport-scoped /{sport}/autofill payloads, which remain profile/sport
+		// hydration indexes with heavier metadata.
+		r.Get("/entities", h.GetEntities)
+		r.Get("/autofill", h.GetEntities)
+
 		r.Route("/{sport:nba|nfl|football}", func(r chi.Router) {
 			// Per-product endpoints keep each card independently cacheable and avoid
 			// rebuilding a bundled profile payload on every page load. /stats carries
@@ -153,12 +159,15 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
 			r.Get("/{entityType:player|team}/{id}/headlines", h.GetEntityHeadlines)
-			// Per-entity identity metadata (drives the page header). Distinct from the
-			// sport-level /meta (search index → /autofill).
+			// Per-entity identity metadata for the page-header island. Frontend
+			// surfaces should hydrate islands from these dedicated endpoints; the
+			// universal /entities directory is the only small local search DB.
 			r.Get("/{entityType:player|team}/{id}/meta", h.GetEntityMeta)
+			// Legacy sport-wide metadata/search payload. Kept for existing consumers;
+			// new home search should use /api/v1/entities or /api/v1/autofill.
 			r.Get("/meta", h.GetMetaPage)
-			// Autofill/search index — the dedicated home for what /meta serves today
-			// (two-rail split; /meta becomes per-entity metadata, this stays the search index).
+			// Legacy sport-scoped autofill payload. Kept unchanged for downstream
+			// sport/profile-specific consumers; not the universal home search DB.
 			r.Get("/autofill", h.GetAutofill)
 			r.Get("/health", h.GetSportHealthPage)
 			r.Get("/leaderboard", h.GetLeaderboard)

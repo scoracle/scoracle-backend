@@ -18,6 +18,139 @@ type Pool struct {
 	*pgxpool.Pool
 }
 
+const universalEntitiesStatement = `WITH player_rows AS (
+	SELECT
+		p.id::text AS id,
+		'player'::text AS type,
+		lower(p.sport) AS sport,
+		p.name,
+		t.name AS team,
+		NULLIF(COALESCE(cur.position, p.meta->>'position', p.meta->>'pos'), '') AS position,
+		aliases.tokens AS aliases,
+		search.tokens AS search_tokens
+	FROM public.players p
+	LEFT JOIN LATERAL (
+		SELECT ps.team_id, ps.position, ps.league_id
+		FROM public.player_stats ps
+		WHERE ps.player_id = p.id AND ps.sport = p.sport
+		ORDER BY ps.season DESC NULLS LAST, ps.updated_at DESC NULLS LAST
+		LIMIT 1
+	) cur ON true
+	LEFT JOIN public.teams t ON t.id = COALESCE(cur.team_id, p.team_id) AND t.sport = p.sport
+	LEFT JOIN public.leagues l ON l.id = COALESCE(NULLIF(cur.league_id, 0), p.league_id) AND l.sport = p.sport
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(COALESCE(p.search_aliases, ARRAY[]::text[]) || ARRAY[p.first_name, p.last_name, p.name, replace(p.name, ' ', '')]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(COALESCE(p.search_aliases, ARRAY[]::text[]) || ARRAY[p.first_name, p.last_name, p.name, replace(p.name, ' ', '')]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) aliases ON true
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[t.short_code, t.name, replace(COALESCE(t.name, ''), ' ', ''), t.city, t.country, l.name]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[t.short_code, t.name, replace(COALESCE(t.name, ''), ' ', ''), t.city, t.country, l.name]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) search ON true
+	WHERE p.sport IN ('NBA', 'NFL', 'FOOTBALL')
+	  AND NULLIF(p.name, '') IS NOT NULL
+),
+team_rows AS (
+	SELECT
+		t.id::text AS id,
+		'team'::text AS type,
+		lower(t.sport) AS sport,
+		t.name,
+		NULL::text AS team,
+		NULL::text AS position,
+		aliases.tokens AS aliases,
+		search.tokens AS search_tokens
+	FROM public.teams t
+	LEFT JOIN LATERAL (
+		SELECT ts.league_id
+		FROM public.team_stats ts
+		WHERE ts.team_id = t.id AND ts.sport = t.sport
+		ORDER BY ts.season DESC NULLS LAST, ts.updated_at DESC NULLS LAST
+		LIMIT 1
+	) cur ON true
+	LEFT JOIN public.leagues l ON l.id = COALESCE(NULLIF(cur.league_id, 0), t.league_id) AND l.sport = t.sport
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(COALESCE(t.search_aliases, ARRAY[]::text[]) || ARRAY[t.name, replace(t.name, ' ', ''), t.short_code]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(COALESCE(t.search_aliases, ARRAY[]::text[]) || ARRAY[t.name, replace(t.name, ' ', ''), t.short_code]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) aliases ON true
+	LEFT JOIN LATERAL (
+		SELECT COALESCE(array_agg(token ORDER BY token), ARRAY[]::text[]) AS tokens
+		FROM (
+			SELECT DISTINCT token
+			FROM (
+				SELECT NULLIF(lower(trim(v)), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[t.city, t.country, t.conference, t.division, l.name]) AS v
+				UNION ALL
+				SELECT NULLIF(unaccent(lower(trim(v))), '') AS token
+				FROM unnest(aliases.tokens || ARRAY[t.city, t.country, t.conference, t.division, l.name]) AS v
+			) normalized
+			WHERE token IS NOT NULL
+		) deduped
+	) search ON true
+	WHERE t.sport IN ('NBA', 'NFL', 'FOOTBALL')
+	  AND NULLIF(t.name, '') IS NOT NULL
+),
+entities AS (
+	SELECT * FROM player_rows
+	UNION ALL
+	SELECT * FROM team_rows
+),
+entity_json AS (
+	SELECT
+		type,
+		sport,
+		name,
+		jsonb_strip_nulls(jsonb_build_object(
+			'id', id,
+			'type', type,
+			'sport', sport,
+			'name', name,
+			'team', team,
+			'position', position,
+			'aliases', to_jsonb(aliases),
+			'search_tokens', to_jsonb(search_tokens)
+		)) AS entity
+	FROM entities
+)
+SELECT json_build_object(
+	'page', 'entities',
+	'generated_at', NOW(),
+	'total_entities', (SELECT COUNT(*)::int FROM entity_json),
+	'entities', COALESCE(
+		(SELECT jsonb_agg(entity ORDER BY type, sport, name) FROM entity_json),
+		'[]'::jsonb
+	)
+)`
+
 // New creates and validates a new connection pool.
 func New(ctx context.Context, cfg *config.Config) (*Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
@@ -56,6 +189,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 	stmts := map[string]string{
 		// Health
 		"health_check": "SELECT 1",
+
+		// Universal home-page autofill directory. Cross-sport and intentionally
+		// text-only; profile hydration and stat-definition payloads stay on
+		// sport-scoped /{sport}/autofill.
+		"entities_directory": universalEntitiesStatement,
 
 		// Data API (canonical sport routes)
 		// Rating leaderboard (migrations 027/028 — the z-score rating engine).
@@ -809,7 +947,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
 		// image, physicals, current team/club (player_current_team), position (latest
 		// player_stats), tier. UNION-gated on entity_type so a missing entity returns 0
-		// rows (404). Distinct from the sport-level /{sport}/meta (search index → /autofill).
+		// rows (404). This hydrates the page-header island directly; the only local
+		// frontend search DB should be the universal /api/v1/entities directory.
 		// $1 sport · $2 entity_type · $3 entity_id.
 		"entity_meta": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id

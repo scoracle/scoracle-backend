@@ -13,6 +13,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 
 | Route | Notes |
 |---|---|
+| `GET /api/v1/entities` · `/autofill` | universal, cross-sport, text-only player/team directory for home search |
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
 | `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-divined stat read + stat commentary (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
@@ -22,7 +23,7 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/headlines` | breaking-news bulletins (2-day window) |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · team's rating board |
-| `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | search index (→ `/autofill`) · search index · freshness |
+| `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
 | `GET /api/v1/{sport}/leaderboard` | rating board; `?board=rating\|vibes\|sigil\|news\|transfers\|headlines` |
 | `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,headlines,trending}` | dedicated boards |
 | `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |
@@ -375,7 +376,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
 
 ### `GET /api/v1/{sport}/meta`
 
-Returns complete metadata payload for frontend local DB hydration. Designed for caching on the frontend to enable instant autocomplete without repeated API calls.
+Legacy sport-wide metadata/search payload. New frontend surfaces should hydrate page islands from dedicated backend endpoints like `/{sport}/{entityType}/{id}/meta`, `/stats`, `/rating`, `/news`, `/transfers`, `/headlines`, `/momentum`, and `/sigil`. Do not use this as a new frontend local metadata DB; home search should use `GET /api/v1/entities`.
 
 Query parameters:
 - `league_id` (optional integer) - Scope to specific league
@@ -390,7 +391,7 @@ Response includes:
 
 ### `GET /api/v1/{sport}/autofill`
 
-The sport's **autofill / instant-search index** — its dedicated home in the two-rail model. Returns the **same payload** as `/{sport}/meta` today (same `{sport}_meta_page` statement, same `league_id` query param). The split exists because `/meta` is being repurposed to per-entity metadata (`/{sport}/{entityType}/{id}/meta`); the search index lives here. **Additive** — `/{sport}/meta` keeps serving until the frontend's search migrates to `/autofill`, then it's retired.
+Legacy sport-scoped autofill/search payload for downstream and profile-specific consumers. It currently returns the same payload as `/{sport}/meta` today (same `{sport}_meta_page` statement, same `league_id` query param). Keep it unchanged for existing consumers; the universal home-page search DB is `GET /api/v1/entities` (alias: `/api/v1/autofill`).
 
 Query parameters:
 - `league_id` (optional integer) - Scope to specific league
@@ -412,8 +413,8 @@ Response includes:
 
 The **Scoracle Rating Engine** (migrations 027–028) is a **separate dataset** from the
 profile/meta payloads above — it does not touch the counting-stats/pizza payload, and
-the rating numbers are **not** in `/meta` (which exists only to refresh the frontend's
-local DB). The rating engine has three dedicated endpoints: a **leaderboard** (the sport-wide
+the rating numbers are **not** in legacy sport-level `/meta`. The rating engine has
+dedicated endpoints: a **leaderboard** (the sport-wide
 board), a **roster** (that same board narrowed to one team), and a **sparkline**
 (per-entity). The leaderboard and roster share one row shape — see the roster
 note below.
@@ -945,7 +946,7 @@ corpus before transfers); filtered to the 2-day expiration window and sorted new
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 
-The entity's **identity metadata** (two-rail model) — the payload that drives the page header and is eager-loaded first. Distinct from the sport-level `/{sport}/meta` (the search index, now at `/autofill`). Returns **404** when the entity doesn't exist.
+The entity's **identity metadata** — the payload that drives the page-header island and is eager-loaded first. This makes a frontend local metadata DB unnecessary. Returns **404** when the entity doesn't exist.
 
 Path parameters:
 - `sport` - `nba`, `nfl`, or `football`

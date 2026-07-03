@@ -88,3 +88,33 @@ func TestCurrentIdentityContractInDBStatements(t *testing.T) {
 		}
 	}
 }
+
+func TestSportMetaUsesSportScopedAutofillVersions(t *testing.T) {
+	srcBytes, err := os.ReadFile("db.go")
+	if err != nil {
+		t.Fatalf("read db.go: %v", err)
+	}
+	src := string(srcBytes)
+
+	for _, needle := range []string{
+		"public.sport_autofill_versions WHERE sport = 'NBA'",
+		"public.sport_autofill_versions WHERE sport = 'NFL'",
+		"public.sport_autofill_versions WHERE sport = 'FOOTBALL'",
+		"'meta_version', (SELECT version::text FROM meta_info)",
+		"'autofill_status', (SELECT status FROM meta_info)",
+	} {
+		if !strings.Contains(src, needle) {
+			t.Fatalf("sport meta statements missing autofill version contract %q", needle)
+		}
+	}
+	forbidden := []string{
+		"MAX(updated_at) FROM public.players WHERE sport = 'NBA'",
+		"MAX(updated_at) FROM public.players WHERE sport = 'NFL'",
+		"MAX(updated_at) FROM public.players WHERE sport = 'FOOTBALL'",
+	}
+	for _, needle := range forbidden {
+		if strings.Contains(src, needle) {
+			t.Fatalf("sport meta version must not be derived from unrelated player timestamps: %q", needle)
+		}
+	}
+}

@@ -1130,19 +1130,19 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)`,
 		"nba_meta_page": `WITH meta_info AS (
 			SELECT
-				GREATEST(
-					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'NBA'), '1970-01-01'::timestamptz),
-					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'NBA'), '1970-01-01'::timestamptz)
-				) AS last_updated,
+				COALESCE((SELECT version FROM public.sport_autofill_versions WHERE sport = 'NBA'), 1) AS version,
+				COALESCE((SELECT generated_at FROM public.sport_autofill_versions WHERE sport = 'NBA'), '1970-01-01'::timestamptz) AS generated_at,
 				(SELECT current_season FROM public.sports WHERE id = 'NBA') AS current_season,
-				(SELECT COUNT(*)::int FROM nba.autofill_entities) AS total_entities
+				COALESCE((SELECT total_entities FROM public.sport_autofill_versions WHERE sport = 'NBA'), (SELECT COUNT(*)::int FROM nba.autofill_entities)) AS total_entities,
+				COALESCE((SELECT status FROM public.sport_autofill_versions WHERE sport = 'NBA'), 'ready') AS status
 		)
 		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'nba',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
-			'generated_at', NOW(),
+			'meta_version', (SELECT version::text FROM meta_info),
+			'generated_at', (SELECT generated_at FROM meta_info),
+			'autofill_status', (SELECT status FROM meta_info),
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
@@ -1157,19 +1157,19 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)`,
 		"nfl_meta_page": `WITH meta_info AS (
 			SELECT
-				GREATEST(
-					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'NFL'), '1970-01-01'::timestamptz),
-					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'NFL'), '1970-01-01'::timestamptz)
-				) AS last_updated,
+				COALESCE((SELECT version FROM public.sport_autofill_versions WHERE sport = 'NFL'), 1) AS version,
+				COALESCE((SELECT generated_at FROM public.sport_autofill_versions WHERE sport = 'NFL'), '1970-01-01'::timestamptz) AS generated_at,
 				(SELECT current_season FROM public.sports WHERE id = 'NFL') AS current_season,
-				(SELECT COUNT(*)::int FROM nfl.autofill_entities) AS total_entities
+				COALESCE((SELECT total_entities FROM public.sport_autofill_versions WHERE sport = 'NFL'), (SELECT COUNT(*)::int FROM nfl.autofill_entities)) AS total_entities,
+				COALESCE((SELECT status FROM public.sport_autofill_versions WHERE sport = 'NFL'), 'ready') AS status
 		)
 		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'nfl',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
-			'generated_at', NOW(),
+			'meta_version', (SELECT version::text FROM meta_info),
+			'generated_at', (SELECT generated_at FROM meta_info),
+			'autofill_status', (SELECT status FROM meta_info),
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((
@@ -1184,20 +1184,20 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)`,
 		"football_meta_page": `WITH meta_info AS (
 			SELECT
-				GREATEST(
-					COALESCE((SELECT MAX(updated_at) FROM public.players WHERE sport = 'FOOTBALL'), '1970-01-01'::timestamptz),
-					COALESCE((SELECT MAX(updated_at) FROM public.teams WHERE sport = 'FOOTBALL'), '1970-01-01'::timestamptz)
-				) AS last_updated,
+				COALESCE((SELECT version FROM public.sport_autofill_versions WHERE sport = 'FOOTBALL'), 1) AS version,
+				COALESCE((SELECT generated_at FROM public.sport_autofill_versions WHERE sport = 'FOOTBALL'), '1970-01-01'::timestamptz) AS generated_at,
 				(SELECT current_season FROM public.sports WHERE id = 'FOOTBALL') AS current_season,
 				(SELECT COUNT(*)::int FROM football.autofill_entities 
-				 WHERE ($1::int IS NULL OR COALESCE(league_id, 0) = $1::int)) AS total_entities
+				 WHERE ($1::int IS NULL OR COALESCE(league_id, 0) = $1::int)) AS total_entities,
+				COALESCE((SELECT status FROM public.sport_autofill_versions WHERE sport = 'FOOTBALL'), 'ready') AS status
 		)
 		SELECT json_build_object(
 			'page', 'meta',
 			'sport', 'football',
 			'scope', json_build_object('league_id', $1::int),
-			'meta_version', (SELECT EXTRACT(EPOCH FROM last_updated)::text FROM meta_info),
-			'generated_at', NOW(),
+			'meta_version', (SELECT version::text FROM meta_info),
+			'generated_at', (SELECT generated_at FROM meta_info),
+			'autofill_status', (SELECT status FROM meta_info),
 			'current_season', (SELECT current_season FROM meta_info),
 			'total_entities', (SELECT total_entities FROM meta_info),
 			'items', COALESCE((

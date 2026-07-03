@@ -33,7 +33,7 @@ use crate::util::truncate_bytes;
 use crate::work::{Item, Stage};
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use tracing::warn;
@@ -137,6 +137,168 @@ pub struct TransferVerdict {
     pub confidence: f64,
 }
 
+/// Prompt/version for the second, narrower current-identity adjudication gate. The normal transfer
+/// vet decides whether a row is a live rumor; this gate decides whether that already-vetted rumor is
+/// strong enough to mutate canonical current identity.
+pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v1";
+
+#[derive(Clone, Debug)]
+struct TransferIdentityThreshold {
+    min_heat: i16,
+    min_deterministic_confidence: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TransferIdentityAdjudication {
+    pub decision: String,
+    pub event_type: String,
+    pub confidence: f64,
+    pub old_team_id: Option<i32>,
+    pub new_team_id: i32,
+    pub reason: String,
+    pub evidence_spans: Vec<String>,
+}
+
+pub struct TransferIdentityAdjudicationParser;
+
+impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser {
+    fn parse(&self, raw: &str) -> Result<Option<TransferIdentityAdjudication>> {
+        let (start, end) = match (raw.find('{'), raw.rfind('}')) {
+            (Some(s), Some(e)) if e > s => (s, e),
+            _ => return Ok(None),
+        };
+        let value: serde_json::Value = match serde_json::from_str(&raw[start..=end]) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        let Some(obj) = value.as_object() else {
+            return Ok(None);
+        };
+        for key in [
+            "decision",
+            "event_type",
+            "confidence",
+            "old_team_id",
+            "new_team_id",
+            "reason",
+            "evidence_spans",
+        ] {
+            if !obj.contains_key(key) {
+                return Ok(None);
+            }
+        }
+        let adj: TransferIdentityAdjudication = match serde_json::from_value(value) {
+            Ok(v) => v,
+            Err(_) => return Ok(None),
+        };
+        if !matches!(
+            adj.decision.as_str(),
+            "apply" | "reject" | "manual_review"
+        ) {
+            return Ok(None);
+        }
+        if !matches!(
+            adj.event_type.as_str(),
+            "transfer"
+                | "trade"
+                | "loan"
+                | "signing"
+                | "extension"
+                | "rumor"
+                | "false_positive"
+        ) {
+            return Ok(None);
+        }
+        if !(0.0..=1.0).contains(&adj.confidence) {
+            return Ok(None);
+        }
+        Ok(Some(adj))
+    }
+}
+
+fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
+    let noun = if sport == "NBA" || sport == "NFL" {
+        "trade"
+    } else {
+        "transfer"
+    };
+    format!(
+        r#"Task: adjudicate whether an already-vetted {noun} rumor should update the player's CURRENT team identity.
+
+Fail closed. You confirm or reject only the proposed IDs; never invent a different player or team ID.
+
+Return only strict JSON with exactly these fields:
+{{"decision":"apply|reject|manual_review","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","confidence":0.0,"old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
+
+Use decision="apply" only when the evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now.
+Use decision="reject" for speculation, interest, monitoring, historical/background moves, already-current-team contradictions, or false positives.
+Use decision="manual_review" for ambiguous loans, unclear direction, conflicting sources, or missing/contradictory team IDs.
+
+old_team_id and new_team_id must exactly match the proposed IDs. If old team is unknown, return null for old_team_id."#
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_transfer_identity_adjudication_prompt(
+    sport: &str,
+    player_id: i32,
+    player_name: &str,
+    current_team_id: Option<i32>,
+    current_team_name: &str,
+    new_team_id: i32,
+    new_team_name: &str,
+    deterministic_heat: i16,
+    deterministic_confidence: f64,
+    source_rumor_id: i64,
+    row: &TransferRow,
+    news: &[NewsItem],
+) -> String {
+    let mut b = String::new();
+    b.push_str(&format!(
+        "Sport: {sport}\nPlayer: {player_name} (id {player_id})\n"
+    ));
+    b.push_str(&format!(
+        "Current identity: team_id={} team_name={}\n",
+        current_team_id
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "null".to_string()),
+        if current_team_name.is_empty() {
+            "unknown"
+        } else {
+            current_team_name
+        }
+    ));
+    b.push_str(&format!(
+        "Proposed new identity: team_id={new_team_id} team_name={new_team_name}\n"
+    ));
+    b.push_str(&format!(
+        "Source transfer_rumors.id: {source_rumor_id}\nDeterministic heat: {deterministic_heat}\nDeterministic confidence: {deterministic_confidence:.3}\n"
+    ));
+    b.push_str(&format!(
+        "Vetted rumor direction: {}\nVetted stage: {}\nVetted summary: {}\nVetted source: {}\n",
+        row.direction.as_deref().unwrap_or(""),
+        row.stage.as_deref().unwrap_or(""),
+        row.summary.as_deref().unwrap_or(""),
+        row.attribution.as_deref().unwrap_or("")
+    ));
+    b.push_str("\nEvidence headlines:\n");
+    for n in news {
+        b.push_str("- ");
+        if !n.source.is_empty() {
+            b.push_str(&format!("[{}] ", n.source));
+        }
+        b.push_str(&n.title);
+        if !n.description.is_empty() {
+            b.push_str(" — ");
+            b.push_str(&truncate_bytes(&n.description, DESC_TRUNCATE));
+        }
+        b.push('\n');
+    }
+    b.push_str("\nReturn the strict JSON adjudication now.");
+    b
+}
+
 /// TransferParser turns the model's JSON reply into a `TransferVerdict`. Fail-closed (`Ok(None)`)
 /// only when there is NO JSON object at all or it is unparseable (Go's `!ok` path); a parsed verdict
 /// whose `is_rumor` is absent surfaces as `Some(verdict)` with `is_rumor == None`, and the caller
@@ -198,6 +360,9 @@ pub struct TransferPairOutput {
     pub built_prompt: Option<String>,
     /// The exact /api/generate wire body (captured by `extract`). `None` for Skipped.
     pub request_body: Option<serde_json::Value>,
+    /// Evidence retained for the optional post-persist identity adjudication gate. Empty for
+    /// skipped/no-corpus pairs.
+    pub identity_apply_news: Vec<NewsItem>,
     pub prompt_version: &'static str,
 }
 
@@ -731,6 +896,7 @@ pub async fn analyze_pair(
                     row: None,
                     built_prompt: None,
                     request_body: None,
+                    identity_apply_news: Vec::new(),
                     prompt_version: TRANSFER_PROMPT_VERSION,
                 });
             }
@@ -796,6 +962,7 @@ pub async fn analyze_pair(
         row: Some(row),
         built_prompt,
         request_body,
+        identity_apply_news: ready.news,
         prompt_version: TRANSFER_PROMPT_VERSION,
     })
 }
@@ -814,14 +981,15 @@ pub async fn persist_transfer_row(
     trigger_type: &str,
     out: &TransferPairOutput,
     row: &TransferRow,
-) -> Result<()> {
-    sqlx::query(
+) -> Result<i64> {
+    let row = sqlx::query(
         r#"
         INSERT INTO transfer_rumors (
             team_id, player_id, sport, trigger_type, heat, heat_components,
             is_rumor, direction, stage, model_summary, source_attribution, confidence,
             input_news_ids, model_version, prompt_version, trigger_payload
         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,$14,$15,$16::jsonb)
+        RETURNING id
         "#,
     )
     .bind(team_id)
@@ -840,9 +1008,243 @@ pub async fn persist_transfer_row(
     .bind(row.model.as_deref())
     .bind(out.prompt_version)
     .bind(&row.trigger_payload)
-    .execute(pool)
+    .fetch_one(pool)
     .await
     .context("persist transfer row")?;
+    Ok(row.get("id"))
+}
+
+async fn load_transfer_identity_threshold(
+    pool: &PgPool,
+    sport: &str,
+) -> Result<Option<TransferIdentityThreshold>> {
+    let row = sqlx::query(
+        r#"
+        SELECT min_heat,
+               min_deterministic_confidence::float8 AS min_deterministic_confidence
+        FROM public.transfer_identity_thresholds
+        WHERE sport = $1
+        "#,
+    )
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .context("load transfer identity threshold")?;
+
+    Ok(row.map(|r| TransferIdentityThreshold {
+        min_heat: r.get("min_heat"),
+        min_deterministic_confidence: r.get("min_deterministic_confidence"),
+    }))
+}
+
+async fn current_identity_team(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+) -> Result<(Option<i32>, String)> {
+    let row = sqlx::query(
+        r#"
+        SELECT pci.team_id, COALESCE(t.name, '') AS team_name
+        FROM public.player_current_identity pci
+        LEFT JOIN public.teams t ON t.id = pci.team_id AND t.sport = pci.sport
+        WHERE pci.sport = $1 AND pci.player_id = $2
+        "#,
+    )
+    .bind(sport)
+    .bind(player_id)
+    .fetch_one(pool)
+    .await
+    .context("load current identity for transfer apply")?;
+
+    Ok((row.get("team_id"), row.get("team_name")))
+}
+
+async fn record_transfer_identity_failure(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    old_team_id: Option<i32>,
+    new_team_id: i32,
+    source_rumor_id: i64,
+    deterministic_heat: i16,
+    deterministic_confidence: f64,
+    raw: &str,
+    model: &str,
+    reason: &str,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        SELECT public.record_transfer_identity_adjudication_failure(
+            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8,$9,$10,$11
+        )
+        "#,
+    )
+    .bind(sport)
+    .bind(player_id)
+    .bind(old_team_id)
+    .bind(new_team_id)
+    .bind(source_rumor_id)
+    .bind(deterministic_heat)
+    .bind(deterministic_confidence)
+    .bind(raw)
+    .bind(model)
+    .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
+    .bind(reason)
+    .execute(pool)
+    .await
+    .context("record transfer identity adjudication failure")?;
+    Ok(())
+}
+
+async fn maybe_apply_transfer_identity(
+    hx: &Harness,
+    team_id: i32,
+    team_name: &str,
+    c: &TransferCandidate,
+    sport: &str,
+    heat: i16,
+    news: &[NewsItem],
+    persisted_rumor_id: i64,
+    row: &TransferRow,
+    outcome: Outcome,
+) -> Result<()> {
+    if outcome != Outcome::Rumor || row.is_rumor != Some(true) {
+        return Ok(());
+    }
+    if row.direction.as_deref() != Some("incoming") {
+        return Ok(());
+    }
+
+    let deterministic_confidence = f64::from(heat) / 100.0;
+    let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
+        warn!(sport, "transfers: missing identity threshold config; skipping apply");
+        return Ok(());
+    };
+    if heat < threshold.min_heat
+        || deterministic_confidence < threshold.min_deterministic_confidence
+    {
+        return Ok(());
+    }
+
+    let (old_team_id, old_team_name) =
+        current_identity_team(&hx.pool, sport, c.player_id).await?;
+    if old_team_id == Some(team_id) {
+        return Ok(());
+    }
+
+    let prompt = build_transfer_identity_adjudication_prompt(
+        sport,
+        c.player_id,
+        &c.player_name,
+        old_team_id,
+        &old_team_name,
+        team_id,
+        team_name,
+        heat,
+        deterministic_confidence,
+        persisted_rumor_id,
+        row,
+        news,
+    );
+    let opts = GenerateOptions {
+        system: Some(transfer_identity_adjudication_system_prompt(sport)),
+        temperature: Some(0.0),
+        num_predict: 700,
+        json_mode: true,
+    };
+    let backend = hx.router.for_role(Role::EmotionalNews);
+    let model_configured = backend.model().to_string();
+    let generated = match hx
+        .extract(
+            Role::EmotionalNews,
+            &prompt,
+            &opts,
+            &TransferIdentityAdjudicationParser,
+        )
+        .await
+    {
+        Ok(extracted) => extracted,
+        Err(e) => {
+            warn!(
+                team = team_id,
+                player = c.player_id,
+                error = %e,
+                "transfers: identity adjudication generate failed; fail closed"
+            );
+            record_transfer_identity_failure(
+                &hx.pool,
+                sport,
+                c.player_id,
+                old_team_id,
+                team_id,
+                persisted_rumor_id,
+                heat,
+                deterministic_confidence,
+                "",
+                &model_configured,
+                "identity adjudication generate failed",
+            )
+            .await?;
+            return Ok(());
+        }
+    };
+
+    let Some(adjudication) = generated.value else {
+        record_transfer_identity_failure(
+            &hx.pool,
+            sport,
+            c.player_id,
+            old_team_id,
+            team_id,
+            persisted_rumor_id,
+            heat,
+            deterministic_confidence,
+            "",
+            &generated.model,
+            "invalid identity adjudication JSON",
+        )
+        .await?;
+        return Ok(());
+    };
+
+    let adjudication_json = serde_json::to_value(&adjudication)
+        .context("serialize transfer identity adjudication")?;
+    let raw = adjudication_json.to_string();
+    let result = sqlx::query(
+        r#"
+        SELECT application_id, override_id, status, reason
+        FROM public.apply_transfer_identity_candidate(
+            $1,$2,$3,$4,$5,NULL,$6,$7::float8::numeric,$8::jsonb,$9,$10,$11
+        )
+        "#,
+    )
+    .bind(sport)
+    .bind(c.player_id)
+    .bind(old_team_id)
+    .bind(team_id)
+    .bind(persisted_rumor_id)
+    .bind(heat)
+    .bind(deterministic_confidence)
+    .bind(&raw)
+    .bind(&raw)
+    .bind(&generated.model)
+    .bind(TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION)
+    .fetch_one(&hx.pool)
+    .await
+    .context("apply transfer identity candidate")?;
+
+    let status: String = result.get("status");
+    if status == "applied" {
+        let application_id: i64 = result.get("application_id");
+        let override_id: Option<i64> = result.get("override_id");
+        warn!(
+            application_id,
+            override_id,
+            team = team_id,
+            player = c.player_id,
+            "transfers: applied current identity override"
+        );
+    }
     Ok(())
 }
 
@@ -907,7 +1309,7 @@ impl StageHandler for TransferHandler {
                 )
                 .await?;
                 if let Some(row) = &out.row {
-                    persist_transfer_row(
+                    let persisted_rumor_id = persist_transfer_row(
                         &hx.pool,
                         team_id,
                         c.player_id,
@@ -917,6 +1319,21 @@ impl StageHandler for TransferHandler {
                         row,
                     )
                     .await?;
+                    if let Some(heat) = out.heat {
+                        maybe_apply_transfer_identity(
+                            hx,
+                            team_id,
+                            &team_name,
+                            c,
+                            &sport,
+                            heat,
+                            &out.identity_apply_news,
+                            persisted_rumor_id,
+                            row,
+                            out.outcome,
+                        )
+                        .await?;
+                    }
                 }
                 Ok::<Outcome, anyhow::Error>(out.outcome)
             }
@@ -1158,5 +1575,84 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
         assert!(football.contains("Never estimate, round, or invent money"));
         let nba = transfer_system_prompt("NBA");
         assert!(nba.contains("current trade involving BOTH")); // noun swap for NBA/NFL
+    }
+
+    #[test]
+    fn identity_adjudication_parser_accepts_strict_apply_json() {
+        let raw = r#"{
+            "decision":"apply",
+            "event_type":"transfer",
+            "confidence":0.91,
+            "old_team_id":18,
+            "new_team_id":42,
+            "reason":"club announced the signing",
+            "evidence_spans":["announced the signing"]
+        }"#;
+        let adj = TransferIdentityAdjudicationParser
+            .parse(raw)
+            .unwrap()
+            .expect("strict JSON parses");
+        assert_eq!(adj.decision, "apply");
+        assert_eq!(adj.old_team_id, Some(18));
+        assert_eq!(adj.new_team_id, 42);
+    }
+
+    #[test]
+    fn identity_adjudication_parser_fails_closed_on_invalid_json_or_schema() {
+        assert!(TransferIdentityAdjudicationParser
+            .parse("not json")
+            .unwrap()
+            .is_none());
+        assert!(TransferIdentityAdjudicationParser
+            .parse(r#"{"decision":"apply"}"#)
+            .unwrap()
+            .is_none());
+        assert!(TransferIdentityAdjudicationParser
+            .parse(
+                r#"{"decision":"apply","event_type":"transfer","confidence":1.4,"old_team_id":1,"new_team_id":2,"reason":"","evidence_spans":[]}"#
+            )
+            .unwrap()
+            .is_none());
+        assert!(TransferIdentityAdjudicationParser
+            .parse(
+                r#"{"decision":"maybe","event_type":"transfer","confidence":0.9,"old_team_id":1,"new_team_id":2,"reason":"","evidence_spans":[]}"#
+            )
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn identity_adjudication_prompt_pins_candidate_ids() {
+        let row = TransferRow {
+            is_rumor: Some(true),
+            direction: Some("incoming".to_string()),
+            stage: Some("here_we_go".to_string()),
+            summary: Some("Chelsea agreed a deal for Example Player.".to_string()),
+            attribution: Some("BBC".to_string()),
+            confidence: Some(0.9),
+            model: Some("mistral:7b".to_string()),
+            trigger_payload: "{}".to_string(),
+        };
+        let prompt = build_transfer_identity_adjudication_prompt(
+            "FOOTBALL",
+            7,
+            "Example Player",
+            Some(18),
+            "Old FC",
+            42,
+            "New FC",
+            91,
+            0.91,
+            123,
+            &row,
+            &[NewsItem {
+                title: "New FC announce Example Player".to_string(),
+                description: "The club confirmed the transfer.".to_string(),
+                source: "BBC".to_string(),
+            }],
+        );
+        assert!(prompt.contains("Current identity: team_id=18 team_name=Old FC"));
+        assert!(prompt.contains("Proposed new identity: team_id=42 team_name=New FC"));
+        assert!(prompt.contains("Source transfer_rumors.id: 123"));
     }
 }

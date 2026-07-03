@@ -102,7 +102,9 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             weight = COALESCE(EXCLUDED.weight, players.weight),
             date_of_birth = COALESCE(EXCLUDED.date_of_birth, players.date_of_birth),
             photo_url = COALESCE(EXCLUDED.photo_url, players.photo_url),
-            team_id = COALESCE(EXCLUDED.team_id, players.team_id),
+            -- Current team is owned by roster/current-identity sync, not by
+            -- arbitrary historical meta payloads.
+            team_id = players.team_id,
             search_aliases = COALESCE(EXCLUDED.search_aliases, players.search_aliases),
             meta = COALESCE(EXCLUDED.meta, players.meta),
             raw_response = COALESCE(EXCLUDED.raw_response, players.raw_response),

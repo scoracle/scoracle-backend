@@ -106,7 +106,7 @@ pub struct TransferCandidate {
     pub player_id: i32,
     pub player_name: String,
     pub nationality: String,  // empty when unknown
-    pub current_club: String, // latest-season club (player_current_team), NOT the stale players.team_id
+    pub current_club: String, // canonical current club (player_current_identity)
     pub position: String,
 }
 
@@ -221,8 +221,8 @@ pub async fn load_tier_map(pool: &PgPool) -> Result<HashMap<String, f64>> {
 }
 
 /// load_candidates returns the team's co-mention candidate players with identity cards — the Rust
-/// port of `transfer.go::loadCandidates` (current club from `player_current_team`, position from the
-/// latest stats row; both vetted links required; co-mention proximity gate). SQL verbatim.
+/// port of `transfer.go::loadCandidates` (current club from `player_current_identity`; both vetted
+/// links required; co-mention proximity gate).
 pub async fn load_candidates(
     pool: &PgPool,
     team_id: i32,
@@ -234,25 +234,20 @@ pub async fn load_candidates(
         SELECT pe.entity_id, p.name,
                COALESCE(p.nationality, '')                    AS nationality,
                COALESCE(ct.name, '')                          AS current_club,
-               COALESCE(NULLIF(pos.position, 'Unknown'), '')  AS position
+               COALESCE(NULLIF(pci.position, 'Unknown'), '')  AS position
         FROM news_article_entities te
         JOIN news_article_entities pe
           ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'player'
         JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
-        LEFT JOIN public.player_current_team pct ON pct.player_id = p.id AND pct.sport = p.sport
-        LEFT JOIN teams ct ON ct.id = pct.team_id AND ct.sport = p.sport
-        LEFT JOIN LATERAL (
-            SELECT ps.position FROM player_stats ps
-            WHERE ps.player_id = p.id AND ps.sport = p.sport
-            ORDER BY ps.season DESC NULLS LAST LIMIT 1
-        ) pos ON true
+        LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
         WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
           AND te.created_at > NOW() - INTERVAL '14 days'
           AND te.vetted IS TRUE
           AND pe.vetted IS TRUE
           AND (te.title_pos IS NULL OR pe.title_pos IS NULL
                OR abs(te.title_pos - pe.title_pos) <= $5)
-        GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pos.position
+        GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
         HAVING count(DISTINCT te.article_id) >= $3
         ORDER BY count(DISTINCT te.article_id) DESC
         LIMIT $4
@@ -334,10 +329,10 @@ pub async fn load_pair_news(pool: &PgPool, ids: &[i64]) -> Result<Vec<NewsItem>>
         .collect())
 }
 
-/// team_relationship classifies the player's deterministic relationship to the team from
-/// `player_stats` history: "current" (latest season on the team), "former" (on it in a past season
-/// but not now), or "none". Drives `direction` and the former-player noise filter — NOT the model's
-/// guess. Mirrors `teamRelationship`. SQL verbatim; `$1=player, $2=sport, $3=team`.
+/// team_relationship classifies the player's deterministic relationship to the team:
+/// "current" comes from canonical current identity, while "former" comes from
+/// historical player_stats. Drives `direction` and the former-player noise filter — NOT the model's
+/// guess. `$1=player, $2=sport, $3=team`.
 pub async fn team_relationship(
     pool: &PgPool,
     team_id: i32,
@@ -347,10 +342,12 @@ pub async fn team_relationship(
     let row = sqlx::query(
         r#"
         SELECT
-            COALESCE(bool_or(ps.team_id = $3 AND ps.season = (SELECT MAX(season) FROM player_stats WHERE player_id = $1 AND sport = $2)), false) AS is_current,
-            COALESCE(bool_or(ps.team_id = $3), false) AS is_ever
-        FROM player_stats ps
-        WHERE ps.player_id = $1 AND ps.sport = $2
+            COALESCE((SELECT pci.team_id = $3
+                      FROM public.player_current_identity pci
+                      WHERE pci.player_id = $1 AND pci.sport = $2), false) AS is_current,
+            COALESCE((SELECT bool_or(ps.team_id = $3)
+                      FROM player_stats ps
+                      WHERE ps.player_id = $1 AND ps.sport = $2), false) AS is_ever
         "#,
     )
     .bind(player_id)

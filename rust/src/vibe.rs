@@ -207,31 +207,45 @@ pub async fn load_transfer_heat(
         r#"
         SELECT counterparty, heat, stage, direction FROM (
             SELECT DISTINCT ON (tr.player_id)
-                   p.name AS counterparty, tr.heat, tr.is_rumor,
+                   p.name AS counterparty, tr.team_id, pci.team_id AS current_team_id,
+                   tr.heat, tr.is_rumor,
                    COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
                    tr.generated_at
             FROM transfer_rumors tr
             JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
+            LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
               AND tr.generated_at > NOW() - INTERVAL '14 days'
             ORDER BY tr.player_id, tr.generated_at DESC
         ) latest
-        WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3
+        WHERE heat > 0 AND is_rumor IS TRUE
+          AND NOT (
+              (current_team_id IS NOT NULL AND current_team_id = team_id AND direction = 'incoming')
+              OR (current_team_id IS NOT NULL AND current_team_id <> team_id AND direction = 'outgoing')
+          )
+        ORDER BY heat DESC LIMIT $3
         "#
     } else {
         r#"
         SELECT counterparty, heat, stage, direction FROM (
             SELECT DISTINCT ON (tr.team_id)
-                   t.name AS counterparty, tr.heat, tr.is_rumor,
+                   t.name AS counterparty, tr.team_id, pci.team_id AS current_team_id,
+                   tr.heat, tr.is_rumor,
                    COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
                    tr.generated_at
             FROM transfer_rumors tr
             JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
+            LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
               AND tr.generated_at > NOW() - INTERVAL '14 days'
             ORDER BY tr.team_id, tr.generated_at DESC
         ) latest
-        WHERE heat > 0 AND is_rumor IS TRUE ORDER BY heat DESC LIMIT $3
+        WHERE heat > 0 AND is_rumor IS TRUE
+          AND NOT (
+              (current_team_id IS NOT NULL AND current_team_id = team_id AND direction = 'incoming')
+              OR (current_team_id IS NOT NULL AND current_team_id <> team_id AND direction = 'outgoing')
+          )
+        ORDER BY heat DESC LIMIT $3
         "#
     };
 

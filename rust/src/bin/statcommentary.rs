@@ -239,29 +239,63 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
 }
 
 async fn enum_current_season(pool: &PgPool, sport: &str, season: i32) -> Result<Vec<Target>> {
-    let rows = sqlx::query(
-        r#"
-        SELECT c.et, c.id, c.season FROM (
-            SELECT 'player'::text AS et, player_id AS id, $2::int AS season FROM player_stats
-             WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
-             GROUP BY player_id
-            UNION ALL
-            SELECT 'team'::text, team_id, $2::int FROM team_stats
-             WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
-             GROUP BY team_id
-        ) c
-        ORDER BY EXISTS (
-            SELECT 1 FROM stat_summaries s
-             WHERE s.entity_type = c.et AND s.entity_id = c.id AND s.sport = $1 AND s.season = c.season
-        ) ASC, c.et, c.id
-        "#,
-    )
-    .bind(sport)
-    .bind(season)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("enumerate current season {sport}/{season}"))?;
+    let rows = sqlx::query(enum_current_season_sql())
+        .bind(sport)
+        .bind(season)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("enumerate current season {sport}/{season}"))?;
     scan_targets(rows, sport)
+}
+
+fn enum_current_season_sql() -> &'static str {
+    r#"
+        WITH candidates AS (
+            SELECT et, id, season, updated_at FROM (
+                SELECT 'player'::text AS et, player_id AS id, season, updated_at,
+                       row_number() OVER (
+                           PARTITION BY player_id
+                           ORDER BY (COALESCE(league_id, 0) = 0) DESC,
+                                    jsonb_array_length(COALESCE(rating_breakdown, '[]'::jsonb)) DESC,
+                                    COALESCE(league_id, 0) ASC
+                       ) AS rn
+                FROM player_stats
+                WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
+            ) p
+            WHERE rn = 1
+            UNION ALL
+            SELECT et, id, season, updated_at FROM (
+                SELECT 'team'::text AS et, team_id AS id, season, updated_at,
+                       row_number() OVER (
+                           PARTITION BY team_id
+                           ORDER BY (COALESCE(league_id, 0) = 0) DESC,
+                                    jsonb_array_length(COALESCE(rating_breakdown, '[]'::jsonb)) DESC,
+                                    COALESCE(league_id, 0) ASC
+                       ) AS rn
+                FROM team_stats
+                WHERE sport = $1 AND season = $2 AND rating_composite_score IS NOT NULL
+            ) t
+            WHERE rn = 1
+        ),
+        latest AS (
+            SELECT DISTINCT ON (entity_type, entity_id, sport, season)
+                   entity_type, entity_id, sport, season, generated_at, input_hash
+            FROM stat_summaries
+            WHERE sport = $1 AND season = $2
+            ORDER BY entity_type, entity_id, sport, season, generated_at DESC
+        )
+        SELECT c.et, c.id, c.season
+        FROM candidates c
+        LEFT JOIN latest s
+          ON s.entity_type = c.et
+         AND s.entity_id = c.id
+         AND s.sport = $1
+         AND s.season = c.season
+        WHERE s.generated_at IS NULL
+           OR NULLIF(s.input_hash, '') IS NULL
+           OR c.updated_at > s.generated_at
+        ORDER BY (s.generated_at IS NOT NULL) ASC, c.et, c.id
+        "#
 }
 
 async fn enum_missing(pool: &PgPool, sport: &str) -> Result<Vec<Target>> {
@@ -411,4 +445,26 @@ fn print_help() {
          nightly:  -mode nightly [-sport NBA|NFL|FOOTBALL|all] [-limit N] [-throttle-ms N]\n\
          backfill: -mode backfill [-sport NBA|NFL|FOOTBALL|all] [-limit N] [-throttle-ms N]"
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn current_season_enum_prefilters_latest_changed_or_missing_hash() {
+        let sql = enum_current_season_sql();
+
+        assert!(sql.contains("row_number() OVER"));
+        assert!(sql.contains("PARTITION BY player_id"));
+        assert!(sql.contains("PARTITION BY team_id"));
+        assert!(sql.contains("WHERE rn = 1"));
+        assert!(sql.contains("(COALESCE(league_id, 0) = 0) DESC"));
+        assert!(sql.contains("jsonb_array_length(COALESCE(rating_breakdown, '[]'::jsonb)) DESC"));
+
+        assert!(sql.contains("SELECT DISTINCT ON (entity_type, entity_id, sport, season)"));
+        assert!(sql.contains("ORDER BY entity_type, entity_id, sport, season, generated_at DESC"));
+        assert!(sql.contains("NULLIF(s.input_hash, '') IS NULL"));
+        assert!(sql.contains("c.updated_at > s.generated_at"));
+    }
 }

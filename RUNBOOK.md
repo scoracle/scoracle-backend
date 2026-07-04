@@ -18,7 +18,7 @@ Cognition Harness daemon (`systemd --user`, `scoracle-cognition.service`), cron 
 Cloudflare Tunnel exposing `api.scoracle.com`.
 
 Post the **Step-3 cutover (2026-06-28)** and follow-up Go prune (2026-06-29), the Go LLM derive
-stages are retired; Rust owns all LLM cognition (scrub -> headlines -> transfers -> narratives ->
+stages are retired; Rust owns all LLM cognition (scrub -> transfers -> narratives ->
 vibe -> sigil as queue stages, rating as a batch bin). The Go API serves precomputed data and runs
 SQL-only maintenance/notification workers.
 
@@ -34,8 +34,8 @@ SQL-only maintenance/notification workers.
                            │   │   └──── pipeline_work ────┤   pipeline-stats)
                            │   │              ready        │  notifications/listener (FCM + enqueue)
                            │   └──────► scoracle-cognition.service  ◄── durable queue stages:
-                           │                     │                scrub, headlines, transfers,
-                           │                     ▼                narratives, vibe, sigil
+                           │                     │                scrub, transfers, narratives,
+                           │                     ▼                vibe, sigil
                            │                 statcommentary (cron batch)
                            ▼
                         Ollama (single 8GB GPU, OLLAMA_MAX_CONCURRENT=1)
@@ -48,7 +48,7 @@ Five deployed binaries, all built from one commit by `release.sh` (3 Go + 2 Rust
 | `scoracle-api` | HTTP serving (precomputed) + enqueue scrub work + maintenance tickers | `scoracle-api.service` (always on) |
 | `pipeline` | RSS ingest funnel (`-mode ingest`; the Go LLM drainer is retired) | cron (`cron-pipeline.sh`) |
 | `vibesynth` | nightly Sigil reconciliation backstop (DB-only; enqueues durable `sigil` work) | cron (`cron-vibesynth.sh`) |
-| `scoracle-cognition` | the Rust daemon: drains scrub → headlines → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
+| `scoracle-cognition` | the Rust daemon: drains scrub → transfers → narratives → vibe → sigil | `scoracle-cognition.service` (always on, GPU box) |
 | `statcommentary` | Rust rating batch (single / nightly / backfill, NOT a queue stage) | cron (`cron-rust-statcommentary.sh`) |
 
 The Python seeder runs from the host venv via `cron-scoseed.sh` / `cron-live-fixtures.sh` — it is
@@ -208,7 +208,7 @@ depends on an ephemeral notification for correctness — every stage hands off t
 | `cron-live-fixtures.sh football-process` | daily 23:00 | drain finished European matches |
 | `cron-live-fixtures.sh football-refresh/-meta` | weekly Mon 23:00 | schedule + roster/meta refresh |
 | `cron-pipeline.sh -mode ingest` | daily 00:00 | RSS ingest sweep only; writes corpus rows and lets durable queue stages derive products |
-| `cron-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary; regenerates only when a rating snapshot's `input_hash` changed |
+| `cron-statcommentary.sh -mode nightly -limit 400` | daily 03:00 | stats-rail commentary + PEAK trajectory metadata; regenerates only when a rating snapshot's `input_hash` changed |
 | `cron-vibesynth.sh -mode nightly -limit 500` | daily 05:00 | **Sigil BACKSTOP only** — enqueues current-season entities whose Sigil is missing/stale for Rust to drain; no inline synthesis, no unchanged-Sigil duplicates |
 | `recompute-tiers.sh` | weekly Mon 02:00 | entity tier recompute (drives vibe scheduling) |
 | `backup-postgres.sh` | daily 04:00 | nightly dump + off-disk mirror (§4) |
@@ -217,7 +217,10 @@ depends on an ephemeral notification for correctness — every stage hands off t
 never creates an unchanged duplicate and never calls the model inline.
 
 **Transfers** are a **News scope** (a facet of the news pipeline), even though `/transfers` remains a
-supporting per-entity contract.
+supporting per-entity contract. Transfers and Narratives share the same historical scopes
+(`current_week`, `last_week`, `two_weeks_ago`, `three_weeks_ago`, `last_month`) and the
+same live staleness rule: current-week rows marked `cooling_off` stay visible only while
+their source/update timestamp is within the last three days.
 
 ### Overlap + observability
 
@@ -239,7 +242,7 @@ the queue retries) · `1` systemic (enumeration/stage failure, or dead-lettered 
 The once-daily `cmd/pipeline -mode ingest` run feeds the durable queue; Rust drains the stages:
 
 ```
-sweep ingest -> enqueue/notify -> scrub -> headlines -> transfers -> narratives -> vibe -> sigil
+sweep ingest -> enqueue/notify -> scrub -> transfers -> narratives -> vibe -> sigil
 ```
 
 1. **Compile (sweep):** RSS-sweep every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so
@@ -255,7 +258,7 @@ The async maintenance **news-scrub ticker** (`NEWS_SCRUB_ENABLED`) is backlog/re
 auto-vet + enqueue for Rust scrub handling.
 
 **Live table → product names:** `vibe_scores` = Vibe · `sigil_synthesis` = Sigil crown ·
-`news_summaries` = narratives · `stat_summaries` (`divined_peak`) = stat commentary ·
+`news_summaries` = narratives · `stat_summaries` (`divined_peak`, `peak_trajectory`) = stat commentary ·
 `transfer_rumors` = transfers.
 
 ---

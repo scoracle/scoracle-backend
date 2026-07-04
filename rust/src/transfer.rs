@@ -973,13 +973,28 @@ pub async fn persist_transfer_row(
     out: &TransferPairOutput,
     row: &TransferRow,
 ) -> Result<i64> {
+    let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+        load_transfer_source_metadata(pool, &out.news_ids).await?;
+    let (trajectory, trajectory_components) =
+        classify_transfer_trajectory(pool, team_id, player_id, sport, out, row).await?;
+    let trajectory_json = trajectory_components.to_string();
+
     let row = sqlx::query(
         r#"
         INSERT INTO transfer_rumors (
             team_id, player_id, sport, trigger_type, heat, heat_components,
             is_rumor, direction, stage, model_summary, source_attribution, confidence,
-            input_news_ids, model_version, prompt_version, trigger_payload
-        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,$14,$15,$16::jsonb)
+            input_news_ids,
+            rumor_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
+            trajectory, trajectory_components,
+            model_version, prompt_version, trigger_payload
+        ) VALUES (
+            $1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,
+            COALESCE(to_timestamp($14::double precision), NOW()), $15, $16,
+            to_timestamp($17::double precision), to_timestamp($18::double precision),
+            $19, $20::jsonb,
+            $21,$22,$23::jsonb
+        )
         RETURNING id
         "#,
     )
@@ -996,6 +1011,13 @@ pub async fn persist_transfer_row(
     .bind(row.attribution.as_deref())
     .bind(row.confidence)
     .bind(out.news_ids.as_slice())
+    .bind(source_latest_epoch)
+    .bind(source_count)
+    .bind(&source_names)
+    .bind(source_latest_epoch)
+    .bind(source_oldest_epoch)
+    .bind(trajectory)
+    .bind(&trajectory_json)
     .bind(row.model.as_deref())
     .bind(out.prompt_version)
     .bind(&row.trigger_payload)
@@ -1003,6 +1025,105 @@ pub async fn persist_transfer_row(
     .await
     .context("persist transfer row")?;
     Ok(row.get("id"))
+}
+
+async fn load_transfer_source_metadata(
+    pool: &PgPool,
+    news_ids: &[i64],
+) -> Result<(i32, Vec<String>, Option<i64>, Option<i64>)> {
+    if news_ids.is_empty() {
+        return Ok((0, Vec::new(), None, None));
+    }
+
+    let row: (i32, Vec<String>, Option<i64>, Option<i64>) = sqlx::query_as(
+        r#"
+        SELECT count(id)::int,
+               COALESCE(ARRAY(
+                   SELECT DISTINCT NULLIF(a2.source, '')
+                   FROM news_articles a2
+                   WHERE a2.id = ANY($1)
+                     AND NULLIF(a2.source, '') IS NOT NULL
+                   ORDER BY 1
+               ), '{}'::text[]),
+               EXTRACT(EPOCH FROM max(COALESCE(published_at, fetched_at)))::bigint,
+               EXTRACT(EPOCH FROM min(COALESCE(published_at, fetched_at)))::bigint
+        FROM news_articles
+        WHERE id = ANY($1)
+        "#,
+    )
+    .bind(news_ids)
+    .fetch_one(pool)
+    .await
+    .context("load transfer source metadata")?;
+
+    Ok(row)
+}
+
+async fn classify_transfer_trajectory(
+    pool: &PgPool,
+    team_id: i32,
+    player_id: i32,
+    sport: &str,
+    out: &TransferPairOutput,
+    row: &TransferRow,
+) -> Result<(&'static str, serde_json::Value)> {
+    let previous: Option<i32> = sqlx::query_scalar(
+        r#"
+        SELECT heat::int
+        FROM transfer_rumors
+        WHERE team_id = $1
+          AND player_id = $2
+          AND sport = $3
+          AND heat IS NOT NULL
+        ORDER BY generated_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(team_id)
+    .bind(player_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("classify transfer trajectory {team_id}/{player_id}"))?;
+
+    let current = out.heat.map(i32::from);
+    let (trajectory, reason, delta) = if row.is_rumor == Some(false) {
+        (
+            "cooling_off",
+            "cleared",
+            previous.zip(current).map(|(p, c)| c - p),
+        )
+    } else if row.is_rumor != Some(true) {
+        (
+            "developing_story",
+            "unresolved",
+            previous.zip(current).map(|(p, c)| c - p),
+        )
+    } else {
+        match (previous, current) {
+            (Some(prev), Some(cur)) => {
+                let delta = cur - prev;
+                if delta >= 10 {
+                    ("heating_up", "heat_up", Some(delta))
+                } else if delta <= -10 {
+                    ("cooling_off", "heat_down", Some(delta))
+                } else {
+                    ("developing_story", "heat_stable", Some(delta))
+                }
+            }
+            _ => ("developing_story", "new_or_unmatched", None),
+        }
+    };
+
+    Ok((
+        trajectory,
+        serde_json::json!({
+            "previous_heat": previous,
+            "current_heat": current,
+            "heat_delta": delta,
+            "reason": reason,
+        }),
+    ))
 }
 
 async fn load_transfer_identity_threshold(
@@ -1317,11 +1438,11 @@ async fn maybe_apply_transfer_identity(
 }
 
 /// TransferHandler drains the team-keyed `transfers` stage: load the co-mention candidates and vet
-/// each pair, persisting to transfer_rumors. Terminal — it enqueues nothing (the heat it writes is
-/// read by vibe/narratives, which the mig-103 trigger enqueues). Any pair that hit a model failure
-/// (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
-/// re-runs it. REGISTERED but NOT enabled until the transfers cutover (Step 3): the Go Drainer
-/// still owns this stage, so running both would double-claim the one GPU.
+/// each pair, persisting to transfer_rumors. Terminal — it enqueues nothing. The vetted-link trigger
+/// enqueues transfers before narratives, and the worker drains stages in that order, so fresh heat
+/// is available to the narrative/vibe stages in the same wake cycle. Any pair that hit a model
+/// failure (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
+/// re-runs it.
 pub struct TransferHandler;
 
 impl TransferHandler {

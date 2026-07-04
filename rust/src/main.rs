@@ -6,7 +6,7 @@
 //!
 //! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
 //! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
-//! scrub, headlines, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
+//! scrub, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
 //! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
 //! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
 //! default only fires when the unit isn't the one starting the process (a fresh-box boot
@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    config, db, embed, headline, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
+    config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -59,13 +59,13 @@ async fn main() -> Result<()> {
     }
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
-    // Post Step-3 cutover the daemon owns all six stages. `headlines` is a News component staged
-    // before transfer/narrative derivation, not a separate product pillar. The Go derive worker is
+    // Post Step-3 cutover the daemon owns the live cognition stages. Headlines has been folded into
+    // narratives, so the news rail is scrub -> transfers -> narratives -> vibe -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(
         &std::env::var("COGNITION_STAGES")
-            .unwrap_or_else(|_| "scrub,headlines,transfers,narratives,vibe,sigil".to_string()),
+            .unwrap_or_else(|_| "scrub,transfers,narratives,vibe,sigil".to_string()),
     )?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub gate's asymmetric resolve_set pre-filter
@@ -88,16 +88,13 @@ async fn main() -> Result<()> {
         resolve: cfg.resolve.clone(),
     };
 
-    // Each handler owns exactly one queue stage. Post Step-3 the daemon owns all six; the
+    // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
     // Go derive path is off (DERIVE_WORKER_ENABLED=false). The COGNITION_STAGES env can
     // still be narrowed (e.g. a debug run that wants only `vibe`), but the systemd unit on
     // the prod box hardcodes the full set.
     let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
     if enabled.contains("scrub") {
         handlers.push(Box::new(scrub::ScrubHandler::new()));
-    }
-    if enabled.contains("headlines") {
-        handlers.push(Box::new(headline::HeadlinesHandler::new()));
     }
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));
@@ -119,14 +116,7 @@ async fn main() -> Result<()> {
 }
 
 fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
-    const KNOWN: &[&str] = &[
-        "scrub",
-        "headlines",
-        "transfers",
-        "narratives",
-        "vibe",
-        "sigil",
-    ];
+    const KNOWN: &[&str] = &["scrub", "transfers", "narratives", "vibe", "sigil"];
 
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();
@@ -170,6 +160,6 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(err.contains("headlinez"));
-        assert!(err.contains("headlines"));
+        assert!(err.contains("narratives"));
     }
 }

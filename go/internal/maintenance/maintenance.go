@@ -458,7 +458,7 @@ var pipelineStatsSports = []string{"NBA", "NFL", "FOOTBALL"}
 // writePipelineStats upserts one pipeline_stats row per (sport, today) capturing
 // the corpus asset's daily size + coverage: article counts, the count of entities
 // with a CURRENT (<24h) narrative / vibe, the number of distinct ACTIVE transfer
-// pairs (latest generation, heat > 0, within 14d — not raw append rows), and
+// pairs (latest generation, heat > 0, current week, not cooling off stale), and
 // coverage/staleness of vibe analysis over the in-scope (fresh-news) entity set.
 // Pure SQL, idempotent per day (ON CONFLICT upsert).
 func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
@@ -482,14 +482,19 @@ func writePipelineStats(ctx context.Context, pool *pgxpool.Pool, logger *slog.Lo
 		) art,
 		(
 		    -- Active = latest row per pair, model-vetted (is_rumor IS TRUE), heat>0,
-		    -- within 14d — matches the /transfers read contract (S10 fail-closed): a
-		    -- newer cleared/unknown verdict drops the pair from the count.
+		    -- current-week, and not a stale cooling-off row. Mirrors the /transfers
+		    -- read contract: a newer cleared/unknown verdict drops the pair.
 		    SELECT count(*) AS active FROM (
-		        SELECT DISTINCT ON (team_id, player_id) heat, is_rumor, generated_at
+		        SELECT DISTINCT ON (team_id, player_id)
+		               heat, is_rumor, generated_at,
+		               COALESCE(trajectory, 'developing_story') AS trajectory,
+		               COALESCE(rumor_updated_at, source_latest_at, generated_at) AS updated_at
 		        FROM transfer_rumors WHERE sport = $1
 		        ORDER BY team_id, player_id, generated_at DESC
 		    ) latest
-		    WHERE heat > 0 AND is_rumor IS TRUE AND generated_at > NOW() - INTERVAL '14 days'
+		    WHERE heat > 0 AND is_rumor IS TRUE
+		      AND generated_at > NOW() - INTERVAL '7 days'
+		      AND (trajectory <> 'cooling_off' OR updated_at > NOW() - INTERVAL '3 days')
 		) tr,
 		(
 		    WITH in_scope AS (

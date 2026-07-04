@@ -21,7 +21,6 @@ pub mod config;
 pub mod db;
 pub mod embed;
 pub mod harness;
-pub mod headline;
 pub mod narratives;
 pub mod ollama;
 pub mod rating;

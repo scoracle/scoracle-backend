@@ -176,6 +176,23 @@ pub struct RateStandout {
     pub pct: f64,
 }
 
+#[derive(Clone, Debug)]
+pub struct PeakTrajectory {
+    pub key: String,
+    pub label: Option<String>,
+    pub components: serde_json::Value,
+}
+
+impl PeakTrajectory {
+    fn steady(reason: &str) -> Self {
+        Self {
+            key: "steady".to_string(),
+            label: None,
+            components: serde_json::json!({ "reason": reason }),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Loader — the SQL `rating.go::loadRatingProfile` runs (same query ⇒ same row).
 // ---------------------------------------------------------------------------
@@ -592,6 +609,163 @@ fn round1(x: f64) -> f64 {
     (x * 10.0).round() / 10.0
 }
 
+fn linear_slope(vals: &[f64]) -> f64 {
+    let n = vals.len();
+    if n < 2 {
+        return 0.0;
+    }
+    let n_f = n as f64;
+    let mean_x = (n_f - 1.0) / 2.0;
+    let mean_y = vals.iter().sum::<f64>() / n_f;
+    let mut num = 0.0;
+    let mut den = 0.0;
+    for (i, y) in vals.iter().enumerate() {
+        let dx = i as f64 - mean_x;
+        num += dx * (y - mean_y);
+        den += dx * dx;
+    }
+    if den.abs() < 1e-9 {
+        0.0
+    } else {
+        num / den
+    }
+}
+
+fn trajectory_key(slope: f64) -> &'static str {
+    if slope > 0.25 {
+        "rising"
+    } else if slope < -0.25 {
+        "falling"
+    } else {
+        "steady"
+    }
+}
+
+fn z_trend_phrase(key: &str) -> &'static str {
+    match key {
+        "rising" => "rising",
+        "falling" => "falling",
+        _ => "steady",
+    }
+}
+
+fn z_trajectory_label(key: &str, composite_key: &str, peak_key: &str) -> String {
+    if composite_key == peak_key {
+        return match key {
+            "rising" => "Composite and PEAK z-scores trending up over recent games".to_string(),
+            "falling" => "Composite and PEAK z-scores trending down over recent games".to_string(),
+            _ => "Composite and PEAK z-scores holding steady over recent games".to_string(),
+        };
+    }
+
+    format!(
+        "Composite z-score {}; PEAK z-score {} over recent games",
+        z_trend_phrase(composite_key),
+        z_trend_phrase(peak_key)
+    )
+}
+
+fn rounded_series(vals: &[f64]) -> Vec<f64> {
+    vals.iter().copied().map(round1).collect()
+}
+
+async fn load_peak_trajectory(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    profile: &RatingProfile,
+) -> Result<PeakTrajectory> {
+    let (table, id_col) = match entity_type {
+        "player" => ("event_box_scores", "player_id"),
+        "team" => ("event_team_stats", "team_id"),
+        _ => return Ok(PeakTrajectory::steady("unknown_entity_type")),
+    };
+
+    let q = format!(
+        r#"
+        SELECT e.rating_composite::float8, e.rating_specialist::float8
+        FROM public.{table} e
+        JOIN public.fixtures f ON f.id = e.fixture_id
+        WHERE e.{id_col} = $1
+          AND e.sport = $2
+          AND e.season = $3
+          AND (e.rating_composite IS NOT NULL OR e.rating_specialist IS NOT NULL)
+        ORDER BY f.start_time DESC
+        LIMIT 8
+        "#
+    );
+    let events_desc: Vec<(Option<f64>, Option<f64>)> = sqlx::query_as(&q)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(profile.season)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("load peak trajectory {entity_type}/{entity_id}"))?;
+
+    if events_desc.len() < 3 {
+        let mut out = PeakTrajectory::steady("sparse_recent_events");
+        out.components = serde_json::json!({
+            "reason": "sparse_recent_events",
+            "recent_event_count": events_desc.len(),
+            "source": "event_rating_z_scores",
+            "metrics": ["rating_composite", "rating_peak"],
+        });
+        return Ok(out);
+    }
+
+    let composite_desc: Vec<f64> = events_desc.iter().filter_map(|(v, _)| *v).collect();
+    let peak_desc: Vec<f64> = events_desc.iter().filter_map(|(_, v)| *v).collect();
+    if composite_desc.len() < 3 && peak_desc.len() < 3 {
+        let mut out = PeakTrajectory::steady("sparse_z_score_events");
+        out.components = serde_json::json!({
+            "reason": "sparse_z_score_events",
+            "recent_event_count": events_desc.len(),
+            "composite_sample_size": composite_desc.len(),
+            "peak_sample_size": peak_desc.len(),
+            "source": "event_rating_z_scores",
+            "metrics": ["rating_composite", "rating_peak"],
+        });
+        return Ok(out);
+    }
+
+    let mut composite_chrono = composite_desc.clone();
+    composite_chrono.reverse();
+    let mut peak_chrono = peak_desc.clone();
+    peak_chrono.reverse();
+    let composite_slope = linear_slope(&composite_chrono);
+    let peak_slope = linear_slope(&peak_chrono);
+    let combined_slope = match (!composite_desc.is_empty(), !peak_desc.is_empty()) {
+        (true, true) => (composite_slope + peak_slope) / 2.0,
+        (true, false) => composite_slope,
+        (false, true) => peak_slope,
+        (false, false) => 0.0,
+    };
+    let key = trajectory_key(combined_slope).to_string();
+    let composite_key = trajectory_key(composite_slope);
+    let peak_key = trajectory_key(peak_slope);
+    let label = Some(z_trajectory_label(&key, composite_key, peak_key));
+
+    Ok(PeakTrajectory {
+        key,
+        label,
+        components: serde_json::json!({
+            "source": "event_rating_z_scores",
+            "metrics": ["rating_composite", "rating_peak"],
+            "recent_event_count": events_desc.len(),
+            "composite_sample_size": composite_desc.len(),
+            "peak_sample_size": peak_desc.len(),
+            "combined_z_slope": round1(combined_slope),
+            "composite_z_slope": round1(composite_slope),
+            "peak_z_slope": round1(peak_slope),
+            "latest_composite_z": composite_desc.first().copied().map(round1),
+            "latest_peak_z": peak_desc.first().copied().map(round1),
+            "recent_composite_z": rounded_series(&composite_desc),
+            "recent_peak_z": rounded_series(&peak_desc),
+        }),
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Output parsing — mirrors parsePeakCommentary / trimMarker / cleanCommentary.
 // ---------------------------------------------------------------------------
@@ -680,6 +854,7 @@ pub struct RatingReady {
     pub season: i32,
     pub notability: i32,
     pub notability_components: serde_json::Value,
+    pub peak_trajectory: PeakTrajectory,
     pub input_components: String, // the canonical JSON (also the hash pre-image)
     pub input_hash: String,
     pub opts: GenerateOptions,
@@ -720,6 +895,14 @@ pub async fn build_rating_request(
     let input_components = input_components(&profile);
     let input_hash = hash_components(&input_components);
     let (notability, notability_components) = compute_notability(&profile);
+    let peak_trajectory = load_peak_trajectory(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.sport,
+        &profile,
+    )
+    .await?;
     let built_prompt = build_stat_prompt(req, &profile, notability);
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
@@ -735,6 +918,7 @@ pub async fn build_rating_request(
         season: profile.season,
         notability,
         notability_components,
+        peak_trajectory,
         input_components,
         input_hash,
         opts,
@@ -755,6 +939,9 @@ pub struct RatingOutput {
     pub divined_peak: Option<String>, // None when absent/empty (Go: empty ⇒ NULL)
     pub notability: Option<i32>,
     pub notability_components: serde_json::Value,
+    pub peak_trajectory: Option<String>,
+    pub peak_trajectory_label: Option<String>,
+    pub peak_trajectory_components: serde_json::Value,
     pub input_components: String, // "{}" for a marker
     pub input_hash: Option<String>,
     pub model: Option<String>, // the configured model (set even for the no-stats marker — Go parity)
@@ -787,6 +974,9 @@ pub async fn generate_rating(
                 divined_peak: None,
                 notability: None,
                 notability_components: serde_json::json!({}),
+                peak_trajectory: None,
+                peak_trajectory_label: None,
+                peak_trajectory_components: serde_json::json!({}),
                 input_components: "{}".to_string(),
                 input_hash: None,
                 model: Some(model),
@@ -817,6 +1007,9 @@ pub async fn generate_rating(
                     divined_peak: None,
                     notability: None,
                     notability_components: serde_json::json!({}),
+                    peak_trajectory: Some(ready.peak_trajectory.key.clone()),
+                    peak_trajectory_label: ready.peak_trajectory.label.clone(),
+                    peak_trajectory_components: ready.peak_trajectory.components.clone(),
                     input_components: ready.input_components,
                     input_hash: Some(ready.input_hash),
                     model: Some(ready.model_configured),
@@ -856,6 +1049,9 @@ pub async fn generate_rating(
         divined_peak: (!reply.divined_peak.is_empty()).then_some(reply.divined_peak),
         notability: Some(ready.notability),
         notability_components: ready.notability_components,
+        peak_trajectory: Some(ready.peak_trajectory.key),
+        peak_trajectory_label: ready.peak_trajectory.label,
+        peak_trajectory_components: ready.peak_trajectory.components,
         input_components: ready.input_components,
         input_hash: Some(ready.input_hash),
         model: Some(extracted.model),
@@ -908,14 +1104,17 @@ pub async fn persist_stat_summary(
     let notability: Option<i16> = out.notability.map(|n| n as i16);
     let trigger_json = trigger_payload.to_string();
     let ncomp_json = out.notability_components.to_string();
+    let peak_components_json = out.peak_trajectory_components.to_string();
 
     sqlx::query(
         r#"
         INSERT INTO stat_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             body, notability, notability_components, input_components, input_hash,
-            model_version, prompt_version, generated_at, divined_peak
-        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),$14)
+            model_version, prompt_version, generated_at, divined_peak,
+            peak_trajectory, peak_trajectory_label, peak_trajectory_components
+        ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),$14,
+                  $15,$16,$17::jsonb)
         "#,
     )
     .bind(entity_type)
@@ -932,6 +1131,9 @@ pub async fn persist_stat_summary(
     .bind(out.model.as_deref())
     .bind(out.prompt_version)
     .bind(out.divined_peak.as_deref())
+    .bind(out.peak_trajectory.as_deref())
+    .bind(out.peak_trajectory_label.as_deref())
+    .bind(&peak_components_json)
     .execute(pool)
     .await
     .context("persist stat summary")?;
@@ -1109,6 +1311,25 @@ mod tests {
         assert_eq!(trim_float(10.7), "10.7"); // else → %.1f
         assert_eq!(trim_float(2.5), "2.5");
         assert_eq!(trim_float(-3.0), "-3");
+    }
+
+    #[test]
+    fn peak_trajectory_buckets_and_labels_recent_form() {
+        assert_eq!(trajectory_key(linear_slope(&[0.1, 0.5, 1.0])), "rising");
+        assert_eq!(trajectory_key(linear_slope(&[2.2, 1.7, 1.1])), "falling");
+        assert_eq!(trajectory_key(linear_slope(&[0.7, 0.8, 0.75])), "steady");
+        assert_eq!(
+            z_trajectory_label("falling", "falling", "falling"),
+            "Composite and PEAK z-scores trending down over recent games"
+        );
+    }
+
+    #[test]
+    fn peak_trajectory_labels_divergent_z_score_tracks() {
+        assert_eq!(
+            z_trajectory_label("steady", "rising", "falling"),
+            "Composite z-score rising; PEAK z-score falling over recent games"
+        );
     }
 
     #[test]

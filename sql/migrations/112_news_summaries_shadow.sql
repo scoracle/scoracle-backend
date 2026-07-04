@@ -6,9 +6,9 @@
 --
 -- PARITY AXES (L2 finding):
 --   built_prompt   — exact user prompt bytes assembled from a fixed corpus.
---   ollama_request — exact /api/generate body, including the verbatim n3 system prompt.
+--   ollama_request — exact /api/generate body, including the verbatim narratives system prompt.
 --   model_version  — configured EmotionalNews model.
---   prompt_version — n3.
+--   prompt_version — narratives prompt version at generation time.
 --
 -- Narrative prose is NOT a parity axis. The Rust live path may also dedup the
 -- corpus with candle embed+cluster before building this prompt; that is a

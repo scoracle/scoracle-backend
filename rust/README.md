@@ -4,11 +4,11 @@ Rust Cognition Harness for Scoracle: the AI derivation layer that empowers local
 
 This folder is not a side experiment. It is the production cognition layer for Scoracle.
 
-Post the **Step-3 cutover (2026-06-28)** and the **News headlines component (2026-06-29)**, the Go LLM derive stages are retired into Rust:
+Post the **Step-3 cutover (2026-06-28)** and the **Narratives news-hub fold-in (2026-07-03)**, the Go LLM derive stages are retired into Rust:
 
-- **6 queue stages** — `scrub` → `headlines` → `transfers` → `narratives` → `vibe` → `sigil` —
-  drained by the long-running **`scoracle-cognition`** daemon. `headlines`, `transfers`, and
-  `narratives` are News product components, not separate product pillars.
+- **5 live queue stages** — `scrub` → `transfers` → `narratives` → `vibe` → `sigil` —
+  drained by the long-running **`scoracle-cognition`** daemon. Transfer heat and breaking-story
+  urgency enrich `narratives`; they are not separate product pillars.
 - **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
   stage — same shape as the retired Go `cmd/statcommentary`).
 
@@ -69,7 +69,7 @@ For this folder, that means:
 Post Step-3 cutover, Rust owns every live LLM queue stage:
 
 ```text
-scrub -> headlines -> transfers -> narratives -> vibe -> sigil
+scrub -> transfers -> narratives -> vibe -> sigil
 ```
 
 The long-running daemon is:
@@ -117,14 +117,13 @@ failed past retry cap -> dead-letter for human repair
 | Stage | File | Input | Output | Notes |
 |---|---|---|---|---|
 | `scrub` | `src/scrub.rs` | `news_articles`, entity context | `news_article_entities.vetted` | Article-keyed ID gate; uses embedding-assisted resolve. |
-| `headlines` | `src/headline.rs` | vetted corpus | headline rows | Breaking-news bulletin extraction. |
-| `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat; fail closed on uncertain validity. |
-| `narratives` | `src/narratives.rs` | vetted/link clusters | `news_summaries` | Storyline grouping and summarization. |
+| `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat, with shared source freshness and trajectory markers; fail closed on uncertain validity. |
+| `narratives` | `src/narratives.rs` | vetted/link clusters + transfer heat | `news_summaries` | Storyline grouping, source freshness, and trajectory markers. |
 | `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
 | `sigil` | `src/sigil.rs` | Rating + Vibe + Momentum inputs | `sigil_synthesis` | Crown convergence; event-driven and debounced. |
-| rating batch | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read; not `pipeline_work`. |
+| rating batch | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; not `pipeline_work`. |
 
-Momentum is not a queue stage. It is a served product assembled from Rating and Vibe trajectories.
+Momentum is not a queue stage. It is a served product assembled from Rating/PEAK and Vibe trajectories.
 
 ## Repository Layout
 
@@ -149,7 +148,6 @@ rust/
     ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
     ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
     ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
-    ├── headline.rs          # headlines stage: breaking-news bulletin extraction for News
     ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t5 prompt
     ├── narratives.rs        # narratives stage: news storyline clustering + summarization
     ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)

@@ -198,7 +198,6 @@ check_200_or_404 "GET stats player=$PLAYER_ID"     "$HOST/api/v1/nba/player/$PLA
 check_200_or_404 "GET rating player=$PLAYER_ID"    "$HOST/api/v1/nba/player/$PLAYER_ID/rating"
 check_200_or_404 "GET sigil player=$PLAYER_ID"     "$HOST/api/v1/nba/player/$PLAYER_ID/sigil"
 check_200_or_404 "GET news player=$PLAYER_ID"      "$HOST/api/v1/nba/player/$PLAYER_ID/news"
-check_200_or_404 "GET headlines player=$PLAYER_ID" "$HOST/api/v1/nba/player/$PLAYER_ID/headlines"
 check_200_or_404 "GET sigil team=$TEAM_ID"         "$HOST/api/v1/nba/team/$TEAM_ID/sigil"
 
 echo

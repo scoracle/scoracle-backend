@@ -148,6 +148,9 @@ func seed(t *testing.T, pool *pgxpool.Pool) {
 	); err != nil {
 		t.Fatalf("seed event box score: %v", err)
 	}
+	if _, err := pool.Exec(ctx, `REFRESH MATERIALIZED VIEW nba.autofill_entities`); err != nil {
+		t.Fatalf("seed autofill materialized view: %v", err)
+	}
 }
 
 func applyCandidate(t *testing.T, pool *pgxpool.Pool, rumorID int64, heat int16, detConf float64, adj map[string]any) applyResult {

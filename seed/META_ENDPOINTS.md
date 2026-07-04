@@ -11,6 +11,12 @@ The metadata system is separate from event seeding and provides:
 
 This separation allows provider-agnostic event data and flexible metadata sourcing.
 
+**Seeding-layer boundary:** roster membership owns player discovery. Metadata
+enriches players already written to `team_rosters` for the requested season.
+This is mandatory for NBA/NFL because BDL player-list endpoints can expose
+historical league-wide entities. Do not use a historical provider list as the
+metadata universe, and do not compensate with an automatic statless purge.
+
 ---
 
 ## NBA (BallDontLie API)
@@ -197,11 +203,17 @@ Unmatched entities are logged, not hard-failed.
 ## Usage
 
 ### CLI-Driven Metadata Seeding
-Run metadata seeding explicitly from the CLI when needed (for example at season start and periodic refresh points):
+Run roster seeding first, then metadata enrichment. Metadata seeding is not a
+player-discovery pass.
 
 ```bash
+scoracle-seed roster seed nba --season 2025
 scoracle-seed meta seed nba --season 2025
+
+scoracle-seed roster seed nfl --season 2025
 scoracle-seed meta seed nfl --season 2025
+
+scoracle-seed roster seed football --season 2025 --league 8
 scoracle-seed meta seed football --season 2025 --league 8
 ```
 
@@ -210,6 +222,7 @@ every league with a `provider_seasons` row for the given season —
 one cron job can drain all configured football leagues:
 
 ```bash
+scoracle-seed roster seed football --season 2025
 scoracle-seed meta seed football --season 2025
 scoracle-seed event load-fixtures football --season 2025
 scoracle-seed event process --sport football --season 2025
@@ -218,6 +231,7 @@ scoracle-seed event process --sport football --season 2025
 Optional scoped run:
 
 ```bash
+scoracle-seed roster seed nfl --season 2025 --max-teams 2 --max-players 500
 scoracle-seed meta seed nfl --season 2025 --max-teams 2 --max-players 500
 ```
 

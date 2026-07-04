@@ -21,6 +21,7 @@ def _setup_logging() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 @click.group()

@@ -94,7 +94,11 @@ def upsert_player(conn: psycopg.Connection, sport: str, player: Player) -> None:
             raw_response
         ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         ON CONFLICT (id, sport) DO UPDATE SET
-            name = COALESCE(EXCLUDED.name, players.name),
+            name = CASE
+                WHEN EXCLUDED.name IS NULL OR EXCLUDED.name ~ '^Player [0-9]+$'
+                    THEN players.name
+                ELSE EXCLUDED.name
+            END,
             first_name = COALESCE(EXCLUDED.first_name, players.first_name),
             last_name = COALESCE(EXCLUDED.last_name, players.last_name),
             nationality = COALESCE(EXCLUDED.nationality, players.nationality),

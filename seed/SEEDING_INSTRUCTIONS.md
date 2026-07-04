@@ -3,11 +3,25 @@
 This seeder is CLI-driven and lean:
 
 1. **Event seeding** (`scoracle-seed event ...`) — fixtures + box scores
-2. **Meta seeding** (`scoracle-seed meta seed ...`) — team + player profiles
-3. **Image seeding** (`scoracle-seed meta images ...`) — team logos + player
+2. **Roster seeding** (`scoracle-seed roster seed ...`) — season-scoped team
+   membership in `team_rosters`
+3. **Meta seeding** (`scoracle-seed meta seed ...`) — team + player profile
+   enrichment for the roster-scoped universe
+4. **Image seeding** (`scoracle-seed meta images ...`) — team logos + player
    headshots from api-sports, NBA + NFL only
 
 No scheduler, daemon, or LISTEN/NOTIFY runtime is required.
+
+## Critical Seeding-Layer Boundary
+
+Roster membership owns player discovery. Metadata is an enrichment pass.
+
+For NBA/NFL, BDL's player-list endpoints can return historical league-wide
+payloads. Do not use those lists as the set of players Scoracle covers, and do
+not fix that mistake with a broad statless purge. Run `roster seed` first; it
+writes active season membership into `team_rosters`. Then run `meta seed`; it
+fetches profiles only for players already present on active `team_rosters` rows
+for the requested season. Statless rostered players are valid and must stay.
 
 ## Prerequisites
 
@@ -72,25 +86,31 @@ Once a fixture's status is `'seeded'` it won't be picked up again.
 
 ## Meta Seeding (Team + Player Profiles)
 
-Run at season start and on a weekly refresh (see `planning_docs/CRON_SEEDING_STRATEGY.md`):
+Run after roster seeding at season start and on a weekly refresh (see
+`planning_docs/CRON_SEEDING_STRATEGY.md`). The order matters:
 
 ```bash
 # NBA
+scoracle-seed roster seed nba --season 2025
 scoracle-seed meta seed nba --season 2025
 
 # NFL
+scoracle-seed roster seed nfl --season 2025
 scoracle-seed meta seed nfl --season 2025
 
 # Football — one league
+scoracle-seed roster seed football --season 2025 --league 8
 scoracle-seed meta seed football --season 2025 --league 8
 
 # Football — all configured leagues (recommended)
+scoracle-seed roster seed football --season 2025
 scoracle-seed meta seed football --season 2025
 ```
 
 Optional scoping:
 
 ```bash
+scoracle-seed roster seed nfl --season 2025 --max-teams 2 --max-players 500
 scoracle-seed meta seed nfl --season 2025 --max-teams 2 --max-players 500
 ```
 
@@ -151,9 +171,14 @@ insert rows with the matching `season_year`.
 Minimal end-to-end verification:
 
 ```bash
-# Tiny meta seed per sport
+# Tiny roster + meta seed per sport. Meta requires active team_rosters rows.
+scoracle-seed roster seed nba --season 2025 --max-teams 1 --max-players 1
 scoracle-seed meta seed nba --season 2025 --max-teams 1 --max-players 1
+
+scoracle-seed roster seed nfl --season 2025 --max-teams 1 --max-players 1
 scoracle-seed meta seed nfl --season 2025 --max-teams 1 --max-players 1
+
+scoracle-seed roster seed football --season 2025 --league 8 --max-teams 1 --max-players 1
 scoracle-seed meta seed football --season 2025 --league 8 --max-teams 1 --max-players 1
 
 # One event per sport
@@ -174,6 +199,7 @@ scoracle-seed event process --sport football --season 2025 --max 1
 ```bash
 # 1. Ensure provider_seasons rows exist (see SQL above)
 # 2. Run the pipeline — --league omitted iterates every configured league
+scoracle-seed roster seed football --season 2025
 scoracle-seed meta seed football --season 2025
 scoracle-seed event load-fixtures football --season 2025
 scoracle-seed event process --sport football --season 2025
@@ -182,10 +208,12 @@ scoracle-seed event process --sport football --season 2025
 ### NBA + NFL, current season
 
 ```bash
+scoracle-seed roster seed nba --season 2025
 scoracle-seed meta seed nba --season 2025
 scoracle-seed event load-fixtures nba --season 2025
 scoracle-seed event process --sport nba --season 2025
 
+scoracle-seed roster seed nfl --season 2025
 scoracle-seed meta seed nfl --season 2025
 scoracle-seed event load-fixtures nfl --season 2025
 scoracle-seed event process --sport nfl --season 2025
@@ -195,20 +223,25 @@ scoracle-seed event process --sport nfl --season 2025
 
 ### NBA / NFL — BDL
 
-BDL historical data works the same way. Just change `--season`:
+BDL historical event data works the same way. Roster still comes first for
+each backfilled season, because metadata enriches `team_rosters` and must not
+page through BDL's historical player universe.
 
 ```bash
 # NBA 2024-25 season
+scoracle-seed roster seed nba --season 2024
 scoracle-seed meta seed nba --season 2024
 scoracle-seed event load-fixtures nba --season 2024
 scoracle-seed event process --sport nba --season 2024
 
 # NBA 2023-24 season
+scoracle-seed roster seed nba --season 2023
 scoracle-seed meta seed nba --season 2023
 scoracle-seed event load-fixtures nba --season 2023
 scoracle-seed event process --sport nba --season 2023
 
 # NFL 2024 season
+scoracle-seed roster seed nfl --season 2024
 scoracle-seed meta seed nfl --season 2024
 scoracle-seed event load-fixtures nfl --season 2024
 scoracle-seed event process --sport nfl --season 2024
@@ -224,6 +257,7 @@ blocks above). Once that's in place:
 
 ```bash
 # 2024/25 season — after adding provider_seasons rows above
+scoracle-seed roster seed football --season 2024
 scoracle-seed meta seed football --season 2024
 scoracle-seed event load-fixtures football --season 2024
 scoracle-seed event process --sport football --season 2024
@@ -233,6 +267,7 @@ Loop multiple seasons:
 
 ```bash
 for Y in 2023 2024; do
+  scoracle-seed roster seed football --season $Y
   scoracle-seed meta seed football --season $Y
   scoracle-seed event load-fixtures football --season $Y
   scoracle-seed event process --sport football --season $Y
@@ -245,7 +280,7 @@ Backfills are expensive on API quota. Rough per-season call counts:
 
 | Pipeline      | BDL (per season)         | SportMonks (per league/season) |
 |---------------|--------------------------|--------------------------------|
-| Meta seed     | ~500 (NBA) / ~2000 (NFL) | ~400                           |
+| Roster + meta | active roster + profiles | squad + profiles               |
 | Load fixtures | ~13 pages                | ~8 pages                       |
 | Event process | ~1,300 (NBA) / ~285 (NFL)| ~380                           |
 
@@ -279,12 +314,14 @@ For football event seeding, the handler:
 
 ## Recommended Seeding Workflow
 
-1. **`meta seed`** each sport/league — players need to exist for box
-   scores.
-2. **`event load-fixtures`** each sport/league.
-3. **`event process`** to seed box scores. Re-run idempotently to
+1. **`roster seed`** each sport/league — writes season-scoped
+   `team_rosters` membership.
+2. **`meta seed`** each sport/league — enriches only active
+   `team_rosters` players for that season.
+3. **`event load-fixtures`** each sport/league.
+4. **`event process`** to seed box scores. Re-run idempotently to
    catch newly completed fixtures.
-4. **`meta images`** once per season, NBA + NFL only (optional).
+5. **`meta images`** once per season, NBA + NFL only (optional).
 
 ## League IDs (Football)
 
@@ -303,5 +340,5 @@ cadence:
 
 - **Daily 23:00 ET** — `event process --sport football --season 2025`
 - **Weekly 23:00 ET Monday** — full refresh
-  (`load-fixtures` + `meta seed`)
+  (`roster seed` + `meta seed` + `load-fixtures`)
 - **Future** — NBA + NFL will move off cron when BDL webhooks are wired

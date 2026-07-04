@@ -18,6 +18,7 @@ from shared.models import (
     Team,
     TeamStats,
 )
+from shared.api_errors import RateLimitExhausted
 from shared.sportmonks_client import SportMonksClient
 from shared.stat_keys import canonicalize
 
@@ -121,6 +122,8 @@ class FootballHandler:
                 {"include": "nationality;detailedPosition;position;metadata"},
             )
             return resp.get("data")
+        except RateLimitExhausted:
+            raise
         except Exception as e:
             logger.warning(f"Failed to fetch player profile {player_id}: {e}")
             return None

@@ -2,6 +2,11 @@
 
 Commands:
   seed             — Seed team_rosters membership (top-down by team)
+
+SEEDING LAYER RULE:
+  Roster seeding owns season-scoped player discovery. It should write
+  team_rosters membership from roster/squad payloads and avoid profile
+  enrichment calls; profile hydration belongs to meta seed.
 """
 
 from __future__ import annotations
@@ -270,9 +275,15 @@ def _seed_football_rosters(
             active_ids: list[int] = []
 
             for entry in squad:
+                player_payload = entry.get("player")
+                if not isinstance(player_payload, dict):
+                    player_payload = {}
+
                 player_id = _as_int(entry.get("player_id"))
                 if player_id is None:
                     player_id = _as_int(entry.get("id"))
+                if player_id is None:
+                    player_id = _as_int(player_payload.get("id"))
                 if player_id is None:
                     continue
 
@@ -283,20 +294,14 @@ def _seed_football_rosters(
                 ):
                     break
 
-                profile = handler.get_player_profile(player_id)
-                if isinstance(profile, dict):
-                    player = parse_football_player(profile)
-                    if player.id == 0:
-                        player.id = player_id
-                else:
-                    name = (
-                        entry.get("display_name")
-                        or entry.get("name")
-                        or f"Player {player_id}"
-                    )
-                    player = parse_football_player(
-                        {"id": player_id, "display_name": name}
-                    )
+                name = (
+                    entry.get("display_name")
+                    or entry.get("name")
+                    or player_payload.get("display_name")
+                    or player_payload.get("name")
+                    or f"Player {player_id}"
+                )
+                player = parse_football_player({"id": player_id, "display_name": name})
 
                 player.team_id = team.id
 

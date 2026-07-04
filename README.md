@@ -208,8 +208,13 @@ pip install -e .
 
 scoracle-seed event load-fixtures nba --season 2025 --from-date 2025-10-01 --to-date 2025-10-31
 scoracle-seed event process --sport nba --season 2025 --max 50
+scoracle-seed roster seed nba --season 2025
 scoracle-seed meta seed nba --season 2025
 ```
+
+Seeder boundary: `roster seed` owns season-scoped player discovery via
+`team_rosters`; `meta seed` only enriches that roster. This avoids BDL's
+historical player-list payloads becoming the metadata universe.
 
 ## Testing
 

@@ -39,7 +39,7 @@ use std::collections::HashMap;
 use tracing::warn;
 
 /// Prompt version for the transfer/trade vetting contract.
-pub const TRANSFER_PROMPT_VERSION: &str = "t5";
+pub const TRANSFER_PROMPT_VERSION: &str = "t6";
 
 /// Production vetting temperature (transfer.go uses 0.3). The parity harness overrides to 0.
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
@@ -58,6 +58,8 @@ const COMENTION_PROXIMITY_CHARS: i32 = 50;
 /// Summary clip (transfer.go: `truncate(s, 240)`) and news-description clip (`truncate(d, 160)`).
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
+const CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR: i16 = 85;
+const CONFIRMED_MOVE_MIN_SOURCES: usize = 1;
 
 /// transfer_system_prompt is the model-neutral transfer/trade vetting prompt. `noun` is "trade" for
 /// NBA/NFL and "transfer" otherwise.
@@ -77,7 +79,9 @@ Set is_rumor=false when any of these holds:
 - The source club, role, or position contradicts the identity line.
 - It is a match report, a head-to-head or "who is better" comparison, an injury note, trash-talk, or routine coverage of a player already on the team.
 - The player is mentioned only as an opponent/rival, game-plan problem, draft counter, or comparison target.
-- The move is complete, historical, or background from an old window.
+- The move is old historical/background context from a prior window with no current roster impact.
+- A recently completed, finalizing, agreed, or reported trade/transfer involving the named team
+  and exact player is still a current move signal; classify it instead of discarding it as historical.
 - The player is only one name in a roundup, mailbag, notes column, power ranking, rumor wrap, or listicle. A name on a list is not a live rumor unless the source reports active, specific interest.
 
 When is_rumor=true:
@@ -1149,6 +1153,137 @@ async fn load_transfer_identity_threshold(
     }))
 }
 
+fn team_confirmation_keys(team_name: &str) -> Vec<String> {
+    let full = team_name.trim().to_lowercase();
+    let mut keys = Vec::new();
+    if !full.is_empty() {
+        keys.push(full.clone());
+    }
+
+    if let Some(last) = full.split_whitespace().last() {
+        let skip = ["city", "fc", "united", "club", "town", "county"];
+        if last.len() > 3 && !skip.contains(&last) && !keys.iter().any(|k| k == last) {
+            keys.push(last.to_string());
+        }
+    }
+    keys
+}
+
+fn player_confirmation_keys(player_name: &str) -> Vec<String> {
+    let full = player_name.trim().to_lowercase();
+    let mut keys = Vec::new();
+    if !full.contains(char::is_whitespace) {
+        return keys;
+    }
+    if !full.is_empty() {
+        keys.push(full.clone());
+    }
+
+    if let Some(last) = full.split_whitespace().last() {
+        if last.len() > 3 && !keys.iter().any(|k| k == last) {
+            keys.push(last.to_string());
+        }
+    }
+    keys
+}
+
+fn text_contains_confirmation_key(text: &str, key: &str) -> bool {
+    if key.contains(char::is_whitespace) {
+        return text.contains(key);
+    }
+
+    let mut search_start = 0;
+    while let Some(relative) = text[search_start..].find(key) {
+        let start = search_start + relative;
+        let end = start + key.len();
+        let before = text[..start].chars().next_back();
+        let after = text[end..].chars().next();
+        let before_boundary = before.map(|c| !c.is_alphanumeric()).unwrap_or(true);
+        let after_boundary = after.map(|c| !c.is_alphanumeric()).unwrap_or(true);
+        if before_boundary && after_boundary {
+            return true;
+        }
+        search_start = end;
+    }
+    false
+}
+
+fn confirmed_move_source_count(
+    sport: &str,
+    team_name: &str,
+    player_name: &str,
+    news: &[NewsItem],
+) -> usize {
+    let team_keys = team_confirmation_keys(team_name);
+    let player_keys = player_confirmation_keys(player_name);
+    if team_keys.is_empty() || player_keys.is_empty() {
+        return 0;
+    }
+
+    let mut sources: Vec<String> = Vec::new();
+    for item in news {
+        let text = format!("{} {}", item.title, item.description).to_lowercase();
+        if !player_keys
+            .iter()
+            .any(|key| text_contains_confirmation_key(&text, key))
+        {
+            continue;
+        }
+
+        let confirmed = team_keys.iter().any(|key| {
+            if sport == "NBA" || sport == "NFL" {
+                text.contains(&format!("finalizing trade with {key}"))
+                    || text.contains(&format!("finalized trade with {key}"))
+                    || text.contains(&format!("trade with {key}"))
+                    || text.contains(&format!("trade to {key}"))
+                    || text.contains(&format!("traded to {key}"))
+                    || text.contains(&format!("{key} acquired"))
+                    || text.contains(&format!("{key} acquire"))
+                    || text.contains(&format!("{key} traded for"))
+            } else {
+                text.contains(&format!("{key} agree deal"))
+                    || text.contains(&format!("{key} agreed deal"))
+                    || text.contains(&format!("agreement with {key}"))
+                    || text.contains(&format!("signing for {key}"))
+                    || text.contains(&format!("signs for {key}"))
+                    || text.contains(&format!("joins {key}"))
+                    || text.contains(&format!("join {key}"))
+                    || text.contains(&format!("transfer to {key}"))
+                    || text.contains(&format!("move to {key}"))
+            }
+        });
+        if confirmed {
+            let source = item.source.to_lowercase();
+            if !sources.iter().any(|s| s == &source) {
+                sources.push(source);
+            }
+        }
+    }
+    sources.len()
+}
+
+fn identity_apply_deterministic_score(
+    sport: &str,
+    team_name: &str,
+    player_name: &str,
+    heat: i16,
+    _row: &TransferRow,
+    news: &[NewsItem],
+) -> (i16, f64, bool) {
+    let confirmed_move = confirmed_move_source_count(sport, team_name, player_name, news)
+        >= CONFIRMED_MOVE_MIN_SOURCES;
+    let identity_heat = if confirmed_move {
+        heat.max(CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR)
+    } else {
+        heat
+    };
+    (
+        identity_heat,
+        f64::from(identity_heat) / 100.0,
+        confirmed_move,
+    )
+}
+
 async fn current_identity_team(
     pool: &PgPool,
     sport: &str,
@@ -1297,7 +1432,8 @@ async fn maybe_apply_transfer_identity(
         return Ok(());
     }
 
-    let deterministic_confidence = f64::from(heat) / 100.0;
+    let (identity_heat, deterministic_confidence, confirmed_move_floor) =
+        identity_apply_deterministic_score(sport, team_name, &c.player_name, heat, row, news);
     let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
         warn!(
             sport,
@@ -1305,7 +1441,7 @@ async fn maybe_apply_transfer_identity(
         );
         return Ok(());
     };
-    if heat < threshold.min_heat
+    if identity_heat < threshold.min_heat
         || deterministic_confidence < threshold.min_deterministic_confidence
     {
         return Ok(());
@@ -1328,7 +1464,7 @@ async fn maybe_apply_transfer_identity(
         &old_team_name,
         team_id,
         team_name,
-        heat,
+        identity_heat,
         deterministic_confidence,
         persisted_rumor_id,
         row,
@@ -1356,6 +1492,7 @@ async fn maybe_apply_transfer_identity(
             warn!(
                 team = team_id,
                 player = c.player_id,
+                confirmed_move_floor,
                 error = %e,
                 "transfers: identity adjudication generate failed; fail closed"
             );
@@ -1366,7 +1503,7 @@ async fn maybe_apply_transfer_identity(
                 old_team_id,
                 team_id,
                 persisted_rumor_id,
-                heat,
+                identity_heat,
                 deterministic_confidence,
                 "",
                 &model_configured,
@@ -1385,7 +1522,7 @@ async fn maybe_apply_transfer_identity(
             old_team_id,
             team_id,
             persisted_rumor_id,
-            heat,
+            identity_heat,
             deterministic_confidence,
             "",
             &generated.model,
@@ -1411,7 +1548,7 @@ async fn maybe_apply_transfer_identity(
     .bind(old_team_id)
     .bind(team_id)
     .bind(persisted_rumor_id)
-    .bind(heat)
+    .bind(identity_heat)
     .bind(deterministic_confidence)
     .bind(&raw)
     .bind(&raw)
@@ -1701,6 +1838,156 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     }
 
     #[test]
+    fn identity_score_floors_confirmed_multi_source_trade() {
+        let news = vec![
+            NewsItem {
+                title: "Reports: Browns finalizing trade with Rams for Myles Garrett".to_string(),
+                description: String::new(),
+                source: "MSN".to_string(),
+            },
+            NewsItem {
+                title: "Where does Rams defense rank after Myles Garrett trade?".to_string(),
+                description: String::new(),
+                source: "AOL.com".to_string(),
+            },
+        ];
+
+        let row = TransferRow {
+            is_rumor: Some(true),
+            direction: Some("incoming".to_string()),
+            stage: Some("here_we_go".to_string()),
+            summary: Some("Rams finalizing trade for Garrett".to_string()),
+            attribution: Some("MSN".to_string()),
+            confidence: Some(0.5),
+            model: Some("mistral:7b".to_string()),
+            trigger_payload: "{}".to_string(),
+        };
+
+        let (heat, confidence, floored) = identity_apply_deterministic_score(
+            "NFL",
+            "Los Angeles Rams",
+            "Myles Garrett",
+            0,
+            &row,
+            &news,
+        );
+
+        assert!(floored);
+        assert_eq!(heat, CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR);
+        assert_eq!(
+            confidence,
+            f64::from(CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR) / 100.0
+        );
+    }
+
+    #[test]
+    fn identity_score_keeps_thin_speculation_heat() {
+        let news = vec![NewsItem {
+            title: "Rams linked with defensive options".to_string(),
+            description: "A roundup mentions several players.".to_string(),
+            source: "Blog".to_string(),
+        }];
+
+        let row = TransferRow {
+            is_rumor: Some(true),
+            direction: Some("incoming".to_string()),
+            stage: Some("speculation".to_string()),
+            summary: Some("Rams linked with defensive options".to_string()),
+            attribution: Some("Blog".to_string()),
+            confidence: Some(0.4),
+            model: Some("mistral:7b".to_string()),
+            trigger_payload: "{}".to_string(),
+        };
+
+        let (heat, confidence, floored) = identity_apply_deterministic_score(
+            "NFL",
+            "Los Angeles Rams",
+            "Myles Garrett",
+            12,
+            &row,
+            &news,
+        );
+
+        assert!(!floored);
+        assert_eq!(heat, 12);
+        assert_eq!(confidence, 0.12);
+    }
+
+    #[test]
+    fn identity_score_does_not_floor_background_trade_to_other_team() {
+        let news = vec![
+            NewsItem {
+                title: "Eagles target pass rusher after Browns traded Myles Garrett to Rams"
+                    .to_string(),
+                description: String::new(),
+                source: "MSN".to_string(),
+            },
+            NewsItem {
+                title: "Philadelphia linked to edge market after Garrett trade to Rams".to_string(),
+                description: String::new(),
+                source: "Yardbarker".to_string(),
+            },
+        ];
+
+        let row = TransferRow {
+            is_rumor: Some(true),
+            direction: Some("incoming".to_string()),
+            stage: Some("speculation".to_string()),
+            summary: Some("Eagles mentioned after Garrett trade to Rams".to_string()),
+            attribution: Some("MSN".to_string()),
+            confidence: Some(0.4),
+            model: Some("mistral:7b".to_string()),
+            trigger_payload: "{}".to_string(),
+        };
+
+        let (heat, confidence, floored) = identity_apply_deterministic_score(
+            "NFL",
+            "Philadelphia Eagles",
+            "Myles Garrett",
+            1,
+            &row,
+            &news,
+        );
+
+        assert!(!floored);
+        assert_eq!(heat, 1);
+        assert_eq!(confidence, 0.01);
+    }
+
+    #[test]
+    fn identity_score_does_not_floor_wrong_player_confirmed_to_team() {
+        let news = vec![NewsItem {
+            title: "Tottenham Hotspur agree deal for Andrew Robertson".to_string(),
+            description: String::new(),
+            source: "Example".to_string(),
+        }];
+
+        let row = TransferRow {
+            is_rumor: Some(true),
+            direction: Some("incoming".to_string()),
+            stage: Some("here_we_go".to_string()),
+            summary: Some("Tottenham transfer item".to_string()),
+            attribution: Some("Example".to_string()),
+            confidence: Some(0.5),
+            model: Some("mistral:7b".to_string()),
+            trigger_payload: "{}".to_string(),
+        };
+
+        let (heat, confidence, floored) = identity_apply_deterministic_score(
+            "FOOTBALL",
+            "Tottenham Hotspur",
+            "Andre",
+            3,
+            &row,
+            &news,
+        );
+
+        assert!(!floored);
+        assert_eq!(heat, 3);
+        assert_eq!(confidence, 0.03);
+    }
+
+    #[test]
     fn direction_is_deterministic_from_relationship() {
         assert_eq!(direction_for("current"), "outgoing");
         assert_eq!(direction_for("former"), "incoming");
@@ -1756,11 +2043,12 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     }
 
     #[test]
-    fn t5_system_prompt_carries_the_false_heat_guards() {
+    fn t6_system_prompt_carries_the_false_heat_guards() {
         // The false-heat guards must be present and noun-correct.
         let football = transfer_system_prompt("FOOTBALL");
         assert!(football.contains("current transfer involving BOTH"));
         assert!(football.contains("roundup"));
+        assert!(football.contains("recently completed"));
         assert!(football.contains("Never estimate, round, or invent money"));
         let nba = transfer_system_prompt("NBA");
         assert!(nba.contains("current trade involving BOTH")); // noun swap for NBA/NFL

@@ -25,12 +25,9 @@ use std::time::Duration;
 /// vibe trajectories over time, assembled from persisted rating/vibe series rather than drained as
 /// a standalone worker task. Sigil reads that trajectory as one of its pillars.
 ///
-/// `Headlines` is a queue stage because it derives a News component. It is not a public product
-/// pillar separate from News.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,
-    Headlines,
     Transfers,
     Narratives,
     Vibe,
@@ -41,7 +38,6 @@ impl Stage {
     pub fn as_str(self) -> &'static str {
         match self {
             Stage::Scrub => "scrub",
-            Stage::Headlines => "headlines",
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",

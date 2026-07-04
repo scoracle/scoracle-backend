@@ -536,41 +536,83 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
 		)`,
 
-		// News leaderboard — "most mentioned" entities in the rolling window. Counts
-		// distinct article links per entity from news_article_entities, joined to
-		// players/teams for the same enriched row shape as the vibes board.
-		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 window days (NULL ⇒ 30).
 		// Narratives leaderboard (two-rail model) — the sport's HOTTEST narratives:
-		// each entity's TOP current narrative (latest generation, <=7d) ranked by impact.
-		// Supersedes the raw mention-count news board. Mirrors vibes_leaderboard enrichment.
-		// $1 sport · $2 limit · $3 entity_type.
+		// each entity's top narrative in the selected scope, ranked by impact.
+		// Supersedes the raw mention-count and standalone headlines boards.
+		// $1 sport · $2 limit · $3 entity_type · $4 scope
 		"narratives_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 50) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       CASE NULLIF(lower($4::text), '')
+			         WHEN 'last_week' THEN 'last_week'
+			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
+			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
+			         WHEN 'last_month' THEN 'last_month'
+			         ELSE 'current_week'
+			       END AS scope_key
+		),
+		scope AS (
+			SELECT scope_key,
+			       CASE scope_key
+			         WHEN 'last_week' THEN 'Last week'
+			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			         WHEN 'last_month' THEN 'Last month'
+			         ELSE 'Current week'
+			       END AS label,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			         ELSE NOW() - INTERVAL '7 days'
+			       END AS starts_at,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         ELSE NOW()
+			       END AS ends_at
+			FROM req
 		),
 		-- Canonical latest-generation rule: resolve each
 		-- entity's latest generation FIRST (unfiltered max), then keep only that
 		-- generation's content rows. A newer no-corpus marker becomes the latest
 		-- generation, yields no content, and the entity drops off the board — rather
 		-- than the old "latest non-null row" which let a marker leave stale narratives
-		-- ranked. The 7-day window applies to the latest generation's timestamp, so a
-		-- stale-but-real generation also ages off.
+		-- ranked. The selected news scope applies to the latest generation's timestamp,
+		-- so stale-but-real generations age out of the current hub.
 		latest_gen AS (
 			SELECT ns.entity_type, ns.entity_id, max(ns.generated_at) AS gen
-			FROM public.news_summaries ns, req
+			FROM public.news_summaries ns, req, scope
 			WHERE ns.sport = req.sport
 			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
+			  AND ns.generated_at >= scope.starts_at
+			  AND ns.generated_at < scope.ends_at
 			GROUP BY ns.entity_type, ns.entity_id
 		),
 		latest AS (
 			SELECT DISTINCT ON (ns.entity_type, ns.entity_id)
-			       ns.entity_type, ns.entity_id, ns.narrative_title, ns.body, ns.impact, ns.generated_at
+			       ns.entity_type, ns.entity_id, ns.narrative_title, ns.body, ns.impact,
+			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
+			       ns.source_count, ns.source_names, ns.source_latest_at, ns.source_oldest_at,
+			       ns.trajectory,
+			       CASE ns.trajectory
+			         WHEN 'heating_up' THEN 'Heating up'
+			         WHEN 'cooling_off' THEN 'Cooling off'
+			         ELSE 'Developing story...'
+			       END AS trajectory_label,
+			       ns.generated_at
 			FROM public.news_summaries ns
 			JOIN latest_gen lg ON lg.entity_type = ns.entity_type AND lg.entity_id = ns.entity_id
 			                  AND ns.generated_at = lg.gen
 			CROSS JOIN req
 			WHERE ns.sport = req.sport
 			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
-			  AND ns.generated_at > NOW() - INTERVAL '7 days'
+			  AND ((SELECT scope_key FROM scope) <> 'current_week'
+			       OR COALESCE(ns.trajectory, 'developing_story') <> 'cooling_off'
+			       OR COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) > NOW() - INTERVAL '3 days')
 			ORDER BY ns.entity_type, ns.entity_id, ns.impact DESC
 		),
 		ranked AS (
@@ -578,7 +620,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.narrative_title, l.body, l.impact AS score, l.generated_at
+				       l.narrative_title, l.body, l.impact AS score,
+				       l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
+				       l.trajectory, l.trajectory_label, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
@@ -587,7 +631,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				UNION ALL
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.narrative_title, l.body, l.impact AS score, l.generated_at
+				       l.narrative_title, l.body, l.impact AS score,
+				       l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
+				       l.trajectory, l.trajectory_label, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
@@ -599,6 +645,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'page', 'news_leaderboard',
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
+			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
 			'count', (SELECT count(*) FROM ranked),
 			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
 		)`,
@@ -607,9 +654,41 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// sport-scoped sibling of team_transfers/player_suitors: latest row per
 		// (team, player) pair (DISTINCT ON), model-vetted (is_rumor IS TRUE), ranked
 		// by heat desc. Each row carries BOTH sides of the pair (player + team).
-		// $1 sport · $2 limit (NULL ⇒ 50).
+		// $1 sport · $2 limit (NULL ⇒ 50) · $3 scope.
 		"transfers_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 50) AS lim,
+			       CASE NULLIF(lower($3::text), '')
+			         WHEN 'last_week' THEN 'last_week'
+			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
+			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
+			         WHEN 'last_month' THEN 'last_month'
+			         ELSE 'current_week'
+			       END AS scope_key
+		),
+		scope AS (
+			SELECT scope_key,
+			       CASE scope_key
+			         WHEN 'last_week' THEN 'Last week'
+			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			         WHEN 'last_month' THEN 'Last month'
+			         ELSE 'Current week'
+			       END AS label,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			         ELSE NOW() - INTERVAL '7 days'
+			       END AS starts_at,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         ELSE NOW()
+			       END AS ends_at
+			FROM req
 		),
 		latest AS (
 			-- Newest row per pair regardless of verdict, so a fresh "cleared"
@@ -617,19 +696,30 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT DISTINCT ON (tr.team_id, tr.player_id)
 			       tr.team_id, tr.player_id, tr.heat, tr.heat_components,
 				       tr.direction, tr.stage, tr.model_summary, tr.source_attribution,
-			       tr.is_rumor, tr.generated_at
-			FROM public.transfer_rumors tr, req
+			       tr.is_rumor,
+			       COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) AS updated_at,
+			       tr.source_count, tr.source_names, tr.source_latest_at, tr.source_oldest_at,
+			       tr.trajectory,
+			       CASE tr.trajectory
+			         WHEN 'heating_up' THEN 'Heating up'
+			         WHEN 'cooling_off' THEN 'Cooling off'
+			         ELSE 'Developing story...'
+			       END AS trajectory_label,
+			       tr.trajectory_components,
+			       tr.generated_at
+			FROM public.transfer_rumors tr, req, scope
 			WHERE tr.sport = req.sport
-			  -- Stage-2 hygiene: only recently-regenerated rows, so stale/pre-scrub
-			  -- pairs age out (no self-heal under append+latest-per-pair).
-			  AND tr.generated_at > NOW() - INTERVAL '14 days'
+			  AND tr.generated_at >= scope.starts_at
+			  AND tr.generated_at < scope.ends_at
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		ranked AS (
 			SELECT p.id AS player_id, p.name AS player_name, p.photo_url AS player_image,
 			       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 			       l.heat, l.heat_components, l.direction, l.stage,
-				       l.model_summary AS summary, l.source_attribution, l.generated_at,
+				       l.model_summary AS summary, l.source_attribution,
+			       l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
+			       l.trajectory, l.trajectory_label, l.trajectory_components, l.generated_at,
 			       row_number() OVER (ORDER BY l.heat DESC NULLS LAST, l.generated_at DESC) AS rank
 			FROM latest l
 			JOIN public.players p ON p.id = l.player_id AND p.sport = (SELECT sport FROM req)
@@ -637,6 +727,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
 			-- is_rumor IS TRUE = model-vetted; heat > 0 drops zero-signal stragglers.
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
+			  AND ((SELECT scope_key FROM scope) <> 'current_week'
+			       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'
+			       OR l.updated_at > NOW() - INTERVAL '3 days')
 			  AND NOT (
 			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
 			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
@@ -645,71 +738,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		SELECT json_build_object(
 			'page', 'transfers_leaderboard',
 			'sport', lower((SELECT sport FROM req)),
+			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
 			'count', (SELECT count(*) FROM ranked),
 			'rumors', COALESCE(
 				(SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked WHERE ranked.rank <= (SELECT lim FROM req)),
 				'[]'::json
 			)
-		)`,
-		// Headlines leaderboard — entities with the most breaking-news bulletins in
-		// the 2-day window. Ranked by headline count, then by most recent headline.
-		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
-		"headlines_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport, COALESCE($2::int, 50) AS lim, NULLIF(lower($3::text), '') AS entity_type
-		),
-		deduped AS (
-			SELECT entity_type, entity_id, published_at
-			FROM (
-				SELECT h.entity_type, h.entity_id, h.published_at,
-				       row_number() OVER (
-				           PARTITION BY h.entity_type, h.entity_id,
-				                        COALESCE(
-				                            'url:' || NULLIF(lower(btrim(h.source_url)), ''),
-				                            'source-title:' || NULLIF(lower(btrim(h.source_name)), '') || ':' || lower(btrim(h.title)),
-				                            'row:' || h.id::text
-				                        )
-				           ORDER BY h.generated_at DESC NULLS LAST, h.published_at DESC, h.id DESC
-				       ) AS dup_rank
-				FROM public.headlines h, req
-				WHERE h.sport = req.sport
-				  AND (req.entity_type IS NULL OR h.entity_type = req.entity_type)
-				  AND h.published_at > NOW() - INTERVAL '2 days'
-			) d
-			WHERE dup_rank = 1
-		),
-		counts AS (
-			SELECT h.entity_type, h.entity_id, count(*) AS headline_count, max(h.published_at) AS latest_at
-			FROM deduped h
-			GROUP BY h.entity_type, h.entity_id
-		),
-		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
-			FROM (
-				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
-				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       c.headline_count AS score, c.latest_at AS generated_at
-				FROM counts c
-				JOIN public.players p ON p.id = c.entity_id AND p.sport = (SELECT sport FROM req)
-				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
-				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
-				WHERE c.entity_type = 'player'
-				UNION ALL
-				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
-				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       c.headline_count AS score, c.latest_at AS generated_at
-				FROM counts c
-				JOIN public.teams t ON t.id = c.entity_id AND t.sport = (SELECT sport FROM req)
-				WHERE c.entity_type = 'team'
-			) u
-			ORDER BY u.score DESC, u.generated_at DESC
-			LIMIT (SELECT lim FROM req)
-		)
-		SELECT json_build_object(
-			'page', 'headlines_leaderboard',
-			'sport', lower((SELECT sport FROM req)),
-			'entity_type', COALESCE((SELECT entity_type FROM req), 'all'),
-			'count', (SELECT count(*) FROM ranked),
-			'leaders', COALESCE((SELECT json_agg(row_to_json(ranked) ORDER BY ranked.rank) FROM ranked), '[]'::json)
 		)`,
 
 		// Roster (rating engine, per team) — every player on the team's season
@@ -755,19 +789,45 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			)
 		)`,
 
-		// Entity news rail (the two-rail model) — ONE payload: the entity's LATEST
-		// narratives (hottest first), its transfer SCOPE (a team's player rumors / a
-		// player's suitor clubs — branched on entity_type), and its vibe {current + a
-		// bounded history for the sparkline}. Consolidates the split /news + /vibe +
-		// /transfers reads. $1 sport · $2 entity_type (player|team) · $3 entity_id.
-
 		// --- Per-product news source (split from entity_news_rail) ---
 		// One self-contained product per card: /news (narratives), /transfers (the
-		// vetted rumor heat list), /vibes (current + history). Each card fetches its
-		// own product; "news" and "stats" are the two SOURCES, the cards are the
-		// products. $1 sport · $2 entity_type · $3 entity_id.
+		// vetted rumor heat list), and /sigil (crown synthesis). Each card fetches
+		// its own product. $1 sport · $2 entity_type · $3 entity_id · $4 scope.
 		"entity_news": `WITH req AS (
-			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
+			SELECT upper($1::text) AS sport,
+			       lower($2::text) AS entity_type,
+			       $3::int AS entity_id,
+			       CASE NULLIF(lower($4::text), '')
+			         WHEN 'last_week' THEN 'last_week'
+			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
+			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
+			         WHEN 'last_month' THEN 'last_month'
+			         ELSE 'current_week'
+			       END AS scope_key
+		),
+		scope AS (
+			SELECT scope_key,
+			       CASE scope_key
+			         WHEN 'last_week' THEN 'Last week'
+			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			         WHEN 'last_month' THEN 'Last month'
+			         ELSE 'Current week'
+			       END AS label,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			         ELSE NOW() - INTERVAL '7 days'
+			       END AS starts_at,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         ELSE NOW()
+			       END AS ends_at
+			FROM req
 		),
 		narr AS (
 			-- Canonical latest-generation rule: find the
@@ -777,14 +837,29 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- zero rows → empty narratives, clearing stale content. The old
 			-- body-filtered inner max let a marker fail to clear older narratives.
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
-			       ns.source_attribution, ns.input_news_ids, ns.model_version, ns.prompt_version, ns.generated_at
-			FROM public.news_summaries ns CROSS JOIN req
+			       ns.source_attribution, ns.input_news_ids,
+			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
+			       ns.source_count, ns.source_names, ns.source_latest_at, ns.source_oldest_at,
+			       ns.trajectory,
+			       CASE ns.trajectory
+			         WHEN 'heating_up' THEN 'Heating up'
+			         WHEN 'cooling_off' THEN 'Cooling off'
+			         ELSE 'Developing story...'
+			       END AS trajectory_label,
+			       ns.trajectory_components,
+			       ns.model_version, ns.prompt_version, ns.generated_at
+			FROM public.news_summaries ns CROSS JOIN req CROSS JOIN scope
 			WHERE ns.entity_type = req.entity_type AND ns.entity_id = req.entity_id AND ns.sport = req.sport
 			  AND ns.body IS NOT NULL
+			  AND (scope.scope_key <> 'current_week'
+			       OR COALESCE(ns.trajectory, 'developing_story') <> 'cooling_off'
+			       OR COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) > NOW() - INTERVAL '3 days')
 			  AND ns.generated_at = (
 			      SELECT max(generated_at) FROM public.news_summaries
 			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
 			        AND sport = (SELECT sport FROM req)
+			        AND generated_at >= (SELECT starts_at FROM scope)
+			        AND generated_at < (SELECT ends_at FROM scope)
 			  )
 		)
 		SELECT json_build_object(
@@ -792,21 +867,70 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
+			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
-			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids, model_version, prompt_version, generated_at FROM narr) n), '[]'::json)
+			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids,
+			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
+			                  trajectory, trajectory_label, trajectory_components,
+			                  model_version, prompt_version, generated_at
+			           FROM narr) n), '[]'::json)
 		)`,
 		"entity_transfers": `WITH req AS (
-			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id
+			SELECT upper($1::text) AS sport,
+			       lower($2::text) AS entity_type,
+			       $3::int AS entity_id,
+			       CASE NULLIF(lower($4::text), '')
+			         WHEN 'last_week' THEN 'last_week'
+			         WHEN 'two_weeks_ago' THEN 'two_weeks_ago'
+			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
+			         WHEN 'last_month' THEN 'last_month'
+			         ELSE 'current_week'
+			       END AS scope_key
+		),
+		scope AS (
+			SELECT scope_key,
+			       CASE scope_key
+			         WHEN 'last_week' THEN 'Last week'
+			         WHEN 'two_weeks_ago' THEN 'Two weeks ago'
+			         WHEN 'three_weeks_ago' THEN 'Three weeks ago'
+			         WHEN 'last_month' THEN 'Last month'
+			         ELSE 'Current week'
+			       END AS label,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '28 days'
+			         WHEN 'last_month' THEN NOW() - INTERVAL '30 days'
+			         ELSE NOW() - INTERVAL '7 days'
+			       END AS starts_at,
+			       CASE scope_key
+			         WHEN 'last_week' THEN NOW() - INTERVAL '7 days'
+			         WHEN 'two_weeks_ago' THEN NOW() - INTERVAL '14 days'
+			         WHEN 'three_weeks_ago' THEN NOW() - INTERVAL '21 days'
+			         ELSE NOW()
+			       END AS ends_at
+			FROM req
 		),
 		tr_latest AS (
 			SELECT DISTINCT ON (tr.team_id, tr.player_id)
 			       tr.team_id, tr.player_id, tr.heat, tr.heat_components, tr.direction, tr.stage,
-				       tr.model_summary, tr.source_attribution, tr.is_rumor, tr.generated_at
-			FROM public.transfer_rumors tr CROSS JOIN req
+				       tr.model_summary, tr.source_attribution, tr.is_rumor,
+			       COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) AS updated_at,
+			       tr.source_count, tr.source_names, tr.source_latest_at, tr.source_oldest_at,
+			       tr.trajectory,
+			       CASE tr.trajectory
+			         WHEN 'heating_up' THEN 'Heating up'
+			         WHEN 'cooling_off' THEN 'Cooling off'
+			         ELSE 'Developing story...'
+			       END AS trajectory_label,
+			       tr.trajectory_components,
+			       tr.generated_at
+			FROM public.transfer_rumors tr CROSS JOIN req CROSS JOIN scope
 			WHERE tr.sport = req.sport
 			  AND ( (req.entity_type = 'team'   AND tr.team_id   = req.entity_id)
 			     OR (req.entity_type = 'player' AND tr.player_id = req.entity_id) )
-			  AND tr.generated_at > NOW() - INTERVAL '14 days'
+			  AND tr.generated_at >= scope.starts_at
+			  AND tr.generated_at < scope.ends_at
 			ORDER BY tr.team_id, tr.player_id, tr.generated_at DESC
 		),
 		tr_ranked AS (
@@ -815,12 +939,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.name      ELSE t.name     END AS name,
 			    CASE WHEN (SELECT entity_type FROM req) = 'team' THEN p.photo_url ELSE t.logo_url END AS image,
 				    l.heat, l.heat_components, l.direction, l.stage, l.model_summary AS summary, l.source_attribution,
+			    l.updated_at, l.source_count, l.source_names, l.source_latest_at, l.source_oldest_at,
+			    l.trajectory, l.trajectory_label, l.trajectory_components,
 			    row_number() OVER (ORDER BY l.heat DESC NULLS LAST) AS rank
 			FROM tr_latest l
 			LEFT JOIN public.players p ON (SELECT entity_type FROM req) = 'team'   AND p.id = l.player_id AND p.sport = (SELECT sport FROM req)
 			LEFT JOIN public.teams   t ON (SELECT entity_type FROM req) = 'player' AND t.id = l.team_id   AND t.sport = (SELECT sport FROM req)
 			LEFT JOIN public.player_current_identity pci ON pci.player_id = l.player_id AND pci.sport = (SELECT sport FROM req)
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
+			  AND ((SELECT scope_key FROM scope) <> 'current_week'
+			       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'
+			       OR l.updated_at > NOW() - INTERVAL '3 days')
 			  AND NOT (
 			      (pci.team_id IS NOT NULL AND pci.team_id = l.team_id AND COALESCE(l.direction, '') = 'incoming')
 			      OR (pci.team_id IS NOT NULL AND pci.team_id <> l.team_id AND COALESCE(l.direction, '') = 'outgoing')
@@ -831,42 +960,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'sport', lower((SELECT sport FROM req)),
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
+			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
-			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, summary, source_attribution, rank FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
-		)`,
-		// Entity headlines — breaking-news bulletins for the news rail. Filtered to the
-		// 2-day expiration window, sorted recency-first. $1 sport · $2 entity_type ·
-		// $3 entity_id · $4 limit (NULL ⇒ 20).
-		"entity_headlines": `WITH req AS (
-			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
-			       COALESCE($4::int, 20) AS lim
-		),
-		recent AS (
-			SELECT h.id, h.title, h.category, h.source_url, h.source_name, h.published_at
-			FROM (
-				SELECT h.id, h.title, h.category, h.source_url, h.source_name, h.published_at, h.generated_at,
-				       row_number() OVER (
-				           PARTITION BY COALESCE(
-				               'url:' || NULLIF(lower(btrim(h.source_url)), ''),
-				               'source-title:' || NULLIF(lower(btrim(h.source_name)), '') || ':' || lower(btrim(h.title)),
-				               'row:' || h.id::text
-				           )
-				           ORDER BY h.generated_at DESC NULLS LAST, h.published_at DESC, h.id DESC
-				       ) AS dup_rank
-				FROM public.headlines h CROSS JOIN req
-				WHERE h.sport = req.sport AND h.entity_type = req.entity_type AND h.entity_id = req.entity_id
-				  AND h.published_at > NOW() - INTERVAL '2 days'
-			) h
-			WHERE h.dup_rank = 1
-			ORDER BY h.published_at DESC
-			LIMIT (SELECT lim FROM req)
-		)
-		SELECT json_build_object(
-			'page', 'headlines',
-			'sport', lower((SELECT sport FROM req)),
-			'entity_type', (SELECT entity_type FROM req),
-			'entity_id', (SELECT entity_id FROM req),
-			'headlines', COALESCE((SELECT json_agg(row_to_json(recent) ORDER BY recent.published_at DESC) FROM recent), '[]'::json)
+			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, summary, source_attribution,
+			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
+			                  trajectory, trajectory_label, trajectory_components, rank
+			           FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
 		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ live/current view).
 		"entity_vibes": `WITH req AS (
@@ -1114,7 +1213,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- the body IS NOT NULL guard yields zero rows → null commentary, clearing
 				-- stale prose. Season-scoped so a new season's content is independent.
 				SELECT row_to_json(c) FROM (
-					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_peak
+					SELECT s.body, s.notability, s.notability_components, s.season, s.prompt_version, s.generated_at, s.divined_peak,
+					       COALESCE(s.peak_trajectory, 'steady') AS peak_trajectory,
+					       s.peak_trajectory_label,
+					       s.peak_trajectory_components
 					FROM public.stat_summaries s
 					WHERE s.entity_type = (SELECT etype FROM req) AND s.entity_id = (SELECT eid FROM req)
 					  AND s.sport = (SELECT sport FROM req) AND s.season = (SELECT season FROM season_pick)

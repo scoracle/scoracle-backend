@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-06-29 (Headlines feature v1 — added `/{entityType}/{id}/headlines` + `?board=headlines` + `/leaderboard/headlines`; Rust Cognition Harness owns the `headlines` queue stage).
+> Last updated: 2026-07-03 (Headlines folded into Narratives; News/Transfers and PEAK Rating now carry trajectory metadata).
 
 Single public API base URL:
 
@@ -15,24 +15,24 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 |---|---|
 | `GET /api/v1/entities` · `/autofill` | universal, cross-sport, text-only player/team directory for home search |
 | `GET /api/v1/{sport}/{entityType}/{id}/stats` | season Composite rating + per-event series + `available_seasons` |
-| `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-divined stat read + stat commentary (was `/special`) |
+| `GET /api/v1/{sport}/{entityType}/{id}/rating` | model-divined stat read + PEAK trajectory metadata (was `/special`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/momentum` | Rating × Vibe trajectory (was `/trends`) |
 | `GET /api/v1/{sport}/{entityType}/{id}/sigil` | Sigil crown synthesis (was per-entity `/vibes`) |
-| `GET /api/v1/{sport}/{entityType}/{id}/news` | model narratives |
-| `GET /api/v1/{sport}/{entityType}/{id}/transfers` | vetted transfer/trade rumor heat |
-| `GET /api/v1/{sport}/{entityType}/{id}/headlines` | breaking-news bulletins (2-day window) |
+| `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives with source freshness and trajectory markers |
+| `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted transfer/trade rumor heat with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
 | `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · team's rating board |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
-| `GET /api/v1/{sport}/leaderboard` | rating board; `?board=rating\|vibes\|sigil\|news\|transfers\|headlines` |
-| `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,headlines,trending}` | dedicated boards |
+| `GET /api/v1/{sport}/leaderboard` | rating board; `?board=rating\|vibes\|sigil\|news\|transfers\|trending` |
+| `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,trending}` | dedicated boards |
 | `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |
 | `GET /` · `/health` · `/health/db` · `/health/cache` · `/docs/` · `/docs/go.json` | operational |
 | `POST /api/v1/auth/{device,refresh,device/push,logout}` | mobile device-identity JWT |
 
 **Removed (no longer wired — kept here so this file matches reality):** the bundled profile
 route `/{sport}/{entityType}/{id}` (O16); the per-entity aliases `/special`, `/trends`,
-`/vibes` (O14 convergence rename); the old live integration routes; the legacy
+`/vibes` (O14 convergence rename); the standalone `/headlines` and `/leaderboard/headlines`
+routes (2026-07-03; folded into `/news`); the old live integration routes; the legacy
 `/sparkline`/`/starline`.
 
 ## Core Data Endpoints (Canonical)
@@ -105,7 +105,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/{entityType}/{id}/mo
 | `entity_alltime_score_rank_absolute` | number \| null | **Players only.** The entity's `season_composite_rank_alltime_absolute` — same cross-position logic as `entity_season_score_rank_absolute`, ranked across **every season in the DB** for the sport. "Best player-season overall, regardless of position, ever recorded." Refreshed nightly. `null` for teams or for players with no eligible season stats. |
 | `peer_season_score_avg` | number | AVG of `season_composite_score` across the peer cohort. Hovers near 50; tier-rendering anchor. |
 | `vibes.window_days` | integer | Currently fixed at `7`. May become a query param when data.scoracle ships. |
-| `vibes.snapshots` | object[] | Last-7-days raw sentiment snapshots — `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. Still the freshest single number for "right now" headlines; `entity_season_vibe_series` is the season trajectory companion. |
+| `vibes.snapshots` | object[] | Last-7-days raw sentiment snapshots — `{sentiment, generated_at, trigger_type}` rows ordered newest first. `[]` when the entity has no scores in the window. Still the freshest single number for "right now" news; `entity_season_vibe_series` is the season trajectory companion. |
 | `entity_season_vibe_series` | object[] | Daily-bucketed sentiment trajectory across the season, oldest-first. Each row: `{date, sentiment_avg, snapshot_count}` — `date` is the UTC day (`YYYY-MM-DD`); `sentiment_avg` is the integer mean of that day's snapshots on the 0–100 scale (matches the rating scale); `snapshot_count` is how many snapshots aggregated into that day (frontend hover-tooltip: "4 snapshots that day"). **Days with zero snapshots are omitted** so the sparkline renders quiet stretches as honest gaps rather than zero-sentiment dots. **Range: first kickoff of the most-recently-started season in this sport+league scope, through `NOW()`.** During the offseason the anchor stays pinned to the previous season's start, so vibes carry through gap periods (trade rumors, draft news, off-day reactions); once the next season's first fixture kicks off, the anchor moves forward. Per-sport (not per-entity) so two entities in the same scope share a date axis — frontend can compare them on aligned sparklines. `[]` when no season has started yet in scope. The frontend should filter out the long stretch of nulls before the vibe pipeline started accumulating data (~May 2026 in production); going forward the series will populate naturally from the season anchor. |
 | `meta.season` | integer | Resolved season used for the peer cohort |
 | `meta.league_id` | integer \| null | The league actually used (after the football fallback); `null` for NBA/NFL |
@@ -376,7 +376,7 @@ The league-scoped route `/api/v1/{sport}/leagues/{leagueId}/team/{id}/results` i
 
 ### `GET /api/v1/{sport}/meta`
 
-Legacy sport-wide metadata/search payload. New frontend surfaces should hydrate page islands from dedicated backend endpoints like `/{sport}/{entityType}/{id}/meta`, `/stats`, `/rating`, `/news`, `/transfers`, `/headlines`, `/momentum`, and `/sigil`. Do not use this as a new frontend local metadata DB; home search should use `GET /api/v1/entities`.
+Legacy sport-wide metadata/search payload. New frontend surfaces should hydrate page islands from dedicated backend endpoints like `/{sport}/{entityType}/{id}/meta`, `/stats`, `/rating`, `/news`, `/transfers`, `/momentum`, and `/sigil`. Do not use this as a new frontend local metadata DB; home search should use `GET /api/v1/entities`.
 
 Query parameters:
 - `league_id` (optional integer) - Scope to specific league
@@ -445,7 +445,7 @@ apps; NFL ≥8 GP (players). Teams: all rated.
 The board view. Each row carries **both** Composite and Specialist (+ specialty), so one
 payload feeds the board and a meta card.
 
-**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, or `transfers`. The dedicated `/leaderboard/{board}` routes below remain for now (the frontend will migrate to `?board=`, then they're retired). The **`news` board now ranks the hottest model narratives by per-narrative impact** (each row = an entity's top current narrative), superseding the old raw mention-count board.
+**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, `transfers`, or `trending`. The dedicated `/leaderboard/{board}` routes below remain for now where registered. The **`news` board now ranks the hottest model narratives by per-narrative impact** (each row = an entity's top narrative in the selected news scope), superseding the old raw mention-count and standalone headlines boards.
 
 #### Query parameters
 
@@ -575,14 +575,14 @@ entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
 ### `GET /api/v1/{sport}/leaderboard/news`
 
 The sport-wide **news** board — the **hottest model narratives**, ranked by per-narrative
-`impact`. Each row is an entity's TOP current narrative (latest generation, ≤7 days), enriched
-like the vibe board (player/team name, image, current club) plus `narrative_title`, `body`, and
-`score` = impact. Supersedes the old mention-count board (`news_article_entities`). Also reachable
-as `/leaderboard?board=news`.
+`impact`. Each row is an entity's top narrative in the selected scope, enriched like the vibe board
+(player/team name, image, current club) plus source freshness and trajectory fields. Supersedes the
+old mention-count and standalone headlines boards. Also reachable as `/leaderboard?board=news`.
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `entity_type` | string | both | `player` or `team`; omit for a mixed board. |
+| `scope` | string | `current_week` | `current_week`, `last_week`, `two_weeks_ago`, `three_weeks_ago`, `last_month`. |
 | `limit` | integer | `50` | Max rows. |
 
 ```jsonc
@@ -590,7 +590,7 @@ as `/leaderboard?board=news`.
   "page": "news_leaderboard",
   "sport": "nba",
   "entity_type": "team",
-  "window_days": 14,
+  "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "count": 3,
   "leaders": [
     {
@@ -602,8 +602,15 @@ as `/leaderboard?board=news`.
       "team_name": "San Antonio Spurs",
       "team_code": "SAS",
       "team_logo": "https://…",
-      "score": 1183,                   // distinct article mentions in window
-      "latest_at": "2026-06-04T13:47:21-04:00",
+      "narrative_title": "...",
+      "body": "...",
+      "score": 85,                     // narrative impact
+      "updated_at": "2026-07-03T13:47:21-04:00",
+      "source_count": 4,
+      "source_names": ["BBC Sport", "ESPN"],
+      "trajectory": "heating_up",
+      "trajectory_label": "Heating up",
+      "generated_at": "2026-07-03T14:01:10-04:00",
       "rank": 1
     }
   ]
@@ -614,19 +621,22 @@ as `/leaderboard?board=news`.
 
 The sport-wide **transfers** board — the hottest model-vetted `(team, player)` rumors,
 ranked by deterministic `heat` (0-100): latest row per pair (`DISTINCT ON`),
-`is_rumor IS TRUE`, with **both** sides of the pair on each row. The per-entity
-transfer scope is the `/{entityType}/{id}/transfers` product (the old team-only
-`/team/{id}/transfers` + player-only `/player/{id}/suitors` routes were unified
-into it 2026-06-15).
+`is_rumor IS TRUE`, with **both** sides of the pair on each row. Transfers share the
+same historical scopes and current-week cooling-off retirement rule as Narratives. The
+per-entity transfer scope is the `/{entityType}/{id}/transfers` product (the old
+team-only `/team/{id}/transfers` + player-only `/player/{id}/suitors` routes were
+unified into it 2026-06-15).
 
 | Param | Type | Default | Notes |
 |---|---|---|---|
 | `limit` | integer | `50` | Max rows. |
+| `scope` | string | `current_week` | `current_week`, `last_week`, `two_weeks_ago`, `three_weeks_ago`, `last_month`. |
 
 ```jsonc
 {
   "page": "transfers_leaderboard",
   "sport": "football",
+  "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "count": 432,
   "rumors": [
     {
@@ -643,43 +653,15 @@ into it 2026-06-15).
       "stage": "speculation",           // speculation | concrete_interest | advanced_talks | here_we_go | null
       "summary": "…",
       "source_attribution": "…",
+      "updated_at": "2026-06-04T…",
+      "source_count": 4,
+      "source_names": ["BBC Sport", "ESPN"],
+      "source_latest_at": "2026-06-04T…",
+      "source_oldest_at": "2026-06-02T…",
+      "trajectory": "heating_up",
+      "trajectory_label": "Heating up",
+      "trajectory_components": {"reason": "heat_up", "heat_delta": 14},
       "generated_at": "2026-06-04T…",
-      "rank": 1
-    }
-  ]
-}
-```
-
-### `GET /api/v1/{sport}/leaderboard/headlines`
-
-The sport-wide **headlines** board — entities with the most breaking-news bulletins in
-the last 2 days, ranked by headline count then by most recent headline. Same enriched row
-shape as the vibes/news boards (`name` / `image` / `team_*`). The per-entity scope is
-`/{entityType}/{id}/headlines`.
-
-| Param | Type | Default | Notes |
-|---|---|---|---|
-| `limit` | integer | `50` | Max rows. |
-| `entity_type` | string | — | Filter to `player` or `team` (default both). |
-
-```jsonc
-{
-  "page": "headlines_leaderboard",
-  "sport": "football",
-  "entity_type": "all",
-  "count": 17,
-  "leaders": [
-    {
-      "entity_type": "player",
-      "id": 1592,
-      "name": "Jarrod Bowen",
-      "image": "https://…",
-      "team_id": 18,
-      "team_name": "Chelsea",
-      "team_code": "CHE",
-      "team_logo": "https://…",
-      "score": 3,                      // headline count in 2-day window
-      "generated_at": "2026-06-29T08:00:00Z",
       "rank": 1
     }
   ]
@@ -690,9 +672,8 @@ shape as the vibes/news boards (`name` / `image` / `team_*`). The per-entity sco
 
 The sport-wide **risers** board — entities whose Vibe or Rating is climbing fastest. Pass
 `?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`. Same enriched row
-shape as the other boards (`name` / `image` / `team_*`). Reached via the dedicated path only
-(`?board=trending` on `/leaderboard` is not among the `board=` values). `entity_type` and `limit`
-query params apply.
+shape as the other boards (`name` / `image` / `team_*`). Reached via the dedicated path or
+`/leaderboard?board=trending`. `entity_type` and `limit` query params apply.
 
 ```jsonc
 { "page": "trending_leaderboard", "sport": "nba", "metric": "vibe", "count": 50, "leaders": [ /* … */ ] }
@@ -851,8 +832,10 @@ Composite + Specialist + Vibes together). The raw `rating_composite` /
 ### `GET /api/v1/{sport}/{entityType}/{id}/rating`
 
 The stats-rail **end product** (convergence rename O14 — absorbed the old `/special`): the
-lean specialist projection plus the model's "divined" stat commentary. Same path params and
-`season`/`league_id` query params as `/stats`.
+lean specialist projection plus the model's "divined" stat commentary. The commentary now carries
+deterministic PEAK trajectory metadata from recent event Composite and PEAK z-score values, so
+consumers can surface direction from the same metrics used by the ranking engine without asking the
+model to infer form. Same path params and `season`/`league_id` query params as `/stats`.
 
 ```jsonc
 {
@@ -868,7 +851,18 @@ lean specialist projection plus the model's "divined" stat commentary. Same path
   },
   "commentary": {                    // latest stat_summaries generation that carries a body; null otherwise
     "body": "…", "notability": 88, "notability_components": {}, "season": 2025,
-    "prompt_version": "…", "generated_at": "2026-06-20T…", "divined_peak": "Rim Protection"
+    "prompt_version": "…", "generated_at": "2026-06-20T…", "divined_peak": "Rim Protection",
+    "peak_trajectory": "falling",
+    "peak_trajectory_label": "Composite and PEAK z-scores trending down over recent games",
+    "peak_trajectory_components": {
+      "source": "event_rating_z_scores",
+      "metrics": ["rating_composite", "rating_peak"],
+      "combined_z_slope": -0.5,
+      "composite_z_slope": -0.4,
+      "peak_z_slope": -0.6,
+      "recent_composite_z": [2.1, 1.8, 1.1],
+      "recent_peak_z": [1.7, 1.0, 0.4]
+    }
   }
 }
 ```
@@ -876,7 +870,8 @@ lean specialist projection plus the model's "divined" stat commentary. Same path
 `commentary` is `null` when the latest `stat_summaries` generation for the entity-season is a
 no-stats marker (body `NULL`) — the canonical latest-generation rule (Session 11) clears stale
 prose rather than serving it. `divined_peak` is the commentary's headline skill (renamed from
-`divined_sigil` by migration 094).
+`divined_sigil` by migration 094). `peak_trajectory` is one of `rising`, `falling`, or `steady`;
+the label is nullable when the recent event z-score sample is too sparse to make a useful claim.
 
 ## League-Scoped Endpoints
 
@@ -911,38 +906,44 @@ params (`sport` ∈ `nba|nfl|football`, `entityType` ∈ `player|team`, `id`). T
 per-entity **vibe** product is no longer served here — it is folded into the Sigil
 crown synthesis at `GET /api/v1/{sport}/{entityType}/{id}/sigil`.
 
-**`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's latest model
+**`GET /api/v1/{sport}/{entityType}/{id}/news`** — the entity's scoped model
 **narratives** (hottest first by `impact`). News is a post-transfers pipeline layer, so
-the narratives already carry transfer context; this is narratives-only.
+the narratives already carry transfer context, source freshness, and trajectory markers.
+
+Query `scope` defaults to `current_week`; allowed values are `current_week`, `last_week`,
+`two_weeks_ago`, `three_weeks_ago`, and `last_month`.
 ```json
 { "page": "news", "sport": "football", "entity_type": "team", "entity_id": 18,
+  "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "narratives": [
-    {"narrative_title": "...", "body": "...", "impact": 85, "impact_components": {}, "source_attribution": null, "input_news_ids": [], "generated_at": "..."}
+    {"narrative_title": "...", "body": "...", "impact": 85, "impact_components": {},
+     "source_attribution": null, "input_news_ids": [], "updated_at": "...",
+     "source_count": 4, "source_names": ["BBC Sport", "ESPN"],
+     "source_latest_at": "...", "source_oldest_at": "...",
+     "trajectory": "heating_up", "trajectory_label": "Heating up",
+     "trajectory_components": {}, "generated_at": "..."}
   ] }
 ```
-`narratives`: the latest generation only, ordered by `impact` DESC; `[]` when none.
+`narratives`: latest generation within the selected scope only, ordered by `impact` DESC; `[]` when none.
 
-**`GET /api/v1/{sport}/{entityType}/{id}/transfers`** — the vetted transfer/trade rumor
-heat list (the pre-narrative data). The counterparty is the OTHER entity type: for a
+**`GET /api/v1/{sport}/{entityType}/{id}/transfers`** — the scoped vetted transfer/trade
+rumor heat list (the pre-narrative data). Transfers use the same historical scope and
+staleness protocol as Narratives; in the current week, cooling-off rows retire after
+three days unless they heat back up. The counterparty is the OTHER entity type: for a
 `team` the linked **players**, for a `player` the **clubs**.
+
+Query `scope` defaults to `current_week`; allowed values are `current_week`, `last_week`,
+`two_weeks_ago`, `three_weeks_ago`, and `last_month`.
 ```json
 { "page": "transfers", "sport": "football", "entity_type": "team", "entity_id": 18,
+  "scope": {"key": "current_week", "label": "Current week", "starts_at": "...", "ends_at": "..."},
   "transfers": [
-    {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "summary": "...", "source_attribution": "...", "rank": 1}
+    {"id": 448448, "name": "Marc Cucurella", "image": "...", "heat": 53, "heat_components": {}, "direction": "outgoing", "stage": "speculation", "summary": "...", "source_attribution": "...",
+     "updated_at": "...", "source_count": 3, "source_names": ["Sky Sports"], "source_latest_at": "...", "source_oldest_at": "...",
+     "trajectory": "developing_story", "trajectory_label": "Developing story...", "trajectory_components": {}, "rank": 1}
   ] }
 ```
-`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair within 14d, ranked by heat (top 25); `[]` when none.
-
-**`GET /api/v1/{sport}/{entityType}/{id}/headlines`** — breaking-news bulletins for the
-news rail. Generated by the Rust Cognition Harness `headlines` stage (runs on the vetted
-corpus before transfers); filtered to the 2-day expiration window and sorted newest first.
-```json
-{ "page": "headlines", "sport": "football", "entity_type": "player", "entity_id": 1592,
-  "headlines": [
-    {"id": 1, "title": "Jarrod Bowen signs 5-year extension", "category": "contract", "source_url": "https://...", "source_name": "BBC Sport", "published_at": "2026-06-29T08:00:00Z"}
-  ] }
-```
-`headlines`: max 20 by default, categories ∈ `{transfer, injury, coaching, contract, other}`; `[]` when none.
+`transfers`: vetted (`is_rumor`, `heat > 0`), latest per pair in the selected scope, ranked by heat (top 25); `[]` when none.
 
 ### `GET /api/v1/{sport}/{entityType}/{id}/meta`
 
@@ -1157,7 +1158,7 @@ identity persists via the refresh token in the device Keychain. Full design:
 - LISTEN/NOTIFY listener (enqueues durable sigil work on percentile events): `go/internal/listener/listener.go`
 - Maintenance tickers (news-scrub auto-vet + enqueue, pipeline-stats snapshot): `go/internal/maintenance/maintenance.go`
 - Cron job wrappers + shared run-recording: `go/cmd/{pipeline,vibesynth}`, `go/internal/jobrun/jobrun.go`
-- Rust cognition handlers (all model inference stages + rating batch): `rust/src/{scrub,headline,transfer,narratives,vibe,sigil,rating}.rs`, `rust/src/main.rs`, `rust/src/bin/statcommentary.rs`
+- Rust cognition handlers (all model inference stages + rating batch): `rust/src/{scrub,transfer,narratives,vibe,sigil,rating}.rs`, `rust/src/main.rs`, `rust/src/bin/statcommentary.rs`
 - Prepared statements: `go/internal/db/db.go`
 - Cache/ETag implementation: `go/internal/cache/cache.go`
 - Swagger docs (generated from handler annotations): `go/docs/`

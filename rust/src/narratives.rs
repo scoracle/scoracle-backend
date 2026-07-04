@@ -8,7 +8,7 @@
 //!   epoch `bigint` so the deterministic recency math needs no datetime crate; rows + order match).
 //! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
 //!   vibe via [`vibe::write_heat_lines`].
-//! - The n4 system prompt is model-neutral and schema-first for smaller local models.
+//! - The n5 system prompt is model-neutral and schema-first for smaller local models.
 //! - `parse_narratives` mirrors Go's tolerant balanced-brace salvager byte-for-byte (a truncated tail
 //!   drops its last incomplete object; an empty `{"narratives": []}` is a successful parse → marker).
 //! - `compute_news_impact` reproduces the deterministic per-narrative impact (volume + corroboration
@@ -21,9 +21,8 @@
 //! `Harness { embedder: Some(..) }`); the offline parity bins build `embedder: None` → the dedup is
 //! the identity → the assembled prompt remains deterministic for inspection and shadow comparisons.
 //!
-//! Like `TransferHandler`, `NarrativesHandler` is **REGISTERED but NOT enabled** (gated on
-//! `COGNITION_STAGES`): the Go Drainer owns the live narratives stage until the Step-3 full cutover,
-//! so running both would double-claim the queue and burn the one GPU twice.
+//! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
+//! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
 use crate::harness::{cluster, Harness, Parser};
 use crate::ollama::GenerateOptions;
@@ -45,7 +44,7 @@ use tracing::warn;
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n4";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n5";
 
 /// Production decode temperature (`ollama.Generate` in Go). The parity gate pins temp 0 (the
 /// deterministic-axes diff); production narrates at 0.6.
@@ -128,7 +127,9 @@ pub struct CorpusItem {
     pub title: String,
     pub description: String,
     pub source: String,
+    pub url: String,
     pub published_at_epoch: Option<i64>,
+    pub fetched_at_epoch: Option<i64>,
 }
 
 /// Narrative is one grounded storyline — title + body from the model, plus the DETERMINISTIC impact
@@ -140,6 +141,10 @@ pub struct Narrative {
     pub impact: i32,
     pub impact_components: serde_json::Value,
     pub input_news_ids: Vec<i64>,
+    pub source_count: i32,
+    pub source_names: Vec<String>,
+    pub source_latest_epoch: Option<i64>,
+    pub source_oldest_epoch: Option<i64>,
 }
 
 /// ModelNarrative is one object the local model returns. `#[serde(default)]` per field mirrors Go's
@@ -201,10 +206,20 @@ pub async fn load_vetted_corpus(
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<CorpusItem>> {
-    let rows: Vec<(i64, String, String, String, Option<i64>)> = sqlx::query_as(
+    let rows: Vec<(
+        i64,
+        String,
+        String,
+        String,
+        String,
+        Option<i64>,
+        Option<i64>,
+    )> = sqlx::query_as(
         r#"
         SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(a.source, ''),
-               EXTRACT(EPOCH FROM a.published_at)::bigint
+               COALESCE(a.url, ''),
+               EXTRACT(EPOCH FROM a.published_at)::bigint,
+               EXTRACT(EPOCH FROM a.fetched_at)::bigint
         FROM news_article_entities nae
         JOIN news_articles a ON a.id = nae.article_id
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
@@ -226,12 +241,16 @@ pub async fn load_vetted_corpus(
     Ok(rows
         .into_iter()
         .map(
-            |(id, title, description, source, published_at_epoch)| CorpusItem {
-                id,
-                title,
-                description,
-                source,
-                published_at_epoch,
+            |(id, title, description, source, url, published_at_epoch, fetched_at_epoch)| {
+                CorpusItem {
+                    id,
+                    title,
+                    description,
+                    source,
+                    url,
+                    published_at_epoch,
+                    fetched_at_epoch,
+                }
             },
         )
         .collect())
@@ -436,12 +455,18 @@ fn ground_narratives(
             continue; // ungrounded — can't score or trace it
         }
         let (impact, components) = compute_news_impact(&subset, now_epoch);
+        let (source_count, source_names, source_latest_epoch, source_oldest_epoch) =
+            source_metadata(&subset);
         out.push(Narrative {
             title: title.to_string(),
             body: body.to_string(),
             impact,
             impact_components: components,
             input_news_ids: ids,
+            source_count,
+            source_names,
+            source_latest_epoch,
+            source_oldest_epoch,
         });
     }
     out
@@ -498,6 +523,34 @@ fn compute_news_impact(news: &[CorpusItem], now_epoch: i64) -> (i32, serde_json:
         "recency": recency,
     });
     (score as i32, components)
+}
+
+fn source_epoch(item: &CorpusItem) -> Option<i64> {
+    item.published_at_epoch.or(item.fetched_at_epoch)
+}
+
+fn source_metadata(news: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Option<i64>) {
+    let mut source_names: Vec<String> = Vec::new();
+    let mut seen_sources: HashSet<String> = HashSet::new();
+    let mut latest: Option<i64> = None;
+    let mut oldest: Option<i64> = None;
+
+    for item in news {
+        let source = item.source.trim();
+        if !source.is_empty() && seen_sources.insert(source.to_lowercase()) {
+            source_names.push(source.to_string());
+        }
+        if let Some(epoch) = source_epoch(item) {
+            if latest.is_none_or(|cur| epoch > cur) {
+                latest = Some(epoch);
+            }
+            if oldest.is_none_or(|cur| epoch < cur) {
+                oldest = Some(epoch);
+            }
+        }
+    }
+
+    (news.len() as i32, source_names, latest, oldest)
 }
 
 // ---------------------------------------------------------------------------
@@ -663,7 +716,7 @@ pub async fn generate_narratives(
 /// `NOW()` — a "generation"), or a single NULL-narrative marker row when there is none. Mirrors
 /// `news_narratives.go::persist`: `source_attribution` is always NULL, `trigger_payload` is the
 /// caller's value (the drain passes jsonb `null` — Go marshals the nil trigger map). Written +
-/// compiles; NOT run in the offline parity bin — its first live run is the Step-3 cutover.
+/// compiles; not run in the offline parity bin.
 pub async fn persist_narratives(
     pool: &PgPool,
     entity_type: &str,
@@ -674,6 +727,12 @@ pub async fn persist_narratives(
     out: &NarrativesOutput,
 ) -> Result<()> {
     let trigger_json = trigger_payload.to_string();
+    let mut classified = Vec::with_capacity(out.narratives.len());
+    for n in &out.narratives {
+        let (trajectory, components) =
+            classify_trajectory(pool, entity_type, entity_id, sport, n).await?;
+        classified.push((n, trajectory, components));
+    }
 
     // NOW() is constant within a transaction (transaction_timestamp), so every row of this generation
     // shares one generated_at — Go's `res.GeneratedAt`, without needing a datetime crate to bind it.
@@ -683,8 +742,17 @@ pub async fn persist_narratives(
         INSERT INTO news_summaries (
             entity_type, entity_id, sport, trigger_type, trigger_payload,
             narrative_title, body, impact, impact_components,
-            source_attribution, input_news_ids, model_version, prompt_version, generated_at
-        ) VALUES ($1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, NULL,$10, $11,$12,NOW())"#;
+            source_attribution, input_news_ids,
+            narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
+            trajectory, trajectory_components,
+            model_version, prompt_version, generated_at
+        ) VALUES (
+            $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, NULL,$10,
+            COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
+            to_timestamp($14::double precision), to_timestamp($15::double precision),
+            $16, $17::jsonb,
+            $18,$19,NOW()
+        )"#;
 
     if out.narratives.is_empty() {
         // No-narratives marker row.
@@ -699,14 +767,22 @@ pub async fn persist_narratives(
             .bind(Option::<i16>::None) // impact
             .bind("{}") // impact_components
             .bind(Vec::<i64>::new()) // input_news_ids
+            .bind(Option::<i64>::None) // narrative_updated_at
+            .bind(0_i32) // source_count
+            .bind(Vec::<String>::new()) // source_names
+            .bind(Option::<i64>::None) // source_latest_at
+            .bind(Option::<i64>::None) // source_oldest_at
+            .bind("developing_story") // trajectory
+            .bind("{}") // trajectory_components
             .bind(&out.model)
             .bind(NARRATIVES_PROMPT_VERSION)
             .execute(&mut *tx)
             .await
             .context("persist narratives marker")?;
     } else {
-        for n in &out.narratives {
+        for (n, trajectory, trajectory_components) in classified {
             let components_json = n.impact_components.to_string();
+            let trajectory_json = trajectory_components.to_string();
             sqlx::query(INSERT)
                 .bind(entity_type)
                 .bind(entity_id)
@@ -718,6 +794,13 @@ pub async fn persist_narratives(
                 .bind(Some(n.impact as i16))
                 .bind(&components_json)
                 .bind(&n.input_news_ids)
+                .bind(n.source_latest_epoch)
+                .bind(n.source_count)
+                .bind(&n.source_names)
+                .bind(n.source_latest_epoch)
+                .bind(n.source_oldest_epoch)
+                .bind(trajectory)
+                .bind(&trajectory_json)
                 .bind(&out.model)
                 .bind(NARRATIVES_PROMPT_VERSION)
                 .execute(&mut *tx)
@@ -730,6 +813,60 @@ pub async fn persist_narratives(
     Ok(())
 }
 
+async fn classify_trajectory(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    narrative: &Narrative,
+) -> Result<(&'static str, serde_json::Value)> {
+    let previous: Option<i32> = sqlx::query_scalar(
+        r#"
+        SELECT impact::int
+        FROM news_summaries
+        WHERE entity_type = $1
+          AND entity_id = $2
+          AND sport = $3
+          AND body IS NOT NULL
+          AND narrative_title = $4
+          AND impact IS NOT NULL
+        ORDER BY generated_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(&narrative.title)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("classify narrative trajectory {entity_type}/{entity_id}"))?;
+
+    let (trajectory, reason, delta) = match previous {
+        Some(prev) => {
+            let delta = narrative.impact - prev;
+            if delta >= 10 {
+                ("heating_up", "impact_up", Some(delta))
+            } else if delta <= -10 {
+                ("cooling_off", "impact_down", Some(delta))
+            } else {
+                ("developing_story", "impact_stable", Some(delta))
+            }
+        }
+        None => ("developing_story", "new_or_unmatched", None),
+    };
+
+    Ok((
+        trajectory,
+        json!({
+            "previous_impact": previous,
+            "current_impact": narrative.impact,
+            "impact_delta": delta,
+            "reason": reason,
+        }),
+    ))
+}
+
 /// now_unix is the recency reference for `compute_news_impact` — Unix seconds, no datetime crate.
 fn now_unix() -> i64 {
     std::time::SystemTime::now()
@@ -739,14 +876,13 @@ fn now_unix() -> i64 {
 }
 
 // ---------------------------------------------------------------------------
-// Handler — REGISTERED but NOT enabled until the Step-3 cutover (Go Drainer still owns the stage).
+// Handler.
 // ---------------------------------------------------------------------------
 
 /// NarrativesHandler drains the durable `narratives` stage: read the vetted corpus, (live) dedup it,
 /// group it into storylines with the model, score each deterministically, and persist one
-/// news_summaries row per narrative (or a marker). REGISTERED but NOT enabled until the narratives
-/// cutover (Step 3): the Go Drainer still owns this stage, so running both would double-claim the one
-/// GPU. Unlike rating, narratives IS a `pipeline_work` stage (`Stage::Narratives`).
+/// news_summaries row per narrative (or a marker). Unlike rating, narratives is a `pipeline_work`
+/// stage (`Stage::Narratives`).
 pub struct NarrativesHandler;
 
 impl NarrativesHandler {
@@ -808,7 +944,9 @@ mod tests {
             title: title.to_string(),
             description: desc.to_string(),
             source: source.to_string(),
+            url: String::new(),
             published_at_epoch: epoch,
+            fetched_at_epoch: epoch,
         }
     }
 
@@ -962,6 +1100,10 @@ mod tests {
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].title, "Title");
         assert_eq!(out[0].input_news_ids, vec![100, 101]); // 1→id100, 2→id101, dup/oob removed
+        assert_eq!(out[0].source_count, 2);
+        assert_eq!(out[0].source_names, vec!["BBC", "ESPN"]);
+        assert_eq!(out[0].source_latest_epoch, Some(2_000));
+        assert_eq!(out[0].source_oldest_epoch, Some(1_000));
     }
 
     // --- compute_news_impact: the deterministic score ---------------------------------------------

@@ -1,6 +1,6 @@
 basePath: /api/v1
 definitions:
-  github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse:
+  respond.ErrorResponse:
     properties:
       error:
         properties:
@@ -38,56 +38,6 @@ paths:
       summary: API root info
       tags:
       - meta
-  /{sport}/{entityType}/{id}/headlines:
-    get:
-      description: The entity's breaking-news bulletins (transfer, injury, coaching,
-        contract, other) from the last 2 days.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: Entity type
-        enum:
-        - player
-        - team
-        in: path
-        name: entityType
-        required: true
-        type: string
-      - description: Entity ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Max rows (default 20)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-      summary: Get the entity headlines
-      tags:
-      - data
   /{sport}/{entityType}/{id}/meta:
     get:
       description: 'The entity''s identity for the page header: name, image, physicals,
@@ -126,11 +76,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get per-entity identity metadata
       tags:
       - data
@@ -181,11 +131,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get momentum (rating + vibe trajectory)
       tags:
       - data
@@ -216,6 +166,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: 'News scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
+          last_month'
+        in: query
+        name: scope
+        type: string
       produces:
       - application/json
       responses:
@@ -227,11 +182,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity news narratives
       tags:
       - data
@@ -281,11 +236,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity rating (magnitude + strength + identity blurb)
       tags:
       - data
@@ -331,11 +286,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity Sigil (crown synthesis)
       tags:
       - data
@@ -385,11 +340,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity season rating
       tags:
       - data
@@ -420,6 +375,11 @@ paths:
         name: id
         required: true
         type: integer
+      - description: 'Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
+          last_month'
+        in: query
+        name: scope
+        type: string
       produces:
       - application/json
       responses:
@@ -431,18 +391,18 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get the entity transfer rumors
       tags:
       - data
   /{sport}/autofill:
     get:
-      description: The sport's autofill + search payload for frontend local hydration
-        — the dedicated home for what /meta historically served.
+      description: The sport-scoped autofill/search payload for existing consumers.
+        Use /api/v1/entities for universal home search.
       parameters:
       - description: Sport
         enum:
@@ -468,12 +428,12 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-      summary: Get the sport autofill/search index
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get the legacy sport autofill/search payload
       tags:
       - data
   /{sport}/health:
@@ -504,11 +464,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get sport health page
       tags:
       - data
@@ -561,59 +521,18 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get rating leaderboard
-      tags:
-      - data
-  /{sport}/leaderboard/headlines:
-    get:
-      description: Sport-wide board of entities with the most breaking-news bulletins
-        in the last 2 days.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: 'Filter: player or team (default both)'
-        in: query
-        name: entity_type
-        type: string
-      - description: Max rows (default 50)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-      summary: Headlines leaderboard
       tags:
       - data
   /{sport}/leaderboard/news:
     get:
-      description: Sport-wide board of the most-mentioned entities in the news corpus
-        over the rolling window.
+      description: Sport-wide board of the hottest model narratives with source freshness
+        and trajectory markers.
       parameters:
       - description: Sport
         enum:
@@ -628,10 +547,11 @@ paths:
         in: query
         name: entity_type
         type: string
-      - description: Rolling window in days (default 30)
+      - description: 'News scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
+          last_month'
         in: query
-        name: days
-        type: integer
+        name: scope
+        type: string
       - description: Max rows (default 50)
         in: query
         name: limit
@@ -647,11 +567,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: News leaderboard
       tags:
       - data
@@ -693,11 +613,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Sigil leaderboard
       tags:
       - data
@@ -719,6 +639,11 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: 'Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago,
+          last_month'
+        in: query
+        name: scope
+        type: string
       produces:
       - application/json
       responses:
@@ -730,11 +655,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Transfers leaderboard
       tags:
       - data
@@ -775,11 +700,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Trending leaderboard (risers)
       tags:
       - data
@@ -816,11 +741,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Vibes leaderboard
       tags:
       - data
@@ -871,11 +796,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get league momentum page
       tags:
       - data
@@ -908,11 +833,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get league health page
       tags:
       - data
@@ -945,11 +870,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get league meta page
       tags:
       - data
@@ -992,17 +917,17 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get league team season results
       tags:
       - data
   /{sport}/meta:
     get:
-      description: Returns complete metadata and search payload for a sport.
+      description: Returns the legacy complete metadata and search payload for a sport.
       parameters:
       - description: Sport
         enum:
@@ -1028,12 +953,12 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
-      summary: Get meta page
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get legacy sport metadata/search payload
       tags:
       - data
   /{sport}/team/{id}/results:
@@ -1075,11 +1000,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get team season results
       tags:
       - data
@@ -1122,11 +1047,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Get team roster (rating)
       tags:
       - data
@@ -1147,7 +1072,7 @@ paths:
         "503":
           description: Service Unavailable
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Register device (anonymous)
       tags:
       - auth
@@ -1165,7 +1090,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Register push token
@@ -1184,7 +1109,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Log out
@@ -1207,10 +1132,29 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_albapepper_scoracle-data_internal_api_respond.ErrorResponse'
+            $ref: '#/definitions/respond.ErrorResponse'
       summary: Refresh tokens
       tags:
       - auth
+  /entities:
+    get:
+      description: Cross-sport text-only directory of players and teams for home-page
+        search.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Get universal entity autofill directory
+      tags:
+      - data
   /health:
     get:
       description: Returns serving readiness; 503 when the database is unreachable.

@@ -34,7 +34,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 /// Prompt version for the Sigil synthesis contract.
-pub const SIGIL_PROMPT_VERSION: &str = "s6";
+pub const SIGIL_PROMPT_VERSION: &str = "s7";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -77,6 +77,7 @@ pub struct SynthNarrative {
     pub title: String,
     pub body: String,
     pub impact: f64,
+    pub trajectory: String,
 }
 
 /// The stat-identity pillar (P2). Mirrors `synthRating`. `None` (suppressed) when there is no
@@ -86,6 +87,8 @@ pub struct SynthRating {
     pub divined_peak: String,
     pub body: String,
     pub notability: i32,
+    pub peak_trajectory: String,
+    pub peak_trajectory_label: String,
 }
 
 /// The momentum pillar (P3). Mirrors `synthMomentum`. The slopes feed `trend_dir` (bucketed
@@ -192,9 +195,9 @@ pub async fn load_narrative_pillar(
 ) -> Result<Vec<SynthNarrative>> {
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is int4 →
     // scan as i32 (matches Go scanning into a value later assigned to float64).
-    let rows: Vec<(String, String, i32)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, String)> = sqlx::query_as(
         r#"
-        SELECT narrative_title, body, COALESCE(impact, 0)
+        SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, 'developing_story')
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -214,10 +217,11 @@ pub async fn load_narrative_pillar(
 
     Ok(rows
         .into_iter()
-        .map(|(title, body, impact)| SynthNarrative {
+        .map(|(title, body, impact, trajectory)| SynthNarrative {
             title,
             body,
             impact: impact as f64,
+            trajectory,
         })
         .collect())
 }
@@ -234,9 +238,10 @@ pub async fn load_rating_pillar(
     season: Option<i32>,
 ) -> Result<Option<SynthRating>> {
     // COALESCE(notability, 0): int2 coalesced with int4 → int4 → scan i32 (Go: `var notability int`).
-    let row: Option<(String, Option<String>, i32)> = sqlx::query_as(
+    let row: Option<(String, Option<String>, i32, String, String)> = sqlx::query_as(
         r#"
-        SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0)
+        SELECT COALESCE(divined_peak, ''), body, COALESCE(notability, 0),
+               COALESCE(peak_trajectory, 'steady'), COALESCE(peak_trajectory_label, '')
         FROM stat_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND ($4::int IS NULL OR season = $4)
@@ -253,13 +258,17 @@ pub async fn load_rating_pillar(
     .with_context(|| format!("load rating pillar {entity_type}/{entity_id}"))?;
 
     match row {
-        None => Ok(None),               // pgx.ErrNoRows → pillar absent
-        Some((_, None, _)) => Ok(None), // latest generation is a marker (body NULL) → suppressed
-        Some((divined_peak, Some(body), notability)) => Ok(Some(SynthRating {
-            divined_peak,
-            body,
-            notability,
-        })),
+        None => Ok(None),                     // pgx.ErrNoRows → pillar absent
+        Some((_, None, _, _, _)) => Ok(None), // latest generation is a marker (body NULL) → suppressed
+        Some((divined_peak, Some(body), notability, peak_trajectory, peak_trajectory_label)) => {
+            Ok(Some(SynthRating {
+                divined_peak,
+                body,
+                notability,
+                peak_trajectory,
+                peak_trajectory_label,
+            }))
+        }
     }
 }
 
@@ -484,9 +493,31 @@ pub fn build_synthesis_input_components(
     titles_json.push(']');
     pairs.push(("narrative_titles", titles_json));
 
+    let mut trajectory_pairs: Vec<String> = narratives
+        .iter()
+        .map(|n| format!("{}:{}", n.title, n.trajectory))
+        .collect();
+    trajectory_pairs.sort();
+    let mut trajectory_json = String::from("[");
+    for (i, t) in trajectory_pairs.iter().enumerate() {
+        if i > 0 {
+            trajectory_json.push(',');
+        }
+        trajectory_json.push_str(&go_json_string(t));
+    }
+    trajectory_json.push(']');
+    pairs.push(("narrative_trajectories", trajectory_json));
+
     if let Some(r) = rating {
         pairs.push(("divined_peak", go_json_string(&r.divined_peak)));
         pairs.push(("notability", r.notability.to_string()));
+        pairs.push(("peak_trajectory", go_json_string(&r.peak_trajectory)));
+        if !r.peak_trajectory_label.is_empty() {
+            pairs.push((
+                "peak_trajectory_label",
+                go_json_string(&r.peak_trajectory_label),
+            ));
+        }
     }
     if let Some(s) = mom.latest_sentiment {
         pairs.push(("latest_sentiment", s.to_string()));
@@ -550,8 +581,11 @@ pub fn build_synthesis_prompt(
         b.push_str("\n=== NEWS NARRATIVE ===\n");
         for n in narratives {
             b.push_str(&format!(
-                "[impact {:.0}] {}\n{}\n\n",
-                n.impact, n.title, n.body
+                "[impact {:.0}, {}] {}\n{}\n\n",
+                n.impact,
+                narrative_trajectory_label(&n.trajectory),
+                n.title,
+                n.body
             ));
         }
     } else {
@@ -566,6 +600,9 @@ pub fn build_synthesis_prompt(
                 "Peak: {} (notability {}/100)\n",
                 r.divined_peak, r.notability
             ));
+        }
+        if !r.peak_trajectory_label.is_empty() {
+            b.push_str(&format!("Peak trajectory: {}\n", r.peak_trajectory_label));
         }
         if !r.body.is_empty() {
             b.push_str(&r.body);
@@ -603,6 +640,14 @@ pub fn build_synthesis_prompt(
 
     b.push_str("\nRespond now.");
     b
+}
+
+fn narrative_trajectory_label(raw: &str) -> &'static str {
+    match raw {
+        "heating_up" => "Heating up",
+        "cooling_off" => "Cooling off",
+        _ => "Developing story...",
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1045,17 +1090,22 @@ mod tests {
                 title: "B & C".into(),
                 body: "x".into(),
                 impact: 5.0,
+                trajectory: "heating_up".into(),
             },
             SynthNarrative {
                 title: "Alpha".into(),
                 body: "y".into(),
                 impact: 3.0,
+                trajectory: "developing_story".into(),
             },
         ];
         let rating = SynthRating {
             divined_peak: "Rim Protector".into(),
             body: "z".into(),
             notability: 88,
+            peak_trajectory: "falling".into(),
+            peak_trajectory_label: "Composite and PEAK z-scores trending down over recent games"
+                .into(),
         };
         let mom = SynthMomentum {
             sentiment_slope: 1.0,
@@ -1070,7 +1120,7 @@ mod tests {
         // source carries no literal backslash-u token (the editor would decode it).
         let bs = '\\';
         let want = format!(
-            r#"{{"divined_peak":"Rim Protector","latest_composite":73,"latest_sentiment":60,"latest_vibe_prompt":"Quietly surging","momentum_score":63,"narrative_titles":["Alpha","B {bs}u0026 C"],"notability":88}}"#
+            r#"{{"divined_peak":"Rim Protector","latest_composite":73,"latest_sentiment":60,"latest_vibe_prompt":"Quietly surging","momentum_score":63,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games"}}"#
         );
         assert_eq!(got, want);
     }
@@ -1082,11 +1132,13 @@ mod tests {
             divined_peak: "Spacer".into(),
             body: "b".into(),
             notability: 40,
+            peak_trajectory: "steady".into(),
+            peak_trajectory_label: String::new(),
         };
         let got = build_synthesis_input_components(&[], Some(&rating), &SynthMomentum::default());
         assert_eq!(
             got,
-            r#"{"divined_peak":"Spacer","narrative_titles":[],"notability":40}"#
+            r#"{"divined_peak":"Spacer","narrative_titles":[],"narrative_trajectories":[],"notability":40,"peak_trajectory":"steady"}"#
         );
     }
 
@@ -1097,6 +1149,7 @@ mod tests {
             title: "Trade buzz".into(),
             body: "details".into(),
             impact: 7.0,
+            trajectory: "heating_up".into(),
         }];
         let mom = SynthMomentum {
             sentiment_slope: 0.5,
@@ -1108,7 +1161,7 @@ mod tests {
         let p = build_synthesis_prompt("player", "Test Player", "NBA", &narratives, None, &mom);
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7] Trade buzz\ndetails\n\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\nMomentum score: 56/100 (rising)\nNews sentiment: 62/100 (trending up)\nVibe (the felt read): On the rise\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\nMomentum score: 56/100 (rising)\nNews sentiment: 62/100 (trending up)\nVibe (the felt read): On the rise\n\nRespond now."
         );
     }
 

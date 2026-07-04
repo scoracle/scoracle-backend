@@ -25,7 +25,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v8";
+pub const VIBE_PROMPT_VERSION: &str = "v9";
 
 /// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
 /// this with an explicit 0.
@@ -71,6 +71,7 @@ pub struct Narrative {
     pub title: String,
     pub body: String,
     pub impact: i32,
+    pub trajectory: String,
 }
 
 /// One active transfer/trade rumor naming the counterparty. Mirrors `heatItem`.
@@ -144,9 +145,10 @@ pub async fn load_latest_narratives(
 ) -> Result<(Vec<Narrative>, Vec<i64>)> {
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is
     // int4 → scan as i32 (matches Go scanning into `int`).
-    let rows: Vec<(String, String, i32, Vec<i64>)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, Vec<i64>, String)> = sqlx::query_as(
         r#"
-        SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids
+        SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids,
+               COALESCE(trajectory, 'developing_story')
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -166,12 +168,13 @@ pub async fn load_latest_narratives(
 
     let mut narratives = Vec::with_capacity(rows.len());
     let mut ids: Vec<i64> = Vec::new();
-    for (title, body, impact, mut nids) in rows {
+    for (title, body, impact, mut nids, trajectory) in rows {
         ids.append(&mut nids);
         narratives.push(Narrative {
             title,
             body,
             impact,
+            trajectory,
         });
     }
     Ok((narratives, dedupe_i64(ids)))
@@ -193,10 +196,10 @@ fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
 /// per counterparty, heat > 0, model-vetted), naming the counterparty. The `is_rumor IS
 /// TRUE` gate is applied AFTER picking the latest row per counterparty (FIRST-GPT-AUDIT
 /// Session 10), so a newer cleared/unknown verdict supersedes an older TRUE. Mirrors
-/// `loadTransferHeat`; branches on entity type exactly as the Go query does. A 14-day
-/// freshness gate (L9) ages out rumors the re-vet no longer re-confirms, so a very old
-/// false positive can't ground prompts forever — mirrors the Go loader + the /transfers
-/// card read path's window, keeping the built-prompt bytes identical to Go.
+/// `loadTransferHeat`; branches on entity type exactly as the Go query does. The
+/// current-week freshness gate plus the shared cooling-off retirement rule keeps very
+/// old false positives from grounding prompts forever — mirrors the /transfers card
+/// read path.
 pub async fn load_transfer_heat(
     pool: &PgPool,
     entity_type: &str,
@@ -215,7 +218,9 @@ pub async fn load_transfer_heat(
             JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
             LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
-              AND tr.generated_at > NOW() - INTERVAL '14 days'
+              AND tr.generated_at > NOW() - INTERVAL '7 days'
+              AND (COALESCE(tr.trajectory, 'developing_story') <> 'cooling_off'
+                   OR COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) > NOW() - INTERVAL '3 days')
             ORDER BY tr.player_id, tr.generated_at DESC
         ) latest
         WHERE heat > 0 AND is_rumor IS TRUE
@@ -237,7 +242,9 @@ pub async fn load_transfer_heat(
             JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
             LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
-              AND tr.generated_at > NOW() - INTERVAL '14 days'
+              AND tr.generated_at > NOW() - INTERVAL '7 days'
+              AND (COALESCE(tr.trajectory, 'developing_story') <> 'cooling_off'
+                   OR COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) > NOW() - INTERVAL '3 days')
             ORDER BY tr.team_id, tr.generated_at DESC
         ) latest
         WHERE heat > 0 AND is_rumor IS TRUE
@@ -323,8 +330,9 @@ pub fn build_sentiment_prompt(
     } else {
         for n in narratives {
             b.push_str(&format!(
-                "- [{}] {}: {}\n",
+                "- [{}, {}] {}: {}\n",
                 n.impact,
+                trajectory_label(&n.trajectory),
                 n.title,
                 truncate_body(&n.body, BODY_TRUNCATE)
             ));
@@ -372,6 +380,14 @@ fn title_first(s: &str) -> String {
     match chars.next() {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
         None => String::new(),
+    }
+}
+
+fn trajectory_label(raw: &str) -> &'static str {
+    match raw {
+        "heating_up" => "Heating up",
+        "cooling_off" => "Cooling off",
+        _ => "Developing story...",
     }
 }
 

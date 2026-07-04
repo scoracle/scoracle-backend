@@ -75,7 +75,7 @@ Add client repos only for contract-consumer verification. Add `../scoracle-token
 Scoracle runs as a Go API + Rust cognition layer backed by PostgreSQL, plus a Python seeder.
 
 - **Go API (`:8000`)** serves curated sport data pages and health/docs endpoints from precomputed Postgres tables. It runs SQL-only maintenance/notification workers and the ingest funnel wiring, but does not execute model inference.
-- **Rust Cognition Harness (`rust/`)** owns all model inference stages (scrub, headlines, transfers, narratives, vibe, sigil) via `pipeline_work`, plus the `statcommentary` rating batch.
+- **Rust Cognition Harness (`rust/`)** owns all model inference stages (scrub, transfers, narratives, vibe, sigil) via `pipeline_work`, plus the `statcommentary` rating batch.
 - **Python Seeder (`seed/`)** ingests provider data and upserts raw rows to PostgreSQL.
 - **PostgreSQL (`sql/`)** is the source of truth for schema, derived stats, percentiles, views, and API-shaping SQL.
 
@@ -105,10 +105,10 @@ Per-entity products (`{entityType}` ∈ `player|team`):
 
 - **stats source:**
   - `GET /api/v1/{sport}/{entityType}/{id}/stats` — season Composite rating (breakdown, modes, fantasy, scoped ranks) + `available_seasons` + the per-event series
-  - `GET /api/v1/{sport}/{entityType}/{id}/rating` — model-divined statistical read + the stat commentary (`stat_summaries`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/rating` — model-divined statistical read + Composite/PEAK z-score trajectory metadata from recent event form (`stat_summaries`)
 - **news source:**
-  - `GET /api/v1/{sport}/{entityType}/{id}/news` — latest model narratives, hottest first by impact (`news_summaries`)
-  - `GET /api/v1/{sport}/{entityType}/{id}/transfers` — vetted transfer/trade rumors by heat — team→players, player→clubs (`transfer_rumors`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/news` — scoped model narratives, hottest first by impact, with source timestamps and trajectory markers (`news_summaries`; `scope=current_week|last_week|two_weeks_ago|three_weeks_ago|last_month`)
+  - `GET /api/v1/{sport}/{entityType}/{id}/transfers` — scoped vetted transfer/trade rumors by heat, with the same timestamp/source/trajectory protocol as narratives — team→players, player→clubs (`transfer_rumors`)
 - **convergence:**
   - `GET /api/v1/{sport}/{entityType}/{id}/momentum` — Rating-trajectory × Vibe-trajectory (stats trend + narrative trend)
   - `GET /api/v1/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
@@ -128,8 +128,8 @@ Sport-level + leaderboard routes:
 - `GET /api/v1/{sport}/leaderboard` (rating board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; also `?board=rating|vibes|sigil|news|transfers`)
 - `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
-- `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact
-- `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100
+- `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact (`scope=current_week|last_week|two_weeks_ago|three_weeks_ago|last_month`)
+- `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100 with the same historical scopes as News
 - `GET /api/v1/{sport}/leaderboard/trending` — vibe & rating risers
 
 League-scoped variants (preferred for multi-league precision):

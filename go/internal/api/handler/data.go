@@ -69,14 +69,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	case "transfers":
 		h.GetTransfersLeaderboard(w, r)
 		return
-	case "headlines":
-		h.GetHeadlinesLeaderboard(w, r)
-		return
 	case "trending":
 		h.GetTrendingLeaderboard(w, r)
 		return
 	default:
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, headlines, trending")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, trending")
 		return
 	}
 
@@ -206,15 +203,15 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 		sport, limit, entityType)
 }
 
-// GetNewsLeaderboard returns the sport-wide news board: entities ranked by the
-// number of distinct article mentions in the rolling window.
+// GetNewsLeaderboard returns the sport-wide news board: entities ranked by their
+// hottest narrative in the selected scope.
 // @Summary News leaderboard
-// @Description Sport-wide board of the most-mentioned entities in the news corpus over the rolling window.
+// @Description Sport-wide board of the hottest model narratives with source freshness and trajectory markers.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Filter: player or team (default both)"
-// @Param days query int false "Rolling window in days (default 30)"
+// @Param scope query string false "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
 // @Param limit query int false "Max rows (default 50)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -232,12 +229,13 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entityType := optionalTextQuery(r, "entity_type")
+	scope := optionalTextQuery(r, "scope")
 
 	// Two-rail model: the news board is now the hottest NARRATIVES (ranked by
 	// per-narrative impact), not raw mention counts. narratives_leaderboard
 	// supersedes the old news_leaderboard (which read news_article_entities).
 	h.serveStatementJSON(w, r, "narratives_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType)
+		sport, limit, entityType, scope)
 }
 
 // GetTransfersLeaderboard returns the sport-wide transfer board: model-vetted
@@ -248,6 +246,7 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param limit query int false "Max rows (default 50)"
+// @Param scope query string false "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -262,39 +261,10 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
+	scope := optionalTextQuery(r, "scope")
 
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit)
-}
-
-// GetHeadlinesLeaderboard returns the sport-wide "most breaking news" board:
-// entities ranked by headline count in the 2-day window.
-// @Summary Headlines leaderboard
-// @Description Sport-wide board of entities with the most breaking-news bulletins in the last 2 days.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entity_type query string false "Filter: player or team (default both)"
-// @Param limit query int false "Max rows (default 50)"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/leaderboard/headlines [get]
-func (h *Handler) GetHeadlinesLeaderboard(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-
-	limit, ok := optionalIntQuery(w, r, "limit")
-	if !ok {
-		return
-	}
-
-	entityType := optionalTextQuery(r, "entity_type")
-
-	h.serveStatementJSON(w, r, "headlines_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType)
+		sport, limit, scope)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.
@@ -474,6 +444,7 @@ func (h *Handler) GetRoster(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
+// @Param scope query string false "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -491,7 +462,8 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
+	scope := optionalTextQuery(r, "scope")
+	h.serveStatementJSON(w, r, "entity_news", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
 // GetEntityTransfers returns the entity's TRANSFERS product — the vetted rumor
@@ -504,6 +476,7 @@ func (h *Handler) GetEntityNarratives(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entityType path string true "Entity type" Enums(player, team)
 // @Param id path int true "Entity ID"
+// @Param scope query string false "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -521,41 +494,8 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id)
-}
-
-// GetEntityHeadlines returns the entity's HEADLINES product — breaking-news
-// bulletins for the news rail, filtered to the 2-day window and sorted newest first.
-// @Summary Get the entity headlines
-// @Description The entity's breaking-news bulletins (transfer, injury, coaching, contract, other) from the last 2 days.
-// @Tags data
-// @Produce json
-// @Param sport path string true "Sport" Enums(nba, nfl, football)
-// @Param entityType path string true "Entity type" Enums(player, team)
-// @Param id path int true "Entity ID"
-// @Param limit query int false "Max rows (default 20)"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} respond.ErrorResponse
-// @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/{entityType}/{id}/headlines [get]
-func (h *Handler) GetEntityHeadlines(w http.ResponseWriter, r *http.Request) {
-	sport, ok := parseSport(w, r)
-	if !ok {
-		return
-	}
-	entityType, ok := parseEntityType(w, r)
-	if !ok {
-		return
-	}
-	id, ok := parsePathID(w, r, "id", "entity id")
-	if !ok {
-		return
-	}
-	limit, ok := optionalIntQuery(w, r, "limit")
-	if !ok {
-		return
-	}
-	h.serveStatementJSON(w, r, "entity_headlines", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, limit)
+	scope := optionalTextQuery(r, "scope")
+	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
 // GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score

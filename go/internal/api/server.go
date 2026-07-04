@@ -158,7 +158,6 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)
 			r.Get("/{entityType:player|team}/{id}/transfers", h.GetEntityTransfers)
-			r.Get("/{entityType:player|team}/{id}/headlines", h.GetEntityHeadlines)
 			// Per-entity identity metadata for the page-header island. Frontend
 			// surfaces should hydrate islands from these dedicated endpoints; the
 			// universal /entities directory is the only small local search DB.
@@ -175,7 +174,6 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			r.Get("/leaderboard/sigil", h.GetSigilLeaderboard)
 			r.Get("/leaderboard/news", h.GetNewsLeaderboard)
 			r.Get("/leaderboard/transfers", h.GetTransfersLeaderboard)
-			r.Get("/leaderboard/headlines", h.GetHeadlinesLeaderboard)
 			r.Get("/leaderboard/trending", h.GetTrendingLeaderboard)
 			r.Get("/leagues/{leagueId}/{entityType:player|team}/{id}/momentum", h.GetLeagueTrendsPage)
 			r.Get("/leagues/{leagueId}/team/{id}/results", h.GetLeagueTeamResults)

@@ -71,12 +71,37 @@ func seed(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO public.sports (id, display_name, current_season)
-		VALUES ('NBA', 'NBA', 2025)
+		VALUES
+			('NBA', 'NBA', 2025),
+			('NFL', 'NFL', 2025)
 		ON CONFLICT (id) DO UPDATE
 		SET display_name = EXCLUDED.display_name,
 		    current_season = EXCLUDED.current_season`,
 	); err != nil {
 		t.Fatalf("seed sport: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO public.transfer_identity_thresholds
+			(sport, min_heat, min_deterministic_confidence, min_adjudication_confidence)
+		VALUES ('NBA', 80, 0.800, 0.850)
+		ON CONFLICT (sport) DO UPDATE
+		SET min_heat = EXCLUDED.min_heat,
+		    min_deterministic_confidence = EXCLUDED.min_deterministic_confidence,
+		    min_adjudication_confidence = EXCLUDED.min_adjudication_confidence`,
+	); err != nil {
+		t.Fatalf("seed thresholds: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO public.sport_autofill_versions (sport, total_entities, status)
+		VALUES
+			('NBA', 0, 'ready'),
+			('NFL', 0, 'ready')
+		ON CONFLICT (sport) DO UPDATE
+		SET total_entities = EXCLUDED.total_entities,
+		    status = EXCLUDED.status,
+		    reason = NULL`,
+	); err != nil {
+		t.Fatalf("seed autofill versions: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO public.teams (id, sport, name, league_id)

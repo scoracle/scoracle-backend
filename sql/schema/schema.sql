@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict XL4tcFj0QloZVWPAc5dTu0Ss1s0yfEocNKc1nyBzRkP8nSKcXKg7gxf9SR3EANP
+\restrict L4DXw6AiBNQ7EbakePyrwnMsYj05j7w9YlPLBZZ2Lhgd0BYROcmJWu7BGKeGFvy
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1642,6 +1642,165 @@ $$;
 
 
 --
+-- Name: apply_transfer_identity_candidate(text, integer, integer, integer, bigint, bigint, smallint, numeric, jsonb, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.apply_transfer_identity_candidate(p_sport text, p_player_id integer, p_old_team_id integer, p_new_team_id integer, p_source_rumor_id bigint, p_source_synthesis_id bigint, p_deterministic_heat smallint, p_deterministic_confidence numeric, p_adjudication jsonb, p_adjudication_raw text, p_adjudication_model_version text, p_adjudication_prompt_version text) RETURNS TABLE(application_id bigint, override_id bigint, status text, reason text)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_threshold public.transfer_identity_thresholds%ROWTYPE;
+    v_current_team_id INTEGER;
+    v_current_league_id INTEGER;
+    v_new_league_id INTEGER;
+    v_decision TEXT;
+    v_event_type TEXT;
+    v_conf NUMERIC;
+    v_reason TEXT;
+    v_adj_old_team_id INTEGER;
+    v_adj_new_team_id INTEGER;
+    v_status TEXT;
+    v_existing BIGINT;
+    v_app_id BIGINT;
+    v_override_id BIGINT;
+    v_threshold_json JSONB;
+BEGIN
+    SELECT * INTO v_threshold
+    FROM public.transfer_identity_thresholds
+    WHERE sport = p_sport;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'missing transfer identity threshold config for sport %', p_sport;
+    END IF;
+
+    SELECT team_id, league_id INTO v_current_team_id, v_current_league_id
+    FROM public.player_current_identity
+    WHERE sport = p_sport AND player_id = p_player_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'player %.% not found in player_current_identity', p_sport, p_player_id;
+    END IF;
+
+    SELECT league_id INTO v_new_league_id
+    FROM public.teams
+    WHERE sport = p_sport AND id = p_new_team_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'new team %.% not found', p_sport, p_new_team_id;
+    END IF;
+
+    v_threshold_json := to_jsonb(v_threshold);
+    v_decision := p_adjudication->>'decision';
+    v_event_type := p_adjudication->>'event_type';
+    v_conf := NULLIF(p_adjudication->>'confidence', '')::numeric;
+    v_reason := NULLIF(p_adjudication->>'reason', '');
+    v_adj_old_team_id := NULLIF(p_adjudication->>'old_team_id', '')::integer;
+    v_adj_new_team_id := NULLIF(p_adjudication->>'new_team_id', '')::integer;
+
+    IF p_deterministic_heat < v_threshold.min_heat
+       OR p_deterministic_confidence < v_threshold.min_deterministic_confidence THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'deterministic threshold not met');
+    ELSIF v_decision = 'reject' THEN
+        v_status := 'rejected';
+        v_reason := COALESCE(v_reason, 'adjudicator rejected candidate');
+    ELSIF v_decision = 'manual_review' THEN
+        v_status := 'manual_review';
+        v_reason := COALESCE(v_reason, 'adjudicator requested manual review');
+    ELSIF v_decision <> 'apply' THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'invalid adjudication decision');
+    ELSIF v_event_type IS NULL OR NOT (v_event_type = ANY(v_threshold.allowed_event_types)) THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'unsupported adjudication event_type');
+    ELSIF v_conf IS NULL OR v_conf < v_threshold.min_adjudication_confidence THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'adjudication confidence below threshold');
+    ELSIF v_adj_new_team_id IS DISTINCT FROM p_new_team_id
+       OR v_adj_old_team_id IS DISTINCT FROM p_old_team_id THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'adjudication team IDs conflict with deterministic candidate');
+    ELSIF v_current_team_id IS DISTINCT FROM p_old_team_id THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'current identity changed before apply');
+    ELSIF p_old_team_id IS NOT NULL AND p_old_team_id = p_new_team_id THEN
+        v_status := 'failed_closed';
+        v_reason := COALESCE(v_reason, 'candidate destination is already current team');
+    ELSE
+        v_status := 'applied';
+        v_reason := COALESCE(v_reason, 'adjudicator approved current identity update');
+    END IF;
+
+    IF v_status = 'applied' THEN
+        SELECT a_existing.id INTO v_existing
+        FROM public.transfer_identity_applications a_existing
+        WHERE a_existing.sport = p_sport
+          AND a_existing.player_id = p_player_id
+          AND COALESCE(a_existing.old_team_id, 0) = COALESCE(p_old_team_id, 0)
+          AND a_existing.new_team_id = p_new_team_id
+          AND COALESCE(a_existing.source_rumor_id, 0) = COALESCE(p_source_rumor_id, 0)
+          AND COALESCE(a_existing.source_synthesis_id, 0) = COALESCE(p_source_synthesis_id, 0)
+          AND a_existing.status IN ('applied', 'reverted')
+        ORDER BY a_existing.created_at DESC
+        LIMIT 1;
+
+        IF v_existing IS NOT NULL THEN
+            RETURN QUERY
+            SELECT a.id, a.override_id, a.status, 'idempotent: transition already recorded'::text
+            FROM public.transfer_identity_applications a
+            WHERE a.id = v_existing;
+            RETURN;
+        END IF;
+    END IF;
+
+    INSERT INTO public.transfer_identity_applications (
+        sport, player_id, old_team_id, old_league_id, new_team_id, new_league_id,
+        source_rumor_id, source_synthesis_id, deterministic_heat, deterministic_confidence,
+        threshold_config, adjudication, adjudication_raw, adjudication_model_version,
+        adjudication_prompt_version, decision, event_type, adjudication_confidence,
+        status, reason, evidence, applied_at
+    ) VALUES (
+        p_sport, p_player_id, p_old_team_id, v_current_league_id, p_new_team_id, v_new_league_id,
+        p_source_rumor_id, p_source_synthesis_id, p_deterministic_heat, p_deterministic_confidence,
+        v_threshold_json, COALESCE(p_adjudication, '{}'::jsonb), p_adjudication_raw,
+        p_adjudication_model_version, p_adjudication_prompt_version, COALESCE(v_decision, 'failed_closed'),
+        v_event_type, v_conf, v_status, v_reason,
+        jsonb_build_object('source', 'mistral_adjudication', 'raw', p_adjudication_raw),
+        CASE WHEN v_status = 'applied' THEN NOW() ELSE NULL END
+    )
+    RETURNING id INTO v_app_id;
+
+    IF v_status = 'applied' THEN
+        INSERT INTO public.player_current_identity_overrides (
+            sport, player_id, team_id, league_id, source, source_rumor_id, source_synthesis_id,
+            confidence, reason, evidence, applied_by
+        ) VALUES (
+            p_sport, p_player_id, p_new_team_id, v_new_league_id, 'applied_transfer',
+            p_source_rumor_id, p_source_synthesis_id, v_conf, v_reason,
+            jsonb_build_object(
+                'application_id', v_app_id,
+                'old_team_id', p_old_team_id,
+                'old_league_id', v_current_league_id,
+                'threshold', v_threshold_json,
+                'adjudication', COALESCE(p_adjudication, '{}'::jsonb)
+            ),
+            'transfer_identity_workflow'
+        )
+        RETURNING id INTO v_override_id;
+
+        UPDATE public.transfer_identity_applications
+        SET override_id = v_override_id
+        WHERE id = v_app_id;
+
+        PERFORM public.refresh_sport_autofill(p_sport, 'applied_transfer_identity');
+    END IF;
+
+    RETURN QUERY SELECT v_app_id, v_override_id, v_status, v_reason;
+END;
+$$;
+
+
+--
 -- Name: box_score_coverage_report(text, integer, integer, text[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1689,6 +1848,34 @@ SELECT
           AND ets.league_id = p_league_id
     ) AS team_row_count,
     COALESCE((SELECT array_agg(key_name ORDER BY key_name) FROM missing_keys), ARRAY[]::TEXT[]) AS missing_required_keys;
+$$;
+
+
+--
+-- Name: complete_sport_autofill_refresh(text, integer, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.complete_sport_autofill_refresh(p_sport text, p_total_entities integer, p_reason text DEFAULT NULL::text) RETURNS TABLE(sport text, version bigint, generated_at timestamp with time zone, total_entities integer, status text, reason text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF p_sport NOT IN ('NBA', 'NFL', 'FOOTBALL') THEN
+        RAISE EXCEPTION 'unsupported sport for autofill refresh: %', p_sport;
+    END IF;
+
+    RETURN QUERY
+    INSERT INTO public.sport_autofill_versions AS sav (
+        sport, version, generated_at, total_entities, status, reason
+    )
+    VALUES (p_sport, 1, NOW(), p_total_entities, 'ready', p_reason)
+    ON CONFLICT (sport) DO UPDATE SET
+        version = sav.version + 1,
+        generated_at = NOW(),
+        total_entities = EXCLUDED.total_entities,
+        status = 'ready',
+        reason = EXCLUDED.reason
+    RETURNING sav.sport, sav.version, sav.generated_at, sav.total_entities, sav.status, sav.reason;
+END;
 $$;
 
 
@@ -2020,7 +2207,7 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
     AS $$
     WITH corpus AS (
         -- News articles linking BOTH the team and the player, in PROXIMITY and
-        -- local model-VETTED on both sides. S10: an unscrubbed link no longer contributes
+        -- Gemma-VETTED on both sides. S10: an unscrubbed link no longer contributes
         -- heat — heat now requires a positive scrub verdict (vetted IS TRUE), so a
         -- rumor's deterministic heat can never exist ahead of its validation.
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts
@@ -2205,15 +2392,11 @@ DECLARE
     v_ver    text;
     v_stages text[] := ARRAY['narratives', 'vibe'];
 BEGIN
-    -- Corpus fingerprint over this entity's vetted, in-lookback (72h) links. This
-    -- doubles as the freshness gate: a stale backlog primary (article published
-    -- >72h ago, no other fresh vetted corpus) yields count=0 and enqueues nothing,
-    -- which bounds the maintenance bulk auto-vet's per-row fan-out.
     SELECT count(*),
            COALESCE(EXTRACT(EPOCH FROM max(nae.scrubbed_at))::bigint, 0)
       INTO v_count, v_epoch
-      FROM news_article_entities nae
-      JOIN news_articles a ON a.id = nae.article_id
+      FROM public.news_article_entities nae
+      JOIN public.news_articles a ON a.id = nae.article_id
      WHERE nae.entity_type = NEW.entity_type
        AND nae.entity_id   = NEW.entity_id
        AND nae.sport       = NEW.sport
@@ -2221,20 +2404,16 @@ BEGIN
        AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours');
 
     IF v_count = 0 THEN
-        RETURN NEW; -- no fresh vetted corpus → nothing worth deriving
+        RETURN NEW;
     END IF;
 
     v_ver := v_count || ':' || v_epoch;
 
-    -- Teams additionally get transfer analysis (the transfer card's grain).
     IF NEW.entity_type = 'team' THEN
-        v_stages := array_append(v_stages, 'transfers');
+        v_stages := ARRAY['transfers', 'narratives', 'vibe'];
     END IF;
 
-    -- Enqueue each stage. Conflict policy mirrors go/internal/work Enqueue: a
-    -- changed input_version (or a failed row) reopens to 'pending'; an unchanged
-    -- pending/running row of the same version is left untouched (dedupe).
-    INSERT INTO pipeline_work
+    INSERT INTO public.pipeline_work
         (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
     SELECT st, NEW.entity_type, NEW.entity_id, NEW.sport, 'pending', v_ver, NOW(), NOW()
       FROM unnest(v_stages) AS st
@@ -2245,16 +2424,34 @@ BEGIN
         updated_at    = NOW(),
         last_error    = NULL,
         input_version = EXCLUDED.input_version
-    WHERE pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-       OR pipeline_work.status = 'failed';
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
 
-    -- Low-latency wake-up ONLY (never required for correctness — the worker also
-    -- drains on startup + on a safety-net timeout). Constant payload so Postgres
-    -- de-dups identical NOTIFYs within a txn: a batched scrub UPDATE (one txn per
-    -- article) collapses to a single wake-up regardless of link count.
     PERFORM pg_notify('pipeline_work_ready', '');
 
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: fail_sport_autofill_refresh(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fail_sport_autofill_refresh(p_sport text, p_reason text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF p_sport NOT IN ('NBA', 'NFL', 'FOOTBALL') THEN
+        RAISE EXCEPTION 'unsupported sport for autofill refresh: %', p_sport;
+    END IF;
+
+    INSERT INTO public.sport_autofill_versions (sport, status, reason, generated_at)
+    VALUES (p_sport, 'failed', p_reason, NOW())
+    ON CONFLICT (sport) DO UPDATE SET
+        status = 'failed',
+        reason = EXCLUDED.reason,
+        generated_at = NOW();
 END;
 $$;
 
@@ -3537,6 +3734,50 @@ $$;
 
 
 --
+-- Name: record_transfer_identity_adjudication_failure(text, integer, integer, integer, bigint, bigint, smallint, numeric, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.record_transfer_identity_adjudication_failure(p_sport text, p_player_id integer, p_old_team_id integer, p_new_team_id integer, p_source_rumor_id bigint, p_source_synthesis_id bigint, p_deterministic_heat smallint, p_deterministic_confidence numeric, p_adjudication_raw text, p_adjudication_model_version text, p_adjudication_prompt_version text, p_reason text) RETURNS bigint
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_old_league_id INTEGER;
+    v_new_league_id INTEGER;
+    v_threshold public.transfer_identity_thresholds%ROWTYPE;
+    v_id BIGINT;
+BEGIN
+    SELECT * INTO v_threshold
+    FROM public.transfer_identity_thresholds
+    WHERE sport = p_sport;
+
+    SELECT league_id INTO v_old_league_id
+    FROM public.player_current_identity
+    WHERE sport = p_sport AND player_id = p_player_id;
+
+    SELECT league_id INTO v_new_league_id
+    FROM public.teams
+    WHERE sport = p_sport AND id = p_new_team_id;
+
+    INSERT INTO public.transfer_identity_applications (
+        sport, player_id, old_team_id, old_league_id, new_team_id, new_league_id,
+        source_rumor_id, source_synthesis_id, deterministic_heat, deterministic_confidence,
+        threshold_config, adjudication_raw, adjudication_model_version, adjudication_prompt_version,
+        decision, status, reason
+    ) VALUES (
+        p_sport, p_player_id, p_old_team_id, v_old_league_id, p_new_team_id, v_new_league_id,
+        p_source_rumor_id, p_source_synthesis_id, p_deterministic_heat, p_deterministic_confidence,
+        COALESCE(to_jsonb(v_threshold), '{}'::jsonb), p_adjudication_raw,
+        p_adjudication_model_version, p_adjudication_prompt_version,
+        'failed_closed', 'failed_closed', p_reason
+    )
+    RETURNING id INTO v_id;
+
+    RETURN v_id;
+END;
+$$;
+
+
+--
 -- Name: refresh_peer_cohort_aggregates(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3615,6 +3856,48 @@ $$;
 
 
 --
+-- Name: refresh_sport_autofill(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_sport_autofill(p_sport text, p_reason text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM public.request_sport_autofill_refresh(p_sport, p_reason);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_sport_autofill(p_sport text, p_reason text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_sport_autofill(p_sport text, p_reason text) IS 'Transaction-safe autofill invalidation shim. Marks sport_autofill_versions refreshing; callers must run REFRESH MATERIALIZED VIEW CONCURRENTLY outside the DB function and then call complete_sport_autofill_refresh().';
+
+
+--
+-- Name: request_sport_autofill_refresh(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.request_sport_autofill_refresh(p_sport text, p_reason text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF p_sport NOT IN ('NBA', 'NFL', 'FOOTBALL') THEN
+        RAISE EXCEPTION 'unsupported sport for autofill refresh: %', p_sport;
+    END IF;
+
+    INSERT INTO public.sport_autofill_versions (sport, status, reason, generated_at)
+    VALUES (p_sport, 'refreshing', p_reason, NOW())
+    ON CONFLICT (sport) DO UPDATE SET
+        status = 'refreshing',
+        reason = EXCLUDED.reason,
+        generated_at = NOW();
+END;
+$$;
+
+
+--
 -- Name: resolve_provider_fixture_id(integer, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3642,6 +3925,51 @@ CREATE FUNCTION public.resolve_provider_season_id(p_league_id integer, p_season_
     WHERE league_id = p_league_id
       AND season_year = p_season_year
       AND provider = p_provider;
+$$;
+
+
+--
+-- Name: revert_applied_transfer_identity(bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.revert_applied_transfer_identity(p_application_id bigint, p_reverted_by text, p_revert_reason text) RETURNS TABLE(application_id bigint, override_id bigint, status text, reason text)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_app public.transfer_identity_applications%ROWTYPE;
+BEGIN
+    SELECT * INTO v_app
+    FROM public.transfer_identity_applications
+    WHERE id = p_application_id
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'transfer identity application % not found', p_application_id;
+    END IF;
+
+    IF v_app.status <> 'applied' OR v_app.override_id IS NULL THEN
+        RETURN QUERY SELECT v_app.id, v_app.override_id, v_app.status, 'application is not an active applied override'::text;
+        RETURN;
+    END IF;
+
+    UPDATE public.player_current_identity_overrides
+    SET reverted_at = NOW(),
+        reverted_by = p_reverted_by,
+        revert_reason = p_revert_reason
+    WHERE id = v_app.override_id
+      AND reverted_at IS NULL;
+
+    UPDATE public.transfer_identity_applications
+    SET status = 'reverted',
+        reverted_at = NOW(),
+        reverted_by = p_reverted_by,
+        revert_reason = p_revert_reason
+    WHERE id = p_application_id;
+
+    PERFORM public.refresh_sport_autofill(v_app.sport, 'revert_applied_transfer_identity');
+
+    RETURN QUERY SELECT v_app.id, v_app.override_id, 'reverted'::text, COALESCE(p_revert_reason, 'reverted applied transfer identity');
+END;
 $$;
 
 
@@ -3878,6 +4206,30 @@ CREATE TABLE public.leagues (
 
 
 --
+-- Name: player_current_identity_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.player_current_identity_overrides (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    player_id integer NOT NULL,
+    team_id integer,
+    league_id integer,
+    source text DEFAULT 'manual'::text NOT NULL,
+    source_rumor_id bigint,
+    source_synthesis_id bigint,
+    confidence numeric(4,3),
+    reason text,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL,
+    applied_by text,
+    reverted_at timestamp with time zone,
+    reverted_by text,
+    revert_reason text
+);
+
+
+--
 -- Name: player_stats; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3913,26 +4265,6 @@ CREATE TABLE public.player_stats (
 
 
 --
--- Name: player_current_team; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.player_current_team AS
- SELECT DISTINCT ON (player_id, sport) player_id,
-    sport,
-    team_id
-   FROM public.player_stats ps
-  WHERE (team_id IS NOT NULL)
-  ORDER BY player_id, sport, season DESC NULLS LAST;
-
-
---
--- Name: VIEW player_current_team; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON VIEW public.player_current_team IS 'Canonical current club per player: latest-season player_stats.team_id. Use instead of players.team_id (which is last-seeded, not current — see migration 076).';
-
-
---
 -- Name: players; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3957,6 +4289,146 @@ CREATE TABLE public.players (
     tier text DEFAULT 'inactive'::text NOT NULL,
     CONSTRAINT players_tier_check CHECK ((tier = ANY (ARRAY['headliner'::text, 'starter'::text, 'bench'::text, 'inactive'::text])))
 );
+
+
+--
+-- Name: team_rosters; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.team_rosters (
+    sport text NOT NULL,
+    season integer NOT NULL,
+    team_id integer NOT NULL,
+    player_id integer NOT NULL,
+    jersey_number text,
+    "position" text,
+    position_group text,
+    is_active boolean DEFAULT true NOT NULL,
+    source text,
+    first_seen timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: teams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.teams (
+    id integer NOT NULL,
+    sport text NOT NULL,
+    name text NOT NULL,
+    short_code text,
+    country text,
+    city text,
+    logo_url text,
+    league_id integer,
+    founded integer,
+    venue_name text,
+    venue_capacity integer,
+    conference text,
+    division text,
+    search_aliases text[] DEFAULT '{}'::text[],
+    meta jsonb DEFAULT '{}'::jsonb,
+    raw_response jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    tier text DEFAULT 'headliner'::text NOT NULL,
+    CONSTRAINT teams_tier_check CHECK ((tier = ANY (ARRAY['headliner'::text, 'starter'::text, 'bench'::text, 'inactive'::text])))
+);
+
+
+--
+-- Name: player_current_identity; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.player_current_identity AS
+ WITH active_override AS (
+         SELECT DISTINCT ON (o.sport, o.player_id) o.sport,
+            o.player_id,
+            o.team_id,
+            o.league_id,
+            NULL::text AS "position",
+            NULL::text AS position_group,
+            NULL::text AS jersey_number,
+            'override'::text AS source,
+            o.applied_at AS source_updated_at
+           FROM public.player_current_identity_overrides o
+          WHERE (o.reverted_at IS NULL)
+          ORDER BY o.sport, o.player_id, o.applied_at DESC, o.id DESC
+        ), roster_current AS (
+         SELECT DISTINCT ON (tr.sport, tr.player_id) tr.sport,
+            tr.player_id,
+            tr.team_id,
+            t.league_id,
+            tr."position",
+            tr.position_group,
+            tr.jersey_number,
+            'roster'::text AS source,
+            tr.last_seen AS source_updated_at
+           FROM (public.team_rosters tr
+             LEFT JOIN public.teams t ON (((t.id = tr.team_id) AND (t.sport = tr.sport))))
+          WHERE tr.is_active
+          ORDER BY tr.sport, tr.player_id, tr.season DESC, tr.last_seen DESC NULLS LAST
+        ), stats_current AS (
+         SELECT DISTINCT ON (ps.sport, ps.player_id) ps.sport,
+            ps.player_id,
+            ps.team_id,
+            NULLIF(ps.league_id, 0) AS league_id,
+            ps."position",
+            public.position_group(ps.sport, ps."position") AS position_group,
+            NULL::text AS jersey_number,
+            'stats'::text AS source,
+            ps.updated_at AS source_updated_at
+           FROM public.player_stats ps
+          WHERE (ps.team_id IS NOT NULL)
+          ORDER BY ps.sport, ps.player_id, ps.season DESC NULLS LAST, ps.updated_at DESC NULLS LAST
+        )
+ SELECT p.sport,
+    p.id AS player_id,
+    COALESCE(ao.team_id, rc.team_id, sc.team_id, p.team_id) AS team_id,
+    COALESCE(ao.league_id, rc.league_id, sc.league_id, p.league_id) AS league_id,
+    COALESCE(ao."position", rc."position", sc."position") AS "position",
+    COALESCE(ao.position_group, rc.position_group, sc.position_group) AS position_group,
+    COALESCE(ao.jersey_number, rc.jersey_number) AS jersey_number,
+        CASE
+            WHEN (ao.player_id IS NOT NULL) THEN ao.source
+            WHEN (rc.player_id IS NOT NULL) THEN rc.source
+            WHEN (sc.player_id IS NOT NULL) THEN sc.source
+            WHEN ((p.team_id IS NOT NULL) OR (p.league_id IS NOT NULL)) THEN 'legacy_player'::text
+            ELSE NULL::text
+        END AS source,
+    COALESCE(ao.source_updated_at, rc.source_updated_at, sc.source_updated_at, p.updated_at) AS source_updated_at
+   FROM (((public.players p
+     LEFT JOIN active_override ao ON (((ao.sport = p.sport) AND (ao.player_id = p.id))))
+     LEFT JOIN roster_current rc ON (((rc.sport = p.sport) AND (rc.player_id = p.id))))
+     LEFT JOIN stats_current sc ON (((sc.sport = p.sport) AND (sc.player_id = p.id))));
+
+
+--
+-- Name: VIEW player_current_identity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.player_current_identity IS 'Canonical current player identity: applied override, then active roster, then latest stats, then legacy players row. Use for meta, autofill, and transfer prompts.';
+
+
+--
+-- Name: player_current_team; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.player_current_team AS
+ SELECT player_id,
+    sport,
+    team_id
+   FROM public.player_current_identity
+  WHERE (team_id IS NOT NULL);
+
+
+--
+-- Name: VIEW player_current_team; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.player_current_team IS 'Compatibility current-team view backed by public.player_current_identity; never read raw players.team_id for current team unless this view falls back to legacy_player.';
 
 
 --
@@ -3987,34 +4459,6 @@ CREATE TABLE public.team_stats (
     rating_composite_score numeric,
     rating_specialist_score numeric,
     rating_scoped_scores jsonb
-);
-
-
---
--- Name: teams; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.teams (
-    id integer NOT NULL,
-    sport text NOT NULL,
-    name text NOT NULL,
-    short_code text,
-    country text,
-    city text,
-    logo_url text,
-    league_id integer,
-    founded integer,
-    venue_name text,
-    venue_capacity integer,
-    conference text,
-    division text,
-    search_aliases text[] DEFAULT '{}'::text[],
-    meta jsonb DEFAULT '{}'::jsonb,
-    raw_response jsonb,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    tier text DEFAULT 'headliner'::text NOT NULL,
-    CONSTRAINT teams_tier_check CHECK ((tier = ANY (ARRAY['headliner'::text, 'starter'::text, 'bench'::text, 'inactive'::text])))
 );
 
 
@@ -4848,6 +5292,50 @@ ALTER SEQUENCE public.fixtures_id_seq OWNED BY public.fixtures.id;
 
 
 --
+-- Name: headlines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.headlines (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    title text NOT NULL,
+    category text NOT NULL,
+    source_url text,
+    source_name text,
+    published_at timestamp with time zone DEFAULT now() NOT NULL,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text,
+    prompt_version text,
+    trigger_type text DEFAULT 'news_spike'::text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT headlines_category_check CHECK ((category = ANY (ARRAY['transfer'::text, 'injury'::text, 'coaching'::text, 'contract'::text, 'other'::text]))),
+    CONSTRAINT headlines_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT headlines_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
+);
+
+
+--
+-- Name: headlines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.headlines_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: headlines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.headlines_id_seq OWNED BY public.headlines.id;
+
+
+--
 -- Name: meta; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4992,14 +5480,14 @@ COMMENT ON COLUMN public.news_article_entities.title_pos IS 'Character offset of
 -- Name: COLUMN news_article_entities.vetted; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_article_entities.vetted IS 'local model scrub verdict: TRUE genuinely the subject, FALSE fuzzy false positive, NULL not yet scrubbed. See ml/news_scrub.go.';
+COMMENT ON COLUMN public.news_article_entities.vetted IS 'Model scrub verdict: TRUE genuinely the subject, FALSE fuzzy false positive, NULL not yet scrubbed. See the cognition scrub stage.';
 
 
 --
 -- Name: COLUMN news_article_entities.scrubbed_at; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the local model scrub last judged this link (NULL = unscrubbed). Drives the async scrub worker backlog query.';
+COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the model scrub last judged this link (NULL = unscrubbed). Drives the async scrub worker backlog query.';
 
 
 --
@@ -5058,8 +5546,16 @@ CREATE TABLE public.news_summaries (
     prompt_version text,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     narrative_title text,
+    narrative_updated_at timestamp with time zone,
+    source_count integer DEFAULT 0 NOT NULL,
+    source_names text[] DEFAULT '{}'::text[] NOT NULL,
+    source_latest_at timestamp with time zone,
+    source_oldest_at timestamp with time zone,
+    trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
+    CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
     CONSTRAINT news_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
 );
 
@@ -5093,6 +5589,41 @@ COMMENT ON COLUMN public.news_summaries.narrative_title IS 'Storyline headline (
 
 
 --
+-- Name: COLUMN news_summaries.narrative_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.narrative_updated_at IS 'Narrative freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
+
+
+--
+-- Name: COLUMN news_summaries.source_count; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.source_count IS 'Number of cited source articles behind this narrative row.';
+
+
+--
+-- Name: COLUMN news_summaries.source_names; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.source_names IS 'Distinct source names from the cited articles, preserved for provenance and client display.';
+
+
+--
+-- Name: COLUMN news_summaries.trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.trajectory IS 'Narrative trajectory marker: developing_story, heating_up, or cooling_off.';
+
+
+--
+-- Name: COLUMN news_summaries.trajectory_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.trajectory_components IS 'Transparent inputs behind the trajectory marker, usually impact delta versus the previous matching narrative.';
+
+
+--
 -- Name: news_summaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -5109,6 +5640,63 @@ CREATE SEQUENCE public.news_summaries_id_seq
 --
 
 ALTER SEQUENCE public.news_summaries_id_seq OWNED BY public.news_summaries.id;
+
+
+--
+-- Name: news_summaries_shadow; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.news_summaries_shadow (
+    id bigint NOT NULL,
+    source text DEFAULT 'rust'::text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT 'null'::jsonb NOT NULL,
+    narrative_title text,
+    body text,
+    impact smallint,
+    impact_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    original_corpus_size integer,
+    deduped_corpus_size integer,
+    model_version text,
+    prompt_version text NOT NULL,
+    temperature real NOT NULL,
+    built_prompt text,
+    ollama_request jsonb,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT news_summaries_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT news_summaries_shadow_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
+    CONSTRAINT news_summaries_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
+);
+
+
+--
+-- Name: TABLE news_summaries_shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.news_summaries_shadow IS 'Rust Cognition Harness L13 narratives parity harness — offline shadow of news_summaries; holds source=rust and source=go rows. Diff built_prompt + ollama_request + model_version + prompt_version. Drop after narratives cutover.';
+
+
+--
+-- Name: news_summaries_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.news_summaries_shadow_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: news_summaries_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.news_summaries_shadow_id_seq OWNED BY public.news_summaries_shadow.id;
 
 
 --
@@ -5303,7 +5891,7 @@ CREATE TABLE public.pipeline_work (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     input_version text,
-    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text]))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
 
@@ -5331,22 +5919,22 @@ CREATE VIEW public.pipeline_work_status AS
 
 
 --
--- Name: team_rosters; Type: TABLE; Schema: public; Owner: -
+-- Name: player_current_identity_overrides_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.team_rosters (
-    sport text NOT NULL,
-    season integer NOT NULL,
-    team_id integer NOT NULL,
-    player_id integer NOT NULL,
-    jersey_number text,
-    "position" text,
-    position_group text,
-    is_active boolean DEFAULT true NOT NULL,
-    source text,
-    first_seen timestamp with time zone DEFAULT now() NOT NULL,
-    last_seen timestamp with time zone DEFAULT now() NOT NULL
-);
+CREATE SEQUENCE public.player_current_identity_overrides_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: player_current_identity_overrides_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.player_current_identity_overrides_id_seq OWNED BY public.player_current_identity_overrides.id;
 
 
 --
@@ -5354,39 +5942,14 @@ CREATE TABLE public.team_rosters (
 --
 
 CREATE VIEW public.player_current_team_roster AS
- WITH roster_current AS (
-         SELECT DISTINCT ON (tr.sport, tr.player_id) tr.sport,
-            tr.player_id,
-            tr.team_id,
-            tr."position",
-            tr.position_group,
-            tr.jersey_number,
-            'roster'::text AS source
-           FROM public.team_rosters tr
-          WHERE tr.is_active
-          ORDER BY tr.sport, tr.player_id, tr.season DESC, tr.last_seen DESC NULLS LAST
-        ), stats_current AS (
-         SELECT DISTINCT ON (ps.sport, ps.player_id) ps.sport,
-            ps.player_id,
-            ps.team_id,
-            ps."position",
-            NULL::text AS position_group,
-            NULL::text AS jersey_number,
-            'stats'::text AS source
-           FROM public.player_stats ps
-          WHERE (ps.team_id IS NOT NULL)
-          ORDER BY ps.sport, ps.player_id, ps.season DESC
-        )
- SELECT p.sport,
-    p.id AS player_id,
-    COALESCE(rc.team_id, sc.team_id) AS team_id,
-    COALESCE(rc."position", sc."position") AS "position",
-    COALESCE(rc.position_group, sc.position_group) AS position_group,
-    rc.jersey_number,
-    COALESCE(rc.source, sc.source) AS source
-   FROM ((public.players p
-     LEFT JOIN roster_current rc ON (((rc.sport = p.sport) AND (rc.player_id = p.id))))
-     LEFT JOIN stats_current sc ON (((sc.sport = p.sport) AND (sc.player_id = p.id))));
+ SELECT sport,
+    player_id,
+    team_id,
+    "position",
+    position_group,
+    jersey_number,
+    source
+   FROM public.player_current_identity;
 
 
 --
@@ -5593,6 +6156,62 @@ COMMENT ON TABLE public.rating_thresholds IS 'Rating eligibility gates: a player
 
 
 --
+-- Name: resolve_shadow; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.resolve_shadow (
+    id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    name text DEFAULT ''::text NOT NULL,
+    model_vetted boolean CONSTRAINT resolve_shadow_gemma_vetted_not_null NOT NULL,
+    cosine real NOT NULL,
+    band text NOT NULL,
+    auto_verdict boolean NOT NULL,
+    hybrid_verdict boolean,
+    decided_by text NOT NULL,
+    in_transfer_rumors boolean DEFAULT false NOT NULL,
+    career_teams smallint DEFAULT 0 NOT NULL,
+    keep_threshold real NOT NULL,
+    drop_threshold real NOT NULL,
+    embed_model text NOT NULL,
+    model_version text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT resolve_shadow_band_check CHECK ((band = ANY (ARRAY['keep'::text, 'drop'::text, 'ambiguous'::text]))),
+    CONSTRAINT resolve_shadow_decided_by_check CHECK ((decided_by = ANY (ARRAY['keep_band'::text, 'drop_band'::text, 'model'::text, 'pending'::text]))),
+    CONSTRAINT resolve_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
+);
+
+
+--
+-- Name: TABLE resolve_shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.resolve_shadow IS 'Rust Cognition Harness L5 embedding-Resolve at-scale shadow — offline record of the hybrid resolve_set verdict beside the production vetted label, over the whole secondary-link corpus. Read-only on the pipeline (never touches news_article_entities.vetted). Drop after the scrub cutover.';
+
+
+--
+-- Name: resolve_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.resolve_shadow_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: resolve_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.resolve_shadow_id_seq OWNED BY public.resolve_shadow.id;
+
+
+--
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5664,6 +6283,61 @@ COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown synthesis (was 
 
 
 --
+-- Name: sigil_synthesis_shadow; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sigil_synthesis_shadow (
+    id bigint NOT NULL,
+    source text DEFAULT 'rust'::text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    score smallint,
+    blurb text,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    temperature real NOT NULL,
+    built_prompt text,
+    ollama_request jsonb,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT sigil_synthesis_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT sigil_synthesis_shadow_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
+    CONSTRAINT sigil_synthesis_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
+);
+
+
+--
+-- Name: TABLE sigil_synthesis_shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.sigil_synthesis_shadow IS 'Rust Cognition Harness L3 sigil parity harness — offline shadow of sigil_synthesis; holds source=rust and source=go temp-0 rows for the parity diff. Drop after sigil cutover.';
+
+
+--
+-- Name: sigil_synthesis_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.sigil_synthesis_shadow_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: sigil_synthesis_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.sigil_synthesis_shadow_id_seq OWNED BY public.sigil_synthesis_shadow.id;
+
+
+--
 -- Name: source_tiers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5675,6 +6349,21 @@ CREATE TABLE public.source_tiers (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT source_tiers_kind_check CHECK ((kind = ANY (ARRAY['news'::text, 'twitter'::text]))),
     CONSTRAINT source_tiers_tier_check CHECK (((tier >= 1) AND (tier <= 3)))
+);
+
+
+--
+-- Name: sport_autofill_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sport_autofill_versions (
+    sport text NOT NULL,
+    version bigint DEFAULT 1 NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    total_entities integer DEFAULT 0 NOT NULL,
+    status text DEFAULT 'ready'::text NOT NULL,
+    reason text,
+    CONSTRAINT sport_autofill_versions_status_check CHECK ((status = ANY (ARRAY['ready'::text, 'refreshing'::text, 'failed'::text])))
 );
 
 
@@ -5719,8 +6408,12 @@ CREATE TABLE public.stat_summaries (
     season integer,
     input_hash text,
     divined_peak text,
+    peak_trajectory text,
+    peak_trajectory_label text,
+    peak_trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT stat_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT stat_summaries_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
+    CONSTRAINT stat_summaries_peak_trajectory_check CHECK ((peak_trajectory = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text]))),
     CONSTRAINT stat_summaries_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['stat_change'::text, 'periodic'::text, 'manual'::text])))
 );
 
@@ -5729,7 +6422,7 @@ CREATE TABLE public.stat_summaries (
 -- Name: TABLE stat_summaries; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries; written by ml/rating.go.';
+COMMENT ON TABLE public.stat_summaries IS 'Append, one row per generation per entity (latest-per-entity read). The STATS-rail narrative: the local model''s on-field IDENTITY analysis derived from the rating engine''s scrubbed datapoints (composite=how well, peak=how). notability (deterministic, distinctiveness) drives dynamic length + a board; NULL body = insufficient-stats marker. Twin of news_summaries.';
 
 
 --
@@ -5743,14 +6436,35 @@ COMMENT ON COLUMN public.stat_summaries.season IS 'The season the commentary des
 -- Name: COLUMN stat_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to local model) — the nightly skip-unless-changed signal.';
+COMMENT ON COLUMN public.stat_summaries.input_hash IS 'Hash of input_components (the rating snapshot fed to the local model) — the nightly skip-unless-changed signal.';
 
 
 --
 -- Name: COLUMN stat_summaries.divined_peak; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.stat_summaries.divined_peak IS 'local model-divined peak-strength label (e.g. "Rim Protection"), parsed from the rating prompt''s "PEAK: <label>" first line; the Rating card hero label. Was divined_sigil pre-convergence.';
+COMMENT ON COLUMN public.stat_summaries.divined_peak IS 'Model-divined peak-strength label (e.g. "Rim Protection"), parsed from the rating prompt''s "PEAK: <label>" first line; the Rating card hero label. Was divined_sigil pre-convergence.';
+
+
+--
+-- Name: COLUMN stat_summaries.peak_trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.peak_trajectory IS 'Deterministic recent-form marker for the stats rail z-score values: rising, falling, or steady.';
+
+
+--
+-- Name: COLUMN stat_summaries.peak_trajectory_label; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.peak_trajectory_label IS 'Human label for the rating z-score trajectory, e.g. Composite and PEAK z-scores trending down over recent games.';
+
+
+--
+-- Name: COLUMN stat_summaries.peak_trajectory_components; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.stat_summaries.peak_trajectory_components IS 'Transparent PEAK trajectory inputs: recent Composite/PEAK z-score samples, slopes, and sample sizes.';
 
 
 --
@@ -5770,6 +6484,63 @@ CREATE SEQUENCE public.stat_summaries_id_seq
 --
 
 ALTER SEQUENCE public.stat_summaries_id_seq OWNED BY public.stat_summaries.id;
+
+
+--
+-- Name: stat_summaries_shadow; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stat_summaries_shadow (
+    id bigint NOT NULL,
+    source text DEFAULT 'rust'::text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    body text,
+    divined_peak text,
+    notability smallint,
+    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text,
+    prompt_version text NOT NULL,
+    temperature real NOT NULL,
+    built_prompt text,
+    ollama_request jsonb,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT stat_summaries_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT stat_summaries_shadow_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
+    CONSTRAINT stat_summaries_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
+);
+
+
+--
+-- Name: TABLE stat_summaries_shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stat_summaries_shadow IS 'Rust Cognition Harness L12 rating parity harness — offline shadow of stat_summaries; holds source=rust and source=go rows. Diff built_prompt + ollama_request (whole jsonb) + model_version + prompt_version + input_hash. Drop after rating cutover.';
+
+
+--
+-- Name: stat_summaries_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.stat_summaries_shadow_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: stat_summaries_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.stat_summaries_shadow_id_seq OWNED BY public.stat_summaries_shadow.id;
 
 
 --
@@ -5800,6 +6571,83 @@ COMMENT ON COLUMN public.stat_templates.facet IS 'Pizza grouping for the Composi
 
 
 --
+-- Name: transfer_identity_applications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_identity_applications (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    player_id integer NOT NULL,
+    old_team_id integer,
+    old_league_id integer,
+    new_team_id integer NOT NULL,
+    new_league_id integer,
+    source_rumor_id bigint,
+    source_synthesis_id bigint,
+    deterministic_heat smallint NOT NULL,
+    deterministic_confidence numeric(4,3) CONSTRAINT transfer_identity_application_deterministic_confidence_not_null NOT NULL,
+    threshold_config jsonb DEFAULT '{}'::jsonb NOT NULL,
+    adjudication jsonb DEFAULT '{}'::jsonb NOT NULL,
+    adjudication_raw text,
+    adjudication_model_version text,
+    adjudication_prompt_version text,
+    decision text NOT NULL,
+    event_type text,
+    adjudication_confidence numeric(4,3),
+    status text NOT NULL,
+    reason text,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    override_id bigint,
+    applied_at timestamp with time zone,
+    reverted_at timestamp with time zone,
+    reverted_by text,
+    revert_reason text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT transfer_identity_applications_adjudication_confidence_check CHECK (((adjudication_confidence IS NULL) OR ((adjudication_confidence >= (0)::numeric) AND (adjudication_confidence <= (1)::numeric)))),
+    CONSTRAINT transfer_identity_applications_decision_check CHECK ((decision = ANY (ARRAY['apply'::text, 'reject'::text, 'manual_review'::text, 'failed_closed'::text]))),
+    CONSTRAINT transfer_identity_applications_deterministic_confidence_check CHECK (((deterministic_confidence >= (0)::numeric) AND (deterministic_confidence <= (1)::numeric))),
+    CONSTRAINT transfer_identity_applications_deterministic_heat_check CHECK (((deterministic_heat >= 0) AND (deterministic_heat <= 100))),
+    CONSTRAINT transfer_identity_applications_status_check CHECK ((status = ANY (ARRAY['applied'::text, 'rejected'::text, 'manual_review'::text, 'failed_closed'::text, 'reverted'::text])))
+);
+
+
+--
+-- Name: transfer_identity_applications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.transfer_identity_applications_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: transfer_identity_applications_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.transfer_identity_applications_id_seq OWNED BY public.transfer_identity_applications.id;
+
+
+--
+-- Name: transfer_identity_thresholds; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_identity_thresholds (
+    sport text NOT NULL,
+    min_heat smallint DEFAULT 80 NOT NULL,
+    min_deterministic_confidence numeric(4,3) DEFAULT 0.800 CONSTRAINT transfer_identity_threshold_min_deterministic_confiden_not_null NOT NULL,
+    min_adjudication_confidence numeric(4,3) DEFAULT 0.850 CONSTRAINT transfer_identity_threshold_min_adjudication_confidenc_not_null NOT NULL,
+    allowed_event_types text[] DEFAULT ARRAY['transfer'::text, 'trade'::text, 'loan'::text, 'signing'::text] NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT transfer_identity_thresholds_min_adjudication_confidence_check CHECK (((min_adjudication_confidence >= (0)::numeric) AND (min_adjudication_confidence <= (1)::numeric))),
+    CONSTRAINT transfer_identity_thresholds_min_deterministic_confidence_check CHECK (((min_deterministic_confidence >= (0)::numeric) AND (min_deterministic_confidence <= (1)::numeric))),
+    CONSTRAINT transfer_identity_thresholds_min_heat_check CHECK (((min_heat >= 0) AND (min_heat <= 100)))
+);
+
+
+--
 -- Name: transfer_rumors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5822,11 +6670,33 @@ CREATE TABLE public.transfer_rumors (
     model_version text,
     prompt_version text,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    rumor_updated_at timestamp with time zone,
+    source_count integer DEFAULT 0 NOT NULL,
+    source_names text[] DEFAULT '{}'::text[] NOT NULL,
+    source_latest_at timestamp with time zone,
+    source_oldest_at timestamp with time zone,
+    trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
     CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
     CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
+    CONSTRAINT transfer_rumors_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
     CONSTRAINT transfer_rumors_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
 );
+
+
+--
+-- Name: COLUMN transfer_rumors.rumor_updated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.rumor_updated_at IS 'Transfer-rumor freshness timestamp for the News hub. Usually the newest cited source timestamp; falls back to generated_at.';
+
+
+--
+-- Name: COLUMN transfer_rumors.trajectory; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajectory marker shared with narratives: developing_story, heating_up, or cooling_off.';
 
 
 --
@@ -5846,6 +6716,64 @@ CREATE SEQUENCE public.transfer_rumors_id_seq
 --
 
 ALTER SEQUENCE public.transfer_rumors_id_seq OWNED BY public.transfer_rumors.id;
+
+
+--
+-- Name: transfer_rumors_shadow; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.transfer_rumors_shadow (
+    id bigint NOT NULL,
+    source text DEFAULT 'rust'::text NOT NULL,
+    team_id integer NOT NULL,
+    player_id integer NOT NULL,
+    sport text NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    heat smallint,
+    heat_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    is_rumor boolean,
+    direction text,
+    stage text,
+    model_summary text,
+    source_attribution text,
+    confidence real,
+    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text,
+    prompt_version text NOT NULL,
+    temperature real NOT NULL,
+    built_prompt text,
+    ollama_request jsonb,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT transfer_rumors_shadow_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
+    CONSTRAINT transfer_rumors_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
+);
+
+
+--
+-- Name: TABLE transfer_rumors_shadow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.transfer_rumors_shadow IS 'Rust Cognition Harness L11 transfers parity harness — offline shadow of transfer_rumors; holds source=rust (t4) and source=go (t3) rows. Diff built_prompt + (ollama_request - system). Drop after transfers cutover.';
+
+
+--
+-- Name: transfer_rumors_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.transfer_rumors_shadow_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: transfer_rumors_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.transfer_rumors_shadow_id_seq OWNED BY public.transfer_rumors_shadow.id;
 
 
 --
@@ -6072,6 +7000,13 @@ ALTER TABLE ONLY public.fixtures ALTER COLUMN id SET DEFAULT nextval('public.fix
 
 
 --
+-- Name: headlines id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.headlines ALTER COLUMN id SET DEFAULT nextval('public.headlines_id_seq'::regclass);
+
+
+--
 -- Name: metadata_refresh_queue id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -6100,6 +7035,13 @@ ALTER TABLE ONLY public.news_summaries ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: news_summaries_shadow id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_summaries_shadow ALTER COLUMN id SET DEFAULT nextval('public.news_summaries_shadow_id_seq'::regclass);
+
+
+--
 -- Name: notifications id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -6118,6 +7060,13 @@ ALTER TABLE ONLY public.pipeline_runs ALTER COLUMN id SET DEFAULT nextval('publi
 --
 
 ALTER TABLE ONLY public.pipeline_stats ALTER COLUMN id SET DEFAULT nextval('public.pipeline_stats_id_seq'::regclass);
+
+
+--
+-- Name: player_current_identity_overrides id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_current_identity_overrides ALTER COLUMN id SET DEFAULT nextval('public.player_current_identity_overrides_id_seq'::regclass);
 
 
 --
@@ -6142,10 +7091,24 @@ ALTER TABLE ONLY public.rating_history ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: resolve_shadow id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resolve_shadow ALTER COLUMN id SET DEFAULT nextval('public.resolve_shadow_id_seq'::regclass);
+
+
+--
 -- Name: sigil_synthesis id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.sigil_synthesis ALTER COLUMN id SET DEFAULT nextval('public.vibe_synthesis_id_seq'::regclass);
+
+
+--
+-- Name: sigil_synthesis_shadow id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sigil_synthesis_shadow ALTER COLUMN id SET DEFAULT nextval('public.sigil_synthesis_shadow_id_seq'::regclass);
 
 
 --
@@ -6163,10 +7126,31 @@ ALTER TABLE ONLY public.stat_summaries ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Name: stat_summaries_shadow id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stat_summaries_shadow ALTER COLUMN id SET DEFAULT nextval('public.stat_summaries_shadow_id_seq'::regclass);
+
+
+--
+-- Name: transfer_identity_applications id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications ALTER COLUMN id SET DEFAULT nextval('public.transfer_identity_applications_id_seq'::regclass);
+
+
+--
 -- Name: transfer_rumors id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.transfer_rumors ALTER COLUMN id SET DEFAULT nextval('public.transfer_rumors_id_seq'::regclass);
+
+
+--
+-- Name: transfer_rumors_shadow id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_rumors_shadow ALTER COLUMN id SET DEFAULT nextval('public.transfer_rumors_shadow_id_seq'::regclass);
 
 
 --
@@ -6262,6 +7246,14 @@ ALTER TABLE ONLY public.fixtures
 
 
 --
+-- Name: headlines headlines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.headlines
+    ADD CONSTRAINT headlines_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: leagues leagues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6326,6 +7318,14 @@ ALTER TABLE ONLY public.news_summaries
 
 
 --
+-- Name: news_summaries_shadow news_summaries_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_summaries_shadow
+    ADD CONSTRAINT news_summaries_shadow_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6371,6 +7371,14 @@ ALTER TABLE ONLY public.pipeline_stats
 
 ALTER TABLE ONLY public.pipeline_work
     ADD CONSTRAINT pipeline_work_pkey PRIMARY KEY (stage, entity_type, entity_id, sport);
+
+
+--
+-- Name: player_current_identity_overrides player_current_identity_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_current_identity_overrides
+    ADD CONSTRAINT player_current_identity_overrides_pkey PRIMARY KEY (id);
 
 
 --
@@ -6462,6 +7470,14 @@ ALTER TABLE ONLY public.rating_thresholds
 
 
 --
+-- Name: resolve_shadow resolve_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resolve_shadow
+    ADD CONSTRAINT resolve_shadow_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6478,11 +7494,27 @@ ALTER TABLE ONLY public.season_recompute_needed
 
 
 --
+-- Name: sigil_synthesis_shadow sigil_synthesis_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sigil_synthesis_shadow
+    ADD CONSTRAINT sigil_synthesis_shadow_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: source_tiers source_tiers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.source_tiers
     ADD CONSTRAINT source_tiers_pkey PRIMARY KEY (kind, source);
+
+
+--
+-- Name: sport_autofill_versions sport_autofill_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sport_autofill_versions
+    ADD CONSTRAINT sport_autofill_versions_pkey PRIMARY KEY (sport);
 
 
 --
@@ -6518,6 +7550,14 @@ ALTER TABLE ONLY public.stat_summaries
 
 
 --
+-- Name: stat_summaries_shadow stat_summaries_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stat_summaries_shadow
+    ADD CONSTRAINT stat_summaries_shadow_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: stat_templates stat_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6550,11 +7590,35 @@ ALTER TABLE ONLY public.teams
 
 
 --
+-- Name: transfer_identity_applications transfer_identity_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: transfer_identity_thresholds transfer_identity_thresholds_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_thresholds
+    ADD CONSTRAINT transfer_identity_thresholds_pkey PRIMARY KEY (sport);
+
+
+--
 -- Name: transfer_rumors transfer_rumors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.transfer_rumors
     ADD CONSTRAINT transfer_rumors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: transfer_rumors_shadow transfer_rumors_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_rumors_shadow
+    ADD CONSTRAINT transfer_rumors_shadow_pkey PRIMARY KEY (id);
 
 
 --
@@ -6757,6 +7821,41 @@ CREATE INDEX idx_fixtures_sport_date ON public.fixtures USING btree (sport, star
 
 
 --
+-- Name: idx_headlines_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_headlines_category ON public.headlines USING btree (category, published_at DESC);
+
+
+--
+-- Name: idx_headlines_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_headlines_entity ON public.headlines USING btree (sport, entity_type, entity_id, published_at DESC);
+
+
+--
+-- Name: idx_headlines_entity_source_title_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_headlines_entity_source_title_uniq ON public.headlines USING btree (sport, entity_type, entity_id, lower(btrim(source_name)), lower(btrim(title))) WHERE (NULLIF(btrim(source_name), ''::text) IS NOT NULL);
+
+
+--
+-- Name: idx_headlines_entity_source_url_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_headlines_entity_source_url_uniq ON public.headlines USING btree (sport, entity_type, entity_id, lower(btrim(source_url))) WHERE (NULLIF(btrim(source_url), ''::text) IS NOT NULL);
+
+
+--
+-- Name: idx_headlines_published; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_headlines_published ON public.headlines USING btree (published_at DESC);
+
+
+--
 -- Name: idx_leagues_sport; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6834,10 +7933,31 @@ CREATE INDEX idx_news_summaries_entity_recent ON public.news_summaries USING btr
 
 
 --
+-- Name: idx_news_summaries_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_summaries_scope ON public.news_summaries USING btree (sport, entity_type, entity_id, generated_at DESC);
+
+
+--
+-- Name: idx_news_summaries_shadow_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_summaries_shadow_entity ON public.news_summaries_shadow USING btree (entity_type, entity_id, sport, source, generated_at DESC);
+
+
+--
 -- Name: idx_news_summaries_sport_impact; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_news_summaries_sport_impact ON public.news_summaries USING btree (sport, impact DESC, generated_at DESC) WHERE ((body IS NOT NULL) AND (impact IS NOT NULL));
+
+
+--
+-- Name: idx_news_summaries_updated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_summaries_updated ON public.news_summaries USING btree (sport, narrative_updated_at DESC) WHERE (body IS NOT NULL);
 
 
 --
@@ -6880,6 +8000,27 @@ CREATE INDEX idx_pipeline_work_claim ON public.pipeline_work USING btree (stage,
 --
 
 CREATE INDEX idx_pipeline_work_running ON public.pipeline_work USING btree (updated_at) WHERE (status = 'running'::text);
+
+
+--
+-- Name: idx_player_current_identity_overrides_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_player_current_identity_overrides_active ON public.player_current_identity_overrides USING btree (sport, player_id, applied_at DESC, id DESC) WHERE (reverted_at IS NULL);
+
+
+--
+-- Name: idx_player_current_identity_overrides_source_rumor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_player_current_identity_overrides_source_rumor ON public.player_current_identity_overrides USING btree (source_rumor_id) WHERE (source_rumor_id IS NOT NULL);
+
+
+--
+-- Name: idx_player_current_identity_overrides_transfer_idempotent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_player_current_identity_overrides_transfer_idempotent ON public.player_current_identity_overrides USING btree (sport, player_id, COALESCE(team_id, 0), COALESCE(source_rumor_id, (0)::bigint), COALESCE(source_synthesis_id, (0)::bigint)) WHERE (source = 'applied_transfer'::text);
 
 
 --
@@ -7009,10 +8150,24 @@ CREATE INDEX idx_rating_history_entity_recent ON public.rating_history USING btr
 
 
 --
+-- Name: idx_resolve_shadow_band; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_resolve_shadow_band ON public.resolve_shadow USING btree (keep_threshold, drop_threshold, article_id);
+
+
+--
 -- Name: idx_sigil_synthesis_entity_recent; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_sigil_synthesis_entity_recent ON public.sigil_synthesis USING btree (entity_type, entity_id, sport, generated_at DESC);
+
+
+--
+-- Name: idx_sigil_synthesis_shadow_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sigil_synthesis_shadow_entity ON public.sigil_synthesis_shadow USING btree (entity_type, entity_id, sport, season, source, generated_at DESC);
 
 
 --
@@ -7034,6 +8189,20 @@ CREATE INDEX idx_stat_definitions_sport ON public.stat_definitions USING btree (
 --
 
 CREATE INDEX idx_stat_summaries_entity_recent ON public.stat_summaries USING btree (entity_type, entity_id, sport, season, generated_at DESC);
+
+
+--
+-- Name: idx_stat_summaries_peak_trajectory; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stat_summaries_peak_trajectory ON public.stat_summaries USING btree (sport, peak_trajectory, generated_at DESC) WHERE ((body IS NOT NULL) AND (peak_trajectory IS NOT NULL));
+
+
+--
+-- Name: idx_stat_summaries_shadow_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_stat_summaries_shadow_entity ON public.stat_summaries_shadow USING btree (entity_type, entity_id, sport, season, source, generated_at DESC);
 
 
 --
@@ -7170,6 +8339,27 @@ CREATE INDEX idx_teams_tier_sport ON public.teams USING btree (tier, sport);
 
 
 --
+-- Name: idx_transfer_identity_applications_idempotent_applied; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_transfer_identity_applications_idempotent_applied ON public.transfer_identity_applications USING btree (sport, player_id, COALESCE(old_team_id, 0), new_team_id, COALESCE(source_rumor_id, (0)::bigint), COALESCE(source_synthesis_id, (0)::bigint)) WHERE (status = ANY (ARRAY['applied'::text, 'reverted'::text]));
+
+
+--
+-- Name: idx_transfer_identity_applications_player; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_identity_applications_player ON public.transfer_identity_applications USING btree (sport, player_id, created_at DESC);
+
+
+--
+-- Name: idx_transfer_identity_applications_source_rumor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_identity_applications_source_rumor ON public.transfer_identity_applications USING btree (source_rumor_id) WHERE (source_rumor_id IS NOT NULL);
+
+
+--
 -- Name: idx_transfer_rumors_pair_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7184,10 +8374,31 @@ CREATE INDEX idx_transfer_rumors_player ON public.transfer_rumors USING btree (p
 
 
 --
+-- Name: idx_transfer_rumors_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_rumors_scope ON public.transfer_rumors USING btree (sport, team_id, player_id, generated_at DESC);
+
+
+--
+-- Name: idx_transfer_rumors_shadow_pair; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_rumors_shadow_pair ON public.transfer_rumors_shadow USING btree (team_id, player_id, sport, source, generated_at DESC);
+
+
+--
 -- Name: idx_transfer_rumors_team_heat; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_transfer_rumors_team_heat ON public.transfer_rumors USING btree (team_id, sport, heat DESC, generated_at DESC) WHERE (is_rumor IS TRUE);
+
+
+--
+-- Name: idx_transfer_rumors_updated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_transfer_rumors_updated ON public.transfer_rumors USING btree (sport, rumor_updated_at DESC) WHERE (is_rumor IS TRUE);
 
 
 --
@@ -7351,6 +8562,14 @@ ALTER TABLE ONLY public.fixtures
 
 
 --
+-- Name: headlines headlines_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.headlines
+    ADD CONSTRAINT headlines_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: leagues leagues_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7412,6 +8631,30 @@ ALTER TABLE ONLY public.notifications
 
 ALTER TABLE ONLY public.pipeline_stats
     ADD CONSTRAINT pipeline_stats_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: player_current_identity_overrides player_current_identity_overrides_player_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_current_identity_overrides
+    ADD CONSTRAINT player_current_identity_overrides_player_id_sport_fkey FOREIGN KEY (player_id, sport) REFERENCES public.players(id, sport) ON DELETE CASCADE;
+
+
+--
+-- Name: player_current_identity_overrides player_current_identity_overrides_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_current_identity_overrides
+    ADD CONSTRAINT player_current_identity_overrides_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: player_current_identity_overrides player_current_identity_overrides_team_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.player_current_identity_overrides
+    ADD CONSTRAINT player_current_identity_overrides_team_id_sport_fkey FOREIGN KEY (team_id, sport) REFERENCES public.teams(id, sport) ON DELETE RESTRICT;
 
 
 --
@@ -7479,6 +8722,14 @@ ALTER TABLE ONLY public.rating_thresholds
 
 
 --
+-- Name: sport_autofill_versions sport_autofill_versions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sport_autofill_versions
+    ADD CONSTRAINT sport_autofill_versions_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: stat_definitions stat_definitions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7532,6 +8783,54 @@ ALTER TABLE ONLY public.team_stats
 
 ALTER TABLE ONLY public.teams
     ADD CONSTRAINT teams_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: transfer_identity_applications transfer_identity_applications_new_team_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_new_team_id_sport_fkey FOREIGN KEY (new_team_id, sport) REFERENCES public.teams(id, sport) ON DELETE RESTRICT;
+
+
+--
+-- Name: transfer_identity_applications transfer_identity_applications_old_team_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_old_team_id_sport_fkey FOREIGN KEY (old_team_id, sport) REFERENCES public.teams(id, sport) ON DELETE RESTRICT;
+
+
+--
+-- Name: transfer_identity_applications transfer_identity_applications_override_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_override_id_fkey FOREIGN KEY (override_id) REFERENCES public.player_current_identity_overrides(id);
+
+
+--
+-- Name: transfer_identity_applications transfer_identity_applications_player_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_player_id_sport_fkey FOREIGN KEY (player_id, sport) REFERENCES public.players(id, sport) ON DELETE CASCADE;
+
+
+--
+-- Name: transfer_identity_applications transfer_identity_applications_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_applications
+    ADD CONSTRAINT transfer_identity_applications_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: transfer_identity_thresholds transfer_identity_thresholds_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.transfer_identity_thresholds
+    ADD CONSTRAINT transfer_identity_thresholds_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -7625,5 +8924,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict XL4tcFj0QloZVWPAc5dTu0Ss1s0yfEocNKc1nyBzRkP8nSKcXKg7gxf9SR3EANP
+\unrestrict L4DXw6AiBNQ7EbakePyrwnMsYj05j7w9YlPLBZZ2Lhgd0BYROcmJWu7BGKeGFvy
 

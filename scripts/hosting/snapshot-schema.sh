@@ -17,8 +17,10 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# `>/dev/null` guards against shells where `cd` is wrapped to echo its target:
+# without it the echoed path is captured alongside pwd.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." >/dev/null && pwd)"
 OUT_DIR="$REPO_ROOT/sql/schema"
 
 DB="${1:-${DATABASE_PRIVATE_URL:-${DATABASE_URL:-}}}"

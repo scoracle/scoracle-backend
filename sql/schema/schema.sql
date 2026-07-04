@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict L4DXw6AiBNQ7EbakePyrwnMsYj05j7w9YlPLBZZ2Lhgd0BYROcmJWu7BGKeGFvy
+\restrict YBnJFhZa8TDpXvqxCgm6Rx9mKXNXD5FCgCNAeOX5x6hCoaIISZmIgy121r7iiwW
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1868,7 +1868,7 @@ BEGIN
         sport, version, generated_at, total_entities, status, reason
     )
     VALUES (p_sport, 1, NOW(), p_total_entities, 'ready', p_reason)
-    ON CONFLICT (sport) DO UPDATE SET
+    ON CONFLICT ON CONSTRAINT sport_autofill_versions_pkey DO UPDATE SET
         version = sav.version + 1,
         generated_at = NOW(),
         total_entities = EXCLUDED.total_entities,
@@ -8924,5 +8924,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict L4DXw6AiBNQ7EbakePyrwnMsYj05j7w9YlPLBZZ2Lhgd0BYROcmJWu7BGKeGFvy
+\unrestrict YBnJFhZa8TDpXvqxCgm6Rx9mKXNXD5FCgCNAeOX5x6hCoaIISZmIgy121r7iiwW
 

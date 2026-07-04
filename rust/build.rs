@@ -21,6 +21,9 @@ fn main() {
     // the commit that was actually deployed.
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../.git/HEAD");
+    if let Some(head_ref) = git_head_ref() {
+        println!("cargo:rerun-if-changed=../.git/{head_ref}");
+    }
 
     let commit = git_short()
         .unwrap_or_else(|| "unknown".to_string())
@@ -31,6 +34,14 @@ fn main() {
     // Pin to the compile-time env so `env!` in buildinfo.rs picks them up.
     println!("cargo:rustc-env=SCORACLE_BUILD_COMMIT={commit}");
     println!("cargo:rustc-env=SCORACLE_BUILD_TIME={build_time}");
+}
+
+fn git_head_ref() -> Option<String> {
+    let manifest = std::env::var_os("CARGO_MANIFEST_DIR")?;
+    let head =
+        std::fs::read_to_string(std::path::Path::new(&manifest).join("../.git/HEAD")).ok()?;
+    let head = head.trim();
+    head.strip_prefix("ref: ").map(|s| s.to_string())
 }
 
 /// git_short shells out to `git rev-parse --short=12 HEAD` against the crate's parent dir

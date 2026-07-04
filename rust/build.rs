@@ -17,8 +17,10 @@
 use std::process::Command;
 
 fn main() {
-    // Bump re-run on any change so a rebuild during dev re-stamps the build time.
+    // Re-run on build script changes and git HEAD movement so release logs report
+    // the commit that was actually deployed.
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=../.git/HEAD");
 
     let commit = git_short()
         .unwrap_or_else(|| "unknown".to_string())

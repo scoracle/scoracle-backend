@@ -70,6 +70,15 @@ func seed(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	ctx := context.Background()
 	if _, err := pool.Exec(ctx, `
+		INSERT INTO public.sports (id, display_name, current_season)
+		VALUES ('NBA', 'NBA', 2025)
+		ON CONFLICT (id) DO UPDATE
+		SET display_name = EXCLUDED.display_name,
+		    current_season = EXCLUDED.current_season`,
+	); err != nil {
+		t.Fatalf("seed sport: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
 		INSERT INTO public.teams (id, sport, name, league_id)
 		VALUES
 			($1, 'NBA', 'Transfer Identity Old Team', $4),

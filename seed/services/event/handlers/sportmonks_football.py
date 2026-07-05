@@ -7,16 +7,14 @@ Stat key normalization is handled by Postgres triggers.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from shared.models import (
     BoxScoreResult,
     EventBoxScore,
     EventTeamStats,
     Player,
-    PlayerStats,
     Team,
-    TeamStats,
 )
 from shared.api_errors import RateLimitExhausted
 from shared.sportmonks_client import SportMonksClient
@@ -45,18 +43,6 @@ _PLAYER_STAT_MAP: dict[str, str] = {
     "redcards":            "red_cards",
     "fouls":               "fouls_committed",
     "expected-goals":      "expected_goals",
-}
-
-# Standings (league table) codes used by get_team_stats().
-_STANDINGS_STAT_MAP: dict[str, str] = {
-    "overall-matches-played": "matches_played",
-    "overall-won":            "wins",
-    "overall-draw":           "draws",
-    "overall-lost":           "losses",
-    "overall-goals-for":      "goals_for",
-    "overall-goals-against":  "goals_against",
-    "home-matches-played":    "home_played",
-    "away-matches-played":    "away_played",
 }
 
 # Fixture-level team statistics (statistics include).
@@ -127,96 +113,6 @@ class FootballHandler:
         except Exception as e:
             logger.warning(f"Failed to fetch player profile {player_id}: {e}")
             return None
-
-    # ------------------------------------------------------------------
-    # Players + Stats (via squad iteration — N+1 pattern)
-    # ------------------------------------------------------------------
-
-    def get_players_with_stats(
-        self,
-        season_id: int,
-        team_ids: list[int],
-        sm_league_id: int,
-        callback: Callable[[PlayerStats], None] | None = None,
-    ) -> list[PlayerStats]:
-        """Iterate squads, fetch per-player stats, return canonical PlayerStats."""
-        results: list[PlayerStats] = []
-
-        for i, team_id in enumerate(team_ids):
-            logger.info(
-                "Fetching squad team_id=%d (%d/%d)", team_id, i + 1, len(team_ids)
-            )
-
-            try:
-                resp = self.client.get(f"/squads/seasons/{season_id}/teams/{team_id}")
-            except Exception as exc:
-                logger.warning("Squad fetch failed team_id=%d: %s", team_id, exc)
-                continue
-
-            squad = resp.get("data", [])
-            player_ids = []
-            for entry in squad:
-                pid = entry.get("player_id") or entry.get("id", 0)
-                if pid:
-                    player_ids.append(pid)
-
-            for j, pid in enumerate(player_ids):
-                try:
-                    player_resp = self.client.get(
-                        f"/players/{pid}",
-                        {
-                            "include": "statistics.details.type;statistics.season.league;nationality;detailedPosition",
-                            "filters": f"playerStatisticSeasons:{season_id}",
-                        },
-                    )
-                except Exception as exc:
-                    logger.warning("Player fetch failed player_id=%d: %s", pid, exc)
-                    continue
-
-                player_data = player_resp.get("data", {})
-                stats = _extract_league_stats(
-                    player_data.get("statistics", []), sm_league_id
-                )
-                player = _parse_player(player_data)
-
-                ps = PlayerStats(
-                    player_id=player_data.get("id", pid),
-                    team_id=team_id,
-                    position=player.position,
-                    player=player,
-                    stats=stats,
-                    raw=player_data,
-                )
-
-                if callback:
-                    callback(ps)
-                else:
-                    results.append(ps)
-
-                if (j + 1) % 10 == 0:
-                    logger.info(
-                        "Player progress team_id=%d: %d/%d",
-                        team_id,
-                        j + 1,
-                        len(player_ids),
-                    )
-
-        return results
-
-    # ------------------------------------------------------------------
-    # Team Stats (Standings)
-    # ------------------------------------------------------------------
-
-    def get_team_stats(self, season_id: int) -> list[TeamStats]:
-        resp = self.client.get(
-            f"/standings/seasons/{season_id}",
-            {"include": "participant;details.type"},
-        )
-        raw_standings = resp.get("data", [])
-        results = [_parse_standing(s) for s in raw_standings]
-        # Sort by position
-        results.sort(key=lambda ts: ts.stats.get("position", 999))
-        return results
 
     # ------------------------------------------------------------------
     # Fixture schedule + fixture box scores
@@ -571,34 +467,6 @@ def _flatten_details(details: list[dict[str, Any]]) -> dict[str, Any]:
         if code and value is not None:
             stats[code] = value
     return stats
-
-
-def _parse_standing(raw: dict[str, Any]) -> TeamStats:
-    stats = canonicalize(_flatten_details(raw.get("details", [])), _STANDINGS_STAT_MAP)
-
-    if raw.get("points") is not None:
-        stats["points"] = raw["points"]
-    if raw.get("position") is not None:
-        stats["position"] = raw["position"]
-    if raw.get("form"):
-        stats["form"] = raw["form"]
-
-    # Parse participant for team data
-    team = None
-    participant = raw.get("participant")
-    if isinstance(participant, dict) and participant.get("id"):
-        team = _parse_team(participant)
-
-    team_id = raw.get("participant_id", 0)
-    if team and not team_id:
-        team_id = team.id
-
-    return TeamStats(
-        team_id=team_id,
-        team=team,
-        stats=stats,
-        raw=raw,
-    )
 
 
 def _team_id_from_relation(raw: Any) -> int | None:

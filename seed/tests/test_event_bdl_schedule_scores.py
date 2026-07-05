@@ -16,6 +16,7 @@ import pytest
 from services.event.handlers import bdl_nba, bdl_nfl
 from services.event.handlers.bdl_nba import NBAHandler
 from services.event.handlers.bdl_nfl import NFLHandler
+from services.event.handlers.sportmonks_football import FootballHandler
 
 
 class _FailingPagesClient:
@@ -144,3 +145,12 @@ def test_nfl_get_games_preserves_zero_away_score():
     assert len(games) == 1
     assert games[0]["home_score"] == 24
     assert games[0]["away_score"] == 0
+
+
+def test_handlers_have_no_season_stats_entrypoint():
+    assert not hasattr(NBAHandler, "get_player_stats")
+    assert not hasattr(NBAHandler, "get_team_stats")
+    assert not hasattr(NFLHandler, "get_player_stats")
+    assert not hasattr(NFLHandler, "get_team_stats")
+    assert not hasattr(FootballHandler, "get_players_with_stats")
+    assert not hasattr(FootballHandler, "get_team_stats")

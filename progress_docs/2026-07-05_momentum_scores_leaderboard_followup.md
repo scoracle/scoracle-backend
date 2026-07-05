@@ -17,7 +17,7 @@ Tighten the DB-first leaderboard/profile split after audit:
 - Full roster visibility lives at the team-scoped player leaderboard:
   `GET /api/v1/{sport}/leaderboard?entity_type=player&team_id={id}`.
 - Product boards remain scored projections over that hierarchy. They filter by the same top-down dimensions, but they do not replace the roster surface.
-- Momentum is now backed by append-only `momentum_scores` snapshots. Upstream Vibe/event-rating writes mark a dirty sport, the API drains that marker, and the leaderboard reads latest stored rows. Profile `/momentum` still exposes rich per-entity trajectory context.
+- Momentum is now backed by durable `momentum_scores` snapshots. Upstream Vibe/event-rating writes mark a dirty sport, the API drains that marker, and the leaderboard reads latest stored rows. The refresh path appends snapshots; the cleanup ticker later thins snapshots older than 30 days to the last row per entity per day. Profile `/momentum` still exposes rich per-entity trajectory context.
 
 ## Data Flow
 
@@ -73,3 +73,20 @@ dirty marker.
 - `GOCACHE=/tmp/scoracle-go-cache go build -o bin/scoracle-api ./cmd/api`
 - Rollback-only Postgres migration validation:
   `BEGIN; \i sql/migrations/128_momentum_scores.sql; ROLLBACK;`
+
+## Production Alignment
+
+Current production state as of the 2026-07-05 hardening pass:
+
+- Migration 128 shipped the DB-first Momentum snapshot path described above.
+- Migrations 129 and 130 then hardened it: signed `momentum_score`,
+  `idx_momentum_scores_read`, 5-minute refresh coalescing, 30-day-to-daily
+  retention thinning, and rating lookback over the entity's last
+  `season_bridge_window(sport)` rated games (NBA 8 / NFL 2 / FOOTBALL 4).
+- Production has 128, 129, and 130 recorded in `schema_migrations`, and
+  `sql/schema/schema.sql` / `sql/schema/schema_migrations.txt` are folded
+  through `130_momentum_game_lookback`.
+- Production API and Rust cognition are serving commit `925275924b0e`.
+- Live smoke checks pass for `/leaderboard?board=momentum`,
+  `/leaderboard/momentum`, `/leaderboard/trending`, `/health/db`, and the
+  team-scoped player leaderboard roster surface.

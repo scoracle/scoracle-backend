@@ -24,27 +24,25 @@ Done — no need to re-audit or re-derive any of this:
       21 calendar days, >= 3 samples.
 - [x] Go: 5-min per-sport refresh throttle (NULL-aware drain keeps marker);
       cleanup thins >30d snapshots to last-per-entity-per-day, kept forever.
-- [x] **Migrations 128 + 129 + 130 APPLIED to the local DB** (not just
-      rollback-validated), backfill markers drained, `momentum_scores`
-      populated: FOOTBALL 4219p/123t, NFL 2129p/32t, NBA 684p/30t; lookback
-      caps verified exactly 8/2/4; season-spanning lookbacks present in all
-      three sports.
-- [x] **Deployed**: built to `go/bin/scoracle-api`; the user-level
-      `scoracle-api.path` unit auto-restarted the service. End-to-end
-      verified over HTTP: NFL `metric=rating` board serves stored leaders
-      (impossible on the old binary — its stale `samples >= 3` filter
-      zeroed NFL's 2-sample windows; that filter is pruned).
+- [x] **Migrations 128 + 129 + 130 APPLIED to production** (not just
+      rollback-validated): `season_bridge_window` returns NBA 8 / NFL 2 /
+      FOOTBALL 4, `idx_momentum_scores_read` is live, dirty-queue triggers are
+      installed, and latest-per-entity `momentum_scores` coverage is populated:
+      FOOTBALL 4219p/123t, NFL 2129p/32t, NBA 684p/30t. Initial backfill markers
+      drained; later short-lived markers are expected under the 5-min throttle.
+- [x] **Deployed**: production API + Rust cognition are serving commit
+      `925275924b0e`. End-to-end verified over HTTP: NFL `metric=rating` board
+      serves stored leaders (impossible on the old binary — its stale
+      `samples >= 3` filter zeroed NFL's 2-sample windows; that filter is
+      pruned).
 - [x] Docs: swagger + ENDPOINTS.md "Windows" paragraph + README on the
       game-lookback semantics.
+- [x] Schema fold complete: migrations 125-130 are folded into
+      `sql/schema/schema.sql`, and `sql/schema/schema_migrations.txt` ends at
+      `130_momentum_game_lookback` (`9252759`).
 
-Left to do:
+Still left to do:
 
-- [ ] **Fold 125-130 into `sql/schema/schema.sql` + append
-      `schema_migrations.txt`** — blocked on the in-flight uncommitted
-      125-127 folds (unstaged schema.sql edits + untracked migration files
-      in the tree); commit those first, then fold 128-130 the same way.
-- [ ] **Roll out 128-130 to any non-local environment** the same way they
-      were applied locally (psql apply; markers self-drain via the API).
 - [ ] **Phase 4 route retirement** (frontend-gated): once the frontend is on
       `?board=`, delete the dedicated `/leaderboard/{board}` routes and the
       `/trending` alias (`go/internal/api/server.go:173-178`).
@@ -107,6 +105,11 @@ one-sitting fixes.
   between handler and statement).
 
 ## Findings
+
+Resolution status: F1-F3 and F5 are closed by migrations 129-130 plus the Go
+and docs updates; F4 is closed by the schema fold in `9252759`. The finding text
+below is retained as the audit record of the migration-128 state, not as the
+current production state.
 
 ### F1 - No retention: unbounded growth, reads degrade with table age
 
@@ -215,6 +218,10 @@ and a momentum-trajectory series on profile `/momentum`. Do not add a reader
 until there is a product surface that wants it.
 
 ## Work plan
+
+Status update: Phases 1-3 are complete in production, including the schema fold
+through migration 130. Phase 4 and the explicitly deferred product/ops items
+remain open.
 
 ### Phase 1 - Migration 129 (SQL)
 

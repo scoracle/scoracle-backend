@@ -33,7 +33,7 @@ use crate::util::truncate_bytes;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use tracing::warn;
@@ -127,16 +127,24 @@ pub struct NewsItem {
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct TransferVerdict {
     pub is_rumor: Option<bool>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub subject: String, // who the sources are really about (audit trail for discarded impostors)
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub direction: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub stage: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub summary: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub confidence: f64,
+}
+
+fn null_as_default<'de, D, T>(deserializer: D) -> std::result::Result<T, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 /// Prompt/version for the second, narrower current-identity adjudication gate. The normal transfer
@@ -1643,6 +1651,22 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             .expect("a parseable object is Some");
         assert_eq!(v.is_rumor, None);
         assert_eq!(v.subject, "Someone");
+    }
+
+    #[test]
+    fn parser_accepts_negative_verdict_with_null_prose_fields() {
+        let v = TransferParser
+            .parse(
+                r#"{"is_rumor":false,"subject":"Coby White","direction":"incoming","stage":null,"summary":null,"confidence":1.0}"#,
+            )
+            .unwrap()
+            .expect("null prose fields should not erase committed false verdict");
+        assert_eq!(v.is_rumor, Some(false));
+        assert_eq!(v.subject, "Coby White");
+        assert_eq!(v.direction, "incoming");
+        assert_eq!(v.stage, "");
+        assert_eq!(v.summary, "");
+        assert_eq!(v.confidence, 1.0);
     }
 
     #[test]

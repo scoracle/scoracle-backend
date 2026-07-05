@@ -101,6 +101,12 @@ assembled from **per-product card endpoints** — the bundled all-in-one profile
 was removed (O16). The two data **sources** (stats, news) refine into end products that
 converge into the **Sigil**. Route shape is authoritative in `go/internal/api/server.go`.
 
+Surface ownership is deliberate:
+
+- `/leaderboard` exposes the ranked hierarchy: sport -> league/conference -> division -> team -> player. It is the discovery and cohort-navigation surface.
+- `/profile` surfaces cards for one selected entity. It should compose `meta`, `stats`, `rating`, `news`, `momentum`, and `sigil`, not become a roster or local discovery database.
+- Team roster discovery is the player leaderboard narrowed by `team_id`; the legacy `/team/{id}/roster` route remains only for compatibility.
+
 Per-entity products (`{entityType}` ∈ `player|team`):
 
 - **stats source:**

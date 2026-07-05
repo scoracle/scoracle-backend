@@ -27,19 +27,23 @@ var validEntityTypes = map[string]struct{}{
 	"team":   {},
 }
 
-// GetLeaderboard returns the positionless rating leaderboard for a sport.
-// Each row carries BOTH the Composite and Specialist score (+ the specialty label),
-// so a single payload feeds the leaderboard board, the meta card, and the sparkline.
+// GetLeaderboard returns the DB-first ranking surface for a sport.
+// The default board is Rating; ?board= delegates to the product boards.
 // @Summary Get rating leaderboard
-// @Description Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Sigil in one payload.
+// @Description DB-first leaderboard. entity_type=player (default) or team. Supports cohort filters; team_id+player includes active roster rows.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Board type: player (default) or team"
-// @Param scope query string false "Board: composite (default), sigil, or a sigil label (e.g. Sacks)"
+// @Param board query string false "Board: rating (default), vibes, sigil, news, transfers, momentum (trending legacy alias)"
+// @Param scope query string false "Rating scope: composite (default), specialist, fantasy, or a specialist label (e.g. Sacks)"
 // @Param season query int false "Season year (defaults to the latest rated season)"
 // @Param position query string false "Filter to a position (player boards only)"
+// @Param position_group query string false "Filter to a normalized position group (player boards only)"
 // @Param league_id query int false "Filter to a league (football)"
+// @Param conference query string false "Filter to a conference"
+// @Param division query string false "Filter to a division"
+// @Param team_id query int false "Filter to a team; with entity_type=player this returns the active roster plus product rows"
 // @Param limit query int false "Max rows (default 50)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -69,11 +73,11 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	case "transfers":
 		h.GetTransfersLeaderboard(w, r)
 		return
-	case "trending":
+	case "trending", "momentum":
 		h.GetTrendingLeaderboard(w, r)
 		return
 	default:
-		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, trending")
+		respond.WriteError(w, http.StatusBadRequest, "INVALID_BOARD", "board must be one of: rating, vibes, sigil, news, transfers, momentum")
 		return
 	}
 
@@ -97,9 +101,14 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 	entityType := optionalTextQuery(r, "entity_type")
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
+	positionGroup := optionalTextQuery(r, "position_group")
 
 	h.serveStatementJSON(w, r, "leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, season, scope, position, leagueID, limit, entityType, conference, division)
+		sport, season, scope, position, leagueID, limit, entityType, conference, division, teamID, positionGroup)
 }
 
 // GetVibesLeaderboard returns the sport-wide vibe board: entities ranked by
@@ -127,9 +136,21 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entityType := optionalTextQuery(r, "entity_type")
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
+	position := optionalTextQuery(r, "position")
+	positionGroup := optionalTextQuery(r, "position_group")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 
 	h.serveStatementJSON(w, r, "vibes_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType)
+		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetSigilLeaderboard returns the sport-wide Sigil board: entities ranked by their
@@ -159,6 +180,18 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entityType := optionalTextQuery(r, "entity_type")
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
+	position := optionalTextQuery(r, "position")
+	positionGroup := optionalTextQuery(r, "position_group")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 
 	season, ok := optionalIntQuery(w, r, "season")
 	if !ok {
@@ -166,15 +199,15 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.serveStatementJSON(w, r, "sigil_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, season)
+		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division)
 }
 
-// GetTrendingLeaderboard returns the sport-wide TRENDING board — the risers: entities
+// GetTrendingLeaderboard returns the sport-wide Momentum board — the risers: entities
 // ranked by the slope of their recent trajectory. ?metric=vibe (default) ranks the
 // vibe-sentiment trend; ?metric=rating ranks the composite-rating trend. score is the
 // fitted per-week rise.
-// @Summary Trending leaderboard (risers)
-// @Description Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating.
+// @Summary Momentum leaderboard (risers)
+// @Description Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating. /trending remains a legacy alias.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -184,7 +217,7 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
-// @Router /{sport}/leaderboard/trending [get]
+// @Router /{sport}/leaderboard/momentum [get]
 func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
@@ -195,12 +228,24 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	entityType := optionalTextQuery(r, "entity_type")
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
+	position := optionalTextQuery(r, "position")
+	positionGroup := optionalTextQuery(r, "position_group")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 	stmt := "trending_vibe_leaderboard"
 	if strings.ToLower(strings.TrimSpace(r.URL.Query().Get("metric"))) == "rating" {
 		stmt = "trending_rating_leaderboard"
 	}
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType)
+		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetNewsLeaderboard returns the sport-wide news board: entities ranked by their
@@ -230,12 +275,24 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 	entityType := optionalTextQuery(r, "entity_type")
 	scope := optionalTextQuery(r, "scope")
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
+	position := optionalTextQuery(r, "position")
+	positionGroup := optionalTextQuery(r, "position_group")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 
 	// Two-rail model: the news board is now the hottest NARRATIVES (ranked by
 	// per-narrative impact), not raw mention counts. narratives_leaderboard
 	// supersedes the old news_leaderboard (which read news_article_entities).
 	h.serveStatementJSON(w, r, "narratives_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, scope)
+		sport, limit, entityType, scope, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetTransfersLeaderboard returns the sport-wide transfer board: model-vetted
@@ -262,9 +319,13 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 		return
 	}
 	scope := optionalTextQuery(r, "scope")
+	teamID, ok := optionalIntQuery(w, r, "team_id")
+	if !ok {
+		return
+	}
 
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, scope)
+		sport, limit, scope, teamID)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.

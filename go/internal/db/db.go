@@ -207,11 +207,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       COALESCE($6::int, 50) AS lim,
 			       COALESCE(NULLIF(lower($7::text), ''), 'player') AS entity_type,
 			       NULLIF($8::text, '') AS conference,
-			       NULLIF($9::text, '') AS division
+			       NULLIF($9::text, '') AS division,
+			       $10::int AS team_id,
+			       NULLIF($11::text, '') AS position_group
 		),
 		season_pick AS (
 			SELECT COALESCE(
 				(SELECT season FROM req WHERE season IS NOT NULL),
+				(SELECT MAX(tr.season) FROM public.team_rosters tr, req
+				  WHERE req.entity_type = 'player' AND req.team_id IS NOT NULL
+				    AND tr.sport = req.sport AND tr.team_id = req.team_id AND tr.is_active),
 				(SELECT MAX(s) FROM (
 					SELECT ps.season AS s FROM public.player_stats ps, req
 					 WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.rating_composite IS NOT NULL
@@ -221,20 +226,52 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				) ss)
 			) AS season
 		),
-		-- Every season with a composite rating for this sport + entity_type, newest
-		-- first — powers the leaderboard's season dropdown.
 		avail_seasons AS (
 			SELECT COALESCE(array_agg(s ORDER BY s DESC), ARRAY[]::int[]) AS seasons FROM (
 				SELECT DISTINCT ps.season AS s FROM public.player_stats ps, req
 				 WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.rating_composite IS NOT NULL
 				UNION
+				SELECT DISTINCT tr.season FROM public.team_rosters tr, req
+				 WHERE req.entity_type = 'player' AND req.team_id IS NOT NULL
+				   AND tr.sport = req.sport AND tr.team_id = req.team_id AND tr.is_active
+				UNION
 				SELECT DISTINCT ts.season FROM public.team_stats ts, req
 				 WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.rating_composite IS NOT NULL
 			) ss
 		),
-		ranked AS (
+		player_base AS (
 			SELECT * FROM (
-				-- PLAYER board
+				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
+					COALESCE(ps.position, tr.position) AS position,
+					COALESCE(ps.team_id, tr.team_id) AS team_id,
+					t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+					COALESCE(NULLIF(ps.league_id, 0), t.league_id) AS league_id,
+					ps.rating_composite,
+					CASE WHEN req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope THEN ps.rating_specialist END AS rating_peak,
+					CASE WHEN req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope THEN ps.rating_specialty END AS rating_peak_label,
+					ps.rating_composite_rank,
+					CASE WHEN req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope THEN ps.rating_specialist_rank END AS rating_peak_rank,
+					ps.rating_composite_score,
+					CASE WHEN req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope THEN ps.rating_specialist_score END AS rating_peak_score,
+					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
+					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
+					CASE WHEN req.scope = 'composite' THEN ps.rating_composite
+					     WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
+					     WHEN lower(ps.rating_specialty) = req.scope THEN ps.rating_specialist END AS sort_metric
+				FROM public.team_rosters tr
+				JOIN public.players p ON p.id = tr.player_id AND p.sport = tr.sport
+				LEFT JOIN public.player_stats ps ON ps.player_id = tr.player_id AND ps.sport = tr.sport AND ps.season = (SELECT season FROM season_pick)
+				LEFT JOIN public.teams t ON t.id = tr.team_id AND t.sport = tr.sport
+				CROSS JOIN req
+				WHERE req.entity_type = 'player' AND req.team_id IS NOT NULL
+				  AND tr.sport = req.sport AND tr.season = (SELECT season FROM season_pick)
+				  AND tr.team_id = req.team_id AND tr.is_active
+				  AND (req.position IS NULL OR COALESCE(ps.position, tr.position) = req.position)
+				  AND (req.position_group IS NULL OR COALESCE(public.position_group(tr.sport, COALESCE(ps.position, tr.position)), tr.position_group) = req.position_group)
+				  AND (req.league_id IS NULL OR COALESCE(NULLIF(ps.league_id, 0), t.league_id, 0) = req.league_id)
+			) roster_players
+			UNION ALL
+			SELECT * FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 					ps.position, ps.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 					NULLIF(ps.league_id, 0) AS league_id,
@@ -243,45 +280,58 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 					ps.rating_composite_score, ps.rating_specialist_score AS rating_peak_score,
 					(ps.stats->>'fantasy_points')::numeric AS fantasy_points,
 					(ps.percentiles->>'fantasy_points')::numeric AS fantasy_rank,
-					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ps.rating_composite
-					              WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
-					              ELSE ps.rating_specialist END DESC NULLS LAST, ps.rating_composite DESC NULLS LAST) AS rank
+					CASE WHEN req.scope = 'composite' THEN ps.rating_composite
+					     WHEN req.scope = 'fantasy' THEN (ps.stats->>'fantasy_points')::numeric
+					     ELSE ps.rating_specialist END AS sort_metric
 				FROM public.player_stats ps
 				JOIN public.players p ON p.id = ps.player_id AND p.sport = ps.sport
 				LEFT JOIN public.teams t ON t.id = ps.team_id AND t.sport = ps.sport
-				CROSS JOIN req CROSS JOIN season_pick sp
-				WHERE req.entity_type = 'player' AND ps.sport = req.sport AND ps.season = sp.season
+				CROSS JOIN req
+				WHERE req.entity_type = 'player' AND req.team_id IS NULL
+				  AND ps.sport = req.sport AND ps.season = (SELECT season FROM season_pick)
 				  AND ps.rating_composite IS NOT NULL
 				  AND (req.position IS NULL OR ps.position = req.position)
+				  AND (req.position_group IS NULL OR public.position_group(ps.sport, ps.position) = req.position_group)
 				  AND (req.league_id IS NULL OR COALESCE(ps.league_id, 0) = req.league_id)
 				  AND (req.scope IN ('composite', 'fantasy') OR lower(ps.rating_specialty) = req.scope)
 				  AND (req.scope <> 'fantasy' OR COALESCE((ps.stats->>'fantasy_points')::numeric, 0) > 0)
-			) pl
+			) rated_players
+		),
+		team_base AS (
+			SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
+				NULL::text AS position, t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
+				NULLIF(ts.league_id, 0) AS league_id,
+				ts.rating_composite, ts.rating_specialist AS rating_peak, ts.rating_specialty AS rating_peak_label,
+				ts.rating_composite_rank, ts.rating_specialist_rank AS rating_peak_rank,
+				ts.rating_composite_score, ts.rating_specialist_score AS rating_peak_score,
+				NULL::numeric AS fantasy_points,
+				NULL::numeric AS fantasy_rank,
+				CASE WHEN req.scope = 'composite' THEN ts.rating_composite ELSE ts.rating_specialist END AS sort_metric
+			FROM public.team_stats ts
+			JOIN public.teams t ON t.id = ts.team_id AND t.sport = ts.sport
+			CROSS JOIN req
+			WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.season = (SELECT season FROM season_pick)
+			  AND ts.rating_composite IS NOT NULL
+			  AND (req.team_id IS NULL OR ts.team_id = req.team_id)
+			  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
+			  AND (req.conference IS NULL OR t.conference = req.conference)
+			  AND (req.division IS NULL OR t.division = req.division)
+			  AND (req.scope IN ('composite') OR lower(ts.rating_specialty) = req.scope)
+		),
+		cohort AS (
+			SELECT * FROM player_base
 			UNION ALL
-			SELECT * FROM (
-				-- TEAM board
-				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
-					NULL::text AS position, t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-					NULLIF(ts.league_id, 0) AS league_id,
-					ts.rating_composite, ts.rating_specialist AS rating_peak, ts.rating_specialty AS rating_peak_label,
-					ts.rating_composite_rank, ts.rating_specialist_rank AS rating_peak_rank,
-					ts.rating_composite_score, ts.rating_specialist_score AS rating_peak_score,
-					NULL::numeric AS fantasy_points,
-					NULL::numeric AS fantasy_rank,
-					row_number() OVER (ORDER BY CASE WHEN req.scope = 'composite' THEN ts.rating_composite
-					              ELSE ts.rating_specialist END DESC NULLS LAST, ts.rating_composite DESC NULLS LAST) AS rank
-				FROM public.team_stats ts
-				JOIN public.teams t ON t.id = ts.team_id AND t.sport = ts.sport
-				CROSS JOIN req CROSS JOIN season_pick sp
-				WHERE req.entity_type = 'team' AND ts.sport = req.sport AND ts.season = sp.season
-				  AND ts.rating_composite IS NOT NULL
-				  AND (req.league_id IS NULL OR COALESCE(ts.league_id, 0) = req.league_id)
-				  AND (req.conference IS NULL OR t.conference = req.conference)
-				  AND (req.division IS NULL OR t.division = req.division)
-				  AND (req.scope IN ('composite') OR lower(ts.rating_specialty) = req.scope)
-			) tm
-			ORDER BY rank
-			LIMIT (SELECT lim FROM req)
+			SELECT * FROM team_base
+		),
+		ranked AS (
+			SELECT entity_type, id, name, image, position, team_id, team_name, team_code, team_logo, league_id,
+			       rating_composite, rating_peak, rating_peak_label, rating_composite_rank, rating_peak_rank,
+			       rating_composite_score, rating_peak_score, fantasy_points, fantasy_rank,
+			       CASE WHEN sort_metric IS NULL THEN NULL::bigint
+			            ELSE row_number() OVER (PARTITION BY (sort_metric IS NULL) ORDER BY sort_metric DESC NULLS LAST, rating_composite DESC NULLS LAST, name) END AS rank
+			FROM cohort
+			ORDER BY sort_metric IS NULL, sort_metric DESC NULLS LAST, rating_composite DESC NULLS LAST, name
+			LIMIT (SELECT CASE WHEN entity_type = 'player' AND team_id IS NOT NULL THEN NULL ELSE lim END FROM req)
 		)
 		SELECT json_build_object(
 			'page', 'leaderboard',
@@ -306,7 +356,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
 			       COALESCE($2::int, 50) AS lim,
-			       NULLIF(lower($3::text), '') AS entity_type
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       $4::int AS league_id,
+			       $5::int AS team_id,
+			       NULLIF($6::text, '') AS position,
+			       NULLIF($7::text, '') AS position_group,
+			       NULLIF($8::text, '') AS conference,
+			       NULLIF($9::text, '') AS division
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest vibe within the 48h window REGARDLESS of nullability
@@ -337,6 +393,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
+				  AND ((SELECT team_id FROM req) IS NULL OR cur.team_id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(cur.league_id, t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT position FROM req) IS NULL OR cur.position = (SELECT position FROM req))
+				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(cur.position_group, public.position_group(p.sport, cur.position)) = (SELECT position_group FROM req))
 				UNION ALL
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
@@ -345,6 +405,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
+				  AND ((SELECT team_id FROM req) IS NULL OR t.id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
+				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
 			ORDER BY u.score DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
@@ -376,7 +440,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       COALESCE($2::int, 50) AS lim,
 			       NULLIF(lower($3::text), '') AS entity_type,
 			       $4::int AS want_season,
-			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
+			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season,
+			       $5::int AS league_id,
+			       $6::int AS team_id,
+			       NULLIF($7::text, '') AS position,
+			       NULLIF($8::text, '') AS position_group,
+			       NULLIF($9::text, '') AS conference,
+			       NULLIF($10::text, '') AS division
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
@@ -413,6 +483,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
+				  AND ((SELECT team_id FROM req) IS NULL OR cur.team_id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(cur.league_id, t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT position FROM req) IS NULL OR cur.position = (SELECT position FROM req))
+				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(cur.position_group, public.position_group(p.sport, cur.position)) = (SELECT position_group FROM req))
 				UNION ALL
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
@@ -421,6 +495,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
+				  AND ((SELECT team_id FROM req) IS NULL OR t.id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
+				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
 			ORDER BY u.score DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
@@ -444,7 +522,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// score = the rise (latest − earliest) over the window. Risers only (delta > 0),
 		// ≥3 data points. Same enriched row shape as the vibes board.
 		"trending_vibe_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport, COALESCE($2::int, 30) AS lim, NULLIF(lower($3::text), '') AS entity_type
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 30) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       $4::int AS league_id,
+			       $5::int AS team_id,
+			       NULLIF($6::text, '') AS position,
+			       NULLIF($7::text, '') AS position_group,
+			       NULLIF($8::text, '') AS conference,
+			       NULLIF($9::text, '') AS division
 		),
 		slopes AS (
 			SELECT entity_type, entity_id, slope FROM (
@@ -468,6 +554,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'player'
+				  AND ((SELECT team_id FROM req) IS NULL OR cur.team_id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(cur.league_id, t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT position FROM req) IS NULL OR cur.position = (SELECT position FROM req))
+				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(cur.position_group, public.position_group(p.sport, cur.position)) = (SELECT position_group FROM req))
 				UNION ALL
 				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
@@ -475,6 +565,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				FROM slopes sl
 				JOIN public.teams t ON t.id = sl.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'team'
+				  AND ((SELECT team_id FROM req) IS NULL OR t.id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
+				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -486,7 +580,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		)`,
 
 		"trending_rating_leaderboard": `WITH req AS (
-			SELECT upper($1::text) AS sport, COALESCE($2::int, 30) AS lim, NULLIF(lower($3::text), '') AS entity_type
+			SELECT upper($1::text) AS sport,
+			       COALESCE($2::int, 30) AS lim,
+			       NULLIF(lower($3::text), '') AS entity_type,
+			       $4::int AS league_id,
+			       $5::int AS team_id,
+			       NULLIF($6::text, '') AS position,
+			       NULLIF($7::text, '') AS position_group,
+			       NULLIF($8::text, '') AS conference,
+			       NULLIF($9::text, '') AS division
 		),
 		slopes AS (
 			SELECT entity_type, entity_id, slope FROM (
@@ -519,6 +621,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'player'
+				  AND ((SELECT team_id FROM req) IS NULL OR cur.team_id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(cur.league_id, t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT position FROM req) IS NULL OR cur.position = (SELECT position FROM req))
+				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(cur.position_group, public.position_group(p.sport, cur.position)) = (SELECT position_group FROM req))
 				UNION ALL
 				SELECT 'team'::text, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
@@ -526,6 +632,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				FROM slopes sl
 				JOIN public.teams t ON t.id = sl.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE sl.entity_type = 'team'
+				  AND ((SELECT team_id FROM req) IS NULL OR t.id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
+				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
@@ -550,7 +660,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
 			         WHEN 'last_month' THEN 'last_month'
 			         ELSE 'current_week'
-			       END AS scope_key
+			       END AS scope_key,
+			       $5::int AS league_id,
+			       $6::int AS team_id,
+			       NULLIF($7::text, '') AS position,
+			       NULLIF($8::text, '') AS position_group,
+			       NULLIF($9::text, '') AS conference,
+			       NULLIF($10::text, '') AS division
 		),
 		scope AS (
 			SELECT scope_key,
@@ -628,6 +744,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
 				LEFT JOIN public.teams t ON t.id = cur.team_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'player'
+				  AND ((SELECT team_id FROM req) IS NULL OR cur.team_id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(cur.league_id, t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT position FROM req) IS NULL OR cur.position = (SELECT position FROM req))
+				  AND ((SELECT position_group FROM req) IS NULL OR COALESCE(cur.position_group, public.position_group(p.sport, cur.position)) = (SELECT position_group FROM req))
 				UNION ALL
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
@@ -637,6 +757,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
+				  AND ((SELECT team_id FROM req) IS NULL OR t.id = (SELECT team_id FROM req))
+				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(t.league_id, 0) = (SELECT league_id FROM req))
+				  AND ((SELECT conference FROM req) IS NULL OR t.conference = (SELECT conference FROM req))
+				  AND ((SELECT division FROM req) IS NULL OR t.division = (SELECT division FROM req))
 			) u
 			ORDER BY u.score DESC, u.generated_at DESC
 			LIMIT (SELECT lim FROM req)
@@ -664,7 +788,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			         WHEN 'three_weeks_ago' THEN 'three_weeks_ago'
 			         WHEN 'last_month' THEN 'last_month'
 			         ELSE 'current_week'
-			       END AS scope_key
+			       END AS scope_key,
+			       $4::int AS team_id
 		),
 		scope AS (
 			SELECT scope_key,
@@ -727,6 +852,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
 			-- is_rumor IS TRUE = model-vetted; heat > 0 drops zero-signal stragglers.
 			WHERE l.is_rumor IS TRUE AND l.heat > 0
+			  AND ((SELECT team_id FROM req) IS NULL OR l.team_id = (SELECT team_id FROM req) OR pci.team_id = (SELECT team_id FROM req))
 			  AND ((SELECT scope_key FROM scope) <> 'current_week'
 			       OR COALESCE(l.trajectory, 'developing_story') <> 'cooling_off'
 			       OR l.updated_at > NOW() - INTERVAL '3 days')

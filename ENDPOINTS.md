@@ -1,6 +1,6 @@
 # Scoracle API Endpoints
 
-> Last updated: 2026-07-03 (Headlines folded into Narratives; News/Transfers and PEAK Rating now carry trajectory metadata).
+> Last updated: 2026-07-05 (Leaderboard is the DB-first ranking surface; profile is entity drill-down; roster moved to leaderboard team scope).
 
 Single public API base URL:
 
@@ -21,10 +21,10 @@ The only source of truth is `go/internal/api/server.go`. Every route wired there
 | `GET /api/v1/{sport}/{entityType}/{id}/news` | scoped model narratives with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/transfers` | scoped vetted transfer/trade rumor heat with source freshness and trajectory markers |
 | `GET /api/v1/{sport}/{entityType}/{id}/meta` | per-entity identity (page header); 404 if unknown |
-| `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · team's rating board |
+| `GET /api/v1/{sport}/team/{id}/results` · `/roster` | finalized scorelines · legacy roster compatibility |
 | `GET /api/v1/{sport}/meta` · `/autofill` · `/health` | legacy sport-wide metadata/search payload · legacy sport autofill · freshness |
-| `GET /api/v1/{sport}/leaderboard` | rating board; `?board=rating\|vibes\|sigil\|news\|transfers\|trending` |
-| `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,trending}` | dedicated boards |
+| `GET /api/v1/{sport}/leaderboard` | comprehensive ranked research database; `?board=rating\|vibes\|sigil\|news\|transfers\|momentum` (`trending` legacy alias) |
+| `GET /api/v1/{sport}/leaderboard/{vibes,sigil,news,transfers,momentum}` | dedicated boards (`trending` legacy alias remains wired) |
 | `GET /api/v1/{sport}/leagues/{leagueId}/{momentum,results,meta,health}` | league-scoped variants |
 | `GET /` · `/health` · `/health/db` · `/health/cache` · `/docs/` · `/docs/go.json` | operational |
 | `POST /api/v1/auth/{device,refresh,device/push,logout}` | mobile device-identity JWT |
@@ -442,10 +442,21 @@ apps; NFL ≥8 GP (players). Teams: all rated.
 
 ### `GET /api/v1/{sport}/leaderboard`
 
-The board view. Each row carries **both** Composite and Specialist (+ specialty), so one
-payload feeds the board and a meta card.
+The DB-first ranking surface. `/leaderboard` is the comprehensive ranked research
+database; `/profile` is the deep drill-down for one selected entity. Roster discovery
+is now a leaderboard scope (`entity_type=player&team_id=...`), not a team profile tab.
 
-**Board selector (two-rail consolidation):** pass `?board=` to get any board from this one endpoint — `rating` (default, this payload), `vibes`, `news`, `transfers`, or `trending`. The dedicated `/leaderboard/{board}` routes below remain for now where registered. The **`news` board now ranks the hottest model narratives by per-narrative impact** (each row = an entity's top narrative in the selected news scope), superseding the old raw mention-count and standalone headlines boards.
+The default board is **Rating**. Rating rows carry both Composite and Specialist
+(+ specialty); product boards use the same cohort controls and rank their own DB
+signal.
+
+**Board selector:** pass `?board=` to get any board from this one endpoint —
+`rating` (default), `vibes`, `sigil`, `news`, `transfers`, or `momentum`.
+`trending` remains a legacy alias for Momentum. The dedicated `/leaderboard/{board}`
+routes remain for now where registered. The **`news` board ranks the hottest model
+narratives by per-narrative impact** (each row = an entity's top narrative in the
+selected news scope), superseding the old raw mention-count and standalone headlines
+boards.
 
 #### Query parameters
 
@@ -455,7 +466,11 @@ payload feeds the board and a meta card.
 | `scope` | string | `composite` | `composite`, `specialist`, or a **specialty label** (e.g. `Sacks`, `3PT Shooting`) for a per-skill board (rows whose top skill matches, ordered by peak z). Case-insensitive. |
 | `season` | integer | latest rated | Season year. |
 | `position` | string | — | Player boards only — the position scope ("best Center / QB"). |
+| `position_group` | string | — | Player boards only — normalized group such as `Guard`, `Forward`, `Goalkeeper`. |
 | `league_id` | integer | — | Filter to a league (football). |
+| `conference` | string | — | Team/conference cohort filter where present in team metadata. |
+| `division` | string | — | Team/division cohort filter where present in team metadata. |
+| `team_id` | integer | — | Narrows to one team. With `entity_type=player`, includes the team's active/current roster from `team_rosters`; scored rows rank first and null product rows append with nullable metric/rank fields. |
 | `limit` | integer | `50` | Max rows. |
 
 #### Response shape
@@ -668,12 +683,14 @@ unified into it 2026-06-15).
 }
 ```
 
-### `GET /api/v1/{sport}/leaderboard/trending`
+### `GET /api/v1/{sport}/leaderboard/momentum`
 
-The sport-wide **risers** board — entities whose Vibe or Rating is climbing fastest. Pass
-`?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`. Same enriched row
-shape as the other boards (`name` / `image` / `team_*`). Reached via the dedicated path or
-`/leaderboard?board=trending`. `entity_type` and `limit` query params apply.
+The sport-wide **Momentum** board — entities whose Vibe or Rating is climbing fastest.
+Pass `?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`.
+Same enriched row shape as the other boards (`name` / `image` / `team_*`). Reached via
+the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared cohort
+filters, and `limit` query params apply. `/leaderboard/trending` and
+`/leaderboard?board=trending` remain legacy aliases.
 
 ```jsonc
 { "page": "trending_leaderboard", "sport": "nba", "metric": "vibe", "count": 50, "leaders": [ /* … */ ] }
@@ -681,14 +698,15 @@ shape as the other boards (`name` / `image` / `team_*`). Reached via the dedicat
 
 ### `GET /api/v1/{sport}/team/{id}/roster`
 
-**The leaderboard's player board, scoped to one team.** Returns every rated player
-whose `player_stats.team_id` is this team for the season — a team's roster ranked
-by rating. The row shape is the **same rating row** the leaderboard's `leaders[]`
-uses (minus the `team_*` columns, which would be constant for a single team), so
-the frontend draws the board and the roster with the **same list component**. Two
-differences from `/leaderboard`: it's filtered to one `team_id`, and rows are
-ordered by the **sum of Composite + Specialist** (a single "total impact" order)
-rather than by a single scope.
+**Legacy compatibility.** New clients should use
+`GET /api/v1/{sport}/leaderboard?entity_type=player&team_id={id}` for roster
+discovery. That leaderboard scope includes the full active/current roster from
+`team_rosters`, with scored product rows first and unscored roster rows appended
+with nullable metric/rank fields.
+
+This route remains temporarily for older clients. It returns rated players whose
+`player_stats.team_id` is this team for the season and orders them by the sum of
+Composite + Specialist.
 
 #### Path / query parameters
 

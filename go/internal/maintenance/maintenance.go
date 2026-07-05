@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -165,7 +166,8 @@ func runLoop(ctx context.Context, ch <-chan time.Time, name string, fn func()) {
 // Task implementations
 // --------------------------------------------------------------------------
 
-// cleanup removes notifications older than 30 days that have been sent or failed.
+// cleanup removes notifications older than 30 days that have been sent or failed,
+// and thins the momentum_scores history to its retention contract.
 func cleanup(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 	tag, err := pool.Exec(ctx, `
 		DELETE FROM notifications
@@ -175,6 +177,26 @@ func cleanup(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 		logger.Warn("Cleanup: failed to purge old notifications", "error", err)
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("Cleanup: purged old notifications", "count", tag.RowsAffected())
+	}
+
+	// Momentum snapshots: full resolution for 30 days, then thin to the LAST
+	// snapshot per entity per day — kept forever as the historic momentum
+	// series. Bounds the table (and the latest-per-entity leaderboard read)
+	// without ever losing the daily datapoint. Self-join rides
+	// idx_momentum_scores_read.
+	tag, err = pool.Exec(ctx, `
+		DELETE FROM momentum_scores ms
+		USING momentum_scores newer
+		WHERE ms.generated_at < NOW() - INTERVAL '30 days'
+		  AND newer.sport = ms.sport
+		  AND newer.entity_type = ms.entity_type
+		  AND newer.entity_id = ms.entity_id
+		  AND newer.generated_at::date = ms.generated_at::date
+		  AND newer.generated_at > ms.generated_at`)
+	if err != nil {
+		logger.Warn("Cleanup: momentum snapshot thinning failed", "error", err)
+	} else if tag.RowsAffected() > 0 {
+		logger.Info("Cleanup: thinned momentum snapshots to daily grain", "count", tag.RowsAffected())
 	}
 }
 
@@ -408,6 +430,21 @@ func listenMomentumRefreshLoop(ctx context.Context, pool *pgxpool.Pool, logger *
 	}
 }
 
+// Momentum refresh throttle: a sport is re-snapshotted at most once per
+// interval, no matter how fast upstream writes re-mark it. NOTIFY storms
+// during game nights therefore coalesce into one settled snapshot per window
+// (the skipped marker survives and the next NOTIFY or the catch-up tick
+// drains it), keeping refresh cost bounded and the historic series one
+// datapoint per real change instead of burst noise. Guarded by a mutex —
+// unlike lastSeenSeason, the drain runs from both the NOTIFY listener and
+// the catch-up ticker goroutines.
+const momentumRefreshMinInterval = 5 * time.Minute
+
+var (
+	momentumRefreshMu   sync.Mutex
+	momentumLastRefresh = map[string]time.Time{}
+)
+
 func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 	type dirtySport struct {
 		sport        string
@@ -440,18 +477,34 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 	}
 
 	for _, item := range dirty {
-		var n int
+		momentumRefreshMu.Lock()
+		last, refreshed := momentumLastRefresh[item.sport]
+		momentumRefreshMu.Unlock()
+		if refreshed && time.Since(last) < momentumRefreshMinInterval {
+			continue // marker stays; a later drain picks it up settled
+		}
+
+		// NULL return = another drain holds the refresh advisory lock right
+		// now. Leave the marker so the refresh is retried, not lost.
+		var n *int
 		if err := pool.QueryRow(ctx, `SELECT public.refresh_momentum_scores($1)`, item.sport).Scan(&n); err != nil {
 			logger.Warn("Momentum scores refresh failed", "sport", item.sport, "error", err)
 			continue
 		}
+		if n == nil {
+			continue
+		}
+		momentumRefreshMu.Lock()
+		momentumLastRefresh[item.sport] = time.Now()
+		momentumRefreshMu.Unlock()
+
 		if _, err := pool.Exec(ctx, `
 			DELETE FROM public.momentum_refresh_needed
 			WHERE sport = $1 AND last_marked_at = $2`, item.sport, item.lastMarkedAt); err != nil {
 			logger.Warn("Momentum refresh queue clear failed", "sport", item.sport, "error", err)
 			continue
 		}
-		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", n)
+		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", *n)
 	}
 }
 

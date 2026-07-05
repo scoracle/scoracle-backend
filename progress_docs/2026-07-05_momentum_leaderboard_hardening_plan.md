@@ -190,6 +190,59 @@ and stops splitting the cache by URL. NOT before the frontend migrates.
 - Any reader of the momentum history (combined board / profile series) —
   product-gated.
 
+## Amendment (2026-07-05, same day) — the season-bridge window
+
+Superseding the window sketch above, per user direction: instead of inventing a
+calendar-based season-time excision for the rating window, **port the
+established season-end/season-start threshold window the percentile system
+already uses** — the migration-025 cold-start schedule (NBA 8 / NFL 2 /
+FOOTBALL 4 current-season games, ~10% of season) — so Momentum and percentiles
+run on ONE working schedule.
+
+Shipped in `sql/migrations/129_momentum_season_bridge.sql`:
+
+- **`public.season_bridge_window(sport)`** is now the canonical, documented
+  source of that schedule. `recalculate_event_percentiles` was re-emitted from
+  the live definition with its inline `v_window` CASE swapped for the shared
+  function (no behavior change), and `refresh_momentum_scores` consumes it for
+  the bridge rule. Tune it once, everything moves together.
+- **Rating window:** 21 days of current-season play; while the entity has
+  played fewer than `season_bridge_window(sport)` current-season games, the
+  window also includes the previous season's final 21 days. A team that closed
+  on a losing streak and opens with a win carries the streak until the bridge
+  closes (NFL: 2nd game; NBA: 8th; FOOTBALL: 4th). During the offseason the
+  window freezes at the end-of-season state. Note the bridge gates on games
+  played, matching 025 — during the bridge the window can transiently span up
+  to 2x21 season-days rather than a strict 21-day excision; that is the price
+  of sharing the established schedule and is intentional.
+- **Vibe window:** unchanged 21 calendar days — sentiment flows through the
+  offseason, its clock never pauses.
+- **Signed `momentum_score`** (clamp dropped) + single-flight advisory lock
+  (NULL return on contention; the Go drain keeps the marker) + index swap, all
+  per Phase 1 above.
+- **Go:** 5-min per-sport refresh throttle in the drain; cleanup ticker thins
+  snapshots older than 30 days to the last row per entity per day (kept
+  forever — the historic momentum series).
+
+Validated against the local DB (`BEGIN; \i 128; \i 129; ... ROLLBACK;`): all
+three sports refresh (NBA 131 / NFL 194 / FOOTBALL 523 rows); signed scores
+present on both sides (e.g. NBA players 54 falling / 45 rising); bridge active
+for 297 FOOTBALL + 2 NBA entities and correctly closed for all NFL entities
+(all past their 2-game threshold); downsample keeps last-per-day beyond 30
+days and never drops a lone daily datapoint. Go build + tests green; swagger
+regenerated.
+
+Known caveat: with the 21-day in-season window and the >= 3 sample floor, an
+NFL entity coming off a bye can transiently drop to 2 in-window games and fall
+off the rating-metric board for that week (vibe metric unaffected). Accepted
+for now; the knob would be a per-sport sample floor if it bothers in practice.
+
+Status: Phases 1-2 and the Phase 3 code items are DONE in the working tree
+(migration 129, maintenance.go, db.go dead filters, data.go doc comment,
+ENDPOINTS.md/README wording, swagger). Still open: folding 125-129 into
+schema.sql + schema_migrations.txt (Phase 3.1 — waits on the in-flight,
+uncommitted 125-127 folds), and Phase 4 route retirement (frontend-gated).
+
 ## Verification (per phase)
 
 - `BEGIN; \i sql/migrations/129_*.sql; ROLLBACK;` clean on a live snapshot.

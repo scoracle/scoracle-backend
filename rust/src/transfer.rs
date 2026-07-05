@@ -217,16 +217,15 @@ fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
         "transfer"
     };
     format!(
-        r#"Task: adjudicate whether an already-vetted {noun} rumor should update the player's CURRENT team identity.
+        r#"Task: adjudicate whether a candidate {noun} should update the player's CURRENT team identity.
 
 Fail closed. You confirm or reject only the proposed IDs; never invent a different player or team ID.
 
 Return only strict JSON with exactly these fields:
-{{"decision":"apply|reject|manual_review","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","confidence":0.0,"old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
+{{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","confidence":0.0,"old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
 
 Use decision="apply" only when the evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now.
-Use decision="reject" for speculation, interest, monitoring, historical/background moves, already-current-team contradictions, or false positives.
-Use decision="manual_review" for ambiguous loans, unclear direction, conflicting sources, or missing/contradictory team IDs.
+Use decision="reject" for speculation, interest, monitoring, ambiguity, unclear direction, conflicting sources, missing or contradictory team IDs, historical/background moves, already-current-team contradictions, or false positives.
 
 old_team_id and new_team_id must exactly match the proposed IDs. If old team is unknown, return null for old_team_id."#
     )
@@ -241,11 +240,6 @@ fn build_transfer_identity_adjudication_prompt(
     current_team_name: &str,
     new_team_id: i32,
     new_team_name: &str,
-    deterministic_heat: i16,
-    deterministic_confidence: f64,
-    confirmed_source_hints: usize,
-    source_rumor_id: i64,
-    row: &TransferRow,
     news: &[NewsItem],
 ) -> String {
     let mut b = String::new();
@@ -266,19 +260,7 @@ fn build_transfer_identity_adjudication_prompt(
     b.push_str(&format!(
         "Proposed new identity: team_id={new_team_id} team_name={new_team_name}\n"
     ));
-    b.push_str(&format!(
-        "Source transfer_rumors.id: {source_rumor_id}\nRaw deterministic heat: {deterministic_heat}\nDeterministic triage confidence: {deterministic_confidence:.3}\nConfirmed-source hint count: {confirmed_source_hints}\n"
-    ));
-    b.push_str(
-        "Heat and confirmed-source hints explain why this candidate was reviewed; they are not proof. Decide from the evidence text and team IDs.\n"
-    );
-    b.push_str(&format!(
-        "Vetted rumor direction: {}\nVetted stage: {}\nVetted summary: {}\nVetted source: {}\n",
-        row.direction.as_deref().unwrap_or(""),
-        row.stage.as_deref().unwrap_or(""),
-        row.summary.as_deref().unwrap_or(""),
-        row.attribution.as_deref().unwrap_or("")
-    ));
+    b.push_str("Decide only from the evidence articles and the proposed entity IDs below.\n");
     b.push_str("\nEvidence headlines:\n");
     for n in news {
         b.push_str("- ");
@@ -1155,115 +1137,6 @@ async fn load_transfer_identity_threshold(
     }))
 }
 
-fn team_confirmation_keys(team_name: &str) -> Vec<String> {
-    let full = team_name.trim().to_lowercase();
-    let mut keys = Vec::new();
-    if !full.is_empty() {
-        keys.push(full.clone());
-    }
-
-    if let Some(last) = full.split_whitespace().last() {
-        let skip = ["city", "fc", "united", "club", "town", "county"];
-        if last.len() > 3 && !skip.contains(&last) && !keys.iter().any(|k| k == last) {
-            keys.push(last.to_string());
-        }
-    }
-    keys
-}
-
-fn player_confirmation_keys(player_name: &str) -> Vec<String> {
-    let full = player_name.trim().to_lowercase();
-    let mut keys = Vec::new();
-    if !full.contains(char::is_whitespace) {
-        return keys;
-    }
-    if !full.is_empty() {
-        keys.push(full.clone());
-    }
-
-    if let Some(last) = full.split_whitespace().last() {
-        if last.len() > 3 && !keys.iter().any(|k| k == last) {
-            keys.push(last.to_string());
-        }
-    }
-    keys
-}
-
-fn text_contains_confirmation_key(text: &str, key: &str) -> bool {
-    if key.contains(char::is_whitespace) {
-        return text.contains(key);
-    }
-
-    let mut search_start = 0;
-    while let Some(relative) = text[search_start..].find(key) {
-        let start = search_start + relative;
-        let end = start + key.len();
-        let before = text[..start].chars().next_back();
-        let after = text[end..].chars().next();
-        let before_boundary = before.map(|c| !c.is_alphanumeric()).unwrap_or(true);
-        let after_boundary = after.map(|c| !c.is_alphanumeric()).unwrap_or(true);
-        if before_boundary && after_boundary {
-            return true;
-        }
-        search_start = end;
-    }
-    false
-}
-
-fn confirmed_move_source_count(
-    sport: &str,
-    team_name: &str,
-    player_name: &str,
-    news: &[NewsItem],
-) -> usize {
-    let team_keys = team_confirmation_keys(team_name);
-    let player_keys = player_confirmation_keys(player_name);
-    if team_keys.is_empty() || player_keys.is_empty() {
-        return 0;
-    }
-
-    let mut sources: Vec<String> = Vec::new();
-    for item in news {
-        let text = format!("{} {}", item.title, item.description).to_lowercase();
-        if !player_keys
-            .iter()
-            .any(|key| text_contains_confirmation_key(&text, key))
-        {
-            continue;
-        }
-
-        let confirmed = team_keys.iter().any(|key| {
-            if sport == "NBA" || sport == "NFL" {
-                text.contains(&format!("finalizing trade with {key}"))
-                    || text.contains(&format!("finalized trade with {key}"))
-                    || text.contains(&format!("trade with {key}"))
-                    || text.contains(&format!("trade to {key}"))
-                    || text.contains(&format!("traded to {key}"))
-                    || text.contains(&format!("{key} acquired"))
-                    || text.contains(&format!("{key} acquire"))
-                    || text.contains(&format!("{key} traded for"))
-            } else {
-                text.contains(&format!("{key} agree deal"))
-                    || text.contains(&format!("{key} agreed deal"))
-                    || text.contains(&format!("agreement with {key}"))
-                    || text.contains(&format!("signing for {key}"))
-                    || text.contains(&format!("signs for {key}"))
-                    || text.contains(&format!("joins {key}"))
-                    || text.contains(&format!("join {key}"))
-                    || text.contains(&format!("transfer to {key}"))
-                    || text.contains(&format!("move to {key}"))
-            }
-        });
-        if confirmed {
-            let source = item.source.to_lowercase();
-            if !sources.iter().any(|s| s == &source) {
-                sources.push(source);
-            }
-        }
-    }
-    sources.len()
-}
-
 fn identity_apply_deterministic_score(heat: i16) -> (i16, f64) {
     (heat, f64::from(heat) / 100.0)
 }
@@ -1417,8 +1290,6 @@ async fn maybe_apply_transfer_identity(
     }
 
     let (identity_heat, deterministic_confidence) = identity_apply_deterministic_score(heat);
-    let confirmed_source_hints =
-        confirmed_move_source_count(sport, team_name, &c.player_name, news);
     let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
         warn!(
             sport,
@@ -1449,11 +1320,6 @@ async fn maybe_apply_transfer_identity(
         &old_team_name,
         team_id,
         team_name,
-        identity_heat,
-        deterministic_confidence,
-        confirmed_source_hints,
-        persisted_rumor_id,
-        row,
         news,
     );
     let opts = GenerateOptions {
@@ -1478,7 +1344,6 @@ async fn maybe_apply_transfer_identity(
             warn!(
                 team = team_id,
                 player = c.player_id,
-                confirmed_source_hints,
                 error = %e,
                 "transfers: identity adjudication generate failed; fail closed"
             );
@@ -1824,86 +1689,11 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     }
 
     #[test]
-    fn identity_score_does_not_floor_confirmed_trade() {
-        let news = vec![
-            NewsItem {
-                title: "Reports: Browns finalizing trade with Rams for Myles Garrett".to_string(),
-                description: String::new(),
-                source: "MSN".to_string(),
-            },
-            NewsItem {
-                title: "Where does Rams defense rank after Myles Garrett trade?".to_string(),
-                description: String::new(),
-                source: "AOL.com".to_string(),
-            },
-        ];
+    fn identity_score_uses_raw_heat_only() {
+        let (heat, confidence) = identity_apply_deterministic_score(83);
 
-        let (heat, confidence) = identity_apply_deterministic_score(0);
-        let confirmed_sources =
-            confirmed_move_source_count("NFL", "Los Angeles Rams", "Myles Garrett", &news);
-
-        assert_eq!(confirmed_sources, 1);
-        assert_eq!(heat, 0);
-        assert_eq!(confidence, 0.0);
-    }
-
-    #[test]
-    fn identity_score_keeps_thin_speculation_heat() {
-        let news = vec![NewsItem {
-            title: "Rams linked with defensive options".to_string(),
-            description: "A roundup mentions several players.".to_string(),
-            source: "Blog".to_string(),
-        }];
-
-        let (heat, confidence) = identity_apply_deterministic_score(12);
-        let confirmed_sources =
-            confirmed_move_source_count("NFL", "Los Angeles Rams", "Myles Garrett", &news);
-
-        assert_eq!(confirmed_sources, 0);
-        assert_eq!(heat, 12);
-        assert_eq!(confidence, 0.12);
-    }
-
-    #[test]
-    fn identity_score_does_not_floor_background_trade_to_other_team() {
-        let news = vec![
-            NewsItem {
-                title: "Eagles target pass rusher after Browns traded Myles Garrett to Rams"
-                    .to_string(),
-                description: String::new(),
-                source: "MSN".to_string(),
-            },
-            NewsItem {
-                title: "Philadelphia linked to edge market after Garrett trade to Rams".to_string(),
-                description: String::new(),
-                source: "Yardbarker".to_string(),
-            },
-        ];
-
-        let (heat, confidence) = identity_apply_deterministic_score(1);
-        let confirmed_sources =
-            confirmed_move_source_count("NFL", "Philadelphia Eagles", "Myles Garrett", &news);
-
-        assert_eq!(confirmed_sources, 0);
-        assert_eq!(heat, 1);
-        assert_eq!(confidence, 0.01);
-    }
-
-    #[test]
-    fn identity_score_does_not_floor_wrong_player_confirmed_to_team() {
-        let news = vec![NewsItem {
-            title: "Tottenham Hotspur agree deal for Andrew Robertson".to_string(),
-            description: String::new(),
-            source: "Example".to_string(),
-        }];
-
-        let (heat, confidence) = identity_apply_deterministic_score(3);
-        let confirmed_sources =
-            confirmed_move_source_count("FOOTBALL", "Tottenham Hotspur", "Andre", &news);
-
-        assert_eq!(confirmed_sources, 0);
-        assert_eq!(heat, 3);
-        assert_eq!(confidence, 0.03);
+        assert_eq!(heat, 83);
+        assert_eq!(confidence, 0.83);
     }
 
     #[test]
@@ -2019,16 +1809,6 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
 
     #[test]
     fn identity_adjudication_prompt_pins_candidate_ids() {
-        let row = TransferRow {
-            is_rumor: Some(true),
-            direction: Some("incoming".to_string()),
-            stage: Some("here_we_go".to_string()),
-            summary: Some("Chelsea agreed a deal for Example Player.".to_string()),
-            attribution: Some("BBC".to_string()),
-            confidence: Some(0.9),
-            model: Some("mistral:7b".to_string()),
-            trigger_payload: "{}".to_string(),
-        };
         let prompt = build_transfer_identity_adjudication_prompt(
             "FOOTBALL",
             7,
@@ -2037,11 +1817,6 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             "Old FC",
             42,
             "New FC",
-            91,
-            0.91,
-            2,
-            123,
-            &row,
             &[NewsItem {
                 title: "New FC announce Example Player".to_string(),
                 description: "The club confirmed the transfer.".to_string(),
@@ -2050,9 +1825,8 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
         );
         assert!(prompt.contains("Current identity: team_id=18 team_name=Old FC"));
         assert!(prompt.contains("Proposed new identity: team_id=42 team_name=New FC"));
-        assert!(prompt.contains("Source transfer_rumors.id: 123"));
-        assert!(prompt.contains("Raw deterministic heat: 91"));
-        assert!(prompt.contains("Confirmed-source hint count: 2"));
-        assert!(prompt.contains("they are not proof"));
+        assert!(prompt.contains("Decide only from the evidence articles"));
+        assert!(!prompt.contains("heat"));
+        assert!(!prompt.contains("Vetted summary"));
     }
 }

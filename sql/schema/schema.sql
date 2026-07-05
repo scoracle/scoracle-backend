@@ -2969,17 +2969,16 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
         ('Giveaways',
             CASE WHEN p_rate_mode = 'total' THEN
                   COALESCE((p_stats->>'passing_interceptions')::numeric,0)
-                + COALESCE((p_stats->>'fumbles_lost')::numeric,0)
             ELSE
                   COALESCE((p_stats->>('passing_interceptions' || rs.suffix))::numeric,(p_stats->>'passing_interceptions')::numeric,0)
-                + COALESCE((p_stats->>('fumbles_lost' || rs.suffix))::numeric,(p_stats->>'fumbles_lost')::numeric,0)
             END,                                                                  TRUE, FALSE, -1, 'offense', NULL),
+        ('Fumbles Lost',     NULLIF(p_stats->>'fumbles_lost','')::numeric,        TRUE, FALSE, -1, 'offense', 'fumbles_lost'),
         ('Tackling',         NULLIF(p_stats->>'total_tackles','')::numeric,       TRUE, TRUE,   1, 'defense', 'total_tackles'),
         ('Tackles For Loss', NULLIF(p_stats->>'tackles_for_loss','')::numeric,    TRUE, TRUE,   1, 'defense', 'tackles_for_loss'),
         ('Sacks',            NULLIF(p_stats->>'defensive_sacks','')::numeric,     TRUE, TRUE,   1, 'defense', 'defensive_sacks'),
         ('Pass Defense',     NULLIF(p_stats->>'passes_defended','')::numeric,     TRUE, TRUE,   1, 'defense', 'passes_defended'),
         ('Interceptions',    NULLIF(p_stats->>'defensive_interceptions','')::numeric, TRUE, TRUE, 1, 'defense', 'defensive_interceptions'),
-        ('Fumble Recovery',  NULLIF(p_stats->>'fumbles_recovered','')::numeric,   TRUE, TRUE,   1, 'defense', 'fumbles_recovered'),
+        ('Forced Fumbles',    NULLIF(p_stats->>'fumbles_forced','')::numeric,     TRUE, TRUE,   1, 'defense', 'fumbles_forced'),
         ('Field Goals',      NULLIF(p_stats->>'field_goals_made','')::numeric,    TRUE, TRUE,   1, 'special', 'field_goals_made'),
         ('Punting',          NULLIF(p_stats->>'punts_inside_20','')::numeric,     TRUE, TRUE,   1, 'special', 'punts_inside_20')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base)
@@ -3010,6 +3009,7 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'NBA'
     UNION ALL
     SELECT * FROM (VALUES
+        ('Points Scored',      NULLIF(p_stats->>'points_for','')::numeric,                 TRUE,  TRUE,   1, 'offense'),
         ('Total Yards',        NULLIF(p_stats->>'total_yards','')::numeric,                TRUE,  TRUE,   1, 'offense'),
         ('Giveaways',          NULLIF(p_stats->>'turnovers','')::numeric,                  TRUE,  FALSE, -1, 'offense'),
         ('Touchdowns',         COALESCE((p_stats->>'passing_touchdowns')::numeric,0)
@@ -3023,6 +3023,7 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Sacks',              NULLIF(p_stats->>'defensive_sacks','')::numeric,            TRUE,  TRUE,   1, 'defense'),
         ('Pass Defense',       NULLIF(p_stats->>'passes_defended','')::numeric,            TRUE,  TRUE,   1, 'defense'),
         ('Interceptions',      NULLIF(p_stats->>'defensive_interceptions','')::numeric,    TRUE,  TRUE,   1, 'defense'),
+        ('Points Allowed',     NULLIF(p_stats->>'points_against','')::numeric,             TRUE,  FALSE, -1, 'defense'),
         ('Yards Allowed',      NULLIF(p_stats->>'yards_allowed','')::numeric,              TRUE,  FALSE, -1, 'defense'),
         ('Penalty Yards Against', NULLIF(p_stats->>'penalty_yards','')::numeric,           TRUE,  FALSE, -1, 'defense'),
         ('Tackles For Loss',   NULLIF(p_stats->>'tackles_for_loss','')::numeric,           FALSE, FALSE,  1, 'defense'),
@@ -8919,4 +8920,3 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 --
 
 \unrestrict ZzA08Z8bXgAP4U3fmx1xLHXgF3MNH44X8lItLYyhDFunBJh7eXRQF1kZjK8cg1E
-

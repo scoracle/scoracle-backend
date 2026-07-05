@@ -28,7 +28,7 @@ Any new public data endpoint should follow this path:
 
 Verify routes against `go/internal/api/server.go`; it is the source of truth.
 
-Canonical per-entity products:
+Canonical per-entity profile products:
 
 ```text
 /{sport}/{entityType}/{id}/meta
@@ -37,9 +37,24 @@ Canonical per-entity products:
 /{sport}/{entityType}/{id}/news
 /{sport}/{entityType}/{id}/momentum
 /{sport}/{entityType}/{id}/sigil
-/{sport}/team/{id}/roster
 /{sport}/team/{id}/results
 ```
+
+Canonical discovery products:
+
+```text
+/{sport}/leaderboard
+/{sport}/leaderboard/{vibes|sigil|news|transfers|momentum}
+```
+
+`/{sport}/leaderboard` is the hierarchy surface: sport -> league/conference
+-> division -> team -> player. The default Rating board with
+`entity_type=player&team_id=...` is the full current roster surface and includes
+active `team_rosters` members even when product metrics are null. Do not add
+roster-style discovery back to profile cards.
+
+`/{sport}/team/{id}/roster` remains wired as legacy compatibility only; new
+clients should use `/leaderboard?entity_type=player&team_id={id}`.
 
 The bundled all-in-one profile route is retired. `/special`, `/trends`, and per-entity `/vibes` are retired names, not current products.
 

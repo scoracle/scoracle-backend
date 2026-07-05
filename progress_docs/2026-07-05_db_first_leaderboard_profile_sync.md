@@ -4,6 +4,8 @@
 
 Move roster-style discovery out of team profile and into the leaderboard cohort model while keeping backend product endpoints sport-scoped.
 
+Pillar framing: leaderboard exposes hierarchy; profile surfaces cards.
+
 ## What Changed
 
 - Extended `/api/v1/{sport}/leaderboard` with shared cohort filters: `team_id`, `position_group`, `league_id`, `conference`, `division`, `position`, `season`, `scope`, and `limit`.
@@ -34,7 +36,7 @@ Move roster-style discovery out of team profile and into the leaderboard cohort 
 
 ## Result
 
-Backend leaderboard contracts now support DB-first scoped discovery, including full team roster inclusion through the leaderboard.
+Backend leaderboard contracts now support DB-first scoped discovery, including full team roster inclusion through the leaderboard. The API contract now treats `/leaderboard` as the ranked hierarchy surface and `/profile` as the per-entity card surface.
 
 ## Follow-Up
 

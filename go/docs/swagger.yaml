@@ -474,8 +474,8 @@ paths:
       - data
   /{sport}/leaderboard:
     get:
-      description: Positionless rating board (z-score engine). entity_type=player
-        (default) or team. Composite + Sigil in one payload.
+      description: DB-first leaderboard. entity_type=player (default) or team.
+        Supports cohort filters; team_id+player includes active roster rows.
       parameters:
       - description: Sport
         enum:
@@ -490,7 +490,13 @@ paths:
         in: query
         name: entity_type
         type: string
-      - description: 'Board: composite (default), sigil, or a sigil label (e.g. Sacks)'
+      - description: 'Board: rating (default), vibes, sigil, news, transfers, momentum
+          (trending legacy alias)'
+        in: query
+        name: board
+        type: string
+      - description: 'Rating scope: composite (default), specialist, fantasy, or a
+          specialist label (e.g. Sacks)'
         in: query
         name: scope
         type: string
@@ -502,9 +508,26 @@ paths:
         in: query
         name: position
         type: string
+      - description: Filter to a normalized position group (player boards only)
+        in: query
+        name: position_group
+        type: string
       - description: Filter to a league (football)
         in: query
         name: league_id
+        type: integer
+      - description: Filter to a conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter to a division
+        in: query
+        name: division
+        type: string
+      - description: Filter to a team; with entity_type=player this returns the active
+          roster plus product rows
+        in: query
+        name: team_id
         type: integer
       - description: Max rows (default 50)
         in: query
@@ -663,10 +686,10 @@ paths:
       summary: Transfers leaderboard
       tags:
       - data
-  /{sport}/leaderboard/trending:
+  /{sport}/leaderboard/momentum:
     get:
       description: Entities ranked by their recent trajectory slope (risers). metric=vibe
-        (default) or rating.
+        (default) or rating. /trending remains a legacy alias.
       parameters:
       - description: Sport
         enum:
@@ -705,7 +728,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/respond.ErrorResponse'
-      summary: Trending leaderboard (risers)
+      summary: Momentum leaderboard (risers)
       tags:
       - data
   /{sport}/leaderboard/vibes:

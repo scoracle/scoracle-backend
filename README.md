@@ -114,7 +114,7 @@ Per-entity products (`{entityType}` ∈ `player|team`):
   - `GET /api/v1/{sport}/{entityType}/{id}/sigil` — the Sigil crown synthesis (Rating + Vibe + Momentum → `sigil_synthesis`)
 - `GET /api/v1/{sport}/{entityType}/{id}/meta` — per-entity identity (page header); 404 when the entity is unknown
 - `GET /api/v1/{sport}/team/{id}/results` — a team's finalized scorelines for a season
-- `GET /api/v1/{sport}/team/{id}/roster` — the rating board narrowed to one team
+- `GET /api/v1/{sport}/team/{id}/roster` — legacy compatibility; new clients use `/leaderboard?entity_type=player&team_id={id}`
 
 > **Convergence rename (O14):** the earlier per-product names `/special`, `/trends`, and
 > per-entity `/vibes` are **gone** — `/special` folded into `/rating`, `/trends` became
@@ -125,12 +125,12 @@ Sport-level + leaderboard routes:
 
 - `GET /api/v1/entities` (alias: `/api/v1/autofill`) — universal text-only player/team directory for home search
 - `GET /api/v1/{sport}/meta`, `GET /api/v1/{sport}/autofill`, `GET /api/v1/{sport}/health` — legacy sport-wide metadata/search payload, legacy sport autofill, freshness
-- `GET /api/v1/{sport}/leaderboard` (rating board — `entity_type=player|team`, `scope=composite|specialist|<skill>`; also `?board=rating|vibes|sigil|news|transfers`)
+- `GET /api/v1/{sport}/leaderboard` (DB-first ranking surface — `entity_type=player|team`, `scope=composite|specialist|<skill>`, cohort filters including `team_id`; also `?board=rating|vibes|sigil|news|transfers|momentum`)
 - `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
 - `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact (`scope=current_week|last_week|two_weeks_ago|three_weeks_ago|last_month`)
 - `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100 with the same historical scopes as News
-- `GET /api/v1/{sport}/leaderboard/trending` — vibe & rating risers
+- `GET /api/v1/{sport}/leaderboard/momentum` — vibe & rating risers (`/trending` legacy alias)
 
 League-scoped variants (preferred for multi-league precision):
 

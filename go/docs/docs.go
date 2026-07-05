@@ -375,7 +375,7 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard": {
             "get": {
-                "description": "Positionless rating board (z-score engine). entity_type=player (default) or team. Composite + Sigil in one payload.",
+                "description": "DB-first leaderboard. entity_type=player (default) or team. Supports cohort filters; team_id+player includes active roster rows.",
                 "produces": [
                     "application/json"
                 ],
@@ -404,7 +404,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Board: composite (default), sigil, or a sigil label (e.g. Sacks)",
+                        "description": "Board: rating (default), vibes, sigil, news, transfers, momentum (trending legacy alias)",
+                        "name": "board",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Rating scope: composite (default), specialist, fantasy, or a specialist label (e.g. Sacks)",
                         "name": "scope",
                         "in": "query"
                     },
@@ -421,9 +427,33 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Filter to a normalized position group (player boards only)",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Filter to a league (football)",
                         "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter to a conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter to a division",
+                        "name": "division",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team; with entity_type=player this returns the active roster plus product rows",
+                        "name": "team_id",
                         "in": "query"
                     },
                     {
@@ -645,16 +675,16 @@ const docTemplate = `{
                 }
             }
         },
-        "/{sport}/leaderboard/trending": {
+        "/{sport}/leaderboard/momentum": {
             "get": {
-                "description": "Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating.",
+                "description": "Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating. /trending remains a legacy alias.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Trending leaderboard (risers)",
+                "summary": "Momentum leaderboard (risers)",
                 "parameters": [
                     {
                         "enum": [

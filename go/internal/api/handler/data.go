@@ -30,7 +30,7 @@ var validEntityTypes = map[string]struct{}{
 // GetLeaderboard returns the DB-first ranking surface for a sport.
 // The default board is Rating; ?board= delegates to the product boards.
 // @Summary Get rating leaderboard
-// @Description DB-first leaderboard. entity_type=player (default) or team. Supports cohort filters; team_id+player includes active roster rows.
+// @Description DB-first leaderboard. entity_type=player (default) or team. Supports top-down cohort filters; the default Rating board with team_id+player includes active roster rows.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -119,6 +119,12 @@ func (h *Handler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Filter: player or team (default both)"
+// @Param league_id query int false "Filter to a league"
+// @Param team_id query int false "Filter to a team"
+// @Param position query string false "Filter current player position"
+// @Param position_group query string false "Filter current player position group"
+// @Param conference query string false "Filter team conference"
+// @Param division query string false "Filter team division"
 // @Param limit query int false "Max rows (default 50)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -164,6 +170,12 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param limit query int false "Max rows (default 50)"
 // @Param season query int false "Season year (default current)"
+// @Param league_id query int false "Filter to a league"
+// @Param team_id query int false "Filter to a team"
+// @Param position query string false "Filter current player position"
+// @Param position_group query string false "Filter current player position group"
+// @Param conference query string false "Filter team conference"
+// @Param division query string false "Filter team division"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -213,6 +225,12 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param metric query string false "Trajectory: vibe (default) or rating"
 // @Param entity_type query string false "Filter: player or team (default both)"
+// @Param league_id query int false "Filter to a league"
+// @Param team_id query int false "Filter to a team"
+// @Param position query string false "Filter player position"
+// @Param position_group query string false "Filter player position group"
+// @Param conference query string false "Filter team conference"
+// @Param division query string false "Filter team division"
 // @Param limit query int false "Max rows (default 30)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -257,6 +275,12 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param scope query string false "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param league_id query int false "Filter to a league"
+// @Param team_id query int false "Filter to a team"
+// @Param position query string false "Filter current player position"
+// @Param position_group query string false "Filter current player position group"
+// @Param conference query string false "Filter team conference"
+// @Param division query string false "Filter team division"
 // @Param limit query int false "Max rows (default 50)"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
@@ -304,6 +328,13 @@ func (h *Handler) GetNewsLeaderboard(w http.ResponseWriter, r *http.Request) {
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param limit query int false "Max rows (default 50)"
 // @Param scope query string false "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month"
+// @Param entity_type query string false "Filter: player or team (default both)"
+// @Param league_id query int false "Filter to a league"
+// @Param team_id query int false "Filter to a team"
+// @Param position query string false "Filter current player position"
+// @Param position_group query string false "Filter current player position group"
+// @Param conference query string false "Filter team/current player conference"
+// @Param division query string false "Filter team/current player division"
 // @Success 200 {object} map[string]interface{}
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
@@ -319,13 +350,22 @@ func (h *Handler) GetTransfersLeaderboard(w http.ResponseWriter, r *http.Request
 		return
 	}
 	scope := optionalTextQuery(r, "scope")
+	entityType := optionalTextQuery(r, "entity_type")
+	leagueID, ok := optionalIntQuery(w, r, "league_id")
+	if !ok {
+		return
+	}
 	teamID, ok := optionalIntQuery(w, r, "team_id")
 	if !ok {
 		return
 	}
+	position := optionalTextQuery(r, "position")
+	positionGroup := optionalTextQuery(r, "position_group")
+	conference := optionalTextQuery(r, "conference")
+	division := optionalTextQuery(r, "division")
 
 	h.serveStatementJSON(w, r, "transfers_leaderboard", dataCacheKey(r), cache.TTLData, false,
-		sport, limit, scope, teamID)
+		sport, limit, scope, entityType, leagueID, teamID, position, positionGroup, conference, division)
 }
 
 // GetTrendsPage returns last-3 entity event averages vs peer-cohort season averages.

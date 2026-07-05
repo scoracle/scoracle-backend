@@ -450,6 +450,15 @@ The default board is **Rating**. Rating rows carry both Composite and Specialist
 (+ specialty); product boards use the same cohort controls and rank their own DB
 signal.
 
+Hierarchy is top-down: sport → league/conference → division → team → player.
+Football does not use conference/division, so those filters naturally pass through
+as empty constraints unless populated by provider metadata. The full current roster
+surface is the team-scoped player leaderboard:
+`/api/v1/{sport}/leaderboard?entity_type=player&team_id={id}`. That default Rating
+view includes active `team_rosters` members even when product metrics are null.
+Product boards such as Vibe, News, Sigil, Transfers, and Momentum are scored
+projections over the same hierarchy; they do not replace the roster surface.
+
 **Board selector:** pass `?board=` to get any board from this one endpoint —
 `rating` (default), `vibes`, `sigil`, `news`, `transfers`, or `momentum`.
 `trending` remains a legacy alias for Momentum. The dedicated `/leaderboard/{board}`
@@ -470,7 +479,7 @@ boards.
 | `league_id` | integer | — | Filter to a league (football). |
 | `conference` | string | — | Team/conference cohort filter where present in team metadata. |
 | `division` | string | — | Team/division cohort filter where present in team metadata. |
-| `team_id` | integer | — | Narrows to one team. With `entity_type=player`, includes the team's active/current roster from `team_rosters`; scored rows rank first and null product rows append with nullable metric/rank fields. |
+| `team_id` | integer | — | Narrows to one team. With the default Rating board and `entity_type=player`, includes the team's active/current roster from `team_rosters`; scored rows rank first and null metric/rank rows append. |
 | `limit` | integer | `50` | Max rows. |
 
 #### Response shape
@@ -646,6 +655,12 @@ unified into it 2026-06-15).
 |---|---|---|---|
 | `limit` | integer | `50` | Max rows. |
 | `scope` | string | `current_week` | `current_week`, `last_week`, `two_weeks_ago`, `three_weeks_ago`, `last_month`. |
+| `league_id` | integer | — | Filter to a league. |
+| `team_id` | integer | — | Filter to a rumor team or the player's current team. |
+| `position` | string | — | Filter by the player's current position. |
+| `position_group` | string | — | Filter by the player's current normalized position group. |
+| `conference` | string | — | Filter by rumor-team or current-team conference. |
+| `division` | string | — | Filter by rumor-team or current-team division. |
 
 ```jsonc
 {
@@ -687,9 +702,13 @@ unified into it 2026-06-15).
 
 The sport-wide **Momentum** board — entities whose Vibe or Rating is climbing fastest.
 Pass `?metric=vibe` (default) or `?metric=rating`; the response echoes `"metric"`.
-Same enriched row shape as the other boards (`name` / `image` / `team_*`). Reached via
-the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared cohort
-filters, and `limit` query params apply. `/leaderboard/trending` and
+This board reads the latest durable snapshots from `momentum_scores`, so Momentum
+can accumulate as a historical reference instead of being computed inline for each
+request. Upstream Vibe and event-rating writes mark `momentum_refresh_needed` and
+notify the API worker, which runs `refresh_momentum_scores()` only for dirty sports.
+Same enriched row shape as the other boards (`name` / `image` / `team_*`). Reached
+via the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared
+cohort filters, and `limit` query params apply. `/leaderboard/trending` and
 `/leaderboard?board=trending` remain legacy aliases.
 
 ```jsonc

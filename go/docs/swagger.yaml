@@ -474,8 +474,9 @@ paths:
       - data
   /{sport}/leaderboard:
     get:
-      description: DB-first leaderboard. entity_type=player (default) or team.
-        Supports cohort filters; team_id+player includes active roster rows.
+      description: DB-first leaderboard. entity_type=player (default) or team. Supports
+        top-down cohort filters; the default Rating board with team_id+player includes
+        active roster rows.
       parameters:
       - description: Sport
         enum:
@@ -552,6 +553,75 @@ paths:
       summary: Get rating leaderboard
       tags:
       - data
+  /{sport}/leaderboard/momentum:
+    get:
+      description: Entities ranked by their recent trajectory slope (risers). metric=vibe
+        (default) or rating. /trending remains a legacy alias.
+      parameters:
+      - description: Sport
+        enum:
+        - nba
+        - nfl
+        - football
+        in: path
+        name: sport
+        required: true
+        type: string
+      - description: 'Trajectory: vibe (default) or rating'
+        in: query
+        name: metric
+        type: string
+      - description: 'Filter: player or team (default both)'
+        in: query
+        name: entity_type
+        type: string
+      - description: Filter to a league
+        in: query
+        name: league_id
+        type: integer
+      - description: Filter to a team
+        in: query
+        name: team_id
+        type: integer
+      - description: Filter player position
+        in: query
+        name: position
+        type: string
+      - description: Filter player position group
+        in: query
+        name: position_group
+        type: string
+      - description: Filter team conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter team division
+        in: query
+        name: division
+        type: string
+      - description: Max rows (default 30)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/respond.ErrorResponse'
+      summary: Momentum leaderboard (risers)
+      tags:
+      - data
   /{sport}/leaderboard/news:
     get:
       description: Sport-wide board of the hottest model narratives with source freshness
@@ -574,6 +644,30 @@ paths:
           last_month'
         in: query
         name: scope
+        type: string
+      - description: Filter to a league
+        in: query
+        name: league_id
+        type: integer
+      - description: Filter to a team
+        in: query
+        name: team_id
+        type: integer
+      - description: Filter current player position
+        in: query
+        name: position
+        type: string
+      - description: Filter current player position group
+        in: query
+        name: position_group
+        type: string
+      - description: Filter team conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter team division
+        in: query
+        name: division
         type: string
       - description: Max rows (default 50)
         in: query
@@ -625,6 +719,30 @@ paths:
         in: query
         name: season
         type: integer
+      - description: Filter to a league
+        in: query
+        name: league_id
+        type: integer
+      - description: Filter to a team
+        in: query
+        name: team_id
+        type: integer
+      - description: Filter current player position
+        in: query
+        name: position
+        type: string
+      - description: Filter current player position group
+        in: query
+        name: position_group
+        type: string
+      - description: Filter team conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter team division
+        in: query
+        name: division
+        type: string
       produces:
       - application/json
       responses:
@@ -667,6 +785,34 @@ paths:
         in: query
         name: scope
         type: string
+      - description: 'Filter: player or team (default both)'
+        in: query
+        name: entity_type
+        type: string
+      - description: Filter to a league
+        in: query
+        name: league_id
+        type: integer
+      - description: Filter to a team
+        in: query
+        name: team_id
+        type: integer
+      - description: Filter current player position
+        in: query
+        name: position
+        type: string
+      - description: Filter current player position group
+        in: query
+        name: position_group
+        type: string
+      - description: Filter team/current player conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter team/current player division
+        in: query
+        name: division
+        type: string
       produces:
       - application/json
       responses:
@@ -686,51 +832,6 @@ paths:
       summary: Transfers leaderboard
       tags:
       - data
-  /{sport}/leaderboard/momentum:
-    get:
-      description: Entities ranked by their recent trajectory slope (risers). metric=vibe
-        (default) or rating. /trending remains a legacy alias.
-      parameters:
-      - description: Sport
-        enum:
-        - nba
-        - nfl
-        - football
-        in: path
-        name: sport
-        required: true
-        type: string
-      - description: 'Trajectory: vibe (default) or rating'
-        in: query
-        name: metric
-        type: string
-      - description: 'Filter: player or team (default both)'
-        in: query
-        name: entity_type
-        type: string
-      - description: Max rows (default 30)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/respond.ErrorResponse'
-      summary: Momentum leaderboard (risers)
-      tags:
-      - data
   /{sport}/leaderboard/vibes:
     get:
       description: Sport-wide board of entities ranked by latest vibe sentiment (1-100).
@@ -748,6 +849,30 @@ paths:
       - description: 'Filter: player or team (default both)'
         in: query
         name: entity_type
+        type: string
+      - description: Filter to a league
+        in: query
+        name: league_id
+        type: integer
+      - description: Filter to a team
+        in: query
+        name: team_id
+        type: integer
+      - description: Filter current player position
+        in: query
+        name: position
+        type: string
+      - description: Filter current player position group
+        in: query
+        name: position_group
+        type: string
+      - description: Filter team conference
+        in: query
+        name: conference
+        type: string
+      - description: Filter team division
+        in: query
+        name: division
         type: string
       - description: Max rows (default 50)
         in: query

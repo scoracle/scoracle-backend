@@ -130,7 +130,7 @@ Sport-level + leaderboard routes:
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
 - `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact (`scope=current_week|last_week|two_weeks_ago|three_weeks_ago|last_month`)
 - `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100 with the same historical scopes as News
-- `GET /api/v1/{sport}/leaderboard/momentum` — stored Momentum snapshots from `momentum_scores`, refreshed when upstream Vibe/rating data changes; rating windows season-bridge on the shared `season_bridge_window` schedule (`/trending` legacy alias)
+- `GET /api/v1/{sport}/leaderboard/momentum` — stored Momentum snapshots from `momentum_scores`, refreshed when upstream Vibe/rating data changes; rating lookback = the entity's last `season_bridge_window(sport)` games (~10% of season), season-spanning (`/trending` legacy alias)
 
 League-scoped variants (preferred for multi-league precision):
 

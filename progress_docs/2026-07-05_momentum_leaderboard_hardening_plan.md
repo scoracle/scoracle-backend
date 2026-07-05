@@ -6,44 +6,73 @@ leaderboard split, plus the plan to make both tight and durable. Companion to
 shipped in `afd16d5`); this doc records what the audit found and what to do
 next.
 
-## Resume checklist (state as of commit 502e900, 2026-07-05)
+## Resume checklist (state as of 2026-07-05 end of session)
 
 Done — no need to re-audit or re-derive any of this:
 
 - [x] Audit (this doc): dataflow verified sound; findings F1-F5 below.
-- [x] Migration 129 (`sql/migrations/129_momentum_season_bridge.sql`):
-      `season_bridge_window(sport)` canonical (025 schedule, NBA 8 / NFL 2 /
-      FOOTBALL 4); `recalculate_event_percentiles` re-emitted to consume it;
-      rating window = 21 in-season days season-bridged while the bridge is
-      open; SIGNED `momentum_score`; single-flight advisory lock (NULL on
-      contention); index swap to `idx_momentum_scores_read`.
+- [x] Migration 129 (`502e900`): `season_bridge_window(sport)` canonical
+      (025 schedule, NBA 8 / NFL 2 / FOOTBALL 4);
+      `recalculate_event_percentiles` re-emitted to consume it; SIGNED
+      `momentum_score`; single-flight advisory lock (NULL on contention);
+      index swap to `idx_momentum_scores_read`.
+- [x] Migration 130 (`sql/migrations/130_momentum_game_lookback.sql`):
+      rating window simplified to the entity's last
+      `season_bridge_window(sport)` rated games across (current, previous)
+      seasons — supersedes the mig-129 calendar bridge (see Amendment 2).
+      Rating sample floor is 2 (the NFL window IS 2 games). Vibe unchanged:
+      21 calendar days, >= 3 samples.
 - [x] Go: 5-min per-sport refresh throttle (NULL-aware drain keeps marker);
       cleanup thins >30d snapshots to last-per-entity-per-day, kept forever.
-- [x] Read-side dead filters pruned; swagger + ENDPOINTS.md + README updated.
-- [x] Validated live via `BEGIN; \i 128; \i 129; ...; ROLLBACK;` — sports
-      refresh 131/194/523 rows, signed scores both sides, bridge open for
-      297 FOOTBALL + 2 NBA entities / closed for all NFL, downsample keeps
-      lone daily datapoints. Go build + tests green.
+- [x] **Migrations 128 + 129 + 130 APPLIED to the local DB** (not just
+      rollback-validated), backfill markers drained, `momentum_scores`
+      populated: FOOTBALL 4219p/123t, NFL 2129p/32t, NBA 684p/30t; lookback
+      caps verified exactly 8/2/4; season-spanning lookbacks present in all
+      three sports.
+- [x] **Deployed**: built to `go/bin/scoracle-api`; the user-level
+      `scoracle-api.path` unit auto-restarted the service. End-to-end
+      verified over HTTP: NFL `metric=rating` board serves stored leaders
+      (impossible on the old binary — its stale `samples >= 3` filter
+      zeroed NFL's 2-sample windows; that filter is pruned).
+- [x] Docs: swagger + ENDPOINTS.md "Windows" paragraph + README on the
+      game-lookback semantics.
 
 Left to do:
 
-- [ ] **APPLY migrations 128 + 129 for real** — the local DB was only
-      rollback-validated; `momentum_scores` does not exist there yet. Apply
-      both (local + wherever else migrations roll out), confirm the Go drain
-      picks up the `migration_129_season_bridge` backfill markers on next
-      API start, and `/leaderboard/momentum` serves stored rows.
-- [ ] **Fold 125-129 into `sql/schema/schema.sql` + append
+- [ ] **Fold 125-130 into `sql/schema/schema.sql` + append
       `schema_migrations.txt`** — blocked on the in-flight uncommitted
       125-127 folds (unstaged schema.sql edits + untracked migration files
-      in the tree); commit those first, then fold 128-129 the same way.
+      in the tree); commit those first, then fold 128-130 the same way.
+- [ ] **Roll out 128-130 to any non-local environment** the same way they
+      were applied locally (psql apply; markers self-drain via the API).
 - [ ] **Phase 4 route retirement** (frontend-gated): once the frontend is on
       `?board=`, delete the dedicated `/leaderboard/{board}` routes and the
       `/trending` alias (`go/internal/api/server.go:173-178`).
-- [ ] Optional / product-gated: per-sport rating sample floor if the NFL
-      bye-week dropout (see Amendment caveat) bothers in practice;
-      statement-level dirty-queue triggers if finalize timing ever regresses;
-      readers for the momentum history (`metric=combined`, profile series)
-      when a surface wants them.
+- [ ] Optional / product-gated: statement-level dirty-queue triggers if
+      finalize timing ever regresses; readers for the momentum history
+      (`metric=combined`, profile series) when a surface wants them.
+
+Also fixed this session: both trending statements now use
+latest_raw-then-filter (the sigil stale-row pattern) — an entity whose latest
+slope turns negative or NULL can no longer rank on an older positive
+snapshot once history accrues.
+
+## Amendment 2 (2026-07-05, late) — game-count lookback (migration 130)
+
+Supersedes Amendment 1's calendar bridge, per user direction: the bridge was
+correct but paid two prices for sharing the schedule (a transiently doubled
+window, and NFL's >= 3 floor fighting weekly play). Migration 130 replaces it
+with a **parallel game-count lookback on the same ~10% schedule**: each
+entity's rating slope reads its last `season_bridge_window(sport)` rated
+games across (current, previous) seasons. The lookback naturally closes at a
+season's end, resumes at the next season's first game, and cannot be starved
+by bye weeks. Rating sample floor is 2 (the minimum for a slope — the NFL
+window IS 2 games). Vibe unchanged. `season_bridge_window` remains the one
+shared knob; only its momentum consumer semantics changed.
+
+Applied + deployed + verified over HTTP same session (see resume checklist).
+Coverage effect: NFL players with rating slopes went from 162 (21-day window)
+to 2,091 (every entity with >= 2 rated games).
 
 ## Verdict
 

@@ -529,15 +529,21 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division
 		),
-		latest AS (
+		-- Latest snapshot per entity REGARDLESS of slope sign (latest_raw), then
+		-- keep only positive movers. Filtering before the DISTINCT ON would let
+		-- an entity whose latest slope turned negative or NULL keep ranking on
+		-- an older positive snapshot (the sigil-board stale-row lesson).
+		latest_raw AS (
 			SELECT DISTINCT ON (ms.entity_type, ms.entity_id)
 			       ms.entity_type, ms.entity_id, ms.team_id, ms.league_id, ms.position, ms.position_group,
 			       ms.conference, ms.division, ms.vibe_slope AS slope, ms.vibe_samples AS samples, ms.generated_at
 			FROM public.momentum_scores ms, req
 			WHERE ms.sport = req.sport
-			  AND ms.vibe_slope IS NOT NULL AND ms.vibe_slope > 0
 			  AND (req.entity_type IS NULL OR ms.entity_type = req.entity_type)
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
+		),
+		latest AS (
+			SELECT * FROM latest_raw WHERE slope IS NOT NULL AND slope > 0
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (
@@ -584,15 +590,18 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($8::text, '') AS conference,
 			       NULLIF($9::text, '') AS division
 		),
-		latest AS (
+		-- latest_raw-then-filter: same stale-row guard as the vibe board above.
+		latest_raw AS (
 			SELECT DISTINCT ON (ms.entity_type, ms.entity_id)
 			       ms.entity_type, ms.entity_id, ms.team_id, ms.league_id, ms.position, ms.position_group,
 			       ms.conference, ms.division, ms.rating_slope AS slope, ms.rating_samples AS samples, ms.generated_at
 			FROM public.momentum_scores ms, req
 			WHERE ms.sport = req.sport
-			  AND ms.rating_slope IS NOT NULL AND ms.rating_slope > 0
 			  AND (req.entity_type IS NULL OR ms.entity_type = req.entity_type)
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
+		),
+		latest AS (
+			SELECT * FROM latest_raw WHERE slope IS NOT NULL AND slope > 0
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (

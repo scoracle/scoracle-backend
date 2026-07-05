@@ -707,18 +707,17 @@ can accumulate as a historical reference instead of being computed inline for ea
 request. Upstream Vibe and event-rating writes mark `momentum_refresh_needed` and
 notify the API worker, which runs `refresh_momentum_scores()` only for dirty sports.
 
-**Windows.** `slope`/`score` is the newest-minus-oldest sample over the snapshot
-window (≥ 3 samples). Vibe: 21 calendar days — sentiment flows through the
-offseason, so its clock never pauses. Rating: 21 days of **current-season play**,
-season-bridged into the previous season's final 21 days while the entity has played
-fewer than `season_bridge_window(sport)` current-season games (NBA 8, NFL 2,
-FOOTBALL 4 — ~10% of the season). That is the same threshold schedule the percentile
-cold-start guard uses, so Momentum and Rating agree on when last season stops
-mattering: a team that closed the season on a losing streak and opens with a win
-still carries that streak in its window until the bridge closes. Each stored
-snapshot also carries a **signed** `momentum_score` (average of the present slopes,
-falls preserved) as the durable historic datapoint; snapshots keep full resolution
-for 30 days, then thin to one per entity per day, forever.
+**Windows.** `slope`/`score` is the newest-minus-oldest sample over the lookback.
+Vibe: 21 calendar days (≥ 3 samples) — sentiment flows through the offseason, so
+its clock never pauses. Rating: the entity's last **`season_bridge_window(sport)`
+rated games** (NBA 8, NFL 2, FOOTBALL 4 — ~10% of the season; ≥ 2 samples), the
+same schedule the percentile cold-start guard runs on. A game-count lookback
+naturally closes at a season's end and resumes at the next season's first game —
+a team that closed on a losing streak and opens with a win still carries those
+losses until they age out — and bye weeks or schedule gaps can never starve it.
+Each stored snapshot also carries a **signed** `momentum_score` (average of the
+present slopes, falls preserved) as the durable historic datapoint; snapshots keep
+full resolution for 30 days, then thin to one per entity per day, forever.
 
 Same enriched row shape as the other boards (`name` / `image` / `team_*`). Reached
 via the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZzA08Z8bXgAP4U3fmx1xLHXgF3MNH44X8lItLYyhDFunBJh7eXRQF1kZjK8cg1E
+\restrict Vw0EF8HERtkPITCnNpSPWZELGeMBw45w2MlHv20hyCdrNV6aARjhNCh8V5GUoML
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2766,6 +2766,71 @@ $$;
 
 
 --
+-- Name: mark_momentum_refresh_from_event_rating(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_momentum_refresh_from_event_rating() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.rating_composite_pct IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'INSERT' OR OLD.rating_composite_pct IS DISTINCT FROM NEW.rating_composite_pct THEN
+        PERFORM public.mark_momentum_refresh_needed(NEW.sport, 'rating');
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: mark_momentum_refresh_from_vibe(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_momentum_refresh_from_vibe() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.sentiment IS NULL THEN
+        RETURN NEW;
+    END IF;
+
+    IF TG_OP = 'INSERT' OR OLD.sentiment IS DISTINCT FROM NEW.sentiment THEN
+        PERFORM public.mark_momentum_refresh_needed(NEW.sport, 'vibe');
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: mark_momentum_refresh_needed(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_momentum_refresh_needed(p_sport text, p_reason text DEFAULT NULL::text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_sport TEXT := upper(NULLIF(p_sport, ''));
+BEGIN
+    IF v_sport IS NULL THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO public.momentum_refresh_needed (sport, reason, first_marked_at, last_marked_at)
+    VALUES (v_sport, p_reason, NOW(), NOW())
+    ON CONFLICT (sport) DO UPDATE SET
+        reason = COALESCE(EXCLUDED.reason, public.momentum_refresh_needed.reason),
+        last_marked_at = NOW();
+
+    PERFORM pg_notify('momentum_refresh_ready', v_sport);
+END;
+$$;
+
+
+--
 -- Name: notify_percentile_changed(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3039,7 +3104,7 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Creation',             NULLIF(p_stats->>'big_chances_created','')::numeric,      TRUE,  TRUE,   1, 'offense'),
         ('Injuries',             NULLIF(p_stats->>'injuries','')::numeric,                TRUE,  FALSE, -1, 'offense'),
         ('Penalties Won',        NULLIF(p_stats->>'penalties_won','')::numeric,           FALSE, FALSE,  1, 'offense'),
-        ('Fouls Won',            NULLIF(p_stats->>'fouls_drawn','')::numeric,          FALSE, FALSE,  1, 'offense'),
+        ('Fouls Won',            NULLIF(p_stats->>'fouls_drawn','')::numeric,              FALSE, FALSE,  1, 'offense'),
         ('Possession Lost',      NULLIF(p_stats->>'possession_lost','')::numeric,         TRUE,  FALSE, -1, 'offense'),
         ('Possession %',         NULLIF(p_stats->>'possession_pct','')::numeric,          FALSE, FALSE,  1, 'offense'),
         ('Accurate Passes',      NULLIF(p_stats->>'accurate_passes','')::numeric,         FALSE, FALSE,  1, 'offense'),
@@ -3051,8 +3116,8 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('SoT Allowed',          NULLIF(p_stats->>'shots_on_target_allowed','')::numeric, TRUE, FALSE, -1, 'defense'),
         ('Blocked Shots',        NULLIF(p_stats->>'blocked_shots','')::numeric,           FALSE, FALSE,  1, 'defense'),
         ('Big Chances Allowed',  NULLIF(p_stats->>'big_chances_allowed','')::numeric,      TRUE, FALSE, -1, 'defense'),
-        ('Goals Against', NULLIF(p_stats->>'goals_against','')::numeric, TRUE, FALSE, -1, 'defense'),
-        ('Fouls Committed',      NULLIF(p_stats->>'fouls_committed','')::numeric,      FALSE, FALSE, -1, 'defense'),
+        ('Goals Against',        NULLIF(p_stats->>'goals_against','')::numeric,           TRUE, FALSE, -1, 'defense'),
+        ('Fouls Committed',      NULLIF(p_stats->>'fouls_committed','')::numeric,          FALSE, FALSE, -1, 'defense'),
         ('Cards',                COALESCE(NULLIF(p_stats->>'yellow_cards_total','')::numeric,0)
                                + COALESCE(NULLIF(p_stats->>'red_cards_total','')::numeric,0),   TRUE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'FOOTBALL';
@@ -3148,12 +3213,7 @@ CREATE FUNCTION public.recalculate_event_percentiles(p_sport text, p_season inte
 DECLARE
     v_player_events INTEGER := 0;
     v_team_events INTEGER := 0;
-    v_window INTEGER := CASE p_sport
-        WHEN 'NBA'      THEN 8
-        WHEN 'NFL'      THEN 2
-        WHEN 'FOOTBALL' THEN 4
-        ELSE 10
-    END;
+    v_window INTEGER := public.season_bridge_window(p_sport);
 BEGIN
     UPDATE event_box_scores SET composite_score = NULL, percentiles = '{}'::jsonb
         WHERE sport = p_sport AND season = p_season AND composite_score IS NOT NULL;
@@ -3773,6 +3833,182 @@ $$;
 
 
 --
+-- Name: refresh_momentum_scores(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_momentum_scores(p_sport text DEFAULT NULL::text) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    inserted_count INTEGER;
+BEGIN
+    -- Single-flight: the NOTIFY listener and the catch-up ticker can race a
+    -- drain for the same sport. The loser returns NULL (NOT 0) — the Go drain
+    -- leaves the dirty marker in place on NULL so the refresh is retried,
+    -- never double-appended and never silently lost.
+    IF NOT pg_try_advisory_xact_lock(hashtext('refresh_momentum_scores')) THEN
+        RETURN NULL;
+    END IF;
+
+    WITH target_sports AS (
+        SELECT id AS sport, current_season
+        FROM public.sports
+        WHERE p_sport IS NULL OR id = upper(p_sport)
+    ),
+    -- Vibe window: a plain 21 calendar days. News sentiment flows through the
+    -- offseason, so this clock never pauses with the fixture calendar.
+    vibe AS (
+        SELECT entity_type, entity_id, sport,
+               ((array_agg(sentiment ORDER BY generated_at DESC))[1]
+                - (array_agg(sentiment ORDER BY generated_at ASC))[1])::numeric AS vibe_slope,
+               count(*)::int AS vibe_samples,
+               min(generated_at) AS vibe_window_start,
+               max(generated_at) AS vibe_window_end
+        FROM public.vibe_scores
+        WHERE sentiment IS NOT NULL
+          AND generated_at > NOW() - INTERVAL '21 days'
+          AND sport IN (SELECT sport FROM target_sports)
+        GROUP BY entity_type, entity_id, sport
+        HAVING count(*) >= 3
+    ),
+    -- Rating lookback: the entity's last season_bridge_window(sport) rated
+    -- games (~10% of the season — the shared mig-025 schedule), across
+    -- (current, previous) seasons so the lookback closes at a season's end
+    -- and resumes at the next season's first game. Game-count, not calendar:
+    -- bye weeks and schedule gaps cannot starve it.
+    player_ranked AS (
+        SELECT e.player_id AS entity_id, e.sport, e.season,
+               e.rating_composite_pct, f.start_time,
+               row_number() OVER (
+                   PARTITION BY e.player_id, e.sport
+                   ORDER BY f.start_time DESC
+               ) AS rn
+        FROM public.event_box_scores e
+        JOIN public.fixtures f ON f.id = e.fixture_id
+        JOIN target_sports ts ON ts.sport = e.sport
+        WHERE e.rating_composite_pct IS NOT NULL
+          AND e.season IN (ts.current_season, ts.current_season - 1)
+    ),
+    team_ranked AS (
+        SELECT e.team_id AS entity_id, e.sport, e.season,
+               e.rating_composite_pct, f.start_time,
+               row_number() OVER (
+                   PARTITION BY e.team_id, e.sport
+                   ORDER BY f.start_time DESC
+               ) AS rn
+        FROM public.event_team_stats e
+        JOIN public.fixtures f ON f.id = e.fixture_id
+        JOIN target_sports ts ON ts.sport = e.sport
+        WHERE e.rating_composite_pct IS NOT NULL
+          AND e.season IN (ts.current_season, ts.current_season - 1)
+    ),
+    player_rating AS (
+        SELECT 'player'::text AS entity_type, pr.entity_id, pr.sport,
+               max(pr.season) AS season,
+               ((array_agg(pr.rating_composite_pct ORDER BY pr.start_time DESC))[1]
+                - (array_agg(pr.rating_composite_pct ORDER BY pr.start_time ASC))[1])::numeric AS rating_slope,
+               count(*)::int AS rating_samples,
+               min(pr.start_time) AS rating_window_start,
+               max(pr.start_time) AS rating_window_end
+        FROM player_ranked pr
+        WHERE pr.rn <= public.season_bridge_window(pr.sport)
+        GROUP BY pr.entity_id, pr.sport
+        HAVING count(*) >= 2
+    ),
+    team_rating AS (
+        SELECT 'team'::text AS entity_type, tr.entity_id, tr.sport,
+               max(tr.season) AS season,
+               ((array_agg(tr.rating_composite_pct ORDER BY tr.start_time DESC))[1]
+                - (array_agg(tr.rating_composite_pct ORDER BY tr.start_time ASC))[1])::numeric AS rating_slope,
+               count(*)::int AS rating_samples,
+               min(tr.start_time) AS rating_window_start,
+               max(tr.start_time) AS rating_window_end
+        FROM team_ranked tr
+        WHERE tr.rn <= public.season_bridge_window(tr.sport)
+        GROUP BY tr.entity_id, tr.sport
+        HAVING count(*) >= 2
+    ),
+    rating AS (
+        SELECT * FROM player_rating
+        UNION ALL
+        SELECT * FROM team_rating
+    ),
+    entity_scores AS (
+        SELECT COALESCE(v.entity_type, r.entity_type) AS entity_type,
+               COALESCE(v.entity_id, r.entity_id) AS entity_id,
+               COALESCE(v.sport, r.sport) AS sport,
+               r.season,
+               v.vibe_slope, COALESCE(v.vibe_samples, 0) AS vibe_samples,
+               v.vibe_window_start, v.vibe_window_end,
+               r.rating_slope, COALESCE(r.rating_samples, 0) AS rating_samples,
+               r.rating_window_start, r.rating_window_end
+        FROM vibe v
+        FULL OUTER JOIN rating r
+          ON r.entity_type = v.entity_type
+         AND r.entity_id = v.entity_id
+         AND r.sport = v.sport
+    ),
+    enriched AS (
+        SELECT es.sport, es.entity_type, es.entity_id,
+               COALESCE(es.season, ts.current_season) AS season,
+               pci.league_id, pci.team_id, pci.position,
+               COALESCE(pci.position_group, public.position_group(es.sport, pci.position)) AS position_group,
+               t.conference, t.division,
+               es.vibe_slope, es.vibe_samples, es.vibe_window_start, es.vibe_window_end,
+               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end
+        FROM entity_scores es
+        JOIN target_sports ts ON ts.sport = es.sport
+        LEFT JOIN public.player_current_identity pci
+          ON pci.player_id = es.entity_id AND pci.sport = es.sport AND es.entity_type = 'player'
+        LEFT JOIN public.teams t
+          ON t.id = pci.team_id AND t.sport = es.sport
+        WHERE es.entity_type = 'player'
+
+        UNION ALL
+
+        SELECT es.sport, es.entity_type, es.entity_id,
+               COALESCE(es.season, ts.current_season) AS season,
+               tm.league_id, tm.id AS team_id, NULL::text AS position, NULL::text AS position_group,
+               tm.conference, tm.division,
+               es.vibe_slope, es.vibe_samples, es.vibe_window_start, es.vibe_window_end,
+               es.rating_slope, es.rating_samples, es.rating_window_start, es.rating_window_end
+        FROM entity_scores es
+        JOIN target_sports ts ON ts.sport = es.sport
+        JOIN public.teams tm
+          ON tm.id = es.entity_id AND tm.sport = es.sport
+        WHERE es.entity_type = 'team'
+    )
+    INSERT INTO public.momentum_scores (
+        sport, entity_type, entity_id, season, league_id, team_id, position, position_group,
+        conference, division, vibe_slope, vibe_samples, vibe_window_start, vibe_window_end,
+        rating_slope, rating_samples, rating_window_start, rating_window_end, momentum_score
+    )
+    SELECT sport, entity_type, entity_id, season, league_id, team_id, position, position_group,
+           conference, division,
+           round(vibe_slope, 3), vibe_samples, vibe_window_start, vibe_window_end,
+           round(rating_slope, 3), rating_samples, rating_window_start, rating_window_end,
+           -- SIGNED: the average of the present slopes, sign preserved. Falls
+           -- are as much a historic datapoint as rises — this number is the
+           -- durable per-snapshot momentum record, so it must not clamp
+           -- downside.
+           round((
+               COALESCE(vibe_slope, 0) + COALESCE(rating_slope, 0)
+           ) / NULLIF(
+               (CASE WHEN vibe_slope IS NULL THEN 0 ELSE 1 END)
+               + (CASE WHEN rating_slope IS NULL THEN 0 ELSE 1 END),
+               0
+           ), 3) AS momentum_score
+    FROM enriched
+    WHERE vibe_slope IS NOT NULL OR rating_slope IS NOT NULL;
+
+    GET DIAGNOSTICS inserted_count = ROW_COUNT;
+
+    RETURN inserted_count;
+END;
+$$;
+
+
+--
 -- Name: refresh_peer_cohort_aggregates(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3966,6 +4202,29 @@ BEGIN
     RETURN QUERY SELECT v_app.id, v_app.override_id, 'reverted'::text, COALESCE(p_revert_reason, 'reverted applied transfer identity');
 END;
 $$;
+
+
+--
+-- Name: season_bridge_window(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.season_bridge_window(p_sport text) RETURNS integer
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    SELECT CASE upper(p_sport)
+        WHEN 'NBA'      THEN 8
+        WHEN 'NFL'      THEN 2
+        WHEN 'FOOTBALL' THEN 4
+        ELSE 10
+    END;
+$$;
+
+
+--
+-- Name: FUNCTION season_bridge_window(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.season_bridge_window(p_sport text) IS 'THE season-end/season-start threshold window, in games (~10% of season length: NBA 8/82, NFL 2/17, FOOTBALL 4/38). Established by the migration-025 cold-start guard. Consumers: recalculate_event_percentiles blends season_composite_score with the prior-season anchor while current-season games < window; refresh_momentum_scores reads each entity''s rating slope over its last <window> rated games (a season-spanning lookback, mig 130). Tune it here and every season-boundary consumer moves together — do not re-introduce inline copies.';
 
 
 --
@@ -5444,6 +5703,81 @@ CREATE SEQUENCE public.metadata_sync_log_id_seq
 --
 
 ALTER SEQUENCE public.metadata_sync_log_id_seq OWNED BY public.metadata_sync_log.id;
+
+
+--
+-- Name: momentum_refresh_needed; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.momentum_refresh_needed (
+    sport text NOT NULL,
+    reason text,
+    first_marked_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_marked_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE momentum_refresh_needed; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.momentum_refresh_needed IS 'Durable dirty-sport queue for Momentum snapshots. Upstream Vibe/event-rating changes mark a sport dirty; the API listener drains only pending rows into momentum_scores.';
+
+
+--
+-- Name: momentum_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.momentum_scores (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    season integer,
+    league_id integer,
+    team_id integer,
+    "position" text,
+    position_group text,
+    conference text,
+    division text,
+    vibe_slope numeric,
+    vibe_samples integer DEFAULT 0 NOT NULL,
+    vibe_window_start timestamp with time zone,
+    vibe_window_end timestamp with time zone,
+    rating_slope numeric,
+    rating_samples integer DEFAULT 0 NOT NULL,
+    rating_window_start timestamp with time zone,
+    rating_window_end timestamp with time zone,
+    momentum_score numeric,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
+);
+
+
+--
+-- Name: TABLE momentum_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.momentum_scores IS 'Durable Momentum snapshots (append-only). vibe_slope: 21 calendar days. rating_slope: the entity''s last season_bridge_window(sport) rated games (~10% of season, the same schedule as the percentile cold-start guard), a game-count lookback that spans the season boundary and cannot be starved by bye weeks. momentum_score: SIGNED average of the present slopes (falls recorded, not clamped). Retention: full resolution 30 days, then thinned to the last snapshot per entity per day by the Go cleanup ticker.';
+
+
+--
+-- Name: momentum_scores_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.momentum_scores_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: momentum_scores_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.momentum_scores_id_seq OWNED BY public.momentum_scores.id;
 
 
 --
@@ -7016,6 +7350,13 @@ ALTER TABLE ONLY public.metadata_sync_log ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- Name: momentum_scores id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.momentum_scores ALTER COLUMN id SET DEFAULT nextval('public.momentum_scores_id_seq'::regclass);
+
+
+--
 -- Name: news_articles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7278,6 +7619,22 @@ ALTER TABLE ONLY public.metadata_refresh_queue
 
 ALTER TABLE ONLY public.metadata_sync_log
     ADD CONSTRAINT metadata_sync_log_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: momentum_refresh_needed momentum_refresh_needed_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.momentum_refresh_needed
+    ADD CONSTRAINT momentum_refresh_needed_pkey PRIMARY KEY (sport);
+
+
+--
+-- Name: momentum_scores momentum_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.momentum_scores
+    ADD CONSTRAINT momentum_scores_pkey PRIMARY KEY (id);
 
 
 --
@@ -7872,6 +8229,13 @@ CREATE INDEX idx_metadata_queue_player ON public.metadata_refresh_queue USING bt
 
 
 --
+-- Name: idx_momentum_scores_read; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_scores_read ON public.momentum_scores USING btree (sport, entity_type, entity_id, generated_at DESC);
+
+
+--
 -- Name: idx_nae_vetted_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8446,6 +8810,27 @@ CREATE TRIGGER enqueue_derive_on_vetted AFTER UPDATE OF vetted ON public.news_ar
 
 
 --
+-- Name: event_box_scores mark_momentum_refresh_event_box_scores; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER mark_momentum_refresh_event_box_scores AFTER INSERT OR UPDATE OF rating_composite_pct ON public.event_box_scores FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
+
+
+--
+-- Name: event_team_stats mark_momentum_refresh_event_team_stats; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER mark_momentum_refresh_event_team_stats AFTER INSERT OR UPDATE OF rating_composite_pct ON public.event_team_stats FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_event_rating();
+
+
+--
+-- Name: vibe_scores mark_momentum_refresh_vibe_scores; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER mark_momentum_refresh_vibe_scores AFTER INSERT OR UPDATE OF sentiment ON public.vibe_scores FOR EACH ROW EXECUTE FUNCTION public.mark_momentum_refresh_from_vibe();
+
+
+--
 -- Name: event_box_scores trg_detect_team_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8919,4 +9304,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZzA08Z8bXgAP4U3fmx1xLHXgF3MNH44X8lItLYyhDFunBJh7eXRQF1kZjK8cg1E
+\unrestrict Vw0EF8HERtkPITCnNpSPWZELGeMBw45w2MlHv20hyCdrNV6aARjhNCh8V5GUoML
+

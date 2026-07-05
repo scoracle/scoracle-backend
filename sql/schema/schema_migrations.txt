@@ -126,3 +126,6 @@
 125_nfl_team_points_zscore
 126_nfl_player_forced_fumbles
 127_nfl_player_fumbles_lost_datapoint
+128_momentum_scores
+129_momentum_season_bridge
+130_momentum_game_lookback

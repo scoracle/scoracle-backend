@@ -6,6 +6,45 @@ leaderboard split, plus the plan to make both tight and durable. Companion to
 shipped in `afd16d5`); this doc records what the audit found and what to do
 next.
 
+## Resume checklist (state as of commit 502e900, 2026-07-05)
+
+Done — no need to re-audit or re-derive any of this:
+
+- [x] Audit (this doc): dataflow verified sound; findings F1-F5 below.
+- [x] Migration 129 (`sql/migrations/129_momentum_season_bridge.sql`):
+      `season_bridge_window(sport)` canonical (025 schedule, NBA 8 / NFL 2 /
+      FOOTBALL 4); `recalculate_event_percentiles` re-emitted to consume it;
+      rating window = 21 in-season days season-bridged while the bridge is
+      open; SIGNED `momentum_score`; single-flight advisory lock (NULL on
+      contention); index swap to `idx_momentum_scores_read`.
+- [x] Go: 5-min per-sport refresh throttle (NULL-aware drain keeps marker);
+      cleanup thins >30d snapshots to last-per-entity-per-day, kept forever.
+- [x] Read-side dead filters pruned; swagger + ENDPOINTS.md + README updated.
+- [x] Validated live via `BEGIN; \i 128; \i 129; ...; ROLLBACK;` — sports
+      refresh 131/194/523 rows, signed scores both sides, bridge open for
+      297 FOOTBALL + 2 NBA entities / closed for all NFL, downsample keeps
+      lone daily datapoints. Go build + tests green.
+
+Left to do:
+
+- [ ] **APPLY migrations 128 + 129 for real** — the local DB was only
+      rollback-validated; `momentum_scores` does not exist there yet. Apply
+      both (local + wherever else migrations roll out), confirm the Go drain
+      picks up the `migration_129_season_bridge` backfill markers on next
+      API start, and `/leaderboard/momentum` serves stored rows.
+- [ ] **Fold 125-129 into `sql/schema/schema.sql` + append
+      `schema_migrations.txt`** — blocked on the in-flight uncommitted
+      125-127 folds (unstaged schema.sql edits + untracked migration files
+      in the tree); commit those first, then fold 128-129 the same way.
+- [ ] **Phase 4 route retirement** (frontend-gated): once the frontend is on
+      `?board=`, delete the dedicated `/leaderboard/{board}` routes and the
+      `/trending` alias (`go/internal/api/server.go:173-178`).
+- [ ] Optional / product-gated: per-sport rating sample floor if the NFL
+      bye-week dropout (see Amendment caveat) bothers in practice;
+      statement-level dirty-queue triggers if finalize timing ever regresses;
+      readers for the momentum history (`metric=combined`, profile series)
+      when a surface wants them.
+
 ## Verdict
 
 The architecture is right. The dirty-marker -> NOTIFY -> drain -> snapshot ->

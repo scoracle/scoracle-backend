@@ -535,7 +535,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       ms.conference, ms.division, ms.vibe_slope AS slope, ms.vibe_samples AS samples, ms.generated_at
 			FROM public.momentum_scores ms, req
 			WHERE ms.sport = req.sport
-			  AND ms.vibe_slope IS NOT NULL AND ms.vibe_slope > 0 AND ms.vibe_samples >= 3
+			  AND ms.vibe_slope IS NOT NULL AND ms.vibe_slope > 0
 			  AND (req.entity_type IS NULL OR ms.entity_type = req.entity_type)
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
@@ -590,7 +590,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       ms.conference, ms.division, ms.rating_slope AS slope, ms.rating_samples AS samples, ms.generated_at
 			FROM public.momentum_scores ms, req
 			WHERE ms.sport = req.sport
-			  AND ms.rating_slope IS NOT NULL AND ms.rating_slope > 0 AND ms.rating_samples >= 3
+			  AND ms.rating_slope IS NOT NULL AND ms.rating_slope > 0
 			  AND (req.entity_type IS NULL OR ms.entity_type = req.entity_type)
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),

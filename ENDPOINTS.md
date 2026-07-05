@@ -706,6 +706,20 @@ This board reads the latest durable snapshots from `momentum_scores`, so Momentu
 can accumulate as a historical reference instead of being computed inline for each
 request. Upstream Vibe and event-rating writes mark `momentum_refresh_needed` and
 notify the API worker, which runs `refresh_momentum_scores()` only for dirty sports.
+
+**Windows.** `slope`/`score` is the newest-minus-oldest sample over the snapshot
+window (≥ 3 samples). Vibe: 21 calendar days — sentiment flows through the
+offseason, so its clock never pauses. Rating: 21 days of **current-season play**,
+season-bridged into the previous season's final 21 days while the entity has played
+fewer than `season_bridge_window(sport)` current-season games (NBA 8, NFL 2,
+FOOTBALL 4 — ~10% of the season). That is the same threshold schedule the percentile
+cold-start guard uses, so Momentum and Rating agree on when last season stops
+mattering: a team that closed the season on a losing streak and opens with a win
+still carries that streak in its window until the bridge closes. Each stored
+snapshot also carries a **signed** `momentum_score` (average of the present slopes,
+falls preserved) as the durable historic datapoint; snapshots keep full resolution
+for 30 days, then thin to one per entity per day, forever.
+
 Same enriched row shape as the other boards (`name` / `image` / `team_*`). Reached
 via the dedicated path or `/leaderboard?board=momentum`. `entity_type`, shared
 cohort filters, and `limit` query params apply. `/leaderboard/trending` and

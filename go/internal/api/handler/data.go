@@ -215,11 +215,12 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetTrendingLeaderboard returns the sport-wide Momentum board — the risers: entities
-// ranked by the slope of their recent trajectory. ?metric=vibe (default) ranks the
-// vibe-sentiment trend; ?metric=rating ranks the composite-rating trend. score is the
-// fitted per-week rise.
+// ranked by their stored momentum_scores slope (newest minus oldest sample in the
+// snapshot window). ?metric=vibe (default) ranks the sentiment trend over 21 calendar
+// days; ?metric=rating ranks the rating-percentile trend over 21 days of current-season
+// play, season-bridged on the shared season_bridge_window schedule.
 // @Summary Momentum leaderboard (risers)
-// @Description Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating. /trending remains a legacy alias.
+// @Description Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = 21 in-season days with season-bridge). metric=vibe (default) or rating. /trending remains a legacy alias.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

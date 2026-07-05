@@ -555,8 +555,10 @@ paths:
       - data
   /{sport}/leaderboard/momentum:
     get:
-      description: Entities ranked by their recent trajectory slope (risers). metric=vibe
-        (default) or rating. /trending remains a legacy alias.
+      description: Entities ranked by their stored momentum snapshot slope (newest
+        minus oldest sample; vibe = 21 calendar days, rating = 21 in-season days with
+        season-bridge). metric=vibe (default) or rating. /trending remains a legacy
+        alias.
       parameters:
       - description: Sport
         enum:

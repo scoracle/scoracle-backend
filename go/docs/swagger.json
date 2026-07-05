@@ -486,7 +486,7 @@
         },
         "/{sport}/leaderboard/momentum": {
             "get": {
-                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = 21 in-season days with season-bridge). metric=vibe (default) or rating. /trending remains a legacy alias.",
+                "description": "Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. /trending remains a legacy alias.",
                 "produces": [
                     "application/json"
                 ],

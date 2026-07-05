@@ -58,8 +58,6 @@ const COMENTION_PROXIMITY_CHARS: i32 = 50;
 /// Summary clip (transfer.go: `truncate(s, 240)`) and news-description clip (`truncate(d, 160)`).
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
-const CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR: i16 = 85;
-const CONFIRMED_MOVE_MIN_SOURCES: usize = 1;
 
 /// transfer_system_prompt is the model-neutral transfer/trade vetting prompt. `noun` is "trade" for
 /// NBA/NFL and "transfer" otherwise.
@@ -245,6 +243,7 @@ fn build_transfer_identity_adjudication_prompt(
     new_team_name: &str,
     deterministic_heat: i16,
     deterministic_confidence: f64,
+    confirmed_source_hints: usize,
     source_rumor_id: i64,
     row: &TransferRow,
     news: &[NewsItem],
@@ -268,8 +267,11 @@ fn build_transfer_identity_adjudication_prompt(
         "Proposed new identity: team_id={new_team_id} team_name={new_team_name}\n"
     ));
     b.push_str(&format!(
-        "Source transfer_rumors.id: {source_rumor_id}\nDeterministic heat: {deterministic_heat}\nDeterministic confidence: {deterministic_confidence:.3}\n"
+        "Source transfer_rumors.id: {source_rumor_id}\nRaw deterministic heat: {deterministic_heat}\nDeterministic triage confidence: {deterministic_confidence:.3}\nConfirmed-source hint count: {confirmed_source_hints}\n"
     ));
+    b.push_str(
+        "Heat and confirmed-source hints explain why this candidate was reviewed; they are not proof. Decide from the evidence text and team IDs.\n"
+    );
     b.push_str(&format!(
         "Vetted rumor direction: {}\nVetted stage: {}\nVetted summary: {}\nVetted source: {}\n",
         row.direction.as_deref().unwrap_or(""),
@@ -1262,26 +1264,8 @@ fn confirmed_move_source_count(
     sources.len()
 }
 
-fn identity_apply_deterministic_score(
-    sport: &str,
-    team_name: &str,
-    player_name: &str,
-    heat: i16,
-    _row: &TransferRow,
-    news: &[NewsItem],
-) -> (i16, f64, bool) {
-    let confirmed_move = confirmed_move_source_count(sport, team_name, player_name, news)
-        >= CONFIRMED_MOVE_MIN_SOURCES;
-    let identity_heat = if confirmed_move {
-        heat.max(CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR)
-    } else {
-        heat
-    };
-    (
-        identity_heat,
-        f64::from(identity_heat) / 100.0,
-        confirmed_move,
-    )
+fn identity_apply_deterministic_score(heat: i16) -> (i16, f64) {
+    (heat, f64::from(heat) / 100.0)
 }
 
 async fn current_identity_team(
@@ -1432,8 +1416,9 @@ async fn maybe_apply_transfer_identity(
         return Ok(());
     }
 
-    let (identity_heat, deterministic_confidence, confirmed_move_floor) =
-        identity_apply_deterministic_score(sport, team_name, &c.player_name, heat, row, news);
+    let (identity_heat, deterministic_confidence) = identity_apply_deterministic_score(heat);
+    let confirmed_source_hints =
+        confirmed_move_source_count(sport, team_name, &c.player_name, news);
     let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
         warn!(
             sport,
@@ -1466,6 +1451,7 @@ async fn maybe_apply_transfer_identity(
         team_name,
         identity_heat,
         deterministic_confidence,
+        confirmed_source_hints,
         persisted_rumor_id,
         row,
         news,
@@ -1492,7 +1478,7 @@ async fn maybe_apply_transfer_identity(
             warn!(
                 team = team_id,
                 player = c.player_id,
-                confirmed_move_floor,
+                confirmed_source_hints,
                 error = %e,
                 "transfers: identity adjudication generate failed; fail closed"
             );
@@ -1838,7 +1824,7 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     }
 
     #[test]
-    fn identity_score_floors_confirmed_multi_source_trade() {
+    fn identity_score_does_not_floor_confirmed_trade() {
         let news = vec![
             NewsItem {
                 title: "Reports: Browns finalizing trade with Rams for Myles Garrett".to_string(),
@@ -1852,32 +1838,13 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             },
         ];
 
-        let row = TransferRow {
-            is_rumor: Some(true),
-            direction: Some("incoming".to_string()),
-            stage: Some("here_we_go".to_string()),
-            summary: Some("Rams finalizing trade for Garrett".to_string()),
-            attribution: Some("MSN".to_string()),
-            confidence: Some(0.5),
-            model: Some("mistral:7b".to_string()),
-            trigger_payload: "{}".to_string(),
-        };
+        let (heat, confidence) = identity_apply_deterministic_score(0);
+        let confirmed_sources =
+            confirmed_move_source_count("NFL", "Los Angeles Rams", "Myles Garrett", &news);
 
-        let (heat, confidence, floored) = identity_apply_deterministic_score(
-            "NFL",
-            "Los Angeles Rams",
-            "Myles Garrett",
-            0,
-            &row,
-            &news,
-        );
-
-        assert!(floored);
-        assert_eq!(heat, CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR);
-        assert_eq!(
-            confidence,
-            f64::from(CONFIRMED_MOVE_IDENTITY_HEAT_FLOOR) / 100.0
-        );
+        assert_eq!(confirmed_sources, 1);
+        assert_eq!(heat, 0);
+        assert_eq!(confidence, 0.0);
     }
 
     #[test]
@@ -1888,27 +1855,11 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             source: "Blog".to_string(),
         }];
 
-        let row = TransferRow {
-            is_rumor: Some(true),
-            direction: Some("incoming".to_string()),
-            stage: Some("speculation".to_string()),
-            summary: Some("Rams linked with defensive options".to_string()),
-            attribution: Some("Blog".to_string()),
-            confidence: Some(0.4),
-            model: Some("mistral:7b".to_string()),
-            trigger_payload: "{}".to_string(),
-        };
+        let (heat, confidence) = identity_apply_deterministic_score(12);
+        let confirmed_sources =
+            confirmed_move_source_count("NFL", "Los Angeles Rams", "Myles Garrett", &news);
 
-        let (heat, confidence, floored) = identity_apply_deterministic_score(
-            "NFL",
-            "Los Angeles Rams",
-            "Myles Garrett",
-            12,
-            &row,
-            &news,
-        );
-
-        assert!(!floored);
+        assert_eq!(confirmed_sources, 0);
         assert_eq!(heat, 12);
         assert_eq!(confidence, 0.12);
     }
@@ -1929,27 +1880,11 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             },
         ];
 
-        let row = TransferRow {
-            is_rumor: Some(true),
-            direction: Some("incoming".to_string()),
-            stage: Some("speculation".to_string()),
-            summary: Some("Eagles mentioned after Garrett trade to Rams".to_string()),
-            attribution: Some("MSN".to_string()),
-            confidence: Some(0.4),
-            model: Some("mistral:7b".to_string()),
-            trigger_payload: "{}".to_string(),
-        };
+        let (heat, confidence) = identity_apply_deterministic_score(1);
+        let confirmed_sources =
+            confirmed_move_source_count("NFL", "Philadelphia Eagles", "Myles Garrett", &news);
 
-        let (heat, confidence, floored) = identity_apply_deterministic_score(
-            "NFL",
-            "Philadelphia Eagles",
-            "Myles Garrett",
-            1,
-            &row,
-            &news,
-        );
-
-        assert!(!floored);
+        assert_eq!(confirmed_sources, 0);
         assert_eq!(heat, 1);
         assert_eq!(confidence, 0.01);
     }
@@ -1962,27 +1897,11 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             source: "Example".to_string(),
         }];
 
-        let row = TransferRow {
-            is_rumor: Some(true),
-            direction: Some("incoming".to_string()),
-            stage: Some("here_we_go".to_string()),
-            summary: Some("Tottenham transfer item".to_string()),
-            attribution: Some("Example".to_string()),
-            confidence: Some(0.5),
-            model: Some("mistral:7b".to_string()),
-            trigger_payload: "{}".to_string(),
-        };
+        let (heat, confidence) = identity_apply_deterministic_score(3);
+        let confirmed_sources =
+            confirmed_move_source_count("FOOTBALL", "Tottenham Hotspur", "Andre", &news);
 
-        let (heat, confidence, floored) = identity_apply_deterministic_score(
-            "FOOTBALL",
-            "Tottenham Hotspur",
-            "Andre",
-            3,
-            &row,
-            &news,
-        );
-
-        assert!(!floored);
+        assert_eq!(confirmed_sources, 0);
         assert_eq!(heat, 3);
         assert_eq!(confidence, 0.03);
     }
@@ -2120,6 +2039,7 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             "New FC",
             91,
             0.91,
+            2,
             123,
             &row,
             &[NewsItem {
@@ -2131,5 +2051,8 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
         assert!(prompt.contains("Current identity: team_id=18 team_name=Old FC"));
         assert!(prompt.contains("Proposed new identity: team_id=42 team_name=New FC"));
         assert!(prompt.contains("Source transfer_rumors.id: 123"));
+        assert!(prompt.contains("Raw deterministic heat: 91"));
+        assert!(prompt.contains("Confirmed-source hint count: 2"));
+        assert!(prompt.contains("they are not proof"));
     }
 }

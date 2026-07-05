@@ -128,21 +128,12 @@ scored AS (
         j.id AS source_rumor_id,
         CASE
             WHEN coalesce(e.confirmed_sources, 0) >= 1
-             AND coalesce(j.heat, 0) < 85
-                THEN 'confirmed_move_floor'
+                THEN 'raw_heat_threshold_with_confirmed_hint'
             ELSE 'normal_heat'
         END AS trigger_reason,
         coalesce(j.heat, 0) AS raw_heat,
-        CASE
-            WHEN coalesce(e.confirmed_sources, 0) >= 1
-                THEN greatest(coalesce(j.heat, 0), 85)
-            ELSE coalesce(j.heat, 0)
-        END AS identity_heat,
-        CASE
-            WHEN coalesce(e.confirmed_sources, 0) >= 1
-                THEN greatest(coalesce(j.heat, 0), 85)::numeric / 100
-            ELSE coalesce(j.heat, 0)::numeric / 100
-        END AS deterministic_confidence,
+        coalesce(j.heat, 0) AS identity_heat,
+        coalesce(j.heat, 0)::numeric / 100 AS deterministic_confidence,
         coalesce(e.confirmed_sources, 0) AS confirmed_sources,
         j.stage,
         j.confidence AS model_confidence,
@@ -155,11 +146,7 @@ scored AS (
         row_number() OVER (
             PARTITION BY j.sport, j.player_id
             ORDER BY
-                CASE
-                    WHEN coalesce(e.confirmed_sources, 0) >= 1
-                        THEN greatest(coalesce(j.heat, 0), 85)
-                    ELSE coalesce(j.heat, 0)
-                END DESC,
+                coalesce(j.heat, 0) DESC,
                 j.generated_at DESC,
                 j.id DESC
         ) AS player_candidate_rank

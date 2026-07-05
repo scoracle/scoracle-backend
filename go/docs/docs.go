@@ -375,7 +375,7 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard": {
             "get": {
-                "description": "DB-first leaderboard. entity_type=player (default) or team. Supports cohort filters; team_id+player includes active roster rows.",
+                "description": "DB-first leaderboard. entity_type=player (default) or team. Supports top-down cohort filters; the default Rating board with team_id+player includes active roster rows.",
                 "produces": [
                     "application/json"
                 ],
@@ -486,6 +486,107 @@ const docTemplate = `{
                 }
             }
         },
+        "/{sport}/leaderboard/momentum": {
+            "get": {
+                "description": "Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating. /trending remains a legacy alias.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "data"
+                ],
+                "summary": "Momentum leaderboard (risers)",
+                "parameters": [
+                    {
+                        "enum": [
+                            "nba",
+                            "nfl",
+                            "football"
+                        ],
+                        "type": "string",
+                        "description": "Sport",
+                        "name": "sport",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Trajectory: vibe (default) or rating",
+                        "name": "metric",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter: player or team (default both)",
+                        "name": "entity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a league",
+                        "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team",
+                        "name": "team_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter player position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter player position group",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team division",
+                        "name": "division",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Max rows (default 30)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/respond.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{sport}/leaderboard/news": {
             "get": {
                 "description": "Sport-wide board of the hottest model narratives with source freshness and trajectory markers.",
@@ -519,6 +620,42 @@ const docTemplate = `{
                         "type": "string",
                         "description": "News scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
                         "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a league",
+                        "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team",
+                        "name": "team_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position group",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team division",
+                        "name": "division",
                         "in": "query"
                     },
                     {
@@ -591,6 +728,42 @@ const docTemplate = `{
                         "description": "Season year (default current)",
                         "name": "season",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a league",
+                        "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team",
+                        "name": "team_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position group",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team division",
+                        "name": "division",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -650,59 +823,6 @@ const docTemplate = `{
                         "description": "Transfer scope: current_week, last_week, two_weeks_ago, three_weeks_ago, last_month",
                         "name": "scope",
                         "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/respond.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/{sport}/leaderboard/momentum": {
-            "get": {
-                "description": "Entities ranked by their recent trajectory slope (risers). metric=vibe (default) or rating. /trending remains a legacy alias.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "data"
-                ],
-                "summary": "Momentum leaderboard (risers)",
-                "parameters": [
-                    {
-                        "enum": [
-                            "nba",
-                            "nfl",
-                            "football"
-                        ],
-                        "type": "string",
-                        "description": "Sport",
-                        "name": "sport",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Trajectory: vibe (default) or rating",
-                        "name": "metric",
-                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -712,8 +832,38 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Max rows (default 30)",
-                        "name": "limit",
+                        "description": "Filter to a league",
+                        "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team",
+                        "name": "team_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position group",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team/current player conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team/current player division",
+                        "name": "division",
                         "in": "query"
                     }
                 ],
@@ -767,6 +917,42 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter: player or team (default both)",
                         "name": "entity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a league",
+                        "name": "league_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to a team",
+                        "name": "team_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position",
+                        "name": "position",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter current player position group",
+                        "name": "position_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team conference",
+                        "name": "conference",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter team division",
+                        "name": "division",
                         "in": "query"
                     },
                     {

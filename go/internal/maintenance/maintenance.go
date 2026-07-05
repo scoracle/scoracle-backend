@@ -86,7 +86,10 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 	if cfg.CatchUpInterval > 0 {
 		t := time.NewTicker(cfg.CatchUpInterval)
 		tickers = append(tickers, t)
-		go runLoop(ctx, t.C, "catchup", func() { catchUpSweep(ctx, pool, logger) })
+		go runLoop(ctx, t.C, "catchup", func() {
+			catchUpSweep(ctx, pool, logger)
+			drainMomentumRefreshNeeded(ctx, pool, logger)
+		})
 	}
 
 	// All-time composite rank: recompute season_composite_rank_alltime
@@ -135,6 +138,13 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "peer_cohort", func() { refreshPeerCohortAggregates(ctx, pool, logger) })
 	}
+
+	// Momentum snapshots are upstream-triggered. Vibe/event-rating writes mark
+	// momentum_refresh_needed and NOTIFY momentum_refresh_ready; this listener drains
+	// only pending dirty sports. The catch-up loop above is a no-op unless markers
+	// exist, covering missed NOTIFYs without blind refreshes.
+	drainMomentumRefreshNeeded(ctx, pool, logger)
+	go listenMomentumRefresh(ctx, pool, logger)
 
 	<-ctx.Done()
 	logger.Info("Maintenance tickers stopped")
@@ -353,6 +363,96 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 		return
 	}
 	logger.Info("Peer-cohort aggregates refreshed", "cohorts", n)
+}
+
+func listenMomentumRefresh(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	backoff := 5 * time.Second
+	for {
+		err := listenMomentumRefreshLoop(ctx, pool, logger)
+		if ctx.Err() != nil {
+			logger.Info("Momentum refresh listener stopped")
+			return
+		}
+		logger.Warn("Momentum refresh listener disconnected", "error", err, "backoff", backoff)
+		select {
+		case <-time.After(backoff):
+			if backoff < 30*time.Second {
+				backoff *= 2
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second
+				}
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func listenMomentumRefreshLoop(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+	conn, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	if _, err := conn.Exec(ctx, `LISTEN momentum_refresh_ready`); err != nil {
+		return err
+	}
+	logger.Info("Momentum refresh listener connected", "channel", "momentum_refresh_ready")
+
+	for {
+		if _, err := conn.Conn().WaitForNotification(ctx); err != nil {
+			return err
+		}
+		drainMomentumRefreshNeeded(ctx, pool, logger)
+	}
+}
+
+func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
+	type dirtySport struct {
+		sport        string
+		lastMarkedAt time.Time
+	}
+
+	rows, err := pool.Query(ctx, `
+		SELECT sport, last_marked_at
+		FROM public.momentum_refresh_needed
+		ORDER BY last_marked_at
+		LIMIT 20`)
+	if err != nil {
+		logger.Warn("Momentum refresh queue scan failed", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	dirty := make([]dirtySport, 0, 8)
+	for rows.Next() {
+		var item dirtySport
+		if err := rows.Scan(&item.sport, &item.lastMarkedAt); err != nil {
+			logger.Warn("Momentum refresh queue scan failed", "error", err)
+			return
+		}
+		dirty = append(dirty, item)
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("Momentum refresh queue scan failed", "error", err)
+		return
+	}
+
+	for _, item := range dirty {
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT public.refresh_momentum_scores($1)`, item.sport).Scan(&n); err != nil {
+			logger.Warn("Momentum scores refresh failed", "sport", item.sport, "error", err)
+			continue
+		}
+		if _, err := pool.Exec(ctx, `
+			DELETE FROM public.momentum_refresh_needed
+			WHERE sport = $1 AND last_marked_at = $2`, item.sport, item.lastMarkedAt); err != nil {
+			logger.Warn("Momentum refresh queue clear failed", "sport", item.sport, "error", err)
+			continue
+		}
+		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", n)
+	}
 }
 
 // scrubNewsLinks is the news-link scrub sweep — the async backlog/repair path.

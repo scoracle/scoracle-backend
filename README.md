@@ -125,12 +125,12 @@ Sport-level + leaderboard routes:
 
 - `GET /api/v1/entities` (alias: `/api/v1/autofill`) — universal text-only player/team directory for home search
 - `GET /api/v1/{sport}/meta`, `GET /api/v1/{sport}/autofill`, `GET /api/v1/{sport}/health` — legacy sport-wide metadata/search payload, legacy sport autofill, freshness
-- `GET /api/v1/{sport}/leaderboard` (DB-first ranking surface — `entity_type=player|team`, `scope=composite|specialist|<skill>`, cohort filters including `team_id`; also `?board=rating|vibes|sigil|news|transfers|momentum`)
+- `GET /api/v1/{sport}/leaderboard` (DB-first ranking/cohort surface — top-down filters from sport → league/conference → division → team → player; `entity_type=player&team_id=...` is the full current roster surface; also `?board=rating|vibes|sigil|news|transfers|momentum`)
 - `GET /api/v1/{sport}/leaderboard/vibes` — sport-wide Vibe board (latest sentiment 1-100)
 - `GET /api/v1/{sport}/leaderboard/sigil` — sport-wide Sigil crown board (+ `previous_score` delta)
 - `GET /api/v1/{sport}/leaderboard/news` — hottest model narratives by per-narrative impact (`scope=current_week|last_week|two_weeks_ago|three_weeks_ago|last_month`)
 - `GET /api/v1/{sport}/leaderboard/transfers` — model-vetted rumors by heat 0-100 with the same historical scopes as News
-- `GET /api/v1/{sport}/leaderboard/momentum` — vibe & rating risers (`/trending` legacy alias)
+- `GET /api/v1/{sport}/leaderboard/momentum` — stored Momentum snapshots from `momentum_scores`, refreshed when upstream Vibe/rating data changes (`/trending` legacy alias)
 
 League-scoped variants (preferred for multi-league precision):
 

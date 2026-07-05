@@ -7,7 +7,7 @@ Stat key normalization is handled by Postgres triggers.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from shared.api_errors import RateLimitExhausted
 from shared.bdl_client import BDLClient
@@ -16,9 +16,7 @@ from shared.models import (
     EventBoxScore,
     EventTeamStats,
     Player,
-    PlayerStats,
     Team,
-    TeamStats,
 )
 from shared.stat_keys import canonicalize
 
@@ -97,57 +95,6 @@ class NBAHandler:
                     "Skipping non-current NBA team: %s (ID: %s)", t.get("name"), team_id
                 )
         return teams
-
-    # ------------------------------------------------------------------
-    # Player Stats (includes embedded player profiles)
-    # ------------------------------------------------------------------
-
-    def get_player_stats(
-        self,
-        season: int,
-        season_type: str = "regular",
-        callback: Callable[[PlayerStats], None] | None = None,
-    ) -> list[PlayerStats]:
-        """Fetch all player season averages via cursor pagination.
-
-        If callback is provided, calls it for each PlayerStats and returns
-        an empty list. Otherwise collects and returns all.
-        """
-        results: list[PlayerStats] = []
-        params: dict[str, Any] = {
-            "season": season,
-            "season_type": season_type,
-            "type": "base",
-        }
-
-        for page in self.client.get_paginated(
-            "/nba/v1/season_averages/general", params
-        ):
-            for raw in page:
-                ps = _parse_player_stats(raw, season_type)
-                if callback:
-                    callback(ps)
-                else:
-                    results.append(ps)
-
-        return results
-
-    # ------------------------------------------------------------------
-    # Team Stats
-    # ------------------------------------------------------------------
-
-    def get_team_stats(
-        self, season: int, season_type: str = "regular"
-    ) -> list[TeamStats]:
-        params: dict[str, Any] = {
-            "season": season,
-            "season_type": season_type,
-            "type": "base",
-        }
-        items = self.client.get_all_pages(
-            "/nba/v1/team_season_averages/general", params
-        )
-        return [_parse_team_stats(raw, season_type) for raw in items]
 
     # ------------------------------------------------------------------
     # Fixture schedule + fixture box scores
@@ -478,37 +425,6 @@ def _parse_player(raw: dict[str, Any]) -> Player:
         nationality=raw.get("country") or None,
         team_id=team_id,
         meta=meta,
-        raw=raw,
-    )
-
-
-def _parse_player_stats(raw: dict[str, Any], season_type: str) -> PlayerStats:
-    player_raw = raw.get("player", {})
-    player = _parse_player(player_raw)
-
-    raw_stats = {k: v for k, v in (raw.get("stats") or {}).items() if v is not None}
-    stats = canonicalize(raw_stats, _PLAYER_STAT_MAP)
-    stats["season_type"] = season_type
-
-    return PlayerStats(
-        player_id=player.id,
-        team_id=player.team_id,
-        position=player.position,
-        player=player,
-        stats=stats,
-        raw=raw,
-    )
-
-
-def _parse_team_stats(raw: dict[str, Any], season_type: str) -> TeamStats:
-    team_raw = raw.get("team", {})
-    raw_stats = {k: v for k, v in (raw.get("stats") or {}).items() if v is not None}
-    stats = canonicalize(raw_stats, _TEAM_STAT_MAP)
-    stats["season_type"] = season_type
-
-    return TeamStats(
-        team_id=team_raw.get("id", 0),
-        stats=stats,
         raw=raw,
     )
 

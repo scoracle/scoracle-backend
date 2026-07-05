@@ -8,7 +8,7 @@ Stat key normalization is handled by Postgres triggers.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from typing import Any
 
 from shared.api_errors import RateLimitExhausted
 from shared.bdl_client import BDLClient
@@ -17,9 +17,7 @@ from shared.models import (
     EventBoxScore,
     EventTeamStats,
     Player,
-    PlayerStats,
     Team,
-    TeamStats,
 )
 from shared.stat_keys import canonicalize
 
@@ -27,13 +25,11 @@ logger = logging.getLogger(__name__)
 
 NFL_BASE_URL = "https://api.balldontlie.io"
 
-# Keys in the /season_stats response that are metadata, not stat values
-_NON_STAT_KEYS = {"player", "season", "postseason", "team"}
-
 # BDL provider-key -> canonical-key maps. Identical to the NBA handler since
 # both share the BallDontLie schema; kept inline so each handler is
 # self-contained.
 _PLAYER_STAT_MAP: dict[str, str] = {
+    "forced_fumbles": "fumbles_forced",
     "tov": "turnover",
     "gp":  "games_played",
 }
@@ -72,45 +68,6 @@ class NFLHandler:
     def get_teams(self) -> list[Team]:
         resp = self.client.get("/nfl/v1/teams")
         return [_parse_team(t) for t in resp.get("data", [])]
-
-    # ------------------------------------------------------------------
-    # Player Stats — flat JSON format
-    # ------------------------------------------------------------------
-
-    def get_player_stats(
-        self,
-        season: int,
-        postseason: bool = False,
-        callback: Callable[[PlayerStats], None] | None = None,
-    ) -> list[PlayerStats]:
-        results: list[PlayerStats] = []
-        params: dict[str, Any] = {
-            "season": season,
-            "postseason": str(postseason).lower(),
-        }
-
-        for page in self.client.get_paginated("/nfl/v1/season_stats", params):
-            for raw in page:
-                ps = _parse_player_stats_flat(raw, postseason)
-                if ps is None:
-                    continue
-                if callback:
-                    callback(ps)
-                else:
-                    results.append(ps)
-
-        return results
-
-    # ------------------------------------------------------------------
-    # Team Stats (via standings)
-    # ------------------------------------------------------------------
-
-    def get_team_stats(
-        self, season: int, season_type: str = "regular"
-    ) -> list[TeamStats]:
-        params: dict[str, Any] = {"season": season}
-        items = self.client.get_all_pages("/nfl/v1/standings", params)
-        return [_parse_standing(raw, season_type) for raw in items]
 
     # ------------------------------------------------------------------
     # Fixture schedule + fixture box scores
@@ -483,66 +440,6 @@ def _parse_player(raw: dict[str, Any]) -> Player:
         nationality=raw.get("country") or None,
         team_id=team_id,
         meta=meta,
-        raw=raw,
-    )
-
-
-def _parse_player_stats_flat(
-    item: dict[str, Any], postseason: bool
-) -> PlayerStats | None:
-    """Parse NFL flat season_stats format.
-
-    NFL /season_stats returns flat JSON where stat fields are top-level
-    alongside "player", "season", and "postseason". We extract the player,
-    then treat all remaining numeric fields as stats.
-    """
-    player_raw = item.get("player")
-    if not isinstance(player_raw, dict):
-        return None
-
-    player = _parse_player(player_raw)
-
-    # All non-metadata fields are stats
-    raw_stats: dict[str, Any] = {}
-    for k, v in item.items():
-        if k in _NON_STAT_KEYS:
-            continue
-        if isinstance(v, (int, float)):
-            raw_stats[k] = v
-        elif isinstance(v, str):
-            # Try to parse string-encoded numbers
-            try:
-                raw_stats[k] = float(v)
-            except ValueError:
-                pass
-
-    stats = canonicalize(raw_stats, _PLAYER_STAT_MAP)
-    stats["season_type"] = "postseason" if postseason else "regular"
-
-    return PlayerStats(
-        player_id=player.id,
-        team_id=player.team_id,
-        player=player,
-        stats=stats,
-        raw=item,
-    )
-
-
-def _parse_standing(raw: dict[str, Any], season_type: str) -> TeamStats:
-    team_raw = raw.get("team", {})
-    stats: dict[str, Any] = {
-        "wins": float(raw.get("wins", 0)),
-        "losses": float(raw.get("losses", 0)),
-        "ties": float(raw.get("ties", 0)),
-        "points_for": float(raw.get("points_for", 0)),
-        "points_against": float(raw.get("points_against", 0)),
-        "point_differential": float(raw.get("point_differential", 0)),
-        "season_type": season_type,
-    }
-
-    return TeamStats(
-        team_id=team_raw.get("id", raw.get("id", 0)),
-        stats=stats,
         raw=raw,
     )
 

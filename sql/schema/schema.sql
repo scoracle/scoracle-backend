@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict YBnJFhZa8TDpXvqxCgm6Rx9mKXNXD5FCgCNAeOX5x6hCoaIISZmIgy121r7iiwW
+\restrict ZzA08Z8bXgAP4U3fmx1xLHXgF3MNH44X8lItLYyhDFunBJh7eXRQF1kZjK8cg1E
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1704,18 +1704,12 @@ BEGIN
     ELSIF v_decision = 'reject' THEN
         v_status := 'rejected';
         v_reason := COALESCE(v_reason, 'adjudicator rejected candidate');
-    ELSIF v_decision = 'manual_review' THEN
-        v_status := 'manual_review';
-        v_reason := COALESCE(v_reason, 'adjudicator requested manual review');
     ELSIF v_decision <> 'apply' THEN
         v_status := 'failed_closed';
         v_reason := COALESCE(v_reason, 'invalid adjudication decision');
     ELSIF v_event_type IS NULL OR NOT (v_event_type = ANY(v_threshold.allowed_event_types)) THEN
         v_status := 'failed_closed';
         v_reason := COALESCE(v_reason, 'unsupported adjudication event_type');
-    ELSIF v_conf IS NULL OR v_conf < v_threshold.min_adjudication_confidence THEN
-        v_status := 'failed_closed';
-        v_reason := COALESCE(v_reason, 'adjudication confidence below threshold');
     ELSIF v_adj_new_team_id IS DISTINCT FROM p_new_team_id
        OR v_adj_old_team_id IS DISTINCT FROM p_old_team_id THEN
         v_status := 'failed_closed';
@@ -8924,5 +8918,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict YBnJFhZa8TDpXvqxCgm6Rx9mKXNXD5FCgCNAeOX5x6hCoaIISZmIgy121r7iiwW
+\unrestrict ZzA08Z8bXgAP4U3fmx1xLHXgF3MNH44X8lItLYyhDFunBJh7eXRQF1kZjK8cg1E
 

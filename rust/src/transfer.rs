@@ -155,7 +155,8 @@ struct TransferIdentityThreshold {
 pub struct TransferIdentityAdjudication {
     pub decision: String,
     pub event_type: String,
-    pub confidence: f64,
+    #[serde(default)]
+    pub confidence: Option<f64>,
     pub old_team_id: Option<i32>,
     pub new_team_id: i32,
     pub reason: String,
@@ -180,7 +181,6 @@ impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser
         for key in [
             "decision",
             "event_type",
-            "confidence",
             "old_team_id",
             "new_team_id",
             "reason",
@@ -194,7 +194,7 @@ impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser
             Ok(v) => v,
             Err(_) => return Ok(None),
         };
-        if !matches!(adj.decision.as_str(), "apply" | "reject" | "manual_review") {
+        if !matches!(adj.decision.as_str(), "apply" | "reject") {
             return Ok(None);
         }
         if !matches!(
@@ -203,7 +203,10 @@ impl Parser<TransferIdentityAdjudication> for TransferIdentityAdjudicationParser
         ) {
             return Ok(None);
         }
-        if !(0.0..=1.0).contains(&adj.confidence) {
+        if adj
+            .confidence
+            .is_some_and(|confidence| !(0.0..=1.0).contains(&confidence))
+        {
             return Ok(None);
         }
         Ok(Some(adj))
@@ -222,7 +225,7 @@ fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
 Fail closed. You confirm or reject only the proposed IDs; never invent a different player or team ID.
 
 Return only strict JSON with exactly these fields:
-{{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","confidence":0.0,"old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
+{{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
 
 Use decision="apply" only when the evidence says the move is complete, agreed, signed, registered, official, or otherwise a current-team fact now.
 Use decision="reject" for speculation, interest, monitoring, ambiguity, unclear direction, conflicting sources, missing or contradictory team IDs, historical/background moves, already-current-team contradictions, or false positives.
@@ -1768,7 +1771,6 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
         let raw = r#"{
             "decision":"apply",
             "event_type":"transfer",
-            "confidence":0.91,
             "old_team_id":18,
             "new_team_id":42,
             "reason":"club announced the signing",
@@ -1779,6 +1781,7 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             .unwrap()
             .expect("strict JSON parses");
         assert_eq!(adj.decision, "apply");
+        assert_eq!(adj.confidence, None);
         assert_eq!(adj.old_team_id, Some(18));
         assert_eq!(adj.new_team_id, 42);
     }
@@ -1802,6 +1805,12 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
         assert!(TransferIdentityAdjudicationParser
             .parse(
                 r#"{"decision":"maybe","event_type":"transfer","confidence":0.9,"old_team_id":1,"new_team_id":2,"reason":"","evidence_spans":[]}"#
+            )
+            .unwrap()
+            .is_none());
+        assert!(TransferIdentityAdjudicationParser
+            .parse(
+                r#"{"decision":"manual_review","event_type":"transfer","old_team_id":1,"new_team_id":2,"reason":"","evidence_spans":[]}"#
             )
             .unwrap()
             .is_none());

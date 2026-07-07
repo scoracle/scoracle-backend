@@ -1490,9 +1490,7 @@ CREATE FUNCTION public._compute_rating_bundle(p_sport text, p_season integer, p_
         GROUP BY player_id, league_id
     ),
     comp AS (
-        SELECT player_id, league_id, composite FROM comp_flat  WHERE p_sport <> 'NFL'
-        UNION ALL
-        SELECT player_id, league_id, composite FROM comp_facet WHERE p_sport =  'NFL'
+        SELECT player_id, league_id, composite FROM comp_flat
     ),
     sp AS (
         SELECT DISTINCT ON (player_id, league_id)
@@ -1882,7 +1880,7 @@ CREATE FUNCTION public.compute_event_starline(p_sport text, p_season integer) RE
     AS $$
 DECLARE
     v_updated  INTEGER := 0;
-    v_balanced BOOLEAN := (p_sport = 'NFL');
+    v_balanced BOOLEAN := FALSE;
 BEGIN
     UPDATE event_box_scores
        SET rating_composite = NULL, rating_specialist = NULL, rating_specialty = NULL
@@ -3002,50 +3000,76 @@ CREATE FUNCTION public.rating_datapoints(p_sport text, p_stats jsonb, p_rate_mod
     FROM (SELECT (SELECT rm.suffix FROM public.rate_modes rm
                   WHERE rm.sport = 'NFL' AND rm.mode = p_rate_mode) AS suffix) rs
     CROSS JOIN LATERAL (VALUES
-        ('Total Yards',
+        ('Air Yards Responsible',
             CASE WHEN p_rate_mode = 'total' THEN
                   COALESCE((p_stats->>'passing_yards')::numeric,0)
-                + COALESCE((p_stats->>'rushing_yards')::numeric,0)
                 + COALESCE((p_stats->>'receiving_yards')::numeric,0)
                 + COALESCE((p_stats->>'kick_return_yards')::numeric,0)
                 + COALESCE((p_stats->>'punt_returner_return_yards')::numeric,0)
+                + COALESCE((p_stats->>'punt_yards')::numeric,0)
+                + COALESCE((p_stats->>'interception_yards')::numeric,0)
             ELSE
                   COALESCE((p_stats->>('passing_yards' || rs.suffix))::numeric,(p_stats->>'passing_yards')::numeric,0)
-                + COALESCE((p_stats->>('rushing_yards' || rs.suffix))::numeric,(p_stats->>'rushing_yards')::numeric,0)
                 + COALESCE((p_stats->>('receiving_yards' || rs.suffix))::numeric,(p_stats->>'receiving_yards')::numeric,0)
                 + COALESCE((p_stats->>('kick_return_yards' || rs.suffix))::numeric,(p_stats->>'kick_return_yards')::numeric,0)
                 + COALESCE((p_stats->>('punt_returner_return_yards' || rs.suffix))::numeric,(p_stats->>'punt_returner_return_yards')::numeric,0)
+                + COALESCE((p_stats->>('punt_yards' || rs.suffix))::numeric,(p_stats->>'punt_yards')::numeric,0)
+                + COALESCE((p_stats->>('interception_yards' || rs.suffix))::numeric,(p_stats->>'interception_yards')::numeric,0)
             END,                                                                  TRUE, TRUE,   1, 'offense', NULL),
-        ('Touchdowns',
+        ('Ground Yards Responsible',
             CASE WHEN p_rate_mode = 'total' THEN
-                  COALESCE((p_stats->>'passing_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>'rushing_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>'receiving_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>'kick_return_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>'punt_return_touchdowns')::numeric,0)
+                  COALESCE((p_stats->>'rushing_yards')::numeric,0)
             ELSE
-                  COALESCE((p_stats->>('passing_touchdowns' || rs.suffix))::numeric,(p_stats->>'passing_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>('rushing_touchdowns' || rs.suffix))::numeric,(p_stats->>'rushing_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>('receiving_touchdowns' || rs.suffix))::numeric,(p_stats->>'receiving_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>('kick_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'kick_return_touchdowns')::numeric,0)
-                + COALESCE((p_stats->>('punt_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'punt_return_touchdowns')::numeric,0)
+                  COALESCE((p_stats->>('rushing_yards' || rs.suffix))::numeric,(p_stats->>'rushing_yards')::numeric,0)
+            END,                                                                  TRUE, TRUE,   1, 'offense', 'rushing_yards'),
+        ('Points Responsible For',
+            CASE WHEN p_rate_mode = 'total' THEN
+                  6 * (
+                      COALESCE((p_stats->>'passing_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'rushing_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'receiving_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'kick_return_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'punt_return_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'interception_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>'fumbles_touchdowns')::numeric,0)
+                  )
+                + 3 * COALESCE((p_stats->>'field_goals_made')::numeric,0)
+                + COALESCE((p_stats->>'extra_points_made')::numeric,0)
+            ELSE
+                  6 * (
+                      COALESCE((p_stats->>('passing_touchdowns' || rs.suffix))::numeric,(p_stats->>'passing_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('rushing_touchdowns' || rs.suffix))::numeric,(p_stats->>'rushing_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('receiving_touchdowns' || rs.suffix))::numeric,(p_stats->>'receiving_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('kick_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'kick_return_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('punt_return_touchdowns' || rs.suffix))::numeric,(p_stats->>'punt_return_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('interception_touchdowns' || rs.suffix))::numeric,(p_stats->>'interception_touchdowns')::numeric,0)
+                    + COALESCE((p_stats->>('fumbles_touchdowns' || rs.suffix))::numeric,(p_stats->>'fumbles_touchdowns')::numeric,0)
+                  )
+                + 3 * COALESCE((p_stats->>('field_goals_made' || rs.suffix))::numeric,(p_stats->>'field_goals_made')::numeric,0)
+                + COALESCE((p_stats->>('extra_points_made' || rs.suffix))::numeric,(p_stats->>'extra_points_made')::numeric,0)
             END,                                                                  TRUE, TRUE,   1, 'offense', NULL),
-        ('Receiving',        NULLIF(p_stats->>'receptions','')::numeric,          TRUE, TRUE,   1, 'offense', 'receptions'),
         ('Giveaways',
             CASE WHEN p_rate_mode = 'total' THEN
                   COALESCE((p_stats->>'passing_interceptions')::numeric,0)
+                + COALESCE((p_stats->>'fumbles_lost')::numeric,0)
             ELSE
                   COALESCE((p_stats->>('passing_interceptions' || rs.suffix))::numeric,(p_stats->>'passing_interceptions')::numeric,0)
+                + COALESCE((p_stats->>('fumbles_lost' || rs.suffix))::numeric,(p_stats->>'fumbles_lost')::numeric,0)
             END,                                                                  TRUE, FALSE, -1, 'offense', NULL),
-        ('Fumbles Lost',     NULLIF(p_stats->>'fumbles_lost','')::numeric,        TRUE, FALSE, -1, 'offense', 'fumbles_lost'),
         ('Tackling',         NULLIF(p_stats->>'total_tackles','')::numeric,       TRUE, TRUE,   1, 'defense', 'total_tackles'),
-        ('Tackles For Loss', NULLIF(p_stats->>'tackles_for_loss','')::numeric,    TRUE, TRUE,   1, 'defense', 'tackles_for_loss'),
-        ('Sacks',            NULLIF(p_stats->>'defensive_sacks','')::numeric,     TRUE, TRUE,   1, 'defense', 'defensive_sacks'),
-        ('Pass Defense',     NULLIF(p_stats->>'passes_defended','')::numeric,     TRUE, TRUE,   1, 'defense', 'passes_defended'),
-        ('Interceptions',    NULLIF(p_stats->>'defensive_interceptions','')::numeric, TRUE, TRUE, 1, 'defense', 'defensive_interceptions'),
-        ('Forced Fumbles',    NULLIF(p_stats->>'fumbles_forced','')::numeric,     TRUE, TRUE,   1, 'defense', 'fumbles_forced'),
-        ('Field Goals',      NULLIF(p_stats->>'field_goals_made','')::numeric,    TRUE, TRUE,   1, 'special', 'field_goals_made'),
-        ('Punting',          NULLIF(p_stats->>'punts_inside_20','')::numeric,     TRUE, TRUE,   1, 'special', 'punts_inside_20')
+        ('Tackles For Loss',
+            CASE WHEN p_rate_mode = 'total' THEN
+                  GREATEST(
+                      COALESCE((p_stats->>'tackles_for_loss')::numeric,0),
+                      COALESCE((p_stats->>'defensive_sacks')::numeric,0)
+                  )
+            ELSE
+                  GREATEST(
+                      COALESCE((p_stats->>('tackles_for_loss' || rs.suffix))::numeric,(p_stats->>'tackles_for_loss')::numeric,0),
+                      COALESCE((p_stats->>('defensive_sacks' || rs.suffix))::numeric,(p_stats->>'defensive_sacks')::numeric,0)
+                  )
+            END,                                                                  TRUE, TRUE,   1, 'defense', NULL),
+        ('Interceptions',    NULLIF(p_stats->>'defensive_interceptions','')::numeric, TRUE, TRUE, 1, 'defense', 'defensive_interceptions')
     ) v(label, raw_value, in_comp, in_spec, sign, facet, rate_base)
     WHERE p_sport = 'NFL';
 $$;
@@ -9305,4 +9329,3 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 --
 
 \unrestrict Vw0EF8HERtkPITCnNpSPWZELGeMBw45w2MlHv20hyCdrNV6aARjhNCh8V5GUoML
-

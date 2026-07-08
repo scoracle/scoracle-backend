@@ -28,7 +28,7 @@
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::util::{go_json_float, go_json_string, hash_components};
+use crate::util::{go_json_float, go_json_string, hash_components, round1};
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
@@ -605,10 +605,12 @@ fn clamp_f(lo: f64, hi: f64, v: f64) -> f64 {
     }
 }
 
-fn round1(x: f64) -> f64 {
-    (x * 10.0).round() / 10.0
-}
-
+/// linear_slope — mean-centered OLS slope over [0..N-1] → values.
+///
+/// DO NOT merge with `sigil::linear_slope` — different accumulation order (this mean-centered
+/// form vs sigil's sum form), mathematically equivalent but not FP-bit-identical. See plan A6 /
+/// E3: this slope's `round1`'d output feeds rating's `input_components` JSON → the `input_hash`
+/// debounce, so a changed accumulation could flip boundary values and cause spurious regens.
 fn linear_slope(vals: &[f64]) -> f64 {
     let n = vals.len();
     if n < 2 {

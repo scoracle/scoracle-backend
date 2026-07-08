@@ -30,6 +30,20 @@ Elegance comes through simplicity. Simple and durable beats clever and fragile. 
 
 Our role is to eliminate noise around entities and divine the facts. Backend code should do the same: preserve clean source data, make derivation durable and observable, empower the model layer with clear context, and serve precomputed products through simple contracts.
 
+## Model Hierarchy
+
+The dataflow exists to refine work so each model tier does what it is best at.
+
+**Candle (CPU) instances** handle low-reasoning classification: "is this transfer-related?", "is this about the right entity?", "which articles are about the same topic?", "how relevant is this narrative to this entity?" This is the sieve work — cheap, fast, runs on the CPU, never contends with the generation GPU. Every classification candle makes is one fewer classification the GPU has to make.
+
+**The GPU (local) instance** handles the surfaceable product: the scouting report, the narrative, the sentiment, the sigil synthesis. This is the prose work — the FEELING that makes the product uniquely ours. It is expensive and it is the moat.
+
+**The dataflow's goal is to provide such rich, clean context that by the time it reaches the GPU — especially at sigil — the instance is mostly focused on quality prose and tone, not on figuring out what the data means.** The candle layers filter, bucket, cluster, heat-rank, and weight. The deterministic layers compute heat, percentiles, trajectories, slopes. The GPU receives evidence that has already been refined into signal. Its job is to convey the feeling, not to decode the noise.
+
+This is why the two rails exist: each rail refines independently so the convergence (momentum) and the final synthesis (sigil) receive the richest possible context. Scrub buckets articles so transfers and narratives each see the right corpus. Vibe summarizes both so sigil sees the felt state. PEAK distills the stats so sigil sees the scouting context. Momentum tracks the trajectories so sigil sees where the entity is heading. By the time the GPU writes the sigil blurb, the only question left is: what does this feel like?
+
+The GPU burns on entities where something meaningful moved, not on every daily tick. The candle burns on every article, cheaply. This is the hierarchy: cheap work happens often, expensive work happens when it matters.
+
 ## Repo Role
 
 - Type: `backend/data-serving`

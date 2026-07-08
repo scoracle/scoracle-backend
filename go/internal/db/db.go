@@ -978,7 +978,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- zero rows → empty narratives, clearing stale content. The old
 			-- body-filtered inner max let a marker fail to clear older narratives.
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
-			       ns.source_attribution, ns.input_news_ids,
+			       ns.input_news_ids,
 			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
 			       ns.source_count, ns.source_names, ns.source_latest_at, ns.source_oldest_at,
 			       ns.trajectory,
@@ -1010,7 +1010,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
-			     FROM (SELECT narrative_title, body, impact, impact_components, source_attribution, input_news_ids,
+			     FROM (SELECT narrative_title, body, impact, impact_components, input_news_ids,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
 			                  trajectory, trajectory_label, trajectory_components,
 			                  model_version, prompt_version, generated_at

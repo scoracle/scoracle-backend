@@ -469,7 +469,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
 		),
 		latest AS (
-			SELECT * FROM latest_raw WHERE score IS NOT NULL AND blurb IS NOT NULL
+			-- F7: mirror the entity_vibes profile's 72h freshness gate (see its vibe_cur
+			-- CTE, ~L1133) so the board only crowns entities the profile corroborates —
+			-- otherwise an entity whose latest scored synthesis is >72h old ranks here
+			-- (with recap) while the profile returns current:null (the recap/score
+			-- mismatch bug). SHARED CONSTANT: both windows are INTERVAL '72 hours' — keep
+			-- them EQUAL or the mismatch returns. Explicit ?season=N keeps the no-window
+			-- final-crown behavior, exactly matching entity_vibes.
+			SELECT lr.* FROM latest_raw lr, req
+			WHERE lr.score IS NOT NULL AND lr.blurb IS NOT NULL
+			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		ranked AS (
 			SELECT u.*, row_number() OVER (ORDER BY u.score DESC, u.generated_at DESC) AS rank
@@ -1130,6 +1139,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.generated_at = latest_gen.g
 			  AND vs.score IS NOT NULL
+			  -- SHARED CONSTANT with sigil_leaderboard's 'latest' CTE (F7): both gate the
+			  -- live crown behind INTERVAL '72 hours'. Keep them equal — a drift reopens the
+			  -- recap/score mismatch (board shows a crown the profile has cleared).
 			  AND (req.want_season IS NOT NULL OR vs.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		vibe_hist AS (

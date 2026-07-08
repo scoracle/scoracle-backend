@@ -727,12 +727,49 @@ pub async fn persist_narratives(
     out: &NarrativesOutput,
 ) -> Result<()> {
     let trigger_json = trigger_payload.to_string();
-    let mut classified = Vec::with_capacity(out.narratives.len());
-    for n in &out.narratives {
-        let (trajectory, components) =
-            classify_trajectory(pool, entity_type, entity_id, sport, n).await?;
-        classified.push((n, trajectory, components));
-    }
+
+    // Batch-load the previous impact per narrative title in ONE query (plan A2 — was N
+    // per-narrative round-trips). DISTINCT ON (narrative_title) ... ORDER BY narrative_title,
+    // generated_at DESC takes the latest matching row PER TITLE across ALL generations, exactly
+    // what the former per-narrative SELECT did. NOT the global-latest max(generated_at) form:
+    // that would pin every title to the single newest generation and flip a title last seen a
+    // few generations ago from heating_up/cooling_off to new_or_unmatched.
+    let titles: Vec<String> = out.narratives.iter().map(|n| n.title.clone()).collect();
+    let prev_by_title: std::collections::HashMap<String, i32> = if titles.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        let rows: Vec<(String, i32)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT ON (narrative_title) narrative_title, impact::int
+            FROM news_summaries
+            WHERE entity_type = $1
+              AND entity_id = $2
+              AND sport = $3
+              AND narrative_title = ANY($4)
+              AND body IS NOT NULL
+              AND impact IS NOT NULL
+            ORDER BY narrative_title, generated_at DESC
+            "#,
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(&titles)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("classify narrative trajectories {entity_type}/{entity_id}"))?;
+        rows.into_iter().collect()
+    };
+
+    let classified: Vec<(&Narrative, &'static str, serde_json::Value)> = out
+        .narratives
+        .iter()
+        .map(|n| {
+            let (trajectory, components) =
+                trajectory_from_previous(prev_by_title.get(&n.title).copied(), n.impact);
+            (n, trajectory, components)
+        })
+        .collect();
 
     // NOW() is constant within a transaction (transaction_timestamp), so every row of this generation
     // shares one generated_at — Go's `res.GeneratedAt`, without needing a datetime crate to bind it.
@@ -813,38 +850,18 @@ pub async fn persist_narratives(
     Ok(())
 }
 
-async fn classify_trajectory(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    narrative: &Narrative,
-) -> Result<(&'static str, serde_json::Value)> {
-    let previous: Option<i32> = sqlx::query_scalar(
-        r#"
-        SELECT impact::int
-        FROM news_summaries
-        WHERE entity_type = $1
-          AND entity_id = $2
-          AND sport = $3
-          AND body IS NOT NULL
-          AND narrative_title = $4
-          AND impact IS NOT NULL
-        ORDER BY generated_at DESC
-        LIMIT 1
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(&narrative.title)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("classify narrative trajectory {entity_type}/{entity_id}"))?;
-
+/// trajectory_from_previous classifies a narrative's trajectory from `previous` (the latest
+/// prior generation's impact for the SAME title, or None when the title is unseen) and its
+/// `current_impact`. Pure — the DB read that supplies `previous` is batched once in
+/// persist_narratives (plan A2). Same 10-point thresholds, `reason` codes, and component JSON
+/// shape as the former per-narrative `classify_trajectory`.
+fn trajectory_from_previous(
+    previous: Option<i32>,
+    current_impact: i32,
+) -> (&'static str, serde_json::Value) {
     let (trajectory, reason, delta) = match previous {
         Some(prev) => {
-            let delta = narrative.impact - prev;
+            let delta = current_impact - prev;
             if delta >= 10 {
                 ("heating_up", "impact_up", Some(delta))
             } else if delta <= -10 {
@@ -856,15 +873,15 @@ async fn classify_trajectory(
         None => ("developing_story", "new_or_unmatched", None),
     };
 
-    Ok((
+    (
         trajectory,
         json!({
             "previous_impact": previous,
-            "current_impact": narrative.impact,
+            "current_impact": current_impact,
             "impact_delta": delta,
             "reason": reason,
         }),
-    ))
+    )
 }
 
 /// now_unix is the recency reference for `compute_news_impact` — Unix seconds, no datetime crate.

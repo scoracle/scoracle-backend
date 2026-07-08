@@ -18,7 +18,7 @@ use crate::harness::{Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
-use crate::util::truncate;
+use crate::util::{truncate, truncate_bytes};
 use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -334,7 +334,7 @@ pub fn build_sentiment_prompt(
                 n.impact,
                 trajectory_label(&n.trajectory),
                 n.title,
-                truncate_body(&n.body, BODY_TRUNCATE)
+                truncate_bytes(&n.body, BODY_TRUNCATE)
             ));
         }
     }
@@ -389,19 +389,6 @@ fn trajectory_label(raw: &str) -> &'static str {
         "cooling_off" => "Cooling off",
         _ => "Developing story...",
     }
-}
-
-/// truncate_body mirrors vibe.go's byte-based `truncate(s, max)`: returns `s` unchanged
-/// when within `max` bytes, else the first `max` bytes + "...". Go slices raw bytes and
-/// appends "..."; on JSON-marshal Go replaces any partial multi-byte tail with U+FFFD —
-/// `from_utf8_lossy` does the same, so the wire prompt matches (identical for ASCII).
-fn truncate_body(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        return s.to_string();
-    }
-    let mut out = String::from_utf8_lossy(&s.as_bytes()[..max]).into_owned();
-    out.push_str("...");
-    out
 }
 
 // ---------------------------------------------------------------------------

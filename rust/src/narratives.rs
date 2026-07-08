@@ -723,9 +723,9 @@ pub async fn generate_narratives(
 
 /// persist_narratives writes ONE news_summaries row per narrative (all sharing the transaction's
 /// `NOW()` — a "generation"), or a single NULL-narrative marker row when there is none. Mirrors
-/// `news_narratives.go::persist`: `source_attribution` is always NULL, `trigger_payload` is the
-/// caller's value (the drain passes jsonb `null` — Go marshals the nil trigger map). Written +
-/// compiles; not run in the offline parity bin.
+/// `news_narratives.go::persist`: `trigger_payload` is the caller's value (the drain passes jsonb
+/// `null` — Go marshals the nil trigger map). Written + compiles; not run in the offline parity
+/// bin. (The `source_attribution` column — always NULL here — was dropped in mig 139, plan C7.)
 pub async fn persist_narratives(
     pool: &PgPool,
     entity_type: &str,
@@ -788,12 +788,12 @@ pub async fn persist_narratives(
         INSERT INTO news_summaries (
             entity_type, entity_id, sport, trigger_type, trigger_payload,
             narrative_title, body, impact, impact_components,
-            source_attribution, input_news_ids,
+            input_news_ids,
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
             model_version, prompt_version, generated_at
         ) VALUES (
-            $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, NULL,$10,
+            $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
             COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,

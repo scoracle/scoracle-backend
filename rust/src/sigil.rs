@@ -288,23 +288,58 @@ pub async fn load_momentum_pillar(
 ) -> Result<SynthMomentum> {
     let mut m = SynthMomentum::default();
 
-    // Sentiment trend: last 14 rows from vibe_scores; also capture the latest row's felt-read.
-    // sentiment is int2 → scan i16, widened to i32/f64 below (matches Go scanning into `int`).
-    let sent_rows: Vec<(i16, String)> = sqlx::query_as(
+    // Composite trend targets the entity's event table. rating_composite_pct is `numeric`; sqlx
+    // can't scan numeric → f64 without a decimal feature, so cast `::float8` in SQL —
+    // VALUE-IDENTICAL to Go's pgx numeric→float64 (both yield the nearest double), and it only
+    // feeds the bucketed trend_dir + a `%.1f` render, so the prompt is unaffected.
+    let (comp_table, id_col) = match entity_type {
+        "player" => ("event_box_scores", "player_id"),
+        _ => ("event_team_stats", "team_id"),
+    };
+    // comp_table / id_col are stage-controlled literals (never user input) — no injection surface.
+    let comp_q = format!(
         r#"
-        SELECT sentiment, COALESCE(prompt, '') FROM vibe_scores
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-          AND sentiment IS NOT NULL
-        ORDER BY generated_at DESC
-        LIMIT 14
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load sentiment trend {entity_type}/{entity_id}"))?;
+        SELECT e.rating_composite_pct::float8 FROM public.{comp_table} e
+            JOIN public.fixtures f ON f.id = e.fixture_id
+            WHERE e.{id_col} = $1 AND e.sport = $2
+              AND e.rating_composite_pct IS NOT NULL
+              AND ($3::int IS NULL OR e.season = $3)
+            ORDER BY f.start_time DESC
+            LIMIT 10
+        "#
+    );
+
+    // The sentiment-trend (vibe_scores) and composite-trend (event table) reads are independent —
+    // fetch both concurrently, then process each exactly as before (plan A3). Sentiment is int2 →
+    // scan i16, widened below (matches Go scanning into `int`).
+    let (sent_rows, comp_rows): (Vec<(i16, String)>, Vec<(f64,)>) = tokio::try_join!(
+        async {
+            sqlx::query_as(
+                r#"
+                SELECT sentiment, COALESCE(prompt, '') FROM vibe_scores
+                WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+                  AND sentiment IS NOT NULL
+                ORDER BY generated_at DESC
+                LIMIT 14
+                "#,
+            )
+            .bind(entity_type)
+            .bind(entity_id)
+            .bind(sport)
+            .fetch_all(pool)
+            .await
+            .with_context(|| format!("load sentiment trend {entity_type}/{entity_id}"))
+        },
+        async {
+            sqlx::query_as(&comp_q)
+                .bind(entity_id)
+                .bind(sport)
+                .bind(season)
+                .fetch_all(pool)
+                .await
+                .with_context(|| format!("load composite trend {entity_type}/{entity_id}"))
+        },
+    )?;
 
     let mut sent_scores: Vec<f64> = Vec::with_capacity(sent_rows.len());
     for (idx, (v, p)) in sent_rows.into_iter().enumerate() {
@@ -319,34 +354,6 @@ pub async fn load_momentum_pillar(
         sent_scores.reverse();
         m.sentiment_slope = linear_slope(&sent_scores);
     }
-
-    // Composite trend: last 10 events from the entity's event table. rating_composite_pct is
-    // `numeric`; sqlx can't scan numeric → f64 without a decimal feature, so cast `::float8` in
-    // SQL — VALUE-IDENTICAL to Go's pgx numeric→float64 (both yield the nearest double), and it
-    // only feeds the bucketed trend_dir + a `%.1f` render, so the prompt is unaffected.
-    let (comp_table, id_col) = match entity_type {
-        "player" => ("event_box_scores", "player_id"),
-        _ => ("event_team_stats", "team_id"),
-    };
-    // comp_table / id_col are stage-controlled literals (never user input) — no injection surface.
-    let q = format!(
-        r#"
-        SELECT e.rating_composite_pct::float8 FROM public.{comp_table} e
-            JOIN public.fixtures f ON f.id = e.fixture_id
-            WHERE e.{id_col} = $1 AND e.sport = $2
-              AND e.rating_composite_pct IS NOT NULL
-              AND ($3::int IS NULL OR e.season = $3)
-            ORDER BY f.start_time DESC
-            LIMIT 10
-        "#
-    );
-    let comp_rows: Vec<(f64,)> = sqlx::query_as(&q)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(season)
-        .fetch_all(pool)
-        .await
-        .with_context(|| format!("load composite trend {entity_type}/{entity_id}"))?;
 
     let mut comp_scores: Vec<f64> = comp_rows.into_iter().map(|(v,)| v).collect();
     if !comp_scores.is_empty() {
@@ -367,15 +374,26 @@ async fn load_pillars(
     sport: &str, // upper-cased
 ) -> Result<(i32, Vec<SynthNarrative>, Option<SynthRating>, SynthMomentum)> {
     let season = resolve_season(&hx.pool, sport, None).await?;
-    let narratives = load_narrative_pillar(&hx.pool, entity_type, entity_id, sport)
-        .await
-        .context("narrative pillar")?;
-    let rating = load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season))
-        .await
-        .context("rating pillar")?;
-    let momentum = load_momentum_pillar(&hx.pool, entity_type, entity_id, sport, Some(season))
-        .await
-        .context("momentum pillar")?;
+    // The three pillars are fully independent once the season is known — load them concurrently
+    // (plan A3). Each future keeps its own error context; on multi-failure which context lands in
+    // pipeline_work.last_error is racy (cosmetic).
+    let (narratives, rating, momentum) = tokio::try_join!(
+        async {
+            load_narrative_pillar(&hx.pool, entity_type, entity_id, sport)
+                .await
+                .context("narrative pillar")
+        },
+        async {
+            load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season))
+                .await
+                .context("rating pillar")
+        },
+        async {
+            load_momentum_pillar(&hx.pool, entity_type, entity_id, sport, Some(season))
+                .await
+                .context("momentum pillar")
+        },
+    )?;
     Ok((season, narratives, rating, momentum))
 }
 

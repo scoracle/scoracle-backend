@@ -345,9 +345,12 @@ pub async fn generate_vibe(
     // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
     let sport = sport_raw.to_uppercase();
 
-    let (narratives, news_ids) =
-        load_latest_narratives(&hx.pool, entity_type, entity_id, &sport).await?;
-    let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, &sport).await?;
+    // Independent reads (news_summaries vs transfer_rumors, no data dependency) — run them
+    // concurrently (plan A3).
+    let ((narratives, news_ids), heat) = tokio::try_join!(
+        load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
+        load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
+    )?;
 
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No

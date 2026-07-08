@@ -590,30 +590,39 @@ pub async fn build_narratives_request(
 ) -> Result<NarrativesBuild> {
     let sport_up = req.sport.to_uppercase();
 
-    let corpus = load_vetted_corpus(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await?;
+    // load_vetted_corpus and load_transfer_heat are independent reads — run them concurrently
+    // (plan A3). The heat error-swallowing stays INSIDE the joined future so "a heat-read failure
+    // must NEVER block the narrative (the corpus is the primary signal)" survives; a corpus error
+    // still aborts the join. Note: heat now runs on the no-corpus path too (the early return moved
+    // below the join) — no output change, just an extra read on that branch.
+    let (corpus, heat) = tokio::try_join!(
+        load_vetted_corpus(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
+        async {
+            Ok::<Vec<HeatItem>, anyhow::Error>(
+                match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await
+                {
+                    Ok(h) => h,
+                    Err(e) => {
+                        warn!(
+                            entity_type = %req.entity_type,
+                            entity_id = req.entity_id,
+                            sport = %sport_up,
+                            error = %e,
+                            "narratives: transfer heat load failed (continuing ungrounded)"
+                        );
+                        Vec::new()
+                    }
+                },
+            )
+        },
+    )?;
+
     // No corpus → the NULL-narrative marker path (no model call).
     if corpus.is_empty() {
         return Ok(NarrativesBuild::NoCorpus);
     }
     let original_corpus_size = corpus.len();
     let corpus = dedup_corpus(hx, corpus).await?;
-
-    // Vetted transfer rumors ground any transfer/trade storyline. Best-effort: a heat-read failure
-    // must NEVER block the narrative (the corpus is the primary signal) — warn and continue ungrounded.
-    let heat: Vec<HeatItem> =
-        match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await {
-            Ok(h) => h,
-            Err(e) => {
-                warn!(
-                    entity_type = %req.entity_type,
-                    entity_id = req.entity_id,
-                    sport = %sport_up,
-                    error = %e,
-                    "narratives: transfer heat load failed (continuing ungrounded)"
-                );
-                Vec::new()
-            }
-        };
 
     let built_prompt = build_narratives_prompt(req, &corpus, &heat);
     let opts = GenerateOptions {

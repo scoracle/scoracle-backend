@@ -833,35 +833,6 @@ async fn persist_to_sigil_synthesis(
     Ok(())
 }
 
-/// last_score returns the previous_score baseline for the delta display: the entity-season's
-/// LATEST generation's score, or 0 when there is none or the latest is a marker (score NULL).
-/// Mirrors `SigilGenerator.lastScore` (Session 11 / F-023 canonical latest-generation rule).
-async fn last_score(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    season: i32,
-) -> Result<i32> {
-    // Nullable column → Option<Option<i16>>: no row OR a marker's NULL score both ⇒ 0.
-    let score: Option<Option<i16>> = sqlx::query_scalar(
-        r#"
-        SELECT score FROM sigil_synthesis
-        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-        ORDER BY generated_at DESC
-        LIMIT 1
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("last score {entity_type}/{entity_id}"))?;
-    Ok(score.flatten().map(|v| v as i32).unwrap_or(0))
-}
-
 /// SigilHandler drains the durable `sigil` stage — the terminal convergence. It reads the
 /// three pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
 /// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Unlike vibe it
@@ -928,14 +899,13 @@ impl StageHandler for SigilHandler {
             sport: sport.clone(),
             season: Some(season),
         };
-        if hx
-            .debounce_unchanged("sigil_synthesis", &key, &input_hash)
-            .await?
-        {
+        // One round-trip to the entity-season's latest synthesis row for BOTH the debounce hash
+        // and the previous-score baseline (plan A1 — was two identical latest-row queries).
+        let (prev_score_raw, latest_hash) = hx.latest_with_hash("sigil_synthesis", &key).await?;
+        if latest_hash.as_deref() == Some(input_hash.as_str()) {
             return Ok(()); // unchanged → cheap no-op (no model call, no persist)
         }
-
-        let prev = last_score(&hx.pool, &item.entity_type, entity_id, &sport, season).await?;
+        let prev = prev_score_raw.map(|v| v as i32).unwrap_or(0);
 
         let prompt = build_synthesis_prompt(
             &item.entity_type,

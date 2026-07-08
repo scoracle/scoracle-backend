@@ -33,6 +33,15 @@ pub fn truncate_bytes(s: &str, max: usize) -> String {
     out
 }
 
+/// round1 rounds to one decimal place. Mirrors Go's `round1` (`math.Round(x*10)/10`); Rust's
+/// `f64::round` rounds half away from zero, like `math.Round`. Single-homed here (was a
+/// byte-identical private copy in both sigil.rs and rating.rs — see plan A6): its `round1`'d
+/// values feed `go_json_float` into each stage's canonical `input_components` JSON → the
+/// `input_hash`, so the shared definition keeps that debounce axis identical across stages.
+pub fn round1(x: f64) -> f64 {
+    (x * 10.0).round() / 10.0
+}
+
 // ---------------------------------------------------------------------------
 // Go `encoding/json`-compatible primitives — the shared building blocks for an `input_hash` that
 // matches Go's `hashComponents` byte-for-byte (the strict debounce parity axis: sigil's `input_hash`,

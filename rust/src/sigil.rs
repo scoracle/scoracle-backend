@@ -27,7 +27,7 @@ use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
-use crate::util::{go_json_float, go_json_string, hash_components, truncate};
+use crate::util::{go_json_float, go_json_string, hash_components, round1, truncate};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -387,6 +387,10 @@ async fn load_pillars(
 /// Positive = trending up. Mirrors `linearSlope` exactly (same accumulation order, same
 /// near-singular guard), so the f64 result is bit-identical to Go; only its trend_dir bucket
 /// reaches the prompt, so even FP noise could not move the bytes.
+///
+/// DO NOT merge with `rating::linear_slope` — different accumulation order (this sum form vs
+/// rating's mean-centered form), each claims Go bit-parity. See plan A6 / E3: consolidating
+/// could flip boundary values and destabilize rating's `input_hash` debounce.
 fn linear_slope(vals: &[f64]) -> f64 {
     let n = vals.len() as f64;
     if vals.len() < 2 {
@@ -452,12 +456,6 @@ fn momentum_score_label(score: i32) -> &'static str {
     } else {
         "steady"
     }
-}
-
-/// round1 rounds to one decimal place. Mirrors `round1` (`math.Round(x*10)/10`); Rust's
-/// `f64::round` rounds half away from zero, like `math.Round`.
-fn round1(x: f64) -> f64 {
-    (x * 10.0).round() / 10.0
 }
 
 // ---------------------------------------------------------------------------

@@ -1597,7 +1597,73 @@ click-to-copy text.
       01:00 window, so the crontab line was installed after cron would have
       fired — first real run is tonight (01:00). TSV is NOT complete, so the
       crontab line was LEFT IN PLACE (removal is conditional on completeness).
-- **Wave 2** — pending.
+- **Wave 2** — DONE (2026-07-08). All eight tasks shipped, one commit each;
+  migrations 133-139 applied + verified on the live archbox DB; schema snapshot
+  refreshed. Gate held: `cargo test --lib` (89 passed) + `go build ./...` +
+  `go test ./internal/db/... ./internal/api/...` all green after the touching
+  edits. No Rust STAGE logic changed, so the five parity bins stay green (they
+  compile; C7's only Rust touch removed a literal-NULL bind, byte-preserving).
+  - **A8** (`f66f787`, mig 133) — `pipeline_work_notify` AFTER INSERT OR UPDATE
+    trigger fires `pg_notify('pipeline_work_ready','')`. Smoke-tested live: a
+    0-row UPDATE delivered the NOTIFY (plus a flood from the concurrently-
+    enqueuing daemon/API — the designed self-wakeup across all writers).
+  - **F7** (`72b66fe`) — mirrored the 72h freshness gate into
+    `sigil_leaderboard`'s `latest` CTE (explicit `?season=N` keeps the no-window
+    final-crown behavior, matching `entity_vibes`), + SHARED-CONSTANT cross-link
+    comments on both statements. Live proof: NBA board 421 ungated → 133 gated;
+    `/leaderboard/sigil` 200, non-empty. Recap/score mismatch closed.
+  - **C1** (`5a70056`, mig 134) — dropped `resolve_shadow` (the one truly-dead
+    shadow). Other five shadows + bins untouched (post-Wave-3 PR).
+  - **C2** (`5dce8c6`, mig 135) — `DROP TABLE headlines CASCADE` (table + pkey +
+    5 indexes). Not archived (789 inert rows predate the mig-121 fold; live data
+    is in news_summaries).
+  - **C3** (`71dba35`, mig 136) — dropped `idx_news_entities_lookup` (0 scans);
+    kept `_created`. EXPLAIN ANALYZE before AND after (real params): enqueue fn
+    → `idx_nae_vetted_lookup`, load_candidates → `idx_news_entities_lookup_created`;
+    plans identical (the dropped index had zero plan impact).
+  - **C4** (`459d8d1`, mig 137) — `DELETE FROM source_tiers WHERE kind='twitter'`
+    (7 rows), rebuilt `source_tiers_kind_check` → `CHECK (kind='news')`.
+  - **C5** (`f065a34`, mig 138) — renamed 14 `vibe_synthesis_*` constraints on
+    `sigil_synthesis` → `sigil_synthesis_*` (enumerated live from pg_constraint;
+    0 vibe_ / 14 sigil_ after). PG18 named NOT NULLs rename fine (rollback-probed
+    first).
+  - **C7** (`b6cf078`, mig 139) — dropped `news_summaries.source_attribution`
+    with paired code edits, coordinated deploy. Live proof: `/…/news` 200, the
+    `source_attribution` JSON key is gone.
+  - **Schema snapshot** (`f8b9498`) — `sql/schema/` refreshed to match the
+    deployed schema (README step 5); +7 ledger entries.
+  - **Deviations / notes:**
+    - **C7 needed a Rust edit the plan's Action didn't name.** `narratives.rs`
+      also WRITES `source_attribution` into news_summaries (a literal `NULL` bind
+      in the persist INSERT — the plan verified this in prose but scoped the
+      action to db.go only). Dropping the column therefore required removing that
+      bind AND rebuilding+restarting BOTH live binaries (the Go API's prepared
+      `entity_news` and the Rust daemon's narratives persist both reference the
+      column) BEFORE applying mig 139 — the template F-022 column-drop inversion.
+      Executed as a coordinated deploy: commit code → `scripts/hosting/release.sh`
+      (rebuilt 5 binaries @ b6cf078, restarted API + daemon, verified /health/db)
+      → apply mig 139 → smoke both endpoints. No runtime-error window (the new
+      binaries prepare/insert fine against the still-present column, then the drop
+      is a no-op to them). The literal-NULL bind removal needs no `$N`
+      renumbering, so it is byte-preserving for the parity axis.
+    - **A8 is FOR EACH STATEMENT, not FOR EACH ROW.** The enqueue fn inserts
+      several stage rows per statement; a statement trigger fires the NOTIFY once
+      vs once-per-row, and pg_notify's per-txn de-dup makes the delivered
+      notification identical. Trade-off documented in the migration: a zero-row
+      UPDATE still fires one empty tick (a harmless self-wakeup, same class the
+      plan already accepts).
+    - **C5 was 14, not 7** — confirmed live (plan already flagged v1's undercount).
+    - **Migrations applied individually via `psql -f`, not `migrate.sh`** — the
+      runner would have applied 139 alongside 133-138 and dropped the column
+      before the C7 deploy. 133-138 (no running-binary impact) applied first;
+      139 applied only after release.sh.
+    - **Bucketlabel cron (carry forward):** STILL not fired — today is
+      2026-07-08 daytime; the 01:00 batch first fires 2026-07-09. No
+      `logs/bucketlabel.log` / `planning_docs/data/bucket_labels.tsv` yet.
+      Crontab line LEFT IN PLACE (removal is conditional on the ~1,500-row TSV
+      being complete). Backup at `~/.cache/crontab/crontab.bak`.
+    - **Unpushed:** the 8 Wave-1 + 9 Wave-2 commits (8 tasks + snapshot) are
+      LOCAL ONLY on `main` — not pushed (no user request to push).
 - **Wave 3** — pending. Post-Wave-3 follow-on: the parity-retirement PR
   (C1/A5, DECIDED).
 - **Wave 4** — dormant by design until operator pain shows (D1–D3).

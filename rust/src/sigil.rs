@@ -892,7 +892,7 @@ impl StageHandler for SigilHandler {
         let entity_id = item.entity_id_i32()?;
         // nameOf: the name lookup uses the queue's raw sport value (drainSigil → corpus lookup).
         let name =
-            crate::vibe::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
+            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
                 .await?;
 
         let sport = item.sport.to_uppercase();

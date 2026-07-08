@@ -18,6 +18,7 @@
 
 pub mod buildinfo;
 pub mod config;
+pub mod corpus;
 pub mod db;
 pub mod embed;
 pub mod harness;

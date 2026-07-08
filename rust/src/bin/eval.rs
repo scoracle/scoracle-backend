@@ -41,9 +41,10 @@ use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::route::{Inference, Role, Router};
+use scoracle_cognition::corpus::{load_transfer_heat, lookup_entity_name};
 use scoracle_cognition::vibe::{
-    build_sentiment_prompt, load_latest_narratives, load_transfer_heat, lookup_entity_name,
-    parse_sentiment_and_prompt, VIBE_NUM_PREDICT, VIBE_SYSTEM_PROMPT,
+    build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
+    VIBE_SYSTEM_PROMPT,
 };
 use std::collections::HashMap;
 use std::sync::Arc;

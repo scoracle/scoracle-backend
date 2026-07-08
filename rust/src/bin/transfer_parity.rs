@@ -36,7 +36,7 @@ use scoracle_cognition::transfer::{
     analyze_pair, build_pair_request, direction_for, load_candidates, load_tier_map, PairBuild,
     TransferCandidate, TransferPairOutput, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_PROMPT_VERSION,
 };
-use scoracle_cognition::{db, vibe};
+use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
 
 /// The explicit, deterministic temperature the parity diff is taken at (pins temp-0 in the body).
@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
     let mut pairs = 0usize;
     for s in &specs {
         let team_name =
-            match vibe::lookup_entity_name(&harness.pool, "team", s.team_id, &s.sport).await {
+            match corpus::lookup_entity_name(&harness.pool, "team", s.team_id, &s.sport).await {
                 Ok(n) => n,
                 Err(e) => {
                     println!("  ✗ team/{} ({}) → name lookup: {e:#}", s.team_id, s.sport);

@@ -1473,7 +1473,7 @@ impl StageHandler for TransferHandler {
         let team_id = item.entity_id_i32()?;
         let sport = item.sport.to_uppercase();
         let team_name =
-            crate::vibe::lookup_entity_name(&hx.pool, &item.entity_type, team_id, &item.sport)
+            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, team_id, &item.sport)
                 .await?;
         let tiers = load_tier_map(&hx.pool).await?;
         let candidates =

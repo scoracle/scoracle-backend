@@ -1550,7 +1550,53 @@ the entry here — task-level status, deviations found in execution, commit hash
 — commit the plan, then generate the next session's handoff prompt as
 click-to-copy text.
 
-- **Wave 1** — pending.
+- **Wave 1** — DONE (2026-07-08). All six tasks shipped, one commit each; gate
+  after every task: `cargo test --lib` (89 passed) + `cargo build --bins` green.
+  Final `cargo build --all-targets` clean, no warnings.
+  - **A6** (`9132c30`) — `round1` → `util::round1`; both stage copies deleted.
+    `linear_slope` deliberately NOT merged; added the `DO NOT merge` cross-link
+    comments to both copies (also closes E3).
+  - **A7** (`b3c4d47`) — vibe's `truncate_body` deleted; one call site uses
+    `util::truncate_bytes` (byte-identical). Prompt bytes unchanged.
+  - **A4** (`d374d2a`) — new `rust/src/corpus.rs`; moved `lookup_entity_name`,
+    `load_transfer_heat`, `HeatItem`, `write_heat_lines`, `dedupe_i64` (+ the
+    `MAX_HEAT_ITEMS` cap they need). Re-homed all 11 callers. sigil→vibe /
+    transfer→vibe / narratives→vibe dependency direction is gone.
+  - **A1** (`de08b31`) — added `Harness::latest_with_hash` (fetches
+    `(score, input_hash)` from the latest row in one query); sigil folds
+    `debounce_unchanged` + `last_score` into it; `last_score` deleted. Saving:
+    1 round-trip/sigil item.
+  - **A2** (`c7a7b89`) — narratives' per-title trajectory classify collapsed to
+    ONE `DISTINCT ON (narrative_title)` query (the DECIDED form, not
+    `max(generated_at)`); logic extracted to pure `trajectory_from_previous`.
+  - **A3** (`a58e743`) — `tokio::try_join!` on the independent loads in vibe
+    (2→1), narratives (corpus+heat, error-swallowing kept inside the future),
+    and sigil `load_pillars` (3→1); plus sigil `load_momentum_pillar`'s two
+    internal reads.
+  - **Deviations / notes:**
+    - **A1**: chose to ADD `latest_with_hash` rather than extend
+      `debounce_unchanged`. `debounce_unchanged` is a rule-1 preserve item
+      (energy-saving gate) and stays as pub API even though it now has no code
+      callers.
+    - **A3**: also did the momentum-internal `try_join!` (flagged "could" in the
+      plan) — a pure reorder of two independent reads, parity-safe.
+    - **A4**: narratives.rs dropped its `crate::vibe` import entirely (its `self`
+      alias was only for `lookup_entity_name`, now from corpus).
+    - **Parity byte-diff not re-run this session** (needs archbox GPU + live DB).
+      No Wave 1 task alters model-facing bytes or persisted values: A2's path is
+      production-only (parity bin never exercises it), A4/A6/A7 are
+      byte-preserving, A1/A3 reduce round-trips with identical outputs. The
+      per-task gate (`cargo test --lib` + build bins) held throughout.
+    - **Pre-work commit** (`9731fe4`) — the untracked F2 artifacts
+      (`bucketlabel.rs` + Cargo.toml `[[bin]]`, `cron-bucketlabel.sh`,
+      `candle_probe.rs`) are now tracked.
+    - **Entry-state anomaly (carry forward):** the 01:00 bucketlabel batch
+      produced NO output — no `logs/bucketlabel.log`, no
+      `planning_docs/data/bucket_labels.tsv`, `planning_docs/data/` absent. The
+      `~/.cache/crontab/crontab.bak` timestamp (2026-07-08 12:11) is AFTER the
+      01:00 window, so the crontab line was installed after cron would have
+      fired — first real run is tonight (01:00). TSV is NOT complete, so the
+      crontab line was LEFT IN PLACE (removal is conditional on completeness).
 - **Wave 2** — pending.
 - **Wave 3** — pending. Post-Wave-3 follow-on: the parity-retirement PR
   (C1/A5, DECIDED).

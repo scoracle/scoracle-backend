@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Vw0EF8HERtkPITCnNpSPWZELGeMBw45w2MlHv20hyCdrNV6aARjhNCh8V5GUoML
+\restrict fA7hjdccJZK5uTe5HL0h6HQ0WtFfVVXA08xhr2gXAULr8E4T4BXAlsOqBTKwv2W
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2889,6 +2889,20 @@ $_$;
 
 
 --
+-- Name: notify_pipeline_work_ready(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_pipeline_work_ready() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM pg_notify('pipeline_work_ready', '');
+    RETURN NULL;  -- AFTER STATEMENT trigger: return value is ignored.
+END;
+$$;
+
+
+--
 -- Name: position_group(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5570,50 +5584,6 @@ ALTER SEQUENCE public.fixtures_id_seq OWNED BY public.fixtures.id;
 
 
 --
--- Name: headlines; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.headlines (
-    id bigint NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    title text NOT NULL,
-    category text NOT NULL,
-    source_url text,
-    source_name text,
-    published_at timestamp with time zone DEFAULT now() NOT NULL,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text,
-    prompt_version text,
-    trigger_type text DEFAULT 'news_spike'::text NOT NULL,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT headlines_category_check CHECK ((category = ANY (ARRAY['transfer'::text, 'injury'::text, 'coaching'::text, 'contract'::text, 'other'::text]))),
-    CONSTRAINT headlines_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT headlines_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['news_spike'::text, 'periodic'::text, 'manual'::text])))
-);
-
-
---
--- Name: headlines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.headlines_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: headlines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.headlines_id_seq OWNED BY public.headlines.id;
-
-
---
 -- Name: meta; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5893,7 +5863,6 @@ CREATE TABLE public.news_summaries (
     body text,
     impact smallint,
     impact_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    source_attribution text,
     input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
     model_version text,
     prompt_version text,
@@ -6509,62 +6478,6 @@ COMMENT ON TABLE public.rating_thresholds IS 'Rating eligibility gates: a player
 
 
 --
--- Name: resolve_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.resolve_shadow (
-    id bigint NOT NULL,
-    article_id bigint NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    name text DEFAULT ''::text NOT NULL,
-    model_vetted boolean CONSTRAINT resolve_shadow_gemma_vetted_not_null NOT NULL,
-    cosine real NOT NULL,
-    band text NOT NULL,
-    auto_verdict boolean NOT NULL,
-    hybrid_verdict boolean,
-    decided_by text NOT NULL,
-    in_transfer_rumors boolean DEFAULT false NOT NULL,
-    career_teams smallint DEFAULT 0 NOT NULL,
-    keep_threshold real NOT NULL,
-    drop_threshold real NOT NULL,
-    embed_model text NOT NULL,
-    model_version text,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT resolve_shadow_band_check CHECK ((band = ANY (ARRAY['keep'::text, 'drop'::text, 'ambiguous'::text]))),
-    CONSTRAINT resolve_shadow_decided_by_check CHECK ((decided_by = ANY (ARRAY['keep_band'::text, 'drop_band'::text, 'model'::text, 'pending'::text]))),
-    CONSTRAINT resolve_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
-);
-
-
---
--- Name: TABLE resolve_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.resolve_shadow IS 'Rust Cognition Harness L5 embedding-Resolve at-scale shadow — offline record of the hybrid resolve_set verdict beside the production vetted label, over the whole secondary-link corpus. Read-only on the pipeline (never touches news_article_entities.vetted). Drop after the scrub cutover.';
-
-
---
--- Name: resolve_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.resolve_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: resolve_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.resolve_shadow_id_seq OWNED BY public.resolve_shadow.id;
-
-
---
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6606,25 +6519,25 @@ COMMENT ON TABLE public.season_recompute_needed IS 'Durable dirty-season queue f
 --
 
 CREATE TABLE public.sigil_synthesis (
-    id bigint CONSTRAINT vibe_synthesis_id_not_null NOT NULL,
-    entity_type text CONSTRAINT vibe_synthesis_entity_type_not_null NOT NULL,
-    entity_id integer CONSTRAINT vibe_synthesis_entity_id_not_null NOT NULL,
-    sport text CONSTRAINT vibe_synthesis_sport_not_null NOT NULL,
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
     season integer,
-    trigger_type text CONSTRAINT vibe_synthesis_trigger_type_not_null NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb CONSTRAINT vibe_synthesis_trigger_payload_not_null NOT NULL,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
     score smallint,
     previous_score smallint,
     blurb text,
-    input_components jsonb DEFAULT '{}'::jsonb CONSTRAINT vibe_synthesis_input_components_not_null NOT NULL,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     input_hash text,
     model_version text,
     prompt_version text,
-    generated_at timestamp with time zone DEFAULT now() CONSTRAINT vibe_synthesis_generated_at_not_null NOT NULL,
-    CONSTRAINT vibe_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT vibe_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
-    CONSTRAINT vibe_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
-    CONSTRAINT vibe_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text])))
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
+    CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
+    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text])))
 );
 
 
@@ -6700,7 +6613,7 @@ CREATE TABLE public.source_tiers (
     tier smallint NOT NULL,
     weight numeric(4,2) NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT source_tiers_kind_check CHECK ((kind = ANY (ARRAY['news'::text, 'twitter'::text]))),
+    CONSTRAINT source_tiers_kind_check CHECK ((kind = 'news'::text)),
     CONSTRAINT source_tiers_tier_check CHECK (((tier >= 1) AND (tier <= 3)))
 );
 
@@ -7353,13 +7266,6 @@ ALTER TABLE ONLY public.fixtures ALTER COLUMN id SET DEFAULT nextval('public.fix
 
 
 --
--- Name: headlines id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.headlines ALTER COLUMN id SET DEFAULT nextval('public.headlines_id_seq'::regclass);
-
-
---
 -- Name: metadata_refresh_queue id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7448,13 +7354,6 @@ ALTER TABLE ONLY public.provider_seasons ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.rating_history ALTER COLUMN id SET DEFAULT nextval('public.rating_history_id_seq'::regclass);
-
-
---
--- Name: resolve_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.resolve_shadow ALTER COLUMN id SET DEFAULT nextval('public.resolve_shadow_id_seq'::regclass);
 
 
 --
@@ -7603,14 +7502,6 @@ ALTER TABLE ONLY public.fixtures
 
 ALTER TABLE ONLY public.fixtures
     ADD CONSTRAINT fixtures_sport_external_id_key UNIQUE (sport, external_id);
-
-
---
--- Name: headlines headlines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.headlines
-    ADD CONSTRAINT headlines_pkey PRIMARY KEY (id);
 
 
 --
@@ -7846,14 +7737,6 @@ ALTER TABLE ONLY public.rating_thresholds
 
 
 --
--- Name: resolve_shadow resolve_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.resolve_shadow
-    ADD CONSTRAINT resolve_shadow_pkey PRIMARY KEY (id);
-
-
---
 -- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7867,6 +7750,14 @@ ALTER TABLE ONLY public.schema_migrations
 
 ALTER TABLE ONLY public.season_recompute_needed
     ADD CONSTRAINT season_recompute_needed_pkey PRIMARY KEY (sport, season);
+
+
+--
+-- Name: sigil_synthesis sigil_synthesis_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sigil_synthesis
+    ADD CONSTRAINT sigil_synthesis_pkey PRIMARY KEY (id);
 
 
 --
@@ -8070,14 +7961,6 @@ ALTER TABLE ONLY public.vibe_scores_shadow
 
 
 --
--- Name: sigil_synthesis vibe_synthesis_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sigil_synthesis
-    ADD CONSTRAINT vibe_synthesis_pkey PRIMARY KEY (id);
-
-
---
 -- Name: idx_football_autofill_pk; Type: INDEX; Schema: football; Owner: -
 --
 
@@ -8197,41 +8080,6 @@ CREATE INDEX idx_fixtures_sport_date ON public.fixtures USING btree (sport, star
 
 
 --
--- Name: idx_headlines_category; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_headlines_category ON public.headlines USING btree (category, published_at DESC);
-
-
---
--- Name: idx_headlines_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_headlines_entity ON public.headlines USING btree (sport, entity_type, entity_id, published_at DESC);
-
-
---
--- Name: idx_headlines_entity_source_title_uniq; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_headlines_entity_source_title_uniq ON public.headlines USING btree (sport, entity_type, entity_id, lower(btrim(source_name)), lower(btrim(title))) WHERE (NULLIF(btrim(source_name), ''::text) IS NOT NULL);
-
-
---
--- Name: idx_headlines_entity_source_url_uniq; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX idx_headlines_entity_source_url_uniq ON public.headlines USING btree (sport, entity_type, entity_id, lower(btrim(source_url))) WHERE (NULLIF(btrim(source_url), ''::text) IS NOT NULL);
-
-
---
--- Name: idx_headlines_published; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_headlines_published ON public.headlines USING btree (published_at DESC);
-
-
---
 -- Name: idx_leagues_sport; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8285,13 +8133,6 @@ CREATE INDEX idx_news_articles_published_at ON public.news_articles USING btree 
 --
 
 CREATE INDEX idx_news_entities_by_article ON public.news_article_entities USING btree (article_id);
-
-
---
--- Name: idx_news_entities_lookup; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_news_entities_lookup ON public.news_article_entities USING btree (entity_type, entity_id, sport);
 
 
 --
@@ -8530,13 +8371,6 @@ CREATE INDEX idx_provider_seasons_lookup ON public.provider_seasons USING btree 
 --
 
 CREATE INDEX idx_rating_history_entity_recent ON public.rating_history USING btree (entity_type, entity_id, sport, season, generated_at DESC);
-
-
---
--- Name: idx_resolve_shadow_band; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_resolve_shadow_band ON public.resolve_shadow USING btree (keep_threshold, drop_threshold, article_id);
 
 
 --
@@ -8855,6 +8689,13 @@ CREATE TRIGGER mark_momentum_refresh_vibe_scores AFTER INSERT OR UPDATE OF senti
 
 
 --
+-- Name: pipeline_work pipeline_work_notify; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER pipeline_work_notify AFTER INSERT OR UPDATE ON public.pipeline_work FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+
+
+--
 -- Name: event_box_scores trg_detect_team_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8963,14 +8804,6 @@ ALTER TABLE ONLY public.event_team_stats
 
 ALTER TABLE ONLY public.fixtures
     ADD CONSTRAINT fixtures_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
--- Name: headlines headlines_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.headlines
-    ADD CONSTRAINT headlines_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -9126,6 +8959,14 @@ ALTER TABLE ONLY public.rating_thresholds
 
 
 --
+-- Name: sigil_synthesis sigil_synthesis_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sigil_synthesis
+    ADD CONSTRAINT sigil_synthesis_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: sport_autofill_versions sport_autofill_versions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9278,14 +9119,6 @@ ALTER TABLE ONLY public.vibe_scores
 
 
 --
--- Name: sigil_synthesis vibe_synthesis_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sigil_synthesis
-    ADD CONSTRAINT vibe_synthesis_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
-
-
---
 -- Name: notifications; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -9328,4 +9161,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Vw0EF8HERtkPITCnNpSPWZELGeMBw45w2MlHv20hyCdrNV6aARjhNCh8V5GUoML
+\unrestrict fA7hjdccJZK5uTe5HL0h6HQ0WtFfVVXA08xhr2gXAULr8E4T4BXAlsOqBTKwv2W
+

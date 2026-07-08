@@ -37,6 +37,13 @@ path = "src/bin/sigil_parity.rs"
 name = "statcommentary"
 path = "src/bin/statcommentary.rs"
 
+# One-shot overnight GPU labeling batch for the F2 bucket classifier (friction-prune
+# plan). Read-only on the pipeline; writes ONLY its output TSV. Resumable/idempotent —
+# a completed run no-ops, so it is safe on a cron line.
+[[bin]]
+name = "bucketlabel"
+path = "src/bin/bucketlabel.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

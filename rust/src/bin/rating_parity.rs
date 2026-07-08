@@ -29,7 +29,7 @@ use scoracle_cognition::rating::{
     RATING_PROMPT_VERSION,
 };
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{db, vibe};
+use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
 
 /// The explicit, deterministic temperature the parity diff is taken at (pins temp-0 in the body).
@@ -99,7 +99,7 @@ async fn main() -> Result<()> {
 /// run_entity dumps one entity's deterministic parity axes (and, with vet, the temp-0 prose). Returns
 /// Ok(false) when there is no usable rating profile (NoStats — no row written), Ok(true) on a write.
 async fn run_entity(hx: &Harness, s: &EntitySpec, vet: bool) -> Result<bool> {
-    let name = vibe::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
+    let name = corpus::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
     let req = RatingReq {
         entity_type: s.entity_type.clone(),
         entity_id: s.entity_id,

@@ -23,7 +23,7 @@ use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::vibe::{generate_vibe, VibeOutput, VIBE_PROMPT_VERSION};
-use scoracle_cognition::{db, vibe};
+use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
 
 /// The explicit, deterministic temperature the parity diff is taken at.
@@ -108,7 +108,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeOutput> {
-    let name = vibe::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
+    let name = corpus::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
     let out = generate_vibe(
         hx,
         &s.entity_type,

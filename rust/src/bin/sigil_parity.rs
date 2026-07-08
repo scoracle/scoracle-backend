@@ -112,7 +112,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
-    let name = scoracle_cognition::vibe::lookup_entity_name(
+    let name = scoracle_cognition::corpus::lookup_entity_name(
         &hx.pool,
         &s.entity_type,
         s.entity_id,

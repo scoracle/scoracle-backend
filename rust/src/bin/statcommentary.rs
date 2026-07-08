@@ -11,7 +11,7 @@ use scoracle_cognition::rating::{
     generate_rating, persist_stat_summary, RatingOutput, RatingReq, RATING_TEMPERATURE,
 };
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{db, vibe};
+use scoracle_cognition::{corpus, db};
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 
@@ -84,7 +84,7 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     }
     let sport = args.sport.to_uppercase();
     let name =
-        vibe::lookup_entity_name(&hx.pool, &args.entity_type, args.entity_id, &sport).await?;
+        corpus::lookup_entity_name(&hx.pool, &args.entity_type, args.entity_id, &sport).await?;
     let req = RatingReq {
         entity_type: args.entity_type.clone(),
         entity_id: args.entity_id,
@@ -192,7 +192,7 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
 }
 
 async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<RatingOutput> {
-    let name = vibe::lookup_entity_name(&hx.pool, &t.entity_type, t.entity_id, &t.sport).await?;
+    let name = corpus::lookup_entity_name(&hx.pool, &t.entity_type, t.entity_id, &t.sport).await?;
     let req = RatingReq {
         entity_type: t.entity_type.clone(),
         entity_id: t.entity_id,

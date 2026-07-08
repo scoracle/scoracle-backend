@@ -15,7 +15,7 @@ use scoracle_cognition::narratives::{
 };
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{db, vibe};
+use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
 
 const PARITY_TEMPERATURE: f64 = 0.0;
@@ -89,7 +89,7 @@ async fn main() -> Result<()> {
 }
 
 async fn run_entity(hx: &Harness, s: &EntitySpec, vet: bool) -> Result<bool> {
-    let name = vibe::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
+    let name = corpus::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
     let req = NarrativesReq {
         entity_type: s.entity_type.clone(),
         entity_id: s.entity_id,

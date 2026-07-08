@@ -7,7 +7,7 @@
 //! - `load_vetted_corpus` is the verbatim Go SQL (only the `published_at` column is returned as an
 //!   epoch `bigint` so the deterministic recency math needs no datetime crate; rows + order match).
 //! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
-//!   vibe via [`vibe::write_heat_lines`].
+//!   vibe via [`corpus::write_heat_lines`].
 //! - The n5 system prompt is model-neutral and schema-first for smaller local models.
 //! - `parse_narratives` mirrors Go's tolerant balanced-brace salvager byte-for-byte (a truncated tail
 //!   drops its last incomplete object; an empty `{"narratives": []}` is a successful parse → marker).
@@ -29,7 +29,7 @@ use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::util::truncate_bytes;
-use crate::vibe::{self, load_transfer_heat, write_heat_lines, HeatItem};
+use crate::corpus::{load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -907,7 +907,7 @@ impl StageHandler for NarrativesHandler {
         let entity_id = item.entity_id_i32()?;
         // nameOf uses the queue's raw sport value (drainNarratives), as does the prompt's req.Sport.
         let name =
-            vibe::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
+            lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
         let req = NarrativesReq {
             entity_type: item.entity_type.clone(),
             entity_id,

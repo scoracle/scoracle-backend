@@ -1863,6 +1863,35 @@ click-to-copy text.
       and `logs/bucketlabel.log` are still absent; `crontab -l` still has the
       01:00 `cron-bucketlabel.sh -limit 1500` line. Do not remove it until the
       TSV is complete.
+- **Post-Wave-5 verification** — DONE (2026-07-09 UTC / 2026-07-08
+  America/Detroit). Local `main` remains at `5361a7f` and `origin/main` at
+  `02ef90c` (`main...origin/main [ahead 2]` before this ledger commit); no push
+  was performed.
+  - `/health/db` returned `200 OK` with `{"database":"connected","status":"healthy"}`;
+    `/` reported API commit `392930e5c5ee`, built `2026-07-09T02:36:57Z`.
+  - Live DB migration max is still `142_peak_scouting_reframe`; latest recorded
+    migrations are 142, 141, 140, 139, 138, 137, 136, 135, 134, 133.
+  - Live `scoracle-cognition` is active and booted at commit `392930e5c5ee`,
+    built `2026-07-09T02:36:59Z`, with handlers
+    `scrub/transfers/narratives/vibe/sigil` and the
+    `scrub/narratives/vibe` embedder path. Since that restart there are no
+    bucket/topic/vibe/sigil handler failures in the cognition journal; the
+    previous repeated Sigil score-parse failures are pre-restart/dead-letter
+    residue.
+  - `pipeline_work` currently has only dead-lettered Sigil rows (`83` failed:
+    one at attempt 1, 82 at attempt 5); no pending/running scrub, transfer,
+    narrative, or vibe work. `news_articles.topic_heat` is populated for 395
+    rows; `news_articles.bucket` remains NULL for the corpus because no
+    post-rollout scrub work has landed bucket verdicts yet. There have been no
+    articles fetched after the Wave 5 restart (`2026-07-09T02:38:43Z`).
+  - `planning_docs/data/bucket_labels.tsv` and `logs/bucketlabel.log` are still
+    absent, so the 01:00 bucketlabel cron remains installed exactly as planned.
+  - While checking logs, `logs/vibesynth.log` showed the installed 05:00
+    `vibesynth` cron still passed stale `-throttle-ms 250`, which the DB-only Go
+    `vibesynth` binary rejects. The committed `scripts/hosting/crontab.example`
+    and wrapper were already correct, so only the live crontab was repaired:
+    `cron-vibesynth.sh -mode nightly -limit 150` now matches the binary. Cron
+    saved its automatic backup at `/home/sheneveld/.cache/crontab/crontab.bak`.
 - **Continuous (E1–E4)** — DONE through Wave 3 (E3 in Wave 1; E1 in B5; E2/E4
   in `b67f3a2`). Keep future documentation sync alongside the relevant waves.
 - **Pre-work (2026-07-08, this session):** plan v2 FINAL; F7 root-caused;

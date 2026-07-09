@@ -601,7 +601,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
-// GetEntityVibes returns the entity's SIGIL product — the crown synthesis (score
+// GetEntitySigil returns the entity's SIGIL product — the crown synthesis (score
 // 1-100 + blurb, fusing Rating + Vibe + Momentum) plus a bounded history. Read by
 // the Sigil card AND the meta centre score. Canonical at /sigil.
 // @Summary Get the entity Sigil (crown synthesis)
@@ -616,7 +616,7 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} respond.ErrorResponse
 // @Failure 500 {object} respond.ErrorResponse
 // @Router /{sport}/{entityType}/{id}/sigil [get]
-func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
 	sport, ok := parseSport(w, r)
 	if !ok {
 		return
@@ -633,7 +633,7 @@ func (h *Handler) GetEntityVibes(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.serveStatementJSON(w, r, "entity_vibes", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
+	h.serveStatementJSON(w, r, "entity_sigil", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
 }
 
 // GetEntityStats returns the entity's STATS product — the full season rating

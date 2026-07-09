@@ -469,13 +469,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
 		),
 		latest AS (
-			-- F7: mirror the entity_vibes profile's 72h freshness gate (see its vibe_cur
+			-- F7: mirror the entity_sigil profile's 72h freshness gate (see its vibe_cur
 			-- CTE, ~L1133) so the board only crowns entities the profile corroborates —
 			-- otherwise an entity whose latest scored synthesis is >72h old ranks here
 			-- (with recap) while the profile returns current:null (the recap/score
 			-- mismatch bug). SHARED CONSTANT: both windows are INTERVAL '72 hours' — keep
 			-- them EQUAL or the mismatch returns. Explicit ?season=N keeps the no-window
-			-- final-crown behavior, exactly matching entity_vibes.
+			-- final-crown behavior, exactly matching entity_sigil.
 			SELECT lr.* FROM latest_raw lr, req
 			WHERE lr.score IS NOT NULL AND lr.blurb IS NOT NULL
 			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
@@ -1109,7 +1109,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           FROM tr_ranked WHERE rank <= 25) x), '[]'::json)
 		)`,
 		// $1 sport · $2 entity_type · $3 entity_id · $4 season (NULL ⇒ live/current view).
-		"entity_vibes": `WITH req AS (
+		"entity_sigil": `WITH req AS (
 			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
 			       $4::int AS want_season,
 			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season

@@ -152,7 +152,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// synthesis.
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntityRating)
-			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntityVibes)
+			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)

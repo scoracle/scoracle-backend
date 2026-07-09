@@ -18,7 +18,6 @@ import (
 // Config controls maintenance task intervals. Zero duration disables a task.
 type Config struct {
 	CleanupInterval     time.Duration // Expired notifications + stale cache rows
-	DigestInterval      time.Duration // Batch digest generation
 	CatchUpInterval     time.Duration // Sweep for missed NOTIFY events
 	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
 	NewsScrubInterval   time.Duration // news-link scrub sweep cadence (SQL auto-vet + enqueue to Rust)
@@ -31,7 +30,6 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		CleanupInterval:     30 * time.Minute,
-		DigestInterval:      1 * time.Hour,
 		CatchUpInterval:     15 * time.Minute,
 		AlltimeRankInterval: 24 * time.Hour,
 		NewsScrubInterval:   30 * time.Minute,
@@ -56,7 +54,6 @@ var alltimeRankSports = []string{"NBA", "NFL", "FOOTBALL"}
 func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
 	logger.Info("Maintenance tickers started",
 		"cleanup", cfg.CleanupInterval,
-		"digest", cfg.DigestInterval,
 		"catchup", cfg.CatchUpInterval,
 		"news_scrub", cfg.NewsScrubInterval,
 		"pipeline_stats", cfg.StatsInterval,
@@ -74,13 +71,6 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		t := time.NewTicker(cfg.CleanupInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "cleanup", func() { cleanup(ctx, pool, logger) })
-	}
-
-	// Digest: generate batch notification records for digest delivery
-	if cfg.DigestInterval > 0 {
-		t := time.NewTicker(cfg.DigestInterval)
-		tickers = append(tickers, t)
-		go runLoop(ctx, t.C, "digest", func() { generateDigests(ctx, pool, logger) })
 	}
 
 	// Catch-up: sweep for NOTIFY events missed during downtime
@@ -198,20 +188,6 @@ func cleanup(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("Cleanup: thinned momentum snapshots to daily grain", "count", tag.RowsAffected())
 	}
-}
-
-// generateDigests creates batch notification summaries for users who prefer
-// digest-style delivery instead of real-time pushes.
-// Currently a placeholder — will be implemented when user preference tables
-// include a delivery_mode column.
-func generateDigests(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {
-	// TODO: When user preferences support digest mode:
-	// 1. Query users with delivery_mode = 'digest'
-	// 2. Aggregate pending changes since last digest
-	// 3. Build summary notification and insert into notifications table
-	_ = ctx
-	_ = pool
-	_ = logger
 }
 
 // lastSeenSeason tracks the current_season observed on the previous

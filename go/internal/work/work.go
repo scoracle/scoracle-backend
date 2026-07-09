@@ -1,14 +1,12 @@
-// Package work is the durable derivation work queue. It stores explicit state
-// in the pipeline_work table so the database can answer "what work is pending,
-// running, or failed?" and a crash cannot lose the set of affected entities.
+// Package work is the Go producer/operator surface for the durable derivation
+// work queue. Rust owns the worker lease lifecycle; Go enqueues work, recovers
+// stale leases for operators, and reads queue status.
 //
 // Lifecycle of a row:
 //
-//	Enqueue → 'pending'                (idempotent; reopens on a changed input)
-//	Claim   → 'running'                (FOR UPDATE SKIP LOCKED; leased)
-//	Complete→ row deleted              (only while still 'running')
-//	Fail    → 'failed' + backoff       (retryable until maxAttempts, then dead-letter)
-//	RequeueStale: 'running' → 'pending' (recover a crashed worker's lease)
+//	Enqueue     → 'pending'                (idempotent; reopens on a changed input)
+//	Rust worker → 'running'/'failed'/delete (claims, backs off, completes)
+//	RequeueStale: 'running' → 'pending'    (operator recovery for abandoned leases)
 //
 // Only outstanding work is ever stored — completed rows are removed — so a
 // simple GROUP BY (the pipeline_work_status view) is the operator dashboard.
@@ -21,7 +19,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Stage names the derivation step a work item belongs to. Most stages are per-entity
@@ -40,13 +37,12 @@ const (
 	StageSigil      Stage = "sigil"
 )
 
-// Querier is the subset of pgx shared by *pgxpool.Pool and pgx.Tx, so Enqueue/
-// Complete/Fail can run inside an existing transaction (committing atomically
-// with whatever produced the input) or standalone against the pool.
+// Querier is the subset of pgx shared by *pgxpool.Pool and pgx.Tx, so Enqueue
+// can run inside an existing transaction (committing atomically with whatever
+// produced the input) or standalone against the pool.
 type Querier interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 // Item identifies one unit of derivation work for an entity.
@@ -56,7 +52,6 @@ type Item struct {
 	EntityID     int
 	Sport        string
 	InputVersion string // hash/version of the stage inputs; "" when unused
-	Attempts     int    // failures so far (populated by Claim)
 }
 
 // Enqueue records that (stage, entity, sport) needs work. Idempotent and safe to
@@ -67,7 +62,8 @@ type Item struct {
 // changed or it was 'failed' — so a changed input reopens completed/failed work.
 // An already-pending or in-flight 'running' row of the SAME input_version is left
 // untouched, so duplicate enqueues collapse to one row without yanking a live
-// lease (Complete is status-guarded, so a reopen mid-flight is not lost either).
+// lease (the Rust completion path is status-guarded, so a reopen mid-flight is
+// not lost either).
 func Enqueue(ctx context.Context, q Querier, it Item) error {
 	_, err := q.Exec(ctx, `
 		INSERT INTO pipeline_work
@@ -85,126 +81,6 @@ func Enqueue(ctx context.Context, q Querier, it Item) error {
 	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport, nullIfEmpty(it.InputVersion))
 	if err != nil {
 		return fmt.Errorf("enqueue %s %s/%d (%s): %w", it.Stage, it.EntityType, it.EntityID, it.Sport, err)
-	}
-	return nil
-}
-
-// Claim atomically leases up to limit ready rows for a stage, marking them
-// 'running'. Ready = pending or failed with available_at <= now (a failed row is
-// retried once its backoff elapses). Concurrent claimers receive disjoint rows
-// via FOR UPDATE SKIP LOCKED. Run RequeueStale periodically to recover rows whose
-// worker died mid-lease.
-func Claim(ctx context.Context, pool *pgxpool.Pool, stage Stage, limit int) ([]Item, error) {
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("claim %s: begin: %w", stage, err)
-	}
-	defer tx.Rollback(ctx)
-
-	rows, err := tx.Query(ctx, `
-		WITH ready AS (
-		    SELECT entity_type, entity_id, sport
-		    FROM pipeline_work
-		    WHERE stage = $1
-		      AND status IN ('pending', 'failed')
-		      AND available_at <= NOW()
-		    ORDER BY available_at
-		    FOR UPDATE SKIP LOCKED
-		    LIMIT $2
-		)
-		UPDATE pipeline_work w
-		   SET status = 'running', updated_at = NOW()
-		  FROM ready r
-		 WHERE w.stage = $1
-		   AND w.entity_type = r.entity_type
-		   AND w.entity_id = r.entity_id
-		   AND w.sport = r.sport
-		RETURNING w.entity_type, w.entity_id, w.sport, w.input_version, w.attempts
-	`, string(stage), limit)
-	if err != nil {
-		return nil, fmt.Errorf("claim %s: %w", stage, err)
-	}
-
-	var items []Item
-	for rows.Next() {
-		it := Item{Stage: stage}
-		var iv *string
-		if err := rows.Scan(&it.EntityType, &it.EntityID, &it.Sport, &iv, &it.Attempts); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("claim %s: scan: %w", stage, err)
-		}
-		if iv != nil {
-			it.InputVersion = *iv
-		}
-		items = append(items, it)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("claim %s: rows: %w", stage, err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("claim %s: commit: %w", stage, err)
-	}
-	return items, nil
-}
-
-// Complete removes a finished work item — but only while it is still 'running',
-// i.e. the caller still holds the lease. If a newer input reopened the row to
-// 'pending' while the worker ran, Complete is a no-op and the reopened work
-// survives for reprocessing.
-func Complete(ctx context.Context, q Querier, it Item) error {
-	_, err := q.Exec(ctx, `
-		DELETE FROM pipeline_work
-		 WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-		   AND status = 'running'
-	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport)
-	if err != nil {
-		return fmt.Errorf("complete %s %s/%d: %w", it.Stage, it.EntityType, it.EntityID, err)
-	}
-	return nil
-}
-
-// Fail marks a leased item 'failed', records the cause, bumps attempts, and
-// schedules a backoff before it is claimable again. Once attempts reach
-// maxAttempts the row is parked far in the future — a visible dead-letter rather
-// than an infinite retry. Like Complete, it only acts on a row still 'running'.
-func Fail(ctx context.Context, q Querier, it Item, cause string, backoff time.Duration, maxAttempts int) error {
-	_, err := q.Exec(ctx, `
-		UPDATE pipeline_work
-		   SET status = 'failed',
-		       attempts = attempts + 1,
-		       last_error = $5,
-		       updated_at = NOW(),
-		       available_at = CASE
-		           WHEN attempts + 1 >= $6 THEN NOW() + INTERVAL '100 years'
-		           ELSE NOW() + make_interval(secs => $7)
-		       END
-		 WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-		   AND status = 'running'
-	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport,
-		truncate(cause, 2000), maxAttempts, int(backoff.Seconds()))
-	if err != nil {
-		return fmt.Errorf("fail %s %s/%d: %w", it.Stage, it.EntityType, it.EntityID, err)
-	}
-	return nil
-}
-
-// Requeue hands a single leased ('running') item back to 'pending', immediately
-// claimable, WITHOUT counting an attempt. It is the graceful-shutdown counterpart
-// of RequeueStale: a worker shutting down mid-drain returns its leased rows now,
-// on a fresh context, instead of stranding them 'running' until the stale lease
-// expires. Status-guarded like Complete/Fail: a no-op unless the row is still
-// 'running' (a newer input may already have reopened it to 'pending'), so it
-// never clobbers reopened work or another claim.
-func Requeue(ctx context.Context, q Querier, it Item) error {
-	_, err := q.Exec(ctx, `
-		UPDATE pipeline_work
-		   SET status = 'pending', updated_at = NOW(), available_at = NOW()
-		 WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
-		   AND status = 'running'
-	`, string(it.Stage), it.EntityType, it.EntityID, it.Sport)
-	if err != nil {
-		return fmt.Errorf("requeue %s %s/%d: %w", it.Stage, it.EntityType, it.EntityID, err)
 	}
 	return nil
 }
@@ -258,9 +134,9 @@ func Counts(ctx context.Context, q Querier) ([]StageStatus, error) {
 	return out, rows.Err()
 }
 
-// DeadLetter is a pipeline_work row that has exhausted its retries. Fail parked
-// it far in the future after maxAttempts, so it will never retry on its own and
-// needs an operator.
+// DeadLetter is a pipeline_work row that has exhausted its retries. The Rust
+// worker parks it far in the future after MAX_ATTEMPTS, so it will never retry
+// on its own and needs an operator.
 type DeadLetter struct {
 	Stage      string
 	EntityType string
@@ -272,9 +148,9 @@ type DeadLetter struct {
 }
 
 // DeadLetters returns the dead-lettered work — 'failed' rows parked beyond any
-// real backoff. It keys off the far-future available_at that Fail sets at the
-// retry cap (NOW() + 100 years), so it stays correct regardless of the maxAttempts
-// constant. The operator answer to "what work is permanently stuck?"
+// real backoff. It keys off the far-future available_at that the Rust worker
+// sets at the retry cap (NOW() + 100 years). The operator answer to "what work
+// is permanently stuck?"
 func DeadLetters(ctx context.Context, q Querier) ([]DeadLetter, error) {
 	rows, err := q.Query(ctx, `
 		SELECT stage, entity_type, entity_id, sport, attempts, COALESCE(last_error, ''), updated_at
@@ -304,12 +180,4 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
-}
-
-// truncate bounds an error string before it is stored in last_error.
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	return s[:max]
 }

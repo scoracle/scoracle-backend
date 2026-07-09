@@ -3,8 +3,8 @@
 //! On start and on every wakeup it recovers stale leases, then drains each
 //! registered stage to empty. Wakeups come from a Postgres LISTEN on
 //! `pipeline_work_ready` (fired by the migration-103 trigger) plus a periodic
-//! safety-net tick. Mirrors the Go `internal/derive` worker
-//! (`go/internal/derive/worker.go`).
+//! safety-net tick. The Rust worker owns the stage drain loop; Go only enqueues
+//! work and exposes operator queue commands.
 //!
 //! Phase 0 safety property: with NO handlers registered, `tick` short-circuits
 //! before touching the queue — the scaffold only connects, pings Ollama, and

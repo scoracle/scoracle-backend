@@ -138,3 +138,4 @@
 137_source_tiers_news_only
 138_rename_sigil_synthesis_constraints
 139_drop_news_summaries_source_attribution
+140_latest_momentum_scores_projection

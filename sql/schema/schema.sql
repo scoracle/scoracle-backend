@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict fA7hjdccJZK5uTe5HL0h6HQ0WtFfVVXA08xhr2gXAULr8E4T4BXAlsOqBTKwv2W
+\restrict ayD0t65U3iNVoujNAp5lBHRw3Coe9aM8hYjvJNtTtxZyzCy2BkaXZ6hMxthrsyn
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3871,6 +3871,27 @@ $$;
 
 
 --
+-- Name: refresh_latest_momentum_scores_per_entity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_latest_momentum_scores_per_entity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW public.latest_momentum_scores_per_entity;
+    RETURN NULL;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_latest_momentum_scores_per_entity(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_latest_momentum_scores_per_entity() IS 'Statement trigger helper for latest_momentum_scores_per_entity. The source history remains append-only; this refresh moves the current-row projection cost to writes/cleanup instead of every hot leaderboard read.';
+
+
+--
 -- Name: refresh_momentum_scores(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5584,6 +5605,81 @@ ALTER SEQUENCE public.fixtures_id_seq OWNED BY public.fixtures.id;
 
 
 --
+-- Name: momentum_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.momentum_scores (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    season integer,
+    league_id integer,
+    team_id integer,
+    "position" text,
+    position_group text,
+    conference text,
+    division text,
+    vibe_slope numeric,
+    vibe_samples integer DEFAULT 0 NOT NULL,
+    vibe_window_start timestamp with time zone,
+    vibe_window_end timestamp with time zone,
+    rating_slope numeric,
+    rating_samples integer DEFAULT 0 NOT NULL,
+    rating_window_start timestamp with time zone,
+    rating_window_end timestamp with time zone,
+    momentum_score numeric,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
+);
+
+
+--
+-- Name: TABLE momentum_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.momentum_scores IS 'Durable Momentum snapshots (append-only). vibe_slope: 21 calendar days. rating_slope: the entity''s last season_bridge_window(sport) rated games (~10% of season, the same schedule as the percentile cold-start guard), a game-count lookback that spans the season boundary and cannot be starved by bye weeks. momentum_score: SIGNED average of the present slopes (falls recorded, not clamped). Retention: full resolution 30 days, then thinned to the last snapshot per entity per day by the Go cleanup ticker.';
+
+
+--
+-- Name: latest_momentum_scores_per_entity; Type: MATERIALIZED VIEW; Schema: public; Owner: -
+--
+
+CREATE MATERIALIZED VIEW public.latest_momentum_scores_per_entity AS
+ SELECT DISTINCT ON (sport, entity_type, entity_id) id,
+    sport,
+    entity_type,
+    entity_id,
+    season,
+    league_id,
+    team_id,
+    "position",
+    position_group,
+    conference,
+    division,
+    vibe_slope,
+    vibe_samples,
+    vibe_window_start,
+    vibe_window_end,
+    rating_slope,
+    rating_samples,
+    rating_window_start,
+    rating_window_end,
+    momentum_score,
+    generated_at
+   FROM public.momentum_scores
+  ORDER BY sport, entity_type, entity_id, generated_at DESC
+  WITH NO DATA;
+
+
+--
+-- Name: MATERIALIZED VIEW latest_momentum_scores_per_entity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON MATERIALIZED VIEW public.latest_momentum_scores_per_entity IS 'Current-row projection for momentum_scores. D1 latest-row read optimization: one row per (sport, entity_type, entity_id), refreshed by a statement trigger after momentum_scores changes so /leaderboard/momentum does not sort the full append-only history on every read.';
+
+
+--
 -- Name: meta; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5716,43 +5812,6 @@ CREATE TABLE public.momentum_refresh_needed (
 --
 
 COMMENT ON TABLE public.momentum_refresh_needed IS 'Durable dirty-sport queue for Momentum snapshots. Upstream Vibe/event-rating changes mark a sport dirty; the API listener drains only pending rows into momentum_scores.';
-
-
---
--- Name: momentum_scores; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.momentum_scores (
-    id bigint NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    season integer,
-    league_id integer,
-    team_id integer,
-    "position" text,
-    position_group text,
-    conference text,
-    division text,
-    vibe_slope numeric,
-    vibe_samples integer DEFAULT 0 NOT NULL,
-    vibe_window_start timestamp with time zone,
-    vibe_window_end timestamp with time zone,
-    rating_slope numeric,
-    rating_samples integer DEFAULT 0 NOT NULL,
-    rating_window_start timestamp with time zone,
-    rating_window_end timestamp with time zone,
-    momentum_score numeric,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT momentum_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
-);
-
-
---
--- Name: TABLE momentum_scores; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.momentum_scores IS 'Durable Momentum snapshots (append-only). vibe_slope: 21 calendar days. rating_slope: the entity''s last season_bridge_window(sport) rated games (~10% of season, the same schedule as the percentile cold-start guard), a game-count lookback that spans the season boundary and cannot be starved by bye weeks. momentum_score: SIGNED average of the present slopes (falls recorded, not clamped). Retention: full resolution 30 days, then thinned to the last snapshot per entity per day by the Go cleanup ticker.';
 
 
 --
@@ -8080,6 +8139,27 @@ CREATE INDEX idx_fixtures_sport_date ON public.fixtures USING btree (sport, star
 
 
 --
+-- Name: idx_latest_momentum_scores_per_entity_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_latest_momentum_scores_per_entity_key ON public.latest_momentum_scores_per_entity USING btree (sport, entity_type, entity_id);
+
+
+--
+-- Name: idx_latest_momentum_scores_per_entity_rating; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_latest_momentum_scores_per_entity_rating ON public.latest_momentum_scores_per_entity USING btree (sport, rating_slope DESC, generated_at DESC) WHERE (rating_slope IS NOT NULL);
+
+
+--
+-- Name: idx_latest_momentum_scores_per_entity_vibe; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_latest_momentum_scores_per_entity_vibe ON public.latest_momentum_scores_per_entity USING btree (sport, vibe_slope DESC, generated_at DESC) WHERE (vibe_slope IS NOT NULL);
+
+
+--
 -- Name: idx_leagues_sport; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8696,6 +8776,13 @@ CREATE TRIGGER pipeline_work_notify AFTER INSERT OR UPDATE ON public.pipeline_wo
 
 
 --
+-- Name: momentum_scores refresh_latest_momentum_scores_per_entity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER refresh_latest_momentum_scores_per_entity AFTER INSERT OR DELETE OR UPDATE OR TRUNCATE ON public.momentum_scores FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_latest_momentum_scores_per_entity();
+
+
+--
 -- Name: event_box_scores trg_detect_team_change; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -9161,5 +9248,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict fA7hjdccJZK5uTe5HL0h6HQ0WtFfVVXA08xhr2gXAULr8E4T4BXAlsOqBTKwv2W
+\unrestrict ayD0t65U3iNVoujNAp5lBHRw3Coe9aM8hYjvJNtTtxZyzCy2BkaXZ6hMxthrsyn
 

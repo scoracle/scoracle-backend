@@ -7,6 +7,9 @@
 //! the prompt now composes PEAK, Vibe, Momentum, and current narratives as distinct pillars.
 //! Phase 5.1 adds a fifth: the transfer-heat pillar (the transfer lens the trigger gate already
 //! watches), so the synthesis can finally see the served rumors that can fire its own re-run.
+//! Phase 5.2 feeds the previous Sigil (score + blurb) back into the prompt as continuity — a
+//! prompt-only anchor, deliberately kept OUT of the `input_hash` (the score always moves, so
+//! hashing it would self-trigger every re-run).
 //! The Go sources originally mirrored here:
 //! `go/internal/ml/sigil.go` (Generate, the three pillar loaders, prompt, parse,
 //! input-components/hash, persist, the SkipUnchanged gate); `go/internal/ml/rating.go`
@@ -40,9 +43,11 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Prompt version for the Sigil synthesis contract. Bumped s8→s9 for the Phase 5.1 transfer
-/// pillar (a fifth prompt section + a new `transfer_heat` input-components key).
-pub const SIGIL_PROMPT_VERSION: &str = "s9";
+/// Prompt version for the Sigil synthesis contract. Bumped s9→s10 for the Phase 5.2 previous-Sigil
+/// continuity section (a prompt-only `=== PREVIOUS SIGIL ===` block + a system-prompt continuity
+/// rule). Provenance-only: the section is NOT in the `input_hash`, so nothing regenerates on the
+/// bump — only a real pillar change flips the hash.
+pub const SIGIL_PROMPT_VERSION: &str = "s10";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -61,6 +66,7 @@ SCORE (1-100):
 - 50 = steady or genuinely mixed.
 - 100 = dominant or surging.
 - Slow-moving and season-aware. Do not overreact to one game or one weak signal.
+- When a PREVIOUS SIGIL is shown, treat its score as your prior: move from it deliberately and hold steady unless the new signals justify a change. This is memory, not a reset.
 - Use Momentum to capture recent trajectory when it conflicts with the PEAK report or Vibe.
 - A credible, advanced transfer/trade situation is a real signal; weigh it by its stage and direction, not by rumor volume.
 
@@ -602,8 +608,22 @@ pub fn build_synthesis_input_components(
 // Prompt assembly.
 // ---------------------------------------------------------------------------
 
+/// The previous Sigil read fed back into the prompt for continuity (Phase 5.2). Prompt-only: it
+/// is NOT part of `build_synthesis_input_components` / the `input_hash` — the score always moves,
+/// so hashing it would self-trigger every re-run. This mirrors how `previous_score` is
+/// persisted-but-not-hashed. Constructed only for a real prior read (`previous_score` present).
+#[derive(Clone, Debug)]
+pub struct PrevSigil {
+    pub score: i32,
+    /// The prior blurb; may be empty (a scored row can carry an empty blurb) — then only the
+    /// Score line renders.
+    pub blurb: String,
+}
+
 /// build_synthesis_prompt assembles the user prompt. `sport_raw` is the original-case value used in
-/// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe).
+/// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe). `previous` is the prior
+/// Sigil read for continuity (Phase 5.2) — rendered as a lead-in anchor, `None` for the parity
+/// path and an entity's first synthesis.
 #[allow(clippy::too_many_arguments)]
 pub fn build_synthesis_prompt(
     entity_type: &str,
@@ -614,6 +634,7 @@ pub fn build_synthesis_prompt(
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
     transfers: &[HeatItem],
+    previous: Option<&PrevSigil>,
 ) -> String {
     let mut b = String::new();
 
@@ -621,6 +642,18 @@ pub fn build_synthesis_prompt(
     b.push_str(&format!(
         "Entity: {entity_name} ({sport_raw} {entity_type})\n"
     ));
+
+    // Previous Sigil (Phase 5.2) — a continuity anchor set BEFORE the fresh pillars so the model
+    // reads its prior before the new evidence. Omitted entirely when there is no prior read (this
+    // section is prompt-only and outside the hash, so it needs no stable no-data placeholder).
+    if let Some(p) = previous {
+        b.push_str("\n=== PREVIOUS SIGIL ===\n");
+        b.push_str(&format!("Score: {}/100\n", p.score));
+        if !p.blurb.is_empty() {
+            b.push_str(&p.blurb);
+            b.push('\n');
+        }
+    }
 
     // P1 — News narrative
     if !narratives.is_empty() {
@@ -879,6 +912,9 @@ async fn generate_sigil_inner(
         vibe.as_ref(),
         &momentum,
         &transfers,
+        // Parity is deterministic at temp 0 and intentionally skips the previous-Sigil
+        // continuity (as it skips SkipUnchanged/persist), so the prompt stays byte-stable.
+        None,
     );
     let opts = GenerateOptions {
         system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
@@ -1030,13 +1066,23 @@ impl StageHandler for SigilHandler {
             sport: sport.clone(),
             season: Some(season),
         };
-        // One round-trip to the entity-season's latest synthesis row for BOTH the debounce hash
-        // and the previous-score baseline (plan A1 — was two identical latest-row queries).
-        let (prev_score_raw, latest_hash) = hx.latest_with_hash("sigil_synthesis", &key).await?;
+        // One round-trip to the entity-season's latest synthesis row for the debounce hash, the
+        // previous-score baseline, AND the previous blurb (plan A1 — a consistent, non-torn read
+        // of the one prior synthesis).
+        let (prev_score_raw, prev_blurb, latest_hash) =
+            hx.latest_with_hash("sigil_synthesis", &key).await?;
         if latest_hash.as_deref() == Some(input_hash.as_str()) {
             return Ok(()); // unchanged → cheap no-op (no model call, no persist)
         }
         let prev = prev_score_raw.map(|v| v as i32).unwrap_or(0);
+        // Previous Sigil as prompt-only continuity (Phase 5.2): built only for a real prior read
+        // (prev > 0 ⇒ a scored row, not a marker). Deliberately NOT folded into input_hash — the
+        // score always moves, so hashing it would self-trigger every re-run; this mirrors how
+        // previous_score is persisted-but-not-hashed.
+        let previous = (prev > 0).then(|| PrevSigil {
+            score: prev,
+            blurb: prev_blurb.unwrap_or_default(),
+        });
 
         let prompt = build_synthesis_prompt(
             &item.entity_type,
@@ -1047,6 +1093,7 @@ impl StageHandler for SigilHandler {
             vibe.as_ref(),
             &momentum,
             &transfers,
+            previous.as_ref(),
         );
         let opts = GenerateOptions {
             system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
@@ -1311,6 +1358,7 @@ mod tests {
             Some(&vibe),
             &mom,
             &[],
+            None,
         );
         assert_eq!(
             p,
@@ -1329,6 +1377,7 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
+            None,
         );
         assert_eq!(
             p,
@@ -1355,9 +1404,70 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &transfers,
+            None,
         );
         assert!(p.contains(
             "=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n\nRespond now."
         ));
+    }
+
+    #[test]
+    fn previous_sigil_renders_as_continuity_lead_in() {
+        // A prior read renders a `=== PREVIOUS SIGIL ===` block right after the Entity line, BEFORE
+        // the fresh pillars — the model reads its prior before the new evidence.
+        let previous = PrevSigil {
+            score: 68,
+            blurb: "A quiet, season-long ascent.".into(),
+        };
+        let p = build_synthesis_prompt(
+            "player",
+            "Test Player",
+            "NBA",
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &[],
+            Some(&previous),
+        );
+        assert!(p.starts_with(
+            "Entity: Test Player (NBA player)\n\n=== PREVIOUS SIGIL ===\nScore: 68/100\nA quiet, season-long ascent.\n\n=== NEWS NARRATIVE ==="
+        ));
+    }
+
+    #[test]
+    fn previous_sigil_empty_blurb_renders_score_only() {
+        // A scored prior row can carry an empty blurb: only the Score line renders (no blank body).
+        let previous = PrevSigil {
+            score: 55,
+            blurb: String::new(),
+        };
+        let p = build_synthesis_prompt(
+            "team",
+            "Test Team",
+            "NFL",
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &[],
+            Some(&previous),
+        );
+        assert!(p.starts_with(
+            "Entity: Test Team (NFL team)\n\n=== PREVIOUS SIGIL ===\nScore: 55/100\n\n=== NEWS NARRATIVE ==="
+        ));
+    }
+
+    #[test]
+    fn previous_sigil_is_prompt_only_not_hashed() {
+        // The continuity read must never touch the debounce hash: build_synthesis_input_components
+        // takes no `previous` argument, so the hash pre-image is structurally independent of it.
+        // This test pins that intent — the same pillars yield the same components regardless of
+        // any prior read (which the prompt, not the hash, consumes).
+        let mom = SynthMomentum::default();
+        let a = build_synthesis_input_components(&[], None, None, &mom, &[]);
+        let b = build_synthesis_input_components(&[], None, None, &mom, &[]);
+        assert_eq!(a, b);
+        assert_eq!(a, r#"{"narrative_titles":[],"narrative_trajectories":[]}"#);
     }
 }

@@ -1,0 +1,12 @@
+{
+  "name": "clearly-negative",
+  "task": "vibe",
+  "prompt_version": "v10",
+  "note": "proves --fixtures on the vibe score-band axis. FLOOR: score_max 40 for uniformly negative narratives.",
+  "system": "Task: produce a sentiment score and a short felt read from the supplied narratives and transfer/trade activity.\n\nVoice: direct, sports-literate, grounded. No hype, no melodrama, no invented drama.\n\nSCORE (1-100):\n- 1 = grim or in freefall.\n- 50 = quiet, unclear, or genuinely mixed.\n- 100 = euphoric or surging.\n- Weigh narratives by impact.\n- Transfer/trade activity is energy, not automatically good or bad.\n- If little is happening, stay near 50.\n\nVIBE:\n- One or two sentences. Use three only for a truly major multi-strand moment.\n- Name the actual players, clubs, moves, or numbers behind the dominant threads.\n- Do not list every minor item.\n- Do not use generic phrases when the signals give specifics.\n- Ground every claim in the supplied signals.\n\nReply with exactly these two lines:\nSCORE: <integer 1-100>\nVIBE: <the felt read>",
+  "user_prompt": "Entity: Player Marcus Vale (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- [8, Cooling, topic heat 5] Benched amid slump: Coaches pulled him from the rotation after a string of poor outings; local radio openly questioning his future.\n- [6, Cooling, topic heat 4] Trade-block chatter: Front office reportedly gauging interest; fans frustrated.\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line).",
+  "temperature": 0.0,
+  "expect": {
+    "score_max": 40
+  }
+}

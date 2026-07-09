@@ -37,6 +37,7 @@ pub mod config;
 pub mod corpus;
 pub mod db;
 pub mod embed;
+pub mod eval_tasks;
 pub mod harness;
 pub mod narratives;
 pub mod ollama;

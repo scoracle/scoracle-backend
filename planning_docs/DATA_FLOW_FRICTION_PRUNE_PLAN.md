@@ -1741,8 +1741,65 @@ click-to-copy text.
       binaries but failed while rendering user systemd units under
       `~/.config/systemd/user` due the managed filesystem sandbox. The escalated
       rerun completed the sanctioned build/install/restart/verify path.
-- **Wave 4** — dormant by design until operator pain shows (D1–D3).
-- **Wave 5** — pending.
+- **Wave 4** — DONE (2026-07-09 UTC / 2026-07-08 America/Detroit). D1 ran
+  because the measured momentum leaderboard latency justified it; D2 and D3
+  were deliberately skipped because the live operator-pain signals did not
+  justify their schema/architecture churn. One shippable D1 commit, migration
+  140 applied, schema snapshot refreshed, and release deployed at
+  `33ab4027e3dc`; `/health/db` served 200 and reported the new commit. Go gate
+  held after the Go touch: `go build ./...` + `go test ./...` green. No Rust
+  source touched; release still rebuilt both Rust binaries.
+  - **D1** (`33ab402`, mig 140) — added
+    `latest_momentum_scores_per_entity`, a materialized current-row projection
+    over append-only `momentum_scores`, plus a statement trigger that refreshes
+    the projection after `momentum_scores` changes. Rewired only the
+    `trending_vibe_leaderboard` and `trending_rating_leaderboard` statements to
+    read the projection while retaining the old `DISTINCT ON` boundary so tied
+    top-N output stays byte-identical.
+  - **D1 before/after evidence:** cold API reads with cache-busting params were
+    slow only for Momentum: NBA vibe/rating `0.389s` / `0.407s`, NFL vibe
+    `0.733s`, FOOTBALL vibe `1.755s`; other current-generation boards were
+    `13-29ms`, profile `/sigil` and `/rating` were `2-3ms`, and profile
+    `/momentum` was `77ms`. The pre-change FOOTBALL plan scanned 1.47M
+    `momentum_scores` rows, sorted 942k sport rows, spilled ~68MB temp, and ran
+    in `1856ms`. The post-change plan ran in `4.23ms`. Post-release cold API
+    reads: NBA vibe/rating `4.1ms` / `3.6ms`, NFL vibe `3.2ms`, FOOTBALL vibe
+    `4.1ms`.
+  - **D1 byte-identity proof:** raw projection diff was zero:
+    old `DISTINCT ON (sport, entity_type, entity_id)` = 7,220 rows, new
+    projection = 7,220 rows, `EXCEPT ALL` diff = 0. Final leaderboard payload
+    hashes matched for all six default cases (NBA/NFL/FOOTBALL × vibe/rating)
+    after preserving the old `DISTINCT ON` boundary; all `diff_rows = 0`.
+  - **D2** — SKIPPED. Live data showed only 23
+    `transfer_identity_applications` rows and 5
+    `player_current_identity_overrides` rows. That is not enough current
+    operator UX/revert-complexity pain to justify collapsing manual and
+    applied-transfer override semantics into a nullable merged table.
+  - **D3** — SKIPPED. `momentum_refresh_needed` was empty and
+    `pipeline_work_status` showed the existing work visibility (`narratives`
+    running 4, `sigil` failed/dead-letter 82). That did not justify reversing
+    the documented "Momentum is intentionally NOT a queue stage" decision in
+    `rust/src/work.rs`.
+  - **Deviations / notes:**
+    - D1 was scoped to `momentum_scores` only. The other latest-row boards did
+      not show read-latency pain, so no views were added for `vibe_scores`,
+      `sigil_synthesis`, `news_summaries`, `transfer_rumors`, or
+      `stat_summaries`.
+    - A plain SQL view would not have produced the claimed O(1)-style read; the
+      migration uses a materialized current projection. The source history
+      remains append-only and the old `idx_momentum_scores_read` stays for
+      history/cleanup paths.
+    - Bucketlabel cron remains installed. `planning_docs/data/bucket_labels.tsv`
+      and `logs/bucketlabel.log` were still missing; `crontab -l` still had the
+      01:00 `cron-bucketlabel.sh -limit 1500` line. Do not remove it until the
+      TSV is complete.
+    - Unpushed: Wave 4 commits are LOCAL ONLY on `main` — not pushed (no user
+      request to push).
+- **Wave 5** — pending. Entry state after Wave 4: branch `main`, HEAD is this
+  docs-only ledger commit on top of D1 `33ab4027e3dc`, migration max
+  `140_latest_momentum_scores_projection`, live services running
+  `33ab4027e3dc`, bucketlabel cron still installed because
+  `planning_docs/data/bucket_labels.tsv` is not complete.
 - **Continuous (E1–E4)** — DONE through Wave 3 (E3 in Wave 1; E1 in B5; E2/E4
   in `b67f3a2`). Keep future documentation sync alongside the relevant waves.
 - **Pre-work (2026-07-08, this session):** plan v2 FINAL; F7 root-caused;

@@ -402,7 +402,9 @@ pub async fn load_momentum_pillar(
 
 /// load_pillars resolves the season and loads all pillars season-exact — the shared
 /// front half of both `generate_sigil` (parity) and `SigilHandler::handle` (production).
-async fn load_pillars(
+/// `pub` so the `sigil` eval task (`eval_tasks::SigilTask`) builds the same synthesis prompt as
+/// production from one source, rather than reconstructing it from the individual pillar loaders.
+pub async fn load_pillars(
     hx: &Harness,
     entity_type: &str,
     entity_id: i32,

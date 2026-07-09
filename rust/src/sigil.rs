@@ -10,6 +10,11 @@
 //! Phase 5.2 feeds the previous Sigil (score + blurb) back into the prompt as continuity — a
 //! prompt-only anchor, deliberately kept OUT of the `input_hash` (the score always moves, so
 //! hashing it would self-trigger every re-run).
+//! Phase 5.3 makes panel DISAGREEMENT a first-class output: the synthesis reply gained three
+//! OPTIONAL lines (`CONVERGENCE:` / `DISAGREEMENT:` / `WHY_NOW:`) alongside the required
+//! SCORE + BLURB, persisted to the additive nullable `convergence`/`disagreement`/`why_now`
+//! columns (mig 143). They are model OUTPUTS, not inputs — the `input_hash` stays
+//! pillar-inputs-only, so old rows stay valid and populate lazily on the next real re-synthesis.
 //! The Go sources originally mirrored here:
 //! `go/internal/ml/sigil.go` (Generate, the three pillar loaders, prompt, parse,
 //! input-components/hash, persist, the SkipUnchanged gate); `go/internal/ml/rating.go`
@@ -43,11 +48,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Prompt version for the Sigil synthesis contract. Bumped s9→s10 for the Phase 5.2 previous-Sigil
-/// continuity section (a prompt-only `=== PREVIOUS SIGIL ===` block + a system-prompt continuity
-/// rule). Provenance-only: the section is NOT in the `input_hash`, so nothing regenerates on the
-/// bump — only a real pillar change flips the hash.
-pub const SIGIL_PROMPT_VERSION: &str = "s10";
+/// Prompt version for the Sigil synthesis contract. Bumped s10→s11 for the Phase 5.3 panel-output
+/// contract: the reply now carries three OPTIONAL lines (CONVERGENCE / DISAGREEMENT / WHY_NOW)
+/// after the required SCORE + BLURB. Provenance-only: those are model OUTPUTS, not pillar inputs,
+/// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
+/// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
+/// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
+pub const SIGIL_PROMPT_VERSION: &str = "s11";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -70,14 +77,29 @@ SCORE (1-100):
 - Use Momentum to capture recent trajectory when it conflicts with the PEAK report or Vibe.
 - A credible, advanced transfer/trade situation is a real signal; weigh it by its stage and direction, not by rumor volume.
 
+CONVERGENCE (1-100):
+- How strongly the lenses agree. 100 = PEAK, narrative, vibe, momentum, and transfer all tell the same story; 50 = mixed; low = the lenses conflict.
+- Judge agreement of DIRECTION, not raw scores: a steady 50 across every lens still converges.
+
+DISAGREEMENT:
+- One line naming the specific rail conflict when the lenses diverge, e.g. "strong PEAK vs sliding momentum and negative narrative".
+- Omit this line entirely when the lenses agree. Do not invent a conflict.
+
+WHY_NOW:
+- One line on what moved recently to justify re-reading now — a new transfer stage, a breaking narrative, a rating swing.
+- Omit this line entirely when nothing is genuinely fresh. Do not manufacture urgency.
+
 BLURB:
 - About two sentences; use a third only when several major signals converge.
 - Include: what the entity is, the defining felt state, the PEAK context, and current trajectory.
 - Do not recite percentiles or per-x details; PEAK already carries that.
 - Name the real storyline — including a live transfer/trade situation when it is the story — but do not catalogue every rumor or item.
 
-Reply with exactly these two lines:
+Reply with these lines. SCORE and BLURB are required; include CONVERGENCE, DISAGREEMENT, and WHY_NOW only when they apply (omit the whole line otherwise). Keep BLURB last:
 SCORE: <integer 1-100>
+CONVERGENCE: <integer 1-100>
+DISAGREEMENT: <one line, or omit>
+WHY_NOW: <one line, or omit>
 BLURB: <the story>"#;
 
 // ---------------------------------------------------------------------------
@@ -130,12 +152,20 @@ impl SynthMomentum {
     }
 }
 
-/// The validated two-line synthesis answer — SCORE (1-100) + the 1-2 sentence BLURB. The sigil
-/// Extract output shape (the `T` in `Parser<T>` / `Extracted<T>`).
+/// The validated synthesis answer — the required SCORE (1-100) + BLURB, plus the OPTIONAL Phase 5.3
+/// panel outputs. The sigil Extract output shape (the `T` in `Parser<T>` / `Extracted<T>`). The
+/// three panel fields are `Option` because the model omits the whole line when it does not apply
+/// (convergent lenses, nothing fresh) — a missing field persists as NULL, never a stage failure.
 #[derive(Clone, Debug)]
 pub struct SigilReply {
     pub score: i32,
     pub blurb: String,
+    /// Phase 5.3: how strongly the lenses agree (1-100). `None` when the model omitted it.
+    pub convergence: Option<i32>,
+    /// Phase 5.3: one-line summary of where the rails diverge. `None`/omitted when they agree.
+    pub disagreement: Option<String>,
+    /// Phase 5.3: one-line breaking-news freshness note. `None`/omitted when nothing is fresh.
+    pub why_now: Option<String>,
 }
 
 /// The result of running the sigil core for one entity, before persistence. Captures
@@ -160,6 +190,11 @@ pub struct SigilOutput {
     /// no-pillar → the role's configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
+    /// Phase 5.3 panel outputs — all `None` for the marker and whenever the model omitted the
+    /// line. Persisted to the additive nullable columns (mig 143); NOT part of the `input_hash`.
+    pub convergence: Option<i32>,
+    pub disagreement: Option<String>,
+    pub why_now: Option<String>,
 }
 
 impl SigilOutput {
@@ -747,36 +782,86 @@ pub fn build_synthesis_prompt(
 // Output parsing — mirrors parseSynthesisResponse.
 // ---------------------------------------------------------------------------
 
-/// parse_synthesis_response extracts SCORE and BLURB from the model's two-line reply. Mirrors
-/// `parseSynthesisResponse`: case-sensitive `"SCORE: "` / `"BLURB: "` prefixes (note the
-/// space), the score clamped 1-100 only when the whole value parses, and blurb continuation
-/// lines absorbed. `score == 0` means no parseable SCORE line (the caller treats it as a
-/// failure — there is NO first-integer fallback, unlike vibe).
-pub fn parse_synthesis_response(raw: &str) -> (i32, String) {
-    let mut score: i32 = 0;
-    let mut blurb = String::new();
+/// The parsed synthesis reply. `score`/`blurb` are the required core (a `score == 0` means no
+/// parseable SCORE line — the caller fails the item); the three Phase 5.3 panel fields are
+/// `Option` because the model omits the whole line when it does not apply.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ParsedSynthesis {
+    pub score: i32,
+    pub blurb: String,
+    pub convergence: Option<i32>,
+    pub disagreement: Option<String>,
+    pub why_now: Option<String>,
+}
+
+/// is_synthesis_label reports whether a trimmed line begins a known reply field. Blurb
+/// continuation stops here (so BLURB never swallows a later panel field), which is what makes the
+/// parse ORDER-INDEPENDENT — the model may emit the panel lines before or after BLURB. Matched
+/// WITHOUT the trailing space so a spacing slip (`SCORE:73`) still terminates blurb absorption.
+fn is_synthesis_label(trimmed: &str) -> bool {
+    ["SCORE:", "CONVERGENCE:", "DISAGREEMENT:", "WHY_NOW:", "BLURB:"]
+        .iter()
+        .any(|p| trimmed.starts_with(p))
+}
+
+/// parse_synthesis_response extracts the synthesis reply. SCORE + BLURB mirror
+/// `parseSynthesisResponse`: case-sensitive `"SCORE: "` / `"BLURB: "` prefixes (note the space),
+/// the score clamped 1-100 only when the whole value parses, blurb continuation lines absorbed.
+/// `score == 0` means no parseable SCORE line (the caller treats it as a failure — there is NO
+/// first-integer fallback, unlike vibe).
+///
+/// Phase 5.3 adds three OPTIONAL single-line fields (CONVERGENCE / DISAGREEMENT / WHY_NOW), each
+/// extracted by the same case-sensitive `"<LABEL>: "` convention. They degrade gracefully: a
+/// missing (or empty) line ⇒ `None` ⇒ NULL column, never a parse failure — only SCORE is required.
+/// Blurb absorption stops at any known label (see `is_synthesis_label`), so the panel fields are
+/// captured regardless of whether the model emits them before or after BLURB.
+pub fn parse_synthesis_response(raw: &str) -> ParsedSynthesis {
+    let mut out = ParsedSynthesis::default();
     let lines: Vec<&str> = raw.trim().split('\n').collect();
 
-    for (i, line) in lines.iter().enumerate() {
-        let trimmed = line.trim();
+    let mut i = 0;
+    while i < lines.len() {
+        let trimmed = lines[i].trim();
         if let Some(rest) = trimmed.strip_prefix("SCORE: ") {
             // strconv.Atoi parses the WHOLE value; a trailing non-digit ⇒ no update (score 0).
             if let Ok(n) = rest.trim().parse::<i64>() {
-                score = n.clamp(1, 100) as i32;
+                out.score = n.clamp(1, 100) as i32;
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("CONVERGENCE: ") {
+            if let Ok(n) = rest.trim().parse::<i64>() {
+                out.convergence = Some(n.clamp(1, 100) as i32);
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("DISAGREEMENT: ") {
+            let v = rest.trim();
+            if !v.is_empty() {
+                out.disagreement = Some(v.to_string());
+            }
+        } else if let Some(rest) = trimmed.strip_prefix("WHY_NOW: ") {
+            let v = rest.trim();
+            if !v.is_empty() {
+                out.why_now = Some(v.to_string());
             }
         } else if let Some(rest) = trimmed.strip_prefix("BLURB: ") {
-            blurb = rest.trim().to_string();
-            for extra in &lines[i + 1..] {
-                let e = extra.trim();
+            let mut blurb = rest.trim().to_string();
+            let mut j = i + 1;
+            while j < lines.len() {
+                let e = lines[j].trim();
+                if is_synthesis_label(e) {
+                    break; // a later field begins — do not absorb it into the blurb
+                }
                 if !e.is_empty() {
                     blurb.push(' ');
                     blurb.push_str(e);
                 }
+                j += 1;
             }
-            break;
+            out.blurb = blurb;
+            i = j;
+            continue; // j already points past the absorbed continuation lines
         }
+        i += 1;
     }
-    (score, blurb)
+    out
 }
 
 /// SigilParser is the sigil stage's `Parser` plug-in: it wraps `parse_synthesis_response`
@@ -788,14 +873,20 @@ pub struct SigilParser;
 
 impl Parser<SigilReply> for SigilParser {
     fn parse(&self, raw: &str) -> Result<Option<SigilReply>> {
-        let (score, blurb) = parse_synthesis_response(raw);
-        if score == 0 {
+        let p = parse_synthesis_response(raw);
+        if p.score == 0 {
             bail!(
                 "synthesis: could not parse score from response (raw={:?})",
                 truncate(raw, 200)
             );
         }
-        Ok(Some(SigilReply { score, blurb }))
+        Ok(Some(SigilReply {
+            score: p.score,
+            blurb: p.blurb,
+            convergence: p.convergence,
+            disagreement: p.disagreement,
+            why_now: p.why_now,
+        }))
     }
 }
 
@@ -888,6 +979,9 @@ async fn generate_sigil_inner(
                 input_hash: None,
                 model: hx.router.for_role(Role::StatsLogic).model().to_string(),
                 prompt_version: SIGIL_PROMPT_VERSION,
+                convergence: None,
+                disagreement: None,
+                why_now: None,
             },
             None,
             None,
@@ -944,6 +1038,9 @@ async fn generate_sigil_inner(
             input_hash: Some(input_hash),
             model: extracted.model,
             prompt_version: SIGIL_PROMPT_VERSION,
+            convergence: reply.convergence,
+            disagreement: reply.disagreement,
+            why_now: reply.why_now,
         },
         built_prompt,
         request_body,
@@ -967,13 +1064,16 @@ async fn persist_to_sigil_synthesis(
     let prov = out.provenance();
     let entity_id = item.entity_id_i32()?;
     let score: Option<i16> = out.score.map(|n| n as i16);
+    // Phase 5.3 panel outputs — nullable columns (mig 143). All None for a marker or when the
+    // model omitted the line; convergence rides the same smallint 1-100 shape as `score`.
+    let convergence: Option<i16> = out.convergence.map(|n| n as i16);
     sqlx::query(
         r#"
         INSERT INTO sigil_synthesis (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             score, previous_score, blurb, input_components, input_hash,
-            model_version, prompt_version
-        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11)
+            model_version, prompt_version, convergence, disagreement, why_now
+        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11,$12,$13,$14)
         "#,
     )
     .bind(&item.entity_type)
@@ -987,6 +1087,9 @@ async fn persist_to_sigil_synthesis(
     .bind(prov.input_hash.as_deref())
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
+    .bind(convergence)
+    .bind(out.disagreement.as_deref())
+    .bind(out.why_now.as_deref())
     .execute(pool)
     .await
     .context("persist sigil")?;
@@ -1045,6 +1148,9 @@ impl StageHandler for SigilHandler {
                 input_hash: None,
                 model: hx.router.for_role(Role::StatsLogic).model().to_string(),
                 prompt_version: SIGIL_PROMPT_VERSION,
+                convergence: None,
+                disagreement: None,
+                why_now: None,
             };
             return persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await;
         }
@@ -1116,6 +1222,9 @@ impl StageHandler for SigilHandler {
             input_hash: Some(input_hash),
             model: extracted.model,
             prompt_version: SIGIL_PROMPT_VERSION,
+            convergence: reply.convergence,
+            disagreement: reply.disagreement,
+            why_now: reply.why_now,
         };
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
         persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
@@ -1129,24 +1238,91 @@ mod tests {
 
     #[test]
     fn parses_two_line_reply() {
-        let (score, blurb) =
-            parse_synthesis_response("SCORE: 73\nBLURB: A quiet, season-long ascent.");
-        assert_eq!(score, 73);
-        assert_eq!(blurb, "A quiet, season-long ascent.");
+        // A bare SCORE + BLURB reply: the three Phase 5.3 panel fields degrade to None (the model
+        // omitted them), never a parse failure.
+        let p = parse_synthesis_response("SCORE: 73\nBLURB: A quiet, season-long ascent.");
+        assert_eq!(p.score, 73);
+        assert_eq!(p.blurb, "A quiet, season-long ascent.");
+        assert_eq!(p.convergence, None);
+        assert_eq!(p.disagreement, None);
+        assert_eq!(p.why_now, None);
     }
 
     #[test]
     fn clamps_and_absorbs_trailing_blurb_lines() {
-        let (score, blurb) = parse_synthesis_response("SCORE: 250\nBLURB: line one\nline two");
-        assert_eq!(score, 100);
-        assert_eq!(blurb, "line one line two");
+        let p = parse_synthesis_response("SCORE: 250\nBLURB: line one\nline two");
+        assert_eq!(p.score, 100);
+        assert_eq!(p.blurb, "line one line two");
     }
 
     #[test]
     fn score_zero_when_no_score_line() {
         // No "SCORE: " prefix ⇒ score 0 (the caller fails the item — no first-integer fallback).
-        let (score, _) = parse_synthesis_response("the sigil feels like a 64 today");
-        assert_eq!(score, 0);
+        let p = parse_synthesis_response("the sigil feels like a 64 today");
+        assert_eq!(p.score, 0);
+    }
+
+    #[test]
+    fn parses_panel_output_fields() {
+        // Full Phase 5.3 reply: SCORE + all three panel fields + BLURB, in prompt order.
+        let p = parse_synthesis_response(
+            "SCORE: 71\nCONVERGENCE: 40\nDISAGREEMENT: strong PEAK vs sliding momentum\nWHY_NOW: advanced transfer talks broke today\nBLURB: A star under real pressure.",
+        );
+        assert_eq!(p.score, 71);
+        assert_eq!(p.convergence, Some(40));
+        assert_eq!(
+            p.disagreement.as_deref(),
+            Some("strong PEAK vs sliding momentum")
+        );
+        assert_eq!(p.why_now.as_deref(), Some("advanced transfer talks broke today"));
+        assert_eq!(p.blurb, "A star under real pressure.");
+    }
+
+    #[test]
+    fn convergence_clamped_like_score() {
+        let p = parse_synthesis_response("SCORE: 50\nCONVERGENCE: 250\nBLURB: mixed signals");
+        assert_eq!(p.convergence, Some(100));
+        // A non-integer CONVERGENCE leaves it None (whole-value parse, no fallback).
+        let p2 = parse_synthesis_response("SCORE: 50\nCONVERGENCE: high\nBLURB: mixed signals");
+        assert_eq!(p2.convergence, None);
+    }
+
+    #[test]
+    fn blurb_absorption_stops_at_a_later_panel_label() {
+        // Order-independence: even when the model emits BLURB BEFORE the panel fields, the blurb
+        // must not swallow them — absorption stops at the next known label, and each field is still
+        // captured on its own line.
+        let p = parse_synthesis_response(
+            "SCORE: 64\nBLURB: The story continues\nover two lines.\nDISAGREEMENT: narrative up, stats flat\nWHY_NOW: coaching change confirmed",
+        );
+        assert_eq!(p.score, 64);
+        assert_eq!(p.blurb, "The story continues over two lines.");
+        assert_eq!(p.disagreement.as_deref(), Some("narrative up, stats flat"));
+        assert_eq!(p.why_now.as_deref(), Some("coaching change confirmed"));
+    }
+
+    #[test]
+    fn empty_panel_lines_are_none_not_empty_string() {
+        // The model emitting a label with no content ⇒ None (persisted NULL), not Some("").
+        let p = parse_synthesis_response(
+            "SCORE: 55\nDISAGREEMENT: \nWHY_NOW:\nBLURB: steady across the board",
+        );
+        assert_eq!(p.disagreement, None);
+        assert_eq!(p.why_now, None);
+        assert_eq!(p.blurb, "steady across the board");
+    }
+
+    #[test]
+    fn sigil_parser_carries_panel_fields() {
+        let reply = SigilParser
+            .parse("SCORE: 80\nCONVERGENCE: 90\nWHY_NOW: rating jumped tonight\nBLURB: Surging.")
+            .unwrap()
+            .expect("a valid reply is Some");
+        assert_eq!(reply.score, 80);
+        assert_eq!(reply.convergence, Some(90));
+        assert_eq!(reply.disagreement, None);
+        assert_eq!(reply.why_now.as_deref(), Some("rating jumped tonight"));
+        assert_eq!(reply.blurb, "Surging.");
     }
 
     #[test]

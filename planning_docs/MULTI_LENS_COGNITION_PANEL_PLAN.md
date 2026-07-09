@@ -229,8 +229,11 @@ Primary role today: `Role::StatsLogic` through `sigil.rs`. Since Phase 5.1 (prom
 composes FIVE pillars — narratives, PEAK scouting report, vibe, momentum, and transfer heat — so
 the current contract is genuine panel synthesis over every accountable lens. Phase 5.2 (prompt
 `s10`) then fed the previous Sigil (score + blurb) back into the prompt as a continuity anchor —
-prompt-only, outside the `input_hash`. What is genuinely missing now: disagreement/convergence as
-first-class outputs (Phase 5.3).
+prompt-only, outside the `input_hash`. Phase 5.3 (prompt `s11`) made panel DISAGREEMENT explicit:
+the reply now carries three OPTIONAL outputs — convergence score, disagreement summary, and a
+"why now" freshness note — persisted as additive nullable columns and served on the /sigil card.
+The contract in this section is now fully realized; what remains for the phase is only trigger/eval
+polish, not a missing output.
 
 ## Phase Completion Protocol
 
@@ -352,15 +355,17 @@ Success:
 ### Phase 5 - Evolve Sigil Into Panel Synthesis
 
 Sigil is now a five-pillar synthesis (narratives, PEAK, vibe, momentum, transfer heat — prompt
-`s10`), plus previous-Sigil continuity. This phase closes the gap between that and an honest panel:
+`s11`), plus previous-Sigil continuity AND explicit panel disagreement outputs. This phase closed
+the gap between that and an honest panel:
 
 ```text
 Stats lens (PEAK)          [in prompt today]
 Narrative lens (narratives + vibe)  [in prompt today]
 Transfer lens              [in prompt — Phase 5.1]
 Momentum / trajectory      [in prompt today]
-previous Sigil             [in prompt now — Phase 5.2]
+previous Sigil             [in prompt — Phase 5.2]
   -> panel synthesis
+  -> convergence + disagreement + why_now  [output — Phase 5.3]
 ```
 
 1. **Add the transfer pillar. — DONE (2026-07-09, commit `85753ce`).** Sigil loads a fifth pillar
@@ -383,9 +388,22 @@ previous Sigil             [in prompt now — Phase 5.2]
    would self-trigger every re-run (mirrors how `previous_score` is persisted-but-not-hashed).
    Prompt bumped `s9`→`s10` (provenance-only; no gate regenerates on prompt_version). Continuity
    is what makes the read feel like memory rather than a fresh take.
-3. **Expose disagreement as output.** Convergence score, disagreement summary, and a "why now"
-   freshness note are NEW columns on `sigil_synthesis` — an additive, nullable migration.
-   Phase 4's route split changes no product tables; this phase does, and should say so.
+3. **Expose disagreement as output. — DONE (2026-07-09, commit `c854d06`).** Convergence score,
+   disagreement summary, and a "why now" freshness note are three NEW additive, nullable columns on
+   `sigil_synthesis` (mig 143: `convergence smallint` CHECK 1-100 / `disagreement text` /
+   `why_now text`; folded into schema.sql + schema_migrations.txt). The synthesis reply gained three
+   OPTIONAL labeled lines (`CONVERGENCE:` / `DISAGREEMENT:` / `WHY_NOW:`) after the required
+   SCORE + BLURB; `parse_synthesis_response` now returns a `ParsedSynthesis` struct and degrades
+   gracefully — only SCORE is required, so a missing panel field persists as NULL rather than
+   failing the terminal stage, and blurb absorption stops at any known label so the fields parse
+   regardless of emission order. These are model OUTPUTS, not pillar inputs, so the `input_hash`
+   stays pillar-inputs-only: old rows remain valid and populate lazily on their next real
+   re-synthesis (no deploy-time avalanche; no backfill). Prompt bumped `s10`→`s11` (provenance-only).
+   The Go read path (`entity_sigil` in `db.go`) surfaces the three fields in the `current` object.
+   This is the first Phase-5 step that changes product tables, as flagged. DECISION (this session):
+   the output-contract version distinct from `prompt_version` (Phase 2 ledger concept) was DEFERRED
+   to Phase 2 — `prompt_version s11` already marks rows generated under the new output shape, and
+   nothing reads a separate output-contract version until the ledger exists.
 4. **Fix the trigger topology.** Let every lens movement reach synthesis, debounced by the
    existing `input_hash`. Spurious enqueues are cheap — an unchanged pillar hash skips the model
    call. Two halves with different readiness:
@@ -412,9 +430,9 @@ previous Sigil             [in prompt now — Phase 5.2]
      Live end-to-end deferred to the next real nightly (the prod daemon on archbox
      drains+debounces sigil rows under GPU contention; not driven from this session).
 
-The two-pass breaking-news principle (design principle 6) is mostly already paid for: `enqueue`
+The two-pass breaking-news principle (design principle 6) is now fully paid for: `enqueue`
 reopens rows on a changed `input_version`, the mig-103 trigger re-fires as more sources land,
-and the debounce skips unchanged re-runs. The missing piece is only the "why now" output in (3).
+the debounce skips unchanged re-runs, and the "why now" output (3, DONE) names what moved.
 
 Success:
 
@@ -450,9 +468,12 @@ Success:
 6. Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — DONE (commit `85753ce`). It
    closed the "gate fires on a rumor sigil can't see" gap AND the deferred trigger.
    Phase 5.2 (feed the previous Sigil — score + blurb — into the prompt as continuity) — DONE
-   (commit `75ca616`, prompt `s10`). Next highest-leverage: Phase 5.3
-   (convergence/disagreement/"why now" as additive nullable `sigil_synthesis` columns — the first
-   Phase-5 step that changes product tables, so it needs an additive migration).
+   (commit `75ca616`, prompt `s10`). Phase 5.3 (convergence/disagreement/"why now" as additive
+   nullable `sigil_synthesis` columns + the reply-format extension + Go serve surfacing) — DONE
+   (commit `c854d06`, prompt `s11`, mig 143). Next highest-leverage: Phase 3 (`bin/eval` per-lens
+   registry + frozen fixtures — now including a panel-synthesis disagreement-handling eval set, for
+   which the s11 CONVERGENCE/DISAGREEMENT/WHY_NOW outputs are directly scoreable), or Phase 2 (the
+   lens ledger, where the deferred output-contract version belongs).
 7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks
@@ -461,7 +482,10 @@ Success:
 - Treating model brand as product identity.
 - Letting richer voice weaken grounding.
 - Creating a slow "panel" that misses breaking-news freshness.
-- Publishing blended output that hides meaningful disagreement between rails.
+- Publishing blended output that hides meaningful disagreement between rails. (Mitigated as of
+  Phase 5.3: convergence/disagreement are now first-class, model-emitted outputs — but only when
+  the model actually populates them; the Phase 3 disagreement-handling eval set is what will hold
+  it honest, since a lazy model can still emit high convergence and omit the disagreement line.)
 - Prompt bloat: a fifth and sixth pillar on an 8 GB serial box eats context budget; the Phase 2
   ledger's budget field is what makes this measurable rather than felt.
 - Queue pressure: re-synthesis on every lens movement multiplies model calls on busy news days;

@@ -59,8 +59,8 @@ pub trait Parser<T> {
 
 /// Extracted carries the parsed value (or the fail-closed `None`) plus the provenance Persist
 /// needs. `request_body` is the *exact* wire body that was sent (sourced from the same
-/// `Inference::request_body` the call used), so it can never drift from what was POSTed —
-/// the property the Phase-1 temp-0 proof leans on.
+/// `Inference::generate` call that POSTed it), so it can never drift from what was POSTed
+/// — the property the Phase-1 temp-0 proof leans on.
 #[derive(Debug)]
 pub struct Extracted<T> {
     /// `None` = the fail-closed marker.
@@ -88,13 +88,10 @@ impl Harness {
         parser: &P,
     ) -> Result<Extracted<T>> {
         let backend = self.router.for_role(role);
-        let gen: GenerateResult = backend
+        let (gen, request_body): (GenerateResult, serde_json::Value) = backend
             .generate(prompt, opts)
             .await
             .context("model generate")?;
-        // The wire body, taken from the SAME backend + opts the call used (single source of
-        // truth) — so the recorded request can't drift from the one that was sent.
-        let request_body = backend.request_body(prompt, opts);
         let value = parser.parse(&gen.response)?;
         Ok(Extracted {
             value,

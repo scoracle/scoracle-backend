@@ -5,6 +5,8 @@
 //! `debounce_unchanged` gate on the pillar `input_hash`. This module began as a Go parity port, and
 //! the deterministic plumbing still follows that shape. Wave 5 rebaselines the product contract:
 //! the prompt now composes PEAK, Vibe, Momentum, and current narratives as distinct pillars.
+//! Phase 5.1 adds a fifth: the transfer-heat pillar (the transfer lens the trigger gate already
+//! watches), so the synthesis can finally see the served rumors that can fire its own re-run.
 //! The Go sources originally mirrored here:
 //! `go/internal/ml/sigil.go` (Generate, the three pillar loaders, prompt, parse,
 //! input-components/hash, persist, the SkipUnchanged gate); `go/internal/ml/rating.go`
@@ -20,11 +22,13 @@
 //! harness and migration 107 for the shadow table.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narrative pillar AND no
-//! rating pillar AND no vibe pillar AND no momentum pillar, we skip the model and persist a NULL-score/NULL-blurb
+//! rating pillar AND no vibe pillar AND no momentum pillar AND no transfer pillar, we skip the model
+//! and persist a NULL-score/NULL-blurb
 //! marker row (the read path returns "no synthesis yet"). The SkipUnchanged debounce skips the
 //! local model call when the pillars hash identically to the entity-season's latest synthesis.
 //! Sigil is the TERMINAL stage — unlike vibe it enqueues nothing downstream.
 
+use crate::corpus::{load_transfer_heat, write_heat_lines, HeatItem};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -36,8 +40,9 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
-/// Prompt version for the Sigil synthesis contract.
-pub const SIGIL_PROMPT_VERSION: &str = "s8";
+/// Prompt version for the Sigil synthesis contract. Bumped s8→s9 for the Phase 5.1 transfer
+/// pillar (a fifth prompt section + a new `transfer_heat` input-components key).
+pub const SIGIL_PROMPT_VERSION: &str = "s9";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -47,7 +52,7 @@ pub const SIGIL_TEMPERATURE: f64 = 0.6;
 pub const SIGIL_NUM_PREDICT: i32 = 512;
 
 /// System prompt for the Sigil synthesis contract.
-pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize PEAK scouting report, Vibe, Momentum, and current narratives into one Sigil score and blurb.
+pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize PEAK scouting report, Vibe, Momentum, current narratives, and transfer heat into one Sigil score and blurb.
 
 Voice: direct, sports-literate, grounded. No purple prose, no headline language, no invented facts.
 
@@ -57,12 +62,13 @@ SCORE (1-100):
 - 100 = dominant or surging.
 - Slow-moving and season-aware. Do not overreact to one game or one weak signal.
 - Use Momentum to capture recent trajectory when it conflicts with the PEAK report or Vibe.
+- A credible, advanced transfer/trade situation is a real signal; weigh it by its stage and direction, not by rumor volume.
 
 BLURB:
 - About two sentences; use a third only when several major signals converge.
 - Include: what the entity is, the defining felt state, the PEAK context, and current trajectory.
 - Do not recite percentiles or per-x details; PEAK already carries that.
-- Name the real storyline, but do not catalogue every rumor or item.
+- Name the real storyline — including a live transfer/trade situation when it is the story — but do not catalogue every rumor or item.
 
 Reply with exactly these two lines:
 SCORE: <integer 1-100>
@@ -366,12 +372,15 @@ async fn load_pillars(
     Option<SynthRating>,
     Option<SynthVibe>,
     SynthMomentum,
+    Vec<HeatItem>,
 )> {
     let season = resolve_season(&hx.pool, sport, None).await?;
     // The pillars are fully independent once the season is known — load them concurrently
     // (plan A3). Each future keeps its own error context; on multi-failure which context lands in
-    // pipeline_work.last_error is racy (cosmetic).
-    let (narratives, rating, vibe, momentum) = tokio::try_join!(
+    // pipeline_work.last_error is racy (cosmetic). The transfer pillar reuses the shared
+    // `corpus::load_transfer_heat` — the SAME served-rumor read the /transfers card and the
+    // vibe/narratives heat lines use — so the synthesis sees exactly what the trigger gate saw.
+    let (narratives, rating, vibe, momentum, transfers) = tokio::try_join!(
         async {
             load_narrative_pillar(&hx.pool, entity_type, entity_id, sport)
                 .await
@@ -392,8 +401,13 @@ async fn load_pillars(
                 .await
                 .context("momentum pillar")
         },
+        async {
+            load_transfer_heat(&hx.pool, entity_type, entity_id, sport)
+                .await
+                .context("transfer pillar")
+        },
     )?;
-    Ok((season, narratives, rating, vibe, momentum))
+    Ok((season, narratives, rating, vibe, momentum, transfers))
 }
 
 // ---------------------------------------------------------------------------
@@ -481,6 +495,7 @@ pub fn build_synthesis_input_components(
     rating: Option<&SynthRating>,
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
+    transfers: &[HeatItem],
 ) -> String {
     let mut pairs: Vec<(&'static str, String)> = Vec::new();
 
@@ -541,6 +556,28 @@ pub fn build_synthesis_input_components(
         pairs.push(("momentum_score", go_json_float(round1(score))));
     }
 
+    // transfer_heat (Phase 5.1) — CONDITIONAL (emitted only when there is served heat), so an
+    // entity with no rumors keeps its pre-Phase-5.1 hash and does NOT spuriously re-synthesize on
+    // deploy. One canonical `counterparty:heat:direction:stage` line per rumor, sorted for a stable
+    // pre-image — the same shape convention as `narrative_trajectories`. This is what makes a
+    // transfer-only enqueue real work instead of a debounced skip.
+    if !transfers.is_empty() {
+        let mut lines: Vec<String> = transfers
+            .iter()
+            .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
+            .collect();
+        lines.sort();
+        let mut heat_json = String::from("[");
+        for (i, line) in lines.iter().enumerate() {
+            if i > 0 {
+                heat_json.push(',');
+            }
+            heat_json.push_str(&go_json_string(line));
+        }
+        heat_json.push(']');
+        pairs.push(("transfer_heat", heat_json));
+    }
+
     pairs.sort_by(|a, b| a.0.cmp(b.0));
     let mut out = String::from("{");
     for (i, (k, v)) in pairs.iter().enumerate() {
@@ -567,6 +604,7 @@ pub fn build_synthesis_input_components(
 
 /// build_synthesis_prompt assembles the user prompt. `sport_raw` is the original-case value used in
 /// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe).
+#[allow(clippy::too_many_arguments)]
 pub fn build_synthesis_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -575,6 +613,7 @@ pub fn build_synthesis_prompt(
     rating: Option<&SynthRating>,
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
+    transfers: &[HeatItem],
 ) -> String {
     let mut b = String::new();
 
@@ -655,6 +694,16 @@ pub fn build_synthesis_prompt(
     }
     if mom.empty() {
         b.push_str("(no momentum data)\n");
+    }
+
+    // P5 — Transfer heat (the transfer lens). Rendered through the SHARED `write_heat_lines`, so a
+    // Sigil sees the served rumors in the same format as the vibe/narratives heat lines and the
+    // /transfers card.
+    b.push_str("\n=== TRANSFER HEAT ===\n");
+    if transfers.is_empty() {
+        b.push_str("(no active transfer rumors)\n");
+    } else {
+        write_heat_lines(&mut b, transfers);
     }
 
     b.push_str("\nRespond now.");
@@ -786,12 +835,17 @@ async fn generate_sigil_inner(
     // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
     let sport = sport_raw.to_uppercase();
 
-    let (season, narratives, rating, vibe, momentum) =
+    let (season, narratives, rating, vibe, momentum, transfers) =
         load_pillars(hx, entity_type, entity_id, &sport).await?;
 
     // No-pillar path: persist a marker (handled by the caller) without a model call. The
     // marker's model_version is the role's configured model (no response to echo).
-    if narratives.is_empty() && rating.is_none() && vibe.is_none() && momentum.empty() {
+    if narratives.is_empty()
+        && rating.is_none()
+        && vibe.is_none()
+        && momentum.empty()
+        && transfers.is_empty()
+    {
         return Ok((
             SigilOutput {
                 score: None,
@@ -807,8 +861,13 @@ async fn generate_sigil_inner(
         ));
     }
 
-    let input_components_json =
-        build_synthesis_input_components(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
+    let input_components_json = build_synthesis_input_components(
+        &narratives,
+        rating.as_ref(),
+        vibe.as_ref(),
+        &momentum,
+        &transfers,
+    );
     let input_hash = hash_components(&input_components_json);
 
     let prompt = build_synthesis_prompt(
@@ -819,6 +878,7 @@ async fn generate_sigil_inner(
         rating.as_ref(),
         vibe.as_ref(),
         &momentum,
+        &transfers,
     );
     let opts = GenerateOptions {
         system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
@@ -931,11 +991,16 @@ impl StageHandler for SigilHandler {
                 .await?;
 
         let sport = item.sport.to_uppercase();
-        let (season, narratives, rating, vibe, momentum) =
+        let (season, narratives, rating, vibe, momentum, transfers) =
             load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
         // No-pillar marker (no model call).
-        if narratives.is_empty() && rating.is_none() && vibe.is_none() && momentum.empty() {
+        if narratives.is_empty()
+            && rating.is_none()
+            && vibe.is_none()
+            && momentum.empty()
+            && transfers.is_empty()
+        {
             let out = SigilOutput {
                 score: None,
                 blurb: None,
@@ -956,6 +1021,7 @@ impl StageHandler for SigilHandler {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
+            &transfers,
         );
         let input_hash = hash_components(&input_components_json);
         let key = EntityKey {
@@ -980,6 +1046,7 @@ impl StageHandler for SigilHandler {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
+            &transfers,
         );
         let opts = GenerateOptions {
             system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
@@ -1149,7 +1216,8 @@ mod tests {
             sentiment: 60,
             prompt: "Quietly surging".into(),
         };
-        let got = build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom);
+        let got =
+            build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom, &[]);
         // "B & C"'s ampersand is HTML-escaped (the backslash-u form), exactly as Go's
         // json.Marshal emits it. Built via format! with a runtime backslash (bs) so the
         // source carries no literal backslash-u token (the editor would decode it).
@@ -1170,11 +1238,47 @@ mod tests {
             peak_trajectory: "steady".into(),
             peak_trajectory_label: String::new(),
         };
-        let got =
-            build_synthesis_input_components(&[], Some(&rating), None, &SynthMomentum::default());
+        let got = build_synthesis_input_components(
+            &[],
+            Some(&rating),
+            None,
+            &SynthMomentum::default(),
+            &[],
+        );
         assert_eq!(
             got,
             r#"{"divined_peak":"Spacer","narrative_titles":[],"narrative_trajectories":[],"notability":40,"peak_trajectory":"steady"}"#
+        );
+    }
+
+    #[test]
+    fn transfer_heat_enters_components_only_when_present() {
+        // No transfers → NO transfer_heat key at all (so a pre-Phase-5.1 entity keeps its hash).
+        let without =
+            build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &[]);
+        assert_eq!(without, r#"{"narrative_titles":[],"narrative_trajectories":[]}"#);
+
+        // Served heat → one sorted "counterparty:heat:direction:stage" line per rumor. The two
+        // rumors are given OUT of sorted order to prove the pre-image sorts (stable hash).
+        let transfers = vec![
+            HeatItem {
+                counterparty: "Real Madrid".into(),
+                heat: 71,
+                stage: "advanced_talks".into(),
+                direction: "outgoing".into(),
+            },
+            HeatItem {
+                counterparty: "Arsenal".into(),
+                heat: 40,
+                stage: "speculation".into(),
+                direction: "incoming".into(),
+            },
+        ];
+        let with =
+            build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &transfers);
+        assert_eq!(
+            with,
+            r#"{"narrative_titles":[],"narrative_trajectories":[],"transfer_heat":["Arsenal:40:incoming:speculation","Real Madrid:71:outgoing:advanced_talks"]}"#
         );
     }
 
@@ -1206,10 +1310,11 @@ mod tests {
             None,
             Some(&vibe),
             &mom,
+            &[],
         );
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
         );
     }
 
@@ -1223,10 +1328,36 @@ mod tests {
             None,
             None,
             &SynthMomentum::default(),
+            &[],
         );
         assert_eq!(
             p,
-            "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\n(no vibe prompt available)\n\n=== MOMENTUM ===\n(no momentum data)\n\nRespond now."
+            "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\n(no vibe prompt available)\n\n=== MOMENTUM ===\n(no momentum data)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
         );
+    }
+
+    #[test]
+    fn transfer_heat_renders_as_prompt_pillar() {
+        // A team with one served rumor: the P5 section renders through the shared write_heat_lines
+        // format (`- <counterparty> — heat <n>, <direction>, <stage>`).
+        let transfers = vec![HeatItem {
+            counterparty: "Liverpool".into(),
+            heat: 66,
+            stage: "advanced_talks".into(),
+            direction: "incoming".into(),
+        }];
+        let p = build_synthesis_prompt(
+            "team",
+            "Test Team",
+            "FOOTBALL",
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &transfers,
+        );
+        assert!(p.contains(
+            "=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n\nRespond now."
+        ));
     }
 }

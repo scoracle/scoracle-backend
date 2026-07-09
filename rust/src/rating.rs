@@ -25,7 +25,7 @@
 //! The deterministic profile assembly, input hash, and parser stay byte-stable. The s7 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
-use crate::harness::{Harness, Parser};
+use crate::harness::{Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
@@ -952,6 +952,23 @@ pub struct RatingOutput {
     pub prompt_version: &'static str,
 }
 
+impl RatingOutput {
+    /// provenance lifts the moat fields into the shared `Provenance` envelope. Rating debounces on
+    /// `input_hash`, and markers carry the configured model instead of NULL.
+    fn provenance(&self) -> Provenance {
+        Provenance {
+            model_version: self
+                .model
+                .clone()
+                .expect("rating output model_version is set for persisted rows"),
+            prompt_version: self.prompt_version,
+            input_ids: Vec::new(),
+            input_hash: self.input_hash.clone(),
+            trigger_payload: None,
+        }
+    }
+}
+
 /// generate_rating runs the full per-entity generation (the analog of `RatingGenerator.Generate`,
 /// minus persistence): `build_rating_request` → (skip-unchanged debounce) → `extract(StatsLogic)` →
 /// parse → clean. The per-entity core the Step-3 batch bin loops over; also the parity `--vet` path.
@@ -1104,7 +1121,8 @@ pub async fn persist_stat_summary(
 ) -> Result<()> {
     let season: Option<i32> = (out.season > 0).then_some(out.season);
     let notability: Option<i16> = out.notability.map(|n| n as i16);
-    let trigger_json = trigger_payload.to_string();
+    let prov = out.provenance().with_trigger_payload(trigger_payload);
+    let trigger_json = prov.trigger_payload_json("{}");
     let ncomp_json = out.notability_components.to_string();
     let peak_components_json = out.peak_trajectory_components.to_string();
 
@@ -1129,9 +1147,9 @@ pub async fn persist_stat_summary(
     .bind(notability)
     .bind(&ncomp_json)
     .bind(&out.input_components)
-    .bind(out.input_hash.as_deref())
-    .bind(out.model.as_deref())
-    .bind(out.prompt_version)
+    .bind(prov.input_hash.as_deref())
+    .bind(prov.model_version.as_str())
+    .bind(prov.prompt_version)
     .bind(out.divined_peak.as_deref())
     .bind(out.peak_trajectory.as_deref())
     .bind(out.peak_trajectory_label.as_deref())

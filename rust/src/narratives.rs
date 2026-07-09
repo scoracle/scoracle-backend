@@ -24,8 +24,10 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
-use crate::corpus::{load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem};
-use crate::harness::{cluster, Harness, Parser};
+use crate::corpus::{
+    dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
+};
+use crate::harness::{cluster, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -662,6 +664,25 @@ pub struct NarrativesOutput {
     pub deduped_corpus_size: usize,
 }
 
+impl NarrativesOutput {
+    /// provenance lifts the moat fields into the shared `Provenance` envelope. Narratives has no
+    /// input_hash debounce; the row-level `input_news_ids` are still bound per narrative because
+    /// each grounded storyline cites a different subset.
+    fn provenance(&self) -> Provenance {
+        let mut ids = Vec::new();
+        for n in &self.narratives {
+            ids.extend(n.input_news_ids.iter().copied());
+        }
+        Provenance {
+            model_version: self.model.clone(),
+            prompt_version: self.prompt_version,
+            input_ids: dedupe_i64(ids),
+            input_hash: None,
+            trigger_payload: None,
+        }
+    }
+}
+
 /// generate_narratives runs the full per-entity generation (the analog of `NewsNarrator.Generate`,
 /// minus persistence): `build_narratives_request` → `extract(EmotionalNews)` (the tolerant parse) →
 /// `ground_narratives`. The per-entity core the handler (and the parity `--vet` path) drive.
@@ -730,7 +751,8 @@ pub async fn persist_narratives(
     trigger_payload: &serde_json::Value,
     out: &NarrativesOutput,
 ) -> Result<()> {
-    let trigger_json = trigger_payload.to_string();
+    let prov = out.provenance().with_trigger_payload(trigger_payload);
+    let trigger_json = prov.trigger_payload_json("null");
 
     // Batch-load the previous impact per narrative title in ONE query (plan A2 — was N
     // per-narrative round-trips). DISTINCT ON (narrative_title) ... ORDER BY narrative_title,
@@ -795,59 +817,87 @@ pub async fn persist_narratives(
             $18,$19,NOW()
         )"#;
 
-    if out.narratives.is_empty() {
-        // No-narratives marker row.
+    let rows: Vec<Option<(&Narrative, &'static str, serde_json::Value)>> = if classified.is_empty()
+    {
+        vec![None]
+    } else {
+        classified.into_iter().map(Some).collect()
+    };
+
+    for row in rows {
+        let impact_components_json;
+        let trajectory_json;
+        let empty_names = Vec::<String>::new();
+        let title: Option<&str>;
+        let body: Option<&str>;
+        let impact: Option<i16>;
+        let input_news_ids: &Vec<i64>;
+        let narrative_updated_at: Option<i64>;
+        let source_count: i32;
+        let source_names: &Vec<String>;
+        let source_latest_at: Option<i64>;
+        let source_oldest_at: Option<i64>;
+        let trajectory: &str;
+        let context: &str;
+
+        match &row {
+            Some((n, row_trajectory, row_trajectory_components)) => {
+                impact_components_json = n.impact_components.to_string();
+                trajectory_json = row_trajectory_components.to_string();
+                title = Some(n.title.as_str());
+                body = Some(n.body.as_str());
+                impact = Some(n.impact as i16);
+                input_news_ids = &n.input_news_ids;
+                // Keep source_latest_epoch bound twice: narrative_updated_at ($11) and
+                // source_latest_at ($14), matching the pre-loop scored path.
+                narrative_updated_at = n.source_latest_epoch;
+                source_count = n.source_count;
+                source_names = &n.source_names;
+                source_latest_at = n.source_latest_epoch;
+                source_oldest_at = n.source_oldest_epoch;
+                trajectory = row_trajectory;
+                context = "persist narrative row";
+            }
+            None => {
+                impact_components_json = "{}".to_string();
+                trajectory_json = "{}".to_string();
+                title = None;
+                body = None;
+                impact = None;
+                input_news_ids = &prov.input_ids;
+                narrative_updated_at = Option::<i64>::None;
+                source_count = 0_i32;
+                source_names = &empty_names;
+                source_latest_at = Option::<i64>::None;
+                source_oldest_at = Option::<i64>::None;
+                trajectory = "developing_story";
+                context = "persist narratives marker";
+            }
+        }
+
         sqlx::query(INSERT)
             .bind(entity_type)
             .bind(entity_id)
             .bind(sport)
             .bind(trigger_type)
             .bind(&trigger_json)
-            .bind(Option::<String>::None) // narrative_title
-            .bind(Option::<String>::None) // body
-            .bind(Option::<i16>::None) // impact
-            .bind("{}") // impact_components
-            .bind(Vec::<i64>::new()) // input_news_ids
-            .bind(Option::<i64>::None) // narrative_updated_at
-            .bind(0_i32) // source_count
-            .bind(Vec::<String>::new()) // source_names
-            .bind(Option::<i64>::None) // source_latest_at
-            .bind(Option::<i64>::None) // source_oldest_at
-            .bind("developing_story") // trajectory
-            .bind("{}") // trajectory_components
-            .bind(&out.model)
-            .bind(NARRATIVES_PROMPT_VERSION)
+            .bind(title)
+            .bind(body)
+            .bind(impact)
+            .bind(&impact_components_json)
+            .bind(input_news_ids)
+            .bind(narrative_updated_at)
+            .bind(source_count)
+            .bind(source_names)
+            .bind(source_latest_at)
+            .bind(source_oldest_at)
+            .bind(trajectory)
+            .bind(&trajectory_json)
+            .bind(prov.model_version.as_str())
+            .bind(prov.prompt_version)
             .execute(&mut *tx)
             .await
-            .context("persist narratives marker")?;
-    } else {
-        for (n, trajectory, trajectory_components) in classified {
-            let components_json = n.impact_components.to_string();
-            let trajectory_json = trajectory_components.to_string();
-            sqlx::query(INSERT)
-                .bind(entity_type)
-                .bind(entity_id)
-                .bind(sport)
-                .bind(trigger_type)
-                .bind(&trigger_json)
-                .bind(Some(&n.title))
-                .bind(Some(&n.body))
-                .bind(Some(n.impact as i16))
-                .bind(&components_json)
-                .bind(&n.input_news_ids)
-                .bind(n.source_latest_epoch)
-                .bind(n.source_count)
-                .bind(&n.source_names)
-                .bind(n.source_latest_epoch)
-                .bind(n.source_oldest_epoch)
-                .bind(trajectory)
-                .bind(&trajectory_json)
-                .bind(&out.model)
-                .bind(NARRATIVES_PROMPT_VERSION)
-                .execute(&mut *tx)
-                .await
-                .context("persist narrative row")?;
-        }
+            .context(context)?;
     }
 
     tx.commit().await.context("commit narratives tx")?;

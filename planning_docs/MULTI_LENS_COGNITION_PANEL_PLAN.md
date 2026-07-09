@@ -312,11 +312,13 @@ for two lenses; the remaining four eval sets are additive on the proven seam.
    was sourced **synthetic honesty-targets** (a real-model probe validated crisp ground truth), each
    `Expect` a **floor** (green today) or **target** (the honest bar the model fails, documenting the
    gap). Evidence the s11 gate surfaced on `mistral:7b` (temp 0, reproducible): (a) convergence runs
-   too high on genuine conflict (70/80 where it should be low); (b) `DISAGREEMENT: N/A` instead of
-   omitting — the rubric NORMALIZES the placeholder to absent (`effective_disagreement`), which is
-   also a flagged Phase-5.3 product follow-up (the served card can show "N/A"); (c) it parrots the
-   system-prompt's example disagreement verbatim for a conflict that isn't there — caught by
-   `disagreement_excludes`.
+   too high on genuine conflict (70/80 where it should be low); (b) `DISAGREEMENT: N/A` (often quoted)
+   instead of omitting — **FIXED at the source (2026-07-09):** `parse_synthesis_response` now
+   normalizes DISAGREEMENT/WHY_NOW (`N/A`/`none`/`-` → None, fully quoted lines unwrapped) so the
+   persisted column + served /sigil card stay clean; the eval reads the parser's normalized output
+   directly (one source of truth — the fixtures now reflect + guard what's actually served); (c) it
+   parrots the system-prompt's example disagreement verbatim for a conflict that isn't there — caught
+   by `disagreement_excludes`.
 
 Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
 change):
@@ -507,9 +509,10 @@ Success:
 - Publishing blended output that hides meaningful disagreement between rails. (Mitigated as of
   Phase 5.3: convergence/disagreement are first-class, model-emitted outputs. As of Phase 3 the gap
   is now MEASURED, not just hoped for: the panel-disagreement fixture set caught `mistral:7b`
-  over-reporting convergence on real conflicts, emitting `DISAGREEMENT: N/A` instead of omitting, and
-  parroting the prompt's example disagreement verbatim. These are checked-in `target` assertions the
-  current model fails — a prompt/model fix is now a fixture flipping green, not a subjective read.)
+  over-reporting convergence on real conflicts, emitting `DISAGREEMENT: N/A` instead of omitting (now
+  FIXED at the parser — normalized to NULL so the card never shows "N/A"), and parroting the prompt's
+  example disagreement verbatim. The remaining two are checked-in `target` assertions the current
+  model fails — a prompt/model fix is now a fixture flipping green, not a subjective read.)
 - Prompt bloat: a fifth and sixth pillar on an 8 GB serial box eats context budget; the Phase 2
   ledger's budget field is what makes this measurable rather than felt.
 - Queue pressure: re-synthesis on every lens movement multiplies model calls on busy news days;

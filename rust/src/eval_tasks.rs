@@ -22,8 +22,8 @@ use crate::harness::Harness;
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::sigil::{
-    build_synthesis_prompt, load_pillars, parse_synthesis_response, ParsedSynthesis,
-    SIGIL_NUM_PREDICT, SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
+    build_synthesis_prompt, load_pillars, parse_synthesis_response, SIGIL_NUM_PREDICT,
+    SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
 };
 use crate::vibe::{
     build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
@@ -102,8 +102,9 @@ pub struct Expect {
     pub disagreement_nonempty: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub why_now_nonempty: Option<bool>,
-    /// Catches example-parroting / asserts the real conflict is named (against the NORMALIZED
-    /// disagreement — see `effective_disagreement`).
+    /// Catches example-parroting / asserts the real conflict is named. Scored against the parsed
+    /// `disagreement`, which `parse_synthesis_response` already normalizes (N/A → None, quotes
+    /// stripped), so the eval reflects exactly what gets persisted + served.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub disagreement_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -270,22 +271,6 @@ impl LensTask for VibeTask {
 
 pub struct SigilTask;
 
-/// effective_disagreement normalizes a placeholder DISAGREEMENT line to "absent". The parser keeps
-/// the raw text (`Some("N/A")`), but mistral:7b emits `DISAGREEMENT: N/A` (often quoted) instead of
-/// OMITTING the line when the lenses agree — so a literal `is_some()` would read an aligned case as
-/// "disagreement present". Strips surrounding quotes too (the model wraps the line in `"..."`), so
-/// `disagreement_includes`/`excludes` match the real content, not the quotes.
-fn effective_disagreement(p: &ParsedSynthesis) -> Option<&str> {
-    let raw = p.disagreement.as_deref()?;
-    let t = raw.trim().trim_matches('"').trim();
-    let low = t.to_ascii_lowercase();
-    if t.is_empty() || matches!(low.as_str(), "n/a" | "na" | "none" | "-" | "n.a." | "null") {
-        None
-    } else {
-        Some(t)
-    }
-}
-
 /// disp_opt renders an optional convergence for the detail/echo lines.
 fn disp_opt(o: Option<i32>) -> String {
     o.map(|c| c.to_string()).unwrap_or_else(|| "–".into())
@@ -342,7 +327,9 @@ impl LensTask for SigilTask {
         let p = parse_synthesis_response(raw);
         // Mirrors SigilParser's fail-closed gate: no parseable SCORE ⇒ score 0 ⇒ not a valid reply.
         let parsed = p.score != 0;
-        let eff = effective_disagreement(&p);
+        // `parse_synthesis_response` already normalizes DISAGREEMENT (N/A → None, quotes stripped),
+        // so this reflects exactly what is persisted + served.
+        let disagreement = p.disagreement.as_deref();
         let mut checks = Vec::new();
 
         if let Some(x) = expect {
@@ -367,22 +354,22 @@ impl LensTask for SigilTask {
                     } else {
                         "disagreement_absent".into()
                     },
-                    pass: eff.is_some() == want,
-                    detail: format!("disagreement={}", eff.unwrap_or("(none)")),
+                    pass: disagreement.is_some() == want,
+                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
                 });
             }
             for s in x.disagreement_includes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("disagreement_includes:{s}"),
-                    pass: eff.is_some_and(|d| d.contains(s.as_str())),
-                    detail: format!("disagreement={}", eff.unwrap_or("(none)")),
+                    pass: disagreement.is_some_and(|d| d.contains(s.as_str())),
+                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
                 });
             }
             for s in x.disagreement_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("disagreement_excludes:{s}"),
-                    pass: eff.is_none_or(|d| !d.contains(s.as_str())),
-                    detail: format!("disagreement={}", eff.unwrap_or("(none)")),
+                    pass: disagreement.is_none_or(|d| !d.contains(s.as_str())),
+                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
                 });
             }
             if let Some(want) = x.why_now_nonempty {
@@ -504,8 +491,10 @@ mod tests {
     }
 
     #[test]
-    fn effective_disagreement_normalizes_placeholders() {
-        // DISAGREEMENT: N/A (and quoted / none / dash) must count as ABSENT.
+    fn placeholder_disagreement_scores_as_absent() {
+        // `DISAGREEMENT: N/A` (and quoted / none / dash) must score as ABSENT. Normalization lives
+        // in `parse_synthesis_response` (single source of truth); this guards it end-to-end via the
+        // eval's evaluate path, so the fixtures reflect what actually gets persisted + served.
         for raw in [
             "SCORE: 87\nCONVERGENCE: 95\nDISAGREEMENT: N/A\nBLURB: aligned.",
             "SCORE: 87\nCONVERGENCE: 95\nDISAGREEMENT: \"none\"\nBLURB: aligned.",

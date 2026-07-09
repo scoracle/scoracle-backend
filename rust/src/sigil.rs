@@ -806,6 +806,30 @@ fn is_synthesis_label(trimmed: &str) -> bool {
         .any(|p| trimmed.starts_with(p))
 }
 
+/// normalize_panel_line cleans a DISAGREEMENT / WHY_NOW value and treats a placeholder as ABSENT.
+/// Both fields are contractually OMITTED when they do not apply, but `mistral:7b` instead writes
+/// `DISAGREEMENT: N/A` — often wrapped in quotes, echoing the prompt's `e.g. "…"` example — so a
+/// literal capture would persist "N/A" (or the quotes) onto the served /sigil card. This unwraps a
+/// FULLY quoted line (leaving internal quotes intact) and maps `N/A` / `none` / `-` / empty to
+/// `None`. Returns the cleaned value, or `None` when the line carries no real content.
+fn normalize_panel_line(rest: &str) -> Option<String> {
+    let t = rest.trim();
+    // Unwrap only when the WHOLE value is quoted, so `"washed" narrative vs elite PEAK` keeps its
+    // inner quotes while `"strong PEAK vs sliding momentum"` loses the surrounding pair.
+    let t = if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
+        t[1..t.len() - 1].trim()
+    } else {
+        t
+    };
+    if t.is_empty() {
+        return None;
+    }
+    match t.to_ascii_lowercase().as_str() {
+        "n/a" | "na" | "n.a." | "none" | "null" | "-" => None,
+        _ => Some(t.to_string()),
+    }
+}
+
 /// parse_synthesis_response extracts the synthesis reply. SCORE + BLURB mirror
 /// `parseSynthesisResponse`: case-sensitive `"SCORE: "` / `"BLURB: "` prefixes (note the space),
 /// the score clamped 1-100 only when the whole value parses, blurb continuation lines absorbed.
@@ -815,8 +839,10 @@ fn is_synthesis_label(trimmed: &str) -> bool {
 /// Phase 5.3 adds three OPTIONAL single-line fields (CONVERGENCE / DISAGREEMENT / WHY_NOW), each
 /// extracted by the same case-sensitive `"<LABEL>: "` convention. They degrade gracefully: a
 /// missing (or empty) line ⇒ `None` ⇒ NULL column, never a parse failure — only SCORE is required.
-/// Blurb absorption stops at any known label (see `is_synthesis_label`), so the panel fields are
-/// captured regardless of whether the model emits them before or after BLURB.
+/// DISAGREEMENT / WHY_NOW additionally run through `normalize_panel_line`, so a `N/A` placeholder or
+/// a fully quoted line never reaches the persisted column (the served card stays clean). Blurb
+/// absorption stops at any known label (see `is_synthesis_label`), so the panel fields are captured
+/// regardless of whether the model emits them before or after BLURB.
 pub fn parse_synthesis_response(raw: &str) -> ParsedSynthesis {
     let mut out = ParsedSynthesis::default();
     let lines: Vec<&str> = raw.trim().split('\n').collect();
@@ -834,14 +860,12 @@ pub fn parse_synthesis_response(raw: &str) -> ParsedSynthesis {
                 out.convergence = Some(n.clamp(1, 100) as i32);
             }
         } else if let Some(rest) = trimmed.strip_prefix("DISAGREEMENT: ") {
-            let v = rest.trim();
-            if !v.is_empty() {
-                out.disagreement = Some(v.to_string());
+            if let Some(v) = normalize_panel_line(rest) {
+                out.disagreement = Some(v);
             }
         } else if let Some(rest) = trimmed.strip_prefix("WHY_NOW: ") {
-            let v = rest.trim();
-            if !v.is_empty() {
-                out.why_now = Some(v.to_string());
+            if let Some(v) = normalize_panel_line(rest) {
+                out.why_now = Some(v);
             }
         } else if let Some(rest) = trimmed.strip_prefix("BLURB: ") {
             let mut blurb = rest.trim().to_string();
@@ -1312,6 +1336,41 @@ mod tests {
         assert_eq!(p.disagreement, None);
         assert_eq!(p.why_now, None);
         assert_eq!(p.blurb, "steady across the board");
+    }
+
+    #[test]
+    fn placeholder_panel_lines_normalize_to_none() {
+        // mistral:7b writes `DISAGREEMENT: N/A` (sometimes quoted) instead of OMITTING the line when
+        // the lenses agree — the placeholder must persist as NULL, never reach the served card.
+        for placeholder in ["N/A", "\"N/A\"", "n/a", "none", "None", "-", "null"] {
+            let p = parse_synthesis_response(&format!(
+                "SCORE: 88\nCONVERGENCE: 95\nDISAGREEMENT: {placeholder}\nWHY_NOW: {placeholder}\nBLURB: aligned across the board"
+            ));
+            assert_eq!(p.disagreement, None, "disagreement for {placeholder:?}");
+            assert_eq!(p.why_now, None, "why_now for {placeholder:?}");
+            assert_eq!(p.blurb, "aligned across the board");
+        }
+    }
+
+    #[test]
+    fn fully_quoted_panel_lines_are_unwrapped_inner_quotes_kept() {
+        // The model wraps the whole line in quotes (echoing the prompt's example) — strip the pair.
+        let p = parse_synthesis_response(
+            "SCORE: 68\nDISAGREEMENT: \"strong PEAK vs sliding momentum\"\nWHY_NOW: \"trade talks broke today\"\nBLURB: under pressure",
+        );
+        assert_eq!(
+            p.disagreement.as_deref(),
+            Some("strong PEAK vs sliding momentum")
+        );
+        assert_eq!(p.why_now.as_deref(), Some("trade talks broke today"));
+        // An INTERNAL quote (not a surrounding pair) is preserved.
+        let p2 = parse_synthesis_response(
+            "SCORE: 60\nDISAGREEMENT: \"washed\" narrative vs elite PEAK\nBLURB: mixed",
+        );
+        assert_eq!(
+            p2.disagreement.as_deref(),
+            Some("\"washed\" narrative vs elite PEAK")
+        );
     }
 
     #[test]

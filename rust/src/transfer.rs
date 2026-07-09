@@ -29,6 +29,7 @@ use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
+use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
 use crate::util::truncate_bytes;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
@@ -1094,24 +1095,19 @@ async fn classify_transfer_trajectory(
         )
     } else if row.is_rumor != Some(true) {
         (
-            "developing_story",
+            DEFAULT_TRAJECTORY,
             "unresolved",
             previous.zip(current).map(|(p, c)| c - p),
         )
     } else {
-        match (previous, current) {
-            (Some(prev), Some(cur)) => {
-                let delta = cur - prev;
-                if delta >= 10 {
-                    ("heating_up", "heat_up", Some(delta))
-                } else if delta <= -10 {
-                    ("cooling_off", "heat_down", Some(delta))
-                } else {
-                    ("developing_story", "heat_stable", Some(delta))
-                }
-            }
-            _ => ("developing_story", "new_or_unmatched", None),
-        }
+        let (trajectory, delta_reason, delta) = classify_delta(previous, current);
+        let reason = match delta_reason {
+            "up" => "heat_up",
+            "down" => "heat_down",
+            "stable" => "heat_stable",
+            other => other,
+        };
+        (trajectory, reason, delta)
     };
 
     Ok((

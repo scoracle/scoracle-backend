@@ -30,6 +30,7 @@ pub mod route;
 pub mod scrub;
 pub mod sigil;
 pub mod stage;
+pub mod trajectory;
 pub mod transfer;
 pub mod util;
 pub mod vibe;

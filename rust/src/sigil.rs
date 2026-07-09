@@ -27,6 +27,7 @@ use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
+use crate::trajectory::{trajectory_label, DEFAULT_TRAJECTORY};
 use crate::util::{go_json_float, go_json_string, hash_components, round1, truncate};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
@@ -192,7 +193,7 @@ pub async fn load_narrative_pillar(
     // scan as i32 (matches Go scanning into a value later assigned to float64).
     let rows: Vec<(String, String, i32, String)> = sqlx::query_as(
         r#"
-        SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, 'developing_story')
+        SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, $4)
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -206,6 +207,7 @@ pub async fn load_narrative_pillar(
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
+    .bind(DEFAULT_TRAJECTORY)
     .fetch_all(pool)
     .await
     .with_context(|| format!("load narrative pillar {entity_type}/{entity_id}"))?;
@@ -594,7 +596,7 @@ pub fn build_synthesis_prompt(
             b.push_str(&format!(
                 "[impact {:.0}, {}] {}\n{}\n\n",
                 n.impact,
-                narrative_trajectory_label(&n.trajectory),
+                trajectory_label(&n.trajectory),
                 n.title,
                 n.body
             ));
@@ -651,14 +653,6 @@ pub fn build_synthesis_prompt(
 
     b.push_str("\nRespond now.");
     b
-}
-
-fn narrative_trajectory_label(raw: &str) -> &'static str {
-    match raw {
-        "heating_up" => "Heating up",
-        "cooling_off" => "Cooling off",
-        _ => "Developing story...",
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1121,7 +1115,7 @@ mod tests {
                 title: "Alpha".into(),
                 body: "y".into(),
                 impact: 3.0,
-                trajectory: "developing_story".into(),
+                trajectory: DEFAULT_TRAJECTORY.into(),
             },
         ];
         let rating = SynthRating {

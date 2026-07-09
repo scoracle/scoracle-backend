@@ -7,6 +7,7 @@
 //! transfer→vibe, narratives→vibe dependency direction — the next stage port no longer reaches
 //! into a sister STAGE module for a shared corpus primitive (plan A4).
 
+use crate::trajectory::DEFAULT_TRAJECTORY;
 use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
 
@@ -50,7 +51,7 @@ pub async fn load_transfer_heat(
             LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.team_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
               AND tr.generated_at > NOW() - INTERVAL '7 days'
-              AND (COALESCE(tr.trajectory, 'developing_story') <> 'cooling_off'
+              AND (COALESCE(tr.trajectory, $4) <> 'cooling_off'
                    OR COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) > NOW() - INTERVAL '3 days')
             ORDER BY tr.player_id, tr.generated_at DESC
         ) latest
@@ -74,7 +75,7 @@ pub async fn load_transfer_heat(
             LEFT JOIN public.player_current_identity pci ON pci.player_id = tr.player_id AND pci.sport = tr.sport
             WHERE tr.player_id = $1 AND tr.sport = $2 AND tr.heat IS NOT NULL
               AND tr.generated_at > NOW() - INTERVAL '7 days'
-              AND (COALESCE(tr.trajectory, 'developing_story') <> 'cooling_off'
+              AND (COALESCE(tr.trajectory, $4) <> 'cooling_off'
                    OR COALESCE(tr.rumor_updated_at, tr.source_latest_at, tr.generated_at) > NOW() - INTERVAL '3 days')
             ORDER BY tr.team_id, tr.generated_at DESC
         ) latest
@@ -92,6 +93,7 @@ pub async fn load_transfer_heat(
         .bind(entity_id)
         .bind(sport)
         .bind(MAX_HEAT_ITEMS)
+        .bind(DEFAULT_TRAJECTORY)
         .fetch_all(pool)
         .await
         .with_context(|| format!("load transfer heat {entity_type}/{entity_id}"))?;

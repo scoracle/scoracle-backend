@@ -21,6 +21,7 @@ use crate::harness::{Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
+use crate::trajectory::{trajectory_label, DEFAULT_TRAJECTORY};
 use crate::util::{truncate, truncate_bytes};
 use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
@@ -131,7 +132,7 @@ pub async fn load_latest_narratives(
     let rows: Vec<(String, String, i32, Vec<i64>, String)> = sqlx::query_as(
         r#"
         SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids,
-               COALESCE(trajectory, 'developing_story')
+               COALESCE(trajectory, $4)
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -145,6 +146,7 @@ pub async fn load_latest_narratives(
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
+    .bind(DEFAULT_TRAJECTORY)
     .fetch_all(pool)
     .await
     .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
@@ -218,14 +220,6 @@ fn title_first(s: &str) -> String {
     match chars.next() {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
         None => String::new(),
-    }
-}
-
-fn trajectory_label(raw: &str) -> &'static str {
-    match raw {
-        "heating_up" => "Heating up",
-        "cooling_off" => "Cooling off",
-        _ => "Developing story...",
     }
 }
 

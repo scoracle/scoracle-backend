@@ -25,7 +25,7 @@
 //! The deterministic profile assembly, input hash, and parser stay byte-stable. The s7 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
-use crate::harness::{Harness, Parser, Provenance};
+use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
@@ -1009,7 +1009,7 @@ pub async fn generate_rating(
 
     if skip_unchanged {
         if let Some(last) = last_commentary_hash(
-            &hx.pool,
+            hx,
             &req.entity_type,
             req.entity_id,
             &req.sport,
@@ -1085,25 +1085,22 @@ pub async fn generate_rating(
 /// nullability; a no-stats marker has a NULL input_hash → None → the next run never wrongly skips
 /// against an older real commentary the marker superseded. Mirrors `lastCommentaryHash`.
 async fn last_commentary_hash(
-    pool: &PgPool,
+    hx: &Harness,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     season: i32,
 ) -> Result<Option<String>> {
-    let row: Option<Option<String>> = sqlx::query_scalar(
-        "SELECT input_hash FROM stat_summaries \
-         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4 \
-         ORDER BY generated_at DESC LIMIT 1",
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .fetch_optional(pool)
-    .await
-    .context("last commentary hash")?;
-    Ok(row.flatten().filter(|s| !s.is_empty()))
+    let key = EntityKey {
+        entity_type: entity_type.to_string(),
+        entity_id,
+        sport: sport.to_string(),
+        season: Some(season),
+    };
+    Ok(hx
+        .latest_row("stat_summaries", &key, "input_hash")
+        .await?
+        .filter(|s| !s.is_empty()))
 }
 
 /// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and

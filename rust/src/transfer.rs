@@ -394,10 +394,12 @@ pub async fn load_candidates(
         FROM news_article_entities te
         JOIN news_article_entities pe
           ON pe.article_id = te.article_id AND pe.sport = te.sport AND pe.entity_type = 'player'
+        JOIN news_articles a ON a.id = te.article_id
         JOIN players p ON p.id = pe.entity_id AND p.sport = pe.sport
         LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
         LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
         WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
+          AND a.bucket IS DISTINCT FROM 'non_transfer'
           AND te.created_at > NOW() - INTERVAL '14 days'
           AND te.vetted IS TRUE
           AND pe.vetted IS TRUE
@@ -405,7 +407,7 @@ pub async fn load_candidates(
                OR abs(te.title_pos - pe.title_pos) <= $5)
         GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
         HAVING count(DISTINCT te.article_id) >= $3
-        ORDER BY count(DISTINCT te.article_id) DESC
+        ORDER BY max(a.topic_heat) DESC NULLS LAST, count(DISTINCT te.article_id) DESC
         LIMIT $4
         "#,
     )

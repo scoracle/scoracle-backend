@@ -69,6 +69,8 @@ async fn main() -> Result<()> {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?,
         embedder: None,
         resolve: cfg.resolve.clone(),
+        scrub: cfg.scrub.clone(),
+        bucket_classifier: None,
     };
 
     let max_pairs: usize = std::env::var("TRANSFER_PARITY_MAX_PAIRS")

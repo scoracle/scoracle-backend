@@ -62,7 +62,9 @@ fn parse_args() -> (i64, String, u64) {
                 throttle_ms = args[i + 1].parse().expect("-throttle-ms takes an integer");
                 i += 2;
             }
-            other => panic!("unknown arg {other}; usage: bucketlabel -limit N -out PATH [-throttle-ms MS]"),
+            other => panic!(
+                "unknown arg {other}; usage: bucketlabel -limit N -out PATH [-throttle-ms MS]"
+            ),
         }
     }
     (limit, out, throttle_ms)

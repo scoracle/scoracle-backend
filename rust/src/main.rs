@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
+    bucket, config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -68,13 +68,27 @@ async fn main() -> Result<()> {
             .unwrap_or_else(|_| "scrub,transfers,narratives,vibe,sigil".to_string()),
     )?;
 
-    // The CPU embedder (candle, Plan §1.4) powers the scrub gate's asymmetric resolve_set pre-filter
-    // AND the narratives near-duplicate dedup. It is a heavy resource, so it loads ONLY when one of
-    // those stages is enabled; the other per-entity stages never embed. With it None, narratives'
-    // dedup is the identity (the byte-parity path) — which is exactly what the offline bins rely on.
-    let embedder = if enabled.contains("scrub") || enabled.contains("narratives") {
-        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for scrub/narratives");
+    // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
+    // narratives near-duplicate dedup, topic heat-rank, and vibe narrative relevance weighting. It
+    // is a heavy resource, so it loads only when one of those stages is enabled.
+    let embedder = if enabled.contains("scrub")
+        || enabled.contains("narratives")
+        || enabled.contains("vibe")
+    {
+        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for scrub/narratives/vibe");
         Some(embed::Embedder::from_config(&cfg.embed)?)
+    } else {
+        None
+    };
+
+    let bucket_classifier = if enabled.contains("scrub") {
+        match embedder.as_ref() {
+            Some(e) => Some(bucket::BucketClassifier::from_embedder(
+                e,
+                cfg.scrub.clone(),
+            )?),
+            None => None,
+        }
     } else {
         None
     };
@@ -86,6 +100,8 @@ async fn main() -> Result<()> {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder,
         resolve: cfg.resolve.clone(),
+        scrub: cfg.scrub.clone(),
+        bucket_classifier,
     };
 
     // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
@@ -111,7 +127,13 @@ async fn main() -> Result<()> {
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
 
-    let worker = worker::Worker::new(harness, handlers, cfg.safety_net, cfg.stale_lease);
+    let worker = worker::Worker::new(
+        harness,
+        handlers,
+        cfg.safety_net,
+        cfg.stale_lease,
+        cfg.scrub.topic_heat_interval,
+    );
     worker.run().await
 }
 

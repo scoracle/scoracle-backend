@@ -1,9 +1,11 @@
 //! Sigil stage — the L3 stage port: the crown convergence, re-expressed as a
 //! composition of the capability library's primitives.
 //!
-//! Sigil = `read 3 pillars + route(StatsLogic) + extract(SigilParser) + persist`, with a
-//! `debounce_unchanged` gate on the pillar `input_hash`. The Go source is the spec, mirrored
-//! line-for-line so the temp-0 parity diff holds. The Go sources mirrored here:
+//! Sigil = `read pillars + route(StatsLogic) + extract(SigilParser) + persist`, with a
+//! `debounce_unchanged` gate on the pillar `input_hash`. This module began as a Go parity port, and
+//! the deterministic plumbing still follows that shape. Wave 5 rebaselines the product contract:
+//! the prompt now composes PEAK, Vibe, Momentum, and current narratives as distinct pillars.
+//! The Go sources originally mirrored here:
 //! `go/internal/ml/sigil.go` (Generate, the three pillar loaders, prompt, parse,
 //! input-components/hash, persist, the SkipUnchanged gate); `go/internal/ml/rating.go`
 //! (`hashComponents` / `round1`, shared package helpers); `go/internal/derive/derive.go`
@@ -13,14 +15,14 @@
 //! `Role::StatsLogic` consumer, the first user of `Persist::debounce_unchanged`, and the first
 //! user of the `Provenance.input_hash` envelope field — all three shipped real but unexercised
 //! by vibe. Everything that can differ between the two implementations — the SQL reads, the
-//! deterministic slope/trend math, the prompt bytes, the canonical input-components JSON (whose
-//! SHA-256 is the `input_hash`), the parse — lives here and is mirrored exactly. See
-//! `src/bin/sigil_parity.rs` for the harness and migration 107 for the shadow table.
+//! deterministic slope/trend math, the canonical input-components JSON (whose SHA-256 is the
+//! `input_hash`), and the parse — lives here. See `src/bin/sigil_parity.rs` for the historical
+//! harness and migration 107 for the shadow table.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narrative pillar AND no
-//! rating pillar AND no momentum pillar, we skip the model and persist a NULL-score/NULL-blurb
+//! rating pillar AND no vibe pillar AND no momentum pillar, we skip the model and persist a NULL-score/NULL-blurb
 //! marker row (the read path returns "no synthesis yet"). The SkipUnchanged debounce skips the
-//! local model call when the three pillars hash identically to the entity-season's latest synthesis.
+//! local model call when the pillars hash identically to the entity-season's latest synthesis.
 //! Sigil is the TERMINAL stage — unlike vibe it enqueues nothing downstream.
 
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -35,7 +37,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 /// Prompt version for the Sigil synthesis contract.
-pub const SIGIL_PROMPT_VERSION: &str = "s7";
+pub const SIGIL_PROMPT_VERSION: &str = "s8";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -45,7 +47,7 @@ pub const SIGIL_TEMPERATURE: f64 = 0.6;
 pub const SIGIL_NUM_PREDICT: i32 = 512;
 
 /// System prompt for the Sigil synthesis contract.
-pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize News Narrative, Rating Identity, and Momentum into one Sigil score and blurb.
+pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize PEAK scouting report, Vibe, Momentum, and current narratives into one Sigil score and blurb.
 
 Voice: direct, sports-literate, grounded. No purple prose, no headline language, no invented facts.
 
@@ -54,12 +56,12 @@ SCORE (1-100):
 - 50 = steady or genuinely mixed.
 - 100 = dominant or surging.
 - Slow-moving and season-aware. Do not overreact to one game or one weak signal.
-- Use Momentum to capture recent trajectory when it conflicts with season-long profile.
+- Use Momentum to capture recent trajectory when it conflicts with the PEAK report or Vibe.
 
 BLURB:
 - About two sentences; use a third only when several major signals converge.
-- Include: what the entity is, the defining news storyline, and current trajectory.
-- Do not recite percentiles or per-x details; Rating already carries that.
+- Include: what the entity is, the defining felt state, the PEAK context, and current trajectory.
+- Do not recite percentiles or per-x details; PEAK already carries that.
 - Name the real storyline, but do not catalogue every rumor or item.
 
 Reply with exactly these two lines:
@@ -81,7 +83,7 @@ pub struct SynthNarrative {
     pub trajectory: String,
 }
 
-/// The stat-identity pillar (P2). Mirrors `synthRating`. `None` (suppressed) when there is no
+/// The PEAK scouting-report pillar (P2). `None` (suppressed) when there is no
 /// commentary row, or when the latest generation is a no-stats marker (`body` NULL).
 #[derive(Clone, Debug)]
 pub struct SynthRating {
@@ -92,24 +94,27 @@ pub struct SynthRating {
     pub peak_trajectory_label: String,
 }
 
-/// The momentum pillar (P3). Mirrors `synthMomentum`. The slopes feed `trend_dir` (bucketed
-/// text in the prompt); the latest values feed both the prompt and the input-components hash.
+/// The vibe pillar (P3): the latest felt-read product, distinct from the Momentum trajectory.
+#[derive(Clone, Debug)]
+pub struct SynthVibe {
+    pub sentiment: i32,
+    pub prompt: String,
+}
+
+/// The momentum pillar (P4): durable trajectory values from `momentum_scores`.
 #[derive(Clone, Debug, Default)]
 pub struct SynthMomentum {
-    /// Positive = trending up; OLS slope over the last 14 vibe_scores rows.
-    pub sentiment_slope: f64,
-    /// OLS slope over the last 10 event composite scores.
-    pub composite_slope: f64,
-    pub latest_sentiment: Option<i32>,
-    pub latest_composite: Option<f64>,
-    /// The Vibe end product's felt-read prose (latest vibe_scores.prompt).
-    pub latest_vibe_prompt: String,
+    pub vibe_slope: Option<f64>,
+    pub vibe_samples: i32,
+    pub rating_slope: Option<f64>,
+    pub rating_samples: i32,
+    pub momentum_score: Option<f64>,
 }
 
 impl SynthMomentum {
     /// empty mirrors `synthMomentum.empty()`: no momentum signal at all.
     pub fn empty(&self) -> bool {
-        self.latest_sentiment.is_none() && self.latest_composite.is_none()
+        self.vibe_slope.is_none() && self.rating_slope.is_none() && self.momentum_score.is_none()
     }
 }
 
@@ -269,9 +274,42 @@ pub async fn load_rating_pillar(
     }
 }
 
-/// load_momentum_pillar (P3) computes the trajectory signal Sigil needs: the sentiment trend
-/// (last 14 vibe_scores rows) plus the composite trend (last 10 event composite scores), capturing
-/// the latest of each plus the latest felt-read prompt. Mirrors `loadMomentumPillar`.
+/// load_vibe_pillar (P3) reads the latest Vibe felt-state product. A latest NULL-sentiment marker
+/// suppresses the pillar instead of falling back to an older real Vibe.
+pub async fn load_vibe_pillar(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Option<SynthVibe>> {
+    let row: Option<(Option<i16>, String)> = sqlx::query_as(
+        r#"
+        SELECT sentiment, COALESCE(prompt, '')
+        FROM vibe_scores
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+        ORDER BY generated_at DESC
+        LIMIT 1
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load vibe pillar {entity_type}/{entity_id}"))?;
+
+    match row {
+        Some((Some(sentiment), prompt)) => Ok(Some(SynthVibe {
+            sentiment: sentiment as i32,
+            prompt,
+        })),
+        _ => Ok(None),
+    }
+}
+
+/// load_momentum_pillar (P4) reads the durable Momentum trajectory snapshot. Momentum is a served
+/// product with DB-first leaderboards; Sigil consumes the same trajectory instead of recomputing a
+/// separate raw-history slope.
 ///
 /// Product note: Momentum remains its own endpoint/product. This pillar is the Sigil-facing read of
 /// the same trajectory so a strong season-long stats profile can still be tempered by recent form,
@@ -281,100 +319,59 @@ pub async fn load_momentum_pillar(
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-    season: Option<i32>,
+    _season: Option<i32>,
 ) -> Result<SynthMomentum> {
-    let mut m = SynthMomentum::default();
-
-    // Composite trend targets the entity's event table. rating_composite_pct is `numeric`; sqlx
-    // can't scan numeric → f64 without a decimal feature, so cast `::float8` in SQL —
-    // VALUE-IDENTICAL to Go's pgx numeric→float64 (both yield the nearest double), and it only
-    // feeds the bucketed trend_dir + a `%.1f` render, so the prompt is unaffected.
-    let (comp_table, id_col) = match entity_type {
-        "player" => ("event_box_scores", "player_id"),
-        _ => ("event_team_stats", "team_id"),
-    };
-    // comp_table / id_col are stage-controlled literals (never user input) — no injection surface.
-    let comp_q = format!(
+    let row: Option<(Option<f64>, i32, Option<f64>, i32, Option<f64>)> = sqlx::query_as(
         r#"
-        SELECT e.rating_composite_pct::float8 FROM public.{comp_table} e
-            JOIN public.fixtures f ON f.id = e.fixture_id
-            WHERE e.{id_col} = $1 AND e.sport = $2
-              AND e.rating_composite_pct IS NOT NULL
-              AND ($3::int IS NULL OR e.season = $3)
-            ORDER BY f.start_time DESC
-            LIMIT 10
-        "#
-    );
+        SELECT vibe_slope::float8, vibe_samples,
+               rating_slope::float8, rating_samples,
+               momentum_score::float8
+        FROM public.latest_momentum_scores_per_entity
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+        LIMIT 1
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load momentum pillar {entity_type}/{entity_id}"))?;
 
-    // The sentiment-trend (vibe_scores) and composite-trend (event table) reads are independent —
-    // fetch both concurrently, then process each exactly as before (plan A3). Sentiment is int2 →
-    // scan i16, widened below (matches Go scanning into `int`).
-    let (sent_rows, comp_rows): (Vec<(i16, String)>, Vec<(f64,)>) = tokio::try_join!(
-        async {
-            sqlx::query_as(
-                r#"
-                SELECT sentiment, COALESCE(prompt, '') FROM vibe_scores
-                WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-                  AND sentiment IS NOT NULL
-                ORDER BY generated_at DESC
-                LIMIT 14
-                "#,
-            )
-            .bind(entity_type)
-            .bind(entity_id)
-            .bind(sport)
-            .fetch_all(pool)
-            .await
-            .with_context(|| format!("load sentiment trend {entity_type}/{entity_id}"))
-        },
-        async {
-            sqlx::query_as(&comp_q)
-                .bind(entity_id)
-                .bind(sport)
-                .bind(season)
-                .fetch_all(pool)
-                .await
-                .with_context(|| format!("load composite trend {entity_type}/{entity_id}"))
-        },
-    )?;
-
-    let mut sent_scores: Vec<f64> = Vec::with_capacity(sent_rows.len());
-    for (idx, (v, p)) in sent_rows.into_iter().enumerate() {
-        if idx == 0 {
-            m.latest_vibe_prompt = p; // first row is the most recent (DESC)
-        }
-        sent_scores.push(v as f64);
-    }
-    if !sent_scores.is_empty() {
-        m.latest_sentiment = Some(sent_scores[0] as i32);
-        // Reverse to chronological order for the slope (Go reverses in place after reading [0]).
-        sent_scores.reverse();
-        m.sentiment_slope = linear_slope(&sent_scores);
-    }
-
-    let mut comp_scores: Vec<f64> = comp_rows.into_iter().map(|(v,)| v).collect();
-    if !comp_scores.is_empty() {
-        m.latest_composite = Some(comp_scores[0]);
-        comp_scores.reverse();
-        m.composite_slope = linear_slope(&comp_scores);
-    }
-
-    Ok(m)
+    Ok(row
+        .map(
+            |(vibe_slope, vibe_samples, rating_slope, rating_samples, momentum_score)| {
+                SynthMomentum {
+                    vibe_slope,
+                    vibe_samples,
+                    rating_slope,
+                    rating_samples,
+                    momentum_score,
+                }
+            },
+        )
+        .unwrap_or_default())
 }
 
-/// load_pillars resolves the season and loads all three pillars season-exact — the shared
+/// load_pillars resolves the season and loads all pillars season-exact — the shared
 /// front half of both `generate_sigil` (parity) and `SigilHandler::handle` (production).
 async fn load_pillars(
     hx: &Harness,
     entity_type: &str,
     entity_id: i32,
     sport: &str, // upper-cased
-) -> Result<(i32, Vec<SynthNarrative>, Option<SynthRating>, SynthMomentum)> {
+) -> Result<(
+    i32,
+    Vec<SynthNarrative>,
+    Option<SynthRating>,
+    Option<SynthVibe>,
+    SynthMomentum,
+)> {
     let season = resolve_season(&hx.pool, sport, None).await?;
-    // The three pillars are fully independent once the season is known — load them concurrently
+    // The pillars are fully independent once the season is known — load them concurrently
     // (plan A3). Each future keeps its own error context; on multi-failure which context lands in
     // pipeline_work.last_error is racy (cosmetic).
-    let (narratives, rating, momentum) = tokio::try_join!(
+    let (narratives, rating, vibe, momentum) = tokio::try_join!(
         async {
             load_narrative_pillar(&hx.pool, entity_type, entity_id, sport)
                 .await
@@ -386,12 +383,17 @@ async fn load_pillars(
                 .context("rating pillar")
         },
         async {
+            load_vibe_pillar(&hx.pool, entity_type, entity_id, sport)
+                .await
+                .context("vibe pillar")
+        },
+        async {
             load_momentum_pillar(&hx.pool, entity_type, entity_id, sport, Some(season))
                 .await
                 .context("momentum pillar")
         },
     )?;
-    Ok((season, narratives, rating, momentum))
+    Ok((season, narratives, rating, vibe, momentum))
 }
 
 // ---------------------------------------------------------------------------
@@ -442,31 +444,20 @@ fn trend_dir(slope: f64) -> &'static str {
     }
 }
 
-/// momentum_score turns the trend pillar into a single trajectory number for Sigil and the
-/// Momentum product. It is directional force, not entity quality: 50 is flat, above 50 is rising,
-/// below 50 is sliding. Latest values still render separately; this score is driven by slope.
+/// momentum_score reads the durable signed Momentum trajectory value. It is directional force,
+/// not entity quality: positive is rising, negative is sliding, zero is flat.
 fn momentum_score(mom: &SynthMomentum) -> Option<i32> {
-    if mom.empty() {
-        return None;
-    }
-    let mut score = 50.0_f64;
-    if mom.latest_sentiment.is_some() {
-        score += (mom.sentiment_slope * 12.5).clamp(-25.0, 25.0);
-    }
-    if mom.latest_composite.is_some() {
-        score += (mom.composite_slope * 12.5).clamp(-25.0, 25.0);
-    }
-    Some(score.clamp(1.0, 100.0).round() as i32)
+    mom.momentum_score.map(|s| s.round() as i32)
 }
 
 fn momentum_score_label(score: i32) -> &'static str {
-    if score >= 70 {
+    if score >= 3 {
         "surging"
-    } else if score >= 56 {
+    } else if score >= 1 {
         "rising"
-    } else if score <= 30 {
+    } else if score <= -3 {
         "falling"
-    } else if score <= 44 {
+    } else if score <= -1 {
         "sliding"
     } else {
         "steady"
@@ -476,19 +467,19 @@ fn momentum_score_label(score: i32) -> &'static str {
 // ---------------------------------------------------------------------------
 // Input components + hash — the debounce key (Provenance.input_hash).
 //
-// Reproduces Go's `buildSynthesisInputComponents` + `hashComponents`: the canonical JSON is
-// BYTE-IDENTICAL to `json.Marshal(map[string]any{...})` (sorted keys, HTML-escaped strings,
-// Go's shortest float form), so its SHA-256 128-bit hex prefix equals Go's `input_hash`. This
-// is the strict 4th parity axis AND keeps the cutover clean (no spurious regens vs Go rows).
+// The canonical JSON keeps Go's stable map encoding shape (sorted keys, HTML-escaped strings,
+// shortest float form), so its SHA-256 128-bit hex prefix remains a deterministic debounce key.
+// Wave 5 intentionally changes the fields by adding Vibe and durable Momentum as first-class
+// Sigil inputs, so this is a product-contract hash now rather than a Go parity axis.
 // ---------------------------------------------------------------------------
 
-/// build_synthesis_input_components returns the canonical input-components JSON — the exact
-/// bytes Go's `json.Marshal(orEmptyMap(ic))` produces for the same pillars. Mirrors
-/// `buildSynthesisInputComponents`: `narrative_titles` is ALWAYS present (even `[]`); the rest
-/// are conditional. Keys are emitted in sorted order (Go marshals maps with sorted keys).
+/// build_synthesis_input_components returns the canonical input-components JSON. The
+/// `narrative_titles` key is ALWAYS present (even `[]`); the rest are conditional. Keys are
+/// emitted in sorted order to preserve a stable hash pre-image.
 pub fn build_synthesis_input_components(
     narratives: &[SynthNarrative],
     rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
 ) -> String {
     let mut pairs: Vec<(&'static str, String)> = Vec::new();
@@ -532,20 +523,22 @@ pub fn build_synthesis_input_components(
             ));
         }
     }
-    if let Some(s) = mom.latest_sentiment {
-        pairs.push(("latest_sentiment", s.to_string()));
+    if let Some(v) = vibe {
+        pairs.push(("vibe_sentiment", v.sentiment.to_string()));
+        if !v.prompt.is_empty() {
+            pairs.push(("vibe_prompt", go_json_string(&v.prompt)));
+        }
     }
-    if let Some(c) = mom.latest_composite {
-        pairs.push(("latest_composite", go_json_float(round1(c))));
+    if let Some(s) = mom.vibe_slope {
+        pairs.push(("momentum_vibe_slope", go_json_float(round1(s))));
+        pairs.push(("momentum_vibe_samples", mom.vibe_samples.to_string()));
     }
-    if !mom.latest_vibe_prompt.is_empty() {
-        pairs.push((
-            "latest_vibe_prompt",
-            go_json_string(&mom.latest_vibe_prompt),
-        ));
+    if let Some(s) = mom.rating_slope {
+        pairs.push(("momentum_rating_slope", go_json_float(round1(s))));
+        pairs.push(("momentum_rating_samples", mom.rating_samples.to_string()));
     }
-    if let Some(score) = momentum_score(mom) {
-        pairs.push(("momentum_score", score.to_string()));
+    if let Some(score) = mom.momentum_score {
+        pairs.push(("momentum_score", go_json_float(round1(score))));
     }
 
     pairs.sort_by(|a, b| a.0.cmp(b.0));
@@ -565,8 +558,8 @@ pub fn build_synthesis_input_components(
 // hash_components + the Go-JSON leaf encoders (`go_json_string` / `go_json_float`) are
 // single-homed in `crate::util` (single-homing landed in L12 for rating; sigil was the L3
 // original home and kept its own copies to avoid perturbing the proven stage — the L12
-// carry closed post-Step-3). The behavior is byte-identical; the existing shadow-table
-// parity gate is the regression check.
+// carry closed post-Step-3). The behavior stays byte-identical to Go's leaf encoding; the Sigil
+// component field set above is now Rust-owned product shape.
 
 // ---------------------------------------------------------------------------
 // Prompt assembly.
@@ -580,6 +573,7 @@ pub fn build_synthesis_prompt(
     sport_raw: &str,
     narratives: &[SynthNarrative],
     rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
 ) -> String {
     let mut b = String::new();
@@ -605,8 +599,8 @@ pub fn build_synthesis_prompt(
         b.push_str("\n=== NEWS NARRATIVE ===\n(no recent narratives)\n");
     }
 
-    // P2 — Rating identity (the stat end product)
-    b.push_str("\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n");
+    // P2 — PEAK scouting report (the stat end product)
+    b.push_str("\n=== PEAK SCOUTING REPORT ===\n");
     if let Some(r) = rating {
         if !r.divined_peak.is_empty() {
             b.push_str(&format!(
@@ -625,29 +619,41 @@ pub fn build_synthesis_prompt(
         b.push_str("(no stat commentary available)\n");
     }
 
-    // P3 — Momentum
+    // P3 — Vibe felt-state
+    b.push_str("\n=== VIBE ===\n");
+    if let Some(v) = vibe {
+        b.push_str(&format!("Sentiment: {}/100\n", v.sentiment));
+        if !v.prompt.is_empty() {
+            b.push_str(&v.prompt);
+            b.push('\n');
+        }
+    } else {
+        b.push_str("(no vibe prompt available)\n");
+    }
+
+    // P4 — Momentum
     b.push_str("\n=== MOMENTUM ===\n");
     if let Some(score) = momentum_score(mom) {
         b.push_str(&format!(
-            "Momentum score: {score}/100 ({})\n",
+            "Momentum score: {score} ({})\n",
             momentum_score_label(score)
         ));
     }
-    if let Some(s) = mom.latest_sentiment {
-        let dir = trend_dir(mom.sentiment_slope);
-        b.push_str(&format!("News sentiment: {s}/100 ({dir})\n"));
-    }
-    if !mom.latest_vibe_prompt.is_empty() {
+    if let Some(s) = mom.vibe_slope {
+        let dir = trend_dir(s);
         b.push_str(&format!(
-            "Vibe (the felt read): {}\n",
-            mom.latest_vibe_prompt
+            "Vibe trajectory: {s:.1} over {} samples ({dir})\n",
+            mom.vibe_samples
         ));
     }
-    if let Some(c) = mom.latest_composite {
-        let dir = trend_dir(mom.composite_slope);
-        b.push_str(&format!("Composite rating: {c:.1}/100 ({dir})\n"));
+    if let Some(s) = mom.rating_slope {
+        let dir = trend_dir(s);
+        b.push_str(&format!(
+            "PEAK trajectory: {s:.1} over {} samples ({dir})\n",
+            mom.rating_samples
+        ));
     }
-    if mom.latest_sentiment.is_none() && mom.latest_composite.is_none() {
+    if mom.empty() {
         b.push_str("(no momentum data)\n");
     }
 
@@ -716,7 +722,7 @@ impl Parser<SigilReply> for SigilParser {
 // ---------------------------------------------------------------------------
 
 /// generate_sigil runs the full sigil derivation for one entity at the given temperature and
-/// returns the un-persisted result — the L3 composition `read 3 pillars + route(StatsLogic) +
+/// returns the un-persisted result — the composition `read pillars + route(StatsLogic) +
 /// extract(SigilParser)`. Shared by the parity harness (temp 0 → writes the shadow table). It
 /// does NOT debounce or persist (the parity harness always dumps); the production handler adds
 /// the SkipUnchanged debounce + the typed persist. Mirrors `SigilGenerator.Generate` minus the
@@ -780,12 +786,12 @@ async fn generate_sigil_inner(
     // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
     let sport = sport_raw.to_uppercase();
 
-    let (season, narratives, rating, momentum) =
+    let (season, narratives, rating, vibe, momentum) =
         load_pillars(hx, entity_type, entity_id, &sport).await?;
 
     // No-pillar path: persist a marker (handled by the caller) without a model call. The
     // marker's model_version is the role's configured model (no response to echo).
-    if narratives.is_empty() && rating.is_none() && momentum.empty() {
+    if narratives.is_empty() && rating.is_none() && vibe.is_none() && momentum.empty() {
         return Ok((
             SigilOutput {
                 score: None,
@@ -802,7 +808,7 @@ async fn generate_sigil_inner(
     }
 
     let input_components_json =
-        build_synthesis_input_components(&narratives, rating.as_ref(), &momentum);
+        build_synthesis_input_components(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
     let input_hash = hash_components(&input_components_json);
 
     let prompt = build_synthesis_prompt(
@@ -811,6 +817,7 @@ async fn generate_sigil_inner(
         sport_raw,
         &narratives,
         rating.as_ref(),
+        vibe.as_ref(),
         &momentum,
     );
     let opts = GenerateOptions {
@@ -891,7 +898,7 @@ async fn persist_to_sigil_synthesis(
 }
 
 /// SigilHandler drains the durable `sigil` stage — the terminal convergence. It reads the
-/// three pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
+/// pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
 /// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Unlike vibe it
 /// enqueues nothing downstream. Mirrors `drainSigil` (current-season, SkipUnchanged=true).
 /// Registered in main.rs for the per-stage cutover; the parity harness reuses the loaders +
@@ -924,11 +931,11 @@ impl StageHandler for SigilHandler {
                 .await?;
 
         let sport = item.sport.to_uppercase();
-        let (season, narratives, rating, momentum) =
+        let (season, narratives, rating, vibe, momentum) =
             load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
         // No-pillar marker (no model call).
-        if narratives.is_empty() && rating.is_none() && momentum.empty() {
+        if narratives.is_empty() && rating.is_none() && vibe.is_none() && momentum.empty() {
             let out = SigilOutput {
                 score: None,
                 blurb: None,
@@ -944,8 +951,12 @@ impl StageHandler for SigilHandler {
         // SkipUnchanged debounce (drainSigil sets SkipUnchanged=true): skip the local model call when
         // the pillar input hash matches the entity-season's latest synthesis. This is the first
         // real consumer of the Persist `debounce_unchanged` primitive.
-        let input_components_json =
-            build_synthesis_input_components(&narratives, rating.as_ref(), &momentum);
+        let input_components_json = build_synthesis_input_components(
+            &narratives,
+            rating.as_ref(),
+            vibe.as_ref(),
+            &momentum,
+        );
         let input_hash = hash_components(&input_components_json);
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
@@ -967,6 +978,7 @@ impl StageHandler for SigilHandler {
             &item.sport,
             &narratives,
             rating.as_ref(),
+            vibe.as_ref(),
             &momentum,
         );
         let opts = GenerateOptions {
@@ -1054,24 +1066,24 @@ mod tests {
     #[test]
     fn momentum_score_tracks_direction_not_quality() {
         let surging = SynthMomentum {
-            sentiment_slope: 2.0,
-            composite_slope: 2.0,
-            latest_sentiment: Some(45),
-            latest_composite: Some(48.0),
-            latest_vibe_prompt: String::new(),
+            vibe_slope: Some(2.0),
+            vibe_samples: 4,
+            rating_slope: Some(2.0),
+            rating_samples: 5,
+            momentum_score: Some(4.0),
         };
-        assert_eq!(momentum_score(&surging), Some(100));
-        assert_eq!(momentum_score_label(100), "surging");
+        assert_eq!(momentum_score(&surging), Some(4));
+        assert_eq!(momentum_score_label(4), "surging");
 
         let sliding = SynthMomentum {
-            sentiment_slope: -2.0,
-            composite_slope: -1.0,
-            latest_sentiment: Some(90),
-            latest_composite: Some(88.0),
-            latest_vibe_prompt: String::new(),
+            vibe_slope: Some(-2.0),
+            vibe_samples: 3,
+            rating_slope: Some(-1.0),
+            rating_samples: 3,
+            momentum_score: Some(-1.5),
         };
-        assert_eq!(momentum_score(&sliding), Some(13));
-        assert_eq!(momentum_score_label(13), "falling");
+        assert_eq!(momentum_score(&sliding), Some(-2));
+        assert_eq!(momentum_score_label(-2), "sliding");
 
         assert_eq!(momentum_score(&SynthMomentum::default()), None);
     }
@@ -1100,7 +1112,7 @@ mod tests {
     }
 
     #[test]
-    fn input_components_are_byte_identical_to_go_marshal() {
+    fn input_components_use_stable_go_json_shape() {
         // Validates sorted keys + HTML escaping + Go float form + int form together — the
         // canonical JSON whose SHA-256 is the input_hash. Compare against the exact bytes Go's
         // json.Marshal would emit for the same map.
@@ -1127,26 +1139,30 @@ mod tests {
                 .into(),
         };
         let mom = SynthMomentum {
-            sentiment_slope: 1.0,
-            composite_slope: 0.0,
-            latest_sentiment: Some(60),
-            latest_composite: Some(73.0), // round1 → 73 → "73" (no ".0")
-            latest_vibe_prompt: "Quietly surging".into(),
+            vibe_slope: Some(1.0),
+            vibe_samples: 4,
+            rating_slope: Some(0.0),
+            rating_samples: 5,
+            momentum_score: Some(2.5),
         };
-        let got = build_synthesis_input_components(&narratives, Some(&rating), &mom);
+        let vibe = SynthVibe {
+            sentiment: 60,
+            prompt: "Quietly surging".into(),
+        };
+        let got = build_synthesis_input_components(&narratives, Some(&rating), Some(&vibe), &mom);
         // "B & C"'s ampersand is HTML-escaped (the backslash-u form), exactly as Go's
         // json.Marshal emits it. Built via format! with a runtime backslash (bs) so the
         // source carries no literal backslash-u token (the editor would decode it).
         let bs = '\\';
         let want = format!(
-            r#"{{"divined_peak":"Rim Protector","latest_composite":73,"latest_sentiment":60,"latest_vibe_prompt":"Quietly surging","momentum_score":63,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games"}}"#
+            r#"{{"divined_peak":"Rim Protector","momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games","vibe_prompt":"Quietly surging","vibe_sentiment":60}}"#
         );
         assert_eq!(got, want);
     }
 
     #[test]
     fn input_components_narrative_titles_always_present() {
-        // Rating-only entity: narrative_titles is still present as [] (Go adds it unconditionally).
+        // Rating-only entity: narrative_titles is still present as [] by contract.
         let rating = SynthRating {
             divined_peak: "Spacer".into(),
             body: "b".into(),
@@ -1154,7 +1170,8 @@ mod tests {
             peak_trajectory: "steady".into(),
             peak_trajectory_label: String::new(),
         };
-        let got = build_synthesis_input_components(&[], Some(&rating), &SynthMomentum::default());
+        let got =
+            build_synthesis_input_components(&[], Some(&rating), None, &SynthMomentum::default());
         assert_eq!(
             got,
             r#"{"divined_peak":"Spacer","narrative_titles":[],"narrative_trajectories":[],"notability":40,"peak_trajectory":"steady"}"#
@@ -1171,16 +1188,28 @@ mod tests {
             trajectory: "heating_up".into(),
         }];
         let mom = SynthMomentum {
-            sentiment_slope: 0.5,
-            composite_slope: 0.0,
-            latest_sentiment: Some(62),
-            latest_composite: None,
-            latest_vibe_prompt: "On the rise".into(),
+            vibe_slope: Some(0.5),
+            vibe_samples: 4,
+            rating_slope: None,
+            rating_samples: 0,
+            momentum_score: Some(1.0),
         };
-        let p = build_synthesis_prompt("player", "Test Player", "NBA", &narratives, None, &mom);
+        let vibe = SynthVibe {
+            sentiment: 62,
+            prompt: "On the rise".into(),
+        };
+        let p = build_synthesis_prompt(
+            "player",
+            "Test Player",
+            "NBA",
+            &narratives,
+            None,
+            Some(&vibe),
+            &mom,
+        );
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\nMomentum score: 56/100 (rising)\nNews sentiment: 62/100 (trending up)\nVibe (the felt read): On the rise\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\nRespond now."
         );
     }
 
@@ -1192,11 +1221,12 @@ mod tests {
             "NFL",
             &[],
             None,
+            None,
             &SynthMomentum::default(),
         );
         assert_eq!(
             p,
-            "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK IDENTITY (how the entity performs, not how well) ===\n(no stat commentary available)\n\n=== MOMENTUM ===\n(no momentum data)\n\nRespond now."
+            "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\n(no vibe prompt available)\n\n=== MOMENTUM ===\n(no momentum data)\n\nRespond now."
         );
     }
 }

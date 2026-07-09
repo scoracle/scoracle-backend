@@ -31,6 +31,7 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
+pub mod bucket;
 pub mod buildinfo;
 pub mod config;
 pub mod corpus;

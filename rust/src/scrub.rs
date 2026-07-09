@@ -83,10 +83,10 @@ impl StageHandler for ScrubHandler {
             .filter(|c| c.confidence < 1.0)
             .map(to_candidate)
             .collect();
-        let resolutions = if secondaries.is_empty() {
-            Vec::new()
+        let (resolutions, model_bucket) = if secondaries.is_empty() {
+            (Vec::new(), None)
         } else {
-            hx.resolve_set(Role::EmotionalNews, &context, &secondaries)
+            hx.resolve_set_with_bucket(Role::EmotionalNews, &context, &secondaries)
                 .await
                 .context("resolve_set gate")?
         };
@@ -112,6 +112,8 @@ impl StageHandler for ScrubHandler {
                         .unwrap_or(false)
             })
             .collect();
+        let fallback_bucket = crate::bucket::classify_article(hx, &title, &description).await?;
+        let bucket = model_bucket.unwrap_or(fallback_bucket);
 
         apply_verdicts(
             hx,
@@ -120,6 +122,7 @@ impl StageHandler for ScrubHandler {
             &entity_types,
             &entity_ids,
             &relevants,
+            bucket.as_db(),
         )
         .await
     }
@@ -210,7 +213,19 @@ async fn apply_verdicts(
     entity_types: &[String],
     entity_ids: &[i32],
     relevants: &[bool],
+    bucket: &str,
 ) -> Result<()> {
+    let mut tx = hx.pool.begin().await.context("begin scrub verdict tx")?;
+
+    // Article-level bucket first, so the mig-103 vetted trigger's downstream enqueue sees it in
+    // the same transaction.
+    sqlx::query("UPDATE news_articles SET bucket = $2 WHERE id = $1")
+        .bind(article_id)
+        .bind(bucket)
+        .execute(&mut *tx)
+        .await
+        .context("apply article bucket")?;
+
     sqlx::query(
         r#"
         UPDATE news_article_entities n
@@ -225,8 +240,9 @@ async fn apply_verdicts(
     .bind(entity_ids)
     .bind(relevants)
     .bind(sport)
-    .execute(&hx.pool)
+    .execute(&mut *tx)
     .await
     .context("apply verdicts")?;
+    tx.commit().await.context("commit scrub verdict tx")?;
     Ok(())
 }

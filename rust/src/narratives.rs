@@ -227,8 +227,9 @@ pub async fn load_vetted_corpus(
         JOIN news_articles a ON a.id = nae.article_id
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
           AND nae.vetted IS TRUE
+          AND a.bucket IS DISTINCT FROM 'transfer'
           AND (a.published_at IS NULL OR a.published_at > NOW() - make_interval(secs => $4))
-        ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+        ORDER BY a.topic_heat DESC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC
         LIMIT $5
         "#,
     )

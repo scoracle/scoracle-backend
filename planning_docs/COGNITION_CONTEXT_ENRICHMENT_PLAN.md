@@ -3,6 +3,10 @@
 Created: 2026-06-29
 Status: Phase 1 completed on 2026-06-30 in commit `ff258a1`; execution summary posted in `planning_docs/RUST_COGNITION_PHASE1_DURABLE_SPINE_EXECUTION.md` via commit `2d9cec4`.
 
+Priority follow-on: `planning_docs/MULTI_LENS_COGNITION_PANEL_PLAN.md` names the product direction
+this enrichment work should serve. Context ledgers, role routing, and evals should mature toward
+stats, narrative, and transfer lenses that synthesize into the final Scoracle read.
+
 ## Core Concern
 
 The Rust cognition layer may be drifting toward controlling the models instead of empowering

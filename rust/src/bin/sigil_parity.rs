@@ -26,7 +26,7 @@ use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::sigil::{generate_sigil, SigilOutput};
+use scoracle_cognition::sigil::{generate_sigil_parity, SigilOutput};
 use sqlx::PgPool;
 
 /// The explicit, deterministic temperature the parity diff is taken at.
@@ -37,6 +37,14 @@ struct EntitySpec {
     entity_type: String,
     entity_id: i32,
     sport: String,
+}
+
+/// Parity-era only; removed with the bins (see plan C1).
+#[derive(Clone, Debug)]
+struct SigilParityOutput {
+    output: SigilOutput,
+    built_prompt: Option<String>,
+    request_body: Option<serde_json::Value>,
 }
 
 #[tokio::main]
@@ -81,20 +89,20 @@ async fn main() -> Result<()> {
         match run_one(&harness, s).await {
             Ok(out) => {
                 ok += 1;
-                match out.score {
+                match out.output.score {
                     Some(score) => println!(
                         "  ✓ {}/{} ({}) season {} → SCORE {} | hash {} | BLURB {:?}",
                         s.entity_type,
                         s.entity_id,
                         s.sport,
-                        out.season,
+                        out.output.season,
                         score,
-                        out.input_hash.as_deref().unwrap_or(""),
-                        out.blurb.as_deref().unwrap_or("")
+                        out.output.input_hash.as_deref().unwrap_or(""),
+                        out.output.blurb.as_deref().unwrap_or("")
                     ),
                     None => println!(
                         "  ✓ {}/{} ({}) season {} → no-pillar NULL marker",
-                        s.entity_type, s.entity_id, s.sport, out.season
+                        s.entity_type, s.entity_id, s.sport, out.output.season
                     ),
                 }
             }
@@ -111,7 +119,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
+async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilParityOutput> {
     let name = scoracle_cognition::corpus::lookup_entity_name(
         &hx.pool,
         &s.entity_type,
@@ -119,7 +127,7 @@ async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
         &s.sport,
     )
     .await?;
-    let out = generate_sigil(
+    let (output, built_prompt, request_body) = generate_sigil_parity(
         hx,
         &s.entity_type,
         s.entity_id,
@@ -128,6 +136,11 @@ async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
         PARITY_TEMPERATURE,
     )
     .await?;
+    let out = SigilParityOutput {
+        output,
+        built_prompt,
+        request_body,
+    };
 
     persist_shadow(&hx.pool, s, &out).await?;
     Ok(out)
@@ -137,8 +150,8 @@ async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<SigilOutput> {
 /// sigil_synthesis persist (trigger 'periodic', trigger_payload '{}', empty blurb → "" for a
 /// scored row / NULL for a marker) plus the harness-only columns (temperature, built_prompt,
 /// ollama_request). input_components is the canonical JSON (its SHA-256 is input_hash).
-async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &SigilOutput) -> Result<()> {
-    let score: Option<i16> = out.score.map(|n| n as i16);
+async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &SigilParityOutput) -> Result<()> {
+    let score: Option<i16> = out.output.score.map(|n| n as i16);
     let request_json: Option<String> = out.request_body.as_ref().map(|v| v.to_string());
     sqlx::query(
         r#"
@@ -154,13 +167,13 @@ async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &SigilOutput) -> Res
     .bind(&s.entity_type)
     .bind(s.entity_id)
     .bind(s.sport.to_uppercase())
-    .bind(out.season)
+    .bind(out.output.season)
     .bind(score)
-    .bind(out.blurb.as_deref())
-    .bind(out.input_components_json.as_str())
-    .bind(out.input_hash.as_deref())
-    .bind(out.model.as_str())
-    .bind(out.prompt_version)
+    .bind(out.output.blurb.as_deref())
+    .bind(out.output.input_components_json.as_str())
+    .bind(out.output.input_hash.as_deref())
+    .bind(out.output.model.as_str())
+    .bind(out.output.prompt_version)
     .bind(PARITY_TEMPERATURE as f32)
     .bind(out.built_prompt.as_deref())
     .bind(request_json)

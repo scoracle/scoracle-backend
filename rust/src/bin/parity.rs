@@ -22,7 +22,7 @@ use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::vibe::{generate_vibe, VibeOutput, VIBE_PROMPT_VERSION};
+use scoracle_cognition::vibe::{generate_vibe_parity, VibeOutput, VIBE_PROMPT_VERSION};
 use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
 
@@ -34,6 +34,14 @@ struct EntitySpec {
     entity_type: String,
     entity_id: i32,
     sport: String,
+}
+
+/// Parity-era only; removed with the bins (see plan C1).
+#[derive(Clone, Debug)]
+struct VibeParityOutput {
+    output: VibeOutput,
+    built_prompt: Option<String>,
+    request_body: Option<serde_json::Value>,
 }
 
 #[tokio::main]
@@ -79,14 +87,14 @@ async fn main() -> Result<()> {
         match run_one(&harness, s).await {
             Ok(out) => {
                 ok += 1;
-                match out.sentiment {
+                match out.output.sentiment {
                     Some(score) => println!(
                         "  ✓ {}/{} ({}) → SCORE {} | VIBE {:?}",
                         s.entity_type,
                         s.entity_id,
                         s.sport,
                         score,
-                        out.vibe_prompt.as_deref().unwrap_or("")
+                        out.output.vibe_prompt.as_deref().unwrap_or("")
                     ),
                     None => println!(
                         "  ✓ {}/{} ({}) → no-corpus NULL marker",
@@ -107,9 +115,9 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeOutput> {
+async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeParityOutput> {
     let name = corpus::lookup_entity_name(&hx.pool, &s.entity_type, s.entity_id, &s.sport).await?;
-    let out = generate_vibe(
+    let (output, built_prompt, request_body) = generate_vibe_parity(
         hx,
         &s.entity_type,
         s.entity_id,
@@ -118,27 +126,27 @@ async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeOutput> {
         PARITY_TEMPERATURE,
     )
     .await?;
+    let out = VibeParityOutput {
+        output,
+        built_prompt,
+        request_body,
+    };
 
     // The exact request body that was POSTed for this entity is captured by `extract` and
-    // carried on the output (`None` for the no-corpus marker, which makes no model call) — it
+    // carried on the parity output (`None` for the no-corpus marker, which makes no model call) — it
     // is the very body the call sent (the client's single source of truth), so it can't drift
     // from what generate sent. The temperature inside it is the explicit `Some(0.0)` that
     // pins determinism (generate_vibe was called at PARITY_TEMPERATURE).
-    persist_shadow(&hx.pool, s, &out, out.request_body.as_ref()).await?;
+    persist_shadow(&hx.pool, s, &out).await?;
     Ok(out)
 }
 
 /// persist_shadow writes one source='rust' row to vibe_scores_shadow. Mirrors the
 /// vibe_scores persist (trigger 'periodic', trigger_payload JSON null, empty felt-read →
 /// NULL) plus the harness-only columns (temperature, built_prompt, ollama_request).
-async fn persist_shadow(
-    pool: &PgPool,
-    s: &EntitySpec,
-    out: &VibeOutput,
-    request: Option<&serde_json::Value>,
-) -> Result<()> {
-    let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
-    let request_json: Option<String> = request.map(|v| v.to_string());
+async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &VibeParityOutput) -> Result<()> {
+    let sentiment: Option<i16> = out.output.sentiment.map(|n| n as i16);
+    let request_json: Option<String> = out.request_body.as_ref().map(|v| v.to_string());
     sqlx::query(
         r#"
         INSERT INTO vibe_scores_shadow (
@@ -154,10 +162,10 @@ async fn persist_shadow(
     .bind(s.entity_id)
     .bind(s.sport.to_uppercase())
     .bind(sentiment)
-    .bind(out.vibe_prompt.as_deref())
-    .bind(out.input_news_ids.as_slice())
-    .bind(out.model.as_str())
-    .bind(out.prompt_version)
+    .bind(out.output.vibe_prompt.as_deref())
+    .bind(out.output.input_news_ids.as_slice())
+    .bind(out.output.model.as_str())
+    .bind(out.output.prompt_version)
     .bind(PARITY_TEMPERATURE as f32)
     .bind(out.built_prompt.as_deref())
     .bind(request_json)

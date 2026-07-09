@@ -37,11 +37,11 @@
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::{Config, RouteConfig};
+use scoracle_cognition::corpus::{load_transfer_heat, lookup_entity_name};
 use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::route::{Inference, Role, Router};
-use scoracle_cognition::corpus::{load_transfer_heat, lookup_entity_name};
 use scoracle_cognition::vibe::{
     build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
     VIBE_SYSTEM_PROMPT,
@@ -233,7 +233,7 @@ async fn score_backend(
             }
         };
         let gen = match backend.generate(&prompt, &opts).await {
-            Ok(g) => g,
+            Ok((g, _request_body)) => g,
             Err(e) => {
                 // Under GPU contention a call can time out waiting in Ollama's queue; skip it
                 // rather than abort the whole batch (a partial A/B is still useful).

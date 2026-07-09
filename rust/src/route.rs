@@ -75,15 +75,18 @@ impl Role {
 }
 
 /// Inference — the model-call backend, the genuine swap point. `OllamaClient` is the first
-/// impl; a `dyn Inference` is what a `Role` resolves to. The three methods mirror the
-/// inherent `OllamaClient` API so `request_body` stays the single source of truth for the
-/// wire payload (the property the temp-0 parity proof leans on — the recorded body can never
-/// drift from the sent one).
+/// impl; a `dyn Inference` is what a `Role` resolves to. `generate` returns the exact
+/// wire body it POSTed; `request_body` remains for no-call deterministic builders.
 #[async_trait]
 pub trait Inference: Send + Sync {
     /// generate performs one non-streaming completion. No auto-retry — the work queue owns
-    /// backoff (the boundary the host already enforces).
-    async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult>;
+    /// backoff (the boundary the host already enforces), and returns the exact
+    /// `/api/generate` body sent with the result.
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)>;
 
     /// model returns the concrete model id, for provenance (`model_version`).
     fn model(&self) -> &str;
@@ -95,10 +98,14 @@ pub trait Inference: Send + Sync {
 
 #[async_trait]
 impl Inference for OllamaClient {
-    async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
         // Inherent method wins method resolution, but qualify it explicitly to make the
         // delegation unambiguous (no accidental recursion into the trait method).
-        OllamaClient::generate(self, prompt, opts).await
+        OllamaClient::generate_with_body(self, prompt, opts).await
     }
 
     fn model(&self) -> &str {
@@ -127,7 +134,11 @@ struct GovernedInference {
 
 #[async_trait]
 impl Inference for GovernedInference {
-    async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
         // The permit is held for the whole call and released on drop — success OR error — so a
         // failed/timed-out call never leaks one. `acquire` only errors if the semaphore is
         // closed, which we never do, so surface that as an error rather than panic.
@@ -340,19 +351,26 @@ mod tests {
 
     #[async_trait]
     impl Inference for PeakCounter {
-        async fn generate(&self, _p: &str, _o: &GenerateOptions) -> Result<GenerateResult> {
+        async fn generate(
+            &self,
+            _p: &str,
+            _o: &GenerateOptions,
+        ) -> Result<(GenerateResult, serde_json::Value)> {
             use std::sync::atomic::Ordering::SeqCst;
             let now = self.current.fetch_add(1, SeqCst) + 1;
             self.peak.fetch_max(now, SeqCst);
             // Hold the permit across an await so concurrent callers actually contend.
             tokio::time::sleep(Duration::from_millis(15)).await;
             self.current.fetch_sub(1, SeqCst);
-            Ok(GenerateResult {
-                response: String::new(),
-                model: "mock".to_string(),
-                total_duration: Duration::ZERO,
-                eval_count: 0,
-            })
+            Ok((
+                GenerateResult {
+                    response: String::new(),
+                    model: "mock".to_string(),
+                    total_duration: Duration::ZERO,
+                    eval_count: 0,
+                },
+                serde_json::Value::Null,
+            ))
         }
         fn model(&self) -> &str {
             "mock"

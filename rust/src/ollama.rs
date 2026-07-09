@@ -140,10 +140,13 @@ impl OllamaClient {
         serde_json::to_value(self.build_request(prompt, opts)).unwrap_or(serde_json::Value::Null)
     }
 
-    /// generate performs a single non-streaming completion. We do NOT auto-retry
-    /// — the caller (a stage handler) decides, and the work queue handles backoff.
-    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+    pub(crate) async fn generate_with_body(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
         let req = self.build_request(prompt, opts);
+        let request_body = serde_json::to_value(&req).unwrap_or(serde_json::Value::Null);
 
         let url = format!("{}/api/generate", self.base_url);
         let resp = self
@@ -170,12 +173,22 @@ impl OllamaClient {
             return Err(anyhow!("ollama error: {}", parsed.error));
         }
 
-        Ok(GenerateResult {
-            response: parsed.response,
-            model: parsed.model,
-            total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
-            eval_count: parsed.eval_count,
-        })
+        Ok((
+            GenerateResult {
+                response: parsed.response,
+                model: parsed.model,
+                total_duration: Duration::from_nanos(parsed.total_duration.max(0) as u64),
+                eval_count: parsed.eval_count,
+            },
+            request_body,
+        ))
+    }
+
+    /// generate performs a single non-streaming completion. We do NOT auto-retry
+    /// — the caller (a stage handler) decides, and the work queue handles backoff.
+    pub async fn generate(&self, prompt: &str, opts: &GenerateOptions) -> Result<GenerateResult> {
+        let (gen, _) = self.generate_with_body(prompt, opts).await?;
+        Ok(gen)
     }
 
     /// ping hits /api/tags to verify Ollama is reachable. Cheap — no inference.

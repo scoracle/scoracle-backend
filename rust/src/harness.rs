@@ -215,24 +215,29 @@ impl Harness {
     }
 
     /// latest_with_hash fetches the entity's LATEST synthesis row in ONE query, returning
-    /// `(score, input_hash)` — the two facts sigil needs from that row: the previous-score
-    /// baseline for the delta display AND the debounce hash. It folds sigil's former two
+    /// `(score, blurb, input_hash)` — the three facts sigil needs from that row: the
+    /// previous-score baseline (delta display + persisted `previous_score`), the previous BLURB
+    /// (Phase 5.2 prompt-only continuity), AND the debounce hash. It folds sigil's former two
     /// round-trips (`debounce_unchanged` + `last_score`) into one — each was an identical
-    /// `... ORDER BY generated_at DESC LIMIT 1` over the same row (plan A1). `debounce_unchanged`
-    /// stays as the standalone bool gate for callers that only need the skip decision.
+    /// `... ORDER BY generated_at DESC LIMIT 1` over the same row (plan A1) — and the blurb rides
+    /// along on that same row for free, so the previous score and blurb are a consistent
+    /// (non-torn) read of one prior synthesis. `debounce_unchanged` stays as the standalone bool
+    /// gate for callers that only need the skip decision.
     ///
-    /// Both columns are read nullable and returned already flattened: a no-row entity and a
-    /// marker row (NULL score / NULL hash) are semantically identical to both consumers —
-    /// score `None` ⇒ 0 baseline; hash `None` compares unequal to any real hash ⇒ never skips.
-    /// `table` is a stage-controlled literal (no injection surface).
+    /// All three columns are read nullable and returned already flattened: a no-row entity and a
+    /// marker row (NULL score / NULL blurb / NULL hash) are semantically identical to the
+    /// consumers — score `None` ⇒ 0 baseline; blurb `None` ⇒ no prior read to show; hash `None`
+    /// compares unequal to any real hash ⇒ never skips. `table` is a stage-controlled literal (no
+    /// injection surface); it must expose `score`/`blurb`/`input_hash` columns (`sigil_synthesis`
+    /// is the only caller today).
     pub async fn latest_with_hash(
         &self,
         table: &str,
         key: &EntityKey,
-    ) -> Result<(Option<i16>, Option<String>)> {
-        let row: Option<(Option<i16>, Option<String>)> = if key.season.is_some() {
+    ) -> Result<(Option<i16>, Option<String>, Option<String>)> {
+        let row: Option<(Option<i16>, Option<String>, Option<String>)> = if key.season.is_some() {
             let q = format!(
-                "SELECT score, input_hash FROM {table} \
+                "SELECT score, blurb, input_hash FROM {table} \
                  WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4 \
                  ORDER BY generated_at DESC LIMIT 1"
             );
@@ -245,7 +250,7 @@ impl Harness {
                 .await
         } else {
             let q = format!(
-                "SELECT score, input_hash FROM {table} \
+                "SELECT score, blurb, input_hash FROM {table} \
                  WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
                  ORDER BY generated_at DESC LIMIT 1"
             );
@@ -262,7 +267,7 @@ impl Harness {
                 key.entity_type, key.entity_id
             )
         })?;
-        Ok(row.unwrap_or((None, None)))
+        Ok(row.unwrap_or((None, None, None)))
     }
 
     /// latest_row fetches one column from the entity's LATEST row in a product table.

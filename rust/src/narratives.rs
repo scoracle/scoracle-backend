@@ -24,12 +24,12 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
+use crate::corpus::{load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem};
 use crate::harness::{cluster, Harness, Parser};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::util::truncate_bytes;
-use crate::corpus::{load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -650,9 +650,6 @@ pub async fn build_narratives_request(
 /// that yielded no usable grounded storyline). The twin of `rating::RatingOutput`.
 #[derive(Clone, Debug)]
 pub struct NarrativesOutput {
-    /// True only for the PRE-model no-corpus path (logging/inspection). A post-model empty grounding
-    /// also persists a marker, distinguished by `narratives.is_empty()` with `built_prompt: Some`.
-    pub skipped_no_corpus: bool,
     pub narratives: Vec<Narrative>,
     /// The model that answered (configured model for the no-corpus marker — Go sets `a.ollama.Model()`).
     pub model: String,
@@ -680,7 +677,6 @@ pub async fn generate_narratives(
             // The NULL-narrative marker. Go sets Model = a.ollama.Model() even here.
             let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
             return Ok(NarrativesOutput {
-                skipped_no_corpus: true,
                 narratives: Vec::new(),
                 model,
                 prompt_version: NARRATIVES_PROMPT_VERSION,
@@ -710,7 +706,6 @@ pub async fn generate_narratives(
     let narratives = ground_narratives(&parsed.narratives, &ready.corpus, now_epoch);
 
     Ok(NarrativesOutput {
-        skipped_no_corpus: false,
         narratives,
         model: extracted.model,
         prompt_version: NARRATIVES_PROMPT_VERSION,
@@ -932,8 +927,7 @@ impl StageHandler for NarrativesHandler {
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
         // nameOf uses the queue's raw sport value (drainNarratives), as does the prompt's req.Sport.
-        let name =
-            lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
+        let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
         let req = NarrativesReq {
             entity_type: item.entity_type.clone(),
             entity_id,

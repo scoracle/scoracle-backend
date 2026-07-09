@@ -121,8 +121,8 @@ pub struct SigilReply {
 }
 
 /// The result of running the sigil core for one entity, before persistence. Captures
-/// everything both the production handler (→ sigil_synthesis) and the parity harness
-/// (→ sigil_synthesis_shadow) need to persist.
+/// the production row payload for `sigil_synthesis`; parity-only prompt/body
+/// capture lives in `src/bin/sigil_parity.rs`.
 #[derive(Clone, Debug)]
 pub struct SigilOutput {
     /// `None` ⇒ no-pillar NULL marker (no model call was made).
@@ -142,12 +142,6 @@ pub struct SigilOutput {
     /// no-pillar → the role's configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
-    /// The exact user prompt sent to the model; `None` for the no-pillar marker.
-    pub built_prompt: Option<String>,
-    /// The exact Ollama request body that was POSTed — captured by `extract` from the same
-    /// backend + opts the call used (single source of truth). `None` for the marker.
-    pub request_body: Option<serde_json::Value>,
-    pub skipped_no_pillars: bool,
 }
 
 impl SigilOutput {
@@ -740,6 +734,51 @@ pub async fn generate_sigil(
     sport_raw: &str,
     temperature: f64,
 ) -> Result<SigilOutput> {
+    let (out, _, _) = generate_sigil_inner(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        sport_raw,
+        temperature,
+        false,
+    )
+    .await?;
+    Ok(out)
+}
+
+/// generate_sigil_parity runs the same core as production while returning the
+/// parity-era prompt and request-body axes. Removed with the parity bins (see
+/// plan C1).
+pub async fn generate_sigil_parity(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+    temperature: f64,
+) -> Result<(SigilOutput, Option<String>, Option<serde_json::Value>)> {
+    generate_sigil_inner(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        sport_raw,
+        temperature,
+        true,
+    )
+    .await
+}
+
+async fn generate_sigil_inner(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+    temperature: f64,
+    capture_parity: bool,
+) -> Result<(SigilOutput, Option<String>, Option<serde_json::Value>)> {
     if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
         bail!("sigil: entity context incomplete");
     }
@@ -752,18 +791,19 @@ pub async fn generate_sigil(
     // No-pillar path: persist a marker (handled by the caller) without a model call. The
     // marker's model_version is the role's configured model (no response to echo).
     if narratives.is_empty() && rating.is_none() && momentum.empty() {
-        return Ok(SigilOutput {
-            score: None,
-            blurb: None,
-            season,
-            input_components_json: "{}".to_string(),
-            input_hash: None,
-            model: hx.router.for_role(Role::StatsLogic).model().to_string(),
-            prompt_version: SIGIL_PROMPT_VERSION,
-            built_prompt: None,
-            request_body: None,
-            skipped_no_pillars: true,
-        });
+        return Ok((
+            SigilOutput {
+                score: None,
+                blurb: None,
+                season,
+                input_components_json: "{}".to_string(),
+                input_hash: None,
+                model: hx.router.for_role(Role::StatsLogic).model().to_string(),
+                prompt_version: SIGIL_PROMPT_VERSION,
+            },
+            None,
+            None,
+        ));
     }
 
     let input_components_json =
@@ -794,18 +834,22 @@ pub async fn generate_sigil(
         .value
         .ok_or_else(|| anyhow!("sigil: parser returned no value"))?;
 
-    Ok(SigilOutput {
-        score: Some(reply.score),
-        blurb: Some(reply.blurb),
-        season,
-        input_components_json,
-        input_hash: Some(input_hash),
-        model: extracted.model,
-        prompt_version: SIGIL_PROMPT_VERSION,
-        built_prompt: Some(extracted.built_prompt),
-        request_body: Some(extracted.request_body),
-        skipped_no_pillars: false,
-    })
+    let built_prompt = capture_parity.then_some(extracted.built_prompt);
+    let request_body = capture_parity.then_some(extracted.request_body);
+
+    Ok((
+        SigilOutput {
+            score: Some(reply.score),
+            blurb: Some(reply.blurb),
+            season,
+            input_components_json,
+            input_hash: Some(input_hash),
+            model: extracted.model,
+            prompt_version: SIGIL_PROMPT_VERSION,
+        },
+        built_prompt,
+        request_body,
+    ))
 }
 
 /// persist_to_sigil_synthesis writes one row to the LIVE sigil_synthesis table — both the
@@ -898,9 +942,6 @@ impl StageHandler for SigilHandler {
                 input_hash: None,
                 model: hx.router.for_role(Role::StatsLogic).model().to_string(),
                 prompt_version: SIGIL_PROMPT_VERSION,
-                built_prompt: None,
-                request_body: None,
-                skipped_no_pillars: true,
             };
             return persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await;
         }
@@ -954,9 +995,6 @@ impl StageHandler for SigilHandler {
             input_hash: Some(input_hash),
             model: extracted.model,
             prompt_version: SIGIL_PROMPT_VERSION,
-            built_prompt: Some(extracted.built_prompt),
-            request_body: Some(extracted.request_body),
-            skipped_no_pillars: false,
         };
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
         persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;

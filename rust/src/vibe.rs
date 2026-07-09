@@ -14,7 +14,9 @@
 //! its `sigil` convergence BEFORE the work row is completed, so a crash in between
 //! re-runs vibe (idempotent) rather than dropping the sigil.
 
-use crate::corpus::{dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem};
+use crate::corpus::{
+    dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
+};
 use crate::harness::{Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -72,8 +74,8 @@ pub struct Narrative {
 }
 
 /// The result of running the vibe core for one entity, before persistence. Captures
-/// everything both the production handler (→ vibe_scores) and the parity harness
-/// (→ vibe_scores_shadow) need to persist.
+/// the production row payload for `vibe_scores`; parity-only prompt/body capture
+/// lives in `src/bin/parity.rs`.
 #[derive(Clone, Debug)]
 pub struct VibeOutput {
     /// `None` ⇒ no-corpus NULL marker (no model call was made).
@@ -85,14 +87,6 @@ pub struct VibeOutput {
     /// no-corpus → the configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
-    /// The exact user prompt sent to the model; `None` for the no-corpus marker.
-    pub built_prompt: Option<String>,
-    /// The exact Ollama request body that was POSTed — captured by `extract` from the same
-    /// backend + opts the call used (single source of truth), so it can't drift from what was
-    /// sent. `None` for the no-corpus marker (no model call). The production persist ignores
-    /// it; the parity harness records it as the jsonb axis of the temp-0 diff.
-    pub request_body: Option<serde_json::Value>,
-    pub skipped_no_corpus: bool,
 }
 
 /// vibe_version fingerprints a vibe result for the sigil queue's input_version, exactly
@@ -339,6 +333,51 @@ pub async fn generate_vibe(
     sport_raw: &str,
     temperature: f64,
 ) -> Result<VibeOutput> {
+    let (out, _, _) = generate_vibe_inner(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        sport_raw,
+        temperature,
+        false,
+    )
+    .await?;
+    Ok(out)
+}
+
+/// generate_vibe_parity runs the same core as production while returning the
+/// parity-era prompt and request-body axes. Removed with the parity bins (see
+/// plan C1).
+pub async fn generate_vibe_parity(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+    temperature: f64,
+) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
+    generate_vibe_inner(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        sport_raw,
+        temperature,
+        true,
+    )
+    .await
+}
+
+async fn generate_vibe_inner(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+    temperature: f64,
+    capture_parity: bool,
+) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
     if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
         bail!("vibe: entity context incomplete");
     }
@@ -356,16 +395,17 @@ pub async fn generate_vibe(
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
     // model call is made, so the marker's model_version is the role's configured model.
     if narratives.is_empty() && heat.is_empty() {
-        return Ok(VibeOutput {
-            sentiment: None,
-            vibe_prompt: None,
-            input_news_ids: Vec::new(),
-            model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
-            prompt_version: VIBE_PROMPT_VERSION,
-            built_prompt: None,
-            request_body: None,
-            skipped_no_corpus: true,
-        });
+        return Ok((
+            VibeOutput {
+                sentiment: None,
+                vibe_prompt: None,
+                input_news_ids: Vec::new(),
+                model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
+                prompt_version: VIBE_PROMPT_VERSION,
+            },
+            None,
+            None,
+        ));
     }
 
     let prompt = build_sentiment_prompt(entity_type, entity_name, sport_raw, &narratives, &heat);
@@ -390,20 +430,24 @@ pub async fn generate_vibe(
         .value
         .ok_or_else(|| anyhow!("vibe: parser returned no value"))?;
 
-    Ok(VibeOutput {
-        sentiment: Some(reply.sentiment),
-        vibe_prompt: if reply.vibe_prompt.is_empty() {
-            None
-        } else {
-            Some(reply.vibe_prompt)
+    let built_prompt = capture_parity.then_some(extracted.built_prompt);
+    let request_body = capture_parity.then_some(extracted.request_body);
+
+    Ok((
+        VibeOutput {
+            sentiment: Some(reply.sentiment),
+            vibe_prompt: if reply.vibe_prompt.is_empty() {
+                None
+            } else {
+                Some(reply.vibe_prompt)
+            },
+            input_news_ids: news_ids,
+            model: extracted.model,
+            prompt_version: VIBE_PROMPT_VERSION,
         },
-        input_news_ids: news_ids,
-        model: extracted.model,
-        prompt_version: VIBE_PROMPT_VERSION,
-        built_prompt: Some(extracted.built_prompt),
-        request_body: Some(extracted.request_body),
-        skipped_no_corpus: false,
-    })
+        built_prompt,
+        request_body,
+    ))
 }
 
 /// persist_to_vibe_scores writes one row to the LIVE vibe_scores table — both the scored

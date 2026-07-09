@@ -1136,7 +1136,8 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- generation → the score IS NOT NULL guard yields zero rows → current null,
 			-- clearing the stale crown. (History below keeps only scored points — a marker
 			-- changes the current projection, never the sparkline.)
-			SELECT vs.score, vs.blurb, vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
+			SELECT vs.score, vs.blurb, vs.convergence, vs.disagreement, vs.why_now,
+			       vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
 			FROM public.sigil_synthesis vs, req, latest_gen
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.generated_at = latest_gen.g
@@ -1162,7 +1163,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
-			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, convergence, disagreement, why_now, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,

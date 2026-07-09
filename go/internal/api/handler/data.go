@@ -679,11 +679,11 @@ func (h *Handler) GetEntityStats(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetEntityRating returns the entity's RATING product — the statistical rail's end
-// product: the positionless magnitude score + the divined defining strength + the
-// precomputed on-field identity blurb. The Rating card reads this. Served at
+// product: the positionless magnitude score + the divined PEAK + the
+// precomputed PEAK scouting-report blurb. The Rating card reads this. Served at
 // /rating; the /sigil path serves the crown synthesis.
-// @Summary Get the entity rating (magnitude + strength + identity blurb)
-// @Description The entity's positionless magnitude score, divined defining strength, and precomputed stat-identity blurb.
+// @Summary Get the entity rating (magnitude + PEAK + scouting report)
+// @Description The entity's positionless magnitude score, divined PEAK, and precomputed PEAK scouting-report blurb.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

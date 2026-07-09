@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ayD0t65U3iNVoujNAp5lBHRw3Coe9aM8hYjvJNtTtxZyzCy2BkaXZ6hMxthrsyn
+\restrict cPKU58jPsurZHqCZvujM1Lu7EGz64OimBo0eYSogg9Yuz8nRi8ogNY73BCbwGJf
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1983,7 +1983,7 @@ BEGIN
                 rating_specialist_rank = b.specialist_rank,
                 rating_composite_score = b.composite_score,
                 rating_specialist_score= b.specialist_score,
-                rating_breakdown       = b.breakdown,
+                rating_breakdown       = public.rating_breakdown_without_specialty(b.breakdown),
                 rating_scoped_ranks    = b.scoped_ranks,
                 rating_scoped_scores   = b.scoped_scores
             FROM b
@@ -1996,18 +1996,19 @@ BEGIN
             )
             UPDATE player_stats ps SET
                 rating_modes = COALESCE(ps.rating_modes, '{}'::jsonb) || jsonb_build_object(
-                    v_mode, jsonb_build_object(
+                    v_mode,
+                    public.rating_mode_peak_payload(jsonb_build_object(
                         'composite',        b.composite,
                         'composite_rank',   b.composite_rank,
                         'composite_score',  b.composite_score,
-                        'specialist',       b.specialist,
-                        'specialist_rank',  b.specialist_rank,
-                        'specialist_score', b.specialist_score,
-                        'specialty',        b.specialty,
+                        'peak',             b.specialist,
+                        'peak_rank',        b.specialist_rank,
+                        'peak_score',       b.specialist_score,
+                        'peak_label',       b.specialty,
                         'breakdown',        b.breakdown,
                         'scoped_ranks',     b.scoped_ranks,
                         'scoped_scores',    b.scoped_scores
-                    ))
+                    )))
             FROM b
             WHERE ps.player_id = b.player_id AND ps.sport = p_sport AND ps.season = p_season
               AND COALESCE(ps.league_id, 0) = b.league_id;
@@ -2136,7 +2137,6 @@ BEGIN
       AND COALESCE(ts.league_id, 0) = c.league_id;
     GET DIAGNOSTICS v_updated = ROW_COUNT;
 
-    -- Rebuild rating_breakdown (the gap this migration closes).
     WITH pop AS (
         SELECT label, AVG(value) AS mean, NULLIF(STDDEV_POP(value), 0) AS sd
         FROM _team_dp GROUP BY label
@@ -2151,18 +2151,13 @@ BEGIN
                ROUND((percent_rank() OVER (PARTITION BY label ORDER BY sign * zr ASC))::numeric * 100, 1) AS pct
         FROM z
     ),
-    peak AS (
-        SELECT DISTINCT ON (team_id, league_id) team_id, league_id, label AS spec_label
-        FROM z WHERE in_spec ORDER BY team_id, league_id, zr DESC
-    ),
     agg AS (
         SELECT s.team_id, s.league_id,
                jsonb_agg(jsonb_build_object(
                    'label', s.label, 'value', s.value, 'z', ROUND(s.zr, 4), 'pct', s.pct,
-                   'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet,
-                   'is_specialty', (pk.spec_label IS NOT DISTINCT FROM s.label)
+                   'in_comp', s.in_comp, 'in_spec', s.in_spec, 'sign', s.sign, 'facet', s.facet
                ) ORDER BY s.facet, s.label) AS breakdown
-        FROM scored s LEFT JOIN peak pk USING (team_id, league_id)
+        FROM scored s
         GROUP BY s.team_id, s.league_id
     )
     UPDATE team_stats ts SET rating_breakdown = a.breakdown
@@ -2199,16 +2194,17 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
     AS $$
     WITH corpus AS (
         -- News articles linking BOTH the team and the player, in PROXIMITY and
-        -- Gemma-VETTED on both sides. S10: an unscrubbed link no longer contributes
-        -- heat — heat now requires a positive scrub verdict (vetted IS TRUE), so a
-        -- rumor's deterministic heat can never exist ahead of its validation.
+        -- scrub-vetted on both sides. Wave 5 keeps NULL bucket rows during the
+        -- transition, but confirmed non-transfer articles no longer contribute
+        -- to transfer heat.
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts
         FROM news_articles a
         JOIN news_article_entities te ON te.article_id = a.id AND te.entity_type='team'
              AND te.entity_id = p_team_id AND te.sport = p_sport
         JOIN news_article_entities pe ON pe.article_id = a.id AND pe.entity_type='player'
              AND pe.entity_id = p_player_id AND pe.sport = p_sport
-        WHERE a.published_at > NOW() - INTERVAL '14 days'
+        WHERE a.bucket IS DISTINCT FROM 'non_transfer'
+          AND a.published_at > NOW() - INTERVAL '14 days'
           AND te.vetted IS TRUE
           AND pe.vetted IS TRUE
           AND (te.title_pos IS NULL OR pe.title_pos IS NULL
@@ -2938,6 +2934,23 @@ $$;
 
 
 --
+-- Name: rating_breakdown_without_specialty(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rating_breakdown_without_specialty(p_breakdown jsonb) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    SELECT CASE
+        WHEN p_breakdown IS NULL THEN NULL
+        ELSE COALESCE((
+            SELECT jsonb_agg(e - 'is_specialty' ORDER BY ord)
+            FROM jsonb_array_elements(p_breakdown) WITH ORDINALITY AS x(e, ord)
+        ), '[]'::jsonb)
+    END;
+$$;
+
+
+--
 -- Name: rating_datapoints(text, jsonb, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3159,6 +3172,27 @@ CREATE FUNCTION public.rating_datapoints_team(p_sport text, p_stats jsonb) RETUR
         ('Cards',                COALESCE(NULLIF(p_stats->>'yellow_cards_total','')::numeric,0)
                                + COALESCE(NULLIF(p_stats->>'red_cards_total','')::numeric,0),   TRUE, FALSE, -1, 'defense')
     ) v(label, value, in_comp, in_spec, sign, facet) WHERE p_sport = 'FOOTBALL';
+$$;
+
+
+--
+-- Name: rating_mode_peak_payload(jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.rating_mode_peak_payload(p_mode jsonb) RETURNS jsonb
+    LANGUAGE sql IMMUTABLE
+    AS $$
+    SELECT CASE
+        WHEN p_mode IS NULL THEN NULL
+        ELSE (p_mode - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty' - 'breakdown')
+             || jsonb_strip_nulls(jsonb_build_object(
+                    'peak',       COALESCE(p_mode->'peak',       p_mode->'specialist'),
+                    'peak_rank',  COALESCE(p_mode->'peak_rank',  p_mode->'specialist_rank'),
+                    'peak_score', COALESCE(p_mode->'peak_score', p_mode->'specialist_score'),
+                    'peak_label', COALESCE(p_mode->'peak_label', p_mode->'specialty'),
+                    'breakdown',  public.rating_breakdown_without_specialty(p_mode->'breakdown')
+                ))
+    END;
 $$;
 
 
@@ -5885,8 +5919,26 @@ CREATE TABLE public.news_articles (
     description text,
     published_at timestamp with time zone,
     fetched_at timestamp with time zone DEFAULT now() NOT NULL,
-    raw jsonb DEFAULT '{}'::jsonb NOT NULL
+    raw jsonb DEFAULT '{}'::jsonb NOT NULL,
+    bucket text,
+    topic_heat integer,
+    CONSTRAINT news_articles_bucket_check CHECK (((bucket IS NULL) OR (bucket = ANY (ARRAY['transfer'::text, 'non_transfer'::text])))),
+    CONSTRAINT news_articles_topic_heat_check CHECK (((topic_heat IS NULL) OR (topic_heat >= 1)))
 );
+
+
+--
+-- Name: COLUMN news_articles.bucket; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.bucket IS 'Wave 5 scrub bucket: transfer or non_transfer. NULL means pre-backfill/unknown; downstream reads keep NULL lenient during transition.';
+
+
+--
+-- Name: COLUMN news_articles.topic_heat; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.topic_heat IS 'Wave 5 topic heat-rank: size of the article''s same-day embedding topic cluster, recomputed idempotently by the Rust cognition worker.';
 
 
 --
@@ -8195,6 +8247,13 @@ CREATE INDEX idx_nae_vetted_lookup ON public.news_article_entities USING btree (
 
 
 --
+-- Name: idx_news_articles_bucket; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_articles_bucket ON public.news_articles USING btree (bucket) WHERE (bucket IS NOT NULL);
+
+
+--
 -- Name: idx_news_articles_fetched_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8206,6 +8265,13 @@ CREATE INDEX idx_news_articles_fetched_at ON public.news_articles USING btree (f
 --
 
 CREATE INDEX idx_news_articles_published_at ON public.news_articles USING btree (published_at DESC);
+
+
+--
+-- Name: idx_news_articles_topic_heat; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_articles_topic_heat ON public.news_articles USING btree (topic_heat DESC, published_at DESC) WHERE (topic_heat IS NOT NULL);
 
 
 --
@@ -9248,5 +9314,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ayD0t65U3iNVoujNAp5lBHRw3Coe9aM8hYjvJNtTtxZyzCy2BkaXZ6hMxthrsyn
+\unrestrict cPKU58jPsurZHqCZvujM1Lu7EGz64OimBo0eYSogg9Yuz8nRi8ogNY73BCbwGJf
 

@@ -1636,14 +1636,14 @@
         },
         "/{sport}/{entityType}/{id}/rating": {
             "get": {
-                "description": "The entity's positionless magnitude score, divined defining strength, and precomputed stat-identity blurb.",
+                "description": "The entity's positionless magnitude score, divined PEAK, and precomputed PEAK scouting-report blurb.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "data"
                 ],
-                "summary": "Get the entity rating (magnitude + strength + identity blurb)",
+                "summary": "Get the entity rating (magnitude + PEAK + scouting report)",
                 "parameters": [
                     {
                         "enum": [

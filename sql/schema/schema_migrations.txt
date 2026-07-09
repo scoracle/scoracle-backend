@@ -139,3 +139,5 @@
 138_rename_sigil_synthesis_constraints
 139_drop_news_summaries_source_attribution
 140_latest_momentum_scores_projection
+141_news_article_bucket_topic_heat
+142_peak_scouting_reframe

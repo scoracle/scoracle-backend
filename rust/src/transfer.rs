@@ -1434,8 +1434,40 @@ async fn maybe_apply_transfer_identity(
     Ok(())
 }
 
+/// enqueue_sigil_for_transfer re-triggers panel synthesis for the player AND the team a freshly
+/// served rumor touches — the Phase 5.1 transfer→sigil trigger (the deferred half of the plan's
+/// trigger-topology step). Transfer heat is a Sigil pillar and part of its `input_hash` now, so a
+/// real change to the served-rumor set flips the hash and the re-run is real work; the Sigil
+/// `input_hash` debounce is the second guard, skipping the model call when the served-rumor set is
+/// unchanged. The persisted rumor id is the work-row `input_version`, so a done sigil row reopens
+/// on each new served rumor and idempotently coalesces to one pending row within a drain. `sport`
+/// is upper-cased (matching the news-rail sigil rows' conflict key), mirroring the rating→sigil
+/// `enqueue_sigil` in `bin/statcommentary`.
+async fn enqueue_sigil_for_transfer(
+    hx: &Harness,
+    team_id: i32,
+    player_id: i32,
+    sport: &str,
+    rumor_id: i64,
+) -> Result<()> {
+    let input_version = Some(rumor_id.to_string());
+    for (entity_type, entity_id) in [("player", player_id), ("team", team_id)] {
+        let sig = Item {
+            stage: Stage::Sigil,
+            entity_type: entity_type.to_string(),
+            entity_id: i64::from(entity_id),
+            sport: sport.to_string(),
+            input_version: input_version.clone(),
+            attempts: 0,
+        };
+        crate::work::enqueue(&hx.pool, &sig).await?;
+    }
+    Ok(())
+}
+
 /// TransferHandler drains the team-keyed `transfers` stage: load the co-mention candidates and vet
-/// each pair, persisting to transfer_rumors. Terminal — it enqueues nothing. The vetted-link trigger
+/// each pair, persisting to transfer_rumors. Terminal for the transfers stage itself, but a served
+/// rumor now re-triggers the downstream `sigil` convergence (Phase 5.1). The vetted-link trigger
 /// enqueues transfers before narratives, and the worker drains stages in that order, so fresh heat
 /// is available to the narrative/vibe stages in the same wake cycle. Any pair that hit a model
 /// failure (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
@@ -1519,6 +1551,29 @@ impl StageHandler for TransferHandler {
                             out.outcome,
                         )
                         .await?;
+                    }
+                    // Phase 5.1 (transfer→sigil trigger): a freshly SERVED rumor is a Sigil pillar
+                    // now, so re-trigger panel synthesis for the player and the team it touches.
+                    // Best-effort — a failed enqueue must NOT fail the already-persisted rumor or
+                    // stall the team item (the vibe→sigil gate's new_transfer branch and the next
+                    // news event are fallbacks).
+                    if row.is_rumor == Some(true) {
+                        if let Err(e) = enqueue_sigil_for_transfer(
+                            hx,
+                            team_id,
+                            c.player_id,
+                            &sport,
+                            persisted_rumor_id,
+                        )
+                        .await
+                        {
+                            warn!(
+                                team = team_id,
+                                player = c.player_id,
+                                error = %e,
+                                "transfers: sigil re-trigger enqueue failed (best-effort)"
+                            );
+                        }
                     }
                 }
                 Ok::<Outcome, anyhow::Error>(out.outcome)

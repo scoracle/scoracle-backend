@@ -292,23 +292,39 @@ Success:
 
 ### Phase 3 - Create Stage-Specific Evals
 
-`bin/eval` already runs incumbent-vs-candidate A/Bs (quality prose, throughput, optional MAE),
-but it is hardwired to the vibe task and reads the LIVE corpus — an eval run today is not
-reproducible after the corpus moves on. Two moves:
+**SEAM + FIRST SET DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
+(`EVAL_ROLE`) and read the LIVE corpus — not reproducible once the corpus moved. Both moves landed
+for two lenses; the remaining four eval sets are additive on the proven seam.
 
-1. Generalize `bin/eval` from the hardcoded `EVAL_ROLE` to a per-lens task registry: prompt
-   builder + parser + scorer per lens, reusing each stage's public loaders the way the vibe
-   eval already does.
-2. Add frozen fixtures: a curated context snapshot (the Phase 2 ledger's wire bodies are
-   exactly this shape) plus expected properties, checked in under `rust/fixtures/`. Live-DB
-   evals remain for freshness; fixture evals become the regression gate.
+1. **Per-lens task registry — DONE.** New lib module `rust/src/eval_tasks.rs`: a
+   `#[async_trait] LensTask` (name/role/prompt_version/gen_options/build_prompt/evaluate) +
+   `Box<dyn LensTask>` registry (`resolve_task`/`all_task_names`), composing the existing capability
+   library (each stage's public loaders + prompt builder + `Parser`). `VibeTask` is a
+   behavior-preserving port of the old path; `SigilTask` composes `load_pillars` (made `pub`) +
+   `build_synthesis_prompt(prev=None)` + a disagreement rubric. A unified `CaseVerdict` carries BOTH
+   axes — MAE (`abs_err`, vibe) and a property rubric (`checks`, sigil). `bin/eval` rewired to
+   `--task`/`--fixtures`/`--capture` (default `vibe`, so the old CLI is unchanged); live mode
+   generalized, throughput/side-by-side preserved.
+2. **Frozen fixtures — DONE (panel-disagreement + a vibe band).** `rust/fixtures/<task>/*.json`
+   (`Fixture` = frozen system + user_prompt + prompt_version + temperature + `Expect`). `--fixtures`
+   runs them DB-free (Router-only), warns on `prompt_version` drift, prints a per-property ✓/✗ table.
+   `--capture` emits a skeleton to stdout (bootstrap / Phase-2-ledger stand-in). The disagreement set
+   was sourced **synthetic honesty-targets** (a real-model probe validated crisp ground truth), each
+   `Expect` a **floor** (green today) or **target** (the honest bar the model fails, documenting the
+   gap). Evidence the s11 gate surfaced on `mistral:7b` (temp 0, reproducible): (a) convergence runs
+   too high on genuine conflict (70/80 where it should be low); (b) `DISAGREEMENT: N/A` instead of
+   omitting — the rubric NORMALIZES the placeholder to absent (`effective_disagreement`), which is
+   also a flagged Phase-5.3 product follow-up (the served card can show "N/A"); (c) it parrots the
+   system-prompt's example disagreement verbatim for a conflict that isn't there — caught by
+   `disagreement_excludes`.
 
-Add curated eval sets for:
+Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
+change):
 
 - transfer false positives and true positives
 - narrative grouping and grounding
 - stats identity specificity
-- panel synthesis disagreement handling
+- ~~panel synthesis disagreement handling~~ **DONE (first set)**
 - prose richness under a fixed context budget
 
 Rubrics:
@@ -461,7 +477,9 @@ Success:
 1. Done — wiki architecture doc added (`wiki/Architecture/Multi-Lens Cognition Panel.md`).
 2. Done — linked from AI Architecture and Hardware Roadmap.
 3. Add `lens` language and the Lens / Stage / Role map to `rust/README.md` and `route.rs` docs.
-4. Add an eval fixture shape for panel/lens comparisons (the Phase 3 frozen-context format).
+4. Add an eval fixture shape for panel/lens comparisons (the Phase 3 frozen-context format). — DONE:
+   `Fixture`/`Expect` in `rust/src/eval_tasks.rs`, `rust/fixtures/<task>/*.json`, run via
+   `eval --fixtures`.
 5. Phase 5.4 rating→sigil trigger — DONE (commit `89fdff3`). The transfer→sigil half is deferred
    to ship with Phase 5.1 (the transfer pillar), because sigil's `input_hash` excludes transfers
    today and a transfer-only trigger would debounce to a skip.
@@ -470,10 +488,14 @@ Success:
    Phase 5.2 (feed the previous Sigil — score + blurb — into the prompt as continuity) — DONE
    (commit `75ca616`, prompt `s10`). Phase 5.3 (convergence/disagreement/"why now" as additive
    nullable `sigil_synthesis` columns + the reply-format extension + Go serve surfacing) — DONE
-   (commit `c854d06`, prompt `s11`, mig 143). Next highest-leverage: Phase 3 (`bin/eval` per-lens
-   registry + frozen fixtures — now including a panel-synthesis disagreement-handling eval set, for
-   which the s11 CONVERGENCE/DISAGREEMENT/WHY_NOW outputs are directly scoreable), or Phase 2 (the
-   lens ledger, where the deferred output-contract version belongs).
+   (commit `c854d06`, prompt `s11`, mig 143).
+   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + first fixture set DONE (this
+   session): `eval_tasks::LensTask` registry (`vibe` + `sigil`), `--task`/`--fixtures`/`--capture`,
+   and a synthetic panel-disagreement fixture set that scores the s11 CONVERGENCE/DISAGREEMENT/WHY_NOW
+   outputs (floor/target). Next highest-leverage: the remaining Phase 3 eval sets (transfer FP/TP,
+   narrative grounding, stats identity, prose-richness — additive on the seam), or Phase 2 (the lens
+   ledger, where the deferred output-contract version belongs and which would SOURCE future fixtures
+   the way `--capture` does by hand today).
 7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks
@@ -483,9 +505,11 @@ Success:
 - Letting richer voice weaken grounding.
 - Creating a slow "panel" that misses breaking-news freshness.
 - Publishing blended output that hides meaningful disagreement between rails. (Mitigated as of
-  Phase 5.3: convergence/disagreement are now first-class, model-emitted outputs — but only when
-  the model actually populates them; the Phase 3 disagreement-handling eval set is what will hold
-  it honest, since a lazy model can still emit high convergence and omit the disagreement line.)
+  Phase 5.3: convergence/disagreement are first-class, model-emitted outputs. As of Phase 3 the gap
+  is now MEASURED, not just hoped for: the panel-disagreement fixture set caught `mistral:7b`
+  over-reporting convergence on real conflicts, emitting `DISAGREEMENT: N/A` instead of omitting, and
+  parroting the prompt's example disagreement verbatim. These are checked-in `target` assertions the
+  current model fails — a prompt/model fix is now a fixture flipping green, not a subjective read.)
 - Prompt bloat: a fifth and sixth pillar on an 8 GB serial box eats context budget; the Phase 2
   ledger's budget field is what makes this measurable rather than felt.
 - Queue pressure: re-synthesis on every lens movement multiplies model calls on busy news days;

@@ -90,21 +90,25 @@ The panel's re-synthesis trigger is narrower than the lens model implies:
 ```text
 article vetted (scrub)
   -> mig-103 trigger enqueues narratives + vibe (+ transfers when movement-flagged)
-  -> vibe is the ONLY enqueuer of sigil
+  -> sigil is enqueued by vibe (meaningful-change gate), the nightly rating batch
+     (changed PEAK), AND the transfers handler (each served rumor) — Phases 5.4 + 5.1
 ```
 
 The vibe→sigil gate (`should_enqueue_sigil`) is already lens-aware — it fires on a new
-narrative, a new transfer rumor, or a vibe delta past threshold. Three gaps remain:
+narrative, a new transfer rumor, or a vibe delta past threshold. The three original gaps are now
+closed:
 
-1. **Sigil's prompt has no transfer pillar.** The gate can fire BECAUSE a rumor landed, and the
-   synthesis prompt (P1 narratives, P2 PEAK, P3 vibe, P4 momentum) cannot see it.
-2. **The rating batch never triggers synthesis.** A fresh PEAK report reaches sigil only when
-   the next news event happens to run vibe for that entity.
-3. **Same-fan-out race.** Transfers and vibe drain independently; a transfer that adjudicates
-   after the entity's vibe run is invisible until the next news event re-runs vibe.
-
-Phase 5 owns closing these; they are listed here because they bound what "panel synthesis" can
-honestly claim today.
+1. **Sigil's prompt has no transfer pillar.** ~~The gate can fire BECAUSE a rumor landed, and the
+   synthesis prompt cannot see it.~~ **CLOSED (2026-07-09, commit `85753ce`).** Sigil now composes a
+   fifth pillar (P5 `=== TRANSFER HEAT ===`) via `corpus::load_transfer_heat`, and a conditional
+   `transfer_heat` key enters the `input_hash`, so the debounce no longer hides it.
+2. **The rating batch never triggers synthesis.** ~~A fresh PEAK report reaches sigil only when the
+   next news event runs vibe.~~ **CLOSED (2026-07-09, commit `89fdff3`).** The nightly rating batch
+   enqueues sigil on a changed PEAK.
+3. **Same-fan-out race.** ~~A transfer that adjudicates after the entity's vibe run is invisible
+   until the next news event re-runs vibe.~~ **CLOSED (2026-07-09, commit `85753ce`).** The transfers
+   handler now enqueues sigil directly for the player AND team on every served rumor, so a transfer
+   reaches synthesis without waiting for a vibe re-run.
 
 ## Hardware Read
 
@@ -221,12 +225,12 @@ Outputs:
 - product-facing Sigil blurb
 - short "why now" note for breaking-news freshness
 
-Primary role today: `Role::StatsLogic` through `sigil.rs`. Since the Wave 5 rebaseline (prompt
-`s8`), sigil already composes FOUR pillars — narratives, PEAK scouting report, vibe, momentum —
-so the current contract is closer to panel synthesis than "combine Rating/Vibe/Momentum"
-suggests. What is genuinely missing: a transfer pillar, the previous Sigil as a prompt input
-(persisted as `previous_score` today but never read back into the prompt), and
-disagreement/convergence as first-class outputs.
+Primary role today: `Role::StatsLogic` through `sigil.rs`. Since Phase 5.1 (prompt `s9`), sigil
+composes FIVE pillars — narratives, PEAK scouting report, vibe, momentum, and transfer heat — so
+the current contract is genuine panel synthesis over every accountable lens. What is genuinely
+missing now: the previous Sigil as a prompt input (persisted as `previous_score` today but never
+read back into the prompt — Phase 5.2), and disagreement/convergence as first-class outputs
+(Phase 5.3).
 
 ## Phase Completion Protocol
 
@@ -347,24 +351,28 @@ Success:
 
 ### Phase 5 - Evolve Sigil Into Panel Synthesis
 
-Sigil is already a four-pillar synthesis (narratives, PEAK, vibe, momentum — prompt `s8`).
-This phase closes the gap between that and an honest panel:
+Sigil is now a five-pillar synthesis (narratives, PEAK, vibe, momentum, transfer heat — prompt
+`s9`). This phase closes the gap between that and an honest panel:
 
 ```text
 Stats lens (PEAK)          [in prompt today]
 Narrative lens (narratives + vibe)  [in prompt today]
-Transfer lens              [gate sees it; prompt does NOT]
+Transfer lens              [in prompt now — Phase 5.1]
 Momentum / trajectory      [in prompt today]
-previous Sigil             [persisted; prompt does NOT see it]
+previous Sigil             [persisted; prompt does NOT see it — Phase 5.2]
   -> panel synthesis
 ```
 
-1. **Add the transfer pillar.** The trigger gate already watches `transfer_rumors`; the prompt
-   must be able to see what the gate saw. `load_transfer_heat` in `corpus.rs` is the loader. This
-   touches both `build_synthesis_prompt` AND `build_synthesis_input_components` (the transfer
-   signal must enter the `input_hash`, or the debounce hides it). **Ship the transfer→sigil
-   trigger WITH this step** (see 4): until transfers are in the hash, a transfer-only enqueue
-   debounces to a skip, so wiring it earlier is dead queue traffic.
+1. **Add the transfer pillar. — DONE (2026-07-09, commit `85753ce`).** Sigil loads a fifth pillar
+   via `corpus::load_transfer_heat` (the same served-rumor read the /transfers card and the
+   vibe/narratives heat lines use), renders it as a P5 `=== TRANSFER HEAT ===` section through the
+   shared `write_heat_lines`, and folds it into the no-pillar marker gate. A **conditional**
+   `transfer_heat` key (one sorted `counterparty:heat:direction:stage` line per rumor) enters
+   `build_synthesis_input_components` → the `input_hash`. Conditional on purpose: an entity with no
+   rumors keeps its pre-5.1 hash (no deploy-time avalanche); an entity with served heat flips the
+   hash and re-synthesizes once. Prompt bumped `s8`→`s9`. The transfer→sigil trigger shipped in the
+   SAME commit (see 4) — now that transfers are in the hash, a transfer-only enqueue is real work
+   rather than a debounced skip.
 2. **Feed the previous Sigil into the prompt.** `previous_score` is persisted today but never
    read back into synthesis. Continuity is what makes the read feel like memory rather than a
    fresh take.
@@ -385,9 +393,17 @@ previous Sigil             [persisted; prompt does NOT see it]
      observation of the transient work row was precluded by the live daemon draining+debouncing
      it (pausing production to watch is not allowed); confirm the visible end-to-end refresh
      during a real nightly (many PEAKs move) or on a test DB.
-   - **transfer→sigil — DEFERRED to ship with step 1.** Transfers are NOT in sigil's `input_hash`
-     yet, so a transfer-only enqueue debounces to a skip. Wire the transfers handler's
-     `enqueue_sigil` in the same change that adds the transfer pillar — not before.
+   - **transfer→sigil — DONE (2026-07-09, commit `85753ce`).** On a served rumor
+     (`is_rumor == Some(true)`), the transfers handler enqueues sigil for the affected player AND
+     team (both watched by the existing vibe→sigil gate), keyed on the persisted rumor id as the
+     work-row `input_version` so a done sigil row reopens on each new served rumor and idempotently
+     coalesces within a drain. Uppercase sport matches the news-rail conflict key (same convention
+     as the rating→sigil `enqueue_sigil`, whose sport-casing was already confirmed). Best-effort: a
+     failed enqueue never fails the persisted rumor or stalls the team item. Effective immediately —
+     transfer heat is in the `input_hash` as of step 1, so a real change to the served-rumor set
+     re-synthesizes; an unchanged re-vet costs only a cheap queue reopen the Sigil debounce skips.
+     Live end-to-end deferred to the next real nightly (the prod daemon on archbox
+     drains+debounces sigil rows under GPU contention; not driven from this session).
 
 The two-pass breaking-news principle (design principle 6) is mostly already paid for: `enqueue`
 reopens rows on a changed `input_version`, the mig-103 trigger re-fires as more sources land,
@@ -424,8 +440,10 @@ Success:
 5. Phase 5.4 rating→sigil trigger — DONE (commit `89fdff3`). The transfer→sigil half is deferred
    to ship with Phase 5.1 (the transfer pillar), because sigil's `input_hash` excludes transfers
    today and a transfer-only trigger would debounce to a skip.
-6. Next highest-leverage: Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — it
-   closes the "gate fires on a rumor sigil can't see" gap AND unblocks the deferred trigger.
+6. Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — DONE (commit `85753ce`). It
+   closed the "gate fires on a rumor sigil can't see" gap AND the deferred trigger. Next
+   highest-leverage: Phase 5.2 (feed `previous_score` into the prompt), then Phase 5.3
+   (convergence/disagreement/"why now" as additive nullable `sigil_synthesis` columns).
 7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks

@@ -360,7 +360,11 @@ previous Sigil             [persisted; prompt does NOT see it]
 ```
 
 1. **Add the transfer pillar.** The trigger gate already watches `transfer_rumors`; the prompt
-   must be able to see what the gate saw. `load_transfer_heat` in `corpus.rs` is the loader.
+   must be able to see what the gate saw. `load_transfer_heat` in `corpus.rs` is the loader. This
+   touches both `build_synthesis_prompt` AND `build_synthesis_input_components` (the transfer
+   signal must enter the `input_hash`, or the debounce hides it). **Ship the transfer→sigil
+   trigger WITH this step** (see 4): until transfers are in the hash, a transfer-only enqueue
+   debounces to a skip, so wiring it earlier is dead queue traffic.
 2. **Feed the previous Sigil into the prompt.** `previous_score` is persisted today but never
    read back into synthesis. Continuity is what makes the read feel like memory rather than a
    fresh take.
@@ -368,9 +372,22 @@ previous Sigil             [persisted; prompt does NOT see it]
    freshness note are NEW columns on `sigil_synthesis` — an additive, nullable migration.
    Phase 4's route split changes no product tables; this phase does, and should say so.
 4. **Fix the trigger topology.** Let every lens movement reach synthesis, debounced by the
-   existing `input_hash`: the rating batch enqueues sigil for entities whose PEAK changed, and
-   the transfers handler enqueues sigil on adjudication instead of waiting for the next vibe
-   run. Spurious enqueues are cheap — an unchanged pillar hash skips the model call.
+   existing `input_hash`. Spurious enqueues are cheap — an unchanged pillar hash skips the model
+   call. Two halves with different readiness:
+   - **rating→sigil — DONE (2026-07-09, commit `89fdff3`).** The nightly `statcommentary` batch
+     enqueues a sigil work item for each entity it regenerates (`enqueue_sigil`), keyed on the
+     rating `input_hash` as the work-row `input_version`. Nightly-only (backfill would avalanche
+     the queue); best-effort (a failed enqueue never fails a persisted rating). Effective
+     immediately: PEAK (`divined_peak`/`notability`/`peak_trajectory`) is in sigil's
+     `input_hash`, so a real PEAK change flips the hash and re-synthesizes. Verified: the batch
+     runs the enqueue branch on a live generation (`ok=1`) via the unit-tested `work::enqueue` in
+     the proven vibe→sigil pattern (sport-casing/gating/`input_version` confirmed). Direct
+     observation of the transient work row was precluded by the live daemon draining+debouncing
+     it (pausing production to watch is not allowed); confirm the visible end-to-end refresh
+     during a real nightly (many PEAKs move) or on a test DB.
+   - **transfer→sigil — DEFERRED to ship with step 1.** Transfers are NOT in sigil's `input_hash`
+     yet, so a transfer-only enqueue debounces to a skip. Wire the transfers handler's
+     `enqueue_sigil` in the same change that adds the transfer pillar — not before.
 
 The two-pass breaking-news principle (design principle 6) is mostly already paid for: `enqueue`
 reopens rows on a changed `input_version`, the mig-103 trigger re-fires as more sources land,
@@ -404,9 +421,12 @@ Success:
 2. Done — linked from AI Architecture and Hardware Roadmap.
 3. Add `lens` language and the Lens / Stage / Role map to `rust/README.md` and `route.rs` docs.
 4. Add an eval fixture shape for panel/lens comparisons (the Phase 3 frozen-context format).
-5. Sequence the Phase 5.4 trigger-topology fix — it is independent of any role split, needs no
-   new role or table, and is what makes the panel claim honest.
-6. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
+5. Phase 5.4 rating→sigil trigger — DONE (commit `89fdff3`). The transfer→sigil half is deferred
+   to ship with Phase 5.1 (the transfer pillar), because sigil's `input_hash` excludes transfers
+   today and a transfer-only trigger would debounce to a skip.
+6. Next highest-leverage: Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — it
+   closes the "gate fires on a rumor sigil can't see" gap AND unblocks the deferred trigger.
+7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks
 

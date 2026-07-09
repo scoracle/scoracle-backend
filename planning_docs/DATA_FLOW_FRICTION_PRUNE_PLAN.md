@@ -1664,11 +1664,87 @@ click-to-copy text.
       being complete). Backup at `~/.cache/crontab/crontab.bak`.
     - **Unpushed:** the 8 Wave-1 + 9 Wave-2 commits (8 tasks + snapshot) are
       LOCAL ONLY on `main` — not pushed (no user request to push).
-- **Wave 3** — pending. Post-Wave-3 follow-on: the parity-retirement PR
-  (C1/A5, DECIDED).
+- **Wave 3** — DONE (2026-07-09 UTC / 2026-07-08 America/Detroit). All seven
+  code tasks plus E2/E4 shipped in independent commits where practical. No
+  migrations applied; max migration remains 139. Rust gate held after each
+  Rust-touching task: `cargo test --lib` + `cargo build --bins` green. Final
+  Rust library gate is 91 passed / 1 ignored (B2 added trajectory tests). Go
+  gate held for Go tasks: `go build ./...` + `go test ./...` green. Release
+  deployed commit `b67f3a2ffa4f` with `scripts/hosting/release.sh`; `/health/db`
+  served 200 and the API reported `b67f3a2ffa4f`; `scoracle-cognition` restarted
+  active. Post-Wave-3 follow-on: the parity-retirement PR (C1/A5, DECIDED).
+  - **A5** (`0043df3`) — moved parity-only `built_prompt` / `request_body`
+    storage out of production `VibeOutput` / `SigilOutput` and into
+    parity-bin-owned `VibeParityOutput` / `SigilParityOutput` wrappers with the
+    "parity-era only; removed with the bins (see plan C1)" lifecycle note.
+    Removed dead zero-reader fields:
+    `SigilOutput.skipped_no_pillars`, `VibeOutput.skipped_no_corpus`, and
+    `NarrativesOutput.skipped_no_corpus`.
+  - **B1** (`6b61938`) — narratives + rating now expose and persist through the
+    `Provenance` envelope, matching vibe + sigil. Narratives marker/scored
+    persistence collapsed into one loop; marker keeps
+    `Option::<i64>::None` for `narrative_updated_at`, while scored rows bind
+    `source_latest_epoch` at both `$11` and `$14` as before. Provenance gained
+    optional trigger payload support so the stage INSERTs stay one-envelope.
+  - **B2** (`5756c3f`) — added `rust/src/trajectory.rs` with
+    `DEFAULT_TRAJECTORY`, `trajectory_label`, and `classify_delta`.
+    Narratives + transfer use the shared delta classifier; vibe + sigil import
+    the shared label/default. Cross-linked the second trajectory vocabulary home
+    in `go/internal/db/db.go`; Go SQL intentionally untouched in this wave.
+  - **B3** (`5ad3be8`) — added `Harness::latest_row(table, key, column)`.
+    The helper documents the two load-bearing constraints: selecting
+    `{column}::text` so `sqlx` decodes smallint scores as strings, and flattening
+    `Option<Option<String>>` because the current consumers do not distinguish
+    no-row from NULL-latest. The inline `generated_at = (SELECT max(...))`
+    pattern stays verbatim for parity.
+  - **B4** (`ec6ffee`) — `Inference::generate` returns
+    `(GenerateResult, serde_json::Value)` so `Harness::extract` consumes the
+    exact posted request body instead of rebuilding it. Standalone
+    `request_body` remains for no-call builders. Deviation: kept the direct
+    `OllamaClient::generate` compatibility API and added
+    `generate_with_body` for the trait path.
+  - **B5** (`e0f33fc`) — deleted retired Go derive-worker dead code:
+    `work.Claim` / `Complete` / `Fail` / `Requeue`, the dead corpus helpers and
+    types, `maintenance.generateDigests`, and the hourly digest ticker. Kept
+    `Enqueue`, `RequeueStale`, `Sweep`, and `LoadTeams`. Pruned deleted-function
+    tests and updated Rust work/worker docstrings, closing E1.
+  - **B6** (`c869610`) — renamed the `/sigil` handler
+    `GetEntityVibes` → `GetEntitySigil`; route and SQL shape unchanged.
+    Prepared-statement key renamed `entity_vibes` → `entity_sigil`, including
+    the freshness-gate comments. Regenerated Swagger with
+    `go run github.com/swaggo/swag/cmd/swag@v1.16.6 init -g cmd/api/main.go -o docs`;
+    generated docs had no semantic diff because the public route/comment text was
+    already Sigil-correct.
+  - **E2/E4** (`b67f3a2`) — `rust/src/lib.rs` now documents the two-rail
+    model, Momentum convergence, Sigil synthesis, append-only markers, and the
+    C6 fact that markers carry configured model/prompt versions. Added a
+    2026-07-09 reconciliation note to `FIRST-GPT-AUDIT.md`: it remains evidence,
+    while this plan is the friction/prune action authority.
+  - **Deviations / notes:**
+    - **Entry-state ahead count differed:** prompt expected 17 local-only commits;
+      `main` was actually ahead of `origin/main` by 18 at entry because the
+      pre-work F2/bucketlabel commit (`9731fe4`) was already present. After Wave
+      3 task commits, before this ledger commit, `main` was ahead by 26. Nothing
+      was pushed.
+    - **Bucketlabel cron:** the line is still installed. At final check the
+      archbox shell clock was `2026-07-08T21:29:58-04:00` (UTC
+      `2026-07-09T01:29:58+00:00`) and `CRON_TZ=America/New_York`, so the local
+      `2026-07-09 01:00` fire had not occurred yet. No
+      `logs/bucketlabel.log`, no `planning_docs/data/bucket_labels.tsv`, and no
+      `planning_docs/data/` directory existed. The crontab line was left in
+      place; remove it only once the ~1,500-row TSV is complete.
+    - **No parity byte-diff run:** the task gates kept the five parity bins
+      compiling, but the archbox GPU/live-DB byte-diff was not requested/run.
+      Wave 3 refactors are byte-preserving by design; run the byte-diff against
+      a couple of live entities before retiring parity if desired.
+    - **Release sandbox retry:** the first `release.sh` run built and placed
+      binaries but failed while rendering user systemd units under
+      `~/.config/systemd/user` due the managed filesystem sandbox. The escalated
+      rerun completed the sanctioned build/install/restart/verify path.
 - **Wave 4** — dormant by design until operator pain shows (D1–D3).
 - **Wave 5** — pending.
-- **Continuous (E1–E4)** — alongside the relevant waves.
+- **Continuous (E1–E4)** — DONE through Wave 3 (E3 in Wave 1; E1 in B5; E2/E4
+  in `b67f3a2`). Keep future documentation sync alongside the relevant waves.
 - **Pre-work (2026-07-08, this session):** plan v2 FINAL; F7 root-caused;
   candle approach measured (`rust/examples/candle_probe.rs`); overnight
   labeling job built + scheduled (`rust/src/bin/bucketlabel.rs`, cron 01:00 →

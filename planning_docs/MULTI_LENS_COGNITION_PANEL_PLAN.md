@@ -227,10 +227,10 @@ Outputs:
 
 Primary role today: `Role::StatsLogic` through `sigil.rs`. Since Phase 5.1 (prompt `s9`), sigil
 composes FIVE pillars — narratives, PEAK scouting report, vibe, momentum, and transfer heat — so
-the current contract is genuine panel synthesis over every accountable lens. What is genuinely
-missing now: the previous Sigil as a prompt input (persisted as `previous_score` today but never
-read back into the prompt — Phase 5.2), and disagreement/convergence as first-class outputs
-(Phase 5.3).
+the current contract is genuine panel synthesis over every accountable lens. Phase 5.2 (prompt
+`s10`) then fed the previous Sigil (score + blurb) back into the prompt as a continuity anchor —
+prompt-only, outside the `input_hash`. What is genuinely missing now: disagreement/convergence as
+first-class outputs (Phase 5.3).
 
 ## Phase Completion Protocol
 
@@ -352,14 +352,14 @@ Success:
 ### Phase 5 - Evolve Sigil Into Panel Synthesis
 
 Sigil is now a five-pillar synthesis (narratives, PEAK, vibe, momentum, transfer heat — prompt
-`s9`). This phase closes the gap between that and an honest panel:
+`s10`), plus previous-Sigil continuity. This phase closes the gap between that and an honest panel:
 
 ```text
 Stats lens (PEAK)          [in prompt today]
 Narrative lens (narratives + vibe)  [in prompt today]
-Transfer lens              [in prompt now — Phase 5.1]
+Transfer lens              [in prompt — Phase 5.1]
 Momentum / trajectory      [in prompt today]
-previous Sigil             [persisted; prompt does NOT see it — Phase 5.2]
+previous Sigil             [in prompt now — Phase 5.2]
   -> panel synthesis
 ```
 
@@ -373,9 +373,16 @@ previous Sigil             [persisted; prompt does NOT see it — Phase 5.2]
    hash and re-synthesizes once. Prompt bumped `s8`→`s9`. The transfer→sigil trigger shipped in the
    SAME commit (see 4) — now that transfers are in the hash, a transfer-only enqueue is real work
    rather than a debounced skip.
-2. **Feed the previous Sigil into the prompt.** `previous_score` is persisted today but never
-   read back into synthesis. Continuity is what makes the read feel like memory rather than a
-   fresh take.
+2. **Feed the previous Sigil into the prompt. — DONE (2026-07-09, commit `75ca616`).** The
+   handler's existing single latest-row read (`latest_with_hash`) was widened `(score, hash)` →
+   `(score, blurb, hash)`, so the prior score AND blurb come from ONE consistent (non-torn) row —
+   no extra round-trip. When a real prior read exists (`previous_score` present), a `PrevSigil` is
+   rendered as a `=== PREVIOUS SIGIL ===` lead-in BEFORE the fresh pillars, with a system-prompt
+   rule to move from it deliberately ("memory, not a reset"). Deliberately kept OUT of
+   `build_synthesis_input_components`/the `input_hash` — the score always moves, so hashing it
+   would self-trigger every re-run (mirrors how `previous_score` is persisted-but-not-hashed).
+   Prompt bumped `s9`→`s10` (provenance-only; no gate regenerates on prompt_version). Continuity
+   is what makes the read feel like memory rather than a fresh take.
 3. **Expose disagreement as output.** Convergence score, disagreement summary, and a "why now"
    freshness note are NEW columns on `sigil_synthesis` — an additive, nullable migration.
    Phase 4's route split changes no product tables; this phase does, and should say so.
@@ -441,9 +448,11 @@ Success:
    to ship with Phase 5.1 (the transfer pillar), because sigil's `input_hash` excludes transfers
    today and a transfer-only trigger would debounce to a skip.
 6. Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — DONE (commit `85753ce`). It
-   closed the "gate fires on a rumor sigil can't see" gap AND the deferred trigger. Next
-   highest-leverage: Phase 5.2 (feed `previous_score` into the prompt), then Phase 5.3
-   (convergence/disagreement/"why now" as additive nullable `sigil_synthesis` columns).
+   closed the "gate fires on a rumor sigil can't see" gap AND the deferred trigger.
+   Phase 5.2 (feed the previous Sigil — score + blurb — into the prompt as continuity) — DONE
+   (commit `75ca616`, prompt `s10`). Next highest-leverage: Phase 5.3
+   (convergence/disagreement/"why now" as additive nullable `sigil_synthesis` columns — the first
+   Phase-5 step that changes product tables, so it needs an additive migration).
 7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks

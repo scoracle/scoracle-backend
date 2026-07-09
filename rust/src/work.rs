@@ -1,7 +1,7 @@
 //! Durable per-entity derivation work queue — the Rust client for the
-//! `pipeline_work` table (migration 102). Mirrors the Go `internal/work`
-//! package (`go/internal/work/work.go`) exactly so a Rust worker is a drop-in
-//! queue consumer alongside — or in place of — the Go Drainer.
+//! `pipeline_work` table (migration 102). The Go derive worker is retired; this
+//! module owns claim/complete/fail/requeue while Go keeps enqueue and operator
+//! helpers.
 //!
 //! Row lifecycle:
 //!   enqueue  → 'pending'                (idempotent; reopens on a changed input)
@@ -18,8 +18,8 @@ use std::time::Duration;
 /// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages are
 /// per-entity (player/team); `Scrub` is the exception — it is ARTICLE-keyed (entity_type='article',
 /// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
-/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). Only the Rust
-/// `ScrubHandler` drains it — the Go Drainer has no scrub handler, so there is no double-claim.
+/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). The Rust
+/// `ScrubHandler` drains it; Go only enqueues article-keyed scrub work.
 ///
 /// `Momentum` is intentionally NOT a queue stage. It is its own served product: the rating and
 /// vibe trajectories over time, assembled from persisted rating/vibe series rather than drained as

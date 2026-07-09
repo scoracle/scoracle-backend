@@ -114,7 +114,7 @@ func main() {
 		// convergence work for the Rust cognition daemon.
 		go listener.Start(ctx, cfg.DatabaseURL, dbPool, fcmSender, logger)
 
-		// Start maintenance workers (cleanup, digest, catch-up, ranks, news
+		// Start maintenance workers (cleanup, catch-up, ranks, news
 		// scrub auto-vet + enqueue, pipeline stats, peer cohorts, momentum dirty-queue drain). The scrub
 		// ticker is SQL-only: auto-vets primaries + enqueues candidate-rich
 		// secondaries to pipeline_work for the Rust ScrubHandler.

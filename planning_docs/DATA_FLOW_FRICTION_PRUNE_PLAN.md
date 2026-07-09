@@ -1795,11 +1795,74 @@ click-to-copy text.
       TSV is complete.
     - Unpushed: Wave 4 commits are LOCAL ONLY on `main` — not pushed (no user
       request to push).
-- **Wave 5** — pending. Entry state after Wave 4: branch `main`, HEAD is this
-  docs-only ledger commit on top of D1 `33ab4027e3dc`, migration max
-  `140_latest_momentum_scores_projection`, live services running
-  `33ab4027e3dc`, bucketlabel cron still installed because
-  `planning_docs/data/bucket_labels.tsv` is not complete.
+- **Wave 5** — DONE (2026-07-09 UTC / 2026-07-08 America/Detroit). The
+  rail-cleanup implementation shipped in `392930e` and was deployed with
+  `scripts/hosting/release.sh`; `/health/db` served 200 and the API reported
+  commit `392930e5c5ee`. `scoracle-cognition` restarted active. Migrations 141
+  and 142 are applied and recorded; schema snapshot + generated API docs +
+  the migration-runner guard landed in `2843335`. The current repository has a
+  later docs/schema ledger commit on top of that, but live services intentionally
+  remain on `392930e5c5ee` (the later commits are docs/schema/script only).
+  - **F1 + F11** (`392930e`, mig 142) — PEAK is now the scouting-report rail:
+    `rating.rs` prompt/version moved to `s8`, model-facing rating input drops
+    the old `is_specialty` datapoint flag, `rating_modes` JSON emits `peak*`
+    keys instead of `specialist*`, and the Go read layer tolerates old or new
+    payloads. The physical `rating_specialist*` columns stay because the API
+    still aliases them as `rating_peak*`. API/Swagger/crontab wording cleanup
+    followed in `2843335`.
+  - **F2** (`392930e`, mig 141) — added article-level
+    `news_articles.bucket` and `topic_heat`, a scrub model bucket tag parser,
+    the candle contrastive+keyword fallback classifier, boot-time bucket
+    centroids, and a periodic topic-heat batch on the cognition worker. The
+    mig-103 enqueue trigger sees bucket writes in the same scrub transaction.
+  - **F3** (`392930e`) — transfer candidates now exclude confirmed
+    `non_transfer` articles, narratives exclude confirmed transfer articles,
+    and both remain NULL-lenient during the bucket backfill window while using
+    `topic_heat DESC NULLS LAST`.
+  - **F4** (`392930e`) — verified/formalized vibe as the persisted felt-read:
+    the prompt includes narrative summaries plus transfer heat context and is
+    stored in `vibe_scores.prompt`.
+  - **F5** (`392930e`) — vibe no longer blindly enqueues Sigil; it checks for
+    meaningful change since the latest Sigil (new narrative, true transfer
+    rumor, or sentiment delta >= 10). The listener's rating-shift gate and
+    Sigil's `debounce_unchanged` remain as second-line guards.
+  - **F6 + F10** (`392930e`) — Sigil prompt/input components intentionally
+    rebaselined to first-class sections for NEWS NARRATIVE, PEAK SCOUTING
+    REPORT, VIBE, and MOMENTUM. Vibe prompt/sentiment are loaded directly;
+    Momentum reads the durable projection. The input hash shape changed by
+    design, so old byte-parity expectations no longer apply to Sigil.
+  - **F9** (`392930e`) — vibe narrative ordering now uses candle relevance
+    against the entity identity plus `topic_heat`, so the most relevant/hottest
+    narratives lead the sentiment prompt.
+  - **Verification:** `cargo test --lib` green (92 passed / 1 ignored);
+    `cargo build --bins` green with the expected preserved `linear_slope`
+    dead-code warning; `go build ./...` green; `go test ./...` green before
+    and after Swagger regeneration. Live DB verified at migration max
+    `142_peak_scouting_reframe`; `news_articles.bucket/topic_heat` exist;
+    `/health/db` returned 200.
+  - **Deviations / notes:**
+    - Migration order mattered and was followed: 141 applied before release so
+      the Rust worker could read/write `bucket` and `topic_heat`; 142 applied
+      after the compatible Go read layer was live. Migration 142 backfilled
+      40,274 `player_stats.rating_breakdown` rows, 1,176 team rows, and 40,274
+      `player_stats.rating_modes` rows before replacing the rating functions.
+    - `sql/migrate.sh` initially no-opped because this shell's wrapped `cd`
+      polluted its `DIR` variable; 142 was applied directly in one `psql`
+      transaction and `sql/migrate.sh` now has the same `cd >/dev/null` guard
+      already used by `release.sh` / `snapshot-schema.sh`. Rerun after the fix:
+      `done — 0 migration(s) applied; schema up to date.`
+    - The preserved private `linear_slope` implementation in `sigil.rs` is now
+      unused by the Wave 5 prompt path, producing a Rust warning. It is left in
+      place because this plan explicitly says not to merge the two
+      accumulation-order variants.
+    - `origin/main` advanced externally to `02ef90c` (`docs: prioritize
+      multi-lens cognition panel`) during rollout, on top of `392930e`. This
+      session did not push. Work continued on top of that docs commit without
+      reverting it.
+    - Bucketlabel cron remains installed. `planning_docs/data/bucket_labels.tsv`
+      and `logs/bucketlabel.log` are still absent; `crontab -l` still has the
+      01:00 `cron-bucketlabel.sh -limit 1500` line. Do not remove it until the
+      TSV is complete.
 - **Continuous (E1–E4)** — DONE through Wave 3 (E3 in Wave 1; E1 in B5; E2/E4
   in `b67f3a2`). Keep future documentation sync alongside the relevant waves.
 - **Pre-work (2026-07-08, this session):** plan v2 FINAL; F7 root-caused;

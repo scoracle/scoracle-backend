@@ -31,6 +31,7 @@ use crate::harness::{cluster, Harness, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
+use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
 use crate::util::truncate_bytes;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -791,8 +792,20 @@ pub async fn persist_narratives(
         .narratives
         .iter()
         .map(|n| {
-            let (trajectory, components) =
-                trajectory_from_previous(prev_by_title.get(&n.title).copied(), n.impact);
+            let previous = prev_by_title.get(&n.title).copied();
+            let (trajectory, delta_reason, delta) = classify_delta(previous, Some(n.impact));
+            let reason = match delta_reason {
+                "up" => "impact_up",
+                "down" => "impact_down",
+                "stable" => "impact_stable",
+                other => other,
+            };
+            let components = json!({
+                "previous_impact": previous,
+                "current_impact": n.impact,
+                "impact_delta": delta,
+                "reason": reason,
+            });
             (n, trajectory, components)
         })
         .collect();
@@ -870,7 +883,7 @@ pub async fn persist_narratives(
                 source_names = &empty_names;
                 source_latest_at = Option::<i64>::None;
                 source_oldest_at = Option::<i64>::None;
-                trajectory = "developing_story";
+                trajectory = DEFAULT_TRAJECTORY;
                 context = "persist narratives marker";
             }
         }
@@ -902,40 +915,6 @@ pub async fn persist_narratives(
 
     tx.commit().await.context("commit narratives tx")?;
     Ok(())
-}
-
-/// trajectory_from_previous classifies a narrative's trajectory from `previous` (the latest
-/// prior generation's impact for the SAME title, or None when the title is unseen) and its
-/// `current_impact`. Pure — the DB read that supplies `previous` is batched once in
-/// persist_narratives (plan A2). Same 10-point thresholds, `reason` codes, and component JSON
-/// shape as the former per-narrative `classify_trajectory`.
-fn trajectory_from_previous(
-    previous: Option<i32>,
-    current_impact: i32,
-) -> (&'static str, serde_json::Value) {
-    let (trajectory, reason, delta) = match previous {
-        Some(prev) => {
-            let delta = current_impact - prev;
-            if delta >= 10 {
-                ("heating_up", "impact_up", Some(delta))
-            } else if delta <= -10 {
-                ("cooling_off", "impact_down", Some(delta))
-            } else {
-                ("developing_story", "impact_stable", Some(delta))
-            }
-        }
-        None => ("developing_story", "new_or_unmatched", None),
-    };
-
-    (
-        trajectory,
-        json!({
-            "previous_impact": previous,
-            "current_impact": current_impact,
-            "impact_delta": delta,
-            "reason": reason,
-        }),
-    )
 }
 
 /// now_unix is the recency reference for `compute_news_impact` — Unix seconds, no datetime crate.

@@ -261,6 +261,59 @@ impl Harness {
         })?;
         Ok(row.unwrap_or((None, None)))
     }
+
+    /// latest_row fetches one column from the entity's LATEST row in a product table.
+    ///
+    /// Load-bearing details:
+    /// - the SELECT casts `{column}::text` because sqlx will not decode every product
+    ///   column type (for example `sigil_synthesis.score` smallint) as `String`;
+    /// - `query_scalar` returns `Option<Option<String>>`, and this deliberately flattens
+    ///   no-row and NULL-in-latest-row. That is fine for the latest-value helpers this
+    ///   consolidates: both cases mean no skip / no baseline / no last hash. A future
+    ///   caller that needs to distinguish those states should use a bespoke query.
+    ///
+    /// `table` and `column` are stage-controlled literals (never user input), so formatting
+    /// them into the query carries no injection surface.
+    pub async fn latest_row(
+        &self,
+        table: &str,
+        key: &EntityKey,
+        column: &str,
+    ) -> Result<Option<String>> {
+        let latest: Option<Option<String>> = if key.season.is_some() {
+            let q = format!(
+                "SELECT {column}::text FROM {table} \
+                 WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4 \
+                 ORDER BY generated_at DESC LIMIT 1"
+            );
+            sqlx::query_scalar(&q)
+                .bind(&key.entity_type)
+                .bind(key.entity_id)
+                .bind(&key.sport)
+                .bind(key.season)
+                .fetch_optional(&self.pool)
+                .await
+        } else {
+            let q = format!(
+                "SELECT {column}::text FROM {table} \
+                 WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
+                 ORDER BY generated_at DESC LIMIT 1"
+            );
+            sqlx::query_scalar(&q)
+                .bind(&key.entity_type)
+                .bind(key.entity_id)
+                .bind(&key.sport)
+                .fetch_optional(&self.pool)
+                .await
+        }
+        .with_context(|| {
+            format!(
+                "latest_row {table}.{column} {}/{}",
+                key.entity_type, key.entity_id
+            )
+        })?;
+        Ok(latest.flatten())
+    }
 }
 
 // ===========================================================================

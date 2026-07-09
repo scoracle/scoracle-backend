@@ -11,6 +11,24 @@ This document converts the first full backend audit into a sequence of focused i
 
 Each numbered improvement is intended to be handled in its own dedicated session. Some sessions have dependencies, noted below. Avoid combining unrelated fixes merely because they touch the same language or directory.
 
+## 2026-07-09 Reconciliation Note
+
+This file remains the historical evidence file for the first backend audit. The
+current action authority for the friction/prune work is
+`planning_docs/DATA_FLOW_FRICTION_PRUNE_PLAN.md` v2 FINAL.
+
+The rail vocabulary was refined after this audit: Rail 1 terminates in PEAK
+(distilled metrics + scopes that feed the model-written scouting report /
+Rating surface), Rail 2 distills narrative + transfer context into Vibe, Momentum
+combines PEAK and Vibe trajectories, and Sigil synthesizes PEAK + Vibe +
+Momentum. The product invariants below still hold, but future sessions should
+read them through that refined PEAK/Vibe/Momentum/Sigil model.
+
+Marker rows remain append-only current-projection controls. The 2026-07-08 data
+flow audit verified that markers carry the configured model and prompt versions,
+not `NULL` provenance; do not reopen the old nullability concern unless new live
+evidence contradicts that finding.
+
 ## Findings ledger
 
 Every session surfaces things outside its own scope — surprises, cross-session dependencies,

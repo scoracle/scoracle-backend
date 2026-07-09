@@ -24,7 +24,7 @@ set -euo pipefail
 
 DB="${1:-${DATABASE_PRIVATE_URL:-${DATABASE_URL:-}}}"
 [ -n "$DB" ] || { echo "error: set DATABASE_PRIVATE_URL/DATABASE_URL or pass a connection string"; exit 1; }
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/migrations"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)/migrations"
 
 # Guard: the tracking table must already exist. Bootstrap it ONCE (migration 051) so we
 # never start from an empty table on a prod DB and re-replay 001+ over live data.

@@ -88,7 +88,7 @@ TZ=America/New_York
 # ---------------------------------------------------------------------------
 # Stats-rail commentary — nightly, current season, regenerate only on new data
 # ---------------------------------------------------------------------------
-# The on-field IDENTITY analysis (the stats-rail twin of the news narrative).
+# The PEAK scouting-report analysis (the stats-rail twin of the news narrative).
 # Stats only move on game days, so -mode nightly first DB-filters to entities whose
 # selected current-season stats row is newer than their latest stat_summaries row,
 # or whose latest summary has no input_hash. The input_hash debounce still skips

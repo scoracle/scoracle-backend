@@ -154,6 +154,7 @@ impl SigilOutput {
             prompt_version: self.prompt_version,
             input_ids: Vec::new(),
             input_hash: self.input_hash.clone(),
+            trigger_payload: None,
         }
     }
 }

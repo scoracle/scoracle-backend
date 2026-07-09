@@ -124,6 +124,24 @@ pub struct Provenance {
     pub input_ids: Vec<i64>,
     /// `Some` → debounce: skip if unchanged (sigil). `None` → no debounce (vibe).
     pub input_hash: Option<String>,
+    /// Optional trigger payload captured for stages whose payload is caller-provided
+    /// rather than a stage literal. Stored here so marker and scored rows bind it
+    /// through the same envelope.
+    pub trigger_payload: Option<serde_json::Value>,
+}
+
+impl Provenance {
+    pub fn with_trigger_payload(mut self, payload: &serde_json::Value) -> Self {
+        self.trigger_payload = Some(payload.clone());
+        self
+    }
+
+    pub fn trigger_payload_json(&self, fallback: &str) -> String {
+        self.trigger_payload
+            .as_ref()
+            .map(serde_json::Value::to_string)
+            .unwrap_or_else(|| fallback.to_string())
+    }
 }
 
 /// EntityKey identifies the row a debounce check is scoped to. `season` is `Some` for

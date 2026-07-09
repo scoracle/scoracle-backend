@@ -107,6 +107,7 @@ impl VibeOutput {
             prompt_version: self.prompt_version,
             input_ids: self.input_news_ids.clone(),
             input_hash: None,
+            trigger_payload: None,
         }
     }
 }

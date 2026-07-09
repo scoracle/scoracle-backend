@@ -11,7 +11,7 @@ use scoracle_cognition::rating::{
     generate_rating, persist_stat_summary, RatingOutput, RatingReq, RATING_TEMPERATURE,
 };
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{corpus, db};
+use scoracle_cognition::{corpus, db, work};
 use sqlx::{PgPool, Postgres, Row};
 use std::time::Duration;
 
@@ -158,6 +158,19 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
             }
             Ok(out) => {
                 persist_target(hx, &t, &out).await?;
+                // Phase 5.4 (rating→sigil trigger): a changed PEAK re-triggers panel synthesis
+                // now, instead of waiting for the next news event to run vibe for this entity.
+                // Nightly/current-season only — backfill is a bulk historical pass and must not
+                // avalanche the sigil queue. Best-effort: a failed enqueue must not fail an
+                // already-persisted rating (the vibe path and the next nightly are fallbacks).
+                if nightly {
+                    if let Err(e) = enqueue_sigil(hx, &t, &out).await {
+                        eprintln!(
+                            "statcommentary: sigil re-trigger enqueue failed sport={} {}/{} error={e:#}",
+                            t.sport, t.entity_type, t.entity_id
+                        );
+                    }
+                }
                 c.ok += 1;
             }
             Err(e) => {
@@ -230,6 +243,24 @@ async fn persist_rating(hx: &Harness, req: &RatingReq, out: &RatingOutput) -> Re
         out,
     )
     .await
+}
+
+/// enqueue_sigil re-triggers panel synthesis for an entity whose PEAK (the stats lens) just
+/// changed — the Phase 5.4 rating→sigil trigger. PEAK is a Sigil synthesis pillar and part of its
+/// `input_hash`, so a changed rating flips the hash and the re-run is real work; the Sigil
+/// `input_hash` debounce is the second guard, skipping the model call for any entity whose pillars
+/// did not actually move. The rating snapshot's `input_hash` becomes the work-row `input_version`,
+/// so the sigil row reopens exactly when the rating snapshot changes (idempotent otherwise).
+async fn enqueue_sigil(hx: &Harness, t: &Target, out: &RatingOutput) -> Result<()> {
+    let sig = work::Item {
+        stage: work::Stage::Sigil,
+        entity_type: t.entity_type.clone(),
+        entity_id: i64::from(t.entity_id),
+        sport: t.sport.clone(), // uppercase, matching the news-rail sigil rows' conflict key
+        input_version: out.input_hash.clone(),
+        attempts: 0,
+    };
+    work::enqueue(&hx.pool, &sig).await
 }
 
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {

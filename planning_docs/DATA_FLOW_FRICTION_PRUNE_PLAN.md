@@ -1,10 +1,11 @@
 # Data Flow Friction & Prune Plan
 
 Created: 2026-07-07
-Status: v2 FINAL (2026-07-08) — every claim verified against live code + the
-live DB; the candle approach measured on live data
-(`rust/examples/candle_probe.rs`); all design decisions made and recorded
-inline as **DECIDED** entries. Execution-ready, Wave 1 first.
+Status: COMPLETE (2026-07-09) — all numbered waves and post-Wave-5
+verification are done, ledgered, committed, and deployed where required. The
+only carried operational follow-up is the one-shot bucketlabel cron: leave it
+installed until `planning_docs/data/bucket_labels.tsv` is complete, then remove
+that cron line and ledger the cleanup.
 
 ## North Star
 
@@ -1898,3 +1899,8 @@ click-to-copy text.
   candle approach measured (`rust/examples/candle_probe.rs`); overnight
   labeling job built + scheduled (`rust/src/bin/bucketlabel.rs`, cron 01:00 →
   `planning_docs/data/bucket_labels.tsv`; remove the cron line once complete).
+- **Plan closeout** — COMPLETE (2026-07-09 UTC / 2026-07-08 America/Detroit).
+  All numbered execution waves are done and the post-Wave-5 verification ledger
+  is committed. The bucketlabel cron remains as a deliberate post-plan
+  operational follow-up because `planning_docs/data/bucket_labels.tsv` is not
+  present yet.

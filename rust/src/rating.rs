@@ -1,4 +1,4 @@
-//! Rating stage — the stats-rail on-field IDENTITY commentary, ported from Go (Cutover Step 2, L12).
+//! Rating stage — the stats-rail PEAK scouting report, ported from Go (Cutover Step 2, L12).
 //!
 //! The Go source is the machinery spec. `rating.go` is the loader + the deterministic
 //! notability/pctBand/trimFloat/ordered-facts assembly + parse + persist;
@@ -22,7 +22,7 @@
 //! empty model body is a hard error (the work fails + retries), never a served row (Go returns an
 //! error too). So `RatingParser` never returns `Ok(None)` (like `VibeParser`).
 //!
-//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s7 prompt is
+//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s8 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -34,8 +34,8 @@ use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 
-/// Prompt version for the Rating identity commentary contract.
-pub const RATING_PROMPT_VERSION: &str = "s7";
+/// Prompt version for the PEAK scouting-report contract.
+pub const RATING_PROMPT_VERSION: &str = "s8";
 
 /// Production rating temperature (rating.go uses 0.6 — a touch of voice on the analyst prose). The
 /// parity harness overrides to 0 (the deterministic axes need no model call anyway).
@@ -47,8 +47,8 @@ pub const RATING_NUM_PREDICT: i32 = 1200;
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
 const MAX_STAT_FACTS: usize = 14;
 
-/// System prompt for the Rating identity commentary contract.
-pub const RATING_SYSTEM_PROMPT: &str = r#"Task: write the entity's on-field statistical identity from the supplied Rating Engine profile.
+/// System prompt for the PEAK scouting-report contract.
+pub const RATING_SYSTEM_PROMPT: &str = r#"Task: write the entity's PEAK scouting report from the supplied Rating Engine profile.
 
 Voice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied datapoints.
 
@@ -60,21 +60,21 @@ Definitions:
 
 Output:
 1. First line exactly: PEAK: <label>
-2. Then one flowing paragraph, no headers or bullets.
+2. Then one flowing scouting-report paragraph, no headers or bullets.
 
 PEAK rules:
 - Use the first datapoint's skill only if it is strong or elite.
 - If the first datapoint is not strong or elite, write exactly: PEAK: No standout skill.
 - Never choose an average, below average, or poor skill as the peak.
 
-Paragraph rules:
+Scouting-report rules:
 - Lead with real strengths: strong and elite skills.
 - Cite values and percentiles as given.
 - Mention per-x support when it confirms the edge.
 - Do not praise marks below the 50th percentile.
 - Mention weaknesses only when a skill is below average or poor.
 - If nothing is strong or elite, say that plainly and name the best available impact with its percentile.
-- End with a clear verdict on what kind of player/team this is.
+- End with a clear scouting verdict on what kind of player/team this is.
 - Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.
 - Never invent a number, rate, role, or skill not in the data."#;
 
@@ -119,6 +119,8 @@ pub struct RatingDatapoint {
     #[serde(default, deserialize_with = "null_to_default")]
     pub facet: String,
     #[serde(default, deserialize_with = "null_to_default")]
+    /// Legacy DB key from the old specialist-credit framing. Still tolerated on read for old rows,
+    /// but Wave 5 stops emitting it into model-facing input components.
     pub is_specialty: bool,
     #[serde(default, deserialize_with = "null_tolerant_map")]
     pub scoped_pct: HashMap<String, f64>,
@@ -428,9 +430,10 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     out
 }
 
-/// build_stat_prompt assembles the user prompt — BYTE-IDENTICAL to `buildStatPrompt` (the
-/// deterministic parity axis). The `·` (U+00B7) and `—` (U+2014) are significant bytes; the tier
-/// labels are pctBand's deterministic output (the model verbalizes them, never re-derives them).
+/// build_stat_prompt assembles the user prompt. Wave 5 reframes this as PEAK scouting-report
+/// context: the model sees the full positionless datapoint spread and chooses the report emphasis
+/// itself, rather than receiving a pre-labeled specialist-credit axis. The `·` (U+00B7) and `—`
+/// (U+2014) are significant bytes; the tier labels are pctBand's deterministic output.
 pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) -> String {
     let mut b = String::new();
 
@@ -503,7 +506,6 @@ enum GoJson {
     Int(i64),
     Float(f64),
     Str(String),
-    Bool(bool),
     Arr(Vec<GoJson>),
     Obj(Vec<(String, GoJson)>),
 }
@@ -514,7 +516,6 @@ impl GoJson {
             GoJson::Int(i) => out.push_str(&i.to_string()),
             GoJson::Float(f) => out.push_str(&go_json_float(*f)),
             GoJson::Str(s) => out.push_str(&go_json_string(s)),
-            GoJson::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
             GoJson::Arr(items) => {
                 out.push('[');
                 for (i, it) in items.iter().enumerate() {
@@ -547,6 +548,8 @@ impl GoJson {
 /// `json.Marshal(orEmptyMap(ic))` produces (its SHA-256 is `input_hash`). Mirrors
 /// `(*ratingProfile).inputComponents`: `season`/`peak_label`/`datapoints` are ALWAYS present; the rest
 /// (rate_standouts, composite_score, peak_score, position) are conditional. `pct` values are `round1`'d.
+/// Wave 5 deliberately removes the old `is_specialty` flag from each datapoint so the scouting
+/// report surfaces specialist traits from the full metric spread rather than a pre-labeled axis.
 pub fn input_components(p: &RatingProfile) -> String {
     let datapoints: Vec<GoJson> = p
         .breakdown
@@ -555,7 +558,6 @@ pub fn input_components(p: &RatingProfile) -> String {
             GoJson::Obj(vec![
                 ("label".to_string(), GoJson::Str(d.label.clone())),
                 ("pct".to_string(), GoJson::Float(round1(d.pct))),
-                ("is_specialty".to_string(), GoJson::Bool(d.is_specialty)),
             ])
         })
         .collect();
@@ -866,7 +868,7 @@ pub struct RatingReady {
 }
 
 /// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
-/// canonical input-components + hash, the notability, `build_stat_prompt`, the s7 options, and the
+/// canonical input-components + hash, the notability, `build_stat_prompt`, the s8 options, and the
 /// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
 /// [`Role::StatsLogic`] (rating is its first consumer).
 pub async fn build_rating_request(
@@ -1258,11 +1260,11 @@ mod tests {
     fn input_components_matches_go_marshal_bytes() {
         // Datapoints walk the breakdown in STORED order (NOT pct-sorted): Scoring then Defense.
         // Top keys sorted: composite_score, datapoints, peak_label, position, season. Datapoint keys
-        // sorted: is_specialty, label, pct. composite round1(67.0)=67 → "67"; pct round1 → "95"/"40".
+        // Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1 → "95"/"40".
         let ic = input_components(&profile_player());
         assert_eq!(
             ic,
-            r#"{"composite_score":67,"datapoints":[{"is_specialty":true,"label":"Scoring","pct":95},{"is_specialty":false,"label":"Defense","pct":40}],"peak_label":"Scoring","position":"Guard","season":2025}"#
+            r#"{"composite_score":67,"datapoints":[{"label":"Scoring","pct":95},{"label":"Defense","pct":40}],"peak_label":"Scoring","position":"Guard","season":2025}"#
         );
         // The hash is a deterministic function of those exact bytes.
         assert_eq!(hash_components(&ic), hash_components(&ic));

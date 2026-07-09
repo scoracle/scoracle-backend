@@ -50,7 +50,11 @@ fn article_rows(rows: Vec<sqlx::postgres::PgRow>) -> Vec<Article> {
             } else {
                 format!("{title}. {desc}")
             };
-            Article { id: r.get(0), title, text }
+            Article {
+                id: r.get(0),
+                title,
+                text,
+            }
         })
         .collect()
 }
@@ -117,7 +121,11 @@ fn sweep(pos: &[f32], neg: &[f32]) {
         let fp = neg.iter().filter(|&&x| x >= t).count() as f64;
         let recall = tp / pos.len() as f64;
         let fpr = fp / neg.len() as f64;
-        let prec = if tp + fp > 0.0 { tp / (tp + fp) } else { f64::NAN };
+        let prec = if tp + fp > 0.0 {
+            tp / (tp + fp)
+        } else {
+            f64::NAN
+        };
         println!("  {t:.2}   {recall:>8.3}   {fpr:>7.3}   {prec:>7.3}");
     }
 }
@@ -136,7 +144,11 @@ async fn main() -> Result<()> {
     println!("== loading embedder (candle, CPU) ==");
     let t0 = Instant::now();
     let embedder = Embedder::from_config(&EmbedConfig::from_env()?)?;
-    println!("loaded in {:.1}s, dim={}", t0.elapsed().as_secs_f64(), embedder.dim);
+    println!(
+        "loaded in {:.1}s, dim={}",
+        t0.elapsed().as_secs_f64(),
+        embedder.dim
+    );
 
     // --- labeled sets -----------------------------------------------------
     let pos_rows = sqlx::query(
@@ -225,8 +237,16 @@ async fn main() -> Result<()> {
     let p2 = mean_vec(&canon_v);
     let p3 = mean_vec(&proto_v);
 
-    for (name, proto) in [("P1 single sentence", &p1), ("P2 canonical-set mean", &p2), ("P3 data-driven mean", &p3)] {
-        let score = |vs: &[Vec<f32>]| vs.iter().map(|v| cosine_similarity(v, proto)).collect::<Vec<f32>>();
+    for (name, proto) in [
+        ("P1 single sentence", &p1),
+        ("P2 canonical-set mean", &p2),
+        ("P3 data-driven mean", &p3),
+    ] {
+        let score = |vs: &[Vec<f32>]| {
+            vs.iter()
+                .map(|v| cosine_similarity(v, proto))
+                .collect::<Vec<f32>>()
+        };
         let sp = score(&pos_v);
         let sb = score(&broad_v);
         let sh = score(&hard_v);
@@ -234,7 +254,11 @@ async fn main() -> Result<()> {
         class_stats("positives (rumor-cited)", &sp);
         class_stats("broad negatives (uncited)", &sb);
         class_stats("hard negatives (is_rumor=F)", &sh);
-        println!("  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}", auc(&sp, &sb), auc(&sp, &sh));
+        println!(
+            "  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}",
+            auc(&sp, &sb),
+            auc(&sp, &sh)
+        );
         println!("  threshold sweep (pos vs broad):");
         sweep(&sp, &sb);
 
@@ -244,13 +268,21 @@ async fn main() -> Result<()> {
             worst_pos.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
             println!("  lowest-scoring POSITIVES (false-negative risk):");
             for (s, a) in worst_pos.iter().take(8) {
-                println!("    {s:.3}  [{}] {}", a.id, a.title.chars().take(100).collect::<String>());
+                println!(
+                    "    {s:.3}  [{}] {}",
+                    a.id,
+                    a.title.chars().take(100).collect::<String>()
+                );
             }
             let mut worst_neg: Vec<(f32, &Article)> = sb.iter().copied().zip(&broad_neg).collect();
             worst_neg.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
             println!("  highest-scoring BROAD NEGATIVES (false-positive risk):");
             for (s, a) in worst_neg.iter().take(8) {
-                println!("    {s:.3}  [{}] {}", a.id, a.title.chars().take(100).collect::<String>());
+                println!(
+                    "    {s:.3}  [{}] {}",
+                    a.id,
+                    a.title.chars().take(100).collect::<String>()
+                );
             }
         }
     }
@@ -296,7 +328,11 @@ async fn main() -> Result<()> {
         class_stats("positives", &sp);
         class_stats("broad negatives (eval)", &sb);
         class_stats("hard negatives", &sh);
-        println!("  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}", auc(&sp, &sb), auc(&sp, &sh));
+        println!(
+            "  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}",
+            auc(&sp, &sb),
+            auc(&sp, &sh)
+        );
         println!("  thr     pos-recall  neg-FPR   precision");
         for i in -6..=8 {
             let t = i as f32 * 0.02;
@@ -304,7 +340,11 @@ async fn main() -> Result<()> {
             let fp = sb.iter().filter(|&&x| x >= t).count() as f64;
             let recall = tp / sp.len() as f64;
             let fpr = fp / sb.len() as f64;
-            let prec = if tp + fp > 0.0 { tp / (tp + fp) } else { f64::NAN };
+            let prec = if tp + fp > 0.0 {
+                tp / (tp + fp)
+            } else {
+                f64::NAN
+            };
             println!("  {t:>5.2}   {recall:>8.3}   {fpr:>7.3}   {prec:>7.3}");
         }
         if name.starts_with("S3") {
@@ -312,14 +352,22 @@ async fn main() -> Result<()> {
             worst_pos.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
             println!("  lowest-scoring POSITIVES:");
             for (s, a) in worst_pos.iter().take(6) {
-                println!("    {s:>6.3}  [{}] {}", a.id, a.title.chars().take(100).collect::<String>());
+                println!(
+                    "    {s:>6.3}  [{}] {}",
+                    a.id,
+                    a.title.chars().take(100).collect::<String>()
+                );
             }
             let mut worst_neg: Vec<(f32, &Article)> =
                 sb.iter().copied().zip(broad_eval_articles).collect();
             worst_neg.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap());
             println!("  highest-scoring BROAD NEGATIVES:");
             for (s, a) in worst_neg.iter().take(6) {
-                println!("    {s:>6.3}  [{}] {}", a.id, a.title.chars().take(100).collect::<String>());
+                println!(
+                    "    {s:>6.3}  [{}] {}",
+                    a.id,
+                    a.title.chars().take(100).collect::<String>()
+                );
             }
         }
     }
@@ -329,25 +377,22 @@ async fn main() -> Result<()> {
         use std::io::Write;
         let mut f = std::fs::File::create(&path)?;
         writeln!(f, "id\tset\tcos_p2\ts2\ts3\ttitle")?;
-        let dump = |f: &mut std::fs::File,
-                    set: &str,
-                    arts: &[Article],
-                    vs: &[Vec<f32>]|
-         -> Result<()> {
-            for (a, v) in arts.iter().zip(vs) {
-                writeln!(
-                    f,
-                    "{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{}",
-                    a.id,
-                    set,
-                    cosine_similarity(v, &p2),
-                    cosine_similarity(v, &p2) - cosine_similarity(v, &p2_neg),
-                    cosine_similarity(v, &p3) - cosine_similarity(v, &p3_neg),
-                    a.title.replace('\t', " ")
-                )?;
-            }
-            Ok(())
-        };
+        let dump =
+            |f: &mut std::fs::File, set: &str, arts: &[Article], vs: &[Vec<f32>]| -> Result<()> {
+                for (a, v) in arts.iter().zip(vs) {
+                    writeln!(
+                        f,
+                        "{}\t{}\t{:.4}\t{:.4}\t{:.4}\t{}",
+                        a.id,
+                        set,
+                        cosine_similarity(v, &p2),
+                        cosine_similarity(v, &p2) - cosine_similarity(v, &p2_neg),
+                        cosine_similarity(v, &p3) - cosine_similarity(v, &p3_neg),
+                        a.title.replace('\t', " ")
+                    )?;
+                }
+                Ok(())
+            };
         dump(&mut f, "pos", &positives, &pos_v)?;
         dump(&mut f, "broad", broad_eval_articles, broad_eval)?;
         dump(&mut f, "hard", &hard_neg, &hard_v)?;
@@ -356,15 +401,37 @@ async fn main() -> Result<()> {
 
     // --- keyword baseline: does candle beat a trivial regex? ----------------
     let kw = [
-        "transfer", "trade", "sign", "signing", "signs", "deal", "bid", "loan",
-        "rumor", "rumour", "free agency", "free agent", "extension", "contract",
-        "linked", "target", "interest", "waive", "swap", "acquire", "move to",
+        "transfer",
+        "trade",
+        "sign",
+        "signing",
+        "signs",
+        "deal",
+        "bid",
+        "loan",
+        "rumor",
+        "rumour",
+        "free agency",
+        "free agent",
+        "extension",
+        "contract",
+        "linked",
+        "target",
+        "interest",
+        "waive",
+        "swap",
+        "acquire",
+        "move to",
     ];
     let kw_score = |arts: &[Article]| {
         arts.iter()
             .map(|a| {
                 let t = a.text.to_lowercase();
-                if kw.iter().any(|k| t.contains(k)) { 1.0f32 } else { 0.0f32 }
+                if kw.iter().any(|k| t.contains(k)) {
+                    1.0f32
+                } else {
+                    0.0f32
+                }
             })
             .collect::<Vec<f32>>()
     };
@@ -378,7 +445,11 @@ async fn main() -> Result<()> {
         kb.iter().sum::<f32>() / kb.len() as f32,
         kh.iter().sum::<f32>() / kh.len() as f32
     );
-    println!("  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}", auc(&kp, &kb), auc(&kp, &kh));
+    println!(
+        "  AUC pos-vs-broad = {:.3}   AUC pos-vs-hard = {:.3}",
+        auc(&kp, &kb),
+        auc(&kp, &kh)
+    );
 
     // --- F2 topic clustering on one real day -------------------------------
     let day_row = sqlx::query(

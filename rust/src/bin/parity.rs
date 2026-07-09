@@ -63,6 +63,8 @@ async fn main() -> Result<()> {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?, // offline; single-flight
         embedder: None,
         resolve: cfg.resolve.clone(),
+        scrub: cfg.scrub.clone(),
+        bucket_classifier: None,
     };
 
     let specs = match parse_specs(std::env::args().skip(1))? {

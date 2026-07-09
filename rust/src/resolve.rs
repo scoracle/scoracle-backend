@@ -23,6 +23,7 @@
 //! (in [`crate::harness`]) with no change to them — the Plan §5 test that the library was drawn
 //! right. Requires `Harness.embedder = Some(..)`; an embed-less Harness errors (a wiring bug).
 
+use crate::bucket::ArticleBucket;
 use crate::config::ResolveConfig;
 use crate::embed::cosine_similarity;
 use crate::harness::{Candidate, EntityType, Harness, Parser, Resolution, Resolved};
@@ -34,11 +35,26 @@ use serde::Deserialize;
 /// The relevance system prompt: disambiguate same-name candidates and return only the JSON contract.
 const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
 
+/// Scrub-only extension of the relevance prompt: while the model is already reading the article
+/// to vet ambiguous candidate links, also tag the article bucket. The relevance verdict remains
+/// fail-closed and independent: an absent/unparseable bucket is ignored by the caller, which falls
+/// back to candle.
+const RESOLVE_BUCKET_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about, and classify the article as transfer/trade-related or other sports news.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nBucket rules:\n- bucket \"transfer\" for transfer, trade, loan, free-agency, signing, contract-move, bid, medical, or move-rumor coverage.\n- bucket \"other\" for match reports, injuries, previews, recaps, betting, tactical analysis, performance features, and general team news.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>], \"bucket\": \"transfer|other\"}";
+
 /// The model budget for one adjudication call. Temperature 0.2 mirrors the scrub's "tight but a
 /// judgment call"; JSON mode tightens adherence to the `{"relevant":[…]}` contract.
 fn adjudication_opts() -> GenerateOptions {
     GenerateOptions {
         system: Some(RESOLVE_SYSTEM_PROMPT.to_string()),
+        temperature: Some(0.2),
+        num_predict: 512,
+        json_mode: true,
+    }
+}
+
+fn adjudication_bucket_opts() -> GenerateOptions {
+    GenerateOptions {
+        system: Some(RESOLVE_BUCKET_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 512,
         json_mode: true,
@@ -144,6 +160,45 @@ impl Parser<Vec<usize>> for RelevanceParser {
     }
 }
 
+pub struct RelevanceBucket {
+    pub relevant: Vec<usize>,
+    pub bucket: Option<ArticleBucket>,
+}
+
+pub struct RelevanceBucketParser {
+    pub n: usize,
+}
+
+impl Parser<RelevanceBucket> for RelevanceBucketParser {
+    fn parse(&self, raw: &str) -> Result<Option<RelevanceBucket>> {
+        let (start, end) = match (raw.find('{'), raw.rfind('}')) {
+            (Some(s), Some(e)) if e > s => (s, e),
+            _ => return Ok(None),
+        };
+        #[derive(Deserialize)]
+        struct Reply {
+            #[serde(default)]
+            relevant: Vec<i64>,
+            #[serde(default)]
+            bucket: String,
+        }
+        let reply: Reply = match serde_json::from_str(&raw[start..=end]) {
+            Ok(r) => r,
+            Err(_) => return Ok(None),
+        };
+        let relevant = reply
+            .relevant
+            .into_iter()
+            .filter(|&i| i >= 1 && (i as usize) <= self.n)
+            .map(|i| i as usize)
+            .collect();
+        Ok(Some(RelevanceBucket {
+            relevant,
+            bucket: ArticleBucket::from_model_tag(&reply.bucket),
+        }))
+    }
+}
+
 impl Harness {
     /// resolve_set vets WHICH of N linked candidates an article is genuinely about — the scrub gate
     /// shape (Plan §1.3), the clean 1:1 with `news_scrub.go::ScrubArticle`. Embeds the context + each
@@ -158,8 +213,23 @@ impl Harness {
         context: &str,
         candidates: &[Candidate],
     ) -> Result<Vec<Resolution>> {
+        let (resolutions, _) = self
+            .resolve_set_with_bucket(role, context, candidates)
+            .await?;
+        Ok(resolutions)
+    }
+
+    /// resolve_set_with_bucket is scrub's Wave-5 extension over [`Self::resolve_set`]. It preserves
+    /// the asymmetric relevance gate and returns a model bucket only when an ambiguous-band model
+    /// call was already needed. Auto-kept articles get `None` here and use the candle fallback.
+    pub async fn resolve_set_with_bucket(
+        &self,
+        role: Role,
+        context: &str,
+        candidates: &[Candidate],
+    ) -> Result<(Vec<Resolution>, Option<ArticleBucket>)> {
         if candidates.is_empty() {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), None));
         }
         // One embed call: [context, identity_0, identity_1, …].
         let mut texts = Vec::with_capacity(candidates.len() + 1);
@@ -186,6 +256,7 @@ impl Harness {
             });
         }
 
+        let mut bucket = None;
         if !ambiguous.is_empty() {
             let amb: Vec<&Candidate> = ambiguous.iter().map(|&i| &candidates[i]).collect();
             let prompt = build_relevance_prompt(context, &amb);
@@ -193,19 +264,20 @@ impl Harness {
                 .extract(
                     role,
                     &prompt,
-                    &adjudication_opts(),
-                    &RelevanceParser { n: amb.len() },
+                    &adjudication_bucket_opts(),
+                    &RelevanceBucketParser { n: amb.len() },
                 )
                 .await?;
-            if let Some(relevant) = extracted.value {
+            if let Some(parsed) = extracted.value {
                 // relevant is 1-indexed over `amb`, in band order.
                 for (k, &i) in ambiguous.iter().enumerate() {
-                    out[i].kept = relevant.contains(&(k + 1));
+                    out[i].kept = parsed.relevant.contains(&(k + 1));
                 }
+                bucket = parsed.bucket;
             }
             // else: fail-closed — the ambiguous candidates keep their `kept = false` placeholder.
         }
-        Ok(out)
+        Ok((out, bucket))
     }
 
     /// resolve_one settles which ONE candidate (if any) a mention is — the transfer subject-test

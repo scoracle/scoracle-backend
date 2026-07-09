@@ -17,7 +17,8 @@
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
-use crate::harness::{Harness, Parser, Provenance};
+use crate::embed::cosine_similarity;
+use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Provenance};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -27,9 +28,10 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
+use tracing::debug;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v9";
+pub const VIBE_PROMPT_VERSION: &str = "v10";
 
 /// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
 /// this with an explicit 0.
@@ -40,6 +42,9 @@ pub const VIBE_NUM_PREDICT: i32 = 512;
 
 /// Body truncation in the prompt — mirrors `truncate(n.body, 280)` in vibe.go.
 const BODY_TRUNCATE: usize = 280;
+
+/// Minimum sentiment movement since the last Sigil synthesis before Vibe re-enqueues Sigil.
+const SIGIL_SENTIMENT_DELTA_THRESHOLD: i32 = 10;
 
 /// System prompt for the Vibe sentiment + felt-read contract.
 pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: produce a sentiment score and a short felt read from the supplied narratives and transfer/trade activity.
@@ -72,6 +77,8 @@ pub struct Narrative {
     pub body: String,
     pub impact: i32,
     pub trajectory: String,
+    pub topic_heat: i32,
+    pub relevance: Option<f32>,
 }
 
 /// The result of running the vibe core for one entity, before persistence. Captures
@@ -129,10 +136,15 @@ pub async fn load_latest_narratives(
 ) -> Result<(Vec<Narrative>, Vec<i64>)> {
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is
     // int4 → scan as i32 (matches Go scanning into `int`).
-    let rows: Vec<(String, String, i32, Vec<i64>, String)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, Vec<i64>, String, i32)> = sqlx::query_as(
         r#"
         SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids,
-               COALESCE(trajectory, $4)
+               COALESCE(trajectory, $4),
+               COALESCE((
+                   SELECT max(a.topic_heat)::int
+                   FROM unnest(input_news_ids) AS nid(article_id)
+                   JOIN news_articles a ON a.id = nid.article_id
+               ), 1) AS topic_heat
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -153,16 +165,103 @@ pub async fn load_latest_narratives(
 
     let mut narratives = Vec::with_capacity(rows.len());
     let mut ids: Vec<i64> = Vec::new();
-    for (title, body, impact, mut nids, trajectory) in rows {
+    for (title, body, impact, mut nids, trajectory, topic_heat) in rows {
         ids.append(&mut nids);
         narratives.push(Narrative {
             title,
             body,
             impact,
             trajectory,
+            topic_heat,
+            relevance: None,
         });
     }
     Ok((narratives, dedupe_i64(ids)))
+}
+
+async fn weight_narratives(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+    narratives: &mut [Narrative],
+) -> Result<()> {
+    if hx.embedder.is_some() && !narratives.is_empty() {
+        let identity =
+            load_identity_candidate(&hx.pool, entity_type, entity_id, entity_name, sport).await?;
+        let identity_text = crate::resolve::identity_text(&identity);
+        let mut texts = Vec::with_capacity(narratives.len() + 1);
+        texts.push(identity_text);
+        texts.extend(narratives.iter().map(|n| format!("{} {}", n.title, n.body)));
+        let vectors = hx.embed(&texts).await.context("embed vibe narratives")?;
+        let (identity_vec, narrative_vecs) = vectors
+            .split_first()
+            .expect("identity plus at least one narrative vector");
+        for (n, v) in narratives.iter_mut().zip(narrative_vecs) {
+            n.relevance = Some(cosine_similarity(identity_vec, v));
+        }
+    }
+
+    narratives.sort_by(|a, b| {
+        let rel = b
+            .relevance
+            .unwrap_or(f32::NEG_INFINITY)
+            .partial_cmp(&a.relevance.unwrap_or(f32::NEG_INFINITY))
+            .unwrap_or(std::cmp::Ordering::Equal);
+        rel.then_with(|| b.topic_heat.cmp(&a.topic_heat))
+            .then_with(|| b.impact.cmp(&a.impact))
+            .then_with(|| a.title.cmp(&b.title))
+    });
+    Ok(())
+}
+
+async fn load_identity_candidate(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+) -> Result<Candidate> {
+    let Some(kind) = EntityType::from_db_str(entity_type) else {
+        anyhow::bail!("unknown entity type {entity_type:?}");
+    };
+    if kind == EntityType::Team {
+        return Ok(Candidate {
+            entity_type: kind,
+            entity_id,
+            name: entity_name.to_string(),
+            identity: IdentityCard::default(),
+        });
+    }
+    let row: Option<(String, String, String)> = sqlx::query_as(
+        r#"
+        SELECT COALESCE(p.nationality, '') AS nationality,
+               COALESCE(ct.name, '') AS current_club,
+               COALESCE(NULLIF(pci.position, 'Unknown'), '') AS position
+        FROM players p
+        LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
+        WHERE p.id = $1 AND p.sport = $2
+        "#,
+    )
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load vibe identity {entity_type}/{entity_id}"))?;
+    let (nationality, current_club, position) = row.unwrap_or_default();
+    let opt = |s: String| (!s.is_empty()).then_some(s);
+    Ok(Candidate {
+        entity_type: kind,
+        entity_id,
+        name: entity_name.to_string(),
+        identity: IdentityCard {
+            nationality: opt(nationality),
+            current_club: opt(current_club),
+            position: opt(position),
+        },
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -187,15 +286,18 @@ pub fn build_sentiment_prompt(
         sport
     ));
 
-    b.push_str("\nNarratives forming around them (impact in brackets):\n");
+    b.push_str(
+        "\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n",
+    );
     if narratives.is_empty() {
         b.push_str("- (none this cycle)\n");
     } else {
         for n in narratives {
             b.push_str(&format!(
-                "- [{}, {}] {}: {}\n",
+                "- [{}, {}, topic heat {}] {}: {}\n",
                 n.impact,
                 trajectory_label(&n.trajectory),
+                n.topic_heat,
                 n.title,
                 truncate_bytes(&n.body, BODY_TRUNCATE)
             ));
@@ -381,10 +483,19 @@ async fn generate_vibe_inner(
 
     // Independent reads (news_summaries vs transfer_rumors, no data dependency) — run them
     // concurrently (plan A3).
-    let ((narratives, news_ids), heat) = tokio::try_join!(
+    let ((mut narratives, news_ids), heat) = tokio::try_join!(
         load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
         load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
     )?;
+    weight_narratives(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        &sport,
+        &mut narratives,
+    )
+    .await?;
 
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
@@ -484,6 +595,79 @@ async fn persist_to_vibe_scores(
     Ok(())
 }
 
+async fn should_enqueue_sigil(
+    hx: &Harness,
+    item: &Item,
+    sport: &str,
+    out: &VibeOutput,
+) -> Result<bool> {
+    let entity_id = item.entity_id_i32()?;
+    let season = crate::sigil::resolve_season(&hx.pool, sport, None).await?;
+    let (no_sigil, prior_sentiment, new_narrative, new_transfer): (bool, Option<i32>, bool, bool) =
+        sqlx::query_as(
+            r#"
+        WITH last_sigil AS (
+            SELECT generated_at
+            FROM public.sigil_synthesis
+            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+            ORDER BY generated_at DESC
+            LIMIT 1
+        ),
+        prior_vibe AS (
+            SELECT vs.sentiment::int AS sentiment
+            FROM public.vibe_scores vs, last_sigil ls
+            WHERE vs.entity_type = $1 AND vs.entity_id = $2 AND vs.sport = $3
+              AND vs.sentiment IS NOT NULL
+              AND vs.generated_at <= ls.generated_at
+            ORDER BY vs.generated_at DESC
+            LIMIT 1
+        )
+        SELECT
+            NOT EXISTS (SELECT 1 FROM last_sigil) AS no_sigil,
+            (SELECT sentiment FROM prior_vibe) AS prior_sentiment,
+            EXISTS (
+                SELECT 1
+                FROM public.news_summaries ns, last_sigil ls
+                WHERE ns.entity_type = $1 AND ns.entity_id = $2 AND ns.sport = $3
+                  AND ns.body IS NOT NULL
+                  AND ns.generated_at > ls.generated_at
+            ) AS new_narrative,
+            EXISTS (
+                SELECT 1
+                FROM public.transfer_rumors tr, last_sigil ls
+                WHERE tr.sport = $3
+                  AND tr.is_rumor IS TRUE
+                  AND (($1 = 'team' AND tr.team_id = $2) OR ($1 = 'player' AND tr.player_id = $2))
+                  AND tr.generated_at > ls.generated_at
+            ) AS new_transfer
+        "#,
+        )
+        .bind(&item.entity_type)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(season)
+        .fetch_one(&hx.pool)
+        .await
+        .with_context(|| {
+            format!(
+                "sigil meaningful-change gate {}/{}",
+                item.entity_type, entity_id
+            )
+        })?;
+
+    if no_sigil {
+        return Ok(out.sentiment.is_some() || new_narrative || new_transfer);
+    }
+    if new_narrative || new_transfer {
+        return Ok(true);
+    }
+    match (out.sentiment, prior_sentiment) {
+        (Some(cur), Some(prev)) => Ok((cur - prev).abs() >= SIGIL_SENTIMENT_DELTA_THRESHOLD),
+        (Some(_), None) => Ok(true),
+        _ => Ok(false),
+    }
+}
+
 /// VibeHandler drains the durable `vibe` stage: read the fresh narratives + heat, score
 /// with the model, persist to vibe_scores, and enqueue the `sigil` convergence before
 /// completing. This is the production path for the Phase 2 cutover (registered in
@@ -526,18 +710,26 @@ impl StageHandler for VibeHandler {
         let sport = item.sport.to_uppercase();
         persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
 
-        // Enqueue the sigil convergence BEFORE completing (the work row is completed by
-        // the worker only after this returns Ok). A crash or enqueue failure after persist
-        // fails this vibe item, so the queue retries instead of silently dropping sigil.
-        let sig = Item {
-            stage: Stage::Sigil,
-            entity_type: item.entity_type.clone(),
-            entity_id: item.entity_id,
-            sport: item.sport.clone(),
-            input_version: Some(vibe_version(&out)),
-            attempts: 0,
-        };
-        work::enqueue(&hx.pool, &sig).await?;
+        // F5: enqueue Sigil only when a meaningful pillar changed. The Sigil input_hash debounce
+        // remains the second guard; this avoids queue/GPU churn on same-sentiment Vibe rewrites.
+        if should_enqueue_sigil(hx, item, &sport, &out).await? {
+            let sig = Item {
+                stage: Stage::Sigil,
+                entity_type: item.entity_type.clone(),
+                entity_id: item.entity_id,
+                sport: item.sport.clone(),
+                input_version: Some(vibe_version(&out)),
+                attempts: 0,
+            };
+            work::enqueue(&hx.pool, &sig).await?;
+        } else {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id = item.entity_id,
+                sport = %sport,
+                "vibe: sigil enqueue skipped below meaningful-change threshold"
+            );
+        }
 
         Ok(())
     }
@@ -581,7 +773,7 @@ mod tests {
         let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[]);
         assert_eq!(
             p,
-            "Entity: Player Test Player (NBA)\n\nNarratives forming around them (impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line)."
+            "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line)."
         );
     }
 

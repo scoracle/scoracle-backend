@@ -16,7 +16,8 @@
 //! real signatures + types), so the floor is drawn for the HORIZON stages without building
 //! infrastructure on speculation. See Plan §1.
 
-use crate::config::ResolveConfig;
+use crate::bucket::BucketClassifier;
+use crate::config::{ResolveConfig, ScrubConfig};
 use crate::embed::{cosine_similarity, Embedder};
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
@@ -39,6 +40,11 @@ pub struct Harness {
     /// Embedding-Resolve cosine bands (Plan §1.3) — the policy the `resolve_*` primitives read
     /// to auto-decide the confident tails vs route the ambiguous middle to the model.
     pub resolve: ResolveConfig,
+    /// Scrub bucket + topic-heat policy (Wave 5 / F2).
+    pub scrub: ScrubConfig,
+    /// Precomputed transfer/non-transfer centroids for scrub's candle bucket fallback. Optional so
+    /// offline harnesses and non-scrub entry points do not load or depend on embeddings.
+    pub bucket_classifier: Option<BucketClassifier>,
 }
 
 // ===========================================================================

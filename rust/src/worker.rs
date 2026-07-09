@@ -17,7 +17,8 @@ use crate::work::{self, BACKOFF, CLAIM_BATCH, MAX_ATTEMPTS};
 use anyhow::Result;
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tracing::{debug, error, info, warn};
 
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
@@ -32,6 +33,8 @@ pub struct Worker {
     handlers: Vec<Box<dyn StageHandler>>,
     safety_net: Duration,
     stale_lease: Duration,
+    topic_heat_interval: Duration,
+    last_topic_heat: Mutex<Option<Instant>>,
 }
 
 impl Worker {
@@ -40,6 +43,7 @@ impl Worker {
         handlers: Vec<Box<dyn StageHandler>>,
         safety_net: Duration,
         stale_lease: Duration,
+        topic_heat_interval: Duration,
     ) -> Self {
         let pool = harness.pool.clone();
         Self {
@@ -48,6 +52,8 @@ impl Worker {
             handlers,
             safety_net,
             stale_lease,
+            topic_heat_interval,
+            last_topic_heat: Mutex::new(None),
         }
     }
 
@@ -107,7 +113,30 @@ impl Worker {
             Ok(_) => {}
             Err(e) => error!(error = %e, cause, "requeue stale failed"),
         }
+        self.maybe_refresh_topic_heat(cause).await;
         self.drain_all(cause).await;
+    }
+
+    async fn maybe_refresh_topic_heat(&self, cause: &str) {
+        if self.topic_heat_interval.is_zero() {
+            return;
+        }
+        let mut last = self.last_topic_heat.lock().await;
+        let due = match *last {
+            None => true,
+            Some(t) => t.elapsed() >= self.topic_heat_interval,
+        };
+        if !due {
+            return;
+        }
+        *last = Some(Instant::now());
+        drop(last);
+
+        match crate::bucket::refresh_topic_heat(&self.harness).await {
+            Ok(n) if n > 0 => info!(updated = n, cause, "refreshed topic heat"),
+            Ok(_) => {}
+            Err(e) => warn!(error = %e, cause, "topic heat refresh failed"),
+        }
     }
 
     /// Drain every registered stage to empty. Iterates in registration order;

@@ -1197,7 +1197,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// --- Per-product stats source (split from sparkline) ---
 		// Live routing:
 		//   /stats   = the full season rating (Composite card + ContentShell controls) — THIS statement;
-		//   /rating  = the lean specialist projection + stat commentary ("entity_rating" statement);
+		//   /rating  = the PEAK scouting-report projection + stat commentary ("entity_rating" statement);
 		//   /momentum absorbs the per-event series (built in trendsStatement, GetTrendsPage).
 		// The heavy fantasy/template/datapoints blocks live only in /stats. $1 sport · $2 type ·
 		// $3 id · $4 season (NULL ⇒ latest rated) · $5 league_id.
@@ -1228,7 +1228,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				SELECT ps.season, NULLIF(ps.league_id, 0) AS league_id, ps.position,
 				       ps.rating_composite, ps.rating_composite_rank, ps.rating_composite_score,
 				       ps.rating_specialist AS rating_peak, ps.rating_specialist_rank AS rating_peak_rank, ps.rating_specialist_score AS rating_peak_score, ps.rating_specialty AS rating_peak_label, ps.rating_breakdown,
-				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('peak', rm_v->'specialist', 'peak_rank', rm_v->'specialist_rank', 'peak_score', rm_v->'specialist_score', 'peak_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes,
+				       NULL::jsonb AS rating_categories, ps.rating_scoped_ranks, ps.rating_scoped_scores, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_strip_nulls(jsonb_build_object('peak', COALESCE(rm_v->'peak', rm_v->'specialist'), 'peak_rank', COALESCE(rm_v->'peak_rank', rm_v->'specialist_rank'), 'peak_score', COALESCE(rm_v->'peak_score', rm_v->'specialist_score'), 'peak_label', COALESCE(rm_v->'peak_label', rm_v->'specialty')))) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes,
 				       NULL::text AS conference, NULL::text AS division,
 				       CASE WHEN pt.id IS NULL THEN NULL::json
 				            ELSE json_build_object('id', pt.id, 'name', pt.name, 'short_code', pt.short_code, 'logo_url', pt.logo_url) END AS team,
@@ -1330,7 +1330,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			SELECT season, position, rating_peak, rating_peak_rank, rating_peak_score,
 			       rating_peak_label, rating_composite_score, rating_composite_rank, rating_breakdown, rating_modes FROM (
 				SELECT ps.season, ps.position, ps.rating_specialist AS rating_peak, ps.rating_specialist_rank AS rating_peak_rank, ps.rating_specialist_score AS rating_peak_score,
-				       ps.rating_composite_score, ps.rating_composite_rank, ps.rating_specialty AS rating_peak_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_build_object('peak', rm_v->'specialist', 'peak_rank', rm_v->'specialist_rank', 'peak_score', rm_v->'specialist_score', 'peak_label', rm_v->'specialty')) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
+				       ps.rating_composite_score, ps.rating_composite_rank, ps.rating_specialty AS rating_peak_label, ps.rating_breakdown, CASE WHEN ps.rating_modes IS NULL THEN NULL ELSE COALESCE((SELECT jsonb_object_agg(rm_k, (rm_v - 'specialist' - 'specialist_rank' - 'specialist_score' - 'specialty') || jsonb_strip_nulls(jsonb_build_object('peak', COALESCE(rm_v->'peak', rm_v->'specialist'), 'peak_rank', COALESCE(rm_v->'peak_rank', rm_v->'specialist_rank'), 'peak_score', COALESCE(rm_v->'peak_score', rm_v->'specialist_score'), 'peak_label', COALESCE(rm_v->'peak_label', rm_v->'specialty')))) FROM jsonb_each(ps.rating_modes) AS rm(rm_k, rm_v)), ps.rating_modes) END AS rating_modes, ps.rating_composite
 				FROM public.player_stats ps CROSS JOIN req CROSS JOIN season_pick sp
 				WHERE req.etype = 'player' AND ps.sport = req.sport
 				  AND ps.player_id = req.eid AND ps.season = sp.season

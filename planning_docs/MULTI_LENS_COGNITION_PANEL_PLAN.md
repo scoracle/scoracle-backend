@@ -288,6 +288,10 @@ What landed:
   persist: product row ids, model/prompt/output-contract versions, input ids or input hash,
   exact prompt/request when a model call happened, parser/no-call outcome, context budget telemetry,
   and basic included/excluded evidence.
+- `eval --capture-ledger <id> --task <task>` can now emit a frozen fixture skeleton directly from
+  `public.cognition_ledger` (2026-07-10, commit `e629d51`), using the exact persisted request
+  prompt/system/temperature when a model call happened. No-call marker rows intentionally fail
+  capture instead of fabricating fixtures from current code.
 - migrations `143_sigil_disagreement_outputs` and `144_cognition_ledger` are applied in the target
   DB, `public.cognition_ledger` was read-back validated, and `sql/schema/schema.sql` was refreshed.
 
@@ -295,7 +299,6 @@ Remaining Phase 2 hardening:
 
 - make excluded evidence richer where the pipeline has the detail (e.g. exact dedup-dropped article
   ids, budget-truncated rows, stale rows).
-- add a fixture-capture helper that can source frozen fixtures directly from `cognition_ledger`.
 
 Success:
 
@@ -369,14 +372,26 @@ proven seam.
    `row_from_verdict` clears the persisted rumor fields for false verdicts; the false-positive
    fixtures therefore guard the real risk — clearing the pair and identifying the subject.
 
+5. **Stats identity + fixed-budget prose set — DONE (2026-07-10, commit `e629d51`).** `RatingTask`
+   joins the registry as the stats lens / PEAK scouting-report eval. It composes the production
+   `build_rating_request` + `RatingParser` + `StatsLogic` route, returning `None` for the no-stats
+   marker path. New `Expect` rubric: `peak_includes/excludes` for identity-label specificity and
+   `prose_includes/excludes` + `prose_min/max_words` for richness under the fixed context budget.
+   Two synthetic fixtures are checked in under `rust/fixtures/rating`: `rim-protector-specificity`
+   and `fixed-budget-rich-profile`. Probe on `mistral:7b` at temp 0: **9/11 green checks**. Both red
+   checks are the same measured gap — the model collapses the whole scouting report onto the
+   `PEAK:` line instead of emitting a separate label. Production parser hardening now salvages that
+   single-line form as body text while leaving `divined_peak` empty, so product prose survives and
+   the eval still marks PEAK-label specificity red.
+
 Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
 change):
 
 - ~~transfer false positives and true positives~~ **DONE (2026-07-09, commit `ac527e9`)**
 - ~~narrative grouping and grounding~~ **DONE (2026-07-09, commit `6f811a3`)**
-- stats identity specificity
+- ~~stats identity specificity~~ **DONE (2026-07-10, commit `e629d51`)**
 - ~~panel synthesis disagreement handling~~ **DONE (first set)**
-- prose richness under a fixed context budget
+- ~~prose richness under a fixed context budget~~ **DONE (2026-07-10, commit `e629d51`)**
 
 Rubrics:
 
@@ -542,15 +557,14 @@ Success:
    (commit `c854d06`, prompt `s11`, mig 143).
    Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + FOUR task sets DONE: the
    `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives` + `transfer`,
-   `--task`/`--fixtures`/`--capture`, a synthetic panel-disagreement fixture set scoring the s11
+   `--task`/`--fixtures`/`--capture`/`--capture-ledger`, a synthetic panel-disagreement fixture set scoring the s11
    CONVERGENCE/DISAGREEMENT/WHY_NOW outputs, and a narrative grounding set (commit `6f811a3`) whose
    contamination fixture MEASURED mistral's over-suppression under noise, plus a transfer FP/TP
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
    Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
-   specs backed by `build_pair_request`.
-   Next highest-leverage: add ledger-sourced fixture capture, finish the remaining Phase 3 eval
-   sets (stats identity, prose-richness — additive on the seam), and run measured transfer candidate
-   A/Bs for a real role-split call.
+   specs backed by `build_pair_request`. The stats/prose set and ledger-sourced fixture capture
+   landed in commit `e629d51`. Next highest-leverage: enrich excluded-evidence detail and run
+   measured transfer candidate A/Bs for a real role-split call.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
    the fixture set gives green regression floors, and the live pair seam now supplies candidate
    comparison units.

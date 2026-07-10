@@ -292,9 +292,10 @@ Success:
 
 ### Phase 3 - Create Stage-Specific Evals
 
-**SEAM + THREE LENSES DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
+**SEAM + FOUR TASK SETS DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
 (`EVAL_ROLE`) and read the LIVE corpus — not reproducible once the corpus moved. Both moves landed
-for three lenses (vibe + sigil + narratives); the remaining eval sets are additive on the proven seam.
+for vibe, sigil, narratives, and transfer fixtures; the remaining eval sets are additive on the
+proven seam.
 
 1. **Per-lens task registry — DONE.** New lib module `rust/src/eval_tasks.rs`: a
    `#[async_trait] LensTask` (name/role/prompt_version/gen_options/build_prompt/evaluate) +
@@ -338,10 +339,24 @@ for three lenses (vibe + sigil + narratives); the remaining eval sets are additi
    targets a prompt/model fix flips green. Evidence over taste: the narrative lens's over-suppression
    under noise is now MEASURED, not hoped for.
 
+4. **Transfer FP/TP adjudication set — DONE (2026-07-09, commit `ac527e9`).** `TransferTask`
+   joins the registry as the transfer lens's frozen-prompt adjudication half. Because the live
+   production unit is a team-player NEWS PAIR (candidate + pair corpus through `build_pair_request`),
+   not an `EntitySpec`, this shipped fixture-first: DB-free frozen `system` + `user_prompt` cases
+   scored through the production `TransferParser`, with live `--capture`/A-B pair mode deferred.
+   New `Expect` rubric: `transfer_is_rumor`, `transfer_direction`, `transfer_stage`,
+   `subject_includes/excludes`, `summary_includes/excludes`, and `confidence_min/max`. Four
+   synthetic honesty-target fixtures are checked in: advanced-talks true positive, former-player
+   return true positive, same-name owner false positive, and roundup/name-drop false positive.
+   Probe on `mistral:7b` at temp 0: **26/26 green checks**. Important rubric finding: model
+   `confidence` and `summary` on `is_rumor=false` are not served-row risk surfaces because
+   `row_from_verdict` clears the persisted rumor fields for false verdicts; the false-positive
+   fixtures therefore guard the real risk — clearing the pair and identifying the subject.
+
 Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
 change):
 
-- transfer false positives and true positives
+- ~~transfer false positives and true positives~~ **DONE (2026-07-09, commit `ac527e9`)**
 - ~~narrative grouping and grounding~~ **DONE (2026-07-09, commit `6f811a3`)**
 - stats identity specificity
 - ~~panel synthesis disagreement handling~~ **DONE (first set)**
@@ -509,18 +524,18 @@ Success:
    (commit `75ca616`, prompt `s10`). Phase 5.3 (convergence/disagreement/"why now" as additive
    nullable `sigil_synthesis` columns + the reply-format extension + Go serve surfacing) — DONE
    (commit `c854d06`, prompt `s11`, mig 143).
-   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + THREE lens sets DONE: the
-   `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives`,
+   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + FOUR task sets DONE: the
+   `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives` + `transfer`,
    `--task`/`--fixtures`/`--capture`, a synthetic panel-disagreement fixture set scoring the s11
    CONVERGENCE/DISAGREEMENT/WHY_NOW outputs, and a narrative grounding set (commit `6f811a3`) whose
-   contamination fixture MEASURED mistral's over-suppression under noise. Next highest-leverage: the
-   remaining Phase 3 eval sets (transfer FP/TP, stats identity, prose-richness — additive on the
-   seam), or Phase 2 (the lens ledger, where the deferred output-contract version belongs and which
-   would SOURCE future fixtures the way `--capture` does by hand today). Note the transfer set has a
-   seam wrinkle the entity-keyed sets do not: transfer's live unit is a NEWS PAIR, not an
-   `EntitySpec`, so it ships fixture-first (frozen system+prompt, DB-free — like the sets already
-   shipped) with the live `--capture`/AB pair path as a documented follow-up.
-7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
+   contamination fixture MEASURED mistral's over-suppression under noise, plus a transfer FP/TP
+   fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
+   Next highest-leverage: the remaining Phase 3 eval sets (stats identity, prose-richness —
+   additive on the seam), the transfer live pair `--capture`/A-B path (needed before a real
+   role-split call), or Phase 2 (the lens ledger, where the deferred output-contract version belongs
+   and which would SOURCE future fixtures the way `--capture` does by hand today).
+7. Decide whether `TransferLogic` deserves its own role after transfer has a live pair A/B path; the
+   first fixture set gives green regression floors but no candidate comparison yet.
 
 ## Risks
 

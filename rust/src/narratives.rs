@@ -139,6 +139,18 @@ pub struct CorpusItem {
     pub fetched_at_epoch: Option<i64>,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct CorpusExclusions {
+    budget_truncated_news_ids: Vec<i64>,
+    stale_news_ids: Vec<i64>,
+}
+
+#[derive(Clone, Debug)]
+struct DedupedCorpus {
+    corpus: Vec<CorpusItem>,
+    dropped_news_ids: Vec<i64>,
+}
+
 /// Narrative is one grounded storyline — title + body from the model, plus the DETERMINISTIC impact
 /// (computed from its cited articles, never the model) and the article ids it cited. Mirrors `Narrative`.
 #[derive(Clone, Debug)]
@@ -278,6 +290,72 @@ pub async fn load_vetted_corpus(
         .collect())
 }
 
+async fn load_vetted_corpus_exclusions(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<CorpusExclusions> {
+    let rows: Vec<(String, Vec<i64>)> = sqlx::query_as(
+        r#"
+        WITH base AS (
+            SELECT a.id,
+                   a.published_at,
+                   a.topic_heat,
+                   a.fetched_at
+            FROM news_article_entities nae
+            JOIN news_articles a ON a.id = nae.article_id
+            WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
+              AND nae.vetted IS TRUE
+              AND a.bucket IS DISTINCT FROM 'transfer'
+        ),
+        fresh AS (
+            SELECT id,
+                   row_number() OVER (
+                       ORDER BY a.topic_heat DESC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC
+                   ) AS rn
+            FROM base a
+            WHERE a.published_at IS NULL OR a.published_at > NOW() - make_interval(secs => $4)
+        ),
+        marked AS (
+            SELECT id,
+                   CASE
+                     WHEN published_at IS NOT NULL
+                      AND published_at <= NOW() - make_interval(secs => $4)
+                       THEN 'stale_news'
+                   END AS reason
+            FROM base
+            UNION ALL
+            SELECT id, 'budget_truncated' AS reason
+            FROM fresh
+            WHERE rn > $5
+        )
+        SELECT reason, array_agg(id ORDER BY id) AS ids
+        FROM marked
+        WHERE reason IS NOT NULL
+        GROUP BY reason
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(NEWS_LOOKBACK_SECS)
+    .bind(MAX_NARRATIVE_CORPUS)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load vetted corpus exclusions {entity_type}/{entity_id}"))?;
+
+    let mut out = CorpusExclusions::default();
+    for (reason, ids) in rows {
+        match reason.as_str() {
+            "budget_truncated" => out.budget_truncated_news_ids = ids,
+            "stale_news" => out.stale_news_ids = ids,
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
 // ---------------------------------------------------------------------------
 // Embed+cluster dedup — the candle VALUE-ADD (Plan §1.4). Identity when no embedder (parity bins).
 // ---------------------------------------------------------------------------
@@ -301,15 +379,26 @@ fn embed_text(c: &CorpusItem) -> String {
 /// so this is the IDENTITY and the assembled prompt is byte-identical to Go — the deterministic axes
 /// diff equal (Plan §3 gate). Where it DOES change the input set (live), that is documented value-add,
 /// never a parity break.
-async fn dedup_corpus(hx: &Harness, corpus: Vec<CorpusItem>) -> Result<Vec<CorpusItem>> {
+async fn dedup_corpus(hx: &Harness, corpus: Vec<CorpusItem>) -> Result<DedupedCorpus> {
     if hx.embedder.is_none() || corpus.len() < 2 || DEDUP_THRESHOLD <= 0.0 {
-        return Ok(corpus);
+        return Ok(DedupedCorpus {
+            corpus,
+            dropped_news_ids: Vec::new(),
+        });
     }
     let texts: Vec<String> = corpus.iter().map(embed_text).collect();
     let vectors = hx.embed(&texts).await.context("embed narrative corpus")?;
     let clusters = cluster(&vectors, DEDUP_THRESHOLD);
     let keep: Vec<usize> = clusters.iter().map(|c| c.members[0]).collect();
-    Ok(keep.into_iter().map(|i| corpus[i].clone()).collect())
+    let dropped_news_ids = clusters
+        .iter()
+        .flat_map(|c| c.members.iter().skip(1))
+        .map(|i| corpus[*i].id)
+        .collect();
+    Ok(DedupedCorpus {
+        corpus: keep.into_iter().map(|i| corpus[i].clone()).collect(),
+        dropped_news_ids,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -582,7 +671,7 @@ fn source_metadata(news: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Optio
 /// NarrativesBuild is the deterministic prefix of a generation. `NoCorpus` ⇒ no vetted news this
 /// cycle → a NULL-narrative marker (no model call), mirroring Go's early return.
 pub enum NarrativesBuild {
-    NoCorpus,
+    NoCorpus { corpus_exclusions: CorpusExclusions },
     Ready(Box<NarrativesReady>),
 }
 
@@ -594,6 +683,8 @@ pub struct NarrativesReady {
     pub corpus: Vec<CorpusItem>,
     /// Corpus size BEFORE dedup (inspection: how many near-duplicates the candle pass dropped).
     pub original_corpus_size: usize,
+    pub corpus_exclusions: CorpusExclusions,
+    pub dedup_dropped_news_ids: Vec<i64>,
     pub opts: GenerateOptions,
     pub built_prompt: String,
     pub request_body: serde_json::Value,
@@ -617,8 +708,9 @@ pub async fn build_narratives_request(
     // must NEVER block the narrative (the corpus is the primary signal)" survives; a corpus error
     // still aborts the join. Note: heat now runs on the no-corpus path too (the early return moved
     // below the join) — no output change, just an extra read on that branch.
-    let (corpus, heat) = tokio::try_join!(
+    let (corpus, corpus_exclusions, heat) = tokio::try_join!(
         load_vetted_corpus(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
+        load_vetted_corpus_exclusions(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
         async {
             Ok::<Vec<HeatItem>, anyhow::Error>(
                 match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await
@@ -641,10 +733,11 @@ pub async fn build_narratives_request(
 
     // No corpus → the NULL-narrative marker path (no model call).
     if corpus.is_empty() {
-        return Ok(NarrativesBuild::NoCorpus);
+        return Ok(NarrativesBuild::NoCorpus { corpus_exclusions });
     }
     let original_corpus_size = corpus.len();
-    let corpus = dedup_corpus(hx, corpus).await?;
+    let deduped = dedup_corpus(hx, corpus).await?;
+    let corpus = deduped.corpus;
 
     let built_prompt = build_narratives_prompt(req, &corpus, &heat);
     let opts = GenerateOptions {
@@ -660,6 +753,8 @@ pub async fn build_narratives_request(
     Ok(NarrativesBuild::Ready(Box::new(NarrativesReady {
         corpus,
         original_corpus_size,
+        corpus_exclusions,
+        dedup_dropped_news_ids: deduped.dropped_news_ids,
         opts,
         built_prompt,
         request_body,
@@ -684,6 +779,9 @@ pub struct NarrativesOutput {
     /// Inspection: corpus size before/after the candle dedup.
     pub original_corpus_size: usize,
     pub deduped_corpus_size: usize,
+    pub dedup_dropped_news_ids: Vec<i64>,
+    pub budget_truncated_news_ids: Vec<i64>,
+    pub stale_news_ids: Vec<i64>,
 }
 
 impl NarrativesOutput {
@@ -716,7 +814,7 @@ pub async fn generate_narratives(
     now_epoch: i64,
 ) -> Result<NarrativesOutput> {
     let ready = match build_narratives_request(hx, req, temperature).await? {
-        NarrativesBuild::NoCorpus => {
+        NarrativesBuild::NoCorpus { corpus_exclusions } => {
             // The NULL-narrative marker. Go sets Model = a.ollama.Model() even here.
             let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
             return Ok(NarrativesOutput {
@@ -728,6 +826,9 @@ pub async fn generate_narratives(
                 eval_count: None,
                 original_corpus_size: 0,
                 deduped_corpus_size: 0,
+                dedup_dropped_news_ids: Vec::new(),
+                budget_truncated_news_ids: corpus_exclusions.budget_truncated_news_ids,
+                stale_news_ids: corpus_exclusions.stale_news_ids,
             });
         }
         NarrativesBuild::Ready(r) => *r,
@@ -758,6 +859,9 @@ pub async fn generate_narratives(
         eval_count: Some(extracted.eval_count),
         original_corpus_size: ready.original_corpus_size,
         deduped_corpus_size: ready.corpus.len(),
+        dedup_dropped_news_ids: ready.dedup_dropped_news_ids,
+        budget_truncated_news_ids: ready.corpus_exclusions.budget_truncated_news_ids,
+        stale_news_ids: ready.corpus_exclusions.stale_news_ids,
     })
 }
 
@@ -784,19 +888,34 @@ fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
 }
 
 fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
-    let dropped = out
-        .original_corpus_size
-        .saturating_sub(out.deduped_corpus_size);
-    if dropped == 0 {
-        json!([])
-    } else {
-        json!([{
+    let mut excluded = Vec::new();
+    let dropped = out.dedup_dropped_news_ids.len();
+    if dropped > 0 {
+        excluded.push(json!({
             "reason": "dedup_near_duplicate",
             "dropped_count": dropped,
+            "dropped_news_ids": &out.dedup_dropped_news_ids,
             "original_corpus_size": out.original_corpus_size,
             "deduped_corpus_size": out.deduped_corpus_size,
-        }])
+        }));
     }
+    if !out.budget_truncated_news_ids.is_empty() {
+        excluded.push(json!({
+            "reason": "budget_truncated",
+            "dropped_count": out.budget_truncated_news_ids.len(),
+            "dropped_news_ids": &out.budget_truncated_news_ids,
+            "limit": MAX_NARRATIVE_CORPUS,
+        }));
+    }
+    if !out.stale_news_ids.is_empty() {
+        excluded.push(json!({
+            "reason": "stale_news",
+            "dropped_count": out.stale_news_ids.len(),
+            "dropped_news_ids": &out.stale_news_ids,
+            "lookback_seconds": NEWS_LOOKBACK_SECS,
+        }));
+    }
+    json!(excluded)
 }
 
 fn narratives_parser_outcome(out: &NarrativesOutput) -> &'static str {

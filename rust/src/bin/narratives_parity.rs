@@ -101,7 +101,7 @@ async fn run_entity(hx: &Harness, s: &EntitySpec, vet: bool) -> Result<bool> {
     };
 
     let ready = match build_narratives_request(hx, &req, PARITY_TEMPERATURE).await? {
-        NarrativesBuild::NoCorpus => return Ok(false),
+        NarrativesBuild::NoCorpus { .. } => return Ok(false),
         NarrativesBuild::Ready(r) => *r,
     };
     let vetted = if vet {

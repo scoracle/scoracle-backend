@@ -121,6 +121,7 @@ pub struct TransferCandidate {
 /// title/description/source; the SQL orders by published_at — not needed in Rust).
 #[derive(Clone, Debug)]
 pub struct NewsItem {
+    pub id: i64,
     pub title: String,
     pub description: String,
     pub source: String,
@@ -348,7 +349,12 @@ pub struct TransferPairOutput {
     pub model: String,
     pub heat: Option<i16>,
     pub components: String, // heat_components jsonb text
+    /// All pair corpus ids returned by compute_transfer_heat before prompt capping.
     pub news_ids: Vec<i64>,
+    /// The subset of pair news ids actually rendered into the transfer prompt.
+    pub prompted_news_ids: Vec<i64>,
+    /// Pair corpus rows excluded by compute_transfer_heat's 14-day freshness boundary.
+    pub stale_news_ids: Vec<i64>,
     pub outcome: Outcome,
     /// `None` ⇒ Skipped (no corpus → no row); `Some` for Rumor/Cleared/Unknown.
     pub row: Option<TransferRow>,
@@ -487,11 +493,45 @@ pub async fn load_pair_news(pool: &PgPool, ids: &[i64]) -> Result<Vec<NewsItem>>
     Ok(rows
         .iter()
         .map(|r| NewsItem {
+            id: r.get("id"),
             title: r.get("title"),
             description: r.get("description"),
             source: r.get("source"),
         })
         .collect())
+}
+
+async fn load_stale_pair_news_ids(
+    pool: &PgPool,
+    team_id: i32,
+    player_id: i32,
+    sport: &str,
+) -> Result<Vec<i64>> {
+    let ids = sqlx::query_scalar(
+        r#"
+        SELECT DISTINCT a.id
+        FROM news_articles a
+        JOIN news_article_entities te ON te.article_id = a.id AND te.entity_type = 'team'
+             AND te.entity_id = $1 AND te.sport = $3
+        JOIN news_article_entities pe ON pe.article_id = a.id AND pe.entity_type = 'player'
+             AND pe.entity_id = $2 AND pe.sport = $3
+        WHERE a.bucket IS DISTINCT FROM 'non_transfer'
+          AND a.published_at <= NOW() - INTERVAL '14 days'
+          AND te.vetted IS TRUE
+          AND pe.vetted IS TRUE
+          AND (te.title_pos IS NULL OR pe.title_pos IS NULL
+               OR abs(te.title_pos - pe.title_pos) <= $4)
+        ORDER BY a.id
+        "#,
+    )
+    .bind(team_id)
+    .bind(player_id)
+    .bind(sport)
+    .bind(COMENTION_PROXIMITY_CHARS)
+    .fetch_all(pool)
+    .await
+    .context("load stale pair news ids")?;
+    Ok(ids)
 }
 
 /// team_relationship classifies the player's deterministic relationship to the team:
@@ -800,6 +840,8 @@ pub struct PairReady {
     pub heat: i16,
     pub components: String,
     pub news_ids: Vec<i64>,
+    pub prompted_news_ids: Vec<i64>,
+    pub stale_news_ids: Vec<i64>,
     pub news: Vec<NewsItem>,
     pub relationship: String,
     pub attribution: String,
@@ -833,7 +875,11 @@ pub async fn build_pair_request(
         });
     };
 
-    let news = load_pair_news(&hx.pool, &news_ids).await?;
+    let (news, stale_news_ids) = tokio::try_join!(
+        load_pair_news(&hx.pool, &news_ids),
+        load_stale_pair_news_ids(&hx.pool, team_id, c.player_id, sport),
+    )?;
+    let prompted_news_ids = news.iter().map(|n| n.id).collect();
     // Grounding: credibility attribution comes from the CORPUS, not the model.
     let (attribution, best_weight) = best_source(&news, tiers);
     // Direction + the noise filter key off the deterministic relationship, not the model's text.
@@ -854,6 +900,8 @@ pub async fn build_pair_request(
         heat,
         components,
         news_ids,
+        prompted_news_ids,
+        stale_news_ids,
         news,
         relationship,
         attribution,
@@ -894,6 +942,8 @@ pub async fn analyze_pair(
                     heat: None,
                     components,
                     news_ids,
+                    prompted_news_ids: Vec::new(),
+                    stale_news_ids: Vec::new(),
                     outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
                     row: None,
                     built_prompt: None,
@@ -966,6 +1016,8 @@ pub async fn analyze_pair(
         heat: Some(ready.heat),
         components: ready.components,
         news_ids: ready.news_ids,
+        prompted_news_ids: ready.prompted_news_ids,
+        stale_news_ids: ready.stale_news_ids,
         outcome,
         row: Some(row),
         built_prompt,
@@ -996,6 +1048,7 @@ fn transfer_parser_outcome(outcome: Outcome) -> &'static str {
 fn transfer_included_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
     serde_json::json!({
         "input_news_ids": &out.news_ids,
+        "prompted_news_ids": &out.prompted_news_ids,
         "heat": out.heat,
         "heat_components": transfer_components_json(&out.components),
         "identity_apply_news_count": out.identity_apply_news.len(),
@@ -1008,17 +1061,45 @@ fn transfer_included_evidence(out: &TransferPairOutput, row: &TransferRow) -> se
 }
 
 fn transfer_excluded_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
+    let mut excluded = Vec::new();
     match out.outcome {
-        Outcome::Cleared => serde_json::json!([{
+        Outcome::Cleared => excluded.push(serde_json::json!({
             "reason": "model_cleared_pair",
             "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
-        }]),
-        Outcome::Unknown => serde_json::json!([{
+        })),
+        Outcome::Unknown => excluded.push(serde_json::json!({
             "reason": "model_unknown_or_generate_failure",
             "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
-        }]),
-        _ => serde_json::json!([]),
+        })),
+        _ => {}
     }
+    if out.news_ids.len() > out.prompted_news_ids.len() {
+        let prompted: std::collections::HashSet<i64> =
+            out.prompted_news_ids.iter().copied().collect();
+        let dropped_news_ids: Vec<i64> = out
+            .news_ids
+            .iter()
+            .copied()
+            .filter(|id| !prompted.contains(id))
+            .collect();
+        if !dropped_news_ids.is_empty() {
+            excluded.push(serde_json::json!({
+                "reason": "budget_truncated",
+                "dropped_count": dropped_news_ids.len(),
+                "dropped_news_ids": dropped_news_ids,
+                "limit": TRANSFER_MAX_CORPUS_NEWS,
+            }));
+        }
+    }
+    if !out.stale_news_ids.is_empty() {
+        excluded.push(serde_json::json!({
+            "reason": "stale_news",
+            "dropped_count": out.stale_news_ids.len(),
+            "dropped_news_ids": &out.stale_news_ids,
+            "lookback_days": 14,
+        }));
+    }
+    serde_json::json!(excluded)
 }
 
 /// persist_transfer_row writes ONE row to the LIVE transfer_rumors table — the scored rumor, the
@@ -1725,6 +1806,7 @@ mod tests {
     fn prompt_current_with_full_identity_and_news() {
         let c = cand("Bukayo Saka", "English", "Arsenal", "winger");
         let news = vec![NewsItem {
+            id: 1,
             title: "Saka linked with move".to_string(),
             description: "Reports suggest interest.".to_string(),
             source: "BBC".to_string(),
@@ -1762,6 +1844,7 @@ Roster status: John Doe is a FORMER Chelsea player who has SINCE LEFT. A 'former
         // relationship "none" (default arm) + a headline with no source (no "[src] " prefix).
         let c = cand("Victor Wembanyama", "French", "Spurs", "center");
         let news = vec![NewsItem {
+            id: 1,
             title: "Trade buzz".to_string(),
             description: String::new(),
             source: String::new(),
@@ -1848,11 +1931,13 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
     #[test]
     fn has_return_signal_detects_return_language() {
         let yes = vec![NewsItem {
+            id: 1,
             title: "Star set to rejoin former club".to_string(),
             description: String::new(),
             source: "X".to_string(),
         }];
         let no = vec![NewsItem {
+            id: 2,
             title: "Former player scores against old side".to_string(),
             description: "A routine match report.".to_string(),
             source: "X".to_string(),
@@ -1997,6 +2082,7 @@ Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL 
             42,
             "New FC",
             &[NewsItem {
+                id: 1,
                 title: "New FC announce Example Player".to_string(),
                 description: "The club confirmed the transfer.".to_string(),
                 source: "BBC".to_string(),

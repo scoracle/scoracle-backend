@@ -297,8 +297,11 @@ What landed:
 
 Remaining Phase 2 hardening:
 
-- make excluded evidence richer where the pipeline has the detail (e.g. exact dedup-dropped article
-  ids, budget-truncated rows, stale rows).
+- **DONE (2026-07-10).** Excluded evidence is now richer where the pipeline has exact detail:
+  narratives ledger rows record dedup-dropped article ids, budget-truncated article ids, and stale
+  article ids; transfer ledger rows distinguish full heat corpus ids from prompt-rendered ids and
+  record prompt-budget truncation plus stale pair rows; rating ledger rows record fixed-budget
+  stat-fact labels dropped from the top-14 prompt.
 
 Success:
 
@@ -434,6 +437,18 @@ Success:
 
 - Transfer adjudication can improve independently from narrative prose.
 
+Measurement note (2026-07-10): three local challengers were installed and measured for
+`Role::EmotionalNews` transfer adjudication. `qwen2.5:7b` (4.7 GB) parsed cleanly but missed the live
+Hachimura/Clippers here-we-go case by setting `is_rumor=false`, and effectively scored 25/26 on frozen
+fixtures after failing the roundup/name-drop false-positive guard. `qwen3:8b` (5.2 GB) repeated the
+same live Hachimura false negative and was worse on fixtures, failing the advanced-talks true
+positive and over-downgrading the former-player return case. `gemma3:4b` (3.3 GB) is the best
+fit-on-card challenger so far: it passed both live NBA positives and ran at comparable warm-call
+throughput, but it still failed the fixture floor by over-staging one concrete-interest case and
+turning both noise guards into false positives. Mistral remains 26/26 on frozen transfer fixtures,
+so this does not justify adding/adopting `TransferLogic`; the route split remains deferred until a
+challenger beats Mistral on false-positive discipline.
+
 ### Phase 5 - Evolve Sigil Into Panel Synthesis
 
 Sigil is now a five-pillar synthesis (narratives, PEAK, vibe, momentum, transfer heat — prompt
@@ -563,11 +578,11 @@ Success:
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
    Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
    specs backed by `build_pair_request`. The stats/prose set and ledger-sourced fixture capture
-   landed in commit `e629d51`. Next highest-leverage: enrich excluded-evidence detail and run
-   measured transfer candidate A/Bs for a real role-split call.
+   landed in commit `e629d51`. Local challenger runs (`qwen2.5:7b`, `qwen3:8b`, `gemma3:4b`) are
+   measured; none beats Mistral on the frozen false-positive floor, so do not split/adopt yet.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
-   the fixture set gives green regression floors, and the live pair seam now supplies candidate
-   comparison units.
+   current status (2026-07-10): deferred after Qwen/Gemma A/Bs. The fixture set gives green
+   regression floors, and the live pair seam now supplies candidate comparison units.
 
 ## Risks
 

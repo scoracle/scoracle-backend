@@ -199,6 +199,11 @@ impl PeakTrajectory {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct RatingExclusions {
+    pub budget_truncated_stat_labels: Vec<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Loader — the SQL `rating.go::loadRatingProfile` runs (same query ⇒ same row).
 // ---------------------------------------------------------------------------
@@ -397,6 +402,20 @@ fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
     });
     facts.truncate(MAX_STAT_FACTS);
     facts
+}
+
+fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
+    let mut facts = breakdown.to_vec();
+    facts.sort_by(|a, b| {
+        b.pct
+            .partial_cmp(&a.pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    facts
+        .into_iter()
+        .skip(MAX_STAT_FACTS)
+        .map(|d| d.label)
+        .collect()
 }
 
 /// collect_rate_standouts surfaces, per rate mode, the elite (pct ≥ 80) per-x datapoints — the lens
@@ -875,6 +894,7 @@ pub struct RatingReady {
     pub peak_trajectory: PeakTrajectory,
     pub input_components: String, // the canonical JSON (also the hash pre-image)
     pub input_hash: String,
+    pub exclusions: RatingExclusions,
     pub opts: GenerateOptions,
     pub built_prompt: String,
     pub request_body: serde_json::Value,
@@ -912,6 +932,9 @@ pub async fn build_rating_request(
 
     let input_components = input_components(&profile);
     let input_hash = hash_components(&input_components);
+    let exclusions = RatingExclusions {
+        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
+    };
     let (notability, notability_components) = compute_notability(&profile);
     let peak_trajectory = load_peak_trajectory(
         &hx.pool,
@@ -939,6 +962,7 @@ pub async fn build_rating_request(
         peak_trajectory,
         input_components,
         input_hash,
+        exclusions,
         opts,
         built_prompt,
         request_body,
@@ -962,6 +986,7 @@ pub struct RatingOutput {
     pub peak_trajectory_components: serde_json::Value,
     pub input_components: String, // "{}" for a marker
     pub input_hash: Option<String>,
+    pub exclusions: RatingExclusions,
     pub model: Option<String>, // the configured model (set even for the no-stats marker — Go parity)
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
@@ -1015,6 +1040,7 @@ pub async fn generate_rating(
                 peak_trajectory_components: serde_json::json!({}),
                 input_components: "{}".to_string(),
                 input_hash: None,
+                exclusions: RatingExclusions::default(),
                 model: Some(model),
                 built_prompt: None,
                 request_body: None,
@@ -1049,6 +1075,7 @@ pub async fn generate_rating(
                     peak_trajectory_components: ready.peak_trajectory.components.clone(),
                     input_components: ready.input_components,
                     input_hash: Some(ready.input_hash),
+                    exclusions: ready.exclusions,
                     model: Some(ready.model_configured),
                     built_prompt: None,
                     request_body: None,
@@ -1092,6 +1119,7 @@ pub async fn generate_rating(
         peak_trajectory_components: ready.peak_trajectory.components,
         input_components: ready.input_components,
         input_hash: Some(ready.input_hash),
+        exclusions: ready.exclusions,
         model: Some(extracted.model),
         built_prompt: Some(extracted.built_prompt),
         request_body: Some(extracted.request_body),
@@ -1232,13 +1260,26 @@ fn rating_included_evidence(out: &RatingOutput) -> serde_json::Value {
 }
 
 fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
+    let mut excluded = Vec::new();
     if out.skipped_no_stats {
-        serde_json::json!([{
+        excluded.push(serde_json::json!({
             "reason": "no_usable_rating_profile",
-        }])
-    } else {
-        serde_json::json!([])
+        }));
     }
+    if out.skipped_unchanged {
+        excluded.push(serde_json::json!({
+            "reason": "input_hash_unchanged",
+        }));
+    }
+    if !out.exclusions.budget_truncated_stat_labels.is_empty() {
+        excluded.push(serde_json::json!({
+            "reason": "budget_truncated_stat_facts",
+            "dropped_count": out.exclusions.budget_truncated_stat_labels.len(),
+            "dropped_stat_labels": &out.exclusions.budget_truncated_stat_labels,
+            "limit": MAX_STAT_FACTS,
+        }));
+    }
+    serde_json::json!(excluded)
 }
 
 fn rating_parser_outcome(out: &RatingOutput) -> &'static str {

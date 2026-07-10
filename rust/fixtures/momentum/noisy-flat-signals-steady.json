@@ -1,16 +1,17 @@
 {
-  "name": "rating-surge-vibe-flat",
+  "name": "noisy-flat-signals-steady",
   "task": "momentum",
   "prompt_version": "momentum-eval-v3",
-  "note": "Clear stats-led rise. PEAK/rating is strongly positive and Vibe is not fighting it.",
+  "note": "Both rails are noisy and near flat; the answer should not overfit a mild positive score.",
   "system": "Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.\n\nOperator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.\n\nVoice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.\n\nDefinitions:\n- PEAK trajectory = recent movement in statistical performance / rating signal.\n- Vibe trajectory = recent movement in narrative sentiment.\n- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.\n\nOutput exactly:\nMOMENTUM: <rising|falling|steady>\nSCORE: <integer -5 to 5>\nREAD: <one concise paragraph>\n\nRules:\n- Pick rising only when the supplied trajectory is clearly positive overall.\n- Pick falling only when the supplied trajectory is clearly negative overall.\n- Pick steady when the signals are flat, sparse, or meaningfully split.\n- Do not chase sentiment hype when PEAK/rating does not confirm it.\n- Do not cling to a strong PEAK label when current trajectory is deteriorating.\n- When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.\n- Do not invent games, rankings, injuries, trades, or stats not in the prompt.",
-  "user_prompt": "Entity: Harbor City FC (FOOTBALL team)\n\n=== PEAK TRAJECTORY ===\nPEAK label: High press recoveries\nNotability: 88/100\nPEAK trajectory: Composite and PEAK z-scores trending up over recent games\n\n=== VIBE TRAJECTORY ===\nSentiment: 63/100\nVibe prompt: Coverage is mostly calm; the tactical press is getting more praise after a run of wins.\n\n=== MOMENTUM SNAPSHOT ===\nMomentum score: 3.1\nPEAK/rating slope: 1.4 over 7 samples\nVibe slope: 0.2 over 4 samples\n\nWrite the Momentum read now.",
+  "user_prompt": "Entity: Ethan Cross (NFL player)\n\n=== PEAK TRAJECTORY ===\nPEAK label: Third-down separation\nNotability: 79/100\nPEAK trajectory: Recent rating marks are choppy with no clear sustained move.\n\n=== VIBE TRAJECTORY ===\nSentiment: 55/100\nVibe prompt: Beat coverage is balanced: one strong practice week, one quiet game, and no larger storyline.\n\n=== MOMENTUM SNAPSHOT ===\nMomentum score: 0.6\nPEAK/rating slope: 0.2 over 5 samples\nVibe slope: -0.1 over 4 samples\n\nWrite the Momentum read now.",
   "temperature": 0.0,
   "expect": {
-    "momentum_direction": "rising",
-    "momentum_score_min": 2,
+    "momentum_direction": "steady",
+    "momentum_score_min": -1,
+    "momentum_score_max": 1,
     "prose_includes": [
-      "PEAK"
+      "steady"
     ],
     "prose_excludes": [
       "falling"

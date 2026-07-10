@@ -120,10 +120,12 @@ failed past retry cap -> dead-letter for human repair
 | `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat, with shared source freshness and trajectory markers; fail closed on uncertain validity. |
 | `narratives` | `src/narratives.rs` | vetted/link clusters + transfer heat | `news_summaries` | Storyline grouping, source freshness, and trajectory markers. |
 | `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
+| `momentum` | `src/momentum.rs` | PEAK, Vibe, deterministic momentum snapshot | `momentum_summaries` | Generated trajectory direction/score/blurb; keeps `momentum_scores` as numeric backbone. |
 | `sigil` | `src/sigil.rs` | Stats, narrative, transfer, momentum, previous Sigil | `sigil_synthesis` | Panel convergence; event-driven and debounced by `input_hash`. |
 | `peak` | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; need-based `pipeline_work` stage for current season. |
 
-Momentum is not a queue stage. It is a served product assembled from Rating/PEAK and Vibe trajectories.
+Momentum's generated card is a queue stage. Its deterministic `/momentum` numeric backbone remains
+`momentum_scores` / `latest_momentum_scores_per_entity`.
 
 ## Rail / Lens / Stage / Role Map
 
@@ -142,7 +144,7 @@ Current mapping:
 | Rail | Lens | Stage or batch | Route role | Product / ledger surface |
 |---|---|---|---|---|
 | Stats/analytical | Rating / PEAK | rating batch | `StatsLogic` | `stat_summaries`, rating ledger rows, rating fixtures |
-| Stats/analytical | Momentum | read model plus eval fixtures | `StatsLogic` for eval only | `latest_momentum_scores_per_entity`, `/momentum`, momentum fixtures |
+| Stats/analytical | Momentum | `momentum` | `StatsLogic` | `momentum_summaries`, `latest_momentum_scores_per_entity`, `/momentum`, momentum fixtures |
 | Emotional/news | Narratives | `narratives` | `EmotionalNews` | `news_summaries`, narrative ledger rows, narrative fixtures |
 | Emotional/news | Transfers | `transfers` | `EmotionalNews` | `transfer_rumors`, transfer ledger rows, transfer fixtures |
 | Emotional/news | Vibe | `vibe` | `EmotionalNews` | `vibe_scores`, vibe ledger rows, vibe fixtures |
@@ -151,9 +153,10 @@ Current mapping:
 `scrub` is upstream evidence gating, not a lens. Transfer still routes through
 `Role::EmotionalNews`; the measured local bakeoff kept `mistral:7b` as the transfer baseline, so a
 separate `TransferLogic` role remains deferred until fixtures and live pair captures justify it.
-Momentum is deterministic in production today; the `momentum` eval task exists to test analytical
-model candidates before introducing a versioned Momentum generation or dedicated route. Sigil stays
-on `StatsLogic` until synthesis fixtures justify a `SynthesisLogic` split.
+Momentum has a generated production card on the incumbent `StatsLogic` route. The `momentum` eval
+task remains the route gate for Qwen/Gemma-style analytical candidates; broaden fixtures and live
+captures before introducing a dedicated `MomentumLogic` split. Sigil stays on `StatsLogic` until
+synthesis fixtures justify a `SynthesisLogic` split.
 
 Current lens operating parameters:
 
@@ -163,7 +166,7 @@ Current lens operating parameters:
 | Transfers | transfer expert | Get movement predictions out quickly while preserving long-term credibility. | Fail closed on name-drops, stale links, weak sourcing, and misleading heat. |
 | Vibe | content creator | Read the current vibe so a creator can piggyback on the conversation. | Separate interactable mood from durable truth; do not invent a narrative hook. |
 | Rating / PEAK | opposing team scout | Name the greatest strength to stop and greatest weakness to exploit. | Use supplied tiers and datapoints only; never turn average marks into strengths. |
-| Momentum | form scout | Judge whether recent PEAK/rating and Vibe trajectories say the entity is rising, falling, or steady. | Keep split or sparse signals near steady; direction is not overall quality. |
+| Momentum | nimble trader | Read PEAK/rating trajectory as price action and Vibe/news as investor sentiment, then decide whether momentum is rising, falling, or a hold. | Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength. |
 | Sigil synthesis | reasoned expert network panelist | Summarize all pillars into the final Scoracle read. | Preserve real disagreement between pillars instead of flattening it. |
 
 ## Repository Layout

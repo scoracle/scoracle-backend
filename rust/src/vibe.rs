@@ -3,16 +3,15 @@
 //! Rust implementation of the vibe stage. The Go source provided the original machinery spec:
 //!   - `go/internal/ml/vibe.go`         — Generate, prompt assembly, parsing, persist
 //!   - `go/internal/ml/transfer_heat.go` — the shared transfer-heat primitive
-//!   - `go/internal/derive/derive.go`    — drainVibe: queue Item → request, sigil hand-off
+//!   - `go/internal/derive/derive.go`    — drainVibe: queue Item → request, downstream hand-off
 //!
 //! The deterministic loaders, prompt assembly, parser, and persist path live here so prompt changes
 //! are versioned and inspectable.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
 //! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
-//! path returns "no data"; the debounce stops re-running it). A completed vibe enqueues
-//! its `sigil` convergence BEFORE the work row is completed, so a crash in between
-//! re-runs vibe (idempotent) rather than dropping the sigil.
+//! path returns "no data"; the debounce stops re-running it). A completed vibe now enqueues
+//! Momentum before the terminal Sigil convergence.
 
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
@@ -25,7 +24,7 @@ use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::{trajectory_label, DEFAULT_TRAJECTORY};
 use crate::util::{truncate, truncate_bytes};
-use crate::work::{self, Item, Stage};
+use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
@@ -46,9 +45,6 @@ pub const VIBE_NUM_PREDICT: i32 = 512;
 
 /// Body truncation in the prompt — mirrors `truncate(n.body, 280)` in vibe.go.
 const BODY_TRUNCATE: usize = 280;
-
-/// Minimum sentiment movement since the last Sigil synthesis before Vibe re-enqueues Sigil.
-const SIGIL_SENTIMENT_DELTA_THRESHOLD: i32 = 10;
 
 /// System prompt for the Vibe sentiment + felt-read contract.
 pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: produce a sentiment score and a short felt read from the supplied narratives and transfer/trade activity.
@@ -636,83 +632,10 @@ async fn persist_to_vibe_scores(
     Ok(row.get("id"))
 }
 
-async fn should_enqueue_sigil(
-    hx: &Harness,
-    item: &Item,
-    sport: &str,
-    out: &VibeOutput,
-) -> Result<bool> {
-    let entity_id = item.entity_id_i32()?;
-    let season = crate::sigil::resolve_season(&hx.pool, sport, None).await?;
-    let (no_sigil, prior_sentiment, new_narrative, new_transfer): (bool, Option<i32>, bool, bool) =
-        sqlx::query_as(
-            r#"
-        WITH last_sigil AS (
-            SELECT generated_at
-            FROM public.sigil_synthesis
-            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-            ORDER BY generated_at DESC
-            LIMIT 1
-        ),
-        prior_vibe AS (
-            SELECT vs.sentiment::int AS sentiment
-            FROM public.vibe_scores vs, last_sigil ls
-            WHERE vs.entity_type = $1 AND vs.entity_id = $2 AND vs.sport = $3
-              AND vs.sentiment IS NOT NULL
-              AND vs.generated_at <= ls.generated_at
-            ORDER BY vs.generated_at DESC
-            LIMIT 1
-        )
-        SELECT
-            NOT EXISTS (SELECT 1 FROM last_sigil) AS no_sigil,
-            (SELECT sentiment FROM prior_vibe) AS prior_sentiment,
-            EXISTS (
-                SELECT 1
-                FROM public.news_summaries ns, last_sigil ls
-                WHERE ns.entity_type = $1 AND ns.entity_id = $2 AND ns.sport = $3
-                  AND ns.body IS NOT NULL
-                  AND ns.generated_at > ls.generated_at
-            ) AS new_narrative,
-            EXISTS (
-                SELECT 1
-                FROM public.transfer_rumors tr, last_sigil ls
-                WHERE tr.sport = $3
-                  AND tr.is_rumor IS TRUE
-                  AND (($1 = 'team' AND tr.team_id = $2) OR ($1 = 'player' AND tr.player_id = $2))
-                  AND tr.generated_at > ls.generated_at
-            ) AS new_transfer
-        "#,
-        )
-        .bind(&item.entity_type)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(season)
-        .fetch_one(&hx.pool)
-        .await
-        .with_context(|| {
-            format!(
-                "sigil meaningful-change gate {}/{}",
-                item.entity_type, entity_id
-            )
-        })?;
-
-    if no_sigil {
-        return Ok(out.sentiment.is_some() || new_narrative || new_transfer);
-    }
-    if new_narrative || new_transfer {
-        return Ok(true);
-    }
-    match (out.sentiment, prior_sentiment) {
-        (Some(cur), Some(prev)) => Ok((cur - prev).abs() >= SIGIL_SENTIMENT_DELTA_THRESHOLD),
-        (Some(_), None) => Ok(true),
-        _ => Ok(false),
-    }
-}
-
 /// VibeHandler drains the durable `vibe` stage: read the fresh narratives + heat, score
-/// with the model, persist to vibe_scores, and enqueue the `sigil` convergence before
-/// completing. This is the production path for the Phase 2 cutover (registered in
-/// main.rs); the Phase 1 parity harness reuses the same core but writes the shadow table.
+/// with the model, persist to vibe_scores, and enqueue the Momentum gate before completing.
+/// This is the production path for the Phase 2 cutover (registered in main.rs); the Phase 1
+/// parity harness reuses the same core but writes the shadow table.
 pub struct VibeHandler;
 
 impl VibeHandler {
@@ -783,24 +706,16 @@ impl StageHandler for VibeHandler {
         )
         .await;
 
-        // F5: enqueue Sigil only when a meaningful pillar changed. The Sigil input_hash debounce
-        // remains the second guard; this avoids queue/GPU churn on same-sentiment Vibe rewrites.
-        if should_enqueue_sigil(hx, item, &sport, &out).await? {
-            let sig = Item {
-                stage: Stage::Sigil,
-                entity_type: item.entity_type.clone(),
-                entity_id: item.entity_id,
-                sport: item.sport.clone(),
-                input_version: Some(vibe_version(&out)),
-                attempts: 0,
-            };
-            work::enqueue(&hx.pool, &sig).await?;
-        } else {
+        // Vibe now feeds Momentum first; Momentum persists the generated trajectory card and then
+        // enqueues Sigil if the Momentum context actually moved.
+        if !crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+            .await?
+        {
             debug!(
                 entity_type = %item.entity_type,
                 entity_id = item.entity_id,
                 sport = %sport,
-                "vibe: sigil enqueue skipped below meaningful-change threshold"
+                "vibe: momentum enqueue skipped unchanged/empty context"
             );
         }
 

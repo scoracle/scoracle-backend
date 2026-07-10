@@ -139,9 +139,9 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
         }),
         "momentum" => Some(LensParameters {
             rail: Rail::StatsAnalytical,
-            operator: "form scout",
-            mandate: "Judge whether recent PEAK/rating and Vibe trajectories say the entity is rising, falling, or steady.",
-            credibility_guard: "Keep split or sparse signals near steady; direction is not overall quality.",
+            operator: "nimble trader",
+            mandate: "Read PEAK/rating trajectory as price action and Vibe/news as investor sentiment, then decide whether momentum is rising, falling, or a hold.",
+            credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength.",
         }),
         "sigil" => Some(LensParameters {
             rail: Rail::Synthesis,
@@ -1069,22 +1069,22 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-/// Eval-only prompt contract for candidate model fit. Production Momentum is still deterministic
-/// read-model math (`latest_momentum_scores_per_entity`) consumed by Sigil as a pillar.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-eval-v2";
+/// Eval-only prompt contract for candidate model fit. Production Momentum has a generated card,
+/// while the fixture task remains the route gate for Momentum model candidates.
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-eval-v3";
 
 pub const MOMENTUM_NUM_PREDICT: i32 = 700;
 
 pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.
 
-Operator frame: form scout tracking whether the entity is rising, falling, or steady right now.
+Operator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.
 
-Voice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied numbers.
+Voice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.
 
 Definitions:
 - PEAK trajectory = recent movement in statistical performance / rating signal.
 - Vibe trajectory = recent movement in narrative sentiment.
-- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is steady or mixed.
+- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.
 
 Output exactly:
 MOMENTUM: <rising|falling|steady>
@@ -1095,6 +1095,8 @@ Rules:
 - Pick rising only when the supplied trajectory is clearly positive overall.
 - Pick falling only when the supplied trajectory is clearly negative overall.
 - Pick steady when the signals are flat, sparse, or meaningfully split.
+- Do not chase sentiment hype when PEAK/rating does not confirm it.
+- Do not cling to a strong PEAK label when current trajectory is deteriorating.
 - When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
 

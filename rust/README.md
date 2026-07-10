@@ -125,12 +125,13 @@ failed past retry cap -> dead-letter for human repair
 
 Momentum is not a queue stage. It is a served product assembled from Rating/PEAK and Vibe trajectories.
 
-## Lens / Stage / Role Map
+## Rail / Lens / Stage / Role Map
 
 The Multi-Lens Cognition Panel uses three related words deliberately:
 
-- **Lens** is the product perspective Scoracle wants to own: stats identity, narrative temperature,
-  transfer/trade truth, and final panel synthesis.
+- **Rail** is the broad model-family lane: stats/analytical, emotional/news, or synthesis.
+- **Lens** is the product perspective Scoracle wants to own: PEAK identity, Momentum trajectory,
+  narrative grouping, transfer/trade truth, Vibe temperature, and final Sigil synthesis.
 - **Stage** is the durable execution unit: a queue handler or batch that loads context, calls a
   model when needed, persists a product row, and writes `cognition_ledger` provenance.
 - **Role** is the model-routing job sent to `Route`; it decides which concrete model/backend serves
@@ -138,16 +139,32 @@ The Multi-Lens Cognition Panel uses three related words deliberately:
 
 Current mapping:
 
-| Lens | Stage or batch | Route role | Product / ledger surface |
-|---|---|---|---|
-| Stats lens | rating batch | `StatsLogic` | `stat_summaries`, rating ledger rows, rating fixtures |
-| Narrative lens | `narratives` + `vibe` | `EmotionalNews` | `news_summaries`, `vibe_scores`, narrative/vibe ledger rows |
-| Transfer lens | `transfers` | `EmotionalNews` | `transfer_rumors`, transfer ledger rows, transfer fixtures |
-| Panel synthesis | `sigil` | `StatsLogic` | `sigil_synthesis`, sigil ledger rows, sigil fixtures |
+| Rail | Lens | Stage or batch | Route role | Product / ledger surface |
+|---|---|---|---|---|
+| Stats/analytical | Rating / PEAK | rating batch | `StatsLogic` | `stat_summaries`, rating ledger rows, rating fixtures |
+| Stats/analytical | Momentum | read model plus eval fixtures | `StatsLogic` for eval only | `latest_momentum_scores_per_entity`, `/momentum`, momentum fixtures |
+| Emotional/news | Narratives | `narratives` | `EmotionalNews` | `news_summaries`, narrative ledger rows, narrative fixtures |
+| Emotional/news | Transfers | `transfers` | `EmotionalNews` | `transfer_rumors`, transfer ledger rows, transfer fixtures |
+| Emotional/news | Vibe | `vibe` | `EmotionalNews` | `vibe_scores`, vibe ledger rows, vibe fixtures |
+| Synthesis | Sigil synthesis | `sigil` | `StatsLogic` today | `sigil_synthesis`, sigil ledger rows, sigil fixtures |
 
 `scrub` is upstream evidence gating, not a lens. Transfer still routes through
 `Role::EmotionalNews`; the measured local bakeoff kept `mistral:7b` as the transfer baseline, so a
 separate `TransferLogic` role remains deferred until fixtures and live pair captures justify it.
+Momentum is deterministic in production today; the `momentum` eval task exists to test analytical
+model candidates before introducing a versioned Momentum generation or dedicated route. Sigil stays
+on `StatsLogic` until synthesis fixtures justify a `SynthesisLogic` split.
+
+Current lens operating parameters:
+
+| Lens | Operator frame | Mandate | Credibility guard |
+|---|---|---|---|
+| Narratives | beat writer | Compile the stories swirling around the entity. | Group what sources actually say; do not inflate vague hype or off-entity noise. |
+| Transfers | transfer expert | Get movement predictions out quickly while preserving long-term credibility. | Fail closed on name-drops, stale links, weak sourcing, and misleading heat. |
+| Vibe | content creator | Read the current vibe so a creator can piggyback on the conversation. | Separate interactable mood from durable truth; do not invent a narrative hook. |
+| Rating / PEAK | opposing team scout | Name the greatest strength to stop and greatest weakness to exploit. | Use supplied tiers and datapoints only; never turn average marks into strengths. |
+| Momentum | form scout | Judge whether recent PEAK/rating and Vibe trajectories say the entity is rising, falling, or steady. | Keep split or sparse signals near steady; direction is not overall quality. |
+| Sigil synthesis | reasoned expert network panelist | Summarize all pillars into the final Scoracle read. | Preserve real disagreement between pillars instead of flattening it. |
 
 ## Repository Layout
 

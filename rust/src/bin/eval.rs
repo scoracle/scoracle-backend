@@ -48,6 +48,8 @@
 //!   eval --capture --task sigil player:237:NBA    # emit a fixture skeleton to stdout
 //!   eval --capture-ledger 123 --task sigil         # fixture skeleton from cognition_ledger row 123
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=mistral:7b eval --task sigil player:237:NBA  # A/B a challenger
+//!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task rating --fixtures
+//!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=qwen3:8b eval --task momentum --fixtures
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::{Config, RouteConfig};
@@ -219,6 +221,8 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              eval --capture --task sigil player:237:NBA (emit a fixture skeleton to stdout)\n  \
              eval --capture-ledger 123 --task sigil      (emit a fixture skeleton from cognition_ledger)\n  \
              eval --task transfer team:14:player:237:NBA (transfer live pair A/B)\n  \
+             eval --task rating --fixtures               (PEAK/stat reasoning fixture gate)\n  \
+             eval --task momentum --fixtures             (trajectory reasoning fixture gate)\n  \
              set COGNITION_ROUTE_{}_CANDIDATE=<model> to enable the A/B challenger",
             all_task_names().join(", "),
             task.role().env_suffix()
@@ -231,11 +235,18 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
     let candidate = harness.router.candidate_for(task.role());
 
     println!(
-        "eval — task={} role={} n={} temp={} (deterministic)",
+        "eval — task={} rail={} role={} n={} temp={} (deterministic)",
         task.name(),
+        task.parameters().rail.as_str(),
         task.role().as_str(),
         cases.len(),
         EVAL_TEMPERATURE
+    );
+    println!(
+        "lens — operator={} | mandate={} | guard={}",
+        task.parameters().operator,
+        task.parameters().mandate,
+        task.parameters().credibility_guard
     );
 
     println!(
@@ -371,15 +382,24 @@ async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -
     }
 
     println!(
-        "fixtures — task={} n={} dir={}/  incumbent={}",
+        "fixtures — task={} rail={} n={} dir={}/  incumbent={}",
         task.name(),
+        task.parameters().rail.as_str(),
         fixtures.len(),
         dir.display(),
         incumbent.model()
     );
+    println!(
+        "lens — operator={} | mandate={} | guard={}",
+        task.parameters().operator,
+        task.parameters().mandate,
+        task.parameters().credibility_guard
+    );
 
     let mut inc_pass = 0usize;
     let mut inc_total = 0usize;
+    let mut cand_pass = 0usize;
+    let mut cand_total = 0usize;
     for fx in &fixtures {
         if let Some(warn) = fixture_drift(fx, task) {
             println!("  ⚠ WARN {warn}");
@@ -389,7 +409,9 @@ async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -
         inc_pass += p;
         inc_total += t;
         if let Some(c) = candidate.as_ref() {
-            run_one_fixture("B", c, task, fx).await;
+            let (p, t) = run_one_fixture("B", c, task, fx).await;
+            cand_pass += p;
+            cand_total += t;
         }
     }
 
@@ -397,6 +419,12 @@ async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -
         "\n=== fixture summary — {} : {inc_pass}/{inc_total} property checks passed ===",
         incumbent.model()
     );
+    if let Some(c) = candidate.as_ref() {
+        println!(
+            "=== fixture summary — {} : {cand_pass}/{cand_total} property checks passed ===",
+            c.model()
+        );
+    }
     println!(
         "(a red check on a 'target' fixture is the documented honesty gap, not a harness failure)"
     );
@@ -425,6 +453,10 @@ async fn run_one_fixture(
     println!("  {label} {:<16} {}", backend.model(), verdict.display);
     if !verdict.parsed {
         println!("      raw: {}", fixture_raw_excerpt(&gen.response));
+        let expected = expected_property_count(&fx.expect);
+        if expected > 0 {
+            return (0, expected);
+        }
     }
     for c in &verdict.checks {
         let mark = if c.pass { "✓" } else { "✗" };
@@ -435,6 +467,49 @@ async fn run_one_fixture(
         }
     }
     (verdict.checks_passed(), verdict.checks.len())
+}
+
+/// expected_property_count mirrors the fixture schema: if a reply is unparseable, every authored
+/// expectation should count as failed rather than disappearing from the denominator.
+fn expected_property_count(x: &Expect) -> usize {
+    let mut n = 0usize;
+    n += x.score_min.is_some() as usize;
+    n += x.score_max.is_some() as usize;
+    n += x.convergence_min.is_some() as usize;
+    n += x.convergence_max.is_some() as usize;
+    n += x.disagreement_nonempty.is_some() as usize;
+    n += x.why_now_nonempty.is_some() as usize;
+    n += x.disagreement_includes.as_ref().map_or(0, Vec::len);
+    n += x.disagreement_excludes.as_ref().map_or(0, Vec::len);
+    n += x.blurb_includes.as_ref().map_or(0, Vec::len);
+    n += x.blurb_excludes.as_ref().map_or(0, Vec::len);
+    n += x.narratives_min.is_some() as usize;
+    n += x.narratives_max.is_some() as usize;
+    n += x.title_includes.as_ref().map_or(0, Vec::len);
+    n += x.title_excludes.as_ref().map_or(0, Vec::len);
+    n += x.body_includes.as_ref().map_or(0, Vec::len);
+    n += x.body_excludes.as_ref().map_or(0, Vec::len);
+    n += x.all_cite_articles.is_some() as usize;
+    n += x.max_article_num.is_some() as usize;
+    n += x.transfer_is_rumor.is_some() as usize;
+    n += x.transfer_direction.is_some() as usize;
+    n += x.transfer_stage.is_some() as usize;
+    n += x.subject_includes.as_ref().map_or(0, Vec::len);
+    n += x.subject_excludes.as_ref().map_or(0, Vec::len);
+    n += x.summary_includes.as_ref().map_or(0, Vec::len);
+    n += x.summary_excludes.as_ref().map_or(0, Vec::len);
+    n += x.confidence_min.is_some() as usize;
+    n += x.confidence_max.is_some() as usize;
+    n += x.peak_includes.as_ref().map_or(0, Vec::len);
+    n += x.peak_excludes.as_ref().map_or(0, Vec::len);
+    n += x.prose_includes.as_ref().map_or(0, Vec::len);
+    n += x.prose_excludes.as_ref().map_or(0, Vec::len);
+    n += x.prose_min_words.is_some() as usize;
+    n += x.prose_max_words.is_some() as usize;
+    n += x.momentum_direction.is_some() as usize;
+    n += x.momentum_score_min.is_some() as usize;
+    n += x.momentum_score_max.is_some() as usize;
+    n
 }
 
 // ---------------------------------------------------------------------------
@@ -906,5 +981,18 @@ mod tests {
         let out = fixture_raw_excerpt(&long);
         assert!(out.ends_with("..."));
         assert!(out.len() < long.len());
+    }
+
+    #[test]
+    fn unparseable_fixture_counts_authored_expectations() {
+        let x = Expect {
+            momentum_direction: Some("steady".into()),
+            momentum_score_min: Some(-1),
+            momentum_score_max: Some(1),
+            prose_includes: Some(vec!["PEAK".into(), "Vibe".into()]),
+            prose_max_words: Some(80),
+            ..Default::default()
+        };
+        assert_eq!(expected_property_count(&x), 6);
     }
 }

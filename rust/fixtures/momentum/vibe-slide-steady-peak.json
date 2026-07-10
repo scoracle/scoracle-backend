@@ -1,0 +1,21 @@
+{
+  "name": "vibe-slide-steady-peak",
+  "task": "momentum",
+  "prompt_version": "momentum-eval-v2",
+  "note": "Clear news-led fall. PEAK is steady, but Vibe and the durable Momentum score are negative.",
+  "system": "Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.\n\nOperator frame: form scout tracking whether the entity is rising, falling, or steady right now.\n\nVoice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied numbers.\n\nDefinitions:\n- PEAK trajectory = recent movement in statistical performance / rating signal.\n- Vibe trajectory = recent movement in narrative sentiment.\n- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is steady or mixed.\n\nOutput exactly:\nMOMENTUM: <rising|falling|steady>\nSCORE: <integer -5 to 5>\nREAD: <one concise paragraph>\n\nRules:\n- Pick rising only when the supplied trajectory is clearly positive overall.\n- Pick falling only when the supplied trajectory is clearly negative overall.\n- Pick steady when the signals are flat, sparse, or meaningfully split.\n- When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.\n- Do not invent games, rankings, injuries, trades, or stats not in the prompt.",
+  "user_prompt": "Entity: Nia Torres (NBA player)\n\n=== PEAK TRAJECTORY ===\nPEAK label: Rim protection\nNotability: 90/100\nPEAK trajectory: Composite and PEAK z-scores holding steady over recent games\n\n=== VIBE TRAJECTORY ===\nSentiment: 31/100\nVibe prompt: Local coverage has turned negative after late-game benchings and visible frustration.\n\n=== MOMENTUM SNAPSHOT ===\nMomentum score: -3.0\nPEAK/rating slope: 0.0 over 6 samples\nVibe slope: -1.2 over 5 samples\n\nWrite the Momentum read now.",
+  "temperature": 0.0,
+  "expect": {
+    "momentum_direction": "falling",
+    "momentum_score_max": -2,
+    "prose_includes": [
+      "Vibe"
+    ],
+    "prose_excludes": [
+      "rising"
+    ],
+    "prose_min_words": 15,
+    "prose_max_words": 75
+  }
+}

@@ -105,22 +105,22 @@ func listenLoop(ctx context.Context, dbURL string, pool *pgxpool.Pool, sender *n
 	}
 }
 
-// handlePercentileChange enqueues stats-rail Sigil convergence on a large composite
+// handlePercentileChange enqueues stats-rail PEAK work on a large composite
 // shift (a durable concern, independent of followers), then dispatches FCM push
 // notifications to any followers (a separate delivery concern).
 func handlePercentileChange(ctx context.Context, pool *pgxpool.Pool, sender *notifications.FCMSender, event PercentileChangeEvent, logger *slog.Logger) {
-	// A significant composite move is one Sigil input. Enqueue durable work and
-	// let the Rust cognition daemon resolve season scope and skip unchanged inputs.
+	// A significant composite move means the PEAK card may be stale. Enqueue PEAK
+	// first; the Rust PeakHandler persists a fresh card and then enqueues Sigil.
 	if math.Abs(event.NewPercentile-event.OldPercentile) >= 10 {
-		iv := fmt.Sprintf("composite:%d:%.0f", event.Season, event.NewPercentile)
+		iv := fmt.Sprintf("peak:s%d:composite:%.0f", event.Season, event.NewPercentile)
 		if err := work.Enqueue(ctx, pool, work.Item{
-			Stage:        work.StageSigil,
+			Stage:        work.StagePeak,
 			EntityType:   event.EntityType,
 			EntityID:     event.EntityID,
 			Sport:        event.Sport,
 			InputVersion: iv,
 		}); err != nil {
-			logger.Warn("listener: enqueue sigil (composite_shift) failed",
+			logger.Warn("listener: enqueue peak (composite_shift) failed",
 				"entity_type", event.EntityType, "entity_id", event.EntityID, "sport", event.Sport, "error", err)
 		}
 	}

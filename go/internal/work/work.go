@@ -30,6 +30,7 @@ type Stage string
 
 const (
 	StageScrub      Stage = "scrub"
+	StagePeak       Stage = "peak"
 	StageTransfers  Stage = "transfers"
 	StageNarratives Stage = "narratives"
 	StageVibe       Stage = "vibe"

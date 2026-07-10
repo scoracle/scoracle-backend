@@ -22,7 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    bucket, config, db, embed, narratives, ollama, scrub, sigil, stage, transfer, vibe, worker,
+    bucket, config, db, embed, narratives, ollama, rating, scrub, sigil, stage, transfer, vibe,
+    worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -65,7 +66,7 @@ async fn main() -> Result<()> {
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(
         &std::env::var("COGNITION_STAGES")
-            .unwrap_or_else(|_| "scrub,transfers,narratives,vibe,sigil".to_string()),
+            .unwrap_or_else(|_| "scrub,peak,transfers,narratives,vibe,sigil".to_string()),
     )?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
@@ -112,6 +113,9 @@ async fn main() -> Result<()> {
     if enabled.contains("scrub") {
         handlers.push(Box::new(scrub::ScrubHandler::new()));
     }
+    if enabled.contains("peak") {
+        handlers.push(Box::new(rating::PeakHandler::new()));
+    }
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));
     }
@@ -138,7 +142,7 @@ async fn main() -> Result<()> {
 }
 
 fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
-    const KNOWN: &[&str] = &["scrub", "transfers", "narratives", "vibe", "sigil"];
+    const KNOWN: &[&str] = &["scrub", "peak", "transfers", "narratives", "vibe", "sigil"];
 
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();
@@ -169,9 +173,10 @@ mod tests {
 
     #[test]
     fn parse_enabled_stages_normalizes_and_dedupes() {
-        let stages = parse_enabled_stages(" Scrub, vibe, VIBE ,,sigil ").unwrap();
-        assert_eq!(stages.len(), 3);
+        let stages = parse_enabled_stages(" Scrub, peak, vibe, VIBE ,,sigil ").unwrap();
+        assert_eq!(stages.len(), 4);
         assert!(stages.contains("scrub"));
+        assert!(stages.contains("peak"));
         assert!(stages.contains("vibe"));
         assert!(stages.contains("sigil"));
     }

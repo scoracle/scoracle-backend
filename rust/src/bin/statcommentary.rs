@@ -1,14 +1,16 @@
-//! Rust stats-rail commentary batch.
+//! Rust stats-rail commentary entry point.
 //!
-//! Step 3 replacement for `go/cmd/statcommentary`: rating is not a pipeline_work
-//! stage, so this bin enumerates entities and calls the L12 rating core directly.
+//! Nightly mode is now the PEAK producer: it enumerates stale current-season stat profiles and
+//! enqueues durable `pipeline_work(peak)` rows. Backfill remains an inline historical generation
+//! path because the live queue is current-season/entity-scoped.
 
 use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::rating::{
-    generate_rating, persist_stat_summary, RatingOutput, RatingReq, RATING_TEMPERATURE,
+    build_rating_request, enqueue_sigil_for_peak, generate_rating, peak_work_input_version,
+    persist_stat_summary, RatingBuild, RatingOutput, RatingReq, RATING_TEMPERATURE,
 };
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{corpus, db, work};
@@ -51,13 +53,13 @@ async fn main() -> Result<()> {
     let args = parse_args(std::env::args().skip(1))?;
     let cfg = Config::from_env()?;
 
-    if args.mode != "single" {
+    if args.mode == "backfill" {
         let ollama =
             OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
         ollama
             .ping()
             .await
-            .context("ollama must be reachable for statcommentary batch")?;
+            .context("ollama must be reachable for statcommentary backfill")?;
     }
 
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
@@ -98,6 +100,7 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged).await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(hx, &req, &out).await?;
+        enqueue_sigil_for_peak(&hx.pool, &req.entity_type, req.entity_id, &sport, &out).await?;
     }
     let mode = if args.persist { "persisted" } else { "dry-run" };
     println!(
@@ -150,35 +153,35 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
             break;
         }
         c.scanned += 1;
-        match run_target(hx, &t, nightly).await {
-            Ok(out) if out.skipped_unchanged => c.unchanged += 1,
-            Ok(out) if out.skipped_no_stats => {
-                persist_target(hx, &t, &out).await?;
-                c.no_stats += 1;
-            }
-            Ok(out) => {
-                persist_target(hx, &t, &out).await?;
-                // Phase 5.4 (rating→sigil trigger): a changed PEAK re-triggers panel synthesis
-                // now, instead of waiting for the next news event to run vibe for this entity.
-                // Nightly/current-season only — backfill is a bulk historical pass and must not
-                // avalanche the sigil queue. Best-effort: a failed enqueue must not fail an
-                // already-persisted rating (the vibe path and the next nightly are fallbacks).
-                if nightly {
-                    if let Err(e) = enqueue_sigil(hx, &t, &out).await {
-                        eprintln!(
-                            "statcommentary: sigil re-trigger enqueue failed sport={} {}/{} error={e:#}",
-                            t.sport, t.entity_type, t.entity_id
-                        );
-                    }
+        if nightly {
+            match enqueue_peak_target(hx, &t).await {
+                Ok(()) => c.ok += 1,
+                Err(e) => {
+                    c.failed += 1;
+                    eprintln!(
+                        "statcommentary: enqueue peak failed sport={} {}/{} season={} error={e:#}",
+                        t.sport, t.entity_type, t.entity_id, t.season
+                    );
                 }
-                c.ok += 1;
             }
-            Err(e) => {
-                c.failed += 1;
-                eprintln!(
-                    "statcommentary: generate failed sport={} {}/{} season={} error={e:#}",
-                    t.sport, t.entity_type, t.entity_id, t.season
-                );
+        } else {
+            match run_target(hx, &t, nightly).await {
+                Ok(out) if out.skipped_unchanged => c.unchanged += 1,
+                Ok(out) if out.skipped_no_stats => {
+                    persist_target(hx, &t, &out).await?;
+                    c.no_stats += 1;
+                }
+                Ok(out) => {
+                    persist_target(hx, &t, &out).await?;
+                    c.ok += 1;
+                }
+                Err(e) => {
+                    c.failed += 1;
+                    eprintln!(
+                        "statcommentary: generate failed sport={} {}/{} season={} error={e:#}",
+                        t.sport, t.entity_type, t.entity_id, t.season
+                    );
+                }
             }
         }
         if c.scanned % 25 == 0 {
@@ -204,6 +207,31 @@ async fn run_corpus(hx: &Harness, db_url: &str, args: &Args, nightly: bool) -> R
         return Err(anyhow!("partial: {} generation(s) failed", c.failed));
     }
     Ok(())
+}
+
+async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
+    let name = corpus::lookup_entity_name(&hx.pool, &t.entity_type, t.entity_id, &t.sport).await?;
+    let req = RatingReq {
+        entity_type: t.entity_type.clone(),
+        entity_id: t.entity_id,
+        entity_name: name,
+        sport: t.sport.clone(),
+        season: Some(t.season),
+        trigger_type: "periodic".to_string(),
+    };
+    let input_version = match build_rating_request(hx, &req, RATING_TEMPERATURE).await? {
+        RatingBuild::NoStats { season } => peak_work_input_version(season, None),
+        RatingBuild::Ready(r) => peak_work_input_version(r.season, Some(&r.input_hash)),
+    };
+    let peak = work::Item {
+        stage: work::Stage::Peak,
+        entity_type: t.entity_type.clone(),
+        entity_id: i64::from(t.entity_id),
+        sport: t.sport.clone(),
+        input_version: Some(input_version),
+        attempts: 0,
+    };
+    work::enqueue(&hx.pool, &peak).await
 }
 
 async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<RatingOutput> {
@@ -243,24 +271,6 @@ async fn persist_rating(hx: &Harness, req: &RatingReq, out: &RatingOutput) -> Re
         out,
     )
     .await
-}
-
-/// enqueue_sigil re-triggers panel synthesis for an entity whose PEAK (the stats lens) just
-/// changed — the Phase 5.4 rating→sigil trigger. PEAK is a Sigil synthesis pillar and part of its
-/// `input_hash`, so a changed rating flips the hash and the re-run is real work; the Sigil
-/// `input_hash` debounce is the second guard, skipping the model call for any entity whose pillars
-/// did not actually move. The rating snapshot's `input_hash` becomes the work-row `input_version`,
-/// so the sigil row reopens exactly when the rating snapshot changes (idempotent otherwise).
-async fn enqueue_sigil(hx: &Harness, t: &Target, out: &RatingOutput) -> Result<()> {
-    let sig = work::Item {
-        stage: work::Stage::Sigil,
-        entity_type: t.entity_type.clone(),
-        entity_id: i64::from(t.entity_id),
-        sport: t.sport.clone(), // uppercase, matching the news-rail sigil rows' conflict key
-        input_version: out.input_hash.clone(),
-        attempts: 0,
-    };
-    work::enqueue(&hx.pool, &sig).await
 }
 
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {

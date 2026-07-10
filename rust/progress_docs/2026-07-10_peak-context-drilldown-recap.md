@@ -315,3 +315,34 @@ Before changing Sigil routing, run Sigil fixtures/model tests the same way Ratin
 question is not just which model writes the nicest blurb; it is which model best preserves pillar
 disagreement, convergence, why-now specificity, and concise final synthesis once the need gate has
 already decided a synthesis is warranted.
+
+## Need-Based PEAK Sequencing Follow-Up
+
+Implemented the first queue-owned PEAK sequencing pass:
+
+- added durable `Stage::Peak` / `peak` handler registration before downstream stages
+- added `PeakHandler` in `src/rating.rs`
+- changed `statcommentary -mode nightly` from inline model generation to deterministic stale-target
+  enumeration plus `pipeline_work(peak)` enqueue
+- kept explicit historical backfill inline, because the live queue remains current-season/entity
+  scoped
+- changed the Go percentile-change listener from direct `sigil` enqueue to `peak` enqueue
+- made the systemd cognition unit register `scrub,peak,transfers,narratives,vibe,sigil`
+- kept the news rail content-gated: `enqueue_derive_on_vetted()` still returns without enqueueing
+  narratives/vibe when there are zero fresh vetted links
+
+Sigil routing was not changed. Baseline Sigil fixture run before routing/gating edits:
+
+| Model run | Score | Notes |
+|---|---:|---|
+| `mistral:7b` incumbent | 6/9 | Convergence was too high on disagreement-heavy fixtures. |
+
+Validation:
+
+- `cargo test --lib`
+- `cargo test --bin statcommentary`
+- `cargo test --bin scoracle-cognition`
+- `cargo test --bin eval`
+- `cargo build --bins`
+- `go test ./internal/work ./internal/listener`
+- `git diff --check`

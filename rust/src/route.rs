@@ -1,7 +1,9 @@
 //! Route — the model-call seam: role → concrete model at runtime (Plan §1.1 / §2).
 //!
 //! A stage names a **role** (the model's JOB), never a model name; the `Router` resolves
-//! that role to a concrete backend. This is the *swap seam*: the three swaps the Hardware
+//! that role to a concrete backend. In Multi-Lens terms, a lens may span multiple stages
+//! (`narratives` + `vibe`), and multiple lenses may share one role (`narratives` and `transfers`
+//! both use `EmotionalNews` today). This is the *swap seam*: the three swaps the Hardware
 //! Roadmap brings — identity (`e4b` → `31B`), topology (one model → two concurrent → one
 //! unified fine-tune), backend (Ollama → vLLM) — all land here, and stage code never moves.
 //!
@@ -28,8 +30,10 @@ use tokio::sync::Semaphore;
 
 /// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
 /// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. `StatsLogic` (rating/sigil reasoning), `EmotionalNews` (vibe/narratives),
-/// `Multilang` (HORIZON normalize), `Sql` (SQLCoder). Derives `Hash` for the L2 role→model map.
+/// in stage code. `StatsLogic` (rating/sigil reasoning), `EmotionalNews` (vibe/narratives/
+/// transfers), `Multilang` (HORIZON normalize), `Sql` (SQLCoder). A future `TransferLogic`
+/// role should be added only when fixtures and live pair captures prove a separate transfer
+/// route beats the shared `EmotionalNews` baseline. Derives `Hash` for the L2 role→model map.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,

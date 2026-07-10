@@ -1,7 +1,7 @@
 # Multi-Lens Cognition Panel Plan
 
 Date: 2026-07-09
-Status: priority planning
+Status: first slice complete; follow-up coverage ongoing
 
 ## Thesis
 
@@ -56,7 +56,7 @@ Audited against the Rust tree at `2fc1b55`. The cognition layer already has the 
   `input_ids`, optional `input_hash` debounce, optional `trigger_payload`.
 - `Inference::generate` already returns the exact wire body it POSTed (system prompt included).
   Parity harnesses still use it for byte-level diffs; Phase 2 now also persists it to
-  `cognition_ledger` for narratives and transfers.
+  `cognition_ledger` for model-backed lens stages.
 - Queue stages are `scrub -> transfers -> narratives -> vibe -> sigil`, all Rust-owned since the
   Step-3 cutover (2026-06-28). Rating is the stats batch (`bin/statcommentary`). Momentum is not
   a stage — it is a deterministic projection over the rating/vibe series (mig 140).
@@ -295,7 +295,7 @@ What landed:
 - migrations `143_sigil_disagreement_outputs` and `144_cognition_ledger` are applied in the target
   DB, `public.cognition_ledger` was read-back validated, and `sql/schema/schema.sql` was refreshed.
 
-Remaining Phase 2 hardening:
+Phase 2 hardening closed:
 
 - **DONE (2026-07-10).** Excluded evidence is now richer where the pipeline has exact detail:
   narratives ledger rows record dedup-dropped article ids, budget-truncated article ids, and stale
@@ -312,8 +312,7 @@ Success:
 
 **SEAM + FOUR TASK SETS DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
 (`EVAL_ROLE`) and read the LIVE corpus — not reproducible once the corpus moved. Both moves landed
-for vibe, sigil, narratives, and transfer fixtures; the remaining eval sets are additive on the
-proven seam.
+for vibe, sigil, narratives, transfer, and rating fixtures.
 
 1. **Per-lens task registry — DONE.** New lib module `rust/src/eval_tasks.rs`: a
    `#[async_trait] LensTask` (name/role/prompt_version/gen_options/build_prompt/evaluate) +
@@ -387,8 +386,7 @@ proven seam.
    single-line form as body text while leaving `divined_peak` empty, so product prose survives and
    the eval still marks PEAK-label specificity red.
 
-Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
-change):
+Curated eval sets completed:
 
 - ~~transfer false positives and true positives~~ **DONE (2026-07-09, commit `ac527e9`)**
 - ~~narrative grouping and grounding~~ **DONE (2026-07-09, commit `6f811a3`)**
@@ -448,6 +446,21 @@ throughput, but it still failed the fixture floor by over-staging one concrete-i
 turning both noise guards into false positives. Mistral remains 26/26 on frozen transfer fixtures,
 so this does not justify adding/adopting `TransferLogic`; the route split remains deferred until a
 challenger beats Mistral on false-positive discipline.
+
+Fixture hardening note (2026-07-10): the transfer fixture set now includes four live-captured
+production pair prompts in addition to the four synthetic floors:
+
+- `live-nba-lakers-jalen-duren-interest` — incoming Lakers/Jalen Duren free-agency interest.
+- `live-nba-lakers-austin-reaves-star-addition-guard` — clears Lakers roster-construction chatter
+  that mentions Austin Reaves without reporting an outgoing Reaves trade.
+- `live-football-liverpool-curtis-jones-outgoing-interest` — outgoing Liverpool/Curtis Jones
+  Nottingham Forest interest with the stated £40m valuation.
+- `live-football-liverpool-thiago-coaching-role-guard` — clears Thiago/Liverpool return/coaching
+  role coverage that is not another club signing him.
+
+`target/debug/eval --task transfer --fixtures` is green on `mistral:7b` with 57/57 property checks.
+This closes the immediate "capture more live transfer pairs" hardening item; future fixture growth is
+ongoing coverage work, not a blocker for wrapping the current Multi-Lens slice.
 
 ### Phase 5 - Evolve Sigil Into Panel Synthesis
 
@@ -557,13 +570,15 @@ Success:
 
 1. Done — wiki architecture doc added (`wiki/Architecture/Multi-Lens Cognition Panel.md`).
 2. Done — linked from AI Architecture and Hardware Roadmap.
-3. Add `lens` language and the Lens / Stage / Role map to `rust/README.md` and `route.rs` docs.
+3. Add `lens` language and the Lens / Stage / Role map to `rust/README.md` and `route.rs` docs. —
+   DONE (2026-07-10): README now distinguishes lens/stage/role, maps the four panel lenses to
+   current stages and route roles, and records that Transfer remains on `EmotionalNews`/Mistral
+   until fixtures and live pair captures justify a `TransferLogic` split. `route.rs` now documents
+   that lenses and roles are not 1:1.
 4. Add an eval fixture shape for panel/lens comparisons (the Phase 3 frozen-context format). — DONE:
    `Fixture`/`Expect` in `rust/src/eval_tasks.rs`, `rust/fixtures/<task>/*.json`, run via
    `eval --fixtures`.
-5. Phase 5.4 rating→sigil trigger — DONE (commit `89fdff3`). The transfer→sigil half is deferred
-   to ship with Phase 5.1 (the transfer pillar), because sigil's `input_hash` excludes transfers
-   today and a transfer-only trigger would debounce to a skip.
+5. Phase 5.4 rating→sigil trigger — DONE (commit `89fdff3`).
 6. Phase 5.1 (transfer pillar + the deferred transfer→sigil trigger) — DONE (commit `85753ce`). It
    closed the "gate fires on a rumor sigil can't see" gap AND the deferred trigger.
    Phase 5.2 (feed the previous Sigil — score + blurb — into the prompt as continuity) — DONE
@@ -582,7 +597,9 @@ Success:
    measured; none beats Mistral on the frozen false-positive floor, so do not split/adopt yet.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
    current status (2026-07-10): deferred after Qwen/Gemma A/Bs. The fixture set gives green
-   regression floors, and the live pair seam now supplies candidate comparison units.
+   regression floors, and the live pair seam now supplies candidate comparison units. Follow-up
+   live-captured fixture hardening is DONE for this slice: four production pair prompts were added,
+   bringing transfer fixtures to 57/57 green checks on Mistral.
 
 ## Risks
 

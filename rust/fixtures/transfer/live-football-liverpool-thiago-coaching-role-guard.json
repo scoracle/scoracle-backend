@@ -1,0 +1,21 @@
+{
+  "name": "live-football-liverpool-thiago-coaching-role-guard",
+  "task": "transfer",
+  "prompt_version": "t6",
+  "system": "Task: decide whether the news reports a current transfer involving BOTH the named team and the exact player in the identity line.\n\nUse the identity line to disambiguate same-name people. Current club and position are strong tie-breakers. When unsure it is the same person, set is_rumor=false.\n\nSet is_rumor=false when any of these holds:\n- The sources are about a different same-name person: owner, president, manager, coach, unrelated figure, or another player at another club.\n- The source club, role, or position contradicts the identity line.\n- It is a match report, a head-to-head or \"who is better\" comparison, an injury note, trash-talk, or routine coverage of a player already on the team.\n- The player is mentioned only as an opponent/rival, game-plan problem, draft counter, or comparison target.\n- The move is old historical/background context from a prior window with no current roster impact.\n- A recently completed, finalizing, agreed, or reported trade/transfer involving the named team\n  and exact player is still a current move signal; classify it instead of discarding it as historical.\n- The player is only one name in a roundup, mailbag, notes column, power ranking, rumor wrap, or listicle. A name on a list is not a live rumor unless the source reports active, specific interest.\n\nWhen is_rumor=true:\n- summary: one tight sentence naming the real counterparties and any fee, bid, pick, or asset compensation explicitly stated by the sources.\n- Never estimate, round, or invent money, picks, stage, or deal status.\n- Attribute the substance to the strongest named source when available.\n\nStage ladder:\n- speculation = a mention, link, monitoring, or thin report.\n- concrete_interest = the source says the club is actively pursuing the player.\n- advanced_talks = reported active negotiation.\n- here_we_go = agreed or imminent deal.\n- If evidence is thin, use speculation.\n\nReturn only this JSON object, with every field present:\n{\"is_rumor\": true|false, \"subject\": \"who the sources are actually about (real name/person, even if NOT this player)\", \"direction\": \"incoming\"|\"outgoing\"|\"unclear\", \"stage\": \"speculation\"|\"concrete_interest\"|\"advanced_talks\"|\"here_we_go\", \"summary\": \"one tight sentence: who, which clubs, any fee or picks the sources actually state, attributed to the source\", \"confidence\": 0.0-1.0}\n\ndirection is relative to the named team: incoming = joining the team; outgoing = leaving the team. subject is the person's name only, never the full identity line. If it is not a live transfer about this exact player, set is_rumor=false and set subject to who the sources are really about.",
+  "user_prompt": "Sport: FOOTBALL\nTeam: Liverpool\nPlayer: Thiago Alcântara\nIdentity (the ONE specific player to judge): Thiago Alcântara · Spain · currently at Liverpool · Midfielder\nRoster status: Thiago Alcântara is CURRENTLY on Liverpool — so any move is a DEPARTURE (outgoing). Frame the summary as other clubs' interest in signing them.\n\nNews headlines:\n- [OneFootball] Thiago Alcantara breaks silence on potential Liverpool return — Thiago Alcantara breaks silence on potential Liverpool return&nbsp;&nbsp;OneFootball\n- [talkSPORT] Thiago Alcantara makes admission about Liverpool coaching job role under Andoni Iraola — Thiago Alcantara makes admission about Liverpool coaching job role under Andoni Iraola&nbsp;&nbsp;talkSPORT\n\nReturn the JSON verdict now.",
+  "temperature": 0,
+  "expect": {
+    "transfer_is_rumor": false,
+    "subject_includes": [
+      "Thiago"
+    ],
+    "summary_excludes": [
+      "Liverpool are selling",
+      "signing Thiago",
+      "transfer fee",
+      "bid"
+    ]
+  },
+  "note": "LIVE CAPTURE (2026-07-10): Thiago/Liverpool articles are about a possible return/coaching role, not another club signing him from Liverpool. FLOOR: clear the transfer pair."
+}

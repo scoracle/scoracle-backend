@@ -47,16 +47,16 @@ Audited against the Rust tree at `2fc1b55`. The cognition layer already has the 
 - `rust/src/route.rs` routes by `Role`, not model name. Roles today: `StatsLogic`,
   `EmotionalNews`, `Multilang`, `Sql`.
 - `COGNITION_ROUTE_<ROLE>` makes model identity a config concern.
-- `COGNITION_ROUTE_<ROLE>_CANDIDATE` supports challenger evaluation, and `bin/eval` already runs
-  incumbent-vs-candidate A/Bs with quality, throughput, and MAE axes — but only for the vibe
-  task (`EVAL_ROLE` is hardcoded to `EmotionalNews`).
+- `COGNITION_ROUTE_<ROLE>_CANDIDATE` supports challenger evaluation, and `bin/eval` now runs
+  incumbent-vs-candidate A/Bs through the per-lens task registry (`vibe`, `sigil`,
+  `narratives`, `transfer`), including transfer team-player pair specs.
 - `OLLAMA_MAX_CONCURRENT` bounds local inference through `GovernedInference`: one shared
   semaphore at the model-call seam, which stage code cannot bypass.
 - Every derived row carries the `Provenance` envelope: `model_version`, `prompt_version`,
   `input_ids`, optional `input_hash` debounce, optional `trigger_payload`.
 - `Inference::generate` already returns the exact wire body it POSTed (system prompt included).
-  Today only the parity harnesses read it; the lens ledger (Phase 2) can persist it with no new
-  plumbing.
+  Parity harnesses still use it for byte-level diffs; Phase 2 now also persists it to
+  `cognition_ledger` for narratives and transfers.
 - Queue stages are `scrub -> transfers -> narratives -> vibe -> sigil`, all Rust-owned since the
   Step-3 cutover (2026-06-28). Rating is the stats batch (`bin/statcommentary`). Momentum is not
   a stage — it is a deterministic projection over the rating/vibe series (mig 140).
@@ -267,23 +267,31 @@ Success:
 
 ### Phase 2 - Add Lens Ledgers
 
-Most of the ledger already exists. The `Provenance` envelope persists `model_version`,
-`prompt_version`, `input_ids`, and `input_hash`; `Inference::generate` returns the exact
-`/api/generate` wire body — system prompt included — on every call, and only the parity
-harnesses read it today. The delta to persist per lens call:
+**MVP DONE (2026-07-10, commit `6b42383`).** The ledger lives in a dedicated
+`public.cognition_ledger` table (mig 144), not widened product rows. Product tables remain the
+served surface; ledger rows are diagnostic, prunable, and keyed back to product row ids.
 
-- the wire body itself (already in hand at every call site — persistence, not plumbing)
-- excluded evidence: rows considered and dropped, with the reason (budget, staleness, dedup)
-- context budget used vs available
-- output contract version, distinct from prompt version
+What landed:
 
-Decide once where the ledger lives: a dedicated `cognition_ledger` table keyed by
-(stage, entity, generated_at) vs widening `trigger_payload` on product rows. A separate table
-is the safer default — ledger rows are diagnostic and prunable, product rows are served;
-different readers, different retention.
+- generic Rust helper `ledger::CognitionLedgerEntry` + best-effort insert, so diagnostic table
+  issues do not fail served narratives/transfers.
+- narratives ledger writes after `news_summaries` rows commit: exact request body/prompt when a
+  model call happened, product row ids, model/prompt/output-contract versions, input ids, parser
+  outcome (`no_call`, `parsed_empty`, `parsed`), context budget (`num_predict`, `eval_count`), and
+  included/excluded evidence. Dedup exclusions currently record counts/reason, not exact dropped ids.
+- transfers ledger writes after each `transfer_rumors` product row: team-player pair identity,
+  request body/prompt, product row id, model/prompt/output-contract versions, input news ids, heat
+  components, parser outcome (`rumor`, `cleared`, `unknown`), and model-cleared/unknown exclusion
+  reasons.
 
-Start with narratives and transfers because the evidence set changes fastest and false positives
-hurt trust.
+Remaining Phase 2 hardening:
+
+- apply mig 144 in the target DB and refresh `sql/schema/schema.sql` if this deployment path expects
+  committed schema snapshots.
+- extend ledger writes to `vibe`, `sigil`, and `rating/stat_summaries`.
+- make excluded evidence richer where the pipeline has the detail (e.g. exact dedup-dropped article
+  ids, budget-truncated rows, stale rows).
+- add a fixture-capture helper that can source frozen fixtures directly from `cognition_ledger`.
 
 Success:
 
@@ -455,10 +463,10 @@ previous Sigil             [in prompt — Phase 5.2]
    stays pillar-inputs-only: old rows remain valid and populate lazily on their next real
    re-synthesis (no deploy-time avalanche; no backfill). Prompt bumped `s10`→`s11` (provenance-only).
    The Go read path (`entity_sigil` in `db.go`) surfaces the three fields in the `current` object.
-   This is the first Phase-5 step that changes product tables, as flagged. DECISION (this session):
-   the output-contract version distinct from `prompt_version` (Phase 2 ledger concept) was DEFERRED
-   to Phase 2 — `prompt_version s11` already marks rows generated under the new output shape, and
-   nothing reads a separate output-contract version until the ledger exists.
+   This is the first Phase-5 step that changes product tables, as flagged. DECISION:
+   `prompt_version s11` marks product rows generated under the new Sigil output shape; the separate
+   output-contract version now lives in the Phase 2 `cognition_ledger` and should be wired for Sigil
+   when its ledger writer lands.
 4. **Fix the trigger topology.** Let every lens movement reach synthesis, debounced by the
    existing `input_hash`. Spurious enqueues are cheap — an unchanged pillar hash skips the model
    call. Two halves with different readiness:
@@ -536,10 +544,10 @@ Success:
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
    Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
    specs backed by `build_pair_request`.
-   Next highest-leverage: the remaining Phase 3 eval sets (stats identity, prose-richness —
-   additive on the seam), measured transfer candidate A/B runs for a real role-split call, or Phase 2
-   (the lens ledger, where the deferred output-contract version belongs
-   and which would SOURCE future fixtures the way `--capture` does by hand today).
+   Next highest-leverage: apply/validate mig 144 and wire the remaining Phase 2 ledgers
+   (`vibe`, `sigil`, `rating`), add ledger-sourced fixture capture, finish the remaining Phase 3
+   eval sets (stats identity, prose-richness — additive on the seam), and run measured transfer
+   candidate A/Bs for a real role-split call.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
    the fixture set gives green regression floors, and the live pair seam now supplies candidate
    comparison units.

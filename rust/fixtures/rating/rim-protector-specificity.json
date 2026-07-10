@@ -1,0 +1,22 @@
+{
+  "name": "rim-protector-specificity",
+  "task": "rating",
+  "prompt_version": "s8",
+  "note": "stats identity specificity. TARGET: the PEAK label should name the actual elite skill, not collapse the whole report onto the PEAK line. Prose checks are floors.",
+  "system": "Task: write the entity's PEAK scouting report from the supplied Rating Engine profile.\n\nVoice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied datapoints.\n\nDefinitions:\n- COMPOSITE = how well the entity performs overall.\n- Each skill gives value, percentile, tier, and z-score.\n- TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.\n- Per-x marks can support an efficient lower-minutes or per-90 edge.\n\nOutput:\n1. First line exactly: PEAK: <label>\n2. Then one flowing scouting-report paragraph, no headers or bullets.\n\nPEAK rules:\n- Use the first datapoint's skill only if it is strong or elite.\n- If the first datapoint is not strong or elite, write exactly: PEAK: No standout skill.\n- Never choose an average, below average, or poor skill as the peak.\n\nScouting-report rules:\n- Lead with real strengths: strong and elite skills.\n- Cite values and percentiles as given.\n- Mention per-x support when it confirms the edge.\n- Do not praise marks below the 50th percentile.\n- Mention weaknesses only when a skill is below average or poor.\n- If nothing is strong or elite, say that plainly and name the best available impact with its percentile.\n- End with a clear scouting verdict on what kind of player/team this is.\n- Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.\n- Never invent a number, rate, role, or skill not in the data.",
+  "user_prompt": "Entity: Nia Torres (NBA player, C)\n\nProfile distinctiveness: 90/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\nComposite (how WELL overall — T-score, 50 = average): 64\n\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n- Rim protection: 3.2 · 96th pct (elite) · z +2.4 [position: 94th, elite]\n- Defensive rebounds: 10.8 · 88th pct (strong) · z +1.7 [position: 82th, strong]\n- Screen assists: 5.9 · 79th pct (strong) · z +1.1\n- Turnovers: 2.8 · 28th pct (poor) · z -1.2\n\nWrite the identity analysis now.",
+  "temperature": 0.0,
+  "expect": {
+    "peak_includes": [
+      "rim protection"
+    ],
+    "peak_excludes": [
+      "no standout"
+    ],
+    "prose_includes": [
+      "96th",
+      "turnover"
+    ],
+    "prose_max_words": 110
+  }
+}

@@ -813,11 +813,21 @@ fn parse_peak_commentary(raw: &str) -> (String, String) {
         }
         return (String::new(), trimmed.to_string());
     }
-    // single-line response — could be a bare marker line with no body
+    // Single-line response. A bare `PEAK: Rim protection` still has no body and remains invalid to
+    // the caller, but some local models put the entire scouting report on the marker line despite
+    // the two-line instruction. Salvage that prose as the body while leaving `divined_peak` empty:
+    // the product gets usable commentary, and the eval can still mark PEAK-label specificity red.
     if let Some(label) = trim_marker(trimmed) {
+        if looks_like_inline_commentary(label) {
+            return (String::new(), label.to_string());
+        }
         return (label.to_string(), String::new());
     }
     (String::new(), trimmed.to_string())
+}
+
+fn looks_like_inline_commentary(s: &str) -> bool {
+    s.split_whitespace().count() > 8 || s.contains('.') || s.contains(';')
 }
 
 /// trim_marker strips the divined-label marker ("PEAK: " or the legacy "SIGIL: ") from a line.
@@ -1487,6 +1497,17 @@ mod tests {
         let (peak, body) = parse_peak_commentary("Just prose, no marker line\nsecond line");
         assert_eq!(peak, "");
         assert_eq!(body, "Just prose, no marker line\nsecond line");
+    }
+
+    #[test]
+    fn parse_peak_commentary_salvages_inline_peak_paragraph_as_body() {
+        let raw = "PEAK: Nia Torres showcases elite rim protection at the 96th percentile and anchors the paint.";
+        let (peak, body) = parse_peak_commentary(raw);
+        assert_eq!(peak, "");
+        assert_eq!(
+            body,
+            "Nia Torres showcases elite rim protection at the 96th percentile and anchors the paint."
+        );
     }
 
     #[test]

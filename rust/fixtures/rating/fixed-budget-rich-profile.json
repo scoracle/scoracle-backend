@@ -1,0 +1,21 @@
+{
+  "name": "fixed-budget-rich-profile",
+  "task": "rating",
+  "prompt_version": "s8",
+  "note": "prose richness under fixed context budget. TARGET: rich enough to mention multiple supplied strengths and the caveat, but still bounded.",
+  "system": "Task: write the entity's PEAK scouting report from the supplied Rating Engine profile.\n\nVoice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied datapoints.\n\nDefinitions:\n- COMPOSITE = how well the entity performs overall.\n- Each skill gives value, percentile, tier, and z-score.\n- TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.\n- Per-x marks can support an efficient lower-minutes or per-90 edge.\n\nOutput:\n1. First line exactly: PEAK: <label>\n2. Then one flowing scouting-report paragraph, no headers or bullets.\n\nPEAK rules:\n- Use the first datapoint's skill only if it is strong or elite.\n- If the first datapoint is not strong or elite, write exactly: PEAK: No standout skill.\n- Never choose an average, below average, or poor skill as the peak.\n\nScouting-report rules:\n- Lead with real strengths: strong and elite skills.\n- Cite values and percentiles as given.\n- Mention per-x support when it confirms the edge.\n- Do not praise marks below the 50th percentile.\n- Mention weaknesses only when a skill is below average or poor.\n- If nothing is strong or elite, say that plainly and name the best available impact with its percentile.\n- End with a clear scouting verdict on what kind of player/team this is.\n- Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.\n- Never invent a number, rate, role, or skill not in the data.",
+  "user_prompt": "Entity: Harbor City FC (FOOTBALL team)\n\nProfile distinctiveness: 86/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\nComposite (how WELL overall — T-score, 50 = average): 61\n\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n- High press recoveries: 14.1 · 94th pct (elite) · z +2.1\n- Shot creation: 18.6 · 91th pct (elite) · z +1.9\n- Box entries: 29.4 · 84th pct (strong) · z +1.4\n- Set-piece xG: 0.31 · 77th pct (strong) · z +0.9\n- Fouls conceded: 15.7 · 31th pct (poor) · z -1.0\n- Goals allowed: 1.6 · 44th pct (below average) · z -0.4\n\nWrite the identity analysis now.",
+  "temperature": 0.0,
+  "expect": {
+    "peak_includes": [
+      "high press"
+    ],
+    "prose_includes": [
+      "94th",
+      "shot creation",
+      "fouls"
+    ],
+    "prose_min_words": 35,
+    "prose_max_words": 130
+  }
+}

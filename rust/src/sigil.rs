@@ -142,6 +142,9 @@ pub struct SynthVibe {
 /// The momentum pillar (P4): durable trajectory values from `momentum_scores`.
 #[derive(Clone, Debug, Default)]
 pub struct SynthMomentum {
+    pub direction: Option<String>,
+    pub blurb: Option<String>,
+    pub input_hash: Option<String>,
     pub vibe_slope: Option<f64>,
     pub vibe_samples: i32,
     pub rating_slope: Option<f64>,
@@ -152,7 +155,11 @@ pub struct SynthMomentum {
 impl SynthMomentum {
     /// empty mirrors `synthMomentum.empty()`: no momentum signal at all.
     pub fn empty(&self) -> bool {
-        self.vibe_slope.is_none() && self.rating_slope.is_none() && self.momentum_score.is_none()
+        self.direction.is_none()
+            && self.blurb.is_none()
+            && self.vibe_slope.is_none()
+            && self.rating_slope.is_none()
+            && self.momentum_score.is_none()
     }
 }
 
@@ -361,50 +368,68 @@ pub async fn load_vibe_pillar(
     }
 }
 
-/// load_momentum_pillar (P4) reads the durable Momentum trajectory snapshot. Momentum is a served
-/// product with DB-first leaderboards; Sigil consumes the same trajectory instead of recomputing a
-/// separate raw-history slope.
-///
-/// Product note: Momentum remains its own endpoint/product. This pillar is the Sigil-facing read of
-/// the same trajectory so a strong season-long stats profile can still be tempered by recent form,
-/// sentiment collapse, injuries, coaching churn, or other directional changes.
+/// load_momentum_pillar (P4) reads the generated Momentum product. The deterministic
+/// `momentum_scores` projection remains the numeric backbone, but Sigil now consumes the durable
+/// `momentum_summaries` row so the Momentum lens has the same generated-product lifecycle as PEAK,
+/// Vibe, narratives, and transfers.
 pub async fn load_momentum_pillar(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-    _season: Option<i32>,
+    season: Option<i32>,
 ) -> Result<SynthMomentum> {
-    let row: Option<(Option<f64>, i32, Option<f64>, i32, Option<f64>)> = sqlx::query_as(
+    let row: Option<(
+        Option<String>,
+        Option<i16>,
+        Option<String>,
+        Option<String>,
+        serde_json::Value,
+    )> = sqlx::query_as(
         r#"
-        SELECT vibe_slope::float8, vibe_samples,
-               rating_slope::float8, rating_samples,
-               momentum_score::float8
-        FROM public.latest_momentum_scores_per_entity
+        SELECT direction, score, blurb, input_hash, COALESCE(input_components, '{}'::jsonb)
+        FROM public.momentum_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          AND ($4::int IS NULL OR season = $4)
+        ORDER BY generated_at DESC
         LIMIT 1
         "#,
     )
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
+    .bind(season)
     .fetch_optional(pool)
     .await
     .with_context(|| format!("load momentum pillar {entity_type}/{entity_id}"))?;
 
-    Ok(row
-        .map(
-            |(vibe_slope, vibe_samples, rating_slope, rating_samples, momentum_score)| {
-                SynthMomentum {
-                    vibe_slope,
-                    vibe_samples,
-                    rating_slope,
-                    rating_samples,
-                    momentum_score,
-                }
-            },
-        )
-        .unwrap_or_default())
+    let Some((direction, score, blurb, input_hash, components)) = row else {
+        return Ok(SynthMomentum::default());
+    };
+    let rating_slope = components
+        .get("momentum_rating_slope")
+        .and_then(serde_json::Value::as_f64);
+    let rating_samples = components
+        .get("momentum_rating_samples")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or_default() as i32;
+    let vibe_slope = components
+        .get("momentum_vibe_slope")
+        .and_then(serde_json::Value::as_f64);
+    let vibe_samples = components
+        .get("momentum_vibe_samples")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or_default() as i32;
+    Ok(SynthMomentum {
+        direction: direction.filter(|s| !s.trim().is_empty()),
+        blurb: blurb.filter(|s| !s.trim().is_empty()),
+        input_hash,
+        vibe_slope,
+        vibe_samples,
+        rating_slope,
+        rating_samples,
+        momentum_score: score.map(f64::from),
+    })
 }
 
 /// load_pillars resolves the season and loads all pillars season-exact — the shared
@@ -472,6 +497,7 @@ pub async fn load_pillars(
 /// DO NOT merge with `rating::linear_slope` — different accumulation order (this sum form vs
 /// rating's mean-centered form), each claims Go bit-parity. See plan A6 / E3: consolidating
 /// could flip boundary values and destabilize rating's `input_hash` debounce.
+#[cfg(test)]
 fn linear_slope(vals: &[f64]) -> f64 {
     let n = vals.len() as f64;
     if vals.len() < 2 {
@@ -604,6 +630,15 @@ pub fn build_synthesis_input_components(
     }
     if let Some(score) = mom.momentum_score {
         pairs.push(("momentum_score", go_json_float(round1(score))));
+    }
+    if let Some(direction) = &mom.direction {
+        pairs.push(("momentum_direction", go_json_string(direction)));
+    }
+    if let Some(blurb) = &mom.blurb {
+        pairs.push(("momentum_blurb", go_json_string(blurb)));
+    }
+    if let Some(input_hash) = &mom.input_hash {
+        pairs.push(("momentum_summary_hash", go_json_string(input_hash)));
     }
 
     // transfer_heat (Phase 5.1) — CONDITIONAL (emitted only when there is served heat), so an
@@ -749,7 +784,18 @@ pub fn build_synthesis_prompt(
 
     // P4 — Momentum
     b.push_str("\n=== MOMENTUM ===\n");
-    if let Some(score) = momentum_score(mom) {
+    if mom.blurb.is_some() || mom.direction.is_some() {
+        let direction = mom.direction.as_deref().unwrap_or("steady");
+        if let Some(score) = momentum_score(mom) {
+            b.push_str(&format!("Momentum: {direction} (score {score})\n"));
+        } else {
+            b.push_str(&format!("Momentum: {direction}\n"));
+        }
+        if let Some(blurb) = &mom.blurb {
+            b.push_str(blurb);
+            b.push('\n');
+        }
+    } else if let Some(score) = momentum_score(mom) {
         b.push_str(&format!(
             "Momentum score: {score} ({})\n",
             momentum_score_label(score)
@@ -1535,6 +1581,7 @@ mod tests {
             rating_slope: Some(2.0),
             rating_samples: 5,
             momentum_score: Some(4.0),
+            ..SynthMomentum::default()
         };
         assert_eq!(momentum_score(&surging), Some(4));
         assert_eq!(momentum_score_label(4), "surging");
@@ -1545,6 +1592,7 @@ mod tests {
             rating_slope: Some(-1.0),
             rating_samples: 3,
             momentum_score: Some(-1.5),
+            ..SynthMomentum::default()
         };
         assert_eq!(momentum_score(&sliding), Some(-2));
         assert_eq!(momentum_score_label(-2), "sliding");
@@ -1608,6 +1656,7 @@ mod tests {
             rating_slope: Some(0.0),
             rating_samples: 5,
             momentum_score: Some(2.5),
+            ..SynthMomentum::default()
         };
         let vibe = SynthVibe {
             sentiment: 60,
@@ -1702,6 +1751,7 @@ mod tests {
             rating_slope: None,
             rating_samples: 0,
             momentum_score: Some(1.0),
+            ..SynthMomentum::default()
         };
         let vibe = SynthVibe {
             sentiment: 62,

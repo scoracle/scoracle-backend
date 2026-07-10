@@ -22,10 +22,10 @@
 //! - Emotional/news rail: Narratives, Transfers, and Vibe.
 //! - Synthesis rail: Sigil, the final panel read.
 //!
-//! Momentum is not a queue stage today: it is deterministic trajectory math over PEAK/rating and
-//! Vibe series, surfaced to clients and passed into Sigil. The eval harness still exposes a
-//! fixture-first `momentum` task so analytical model candidates can be measured before a versioned
-//! Momentum generation or route split exists.
+//! Momentum is now a queue stage: deterministic `momentum_scores` stays the numeric backbone, while
+//! `momentum_summaries` stores the generated direction/blurb product consumed by Sigil. The eval
+//! harness still exposes fixture-first `momentum` cases so analytical model candidates can be
+//! measured before any dedicated route split.
 //!
 //! Product tables are append-only. No-data marker rows are part of that model: they clear
 //! stale current projections without deleting history, and they still carry the configured
@@ -40,6 +40,7 @@ pub mod embed;
 pub mod eval_tasks;
 pub mod harness;
 pub mod ledger;
+pub mod momentum;
 pub mod narratives;
 pub mod ollama;
 pub mod rating;

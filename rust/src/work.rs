@@ -18,17 +18,15 @@ use std::time::Duration;
 /// Stage names the derivation step a work item belongs to, held in `pipeline_work`. Most stages are
 /// per-entity (player/team); `Scrub` is the exception — it is ARTICLE-keyed (entity_type='article',
 /// entity_id=`news_articles.id`) and is the news ID-gate that, on writing `vetted`, fires the mig-103
-/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). The Rust
-/// `ScrubHandler` drains it; Go only enqueues article-keyed scrub work.
-///
-/// `Momentum` is intentionally NOT a queue stage. It is its own served product: the rating and
-/// vibe trajectories over time, assembled from persisted rating/vibe series rather than drained as
-/// a standalone worker task. Sigil reads that trajectory as one of its pillars.
+/// trigger enqueuing the per-entity derive stages (Plan §8, L6 option (i)). `Momentum` is the
+/// generated trajectory card over PEAK/Vibe plus deterministic momentum scores. The Rust handlers
+/// drain these stages; Go only enqueues/operates queue rows.
 ///
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,
     Peak,
+    Momentum,
     Transfers,
     Narratives,
     Vibe,
@@ -40,6 +38,7 @@ impl Stage {
         match self {
             Stage::Scrub => "scrub",
             Stage::Peak => "peak",
+            Stage::Momentum => "momentum",
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",

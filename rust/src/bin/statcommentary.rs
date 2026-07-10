@@ -9,8 +9,8 @@ use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::rating::{
-    build_rating_request, enqueue_sigil_for_peak, generate_rating, peak_work_input_version,
-    persist_stat_summary, RatingBuild, RatingOutput, RatingReq, RATING_TEMPERATURE,
+    build_rating_request, generate_rating, peak_work_input_version, persist_stat_summary,
+    RatingBuild, RatingOutput, RatingReq, RATING_TEMPERATURE,
 };
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{corpus, db, work};
@@ -100,7 +100,13 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged).await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(hx, &req, &out).await?;
-        enqueue_sigil_for_peak(&hx.pool, &req.entity_type, req.entity_id, &sport, &out).await?;
+        scoracle_cognition::momentum::enqueue_momentum_if_needed(
+            hx,
+            &req.entity_type,
+            req.entity_id,
+            &sport,
+        )
+        .await?;
     }
     let mode = if args.persist { "persisted" } else { "dry-run" };
     println!(

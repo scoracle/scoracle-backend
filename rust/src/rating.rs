@@ -1451,8 +1451,8 @@ async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
 }
 
 /// PeakHandler drains the durable `peak` stage. It is the queue-owned form of the stats rail:
-/// generate/persist the PEAK scouting card only when the rating input hash moved, then enqueue Sigil
-/// as the downstream consumer of the fresh PEAK pillar.
+/// generate/persist the PEAK scouting card only when the rating input hash moved, then enqueue
+/// Momentum as the downstream consumer of the fresh PEAK pillar.
 pub struct PeakHandler;
 
 impl PeakHandler {
@@ -1514,7 +1514,8 @@ impl StageHandler for PeakHandler {
             &out,
         )
         .await?;
-        enqueue_sigil_for_peak(&hx.pool, &item.entity_type, entity_id, &sport, &out).await?;
+        crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+            .await?;
         Ok(())
     }
 }

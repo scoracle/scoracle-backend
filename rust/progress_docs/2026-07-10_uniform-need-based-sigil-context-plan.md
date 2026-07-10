@@ -40,15 +40,17 @@ Already implemented in this session:
 - `peak` is now a `pipeline_work` stage in Rust.
 - `statcommentary -mode nightly` enqueues current-season `peak` work instead of generating inline.
 - Go percentile/composite-shift listener now enqueues `peak`, not `sigil`.
-- `PeakHandler` persists `stat_summaries`, then enqueues `sigil`.
-- The systemd cognition unit registers `scrub,peak,transfers,narratives,vibe,sigil`.
+- `PeakHandler` persists `stat_summaries`, then enqueues `momentum`.
+- `momentum` is now a `pipeline_work` stage in Rust, persisting `momentum_summaries`.
+- Vibe persists `vibe_scores`, then enqueues `momentum` instead of `sigil`.
+- Sigil reads generated Momentum summaries as its Momentum pillar.
+- The systemd cognition unit registers `scrub,peak,momentum,transfers,narratives,vibe,sigil`.
 
 Still inconsistent:
 
 - Vetted-news trigger enqueues multiple downstream stages directly.
 - Vibe can be enqueued before narratives/transfers have produced their freshest outputs.
 - Transfers enqueue Sigil directly after positive rumor persistence.
-- Momentum is deterministic/read-derived, not a need-based generated product with a blurb.
 - Sigil need gating is spread across stage-specific handoffs instead of one uniform policy.
 
 ## Uniform Stage Contract
@@ -332,4 +334,3 @@ Live operational checks:
 - Marker policy: define when each channel should write a clearing marker versus simply not enqueue.
 - Shared need gate location: likely a new module, e.g. `src/need.rs`, to avoid duplicating SQL and
   thresholds across stage handlers.
-

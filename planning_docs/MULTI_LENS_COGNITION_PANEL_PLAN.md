@@ -292,9 +292,9 @@ Success:
 
 ### Phase 3 - Create Stage-Specific Evals
 
-**SEAM + FIRST SET DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
+**SEAM + THREE LENSES DONE (2026-07-09, commits below).** `bin/eval` was hardwired to the vibe task
 (`EVAL_ROLE`) and read the LIVE corpus — not reproducible once the corpus moved. Both moves landed
-for two lenses; the remaining four eval sets are additive on the proven seam.
+for three lenses (vibe + sigil + narratives); the remaining eval sets are additive on the proven seam.
 
 1. **Per-lens task registry — DONE.** New lib module `rust/src/eval_tasks.rs`: a
    `#[async_trait] LensTask` (name/role/prompt_version/gen_options/build_prompt/evaluate) +
@@ -320,11 +320,29 @@ for two lenses; the remaining four eval sets are additive on the proven seam.
    parrots the system-prompt's example disagreement verbatim for a conflict that isn't there — caught
    by `disagreement_excludes`.
 
+3. **Narrative grounding set — DONE (2026-07-09, commit `6f811a3`).** `NarrativeTask` joins the
+   registry as the narrative lens's storyline grouping + grounding half (vibe already covers its
+   emotional temperature). It composes the capability library unchanged — `load_vetted_corpus` +
+   `build_narratives_prompt` (live) and `NarrativesParser` (scoring) — with one minimal read
+   accessor (`ParsedNarratives::returned()` → title/body/cited-article-numbers; the private
+   `ModelNarrative` DTO stays encapsulated, the `load_pillars`/`ParsedSynthesis` precedent). New
+   `Expect` rubric: `narratives_min/max` (count discipline), `title_/body_includes/excludes`
+   (specificity + no-invention), `all_cite_articles` + `max_article_num` (grounding: every storyline
+   cites a real corpus article, no invented reference). Five synthetic honesty-target fixtures,
+   probe-validated on `mistral:7b` (temp 0): four are green regression floors (grouping, grounding,
+   the "other team scheming around the entity" trap correctly NOT turned into an entity move, hype
+   restraint, no over-split of one story). The fifth — `off-entity-and-hype-contamination` — surfaces
+   a REAL gap: given a well-sourced trade + vague hype + an off-entity article, mistral keeps
+   PRECISION (leaks no off-entity storyline — excludes green) but fails RECALL (returns zero,
+   dropping the real trade too). `narratives_min 1` + `title_includes "Foss"` are checked-in RED
+   targets a prompt/model fix flips green. Evidence over taste: the narrative lens's over-suppression
+   under noise is now MEASURED, not hoped for.
+
 Remaining curated eval sets (DEFERRED — additive; each needs its own rubric vocabulary, not a seam
 change):
 
 - transfer false positives and true positives
-- narrative grouping and grounding
+- ~~narrative grouping and grounding~~ **DONE (2026-07-09, commit `6f811a3`)**
 - stats identity specificity
 - ~~panel synthesis disagreement handling~~ **DONE (first set)**
 - prose richness under a fixed context budget
@@ -491,13 +509,17 @@ Success:
    (commit `75ca616`, prompt `s10`). Phase 5.3 (convergence/disagreement/"why now" as additive
    nullable `sigil_synthesis` columns + the reply-format extension + Go serve surfacing) — DONE
    (commit `c854d06`, prompt `s11`, mig 143).
-   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + first fixture set DONE (this
-   session): `eval_tasks::LensTask` registry (`vibe` + `sigil`), `--task`/`--fixtures`/`--capture`,
-   and a synthetic panel-disagreement fixture set that scores the s11 CONVERGENCE/DISAGREEMENT/WHY_NOW
-   outputs (floor/target). Next highest-leverage: the remaining Phase 3 eval sets (transfer FP/TP,
-   narrative grounding, stats identity, prose-richness — additive on the seam), or Phase 2 (the lens
-   ledger, where the deferred output-contract version belongs and which would SOURCE future fixtures
-   the way `--capture` does by hand today).
+   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + THREE lens sets DONE: the
+   `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives`,
+   `--task`/`--fixtures`/`--capture`, a synthetic panel-disagreement fixture set scoring the s11
+   CONVERGENCE/DISAGREEMENT/WHY_NOW outputs, and a narrative grounding set (commit `6f811a3`) whose
+   contamination fixture MEASURED mistral's over-suppression under noise. Next highest-leverage: the
+   remaining Phase 3 eval sets (transfer FP/TP, stats identity, prose-richness — additive on the
+   seam), or Phase 2 (the lens ledger, where the deferred output-contract version belongs and which
+   would SOURCE future fixtures the way `--capture` does by hand today). Note the transfer set has a
+   seam wrinkle the entity-keyed sets do not: transfer's live unit is a NEWS PAIR, not an
+   `EntitySpec`, so it ships fixture-first (frozen system+prompt, DB-free — like the sets already
+   shipped) with the live `--capture`/AB pair path as a documented follow-up.
 7. Decide whether `TransferLogic` deserves its own role after the first transfer eval set.
 
 ## Risks

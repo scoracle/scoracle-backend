@@ -16,8 +16,10 @@
 //!     through the model and checks each fixture's `Expect` properties → a per-property ✓/✗ table.
 //!     Reproducible — the regression gate. DB-free (Router-only).
 //!   - CAPTURE (`eval --capture --task T <entity:id:sport>`): emits a fixture skeleton (frozen
-//!     system + built prompt, empty `expect`) to STDOUT for a human to annotate. The bootstrap tool
-//!     + stand-in for the Phase 2 ledger.
+//!     system + built prompt, empty `expect`) to STDOUT for a human to annotate.
+//!   - LEDGER CAPTURE (`eval --capture-ledger <ledger_id> --task T`): emits a fixture skeleton from
+//!     the exact request/prompt persisted in `public.cognition_ledger`, so future fixtures can come
+//!     from production diagnostics instead of hand-capture.
 //!
 //! Two live measurement axes:
 //!   - QUALITY: the side-by-side prose per entity — a blind read of which answer is better. No
@@ -44,6 +46,7 @@
 //!   eval --task transfer team:14:player:237:NBA   # transfer live pair A/B
 //!   eval --task sigil --fixtures                  # frozen-fixture gate (reproducible)
 //!   eval --capture --task sigil player:237:NBA    # emit a fixture skeleton to stdout
+//!   eval --capture-ledger 123 --task sigil         # fixture skeleton from cognition_ledger row 123
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=mistral:7b eval --task sigil player:237:NBA  # A/B a challenger
 
 use anyhow::{anyhow, Context, Result};
@@ -54,6 +57,8 @@ use scoracle_cognition::eval_tasks::{
 };
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::{Inference, Router};
+use serde_json::Value;
+use sqlx::Row;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -117,6 +122,7 @@ enum Mode {
     Live,
     Fixtures { filter: Option<String> },
     Capture,
+    CaptureLedger { ledger_id: i64 },
 }
 
 struct Args {
@@ -142,6 +148,9 @@ async fn main() -> Result<()> {
         Mode::Live => run_live(&cfg, task.as_ref(), &args.cases).await,
         Mode::Fixtures { filter } => run_fixtures(&cfg, task.as_ref(), filter.as_deref()).await,
         Mode::Capture => run_capture(&cfg, task.as_ref(), &args.cases).await,
+        Mode::CaptureLedger { ledger_id } => {
+            run_capture_ledger(&cfg, task.as_ref(), ledger_id).await
+        }
     }
 }
 
@@ -169,6 +178,15 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
                 mode = Mode::Fixtures { filter };
             }
             "--capture" => mode = Mode::Capture,
+            "--capture-ledger" => {
+                let raw = it
+                    .next()
+                    .ok_or_else(|| anyhow!("--capture-ledger needs a cognition_ledger id"))?;
+                let ledger_id = raw
+                    .parse::<i64>()
+                    .with_context(|| format!("bad --capture-ledger id {raw:?}"))?;
+                mode = Mode::CaptureLedger { ledger_id };
+            }
             other => positionals.push(other.to_string()),
         }
     }
@@ -199,6 +217,7 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
              eval --task sigil --fixtures               (frozen-fixture regression gate)\n  \
              eval --capture --task sigil player:237:NBA (emit a fixture skeleton to stdout)\n  \
+             eval --capture-ledger 123 --task sigil      (emit a fixture skeleton from cognition_ledger)\n  \
              eval --task transfer team:14:player:237:NBA (transfer live pair A/B)\n  \
              set COGNITION_ROUTE_{}_CANDIDATE=<model> to enable the A/B challenger",
             all_task_names().join(", "),
@@ -404,6 +423,9 @@ async fn run_one_fixture(
     };
     let verdict = task.evaluate(&gen.response, None, Some(&fx.expect));
     println!("  {label} {:<16} {}", backend.model(), verdict.display);
+    if !verdict.parsed {
+        println!("      raw: {}", fixture_raw_excerpt(&gen.response));
+    }
     for c in &verdict.checks {
         let mark = if c.pass { "✓" } else { "✗" };
         if c.detail.is_empty() {
@@ -452,8 +474,142 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
 }
 
 // ---------------------------------------------------------------------------
+// LEDGER CAPTURE mode — emit a fixture skeleton from cognition_ledger
+// ---------------------------------------------------------------------------
+
+async fn run_capture_ledger(cfg: &Config, task: &dyn LensTask, ledger_id: i64) -> Result<()> {
+    let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
+    let row = sqlx::query(
+        r#"
+        SELECT
+            id, stage, lens, entity_type, entity_id, sport,
+            pair_entity_type, pair_entity_id,
+            prompt_version, request_body, built_prompt
+        FROM public.cognition_ledger
+        WHERE id = $1
+        "#,
+    )
+    .bind(ledger_id)
+    .fetch_optional(&pool)
+    .await
+    .with_context(|| format!("read cognition_ledger id={ledger_id}"))?
+    .ok_or_else(|| anyhow!("cognition_ledger id={ledger_id} not found"))?;
+
+    let stage: String = row.get("stage");
+    let lens: String = row.get("lens");
+    if !ledger_row_matches_task(task.name(), &stage, &lens) {
+        return Err(anyhow!(
+            "cognition_ledger id={} is stage={} lens={}, not task={}",
+            ledger_id,
+            stage,
+            lens,
+            task.name()
+        ));
+    }
+
+    let request_body: Value = row.get::<Option<Value>, _>("request_body").ok_or_else(|| {
+        anyhow!(
+            "cognition_ledger id={ledger_id} has no request_body; no model-call fixture to capture"
+        )
+    })?;
+    let user_prompt = request_body
+        .get("prompt")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .or_else(|| row.get::<Option<String>, _>("built_prompt"))
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| anyhow!("cognition_ledger id={ledger_id} has no prompt to freeze"))?;
+    let system = request_body
+        .get("system")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_string();
+    let temperature = request_body
+        .get("options")
+        .and_then(|v| v.get("temperature"))
+        .and_then(Value::as_f64)
+        .unwrap_or(EVAL_TEMPERATURE);
+
+    let entity_type: String = row.get("entity_type");
+    let entity_id: i32 = row.get("entity_id");
+    let sport: String = row.get("sport");
+    let pair_entity_type: Option<String> = row.get("pair_entity_type");
+    let pair_entity_id: Option<i32> = row.get("pair_entity_id");
+    let prompt_version: String = row.get("prompt_version");
+
+    let fx = Fixture {
+        name: fixture_name_from_ledger(
+            ledger_id,
+            &stage,
+            &entity_type,
+            entity_id,
+            pair_entity_type.as_deref(),
+            pair_entity_id,
+            &sport,
+        ),
+        task: task.name().to_string(),
+        prompt_version,
+        system,
+        user_prompt,
+        temperature,
+        expect: Expect::default(),
+    };
+    println!("{}", serde_json::to_string_pretty(&fx)?);
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+fn ledger_row_matches_task(task_name: &str, stage: &str, lens: &str) -> bool {
+    task_name == stage
+        || task_name == lens
+        || (task_name == "transfer" && (stage == "transfers" || lens == "transfer"))
+}
+
+fn fixture_name_from_ledger(
+    ledger_id: i64,
+    stage: &str,
+    entity_type: &str,
+    entity_id: i32,
+    pair_entity_type: Option<&str>,
+    pair_entity_id: Option<i32>,
+    sport: &str,
+) -> String {
+    let raw = match (pair_entity_type, pair_entity_id) {
+        (Some(pair_type), Some(pair_id)) => format!(
+            "ledger-{ledger_id}-{stage}-{entity_type}-{entity_id}-{pair_type}-{pair_id}-{sport}"
+        ),
+        _ => format!("ledger-{ledger_id}-{stage}-{entity_type}-{entity_id}-{sport}"),
+    };
+    raw.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect()
+}
+
+fn fixture_raw_excerpt(raw: &str) -> String {
+    let s = raw.trim();
+    if s.is_empty() {
+        return "(empty response)".to_string();
+    }
+    const MAX_CHARS: usize = 240;
+    let mut out = String::new();
+    for (idx, ch) in s.chars().enumerate() {
+        if idx >= MAX_CHARS {
+            out.push_str("...");
+            return out;
+        }
+        out.push(ch);
+    }
+    out
+}
 
 /// build_harness constructs the read-only harness (pool + router; no embedder/bucket_classifier).
 /// Single-flight, so the GPU governor is moot; pin 1.
@@ -711,5 +867,44 @@ mod tests {
     fn parse_entity_rejects_non_team_pair_shape() {
         let err = parse_entity("player:14:player:237:nba").unwrap_err();
         assert!(err.to_string().contains("bad pair"));
+    }
+
+    #[test]
+    fn parse_args_accepts_capture_ledger() {
+        let args = parse_args(
+            ["--capture-ledger", "42", "--task", "sigil"]
+                .into_iter()
+                .map(String::from),
+        )
+        .unwrap();
+        assert_eq!(args.task_name, "sigil");
+        assert!(args.cases.is_empty());
+        match args.mode {
+            Mode::CaptureLedger { ledger_id } => assert_eq!(ledger_id, 42),
+            _ => panic!("expected CaptureLedger mode"),
+        }
+    }
+
+    #[test]
+    fn ledger_match_accepts_transfer_stage_plural() {
+        assert!(ledger_row_matches_task("transfer", "transfers", "transfer"));
+        assert!(!ledger_row_matches_task("sigil", "transfers", "transfer"));
+    }
+
+    #[test]
+    fn fixture_name_from_ledger_sanitizes_pair_name() {
+        assert_eq!(
+            fixture_name_from_ledger(7, "transfers", "team", 14, Some("player"), Some(237), "NBA"),
+            "ledger-7-transfers-team-14-player-237-nba"
+        );
+    }
+
+    #[test]
+    fn fixture_raw_excerpt_handles_empty_and_truncates() {
+        assert_eq!(fixture_raw_excerpt("  \n"), "(empty response)");
+        let long = "x".repeat(300);
+        let out = fixture_raw_excerpt(&long);
+        assert!(out.ends_with("..."));
+        assert!(out.len() < long.len());
     }
 }

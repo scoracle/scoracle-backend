@@ -24,6 +24,10 @@ use crate::narratives::{
     NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
+use crate::rating::{
+    build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
+    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
+};
 use crate::route::Role;
 use crate::sigil::{
     build_synthesis_prompt, load_pillars, parse_synthesis_response, SIGIL_NUM_PREDICT,
@@ -186,6 +190,23 @@ pub struct Expect {
     pub confidence_min: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub confidence_max: Option<f64>,
+    // rating / stats-lens specificity + prose richness rubric.
+    /// PEAK identity specificity: the first-line PEAK label should name the actual standout skill,
+    /// not a generic role or an average datapoint.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peak_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peak_excludes: Option<Vec<String>>,
+    /// Scouting-report body checks. Kept separate from narrative `body_*` so stats fixtures can
+    /// describe prose richness without changing storyline semantics.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_excludes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_min_words: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prose_max_words: Option<i32>,
 }
 
 /// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
@@ -237,13 +258,14 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "sigil" => Some(Box::new(SigilTask)),
         "narratives" => Some(Box::new(NarrativeTask)),
         "transfer" => Some(Box::new(TransferTask)),
+        "rating" => Some(Box::new(RatingTask)),
         _ => None,
     }
 }
 
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
 pub fn all_task_names() -> &'static [&'static str] {
-    &["vibe", "sigil", "narratives", "transfer"]
+    &["vibe", "sigil", "narratives", "transfer", "rating"]
 }
 
 /// fixture_drift returns a warning when a fixture was frozen under a different prompt contract than
@@ -818,6 +840,116 @@ impl LensTask for TransferTask {
     }
 }
 
+// ---------------------------------------------------------------------------
+// RatingTask — stats lens / PEAK identity specificity + prose richness.
+// ---------------------------------------------------------------------------
+
+pub struct RatingTask;
+
+#[async_trait]
+impl LensTask for RatingTask {
+    fn name(&self) -> &'static str {
+        "rating"
+    }
+    fn role(&self) -> Role {
+        Role::StatsLogic
+    }
+    fn prompt_version(&self) -> &'static str {
+        RATING_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        GenerateOptions {
+            system: Some(RATING_SYSTEM_PROMPT.to_string()),
+            temperature: Some(temperature),
+            num_predict: RATING_NUM_PREDICT,
+            json_mode: false,
+        }
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        let sport = e.sport.to_uppercase();
+        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
+        let req = RatingReq {
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            entity_name: name,
+            sport,
+            season: None,
+            trigger_type: "periodic".to_string(),
+        };
+        match build_rating_request(hx, &req, 0.0).await? {
+            RatingBuild::NoStats { .. } => Ok(None),
+            RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
+        }
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let reply = match RatingParser.parse(raw) {
+            Ok(Some(r)) if !r.body.trim().is_empty() => r,
+            _ => {
+                return CaseVerdict {
+                    parsed: false,
+                    abs_err: None,
+                    checks: Vec::new(),
+                    display: "unparseable".into(),
+                }
+            }
+        };
+        let mut checks = Vec::new();
+        let word_count = reply.body.split_whitespace().count() as i32;
+
+        if let Some(x) = expect {
+            for s in x.peak_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("peak_includes:{s}"),
+                    pass: contains_ci(&reply.divined_peak, s),
+                    detail: format!("peak={}", empty_dash(&reply.divined_peak)),
+                });
+            }
+            for s in x.peak_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("peak_excludes:{s}"),
+                    pass: !contains_ci(&reply.divined_peak, s),
+                    detail: format!("peak={}", empty_dash(&reply.divined_peak)),
+                });
+            }
+            for s in x.prose_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("prose_includes:{s}"),
+                    pass: contains_ci(&reply.body, s),
+                    detail: String::new(),
+                });
+            }
+            for s in x.prose_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("prose_excludes:{s}"),
+                    pass: !contains_ci(&reply.body, s),
+                    detail: String::new(),
+                });
+            }
+            if let Some(min) = x.prose_min_words {
+                checks.push(PropertyCheck {
+                    name: "prose_words_ge".into(),
+                    pass: word_count >= min,
+                    detail: format!("words={word_count} ≥ {min}"),
+                });
+            }
+            if let Some(max) = x.prose_max_words {
+                checks.push(PropertyCheck {
+                    name: "prose_words_le".into(),
+                    pass: word_count <= max,
+                    detail: format!("words={word_count} ≤ {max}"),
+                });
+            }
+        }
+
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!("peak={} | {}", empty_dash(&reply.divined_peak), reply.body),
+        }
+    }
+}
+
 fn disp_bool(b: Option<bool>) -> &'static str {
     match b {
         Some(true) => "true",
@@ -834,6 +966,10 @@ fn empty_dash(s: &str) -> &str {
     }
 }
 
+fn contains_ci(haystack: &str, needle: &str) -> bool {
+    haystack.to_lowercase().contains(&needle.to_lowercase())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -844,11 +980,13 @@ mod tests {
         assert!(resolve_task("sigil").is_some());
         assert!(resolve_task("narratives").is_some());
         assert!(resolve_task("transfer").is_some());
+        assert!(resolve_task("rating").is_some());
         assert!(resolve_task("nope").is_none());
         assert_eq!(resolve_task("vibe").unwrap().name(), "vibe");
         assert_eq!(resolve_task("sigil").unwrap().name(), "sigil");
         assert_eq!(resolve_task("narratives").unwrap().name(), "narratives");
         assert_eq!(resolve_task("transfer").unwrap().name(), "transfer");
+        assert_eq!(resolve_task("rating").unwrap().name(), "rating");
     }
 
     #[test]
@@ -1172,6 +1310,39 @@ mod tests {
     fn transfer_malformed_reply_is_unparseable() {
         let v = TransferTask.evaluate("looks like a rumor", None, None);
         assert!(!v.parsed);
+    }
+
+    // --- rating / stats-lens rubric ---------------------------------------------
+
+    const RATING_REPLY: &str = "PEAK: Rim protection\nAn elite rim protector who grades at the 94th percentile in blocks and anchors the paint without fouling. The profile is thinner as a creator, but the defensive identity is clear and valuable.";
+
+    #[test]
+    fn rating_rubric_scores_peak_specificity_and_prose_richness() {
+        let x = Expect {
+            peak_includes: Some(vec!["Rim protection".into()]),
+            peak_excludes: Some(vec!["No standout".into()]),
+            prose_includes: Some(vec!["94th percentile".into(), "defensive identity".into()]),
+            prose_excludes: Some(vec!["triple-double".into()]),
+            prose_min_words: Some(20),
+            prose_max_words: Some(60),
+            ..Default::default()
+        };
+        let v = RatingTask.evaluate(RATING_REPLY, None, Some(&x));
+        assert!(v.parsed);
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn rating_rubric_catches_generic_peak_and_thin_prose() {
+        let x = Expect {
+            peak_includes: Some(vec!["Rim protection".into()]),
+            peak_excludes: Some(vec!["No standout".into()]),
+            prose_min_words: Some(20),
+            ..Default::default()
+        };
+        let v = RatingTask.evaluate("PEAK: No standout skill\nAverage profile.", None, Some(&x));
+        assert!(v.parsed);
+        assert_eq!(v.checks_passed(), 0, "checks: {:?}", v.checks);
     }
 
     // --- fixture serde + drift ----------------------------------------------------

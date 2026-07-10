@@ -267,9 +267,10 @@ Success:
 
 ### Phase 2 - Add Lens Ledgers
 
-**MVP DONE (2026-07-10, commit `6b42383`).** The ledger lives in a dedicated
-`public.cognition_ledger` table (mig 144), not widened product rows. Product tables remain the
-served surface; ledger rows are diagnostic, prunable, and keyed back to product row ids.
+**MVP DONE (2026-07-10, commit `6b42383`; remaining lens wiring + live DB/schema validation
+in commit `5b9d856`).** The ledger lives in a dedicated `public.cognition_ledger` table (mig 144),
+not widened product rows. Product tables remain the served surface; ledger rows are diagnostic,
+prunable, and keyed back to product row ids.
 
 What landed:
 
@@ -283,12 +284,15 @@ What landed:
   request body/prompt, product row id, model/prompt/output-contract versions, input news ids, heat
   components, parser outcome (`rumor`, `cleared`, `unknown`), and model-cleared/unknown exclusion
   reasons.
+- vibe, sigil, and rating/stat_summaries ledger writes are now wired after their product rows
+  persist: product row ids, model/prompt/output-contract versions, input ids or input hash,
+  exact prompt/request when a model call happened, parser/no-call outcome, context budget telemetry,
+  and basic included/excluded evidence.
+- migrations `143_sigil_disagreement_outputs` and `144_cognition_ledger` are applied in the target
+  DB, `public.cognition_ledger` was read-back validated, and `sql/schema/schema.sql` was refreshed.
 
 Remaining Phase 2 hardening:
 
-- apply mig 144 in the target DB and refresh `sql/schema/schema.sql` if this deployment path expects
-  committed schema snapshots.
-- extend ledger writes to `vibe`, `sigil`, and `rating/stat_summaries`.
 - make excluded evidence richer where the pipeline has the detail (e.g. exact dedup-dropped article
   ids, budget-truncated rows, stale rows).
 - add a fixture-capture helper that can source frozen fixtures directly from `cognition_ledger`.
@@ -544,10 +548,9 @@ Success:
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
    Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
    specs backed by `build_pair_request`.
-   Next highest-leverage: apply/validate mig 144 and wire the remaining Phase 2 ledgers
-   (`vibe`, `sigil`, `rating`), add ledger-sourced fixture capture, finish the remaining Phase 3
-   eval sets (stats identity, prose-richness — additive on the seam), and run measured transfer
-   candidate A/Bs for a real role-split call.
+   Next highest-leverage: add ledger-sourced fixture capture, finish the remaining Phase 3 eval
+   sets (stats identity, prose-richness — additive on the seam), and run measured transfer candidate
+   A/Bs for a real role-split call.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
    the fixture set gives green regression floors, and the live pair seam now supplies candidate
    comparison units.

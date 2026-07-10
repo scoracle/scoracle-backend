@@ -1,0 +1,131 @@
+---
+name: AI Architecture
+description: Self-hosted AI stack — role-routed local models + SQLCoder + XGBoost + Neo4j. Right tool per problem shape, no third-party LLM APIs in production.
+type: architecture
+status: active
+date: 2026-04-13
+sources:
+  - raw/scoracle-ai-architecture.md (current direction)
+  - scoracle-data/planning_docs/TENSORFLOW_ML_PLAN.md (superseded — feature scope survives)
+  - scoracle-data/planning_docs/ML_IMPLEMENTATION_STATUS.md (superseded — TF-based status)
+  - scoracle-data/planning_docs/INTEL_API_PLAN.md (superseded — original FastAPI plan)
+---
+
+# AI Architecture
+
+Distilled from a strategy session, 2026-04-13. See `raw/scoracle-ai-architecture.md` for the full notes.
+
+> **Earlier ML plans are superseded.** The backend repo's `TENSORFLOW_ML_PLAN.md` and `ML_IMPLEMENTATION_STATUS.md` describe a TensorFlow + Transformers stack that's been replaced by the LLM + classical-ML split below. See [Superseded ML plans](#superseded-ml-plans-historical-context) at the bottom for what's still useful from those docs.
+
+## Core principle: right tool per job
+
+LLMs are the wrong tool for structured prediction. The stack is split by problem shape:
+
+| Feature | Tool | Why |
+|---|---|---|
+| Sentiment / Vibe scores | Role-routed local LLM, fine-tuned target | Language-in, score-out — LLM native |
+| Performance prediction | XGBoost / classical ML | Tabular data from Postgres derived metrics |
+| Transfer / trade prediction | GNN or hybrid (Neo4j + local LLM) | Graph relationships + performance as features |
+| Text-to-SQL chat | SQLCoder 7B/8B (Q4/Q5 GGUF) | Purpose-built fine-tune beats larger general models |
+
+> *An LLM is the wrong tool for performance prediction. That's a tabular data problem. XGBoost or LightGBM on Postgres derived metrics will outperform a fine-tuned LLM at a fraction of the compute.*
+
+## Everything is self-hosted
+
+**No third-party LLM API calls in production.** At Scoracle's ad-revenue scale, per-request API costs (Anthropic, OpenAI) would exceed ad income. Not financially viable.
+
+All inference runs on local hardware via Ollama / llama.cpp. See [[Hardware Roadmap]] for the GPU progression that makes this work.
+
+## Model selection
+
+The priority product direction is the [[Multi-Lens Cognition Panel]]: Scoracle owns stats,
+narrative, and transfer lenses over the same sports timeline, then synthesizes them into one
+accountable read. Models are interchangeable engines behind those lens contracts.
+
+### Role-routed local generation model
+
+Model identity is configuration, not doctrine. The Rust Cognition Harness routes each task by role
+(`StatsLogic`, `EmotionalNews`, `Multilang`, `Sql`) through `COGNITION_ROUTE_*`, with
+`OLLAMA_MODEL` as the single-model default. A model swap should be a config change backed by eval,
+not a prompt or stage-code rewrite.
+
+Current local generation roles cover sentiment/Vibe, news relevance, narrative grouping, transfer
+vetting, Rating prose, and Sigil synthesis. Larger or more specialized open models unlock as
+hardware catches up; the durable assets are the data, schemas, prompts, eval sets, and voice.
+
+### SQLCoder 7B/8B
+
+Purpose-built Text-to-SQL fine-tune. Specialist beats generalist at the specific task — more reliable SQL out-of-the-box than a same-size general local model. Fits comfortably on a 1070 Ti.
+
+## Text-to-SQL chat (`ai.scoracle.com`)
+
+Pattern: English → model writes SQL → Postgres runs it → result returned.
+
+```
+User query → SQLCoder + schema in system prompt → SQL → Postgres → formatted result
+```
+
+Latency on 1070 Ti: ~10–25 tok/s, short SQL = ~2–3s responses. Concurrent users queue — acceptable at launch, revisit with traffic.
+
+## Neo4j extraction pipeline
+
+The local generation model runs async batch over cached articles/tweets, extracting relationship events and writing them to Neo4j. See [[Neo4j Knowledge Graph]] for schema and confidence handling.
+
+```
+Text cache → local-model extraction → Neo4j graph →
+Transfer model reads Postgres (performance) + Neo4j (relationships)
+```
+
+## The unified engine (long-term)
+
+Current path has four layered responsibilities (SQLCoder + role-routed local LLM + XGBoost + Go/Postgres serving). Long-term target is one domain-specific 31B-class fine-tuned model running on stronger hardware, handling all language-shaped tasks — Text-to-SQL, Cypher generation, entity extraction, vibe scoring, transfer reasoning — via a batched local backend such as vLLM.
+
+**The fine-tuning pipeline is largely model-agnostic.** Data formatting, schema context, personality prompting, and eval sets should target the role contract. Swap the engine as better open models ship; the proprietary training data carries forward.
+
+## Implications for ongoing work
+
+- Any proposal to call Anthropic / OpenAI APIs for a production AI feature is a non-starter unless it's explicitly a dev-only prototype. Default to the local stack.
+- Personality/voice fine-tuning is a first-class feature, not a nice-to-have. Scoracle's tone (*terse, confident, sports-literate*) gets trained *into* the model, not prompted.
+- New AI features should start by asking "what problem shape is this" — language → LLM, tabular → XGBoost, graph → GNN — before picking a tool.
+
+## Superseded ML plans (historical context)
+
+The backend repo contains three older planning docs that have been overtaken by the current direction:
+
+### `TENSORFLOW_ML_PLAN.md` — superseded framework, surviving feature scope
+
+Detailed a four-feature ML stack on **TensorFlow 2.x / Keras with FastAPI serving**: transfer predictor, vibe score, similarity engine, performance predictor. The TF + DistilBERT + LSTM architecture has been replaced by the right-tool-per-job split above.
+
+**What still applies:**
+- **The four feature areas are correct** — vibe scoring, transfer prediction, similarity, performance prediction. Just the tooling per feature has changed.
+- **Source credibility tier weights** for transfer/vibe signals are still valuable: Tier 1 (official sources, top journalists) = 1.0, Tier 2 (major sports broadcasters) = 0.7, Tier 3 (national newspapers) = 0.4, Tier 4 (aggregators, rumors) = 0.15. Useful as edge weighting for the [[Neo4j Knowledge Graph]].
+- **Vibe score 0–100 scale** with crisis/negative/neutral/positive/elite bands is a usable presentation contract regardless of model.
+- **Engagement + recency weighting** for sentiment aggregation (newer + more-engaged content weighs more) is a model-agnostic principle.
+- **Cold-start strategy** (position averages for entities with no data) still applies.
+
+**What's been replaced:**
+- TensorFlow / Keras → local LLM (sentiment, extraction) + XGBoost (performance) + GNN (transfer)
+- FastAPI ML router → Go API endpoints (per [[Backend Architecture]])
+- HuggingFace Transformers → Ollama / llama.cpp local inference
+- TFLite inference → Q4/Q5 GGUF quantization on Ollama
+- Hourly transfer predictions / 4-hour vibe refresh → async batch on the extraction pipeline schedule
+
+### `ML_IMPLEMENTATION_STATUS.md` — superseded status snapshot
+
+Listed four implemented models, a job scheduling system (mention scanner, prediction refresh, vibe calculator), and dependencies on TensorFlow / Transformers / NumPy / Pandas / scikit-learn. **Treat the implementation claims as historical** — the current stack is being rebuilt around local LLM derivation + classical ML, not the TF models described here. The job-scheduling *concept* (async batch on intervals) survives and aligns with the [[Neo4j Knowledge Graph]] extraction pipeline.
+
+### `INTEL_API_PLAN.md` — superseded API surface
+
+Planned three FastAPI endpoints: `/api/v1/intel/twitter`, `/api/v1/intel/news`, `/api/v1/intel/reddit`. Pure aggregation, no NLP. **Replaced by Go-based endpoints** under `/api/v1/news/...` and `/api/v1/twitter/...` (see [[API Contracts]]) and **upgraded** with the LLM-driven extraction pipeline (sentiment / vibe / Neo4j relationships) that the original plan explicitly excluded. The Reddit integration is not currently in scope per CLAUDE.md.
+
+## Related
+
+- [[Site Architecture]]
+- [[Backend Architecture]]
+- [[API Contracts]]
+- [[Multi-Lens Cognition Panel]]
+- [[AI Stage Conventions]]
+- [[Neo4j Knowledge Graph]]
+- [[Hardware Roadmap]]
+- [[Positioning]]
+- [[Solidjs Migration]]

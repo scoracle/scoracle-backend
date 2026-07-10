@@ -29,6 +29,9 @@ use crate::sigil::{
     build_synthesis_prompt, load_pillars, parse_synthesis_response, SIGIL_NUM_PREDICT,
     SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
 };
+use crate::transfer::{
+    transfer_system_prompt, TransferParser, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
+};
 use crate::vibe::{
     build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
     VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
@@ -147,6 +150,32 @@ pub struct Expect {
     /// invented reference. The fixture sets this to its numbered-corpus length.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_article_num: Option<i32>,
+    // transfer false-positive / true-positive rubric.
+    /// Transfer adjudication: assert whether the model commits to a served rumor (`true`) or clears
+    /// the pair (`false`). `None` in a parsed verdict is the UNKNOWN/fail-closed path and fails
+    /// either explicit boolean expectation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_is_rumor: Option<bool>,
+    /// Direction relative to the named team (`incoming`, `outgoing`, `unclear`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_direction: Option<String>,
+    /// Stage ladder expectation (`speculation`, `concrete_interest`, `advanced_talks`, `here_we_go`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub transfer_stage: Option<String>,
+    /// Subject discipline: the parser should identify the exact person the sources are really about.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject_excludes: Option<Vec<String>>,
+    /// Summary specificity / no-invention checks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_excludes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_min: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_max: Option<f64>,
 }
 
 /// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
@@ -193,13 +222,14 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "vibe" => Some(Box::new(VibeTask)),
         "sigil" => Some(Box::new(SigilTask)),
         "narratives" => Some(Box::new(NarrativeTask)),
+        "transfer" => Some(Box::new(TransferTask)),
         _ => None,
     }
 }
 
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
 pub fn all_task_names() -> &'static [&'static str] {
-    &["vibe", "sigil", "narratives"]
+    &["vibe", "sigil", "narratives", "transfer"]
 }
 
 /// fixture_drift returns a warning when a fixture was frozen under a different prompt contract than
@@ -601,6 +631,159 @@ impl LensTask for NarrativeTask {
     }
 }
 
+// ---------------------------------------------------------------------------
+// TransferTask — transfer/trade FP/TP adjudication (fixture-first).
+// ---------------------------------------------------------------------------
+
+pub struct TransferTask;
+
+fn normalized_token(s: &str) -> String {
+    s.trim().replace(' ', "_").to_lowercase()
+}
+
+#[async_trait]
+impl LensTask for TransferTask {
+    fn name(&self) -> &'static str {
+        "transfer"
+    }
+    fn role(&self) -> Role {
+        Role::EmotionalNews
+    }
+    fn prompt_version(&self) -> &'static str {
+        TRANSFER_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        GenerateOptions {
+            // Transfer's system prompt is sport-sensitive. Fixture mode overwrites this with the
+            // frozen per-case system; live/capture pair mode is a documented follow-up.
+            system: Some(transfer_system_prompt("FOOTBALL")),
+            temperature: Some(temperature),
+            num_predict: TRANSFER_NUM_PREDICT,
+            json_mode: true,
+        }
+    }
+    async fn build_prompt(&self, _hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        anyhow::bail!(
+            "transfer live/capture evals need a team-player pair, not {}; use --fixtures for now",
+            e.key()
+        )
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let v = match TransferParser.parse(raw) {
+            Ok(Some(v)) => v,
+            _ => {
+                return CaseVerdict {
+                    parsed: false,
+                    abs_err: None,
+                    checks: Vec::new(),
+                    display: "unparseable".into(),
+                }
+            }
+        };
+
+        let mut checks = Vec::new();
+        if let Some(x) = expect {
+            if let Some(want) = x.transfer_is_rumor {
+                checks.push(PropertyCheck {
+                    name: if want {
+                        "transfer_is_rumor".into()
+                    } else {
+                        "transfer_not_rumor".into()
+                    },
+                    pass: v.is_rumor == Some(want),
+                    detail: format!("is_rumor={}", disp_bool(v.is_rumor)),
+                });
+            }
+            if let Some(want) = x.transfer_direction.as_deref() {
+                checks.push(PropertyCheck {
+                    name: format!("transfer_direction:{want}"),
+                    pass: normalized_token(&v.direction) == normalized_token(want),
+                    detail: format!("direction={}", empty_dash(&v.direction)),
+                });
+            }
+            if let Some(want) = x.transfer_stage.as_deref() {
+                checks.push(PropertyCheck {
+                    name: format!("transfer_stage:{want}"),
+                    pass: normalized_token(&v.stage) == normalized_token(want),
+                    detail: format!("stage={}", empty_dash(&v.stage)),
+                });
+            }
+            for s in x.subject_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("subject_includes:{s}"),
+                    pass: v.subject.contains(s.as_str()),
+                    detail: format!("subject={}", empty_dash(&v.subject)),
+                });
+            }
+            for s in x.subject_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("subject_excludes:{s}"),
+                    pass: !v.subject.contains(s.as_str()),
+                    detail: format!("subject={}", empty_dash(&v.subject)),
+                });
+            }
+            for s in x.summary_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("summary_includes:{s}"),
+                    pass: v.summary.contains(s.as_str()),
+                    detail: String::new(),
+                });
+            }
+            for s in x.summary_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("summary_excludes:{s}"),
+                    pass: !v.summary.contains(s.as_str()),
+                    detail: String::new(),
+                });
+            }
+            if let Some(min) = x.confidence_min {
+                checks.push(PropertyCheck {
+                    name: "confidence_ge".into(),
+                    pass: v.confidence >= min,
+                    detail: format!("confidence={:.2} ≥ {min:.2}", v.confidence),
+                });
+            }
+            if let Some(max) = x.confidence_max {
+                checks.push(PropertyCheck {
+                    name: "confidence_le".into(),
+                    pass: v.confidence <= max,
+                    detail: format!("confidence={:.2} ≤ {max:.2}", v.confidence),
+                });
+            }
+        }
+
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!(
+                "is_rumor={} subject={} stage={} conf={:.2} | {}",
+                disp_bool(v.is_rumor),
+                empty_dash(&v.subject),
+                empty_dash(&v.stage),
+                v.confidence,
+                v.summary
+            ),
+        }
+    }
+}
+
+fn disp_bool(b: Option<bool>) -> &'static str {
+    match b {
+        Some(true) => "true",
+        Some(false) => "false",
+        None => "unknown",
+    }
+}
+
+fn empty_dash(s: &str) -> &str {
+    if s.trim().is_empty() {
+        "–"
+    } else {
+        s
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -610,10 +793,12 @@ mod tests {
         assert!(resolve_task("vibe").is_some());
         assert!(resolve_task("sigil").is_some());
         assert!(resolve_task("narratives").is_some());
+        assert!(resolve_task("transfer").is_some());
         assert!(resolve_task("nope").is_none());
         assert_eq!(resolve_task("vibe").unwrap().name(), "vibe");
         assert_eq!(resolve_task("sigil").unwrap().name(), "sigil");
         assert_eq!(resolve_task("narratives").unwrap().name(), "narratives");
+        assert_eq!(resolve_task("transfer").unwrap().name(), "transfer");
     }
 
     #[test]
@@ -629,7 +814,8 @@ mod tests {
     // --- sigil disagreement rubric ------------------------------------------------
 
     const CONFLICTED: &str = "SCORE: 68\nCONVERGENCE: 40\nDISAGREEMENT: strong PEAK vs sliding momentum and negative narrative\nWHY_NOW: trade-demand reports\nBLURB: Elite wing under pressure.";
-    const CONVERGENT: &str = "SCORE: 87\nCONVERGENCE: 95\nBLURB: A rising guard drawing All-Star buzz.";
+    const CONVERGENT: &str =
+        "SCORE: 87\nCONVERGENCE: 95\nBLURB: A rising guard drawing All-Star buzz.";
 
     #[test]
     fn sigil_rubric_passes_on_conflicted_reply() {
@@ -664,8 +850,12 @@ mod tests {
             disagreement_nonempty: Some(false),
             ..Default::default()
         };
-        assert!(SigilTask.evaluate(CONVERGENT, None, Some(&x)).all_checks_pass());
-        assert!(!SigilTask.evaluate(CONFLICTED, None, Some(&x)).all_checks_pass());
+        assert!(SigilTask
+            .evaluate(CONVERGENT, None, Some(&x))
+            .all_checks_pass());
+        assert!(!SigilTask
+            .evaluate(CONFLICTED, None, Some(&x))
+            .all_checks_pass());
     }
 
     #[test]
@@ -677,7 +867,10 @@ mod tests {
             ..Default::default()
         };
         let v = SigilTask.evaluate(parroted, None, Some(&x));
-        assert!(!v.all_checks_pass(), "excludes should catch the parroted string");
+        assert!(
+            !v.all_checks_pass(),
+            "excludes should catch the parroted string"
+        );
     }
 
     #[test]
@@ -695,7 +888,11 @@ mod tests {
                 ..Default::default()
             };
             let v = SigilTask.evaluate(raw, None, Some(&x));
-            assert!(v.all_checks_pass(), "placeholder should be absent for {raw:?}: {:?}", v.checks);
+            assert!(
+                v.all_checks_pass(),
+                "placeholder should be absent for {raw:?}: {:?}",
+                v.checks
+            );
         }
         // An excludes check must not match a placeholder either.
         let x = Expect {
@@ -781,8 +978,7 @@ mod tests {
 
     #[test]
     fn narratives_uncited_storyline_fails_all_cite() {
-        let reply =
-            r#"{"narratives":[{"title":"Vale buzz","body":"vague hype with no article","articles":[]}]}"#;
+        let reply = r#"{"narratives":[{"title":"Vale buzz","body":"vague hype with no article","articles":[]}]}"#;
         let x = Expect {
             all_cite_articles: Some(true),
             ..Default::default()
@@ -801,7 +997,12 @@ mod tests {
             ..Default::default()
         };
         let v = NarrativeTask.evaluate(reply, None, Some(&x));
-        assert_eq!(v.checks_passed(), 0, "both excludes should fire: {:?}", v.checks);
+        assert_eq!(
+            v.checks_passed(),
+            0,
+            "both excludes should fire: {:?}",
+            v.checks
+        );
     }
 
     #[test]
@@ -827,6 +1028,71 @@ mod tests {
         assert!(!v.parsed);
     }
 
+    // --- transfer FP/TP adjudication rubric --------------------------------------
+
+    const TRUE_TRANSFER: &str = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"advanced_talks","summary":"Everton are in advanced talks to sign Lina Foss from Brann, according to TV2.","confidence":0.83}"#;
+
+    #[test]
+    fn transfer_true_positive_passes_adjudication_rubric() {
+        let x = Expect {
+            transfer_is_rumor: Some(true),
+            transfer_direction: Some("incoming".into()),
+            transfer_stage: Some("advanced_talks".into()),
+            subject_includes: Some(vec!["Lina Foss".into()]),
+            summary_includes: Some(vec!["Everton".into(), "Brann".into()]),
+            confidence_min: Some(0.7),
+            ..Default::default()
+        };
+        let v = TransferTask.evaluate(TRUE_TRANSFER, None, Some(&x));
+        assert!(v.parsed);
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn transfer_false_positive_reply_clears_not_rumor_expect() {
+        let raw = r#"{"is_rumor":false,"subject":"Mika Salo","direction":"unclear","stage":"speculation","summary":"","confidence":0.12}"#;
+        let x = Expect {
+            transfer_is_rumor: Some(false),
+            subject_includes: Some(vec!["Mika Salo".into()]),
+            subject_excludes: Some(vec!["Lina Foss".into()]),
+            confidence_max: Some(0.3),
+            ..Default::default()
+        };
+        let v = TransferTask.evaluate(raw, None, Some(&x));
+        assert!(v.parsed);
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn transfer_invented_fee_is_caught_by_summary_excludes() {
+        let raw = r#"{"is_rumor":true,"subject":"Lina Foss","direction":"incoming","stage":"concrete_interest","summary":"Everton want Lina Foss in a £12m move.","confidence":0.74}"#;
+        let x = Expect {
+            transfer_is_rumor: Some(true),
+            summary_excludes: Some(vec!["£12m".into()]),
+            ..Default::default()
+        };
+        let v = TransferTask.evaluate(raw, None, Some(&x));
+        assert!(!v.all_checks_pass());
+    }
+
+    #[test]
+    fn transfer_unknown_commit_fails_boolean_expect() {
+        let raw = r#"{"subject":"Lina Foss","direction":"incoming","stage":"speculation","summary":"","confidence":0.2}"#;
+        let x = Expect {
+            transfer_is_rumor: Some(true),
+            ..Default::default()
+        };
+        let v = TransferTask.evaluate(raw, None, Some(&x));
+        assert!(v.parsed);
+        assert!(!v.all_checks_pass());
+    }
+
+    #[test]
+    fn transfer_malformed_reply_is_unparseable() {
+        let v = TransferTask.evaluate("looks like a rumor", None, None);
+        assert!(!v.parsed);
+    }
+
     // --- fixture serde + drift ----------------------------------------------------
 
     #[test]
@@ -845,7 +1111,7 @@ mod tests {
         assert_eq!(fx.expect.convergence_min, Some(70));
         assert_eq!(fx.expect.disagreement_nonempty, Some(false));
         assert_eq!(fx.expect.score_min, None); // defaulted
-                                                // A fixture may omit expect entirely.
+                                               // A fixture may omit expect entirely.
         let bare = r#"{"name":"n","task":"sigil","prompt_version":"s11","system":"s","user_prompt":"u","temperature":0.0}"#;
         let fx2: Fixture = serde_json::from_str(bare).unwrap();
         assert_eq!(fx2.expect.convergence_min, None);

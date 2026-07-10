@@ -28,6 +28,7 @@ use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
 use crate::harness::{cluster, Harness, Parser, Provenance};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -38,7 +39,7 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use std::collections::HashSet;
 use tracing::warn;
 
@@ -48,6 +49,9 @@ use tracing::warn;
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 pub const NARRATIVES_PROMPT_VERSION: &str = "n5";
+
+/// Output schema version for the parsed narrative document, distinct from the prompt contract.
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v1";
 
 /// Production decode temperature (`ollama.Generate` in Go). The parity gate pins temp 0 (the
 /// deterministic-axes diff); production narrates at 0.6.
@@ -675,6 +679,8 @@ pub struct NarrativesOutput {
     /// The exact prompt + wire body (the deterministic axes). `None` for the no-corpus marker (no call).
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
+    /// Tokens evaluated by Ollama for this call. `None` on no-corpus marker rows.
+    pub eval_count: Option<i32>,
     /// Inspection: corpus size before/after the candle dedup.
     pub original_corpus_size: usize,
     pub deduped_corpus_size: usize,
@@ -719,6 +725,7 @@ pub async fn generate_narratives(
                 prompt_version: NARRATIVES_PROMPT_VERSION,
                 built_prompt: None,
                 request_body: None,
+                eval_count: None,
                 original_corpus_size: 0,
                 deduped_corpus_size: 0,
             });
@@ -748,9 +755,58 @@ pub async fn generate_narratives(
         prompt_version: NARRATIVES_PROMPT_VERSION,
         built_prompt: Some(extracted.built_prompt),
         request_body: Some(extracted.request_body),
+        eval_count: Some(extracted.eval_count),
         original_corpus_size: ready.original_corpus_size,
         deduped_corpus_size: ready.corpus.len(),
     })
+}
+
+fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
+    let narratives: Vec<serde_json::Value> = out
+        .narratives
+        .iter()
+        .map(|n| {
+            json!({
+                "title": &n.title,
+                "input_news_ids": &n.input_news_ids,
+                "source_count": n.source_count,
+                "source_names": &n.source_names,
+                "impact": n.impact,
+            })
+        })
+        .collect();
+    json!({
+        "input_news_ids": out.provenance().input_ids,
+        "narratives": narratives,
+        "original_corpus_size": out.original_corpus_size,
+        "deduped_corpus_size": out.deduped_corpus_size,
+    })
+}
+
+fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
+    let dropped = out
+        .original_corpus_size
+        .saturating_sub(out.deduped_corpus_size);
+    if dropped == 0 {
+        json!([])
+    } else {
+        json!([{
+            "reason": "dedup_near_duplicate",
+            "dropped_count": dropped,
+            "original_corpus_size": out.original_corpus_size,
+            "deduped_corpus_size": out.deduped_corpus_size,
+        }])
+    }
+}
+
+fn narratives_parser_outcome(out: &NarrativesOutput) -> &'static str {
+    if out.built_prompt.is_none() {
+        "no_call"
+    } else if out.narratives.is_empty() {
+        "parsed_empty"
+    } else {
+        "parsed"
+    }
 }
 
 /// persist_narratives writes ONE news_summaries row per narrative (all sharing the transaction's
@@ -843,7 +899,8 @@ pub async fn persist_narratives(
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,
             $18,$19,NOW()
-        )"#;
+        )
+        RETURNING id"#;
 
     let rows: Vec<Option<(&Narrative, &'static str, serde_json::Value)>> = if classified.is_empty()
     {
@@ -852,6 +909,7 @@ pub async fn persist_narratives(
         classified.into_iter().map(Some).collect()
     };
 
+    let mut product_row_ids: Vec<i64> = Vec::with_capacity(rows.len());
     for row in rows {
         let impact_components_json;
         let trajectory_json;
@@ -903,7 +961,7 @@ pub async fn persist_narratives(
             }
         }
 
-        sqlx::query(INSERT)
+        let inserted = sqlx::query(INSERT)
             .bind(entity_type)
             .bind(entity_id)
             .bind(sport)
@@ -923,12 +981,45 @@ pub async fn persist_narratives(
             .bind(&trajectory_json)
             .bind(prov.model_version.as_str())
             .bind(prov.prompt_version)
-            .execute(&mut *tx)
+            .fetch_one(&mut *tx)
             .await
             .context(context)?;
+        product_row_ids.push(inserted.get("id"));
     }
 
     tx.commit().await.context("commit narratives tx")?;
+    insert_cognition_ledger_best_effort(
+        pool,
+        CognitionLedgerEntry {
+            stage: "narratives".to_string(),
+            lens: "narratives".to_string(),
+            role: Role::EmotionalNews.as_str().to_string(),
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.to_string(),
+            pair_entity_type: None,
+            pair_entity_id: None,
+            trigger_type: trigger_type.to_string(),
+            trigger_payload: trigger_payload.clone(),
+            product_table: "news_summaries".to_string(),
+            product_row_ids,
+            model_version: prov.model_version,
+            prompt_version: prov.prompt_version.to_string(),
+            output_contract_version: NARRATIVES_OUTPUT_CONTRACT_VERSION.to_string(),
+            input_ids: prov.input_ids,
+            input_hash: prov.input_hash,
+            request_body: out.request_body.clone(),
+            built_prompt: out.built_prompt.clone(),
+            included_evidence: narratives_included_evidence(out),
+            excluded_evidence: narratives_excluded_evidence(out),
+            context_budget: json!({
+                "num_predict": NARRATIVES_NUM_PREDICT,
+                "eval_count": out.eval_count,
+            }),
+            parser_outcome: narratives_parser_outcome(out).to_string(),
+        },
+    )
+    .await;
     Ok(())
 }
 

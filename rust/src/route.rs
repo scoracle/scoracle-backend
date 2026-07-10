@@ -30,10 +30,12 @@ use tokio::sync::Semaphore;
 
 /// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
 /// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. `StatsLogic` (rating/sigil reasoning), `EmotionalNews` (vibe/narratives/
-/// transfers), `Multilang` (HORIZON normalize), `Sql` (SQLCoder). A future `TransferLogic`
-/// role should be added only when fixtures and live pair captures prove a separate transfer
-/// route beats the shared `EmotionalNews` baseline. Derives `Hash` for the L2 role→model map.
+/// in stage code. `StatsLogic` backs the stats/analytical rail today (Rating/PEAK, the
+/// fixture-first Momentum eval, and Sigil synthesis until a synthesis split is proven);
+/// `EmotionalNews` backs the emotional/news rail (narratives, transfers, vibe); `Multilang`
+/// is the HORIZON normalize role; `Sql` is the SQLCoder role. A future `TransferLogic`,
+/// `MomentumLogic`, or `SynthesisLogic` role should be added only when fixtures and live captures
+/// prove a separate route beats the current baseline. Derives `Hash` for the L2 role→model map.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,

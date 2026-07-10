@@ -65,23 +65,36 @@ This plan should build on that seam, not replace it.
 
 ## Lens / Stage / Role Map
 
-The panel has four lenses; the pipeline has five queue stages plus a batch. The mapping is the
-real Phase 1 deliverable, and today it is:
+The panel now names six accountable lenses grouped into three rails. The pipeline still has five
+queue stages plus a batch; the lens names are product contracts, not automatic new routes:
 
-| Lens | Runtime | Role today | Writes |
+| Rail | Lens | Runtime | Role today | Writes |
+|---|---|---|---|---|
+| Stats / analytical | Rating / PEAK | `rating` batch (`bin/statcommentary`) | `StatsLogic` | `stat_summaries` (PEAK) |
+| Stats / analytical | Momentum | deterministic read model + fixture-first eval task | `StatsLogic` for eval only | `latest_momentum_scores_per_entity`, `/momentum` |
+| Emotional / news | Narratives | `narratives` stage | `EmotionalNews` | `news_summaries` |
+| Emotional / news | Transfers | `transfers` stage | `EmotionalNews` | `transfer_rumors` |
+| Emotional / news | Vibe | `vibe` stage | `EmotionalNews` | `vibe_scores` |
+| Synthesis | Sigil synthesis | `sigil` stage | `StatsLogic` today | `sigil_synthesis` |
+
+Not a lens: `scrub` is the evidence gate upstream of every lens (BGE sieve + resolve; its
+`vetted` write fires the mig-103 fan-out).
+
+Current lens operating parameters:
+
+| Lens | Operator frame | Mandate | Credibility guard |
 |---|---|---|---|
-| Stats lens | `rating` batch (`bin/statcommentary`) | `StatsLogic` | `stat_summaries` (PEAK) |
-| Narrative lens | `narratives` + `vibe` stages | `EmotionalNews` | `news_summaries`, `vibe_scores` |
-| Transfer lens | `transfers` stage | `EmotionalNews` | `transfer_rumors` |
-| Panel synthesis | `sigil` stage | `StatsLogic` | `sigil_synthesis` |
+| Narratives | beat writer | Compile the stories swirling around the entity. | Group what sources actually say; do not inflate vague hype or off-entity noise. |
+| Transfers | transfer expert | Get movement predictions out quickly while preserving long-term credibility. | Fail closed on name-drops, stale links, weak sourcing, and misleading heat. |
+| Vibe | content creator | Read the current vibe so a creator can piggyback on the conversation. | Separate interactable mood from durable truth; do not invent a narrative hook. |
+| Rating / PEAK | opposing team scout | Name the greatest strength to stop and greatest weakness to exploit. | Use supplied tiers and datapoints only; never turn average marks into strengths. |
+| Momentum | form scout | Judge whether recent PEAK/rating and Vibe trajectories say the entity is rising, falling, or steady. | Keep split or sparse signals near steady; direction is not overall quality. |
+| Sigil synthesis | reasoned expert network panelist | Summarize all pillars into the final Scoracle read. | Preserve real disagreement between pillars instead of flattening it. |
 
-Not lenses: `scrub` is the evidence gate upstream of every lens (BGE sieve + resolve; its
-`vetted` write fires the mig-103 fan-out), and Momentum is deterministic trajectory math — a
-synthesis *input*, not an accountable perspective with a model behind it.
-
-Vibe maps INTO the narrative lens deliberately: emotional temperature is one of the narrative
-lens's outputs, not a fourth perspective. If evals ever justify separating felt-state from
-storyline grounding, that is a role split (the Phase 4 pattern), not a new lens.
+Momentum remains deterministic trajectory math in production today; the Rust `momentum` eval task is
+fixture-first so Qwen/Gemma-style analytical candidates can be measured before a versioned Momentum
+generation or route split exists. Sigil remains on `StatsLogic` until synthesis evals justify a
+`SynthesisLogic` split.
 
 ## Trigger Topology
 
@@ -374,23 +387,39 @@ for vibe, sigil, narratives, transfer, and rating fixtures.
    `row_from_verdict` clears the persisted rumor fields for false verdicts; the false-positive
    fixtures therefore guard the real risk — clearing the pair and identifying the subject.
 
-5. **Stats identity + fixed-budget prose set — DONE (2026-07-10, commit `e629d51`).** `RatingTask`
-   joins the registry as the stats lens / PEAK scouting-report eval. It composes the production
-   `build_rating_request` + `RatingParser` + `StatsLogic` route, returning `None` for the no-stats
-   marker path. New `Expect` rubric: `peak_includes/excludes` for identity-label specificity and
-   `prose_includes/excludes` + `prose_min/max_words` for richness under the fixed context budget.
-   Two synthetic fixtures are checked in under `rust/fixtures/rating`: `rim-protector-specificity`
-   and `fixed-budget-rich-profile`. Probe on `mistral:7b` at temp 0: **9/11 green checks**. Both red
-   checks are the same measured gap — the model collapses the whole scouting report onto the
-   `PEAK:` line instead of emitting a separate label. Production parser hardening now salvages that
-   single-line form as body text while leaving `divined_peak` empty, so product prose survives and
-   the eval still marks PEAK-label specificity red.
+5. **Stats identity + fixed-budget prose set — DONE (2026-07-10, commit `e629d51`; expanded
+   2026-07-10 in the stats/momentum bakeoff pass).** `RatingTask` joins the registry as the stats
+   lens / PEAK scouting-report eval. It composes the production `build_rating_request` +
+   `RatingParser` + `StatsLogic` route, returning `None` for the no-stats marker path. New `Expect`
+   rubric: `peak_includes/excludes` for identity-label specificity and `prose_includes/excludes` +
+   `prose_min/max_words` for richness under the fixed context budget. Four synthetic fixtures now
+   live under `rust/fixtures/rating`: `rim-protector-specificity`, `fixed-budget-rich-profile`,
+   `no-standout-restraint`, and `rate-adjusted-limited-minutes`. The 2026-07-10 local challenger
+   bakeoff did **not** justify a stats route change: Qwen3 tied Mistral at **16/22**, and Gemma3 tied
+   its incumbent run at **17/22**. Qwen3 still promoted a 64th-percentile above-average mark into a
+   PEAK; Gemma3 handled one per-x fixture well but missed rim-protector PEAK specificity and omitted
+   the structured `PEAK:` marker on no-standout. The measured gap remains the PEAK-line contract:
+   product prose is often useful, but the structured first-line identity is unreliable enough that
+   no challenger earns `StatsLogic` adoption yet.
+
+6. **Momentum trajectory reasoning set — FIRST FIXTURE PASS DONE (2026-07-10).** `MomentumTask`
+   joins the eval registry as a fixture-first stats/analytical lens on `Role::StatsLogic`; production
+   Momentum remains deterministic read-model trajectory math, not a model-backed stage. Prompt
+   contract `momentum-eval-v2` uses the form-scout operator frame and asks for
+   `MOMENTUM: rising|falling|steady`, a signed -5..5 score, and a concise read. New rubric:
+   `momentum_direction`, `momentum_score_min/max`, and the shared prose checks. Three fixtures cover
+   split PEAK-up/Vibe-down, clear stats-led rise, and clear news-led fall. Initial model signal is
+   real but not route-ready: Qwen3 scored **19/19** and Gemma3 scored **19/19** against Mistral's
+   **16/19**, mainly because Mistral over-committed the mixed case upward and ran long. Do not add
+   `MomentumLogic` yet; broaden fixtures first (sparse sample counts, stats-down/Vibe-up, noisy
+   transfer-driven sentiment spikes).
 
 Curated eval sets completed:
 
 - ~~transfer false positives and true positives~~ **DONE (2026-07-09, commit `ac527e9`)**
 - ~~narrative grouping and grounding~~ **DONE (2026-07-09, commit `6f811a3`)**
-- ~~stats identity specificity~~ **DONE (2026-07-10, commit `e629d51`)**
+- ~~stats identity specificity~~ **DONE (2026-07-10, commit `e629d51`; expanded 2026-07-10)**
+- ~~momentum trajectory reasoning first pass~~ **DONE (2026-07-10)**
 - ~~panel synthesis disagreement handling~~ **DONE (first set)**
 - ~~prose richness under a fixed context budget~~ **DONE (2026-07-10, commit `e629d51`)**
 
@@ -571,9 +600,12 @@ Success:
 1. Done — wiki architecture doc added (`wiki/Architecture/Multi-Lens Cognition Panel.md`).
 2. Done — linked from AI Architecture and Hardware Roadmap.
 3. Add `lens` language and the Lens / Stage / Role map to `rust/README.md` and `route.rs` docs. —
-   DONE (2026-07-10): README now distinguishes lens/stage/role, maps the four panel lenses to
-   current stages and route roles, and records that Transfer remains on `EmotionalNews`/Mistral
-   until fixtures and live pair captures justify a `TransferLogic` split. `route.rs` now documents
+   DONE (2026-07-10): README now distinguishes rail/lens/stage/role, maps the six accountable
+   lenses to current stages/read models and route roles, and records the operating parameters:
+   beat-writer narratives, credible transfer expert, content-creator vibe, opposing-scout PEAK,
+   form-scout momentum, and expert-panelist Sigil. Transfer remains on `EmotionalNews`/Mistral
+   until fixtures and live pair captures justify a `TransferLogic` split; Momentum remains eval-only
+   until broader fixtures justify a versioned generation or route split. `route.rs` now documents
    that lenses and roles are not 1:1.
 4. Add an eval fixture shape for panel/lens comparisons (the Phase 3 frozen-context format). — DONE:
    `Fixture`/`Expect` in `rust/src/eval_tasks.rs`, `rust/fixtures/<task>/*.json`, run via
@@ -585,16 +617,21 @@ Success:
    (commit `75ca616`, prompt `s10`). Phase 5.3 (convergence/disagreement/"why now" as additive
    nullable `sigil_synthesis` columns + the reply-format extension + Go serve surfacing) — DONE
    (commit `c854d06`, prompt `s11`, mig 143).
-   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + FOUR task sets DONE: the
-   `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives` + `transfer`,
+   Phase 3 (`bin/eval` per-lens registry + frozen fixtures) — SEAM + SIX task sets DONE: the
+   `eval_tasks::LensTask` registry now carries `vibe` + `sigil` + `narratives` + `transfer` +
+   `rating` + `momentum`,
    `--task`/`--fixtures`/`--capture`/`--capture-ledger`, a synthetic panel-disagreement fixture set scoring the s11
    CONVERGENCE/DISAGREEMENT/WHY_NOW outputs, and a narrative grounding set (commit `6f811a3`) whose
    contamination fixture MEASURED mistral's over-suppression under noise, plus a transfer FP/TP
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
    Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
    specs backed by `build_pair_request`. The stats/prose set and ledger-sourced fixture capture
-   landed in commit `e629d51`. Local challenger runs (`qwen2.5:7b`, `qwen3:8b`, `gemma3:4b`) are
-   measured; none beats Mistral on the frozen false-positive floor, so do not split/adopt yet.
+   landed in commit `e629d51`; the 2026-07-10 follow-up added no-standout/per-x rating fixtures and
+   a fixture-first Momentum task. Local transfer challenger runs (`qwen2.5:7b`, `qwen3:8b`,
+   `gemma3:4b`) are measured; none beats Mistral on the frozen transfer false-positive floor, so do
+   not split/adopt TransferLogic yet. For stats/analytical work, Qwen3/Gemma3 do not beat Mistral on
+   PEAK but both beat Mistral on the first Momentum fixtures, so broaden Momentum evals before a
+   route split.
 7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
    current status (2026-07-10): deferred after Qwen/Gemma A/Bs. The fixture set gives green
    regression floors, and the live pair seam now supplies candidate comparison units. Follow-up

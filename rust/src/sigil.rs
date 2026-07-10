@@ -808,9 +808,15 @@ pub struct ParsedSynthesis {
 /// parse ORDER-INDEPENDENT — the model may emit the panel lines before or after BLURB. Matched
 /// WITHOUT the trailing space so a spacing slip (`SCORE:73`) still terminates blurb absorption.
 fn is_synthesis_label(trimmed: &str) -> bool {
-    ["SCORE:", "CONVERGENCE:", "DISAGREEMENT:", "WHY_NOW:", "BLURB:"]
-        .iter()
-        .any(|p| trimmed.starts_with(p))
+    [
+        "SCORE:",
+        "CONVERGENCE:",
+        "DISAGREEMENT:",
+        "WHY_NOW:",
+        "BLURB:",
+    ]
+    .iter()
+    .any(|p| trimmed.starts_with(p))
 }
 
 /// normalize_panel_line cleans a DISAGREEMENT / WHY_NOW value and treats a placeholder as ABSENT.
@@ -1404,7 +1410,10 @@ mod tests {
             p.disagreement.as_deref(),
             Some("strong PEAK vs sliding momentum")
         );
-        assert_eq!(p.why_now.as_deref(), Some("advanced transfer talks broke today"));
+        assert_eq!(
+            p.why_now.as_deref(),
+            Some("advanced transfer talks broke today")
+        );
         assert_eq!(p.blurb, "A star under real pressure.");
     }
 
@@ -1644,7 +1653,10 @@ mod tests {
         // No transfers → NO transfer_heat key at all (so a pre-Phase-5.1 entity keeps its hash).
         let without =
             build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &[]);
-        assert_eq!(without, r#"{"narrative_titles":[],"narrative_trajectories":[]}"#);
+        assert_eq!(
+            without,
+            r#"{"narrative_titles":[],"narrative_trajectories":[]}"#
+        );
 
         // Served heat → one sorted "counterparty:heat:direction:stage" line per rumor. The two
         // rumors are given OUT of sorted order to prove the pre-image sorts (stable hash).
@@ -1662,8 +1674,13 @@ mod tests {
                 direction: "incoming".into(),
             },
         ];
-        let with =
-            build_synthesis_input_components(&[], None, None, &SynthMomentum::default(), &transfers);
+        let with = build_synthesis_input_components(
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &transfers,
+        );
         assert_eq!(
             with,
             r#"{"narrative_titles":[],"narrative_trajectories":[],"transfer_heat":["Arsenal:40:incoming:speculation","Real Madrid:71:outgoing:advanced_talks"]}"#

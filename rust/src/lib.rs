@@ -16,16 +16,16 @@
 //! first composition (`route + extract + persist`). Canonical doc:
 //! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`.
 //!
-//! The product model is two primary rails plus one convergence product:
+//! The product model is three rails with six accountable lenses:
 //!
-//! - Stats/PEAK rail: provider box scores become derived stats, PEAK context, and the
-//!   model-written scouting report / Rating surface.
-//! - News/Cognition rail: RSS articles are vetted, bucketed, summarized into narratives
-//!   and transfer context, then distilled into Vibe sentiment + prompt.
-//! - Momentum is the convergence of PEAK trajectory and Vibe trajectory. It is surfaced
-//!   to clients and also becomes Sigil context.
-//! - Sigil is the final synthesis prompt: PEAK scouting report + Vibe prompt + Momentum.
-//!   It is event-driven and debounced, not a scheduled rewrite of every entity.
+//! - Stats/analytical rail: Rating/PEAK plus Momentum trajectory.
+//! - Emotional/news rail: Narratives, Transfers, and Vibe.
+//! - Synthesis rail: Sigil, the final panel read.
+//!
+//! Momentum is not a queue stage today: it is deterministic trajectory math over PEAK/rating and
+//! Vibe series, surfaced to clients and passed into Sigil. The eval harness still exposes a
+//! fixture-first `momentum` task so analytical model candidates can be measured before a versioned
+//! Momentum generation or route split exists.
 //!
 //! Product tables are append-only. No-data marker rows are part of that model: they clear
 //! stale current projections without deleting history, and they still carry the configured

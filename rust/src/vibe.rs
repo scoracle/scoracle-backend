@@ -19,6 +19,7 @@ use crate::corpus::{
 };
 use crate::embed::cosine_similarity;
 use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Provenance};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -27,11 +28,14 @@ use crate::util::{truncate, truncate_bytes};
 use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use tracing::debug;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
 pub const VIBE_PROMPT_VERSION: &str = "v10";
+
+/// Output contract captured separately in the Phase 2 diagnostic ledger.
+pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
 
 /// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
 /// this with an explicit 0.
@@ -95,6 +99,9 @@ pub struct VibeOutput {
     /// no-corpus → the configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
+    pub built_prompt: Option<String>,
+    pub request_body: Option<serde_json::Value>,
+    pub eval_count: Option<i32>,
 }
 
 /// vibe_version fingerprints a vibe result for the sigil queue's input_version, exactly
@@ -508,6 +515,9 @@ async fn generate_vibe_inner(
                 input_news_ids: Vec::new(),
                 model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
                 prompt_version: VIBE_PROMPT_VERSION,
+                built_prompt: None,
+                request_body: None,
+                eval_count: None,
             },
             None,
             None,
@@ -536,8 +546,9 @@ async fn generate_vibe_inner(
         .value
         .ok_or_else(|| anyhow!("vibe: parser returned no value"))?;
 
-    let built_prompt = capture_parity.then_some(extracted.built_prompt);
-    let request_body = capture_parity.then_some(extracted.request_body);
+    let built_prompt = extracted.built_prompt;
+    let request_body = extracted.request_body;
+    let eval_count = extracted.eval_count;
 
     Ok((
         VibeOutput {
@@ -550,10 +561,39 @@ async fn generate_vibe_inner(
             input_news_ids: news_ids,
             model: extracted.model,
             prompt_version: VIBE_PROMPT_VERSION,
+            built_prompt: Some(built_prompt.clone()),
+            request_body: Some(request_body.clone()),
+            eval_count: Some(eval_count),
         },
-        built_prompt,
-        request_body,
+        capture_parity.then_some(built_prompt),
+        capture_parity.then_some(request_body),
     ))
+}
+
+fn vibe_included_evidence(out: &VibeOutput) -> serde_json::Value {
+    serde_json::json!({
+        "input_news_ids": &out.input_news_ids,
+        "sentiment": out.sentiment,
+        "vibe_prompt": &out.vibe_prompt,
+    })
+}
+
+fn vibe_excluded_evidence(out: &VibeOutput) -> serde_json::Value {
+    if out.built_prompt.is_none() {
+        serde_json::json!([{
+            "reason": "no_latest_narratives_or_transfer_heat",
+        }])
+    } else {
+        serde_json::json!([])
+    }
+}
+
+fn vibe_parser_outcome(out: &VibeOutput) -> &'static str {
+    if out.built_prompt.is_none() {
+        "no_call"
+    } else {
+        "parsed"
+    }
 }
 
 /// persist_to_vibe_scores writes one row to the LIVE vibe_scores table — both the scored
@@ -565,13 +605,13 @@ async fn persist_to_vibe_scores(
     item: &Item,
     sport: &str,
     out: &VibeOutput,
-) -> Result<()> {
+) -> Result<i64> {
     // Route the moat fields through the shared Provenance envelope (vibe does not debounce,
     // so input_hash is None); the typed INSERT stays the stage's own (Postgres-as-serializer).
     let entity_id = item.entity_id_i32()?;
     let prov = out.provenance();
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
-    sqlx::query(
+    let row = sqlx::query(
         r#"
         INSERT INTO vibe_scores (
             entity_type, entity_id, sport,
@@ -579,6 +619,7 @@ async fn persist_to_vibe_scores(
             sentiment, prompt, input_news_ids,
             model_version, prompt_version
         ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8)
+        RETURNING id
         "#,
     )
     .bind(&item.entity_type)
@@ -589,10 +630,10 @@ async fn persist_to_vibe_scores(
     .bind(prov.input_ids.as_slice())
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
-    .execute(pool)
+    .fetch_one(pool)
     .await
     .context("persist vibe")?;
-    Ok(())
+    Ok(row.get("id"))
 }
 
 async fn should_enqueue_sigil(
@@ -708,7 +749,39 @@ impl StageHandler for VibeHandler {
         .await?;
 
         let sport = item.sport.to_uppercase();
-        persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
+        let product_row_id = persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
+        insert_cognition_ledger_best_effort(
+            &hx.pool,
+            CognitionLedgerEntry {
+                stage: "vibe".to_string(),
+                lens: "vibe".to_string(),
+                role: Role::EmotionalNews.as_str().to_string(),
+                entity_type: item.entity_type.clone(),
+                entity_id,
+                sport: sport.clone(),
+                pair_entity_type: None,
+                pair_entity_id: None,
+                trigger_type: "periodic".to_string(),
+                trigger_payload: serde_json::Value::Null,
+                product_table: "vibe_scores".to_string(),
+                product_row_ids: vec![product_row_id],
+                model_version: out.model.clone(),
+                prompt_version: out.prompt_version.to_string(),
+                output_contract_version: VIBE_OUTPUT_CONTRACT_VERSION.to_string(),
+                input_ids: out.input_news_ids.clone(),
+                input_hash: None,
+                request_body: out.request_body.clone(),
+                built_prompt: out.built_prompt.clone(),
+                included_evidence: vibe_included_evidence(&out),
+                excluded_evidence: vibe_excluded_evidence(&out),
+                context_budget: serde_json::json!({
+                    "num_predict": VIBE_NUM_PREDICT,
+                    "eval_count": out.eval_count,
+                }),
+                parser_outcome: vibe_parser_outcome(&out).to_string(),
+            },
+        )
+        .await;
 
         // F5: enqueue Sigil only when a meaningful pillar changed. The Sigil input_hash debounce
         // remains the second guard; this avoids queue/GPU churn on same-sentiment Vibe rewrites.

@@ -26,6 +26,7 @@
 //! but rewrites the instructions as schema-first rules for smaller local models.
 
 use crate::harness::{Harness, Parser};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -41,6 +42,9 @@ use tracing::warn;
 
 /// Prompt version for the transfer/trade vetting contract.
 pub const TRANSFER_PROMPT_VERSION: &str = "t6";
+
+/// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
+pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
 
 /// Production vetting temperature (transfer.go uses 0.3). The parity harness overrides to 0.
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
@@ -341,6 +345,7 @@ pub struct TransferRow {
 #[derive(Clone, Debug)]
 pub struct TransferPairOutput {
     pub player_id: i32,
+    pub model: String,
     pub heat: Option<i16>,
     pub components: String, // heat_components jsonb text
     pub news_ids: Vec<i64>,
@@ -351,6 +356,8 @@ pub struct TransferPairOutput {
     pub built_prompt: Option<String>,
     /// The exact /api/generate wire body (captured by `extract`). `None` for Skipped.
     pub request_body: Option<serde_json::Value>,
+    /// Tokens evaluated by Ollama for this call. `None` when no model result was returned.
+    pub eval_count: Option<i32>,
     /// Evidence retained for the optional post-persist identity adjudication gate. Empty for
     /// skipped/no-corpus pairs.
     pub identity_apply_news: Vec<NewsItem>,
@@ -880,8 +887,10 @@ pub async fn analyze_pair(
                 components,
                 news_ids,
             } => {
+                let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
                 return Ok(TransferPairOutput {
                     player_id: c.player_id,
+                    model,
                     heat: None,
                     components,
                     news_ids,
@@ -889,6 +898,7 @@ pub async fn analyze_pair(
                     row: None,
                     built_prompt: None,
                     request_body: None,
+                    eval_count: None,
                     identity_apply_news: Vec::new(),
                     prompt_version: TRANSFER_PROMPT_VERSION,
                 });
@@ -899,7 +909,7 @@ pub async fn analyze_pair(
     // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
-    let (verdict, built_prompt, request_body) = match hx
+    let (verdict, model, built_prompt, request_body, eval_count) = match hx
         .extract(
             Role::EmotionalNews,
             &ready.built_prompt,
@@ -910,15 +920,19 @@ pub async fn analyze_pair(
     {
         Ok(extracted) => (
             extracted.value,
+            extracted.model,
             Some(extracted.built_prompt),
             Some(extracted.request_body),
+            Some(extracted.eval_count),
         ),
         Err(e) => {
             warn!(team = team_id, player = c.player_id, error = %e, "transfers: model generate failed; UNKNOWN (fail-closed)");
             (
                 None,
+                ready.model_configured.clone(),
                 Some(ready.built_prompt.clone()),
                 Some(ready.request_body.clone()),
+                None,
             )
         }
     };
@@ -948,6 +962,7 @@ pub async fn analyze_pair(
 
     Ok(TransferPairOutput {
         player_id: c.player_id,
+        model,
         heat: Some(ready.heat),
         components: ready.components,
         news_ids: ready.news_ids,
@@ -955,9 +970,55 @@ pub async fn analyze_pair(
         row: Some(row),
         built_prompt,
         request_body,
+        eval_count,
         identity_apply_news: ready.news,
         prompt_version: TRANSFER_PROMPT_VERSION,
     })
+}
+
+fn transfer_components_json(s: &str) -> serde_json::Value {
+    serde_json::from_str(s).unwrap_or_else(|_| serde_json::json!({ "raw": s }))
+}
+
+fn transfer_trigger_payload_json(s: &str) -> serde_json::Value {
+    serde_json::from_str(s).unwrap_or(serde_json::Value::Null)
+}
+
+fn transfer_parser_outcome(outcome: Outcome) -> &'static str {
+    match outcome {
+        Outcome::Rumor => "rumor",
+        Outcome::Cleared => "cleared",
+        Outcome::Unknown => "unknown",
+        Outcome::Skipped => "skipped",
+    }
+}
+
+fn transfer_included_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
+    serde_json::json!({
+        "input_news_ids": &out.news_ids,
+        "heat": out.heat,
+        "heat_components": transfer_components_json(&out.components),
+        "identity_apply_news_count": out.identity_apply_news.len(),
+        "is_rumor": row.is_rumor,
+        "direction": &row.direction,
+        "stage": &row.stage,
+        "confidence": row.confidence,
+        "source_attribution": &row.attribution,
+    })
+}
+
+fn transfer_excluded_evidence(out: &TransferPairOutput, row: &TransferRow) -> serde_json::Value {
+    match out.outcome {
+        Outcome::Cleared => serde_json::json!([{
+            "reason": "model_cleared_pair",
+            "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
+        }]),
+        Outcome::Unknown => serde_json::json!([{
+            "reason": "model_unknown_or_generate_failure",
+            "trigger_payload": transfer_trigger_payload_json(&row.trigger_payload),
+        }]),
+        _ => serde_json::json!([]),
+    }
 }
 
 /// persist_transfer_row writes ONE row to the LIVE transfer_rumors table — the scored rumor, the
@@ -1537,6 +1598,38 @@ impl StageHandler for TransferHandler {
                         row,
                     )
                     .await?;
+                    insert_cognition_ledger_best_effort(
+                        &hx.pool,
+                        CognitionLedgerEntry {
+                            stage: "transfers".to_string(),
+                            lens: "transfer".to_string(),
+                            role: Role::EmotionalNews.as_str().to_string(),
+                            entity_type: "team".to_string(),
+                            entity_id: team_id,
+                            sport: sport.clone(),
+                            pair_entity_type: Some("player".to_string()),
+                            pair_entity_id: Some(c.player_id),
+                            trigger_type: "periodic".to_string(),
+                            trigger_payload: transfer_trigger_payload_json(&row.trigger_payload),
+                            product_table: "transfer_rumors".to_string(),
+                            product_row_ids: vec![persisted_rumor_id],
+                            model_version: out.model.clone(),
+                            prompt_version: out.prompt_version.to_string(),
+                            output_contract_version: TRANSFER_OUTPUT_CONTRACT_VERSION.to_string(),
+                            input_ids: out.news_ids.clone(),
+                            input_hash: None,
+                            request_body: out.request_body.clone(),
+                            built_prompt: out.built_prompt.clone(),
+                            included_evidence: transfer_included_evidence(&out, row),
+                            excluded_evidence: transfer_excluded_evidence(&out, row),
+                            context_budget: serde_json::json!({
+                                "num_predict": TRANSFER_NUM_PREDICT,
+                                "eval_count": out.eval_count,
+                            }),
+                            parser_outcome: transfer_parser_outcome(out.outcome).to_string(),
+                        },
+                    )
+                    .await;
                     if let Some(heat) = out.heat {
                         maybe_apply_transfer_identity(
                             hx,

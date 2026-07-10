@@ -253,3 +253,65 @@ ship the context fix. If Qwen3/Gemma3 still materially outperform after the cont
 consider a StatsLogic candidate adoption. Do not add MomentumLogic or SynthesisLogic in this
 follow-up; that is separate.
 ```
+
+## Implementation Follow-Up
+
+Implemented the context-first fix in `src/rating.rs`:
+
+- bumped Rating prompt contract to `s9`
+- added deterministic `ScoutingDecision`
+- rendered `SCOUTING DECISION` before datapoints
+- supplied `required_peak_line`, `primary_strength_to_stop`, `secondary_strengths`,
+  `primary_weakness_to_exploit`, and `no_standout_reason`
+- kept production routing and parser behavior unchanged
+- updated Rating fixtures to the `s9` prompt and hardened two brittle prose checks:
+  - `fouls` -> `foul`
+  - `82th` -> `82`
+
+Final fixture comparison on the revised context:
+
+| Model run | Score | Notes |
+|---|---:|---|
+| `mistral:7b` incumbent | 18/22 | Still structurally unstable on PEAK marker; also verbose in one case. |
+| `qwen3:8b` candidate | 22/22 | Correctly copied required PEAK line across all fixtures. |
+| `gemma3:4b` candidate | 19/22 | PEAK structure improved, but prose specificity/length still uneven. |
+
+Decision: the deterministic scout card validates the context hypothesis, but Mistral did not clear the
+PEAK fixtures. Qwen3 now has a material Rating/PEAK win and should be considered in the broader
+StatsLogic route discussion, but no production route was changed in this follow-up.
+
+## Next Sequencing Decision
+
+The next implementation step is not "run PEAK on a schedule." PEAK should become need-based work:
+
+- enqueue a PEAK request only when the underlying rating/scouting input changed enough to need a new
+  card, or when an explicit manual/backfill trigger asks for it
+- do not enqueue PEAK when the current card is already fresh for the entity/season/sport
+- use the durable work key/upsert behavior so there is at most one outstanding PEAK-card demand for
+  a given entity at a time
+- let PEAK run first; once the fresh card is persisted, that becomes the trigger point for the
+  downstream Mistral/news-rail work that needs the card as context
+- avoid parallel downstream demand that asks for the same card while PEAK is already pending or
+  running
+
+Intended ordering:
+
+```text
+rating/stat input changes
+  -> need gate decides whether PEAK card is stale
+  -> enqueue one PEAK request if needed
+  -> PEAK persists fresh scouting card
+  -> enqueue downstream news-rail/Mistral work that depends on the card
+  -> Sigil need gate decides whether final synthesis crosses threshold
+```
+
+Sigil follows the same need-based pattern. Before a Sigil request enters `pipeline_work`, a cheap gate
+should check whether meaningful change cleared a threshold across the pillars: fresh PEAK, Vibe move,
+Momentum move, new/high-impact narratives, transfer heat, or other material context. If the threshold
+is not crossed, do not enqueue Sigil at all. Sigil's existing debounce/skip behavior should remain as
+a second-line guard, not the primary GPU-burn control.
+
+Before changing Sigil routing, run Sigil fixtures/model tests the same way Rating was tested. The
+question is not just which model writes the nicest blurb; it is which model best preserves pillar
+disagreement, convergence, why-now specificity, and concise final synthesis once the need gate has
+already decided a synthesis is warranted.

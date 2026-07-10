@@ -22,7 +22,7 @@
 //! empty model body is a hard error (the work fails + retries), never a served row (Go returns an
 //! error too). So `RatingParser` never returns `Ok(None)` (like `VibeParser`).
 //!
-//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s8 prompt is
+//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s9 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -33,10 +33,10 @@ use crate::util::{go_json_float, go_json_string, hash_components, round1};
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s8";
+pub const RATING_PROMPT_VERSION: &str = "s9";
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
@@ -61,18 +61,23 @@ Definitions:
 - Each skill gives value, percentile, tier, and z-score.
 - TIER IS THE TRUTH. Do not reinterpret percentile quality yourself.
 - Per-x marks can support an efficient lower-minutes or per-90 edge.
+- SCOUTING DECISION is deterministic. Use it as the decision card, not a suggestion.
 
 Output:
-1. First line exactly: PEAK: <label>
-2. Then one flowing scouting-report paragraph, no headers or bullets.
+1. First line exactly the Required PEAK line from SCOUTING DECISION, with no extra words.
+2. Then one flowing scouting-report paragraph on the next line, no headers or bullets.
 
 PEAK rules:
-- Use the first datapoint's skill only if it is strong or elite.
-- If the first datapoint is not strong or elite, write exactly: PEAK: No standout skill.
-- Never choose an average, below average, or poor skill as the peak.
+- Copy the Required PEAK line exactly.
+- Put nothing before the PEAK marker and no explanatory text on the PEAK line.
+- If the first output line does not begin with PEAK:, the answer is invalid.
+- Do not start with the skill label by itself; the PEAK: marker must be present.
+- Never choose the entity name, role, team name, or a different skill as the peak.
+- Never choose an average, below average, poor, or merely above-average skill as the peak.
 
 Scouting-report rules:
 - Lead with real strengths: strong and elite skills.
+- Use Primary strength to stop and Primary weakness to exploit as the main scouting frame.
 - Cite values and percentiles as given.
 - Mention per-x support when it confirms the edge.
 - Do not praise marks below the 50th percentile.
@@ -202,6 +207,21 @@ impl PeakTrajectory {
 #[derive(Clone, Debug, Default)]
 pub struct RatingExclusions {
     pub budget_truncated_stat_labels: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScoutingDecisionFact {
+    pub label: String,
+    pub evidence: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ScoutingDecision {
+    pub required_peak_line: String,
+    pub primary_strength_to_stop: Option<ScoutingDecisionFact>,
+    pub secondary_strengths: Vec<ScoutingDecisionFact>,
+    pub primary_weakness_to_exploit: Option<ScoutingDecisionFact>,
+    pub no_standout_reason: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -394,17 +414,36 @@ fn trim_float(f: f64) -> String {
 /// datapoint order. Stable sort by pct DESC (Rust `slice::sort_by` is stable, like Go `SliceStable`),
 /// so equal-pct ties keep their stored order, matching Go given the same breakdown input order.
 fn ordered_facts(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
+    let mut facts = ordered_facts_unbounded(breakdown);
+    facts.truncate(MAX_STAT_FACTS);
+    facts
+}
+
+fn ordered_facts_unbounded(breakdown: &[RatingDatapoint]) -> Vec<RatingDatapoint> {
     let mut facts = breakdown.to_vec();
     facts.sort_by(|a, b| {
         b.pct
             .partial_cmp(&a.pct)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    facts.truncate(MAX_STAT_FACTS);
     facts
 }
 
-fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
+fn budget_truncated_stat_labels(
+    breakdown: &[RatingDatapoint],
+    decision: &ScoutingDecision,
+) -> Vec<String> {
+    let mut decision_labels = HashSet::new();
+    if let Some(f) = &decision.primary_strength_to_stop {
+        decision_labels.insert(f.label.as_str());
+    }
+    for f in &decision.secondary_strengths {
+        decision_labels.insert(f.label.as_str());
+    }
+    if let Some(f) = &decision.primary_weakness_to_exploit {
+        decision_labels.insert(f.label.as_str());
+    }
+
     let mut facts = breakdown.to_vec();
     facts.sort_by(|a, b| {
         b.pct
@@ -414,6 +453,7 @@ fn budget_truncated_stat_labels(breakdown: &[RatingDatapoint]) -> Vec<String> {
     facts
         .into_iter()
         .skip(MAX_STAT_FACTS)
+        .filter(|d| !decision_labels.contains(d.label.as_str()))
         .map(|d| d.label)
         .collect()
 }
@@ -453,10 +493,126 @@ fn collect_rate_standouts(p: &RatingProfile) -> Vec<RateStandout> {
     out
 }
 
-/// build_stat_prompt assembles the user prompt. Wave 5 reframes this as PEAK scouting-report
-/// context: the model sees the full positionless datapoint spread and chooses the report emphasis
-/// itself, rather than receiving a pre-labeled specialist-credit axis. The `·` (U+00B7) and `—`
-/// (U+2014) are significant bytes; the tier labels are pctBand's deterministic output.
+fn is_strong_or_elite(d: &RatingDatapoint) -> bool {
+    d.pct >= 75.0
+}
+
+fn is_weakness(d: &RatingDatapoint) -> bool {
+    d.pct < 50.0
+}
+
+fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
+    let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
+    let mut s = format!(
+        "{}: {} · {:.0}th pct ({}) · z {:+.1}",
+        d.label,
+        trim_float(d.value),
+        d.pct,
+        pct_band(d.pct),
+        dz
+    );
+    if let Some(pos) = d.scoped_pct.get("position") {
+        s.push_str(&format!(" [position: {:.0}th, {}]", pos, pct_band(*pos)));
+    }
+    s
+}
+
+fn decision_fact(d: &RatingDatapoint) -> ScoutingDecisionFact {
+    ScoutingDecisionFact {
+        label: d.label.clone(),
+        evidence: format_datapoint_evidence(d),
+    }
+}
+
+pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
+    const MAX_SECONDARY_STRENGTHS: usize = 5;
+
+    let facts = ordered_facts_unbounded(&p.breakdown);
+    let primary = facts.first().filter(|d| is_strong_or_elite(d));
+
+    let required_peak_line = match primary {
+        Some(d) => format!("PEAK: {}", d.label),
+        None => "PEAK: No standout skill".to_string(),
+    };
+
+    let primary_strength_to_stop = primary.map(|d| decision_fact(d));
+    let secondary_strengths = facts
+        .iter()
+        .skip(1)
+        .filter(|d| is_strong_or_elite(d))
+        .take(MAX_SECONDARY_STRENGTHS)
+        .map(decision_fact)
+        .collect();
+
+    let primary_weakness_to_exploit = p
+        .breakdown
+        .iter()
+        .filter(|d| is_weakness(d))
+        .min_by(|a, b| {
+            a.pct
+                .partial_cmp(&b.pct)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(decision_fact);
+
+    let no_standout_reason = if primary.is_none() {
+        Some(match facts.first() {
+            Some(d) => format!(
+                "Highest datapoint is {}; {} is not strong/elite, so no strong/elite datapoint exists.",
+                format_datapoint_evidence(d),
+                pct_band(d.pct)
+            ),
+            None => "No skill datapoint is available, so no strong/elite datapoint exists."
+                .to_string(),
+        })
+    } else {
+        None
+    };
+
+    ScoutingDecision {
+        required_peak_line,
+        primary_strength_to_stop,
+        secondary_strengths,
+        primary_weakness_to_exploit,
+        no_standout_reason,
+    }
+}
+
+fn render_scouting_decision(d: &ScoutingDecision) -> String {
+    let mut b = String::new();
+    b.push_str("\nSCOUTING DECISION\n");
+    b.push_str(&format!("Required PEAK line: {}\n", d.required_peak_line));
+    match &d.primary_strength_to_stop {
+        Some(f) => b.push_str(&format!("Primary strength to stop: {}\n", f.evidence)),
+        None => {
+            b.push_str("Primary strength to stop: None; no strong/elite skill exists.\n");
+        }
+    }
+    if d.secondary_strengths.is_empty() {
+        b.push_str("Secondary strengths: None supplied.\n");
+    } else {
+        let strengths = d
+            .secondary_strengths
+            .iter()
+            .map(|f| f.evidence.as_str())
+            .collect::<Vec<_>>()
+            .join("; ");
+        b.push_str(&format!("Secondary strengths: {strengths}\n"));
+    }
+    match &d.primary_weakness_to_exploit {
+        Some(f) => b.push_str(&format!("Primary weakness to exploit: {}\n", f.evidence)),
+        None => b.push_str("Primary weakness to exploit: None supplied.\n"),
+    }
+    if let Some(reason) = &d.no_standout_reason {
+        b.push_str(&format!("Why no standout: {reason}\n"));
+    }
+    b
+}
+
+/// build_stat_prompt assembles the user prompt. s9 reframes this as a deterministic opposing-scout
+/// decision card plus supporting datapoints: the model explains the prepared PEAK choice instead of
+/// inferring the structured label from the list. The `·` (U+00B7) and `—` (U+2014) are significant
+/// bytes; the tier labels are pctBand's deterministic output.
 pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) -> String {
     let mut b = String::new();
 
@@ -477,20 +633,13 @@ pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) ->
         ));
     }
 
+    let decision = build_scouting_decision(p);
+    b.push_str(&render_scouting_decision(&decision));
+
     b.push_str("\nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n");
     for d in ordered_facts(&p.breakdown) {
-        let dz = d.sign as f64 * d.z; // sign-adjusted so + is always the good direction
-        b.push_str(&format!(
-            "- {}: {} · {:.0}th pct ({}) · z {:+.1}",
-            d.label,
-            trim_float(d.value),
-            d.pct,
-            pct_band(d.pct),
-            dz
-        ));
-        if let Some(pos) = d.scoped_pct.get("position") {
-            b.push_str(&format!(" [position: {:.0}th, {}]", pos, pct_band(*pos)));
-        }
+        b.push_str("- ");
+        b.push_str(&format_datapoint_evidence(&d));
         b.push('\n');
     }
 
@@ -507,7 +656,10 @@ pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) ->
         }
     }
 
-    b.push_str("\nWrite the identity analysis now.");
+    b.push_str(&format!(
+        "\nWrite the identity analysis now. Start with this exact first line and no text before it: {}\nThen write the scouting paragraph on the next line. The first output characters must be PEAK:.",
+        decision.required_peak_line
+    ));
     b
 }
 
@@ -902,7 +1054,7 @@ pub struct RatingReady {
 }
 
 /// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
-/// canonical input-components + hash, the notability, `build_stat_prompt`, the s8 options, and the
+/// canonical input-components + hash, the notability, `build_stat_prompt`, the s9 options, and the
 /// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
 /// [`Role::StatsLogic`] (rating is its first consumer).
 pub async fn build_rating_request(
@@ -932,10 +1084,11 @@ pub async fn build_rating_request(
 
     let input_components = input_components(&profile);
     let input_hash = hash_components(&input_components);
-    let exclusions = RatingExclusions {
-        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown),
-    };
     let (notability, notability_components) = compute_notability(&profile);
+    let decision = build_scouting_decision(&profile);
+    let exclusions = RatingExclusions {
+        budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown, &decision),
+    };
     let peak_trajectory = load_peak_trajectory(
         &hx.pool,
         &req.entity_type,
@@ -1353,10 +1506,16 @@ mod tests {
             "Entity: Test Player (NBA player, Guard)\n\
 \nProfile distinctiveness: 70/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nComposite (how WELL overall — T-score, 50 = average): 67\n\
+\nSCOUTING DECISION\n\
+Required PEAK line: PEAK: Scoring\n\
+Primary strength to stop: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
+Secondary strengths: None supplied.\n\
+Primary weakness to exploit: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 - Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nWrite the identity analysis now."
+\nWrite the identity analysis now. Start with this exact first line and no text before it: PEAK: Scoring\n\
+Then write the scouting paragraph on the next line. The first output characters must be PEAK:."
         );
     }
 
@@ -1379,10 +1538,47 @@ mod tests {
             prompt,
             "Entity: Test FC (FOOTBALL team)\n\
 \nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
+\nSCOUTING DECISION\n\
+Required PEAK line: PEAK: Defense\n\
+Primary strength to stop: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+Secondary strengths: None supplied.\n\
+Primary weakness to exploit: None supplied.\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-\nWrite the identity analysis now."
+\nWrite the identity analysis now. Start with this exact first line and no text before it: PEAK: Defense\n\
+Then write the scouting paragraph on the next line. The first output characters must be PEAK:."
         );
+    }
+
+    #[test]
+    fn scouting_decision_requires_no_standout_when_top_is_only_above_average() {
+        let p = RatingProfile {
+            entity_type: "player".to_string(),
+            season: 2025,
+            position: "SG".to_string(),
+            composite_score: Some(49.0),
+            peak_score: None,
+            peak_label: String::new(),
+            breakdown: vec![
+                dp("Spot-up shooting", 38.1, 0.5, 64.0, 1, false),
+                dp("Turnovers", 3.7, -1.4, 23.0, 1, false),
+            ],
+            scoped_ranks: HashMap::new(),
+            rate_modes: HashMap::new(),
+        };
+        let d = build_scouting_decision(&p);
+        assert_eq!(d.required_peak_line, "PEAK: No standout skill");
+        assert!(d.primary_strength_to_stop.is_none());
+        assert_eq!(
+            d.primary_weakness_to_exploit
+                .as_ref()
+                .map(|f| f.label.as_str()),
+            Some("Turnovers")
+        );
+        assert!(d
+            .no_standout_reason
+            .as_deref()
+            .is_some_and(|r| r.contains("Spot-up shooting") && r.contains("above average")));
     }
 
     // --- input_components canonical JSON: the input_hash pre-image (must match Go json.Marshal). -----

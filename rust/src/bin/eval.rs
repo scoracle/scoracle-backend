@@ -41,6 +41,7 @@
 //!   eval player:237:NBA team:14:NBA               # vibe (default): label-free quality+throughput A/B
 //!   eval player:237:NBA=72                        # + MAE vs a human label
 //!   eval --task sigil player:237:NBA              # a different lens (live)
+//!   eval --task transfer team:14:player:237:NBA   # transfer live pair A/B
 //!   eval --task sigil --fixtures                  # frozen-fixture gate (reproducible)
 //!   eval --capture --task sigil player:237:NBA    # emit a fixture skeleton to stdout
 //!   COGNITION_ROUTE_STATS_LOGIC_CANDIDATE=mistral:7b eval --task sigil player:237:NBA  # A/B a challenger
@@ -198,6 +199,7 @@ async fn run_live(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Resu
              eval player:237:NBA=72                     (+ MAE vs a human label)\n  \
              eval --task sigil --fixtures               (frozen-fixture regression gate)\n  \
              eval --capture --task sigil player:237:NBA (emit a fixture skeleton to stdout)\n  \
+             eval --task transfer team:14:player:237:NBA (transfer live pair A/B)\n  \
              set COGNITION_ROUTE_{}_CANDIDATE=<model> to enable the A/B challenger",
             all_task_names().join(", "),
             task.role().env_suffix()
@@ -265,12 +267,11 @@ async fn score_backend(
     backend: &Arc<dyn Inference>,
     cases: &[EvalCase],
 ) -> Result<(ModelScore, Vec<CaseResult>)> {
-    let opts = task.gen_options(EVAL_TEMPERATURE);
-
     let mut abs_err_sum = 0.0f64;
     let mut mae_n = 0usize;
     let mut results: Vec<CaseResult> = Vec::with_capacity(cases.len());
     for case in cases {
+        let opts = task.gen_options_for(EVAL_TEMPERATURE, &case.entity);
         let prompt = match task.build_prompt(hx, &case.entity).await? {
             Some(p) => p,
             None => {
@@ -283,7 +284,10 @@ async fn score_backend(
             Err(e) => {
                 // Under GPU contention a call can time out in Ollama's queue; skip it rather than
                 // abort the whole batch (a partial A/B is still useful).
-                println!("  ! {} : generate failed ({e:#}) — skipped", case.entity.key());
+                println!(
+                    "  ! {} : generate failed ({e:#}) — skipped",
+                    case.entity.key()
+                );
                 continue;
             }
         };
@@ -418,7 +422,8 @@ async fn run_one_fixture(
 async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> Result<()> {
     let case = cases.first().ok_or_else(|| {
         anyhow!(
-            "--capture needs one entity: eval --capture --task {} <entity_type:id:sport>",
+            "--capture needs one case: eval --capture --task {} <entity_type:id:sport> \
+             (transfer: team:<team_id>:player:<player_id>:sport)",
             task.name()
         )
     })?;
@@ -429,7 +434,7 @@ async fn run_capture(cfg: &Config, task: &dyn LensTask, cases: &[EvalCase]) -> R
         .ok_or_else(|| anyhow!("no corpus for {} — nothing to capture", case.entity.key()))?;
     // The frozen system is the task's system const (what the model actually sees).
     let system = task
-        .gen_options(EVAL_TEMPERATURE)
+        .gen_options_for(EVAL_TEMPERATURE, &case.entity)
         .system
         .unwrap_or_default();
     let fx = Fixture {
@@ -614,7 +619,8 @@ fn print_route_table(cfg: &RouteConfig) {
     }
 }
 
-/// parse_case reads `entity_type:id:sport[=human_label]` from a CLI token.
+/// parse_case reads `entity_type:id:sport[=human_label]` from a CLI token. Transfer also accepts
+/// `team:<team_id>:player:<player_id>:sport`, because the production transfer unit is a pair.
 fn parse_case(arg: &str) -> Result<EvalCase> {
     match arg.split_once('=') {
         Some((entity_part, label_part)) => {
@@ -636,8 +642,31 @@ fn parse_case(arg: &str) -> Result<EvalCase> {
 
 fn parse_entity(s: &str) -> Result<EntitySpec> {
     let parts: Vec<&str> = s.split(':').collect();
+    if parts.len() == 5 {
+        let entity_type = parts[0].to_lowercase();
+        let pair_type = parts[2].to_lowercase();
+        if entity_type != "team" || pair_type != "player" {
+            return Err(anyhow!(
+                "bad pair {s:?}; want team:<team_id>:player:<player_id>:sport"
+            ));
+        }
+        let entity_id: i32 = parts[1]
+            .parse()
+            .with_context(|| format!("bad team id in {s:?}"))?;
+        let player_id: i32 = parts[3]
+            .parse()
+            .with_context(|| format!("bad player id in {s:?}"))?;
+        return Ok(EntitySpec {
+            entity_type,
+            entity_id,
+            sport: parts[4].to_uppercase(),
+            pair_player_id: Some(player_id),
+        });
+    }
     if parts.len() != 3 {
-        return Err(anyhow!("bad entity {s:?}; want entity_type:id:sport"));
+        return Err(anyhow!(
+            "bad entity {s:?}; want entity_type:id:sport or team:<team_id>:player:<player_id>:sport"
+        ));
     }
     let entity_type = parts[0].to_lowercase();
     if entity_type != "player" && entity_type != "team" {
@@ -650,5 +679,37 @@ fn parse_entity(s: &str) -> Result<EntitySpec> {
         entity_type,
         entity_id,
         sport: parts[2].to_uppercase(),
+        pair_player_id: None,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_entity_accepts_legacy_entity_shape() {
+        let e = parse_entity("player:237:nba").unwrap();
+        assert_eq!(e.entity_type, "player");
+        assert_eq!(e.entity_id, 237);
+        assert_eq!(e.sport, "NBA");
+        assert_eq!(e.pair_player_id, None);
+        assert_eq!(e.key(), "player:237:NBA");
+    }
+
+    #[test]
+    fn parse_entity_accepts_transfer_pair_shape() {
+        let e = parse_entity("team:14:player:237:nba").unwrap();
+        assert_eq!(e.entity_type, "team");
+        assert_eq!(e.entity_id, 14);
+        assert_eq!(e.sport, "NBA");
+        assert_eq!(e.pair_player_id, Some(237));
+        assert_eq!(e.key(), "team:14:player:237:NBA");
+    }
+
+    #[test]
+    fn parse_entity_rejects_non_team_pair_shape() {
+        let err = parse_entity("player:14:player:237:nba").unwrap_err();
+        assert!(err.to_string().contains("bad pair"));
+    }
 }

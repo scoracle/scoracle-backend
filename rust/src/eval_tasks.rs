@@ -30,7 +30,8 @@ use crate::sigil::{
     SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
 };
 use crate::transfer::{
-    transfer_system_prompt, TransferParser, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
+    build_pair_request, load_candidates, load_tier_map, transfer_system_prompt, PairBuild,
+    TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
 };
 use crate::vibe::{
     build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
@@ -47,11 +48,20 @@ pub struct EntitySpec {
     pub entity_type: String,
     pub entity_id: i32,
     pub sport: String,
+    /// Transfer evals are scored on a production team-player pair, not a standalone entity.
+    /// `None` keeps the original `entity_type:id:sport` shape for every other task.
+    pub pair_player_id: Option<i32>,
 }
 
 impl EntitySpec {
     pub fn key(&self) -> String {
-        format!("{}:{}:{}", self.entity_type, self.entity_id, self.sport)
+        match self.pair_player_id {
+            Some(player_id) => format!(
+                "{}:{}:player:{}:{}",
+                self.entity_type, self.entity_id, player_id, self.sport
+            ),
+            None => format!("{}:{}:{}", self.entity_type, self.entity_id, self.sport),
+        }
     }
 }
 
@@ -208,6 +218,10 @@ pub trait LensTask: Send + Sync {
     /// system + num_predict + json_mode from the stage consts; the caller chooses `temperature`
     /// (live = 0.0 deterministic; fixture = the fixture's frozen value).
     fn gen_options(&self, temperature: f64) -> GenerateOptions;
+    /// Optional per-case override for tasks whose system prompt depends on the live case.
+    fn gen_options_for(&self, temperature: f64, _e: &EntitySpec) -> GenerateOptions {
+        self.gen_options(temperature)
+    }
     /// Build the EXACT production user-prompt for an entity. `Ok(None)` = no-corpus skip (the stage
     /// would write a marker without a model call — nothing to score).
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>>;
@@ -655,18 +669,54 @@ impl LensTask for TransferTask {
     fn gen_options(&self, temperature: f64) -> GenerateOptions {
         GenerateOptions {
             // Transfer's system prompt is sport-sensitive. Fixture mode overwrites this with the
-            // frozen per-case system; live/capture pair mode is a documented follow-up.
+            // frozen per-case system; live/capture pair mode uses `gen_options_for`.
             system: Some(transfer_system_prompt("FOOTBALL")),
             temperature: Some(temperature),
             num_predict: TRANSFER_NUM_PREDICT,
             json_mode: true,
         }
     }
-    async fn build_prompt(&self, _hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        anyhow::bail!(
-            "transfer live/capture evals need a team-player pair, not {}; use --fixtures for now",
-            e.key()
-        )
+    fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
+        let sport = e.sport.to_uppercase();
+        GenerateOptions {
+            system: Some(transfer_system_prompt(&sport)),
+            temperature: Some(temperature),
+            num_predict: TRANSFER_NUM_PREDICT,
+            json_mode: true,
+        }
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        if e.entity_type != "team" {
+            anyhow::bail!(
+                "transfer live/capture evals are team-player pairs; got {}",
+                e.key()
+            );
+        }
+        let player_id = e.pair_player_id.ok_or_else(|| {
+            anyhow::anyhow!(
+                "transfer live/capture evals need a pair: use team:<team_id>:player:<player_id>:sport"
+            )
+        })?;
+        let sport = e.sport.to_uppercase();
+        let team_name = lookup_entity_name(&hx.pool, "team", e.entity_id, &sport).await?;
+        let tiers = load_tier_map(&hx.pool).await?;
+        let candidate = load_candidates(&hx.pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
+            .await?
+            .into_iter()
+            .find(|c| c.player_id == player_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "player/{player_id} is not a current production transfer candidate for team/{} ({sport})",
+                    e.entity_id
+                )
+            })?;
+
+        match build_pair_request(hx, e.entity_id, &team_name, &candidate, &sport, &tiers, 0.0)
+            .await?
+        {
+            PairBuild::Skipped { .. } => Ok(None),
+            PairBuild::Ready(r) => Ok(Some(r.built_prompt)),
+        }
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         let v = match TransferParser.parse(raw) {
@@ -809,6 +859,17 @@ mod tests {
             assert!(seen.insert(*n), "duplicate task name {n}");
             assert!(resolve_task(n).is_some(), "{n} not resolvable");
         }
+    }
+
+    #[test]
+    fn entity_key_renders_transfer_pair_when_present() {
+        let e = EntitySpec {
+            entity_type: "team".into(),
+            entity_id: 14,
+            sport: "NBA".into(),
+            pair_player_id: Some(237),
+        };
+        assert_eq!(e.key(), "team:14:player:237:NBA");
     }
 
     // --- sigil disagreement rubric ------------------------------------------------
@@ -1046,6 +1107,26 @@ mod tests {
         let v = TransferTask.evaluate(TRUE_TRANSFER, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn transfer_live_options_use_sport_specific_noun() {
+        let football = EntitySpec {
+            entity_type: "team".into(),
+            entity_id: 9,
+            sport: "football".into(),
+            pair_player_id: Some(70),
+        };
+        let nba = EntitySpec {
+            entity_type: "team".into(),
+            entity_id: 14,
+            sport: "nba".into(),
+            pair_player_id: Some(237),
+        };
+        let football_system = TransferTask.gen_options_for(0.0, &football).system.unwrap();
+        let nba_system = TransferTask.gen_options_for(0.0, &nba).system.unwrap();
+        assert!(football_system.contains("current transfer"));
+        assert!(nba_system.contains("current trade"));
     }
 
     #[test]

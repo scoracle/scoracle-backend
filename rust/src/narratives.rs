@@ -170,6 +170,20 @@ pub struct ParsedNarratives {
     narratives: Vec<ModelNarrative>,
 }
 
+impl ParsedNarratives {
+    /// Read access for the Phase-3 eval (`eval_tasks::NarrativeTask`): the storylines the model
+    /// returned, as `(title, body, cited_article_numbers)` triples in the model's freshest-first
+    /// order. This is the RAW returned set — DB grounding (mapping article numbers → real news ids),
+    /// impact scoring, and the marker decision all happen downstream and need a pool, so the
+    /// narrative-grounding rubric scores the model output directly and offline. The private
+    /// `ModelNarrative` DTO stays encapsulated; only this minimal view is exposed.
+    pub fn returned(&self) -> impl Iterator<Item = (&str, &str, &[i32])> {
+        self.narratives
+            .iter()
+            .map(|n| (n.title.as_str(), n.body.as_str(), n.articles.as_slice()))
+    }
+}
+
 /// NarrativesParser runs the tolerant salvager. It returns `Ok(Some(parsed))` for a PARSEABLE
 /// document (even an empty array — a legitimate "no storyline this cycle" → marker downstream) and
 /// `Err` for a genuinely malformed/truncated reply with nothing salvageable (Go's `!ok` → a hard

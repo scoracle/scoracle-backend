@@ -18,7 +18,11 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
-use crate::harness::Harness;
+use crate::harness::{Harness, Parser};
+use crate::narratives::{
+    build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
+    NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::sigil::{
@@ -113,6 +117,36 @@ pub struct Expect {
     pub blurb_includes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blurb_excludes: Option<Vec<String>>,
+    // narrative grouping + grounding rubric.
+    /// Count discipline: the model must return at least / at most this many storylines. A quiet or
+    /// hype-only cycle should stay LOW (the system prompt: "A quiet cycle can return one narrative or
+    /// none"; "Ignore vague hype").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narratives_min: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub narratives_max: Option<i32>,
+    /// Specificity: at least one returned title contains each string (the real storyline is named).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_includes: Option<Vec<String>>,
+    /// Specificity / no-invention: no returned title contains any of these (catches generic
+    /// "Transfer news" titles and wrong-storyline framings).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title_excludes: Option<Vec<String>>,
+    /// Grounding: at least one returned body contains each string (names the who/what/where).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_includes: Option<Vec<String>>,
+    /// No-invention: no returned body contains any of these (e.g. claiming THIS entity is moving when
+    /// the corpus only has other teams scheming around them — the system prompt's hardest rule).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_excludes: Option<Vec<String>>,
+    /// Grounding: every returned storyline must (`true`) cite ≥1 article number — an uncited storyline
+    /// is ungrounded and dropped downstream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub all_cite_articles: Option<bool>,
+    /// Grounding: no cited article number may fall outside `1..=max` — an out-of-range number is an
+    /// invented reference. The fixture sets this to its numbered-corpus length.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_article_num: Option<i32>,
 }
 
 /// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
@@ -158,13 +192,14 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
         "vibe" => Some(Box::new(VibeTask)),
         "sigil" => Some(Box::new(SigilTask)),
+        "narratives" => Some(Box::new(NarrativeTask)),
         _ => None,
     }
 }
 
 /// all_task_names lists the registered tasks (for usage output + unknown-task errors).
 pub fn all_task_names() -> &'static [&'static str] {
-    &["vibe", "sigil"]
+    &["vibe", "sigil", "narratives"]
 }
 
 /// fixture_drift returns a warning when a fixture was frozen under a different prompt contract than
@@ -413,6 +448,159 @@ impl LensTask for SigilTask {
     }
 }
 
+// ---------------------------------------------------------------------------
+// NarrativeTask — storyline grouping + grounding (the narrative lens's non-vibe half).
+// ---------------------------------------------------------------------------
+
+pub struct NarrativeTask;
+
+#[async_trait]
+impl LensTask for NarrativeTask {
+    fn name(&self) -> &'static str {
+        "narratives"
+    }
+    fn role(&self) -> Role {
+        Role::EmotionalNews
+    }
+    fn prompt_version(&self) -> &'static str {
+        NARRATIVES_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        GenerateOptions {
+            system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
+            temperature: Some(temperature),
+            num_predict: NARRATIVES_NUM_PREDICT,
+            // Free-text JSON-instructed, NOT Ollama format=json — matches the live stage (Go parity).
+            json_mode: false,
+        }
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
+        // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
+        let sport = e.sport.to_uppercase();
+        let corpus = load_vetted_corpus(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
+        // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
+        if corpus.is_empty() {
+            return Ok(None);
+        }
+        let heat = load_transfer_heat(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
+        // Direct builder, mirroring VibeTask/SigilTask: the embedder-only near-duplicate dedup is a
+        // live value-add outside the deterministic prompt contract, so the eval scores the same
+        // grounded prompt on every run.
+        let req = NarrativesReq {
+            entity_type: e.entity_type.clone(),
+            entity_id: e.entity_id,
+            entity_name: name,
+            sport: e.sport.clone(),
+            trigger_type: "periodic".to_string(),
+        };
+        Ok(Some(build_narratives_prompt(&req, &corpus, &heat)))
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
+        // would keep: Err ⇒ a malformed/truncated reply (unparseable); Ok(Some(empty)) ⇒ a valid
+        // quiet cycle with zero storylines (parsed, but count 0).
+        let doc = match NarrativesParser.parse(raw) {
+            Ok(Some(p)) => p,
+            _ => {
+                return CaseVerdict {
+                    parsed: false,
+                    abs_err: None,
+                    checks: Vec::new(),
+                    display: "unparseable".into(),
+                }
+            }
+        };
+        let items: Vec<(&str, &str, &[i32])> = doc.returned().collect();
+        let n = items.len() as i32;
+        let titles = items
+            .iter()
+            .map(|(t, _, _)| *t)
+            .collect::<Vec<_>>()
+            .join(" ⏐ ");
+        let mut checks = Vec::new();
+
+        if let Some(x) = expect {
+            if let Some(min) = x.narratives_min {
+                checks.push(PropertyCheck {
+                    name: "narratives_ge".into(),
+                    pass: n >= min,
+                    detail: format!("count={n} ≥ {min}"),
+                });
+            }
+            if let Some(max) = x.narratives_max {
+                checks.push(PropertyCheck {
+                    name: "narratives_le".into(),
+                    pass: n <= max,
+                    detail: format!("count={n} ≤ {max}"),
+                });
+            }
+            for s in x.title_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("title_includes:{s}"),
+                    pass: items.iter().any(|(t, _, _)| t.contains(s.as_str())),
+                    detail: format!("titles={titles}"),
+                });
+            }
+            for s in x.title_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("title_excludes:{s}"),
+                    pass: !items.iter().any(|(t, _, _)| t.contains(s.as_str())),
+                    detail: format!("titles={titles}"),
+                });
+            }
+            for s in x.body_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("body_includes:{s}"),
+                    pass: items.iter().any(|(_, b, _)| b.contains(s.as_str())),
+                    detail: String::new(),
+                });
+            }
+            for s in x.body_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("body_excludes:{s}"),
+                    pass: !items.iter().any(|(_, b, _)| b.contains(s.as_str())),
+                    detail: String::new(),
+                });
+            }
+            if let Some(want) = x.all_cite_articles {
+                // "Every storyline cites ≥1 article." An empty set can never satisfy `true` (there is
+                // nothing grounded to show).
+                let all_cite = !items.is_empty() && items.iter().all(|(_, _, a)| !a.is_empty());
+                let uncited = items.iter().filter(|(_, _, a)| a.is_empty()).count();
+                checks.push(PropertyCheck {
+                    name: "all_cite_articles".into(),
+                    pass: all_cite == want,
+                    detail: format!("{uncited}/{n} storylines cite no article"),
+                });
+            }
+            if let Some(max) = x.max_article_num {
+                let overs: Vec<i32> = items
+                    .iter()
+                    .flat_map(|(_, _, a)| a.iter().copied())
+                    .filter(|&num| num < 1 || num > max)
+                    .collect();
+                checks.push(PropertyCheck {
+                    name: "articles_in_range".into(),
+                    pass: overs.is_empty(),
+                    detail: if overs.is_empty() {
+                        format!("all cited in 1..={max}")
+                    } else {
+                        format!("invented refs {overs:?} (corpus 1..={max})")
+                    },
+                });
+            }
+        }
+
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!("{n} storylines | {titles}"),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -421,9 +609,11 @@ mod tests {
     fn registry_resolves_known_tasks_and_rejects_unknown() {
         assert!(resolve_task("vibe").is_some());
         assert!(resolve_task("sigil").is_some());
+        assert!(resolve_task("narratives").is_some());
         assert!(resolve_task("nope").is_none());
         assert_eq!(resolve_task("vibe").unwrap().name(), "vibe");
         assert_eq!(resolve_task("sigil").unwrap().name(), "sigil");
+        assert_eq!(resolve_task("narratives").unwrap().name(), "narratives");
     }
 
     #[test]
@@ -550,6 +740,91 @@ mod tests {
         assert!(!VibeTask
             .evaluate("SCORE: 70\nVIBE: bright", None, Some(&x))
             .all_checks_pass());
+    }
+
+    // --- narrative grouping + grounding rubric ------------------------------------
+
+    // Two clean, grounded storylines over a 3-article corpus.
+    const GROUNDED: &str = r#"{"narratives":[
+        {"title":"Marcus Vale trade demand","body":"Beat writers report Vale privately asked about his future amid coaching friction.","articles":[1,2]},
+        {"title":"Vale's efficient scoring stretch","body":"He is posting top-percentile efficiency over the last five games.","articles":[3]}
+    ]}"#;
+
+    #[test]
+    fn narratives_grounded_reply_passes_grounding_rubric() {
+        let x = Expect {
+            narratives_min: Some(1),
+            narratives_max: Some(6),
+            title_includes: Some(vec!["Vale".into()]),
+            title_excludes: Some(vec!["Transfer news".into()]),
+            all_cite_articles: Some(true),
+            max_article_num: Some(3),
+            ..Default::default()
+        };
+        let v = NarrativeTask.evaluate(GROUNDED, None, Some(&x));
+        assert!(v.parsed);
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn narratives_invented_article_reference_fails_range_check() {
+        // Cites article 9 when the corpus only has 3 — an invented reference.
+        let reply = r#"{"narratives":[{"title":"Vale rumor","body":"x","articles":[1,9]}]}"#;
+        let x = Expect {
+            max_article_num: Some(3),
+            ..Default::default()
+        };
+        let v = NarrativeTask.evaluate(reply, None, Some(&x));
+        assert!(v.parsed);
+        assert!(!v.all_checks_pass(), "9 is out of the 1..=3 corpus range");
+    }
+
+    #[test]
+    fn narratives_uncited_storyline_fails_all_cite() {
+        let reply =
+            r#"{"narratives":[{"title":"Vale buzz","body":"vague hype with no article","articles":[]}]}"#;
+        let x = Expect {
+            all_cite_articles: Some(true),
+            ..Default::default()
+        };
+        let v = NarrativeTask.evaluate(reply, None, Some(&x));
+        assert!(!v.all_checks_pass(), "an uncited storyline is ungrounded");
+    }
+
+    #[test]
+    fn narratives_generic_title_and_invented_move_are_caught() {
+        // A generic title AND a fabricated "moving to" storyline the corpus never supports.
+        let reply = r#"{"narratives":[{"title":"Transfer news","body":"Vale is moving to the Kings next week.","articles":[1]}]}"#;
+        let x = Expect {
+            title_excludes: Some(vec!["Transfer news".into()]),
+            body_excludes: Some(vec!["moving to".into()]),
+            ..Default::default()
+        };
+        let v = NarrativeTask.evaluate(reply, None, Some(&x));
+        assert_eq!(v.checks_passed(), 0, "both excludes should fire: {:?}", v.checks);
+    }
+
+    #[test]
+    fn narratives_quiet_cycle_is_parsed_with_zero_count() {
+        // An empty array is a legitimate quiet cycle — parsed, count 0 (NOT unparseable).
+        let v = NarrativeTask.evaluate(
+            r#"{"narratives":[]}"#,
+            None,
+            Some(&Expect {
+                narratives_max: Some(1),
+                narratives_min: Some(1),
+                ..Default::default()
+            }),
+        );
+        assert!(v.parsed);
+        // max(1) passes (0 ≤ 1); min(1) fails (0 < 1).
+        assert_eq!(v.checks_passed(), 1);
+    }
+
+    #[test]
+    fn narratives_malformed_reply_is_unparseable() {
+        let v = NarrativeTask.evaluate("the news feels grouped today", None, None);
+        assert!(!v.parsed);
     }
 
     // --- fixture serde + drift ----------------------------------------------------

@@ -8,7 +8,7 @@ Post the **Step-3 cutover (2026-06-28)** and the **Narratives news-hub fold-in (
 
 - **5 live queue stages** — `scrub` → `transfers` → `narratives` → `vibe` → `sigil` —
   drained by the long-running **`scoracle-cognition`** daemon. Transfer heat and breaking-story
-  urgency enrich `narratives`; they are not separate product pillars.
+  urgency enrich both `narratives` and the final `sigil` panel read.
 - **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
   stage — same shape as the retired Go `cmd/statcommentary`).
 
@@ -120,10 +120,34 @@ failed past retry cap -> dead-letter for human repair
 | `transfers` | `src/transfer.rs` | vetted news/entity pairs | `transfer_rumors` | Transfer/trade truth and heat, with shared source freshness and trajectory markers; fail closed on uncertain validity. |
 | `narratives` | `src/narratives.rs` | vetted/link clusters + transfer heat | `news_summaries` | Storyline grouping, source freshness, and trajectory markers. |
 | `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
-| `sigil` | `src/sigil.rs` | Rating + Vibe + Momentum inputs | `sigil_synthesis` | Crown convergence; event-driven and debounced. |
+| `sigil` | `src/sigil.rs` | Stats, narrative, transfer, momentum, previous Sigil | `sigil_synthesis` | Panel convergence; event-driven and debounced by `input_hash`. |
 | rating batch | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; not `pipeline_work`. |
 
 Momentum is not a queue stage. It is a served product assembled from Rating/PEAK and Vibe trajectories.
+
+## Lens / Stage / Role Map
+
+The Multi-Lens Cognition Panel uses three related words deliberately:
+
+- **Lens** is the product perspective Scoracle wants to own: stats identity, narrative temperature,
+  transfer/trade truth, and final panel synthesis.
+- **Stage** is the durable execution unit: a queue handler or batch that loads context, calls a
+  model when needed, persists a product row, and writes `cognition_ledger` provenance.
+- **Role** is the model-routing job sent to `Route`; it decides which concrete model/backend serves
+  the call.
+
+Current mapping:
+
+| Lens | Stage or batch | Route role | Product / ledger surface |
+|---|---|---|---|
+| Stats lens | rating batch | `StatsLogic` | `stat_summaries`, rating ledger rows, rating fixtures |
+| Narrative lens | `narratives` + `vibe` | `EmotionalNews` | `news_summaries`, `vibe_scores`, narrative/vibe ledger rows |
+| Transfer lens | `transfers` | `EmotionalNews` | `transfer_rumors`, transfer ledger rows, transfer fixtures |
+| Panel synthesis | `sigil` | `StatsLogic` | `sigil_synthesis`, sigil ledger rows, sigil fixtures |
+
+`scrub` is upstream evidence gating, not a lens. Transfer still routes through
+`Role::EmotionalNews`; the measured local bakeoff kept `mistral:7b` as the transfer baseline, so a
+separate `TransferLogic` role remains deferred until fixtures and live pair captures justify it.
 
 ## Repository Layout
 
@@ -148,11 +172,11 @@ rust/
     ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
     ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
     ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
-    ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t5 prompt
+    ├── transfer.rs          # transfers stage: per-(team,player) rumor vetting with the t6 prompt
     ├── narratives.rs        # narratives stage: news storyline clustering + summarization
     ├── rating.rs            # rating stage per-entity core (the cmd/statcommentary batch body)
     ├── vibe.rs              # vibe stage: the sentiment + felt-read
-    ├── sigil.rs             # sigil stage: the crown convergence of rating + vibe + momentum
+    ├── sigil.rs             # sigil stage: panel convergence over stats, narrative, transfer, momentum, memory
     └── bin/
         ├── statcommentary.rs
         ├── eval.rs

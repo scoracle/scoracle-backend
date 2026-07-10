@@ -1,10 +1,10 @@
 //! Rating stage — the stats-rail PEAK scouting report, ported from Go (Cutover Step 2, L12).
 //!
-//! The Go source is the machinery spec. `rating.go` is the loader + the deterministic
-//! notability/pctBand/trimFloat/ordered-facts assembly + parse + persist;
-//! `cmd/statcommentary` is the BATCH driver (its own Generate loop — NOT the pipeline_work queue,
-//! NOT DrainAll). So rating is the first stage with no queue `Stage` variant; its cutover is a Rust
-//! batch bin (Step 3), and THIS port builds the per-entity core that bin will loop over.
+//! The Go source was the machinery spec. `rating.go` supplied the loader + deterministic
+//! notability/pctBand/trimFloat/ordered-facts assembly + parse + persist. The Rust port now owns both
+//! shapes: the per-entity core here, and a `PeakHandler` queue stage for current-season need-based
+//! PEAK work. `cmd/statcommentary` remains the operator/batch entry point: nightly mode enqueues
+//! durable PEAK work, while explicit backfill can still run the core inline for historical seasons.
 //!
 //! Composition (Plan §1.2 + §4): `route(StatsLogic) + extract + persist`. Rating is the FIRST
 //! `Role::StatsLogic` consumer (vibe/transfers are `EmotionalNews`). The deterministic parts stay
@@ -29,11 +29,15 @@ use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
+use crate::stage::StageHandler;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
+use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
+use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
 use sqlx::{PgPool, Row};
 use std::collections::{HashMap, HashSet};
+use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
 pub const RATING_PROMPT_VERSION: &str = "s9";
@@ -47,6 +51,11 @@ pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the PEAK line plus one identity paragraph.
 pub const RATING_NUM_PREDICT: i32 = 1200;
+
+/// Durable PEAK queue input_version prefix. The queue key is entity/sport-scoped for historical
+/// compatibility; the season is carried in the version so the handler can drain explicit
+/// current-season demands without re-resolving the wrong season.
+const PEAK_WORK_PREFIX: &str = "peak:s";
 
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
 const MAX_STAT_FACTS: usize = 14;
@@ -1281,6 +1290,23 @@ pub async fn generate_rating(
     })
 }
 
+/// peak_work_input_version is the durable queue fingerprint for a PEAK card demand.
+/// It includes the season and the rating input hash (or an explicit marker token), so repeated
+/// enqueue attempts collapse while changed scouting input reopens the outstanding row.
+pub fn peak_work_input_version(season: i32, input_hash: Option<&str>) -> String {
+    format!(
+        "{PEAK_WORK_PREFIX}{season}:{}",
+        input_hash.filter(|s| !s.is_empty()).unwrap_or("no-stats")
+    )
+}
+
+fn peak_work_season(input_version: Option<&str>) -> Option<i32> {
+    let raw = input_version?;
+    let rest = raw.strip_prefix(PEAK_WORK_PREFIX)?;
+    let (season, _) = rest.split_once(':')?;
+    season.parse::<i32>().ok().filter(|s| *s > 0)
+}
+
 /// last_commentary_hash returns the input_hash of the entity-season's LATEST commentary — the nightly
 /// skip signal. Canonical latest-generation rule (F-023): take the latest row regardless of
 /// nullability; a no-stats marker has a NULL input_hash → None → the next run never wrongly skips
@@ -1390,6 +1416,107 @@ pub async fn persist_stat_summary(
     )
     .await;
     Ok(())
+}
+
+/// enqueue_sigil_for_peak re-triggers panel synthesis after a newly persisted PEAK card or marker.
+/// The Sigil stage still performs its own input-hash debounce; this queue handoff is only the cheap,
+/// durable demand that the PEAK pillar changed.
+pub async fn enqueue_sigil_for_peak(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    out: &RatingOutput,
+) -> Result<()> {
+    let sig = Item {
+        stage: Stage::Sigil,
+        entity_type: entity_type.to_string(),
+        entity_id: i64::from(entity_id),
+        sport: sport.to_string(),
+        input_version: Some(peak_work_input_version(
+            out.season,
+            out.input_hash.as_deref(),
+        )),
+        attempts: 0,
+    };
+    work::enqueue(pool, &sig).await
+}
+
+async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
+    sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
+        .bind(sport)
+        .fetch_one(pool)
+        .await
+        .with_context(|| format!("current season {sport}"))
+}
+
+/// PeakHandler drains the durable `peak` stage. It is the queue-owned form of the stats rail:
+/// generate/persist the PEAK scouting card only when the rating input hash moved, then enqueue Sigil
+/// as the downstream consumer of the fresh PEAK pillar.
+pub struct PeakHandler;
+
+impl PeakHandler {
+    pub fn new() -> Self {
+        PeakHandler
+    }
+}
+
+impl Default for PeakHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl StageHandler for PeakHandler {
+    fn stage(&self) -> Stage {
+        Stage::Peak
+    }
+
+    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        let entity_id = item.entity_id_i32()?;
+        let sport = item.sport.to_uppercase();
+        let season = match peak_work_season(item.input_version.as_deref()) {
+            Some(season) => season,
+            None => current_season(&hx.pool, &sport).await?,
+        };
+        let name =
+            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &sport)
+                .await?;
+        let req = RatingReq {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            entity_name: name,
+            sport: sport.clone(),
+            season: Some(season),
+            trigger_type: "periodic".to_string(),
+        };
+
+        let out = generate_rating(hx, &req, RATING_TEMPERATURE, true).await?;
+        if out.skipped_unchanged {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id = item.entity_id,
+                sport = %sport,
+                season = out.season,
+                "peak: skipped unchanged rating input"
+            );
+            return Ok(());
+        }
+
+        persist_stat_summary(
+            &hx.pool,
+            &item.entity_type,
+            entity_id,
+            &sport,
+            &req.trigger_type,
+            &serde_json::json!({}),
+            &out,
+        )
+        .await?;
+        enqueue_sigil_for_peak(&hx.pool, &item.entity_type, entity_id, &sport, &out).await?;
+        Ok(())
+    }
 }
 
 fn rating_input_components_value(out: &RatingOutput) -> serde_json::Value {

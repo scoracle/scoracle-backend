@@ -28,6 +28,7 @@ use std::time::Duration;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,
+    Peak,
     Transfers,
     Narratives,
     Vibe,
@@ -38,6 +39,7 @@ impl Stage {
     pub fn as_str(self) -> &'static str {
         match self {
             Stage::Scrub => "scrub",
+            Stage::Peak => "peak",
             Stage::Transfers => "transfers",
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",

@@ -6,11 +6,11 @@ This folder is not a side experiment. It is the production cognition layer for S
 
 Post the **Step-3 cutover (2026-06-28)** and the **Narratives news-hub fold-in (2026-07-03)**, the Go LLM derive stages are retired into Rust:
 
-- **5 live queue stages** — `scrub` → `transfers` → `narratives` → `vibe` → `sigil` —
+- **6 live queue stages** — `scrub` → `peak` → `transfers` → `narratives` → `vibe` → `sigil` —
   drained by the long-running **`scoracle-cognition`** daemon. Transfer heat and breaking-story
   urgency enrich both `narratives` and the final `sigil` panel read.
-- **rating** runs as the **`statcommentary`** batch bin (its own Generate loop, NOT a queue
-  stage — same shape as the retired Go `cmd/statcommentary`).
+- **rating / PEAK** is produced by durable `pipeline_work(peak)` in nightly mode; the
+  **`statcommentary`** bin remains the current-season producer and explicit historical backfill tool.
 
 ## Start Here
 
@@ -121,7 +121,7 @@ failed past retry cap -> dead-letter for human repair
 | `narratives` | `src/narratives.rs` | vetted/link clusters + transfer heat | `news_summaries` | Storyline grouping, source freshness, and trajectory markers. |
 | `vibe` | `src/vibe.rs` | narrative/corpus context | `vibe_scores` | Emotional rail end product. |
 | `sigil` | `src/sigil.rs` | Stats, narrative, transfer, momentum, previous Sigil | `sigil_synthesis` | Panel convergence; event-driven and debounced by `input_hash`. |
-| rating batch | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; not `pipeline_work`. |
+| `peak` | `src/rating.rs`, `src/bin/statcommentary.rs` | stats/rating context | `stat_summaries` | Statistical rail model read plus deterministic Composite/PEAK z-score trajectory; need-based `pipeline_work` stage for current season. |
 
 Momentum is not a queue stage. It is a served product assembled from Rating/PEAK and Vibe trajectories.
 

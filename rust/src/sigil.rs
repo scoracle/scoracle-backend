@@ -889,9 +889,25 @@ fn normalize_panel_line(rest: &str) -> Option<String> {
     }
 }
 
+fn parse_panel_score(rest: &str) -> Option<i32> {
+    let t = rest.trim();
+    if t.is_empty() {
+        return None;
+    }
+    let head = t.split_whitespace().next().unwrap_or("");
+    let n = head
+        .split_once('/')
+        .map(|(n, _)| n)
+        .unwrap_or(head)
+        .trim()
+        .parse::<i64>()
+        .ok()?;
+    Some(n.clamp(1, 100) as i32)
+}
+
 /// parse_synthesis_response extracts the synthesis reply. SCORE + BLURB mirror
 /// `parseSynthesisResponse`: case-sensitive `"SCORE: "` / `"BLURB: "` prefixes (note the space),
-/// the score clamped 1-100 only when the whole value parses, blurb continuation lines absorbed.
+/// the score clamped 1-100 when the value starts with an integer or common `N/100` form, blurb continuation lines absorbed.
 /// `score == 0` means no parseable SCORE line (the caller treats it as a failure — there is NO
 /// first-integer fallback, unlike vibe).
 ///
@@ -910,13 +926,12 @@ pub fn parse_synthesis_response(raw: &str) -> ParsedSynthesis {
     while i < lines.len() {
         let trimmed = lines[i].trim();
         if let Some(rest) = trimmed.strip_prefix("SCORE: ") {
-            // strconv.Atoi parses the WHOLE value; a trailing non-digit ⇒ no update (score 0).
-            if let Ok(n) = rest.trim().parse::<i64>() {
-                out.score = n.clamp(1, 100) as i32;
+            if let Some(n) = parse_panel_score(rest) {
+                out.score = n;
             }
         } else if let Some(rest) = trimmed.strip_prefix("CONVERGENCE: ") {
-            if let Ok(n) = rest.trim().parse::<i64>() {
-                out.convergence = Some(n.clamp(1, 100) as i32);
+            if let Some(n) = parse_panel_score(rest) {
+                out.convergence = Some(n);
             }
         } else if let Some(rest) = trimmed.strip_prefix("DISAGREEMENT: ") {
             if let Some(v) = normalize_panel_line(rest) {
@@ -1464,10 +1479,21 @@ mod tests {
     }
 
     #[test]
+    fn parses_score_and_convergence_slash_100_forms() {
+        let p = parse_synthesis_response(
+            "SCORE: 48/100\nCONVERGENCE: 75/100 (mixed lenses)\nDISAGREEMENT: momentum vs PEAK\nBLURB: under pressure",
+        );
+        assert_eq!(p.score, 48);
+        assert_eq!(p.convergence, Some(75));
+        assert_eq!(p.disagreement.as_deref(), Some("momentum vs PEAK"));
+        assert_eq!(p.blurb, "under pressure");
+    }
+
+    #[test]
     fn convergence_clamped_like_score() {
         let p = parse_synthesis_response("SCORE: 50\nCONVERGENCE: 250\nBLURB: mixed signals");
         assert_eq!(p.convergence, Some(100));
-        // A non-integer CONVERGENCE leaves it None (whole-value parse, no fallback).
+        // A non-integer CONVERGENCE leaves it None (no unlabeled first-integer fallback).
         let p2 = parse_synthesis_response("SCORE: 50\nCONVERGENCE: high\nBLURB: mixed signals");
         assert_eq!(p2.convergence, None);
     }

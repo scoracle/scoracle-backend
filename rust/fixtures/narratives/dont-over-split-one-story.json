@@ -1,0 +1,21 @@
+{
+  "name": "dont-over-split-one-story",
+  "task": "narratives",
+  "prompt_version": "n5",
+  "note": "three outlets report the SAME single event (Marsh's season-ending ACL). System prompt: 'Do not split one story across narratives'. TARGET: narratives_max 1 (one event = one storyline). FLOOR: title_includes Marsh + grounded refs + not-generic. Red on narratives_max = the model over-split one story into duplicate storylines (a grouping failure).",
+  "system": "Task: group recent vetted news into distinct storylines about ONE sports entity.\n\nVoice: direct, sports-literate, grounded. No hype, no source list, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...]}\n\nRules:\n- Return at most 6 narratives, most consequential first.\n- Do not split one story across narratives.\n- Do not merge unrelated stories.\n- A quiet cycle can return one narrative or none.\n- Ignore vague hype when the sources do not name who, what, and where.\n- Ignore articles that are not actually about this entity.\n\nFor each:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story.\n- articles: the article numbers behind that storyline.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word \"heat\" and its numbers are internal; never mention them.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources.",
+  "user_prompt": "Entity: Leo Marsh (NBA player)\n\nRecent news (numbered):\n1. [ESPN] Leo Marsh to miss rest of season with torn ACL — Marsh suffered a torn ACL in Tuesday's game and will miss the remainder of the season, the team announced.\n2. [The Athletic] Marsh's ACL tear ends his season — Sources confirm Leo Marsh tore his ACL and is out for the year.\n3. [Sactown Sports] Marsh out for season after knee injury — The team confirmed Marsh's season-ending knee injury Wednesday.\n\nReturn the JSON object now.",
+  "temperature": 0.0,
+  "expect": {
+    "narratives_min": 1,
+    "narratives_max": 1,
+    "all_cite_articles": true,
+    "max_article_num": 3,
+    "title_includes": [
+      "Marsh"
+    ],
+    "title_excludes": [
+      "Transfer news"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "vague-hype-restraint",
+  "task": "narratives",
+  "prompt_version": "n5",
+  "note": "two pure-hype articles that never name who/what/where. System prompt: 'Ignore vague hype' + 'a quiet cycle can return one narrative or none'. TARGET: narratives_max 1 (0 is ideal). FLOOR: not-generic title + no invented refs (vacuously green if it correctly returns nothing). Deliberately NO all_cite_articles/title_includes here — those would falsely red the correct empty answer.",
+  "system": "Task: group recent vetted news into distinct storylines about ONE sports entity.\n\nVoice: direct, sports-literate, grounded. No hype, no source list, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...]}\n\nRules:\n- Return at most 6 narratives, most consequential first.\n- Do not split one story across narratives.\n- Do not merge unrelated stories.\n- A quiet cycle can return one narrative or none.\n- Ignore vague hype when the sources do not name who, what, and where.\n- Ignore articles that are not actually about this entity.\n\nFor each:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story.\n- articles: the article numbers behind that storyline.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word \"heat\" and its numbers are internal; never mention them.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources.",
+  "user_prompt": "Entity: Tobias Renn (NBA player)\n\nRecent news (numbered):\n1. [FadeawayWorld] Tobias Renn is ready to take the leap, sources say — Insiders believe big things are coming for Renn this season, though specifics remain unclear.\n2. [Hoops Rumors] Could this be Tobias Renn's breakout year? — Speculation is building around Renn, with one source calling him a name to watch this winter.\n\nReturn the JSON object now.",
+  "temperature": 0.0,
+  "expect": {
+    "narratives_max": 1,
+    "max_article_num": 2,
+    "title_excludes": [
+      "Transfer news"
+    ]
+  }
+}

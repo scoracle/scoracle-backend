@@ -26,6 +26,7 @@
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
@@ -36,6 +37,9 @@ use std::collections::HashMap;
 
 /// Prompt version for the PEAK scouting-report contract.
 pub const RATING_PROMPT_VERSION: &str = "s8";
+
+/// Output contract captured separately in the Phase 2 diagnostic ledger.
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
 
 /// Production rating temperature (rating.go uses 0.6 — a touch of voice on the analyst prose). The
 /// parity harness overrides to 0 (the deterministic axes need no model call anyway).
@@ -951,6 +955,7 @@ pub struct RatingOutput {
     pub model: Option<String>, // the configured model (set even for the no-stats marker — Go parity)
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
+    pub eval_count: Option<i32>,
     pub prompt_version: &'static str,
 }
 
@@ -1003,6 +1008,7 @@ pub async fn generate_rating(
                 model: Some(model),
                 built_prompt: None,
                 request_body: None,
+                eval_count: None,
                 prompt_version: RATING_PROMPT_VERSION,
             });
         }
@@ -1036,6 +1042,7 @@ pub async fn generate_rating(
                     model: Some(ready.model_configured),
                     built_prompt: None,
                     request_body: None,
+                    eval_count: None,
                     prompt_version: RATING_PROMPT_VERSION,
                 });
             }
@@ -1078,6 +1085,7 @@ pub async fn generate_rating(
         model: Some(extracted.model),
         built_prompt: Some(extracted.built_prompt),
         request_body: Some(extracted.request_body),
+        eval_count: Some(extracted.eval_count),
         prompt_version: RATING_PROMPT_VERSION,
     })
 }
@@ -1125,7 +1133,7 @@ pub async fn persist_stat_summary(
     let ncomp_json = out.notability_components.to_string();
     let peak_components_json = out.peak_trajectory_components.to_string();
 
-    sqlx::query(
+    let row = sqlx::query(
         r#"
         INSERT INTO stat_summaries (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
@@ -1134,6 +1142,7 @@ pub async fn persist_stat_summary(
             peak_trajectory, peak_trajectory_label, peak_trajectory_components
         ) VALUES ($1,$2,$3,$4,$5,$6::jsonb, $7,$8,$9::jsonb,$10::jsonb,$11, $12,$13,NOW(),$14,
                   $15,$16,$17::jsonb)
+        RETURNING id
         "#,
     )
     .bind(entity_type)
@@ -1153,10 +1162,81 @@ pub async fn persist_stat_summary(
     .bind(out.peak_trajectory.as_deref())
     .bind(out.peak_trajectory_label.as_deref())
     .bind(&peak_components_json)
-    .execute(pool)
+    .fetch_one(pool)
     .await
     .context("persist stat summary")?;
+    let product_row_id = row.get("id");
+    insert_cognition_ledger_best_effort(
+        pool,
+        CognitionLedgerEntry {
+            stage: "rating".to_string(),
+            lens: "rating".to_string(),
+            role: Role::StatsLogic.as_str().to_string(),
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.to_string(),
+            pair_entity_type: None,
+            pair_entity_id: None,
+            trigger_type: trigger_type.to_string(),
+            trigger_payload: trigger_payload.clone(),
+            product_table: "stat_summaries".to_string(),
+            product_row_ids: vec![product_row_id],
+            model_version: prov.model_version,
+            prompt_version: prov.prompt_version.to_string(),
+            output_contract_version: RATING_OUTPUT_CONTRACT_VERSION.to_string(),
+            input_ids: Vec::new(),
+            input_hash: prov.input_hash,
+            request_body: out.request_body.clone(),
+            built_prompt: out.built_prompt.clone(),
+            included_evidence: rating_included_evidence(out),
+            excluded_evidence: rating_excluded_evidence(out),
+            context_budget: serde_json::json!({
+                "num_predict": RATING_NUM_PREDICT,
+                "eval_count": out.eval_count,
+            }),
+            parser_outcome: rating_parser_outcome(out).to_string(),
+        },
+    )
+    .await;
     Ok(())
+}
+
+fn rating_input_components_value(out: &RatingOutput) -> serde_json::Value {
+    serde_json::from_str(&out.input_components).unwrap_or_else(|_| {
+        serde_json::json!({
+            "raw_input_components": &out.input_components,
+        })
+    })
+}
+
+fn rating_included_evidence(out: &RatingOutput) -> serde_json::Value {
+    serde_json::json!({
+        "input_components": rating_input_components_value(out),
+        "notability": out.notability,
+        "notability_components": &out.notability_components,
+        "peak_trajectory": &out.peak_trajectory,
+        "peak_trajectory_label": &out.peak_trajectory_label,
+        "peak_trajectory_components": &out.peak_trajectory_components,
+        "divined_peak": &out.divined_peak,
+    })
+}
+
+fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
+    if out.skipped_no_stats {
+        serde_json::json!([{
+            "reason": "no_usable_rating_profile",
+        }])
+    } else {
+        serde_json::json!([])
+    }
+}
+
+fn rating_parser_outcome(out: &RatingOutput) -> &'static str {
+    if out.skipped_no_stats {
+        "no_call"
+    } else {
+        "parsed"
+    }
 }
 
 #[cfg(test)]

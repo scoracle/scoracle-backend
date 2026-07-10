@@ -38,6 +38,7 @@
 
 use crate::corpus::{load_transfer_heat, write_heat_lines, HeatItem};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
@@ -46,7 +47,7 @@ use crate::util::{go_json_float, go_json_string, hash_components, round1, trunca
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 
 /// Prompt version for the Sigil synthesis contract. Bumped s10→s11 for the Phase 5.3 panel-output
 /// contract: the reply now carries three OPTIONAL lines (CONVERGENCE / DISAGREEMENT / WHY_NOW)
@@ -55,6 +56,9 @@ use sqlx::PgPool;
 /// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
 /// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
 pub const SIGIL_PROMPT_VERSION: &str = "s11";
+
+/// Output contract captured separately in the Phase 2 diagnostic ledger.
+pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
 
 /// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
 /// with an explicit 0.
@@ -195,6 +199,9 @@ pub struct SigilOutput {
     pub convergence: Option<i32>,
     pub disagreement: Option<String>,
     pub why_now: Option<String>,
+    pub built_prompt: Option<String>,
+    pub request_body: Option<serde_json::Value>,
+    pub eval_count: Option<i32>,
 }
 
 impl SigilOutput {
@@ -1008,6 +1015,9 @@ async fn generate_sigil_inner(
                 convergence: None,
                 disagreement: None,
                 why_now: None,
+                built_prompt: None,
+                request_body: None,
+                eval_count: None,
             },
             None,
             None,
@@ -1052,8 +1062,9 @@ async fn generate_sigil_inner(
         .value
         .ok_or_else(|| anyhow!("sigil: parser returned no value"))?;
 
-    let built_prompt = capture_parity.then_some(extracted.built_prompt);
-    let request_body = capture_parity.then_some(extracted.request_body);
+    let built_prompt = extracted.built_prompt;
+    let request_body = extracted.request_body;
+    let eval_count = extracted.eval_count;
 
     Ok((
         SigilOutput {
@@ -1067,10 +1078,49 @@ async fn generate_sigil_inner(
             convergence: reply.convergence,
             disagreement: reply.disagreement,
             why_now: reply.why_now,
+            built_prompt: Some(built_prompt.clone()),
+            request_body: Some(request_body.clone()),
+            eval_count: Some(eval_count),
         },
-        built_prompt,
-        request_body,
+        capture_parity.then_some(built_prompt),
+        capture_parity.then_some(request_body),
     ))
+}
+
+fn sigil_input_components_value(out: &SigilOutput) -> serde_json::Value {
+    serde_json::from_str(&out.input_components_json).unwrap_or_else(|_| {
+        serde_json::json!({
+            "raw_input_components": &out.input_components_json,
+        })
+    })
+}
+
+fn sigil_included_evidence(out: &SigilOutput) -> serde_json::Value {
+    serde_json::json!({
+        "input_components": sigil_input_components_value(out),
+        "score": out.score,
+        "convergence": out.convergence,
+        "disagreement": &out.disagreement,
+        "why_now": &out.why_now,
+    })
+}
+
+fn sigil_excluded_evidence(out: &SigilOutput) -> serde_json::Value {
+    if out.built_prompt.is_none() {
+        serde_json::json!([{
+            "reason": "no_narrative_rating_vibe_momentum_or_transfer_pillar",
+        }])
+    } else {
+        serde_json::json!([])
+    }
+}
+
+fn sigil_parser_outcome(out: &SigilOutput) -> &'static str {
+    if out.built_prompt.is_none() {
+        "no_call"
+    } else {
+        "parsed"
+    }
 }
 
 /// persist_to_sigil_synthesis writes one row to the LIVE sigil_synthesis table — both the
@@ -1086,20 +1136,21 @@ async fn persist_to_sigil_synthesis(
     season: i32,
     out: &SigilOutput,
     previous_score: Option<i16>,
-) -> Result<()> {
+) -> Result<i64> {
     let prov = out.provenance();
     let entity_id = item.entity_id_i32()?;
     let score: Option<i16> = out.score.map(|n| n as i16);
     // Phase 5.3 panel outputs — nullable columns (mig 143). All None for a marker or when the
     // model omitted the line; convergence rides the same smallint 1-100 shape as `score`.
     let convergence: Option<i16> = out.convergence.map(|n| n as i16);
-    sqlx::query(
+    let row = sqlx::query(
         r#"
         INSERT INTO sigil_synthesis (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             score, previous_score, blurb, input_components, input_hash,
             model_version, prompt_version, convergence, disagreement, why_now
         ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11,$12,$13,$14)
+        RETURNING id
         "#,
     )
     .bind(&item.entity_type)
@@ -1116,10 +1167,52 @@ async fn persist_to_sigil_synthesis(
     .bind(convergence)
     .bind(out.disagreement.as_deref())
     .bind(out.why_now.as_deref())
-    .execute(pool)
+    .fetch_one(pool)
     .await
     .context("persist sigil")?;
-    Ok(())
+    Ok(row.get("id"))
+}
+
+async fn write_sigil_ledger(
+    pool: &PgPool,
+    item: &Item,
+    entity_id: i32,
+    sport: &str,
+    out: &SigilOutput,
+    product_row_id: i64,
+) {
+    insert_cognition_ledger_best_effort(
+        pool,
+        CognitionLedgerEntry {
+            stage: "sigil".to_string(),
+            lens: "sigil".to_string(),
+            role: Role::StatsLogic.as_str().to_string(),
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport.to_string(),
+            pair_entity_type: None,
+            pair_entity_id: None,
+            trigger_type: "periodic".to_string(),
+            trigger_payload: serde_json::json!({}),
+            product_table: "sigil_synthesis".to_string(),
+            product_row_ids: vec![product_row_id],
+            model_version: out.model.clone(),
+            prompt_version: out.prompt_version.to_string(),
+            output_contract_version: SIGIL_OUTPUT_CONTRACT_VERSION.to_string(),
+            input_ids: Vec::new(),
+            input_hash: out.input_hash.clone(),
+            request_body: out.request_body.clone(),
+            built_prompt: out.built_prompt.clone(),
+            included_evidence: sigil_included_evidence(out),
+            excluded_evidence: sigil_excluded_evidence(out),
+            context_budget: serde_json::json!({
+                "num_predict": SIGIL_NUM_PREDICT,
+                "eval_count": out.eval_count,
+            }),
+            parser_outcome: sigil_parser_outcome(out).to_string(),
+        },
+    )
+    .await;
 }
 
 /// SigilHandler drains the durable `sigil` stage — the terminal convergence. It reads the
@@ -1177,8 +1270,14 @@ impl StageHandler for SigilHandler {
                 convergence: None,
                 disagreement: None,
                 why_now: None,
+                built_prompt: None,
+                request_body: None,
+                eval_count: None,
             };
-            return persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await;
+            let product_row_id =
+                persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await?;
+            write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
+            return Ok(());
         }
 
         // SkipUnchanged debounce (drainSigil sets SkipUnchanged=true): skip the local model call when
@@ -1251,9 +1350,14 @@ impl StageHandler for SigilHandler {
             convergence: reply.convergence,
             disagreement: reply.disagreement,
             why_now: reply.why_now,
+            built_prompt: Some(extracted.built_prompt),
+            request_body: Some(extracted.request_body),
+            eval_count: Some(extracted.eval_count),
         };
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
-        persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
+        let product_row_id =
+            persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
+        write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
         Ok(())
     }
 }

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict cPKU58jPsurZHqCZvujM1Lu7EGz64OimBo0eYSogg9Yuz8nRi8ogNY73BCbwGJf
+\restrict QsVArQxPWP3dH3DLQL3feAkFSkucnDmHFXm0xcIzKxfU8b4ZY3aqaTnGPv01tqj
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -5490,6 +5490,95 @@ CREATE TABLE public.auth_refresh_tokens (
 
 
 --
+-- Name: cognition_ledger; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.cognition_ledger (
+    id bigint NOT NULL,
+    stage text NOT NULL,
+    lens text NOT NULL,
+    role text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    pair_entity_type text,
+    pair_entity_id integer,
+    trigger_type text NOT NULL,
+    trigger_payload jsonb DEFAULT 'null'::jsonb NOT NULL,
+    product_table text NOT NULL,
+    product_row_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    output_contract_version text NOT NULL,
+    input_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
+    input_hash text,
+    request_body jsonb,
+    built_prompt text,
+    included_evidence jsonb DEFAULT '[]'::jsonb NOT NULL,
+    excluded_evidence jsonb DEFAULT '[]'::jsonb NOT NULL,
+    context_budget jsonb DEFAULT '{}'::jsonb NOT NULL,
+    parser_outcome text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT cognition_ledger_pair_entity_type_check CHECK (((pair_entity_type IS NULL) OR (pair_entity_type = ANY (ARRAY['player'::text, 'team'::text]))))
+);
+
+
+--
+-- Name: TABLE cognition_ledger; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.cognition_ledger IS 'Diagnostic ledger for model-backed cognition lens calls. Product tables are still the served surface; this table records request/evidence/parser provenance for post-hoc failure analysis and fixture capture.';
+
+
+--
+-- Name: COLUMN cognition_ledger.output_contract_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cognition_ledger.output_contract_version IS 'Parser/output schema version, distinct from prompt_version. Use this when a reply shape changes without changing the input prompt contract.';
+
+
+--
+-- Name: COLUMN cognition_ledger.included_evidence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cognition_ledger.included_evidence IS 'JSON summary of evidence sent to the model, including source ids and stage-specific context.';
+
+
+--
+-- Name: COLUMN cognition_ledger.excluded_evidence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cognition_ledger.excluded_evidence IS 'JSON summary of evidence considered but excluded, with reason when known.';
+
+
+--
+-- Name: COLUMN cognition_ledger.context_budget; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.cognition_ledger.context_budget IS 'JSON budget telemetry, e.g. available generation tokens and evaluated tokens when a model call happened.';
+
+
+--
+-- Name: cognition_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.cognition_ledger_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: cognition_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.cognition_ledger_id_seq OWNED BY public.cognition_ledger.id;
+
+
+--
 -- Name: event_box_scores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6664,6 +6753,27 @@ COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown synthesis (was 
 
 
 --
+-- Name: COLUMN sigil_synthesis.convergence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.disagreement; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.disagreement IS 'Phase 5.3 panel output: short summary of where the rails diverge (e.g. strong stats vs negative narrative). NULL when the lenses agree or it was unstated.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.why_now; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.why_now IS 'Phase 5.3 panel output: one-line breaking-news freshness note explaining why the read moved now. NULL when nothing is fresh or it was unstated.';
+
+
+--
 -- Name: sigil_synthesis_shadow; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7360,6 +7470,13 @@ ALTER SEQUENCE public.vibe_synthesis_id_seq OWNED BY public.sigil_synthesis.id;
 
 
 --
+-- Name: cognition_ledger id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cognition_ledger ALTER COLUMN id SET DEFAULT nextval('public.cognition_ledger_id_seq'::regclass);
+
+
+--
 -- Name: event_box_scores id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7569,6 +7686,14 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 ALTER TABLE ONLY public.auth_refresh_tokens
     ADD CONSTRAINT auth_refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: cognition_ledger cognition_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.cognition_ledger
+    ADD CONSTRAINT cognition_ledger_pkey PRIMARY KEY (id);
 
 
 --
@@ -8101,6 +8226,27 @@ CREATE UNIQUE INDEX idx_nfl_autofill_pk ON nfl.autofill_entities USING btree (id
 --
 
 CREATE INDEX idx_auth_refresh_user ON public.auth_refresh_tokens USING btree (user_id);
+
+
+--
+-- Name: idx_cognition_ledger_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cognition_ledger_entity ON public.cognition_ledger USING btree (stage, entity_type, entity_id, sport, generated_at DESC);
+
+
+--
+-- Name: idx_cognition_ledger_pair; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cognition_ledger_pair ON public.cognition_ledger USING btree (stage, entity_type, entity_id, pair_entity_type, pair_entity_id, sport, generated_at DESC) WHERE (pair_entity_id IS NOT NULL);
+
+
+--
+-- Name: idx_cognition_ledger_product_rows; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_cognition_ledger_product_rows ON public.cognition_ledger USING gin (product_row_ids);
 
 
 --
@@ -9318,5 +9464,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict cPKU58jPsurZHqCZvujM1Lu7EGz64OimBo0eYSogg9Yuz8nRi8ogNY73BCbwGJf
+\unrestrict QsVArQxPWP3dH3DLQL3feAkFSkucnDmHFXm0xcIzKxfU8b4ZY3aqaTnGPv01tqj
 

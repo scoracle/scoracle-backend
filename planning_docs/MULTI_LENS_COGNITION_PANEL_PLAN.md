@@ -339,12 +339,16 @@ proven seam.
    targets a prompt/model fix flips green. Evidence over taste: the narrative lens's over-suppression
    under noise is now MEASURED, not hoped for.
 
-4. **Transfer FP/TP adjudication set — DONE (2026-07-09, commit `ac527e9`).** `TransferTask`
+4. **Transfer FP/TP adjudication set + live pair seam — DONE.** `TransferTask`
    joins the registry as the transfer lens's frozen-prompt adjudication half. Because the live
    production unit is a team-player NEWS PAIR (candidate + pair corpus through `build_pair_request`),
    not an `EntitySpec`, this shipped fixture-first: DB-free frozen `system` + `user_prompt` cases
-   scored through the production `TransferParser`, with live `--capture`/A-B pair mode deferred.
-   New `Expect` rubric: `transfer_is_rumor`, `transfer_direction`, `transfer_stage`,
+   scored through the production `TransferParser` (2026-07-09, commit `ac527e9`). The follow-up
+   live pair seam landed 2026-07-10: `eval --task transfer team:<team_id>:player:<player_id>:<sport>`
+   and `eval --capture --task transfer ...` now build the prompt through the production
+   `build_pair_request` prefix, use production candidate identity cards, and choose the sport-specific
+   transfer/trade system prompt per case. New `Expect` rubric: `transfer_is_rumor`,
+   `transfer_direction`, `transfer_stage`,
    `subject_includes/excludes`, `summary_includes/excludes`, and `confidence_min/max`. Four
    synthetic honesty-target fixtures are checked in: advanced-talks true positive, former-player
    return true positive, same-name owner false positive, and roundup/name-drop false positive.
@@ -530,12 +534,15 @@ Success:
    CONVERGENCE/DISAGREEMENT/WHY_NOW outputs, and a narrative grounding set (commit `6f811a3`) whose
    contamination fixture MEASURED mistral's over-suppression under noise, plus a transfer FP/TP
    fixture set (commit `ac527e9`) scoring frozen transfer-pair prompts through `TransferParser`.
+   Transfer live pair capture/A-B is now available through `team:<team_id>:player:<player_id>:<sport>`
+   specs backed by `build_pair_request`.
    Next highest-leverage: the remaining Phase 3 eval sets (stats identity, prose-richness —
-   additive on the seam), the transfer live pair `--capture`/A-B path (needed before a real
-   role-split call), or Phase 2 (the lens ledger, where the deferred output-contract version belongs
+   additive on the seam), measured transfer candidate A/B runs for a real role-split call, or Phase 2
+   (the lens ledger, where the deferred output-contract version belongs
    and which would SOURCE future fixtures the way `--capture` does by hand today).
-7. Decide whether `TransferLogic` deserves its own role after transfer has a live pair A/B path; the
-   first fixture set gives green regression floors but no candidate comparison yet.
+7. Decide whether `TransferLogic` deserves its own role after measured transfer live pair A/B runs;
+   the fixture set gives green regression floors, and the live pair seam now supplies candidate
+   comparison units.
 
 ## Risks
 

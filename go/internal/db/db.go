@@ -694,18 +694,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       END AS ends_at
 			FROM req
 		),
-		-- Canonical latest-generation rule: resolve each
-		-- entity's latest generation FIRST (unfiltered max), then keep only that
-		-- generation's content rows. A newer no-corpus marker becomes the latest
-		-- generation, yields no content, and the entity drops off the board — rather
-		-- than the old "latest non-null row" which let a marker leave stale narratives
-		-- ranked. The selected news scope applies to the latest generation's timestamp,
-		-- so stale-but-real generations age out of the current hub.
+		-- News is an archive-like product: a later no-narratives marker means "no new
+		-- story this run", not "erase this week's story". Pick the latest content
+		-- generation inside the selected scope; the current-week freshness gate below
+		-- still ages out cooling stories.
 		latest_gen AS (
 			SELECT ns.entity_type, ns.entity_id, max(ns.generated_at) AS gen
 			FROM public.news_summaries ns, req, scope
 			WHERE ns.sport = req.sport
 			  AND (req.entity_type IS NULL OR ns.entity_type = req.entity_type)
+			  AND ns.body IS NOT NULL AND ns.impact IS NOT NULL
 			  AND ns.generated_at >= scope.starts_at
 			  AND ns.generated_at < scope.ends_at
 			GROUP BY ns.entity_type, ns.entity_id
@@ -973,12 +971,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			FROM req
 		),
 		narr AS (
-			-- Canonical latest-generation rule: find the
-			-- latest generation REGARDLESS of nullability, then return only its content
-			-- rows. The inner max() is UNFILTERED, so a newer no-corpus marker (body
-			-- NULL) becomes the latest generation and the outer body IS NOT NULL yields
-			-- zero rows → empty narratives, clearing stale content. The old
-			-- body-filtered inner max let a marker fail to clear older narratives.
+			-- News is an archive-like product: a later no-narratives marker means "no
+			-- new story this run", not "erase this week's story". Return the latest
+			-- content generation inside the selected scope; the current-week freshness
+			-- gate below still ages out cooling stories.
 			SELECT ns.narrative_title, ns.body, ns.impact, ns.impact_components,
 			       ns.input_news_ids,
 			       COALESCE(ns.narrative_updated_at, ns.source_latest_at, ns.generated_at) AS updated_at,
@@ -1001,6 +997,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			      SELECT max(generated_at) FROM public.news_summaries
 			      WHERE entity_type = (SELECT entity_type FROM req) AND entity_id = (SELECT entity_id FROM req)
 			        AND sport = (SELECT sport FROM req)
+			        AND body IS NOT NULL
 			        AND generated_at >= (SELECT starts_at FROM scope)
 			        AND generated_at < (SELECT ends_at FROM scope)
 			  )

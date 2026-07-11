@@ -1,7 +1,7 @@
 -- 107_sigil_synthesis_shadow.sql  (Rust Cognition Harness L3 — offline sigil parity harness)
 --
 -- A standalone shadow/diagnostic table for the Rust Cognition Harness's sigil-stage
--- parity proof (scoracleWiki/wiki/Plan - Rust Cognition Harness build.md §3 gate, L3).
+-- parity proof (scoracle-wiki/wiki/Plan - Rust Cognition Harness build.md §3 gate, L3).
 -- The twin of mig 105 (vibe_scores_shadow), pointed at the sigil convergence.
 --
 -- WHY a separate table, not columns on sigil_synthesis: the parity harness must be

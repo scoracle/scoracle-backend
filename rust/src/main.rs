@@ -14,8 +14,8 @@
 //! The offline harnesses (`src/bin/*`) never claim the live queue.
 //!
 //! See `rust/README.md` and the canonical architecture doc
-//! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md` (the older phased plan
-//! `scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
+//! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md` (the older phased plan
+//! `scoracle-wiki/raw/scoracle-rust-scrubber-implementation-plan.md` is superseded on sequencing).
 
 use anyhow::{anyhow, Result};
 use scoracle_cognition::buildinfo;

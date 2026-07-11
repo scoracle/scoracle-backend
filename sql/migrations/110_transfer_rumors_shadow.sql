@@ -1,7 +1,7 @@
 -- 110_transfer_rumors_shadow.sql  (Rust Cognition Harness L11 — offline transfers parity harness)
 --
 -- A standalone shadow/diagnostic table for the Rust Cognition Harness's transfers-stage parity
--- proof (scoracleWiki/wiki/Plan - Rust Cognition Harness build.md → "The Cutover Plan" Step 2, L11).
+-- proof (scoracle-wiki/wiki/Plan - Rust Cognition Harness build.md → "The Cutover Plan" Step 2, L11).
 -- The triplet of mig 105 (vibe_scores_shadow) / 107 (sigil_synthesis_shadow), pointed at the
 -- team-keyed transfer/trade vetting — keyed per (team, player) PAIR, the grain transfers runs at.
 --

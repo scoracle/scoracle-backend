@@ -47,7 +47,7 @@ func TestLoadPrefersPORTOverAPIPort(t *testing.T) {
 
 func TestLoadNormalizesMalformedEnvironment(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
-	t.Setenv("ENVIRONMENT", "RAILWAY_GO_BIN=api")
+	t.Setenv("ENVIRONMENT", "SOME_STRAY_VAR=api")
 	t.Setenv("CORS_PRODUCTION_ORIGINS", "https://scoracle.com")
 
 	cfg, err := Load()

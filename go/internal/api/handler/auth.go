@@ -16,7 +16,7 @@ import (
 
 // Mobile auth — device-identity JWT. The native apps can't share the web's
 // `.scoracle.com` cookie, so they authenticate with a bearer token issued here.
-// See ~/scoracleWiki/wiki/Architecture/Mobile Auth.md.
+// See scoracle-wiki/wiki/Architecture/Mobile Auth.md.
 //
 // These handlers use inline SQL (not prepared statements in db.go) deliberately:
 // the auth path is cold, and inline SQL means a missing table or query error

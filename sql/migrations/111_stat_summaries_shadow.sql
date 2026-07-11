@@ -1,7 +1,7 @@
 -- 111_stat_summaries_shadow.sql  (Rust Cognition Harness L12 — offline rating parity harness)
 --
 -- A standalone shadow/diagnostic table for the Rust Cognition Harness's RATING stage parity proof
--- (scoracleWiki/wiki/Plan - Rust Cognition Harness build.md → "The Cutover Plan" Step 2, L12).
+-- (scoracle-wiki/wiki/Plan - Rust Cognition Harness build.md → "The Cutover Plan" Step 2, L12).
 -- The quadruplet of mig 105 (vibe_scores_shadow) / 107 (sigil_synthesis_shadow) /
 -- 110 (transfer_rumors_shadow), pointed at the stats-rail on-field-IDENTITY commentary — the
 -- entity-keyed batch (cmd/statcommentary), NOT a pipeline_work queue stage.

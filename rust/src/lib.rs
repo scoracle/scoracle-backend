@@ -14,7 +14,7 @@
 //! seam) and [`harness`] (the `Harness` context + the `extract` / persist / debounce / and
 //! the shaped Resolve · Embed · Normalize primitives) — and `vibe` is re-expressed as its
 //! first composition (`route + extract + persist`). Canonical doc:
-//! `scoracleWiki/wiki/Architecture/Rust Cognition Harness.md`.
+//! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md`.
 //!
 //! The product model is three rails with six accountable lenses:
 //!

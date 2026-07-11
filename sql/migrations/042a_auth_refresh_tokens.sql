@@ -5,7 +5,7 @@
 -- + a long-lived, ROTATING refresh token against the existing anonymous `users`
 -- model (no password). Only the SHA-256 hash of the refresh token is stored, so
 -- a DB leak can't mint tokens; rows are revocable (rotation on refresh + logout).
--- See ~/scoracleWiki/wiki/Architecture/Mobile Auth.md.
+-- See scoracle-wiki/wiki/Architecture/Mobile Auth.md.
 --
 -- DEPLOY ORDER: apply this migration BEFORE restarting the API. (The auth
 -- handlers use inline SQL, so a missing table fails only /auth/* — not the whole

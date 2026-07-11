@@ -1,7 +1,7 @@
 -- 105_vibe_scores_shadow.sql  (Rust scrubber Phase 1 — offline vibe parity harness)
 --
 -- A standalone shadow/diagnostic table for the Rust scrubber's vibe-stage parity
--- proof (scoracleWiki/raw/scoracle-rust-scrubber-implementation-plan.md §3 Phase 1).
+-- proof (scoracle-wiki/raw/scoracle-rust-scrubber-implementation-plan.md §3 Phase 1).
 --
 -- WHY a separate table, not a column on vibe_scores: the parity harness must be
 -- unable to perturb the live read path. It writes ONLY here; it never INSERTs into

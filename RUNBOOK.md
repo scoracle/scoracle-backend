@@ -6,7 +6,7 @@ What you need during an incident or a machine rebuild. Companion to:
 - `docs/DEVELOPMENT.md` — development rules and implementation boundaries
 - `ENDPOINTS.md` — API contracts (authoritative route inventory at the top)
 - `scripts/hosting/README.md` — script reference
-- `planning_docs/SELF_HOSTING_OPS.md` — original strategy / first-time setup
+- `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md` — original strategy / first-time setup
 
 **Source of truth, always:** the code (`go/internal/api/server.go` for routes,
 `go/internal/config/config.go` for env, `scripts/hosting/crontab.example` for cron,
@@ -337,7 +337,7 @@ Common incidents:
 
 ## 11. Machine rebuild (bare-metal recovery)
 
-Full first-time setup + rationale: `planning_docs/SELF_HOSTING_OPS.md`. Mechanics:
+Full first-time setup + rationale: `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`. Mechanics:
 `scripts/hosting/README.md`. Short path:
 
 1. Install Postgres 18, Ollama + `mistral:7b`, Go toolchain, the Python venv.
@@ -355,7 +355,7 @@ Full first-time setup + rationale: `planning_docs/SELF_HOSTING_OPS.md`. Mechanic
 
 ## 12. Launch-gate carryovers (tracked, not yet done)
 
-These surfaced during the audit and are pre-launch work (see `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md`):
+These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md`):
 
 - **F-030** — NFL (1072) + FOOTBALL (2147) current-season entities have **zero** season-2025-stamped
   Sigils. Run larger reconciliation passes (`vibesynth -mode nightly` with a higher `-limit`) before launch.
@@ -371,7 +371,7 @@ These surfaced during the audit and are pre-launch work (see `planning_docs/FIRS
   then purge history (`git filter-repo` — install first — + force-push, coordinating archbox + archx220
   + the Rust session). **Repair runbook: `PASSWORD-LEAK-REPAIR.md`** (repo root — Steps 1–3, redacted
   re-derivation, rollback, next-session prompt). Full scope:
-  `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
+  `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
   `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 
 The remaining pre-launch milestone is the **Final launch gate** in `FIRST-GPT-AUDIT.md` —

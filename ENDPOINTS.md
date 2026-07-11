@@ -1184,7 +1184,7 @@ When using league-scoped endpoints for football:
 Native apps can't share the web's `.scoracle.com` cookie, so they authenticate
 with a bearer token. The user is **anonymous** (a UUID — no email/password);
 identity persists via the refresh token in the device Keychain. Full design:
-`~/scoracleWiki/wiki/Architecture/Mobile Auth.md`.
+`../scoracle-wiki/wiki/Architecture/Mobile Auth.md`.
 
 | Method · path | Auth | Body | Returns |
 |---|---|---|---|

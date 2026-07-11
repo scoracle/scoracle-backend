@@ -2,7 +2,7 @@
 
 Standalone, step-by-step repair for the F-046 credential leak. The **autonomous half is done**
 (working tree scrubbed, leak vector stopped); the steps below are **gated on Scott** and are the
-*only* real fix. Canonical findings: `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046. Discovery
+*only* real fix. Canonical findings: `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046. Discovery
 narrative: `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`. Summary in `RUNBOOK.md` §12.
 
 ## Status
@@ -23,7 +23,7 @@ Four **distinct** secrets — NOT the single password first recorded:
 | # | Secret | Where (history) | Risk |
 |---|---|---|---|
 | 1 | **Neon CLOUD Postgres pw** (`neondb_owner@…neon.tech`; endpoints `ep-morning-waterfall`, `ep-divine-term`, `ep-plain-bonus`) | `.claude/settings.local.json` + historical `.env.local` | **Highest — internet-reachable** |
-| 2 | **Local archbox `scoracle` Postgres pw** (current prod DB) | `.claude/settings.local.json` + `planning_docs/SELF_HOSTING_OPS.md` | Medium (localhost) |
+| 2 | **Local archbox `scoracle` Postgres pw** (current prod DB) | `.claude/settings.local.json` + `../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md` | Medium (localhost) |
 | 3 | **`API_SPORTS_KEY`** (api-sports.io) | historical `.env.local` | Medium (may be active — CLAUDE.md lists it as seeder "third key") |
 | 4 | **`TWITTER_BEARER_TOKEN`** | historical `.env.local` | Low (X decommissioned O15) — still revoke |
 
@@ -162,7 +162,7 @@ Paste this to start the session that executes Steps 1–3 with Scott:
 > repair to closed **with Scott** (rotation is interactive — guide, don't do silently).
 >
 > **Read first (in order):** `PASSWORD-LEAK-REPAIR.md` (the runbook — Steps 1–3, exact commands,
-> redacted re-derivation), then `planning_docs/FIRST-GPT-AUDIT-FINDINGS.md` F-046 and
+> redacted re-derivation), then `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 and
 > `progress_docs/2026-06-24_F-046-credential-leak-remediation.md` for context, and `RUNBOOK.md` §12 +
 > §3. The repo IS `scoracle-backend` (its own `.git`) — `cd scoracle-backend` for git ops.
 >

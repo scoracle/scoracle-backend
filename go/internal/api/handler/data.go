@@ -214,18 +214,21 @@ func (h *Handler) GetSigilLeaderboard(w http.ResponseWriter, r *http.Request) {
 		sport, limit, entityType, season, leagueID, teamID, position, positionGroup, conference, division)
 }
 
-// GetTrendingLeaderboard returns the sport-wide Momentum board — the risers: entities
+// GetTrendingLeaderboard returns the sport-wide Momentum board — the movers: entities
 // ranked by their stored momentum_scores slope (newest minus oldest sample in the
 // lookback). ?metric=vibe (default) ranks the sentiment trend over 21 calendar days;
 // ?metric=rating ranks the rating-percentile trend over the entity's last
 // season_bridge_window(sport) rated games (~10% of the season: NBA 8, NFL 2,
 // FOOTBALL 4), a game-count lookback that naturally spans the season boundary.
-// @Summary Momentum leaderboard (risers)
-// @Description Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. /trending remains a legacy alias.
+// ?direction=up (default) is the risers board; ?direction=down ranks the fallers
+// (negative slopes, most negative first) — scores keep their sign either way.
+// @Summary Momentum leaderboard (risers / fallers)
+// @Description Entities ranked by their stored momentum snapshot slope (newest minus oldest sample; vibe = 21 calendar days, rating = last ~10%-of-season games, season-spanning). metric=vibe (default) or rating. direction=up (default, risers) or down (fallers). /trending remains a legacy alias.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
 // @Param metric query string false "Trajectory: vibe (default) or rating"
+// @Param direction query string false "Movers: up (default, risers) or down (fallers)"
 // @Param entity_type query string false "Filter: player or team (default both)"
 // @Param league_id query int false "Filter to a league"
 // @Param team_id query int false "Filter to a team"
@@ -260,12 +263,13 @@ func (h *Handler) GetTrendingLeaderboard(w http.ResponseWriter, r *http.Request)
 	positionGroup := optionalTextQuery(r, "position_group")
 	conference := optionalTextQuery(r, "conference")
 	division := optionalTextQuery(r, "division")
+	direction := optionalTextQuery(r, "direction")
 	stmt := "trending_vibe_leaderboard"
 	if strings.ToLower(strings.TrimSpace(r.URL.Query().Get("metric"))) == "rating" {
 		stmt = "trending_rating_leaderboard"
 	}
 	h.serveStatementJSON(w, r, stmt, dataCacheKey(r), cache.TTLData, false,
-		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division)
+		sport, limit, entityType, leagueID, teamID, position, positionGroup, conference, division, direction)
 }
 
 // GetNewsLeaderboard returns the sport-wide news board: entities ranked by their

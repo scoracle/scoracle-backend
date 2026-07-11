@@ -266,9 +266,8 @@ git status --short --branch
 4. Preserve the product contract. If the contract changes, update `../ENDPOINTS.md`, `../README.md`, and the wiki if it is a landmark.
 5. Add or update focused tests/parity harnesses.
 6. Run verification.
-7. Add a progress doc in `../progress_docs/`.
-8. Mirror landmark changes to `../../scoracle-wiki/progress_docs/`.
-9. Commit and push.
+7. Add a progress doc in `../../scoracle-wiki/progress_docs/scoracle-backend/`.
+8. Commit and push.
 
 ## Adding Or Changing A Stage
 
@@ -429,19 +428,14 @@ See `../RUNBOOK.md` before doing this in production. The rating batch is Rust-on
 
 ## Progress Docs
 
-Every meaningful Rust cognition session adds a backend progress doc:
+Every meaningful Rust cognition session adds a progress doc:
 
 ```text
-../progress_docs/YYYY-MM-DD_short-description.md
+../../scoracle-wiki/progress_docs/scoracle-backend/YYYY-MM-DD_short-description.md
 ```
 
-Landmark AI-layer changes also go to:
-
-```text
-../../scoracle-wiki/progress_docs/YYYY-MM-DD_short-description.md
-```
-
-Landmarks include:
+Landmark AI-layer changes that affect other repos or the wiki instead go flat at
+`../../scoracle-wiki/progress_docs/YYYY-MM-DD_short-description.md`. Landmarks include:
 
 - new or removed cognition stage
 - prompt semantics change

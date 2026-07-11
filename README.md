@@ -22,6 +22,13 @@ Shared process, vocabulary, and history live in `scoracle-wiki`, not this repo:
 
 Use those docs when adding shared language, recording landmarks, or checking historical context. Keep backend-only implementation detail in this README, [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md), `RUNBOOK.md`, or `ENDPOINTS.md`.
 
+**Planning and progress docs never live in this repo** (convention set
+2026-07-11): every plan and work log goes in
+`../scoracle-wiki/progress_docs/scoracle-backend/` as
+`YYYY-MM-DD_short-description.md` — post a plan there when authored, mark it
+executed when it lands. This repo holds only durable docs: this README,
+`docs/DEVELOPMENT.md`, `RUNBOOK.md`, and `ENDPOINTS.md`.
+
 ## Pillars
 
 Scoracle is lean, nimble, and durable.
@@ -66,12 +73,11 @@ Pull only when the working tree is clean and the branch has not diverged.
 3. Read [../scoracle-wiki/PRODUCT_NARRATIVE.md](../scoracle-wiki/PRODUCT_NARRATIVE.md).
 4. Read [../scoracle-wiki/DATA_FLOW.md](../scoracle-wiki/DATA_FLOW.md).
 5. Perform the task in the smallest useful chunk.
-6. Add a local progress doc in `progress_docs/YYYY-MM-DD_short-description.md`.
-7. If the change is a product, API, data-flow, pipeline, migration, or architecture landmark, also add a progress doc in `../scoracle-wiki/progress_docs/`.
-8. If the change introduces shared vocabulary or a landmark shift, update `../scoracle-wiki/wiki/Glossary.md` or `../scoracle-wiki/wiki/Changelog.md`.
-9. Run verification.
-10. Commit and push.
-11. For unfinished multi-step work, leave a copyable handoff.
+6. Add a progress doc in `../scoracle-wiki/progress_docs/scoracle-backend/YYYY-MM-DD_short-description.md`.
+7. If the change introduces shared vocabulary or a landmark shift, update `../scoracle-wiki/wiki/Glossary.md` or `../scoracle-wiki/wiki/Changelog.md`.
+8. Run verification.
+9. Commit and push.
+10. For unfinished multi-step work, leave a copyable handoff.
 
 ## Working Context
 
@@ -193,9 +199,7 @@ scoracle-backend/
 │   ├── Dockerfile
 │   └── go.mod
 ├── rust/                   # Rust Cognition Harness: queue-stage model inference + rating batch
-├── seed/                   # Python seeder and provider clients
-├── planning_docs/
-└── progress_docs/
+└── seed/                   # Python seeder and provider clients
 ```
 
 ## Quick Start
@@ -245,18 +249,14 @@ historical player-list payloads becoming the metadata universe.
 (cd rust && cargo build --bin scoracle-cognition --bin statcommentary)
 ```
 
-See [`planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md`](planning_docs/RUST_REPO_BOUNDARY_ASSESSMENT.md)
+See [`../scoracle-wiki/progress_docs/scoracle-backend/RUST_REPO_BOUNDARY_ASSESSMENT.md`](../scoracle-wiki/progress_docs/scoracle-backend/RUST_REPO_BOUNDARY_ASSESSMENT.md)
 for the current recommendation on whether the Rust cognition layer should become its own repo.
 
 ## Progress Docs
 
-Every meaningful backend session adds:
-
-```text
-progress_docs/YYYY-MM-DD_short-description.md
-```
-
-Suggested format:
+Every meaningful backend session adds a doc in
+`../scoracle-wiki/progress_docs/scoracle-backend/` — see [Shared Organization Docs](#shared-organization-docs)
+above. Suggested format:
 
 ```md
 # YYYY-MM-DD - <Title>
@@ -273,14 +273,6 @@ Suggested format:
 
 ## Follow-Up
 ```
-
-Landmark changes also go to:
-
-```text
-../scoracle-wiki/progress_docs/YYYY-MM-DD_short-description.md
-```
-
-Landmarks include product contract changes, endpoint changes, migrations, ingestion-flow changes, cognition-stage changes, release/operations changes, and anything future cross-repo sessions need to find quickly.
 
 ## Handoff Format
 

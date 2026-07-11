@@ -87,7 +87,7 @@ Once a fixture's status is `'seeded'` it won't be picked up again.
 ## Meta Seeding (Team + Player Profiles)
 
 Run after roster seeding at season start and on a weekly refresh (see
-`planning_docs/CRON_SEEDING_STRATEGY.md`). The order matters:
+`../../scoracle-wiki/progress_docs/scoracle-backend/CRON_SEEDING_STRATEGY.md`). The order matters:
 
 ```bash
 # NBA
@@ -335,7 +335,7 @@ For football event seeding, the handler:
 
 ## Scheduling
 
-See `planning_docs/CRON_SEEDING_STRATEGY.md` for the recommended
+See `../../scoracle-wiki/progress_docs/scoracle-backend/CRON_SEEDING_STRATEGY.md` for the recommended
 cadence:
 
 - **Daily 23:00 ET** — `event process --sport football --season 2025`

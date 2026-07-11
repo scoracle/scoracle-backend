@@ -5,7 +5,7 @@ desktop: systemd units, cron wrappers, Postgres backups, log rotation,
 Cloudflare Tunnel stub.
 
 See `RUNBOOK.md` (repo root) for the operations runbook (release/rollback, backup/restore,
-jobs, durable work queue, incident quick-reference) and `planning_docs/SELF_HOSTING_OPS.md`
+jobs, durable work queue, incident quick-reference) and `../../../scoracle-wiki/progress_docs/scoracle-backend/SELF_HOSTING_OPS.md`
 for the original strategy + rationale.
 
 ## Install

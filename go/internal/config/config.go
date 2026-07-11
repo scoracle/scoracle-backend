@@ -33,6 +33,9 @@ type Config struct {
 	RateLimitEnabled  bool
 	RateLimitRequests int
 	RateLimitWindow   time.Duration
+	// Shared secret that exempts trusted server-side callers (the scoracle-frontend
+	// Cloudflare Worker's SSR fetches) from the IP rate limit. Empty = no bypass.
+	RateLimitInternalKey string
 
 	// News scrub sweep master switch. When disabled the maintenance ticker's
 	// cadence is zeroed. The SQL auto-vet of primaries + enqueue to pipeline_work
@@ -88,9 +91,10 @@ func Load() (*Config, error) {
 
 		CORSAllowOrigins: corsOrigins,
 
-		RateLimitEnabled:  envBool("RATE_LIMIT_ENABLED", true),
-		RateLimitRequests: envInt("RATE_LIMIT_REQUESTS", 100),
-		RateLimitWindow:   time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
+		RateLimitEnabled:     envBool("RATE_LIMIT_ENABLED", true),
+		RateLimitRequests:    envInt("RATE_LIMIT_REQUESTS", 100),
+		RateLimitWindow:      time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
+		RateLimitInternalKey: envOr("RATE_LIMIT_INTERNAL_KEY", ""),
 
 		NewsScrubEnabled: envBool("NEWS_SCRUB_ENABLED", true),
 

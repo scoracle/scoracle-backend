@@ -79,7 +79,7 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 
 	// Rate limiting
 	if cfg.RateLimitEnabled {
-		r.Use(RateLimitMiddleware(cfg.RateLimitRequests, cfg.RateLimitWindow))
+		r.Use(RateLimitMiddleware(cfg.RateLimitRequests, cfg.RateLimitWindow, cfg.RateLimitInternalKey))
 	}
 
 	// Browser OpenCode UI route. Cloudflare Tunnel sends opencode.scoracle.com

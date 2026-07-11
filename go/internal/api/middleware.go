@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net"
 	"net/http"
@@ -59,18 +60,37 @@ func (l *ipLimiter) getLimiter(ip string) *rate.Limiter {
 	return limiter
 }
 
+// clientIP resolves the end-user IP for rate-limit bucketing. Behind Cloudflare
+// every request arrives from a shared edge IP, so RemoteAddr would pool all
+// users (and the frontend Worker's SSR fetches) into a handful of buckets;
+// CF-Connecting-IP carries the real client address.
+func clientIP(r *http.Request) string {
+	if ip := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); ip != "" {
+		return ip
+	}
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if ip == "" {
+		ip = r.RemoteAddr
+	}
+	return ip
+}
+
 // RateLimitMiddleware returns middleware that rate-limits by client IP.
-func RateLimitMiddleware(requestsPerWindow int, window time.Duration) func(http.Handler) http.Handler {
+// Requests bearing X-Scoracle-Internal-Key matching internalKey bypass the
+// limit entirely (trusted server-side callers); an empty internalKey disables
+// the bypass.
+func RateLimitMiddleware(requestsPerWindow int, window time.Duration, internalKey string) func(http.Handler) http.Handler {
 	limiter := newIPLimiter(requestsPerWindow, window)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-			if ip == "" {
-				ip = r.RemoteAddr
+			if internalKey != "" &&
+				subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Scoracle-Internal-Key")), []byte(internalKey)) == 1 {
+				next.ServeHTTP(w, r)
+				return
 			}
 
-			if !limiter.getLimiter(ip).Allow() {
+			if !limiter.getLimiter(clientIP(r)).Allow() {
 				w.Header().Set("Retry-After", "60")
 				respond.WriteError(w, http.StatusTooManyRequests, "RATE_LIMITED", "Too many requests")
 				return

@@ -536,7 +536,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($6::text, '') AS position,
 			       NULLIF($7::text, '') AS position_group,
 			       NULLIF($8::text, '') AS conference,
-			       NULLIF($9::text, '') AS division
+			       NULLIF($9::text, '') AS division,
+			       -- direction: 'up' (default) ranks risers by slope DESC;
+			       -- 'down' ranks fallers by slope ASC. sgn folds both into
+			       -- one ORDER BY sgn*slope DESC path.
+			       CASE WHEN lower($10::text) = 'down' THEN -1 ELSE 1 END AS sgn
 		),
 		-- latest_momentum_scores_per_entity is already the current-row projection,
 		-- but keep the old DISTINCT ON boundary so tied top-N output stays
@@ -553,10 +557,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		latest AS (
 			-- Filter after latest_raw so an entity whose latest slope turned
 			-- negative or NULL cannot keep ranking on an older positive snapshot.
-			SELECT * FROM latest_raw WHERE slope IS NOT NULL AND slope > 0
+			SELECT lr.* FROM latest_raw lr, req WHERE lr.slope IS NOT NULL AND lr.slope * req.sgn > 0
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (
+			SELECT u.*, row_number() OVER (ORDER BY u.slope * (SELECT sgn FROM req) DESC) AS rank FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       l.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 3) AS slope
@@ -579,7 +583,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(l.league_id, t.league_id, 0) = (SELECT league_id FROM req))
 				  AND ((SELECT conference FROM req) IS NULL OR COALESCE(l.conference, t.conference) = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR COALESCE(l.division, t.division) = (SELECT division FROM req))
-			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
+			) u ORDER BY u.slope * (SELECT sgn FROM req) DESC LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
 			'page', 'trending_leaderboard', 'metric', 'vibe',
@@ -598,7 +602,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			       NULLIF($6::text, '') AS position,
 			       NULLIF($7::text, '') AS position_group,
 			       NULLIF($8::text, '') AS conference,
-			       NULLIF($9::text, '') AS division
+			       NULLIF($9::text, '') AS division,
+			       -- direction sign — see trending_vibe_leaderboard.
+			       CASE WHEN lower($10::text) = 'down' THEN -1 ELSE 1 END AS sgn
 		),
 		-- Same latest_raw-then-filter shape as the vibe board above; keeping
 		-- DISTINCT ON here preserves tied top-N output while sourcing current rows.
@@ -612,10 +618,10 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ms.entity_type, ms.entity_id, ms.generated_at DESC
 		),
 		latest AS (
-			SELECT * FROM latest_raw WHERE slope IS NOT NULL AND slope > 0
+			SELECT lr.* FROM latest_raw lr, req WHERE lr.slope IS NOT NULL AND lr.slope * req.sgn > 0
 		),
 		ranked AS (
-			SELECT u.*, row_number() OVER (ORDER BY u.slope DESC) AS rank FROM (
+			SELECT u.*, row_number() OVER (ORDER BY u.slope * (SELECT sgn FROM req) DESC) AS rank FROM (
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       l.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
 				       round(l.slope::numeric, 1) AS score, round(l.slope::numeric, 3) AS slope
@@ -638,7 +644,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				  AND ((SELECT league_id FROM req) IS NULL OR COALESCE(l.league_id, t.league_id, 0) = (SELECT league_id FROM req))
 				  AND ((SELECT conference FROM req) IS NULL OR COALESCE(l.conference, t.conference) = (SELECT conference FROM req))
 				  AND ((SELECT division FROM req) IS NULL OR COALESCE(l.division, t.division) = (SELECT division FROM req))
-			) u ORDER BY u.slope DESC LIMIT (SELECT lim FROM req)
+			) u ORDER BY u.slope * (SELECT sgn FROM req) DESC LIMIT (SELECT lim FROM req)
 		)
 		SELECT json_build_object(
 			'page', 'trending_leaderboard', 'metric', 'rating',

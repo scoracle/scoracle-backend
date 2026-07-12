@@ -2005,7 +2005,9 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- Last 7 days of sentiment scores (1-100) for this entity.
 		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes).
 		-- Legacy blurb-only rows have sentiment IS NULL — exclude them.
-		SELECT vs.sentiment, vs.generated_at, vs.trigger_type
+		-- prompt is the felt-read blurb (same column the vibes leaderboard
+		-- serves AS blurb) — the profile News card's Vibe facet renders it.
+		SELECT vs.sentiment, vs.generated_at, vs.trigger_type, vs.prompt
 		FROM vibe_scores vs, req
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
@@ -2102,7 +2104,8 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 				SELECT json_agg(json_build_object(
 					'sentiment',    sentiment,
 					'generated_at', generated_at,
-					'trigger_type', trigger_type
+					'trigger_type', trigger_type,
+					'blurb',        prompt
 				) ORDER BY generated_at DESC)
 				FROM vibe_window
 			), '[]'::json)

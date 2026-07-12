@@ -27,7 +27,7 @@
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
-use crate::harness::{cluster, Harness, Parser, Provenance};
+use crate::harness::{cluster, EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -41,14 +41,14 @@ use serde::Deserialize;
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use std::collections::HashSet;
-use tracing::warn;
+use tracing::{debug, warn};
 
 // ---------------------------------------------------------------------------
 // Constants — mirror news_narratives.go.
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n5";
+pub const NARRATIVES_PROMPT_VERSION: &str = "n6"; // n6: heat lines carry the transfer lens summary + confidence
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v1";
@@ -680,8 +680,48 @@ fn source_metadata(news: &[CorpusItem]) -> (i32, Vec<String>, Option<i64>, Optio
 /// NarrativesBuild is the deterministic prefix of a generation. `NoCorpus` ⇒ no vetted news this
 /// cycle → a NULL-narrative marker (no model call), mirroring Go's early return.
 pub enum NarrativesBuild {
-    NoCorpus { corpus_exclusions: CorpusExclusions },
+    NoCorpus {
+        corpus_exclusions: CorpusExclusions,
+        /// Hash over the (empty) material inputs — so a quiet entity's marker also debounces
+        /// instead of re-marking every cycle.
+        input_hash: String,
+    },
     Ready(Box<NarrativesReady>),
+}
+
+/// build_narratives_input_components is the canonical debounce pre-image (Phase 1): the vetted
+/// corpus article ids (pre-dedup — the material fact is WHAT NEWS EXISTS, not what the embedder
+/// kept) plus the transfer-heat facts in sigil's `counterparty:heat:direction:stage` convention.
+/// The heat summary/confidence are deliberately excluded — derived commentary, not material facts.
+/// Same canonical-JSON discipline as `sigil::build_synthesis_input_components`.
+pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem]) -> String {
+    let mut ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
+    ids.sort_unstable();
+    let mut out = String::from("{\"article_ids\":[");
+    for (i, id) in ids.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&id.to_string());
+    }
+    out.push(']');
+    if !heat.is_empty() {
+        let mut lines: Vec<String> = heat
+            .iter()
+            .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
+            .collect();
+        lines.sort();
+        out.push_str(",\"transfer_heat\":[");
+        for (i, line) in lines.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push_str(&crate::util::go_json_string(line));
+        }
+        out.push(']');
+    }
+    out.push('}');
+    out
 }
 
 /// NarrativesReady carries the assembled model inputs (the parity axes) plus the (possibly deduped)
@@ -698,6 +738,8 @@ pub struct NarrativesReady {
     pub built_prompt: String,
     pub request_body: serde_json::Value,
     pub model_configured: String,
+    /// SHA over [`build_narratives_input_components`] — the handler's debounce key.
+    pub input_hash: String,
 }
 
 /// build_narratives_request runs the deterministic prefix: load the vetted corpus, (if an embedder is
@@ -740,9 +782,18 @@ pub async fn build_narratives_request(
         },
     )?;
 
+    // Hash the material inputs BEFORE dedup: the debounce must key on what news exists, not on
+    // what the (embedder-dependent) dedup pass kept.
+    let input_hash = crate::util::hash_components(&build_narratives_input_components(
+        &corpus, &heat,
+    ));
+
     // No corpus → the NULL-narrative marker path (no model call).
     if corpus.is_empty() {
-        return Ok(NarrativesBuild::NoCorpus { corpus_exclusions });
+        return Ok(NarrativesBuild::NoCorpus {
+            corpus_exclusions,
+            input_hash,
+        });
     }
     let original_corpus_size = corpus.len();
     let deduped = dedup_corpus(hx, corpus).await?;
@@ -769,6 +820,7 @@ pub async fn build_narratives_request(
         built_prompt,
         request_body,
         model_configured,
+        input_hash,
     })))
 }
 
@@ -792,12 +844,15 @@ pub struct NarrativesOutput {
     pub dedup_dropped_news_ids: Vec<i64>,
     pub budget_truncated_news_ids: Vec<i64>,
     pub stale_news_ids: Vec<i64>,
+    /// The debounce key this generation was built from (Phase 1); persisted on every row of the
+    /// generation so the next cycle's gate has something to compare against.
+    pub input_hash: String,
 }
 
 impl NarrativesOutput {
-    /// provenance lifts the moat fields into the shared `Provenance` envelope. Narratives has no
-    /// input_hash debounce; the row-level `input_news_ids` are still bound per narrative because
-    /// each grounded storyline cites a different subset.
+    /// provenance lifts the moat fields into the shared `Provenance` envelope. The row-level
+    /// `input_news_ids` are still bound per narrative because each grounded storyline cites a
+    /// different subset; `input_hash` is generation-level (the Phase 1 debounce key).
     fn provenance(&self) -> Provenance {
         let mut ids = Vec::new();
         for n in &self.narratives {
@@ -807,7 +862,7 @@ impl NarrativesOutput {
             model_version: self.model.clone(),
             prompt_version: self.prompt_version,
             input_ids: dedupe_i64(ids),
-            input_hash: None,
+            input_hash: Some(self.input_hash.clone()),
             trigger_payload: None,
         }
     }
@@ -823,8 +878,24 @@ pub async fn generate_narratives(
     temperature: f64,
     now_epoch: i64,
 ) -> Result<NarrativesOutput> {
-    let ready = match build_narratives_request(hx, req, temperature).await? {
-        NarrativesBuild::NoCorpus { corpus_exclusions } => {
+    let build = build_narratives_request(hx, req, temperature).await?;
+    generate_narratives_from_build(hx, build, now_epoch).await
+}
+
+/// generate_narratives_from_build finishes a generation from an already-built request — the
+/// handler builds ONCE, debounces on the build's `input_hash`, then hands the same build here
+/// (no double corpus/heat load). `generate_narratives` stays as the build-and-run composition
+/// for the parity/eval paths, which never debounce.
+pub async fn generate_narratives_from_build(
+    hx: &Harness,
+    build: NarrativesBuild,
+    now_epoch: i64,
+) -> Result<NarrativesOutput> {
+    let ready = match build {
+        NarrativesBuild::NoCorpus {
+            corpus_exclusions,
+            input_hash,
+        } => {
             // The NULL-narrative marker. Go sets Model = a.ollama.Model() even here.
             let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
             return Ok(NarrativesOutput {
@@ -839,6 +910,7 @@ pub async fn generate_narratives(
                 dedup_dropped_news_ids: Vec::new(),
                 budget_truncated_news_ids: corpus_exclusions.budget_truncated_news_ids,
                 stale_news_ids: corpus_exclusions.stale_news_ids,
+                input_hash,
             });
         }
         NarrativesBuild::Ready(r) => *r,
@@ -872,6 +944,7 @@ pub async fn generate_narratives(
         dedup_dropped_news_ids: ready.dedup_dropped_news_ids,
         budget_truncated_news_ids: ready.corpus_exclusions.budget_truncated_news_ids,
         stale_news_ids: ready.corpus_exclusions.stale_news_ids,
+        input_hash: ready.input_hash,
     })
 }
 
@@ -1021,13 +1094,13 @@ pub async fn persist_narratives(
             input_news_ids,
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
-            model_version, prompt_version, generated_at
+            model_version, prompt_version, input_hash, generated_at
         ) VALUES (
             $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
             COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,
-            $18,$19,NOW()
+            $18,$19,$20,NOW()
         )
         RETURNING id"#;
 
@@ -1110,6 +1183,7 @@ pub async fn persist_narratives(
             .bind(&trajectory_json)
             .bind(prov.model_version.as_str())
             .bind(prov.prompt_version)
+            .bind(prov.input_hash.as_deref())
             .fetch_one(&mut *tx)
             .await
             .context(context)?;
@@ -1200,10 +1274,40 @@ impl StageHandler for NarrativesHandler {
             sport: item.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-
-        let out = generate_narratives(hx, &req, NARRATIVES_TEMPERATURE, now_unix()).await?;
-
         let sport_up = item.sport.to_uppercase();
+
+        // Build ONCE, then gate (Phase 1): narratives was the heaviest GPU stage and
+        // regenerated unconditionally every wake cycle. When the material inputs (vetted
+        // corpus ids + heat facts) match the latest persisted generation's hash, skip the
+        // model call AND the insert — readers use max(generated_at), so the previous
+        // generation keeps serving, and downstream vibe/sigil see no phantom "new" input.
+        // Pre-145 rows carry a NULL hash, which never matches → one regeneration stamps it.
+        let build = build_narratives_request(hx, &req, NARRATIVES_TEMPERATURE).await?;
+        let input_hash = match &build {
+            NarrativesBuild::NoCorpus { input_hash, .. } => input_hash.clone(),
+            NarrativesBuild::Ready(r) => r.input_hash.clone(),
+        };
+        let key = EntityKey {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport_up.clone(),
+            season: None,
+        };
+        if hx
+            .debounce_unchanged("news_summaries", &key, &input_hash)
+            .await?
+        {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id,
+                sport = %sport_up,
+                "narratives: inputs unchanged, skipping generation"
+            );
+            return Ok(());
+        }
+
+        let out = generate_narratives_from_build(hx, build, now_unix()).await?;
+
         // Go marshals the nil trigger map → jsonb `null`.
         persist_narratives(
             &hx.pool,
@@ -1279,12 +1383,16 @@ mod tests {
                 heat: 80,
                 stage: "advanced talks".to_string(),
                 direction: "incoming".to_string(),
+                summary: "Lakers in advanced talks per ESPN".to_string(),
+                confidence: Some(0.8),
             },
             HeatItem {
                 counterparty: "Heat".to_string(),
                 heat: 40,
                 stage: String::new(),
                 direction: String::new(),
+                summary: String::new(),
+                confidence: None,
             },
         ];
         let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat);
@@ -1294,9 +1402,45 @@ mod tests {
 \nRecent news (numbered):\n\
 1. [ESPN] Trade buzz grows\n\
 \nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n\
-- Lakers — heat 80, incoming, advanced talks\n\
+- Lakers — heat 80, incoming, advanced talks (confidence 0.8) — \"Lakers in advanced talks per ESPN\"\n\
 - Heat — heat 40\n\
 \nReturn the JSON object now."
+        );
+    }
+
+    // --- input components: the debounce pre-image ---------------------------------------------------
+
+    #[test]
+    fn input_components_are_stable_across_input_order() {
+        // Same articles + heat in a different order ⇒ identical pre-image (sorted), and the
+        // heat SUMMARY/CONFIDENCE never enter it (derived commentary — a re-worded transfer
+        // summary alone must not regenerate narratives).
+        let a = |id: i64| item(id, "ESPN", "t", "", None);
+        let h = |cp: &str, heat: i32, summary: &str| HeatItem {
+            counterparty: cp.to_string(),
+            heat,
+            stage: "speculation".to_string(),
+            direction: "incoming".to_string(),
+            summary: summary.to_string(),
+            confidence: Some(0.5),
+        };
+        let one = build_narratives_input_components(
+            &[a(3), a(1)],
+            &[h("B", 40, "worded one way"), h("A", 70, "x")],
+        );
+        let two = build_narratives_input_components(
+            &[a(1), a(3)],
+            &[h("A", 70, "y"), h("B", 40, "worded another way")],
+        );
+        assert_eq!(one, two);
+        assert_eq!(
+            one,
+            r#"{"article_ids":[1,3],"transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}"#
+        );
+        // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
+        assert_eq!(
+            build_narratives_input_components(&[a(1)], &[]),
+            r#"{"article_ids":[1]}"#
         );
     }
 

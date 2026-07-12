@@ -18,7 +18,7 @@ use sqlx::{PgPool, Row};
 use tracing::debug;
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s2";
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s3"; // s3: prompt carries the rating scouting read
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -52,7 +52,7 @@ Rules:
 - Pick steady when the signals are flat, sparse, or meaningfully split.
 - Do not chase sentiment hype when PEAK/rating does not confirm it.
 - Do not cling to a strong PEAK label when current trajectory is deteriorating.
-- When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.
+- When PEAK and Vibe disagree, pick steady, keep the score near zero unless one side is clearly dominant, and name the conflict inside the READ line. The MOMENTUM line must still be exactly rising, falling, or steady — never any other word.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
 
 #[derive(Clone, Debug)]
@@ -269,7 +269,7 @@ fn build_momentum_input_components(
     out
 }
 
-fn build_momentum_prompt(
+pub fn build_momentum_prompt(
     entity_type: &str,
     entity_name: &str,
     sport: &str,
@@ -286,6 +286,17 @@ fn build_momentum_prompt(
         Some(r) => {
             b.push_str(&format!("PEAK label: {}\n", empty_dash(&r.divined_peak)));
             b.push_str(&format!("Notability: {}/100\n", r.notability));
+            // The scouting paragraph was always loaded here but never rendered (Phase 1 fix):
+            // it is the richest available answer to "WHY is this entity trending" — the label
+            // alone gave the model nothing to ground the READ line in. Excluded from the
+            // input_hash (derived commentary, like sigil's continuity block), so a re-worded
+            // body alone never triggers a regeneration.
+            if !r.body.trim().is_empty() {
+                b.push_str(&format!(
+                    "Scouting read: {}\n",
+                    crate::util::truncate_bytes(r.body.trim(), 600)
+                ));
+            }
             if !r.peak_trajectory_label.trim().is_empty() {
                 b.push_str(&format!("PEAK trajectory: {}\n", r.peak_trajectory_label));
             } else {
@@ -335,7 +346,7 @@ fn empty_dash(s: &str) -> &str {
     }
 }
 
-fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
+pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let mut direction = String::new();
     let mut score = None;
     let mut read_lines: Vec<String> = Vec::new();
@@ -390,7 +401,17 @@ fn normalize_momentum_direction(raw: &str) -> String {
         "falling".to_string()
     } else if lower.contains("ris") || lower.contains("surg") || lower.contains("up") {
         "rising".to_string()
-    } else if lower.contains("steady") || lower.contains("flat") || lower.contains("mixed") {
+    } else if lower.contains("steady")
+        || lower.contains("flat")
+        || lower.contains("mixed")
+        // "MOMENTUM: Conflict" was the live failure behind 9 permanently-failed items: the
+        // system prompt's "name the conflict" rule led the model to name it ON THE MOMENTUM
+        // LINE. The contract's own rule makes the mapping unambiguous — meaningfully split
+        // signals ARE steady. ("hold" is the same trader-frame synonym.)
+        || lower.contains("conflict")
+        || lower.contains("split")
+        || lower.contains("hold")
+    {
         "steady".to_string()
     } else {
         String::new()
@@ -627,6 +648,21 @@ mod tests {
         assert_eq!(parsed.direction, "rising");
         assert_eq!(parsed.score, 3);
         assert_eq!(parsed.blurb, "PEAK is rising while Vibe is calm.");
+    }
+
+    #[test]
+    fn conflict_direction_normalizes_to_steady() {
+        // The live failure that stranded 9 momentum items: the prompt's "name the conflict"
+        // rule led the model to answer `MOMENTUM: Conflict` (with a decimal score, which the
+        // leading-integer scan already tolerates). Split signals ARE steady per the contract.
+        let parsed = parse_momentum_reply(
+            "MOMENTUM: Conflict\nSCORE: -1.0\nREAD: Signals split between PEAK and Vibe.",
+        )
+        .unwrap();
+        assert_eq!(parsed.direction, "steady");
+        assert_eq!(parsed.score, -1);
+        // Genuinely unknown direction words still fail closed.
+        assert!(parse_momentum_reply("MOMENTUM: banana\nSCORE: 1\nREAD: x.").is_none());
     }
 
     #[test]

@@ -31,7 +31,7 @@ use sqlx::{PgPool, Row};
 use tracing::debug;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v10";
+pub const VIBE_PROMPT_VERSION: &str = "v11"; // v11: heat lines carry the transfer lens summary + confidence
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -79,6 +79,11 @@ pub struct Narrative {
     pub trajectory: String,
     pub topic_heat: i32,
     pub relevance: Option<f32>,
+    /// Corroboration weight from the narratives stage (Phase 1): how many distinct sources
+    /// backed the storyline. Was persisted from day one and read by nothing downstream.
+    pub source_count: i32,
+    /// Whole days since the storyline's freshest source (`source_latest_at`), when known.
+    pub source_age_days: Option<i32>,
 }
 
 /// The result of running the vibe core for one entity, before persistence. Captures
@@ -139,15 +144,19 @@ pub async fn load_latest_narratives(
 ) -> Result<(Vec<Narrative>, Vec<i64>)> {
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is
     // int4 → scan as i32 (matches Go scanning into `int`).
-    let rows: Vec<(String, String, i32, Vec<i64>, String, i32)> = sqlx::query_as(
-        r#"
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(String, String, i32, Vec<i64>, String, i32, i32, Option<i32>)> =
+        sqlx::query_as(
+            r#"
         SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids,
                COALESCE(trajectory, $4),
                COALESCE((
                    SELECT max(a.topic_heat)::int
                    FROM unnest(input_news_ids) AS nid(article_id)
                    JOIN news_articles a ON a.id = nid.article_id
-               ), 1) AS topic_heat
+               ), 1) AS topic_heat,
+               COALESCE(source_count, 0) AS source_count,
+               EXTRACT(day FROM NOW() - source_latest_at)::int AS source_age_days
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -157,18 +166,20 @@ pub async fn load_latest_narratives(
           )
         ORDER BY impact DESC NULLS LAST
         "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(DEFAULT_TRAJECTORY)
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
+        )
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(sport)
+        .bind(DEFAULT_TRAJECTORY)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
 
     let mut narratives = Vec::with_capacity(rows.len());
     let mut ids: Vec<i64> = Vec::new();
-    for (title, body, impact, mut nids, trajectory, topic_heat) in rows {
+    for (title, body, impact, mut nids, trajectory, topic_heat, source_count, source_age_days) in
+        rows
+    {
         ids.append(&mut nids);
         narratives.push(Narrative {
             title,
@@ -177,6 +188,8 @@ pub async fn load_latest_narratives(
             trajectory,
             topic_heat,
             relevance: None,
+            source_count,
+            source_age_days,
         });
     }
     Ok((narratives, dedupe_i64(ids)))
@@ -296,11 +309,22 @@ pub fn build_sentiment_prompt(
         b.push_str("- (none this cycle)\n");
     } else {
         for n in narratives {
-            b.push_str(&format!(
-                "- [{}, {}, topic heat {}] {}: {}\n",
+            let mut tags = format!(
+                "{}, {}, topic heat {}",
                 n.impact,
                 trajectory_label(&n.trajectory),
-                n.topic_heat,
+                n.topic_heat
+            );
+            // Corroboration + freshness (Phase 1): the felt read should weigh a 5-source
+            // storyline from today differently than a single stale one.
+            if n.source_count > 0 {
+                tags.push_str(&format!(", {} sources", n.source_count));
+            }
+            if let Some(d) = n.source_age_days {
+                tags.push_str(&format!(", latest {d}d ago"));
+            }
+            b.push_str(&format!(
+                "- [{tags}] {}: {}\n",
                 n.title,
                 truncate_bytes(&n.body, BODY_TRUNCATE)
             ));

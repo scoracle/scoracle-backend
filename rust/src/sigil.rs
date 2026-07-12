@@ -55,7 +55,7 @@ use sqlx::{PgPool, Row};
 /// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
 /// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
 /// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
-pub const SIGIL_PROMPT_VERSION: &str = "s11";
+pub const SIGIL_PROMPT_VERSION: &str = "s12"; // s12: heat lines carry the transfer lens summary + confidence
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
@@ -119,6 +119,11 @@ pub struct SynthNarrative {
     pub body: String,
     pub impact: f64,
     pub trajectory: String,
+    /// Corroboration + freshness (Phase 1) — PROMPT-ONLY: deliberately excluded from
+    /// `build_synthesis_input_components`, so a storyline's age ticking over a day boundary
+    /// never flips the debounce hash and regenerates an otherwise-unchanged Sigil.
+    pub source_count: i32,
+    pub source_age_days: Option<i32>,
 }
 
 /// The PEAK scouting-report pillar (P2). `None` (suppressed) when there is no
@@ -257,9 +262,11 @@ pub async fn load_narrative_pillar(
 ) -> Result<Vec<SynthNarrative>> {
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is int4 →
     // scan as i32 (matches Go scanning into a value later assigned to float64).
-    let rows: Vec<(String, String, i32, String)> = sqlx::query_as(
+    let rows: Vec<(String, String, i32, String, i32, Option<i32>)> = sqlx::query_as(
         r#"
-        SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, $4)
+        SELECT narrative_title, body, COALESCE(impact, 0), COALESCE(trajectory, $4),
+               COALESCE(source_count, 0) AS source_count,
+               EXTRACT(day FROM NOW() - source_latest_at)::int AS source_age_days
         FROM news_summaries
         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
           AND body IS NOT NULL
@@ -280,12 +287,16 @@ pub async fn load_narrative_pillar(
 
     Ok(rows
         .into_iter()
-        .map(|(title, body, impact, trajectory)| SynthNarrative {
-            title,
-            body,
-            impact: impact as f64,
-            trajectory,
-        })
+        .map(
+            |(title, body, impact, trajectory, source_count, source_age_days)| SynthNarrative {
+                title,
+                body,
+                impact: impact as f64,
+                trajectory,
+                source_count,
+                source_age_days,
+            },
+        )
         .collect())
 }
 
@@ -738,13 +749,16 @@ pub fn build_synthesis_prompt(
     if !narratives.is_empty() {
         b.push_str("\n=== NEWS NARRATIVE ===\n");
         for n in narratives {
-            b.push_str(&format!(
-                "[impact {:.0}, {}] {}\n{}\n\n",
-                n.impact,
-                trajectory_label(&n.trajectory),
-                n.title,
-                n.body
-            ));
+            let mut tags = format!("impact {:.0}, {}", n.impact, trajectory_label(&n.trajectory));
+            // Corroboration + freshness (Phase 1): the synthesis should weigh how much a
+            // pillar can be trusted, not just what it says.
+            if n.source_count > 0 {
+                tags.push_str(&format!(", {} sources", n.source_count));
+            }
+            if let Some(d) = n.source_age_days {
+                tags.push_str(&format!(", latest {d}d ago"));
+            }
+            b.push_str(&format!("[{tags}] {}\n{}\n\n", n.title, n.body));
         }
     } else {
         b.push_str("\n=== NEWS NARRATIVE ===\n(no recent narratives)\n");
@@ -1675,12 +1689,16 @@ mod tests {
                 body: "x".into(),
                 impact: 5.0,
                 trajectory: "heating_up".into(),
+                source_count: 0,
+                source_age_days: None,
             },
             SynthNarrative {
                 title: "Alpha".into(),
                 body: "y".into(),
                 impact: 3.0,
                 trajectory: DEFAULT_TRAJECTORY.into(),
+                source_count: 0,
+                source_age_days: None,
             },
         ];
         let rating = SynthRating {
@@ -1756,12 +1774,16 @@ mod tests {
                 heat: 71,
                 stage: "advanced_talks".into(),
                 direction: "outgoing".into(),
+                summary: String::new(),
+                confidence: None,
             },
             HeatItem {
                 counterparty: "Arsenal".into(),
                 heat: 40,
                 stage: "speculation".into(),
                 direction: "incoming".into(),
+                summary: String::new(),
+                confidence: None,
             },
         ];
         let with = build_synthesis_input_components(
@@ -1785,6 +1807,8 @@ mod tests {
             body: "details".into(),
             impact: 7.0,
             trajectory: "heating_up".into(),
+            source_count: 3,
+            source_age_days: Some(1),
         }];
         let mom = SynthMomentum {
             vibe_slope: Some(0.5),
@@ -1811,7 +1835,7 @@ mod tests {
         );
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
         );
     }
 
@@ -1843,6 +1867,8 @@ mod tests {
             heat: 66,
             stage: "advanced_talks".into(),
             direction: "incoming".into(),
+            summary: String::new(),
+            confidence: None,
         }];
         let p = build_synthesis_prompt(
             "team",

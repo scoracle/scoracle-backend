@@ -32,6 +32,10 @@
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
 use crate::harness::{Harness, Parser};
+use crate::momentum::{
+    build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
+    MOMENTUM_SYSTEM_PROMPT,
+};
 use crate::narratives::{
     build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
     NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
@@ -43,8 +47,8 @@ use crate::rating::{
 };
 use crate::route::Role;
 use crate::sigil::{
-    build_synthesis_prompt, load_pillars, parse_synthesis_response, SynthMomentum, SynthRating,
-    SynthVibe, SIGIL_NUM_PREDICT, SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
+    build_synthesis_prompt, load_pillars, parse_synthesis_response, SIGIL_NUM_PREDICT,
+    SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
 };
 use crate::transfer::{
     build_pair_request, load_candidates, load_tier_map, transfer_system_prompt, PairBuild,
@@ -1077,36 +1081,11 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-/// Eval-only prompt contract for candidate model fit. Production Momentum has a generated card,
-/// while the fixture task remains the route gate for Momentum model candidates.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-eval-v3";
-
-pub const MOMENTUM_NUM_PREDICT: i32 = 700;
-
-pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.
-
-Operator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.
-
-Voice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.
-
-Definitions:
-- PEAK trajectory = recent movement in statistical performance / rating signal.
-- Vibe trajectory = recent movement in narrative sentiment.
-- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.
-
-Output exactly:
-MOMENTUM: <rising|falling|steady>
-SCORE: <integer -5 to 5>
-READ: <one concise paragraph>
-
-Rules:
-- Pick rising only when the supplied trajectory is clearly positive overall.
-- Pick falling only when the supplied trajectory is clearly negative overall.
-- Pick steady when the signals are flat, sparse, or meaningfully split.
-- Do not chase sentiment hype when PEAK/rating does not confirm it.
-- Do not cling to a strong PEAK label when current trajectory is deteriorating.
-- When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.
-- Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
+// Momentum's prompt contract lives in `crate::momentum` (the production stage) — the eval task
+// imports it rather than carrying a copy. It USED to carry its own fork ("momentum-eval-v3",
+// a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
+// silently diverged from production — the eval was measuring a prompt and a parser production
+// no longer ran. Unified 2026-07-12 (lens quality plan Phase 1).
 
 #[async_trait]
 impl LensTask for MomentumTask {
@@ -1136,7 +1115,7 @@ impl LensTask for MomentumTask {
         if rating.is_none() && vibe.is_none() && momentum.empty() {
             return Ok(None);
         }
-        Ok(Some(build_momentum_eval_prompt(
+        Ok(Some(build_momentum_prompt(
             &e.entity_type,
             &name,
             &e.sport,
@@ -1158,7 +1137,7 @@ impl LensTask for MomentumTask {
             }
         };
         let mut checks = Vec::new();
-        let word_count = reply.read.split_whitespace().count() as i32;
+        let word_count = reply.blurb.split_whitespace().count() as i32;
 
         if let Some(x) = expect {
             if let Some(want) = x.momentum_direction.as_deref() {
@@ -1171,28 +1150,28 @@ impl LensTask for MomentumTask {
             if let Some(min) = x.momentum_score_min {
                 checks.push(PropertyCheck {
                     name: "momentum_score_ge".into(),
-                    pass: reply.score.is_some_and(|s| s >= min),
-                    detail: format!("score={} ≥ {min}", disp_i32(reply.score)),
+                    pass: reply.score >= min,
+                    detail: format!("score={} ≥ {min}", reply.score),
                 });
             }
             if let Some(max) = x.momentum_score_max {
                 checks.push(PropertyCheck {
                     name: "momentum_score_le".into(),
-                    pass: reply.score.is_some_and(|s| s <= max),
-                    detail: format!("score={} ≤ {max}", disp_i32(reply.score)),
+                    pass: reply.score <= max,
+                    detail: format!("score={} ≤ {max}", reply.score),
                 });
             }
             for s in x.prose_includes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("prose_includes:{s}"),
-                    pass: contains_ci(&reply.read, s),
+                    pass: contains_ci(&reply.blurb, s),
                     detail: String::new(),
                 });
             }
             for s in x.prose_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("prose_excludes:{s}"),
-                    pass: !contains_ci(&reply.read, s),
+                    pass: !contains_ci(&reply.blurb, s),
                     detail: String::new(),
                 });
             }
@@ -1219,184 +1198,13 @@ impl LensTask for MomentumTask {
             display: format!(
                 "momentum={} score={} | {}",
                 empty_dash(&reply.direction),
-                disp_i32(reply.score),
-                reply.read
+                reply.score,
+                reply.blurb
             ),
         }
     }
 }
 
-#[derive(Clone, Debug)]
-struct MomentumReply {
-    direction: String,
-    score: Option<i32>,
-    read: String,
-}
-
-fn build_momentum_eval_prompt(
-    entity_type: &str,
-    entity_name: &str,
-    sport: &str,
-    rating: Option<&SynthRating>,
-    vibe: Option<&SynthVibe>,
-    mom: &SynthMomentum,
-) -> String {
-    let mut b = String::new();
-    b.push_str(&format!(
-        "Entity: {entity_name} ({sport} {entity_type})\n\n"
-    ));
-
-    b.push_str("=== PEAK TRAJECTORY ===\n");
-    match rating {
-        Some(r) => {
-            b.push_str(&format!("PEAK label: {}\n", empty_dash(&r.divined_peak)));
-            b.push_str(&format!("Notability: {}/100\n", r.notability));
-            if !r.peak_trajectory_label.trim().is_empty() {
-                b.push_str(&format!("PEAK trajectory: {}\n", r.peak_trajectory_label));
-            } else {
-                b.push_str(&format!("PEAK trajectory: {}\n", r.peak_trajectory));
-            }
-        }
-        None => b.push_str("(no PEAK report available)\n"),
-    }
-
-    b.push_str("\n=== VIBE TRAJECTORY ===\n");
-    match vibe {
-        Some(v) => {
-            b.push_str(&format!("Sentiment: {}/100\n", v.sentiment));
-            if !v.prompt.trim().is_empty() {
-                b.push_str(&format!("Vibe prompt: {}\n", v.prompt));
-            }
-        }
-        None => b.push_str("(no vibe prompt available)\n"),
-    }
-
-    b.push_str("\n=== MOMENTUM SNAPSHOT ===\n");
-    if let Some(score) = mom.momentum_score {
-        b.push_str(&format!("Momentum score: {:.1}\n", score));
-    }
-    if let Some(s) = mom.rating_slope {
-        b.push_str(&format!(
-            "PEAK/rating slope: {:.1} over {} samples\n",
-            s, mom.rating_samples
-        ));
-    }
-    if let Some(s) = mom.vibe_slope {
-        b.push_str(&format!(
-            "Vibe slope: {:.1} over {} samples\n",
-            s, mom.vibe_samples
-        ));
-    }
-    if mom.empty() {
-        b.push_str("(no durable momentum snapshot)\n");
-    }
-
-    b.push_str("\nWrite the Momentum read now.");
-    b
-}
-
-fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    let mut direction = String::new();
-    let mut score = None;
-    let mut read_lines: Vec<String> = Vec::new();
-    let mut in_read = false;
-
-    for line in raw.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        if let Some(rest) = strip_prefix_ci(trimmed, "MOMENTUM:") {
-            direction = normalize_momentum_direction(rest);
-            in_read = false;
-            continue;
-        }
-        if let Some(rest) = strip_prefix_ci(trimmed, "SCORE:") {
-            score = parse_first_i32(rest);
-            in_read = false;
-            continue;
-        }
-        if let Some(rest) = strip_prefix_ci(trimmed, "READ:") {
-            read_lines.push(rest.trim().to_string());
-            in_read = true;
-            continue;
-        }
-        if in_read {
-            read_lines.push(trimmed.to_string());
-        }
-    }
-
-    let read = clean_joined_lines(&read_lines);
-    if direction.is_empty() || read.is_empty() {
-        return None;
-    }
-    Some(MomentumReply {
-        direction,
-        score,
-        read,
-    })
-}
-
-fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
-    s.get(..prefix.len())
-        .filter(|head| head.eq_ignore_ascii_case(prefix))
-        .map(|_| &s[prefix.len()..])
-}
-
-fn normalize_momentum_direction(raw: &str) -> String {
-    let s = raw.trim().to_lowercase();
-    if s.contains("rising") || s.contains("rise") || s.contains("up") || s.contains("surging") {
-        "rising".into()
-    } else if s.contains("falling")
-        || s.contains("down")
-        || s.contains("sliding")
-        || s.contains("cooling")
-    {
-        "falling".into()
-    } else if s.contains("steady") || s.contains("flat") || s.contains("mixed") {
-        "steady".into()
-    } else {
-        s
-    }
-}
-
-fn parse_first_i32(raw: &str) -> Option<i32> {
-    let mut buf = String::new();
-    let mut started = false;
-    for ch in raw.chars() {
-        if ch == '-' && !started {
-            buf.push(ch);
-            started = true;
-            continue;
-        }
-        if ch.is_ascii_digit() {
-            buf.push(ch);
-            started = true;
-            continue;
-        }
-        if started {
-            break;
-        }
-    }
-    if buf == "-" || buf.is_empty() {
-        None
-    } else {
-        buf.parse().ok()
-    }
-}
-
-fn clean_joined_lines(lines: &[String]) -> String {
-    lines
-        .iter()
-        .map(|s| s.trim())
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn disp_i32(v: Option<i32>) -> String {
-    v.map(|x| x.to_string()).unwrap_or_else(|| "–".into())
-}
 
 fn disp_bool(b: Option<bool>) -> &'static str {
     match b {
@@ -1819,8 +1627,8 @@ mod tests {
         let raw = "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is steady, so the current direction is modestly positive.";
         let parsed = parse_momentum_reply(raw).unwrap();
         assert_eq!(parsed.direction, "rising");
-        assert_eq!(parsed.score, Some(3));
-        assert!(parsed.read.contains("PEAK is rising"));
+        assert_eq!(parsed.score, 3);
+        assert!(parsed.blurb.contains("PEAK is rising"));
     }
 
     #[test]

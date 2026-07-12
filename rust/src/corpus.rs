@@ -12,16 +12,34 @@ use anyhow::{bail, Context, Result};
 use sqlx::PgPool;
 
 /// Bounds the transfer rumors shown to the model as the entity's "transfer temperature".
-/// Mirrors `maxHeatItems` in transfer_heat.go.
-const MAX_HEAT_ITEMS: i64 = 6;
+/// Default mirrors `maxHeatItems` in transfer_heat.go; `COGNITION_MAX_HEAT_ITEMS` overrides —
+/// promoted from a bare `const` (Phase 1) to match every sibling threshold's env-tunability.
+/// Read once via OnceLock: corpus is a shared primitive with no config handle, and the value
+/// must not change between a prompt build and its ledger row.
+fn max_heat_items() -> i64 {
+    static MAX: std::sync::OnceLock<i64> = std::sync::OnceLock::new();
+    *MAX.get_or_init(|| {
+        std::env::var("COGNITION_MAX_HEAT_ITEMS")
+            .ok()
+            .and_then(|v| v.parse::<i64>().ok())
+            .filter(|n| *n > 0)
+            .unwrap_or(6)
+    })
+}
 
-/// One active transfer/trade rumor naming the counterparty. Mirrors `heatItem`.
+/// One active transfer/trade rumor naming the counterparty. Mirrors `heatItem`, widened
+/// (Phase 1) with the transfer stage's own grounded read: `summary` (the model's one-sentence
+/// vetted read, ≤240 bytes at write time) and `confidence` (0.0–1.0). Before this, narratives,
+/// vibe, and sigil all consumed transfers as a bare "heat 71, outgoing, advanced_talks" line —
+/// the transfer lens's richest output reached nothing downstream.
 #[derive(Clone, Debug)]
 pub struct HeatItem {
     pub counterparty: String,
     pub heat: i32,
     pub stage: String,
     pub direction: String,
+    pub summary: String,
+    pub confidence: Option<f64>,
 }
 
 /// load_transfer_heat returns the entity's hottest active transfer/trade rumors (latest
@@ -40,11 +58,12 @@ pub async fn load_transfer_heat(
 ) -> Result<Vec<HeatItem>> {
     let query = if entity_type == "team" {
         r#"
-        SELECT counterparty, heat, stage, direction FROM (
+        SELECT counterparty, heat, stage, direction, summary, confidence FROM (
             SELECT DISTINCT ON (tr.player_id)
                    p.name AS counterparty, tr.team_id, pci.team_id AS current_team_id,
                    tr.heat, tr.is_rumor,
                    COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+                   COALESCE(tr.model_summary,'') AS summary, tr.confidence::float8 AS confidence,
                    tr.generated_at
             FROM transfer_rumors tr
             JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
@@ -64,11 +83,12 @@ pub async fn load_transfer_heat(
         "#
     } else {
         r#"
-        SELECT counterparty, heat, stage, direction FROM (
+        SELECT counterparty, heat, stage, direction, summary, confidence FROM (
             SELECT DISTINCT ON (tr.team_id)
                    t.name AS counterparty, tr.team_id, pci.team_id AS current_team_id,
                    tr.heat, tr.is_rumor,
                    COALESCE(tr.stage,'') AS stage, COALESCE(tr.direction,'') AS direction,
+                   COALESCE(tr.model_summary,'') AS summary, tr.confidence::float8 AS confidence,
                    tr.generated_at
             FROM transfer_rumors tr
             JOIN teams t ON t.id = tr.team_id AND t.sport = tr.sport
@@ -89,10 +109,10 @@ pub async fn load_transfer_heat(
     };
 
     // heat is int2 → scan as i16 (matches Go scanning into `int`, widened below).
-    let rows: Vec<(String, i16, String, String)> = sqlx::query_as(query)
+    let rows: Vec<(String, i16, String, String, String, Option<f64>)> = sqlx::query_as(query)
         .bind(entity_id)
         .bind(sport)
-        .bind(MAX_HEAT_ITEMS)
+        .bind(max_heat_items())
         .bind(DEFAULT_TRAJECTORY)
         .fetch_all(pool)
         .await
@@ -100,22 +120,28 @@ pub async fn load_transfer_heat(
 
     Ok(rows
         .into_iter()
-        .map(|(counterparty, heat, stage, direction)| HeatItem {
-            counterparty,
-            heat: heat as i32,
-            stage,
-            direction,
-        })
+        .map(
+            |(counterparty, heat, stage, direction, summary, confidence)| HeatItem {
+                counterparty,
+                heat: heat as i32,
+                stage,
+                direction,
+                summary,
+                confidence,
+            },
+        )
         .collect())
 }
 
-/// write_heat_lines renders heat bullets exactly as `writeHeatLines`:
-///   `- <counterparty> — heat <heat>[, <direction>][, <stage>]`
+/// write_heat_lines renders heat bullets:
+///   `- <counterparty> — heat <heat>[, <direction>][, <stage>][ (confidence 0.N)][ — "<summary>"]`
 ///
-/// The SHARED transfer-heat line format — Go homes it in `transfer_heat.go` and BOTH vibe and
-/// narratives render heat through it; the Rust single-home is here (alongside
-/// [`load_transfer_heat`] / [`HeatItem`]), so both stages reuse it rather than carrying a copy
-/// (the L11/L12 single-home discipline).
+/// The SHARED transfer-heat line format — Go homed it in `transfer_heat.go` and vibe,
+/// narratives, and sigil all render heat through it; the Rust single-home is here (alongside
+/// [`load_transfer_heat`] / [`HeatItem`]), so all three stages reuse it rather than carrying a
+/// copy (the L11/L12 single-home discipline). Phase 1 appends the transfer stage's own vetted
+/// one-sentence read and its confidence — the downstream model grounds against what the
+/// transfer lens actually concluded, not just a bare temperature number.
 pub fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
     for h in heat {
         let mut line = format!("- {} — heat {}", h.counterparty, h.heat);
@@ -126,6 +152,16 @@ pub fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
         if !h.stage.is_empty() {
             line.push_str(", ");
             line.push_str(&h.stage);
+        }
+        if let Some(c) = h.confidence {
+            line.push_str(&format!(" (confidence {c:.1})"));
+        }
+        if !h.summary.is_empty() {
+            // The summary is written ≤240 bytes and single-sentence; fold any stray newline so
+            // one rumor stays one prompt bullet.
+            line.push_str(" — \"");
+            line.push_str(&h.summary.replace(['\n', '\r'], " "));
+            line.push('"');
         }
         b.push_str(&line);
         b.push('\n');
@@ -168,4 +204,39 @@ pub fn dedupe_i64(input: Vec<i64>) -> Vec<i64> {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn heat_lines_render_summary_and_confidence_when_present() {
+        let heat = vec![
+            HeatItem {
+                counterparty: "Lakers".to_string(),
+                heat: 80,
+                stage: "advanced_talks".to_string(),
+                direction: "incoming".to_string(),
+                summary: "Lakers pursuing a\nwing upgrade per ESPN".to_string(),
+                confidence: Some(0.75),
+            },
+            // Bare item (a pre-Phase-1 row with no model_summary): the original line shape.
+            HeatItem {
+                counterparty: "Heat".to_string(),
+                heat: 40,
+                stage: String::new(),
+                direction: String::new(),
+                summary: String::new(),
+                confidence: None,
+            },
+        ];
+        let mut b = String::new();
+        write_heat_lines(&mut b, &heat);
+        assert_eq!(
+            b,
+            "- Lakers — heat 80, incoming, advanced_talks (confidence 0.8) — \"Lakers pursuing a wing upgrade per ESPN\"\n\
+             - Heat — heat 40\n"
+        );
+    }
 }

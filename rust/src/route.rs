@@ -257,13 +257,16 @@ fn build_backend(
     timeout: Duration,
     gpu: &Arc<Semaphore>,
 ) -> Result<Arc<dyn Inference>> {
-    let key = format!("{:?}|{}|{}", spec.backend, spec.base_url, spec.model);
+    let key = format!(
+        "{:?}|{}|{}|{:?}",
+        spec.backend, spec.base_url, spec.model, spec.think
+    );
     if let Some(existing) = built.get(&key) {
         return Ok(Arc::clone(existing));
     }
     let raw: Arc<dyn Inference> = match spec.backend {
         Backend::Ollama => Arc::new(
-            OllamaClient::new(&spec.base_url, &spec.model, timeout)
+            OllamaClient::with_think(&spec.base_url, &spec.model, timeout, spec.think)
                 .with_context(|| format!("build ollama backend for {}", spec.model))?,
         ),
     };
@@ -286,6 +289,7 @@ mod tests {
             backend: Backend::Ollama,
             model: model.to_string(),
             base_url: "http://localhost:11434".to_string(),
+            think: None,
         }
     }
 

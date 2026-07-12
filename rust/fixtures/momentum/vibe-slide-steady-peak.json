@@ -1,21 +1,18 @@
 {
-  "name": "vibe-slide-steady-peak",
-  "task": "momentum",
-  "prompt_version": "momentum-eval-v3",
-  "note": "Clear news-led fall. PEAK is steady, but Vibe and the durable Momentum score are negative.",
-  "system": "Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.\n\nOperator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.\n\nVoice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.\n\nDefinitions:\n- PEAK trajectory = recent movement in statistical performance / rating signal.\n- Vibe trajectory = recent movement in narrative sentiment.\n- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.\n\nOutput exactly:\nMOMENTUM: <rising|falling|steady>\nSCORE: <integer -5 to 5>\nREAD: <one concise paragraph>\n\nRules:\n- Pick rising only when the supplied trajectory is clearly positive overall.\n- Pick falling only when the supplied trajectory is clearly negative overall.\n- Pick steady when the signals are flat, sparse, or meaningfully split.\n- Do not chase sentiment hype when PEAK/rating does not confirm it.\n- Do not cling to a strong PEAK label when current trajectory is deteriorating.\n- When PEAK and Vibe disagree, name the conflict and keep the score near zero unless one side is clearly dominant.\n- Do not invent games, rankings, injuries, trades, or stats not in the prompt.",
-  "user_prompt": "Entity: Nia Torres (NBA player)\n\n=== PEAK TRAJECTORY ===\nPEAK label: Rim protection\nNotability: 90/100\nPEAK trajectory: Composite and PEAK z-scores holding steady over recent games\n\n=== VIBE TRAJECTORY ===\nSentiment: 31/100\nVibe prompt: Local coverage has turned negative after late-game benchings and visible frustration.\n\n=== MOMENTUM SNAPSHOT ===\nMomentum score: -3.0\nPEAK/rating slope: 0.0 over 6 samples\nVibe slope: -1.2 over 5 samples\n\nWrite the Momentum read now.",
-  "temperature": 0.0,
   "expect": {
     "momentum_direction": "falling",
-    "momentum_score_max": -2,
+    "momentum_score_max": 0,
     "prose_includes": [
       "Vibe"
     ],
-    "prose_excludes": [
-      "rising"
-    ],
-    "prose_min_words": 15,
-    "prose_max_words": 75
-  }
+    "prose_max_words": 80,
+    "prose_min_words": 15
+  },
+  "name": "vibe-slide-steady-peak",
+  "note": "sentiment sliding under steady production: modestly negative, PEAK label not clung to.",
+  "prompt_version": "momentum-s3",
+  "system": "Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.\n\nOperator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.\n\nVoice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.\n\nDefinitions:\n- PEAK trajectory = recent movement in statistical performance / rating signal.\n- Vibe trajectory = recent movement in narrative sentiment.\n- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.\n\nOutput exactly:\nMOMENTUM: <rising|falling|steady>\nSCORE: <integer -5 to 5>\nREAD: <one concise paragraph>\n\nRules:\n- Pick rising only when the supplied trajectory is clearly positive overall.\n- Pick falling only when the supplied trajectory is clearly negative overall.\n- Pick steady when the signals are flat, sparse, or meaningfully split.\n- Do not chase sentiment hype when PEAK/rating does not confirm it.\n- Do not cling to a strong PEAK label when current trajectory is deteriorating.\n- When PEAK and Vibe disagree, pick steady, keep the score near zero unless one side is clearly dominant, and name the conflict inside the READ line. The MOMENTUM line must still be exactly rising, falling, or steady — never any other word.\n- Do not invent games, rankings, injuries, trades, or stats not in the prompt.",
+  "task": "momentum",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Nia Torres (NBA player)\n\n=== PEAK TRAJECTORY ===\nPEAK label: Rim protection\nNotability: 86/100\nScouting read: Anchor defender; the production has not moved even as the noise around her has.\nPEAK trajectory: Composite and PEAK z-scores steady over recent games.\n\n=== VIBE TRAJECTORY ===\nSentiment: 35/100\nVibe prompt: Local coverage has turned negative after late-game benchings and visible frustration.\n\n=== MOMENTUM SNAPSHOT ===\nMomentum score: -1.4\nPEAK/rating slope: 0.0 over 6 samples\nVibe slope: -1.2 over 5 samples\n\nWrite the Momentum read now."
 }

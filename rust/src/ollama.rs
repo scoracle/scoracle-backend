@@ -19,10 +19,10 @@ pub struct OllamaClient {
     /// `Some(false)` sends `"think": false` on every generate — for reasoning models
     /// (qwen3-class) whose thinking otherwise consumes the whole `num_predict` budget and
     /// returns an EMPTY visible response (measured live: sigil's 512-token budget produced
-    /// 512 tokens of thinking, zero answer). Model-keyed via `OLLAMA_NO_THINK_MODELS`
-    /// (comma-separated model ids) because thinking is a MODEL property, not a stage
-    /// property; non-listed models never receive the field (Ollama rejects `think` for
-    /// models without the capability).
+    /// 512 tokens of thinking, zero answer). ROLE-keyed via `COGNITION_ROUTE_<ROLE>_THINK`
+    /// (see `RouteConfig`): the same model may think for one role (PEAK: 22/22 with, 21/22
+    /// without) and not for another (sigil: thinking breaks the stage). `None` omits the
+    /// field entirely — models without the capability reject an explicit `think`.
     think: Option<bool>,
 }
 
@@ -110,23 +110,25 @@ impl OllamaClient {
             .timeout(timeout)
             .build()
             .context("build reqwest client")?;
-        let model: String = model.into();
-        // Model-keyed no-think list (see the `think` field doc). Read at construction — one
-        // choke point (Router::build_backend and the offline bins all come through here).
-        let think = std::env::var("OLLAMA_NO_THINK_MODELS")
-            .ok()
-            .filter(|v| {
-                v.split(',')
-                    .map(str::trim)
-                    .any(|m| !m.is_empty() && m == model)
-            })
-            .map(|_| false);
         Ok(Self {
             base_url: base_url.into(),
-            model,
+            model: model.into(),
             http,
-            think,
+            think: None,
         })
+    }
+
+    /// with_think builds a client with an explicit think preference (the Router's path — the
+    /// role's `ModelSpec.think`). `new` keeps `None` for the offline bins and ping clients.
+    pub fn with_think(
+        base_url: impl Into<String>,
+        model: impl Into<String>,
+        timeout: Duration,
+        think: Option<bool>,
+    ) -> Result<Self> {
+        let mut c = Self::new(base_url, model, timeout)?;
+        c.think = think;
+        Ok(c)
     }
 
     pub fn model(&self) -> &str {

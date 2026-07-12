@@ -222,6 +222,11 @@ pub struct ModelSpec {
     pub backend: Backend,
     pub model: String,
     pub base_url: String,
+    /// Per-ROLE think preference (`COGNITION_ROUTE_<ROLE>_THINK`, and `..._CANDIDATE_THINK`
+    /// for the A/B challenger): `Some(false)` disables a reasoning model's thinking for this
+    /// role's calls. Role-keyed, not model-keyed — the same model may think for one role and
+    /// not another (PEAK keeps thinking at 22/22; sigil's 512-token budget requires no-think).
+    pub think: Option<bool>,
 }
 
 /// RouteConfig is the role → model map driving the [`Router`](crate::route::Router) (Plan §2.1).
@@ -250,6 +255,13 @@ impl RouteConfig {
     pub fn from_env(default_model: &str, base_url: &str) -> Self {
         let mut roles = HashMap::new();
         let mut candidates = HashMap::new();
+        let parse_think = |key: &str| -> Option<bool> {
+            env_opt(key).and_then(|v| match v.to_lowercase().as_str() {
+                "false" | "0" | "no" => Some(false),
+                "true" | "1" | "yes" => Some(true),
+                _ => None,
+            })
+        };
         for role in Role::all() {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
             roles.insert(
@@ -258,6 +270,7 @@ impl RouteConfig {
                     backend: Backend::Ollama,
                     model: env_or(&key, default_model),
                     base_url: base_url.to_string(),
+                    think: parse_think(&format!("{key}_THINK")),
                 },
             );
             if let Some(candidate_model) = env_opt(&format!("{key}_CANDIDATE")) {
@@ -267,6 +280,7 @@ impl RouteConfig {
                         backend: Backend::Ollama,
                         model: candidate_model,
                         base_url: base_url.to_string(),
+                        think: parse_think(&format!("{key}_CANDIDATE_THINK")),
                     },
                 );
             }

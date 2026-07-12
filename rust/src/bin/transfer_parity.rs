@@ -210,13 +210,16 @@ async fn run_pair(
         .as_ref()
         .map(|v| format!("{:?}", v.outcome))
         .unwrap_or_else(|| "deterministic".to_string());
+    // input_hash (F3 pair fingerprint) is printed, not persisted: transfer_rumors_shadow has no
+    // input_hash column, and the hash is deterministic from the build outputs anyway.
     println!(
-        "    ✓ player/{} ({}) → heat {} | {} | {} bytes prompt",
+        "    ✓ player/{} ({}) → heat {} | {} | {} bytes prompt | hash {}",
         c.player_id,
         c.player_name,
         ready.heat,
         label,
-        ready.built_prompt.len()
+        ready.built_prompt.len(),
+        &ready.input_hash[..12]
     );
     Ok(true)
 }

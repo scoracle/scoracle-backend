@@ -22,6 +22,17 @@
 //! NEVER served (every read requires `is_rumor IS TRUE`) and is counted so the team's stage item is
 //! re-enqueued for a retry. Only a successful POSITIVE verdict ever becomes a served rumor.
 //!
+//! DEBOUNCE (F3, flow-friction plan 2026-07-12): before each pair's model call the production
+//! handler fingerprints the pair's MATERIAL inputs — sorted pair-corpus article ids, the
+//! corpus-stable heat components (`distinct_sources`, `tier_weight`), and the deterministic
+//! relationship; no timestamps, no prose, no recency decay — and skips the GPU call, the insert,
+//! and the ledger row when the pair's latest RESOLVED `transfer_rumors` row carries the same
+//! `input_hash` (mig 145 reserved the column). UNKNOWN markers never satisfy the gate, so a
+//! model-failure retry re-vets ONLY the failed pair: the completed pairs skip on fingerprint
+//! instead of burning ~39 redundant GPU calls per team retry. An unchanged pair keeps its previous
+//! row serving, which then cools off naturally with its sources — the source-freshness doctrine
+//! working, per the 2026-07-12 plan.
+//!
 //! THE t5 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
 //! but rewrites the instructions as schema-first rules for smaller local models.
 
@@ -31,14 +42,14 @@ use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
-use crate::util::truncate_bytes;
+use crate::util::{go_json_float, go_json_string, hash_components, truncate_bytes};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
-use tracing::warn;
+use tracing::{debug, warn};
 
 /// Prompt version for the transfer/trade vetting contract.
 pub const TRANSFER_PROMPT_VERSION: &str = "t7"; // t7: computed evidence card + no-credible-source stage ceiling
@@ -324,7 +335,7 @@ pub enum Outcome {
     Rumor,   // is_rumor TRUE — a vetted, served rumor
     Cleared, // is_rumor FALSE — roster/match-report/roundup noise (hidden by the read filter)
     Unknown, // is_rumor NULL — model failure (timeout/unparseable/no-commit); fail-closed, retryable
-    Skipped, // no corpus (heat NULL) — no row written
+    Skipped, // no corpus (heat NULL), or unchanged material (the F3 fingerprint gate) — no row written
 }
 
 /// The persistable columns derived from a verdict (after the deterministic gates), shared by the
@@ -370,6 +381,9 @@ pub struct TransferPairOutput {
     /// skipped/no-corpus pairs.
     pub identity_apply_news: Vec<NewsItem>,
     pub prompt_version: &'static str,
+    /// The F3 per-pair debounce fingerprint (persisted on every row, resolved or UNKNOWN).
+    /// `None` only for the no-corpus Skipped path (no row to stamp).
+    pub input_hash: Option<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -866,6 +880,77 @@ fn row_from_verdict(
 // The per-pair core + the production handler.
 // ---------------------------------------------------------------------------
 
+/// build_transfer_input_components is the canonical per-pair debounce pre-image (F3): the sorted
+/// pair-corpus article ids (the corpus identity), the corpus-stable heat components
+/// (`distinct_sources` + `tier_weight` — the corroboration/credibility facts feeding the grounding
+/// guard, which move only when the corpus or the source-tier table moves), and the deterministic
+/// `relationship` (it drives `direction` and the former-player gate, so an identity flip must
+/// re-vet even over a frozen corpus). Same canonical-JSON discipline as
+/// `vibe::build_vibe_input_components`.
+///
+/// Deliberately EXCLUDED: the heat value and the `newest_age_hours`/`recency`/`recent_3d`/
+/// `recent_frac` components — ALL are `NOW()`-derived decay that ticks while the corpus stands
+/// still (the plan's no-timestamps rule: pure time decay must never re-run the GPU; cooling is
+/// served by the source-freshness protocol and the read path's `generated_at` windows);
+/// `total_14d`/`volume` (pure functions of the id set / `distinct_sources` — redundant); and the
+/// article titles/descriptions/sources (prose — the ids are the identity; a headline edit is not
+/// new material).
+pub fn build_transfer_input_components(
+    news_ids: &[i64],
+    heat_components_json: &str,
+    relationship: &str,
+) -> String {
+    let comps: serde_json::Value =
+        serde_json::from_str(heat_components_json).unwrap_or(serde_json::Value::Null);
+    let distinct_sources = comps
+        .get("distinct_sources")
+        .and_then(serde_json::Value::as_i64)
+        .unwrap_or(0);
+    let tier_weight = comps
+        .get("tier_weight")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(0.0);
+    let mut ids: Vec<i64> = news_ids.to_vec();
+    ids.sort_unstable();
+    let ids_csv = ids
+        .iter()
+        .map(i64::to_string)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"relationship\":{},\"tier_weight\":{}}}",
+        go_json_string(relationship),
+        go_json_float(tier_weight),
+    )
+}
+
+/// pair_unchanged is the F3 per-pair debounce read: `true` when the pair's LATEST transfer_rumors
+/// row is a RESOLVED vetting (`is_rumor IS NOT NULL`) carrying this same `input_hash`. An UNKNOWN
+/// marker (is_rumor NULL) never satisfies the gate — after a model failure the retried team item
+/// must re-vet the failed pair (while the completed pairs skip on their stamped fingerprints).
+/// Legacy rows carry NULL `input_hash`, which never matches ⇒ each pair regenerates once
+/// post-deploy, then stamps. `idx_transfer_rumors_pair_recent` covers the read.
+pub async fn pair_unchanged(
+    pool: &PgPool,
+    team_id: i32,
+    player_id: i32,
+    sport: &str,
+    input_hash: &str,
+) -> Result<bool> {
+    let latest: Option<(Option<String>, Option<bool>)> = sqlx::query_as(
+        "SELECT input_hash, is_rumor FROM transfer_rumors \
+         WHERE team_id = $1 AND player_id = $2 AND sport = $3 \
+         ORDER BY generated_at DESC LIMIT 1",
+    )
+    .bind(team_id)
+    .bind(player_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("transfer debounce check {team_id}/{player_id}"))?;
+    Ok(matches!(latest, Some((Some(h), Some(_))) if h == input_hash))
+}
+
 /// PairBuild is the DETERMINISTIC prefix of `analyze_pair` — everything computed BEFORE the model
 /// call (heat → corpus → relationship → prompt → request body). Shared by the production handler
 /// AND the parity harness so the dumped `built_prompt`/`request_body` are EXACTLY what production
@@ -897,6 +982,9 @@ pub struct PairReady {
     pub built_prompt: String,
     pub request_body: serde_json::Value,
     pub model_configured: String,
+    /// The F3 per-pair debounce fingerprint over the material inputs
+    /// (see [`build_transfer_input_components`]).
+    pub input_hash: String,
 }
 
 /// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
@@ -932,6 +1020,14 @@ pub async fn build_pair_request(
     // Direction + the noise filter key off the deterministic relationship, not the model's text.
     let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
 
+    // F3: fingerprint the material inputs now that they are all in hand (corpus ids + stable
+    // heat components + relationship) — the handler gates on this BEFORE paying for the GPU.
+    let input_hash = hash_components(&build_transfer_input_components(
+        &news_ids,
+        &components,
+        &relationship,
+    ));
+
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution, best_weight);
     let built_prompt = build_transfer_prompt(team_name, c, sport, &relationship, &news, &evidence);
     let opts = GenerateOptions {
@@ -960,16 +1056,47 @@ pub async fn build_pair_request(
         built_prompt,
         request_body,
         model_configured,
+        input_hash,
     })))
+}
+
+/// skipped_pair_output is the no-corpus result: heat NULL ⇒ no model call, no row
+/// (Go: `res.Skipped++, return nil`). No fingerprint either — there is no row to stamp.
+fn skipped_pair_output(
+    hx: &Harness,
+    player_id: i32,
+    components: String,
+    news_ids: Vec<i64>,
+) -> TransferPairOutput {
+    let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
+    TransferPairOutput {
+        player_id,
+        model,
+        heat: None,
+        components,
+        news_ids,
+        prompted_news_ids: Vec::new(),
+        stale_news_ids: Vec::new(),
+        outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
+        row: None,
+        built_prompt: None,
+        request_body: None,
+        eval_count: None,
+        wall_ms: None,
+        identity_apply_news: Vec::new(),
+        prompt_version: TRANSFER_PROMPT_VERSION,
+        input_hash: None,
+    }
 }
 
 /// analyze_pair runs the full vetting for one (team, player) pair at the given temperature and
 /// returns the un-persisted result (the L11 composition `extract+validate + subject-test + persist`,
-/// minus the persist) — `build_pair_request` (deterministic) then `extract` (the model) then the
-/// gates. Shared by the production handler (temp 0.3 → transfer_rumors) and, via the same builder,
-/// the parity harness. Mirrors `transfer.go::analyzePair`. A generate failure is swallowed into an
-/// UNKNOWN output (the fail-closed marker), NOT propagated — only a real DB/transport error returns
-/// `Err` (the per-team loop counts it as Errored and moves on, exactly as Go does).
+/// minus the persist) — `build_pair_request` (deterministic) then `vet_pair` (the model + the
+/// gates). NO debounce: the parity harness must always exercise the model, so the F3 fingerprint
+/// gate lives in the production handler, BETWEEN the builder and `vet_pair` (the same split as
+/// vibe's `load_vibe_context`). Mirrors `transfer.go::analyzePair`. A generate failure is swallowed
+/// into an UNKNOWN output (the fail-closed marker), NOT propagated — only a real DB/transport error
+/// returns `Err` (the per-team loop counts it as Errored and moves on, exactly as Go does).
 pub async fn analyze_pair(
     hx: &Harness,
     team_id: i32,
@@ -979,34 +1106,24 @@ pub async fn analyze_pair(
     tiers: &HashMap<String, f64>,
     temperature: f64,
 ) -> Result<TransferPairOutput> {
-    let ready =
-        match build_pair_request(hx, team_id, team_name, c, sport, tiers, temperature).await? {
-            PairBuild::Skipped {
-                components,
-                news_ids,
-            } => {
-                let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
-                return Ok(TransferPairOutput {
-                    player_id: c.player_id,
-                    model,
-                    heat: None,
-                    components,
-                    news_ids,
-                    prompted_news_ids: Vec::new(),
-                    stale_news_ids: Vec::new(),
-                    outcome: Outcome::Skipped, // no corpus → no row (Go: res.Skipped++, return nil)
-                    row: None,
-                    built_prompt: None,
-                    request_body: None,
-                    eval_count: None,
-                    wall_ms: None,
-                    identity_apply_news: Vec::new(),
-                    prompt_version: TRANSFER_PROMPT_VERSION,
-                });
-            }
-            PairBuild::Ready(r) => *r,
-        };
+    match build_pair_request(hx, team_id, team_name, c, sport, tiers, temperature).await? {
+        PairBuild::Skipped {
+            components,
+            news_ids,
+        } => Ok(skipped_pair_output(hx, c.player_id, components, news_ids)),
+        PairBuild::Ready(r) => vet_pair(hx, team_id, c.player_id, *r).await,
+    }
+}
 
+/// vet_pair is the MODEL half of `analyze_pair`: extract, the deterministic post-model gates, and
+/// the row shaping, over an already-built [`PairReady`]. Split out so the production handler can
+/// run the F3 fingerprint gate between `build_pair_request` and the GPU call.
+pub async fn vet_pair(
+    hx: &Harness,
+    team_id: i32,
+    player_id: i32,
+    ready: PairReady,
+) -> Result<TransferPairOutput> {
     // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
@@ -1028,7 +1145,7 @@ pub async fn analyze_pair(
             Some(extracted.wall_ms),
         ),
         Err(e) => {
-            warn!(team = team_id, player = c.player_id, error = %e, "transfers: model generate failed; UNKNOWN (fail-closed)");
+            warn!(team = team_id, player = player_id, error = %e, "transfers: model generate failed; UNKNOWN (fail-closed)");
             (
                 None,
                 ready.model_configured.clone(),
@@ -1057,7 +1174,7 @@ pub async fn analyze_pair(
                 // original stage stays visible in the ledger's raw response.
                 if norm_stage(&v.stage) != "speculation" {
                     warn!(
-                        player_id = c.player_id,
+                        player_id = player_id,
                         model_stage = %v.stage,
                         best_weight = ready.best_weight,
                         "transfer: stage clamped to speculation (no credible source)"
@@ -1076,7 +1193,7 @@ pub async fn analyze_pair(
     );
 
     Ok(TransferPairOutput {
-        player_id: c.player_id,
+        player_id,
         model,
         heat: Some(ready.heat),
         components: ready.components,
@@ -1091,6 +1208,7 @@ pub async fn analyze_pair(
         wall_ms,
         identity_apply_news: ready.news,
         prompt_version: TRANSFER_PROMPT_VERSION,
+        input_hash: Some(ready.input_hash),
     })
 }
 
@@ -1197,13 +1315,13 @@ pub async fn persist_transfer_row(
             input_news_ids,
             rumor_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
-            model_version, prompt_version, trigger_payload
+            model_version, prompt_version, trigger_payload, input_hash
         ) VALUES (
             $1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12::float8::numeric,$13,
             COALESCE(to_timestamp($14::double precision), NOW()), $15, $16,
             to_timestamp($17::double precision), to_timestamp($18::double precision),
             $19, $20::jsonb,
-            $21,$22,$23::jsonb
+            $21,$22,$23::jsonb,$24
         )
         RETURNING id
         "#,
@@ -1231,6 +1349,7 @@ pub async fn persist_transfer_row(
     .bind(row.model.as_deref())
     .bind(out.prompt_version)
     .bind(&row.trigger_payload)
+    .bind(out.input_hash.as_deref())
     .fetch_one(pool)
     .await
     .context("persist transfer row")?;
@@ -1681,7 +1800,8 @@ async fn enqueue_sigil_for_transfer(
 /// enqueues transfers before narratives, and the worker drains stages in that order, so fresh heat
 /// is available to the narrative/vibe stages in the same wake cycle. Any pair that hit a model
 /// failure (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
-/// re-runs it.
+/// re-runs it — and on that re-run the F3 fingerprint gate skips every pair whose material inputs
+/// are unchanged since its last RESOLVED vetting, so only the failed pair pays for the retry.
 pub struct TransferHandler;
 
 impl TransferHandler {
@@ -1726,7 +1846,7 @@ impl StageHandler for TransferHandler {
             // row that the `unknown` tally turns into a team retry. DB/build/persist errors are
             // infrastructure failures; keep scanning pairs for visibility, then fail the team item.
             let pair = async {
-                let out = analyze_pair(
+                let out = match build_pair_request(
                     hx,
                     team_id,
                     &team_name,
@@ -1735,7 +1855,29 @@ impl StageHandler for TransferHandler {
                     &tiers,
                     TRANSFER_TEMPERATURE,
                 )
-                .await?;
+                .await?
+                {
+                    PairBuild::Skipped {
+                        components,
+                        news_ids,
+                    } => skipped_pair_output(hx, c.player_id, components, news_ids),
+                    PairBuild::Ready(ready) => {
+                        // F3: skip the GPU call, the insert, and the ledger row when the pair's
+                        // material inputs are unchanged since its latest resolved vetting. The
+                        // previous row keeps serving and cools off with its sources.
+                        if pair_unchanged(&hx.pool, team_id, c.player_id, &sport, &ready.input_hash)
+                            .await?
+                        {
+                            debug!(
+                                team = team_id,
+                                player = c.player_id,
+                                "transfers: pair debounce-skip, material inputs unchanged"
+                            );
+                            return Ok(Outcome::Skipped);
+                        }
+                        vet_pair(hx, team_id, c.player_id, *ready).await?
+                    }
+                };
                 if let Some(row) = &out.row {
                     let persisted_rumor_id = persist_transfer_row(
                         &hx.pool,
@@ -1766,7 +1908,7 @@ impl StageHandler for TransferHandler {
                             prompt_version: out.prompt_version.to_string(),
                             output_contract_version: TRANSFER_OUTPUT_CONTRACT_VERSION.to_string(),
                             input_ids: out.news_ids.clone(),
-                            input_hash: None,
+                            input_hash: out.input_hash.clone(),
                             request_body: out.request_body.clone(),
                             built_prompt: out.built_prompt.clone(),
                             included_evidence: transfer_included_evidence(&out, row),
@@ -2034,6 +2176,58 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         assert_eq!(direction_for("current"), "outgoing");
         assert_eq!(direction_for("former"), "incoming");
         assert_eq!(direction_for("none"), "incoming");
+    }
+
+    #[test]
+    fn transfer_input_components_are_material_only() {
+        // A realistic compute_transfer_heat components blob: the decay fields are PRESENT in the
+        // input but must be EXCLUDED from the pre-image (heat, newest_age_hours, recency,
+        // recent_3d, recent_frac tick with NOW(); total_14d/volume are id-set redundant).
+        let comps = r#"{"distinct_sources": 3, "recent_3d": 2, "total_14d": 5,
+            "newest_age_hours": 12.3, "tier_weight": 0.9, "volume": 0.6,
+            "recency": 0.842, "recent_frac": 0.4}"#;
+        assert_eq!(
+            build_transfer_input_components(&[9, 4, 7], comps, "current"),
+            r#"{"distinct_sources":3,"news_ids":[4,7,9],"relationship":"current","tier_weight":0.9}"#
+        );
+        // Empty/degenerate components (the defensive path) keep a stable pre-image.
+        assert_eq!(
+            build_transfer_input_components(&[], "{}", "none"),
+            r#"{"distinct_sources":0,"news_ids":[],"relationship":"none","tier_weight":0}"#
+        );
+    }
+
+    #[test]
+    fn transfer_input_hash_ignores_id_order_and_decay_drift() {
+        // The SAME corpus observed hours apart: ids identical (different order), every
+        // NOW()-derived component moved. The fingerprint must NOT move — pure time decay
+        // never re-runs the GPU (cooling is the read path's job).
+        let fresh = r#"{"distinct_sources":2,"recent_3d":4,"total_14d":4,"newest_age_hours":1.0,
+            "tier_weight":0.5,"volume":0.4,"recency":0.986,"recent_frac":1.0}"#;
+        let aged = r#"{"distinct_sources":2,"recent_3d":1,"total_14d":4,"newest_age_hours":26.4,
+            "tier_weight":0.5,"volume":0.4,"recency":0.693,"recent_frac":0.25}"#;
+        let a = hash_components(&build_transfer_input_components(&[11, 3, 8, 5], fresh, "none"));
+        let b = hash_components(&build_transfer_input_components(&[3, 5, 8, 11], aged, "none"));
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn transfer_input_hash_moves_on_material_change() {
+        let comps = r#"{"distinct_sources":2,"tier_weight":0.5}"#;
+        let base = hash_components(&build_transfer_input_components(&[3, 5], comps, "none"));
+        // New article in the pair corpus.
+        let grown = hash_components(&build_transfer_input_components(&[3, 5, 9], comps, "none"));
+        // Deterministic relationship flip (identity applied / provider update).
+        let former = hash_components(&build_transfer_input_components(&[3, 5], comps, "former"));
+        // Source-tier re-weighting (moves the grounding guard).
+        let retiered = hash_components(&build_transfer_input_components(
+            &[3, 5],
+            r#"{"distinct_sources":2,"tier_weight":0.9}"#,
+            "none",
+        ));
+        assert_ne!(base, grown);
+        assert_ne!(base, former);
+        assert_ne!(base, retiered);
     }
 
     #[test]

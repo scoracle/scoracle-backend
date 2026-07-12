@@ -30,15 +30,20 @@ use tokio::sync::Semaphore;
 
 /// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
 /// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. `StatsLogic` backs the stats/analytical rail today (Rating/PEAK, the
-/// fixture-first Momentum eval, and Sigil synthesis until a synthesis split is proven);
-/// `EmotionalNews` backs the emotional/news rail (narratives, transfers, vibe); `Multilang`
-/// is the HORIZON normalize role; `Sql` is the SQLCoder role. A future `TransferLogic`,
-/// `MomentumLogic`, or `SynthesisLogic` role should be added only when fixtures and live captures
-/// prove a separate route beats the current baseline. Derives `Hash` for the L2 role→model map.
+/// in stage code. `StatsLogic` backs Rating/PEAK; `MomentumLogic` backs Momentum and
+/// `SynthesisLogic` backs Sigil — both split out of `StatsLogic` (2026-07-11) as *identity*
+/// splits so the earned PEAK route change (qwen3 22/22 vs mistral 18/22 on the drilldown
+/// fixtures) cannot silently flip Momentum (3 fixtures, too thin to earn it) or Sigil (never
+/// bake-off'd); un-configured they still resolve to the default model, so the split alone moves
+/// zero behavior. `EmotionalNews` backs the emotional/news rail (narratives, transfers, vibe);
+/// `Multilang` is the HORIZON normalize role; `Sql` is the SQLCoder role. A future
+/// `TransferLogic` follows the same rule: identity first, model change only on a fixture win.
+/// Derives `Hash` for the L2 role→model map.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
+    MomentumLogic,
+    SynthesisLogic,
     EmotionalNews,
     Multilang,
     Sql,
@@ -47,9 +52,11 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 4] {
+    pub fn all() -> [Role; 6] {
         [
             Role::StatsLogic,
+            Role::MomentumLogic,
+            Role::SynthesisLogic,
             Role::EmotionalNews,
             Role::Multilang,
             Role::Sql,
@@ -61,6 +68,8 @@ impl Role {
     pub fn as_str(self) -> &'static str {
         match self {
             Role::StatsLogic => "stats-logic",
+            Role::MomentumLogic => "momentum-logic",
+            Role::SynthesisLogic => "synthesis-logic",
             Role::EmotionalNews => "emotional-news",
             Role::Multilang => "multilang",
             Role::Sql => "sql",
@@ -73,6 +82,8 @@ impl Role {
     pub fn env_suffix(self) -> &'static str {
         match self {
             Role::StatsLogic => "STATS_LOGIC",
+            Role::MomentumLogic => "MOMENTUM_LOGIC",
+            Role::SynthesisLogic => "SYNTHESIS_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",
             Role::Multilang => "MULTILANG",
             Role::Sql => "SQL",

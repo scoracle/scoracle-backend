@@ -525,6 +525,7 @@ async fn generate_vibe_inner(
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: VIBE_NUM_PREDICT,
+        num_ctx: 0,
         json_mode: false,
     };
 

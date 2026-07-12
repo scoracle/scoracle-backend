@@ -9,9 +9,11 @@
 //!
 //! The active rail taxonomy is:
 //!   - emotional/news rail: `narratives`, `transfer`, `vibe` (`Role::EmotionalNews`).
-//!   - stats/analytical rail: `rating`/PEAK plus the fixture-first `momentum` lens
-//!     (`Role::StatsLogic`).
-//!   - synthesis rail: `sigil`, still on `Role::StatsLogic` until evals justify a distinct route.
+//!   - stats/analytical rail: `rating`/PEAK (`Role::StatsLogic`) plus `momentum` on its own
+//!     `Role::MomentumLogic` (identity split 2026-07-11 — un-configured it resolves to the same
+//!     default model, so eval candidates configure `COGNITION_ROUTE_MOMENTUM_LOGIC_CANDIDATE`).
+//!   - synthesis rail: `sigil` on `Role::SynthesisLogic` (same identity split), so a stats-rail
+//!     route change can never silently flip the un-bake-off'd synthesis stage.
 //!
 //! `momentum` is deliberately eval-first: production Momentum is deterministic DB/read-model
 //! trajectory math today, not a queue stage and not a served model call. The task exists so candidate
@@ -32,7 +34,7 @@ use crate::corpus::{load_transfer_heat, lookup_entity_name};
 use crate::harness::{Harness, Parser};
 use crate::narratives::{
     build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
-    NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+    NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
 use crate::rating::{
@@ -420,6 +422,7 @@ impl LensTask for VibeTask {
             system: Some(VIBE_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: VIBE_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         }
     }
@@ -496,7 +499,7 @@ impl LensTask for SigilTask {
         "sigil"
     }
     fn role(&self) -> Role {
-        Role::StatsLogic
+        Role::SynthesisLogic
     }
     fn prompt_version(&self) -> &'static str {
         SIGIL_PROMPT_VERSION
@@ -506,6 +509,7 @@ impl LensTask for SigilTask {
             system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: SIGIL_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         }
     }
@@ -649,6 +653,7 @@ impl LensTask for NarrativeTask {
             system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: NARRATIVES_NUM_PREDICT,
+            num_ctx: NARRATIVES_NUM_CTX,
             // Free-text JSON-instructed, NOT Ollama format=json — matches the live stage (Go parity).
             json_mode: false,
         }
@@ -808,6 +813,7 @@ impl LensTask for TransferTask {
             system: Some(transfer_system_prompt("FOOTBALL")),
             temperature: Some(temperature),
             num_predict: TRANSFER_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: true,
         }
     }
@@ -817,6 +823,7 @@ impl LensTask for TransferTask {
             system: Some(transfer_system_prompt(&sport)),
             temperature: Some(temperature),
             num_predict: TRANSFER_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: true,
         }
     }
@@ -975,6 +982,7 @@ impl LensTask for RatingTask {
             system: Some(RATING_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: RATING_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         }
     }
@@ -1106,7 +1114,7 @@ impl LensTask for MomentumTask {
         "momentum"
     }
     fn role(&self) -> Role {
-        Role::StatsLogic
+        Role::MomentumLogic
     }
     fn prompt_version(&self) -> &'static str {
         MOMENTUM_PROMPT_VERSION
@@ -1116,6 +1124,7 @@ impl LensTask for MomentumTask {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(temperature),
             num_predict: MOMENTUM_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         }
     }

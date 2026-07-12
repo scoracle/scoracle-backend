@@ -60,6 +60,15 @@ pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 /// Several multi-sentence narratives; the prompt caps count + body length.
 pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
 
+/// Context window for the narratives call. Narratives is the ONE stage whose prompt
+/// (~5.4k chars ≈ 1.4-1.8k tokens + system prompt) PLUS `NARRATIVES_NUM_PREDICT` (3000)
+/// exceeds Ollama's 4096-token server default — overflowing silently evicts the system
+/// prompt mid-generation, which is consistent with the long-standing "under-obeys explicit
+/// rules" narratives failures (L9, the red off-entity-and-hype-contamination fixture).
+/// 8192 fits the full budget with headroom; the KV-cache cost on mistral:7b is ~0.5GB,
+/// measured to still fit the 8GB card. Every other stage stays on the 4096 default.
+pub const NARRATIVES_NUM_CTX: i32 = 8192;
+
 /// Bounds the articles fed to the grouping prompt — wider than the vibe window so the model sees
 /// enough breadth to find the distinct storylines (Go's `maxNarrativeCorpus`).
 const MAX_NARRATIVE_CORPUS: i64 = 25;
@@ -744,6 +753,7 @@ pub async fn build_narratives_request(
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: NARRATIVES_NUM_PREDICT,
+        num_ctx: NARRATIVES_NUM_CTX,
         json_mode: false, // narratives is free-text JSON-instructed, NOT Ollama format=json (Go parity)
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
@@ -1133,6 +1143,7 @@ pub async fn persist_narratives(
             excluded_evidence: narratives_excluded_evidence(out),
             context_budget: json!({
                 "num_predict": NARRATIVES_NUM_PREDICT,
+                "num_ctx": NARRATIVES_NUM_CTX,
                 "eval_count": out.eval_count,
             }),
             parser_outcome: narratives_parser_outcome(out).to_string(),

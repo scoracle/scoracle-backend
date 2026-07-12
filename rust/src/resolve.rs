@@ -48,6 +48,7 @@ fn adjudication_opts() -> GenerateOptions {
         system: Some(RESOLVE_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 512,
+        num_ctx: 0,
         json_mode: true,
     }
 }
@@ -57,6 +58,7 @@ fn adjudication_bucket_opts() -> GenerateOptions {
         system: Some(RESOLVE_BUCKET_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 512,
+        num_ctx: 0,
         json_mode: true,
     }
 }

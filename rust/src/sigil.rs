@@ -1,7 +1,7 @@
 //! Sigil stage — the L3 stage port: the crown convergence, re-expressed as a
 //! composition of the capability library's primitives.
 //!
-//! Sigil = `read pillars + route(StatsLogic) + extract(SigilParser) + persist`, with a
+//! Sigil = `read pillars + route(SynthesisLogic) + extract(SigilParser) + persist`, with a
 //! `debounce_unchanged` gate on the pillar `input_hash`. This module began as a Go parity port, and
 //! the deterministic plumbing still follows that shape. Wave 5 rebaselines the product contract:
 //! the prompt now composes PEAK, Vibe, Momentum, and current narratives as distinct pillars.
@@ -22,7 +22,7 @@
 //! (drainSigil: queue Item → SigilRequest, current-season + SkipUnchanged, the terminal stage).
 //!
 //! This is the first NEW derivation on the library (the primitives don't move): the first
-//! `Role::StatsLogic` consumer, the first user of `Persist::debounce_unchanged`, and the first
+//! `Role::SynthesisLogic` consumer, the first user of `Persist::debounce_unchanged`, and the first
 //! user of the `Provenance.input_hash` envelope field — all three shipped real but unexercised
 //! by vibe. Everything that can differ between the two implementations — the SQL reads, the
 //! deterministic slope/trend math, the canonical input-components JSON (whose SHA-256 is the
@@ -895,13 +895,15 @@ fn parse_panel_score(rest: &str) -> Option<i32> {
         return None;
     }
     let head = t.split_whitespace().next().unwrap_or("");
-    let n = head
-        .split_once('/')
-        .map(|(n, _)| n)
-        .unwrap_or(head)
-        .trim()
-        .parse::<i64>()
-        .ok()?;
+    let head = head.split_once('/').map(|(n, _)| n).unwrap_or(head).trim();
+    // The contract asks for an integer, but the model sometimes emits a decimal
+    // ("SCORE: 91.6") — 46 live sigil items sat permanently failed on exactly that.
+    // Accept and round; anything non-numeric still fails closed (no score → the
+    // caller fails the item).
+    let n = match head.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
+    };
     Some(n.clamp(1, 100) as i32)
 }
 
@@ -995,7 +997,7 @@ impl Parser<SigilReply> for SigilParser {
 // ---------------------------------------------------------------------------
 
 /// generate_sigil runs the full sigil derivation for one entity at the given temperature and
-/// returns the un-persisted result — the composition `read pillars + route(StatsLogic) +
+/// returns the un-persisted result — the composition `read pillars + route(SynthesisLogic) +
 /// extract(SigilParser)`. Shared by the parity harness (temp 0 → writes the shadow table). It
 /// does NOT debounce or persist (the parity harness always dumps); the production handler adds
 /// the SkipUnchanged debounce + the typed persist. Mirrors `SigilGenerator.Generate` minus the
@@ -1077,7 +1079,7 @@ async fn generate_sigil_inner(
                 season,
                 input_components_json: "{}".to_string(),
                 input_hash: None,
-                model: hx.router.for_role(Role::StatsLogic).model().to_string(),
+                model: hx.router.for_role(Role::SynthesisLogic).model().to_string(),
                 prompt_version: SIGIL_PROMPT_VERSION,
                 convergence: None,
                 disagreement: None,
@@ -1117,13 +1119,14 @@ async fn generate_sigil_inner(
         system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: SIGIL_NUM_PREDICT,
+        num_ctx: 0,
         json_mode: false,
     };
 
-    // sigil = route(StatsLogic) + extract(SigilParser). The fail-closed contract lives in the
+    // sigil = route(SynthesisLogic) + extract(SigilParser). The fail-closed contract lives in the
     // parser (an unparseable reply → Err → item backs off); `extract` records the exact wire body.
     let extracted = hx
-        .extract(Role::StatsLogic, &prompt, &opts, &SigilParser)
+        .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)
         .await?;
     let reply = extracted
         .value
@@ -1253,7 +1256,7 @@ async fn write_sigil_ledger(
         CognitionLedgerEntry {
             stage: "sigil".to_string(),
             lens: "sigil".to_string(),
-            role: Role::StatsLogic.as_str().to_string(),
+            role: Role::SynthesisLogic.as_str().to_string(),
             entity_type: item.entity_type.clone(),
             entity_id,
             sport: sport.to_string(),
@@ -1332,7 +1335,7 @@ impl StageHandler for SigilHandler {
                 season,
                 input_components_json: "{}".to_string(),
                 input_hash: None,
-                model: hx.router.for_role(Role::StatsLogic).model().to_string(),
+                model: hx.router.for_role(Role::SynthesisLogic).model().to_string(),
                 prompt_version: SIGIL_PROMPT_VERSION,
                 convergence: None,
                 disagreement: None,
@@ -1397,10 +1400,11 @@ impl StageHandler for SigilHandler {
             system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
             temperature: Some(SIGIL_TEMPERATURE),
             num_predict: SIGIL_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         };
         let extracted = hx
-            .extract(Role::StatsLogic, &prompt, &opts, &SigilParser)
+            .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)
             .await?;
         let reply = extracted
             .value
@@ -1493,9 +1497,20 @@ mod tests {
     fn convergence_clamped_like_score() {
         let p = parse_synthesis_response("SCORE: 50\nCONVERGENCE: 250\nBLURB: mixed signals");
         assert_eq!(p.convergence, Some(100));
-        // A non-integer CONVERGENCE leaves it None (no unlabeled first-integer fallback).
+        // A non-numeric CONVERGENCE leaves it None (no unlabeled first-integer fallback).
         let p2 = parse_synthesis_response("SCORE: 50\nCONVERGENCE: high\nBLURB: mixed signals");
         assert_eq!(p2.convergence, None);
+    }
+
+    #[test]
+    fn parses_decimal_score_by_rounding() {
+        // The live failure that stranded 46 sigil items: "SCORE: 91.6" from a model that
+        // ignored the integer contract. Rounds instead of failing the item.
+        let p = parse_synthesis_response("SCORE: 91.6\nBLURB: dual-threat winger");
+        assert_eq!(p.score, 92);
+        // Still fail-closed on genuinely non-numeric scores.
+        let p2 = parse_synthesis_response("SCORE: elite\nBLURB: nope");
+        assert_eq!(p2.score, 0);
     }
 
     #[test]

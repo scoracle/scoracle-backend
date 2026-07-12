@@ -890,6 +890,7 @@ pub async fn build_pair_request(
         system: Some(transfer_system_prompt(sport)),
         temperature: Some(temperature),
         num_predict: TRANSFER_NUM_PREDICT,
+        num_ctx: 0,
         json_mode: true,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
@@ -1477,6 +1478,7 @@ async fn maybe_apply_transfer_identity(
         system: Some(transfer_identity_adjudication_system_prompt(sport)),
         temperature: Some(0.0),
         num_predict: 700,
+        num_ctx: 0,
         json_mode: true,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);

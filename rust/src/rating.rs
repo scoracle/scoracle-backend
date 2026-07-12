@@ -216,6 +216,9 @@ impl PeakTrajectory {
 #[derive(Clone, Debug, Default)]
 pub struct RatingExclusions {
     pub budget_truncated_stat_labels: Vec<String>,
+    /// Breakdown labels dropped because their facet is the other side of the ball from the
+    /// player's position (NFL only — see `drop_off_facet_datapoints`).
+    pub off_facet_stat_labels: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -508,6 +511,48 @@ fn is_strong_or_elite(d: &RatingDatapoint) -> bool {
 
 fn is_weakness(d: &RatingDatapoint) -> bool {
     d.pct < 50.0
+}
+
+/// nfl_position_side maps an NFL position to the side of the ball it plays. Both the
+/// abbreviated and spelled-out forms appear in `player_stats.position` ("QB" and
+/// "Quarterback"). `None` — kickers/punters/returners/long snappers, "Unknown", and the
+/// teams' empty string — means no side can be inferred, and the off-facet filter fails
+/// open (keeps everything), matching the harness's fail-closed-by-omission posture.
+fn nfl_position_side(position: &str) -> Option<&'static str> {
+    match position.trim().to_lowercase().as_str() {
+        "qb" | "quarterback" | "rb" | "running back" | "fb" | "fullback" | "wr"
+        | "wide receiver" | "te" | "tight end" | "c" | "center" | "g" | "guard" | "ot"
+        | "offensive tackle" => Some("offense"),
+        "cb" | "cornerback" | "s" | "safety" | "lb" | "linebacker" | "de" | "defensive end"
+        | "dt" | "defensive tackle" => Some("defense"),
+        _ => None,
+    }
+}
+
+/// drop_off_facet_datapoints removes breakdown and rate-mode datapoints from the OTHER side
+/// of the ball than the player's position. An offensive player's defensive stat sheet (and
+/// vice versa) is structural noise, not scoutable evidence: a QB's 0th-percentile Tackling is
+/// not a "primary weakness to exploit", it is a category he does not play. Only NFL breakdowns
+/// carry offense/defense facets (NBA and FOOTBALL emit facet="all"), so this no-ops for every
+/// other sport, for teams, and for facet-less rows by construction. Returns the dropped
+/// breakdown labels for the exclusions ledger — the selection is provable, not silent.
+fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let Some(side) = nfl_position_side(&p.position) else {
+        return Vec::new();
+    };
+    let off_facet =
+        |d: &RatingDatapoint| (d.facet == "offense" || d.facet == "defense") && d.facet != side;
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| off_facet(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !off_facet(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !off_facet(d));
+    }
+    dropped
 }
 
 fn format_datapoint_evidence(d: &RatingDatapoint) -> String {
@@ -1071,7 +1116,7 @@ pub async fn build_rating_request(
     req: &RatingReq,
     temperature: f64,
 ) -> Result<RatingBuild> {
-    let Some(profile) = load_rating_profile(
+    let Some(mut profile) = load_rating_profile(
         &hx.pool,
         &req.entity_type,
         req.entity_id,
@@ -1084,6 +1129,11 @@ pub async fn build_rating_request(
             season: req.season.unwrap_or(0),
         });
     };
+    // The off-facet filter runs before EVERYTHING derived from the breakdown — the scouting
+    // decision, the prompt's datapoint list, notability, rate standouts, and the
+    // input_components hash — so every consumer sees one consistent, position-true view.
+    // (The hash change regenerates affected NFL players once; that regen is the fix shipping.)
+    let off_facet_stat_labels = drop_off_facet_datapoints(&mut profile);
     // No usable rating (no composite + empty breakdown) → the NULL-body marker path.
     if profile.composite_score.is_none() && profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
@@ -1097,6 +1147,7 @@ pub async fn build_rating_request(
     let decision = build_scouting_decision(&profile);
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown, &decision),
+        off_facet_stat_labels,
     };
     let peak_trajectory = load_peak_trajectory(
         &hx.pool,
@@ -1111,6 +1162,7 @@ pub async fn build_rating_request(
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: RATING_NUM_PREDICT,
+        num_ctx: 0,
         json_mode: false,
     };
     let backend = hx.router.for_role(Role::StatsLogic);
@@ -1560,6 +1612,13 @@ fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
             "limit": MAX_STAT_FACTS,
         }));
     }
+    if !out.exclusions.off_facet_stat_labels.is_empty() {
+        excluded.push(serde_json::json!({
+            "reason": "off_facet_position_mismatch",
+            "dropped_count": out.exclusions.off_facet_stat_labels.len(),
+            "dropped_stat_labels": &out.exclusions.off_facet_stat_labels,
+        }));
+    }
     serde_json::json!(excluded)
 }
 
@@ -1619,6 +1678,117 @@ mod tests {
             scoped_ranks: HashMap::new(),
             rate_modes: HashMap::new(),
         }
+    }
+
+    fn faceted(label: &str, pct: f64, facet: &str) -> RatingDatapoint {
+        let mut d = dp(label, 1.0, 0.0, pct, 1, false);
+        d.facet = facet.to_string();
+        d
+    }
+
+    fn nfl_profile(position: &str, breakdown: Vec<RatingDatapoint>) -> RatingProfile {
+        RatingProfile {
+            entity_type: "player".to_string(),
+            season: 2025,
+            position: position.to_string(),
+            composite_score: Some(60.0),
+            peak_score: None,
+            peak_label: String::new(),
+            breakdown,
+            scoped_ranks: HashMap::new(),
+            rate_modes: HashMap::new(),
+        }
+    }
+
+    // --- off-facet filter: an offensive player's defensive stat sheet (and vice versa) must
+    // never reach the scouting decision, the prompt, or the input_hash. The Stafford/London
+    // bug: 0th-pct Tackling surfacing as a QB's "primary weakness to exploit".
+    // -----------------------------------------------------------------------------------------------
+
+    #[test]
+    fn off_facet_filter_drops_other_side_for_qb() {
+        let mut p = nfl_profile(
+            "QB",
+            vec![
+                faceted("Passing Yards", 90.0, "offense"),
+                faceted("Tackling", 0.0, "defense"),
+                faceted("Tackles For Loss", 0.0, "defense"),
+                faceted("Giveaways", 20.0, "offense"),
+            ],
+        );
+        p.rate_modes.insert(
+            "per_game".to_string(),
+            vec![
+                faceted("Passing Yards", 91.0, "offense"),
+                faceted("Tackling", 0.0, "defense"),
+            ],
+        );
+        let dropped = drop_off_facet_datapoints(&mut p);
+        assert_eq!(dropped, vec!["Tackling", "Tackles For Loss"]);
+        let labels: Vec<&str> = p.breakdown.iter().map(|d| d.label.as_str()).collect();
+        assert_eq!(labels, vec!["Passing Yards", "Giveaways"]);
+        assert_eq!(p.rate_modes["per_game"].len(), 1);
+    }
+
+    #[test]
+    fn off_facet_filter_drops_offense_for_cornerback_spelled_out() {
+        let mut p = nfl_profile(
+            "Cornerback",
+            vec![
+                faceted("Interceptions", 85.0, "defense"),
+                faceted("Receiving Yards", 2.0, "offense"),
+            ],
+        );
+        let dropped = drop_off_facet_datapoints(&mut p);
+        assert_eq!(dropped, vec!["Receiving Yards"]);
+    }
+
+    #[test]
+    fn off_facet_filter_fails_open_for_special_teams_and_unknown() {
+        for pos in ["Punter", "KR", "Unknown", ""] {
+            let mut p = nfl_profile(
+                pos,
+                vec![
+                    faceted("Field Goals", 70.0, "offense"),
+                    faceted("Tackling", 10.0, "defense"),
+                ],
+            );
+            assert!(drop_off_facet_datapoints(&mut p).is_empty(), "pos={pos:?}");
+            assert_eq!(p.breakdown.len(), 2, "pos={pos:?}");
+        }
+    }
+
+    #[test]
+    fn off_facet_filter_noops_without_nfl_facets() {
+        // NBA "Guard" collides with the NFL position name, but NBA breakdowns carry
+        // facet="all" (or ""), which the filter never touches — the facet VALUE gates,
+        // not the position alone.
+        let mut p = nfl_profile(
+            "Guard",
+            vec![faceted("Scoring", 95.0, "all"), faceted("Steals", 20.0, "")],
+        );
+        assert!(drop_off_facet_datapoints(&mut p).is_empty());
+        assert_eq!(p.breakdown.len(), 2);
+    }
+
+    #[test]
+    fn scouting_decision_weakness_is_positional_after_filter() {
+        let mut p = nfl_profile(
+            "QB",
+            vec![
+                faceted("Passing Yards", 90.0, "offense"),
+                faceted("Tackling", 0.0, "defense"),
+                faceted("Giveaways", 20.0, "offense"),
+            ],
+        );
+        drop_off_facet_datapoints(&mut p);
+        let d = build_scouting_decision(&p);
+        // Without the filter the 0th-pct Tackling wins min-by-pct; with it, the weakness is
+        // the worst stat the player actually plays.
+        assert_eq!(
+            d.primary_weakness_to_exploit.as_ref().map(|f| f.label.as_str()),
+            Some("Giveaways")
+        );
     }
 
     // --- build_stat_prompt byte-fixtures: the deterministic parity axis. The expected strings are

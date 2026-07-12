@@ -27,11 +27,20 @@ pub struct OllamaClient {
 /// The Phase 1 parity harness MUST pin an explicit `Some(0.0)` so the temp-0 diff
 /// against Go is exact; production vibe uses `Some(0.7)`. `num_predict` is still
 /// omitted when `<= 0`.
+///
+/// `num_ctx` (omitted when `<= 0`) overrides Ollama's server default context window —
+/// 4096 tokens on this box (verified live via `ollama ps`), far below what the models
+/// support (mistral:7b 32k). A prompt + `num_predict` sum that exceeds the window
+/// silently evicts the EARLIEST tokens (the system prompt) mid-generation, degrading
+/// rule-following with no error anywhere. Only set it where the budget genuinely
+/// needs it: KV cache scales with the window, and the GPU fit (L7) was measured at
+/// the 4096 default.
 #[derive(Clone, Debug, Default)]
 pub struct GenerateOptions {
     pub system: Option<String>,
     pub temperature: Option<f64>,
     pub num_predict: i32,
+    pub num_ctx: i32,
     pub json_mode: bool, // sets format="json"
 }
 
@@ -117,6 +126,9 @@ impl OllamaClient {
         }
         if opts.num_predict > 0 {
             options.insert("num_predict".into(), serde_json::json!(opts.num_predict));
+        }
+        if opts.num_ctx > 0 {
+            options.insert("num_ctx".into(), serde_json::json!(opts.num_ctx));
         }
         GenerateRequest {
             model: &self.model,

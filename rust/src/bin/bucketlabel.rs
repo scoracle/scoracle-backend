@@ -135,6 +135,7 @@ async fn main() -> Result<()> {
         system: Some(SYSTEM_PROMPT.to_string()),
         temperature: Some(0.0),
         num_predict: 32,
+        num_ctx: 0,
         json_mode: true,
     };
 

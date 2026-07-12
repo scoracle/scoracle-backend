@@ -97,9 +97,14 @@ pub struct MomentumParser;
 
 impl Parser<MomentumReply> for MomentumParser {
     fn parse(&self, raw: &str) -> Result<Option<MomentumReply>> {
-        parse_momentum_reply(raw)
-            .map(Some)
-            .ok_or_else(|| anyhow!("momentum: invalid response"))
+        // Carry a raw excerpt in the error: a dozen live items sat failed with only
+        // "invalid response", leaving nothing to diagnose which contract line broke.
+        parse_momentum_reply(raw).map(Some).ok_or_else(|| {
+            anyhow!(
+                "momentum: invalid response (raw={:?})",
+                crate::util::truncate_bytes(raw.trim(), 160)
+            )
+        })
     }
 }
 
@@ -547,10 +552,11 @@ impl StageHandler for MomentumHandler {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(MOMENTUM_TEMPERATURE),
             num_predict: MOMENTUM_NUM_PREDICT,
+            num_ctx: 0,
             json_mode: false,
         };
         let extracted = hx
-            .extract(Role::StatsLogic, &prompt, &opts, &MomentumParser)
+            .extract(Role::MomentumLogic, &prompt, &opts, &MomentumParser)
             .await?;
         let reply = extracted
             .value
@@ -574,7 +580,7 @@ impl StageHandler for MomentumHandler {
             CognitionLedgerEntry {
                 stage: "momentum".to_string(),
                 lens: "momentum".to_string(),
-                role: Role::StatsLogic.as_str().to_string(),
+                role: Role::MomentumLogic.as_str().to_string(),
                 entity_type: item.entity_type.clone(),
                 entity_id,
                 sport: sport.clone(),

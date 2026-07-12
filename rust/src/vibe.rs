@@ -10,21 +10,30 @@
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
 //! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
-//! path returns "no data"; the debounce stops re-running it). A completed vibe now enqueues
-//! Momentum before the terminal Sigil convergence.
+//! path returns "no data"). A completed vibe enqueues Momentum before the terminal Sigil
+//! convergence.
+//!
+//! F2 (2026-07-12) gives vibe a real debounce: the handler hashes the MATERIAL inputs only —
+//! latest narrative titles/impacts/trajectories + transfer-heat facts, no prose, no
+//! timestamps (mirroring narratives' key discipline) — and skips the GPU call when the
+//! latest `vibe_scores` row carries the same `input_hash` (mig 147). Marker rows carry the
+//! empty-material hash too, so quiet entities debounce instead of re-marking every cycle.
+//! On a debounce-skip the handler still enqueues Momentum (hash-gated and cheap) — the same
+//! self-healing shape as sigil's skip-path oracle enqueue. The offline parity harness
+//! (`bin/parity`) deliberately does NOT debounce: a parity run must always exercise the model.
 
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
 use crate::embed::cosine_similarity;
 use crate::resolve::load_identity_candidate;
-use crate::harness::{Harness, Parser, Provenance};
+use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::{trajectory_label, DEFAULT_TRAJECTORY};
-use crate::util::{truncate, truncate_bytes};
+use crate::util::{go_json_string, hash_components, truncate, truncate_bytes};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -98,6 +107,12 @@ pub struct VibeOutput {
     pub vibe_prompt: Option<String>,
     /// Provenance: the narratives' source article ids, deduped in first-seen order.
     pub input_news_ids: Vec<i64>,
+    /// The canonical material-inputs JSON — the pre-image of `input_hash` (F2).
+    pub input_components_json: String,
+    /// SHA-256 (128-bit hex prefix) of `input_components_json` — the debounce key. Always
+    /// real: the no-corpus marker carries the empty-material hash so quiet entities debounce
+    /// too (the narratives precedent).
+    pub input_hash: String,
     /// no-corpus → the configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
@@ -117,14 +132,14 @@ pub fn vibe_version(out: &VibeOutput) -> String {
 
 impl VibeOutput {
     /// provenance lifts the moat fields into the shared `Provenance` envelope (Plan §1.6).
-    /// Vibe does not debounce, so `input_hash` is `None`; the scored row and the no-corpus
-    /// marker produce the same envelope shape, differing only in the values they carry.
+    /// Vibe debounces since F2 (mig 147), so `input_hash` is carried; the scored row and the
+    /// no-corpus marker produce the same envelope shape, differing only in the values they carry.
     fn provenance(&self) -> Provenance {
         Provenance {
             model_version: self.model.clone(),
             prompt_version: self.prompt_version,
             input_ids: self.input_news_ids.clone(),
-            input_hash: None,
+            input_hash: Some(self.input_hash.clone()),
             trigger_payload: None,
         }
     }
@@ -234,6 +249,132 @@ async fn weight_narratives(
     Ok(())
 }
 
+
+// ---------------------------------------------------------------------------
+// Input components + hash — the debounce key (F2, mig 147).
+// ---------------------------------------------------------------------------
+
+/// build_vibe_input_components is the canonical debounce pre-image: the latest narrative
+/// titles/impacts/trajectories plus the transfer-heat facts in sigil's
+/// `counterparty:heat:direction:stage` convention — the material signals behind the sentiment.
+/// Same canonical-JSON discipline as `narratives::build_narratives_input_components`.
+///
+/// Deliberately EXCLUDED: narrative bodies (model prose — the F1 rule), `topic_heat` and
+/// `relevance` (derived ordering signals that tick without the storylines moving),
+/// `source_count`/`source_age_days` (corroboration/freshness are prompt-only, sigil's
+/// precedent — an age ticking over a day boundary must not re-run the GPU), and the heat
+/// summary/confidence (derived commentary, the narratives precedent). The three narrative
+/// keys are ALWAYS present (even `[]`) so the no-corpus marker has a stable pre-image;
+/// `transfer_heat` is conditional, matching the sigil/narratives convention.
+pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) -> String {
+    fn push_sorted_lines(out: &mut String, mut lines: Vec<String>) {
+        lines.sort();
+        for (i, line) in lines.iter().enumerate() {
+            if i > 0 {
+                out.push(',');
+            }
+            out.push_str(&go_json_string(line));
+        }
+    }
+
+    let mut out = String::from("{\"narrative_impacts\":[");
+    push_sorted_lines(
+        &mut out,
+        narratives
+            .iter()
+            .map(|n| format!("{}:{}", n.title, n.impact))
+            .collect(),
+    );
+    out.push_str("],\"narrative_titles\":[");
+    push_sorted_lines(&mut out, narratives.iter().map(|n| n.title.clone()).collect());
+    out.push_str("],\"narrative_trajectories\":[");
+    push_sorted_lines(
+        &mut out,
+        narratives
+            .iter()
+            .map(|n| format!("{}:{}", n.title, n.trajectory))
+            .collect(),
+    );
+    out.push(']');
+    if !heat.is_empty() {
+        out.push_str(",\"transfer_heat\":[");
+        push_sorted_lines(
+            &mut out,
+            heat.iter()
+                .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
+                .collect(),
+        );
+        out.push(']');
+    }
+    out.push('}');
+    out
+}
+
+/// The loaded-and-weighted vibe context: everything the prompt needs plus the debounce key.
+/// Splitting the load from the model call lets the production handler gate on `input_hash`
+/// BEFORE paying for the GPU (the parity harness skips the gate — it must always run).
+pub struct VibeContext {
+    /// Weighted/ordered for the prompt (relevance → topic heat → impact → title).
+    pub narratives: Vec<Narrative>,
+    pub heat: Vec<HeatItem>,
+    /// Deduped union of the narratives' source article ids (provenance).
+    pub news_ids: Vec<i64>,
+    pub input_components_json: String,
+    pub input_hash: String,
+}
+
+impl VibeContext {
+    /// No derived signal at all → the no-corpus marker path (no model call).
+    pub fn empty(&self) -> bool {
+        self.narratives.is_empty() && self.heat.is_empty()
+    }
+}
+
+/// load_vibe_context runs the deterministic prefix: validate, load narratives + heat
+/// concurrently, weight/order the narratives for the prompt, and compute the material-only
+/// debounce key. NO model call.
+pub async fn load_vibe_context(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport_raw: &str,
+) -> Result<VibeContext> {
+    if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
+        bail!("vibe: entity context incomplete");
+    }
+    // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
+    let sport = sport_raw.to_uppercase();
+
+    // Independent reads (news_summaries vs transfer_rumors, no data dependency) — run them
+    // concurrently (plan A3).
+    let ((mut narratives, news_ids), heat) = tokio::try_join!(
+        load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
+        load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
+    )?;
+    weight_narratives(
+        hx,
+        entity_type,
+        entity_id,
+        entity_name,
+        &sport,
+        &mut narratives,
+    )
+    .await?;
+
+    // Hash BEFORE any model involvement: the pre-image is order-insensitive (sorted lines),
+    // so the weighting above cannot perturb it.
+    let input_components_json = build_vibe_input_components(&narratives, &heat);
+    let input_hash = hash_components(&input_components_json);
+
+    Ok(VibeContext {
+        narratives,
+        heat,
+        news_ids,
+        input_components_json,
+        input_hash,
+    })
+}
 
 // ---------------------------------------------------------------------------
 // Prompt assembly.
@@ -399,11 +540,12 @@ impl Parser<VibeReply> for VibeParser {
 // ---------------------------------------------------------------------------
 
 /// generate_vibe runs the full vibe derivation for one entity at the given temperature and
-/// returns the un-persisted result. Shared by the production handler (temp 0.7 → it writes
-/// vibe_scores + enqueues sigil) and the parity harness (temp 0 → it writes the shadow
-/// table). This is the L1 composition — `route(EmotionalNews) + extract(VibeParser)` — over
-/// the same loaders + prompt: validate, read narratives + heat, short-circuit
-/// to the no-corpus marker when both are empty, else build the prompt and `extract`.
+/// returns the un-persisted result. This is the L1 composition — `route(EmotionalNews) +
+/// extract(VibeParser)` — over the same loaders + prompt: load the context, short-circuit
+/// to the no-corpus marker when it is empty, else build the prompt and `extract`. The
+/// production handler calls `load_vibe_context` itself (to debounce before the model call)
+/// and then `generate_vibe_from_context`; this convenience wrapper is the undebounced
+/// load-and-generate composition.
 pub async fn generate_vibe(
     hx: &Harness,
     entity_type: &str,
@@ -412,22 +554,16 @@ pub async fn generate_vibe(
     sport_raw: &str,
     temperature: f64,
 ) -> Result<VibeOutput> {
-    let (out, _, _) = generate_vibe_inner(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        sport_raw,
-        temperature,
-        false,
-    )
-    .await?;
+    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
+    let (out, _, _) =
+        generate_vibe_from_context(hx, entity_type, entity_name, sport_raw, ctx, temperature, false)
+            .await?;
     Ok(out)
 }
 
 /// generate_vibe_parity runs the same core as production while returning the
-/// parity-era prompt and request-body axes. Removed with the parity bins (see
-/// plan C1).
+/// parity-era prompt and request-body axes. NO debounce — a parity run must always
+/// exercise the model. Removed with the parity bins (see plan C1).
 pub async fn generate_vibe_parity(
     hx: &Harness,
     entity_type: &str,
@@ -436,58 +572,32 @@ pub async fn generate_vibe_parity(
     sport_raw: &str,
     temperature: f64,
 ) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
-    generate_vibe_inner(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        sport_raw,
-        temperature,
-        true,
-    )
-    .await
+    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
+    generate_vibe_from_context(hx, entity_type, entity_name, sport_raw, ctx, temperature, true)
+        .await
 }
 
-async fn generate_vibe_inner(
+async fn generate_vibe_from_context(
     hx: &Harness,
     entity_type: &str,
-    entity_id: i32,
     entity_name: &str,
     sport_raw: &str,
+    ctx: VibeContext,
     temperature: f64,
     capture_parity: bool,
 ) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
-    if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
-        bail!("vibe: entity context incomplete");
-    }
-    // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
-    let sport = sport_raw.to_uppercase();
-
-    // Independent reads (news_summaries vs transfer_rumors, no data dependency) — run them
-    // concurrently (plan A3).
-    let ((mut narratives, news_ids), heat) = tokio::try_join!(
-        load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
-        load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
-    )?;
-    weight_narratives(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        &sport,
-        &mut narratives,
-    )
-    .await?;
-
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
     // model call is made, so the marker's model_version is the role's configured model.
-    if narratives.is_empty() && heat.is_empty() {
+    // The marker still carries the (empty-material) hash so quiet entities debounce.
+    if ctx.empty() {
         return Ok((
             VibeOutput {
                 sentiment: None,
                 vibe_prompt: None,
                 input_news_ids: Vec::new(),
+                input_components_json: ctx.input_components_json,
+                input_hash: ctx.input_hash,
                 model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
                 prompt_version: VIBE_PROMPT_VERSION,
                 built_prompt: None,
@@ -500,7 +610,8 @@ async fn generate_vibe_inner(
         ));
     }
 
-    let prompt = build_sentiment_prompt(entity_type, entity_name, sport_raw, &narratives, &heat);
+    let prompt =
+        build_sentiment_prompt(entity_type, entity_name, sport_raw, &ctx.narratives, &ctx.heat);
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -537,7 +648,9 @@ async fn generate_vibe_inner(
             } else {
                 Some(reply.vibe_prompt)
             },
-            input_news_ids: news_ids,
+            input_news_ids: ctx.news_ids,
+            input_components_json: ctx.input_components_json,
+            input_hash: ctx.input_hash,
             model: extracted.model,
             prompt_version: VIBE_PROMPT_VERSION,
             built_prompt: Some(built_prompt.clone()),
@@ -552,6 +665,8 @@ async fn generate_vibe_inner(
 
 fn vibe_included_evidence(out: &VibeOutput) -> serde_json::Value {
     serde_json::json!({
+        "input_components": serde_json::from_str::<serde_json::Value>(&out.input_components_json)
+            .unwrap_or_else(|_| serde_json::json!({"raw_input_components": out.input_components_json})),
         "input_news_ids": &out.input_news_ids,
         "sentiment": out.sentiment,
         "vibe_prompt": &out.vibe_prompt,
@@ -586,8 +701,8 @@ async fn persist_to_vibe_scores(
     sport: &str,
     out: &VibeOutput,
 ) -> Result<i64> {
-    // Route the moat fields through the shared Provenance envelope (vibe does not debounce,
-    // so input_hash is None); the typed INSERT stays the stage's own (Postgres-as-serializer).
+    // Route the moat fields through the shared Provenance envelope — input_hash included
+    // since F2 (mig 147); the typed INSERT stays the stage's own (Postgres-as-serializer).
     let entity_id = item.entity_id_i32()?;
     let prov = out.provenance();
     let sentiment: Option<i16> = out.sentiment.map(|n| n as i16);
@@ -597,8 +712,8 @@ async fn persist_to_vibe_scores(
             entity_type, entity_id, sport,
             trigger_type, trigger_payload,
             sentiment, prompt, input_news_ids,
-            model_version, prompt_version
-        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8)
+            model_version, prompt_version, input_hash
+        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9)
         RETURNING id
         "#,
     )
@@ -610,6 +725,7 @@ async fn persist_to_vibe_scores(
     .bind(prov.input_ids.as_slice())
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
+    .bind(prov.input_hash.as_deref())
     .fetch_one(pool)
     .await
     .context("persist vibe")?;
@@ -644,18 +760,45 @@ impl StageHandler for VibeHandler {
         let entity_id = item.entity_id_i32()?;
         // nameOf: the name lookup uses the queue's raw sport value (drainVibe).
         let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
+        let sport = item.sport.to_uppercase();
 
-        let out = generate_vibe(
+        // F2: gate on the material-only input_hash BEFORE the model call. Vibe is
+        // entity-scoped — no season in its key.
+        let ctx = load_vibe_context(hx, &item.entity_type, entity_id, &name, &item.sport).await?;
+        let key = EntityKey {
+            entity_type: item.entity_type.clone(),
+            entity_id,
+            sport: sport.clone(),
+            season: None,
+        };
+        if hx
+            .debounce_unchanged("vibe_scores", &key, &ctx.input_hash)
+            .await?
+        {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id = item.entity_id,
+                sport = %sport,
+                "vibe: debounce-skip, material inputs unchanged"
+            );
+            // Still hand off: the momentum enqueue is hash-gated and cheap, so a previously
+            // lost hand-off self-heals as a no-op — the same shape as sigil's skip-path
+            // oracle enqueue.
+            crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+                .await?;
+            return Ok(());
+        }
+
+        let (out, _, _) = generate_vibe_from_context(
             hx,
             &item.entity_type,
-            entity_id,
             &name,
             &item.sport,
+            ctx,
             VIBE_TEMPERATURE,
+            false,
         )
         .await?;
-
-        let sport = item.sport.to_uppercase();
         let product_row_id = persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
         insert_cognition_ledger_best_effort(
             &hx.pool,
@@ -676,7 +819,7 @@ impl StageHandler for VibeHandler {
                 prompt_version: out.prompt_version.to_string(),
                 output_contract_version: VIBE_OUTPUT_CONTRACT_VERSION.to_string(),
                 input_ids: out.input_news_ids.clone(),
-                input_hash: None,
+                input_hash: Some(out.input_hash.clone()),
                 request_body: out.request_body.clone(),
                 built_prompt: out.built_prompt.clone(),
                 included_evidence: vibe_included_evidence(&out),
@@ -770,5 +913,64 @@ mod tests {
         // No digit anywhere ⇒ Err (retry/back-off), NOT Ok(None): vibe's only fail-closed
         // path is the pre-model no-corpus marker, never an unparseable reply.
         assert!(VibeParser.parse("no number here").is_err());
+    }
+
+    fn test_narrative(title: &str, impact: i32, trajectory: &str) -> Narrative {
+        Narrative {
+            title: title.into(),
+            // Non-empty prose + derived/freshness signals on purpose: the goldens below
+            // prove NONE of them enter the hash pre-image (F2 material-only debounce).
+            body: "long derived prose that must never enter the hash".into(),
+            impact,
+            trajectory: trajectory.into(),
+            topic_heat: 42,
+            relevance: Some(0.9),
+            source_count: 5,
+            source_age_days: Some(1),
+        }
+    }
+
+    #[test]
+    fn input_components_are_material_only_and_sorted() {
+        // Two narratives OUT of sorted order (the pre-image sorts, so weighting can't
+        // perturb the hash), plus one heat line in the sigil convention.
+        let narratives = vec![
+            test_narrative("Trade buzz", 7, "heating_up"),
+            test_narrative("Alpha story", 3, "developing_story"),
+        ];
+        let heat = vec![HeatItem {
+            counterparty: "Arsenal".into(),
+            heat: 40,
+            stage: "speculation".into(),
+            direction: "incoming".into(),
+            // Derived commentary — excluded (the narratives precedent).
+            summary: "derived commentary".into(),
+            confidence: Some(0.8),
+        }];
+        assert_eq!(
+            build_vibe_input_components(&narratives, &heat),
+            r#"{"narrative_impacts":["Alpha story:3","Trade buzz:7"],"narrative_titles":["Alpha story","Trade buzz"],"narrative_trajectories":["Alpha story:developing_story","Trade buzz:heating_up"],"transfer_heat":["Arsenal:40:incoming:speculation"]}"#
+        );
+    }
+
+    #[test]
+    fn input_components_empty_material_is_stable() {
+        // The no-corpus marker pre-image: narrative keys always present as [], NO
+        // transfer_heat key (sigil convention) — so quiet entities debounce on a stable hash.
+        assert_eq!(
+            build_vibe_input_components(&[], &[]),
+            r#"{"narrative_impacts":[],"narrative_titles":[],"narrative_trajectories":[]}"#
+        );
+    }
+
+    #[test]
+    fn input_hash_ignores_narrative_ordering() {
+        // weight_narratives reorders for the prompt (relevance/topic-heat/impact); the
+        // debounce key must not care.
+        let a = test_narrative("Alpha story", 3, "developing_story");
+        let b = test_narrative("Trade buzz", 7, "heating_up");
+        let forward = build_vibe_input_components(&[a.clone(), b.clone()], &[]);
+        let reversed = build_vibe_input_components(&[b, a], &[]);
+        assert_eq!(hash_components(&forward), hash_components(&reversed));
     }
 }

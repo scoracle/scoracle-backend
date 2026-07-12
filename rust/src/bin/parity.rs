@@ -145,7 +145,8 @@ async fn run_one(hx: &Harness, s: &EntitySpec) -> Result<VibeParityOutput> {
 
 /// persist_shadow writes one source='rust' row to vibe_scores_shadow. Mirrors the
 /// vibe_scores persist (trigger 'periodic', trigger_payload JSON null, empty felt-read →
-/// NULL) plus the harness-only columns (temperature, built_prompt, ollama_request).
+/// NULL, the F2 material-only input_hash) plus the harness-only columns (temperature,
+/// built_prompt, ollama_request).
 async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &VibeParityOutput) -> Result<()> {
     let sentiment: Option<i16> = out.output.sentiment.map(|n| n as i16);
     let request_json: Option<String> = out.request_body.as_ref().map(|v| v.to_string());
@@ -155,9 +156,9 @@ async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &VibeParityOutput) -
             source, entity_type, entity_id, sport,
             trigger_type, trigger_payload,
             sentiment, prompt, input_news_ids,
-            model_version, prompt_version,
+            model_version, prompt_version, input_hash,
             temperature, built_prompt, ollama_request
-        ) VALUES ('rust',$1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+        ) VALUES ('rust',$1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
         "#,
     )
     .bind(&s.entity_type)
@@ -168,6 +169,7 @@ async fn persist_shadow(pool: &PgPool, s: &EntitySpec, out: &VibeParityOutput) -
     .bind(out.output.input_news_ids.as_slice())
     .bind(out.output.model.as_str())
     .bind(out.output.prompt_version)
+    .bind(out.output.input_hash.as_str())
     .bind(PARITY_TEMPERATURE as f32)
     .bind(out.built_prompt.as_deref())
     .bind(request_json)

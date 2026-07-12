@@ -37,6 +37,26 @@ Elegance comes through simplicity. Simple and durable beats clever and fragile. 
 
 Our role is to eliminate noise around entities and divine the facts. Backend code should do the same: preserve clean source data, make derivation durable and observable, empower the model layer with clear context, and serve precomputed products through simple contracts.
 
+## North Star: The Reading
+
+The product framing every backend decision serves (canonical version in
+[../scoracle-wiki/PRODUCT_NARRATIVE.md](../scoracle-wiki/PRODUCT_NARRATIVE.md)):
+
+A user comes to the oracle for a reading on a sports entity. The oracle's name is Scoracle.
+Scoracle reveals several distinct cards — PEAK, narratives, transfers, vibe, momentum — every
+one a reading of a distinct aspect, each shaped by its own lens and voice. The final reveal,
+the all-encompassing one shaped and informed by the rich readings before it, is the **Sigil**:
+the one card that carries the Oracle lens — slightly mystic, without getting too far gone.
+When a user wants the overview of an entity without reading through all the layers, this is
+where they come. The final divination. The fog of noise peeled back.
+
+In this repo, the cards are the cognition stages (`peak`, `narratives`, `transfers`, `vibe`,
+`momentum` — each a `Role` with its own persona lens; see `rust/src/eval_tasks.rs::lens_parameters`),
+and the Sigil is the crown synthesis whose user-facing voice is the Oracle lens (the `oracle`
+stage, served inside the sigil card as its `oracle` key). The mysticism lives in the telling,
+never the facts: every claim in a reading traces to a card, and the dataflow below exists so
+that by the time the Sigil is read aloud, the fog is already peeled back.
+
 ## Model Hierarchy
 
 The dataflow exists to refine work so each model tier does what it is best at.

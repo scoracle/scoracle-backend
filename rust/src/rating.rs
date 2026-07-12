@@ -624,7 +624,7 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
         None => "PEAK: No standout skill".to_string(),
     };
 
-    let primary_strength_to_stop = primary.map(|d| decision_fact(d));
+    let primary_strength_to_stop = primary.map(decision_fact);
     let secondary_strengths = facts
         .iter()
         .skip(1)

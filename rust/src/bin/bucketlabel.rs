@@ -180,7 +180,7 @@ async fn main() -> Result<()> {
             f,
             "{id}\t{}\t{label}\t{ms}\t{}",
             sport.as_deref().unwrap_or(""),
-            title.replace('\t', " ").replace('\n', " ")
+            title.replace(['\t', '\n'], " ")
         )?;
         n_done += 1;
         if n_done % 50 == 0 {

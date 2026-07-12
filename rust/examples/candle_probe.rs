@@ -4,9 +4,9 @@
 //! Tests, against LIVE labeled data (read-only):
 //!   1. F2 bucket classification — cosine of article (title+description) vs a
 //!      "transfer prototype" embedding, three prototype strategies:
-//!        P1 single canonical sentence
-//!        P2 mean of a small canonical sentence set
-//!        P3 data-driven mean of held-out positive articles
+//!      P1 single canonical sentence
+//!      P2 mean of a small canonical sentence set
+//!      P3 data-driven mean of held-out positive articles
 //!      Ground truth: POS = articles cited by is_rumor=TRUE transfer_rumors rows;
 //!      BROAD-NEG = vetted articles never cited by any rumor row;
 //!      HARD-NEG = articles cited ONLY by is_rumor=FALSE rows (the model looked and

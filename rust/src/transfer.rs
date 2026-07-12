@@ -1499,6 +1499,7 @@ async fn current_identity_team(
     Ok((row.get("team_id"), row.get("team_name")))
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn record_transfer_identity_failure(
     pool: &PgPool,
     sport: &str,
@@ -1606,6 +1607,7 @@ async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bo
     Ok(pending)
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn maybe_apply_transfer_identity(
     hx: &Harness,
     team_id: i32,

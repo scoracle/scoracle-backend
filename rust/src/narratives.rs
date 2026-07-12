@@ -283,6 +283,7 @@ pub async fn load_vetted_corpus(
     entity_id: i32,
     sport: &str,
 ) -> Result<Vec<CorpusItem>> {
+    #[allow(clippy::type_complexity)]
     let rows: Vec<(
         i64,
         String,

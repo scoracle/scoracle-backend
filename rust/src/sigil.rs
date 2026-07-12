@@ -396,6 +396,7 @@ pub async fn load_momentum_pillar(
     sport: &str,
     season: Option<i32>,
 ) -> Result<SynthMomentum> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(
         Option<String>,
         Option<i16>,
@@ -867,6 +868,7 @@ pub fn build_pillar_divergence(
     out
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_synthesis_prompt(
     entity_type: &str,
     entity_name: &str,

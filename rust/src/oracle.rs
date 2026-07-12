@@ -119,6 +119,7 @@ pub async fn load_latest_sigil(
     sport: &str,
     season: i32,
 ) -> Result<Option<ConsumedSigil>> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(
         Option<i16>,
         Option<String>,

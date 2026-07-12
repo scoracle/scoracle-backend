@@ -115,6 +115,7 @@ pub async fn load_momentum_snapshot(
     entity_id: i32,
     sport: &str,
 ) -> Result<SynthMomentum> {
+    #[allow(clippy::type_complexity)]
     let row: Option<(Option<f64>, i32, Option<f64>, i32, Option<f64>)> = sqlx::query_as(
         r#"
         SELECT vibe_slope::float8, vibe_samples,
@@ -424,10 +425,7 @@ fn parse_first_i32(s: &str) -> Option<i32> {
     let mut buf = String::new();
     let mut started = false;
     for c in s.chars() {
-        if c == '-' && !started {
-            buf.push(c);
-            started = true;
-        } else if c.is_ascii_digit() {
+        if (c == '-' && !started) || c.is_ascii_digit() {
             buf.push(c);
             started = true;
         } else if started {
@@ -680,6 +678,13 @@ mod tests {
         assert_eq!(parsed.direction, "rising");
         assert_eq!(parsed.score, 3);
         assert_eq!(parsed.blurb, "PEAK is rising while Vibe is calm.");
+    }
+
+    #[test]
+    fn parse_first_i32_scans_sign_and_digits() {
+        assert_eq!(parse_first_i32("SCORE: 3"), Some(3));
+        assert_eq!(parse_first_i32("SCORE: -1.0"), Some(-1));
+        assert_eq!(parse_first_i32("no digits here"), None);
     }
 
     #[test]

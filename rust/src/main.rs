@@ -22,8 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    bucket, config, db, embed, momentum, narratives, ollama, rating, scrub, sigil, stage, transfer,
-    vibe, worker,
+    bucket, config, db, embed, momentum, narratives, ollama, oracle, rating, scrub, sigil, stage,
+    transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled =
         parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-            "scrub,peak,momentum,transfers,narratives,vibe,sigil".to_string()
+            "scrub,peak,momentum,transfers,narratives,vibe,sigil,oracle".to_string()
         }))?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
@@ -132,6 +132,10 @@ async fn main() -> Result<()> {
     if enabled.contains("sigil") {
         handlers.push(Box::new(sigil::SigilHandler::new()));
     }
+    // oracle drains AFTER sigil in registration order — same-rail contiguity for the chain.
+    if enabled.contains("oracle") {
+        handlers.push(Box::new(oracle::OracleHandler::new()));
+    }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
 
     let worker = worker::Worker::new(
@@ -153,6 +157,7 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "narratives",
         "vibe",
         "sigil",
+        "oracle",
     ];
 
     let mut stages = HashSet::new();

@@ -142,6 +142,8 @@
 141_news_article_bucket_topic_heat
 142_peak_scouting_reframe
 143_sigil_disagreement_outputs
-144_momentum_summaries
 144_cognition_ledger
+144_momentum_summaries
+145_narratives_input_hash
 145_nba_team_points_allowed_zscore
+146_oracle_readings

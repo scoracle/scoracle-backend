@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict QsVArQxPWP3dH3DLQL3feAkFSkucnDmHFXm0xcIzKxfU8b4ZY3aqaTnGPv01tqj
+\restrict 0EgxE3QQTt0Vj6XHgFETPAVfR3mQlBv7sqw1QDAXs71h8Xq8UxthEfBWbWyJZZl
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -5958,6 +5958,58 @@ ALTER SEQUENCE public.momentum_scores_id_seq OWNED BY public.momentum_scores.id;
 
 
 --
+-- Name: momentum_summaries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.momentum_summaries (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer NOT NULL,
+    trigger_type text DEFAULT 'periodic'::text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    direction text,
+    score smallint,
+    blurb text,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT momentum_summaries_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['rising'::text, 'falling'::text, 'steady'::text])))),
+    CONSTRAINT momentum_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT momentum_summaries_score_check CHECK (((score IS NULL) OR ((score >= '-5'::integer) AND (score <= 5))))
+);
+
+
+--
+-- Name: TABLE momentum_summaries; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.momentum_summaries IS 'Generated Momentum trajectory cards. Numeric trajectory remains in momentum_scores; this table stores the first-class direction/score/blurb product consumed by Sigil.';
+
+
+--
+-- Name: momentum_summaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.momentum_summaries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: momentum_summaries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.momentum_summaries_id_seq OWNED BY public.momentum_summaries.id;
+
+
+--
 -- Name: news_article_entities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6076,6 +6128,7 @@ CREATE TABLE public.news_summaries (
     source_oldest_at timestamp with time zone,
     trajectory text DEFAULT 'developing_story'::text NOT NULL,
     trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
     CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
@@ -6144,6 +6197,13 @@ COMMENT ON COLUMN public.news_summaries.trajectory IS 'Narrative trajectory mark
 --
 
 COMMENT ON COLUMN public.news_summaries.trajectory_components IS 'Transparent inputs behind the trajectory marker, usually impact delta versus the previous matching narrative.';
+
+
+--
+-- Name: COLUMN news_summaries.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (vetted corpus article ids + transfer-heat facts); the Rust harness debounce key. NULL on pre-145 rows and markers written before the gate.';
 
 
 --
@@ -6264,6 +6324,58 @@ CREATE SEQUENCE public.notifications_id_seq
 --
 
 ALTER SEQUENCE public.notifications_id_seq OWNED BY public.notifications.id;
+
+
+--
+-- Name: oracle_readings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oracle_readings (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    season integer NOT NULL,
+    trigger_type text DEFAULT 'periodic'::text NOT NULL,
+    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    reading text,
+    omen text,
+    sigil_score smallint,
+    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT oracle_readings_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT oracle_readings_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
+    CONSTRAINT oracle_readings_sigil_score_check CHECK (((sigil_score IS NULL) OR ((sigil_score >= 1) AND (sigil_score <= 100))))
+);
+
+
+--
+-- Name: TABLE oracle_readings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.oracle_readings IS 'Oracle lens readings: the persona-voiced 2-4 sentence read over the assembled cards, downstream of sigil_synthesis. reading NULL = marker (no scored Sigil to read). omen is computed in code, never a model output. input_hash debounces on the consumed Sigil generation.';
+
+
+--
+-- Name: oracle_readings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.oracle_readings_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: oracle_readings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.oracle_readings_id_seq OWNED BY public.oracle_readings.id;
 
 
 --
@@ -7169,6 +7281,7 @@ CREATE TABLE public.transfer_rumors (
     source_oldest_at timestamp with time zone,
     trajectory text DEFAULT 'developing_story'::text NOT NULL,
     trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    input_hash text,
     CONSTRAINT transfer_rumors_direction_check CHECK (((direction IS NULL) OR (direction = ANY (ARRAY['incoming'::text, 'outgoing'::text, 'unclear'::text])))),
     CONSTRAINT transfer_rumors_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
     CONSTRAINT transfer_rumors_stage_check CHECK (((stage IS NULL) OR (stage = ANY (ARRAY['speculation'::text, 'concrete_interest'::text, 'advanced_talks'::text, 'here_we_go'::text])))),
@@ -7189,6 +7302,13 @@ COMMENT ON COLUMN public.transfer_rumors.rumor_updated_at IS 'Transfer-rumor fre
 --
 
 COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajectory marker shared with narratives: developing_story, heating_up, or cooling_off.';
+
+
+--
+-- Name: COLUMN transfer_rumors.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'Reserved for the transfer debounce (Phase 1 follow-up); written as provenance once the transfer gate ships.';
 
 
 --
@@ -7520,6 +7640,13 @@ ALTER TABLE ONLY public.momentum_scores ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- Name: momentum_summaries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.momentum_summaries ALTER COLUMN id SET DEFAULT nextval('public.momentum_summaries_id_seq'::regclass);
+
+
+--
 -- Name: news_articles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -7545,6 +7672,13 @@ ALTER TABLE ONLY public.news_summaries_shadow ALTER COLUMN id SET DEFAULT nextva
 --
 
 ALTER TABLE ONLY public.notifications ALTER COLUMN id SET DEFAULT nextval('public.notifications_id_seq'::regclass);
+
+
+--
+-- Name: oracle_readings id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oracle_readings ALTER COLUMN id SET DEFAULT nextval('public.oracle_readings_id_seq'::regclass);
 
 
 --
@@ -7794,6 +7928,14 @@ ALTER TABLE ONLY public.momentum_scores
 
 
 --
+-- Name: momentum_summaries momentum_summaries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.momentum_summaries
+    ADD CONSTRAINT momentum_summaries_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: news_article_entities news_article_entities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7839,6 +7981,14 @@ ALTER TABLE ONLY public.news_summaries_shadow
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: oracle_readings oracle_readings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oracle_readings
+    ADD CONSTRAINT oracle_readings_pkey PRIMARY KEY (id);
 
 
 --
@@ -8391,6 +8541,20 @@ CREATE INDEX idx_momentum_scores_read ON public.momentum_scores USING btree (spo
 
 
 --
+-- Name: idx_momentum_summaries_entity_recent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_summaries_entity_recent ON public.momentum_summaries USING btree (entity_type, entity_id, sport, season, generated_at DESC);
+
+
+--
+-- Name: idx_momentum_summaries_input_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_momentum_summaries_input_hash ON public.momentum_summaries USING btree (entity_type, entity_id, sport, season, input_hash) WHERE (input_hash IS NOT NULL);
+
+
+--
 -- Name: idx_nae_vetted_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8493,6 +8657,20 @@ CREATE INDEX idx_notifications_dispatch ON public.notifications USING btree (sta
 --
 
 CREATE INDEX idx_notifications_user ON public.notifications USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: idx_oracle_readings_entity_recent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_readings_entity_recent ON public.oracle_readings USING btree (entity_type, entity_id, sport, season, generated_at DESC);
+
+
+--
+-- Name: idx_oracle_readings_input_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_readings_input_hash ON public.oracle_readings USING btree (entity_type, entity_id, sport, season, input_hash) WHERE (input_hash IS NOT NULL);
 
 
 --
@@ -9465,5 +9643,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict QsVArQxPWP3dH3DLQL3feAkFSkucnDmHFXm0xcIzKxfU8b4ZY3aqaTnGPv01tqj
+\unrestrict 0EgxE3QQTt0Vj6XHgFETPAVfR3mQlBv7sqw1QDAXs71h8Xq8UxthEfBWbWyJZZl
 

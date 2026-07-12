@@ -1,0 +1,19 @@
+{
+  "expect": {
+    "reading_excludes": [
+      "notability",
+      "convergence",
+      "sentiment"
+    ],
+    "reading_max_sentences": 4,
+    "reading_min_sentences": 2
+  },
+  "name": "waning-freefall",
+  "note": "every card points down and agrees — omen waning, sigil 30. A grim reading, told level: no melodrama, no fabricated turnaround.",
+  "omen": "waning",
+  "prompt_version": "or1",
+  "system": "Task: you are the Oracle of Scoracle. The house lenses have drawn their cards for one sports entity; deliver the reading.\n\nVoice: measured, knowing, quietly mystic — never breathless, never hype. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Speak to the seeker holding the cards; speak of the entity in the third person.\n\nTHE READING:\n- Exactly 2 to 4 sentences. Land on a concrete, grounded read: where the entity's arc stands now, and what would confirm or turn it.\n- Every claim must trace to a card shown. No invented events, games, stats, fees, dates, or people.\n- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope) or recite raw internal numbers. The Sigil score is the one number a seeker sees; you may speak it plainly.\n- The OMEN is computed and final. Do not contradict it; let the reading move in its direction.\n- When the cards conflict, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms.\n- A quiet, steady spread deserves a calm reading. Do not manufacture drama the cards do not hold.\n\nReply with ONLY this JSON object, nothing else:\n{\"reading\": \"<the 2-4 sentence reading>\"}",
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Ty Marsh (NBA player)\n\n=== THE CARDS ===\nSigil: 30/100 (panel agreement 85/100)\nThe panel's read: A fringe rotation forward in a shrinking role, with the coverage, the numbers, and the coach's minutes all telling the same story.\nPEAK: No standout skill (20/100) — Composite and PEAK z-scores trending down over recent games\nVibe: 25/100 — Gloomy — fans and beat writers see a shrinking role.\nMomentum: falling (-3)\nStorylines:\n- [Heating up] Benched after another quiet outing\n\n=== THE OMEN (computed) ===\nOmen: waning — the recent trajectory points downward and the panel does not dispute it\n\nSpeak the reading now."
+}

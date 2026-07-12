@@ -41,6 +41,10 @@ use crate::narratives::{
     NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
+use crate::oracle::{
+    build_oracle_prompt, compute_omen, count_sentences, load_latest_sigil, oracle_format_schema,
+    parse_oracle_reply, ORACLE_NUM_PREDICT, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
+};
 use crate::rating::{
     build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
     RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
@@ -154,6 +158,12 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "reasoned expert network panelist",
             mandate: "Summarize all pillars into the final Scoracle read.",
             credibility_guard: "Preserve real disagreement between pillars instead of flattening it.",
+        }),
+        "oracle" => Some(LensParameters {
+            rail: Rail::Synthesis,
+            operator: "the Oracle",
+            mandate: "Read the assembled cards aloud and deliver the entity's reading in the house voice.",
+            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented.",
         }),
         _ => None,
     }
@@ -297,6 +307,19 @@ pub struct Expect {
     pub prose_min_words: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_max_words: Option<i32>,
+    // oracle / persona-reading rubric.
+    /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
+    /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_includes: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_excludes: Option<Vec<String>>,
+    /// The conventions' 2-4 sentence read budget, encoded as fixture validation
+    /// (`oracle::count_sentences`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_min_sentences: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_max_sentences: Option<i32>,
     // momentum / trajectory reasoning rubric.
     /// Momentum direction chosen from the analytical trajectory context (`rising`, `falling`,
     /// `steady`). Fixture-first until Momentum becomes a versioned model generation.
@@ -367,6 +390,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
         "vibe" => Some(Box::new(VibeTask)),
         "sigil" => Some(Box::new(SigilTask)),
+        "oracle" => Some(Box::new(OracleTask)),
         "narratives" => Some(Box::new(NarrativeTask)),
         "transfer" => Some(Box::new(TransferTask)),
         "rating" => Some(Box::new(RatingTask)),
@@ -380,6 +404,7 @@ pub fn all_task_names() -> &'static [&'static str] {
     &[
         "vibe",
         "sigil",
+        "oracle",
         "narratives",
         "transfer",
         "rating",
@@ -633,6 +658,113 @@ impl LensTask for SigilTask {
                 disp_opt(p.convergence),
                 p.blurb
             ),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// OracleTask — the persona reading over the assembled cards (downstream of Sigil).
+// ---------------------------------------------------------------------------
+
+pub struct OracleTask;
+
+#[async_trait]
+impl LensTask for OracleTask {
+    fn name(&self) -> &'static str {
+        "oracle"
+    }
+    fn role(&self) -> Role {
+        Role::OracleLogic
+    }
+    fn prompt_version(&self) -> &'static str {
+        ORACLE_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        GenerateOptions {
+            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+            temperature: Some(temperature),
+            num_predict: ORACLE_NUM_PREDICT,
+            num_ctx: 0,
+            json_mode: false,
+            // Grammar-constrained single-field reply, matching the live stage.
+            format_schema: Some(oracle_format_schema()),
+        }
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
+        let sport = e.sport.to_uppercase();
+        let (season, narratives, rating, vibe, momentum, transfers) =
+            load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
+        // No scored Sigil ⇒ the stage would persist a marker without a model call — nothing to score.
+        let Some(sigil) =
+            load_latest_sigil(&hx.pool, &e.entity_type, e.entity_id, &sport, season).await?
+        else {
+            return Ok(None);
+        };
+        let (omen, omen_reason) = compute_omen(&sigil, rating.as_ref(), &momentum);
+        Ok(Some(build_oracle_prompt(
+            &e.entity_type,
+            &name,
+            &e.sport,
+            &sigil,
+            &narratives,
+            rating.as_ref(),
+            vibe.as_ref(),
+            &momentum,
+            &transfers,
+            omen,
+            &omen_reason,
+        )))
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let Some(reading) = parse_oracle_reply(raw) else {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable".into(),
+            };
+        };
+        let lower = reading.to_lowercase();
+        let sentences = count_sentences(&reading);
+        let mut checks = Vec::new();
+
+        if let Some(x) = expect {
+            if let Some(min) = x.reading_min_sentences {
+                checks.push(PropertyCheck {
+                    name: "reading_min_sentences".into(),
+                    pass: sentences as i32 >= min,
+                    detail: format!("sentences={sentences} ≥ {min}"),
+                });
+            }
+            if let Some(max) = x.reading_max_sentences {
+                checks.push(PropertyCheck {
+                    name: "reading_max_sentences".into(),
+                    pass: sentences as i32 <= max,
+                    detail: format!("sentences={sentences} ≤ {max}"),
+                });
+            }
+            for s in x.reading_includes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("reading_includes:{s}"),
+                    pass: lower.contains(&s.to_lowercase()),
+                    detail: String::new(),
+                });
+            }
+            for s in x.reading_excludes.iter().flatten() {
+                checks.push(PropertyCheck {
+                    name: format!("reading_excludes:{s}"),
+                    pass: !lower.contains(&s.to_lowercase()),
+                    detail: String::new(),
+                });
+            }
+        }
+
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: reading,
         }
     }
 }

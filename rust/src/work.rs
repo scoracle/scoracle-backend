@@ -31,6 +31,7 @@ pub enum Stage {
     Narratives,
     Vibe,
     Sigil,
+    Oracle,
 }
 
 impl Stage {
@@ -43,6 +44,7 @@ impl Stage {
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",
             Stage::Sigil => "sigil",
+            Stage::Oracle => "oracle",
         }
     }
 }

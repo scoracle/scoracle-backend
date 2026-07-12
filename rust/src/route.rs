@@ -39,12 +39,16 @@ use tokio::sync::Semaphore;
 /// `Multilang` is the HORIZON normalize role; `Sql` is the SQLCoder role. A future
 /// `TransferLogic` follows the same rule: identity first, model change only on a fixture win.
 /// Derives `Hash` for the L2 role→model map.
+/// `OracleLogic` backs the Oracle reading (identity split from day one, 2026-07-12 — same
+/// lesson as Momentum/Synthesis: the persona voice must never silently flip with another
+/// rail's route change; un-configured it resolves to the default model).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
     MomentumLogic,
     SynthesisLogic,
     NarrativeLogic,
+    OracleLogic,
     EmotionalNews,
     Multilang,
     Sql,
@@ -53,12 +57,13 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 7] {
+    pub fn all() -> [Role; 8] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::SynthesisLogic,
             Role::NarrativeLogic,
+            Role::OracleLogic,
             Role::EmotionalNews,
             Role::Multilang,
             Role::Sql,
@@ -73,6 +78,7 @@ impl Role {
             Role::MomentumLogic => "momentum-logic",
             Role::SynthesisLogic => "synthesis-logic",
             Role::NarrativeLogic => "narrative-logic",
+            Role::OracleLogic => "oracle-logic",
             Role::EmotionalNews => "emotional-news",
             Role::Multilang => "multilang",
             Role::Sql => "sql",
@@ -88,6 +94,7 @@ impl Role {
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::SynthesisLogic => "SYNTHESIS_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
+            Role::OracleLogic => "ORACLE_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",
             Role::Multilang => "MULTILANG",
             Role::Sql => "SQL",

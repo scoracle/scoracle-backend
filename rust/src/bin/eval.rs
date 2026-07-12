@@ -602,6 +602,10 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.prose_excludes.as_ref().map_or(0, Vec::len);
     n += x.prose_min_words.is_some() as usize;
     n += x.prose_max_words.is_some() as usize;
+    n += x.reading_includes.as_ref().map_or(0, Vec::len);
+    n += x.reading_excludes.as_ref().map_or(0, Vec::len);
+    n += x.reading_min_sentences.is_some() as usize;
+    n += x.reading_max_sentences.is_some() as usize;
     n += x.momentum_direction.is_some() as usize;
     n += x.momentum_score_min.is_some() as usize;
     n += x.momentum_score_max.is_some() as usize;

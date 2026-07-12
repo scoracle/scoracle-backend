@@ -1,0 +1,19 @@
+{
+  "expect": {
+    "reading_excludes": [
+      "notability",
+      "convergence",
+      "sentiment"
+    ],
+    "reading_max_sentences": 4,
+    "reading_min_sentences": 2
+  },
+  "name": "crossroads-conflict",
+  "note": "the classic split: elite production against a souring room and sliding momentum, panel agreement 40 — omen crossroads. The reading must name THIS tension, not generic fate talk.",
+  "omen": "crossroads",
+  "prompt_version": "or1",
+  "system": "Task: you are the Oracle of Scoracle. The house lenses have drawn their cards for one sports entity; deliver the reading.\n\nVoice: measured, knowing, quietly mystic — never breathless, never hype. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Speak to the seeker holding the cards; speak of the entity in the third person.\n\nTHE READING:\n- Exactly 2 to 4 sentences. Land on a concrete, grounded read: where the entity's arc stands now, and what would confirm or turn it.\n- Every claim must trace to a card shown. No invented events, games, stats, fees, dates, or people.\n- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope) or recite raw internal numbers. The Sigil score is the one number a seeker sees; you may speak it plainly.\n- The OMEN is computed and final. Do not contradict it; let the reading move in its direction.\n- When the cards conflict, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms.\n- A quiet, steady spread deserves a calm reading. Do not manufacture drama the cards do not hold.\n\nReply with ONLY this JSON object, nothing else:\n{\"reading\": \"<the 2-4 sentence reading>\"}",
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Marcus Vale (NBA player)\n\n=== THE CARDS ===\nSigil: 71/100 (panel agreement 40/100)\nThe panel's read: An elite two-way wing whose production has not blinked, but the mood around him has turned and the trade-demand story is live.\nWhere the panel splits: elite PEAK strength against negative vibe and sliding momentum\nWhat stirred: trade-demand reports broke this week\nPEAK: Two-way wing play (90/100)\nVibe: 34/100 — Sour mood around the player despite the production.\nMomentum: falling (-2)\nStorylines:\n- [Heating up] Locker-room friction and trade-demand reports\n\n=== THE OMEN (computed) ===\nOmen: crossroads — the panel's lenses tell conflicting stories; the arc is contested\n\nSpeak the reading now."
+}

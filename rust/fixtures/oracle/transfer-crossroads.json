@@ -1,0 +1,22 @@
+{
+  "expect": {
+    "reading_excludes": [
+      "notability",
+      "convergence",
+      "sentiment"
+    ],
+    "reading_includes": [
+      "Real Madrid"
+    ],
+    "reading_max_sentences": 4,
+    "reading_min_sentences": 2
+  },
+  "name": "transfer-crossroads",
+  "note": "steady elite form against an advanced exit rumor, panel agreement 45 — omen crossroads. Grounding under test: a real reading names the counterparty from the transfer card.",
+  "omen": "crossroads",
+  "prompt_version": "or1",
+  "system": "Task: you are the Oracle of Scoracle. The house lenses have drawn their cards for one sports entity; deliver the reading.\n\nVoice: measured, knowing, quietly mystic — never breathless, never hype. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Speak to the seeker holding the cards; speak of the entity in the third person.\n\nTHE READING:\n- Exactly 2 to 4 sentences. Land on a concrete, grounded read: where the entity's arc stands now, and what would confirm or turn it.\n- Every claim must trace to a card shown. No invented events, games, stats, fees, dates, or people.\n- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope) or recite raw internal numbers. The Sigil score is the one number a seeker sees; you may speak it plainly.\n- The OMEN is computed and final. Do not contradict it; let the reading move in its direction.\n- When the cards conflict, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms.\n- A quiet, steady spread deserves a calm reading. Do not manufacture drama the cards do not hold.\n\nReply with ONLY this JSON object, nothing else:\n{\"reading\": \"<the 2-4 sentence reading>\"}",
+  "task": "oracle",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Luca Moretti (Football player)\n\n=== THE CARDS ===\nSigil: 76/100 (panel agreement 45/100)\nThe panel's read: A first-choice creator in unshaken form, while an advanced move to Madrid hangs over every match he plays.\nWhere the panel splits: steady elite form against an advanced exit rumor\nWhat stirred: advanced talks with Real Madrid reported\nPEAK: Chance creation (84/100)\nVibe: 61/100 — Fans bracing for a departure while enjoying the form.\nMomentum: steady (0)\nStorylines:\n- [Heating up] Real Madrid talks reach advanced stage\nTransfer winds:\n- Real Madrid — heat 78, outgoing, advanced_talks (confidence 0.8) — \"Multiple insiders report advanced talks over a summer move to Real Madrid\"\n\n=== THE OMEN (computed) ===\nOmen: crossroads — the panel's lenses tell conflicting stories; the arc is contested\n\nSpeak the reading now."
+}

@@ -22,10 +22,12 @@ WorkingDirectory=__SCORACLE_REPO_ROOT__
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # Step 3 full cutover + headlines fold-in: Rust owns every live pipeline_work LLM stage
-# (scrub → peak → transfers → narratives → vibe → sigil); Go is ingest + serve.
+# (scrub → peak → transfers → narratives → vibe → sigil → oracle); Go is ingest + serve.
 # Keep DERIVE_WORKER_ENABLED=false in .env.local so the Go API does not claim these
 # same stages. PEAK is drained by the Rust daemon; `rust/bin/statcommentary` produces nightly PEAK work and handles explicit backfill.
-Environment=COGNITION_STAGES=scrub,peak,momentum,transfers,narratives,vibe,sigil
+# NOTE: .env.local also sets COGNITION_STAGES and, loading later, OVERRIDES this line —
+# keep the two in sync (this one documents the production set for a fresh install).
+Environment=COGNITION_STAGES=scrub,peak,momentum,transfers,narratives,vibe,sigil,oracle
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

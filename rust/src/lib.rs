@@ -44,6 +44,7 @@ pub mod ledger;
 pub mod momentum;
 pub mod narratives;
 pub mod ollama;
+pub mod oracle;
 pub mod rating;
 pub mod resolve;
 pub mod route;

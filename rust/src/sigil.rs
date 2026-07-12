@@ -34,7 +34,10 @@
 //! and persist a NULL-score/NULL-blurb
 //! marker row (the read path returns "no synthesis yet"). The SkipUnchanged debounce skips the
 //! local model call when the pillars hash identically to the entity-season's latest synthesis.
-//! Sigil is the TERMINAL stage — unlike vibe it enqueues nothing downstream.
+//! Since the Oracle lens (2026-07-12), Sigil is no longer terminal: every handle outcome —
+//! scored, marker, AND debounce-skip — enqueues the `oracle` stage. The skip-path enqueue is
+//! deliberate self-healing: the Oracle debounces on the consumed sigil generation itself, so a
+//! previously lost hand-off catches up as a cheap no-op instead of staying lost.
 
 use crate::corpus::{load_transfer_heat, write_heat_lines, HeatItem};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -1467,12 +1470,37 @@ async fn write_sigil_ledger(
     .await;
 }
 
-/// SigilHandler drains the durable `sigil` stage — the terminal convergence. It reads the
+/// enqueue_oracle_for_sigil hands the entity to the `oracle` stage — the reading over this
+/// synthesis. `input_hash` is the sigil generation's pillar hash (`None` for a marker); it
+/// rides `input_version` so an unchanged re-enqueue leaves an existing pending row untouched
+/// (the `work::enqueue` conflict policy).
+async fn enqueue_oracle_for_sigil(
+    pool: &PgPool,
+    item: &Item,
+    sport: &str,
+    season: i32,
+    input_hash: Option<&str>,
+) -> Result<()> {
+    let it = Item {
+        stage: Stage::Oracle,
+        entity_type: item.entity_type.clone(),
+        entity_id: item.entity_id,
+        sport: sport.to_string(),
+        input_version: Some(format!(
+            "sigil:{season}:{}",
+            input_hash.unwrap_or("marker")
+        )),
+        attempts: 0,
+    };
+    crate::work::enqueue(pool, &it).await
+}
+
+/// SigilHandler drains the durable `sigil` stage — the crown convergence. It reads the
 /// pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
-/// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Unlike vibe it
-/// enqueues nothing downstream. Mirrors `drainSigil` (current-season, SkipUnchanged=true).
-/// Registered in main.rs for the per-stage cutover; the parity harness reuses the loaders +
-/// `generate_sigil` core but writes the shadow table.
+/// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Every outcome
+/// hands off to the `oracle` stage (see the module doc). Mirrors `drainSigil`
+/// (current-season, SkipUnchanged=true). Registered in main.rs for the per-stage cutover;
+/// the parity harness reuses the loaders + `generate_sigil` core but writes the shadow table.
 pub struct SigilHandler;
 
 impl SigilHandler {
@@ -1530,6 +1558,7 @@ impl StageHandler for SigilHandler {
             let product_row_id =
                 persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await?;
             write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
+            enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, None).await?;
             return Ok(());
         }
 
@@ -1556,7 +1585,11 @@ impl StageHandler for SigilHandler {
         let (prev_score_raw, prev_blurb, latest_hash) =
             hx.latest_with_hash("sigil_synthesis", &key).await?;
         if latest_hash.as_deref() == Some(input_hash.as_str()) {
-            return Ok(()); // unchanged → cheap no-op (no model call, no persist)
+            // Unchanged → no model call, no persist — but STILL hand off to the Oracle: its own
+            // debounce makes an already-current reading a no-op, and a reading lost to an earlier
+            // failed enqueue catches up here instead of staying lost.
+            enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, Some(&input_hash)).await?;
+            return Ok(());
         }
         let prev = prev_score_raw.map(|v| v as i32).unwrap_or(0);
         // Previous Sigil as prompt-only continuity (Phase 5.2): built only for a real prior read
@@ -1614,6 +1647,7 @@ impl StageHandler for SigilHandler {
         let product_row_id =
             persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
         write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
+        enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, out.input_hash.as_deref()).await?;
         Ok(())
     }
 }

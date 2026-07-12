@@ -1159,6 +1159,27 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
 			           ELSE vs.season = req.want_season END
 			ORDER BY vs.generated_at DESC LIMIT 14
+		),
+		-- The Oracle voice of the Sigil card (mig 146): the latest persona reading over this
+		-- crown. Same latest-generation + freshness discipline as vibe_cur — the latest
+		-- generation regardless of nullability, served only when it is a real reading (a newer
+		-- marker clears a stale reading, exactly like the crown itself); the 72h live gate
+		-- keeps the voice from outliving the crown it reads.
+		oracle_latest_gen AS (
+			SELECT max(o.generated_at) AS g
+			FROM public.oracle_readings o, req
+			WHERE o.entity_type = req.entity_type AND o.entity_id = req.entity_id AND o.sport = req.sport
+			  AND CASE WHEN req.want_season IS NULL
+			           THEN o.season = req.cur_season
+			           ELSE o.season = req.want_season END
+		),
+		oracle_cur AS (
+			SELECT o.reading, o.omen, o.sigil_score, o.model_version, o.prompt_version, o.generated_at
+			FROM public.oracle_readings o, req, oracle_latest_gen
+			WHERE o.entity_type = req.entity_type AND o.entity_id = req.entity_id AND o.sport = req.sport
+			  AND o.generated_at = oracle_latest_gen.g
+			  AND o.reading IS NOT NULL
+			  AND (req.want_season IS NOT NULL OR o.generated_at > NOW() - INTERVAL '72 hours')
 		)
 		SELECT json_build_object(
 			'page', 'sigil',
@@ -1167,6 +1188,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
 			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, convergence, disagreement, why_now, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			'oracle', (SELECT row_to_json(o) FROM (SELECT reading, omen, sigil_score, model_version, prompt_version, generated_at FROM oracle_cur) o),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,

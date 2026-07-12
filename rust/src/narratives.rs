@@ -48,7 +48,7 @@ use tracing::{debug, warn};
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n6"; // n6: heat lines carry the transfer lens summary + confidence
+pub const NARRATIVES_PROMPT_VERSION: &str = "n7"; // n6: heat carries transfer summary+confidence; n7: per-article identity-relevance tags
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v1";
@@ -108,6 +108,8 @@ Rules:
 - A quiet cycle can return one narrative or none.
 - Ignore vague hype when the sources do not name who, what, and where.
 - Ignore articles that are not actually about this entity.
+- Articles may carry a computed (relevance high|medium|low) tag — similarity to this entity's identity. High = clearly about this entity; low = likely about someone else or a passing mention.
+- Treat low-relevance articles as the noise the two rules above target. Never suppress a storyline backed by high-relevance articles as noise — noise filtering is for low-relevance and vague items only.
 
 For each:
 - title: short and specific, naming the key people/clubs; never generic like "Transfer news".
@@ -146,6 +148,10 @@ pub struct CorpusItem {
     pub url: String,
     pub published_at_epoch: Option<i64>,
     pub fetched_at_epoch: Option<i64>,
+    /// Identity-relevance band ("high"/"medium"/"low"), computed by the embed pass against the
+    /// entity's identity card using the L4-validated resolve cosine bands. `None` when no
+    /// embedder is loaded (offline/parity bins) — the prompt then renders the pre-n7 shape.
+    pub relevance_band: Option<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -293,6 +299,7 @@ pub async fn load_vetted_corpus(
                     url,
                     published_at_epoch,
                     fetched_at_epoch,
+                    relevance_band: None,
                 }
             },
         )
@@ -388,24 +395,71 @@ fn embed_text(c: &CorpusItem) -> String {
 /// so this is the IDENTITY and the assembled prompt is byte-identical to Go — the deterministic axes
 /// diff equal (Plan §3 gate). Where it DOES change the input set (live), that is documented value-add,
 /// never a parity break.
-async fn dedup_corpus(hx: &Harness, corpus: Vec<CorpusItem>) -> Result<DedupedCorpus> {
-    if hx.embedder.is_none() || corpus.len() < 2 || DEDUP_THRESHOLD <= 0.0 {
+/// relevance_band maps an article↔identity cosine onto the L4-validated resolve bands: ≥ the
+/// auto-keep line = "high" (clearly about this entity), < the auto-drop line = "low" (likely
+/// about someone else or a passing mention), between = "medium". Same semantics, same measured
+/// thresholds as the scrub Resolve gate — reused, not reinvented.
+fn relevance_band(cos: f32, cfg: &crate::config::ResolveConfig) -> &'static str {
+    if cos >= cfg.keep_threshold {
+        "high"
+    } else if cos < cfg.drop_threshold {
+        "low"
+    } else {
+        "medium"
+    }
+}
+
+/// dedup_corpus is the embed pass: near-duplicate collapse (the original L13 value-add) PLUS
+/// per-article identity-relevance tags (Phase 2, n7 — the deterministic scaffold for the
+/// recall-under-noise gap: the model was over-suppressing, dropping a real storyline together
+/// with off-entity noise; the tags hand it a computed about-this-entity signal instead of
+/// asking it to infer one). One embedding batch covers both: identity card first, articles
+/// after. No embedder (offline/parity bins) ⇒ identity function, untagged pre-n7 prompt shape.
+async fn dedup_corpus(
+    hx: &Harness,
+    req: &NarrativesReq,
+    sport_up: &str,
+    corpus: Vec<CorpusItem>,
+) -> Result<DedupedCorpus> {
+    if hx.embedder.is_none() || corpus.is_empty() || DEDUP_THRESHOLD <= 0.0 {
         return Ok(DedupedCorpus {
             corpus,
             dropped_news_ids: Vec::new(),
         });
     }
-    let texts: Vec<String> = corpus.iter().map(embed_text).collect();
+    let identity = crate::resolve::load_identity_candidate(
+        &hx.pool,
+        &req.entity_type,
+        req.entity_id,
+        &req.entity_name,
+        sport_up,
+    )
+    .await?;
+    let mut texts = Vec::with_capacity(corpus.len() + 1);
+    texts.push(crate::resolve::identity_text(&identity));
+    texts.extend(corpus.iter().map(embed_text));
     let vectors = hx.embed(&texts).await.context("embed narrative corpus")?;
-    let clusters = cluster(&vectors, DEDUP_THRESHOLD);
+    let (identity_vec, article_vecs) = vectors
+        .split_first()
+        .expect("identity plus article vectors");
+    let clusters = cluster(article_vecs, DEDUP_THRESHOLD);
     let keep: Vec<usize> = clusters.iter().map(|c| c.members[0]).collect();
     let dropped_news_ids = clusters
         .iter()
         .flat_map(|c| c.members.iter().skip(1))
         .map(|i| corpus[*i].id)
         .collect();
+    let kept_corpus = keep
+        .into_iter()
+        .map(|i| {
+            let mut item = corpus[i].clone();
+            let cos = crate::embed::cosine_similarity(identity_vec, &article_vecs[i]);
+            item.relevance_band = Some(relevance_band(cos, &hx.resolve).to_string());
+            item
+        })
+        .collect();
     Ok(DedupedCorpus {
-        corpus: keep.into_iter().map(|i| corpus[i].clone()).collect(),
+        corpus: kept_corpus,
         dropped_news_ids,
     })
 }
@@ -432,6 +486,11 @@ pub fn build_narratives_prompt(
         b.push_str(&format!("{}. ", i + 1));
         if !n.source.is_empty() {
             b.push_str(&format!("[{}] ", n.source));
+        }
+        // Identity-relevance tag (n7) — present only when the live embed pass ran, so the
+        // offline/parity prompt shape is unchanged.
+        if let Some(band) = &n.relevance_band {
+            b.push_str(&format!("(relevance {band}) "));
         }
         b.push_str(&n.title);
         if !n.description.is_empty() {
@@ -796,7 +855,7 @@ pub async fn build_narratives_request(
         });
     }
     let original_corpus_size = corpus.len();
-    let deduped = dedup_corpus(hx, corpus).await?;
+    let deduped = dedup_corpus(hx, req, &sport_up, corpus).await?;
     let corpus = deduped.corpus;
 
     let built_prompt = build_narratives_prompt(req, &corpus, &heat);
@@ -1336,6 +1395,7 @@ mod tests {
             url: String::new(),
             published_at_epoch: epoch,
             fetched_at_epoch: epoch,
+            relevance_band: None,
         }
     }
 
@@ -1406,6 +1466,27 @@ mod tests {
 - Heat — heat 40\n\
 \nReturn the JSON object now."
         );
+    }
+
+    // --- relevance banding + tag rendering (n7) ---------------------------------------------------
+
+    #[test]
+    fn relevance_bands_reuse_the_resolve_thresholds() {
+        let cfg = crate::config::ResolveConfig::default(); // keep 0.75 / drop 0.60 (L4-measured)
+        assert_eq!(relevance_band(0.80, &cfg), "high");
+        assert_eq!(relevance_band(0.75, &cfg), "high");
+        assert_eq!(relevance_band(0.70, &cfg), "medium");
+        assert_eq!(relevance_band(0.59, &cfg), "low");
+    }
+
+    #[test]
+    fn prompt_renders_relevance_tag_only_when_present() {
+        let mut tagged = item(1, "ESPN", "Big story", "", None);
+        tagged.relevance_band = Some("high".to_string());
+        let untagged = item(2, "Sky", "Other item", "", None);
+        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &[tagged, untagged], &[]);
+        assert!(p.contains("1. [ESPN] (relevance high) Big story"));
+        assert!(p.contains("2. [Sky] Other item"));
     }
 
     // --- input components: the debounce pre-image ---------------------------------------------------

@@ -17,7 +17,8 @@ use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
 use crate::embed::cosine_similarity;
-use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Provenance};
+use crate::resolve::load_identity_candidate;
+use crate::harness::{Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -232,53 +233,6 @@ async fn weight_narratives(
     Ok(())
 }
 
-async fn load_identity_candidate(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport: &str,
-) -> Result<Candidate> {
-    let Some(kind) = EntityType::from_db_str(entity_type) else {
-        anyhow::bail!("unknown entity type {entity_type:?}");
-    };
-    if kind == EntityType::Team {
-        return Ok(Candidate {
-            entity_type: kind,
-            entity_id,
-            name: entity_name.to_string(),
-            identity: IdentityCard::default(),
-        });
-    }
-    let row: Option<(String, String, String)> = sqlx::query_as(
-        r#"
-        SELECT COALESCE(p.nationality, '') AS nationality,
-               COALESCE(ct.name, '') AS current_club,
-               COALESCE(NULLIF(pci.position, 'Unknown'), '') AS position
-        FROM players p
-        LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
-        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
-        WHERE p.id = $1 AND p.sport = $2
-        "#,
-    )
-    .bind(entity_id)
-    .bind(sport)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("load vibe identity {entity_type}/{entity_id}"))?;
-    let (nationality, current_club, position) = row.unwrap_or_default();
-    let opt = |s: String| (!s.is_empty()).then_some(s);
-    Ok(Candidate {
-        entity_type: kind,
-        entity_id,
-        name: entity_name.to_string(),
-        identity: IdentityCard {
-            nationality: opt(nationality),
-            current_club: opt(current_club),
-            position: opt(position),
-        },
-    })
-}
 
 // ---------------------------------------------------------------------------
 // Prompt assembly.

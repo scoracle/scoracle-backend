@@ -26,11 +26,12 @@
 use crate::bucket::ArticleBucket;
 use crate::config::ResolveConfig;
 use crate::embed::cosine_similarity;
-use crate::harness::{Candidate, EntityType, Harness, Parser, Resolution, Resolved};
+use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Resolution, Resolved};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Deserialize;
+use sqlx::PgPool;
 
 /// The relevance system prompt: disambiguate same-name candidates and return only the JSON contract.
 const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
@@ -91,6 +92,57 @@ fn classify(cosine: f32, cfg: &ResolveConfig) -> Decision {
 /// compares against the article, and the line the model sees. Current club leads (the strongest
 /// disambiguator); teams need no card. Mirrors the L4 experiment's framing so the live gate matches
 /// what was measured.
+/// load_identity_candidate builds the entity's identity card for embedding-relevance scoring —
+/// shared by vibe's narrative weighting and narratives' per-article relevance tags (moved here
+/// from vibe, its Phase-1 beachhead home). Teams get an empty card (name-only identity).
+pub async fn load_identity_candidate(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+) -> Result<Candidate> {
+    let Some(kind) = EntityType::from_db_str(entity_type) else {
+        anyhow::bail!("unknown entity type {entity_type:?}");
+    };
+    if kind == EntityType::Team {
+        return Ok(Candidate {
+            entity_type: kind,
+            entity_id,
+            name: entity_name.to_string(),
+            identity: IdentityCard::default(),
+        });
+    }
+    let row: Option<(String, String, String)> = sqlx::query_as(
+        r#"
+        SELECT COALESCE(p.nationality, '') AS nationality,
+               COALESCE(ct.name, '') AS current_club,
+               COALESCE(NULLIF(pci.position, 'Unknown'), '') AS position
+        FROM players p
+        LEFT JOIN public.player_current_identity pci ON pci.player_id = p.id AND pci.sport = p.sport
+        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = p.sport
+        WHERE p.id = $1 AND p.sport = $2
+        "#,
+    )
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load identity {entity_type}/{entity_id}"))?;
+    let (nationality, current_club, position) = row.unwrap_or_default();
+    let opt = |s: String| (!s.is_empty()).then_some(s);
+    Ok(Candidate {
+        entity_type: kind,
+        entity_id,
+        name: entity_name.to_string(),
+        identity: IdentityCard {
+            nationality: opt(nationality),
+            current_club: opt(current_club),
+            position: opt(position),
+        },
+    })
+}
+
 pub fn identity_text(c: &Candidate) -> String {
     if c.entity_type == EntityType::Team {
         return format!("{} (team)", c.name);

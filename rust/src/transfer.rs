@@ -41,7 +41,7 @@ use std::collections::HashMap;
 use tracing::warn;
 
 /// Prompt version for the transfer/trade vetting contract.
-pub const TRANSFER_PROMPT_VERSION: &str = "t6";
+pub const TRANSFER_PROMPT_VERSION: &str = "t7"; // t7: computed evidence card + no-credible-source stage ceiling
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
@@ -98,6 +98,7 @@ Stage ladder:
 - advanced_talks = reported active negotiation.
 - here_we_go = agreed or imminent deal.
 - If evidence is thin, use speculation.
+- The Evidence line is computed, not claimed. A single source, or no credible source, never supports a stage beyond speculation on headline tone alone. advanced_talks and here_we_go need multiple independent credible sources, or one top-tier source explicitly reporting agreement/negotiation.
 
 Return only this JSON object, with every field present:
 {{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one tight sentence: who, which clubs, any fee or picks the sources actually state, attributed to the source", "confidence": 0.0-1.0}}
@@ -634,12 +635,42 @@ fn has_return_signal(news: &[NewsItem]) -> bool {
 /// build_transfer_prompt assembles the user prompt — BYTE-IDENTICAL to `buildTransferPrompt`
 /// (the deterministic parity axis). The "·" separator (U+00B7) and the "—" (U+2014) are
 /// significant bytes; at temp 0 a single changed byte would change the model's output.
+/// TransferEvidence is the computed evidence-quality card (Phase 2, t7): corpus size, source
+/// diversity, and best-source credibility, measured in code before the model call. The model
+/// grades a claim it is HANDED the evidentiary weight of, instead of inferring "how solid is
+/// this" from headline tone — the failure mode behind roundup false-positives and over-staging.
+#[derive(Clone, Debug, Default)]
+pub struct TransferEvidence {
+    pub total_articles: usize,
+    pub distinct_sources: usize,
+    pub best_source: String,
+    pub best_weight: f64,
+}
+
+impl TransferEvidence {
+    pub fn from_news(news: &[NewsItem], total_articles: usize, best: &str, best_weight: f64) -> Self {
+        let distinct_sources = news
+            .iter()
+            .map(|n| n.source.to_lowercase())
+            .filter(|s| !s.is_empty())
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        Self {
+            total_articles,
+            distinct_sources,
+            best_source: best.to_string(),
+            best_weight,
+        }
+    }
+}
+
 pub fn build_transfer_prompt(
     team_name: &str,
     c: &TransferCandidate,
     sport: &str,
     relationship: &str,
     news: &[NewsItem],
+    evidence: &TransferEvidence,
 ) -> String {
     let player_name = &c.player_name;
     let mut b = String::new();
@@ -675,6 +706,21 @@ pub fn build_transfer_prompt(
             "Roster status: {player_name} is NOT on {team_name} — so any move is an ARRIVAL (incoming). Frame the summary as {team_name} pursuing them.\n"
         )),
     }
+
+    // Evidence card (t7): computed facts, not model inference. Rendered even when thin —
+    // "1 article, 1 source" IS the signal the staging rules key on.
+    b.push_str(&format!(
+        "Evidence (computed): {} article{}, {} distinct source{}; strongest source: {}.\n",
+        evidence.total_articles,
+        if evidence.total_articles == 1 { "" } else { "s" },
+        evidence.distinct_sources,
+        if evidence.distinct_sources == 1 { "" } else { "s" },
+        if evidence.best_source.is_empty() {
+            "none attributed".to_string()
+        } else {
+            format!("{} (credibility {:.1})", evidence.best_source, evidence.best_weight)
+        }
+    ));
 
     b.push_str("\nNews headlines:\n");
     if news.is_empty() {
@@ -885,7 +931,8 @@ pub async fn build_pair_request(
     // Direction + the noise filter key off the deterministic relationship, not the model's text.
     let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
 
-    let built_prompt = build_transfer_prompt(team_name, c, sport, &relationship, &news);
+    let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution, best_weight);
+    let built_prompt = build_transfer_prompt(team_name, c, sport, &relationship, &news, &evidence);
     let opts = GenerateOptions {
         system: Some(transfer_system_prompt(sport)),
         temperature: Some(temperature),
@@ -1000,6 +1047,18 @@ pub async fn analyze_pair(
             // Grounding guard: a claimed rumor with no credible (tier-1/2) source is suspect.
             if v.is_rumor == Some(true) && ready.best_weight < 0.5 {
                 v.confidence *= 0.5;
+                // Stage ceiling (t7): with no credible source a claim can never persist beyond
+                // speculation — the same evidence bar, applied to the stage itself. The model's
+                // original stage stays visible in the ledger's raw response.
+                if norm_stage(&v.stage) != "speculation" {
+                    warn!(
+                        player_id = c.player_id,
+                        model_stage = %v.stage,
+                        best_weight = ready.best_weight,
+                        "transfer: stage clamped to speculation (no credible source)"
+                    );
+                    v.stage = "speculation".to_string();
+                }
             }
         }
     }
@@ -1813,12 +1872,14 @@ mod tests {
             description: "Reports suggest interest.".to_string(),
             source: "BBC".to_string(),
         }];
-        let p = build_transfer_prompt("Arsenal", &c, "FOOTBALL", "current", &news);
+        let evidence = TransferEvidence::from_news(&news, 1, "BBC", 0.9);
+        let p = build_transfer_prompt("Arsenal", &c, "FOOTBALL", "current", &news, &evidence);
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Arsenal\nPlayer: Bukayo Saka\n\
 Identity (the ONE specific player to judge): Bukayo Saka · English · currently at Arsenal · winger\n\
 Roster status: Bukayo Saka is CURRENTLY on Arsenal — so any move is a DEPARTURE (outgoing). Frame the summary as other clubs' interest in signing them.\n\
+Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credibility 0.9).\n\
 \nNews headlines:\n\
 - [BBC] Saka linked with move — Reports suggest interest.\n\
 \nReturn the JSON verdict now."
@@ -1829,12 +1890,14 @@ Roster status: Bukayo Saka is CURRENTLY on Arsenal — so any move is a DEPARTUR
     fn prompt_former_sparse_identity_no_news() {
         // No nationality, unknown club, no position → identity is just name + "current club unknown".
         let c = cand("John Doe", "", "", "");
-        let p = build_transfer_prompt("Chelsea", &c, "FOOTBALL", "former", &[]);
+        let evidence = TransferEvidence::from_news(&[], 0, "", 0.0);
+        let p = build_transfer_prompt("Chelsea", &c, "FOOTBALL", "former", &[], &evidence);
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: John Doe\n\
 Identity (the ONE specific player to judge): John Doe · current club unknown\n\
 Roster status: John Doe is a FORMER Chelsea player who has SINCE LEFT. A 'former/ex-Chelsea' mention is just background, NOT a transfer rumor — set is_rumor=false UNLESS the sources genuinely report John Doe RETURNING to Chelsea (then it is incoming).\n\
+Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attributed.\n\
 \nNews headlines:\n\
 - (none)\n\
 \nReturn the JSON verdict now."
@@ -1851,12 +1914,14 @@ Roster status: John Doe is a FORMER Chelsea player who has SINCE LEFT. A 'former
             description: String::new(),
             source: String::new(),
         }];
-        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news);
+        let evidence = TransferEvidence::from_news(&news, 1, "", 0.0);
+        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence);
         assert_eq!(
             p,
             "Sport: NBA\nTeam: Lakers\nPlayer: Victor Wembanyama\n\
 Identity (the ONE specific player to judge): Victor Wembanyama · French · currently at Spurs · center\n\
 Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL (incoming). Frame the summary as Lakers pursuing them.\n\
+Evidence (computed): 1 article, 0 distinct sources; strongest source: none attributed.\n\
 \nNews headlines:\n\
 - Trade buzz\n\
 \nReturn the JSON verdict now."

@@ -91,6 +91,7 @@ pub struct MomentumOutput {
     pub built_prompt: String,
     pub request_body: serde_json::Value,
     pub eval_count: i32,
+    pub wall_ms: u64,
 }
 
 pub struct MomentumParser;
@@ -621,6 +622,7 @@ impl StageHandler for MomentumHandler {
             built_prompt: extracted.built_prompt,
             request_body: extracted.request_body,
             eval_count: extracted.eval_count,
+            wall_ms: extracted.wall_ms,
         };
         let product_row_id = persist_momentum_summary(&hx.pool, item, &sport, &out).await?;
         insert_cognition_ledger_best_effort(
@@ -650,6 +652,7 @@ impl StageHandler for MomentumHandler {
                 context_budget: serde_json::json!({
                     "num_predict": MOMENTUM_NUM_PREDICT,
                     "eval_count": out.eval_count,
+                    "wall_ms": out.wall_ms,
                     "deterministic_direction": ctx.snapshot.momentum_score
                         .map(|s| momentum_direction_label(s.round() as i32)),
                 }),

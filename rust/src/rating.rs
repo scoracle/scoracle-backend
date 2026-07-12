@@ -1242,6 +1242,7 @@ pub struct RatingOutput {
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
     pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
     pub prompt_version: &'static str,
 }
 
@@ -1296,6 +1297,7 @@ pub async fn generate_rating(
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
+                wall_ms: None,
                 prompt_version: RATING_PROMPT_VERSION,
             });
         }
@@ -1331,6 +1333,7 @@ pub async fn generate_rating(
                     built_prompt: None,
                     request_body: None,
                     eval_count: None,
+                    wall_ms: None,
                     prompt_version: RATING_PROMPT_VERSION,
                 });
             }
@@ -1375,6 +1378,7 @@ pub async fn generate_rating(
         built_prompt: Some(extracted.built_prompt),
         request_body: Some(extracted.request_body),
         eval_count: Some(extracted.eval_count),
+        wall_ms: Some(extracted.wall_ms),
         prompt_version: RATING_PROMPT_VERSION,
     })
 }
@@ -1499,6 +1503,7 @@ pub async fn persist_stat_summary(
             context_budget: serde_json::json!({
                 "num_predict": RATING_NUM_PREDICT,
                 "eval_count": out.eval_count,
+                "wall_ms": out.wall_ms,
             }),
             parser_outcome: rating_parser_outcome(out).to_string(),
         },

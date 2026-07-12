@@ -79,6 +79,9 @@ pub struct Extracted<T> {
     pub request_body: serde_json::Value,
     /// Tokens the model evaluated (perf/telemetry; not all stages persist it).
     pub eval_count: i32,
+    /// Wall-clock milliseconds of the model call (F-036: persisted per call via each
+    /// stage's ledger `context_budget`, so throughput regressions are queryable, not felt).
+    pub wall_ms: u64,
 }
 
 impl Harness {
@@ -105,6 +108,7 @@ impl Harness {
             built_prompt: prompt.to_string(),
             request_body,
             eval_count: gen.eval_count,
+            wall_ms: gen.total_duration.as_millis() as u64,
         })
     }
 }

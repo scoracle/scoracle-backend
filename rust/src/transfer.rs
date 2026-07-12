@@ -365,6 +365,7 @@ pub struct TransferPairOutput {
     pub request_body: Option<serde_json::Value>,
     /// Tokens evaluated by Ollama for this call. `None` when no model result was returned.
     pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
     /// Evidence retained for the optional post-persist identity adjudication gate. Empty for
     /// skipped/no-corpus pairs.
     pub identity_apply_news: Vec<NewsItem>,
@@ -997,6 +998,7 @@ pub async fn analyze_pair(
                     built_prompt: None,
                     request_body: None,
                     eval_count: None,
+                    wall_ms: None,
                     identity_apply_news: Vec::new(),
                     prompt_version: TRANSFER_PROMPT_VERSION,
                 });
@@ -1007,7 +1009,7 @@ pub async fn analyze_pair(
     // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
-    let (verdict, model, built_prompt, request_body, eval_count) = match hx
+    let (verdict, model, built_prompt, request_body, eval_count, wall_ms) = match hx
         .extract(
             Role::EmotionalNews,
             &ready.built_prompt,
@@ -1022,6 +1024,7 @@ pub async fn analyze_pair(
             Some(extracted.built_prompt),
             Some(extracted.request_body),
             Some(extracted.eval_count),
+            Some(extracted.wall_ms),
         ),
         Err(e) => {
             warn!(team = team_id, player = c.player_id, error = %e, "transfers: model generate failed; UNKNOWN (fail-closed)");
@@ -1030,6 +1033,7 @@ pub async fn analyze_pair(
                 ready.model_configured.clone(),
                 Some(ready.built_prompt.clone()),
                 Some(ready.request_body.clone()),
+                None,
                 None,
             )
         }
@@ -1083,6 +1087,7 @@ pub async fn analyze_pair(
         built_prompt,
         request_body,
         eval_count,
+        wall_ms,
         identity_apply_news: ready.news,
         prompt_version: TRANSFER_PROMPT_VERSION,
     })
@@ -1767,6 +1772,7 @@ impl StageHandler for TransferHandler {
                             context_budget: serde_json::json!({
                                 "num_predict": TRANSFER_NUM_PREDICT,
                                 "eval_count": out.eval_count,
+                                "wall_ms": out.wall_ms,
                             }),
                             parser_outcome: transfer_parser_outcome(out.outcome).to_string(),
                         },

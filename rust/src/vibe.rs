@@ -104,6 +104,7 @@ pub struct VibeOutput {
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
     pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
 }
 
 /// vibe_version fingerprints a vibe result for the sigil queue's input_version, exactly
@@ -492,6 +493,7 @@ async fn generate_vibe_inner(
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
+                wall_ms: None,
             },
             None,
             None,
@@ -524,6 +526,7 @@ async fn generate_vibe_inner(
     let built_prompt = extracted.built_prompt;
     let request_body = extracted.request_body;
     let eval_count = extracted.eval_count;
+    let wall_ms = extracted.wall_ms;
 
     Ok((
         VibeOutput {
@@ -539,6 +542,7 @@ async fn generate_vibe_inner(
             built_prompt: Some(built_prompt.clone()),
             request_body: Some(request_body.clone()),
             eval_count: Some(eval_count),
+            wall_ms: Some(wall_ms),
         },
         capture_parity.then_some(built_prompt),
         capture_parity.then_some(request_body),
@@ -679,6 +683,7 @@ impl StageHandler for VibeHandler {
                 context_budget: serde_json::json!({
                     "num_predict": VIBE_NUM_PREDICT,
                     "eval_count": out.eval_count,
+                    "wall_ms": out.wall_ms,
                 }),
                 parser_outcome: vibe_parser_outcome(&out).to_string(),
             },

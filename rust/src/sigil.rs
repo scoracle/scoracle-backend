@@ -216,6 +216,7 @@ pub struct SigilOutput {
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
     pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
 }
 
 impl SigilOutput {
@@ -1263,6 +1264,7 @@ async fn generate_sigil_inner(
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
+                wall_ms: None,
             },
             None,
             None,
@@ -1311,6 +1313,7 @@ async fn generate_sigil_inner(
     let built_prompt = extracted.built_prompt;
     let request_body = extracted.request_body;
     let eval_count = extracted.eval_count;
+    let wall_ms = extracted.wall_ms;
 
     Ok((
         SigilOutput {
@@ -1327,6 +1330,7 @@ async fn generate_sigil_inner(
             built_prompt: Some(built_prompt.clone()),
             request_body: Some(request_body.clone()),
             eval_count: Some(eval_count),
+            wall_ms: Some(wall_ms),
         },
         capture_parity.then_some(built_prompt),
         capture_parity.then_some(request_body),
@@ -1454,6 +1458,7 @@ async fn write_sigil_ledger(
             context_budget: serde_json::json!({
                 "num_predict": SIGIL_NUM_PREDICT,
                 "eval_count": out.eval_count,
+                "wall_ms": out.wall_ms,
             }),
             parser_outcome: sigil_parser_outcome(out).to_string(),
         },
@@ -1519,6 +1524,7 @@ impl StageHandler for SigilHandler {
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
+                wall_ms: None,
             };
             let product_row_id =
                 persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await?;
@@ -1600,6 +1606,7 @@ impl StageHandler for SigilHandler {
             built_prompt: Some(extracted.built_prompt),
             request_body: Some(extracted.request_body),
             eval_count: Some(extracted.eval_count),
+            wall_ms: Some(extracted.wall_ms),
         };
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
         let product_row_id =

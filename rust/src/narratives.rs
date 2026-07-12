@@ -897,6 +897,7 @@ pub struct NarrativesOutput {
     pub request_body: Option<serde_json::Value>,
     /// Tokens evaluated by Ollama for this call. `None` on no-corpus marker rows.
     pub eval_count: Option<i32>,
+    pub wall_ms: Option<u64>,
     /// Inspection: corpus size before/after the candle dedup.
     pub original_corpus_size: usize,
     pub deduped_corpus_size: usize,
@@ -964,6 +965,7 @@ pub async fn generate_narratives_from_build(
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
+                wall_ms: None,
                 original_corpus_size: 0,
                 deduped_corpus_size: 0,
                 dedup_dropped_news_ids: Vec::new(),
@@ -998,6 +1000,7 @@ pub async fn generate_narratives_from_build(
         built_prompt: Some(extracted.built_prompt),
         request_body: Some(extracted.request_body),
         eval_count: Some(extracted.eval_count),
+        wall_ms: Some(extracted.wall_ms),
         original_corpus_size: ready.original_corpus_size,
         deduped_corpus_size: ready.corpus.len(),
         dedup_dropped_news_ids: ready.dedup_dropped_news_ids,
@@ -1278,6 +1281,7 @@ pub async fn persist_narratives(
                 "num_predict": NARRATIVES_NUM_PREDICT,
                 "num_ctx": NARRATIVES_NUM_CTX,
                 "eval_count": out.eval_count,
+                "wall_ms": out.wall_ms,
             }),
             parser_outcome: narratives_parser_outcome(out).to_string(),
         },

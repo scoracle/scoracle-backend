@@ -39,6 +39,7 @@ pub mod db;
 pub mod embed;
 pub mod eval_tasks;
 pub mod harness;
+pub mod judge;
 pub mod ledger;
 pub mod momentum;
 pub mod narratives;

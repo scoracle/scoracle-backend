@@ -131,6 +131,9 @@ struct Args {
     task_name: String,
     mode: Mode,
     cases: Vec<EvalCase>,
+    /// --judge: score each reply with the independent critic model (COGNITION_JUDGE_MODEL,
+    /// default gemma3:4b) on specificity/grounding/non-genericness — the Phase 4 quality axis.
+    judge: bool,
 }
 
 #[tokio::main]
@@ -146,9 +149,28 @@ async fn main() -> Result<()> {
         )
     })?;
 
+    // The judge is OFF-path by construction: a plain client on a model that serves no
+    // production role, built only when --judge is passed.
+    let judge_backend: Option<Arc<dyn Inference>> = if args.judge {
+        let judge_model = std::env::var("COGNITION_JUDGE_MODEL")
+            .ok()
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| "gemma3:4b".to_string());
+        println!("judge — model={judge_model} ({})", scoracle_cognition::judge::JUDGE_PROMPT_VERSION);
+        Some(Arc::new(scoracle_cognition::ollama::OllamaClient::new(
+            &cfg.ollama_base_url,
+            &judge_model,
+            cfg.ollama_timeout,
+        )?))
+    } else {
+        None
+    };
+
     match args.mode {
         Mode::Live => run_live(&cfg, task.as_ref(), &args.cases).await,
-        Mode::Fixtures { filter } => run_fixtures(&cfg, task.as_ref(), filter.as_deref()).await,
+        Mode::Fixtures { filter } => {
+            run_fixtures(&cfg, task.as_ref(), filter.as_deref(), judge_backend).await
+        }
         Mode::Capture => run_capture(&cfg, task.as_ref(), &args.cases).await,
         Mode::CaptureLedger { ledger_id } => {
             run_capture_ledger(&cfg, task.as_ref(), ledger_id).await
@@ -161,6 +183,7 @@ async fn main() -> Result<()> {
 fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
     let mut task_name = "vibe".to_string();
     let mut mode = Mode::Live;
+    let mut judge = false;
     let mut positionals: Vec<String> = Vec::new();
 
     let mut it = argv.peekable();
@@ -179,6 +202,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
                 };
                 mode = Mode::Fixtures { filter };
             }
+            "--judge" => judge = true,
             "--capture" => mode = Mode::Capture,
             "--capture-ledger" => {
                 let raw = it
@@ -201,6 +225,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
         task_name,
         mode,
         cases,
+        judge,
     })
 }
 
@@ -362,7 +387,12 @@ async fn score_backend(
 // FIXTURE mode — the reproducible regression gate (DB-free, Router-only)
 // ---------------------------------------------------------------------------
 
-async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -> Result<()> {
+async fn run_fixtures(
+    cfg: &Config,
+    task: &dyn LensTask,
+    filter: Option<&str>,
+    judge: Option<Arc<dyn Inference>>,
+) -> Result<()> {
     // Router-only: no DB pool, no Harness — fixtures carry their own frozen prompts.
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
     let incumbent = router.for_role(task.role());
@@ -400,16 +430,18 @@ async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -
     let mut inc_total = 0usize;
     let mut cand_pass = 0usize;
     let mut cand_total = 0usize;
+    let mut inc_judge = JudgeAgg::default();
+    let mut cand_judge = JudgeAgg::default();
     for fx in &fixtures {
         if let Some(warn) = fixture_drift(fx, task) {
             println!("  ⚠ WARN {warn}");
         }
         println!("\n[{}]  (temp={})", fx.name, fx.temperature);
-        let (p, t) = run_one_fixture("A", &incumbent, task, fx).await;
+        let (p, t) = run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx).await;
         inc_pass += p;
         inc_total += t;
         if let Some(c) = candidate.as_ref() {
-            let (p, t) = run_one_fixture("B", c, task, fx).await;
+            let (p, t) = run_one_fixture("B", c, task, judge.as_ref(), &mut cand_judge, fx).await;
             cand_pass += p;
             cand_total += t;
         }
@@ -419,11 +451,17 @@ async fn run_fixtures(cfg: &Config, task: &dyn LensTask, filter: Option<&str>) -
         "\n=== fixture summary — {} : {inc_pass}/{inc_total} property checks passed ===",
         incumbent.model()
     );
+    if let Some(line) = inc_judge.summary() {
+        println!("=== judge — {} : {line} ===", incumbent.model());
+    }
     if let Some(c) = candidate.as_ref() {
         println!(
             "=== fixture summary — {} : {cand_pass}/{cand_total} property checks passed ===",
             c.model()
         );
+        if let Some(line) = cand_judge.summary() {
+            println!("=== judge — {} : {line} ===", c.model());
+        }
     }
     println!(
         "(a red check on a 'target' fixture is the documented honesty gap, not a harness failure)"
@@ -438,6 +476,9 @@ async fn run_one_fixture(
     label: &str,
     backend: &Arc<dyn Inference>,
     task: &dyn LensTask,
+    // --judge: the independent critic + the per-model aggregate it feeds.
+    judge: Option<&Arc<dyn Inference>>,
+    judge_agg: &mut JudgeAgg,
     fx: &Fixture,
 ) -> (usize, usize) {
     let mut opts = task.gen_options(fx.temperature);
@@ -466,7 +507,62 @@ async fn run_one_fixture(
             println!("      [{mark}] {} — {}", c.name, c.detail);
         }
     }
+    if let Some(j) = judge {
+        match scoracle_cognition::judge::judge_reply(
+            j.as_ref(),
+            task.name(),
+            &fx.user_prompt,
+            &gen.response,
+        )
+        .await
+        {
+            Ok(Some(v)) => {
+                let worst = if v.worst_claim.is_empty() {
+                    String::new()
+                } else {
+                    format!(" — worst: {}", v.worst_claim)
+                };
+                println!(
+                    "      [judge] specificity={} grounding={} non-generic={}{worst}",
+                    v.specificity, v.grounding, v.non_generic
+                );
+                judge_agg.add(&v);
+            }
+            Ok(None) => println!("      [judge] unparseable verdict (unjudged)"),
+            Err(e) => println!("      [judge] failed ({e:#})"),
+        }
+    }
     (verdict.checks_passed(), verdict.checks.len())
+}
+
+/// JudgeAgg accumulates per-model judge scores across a fixture run.
+#[derive(Default)]
+struct JudgeAgg {
+    n: usize,
+    specificity: i64,
+    grounding: i64,
+    non_generic: i64,
+}
+
+impl JudgeAgg {
+    fn add(&mut self, v: &scoracle_cognition::judge::JudgeVerdict) {
+        self.n += 1;
+        self.specificity += i64::from(v.specificity);
+        self.grounding += i64::from(v.grounding);
+        self.non_generic += i64::from(v.non_generic);
+    }
+    fn summary(&self) -> Option<String> {
+        (self.n > 0).then(|| {
+            let f = |s: i64| s as f64 / self.n as f64;
+            format!(
+                "specificity {:.1} · grounding {:.1} · non-generic {:.1} (n={})",
+                f(self.specificity),
+                f(self.grounding),
+                f(self.non_generic),
+                self.n
+            )
+        })
+    }
 }
 
 /// expected_property_count mirrors the fixture schema: if a reply is unparseable, every authored

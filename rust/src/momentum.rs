@@ -15,7 +15,7 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// Prompt version for the generated Momentum card.
 pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s3"; // s3: prompt carries the rating scouting read
@@ -582,6 +582,33 @@ impl StageHandler for MomentumHandler {
         let reply = extracted
             .value
             .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
+
+        // Direction reconciliation (Phase 2, log-first): the deterministic slope-sign from the
+        // SQL momentum snapshot is the numeric truth; the model's direction is a judgment over
+        // richer context (PEAK read, vibe prose). They MAY legitimately differ — but silently,
+        // never. Log the conflict now; a hard clamp (like PEAK's pct>=75 primary gate) is the
+        // follow-up once live frequency is known.
+        if let Some(det_score) = ctx.snapshot.momentum_score {
+            let deterministic = if det_score >= 1.0 {
+                "rising"
+            } else if det_score <= -1.0 {
+                "falling"
+            } else {
+                "steady"
+            };
+            if deterministic != reply.direction {
+                warn!(
+                    entity_type = %item.entity_type,
+                    entity_id,
+                    sport = %sport,
+                    model_direction = %reply.direction,
+                    deterministic_direction = deterministic,
+                    momentum_score = det_score,
+                    "momentum: model direction disagrees with deterministic slope sign"
+                );
+            }
+        }
+
         let out = MomentumOutput {
             direction: reply.direction,
             score: reply.score,

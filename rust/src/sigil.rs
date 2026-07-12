@@ -55,7 +55,7 @@ use sqlx::{PgPool, Row};
 /// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
 /// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
 /// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
-pub const SIGIL_PROMPT_VERSION: &str = "s12"; // s12: heat lines carry the transfer lens summary + confidence
+pub const SIGIL_PROMPT_VERSION: &str = "s13"; // s12: heat lines carry transfer summary+confidence; s13: computed PILLAR AGREEMENT card
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
@@ -84,9 +84,11 @@ SCORE (1-100):
 CONVERGENCE (1-100):
 - How strongly the lenses agree. 100 = PEAK, narrative, vibe, momentum, and transfer all tell the same story; 50 = mixed; low = the lenses conflict.
 - Judge agreement of DIRECTION, not raw scores: a steady 50 across every lens still converges.
+- When a PILLAR AGREEMENT section is shown, it is computed, not an opinion: ground CONVERGENCE in it. Every DISAGREE line lowers convergence; if half or more of the pairs DISAGREE, convergence must be below 50.
 
 DISAGREEMENT:
 - One line naming the specific rail conflict when the lenses diverge, e.g. "strong PEAK vs sliding momentum and negative narrative".
+- When PILLAR AGREEMENT lists DISAGREE lines, name those conflicts — do not invent a conflict it does not list, and do not omit one it does.
 - Omit this line entirely when the lenses agree. Do not invent a conflict.
 
 WHY_NOW:
@@ -715,6 +717,128 @@ pub struct PrevSigil {
 /// Sigil read for continuity (Phase 5.2) — rendered as a lead-in anchor, `None` for the parity
 /// path and an entity's first synthesis.
 #[allow(clippy::too_many_arguments)]
+/// One deterministic cross-pillar direction comparison, computed in code before the model ever
+/// sees the pillars. The PEAK `ScoutingDecision` lesson (2026-07-10) applied to Sigil: the
+/// fixture-measured failure was convergence scored 70-80 on disagreement-heavy inputs — asking
+/// the model to NOTICE rail conflict in unstructured prose fails the same way asking it to
+/// infer the PEAK label from a stat list did. So the conflict detection moves into code and the
+/// model's job becomes explaining a handed decision.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PillarComparison {
+    pub label: String,
+    pub agree: bool,
+}
+
+/// Reduce a value to a direction sign: `None` = not directional (skip the comparison).
+fn trajectory_sign(key: &str) -> Option<i8> {
+    match key {
+        "rising" | "heating_up" => Some(1),
+        "falling" | "cooling_off" => Some(-1),
+        _ => None,
+    }
+}
+
+fn sentiment_sign(sentiment: i32) -> Option<i8> {
+    if sentiment >= 60 {
+        Some(1)
+    } else if sentiment <= 40 {
+        Some(-1)
+    } else {
+        None
+    }
+}
+
+fn sign_word(s: i8) -> &'static str {
+    if s > 0 {
+        "positive"
+    } else {
+        "negative"
+    }
+}
+
+/// build_pillar_divergence emits one comparison per directional pillar pair that is actually
+/// present. Neutral/steady/absent signals produce NO line (a steady lens neither agrees nor
+/// disagrees — the system prompt's own convergence rule). Pure and deterministic; the card is
+/// prompt-only and derives entirely from values already in the input hash, so it can never
+/// trigger a regeneration by itself.
+pub fn build_pillar_divergence(
+    narratives: &[SynthNarrative],
+    rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
+    mom: &SynthMomentum,
+) -> Vec<PillarComparison> {
+    let mut out = Vec::new();
+
+    let peak_sign = rating.and_then(|r| trajectory_sign(&r.peak_trajectory));
+    let vibe_sign = vibe.and_then(|v| sentiment_sign(v.sentiment));
+    let mom_sign = mom
+        .direction
+        .as_deref()
+        .and_then(trajectory_sign);
+    // Narrative balance: net heating_up minus cooling_off across the latest generation.
+    let narrative_sign = {
+        let net: i32 = narratives
+            .iter()
+            .filter_map(|n| trajectory_sign(&n.trajectory))
+            .map(i32::from)
+            .sum();
+        match net.cmp(&0) {
+            std::cmp::Ordering::Greater => Some(1i8),
+            std::cmp::Ordering::Less => Some(-1i8),
+            std::cmp::Ordering::Equal => None,
+        }
+    };
+
+    let mut push = |label: String, a: i8, b: i8| {
+        out.push(PillarComparison {
+            label,
+            agree: (i32::from(a) * i32::from(b)) > 0,
+        });
+    };
+
+    if let (Some(p), Some(m)) = (peak_sign, mom_sign) {
+        push(
+            format!(
+                "PEAK trajectory ({}) vs Momentum ({})",
+                sign_word(p),
+                sign_word(m)
+            ),
+            p,
+            m,
+        );
+    }
+    if let (Some(v), Some(m)) = (vibe_sign, mom_sign) {
+        push(
+            format!("Vibe ({}) vs Momentum ({})", sign_word(v), sign_word(m)),
+            v,
+            m,
+        );
+    }
+    if let (Some(p), Some(v)) = (peak_sign, vibe_sign) {
+        push(
+            format!(
+                "PEAK trajectory ({}) vs Vibe ({})",
+                sign_word(p),
+                sign_word(v)
+            ),
+            p,
+            v,
+        );
+    }
+    if let (Some(n), Some(v)) = (narrative_sign, vibe_sign) {
+        push(
+            format!(
+                "Narrative balance ({}) vs Vibe ({})",
+                sign_word(n),
+                sign_word(v)
+            ),
+            n,
+            v,
+        );
+    }
+    out
+}
+
 pub fn build_synthesis_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -743,6 +867,27 @@ pub fn build_synthesis_prompt(
             b.push_str(&p.blurb);
             b.push('\n');
         }
+    }
+
+    // PILLAR AGREEMENT (Phase 2) — the deterministic divergence card, rendered after the prior
+    // but BEFORE the raw pillars (same placement discipline as PEAK's SCOUTING DECISION:
+    // decision first, evidence after). Omitted entirely when no directional pair exists, so
+    // quiet entities' prompts are unchanged.
+    let comparisons = build_pillar_divergence(narratives, rating, vibe, mom);
+    if !comparisons.is_empty() {
+        let agree_count = comparisons.iter().filter(|c| c.agree).count();
+        b.push_str("\n=== PILLAR AGREEMENT (computed) ===\n");
+        for c in &comparisons {
+            b.push_str(&format!(
+                "- {}: {}\n",
+                c.label,
+                if c.agree { "agree" } else { "DISAGREE" }
+            ));
+        }
+        b.push_str(&format!(
+            "Agreement: {agree_count} of {} directional pairs agree.\n",
+            comparisons.len()
+        ));
     }
 
     // P1 — News narrative
@@ -1835,8 +1980,59 @@ mod tests {
         );
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== PILLAR AGREEMENT (computed) ===\n- Narrative balance (positive) vs Vibe (positive): agree\nAgreement: 1 of 1 directional pairs agree.\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
         );
+    }
+
+    #[test]
+    fn pillar_divergence_names_the_rail_conflict() {
+        // The fixture-measured sigil failure: strong-but-falling PEAK, positive vibe, falling
+        // momentum. The card must hand the model both DISAGREE pairs deterministically.
+        let rating = SynthRating {
+            divined_peak: "Rim protection".into(),
+            body: "b".into(),
+            notability: 88,
+            peak_trajectory: "falling".into(),
+            peak_trajectory_label: String::new(),
+        };
+        let vibe = SynthVibe {
+            sentiment: 75,
+            prompt: "warm".into(),
+        };
+        let mom = SynthMomentum {
+            direction: Some("falling".into()),
+            momentum_score: Some(-2.0),
+            ..SynthMomentum::default()
+        };
+        let c = build_pillar_divergence(&[], Some(&rating), Some(&vibe), &mom);
+        let rendered: Vec<(String, bool)> = c.into_iter().map(|x| (x.label, x.agree)).collect();
+        assert_eq!(
+            rendered,
+            vec![
+                ("PEAK trajectory (negative) vs Momentum (negative)".to_string(), true),
+                ("Vibe (positive) vs Momentum (negative)".to_string(), false),
+                ("PEAK trajectory (negative) vs Vibe (positive)".to_string(), false),
+            ]
+        );
+    }
+
+    #[test]
+    fn pillar_divergence_skips_neutral_and_absent_signals() {
+        // Steady momentum, mid-band vibe, no rating: nothing directional -> empty card,
+        // and the prompt section is omitted entirely.
+        let vibe = SynthVibe {
+            sentiment: 50,
+            prompt: String::new(),
+        };
+        let mom = SynthMomentum {
+            direction: Some("steady".into()),
+            ..SynthMomentum::default()
+        };
+        assert!(build_pillar_divergence(&[], None, Some(&vibe), &mom).is_empty());
+        let p = build_synthesis_prompt(
+            "player", "X", "NBA", &[], None, Some(&vibe), &mom, &[], None,
+        );
+        assert!(!p.contains("PILLAR AGREEMENT"));
     }
 
     #[test]

@@ -55,7 +55,7 @@ use sqlx::{PgPool, Row};
 /// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
 /// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
 /// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
-pub const SIGIL_PROMPT_VERSION: &str = "s13"; // s12: heat lines carry transfer summary+confidence; s13: computed PILLAR AGREEMENT card
+pub const SIGIL_PROMPT_VERSION: &str = "s14"; // s13: computed PILLAR AGREEMENT card; s14: de-parrotable DISAGREEMENT rubric
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
@@ -87,7 +87,7 @@ CONVERGENCE (1-100):
 - When a PILLAR AGREEMENT section is shown, it is computed, not an opinion: ground CONVERGENCE in it. Every DISAGREE line lowers convergence; if half or more of the pairs DISAGREE, convergence must be below 50.
 
 DISAGREEMENT:
-- One line naming the specific rail conflict when the lenses diverge, e.g. "strong PEAK vs sliding momentum and negative narrative".
+- One line naming, in your own words, which specific pillars conflict and how — name the actual pillars (PEAK strength, PEAK trajectory, Vibe, Momentum, narrative, transfer) from THIS entity's data, never boilerplate.
 - When PILLAR AGREEMENT lists DISAGREE lines, name those conflicts — do not invent a conflict it does not list, and do not omit one it does.
 - Omit this line entirely when the lenses agree. Do not invent a conflict.
 
@@ -775,19 +775,25 @@ pub fn build_pillar_divergence(
         .direction
         .as_deref()
         .and_then(trajectory_sign);
-    // Narrative balance: net heating_up minus cooling_off across the latest generation.
-    let narrative_sign = {
-        let net: i32 = narratives
-            .iter()
-            .filter_map(|n| trajectory_sign(&n.trajectory))
-            .map(i32::from)
-            .sum();
-        match net.cmp(&0) {
-            std::cmp::Ordering::Greater => Some(1i8),
-            std::cmp::Ordering::Less => Some(-1i8),
-            std::cmp::Ordering::Equal => None,
+    // PEAK strength: the LEVEL sign (is this an elite or a weak profile), distinct from the
+    // trajectory sign. The classic rails conflict the fixtures measure — "strong PEAK vs
+    // sliding momentum and negative narrative" — is a LEVEL-vs-direction disagreement that
+    // trajectory pairs alone cannot see. (Narrative heating_up/cooling_off is deliberately NOT
+    // compared: it measures story intensity, not valence — a negative story heating up must
+    // not read as "positive narrative".)
+    let strength_sign = rating.and_then(|r| {
+        if r.notability >= 70 {
+            Some(1i8)
+        } else if r.notability <= 35 {
+            Some(-1i8)
+        } else {
+            None
         }
-    };
+    });
+    let strength_word = |s: i8| if s > 0 { "strong" } else { "weak" };
+    // Narratives carry no valence signal here (see above); the parameter stays for the card's
+    // future evolution (e.g. narrative-sentiment once the stage emits one).
+    let _ = narratives;
 
     let mut push = |label: String, a: i8, b: i8| {
         out.push(PillarComparison {
@@ -825,14 +831,25 @@ pub fn build_pillar_divergence(
             v,
         );
     }
-    if let (Some(n), Some(v)) = (narrative_sign, vibe_sign) {
+    if let (Some(s), Some(m)) = (strength_sign, mom_sign) {
         push(
             format!(
-                "Narrative balance ({}) vs Vibe ({})",
-                sign_word(n),
+                "PEAK strength ({}) vs Momentum ({})",
+                strength_word(s),
+                sign_word(m)
+            ),
+            s,
+            m,
+        );
+    }
+    if let (Some(s), Some(v)) = (strength_sign, vibe_sign) {
+        push(
+            format!(
+                "PEAK strength ({}) vs Vibe ({})",
+                strength_word(s),
                 sign_word(v)
             ),
-            n,
+            s,
             v,
         );
     }
@@ -1980,7 +1997,7 @@ mod tests {
         );
         assert_eq!(
             p,
-            "Entity: Test Player (NBA player)\n\n=== PILLAR AGREEMENT (computed) ===\n- Narrative balance (positive) vs Vibe (positive): agree\nAgreement: 1 of 1 directional pairs agree.\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
+            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
         );
     }
 
@@ -2012,6 +2029,8 @@ mod tests {
                 ("PEAK trajectory (negative) vs Momentum (negative)".to_string(), true),
                 ("Vibe (positive) vs Momentum (negative)".to_string(), false),
                 ("PEAK trajectory (negative) vs Vibe (positive)".to_string(), false),
+                ("PEAK strength (strong) vs Momentum (negative)".to_string(), false),
+                ("PEAK strength (strong) vs Vibe (positive)".to_string(), true),
             ]
         );
     }

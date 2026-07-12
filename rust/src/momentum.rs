@@ -240,10 +240,11 @@ fn build_momentum_input_components(
         }
     }
     if let Some(v) = vibe {
+        // Sentiment only — the vibe felt-read prose stays in the PROMPT but out of the hash
+        // (F1, material-only debounce): vibe generates at temp 0.7, so its prose changes on
+        // every re-run even when material is byte-identical; hashing it cascaded
+        // momentum→sigil→oracle regenerations on zero material change.
         pairs.push(("vibe_sentiment", v.sentiment.to_string()));
-        if !v.prompt.is_empty() {
-            pairs.push(("vibe_prompt", go_json_string(&v.prompt)));
-        }
     }
     if let Some(s) = mom.rating_slope {
         pairs.push(("momentum_rating_slope", go_json_float(round1(s))));
@@ -717,9 +718,11 @@ mod tests {
             momentum_score: Some(1.19),
             ..SynthMomentum::default()
         };
+        // The vibe prompt is non-empty on purpose: the golden proves the felt-read prose is
+        // NOT in the hash pre-image (F1 material-only debounce) — only vibe_sentiment is.
         assert_eq!(
             build_momentum_input_components(Some(&rating), Some(&vibe), &mom),
-            r#"{"divined_peak":"Rim protection","momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"peak_trajectory":"rising","peak_trajectory_label":"Composite rising","vibe_prompt":"Coverage is warmer","vibe_sentiment":62}"#
+            r#"{"divined_peak":"Rim protection","momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"peak_trajectory":"rising","peak_trajectory_label":"Composite rising","vibe_sentiment":62}"#
         );
     }
 }

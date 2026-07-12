@@ -578,6 +578,11 @@ fn momentum_score_label(score: i32) -> &'static str {
 // shortest float form), so its SHA-256 128-bit hex prefix remains a deterministic debounce key.
 // Wave 5 intentionally changes the fields by adding Vibe and durable Momentum as first-class
 // Sigil inputs, so this is a product-contract hash now rather than a Go parity axis.
+//
+// F1 (2026-07-12) narrows the key to MATERIAL signals only: upstream model prose (the vibe
+// felt-read, the momentum blurb) stays in the prompt but never enters the hash — the same
+// "exclude derived commentary" rule narratives applies to heat summaries. Prose from a
+// temp-0.7 upstream re-run must not be able to flip this hash when nothing material moved.
 // ---------------------------------------------------------------------------
 
 /// build_synthesis_input_components returns the canonical input-components JSON. The
@@ -632,10 +637,10 @@ pub fn build_synthesis_input_components(
         }
     }
     if let Some(v) = vibe {
+        // Sentiment only — the vibe felt-read prose is PROMPT-ONLY (F1, material-only
+        // debounce): vibe generates at temp 0.7, so hashing its prose flipped this hash on
+        // every vibe re-run even when nothing material moved.
         pairs.push(("vibe_sentiment", v.sentiment.to_string()));
-        if !v.prompt.is_empty() {
-            pairs.push(("vibe_prompt", go_json_string(&v.prompt)));
-        }
     }
     if let Some(s) = mom.vibe_slope {
         pairs.push(("momentum_vibe_slope", go_json_float(round1(s))));
@@ -651,9 +656,11 @@ pub fn build_synthesis_input_components(
     if let Some(direction) = &mom.direction {
         pairs.push(("momentum_direction", go_json_string(direction)));
     }
-    if let Some(blurb) = &mom.blurb {
-        pairs.push(("momentum_blurb", go_json_string(blurb)));
-    }
+    // momentum_blurb is PROMPT-ONLY (F1, material-only debounce): the blurb is momentum's
+    // model prose, so hashing it made every momentum regeneration flip sigil's hash even when
+    // the material signals were unchanged. momentum_summary_hash below is momentum's own
+    // input_hash — material-only after F1 — so sigil still re-runs when momentum's INPUTS
+    // genuinely move.
     if let Some(input_hash) = &mom.input_hash {
         pairs.push(("momentum_summary_hash", go_json_string(input_hash)));
     }
@@ -1920,6 +1927,8 @@ mod tests {
             rating_slope: Some(0.0),
             rating_samples: 5,
             momentum_score: Some(2.5),
+            blurb: Some("PEAK is sliding while Vibe holds.".into()),
+            input_hash: Some("a1b2c3d4e5f60718293a4b5c6d7e8f90".into()),
             ..SynthMomentum::default()
         };
         let vibe = SynthVibe {
@@ -1931,9 +1940,12 @@ mod tests {
         // "B & C"'s ampersand is HTML-escaped (the backslash-u form), exactly as Go's
         // json.Marshal emits it. Built via format! with a runtime backslash (bs) so the
         // source carries no literal backslash-u token (the editor would decode it).
+        // The vibe prompt and momentum blurb are non-empty on purpose: the golden proves the
+        // upstream model prose is NOT in the hash pre-image (F1 material-only debounce) —
+        // vibe contributes only vibe_sentiment, momentum its material-only summary hash.
         let bs = '\\';
         let want = format!(
-            r#"{{"divined_peak":"Rim Protector","momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games","vibe_prompt":"Quietly surging","vibe_sentiment":60}}"#
+            r#"{{"divined_peak":"Rim Protector","momentum_rating_samples":5,"momentum_rating_slope":0,"momentum_score":2.5,"momentum_summary_hash":"a1b2c3d4e5f60718293a4b5c6d7e8f90","momentum_vibe_samples":4,"momentum_vibe_slope":1,"narrative_titles":["Alpha","B {bs}u0026 C"],"narrative_trajectories":["Alpha:developing_story","B {bs}u0026 C:heating_up"],"notability":88,"peak_trajectory":"falling","peak_trajectory_label":"Composite and PEAK z-scores trending down over recent games","vibe_sentiment":60}}"#
         );
         assert_eq!(got, want);
     }

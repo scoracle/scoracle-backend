@@ -51,7 +51,36 @@ use tracing::{debug, warn};
 pub const NARRATIVES_PROMPT_VERSION: &str = "n7"; // n6: heat carries transfer summary+confidence; n7: per-article identity-relevance tags
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v1";
+/// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
+/// server, not hoped for by the prompt.
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v2-schema";
+
+/// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
+/// Grammar-level guarantees the free-text contract could only ask for: the top-level object
+/// cannot be prose-wrapped, `narratives` must exist, and every item carries title/body/articles.
+/// The tolerant balanced-brace salvager stays as the parse path — schema output is a strict
+/// subset of what it accepts, and it remains the safety net for the offline/parity bins.
+pub fn narratives_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "narratives": {
+                "type": "array",
+                "maxItems": 6,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title":    { "type": "string" },
+                        "body":     { "type": "string" },
+                        "articles": { "type": "array", "items": { "type": "integer" } }
+                    },
+                    "required": ["title", "body", "articles"]
+                }
+            }
+        },
+        "required": ["narratives"]
+    })
+}
 
 /// Production decode temperature (`ollama.Generate` in Go). The parity gate pins temp 0 (the
 /// deterministic-axes diff); production narrates at 0.6.
@@ -864,7 +893,11 @@ pub async fn build_narratives_request(
         temperature: Some(temperature),
         num_predict: NARRATIVES_NUM_PREDICT,
         num_ctx: NARRATIVES_NUM_CTX,
-        json_mode: false, // narratives is free-text JSON-instructed, NOT Ollama format=json (Go parity)
+        json_mode: false,
+        // Phase 5: grammar-constrained decoding replaces "hopefully JSON" (the failure class
+        // the balanced-brace salvager was built for). The Go-parity free-text contract is
+        // retired; the salvager stays as the tolerant parse path either way.
+        format_schema: Some(narratives_format_schema()),
     };
     let backend = hx.router.for_role(Role::NarrativeLogic);
     let request_body = backend.request_body(&built_prompt, &opts);

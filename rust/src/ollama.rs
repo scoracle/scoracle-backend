@@ -50,6 +50,12 @@ pub struct GenerateOptions {
     pub num_predict: i32,
     pub num_ctx: i32,
     pub json_mode: bool, // sets format="json"
+    /// A JSON schema for Ollama's constrained decoding (`format: <schema>`), supported since
+    /// Ollama 0.5. Takes precedence over `json_mode`. This is a GRAMMAR guarantee on output
+    /// shape — required keys cannot be omitted, no prose can leak around the object — versus
+    /// `json_mode`'s "some valid JSON" and free-text's "hopefully JSON" (the narratives
+    /// balanced-brace salvager exists because of the latter).
+    pub format_schema: Option<serde_json::Value>,
 }
 
 /// GenerateResult holds the text output plus perf metrics. Callers doing
@@ -71,7 +77,7 @@ struct GenerateRequest<'a> {
     system: Option<&'a str>,
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    format: Option<&'a str>,
+    format: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     think: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -159,7 +165,11 @@ impl OllamaClient {
             prompt,
             system: opts.system.as_deref(),
             stream: false,
-            format: if opts.json_mode { Some("json") } else { None },
+            format: match (&opts.format_schema, opts.json_mode) {
+                (Some(schema), _) => Some(schema.clone()),
+                (None, true) => Some(serde_json::Value::String("json".to_string())),
+                (None, false) => None,
+            },
             think: self.think,
             options: if options.is_empty() {
                 None

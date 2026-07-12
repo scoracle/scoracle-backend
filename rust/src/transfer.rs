@@ -940,6 +940,7 @@ pub async fn build_pair_request(
         num_predict: TRANSFER_NUM_PREDICT,
         num_ctx: 0,
         json_mode: true,
+    format_schema: None,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
     let request_body = backend.request_body(&built_prompt, &opts);
@@ -1544,6 +1545,7 @@ async fn maybe_apply_transfer_identity(
         num_predict: 700,
         num_ctx: 0,
         json_mode: true,
+    format_schema: None,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
     let model_configured = backend.model().to_string();

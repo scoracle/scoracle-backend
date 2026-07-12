@@ -1201,6 +1201,7 @@ pub async fn build_rating_request(
         num_predict: RATING_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
+    format_schema: None,
     };
     let backend = hx.router.for_role(Role::StatsLogic);
     let request_body = backend.request_body(&built_prompt, &opts);

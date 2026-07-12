@@ -78,7 +78,19 @@ pub async fn judge_reply(
         temperature: Some(0.0),
         num_predict: JUDGE_NUM_PREDICT,
         num_ctx: 8192, // evidence + reply can exceed the 4096 server default (narratives)
-        json_mode: true,
+        json_mode: false,
+        // Grammar-constrained verdict: the required keys cannot be omitted and the scores
+        // cannot leave 1-5, so an "unjudged" outcome means a genuinely broken reply.
+        format_schema: Some(serde_json::json!({
+            "type": "object",
+            "properties": {
+                "specificity":  { "type": "integer", "minimum": 1, "maximum": 5 },
+                "grounding":    { "type": "integer", "minimum": 1, "maximum": 5 },
+                "non_generic":  { "type": "integer", "minimum": 1, "maximum": 5 },
+                "worst_claim":  { "type": "string" }
+            },
+            "required": ["specificity", "grounding", "non_generic", "worst_claim"]
+        })),
     };
     let prompt = build_judge_prompt(task_name, evidence, reply);
     let (gen, _) = backend.generate(&prompt, &opts).await?;

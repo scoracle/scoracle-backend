@@ -507,6 +507,7 @@ async fn generate_vibe_inner(
         num_predict: VIBE_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
+    format_schema: None,
     };
 
     // vibe = route(EmotionalNews) + extract(VibeParser). The fail-closed contract lives in

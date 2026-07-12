@@ -51,6 +51,7 @@ fn adjudication_opts() -> GenerateOptions {
         num_predict: 512,
         num_ctx: 0,
         json_mode: true,
+    format_schema: None,
     }
 }
 
@@ -61,6 +62,7 @@ fn adjudication_bucket_opts() -> GenerateOptions {
         num_predict: 512,
         num_ctx: 0,
         json_mode: true,
+    format_schema: None,
     }
 }
 

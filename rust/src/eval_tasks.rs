@@ -428,6 +428,7 @@ impl LensTask for VibeTask {
             num_predict: VIBE_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
+        format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -515,6 +516,7 @@ impl LensTask for SigilTask {
             num_predict: SIGIL_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
+        format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -658,8 +660,9 @@ impl LensTask for NarrativeTask {
             temperature: Some(temperature),
             num_predict: NARRATIVES_NUM_PREDICT,
             num_ctx: NARRATIVES_NUM_CTX,
-            // Free-text JSON-instructed, NOT Ollama format=json — matches the live stage (Go parity).
             json_mode: false,
+            // Grammar-constrained, matching the live stage (Phase 5).
+            format_schema: Some(crate::narratives::narratives_format_schema()),
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -819,6 +822,7 @@ impl LensTask for TransferTask {
             num_predict: TRANSFER_NUM_PREDICT,
             num_ctx: 0,
             json_mode: true,
+        format_schema: None,
         }
     }
     fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
@@ -829,6 +833,7 @@ impl LensTask for TransferTask {
             num_predict: TRANSFER_NUM_PREDICT,
             num_ctx: 0,
             json_mode: true,
+        format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -988,6 +993,7 @@ impl LensTask for RatingTask {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
+        format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1105,6 +1111,7 @@ impl LensTask for MomentumTask {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
+        format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {

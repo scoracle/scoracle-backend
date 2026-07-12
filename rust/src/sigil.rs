@@ -1299,6 +1299,7 @@ async fn generate_sigil_inner(
         num_predict: SIGIL_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
+    format_schema: None,
     };
 
     // sigil = route(SynthesisLogic) + extract(SigilParser). The fail-closed contract lives in the
@@ -1584,6 +1585,7 @@ impl StageHandler for SigilHandler {
             num_predict: SIGIL_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
+        format_schema: None,
         };
         let extracted = hx
             .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)

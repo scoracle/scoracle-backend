@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0EgxE3QQTt0Vj6XHgFETPAVfR3mQlBv7sqw1QDAXs71h8Xq8UxthEfBWbWyJZZl
+\restrict 0aq1erkTfvrQGbQvKRaE3ZcZ4ZpDnc2yQ3SfB6cnkycpjtIPtEPhK9W2i5lqSqH
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -7486,6 +7486,7 @@ CREATE TABLE public.vibe_scores (
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     sentiment smallint,
     prompt text,
+    input_hash text,
     CONSTRAINT vibe_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT vibe_scores_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 1) AND (sentiment <= 100)))),
     CONSTRAINT vibe_scores_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['milestone'::text, 'manual'::text, 'periodic'::text, 'news_spike'::text])))
@@ -7497,6 +7498,13 @@ CREATE TABLE public.vibe_scores (
 --
 
 COMMENT ON TABLE public.vibe_scores IS 'The Vibe: the emotional rail end product (was sentiment_scores). sentiment (1-100) + prompt; feeds the Sigil and the Momentum vibe-trajectory. Append-only.';
+
+
+--
+-- Name: COLUMN vibe_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores.input_hash IS 'SHA-256 (128-bit hex prefix) of the generation''s material inputs (latest narrative titles/impacts/trajectories + transfer-heat facts); the Rust harness debounce key. NULL on pre-147 rows.';
 
 
 --
@@ -7539,6 +7547,7 @@ CREATE TABLE public.vibe_scores_shadow (
     built_prompt text,
     ollama_request jsonb,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    input_hash text,
     CONSTRAINT vibe_scores_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT vibe_scores_shadow_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 1) AND (sentiment <= 100)))),
     CONSTRAINT vibe_scores_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
@@ -7550,6 +7559,13 @@ CREATE TABLE public.vibe_scores_shadow (
 --
 
 COMMENT ON TABLE public.vibe_scores_shadow IS 'Rust-scrubber Phase 1 vibe parity harness — offline shadow of vibe_scores; holds source=rust and source=go temp-0 rows for the parity diff. Drop after vibe cutover.';
+
+
+--
+-- Name: COLUMN vibe_scores_shadow.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.vibe_scores_shadow.input_hash IS 'Parity capture of vibe_scores.input_hash (migration 147) — a deterministic diff axis.';
 
 
 --
@@ -9115,6 +9131,13 @@ CREATE INDEX idx_vibe_scores_entity_recent ON public.vibe_scores USING btree (en
 
 
 --
+-- Name: idx_vibe_scores_input_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vibe_scores_input_hash ON public.vibe_scores USING btree (entity_type, entity_id, sport, input_hash) WHERE (input_hash IS NOT NULL);
+
+
+--
 -- Name: idx_vibe_scores_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9643,5 +9666,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0EgxE3QQTt0Vj6XHgFETPAVfR3mQlBv7sqw1QDAXs71h8Xq8UxthEfBWbWyJZZl
+\unrestrict 0aq1erkTfvrQGbQvKRaE3ZcZ4ZpDnc2yQ3SfB6cnkycpjtIPtEPhK9W2i5lqSqH
 

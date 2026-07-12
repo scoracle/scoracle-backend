@@ -647,7 +647,7 @@ impl LensTask for NarrativeTask {
         "narratives"
     }
     fn role(&self) -> Role {
-        Role::EmotionalNews
+        Role::NarrativeLogic
     }
     fn prompt_version(&self) -> &'static str {
         NARRATIVES_PROMPT_VERSION

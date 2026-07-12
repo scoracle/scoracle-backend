@@ -35,7 +35,7 @@ use tokio::sync::Semaphore;
 /// splits so the earned PEAK route change (qwen3 22/22 vs mistral 18/22 on the drilldown
 /// fixtures) cannot silently flip Momentum (3 fixtures, too thin to earn it) or Sigil (never
 /// bake-off'd); un-configured they still resolve to the default model, so the split alone moves
-/// zero behavior. `EmotionalNews` backs the emotional/news rail (narratives, transfers, vibe);
+/// zero behavior. `NarrativeLogic` backs narratives (split 2026-07-12 on its earned 31/31 sweep win); `EmotionalNews` backs transfers, vibe, and scrub;
 /// `Multilang` is the HORIZON normalize role; `Sql` is the SQLCoder role. A future
 /// `TransferLogic` follows the same rule: identity first, model change only on a fixture win.
 /// Derives `Hash` for the L2 role→model map.
@@ -44,6 +44,7 @@ pub enum Role {
     StatsLogic,
     MomentumLogic,
     SynthesisLogic,
+    NarrativeLogic,
     EmotionalNews,
     Multilang,
     Sql,
@@ -52,11 +53,12 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 6] {
+    pub fn all() -> [Role; 7] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::SynthesisLogic,
+            Role::NarrativeLogic,
             Role::EmotionalNews,
             Role::Multilang,
             Role::Sql,
@@ -70,6 +72,7 @@ impl Role {
             Role::StatsLogic => "stats-logic",
             Role::MomentumLogic => "momentum-logic",
             Role::SynthesisLogic => "synthesis-logic",
+            Role::NarrativeLogic => "narrative-logic",
             Role::EmotionalNews => "emotional-news",
             Role::Multilang => "multilang",
             Role::Sql => "sql",
@@ -84,6 +87,7 @@ impl Role {
             Role::StatsLogic => "STATS_LOGIC",
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::SynthesisLogic => "SYNTHESIS_LOGIC",
+            Role::NarrativeLogic => "NARRATIVE_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",
             Role::Multilang => "MULTILANG",
             Role::Sql => "SQL",

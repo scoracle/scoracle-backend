@@ -804,7 +804,7 @@ pub struct NarrativesReady {
 /// build_narratives_request runs the deterministic prefix: load the vetted corpus, (if an embedder is
 /// loaded) dedup near-duplicates, load the transfer heat for grounding, then `build_narratives_prompt`
 /// plus the n4 options and the exact wire body. NO model call — these are the deterministic axes (the L2
-/// finding: the storyline grouping is not a temp-0 parity axis). The role is [`Role::EmotionalNews`]
+/// finding: the storyline grouping is not a temp-0 parity axis). The role is [`Role::NarrativeLogic`]
 /// (the news/transfer reasoner — narratives shares it with vibe/transfers).
 pub async fn build_narratives_request(
     hx: &Harness,
@@ -866,7 +866,7 @@ pub async fn build_narratives_request(
         num_ctx: NARRATIVES_NUM_CTX,
         json_mode: false, // narratives is free-text JSON-instructed, NOT Ollama format=json (Go parity)
     };
-    let backend = hx.router.for_role(Role::EmotionalNews);
+    let backend = hx.router.for_role(Role::NarrativeLogic);
     let request_body = backend.request_body(&built_prompt, &opts);
     let model_configured = backend.model().to_string();
 
@@ -956,7 +956,7 @@ pub async fn generate_narratives_from_build(
             input_hash,
         } => {
             // The NULL-narrative marker. Go sets Model = a.ollama.Model() even here.
-            let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
+            let model = hx.router.for_role(Role::NarrativeLogic).model().to_string();
             return Ok(NarrativesOutput {
                 narratives: Vec::new(),
                 model,
@@ -979,7 +979,7 @@ pub async fn generate_narratives_from_build(
     // the parser's Err → the item fails + backs off (Go's parse failure → retry), never a marker.
     let extracted = hx
         .extract(
-            Role::EmotionalNews,
+            Role::NarrativeLogic,
             &ready.built_prompt,
             &ready.opts,
             &NarrativesParser,
@@ -1255,7 +1255,7 @@ pub async fn persist_narratives(
         CognitionLedgerEntry {
             stage: "narratives".to_string(),
             lens: "narratives".to_string(),
-            role: Role::EmotionalNews.as_str().to_string(),
+            role: Role::NarrativeLogic.as_str().to_string(),
             entity_type: entity_type.to_string(),
             entity_id,
             sport: sport.to_string(),

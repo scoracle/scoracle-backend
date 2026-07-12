@@ -148,3 +148,5 @@
 145_nba_team_points_allowed_zscore
 146_oracle_readings
 147_vibe_debounce
+148_transfer_debounce_comment
+149_vetted_trigger_membership_fingerprint

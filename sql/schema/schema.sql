@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 0aq1erkTfvrQGbQvKRaE3ZcZ4ZpDnc2yQ3SfB6cnkycpjtIPtEPhK9W2i5lqSqH
+\restrict v8T65wQsFSshGxrw2imilyGvLVvoqDwZGY1Gv6VcbNJ68dxyc2C8dLt7wfzYpmI
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2376,13 +2376,17 @@ CREATE FUNCTION public.enqueue_derive_on_vetted() RETURNS trigger
     AS $$
 DECLARE
     v_count  integer;
-    v_epoch  bigint;
+    v_fp     text;
     v_ver    text;
     v_stages text[] := ARRAY['narratives', 'vibe'];
 BEGIN
+    -- Membership fingerprint over this entity's vetted, in-lookback (72h) links. Doubles as the
+    -- mig-103 freshness gate: a stale backlog primary with no fresh vetted corpus yields count=0
+    -- and enqueues nothing. One link row per (article, entity) by PK, so no DISTINCT needed;
+    -- ORDER BY makes the aggregate deterministic.
     SELECT count(*),
-           COALESCE(EXTRACT(EPOCH FROM max(nae.scrubbed_at))::bigint, 0)
-      INTO v_count, v_epoch
+           md5(string_agg(nae.article_id::text, ',' ORDER BY nae.article_id))
+      INTO v_count, v_fp
       FROM public.news_article_entities nae
       JOIN public.news_articles a ON a.id = nae.article_id
      WHERE nae.entity_type = NEW.entity_type
@@ -2395,7 +2399,7 @@ BEGIN
         RETURN NEW;
     END IF;
 
-    v_ver := v_count || ':' || v_epoch;
+    v_ver := v_count || ':' || v_fp;
 
     IF NEW.entity_type = 'team' THEN
         v_stages := ARRAY['transfers', 'narratives', 'vibe'];
@@ -2415,6 +2419,9 @@ BEGIN
     WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
        OR public.pipeline_work.status = 'failed';
 
+    -- Redundant with the mig-133 statement-level pipeline_work notify trigger, but kept for the
+    -- minimal diff: pg_notify de-dups identical (channel,payload) within a txn, so this costs
+    -- nothing extra.
     PERFORM pg_notify('pipeline_work_ready', '');
 
     RETURN NEW;
@@ -7308,7 +7315,7 @@ COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajector
 -- Name: COLUMN transfer_rumors.input_hash; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'Reserved for the transfer debounce (Phase 1 follow-up); written as provenance once the transfer gate ships.';
+COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources/tier_weight from the heat components + the deterministic team relationship); the per-pair transfer debounce key (F3, flow-friction plan 2026-07-12). Time-decay heat components are deliberately excluded. NULL on pre-F3 rows, which never match — each pair regenerates once post-deploy, then stamps.';
 
 
 --
@@ -9666,5 +9673,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 0aq1erkTfvrQGbQvKRaE3ZcZ4ZpDnc2yQ3SfB6cnkycpjtIPtEPhK9W2i5lqSqH
+\unrestrict v8T65wQsFSshGxrw2imilyGvLVvoqDwZGY1Gv6VcbNJ68dxyc2C8dLt7wfzYpmI
 

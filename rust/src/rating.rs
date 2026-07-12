@@ -40,7 +40,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s9";
+pub const RATING_PROMPT_VERSION: &str = "s10"; // s10: z-magnitude weakness gate + degenerate-zero filter + usage-artifact rule
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
@@ -90,7 +90,8 @@ Scouting-report rules:
 - Cite values and percentiles as given.
 - Mention per-x support when it confirms the edge.
 - Do not praise marks below the 50th percentile.
-- Mention weaknesses only when a skill is below average or poor.
+- Mention weaknesses only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as one.
+- If Primary weakness to exploit says None, name no weakness at all.
 - If nothing is strong or elite, say that plainly and name the best available impact with its percentile.
 - End with a clear scouting verdict on what kind of player/team this is.
 - Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.
@@ -219,6 +220,8 @@ pub struct RatingExclusions {
     /// Breakdown labels dropped because their facet is the other side of the ball from the
     /// player's position (NFL only — see `drop_off_facet_datapoints`).
     pub off_facet_stat_labels: Vec<String>,
+    /// Zero-value, near-average-z usage artifacts (see `drop_degenerate_zero_datapoints`).
+    pub degenerate_zero_stat_labels: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -509,8 +512,19 @@ fn is_strong_or_elite(d: &RatingDatapoint) -> bool {
     d.pct >= 75.0
 }
 
+/// signed_z is the sign-adjusted z — the one number where "+" is always the good direction
+/// (`format_datapoint_evidence` renders the same value).
+fn signed_z(d: &RatingDatapoint) -> f64 {
+    d.sign as f64 * d.z
+}
+
+/// A named weakness must be MATERIALLY bad, not merely low-percentile. Distributions that clump
+/// at zero (giveaways, ground yards for a WR) map tiny raw differences onto extreme percentiles:
+/// Drake London's 1 giveaway sat at the 5th percentile with a sign-adjusted z of just -0.2 —
+/// statistically "poor", practically average — while Stafford's genuine giveaway problem carried
+/// z -4.9. Percentile finds the candidate; z-magnitude confirms it is real.
 fn is_weakness(d: &RatingDatapoint) -> bool {
-    d.pct < 50.0
+    d.pct < 50.0 && signed_z(d) <= -0.5
 }
 
 /// nfl_position_side maps an NFL position to the side of the ball it plays. Both the
@@ -527,6 +541,27 @@ fn nfl_position_side(position: &str) -> Option<&'static str> {
         | "dt" | "defensive tackle" => Some("defense"),
         _ => None,
     }
+}
+
+/// drop_degenerate_zero_datapoints removes datapoints that are a zero VALUE with a near-average
+/// sign-adjusted z (|z| < 0.5): the entity simply does not do this thing, and not doing it
+/// barely moves the needle — a usage artifact, not scoutable evidence (a WR's "Ground Yards
+/// Responsible: 0 · 1st pct" is not a liability). A zero with a STRONGLY negative z stays: that
+/// is a real absence (a starting QB with zero touchdowns is a finding, not an artifact).
+/// Returns the dropped labels for the exclusions ledger.
+fn drop_degenerate_zero_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let degenerate = |d: &RatingDatapoint| d.value == 0.0 && signed_z(d).abs() < 0.5;
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| degenerate(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !degenerate(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !degenerate(d));
+    }
+    dropped
 }
 
 /// drop_off_facet_datapoints removes breakdown and rate-mode datapoints from the OTHER side
@@ -1129,11 +1164,12 @@ pub async fn build_rating_request(
             season: req.season.unwrap_or(0),
         });
     };
-    // The off-facet filter runs before EVERYTHING derived from the breakdown — the scouting
-    // decision, the prompt's datapoint list, notability, rate standouts, and the
+    // The off-facet + degenerate-zero filters run before EVERYTHING derived from the breakdown —
+    // the scouting decision, the prompt's datapoint list, notability, rate standouts, and the
     // input_components hash — so every consumer sees one consistent, position-true view.
-    // (The hash change regenerates affected NFL players once; that regen is the fix shipping.)
+    // (The hash change regenerates affected players once; that regen is the fix shipping.)
     let off_facet_stat_labels = drop_off_facet_datapoints(&mut profile);
+    let degenerate_zero_stat_labels = drop_degenerate_zero_datapoints(&mut profile);
     // No usable rating (no composite + empty breakdown) → the NULL-body marker path.
     if profile.composite_score.is_none() && profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
@@ -1148,6 +1184,7 @@ pub async fn build_rating_request(
     let exclusions = RatingExclusions {
         budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown, &decision),
         off_facet_stat_labels,
+        degenerate_zero_stat_labels,
     };
     let peak_trajectory = load_peak_trajectory(
         &hx.pool,
@@ -1619,6 +1656,13 @@ fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
             "dropped_stat_labels": &out.exclusions.off_facet_stat_labels,
         }));
     }
+    if !out.exclusions.degenerate_zero_stat_labels.is_empty() {
+        excluded.push(serde_json::json!({
+            "reason": "degenerate_zero_usage_artifact",
+            "dropped_count": out.exclusions.degenerate_zero_stat_labels.len(),
+            "dropped_stat_labels": &out.exclusions.degenerate_zero_stat_labels,
+        }));
+    }
     serde_json::json!(excluded)
 }
 
@@ -1772,13 +1816,57 @@ mod tests {
     }
 
     #[test]
+    fn degenerate_zero_datapoints_drop_but_real_absences_stay() {
+        // London-shaped: 0 ground yards at z -0.28 is a usage artifact -> dropped. A zero with
+        // a strongly negative z (a starter with no touchdowns) is a real finding -> kept.
+        let mut artifact = faceted("Ground Yards Responsible", 1.0, "offense");
+        artifact.value = 0.0;
+        artifact.z = -0.28;
+        let mut real_absence = faceted("Touchdowns", 2.0, "offense");
+        real_absence.value = 0.0;
+        real_absence.z = -2.1;
+        let mut p = nfl_profile("WR", vec![artifact, real_absence]);
+        let dropped = drop_degenerate_zero_datapoints(&mut p);
+        assert_eq!(dropped, vec!["Ground Yards Responsible"]);
+        assert_eq!(p.breakdown.len(), 1);
+        assert_eq!(p.breakdown[0].label, "Touchdowns");
+    }
+
+    #[test]
+    fn weakness_requires_material_z_not_just_percentile() {
+        // London's giveaways: 5th pct but sign-adjusted z only -0.2 -> NOT a weakness.
+        let mut clumped = faceted("Giveaways", 5.3, "offense");
+        clumped.value = 1.0;
+        clumped.z = 0.199;
+        clumped.sign = -1;
+        assert!(!is_weakness(&clumped));
+        // Stafford's giveaways: 0th pct at sign-adjusted z -4.9 -> emphatically a weakness.
+        let mut real = faceted("Giveaways", 0.0, "offense");
+        real.value = 12.0;
+        real.z = 4.9023;
+        real.sign = -1;
+        assert!(is_weakness(&real));
+        // With only artifact-grade negatives, the decision names NO weakness.
+        let mut strong = faceted("Air Yards Responsible", 92.9, "offense");
+        strong.value = 919.0;
+        strong.z = 1.0;
+        let p = nfl_profile("WR", vec![strong, clumped]);
+        let d = build_scouting_decision(&p);
+        assert_eq!(d.primary_weakness_to_exploit, None);
+    }
+
+    #[test]
     fn scouting_decision_weakness_is_positional_after_filter() {
+        let mut giveaways = faceted("Giveaways", 20.0, "offense");
+        giveaways.value = 12.0;
+        giveaways.z = 2.0; // sign-adjusted -2.0: materially bad, a real weakness
+        giveaways.sign = -1;
         let mut p = nfl_profile(
             "QB",
             vec![
                 faceted("Passing Yards", 90.0, "offense"),
                 faceted("Tackling", 0.0, "defense"),
-                faceted("Giveaways", 20.0, "offense"),
+                giveaways,
             ],
         );
         drop_off_facet_datapoints(&mut p);

@@ -35,6 +35,8 @@ pub struct Worker {
     stale_lease: Duration,
     topic_heat_interval: Duration,
     last_topic_heat: Mutex<Option<Instant>>,
+    /// Cross-pass embedding cache — steady-state refreshes embed only new/changed articles.
+    topic_heat_cache: Mutex<crate::bucket::TopicHeatCache>,
 }
 
 impl Worker {
@@ -54,6 +56,7 @@ impl Worker {
             stale_lease,
             topic_heat_interval,
             last_topic_heat: Mutex::new(None),
+            topic_heat_cache: Mutex::new(crate::bucket::TopicHeatCache::new()),
         }
     }
 
@@ -113,8 +116,11 @@ impl Worker {
             Ok(_) => {}
             Err(e) => error!(error = %e, cause, "requeue stale failed"),
         }
-        self.maybe_refresh_topic_heat(cause).await;
+        // Drain BEFORE the topic-heat refresh: pending cognition work never waits behind the
+        // CPU embedder (measured 2026-07-12 — a full refresh pass took ~24 min and starved the
+        // queue for the whole worker tick).
         self.drain_all(cause).await;
+        self.maybe_refresh_topic_heat(cause).await;
     }
 
     async fn maybe_refresh_topic_heat(&self, cause: &str) {
@@ -132,8 +138,15 @@ impl Worker {
         *last = Some(Instant::now());
         drop(last);
 
-        match crate::bucket::refresh_topic_heat(&self.harness).await {
-            Ok(n) if n > 0 => info!(updated = n, cause, "refreshed topic heat"),
+        let mut cache = self.topic_heat_cache.lock().await;
+        match crate::bucket::refresh_topic_heat(&self.harness, &mut cache).await {
+            Ok(r) if r.updated > 0 => info!(
+                updated = r.updated,
+                embedded = r.embedded,
+                cached = r.cached,
+                cause,
+                "refreshed topic heat"
+            ),
             Ok(_) => {}
             Err(e) => warn!(error = %e, cause, "topic heat refresh failed"),
         }

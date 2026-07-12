@@ -11,7 +11,8 @@ use crate::embed::{cosine_similarity, Embedder};
 use crate::harness::{cluster, Harness, Vector};
 use anyhow::{Context, Result};
 use sqlx::Row;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ArticleBucket {
@@ -97,9 +98,68 @@ pub async fn classify_article(
     Ok(classifier.classify_vector(&text, &vectors[0]))
 }
 
-pub async fn refresh_topic_heat(hx: &Harness) -> Result<u64> {
+/// Cross-pass embedding cache for `refresh_topic_heat`. The lookback window re-reads the same
+/// articles pass after pass and embeddings are deterministic for unchanged text, so only
+/// new/edited articles pay the CPU embedder — measured 2026-07-12, a full re-embed pass took
+/// ~24 min at ~900 articles and starved the work queue. In-memory only (the worker owns one
+/// for its lifetime); a restart pays one full pass and is warm from then on. Bounded by
+/// `retain_ids` to the current window (~900 × 384 floats ≈ 1.5 MB).
+#[derive(Default)]
+pub struct TopicHeatCache {
+    entries: HashMap<i64, (u64, Vector)>,
+}
+
+impl TopicHeatCache {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// A cached vector is valid only while the article text it embedded is unchanged.
+    fn get(&self, id: i64, fingerprint: u64) -> Option<&Vector> {
+        self.entries
+            .get(&id)
+            .filter(|(fp, _)| *fp == fingerprint)
+            .map(|(_, v)| v)
+    }
+
+    fn put(&mut self, id: i64, fingerprint: u64, v: Vector) {
+        self.entries.insert(id, (fingerprint, v));
+    }
+
+    /// Drop entries for articles that aged out of the lookback window.
+    fn retain_ids(&mut self, keep: &HashSet<i64>) {
+        self.entries.retain(|id, _| keep.contains(id));
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+}
+
+fn text_fingerprint(text: &str) -> u64 {
+    let mut h = DefaultHasher::new();
+    text.hash(&mut h);
+    h.finish()
+}
+
+/// One `refresh_topic_heat` pass, for the worker's log line: how much work the cache saved.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TopicHeatRefresh {
+    /// Rows whose topic_heat was written.
+    pub updated: u64,
+    /// Texts sent to the CPU embedder this pass (the expensive part).
+    pub embedded: usize,
+    /// Texts served from the cross-pass cache.
+    pub cached: usize,
+}
+
+pub async fn refresh_topic_heat(hx: &Harness, cache: &mut TopicHeatCache) -> Result<TopicHeatRefresh> {
     if hx.embedder.is_none() {
-        return Ok(0);
+        return Ok(TopicHeatRefresh::default());
     }
     let rows = sqlx::query(
         r#"
@@ -139,19 +199,43 @@ pub async fn refresh_topic_heat(hx: &Harness) -> Result<u64> {
             });
     }
 
-    let mut updated = 0_u64;
+    let mut out = TopicHeatRefresh::default();
+    let mut seen_ids: HashSet<i64> = HashSet::new();
     for ((_sport, _day), articles) in groups {
+        seen_ids.extend(articles.iter().map(|a| a.id));
         let mut ids = Vec::with_capacity(articles.len());
         let mut heats = Vec::with_capacity(articles.len());
         if articles.len() == 1 {
             ids.push(articles[0].id);
             heats.push(1_i32);
         } else {
-            let texts: Vec<String> = articles
-                .iter()
-                .map(|a| article_text(&a.title, &a.description))
-                .collect();
-            let vectors = hx.embed(&texts).await.context("embed topic heat batch")?;
+            // Serve unchanged articles from the cross-pass cache; embed only the misses.
+            let mut vectors: Vec<Option<Vector>> = vec![None; articles.len()];
+            let mut miss_idx: Vec<(usize, u64)> = Vec::new();
+            let mut miss_texts: Vec<String> = Vec::new();
+            for (i, a) in articles.iter().enumerate() {
+                let text = article_text(&a.title, &a.description);
+                let fp = text_fingerprint(&text);
+                if let Some(v) = cache.get(a.id, fp) {
+                    vectors[i] = Some(v.clone());
+                    out.cached += 1;
+                } else {
+                    miss_idx.push((i, fp));
+                    miss_texts.push(text);
+                }
+            }
+            if !miss_texts.is_empty() {
+                let embedded = hx
+                    .embed(&miss_texts)
+                    .await
+                    .context("embed topic heat batch")?;
+                out.embedded += embedded.len();
+                for ((i, fp), v) in miss_idx.into_iter().zip(embedded) {
+                    cache.put(articles[i].id, fp, v.clone());
+                    vectors[i] = Some(v);
+                }
+            }
+            let vectors: Vec<Vector> = vectors.into_iter().map(|v| v.expect("filled")).collect();
             let clusters = cluster(&vectors, hx.scrub.topic_heat_threshold);
             for c in clusters {
                 let heat = c.members.len() as i32;
@@ -177,9 +261,10 @@ pub async fn refresh_topic_heat(hx: &Harness) -> Result<u64> {
         .execute(&hx.pool)
         .await
         .context("update topic heat")?;
-        updated += res.rows_affected();
+        out.updated += res.rows_affected();
     }
-    Ok(updated)
+    cache.retain_ids(&seen_ids);
+    Ok(out)
 }
 
 fn article_text(title: &str, description: &str) -> String {
@@ -257,5 +342,32 @@ mod tests {
             Some(ArticleBucket::NonTransfer)
         );
         assert_eq!(ArticleBucket::from_model_tag("unknown"), None);
+    }
+
+    #[test]
+    fn topic_heat_cache_hits_only_on_matching_fingerprint() {
+        let mut cache = TopicHeatCache::new();
+        let fp = text_fingerprint("Star guard traded");
+        cache.put(7, fp, vec![0.1, 0.2]);
+        assert_eq!(cache.get(7, fp), Some(&vec![0.1, 0.2]));
+        // Edited text → different fingerprint → miss (stale vector never served).
+        assert_eq!(cache.get(7, text_fingerprint("Star guard traded (updated)")), None);
+        assert_eq!(cache.get(8, fp), None);
+    }
+
+    #[test]
+    fn topic_heat_cache_put_replaces_and_retain_evicts() {
+        let mut cache = TopicHeatCache::new();
+        cache.put(1, 10, vec![1.0]);
+        cache.put(1, 20, vec![2.0]); // re-embedded after an edit — one entry per article
+        cache.put(2, 30, vec![3.0]);
+        assert_eq!(cache.len(), 2);
+        assert_eq!(cache.get(1, 20), Some(&vec![2.0]));
+        assert_eq!(cache.get(1, 10), None);
+        // Article 2 aged out of the lookback window.
+        cache.retain_ids(&HashSet::from([1]));
+        assert_eq!(cache.len(), 1);
+        assert!(cache.get(2, 30).is_none());
+        assert!(!cache.is_empty());
     }
 }

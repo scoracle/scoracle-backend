@@ -12,7 +12,8 @@
 
 use scoracle_cognition::corpus::HeatItem;
 use scoracle_cognition::oracle::{
-    build_oracle_prompt, compute_omen, ConsumedSigil, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
+    build_oracle_prompt, compute_omen, ConsumedSigil, OMENS, ORACLE_PROMPT_VERSION,
+    ORACLE_SYSTEM_PROMPT,
 };
 use scoracle_cognition::sigil::{SynthMomentum, SynthNarrative, SynthRating, SynthVibe};
 use serde_json::json;
@@ -85,9 +86,10 @@ fn narrative(title: &str, trajectory: &str) -> SynthNarrative {
 }
 
 /// The jargon words the system prompt bans from every reading — internal bookkeeping the
-/// Oracle must interpret, never recite. Asserted on every fixture.
-fn jargon_excludes() -> serde_json::Value {
-    json!(["notability", "convergence", "sentiment"])
+/// Oracle must interpret, never recite. Asserted on every fixture. `z-score` earned its slot
+/// live: mistral recited it straight off the PEAK trajectory label card.
+fn jargon_excludes() -> Vec<&'static str> {
+    vec!["notability", "convergence", "sentiment", "z-score"]
 }
 
 fn scenarios() -> Vec<Scenario> {
@@ -174,7 +176,7 @@ fn scenarios() -> Vec<Scenario> {
             expect: json!({
                 "reading_min_sentences": 2,
                 "reading_max_sentences": 4,
-                "reading_excludes": ["notability", "convergence", "sentiment", "freefall", "collapse"],
+                "reading_excludes": ([jargon_excludes(), vec!["freefall", "collapse"]].concat()),
             }),
         },
         Scenario {
@@ -237,6 +239,22 @@ fn main() {
         .into_iter()
         .map(|s| {
             let (omen, omen_reason) = compute_omen(&s.sigil, s.rating.as_ref(), &s.momentum);
+            // The or2 omen-vocabulary rule, asserted mechanically: the MARKED omen words
+            // (ascendant/waning/crossroads) this spread did NOT draw are banned from the
+            // reading (the live leak this rule fixes was an omen=steady reading that said
+            // "stands at a crossroads"). "steady" is exempt from the substring ban: the cards'
+            // own text uses it as plain English ("steady elite form") and qwen3 rightly echoes
+            // its cards — the prompt constrains it semantically (the ARC may be called steady
+            // only under a steady omen) instead.
+            let mut expect = s.expect;
+            let excludes = expect
+                .as_object_mut()
+                .expect("expect is an object")
+                .entry("reading_excludes")
+                .or_insert_with(|| json!([]));
+            for o in OMENS.iter().filter(|o| **o != omen && **o != "steady") {
+                excludes.as_array_mut().unwrap().push(json!(o));
+            }
             let prompt = build_oracle_prompt(
                 "player",
                 s.entity,
@@ -259,7 +277,7 @@ fn main() {
                 "system": ORACLE_SYSTEM_PROMPT,
                 "user_prompt": prompt,
                 "temperature": 0.0,
-                "expect": s.expect,
+                "expect": expect,
             })
         })
         .collect();

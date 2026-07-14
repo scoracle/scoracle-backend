@@ -26,7 +26,9 @@
 use crate::bucket::ArticleBucket;
 use crate::config::ResolveConfig;
 use crate::embed::cosine_similarity;
-use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Resolution, Resolved};
+use crate::harness::{
+    Candidate, EntityType, Harness, IdentityCard, Parser, Resolution, Resolved, Vector,
+};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use anyhow::{Context, Result};
@@ -255,6 +257,17 @@ impl Parser<RelevanceBucket> for RelevanceBucketParser {
     }
 }
 
+/// ResolveSetOutcome is everything one scrub-gate pass produced: the per-candidate verdicts, the
+/// bucket tag when the ambiguous-band adjudication already ran (authoritative — a paid model call),
+/// and the embedded article-context vector so the candle bucket fallback can reuse it instead of
+/// re-embedding the same article. `context_vector` is `None` only when there was nothing to gate.
+#[derive(Debug, Default)]
+pub struct ResolveSetOutcome {
+    pub resolutions: Vec<Resolution>,
+    pub model_bucket: Option<ArticleBucket>,
+    pub context_vector: Option<Vector>,
+}
+
 impl Harness {
     /// resolve_set vets WHICH of N linked candidates an article is genuinely about — the scrub gate
     /// shape (Plan §1.3), the clean 1:1 with `news_scrub.go::ScrubArticle`. Embeds the context + each
@@ -269,23 +282,25 @@ impl Harness {
         context: &str,
         candidates: &[Candidate],
     ) -> Result<Vec<Resolution>> {
-        let (resolutions, _) = self
+        Ok(self
             .resolve_set_with_bucket(role, context, candidates)
-            .await?;
-        Ok(resolutions)
+            .await?
+            .resolutions)
     }
 
     /// resolve_set_with_bucket is scrub's Wave-5 extension over [`Self::resolve_set`]. It preserves
     /// the asymmetric relevance gate and returns a model bucket only when an ambiguous-band model
-    /// call was already needed. Auto-kept articles get `None` here and use the candle fallback.
+    /// call was already needed. Auto-kept articles get `None` here and use the candle fallback —
+    /// which reuses `context_vector` instead of re-embedding (measured equivalent, 2026-07-13,
+    /// `examples/bucket_remeasure.rs`).
     pub async fn resolve_set_with_bucket(
         &self,
         role: Role,
         context: &str,
         candidates: &[Candidate],
-    ) -> Result<(Vec<Resolution>, Option<ArticleBucket>)> {
+    ) -> Result<ResolveSetOutcome> {
         if candidates.is_empty() {
-            return Ok((Vec::new(), None));
+            return Ok(ResolveSetOutcome::default());
         }
         // One embed call: [context, identity_0, identity_1, …].
         let mut texts = Vec::with_capacity(candidates.len() + 1);
@@ -333,7 +348,11 @@ impl Harness {
             }
             // else: fail-closed — the ambiguous candidates keep their `kept = false` placeholder.
         }
-        Ok((out, bucket))
+        Ok(ResolveSetOutcome {
+            resolutions: out,
+            model_bucket: bucket,
+            context_vector: Some(ctx.to_vec()),
+        })
     }
 
     /// resolve_one settles which ONE candidate (if any) a mention is — the transfer subject-test

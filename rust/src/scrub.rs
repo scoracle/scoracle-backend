@@ -83,13 +83,14 @@ impl StageHandler for ScrubHandler {
             .filter(|c| c.confidence < 1.0)
             .map(to_candidate)
             .collect();
-        let (resolutions, model_bucket) = if secondaries.is_empty() {
-            (Vec::new(), None)
+        let gate = if secondaries.is_empty() {
+            crate::resolve::ResolveSetOutcome::default()
         } else {
             hx.resolve_set_with_bucket(Role::EmotionalNews, &context, &secondaries)
                 .await
                 .context("resolve_set gate")?
         };
+        let resolutions = &gate.resolutions;
         let kept_secondary: HashMap<(EntityType, i32), bool> = resolutions
             .iter()
             .map(|r| ((r.entity_type, r.entity_id), r.kept))
@@ -112,14 +113,17 @@ impl StageHandler for ScrubHandler {
                         .unwrap_or(false)
             })
             .collect();
-        // Candle classify only on the fallback path (Phase 2): when the ambiguous-band model
-        // call already named a bucket, the fallback embed+classify was computed and thrown
-        // away. (Reusing the resolve pass's context vector here is deliberately NOT done: the
-        // resolve context is "title — description" while the bucket classifier was
-        // threshold-tuned on "title description" — swap only after a candle_probe re-measure.)
-        let bucket = match model_bucket {
+        // Candle classify only on the fallback path (Phase 2): the model bucket is authoritative
+        // when the ambiguous-band call already ran. The fallback reuses the gate's context vector
+        // instead of re-embedding — the resolve text form is measured classifier-equivalent to the
+        // form the thresholds were tuned on (2026-07-13, examples/bucket_remeasure.rs). Only an
+        // article with no secondaries (no gate ran) pays a fresh embed.
+        let bucket = match gate.model_bucket {
             Some(b) => b,
-            None => crate::bucket::classify_article(hx, &title, &description).await?,
+            None => match gate.context_vector.as_deref() {
+                Some(v) => crate::bucket::classify_with_vector(hx, &context, v),
+                None => crate::bucket::classify_article(hx, &title, &description).await?,
+            },
         };
 
         apply_verdicts(

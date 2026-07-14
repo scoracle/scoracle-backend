@@ -85,17 +85,35 @@ pub async fn classify_article(
 ) -> Result<ArticleBucket> {
     let text = article_text(title, description);
     let Some(classifier) = hx.bucket_classifier.as_ref() else {
-        return Ok(if keyword_hit(&text, &hx.scrub.bucket_keywords) {
-            ArticleBucket::Transfer
-        } else {
-            ArticleBucket::NonTransfer
-        });
+        return Ok(keyword_bucket(&text, &hx.scrub.bucket_keywords));
     };
     let vectors = hx
         .embed(std::slice::from_ref(&text))
         .await
         .context("embed article for bucket classification")?;
     Ok(classifier.classify_vector(&text, &vectors[0]))
+}
+
+/// classify_with_vector buckets an article whose context is already embedded — the scrub gate hands
+/// its resolve vector here so the candle fallback never re-embeds the article it just gated. The
+/// resolve text form (`"title — description"`) is classifier-equivalent to the bucket text form the
+/// thresholds were tuned on: measured 2026-07-13 via `examples/bucket_remeasure.rs` against the
+/// GPU labels (vector cosine 0.993, AUC 0.882 vs 0.879, accuracy delta −0.002 at the live
+/// threshold). `text` still feeds the keyword feature.
+pub fn classify_with_vector(hx: &Harness, text: &str, v: &[f32]) -> ArticleBucket {
+    match hx.bucket_classifier.as_ref() {
+        Some(classifier) => classifier.classify_vector(text, v),
+        None => keyword_bucket(text, &hx.scrub.bucket_keywords),
+    }
+}
+
+/// The embedder-less fallback: keyword feature only.
+fn keyword_bucket(text: &str, keywords: &[String]) -> ArticleBucket {
+    if keyword_hit(text, keywords) {
+        ArticleBucket::Transfer
+    } else {
+        ArticleBucket::NonTransfer
+    }
 }
 
 /// Cross-pass embedding cache for `refresh_topic_heat`. The lookback window re-reads the same

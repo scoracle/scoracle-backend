@@ -550,6 +550,52 @@ async fn load_stale_pair_news_ids(
     Ok(ids)
 }
 
+/// team_relationships batches [`team_relationship`] over one team's whole candidate set — one
+/// round trip instead of one query per pair (Phase 2). The correlated subqueries are the same
+/// ones the per-pair read runs, so batch and per-pair MUST agree: the relationship is part of
+/// the F3 fingerprint.
+pub async fn team_relationships(
+    pool: &PgPool,
+    team_id: i32,
+    player_ids: &[i32],
+    sport: &str,
+) -> Result<HashMap<i32, String>> {
+    let rows = sqlx::query(
+        r#"
+        SELECT p.pid,
+               COALESCE((SELECT pci.team_id = $3
+                         FROM public.player_current_identity pci
+                         WHERE pci.player_id = p.pid AND pci.sport = $2), false) AS is_current,
+               COALESCE((SELECT bool_or(ps.team_id = $3)
+                         FROM player_stats ps
+                         WHERE ps.player_id = p.pid AND ps.sport = $2), false) AS is_ever
+        FROM unnest($1::int4[]) AS p(pid)
+        "#,
+    )
+    .bind(player_ids)
+    .bind(sport)
+    .bind(team_id)
+    .fetch_all(pool)
+    .await
+    .context("team relationships (batch)")?;
+    Ok(rows
+        .iter()
+        .map(|r| {
+            let pid: i32 = r.get("pid");
+            let is_current: bool = r.get("is_current");
+            let is_ever: bool = r.get("is_ever");
+            let rel = if is_current {
+                "current"
+            } else if is_ever {
+                "former"
+            } else {
+                "none"
+            };
+            (pid, rel.to_string())
+        })
+        .collect())
+}
+
 /// team_relationship classifies the player's deterministic relationship to the team:
 /// "current" comes from canonical current identity, while "former" comes from
 /// historical player_stats. Drives `direction` and the former-player noise filter — NOT the model's
@@ -973,7 +1019,6 @@ pub struct PairReady {
     pub components: String,
     pub news_ids: Vec<i64>,
     pub prompted_news_ids: Vec<i64>,
-    pub stale_news_ids: Vec<i64>,
     pub news: Vec<NewsItem>,
     pub relationship: String,
     pub attribution: String,
@@ -988,10 +1033,13 @@ pub struct PairReady {
 }
 
 /// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
-/// stays Postgres), the pair corpus, the deterministic team relationship, then `build_transfer_prompt`
-/// with the t5 options and the exact wire body. NO model call — these are the deterministic axes (the L2
-/// finding: the verdict is not a temp-0 parity axis, so the gate needs no GPU). The role is
-/// [`Role::EmotionalNews`] (the news/transfer reasoner).
+/// stays Postgres), the pair corpus, then `build_transfer_prompt` with the t5 options and the
+/// exact wire body. NO model call — these are the deterministic axes (the L2 finding: the
+/// verdict is not a temp-0 parity axis, so the gate needs no GPU). The role is
+/// [`Role::EmotionalNews`] (the news/transfer reasoner). `relationship` is the deterministic
+/// team relationship, loaded by the caller (the handler batches it per team via
+/// [`team_relationships`]; offline paths use the per-pair [`team_relationship`]).
+#[allow(clippy::too_many_arguments)]
 pub async fn build_pair_request(
     hx: &Harness,
     team_id: i32,
@@ -999,6 +1047,7 @@ pub async fn build_pair_request(
     c: &TransferCandidate,
     sport: &str,
     tiers: &HashMap<String, f64>,
+    relationship: String,
     temperature: f64,
 ) -> Result<PairBuild> {
     let (heat, components, news_ids) =
@@ -1010,15 +1059,10 @@ pub async fn build_pair_request(
         });
     };
 
-    let (news, stale_news_ids) = tokio::try_join!(
-        load_pair_news(&hx.pool, &news_ids),
-        load_stale_pair_news_ids(&hx.pool, team_id, c.player_id, sport),
-    )?;
+    let news = load_pair_news(&hx.pool, &news_ids).await?;
     let prompted_news_ids = news.iter().map(|n| n.id).collect();
     // Grounding: credibility attribution comes from the CORPUS, not the model.
     let (attribution, best_weight) = best_source(&news, tiers);
-    // Direction + the noise filter key off the deterministic relationship, not the model's text.
-    let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
 
     // F3: fingerprint the material inputs now that they are all in hand (corpus ids + stable
     // heat components + relationship) — the handler gates on this BEFORE paying for the GPU.
@@ -1047,7 +1091,6 @@ pub async fn build_pair_request(
         components,
         news_ids,
         prompted_news_ids,
-        stale_news_ids,
         news,
         relationship,
         attribution,
@@ -1106,12 +1149,16 @@ pub async fn analyze_pair(
     tiers: &HashMap<String, f64>,
     temperature: f64,
 ) -> Result<TransferPairOutput> {
-    match build_pair_request(hx, team_id, team_name, c, sport, tiers, temperature).await? {
+    // Offline composition loads the relationship per pair; the production handler batches it.
+    let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
+    match build_pair_request(hx, team_id, team_name, c, sport, tiers, relationship, temperature)
+        .await?
+    {
         PairBuild::Skipped {
             components,
             news_ids,
         } => Ok(skipped_pair_output(hx, c.player_id, components, news_ids)),
-        PairBuild::Ready(r) => vet_pair(hx, team_id, c.player_id, *r).await,
+        PairBuild::Ready(r) => vet_pair(hx, team_id, c.player_id, sport, *r).await,
     }
 }
 
@@ -1122,20 +1169,27 @@ pub async fn vet_pair(
     hx: &Harness,
     team_id: i32,
     player_id: i32,
+    sport: &str,
     ready: PairReady,
 ) -> Result<TransferPairOutput> {
     // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
-    let (verdict, model, built_prompt, request_body, eval_count, wall_ms) = match hx
-        .extract(
+    //
+    // The stale-pair-news read is audit-only (ledger excluded_evidence), so it rides alongside
+    // the model call instead of the build path — a debounce-skipped pair never pays for it,
+    // and a generating pair hides it under GPU latency (Phase 2).
+    let (extract_result, stale_result) = tokio::join!(
+        hx.extract(
             Role::EmotionalNews,
             &ready.built_prompt,
             &ready.opts,
             &TransferParser,
-        )
-        .await
-    {
+        ),
+        load_stale_pair_news_ids(&hx.pool, team_id, player_id, sport)
+    );
+    let stale_news_ids = stale_result?;
+    let (verdict, model, built_prompt, request_body, eval_count, wall_ms) = match extract_result {
         Ok(extracted) => (
             extracted.value,
             extracted.model,
@@ -1199,7 +1253,7 @@ pub async fn vet_pair(
         components: ready.components,
         news_ids: ready.news_ids,
         prompted_news_ids: ready.prompted_news_ids,
-        stale_news_ids: ready.stale_news_ids,
+        stale_news_ids,
         outcome,
         row: Some(row),
         built_prompt,
@@ -1607,6 +1661,11 @@ async fn sport_autofill_refresh_pending(pool: &PgPool, sport: &str) -> Result<bo
     Ok(pending)
 }
 
+/// Returns whether a sport-autofill refresh is wanted: the caller runs ONE refresh per team
+/// drain after the pair loop (Phase 2) instead of one heavy `REFRESH MATERIALIZED VIEW` inline
+/// per applied pair. The apply path still marks the refresh durably (status <> 'ready') before
+/// returning, so a drain that bails before refreshing self-heals via the pending check on the
+/// next wake.
 #[allow(clippy::too_many_arguments)]
 async fn maybe_apply_transfer_identity(
     hx: &Harness,
@@ -1619,35 +1678,33 @@ async fn maybe_apply_transfer_identity(
     persisted_rumor_id: i64,
     row: &TransferRow,
     outcome: Outcome,
-) -> Result<()> {
+    threshold: Option<&TransferIdentityThreshold>,
+) -> Result<bool> {
     if outcome != Outcome::Rumor || row.is_rumor != Some(true) {
-        return Ok(());
+        return Ok(false);
     }
     if row.direction.as_deref() != Some("incoming") {
-        return Ok(());
+        return Ok(false);
     }
 
     let (identity_heat, deterministic_confidence) = identity_apply_deterministic_score(heat);
-    let Some(threshold) = load_transfer_identity_threshold(&hx.pool, sport).await? else {
+    let Some(threshold) = threshold else {
         warn!(
             sport,
             "transfers: missing identity threshold config; skipping apply"
         );
-        return Ok(());
+        return Ok(false);
     };
     if identity_heat < threshold.min_heat
         || deterministic_confidence < threshold.min_deterministic_confidence
     {
-        return Ok(());
+        return Ok(false);
     }
 
     let (old_team_id, old_team_name) = current_identity_team(&hx.pool, sport, c.player_id).await?;
     if old_team_id == Some(team_id) {
-        if sport_autofill_refresh_pending(&hx.pool, sport).await? {
-            refresh_sport_autofill_concurrently(&hx.pool, sport, "applied_transfer_identity")
-                .await?;
-        }
-        return Ok(());
+        // Already the current team: refresh only if a previous drain left one pending.
+        return sport_autofill_refresh_pending(&hx.pool, sport).await;
     }
 
     let prompt = build_transfer_identity_adjudication_prompt(
@@ -1701,7 +1758,7 @@ async fn maybe_apply_transfer_identity(
                 "identity adjudication generate failed",
             )
             .await?;
-            return Ok(());
+            return Ok(false);
         }
     };
 
@@ -1720,7 +1777,7 @@ async fn maybe_apply_transfer_identity(
             "invalid identity adjudication JSON",
         )
         .await?;
-        return Ok(());
+        return Ok(false);
     };
 
     let adjudication_json =
@@ -1760,9 +1817,16 @@ async fn maybe_apply_transfer_identity(
             player = c.player_id,
             "transfers: applied current identity override"
         );
-        refresh_sport_autofill_concurrently(&hx.pool, sport, "applied_transfer_identity").await?;
+        // Mark durably now; the caller runs the actual REFRESH once after the pair loop.
+        sqlx::query("SELECT public.request_sport_autofill_refresh($1, $2)")
+            .bind(sport)
+            .bind("applied_transfer_identity")
+            .execute(&hx.pool)
+            .await
+            .context("mark sport autofill refreshing")?;
+        return Ok(true);
     }
-    Ok(())
+    Ok(false)
 }
 
 /// enqueue_sigil_for_transfer re-triggers panel synthesis for the player AND the team a freshly
@@ -1840,14 +1904,28 @@ impl StageHandler for TransferHandler {
         let tiers = load_tier_map(&hx.pool).await?;
         let candidates =
             load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
+        // Per-team hoists (Phase 2): one batched relationship read for the whole candidate set
+        // and one identity-threshold config read, instead of one of each per pair.
+        let player_ids: Vec<i32> = candidates.iter().map(|c| c.player_id).collect();
+        let (relationships, identity_threshold) = tokio::try_join!(
+            team_relationships(&hx.pool, team_id, &player_ids, &sport),
+            load_transfer_identity_threshold(&hx.pool, &sport),
+        )?;
 
         let mut unknown = 0usize;
         let mut errored = 0usize;
+        let mut autofill_refresh_wanted = false;
         for c in &candidates {
             // Model-failure UNKNOWN is not an infrastructure error: it is a successful fail-closed
             // row that the `unknown` tally turns into a team retry. DB/build/persist errors are
             // infrastructure failures; keep scanning pairs for visibility, then fail the team item.
             let pair = async {
+                // A missing batch row is semantically "none" (no identity row + no stats row),
+                // matching the per-pair COALESCE(false) defaults.
+                let relationship = relationships
+                    .get(&c.player_id)
+                    .cloned()
+                    .unwrap_or_else(|| "none".to_string());
                 let out = match build_pair_request(
                     hx,
                     team_id,
@@ -1855,6 +1933,7 @@ impl StageHandler for TransferHandler {
                     c,
                     &sport,
                     &tiers,
+                    relationship,
                     TRANSFER_TEMPERATURE,
                 )
                 .await?
@@ -1877,7 +1956,7 @@ impl StageHandler for TransferHandler {
                             );
                             return Ok(Outcome::Skipped);
                         }
-                        vet_pair(hx, team_id, c.player_id, *ready).await?
+                        vet_pair(hx, team_id, c.player_id, &sport, *ready).await?
                     }
                 };
                 if let Some(row) = &out.row {
@@ -1925,7 +2004,7 @@ impl StageHandler for TransferHandler {
                     )
                     .await;
                     if let Some(heat) = out.heat {
-                        maybe_apply_transfer_identity(
+                        if maybe_apply_transfer_identity(
                             hx,
                             team_id,
                             &team_name,
@@ -1936,8 +2015,12 @@ impl StageHandler for TransferHandler {
                             persisted_rumor_id,
                             row,
                             out.outcome,
+                            identity_threshold.as_ref(),
                         )
-                        .await?;
+                        .await?
+                        {
+                            autofill_refresh_wanted = true;
+                        }
                     }
                     // Phase 5.1 (transfer→sigil trigger): a freshly SERVED rumor is a Sigil pillar
                     // now, so re-trigger panel synthesis for the player and the team it touches.
@@ -1979,6 +2062,14 @@ impl StageHandler for TransferHandler {
                     );
                 }
             }
+        }
+
+        // One autofill refresh per team drain (Phase 2), not one heavy REFRESH per applied
+        // pair. Runs before the retry bails so an applied identity surfaces promptly; the
+        // durable 'refreshing' marker self-heals a missed refresh on the next drain.
+        if autofill_refresh_wanted {
+            refresh_sport_autofill_concurrently(&hx.pool, &sport, "applied_transfer_identity")
+                .await?;
         }
 
         if errored > 0 {

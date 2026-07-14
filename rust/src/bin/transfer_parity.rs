@@ -33,8 +33,9 @@ use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::transfer::{
-    analyze_pair, build_pair_request, direction_for, load_candidates, load_tier_map, PairBuild,
-    TransferCandidate, TransferPairOutput, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_PROMPT_VERSION,
+    analyze_pair, build_pair_request, direction_for, load_candidates, load_tier_map,
+    team_relationship, PairBuild, TransferCandidate, TransferPairOutput,
+    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_PROMPT_VERSION,
 };
 use scoracle_cognition::{corpus, db};
 use sqlx::PgPool;
@@ -172,6 +173,7 @@ async fn run_pair(
     tiers: &std::collections::HashMap<String, f64>,
     vet: bool,
 ) -> Result<bool> {
+    let relationship = team_relationship(&hx.pool, s.team_id, c.player_id, &s.sport).await?;
     let ready = match build_pair_request(
         hx,
         s.team_id,
@@ -179,6 +181,7 @@ async fn run_pair(
         c,
         &s.sport,
         tiers,
+        relationship,
         PARITY_TEMPERATURE,
     )
     .await?

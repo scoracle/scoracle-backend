@@ -994,8 +994,19 @@ impl LensTask for TransferTask {
                 )
             })?;
 
-        match build_pair_request(hx, e.entity_id, &team_name, &candidate, &sport, &tiers, 0.0)
-            .await?
+        let relationship =
+            crate::transfer::team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
+        match build_pair_request(
+            hx,
+            e.entity_id,
+            &team_name,
+            &candidate,
+            &sport,
+            &tiers,
+            relationship,
+            0.0,
+        )
+        .await?
         {
             PairBuild::Skipped { .. } => Ok(None),
             PairBuild::Ready(r) => Ok(Some(r.built_prompt)),

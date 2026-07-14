@@ -112,8 +112,15 @@ impl StageHandler for ScrubHandler {
                         .unwrap_or(false)
             })
             .collect();
-        let fallback_bucket = crate::bucket::classify_article(hx, &title, &description).await?;
-        let bucket = model_bucket.unwrap_or(fallback_bucket);
+        // Candle classify only on the fallback path (Phase 2): when the ambiguous-band model
+        // call already named a bucket, the fallback embed+classify was computed and thrown
+        // away. (Reusing the resolve pass's context vector here is deliberately NOT done: the
+        // resolve context is "title — description" while the bucket classifier was
+        // threshold-tuned on "title description" — swap only after a candle_probe re-measure.)
+        let bucket = match model_bucket {
+            Some(b) => b,
+            None => crate::bucket::classify_article(hx, &title, &description).await?,
+        };
 
         apply_verdicts(
             hx,

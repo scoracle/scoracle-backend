@@ -336,19 +336,32 @@ pub async fn load_vetted_corpus(
         .collect())
 }
 
-async fn load_vetted_corpus_exclusions(
+/// load_vetted_corpus_with_exclusions is [`load_vetted_corpus`] and the exclusions diagnostic
+/// in ONE base scan (Phase 2 — the exclusions query used to re-run the same
+/// entity-links × articles join a second time). Kept rows carry the full payload in window-rank
+/// order (the old `ORDER BY … LIMIT` realization); excluded rows return only `(id, status)` —
+/// their payload columns are NULLed in SQL so months of stale history don't ride the wire.
+async fn load_vetted_corpus_with_exclusions(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
-) -> Result<CorpusExclusions> {
-    let rows: Vec<(String, Vec<i64>)> = sqlx::query_as(
+) -> Result<(Vec<CorpusItem>, CorpusExclusions)> {
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        i64,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+        Option<i64>,
+    )> = sqlx::query_as(
         r#"
         WITH base AS (
-            SELECT a.id,
-                   a.published_at,
-                   a.topic_heat,
-                   a.fetched_at
+            SELECT a.id, a.title, a.description, a.source, a.url,
+                   a.published_at, a.fetched_at, a.topic_heat
             FROM news_article_entities nae
             JOIN news_articles a ON a.id = nae.article_id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
@@ -358,28 +371,32 @@ async fn load_vetted_corpus_exclusions(
         fresh AS (
             SELECT id,
                    row_number() OVER (
-                       ORDER BY a.topic_heat DESC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC
+                       ORDER BY topic_heat DESC NULLS LAST, COALESCE(published_at, fetched_at) DESC
                    ) AS rn
-            FROM base a
-            WHERE a.published_at IS NULL OR a.published_at > NOW() - make_interval(secs => $4)
-        ),
-        marked AS (
-            SELECT id,
-                   CASE
-                     WHEN published_at IS NOT NULL
-                      AND published_at <= NOW() - make_interval(secs => $4)
-                       THEN 'stale_news'
-                   END AS reason
             FROM base
-            UNION ALL
-            SELECT id, 'budget_truncated' AS reason
-            FROM fresh
-            WHERE rn > $5
+            WHERE published_at IS NULL OR published_at > NOW() - make_interval(secs => $4)
+        ),
+        classified AS (
+            SELECT b.*, f.rn,
+                   CASE
+                     WHEN b.published_at IS NOT NULL
+                      AND b.published_at <= NOW() - make_interval(secs => $4)
+                       THEN 'stale_news'
+                     WHEN f.rn > $5 THEN 'budget_truncated'
+                     ELSE 'kept'
+                   END AS status
+            FROM base b
+            LEFT JOIN fresh f USING (id)
         )
-        SELECT reason, array_agg(id ORDER BY id) AS ids
-        FROM marked
-        WHERE reason IS NOT NULL
-        GROUP BY reason
+        SELECT id, status,
+               CASE WHEN status = 'kept' THEN title END,
+               CASE WHEN status = 'kept' THEN COALESCE(description, '') END,
+               CASE WHEN status = 'kept' THEN COALESCE(source, '') END,
+               CASE WHEN status = 'kept' THEN COALESCE(url, '') END,
+               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
+               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END
+        FROM classified
+        ORDER BY rn NULLS LAST, id
         "#,
     )
     .bind(entity_type)
@@ -389,17 +406,32 @@ async fn load_vetted_corpus_exclusions(
     .bind(MAX_NARRATIVE_CORPUS)
     .fetch_all(pool)
     .await
-    .with_context(|| format!("load vetted corpus exclusions {entity_type}/{entity_id}"))?;
+    .with_context(|| format!("load vetted corpus + exclusions {entity_type}/{entity_id}"))?;
 
-    let mut out = CorpusExclusions::default();
-    for (reason, ids) in rows {
-        match reason.as_str() {
-            "budget_truncated" => out.budget_truncated_news_ids = ids,
-            "stale_news" => out.stale_news_ids = ids,
-            _ => {}
+    let mut corpus = Vec::new();
+    let mut exclusions = CorpusExclusions::default();
+    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch) in
+        rows
+    {
+        match status.as_str() {
+            "kept" => corpus.push(CorpusItem {
+                id,
+                title: title.unwrap_or_default(),
+                description: description.unwrap_or_default(),
+                source: source.unwrap_or_default(),
+                url: url.unwrap_or_default(),
+                published_at_epoch,
+                fetched_at_epoch,
+                relevance_band: None,
+            }),
+            "stale_news" => exclusions.stale_news_ids.push(id),
+            _ => exclusions.budget_truncated_news_ids.push(id),
         }
     }
-    Ok(out)
+    // The old exclusions arrays were array_agg(id ORDER BY id) — keep them ascending.
+    exclusions.stale_news_ids.sort_unstable();
+    exclusions.budget_truncated_news_ids.sort_unstable();
+    Ok((corpus, exclusions))
 }
 
 // ---------------------------------------------------------------------------
@@ -850,14 +882,13 @@ pub async fn load_narratives_material(
 ) -> Result<NarrativesMaterial> {
     let sport_up = req.sport.to_uppercase();
 
-    // load_vetted_corpus and load_transfer_heat are independent reads — run them concurrently
+    // The corpus+exclusions read and load_transfer_heat are independent — run them concurrently
     // (plan A3). The heat error-swallowing stays INSIDE the joined future so "a heat-read failure
     // must NEVER block the narrative (the corpus is the primary signal)" survives; a corpus error
     // still aborts the join. Note: heat now runs on the no-corpus path too (the early return moved
     // below the join) — no output change, just an extra read on that branch.
-    let (corpus, corpus_exclusions, heat) = tokio::try_join!(
-        load_vetted_corpus(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
-        load_vetted_corpus_exclusions(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
+    let ((corpus, corpus_exclusions), heat) = tokio::try_join!(
+        load_vetted_corpus_with_exclusions(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
         async {
             Ok::<Vec<HeatItem>, anyhow::Error>(
                 match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await

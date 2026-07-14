@@ -619,15 +619,15 @@ impl StageHandler for OracleHandler {
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
-        let name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
-                .await?;
-
         let sport = item.sport.to_uppercase();
-        let (season, narratives, rating, vibe, momentum, transfers) =
-            load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
-        // No scored Sigil to read ⇒ marker (no model call).
+        // Gate BEFORE hydrating (Phase 2): sigil's self-healing enqueue-on-skip makes
+        // "sigil unchanged" the common case for an oracle wake, so read the consumed sigil
+        // and debounce on it first — the 5 pillar loaders and the name lookup run only
+        // once the gate passes.
+        let season = crate::sigil::resolve_season(&hx.pool, &sport, None).await?;
+
+        // No scored Sigil to read ⇒ marker (no model call; needs neither pillars nor name).
         let Some(sigil) =
             load_latest_sigil(&hx.pool, &item.entity_type, entity_id, &sport, season).await?
         else {
@@ -656,6 +656,15 @@ impl StageHandler for OracleHandler {
         {
             return Ok(()); // unchanged → cheap no-op (no model call, no persist)
         }
+
+        // Gate passed: hydrate. load_pillars re-resolves the season internally — one cheap
+        // duplicate query on this (rare) path beats threading a season override through the
+        // shared sigil-stage loader.
+        let name =
+            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
+                .await?;
+        let (_, narratives, rating, vibe, momentum, transfers) =
+            load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
         let (omen, omen_reason) = compute_omen(&sigil, rating.as_ref(), &momentum);
         let prompt = build_oracle_prompt(

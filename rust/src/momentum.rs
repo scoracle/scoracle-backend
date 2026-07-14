@@ -548,18 +548,10 @@ impl StageHandler for MomentumHandler {
             );
             return Ok(());
         }
-        let key = EntityKey {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            sport: sport.clone(),
-            season: Some(ctx.season),
-        };
-        if hx
-            .debounce_unchanged("momentum_summaries", &key, &ctx.input_hash)
-            .await?
-        {
-            return Ok(());
-        }
+        // No handler-side debounce (Phase 2): every momentum enqueue goes through
+        // enqueue_momentum_if_needed, which already empty-gates and debounces against the
+        // latest row — the hash it carried into input_version is the admission ticket. The
+        // recomputed ctx.input_hash still stamps provenance on the row actually generated.
 
         let prompt = build_momentum_prompt(
             &item.entity_type,

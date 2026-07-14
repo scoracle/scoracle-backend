@@ -831,16 +831,23 @@ pub struct NarrativesReady {
     pub input_hash: String,
 }
 
-/// build_narratives_request runs the deterministic prefix: load the vetted corpus, (if an embedder is
-/// loaded) dedup near-duplicates, load the transfer heat for grounding, then `build_narratives_prompt`
-/// plus the n4 options and the exact wire body. NO model call — these are the deterministic axes (the L2
-/// finding: the storyline grouping is not a temp-0 parity axis). The role is [`Role::NarrativeLogic`]
-/// (the news/transfer reasoner — narratives shares it with vibe/transfers).
-pub async fn build_narratives_request(
+/// NarrativesMaterial is the pre-dedup material phase: the concurrent loads plus the debounce
+/// hash, NO candle work. The live handler gates on `input_hash` between this and
+/// [`finish_narratives_build`] so a quiet wake never pays the dedup embed (Phase 2); the parity
+/// bins go through [`build_narratives_request`], which composes both phases unchanged.
+pub struct NarrativesMaterial {
+    pub corpus: Vec<CorpusItem>,
+    pub corpus_exclusions: CorpusExclusions,
+    pub heat: Vec<HeatItem>,
+    /// SHA over [`build_narratives_input_components`] (pre-dedup) — the debounce key.
+    pub input_hash: String,
+}
+
+/// load_narratives_material runs the loads and hashes the material inputs. No embed, no prompt.
+pub async fn load_narratives_material(
     hx: &Harness,
     req: &NarrativesReq,
-    temperature: f64,
-) -> Result<NarrativesBuild> {
+) -> Result<NarrativesMaterial> {
     let sport_up = req.sport.to_uppercase();
 
     // load_vetted_corpus and load_transfer_heat are independent reads — run them concurrently
@@ -876,6 +883,30 @@ pub async fn build_narratives_request(
     let input_hash = crate::util::hash_components(&build_narratives_input_components(
         &corpus, &heat,
     ));
+
+    Ok(NarrativesMaterial {
+        corpus,
+        corpus_exclusions,
+        heat,
+        input_hash,
+    })
+}
+
+/// finish_narratives_build is the post-gate phase: the dedup embed (the candle pass) and the
+/// prompt/options/wire-body assembly.
+pub async fn finish_narratives_build(
+    hx: &Harness,
+    req: &NarrativesReq,
+    material: NarrativesMaterial,
+    temperature: f64,
+) -> Result<NarrativesBuild> {
+    let sport_up = req.sport.to_uppercase();
+    let NarrativesMaterial {
+        corpus,
+        corpus_exclusions,
+        heat,
+        input_hash,
+    } = material;
 
     // No corpus → the NULL-narrative marker path (no model call).
     if corpus.is_empty() {
@@ -915,6 +946,23 @@ pub async fn build_narratives_request(
         model_configured,
         input_hash,
     })))
+}
+
+/// build_narratives_request runs the full deterministic prefix: load the vetted corpus, (if an
+/// embedder is loaded) dedup near-duplicates, load the transfer heat for grounding, then
+/// `build_narratives_prompt` plus the n4 options and the exact wire body. NO model call — these
+/// are the deterministic axes (the L2 finding: the storyline grouping is not a temp-0 parity
+/// axis). The role is [`Role::NarrativeLogic`] (the news/transfer reasoner — narratives shares it
+/// with vibe/transfers). Composition of [`load_narratives_material`] +
+/// [`finish_narratives_build`]; the live handler calls the phases directly to debounce between
+/// them.
+pub async fn build_narratives_request(
+    hx: &Harness,
+    req: &NarrativesReq,
+    temperature: f64,
+) -> Result<NarrativesBuild> {
+    let material = load_narratives_material(hx, req).await?;
+    finish_narratives_build(hx, req, material, temperature).await
 }
 
 /// The un-persisted result of one generation — everything the production persist (→ news_summaries)
@@ -1373,17 +1421,15 @@ impl StageHandler for NarrativesHandler {
         };
         let sport_up = item.sport.to_uppercase();
 
-        // Build ONCE, then gate (Phase 1): narratives was the heaviest GPU stage and
-        // regenerated unconditionally every wake cycle. When the material inputs (vetted
-        // corpus ids + heat facts) match the latest persisted generation's hash, skip the
-        // model call AND the insert — readers use max(generated_at), so the previous
-        // generation keeps serving, and downstream vibe/sigil see no phantom "new" input.
-        // Pre-145 rows carry a NULL hash, which never matches → one regeneration stamps it.
-        let build = build_narratives_request(hx, &req, NARRATIVES_TEMPERATURE).await?;
-        let input_hash = match &build {
-            NarrativesBuild::NoCorpus { input_hash, .. } => input_hash.clone(),
-            NarrativesBuild::Ready(r) => r.input_hash.clone(),
-        };
+        // Load material, gate, THEN build (Phase 2 refines Phase 1's build-once-then-gate):
+        // narratives was the heaviest GPU stage and regenerated unconditionally every wake
+        // cycle. When the material inputs (vetted corpus ids + heat facts) match the latest
+        // persisted generation's hash, skip the dedup embed, the model call, AND the insert —
+        // readers use max(generated_at), so the previous generation keeps serving, and
+        // downstream vibe/sigil see no phantom "new" input. Pre-145 rows carry a NULL hash,
+        // which never matches → one regeneration stamps it. The hash keys on the pre-dedup
+        // material, so gating before the candle pass changes no debounce semantics.
+        let material = load_narratives_material(hx, &req).await?;
         let key = EntityKey {
             entity_type: item.entity_type.clone(),
             entity_id,
@@ -1391,7 +1437,7 @@ impl StageHandler for NarrativesHandler {
             season: None,
         };
         if hx
-            .debounce_unchanged("news_summaries", &key, &input_hash)
+            .debounce_unchanged("news_summaries", &key, &material.input_hash)
             .await?
         {
             debug!(
@@ -1403,6 +1449,7 @@ impl StageHandler for NarrativesHandler {
             return Ok(());
         }
 
+        let build = finish_narratives_build(hx, &req, material, NARRATIVES_TEMPERATURE).await?;
         let out = generate_narratives_from_build(hx, build, now_unix()).await?;
 
         // Go marshals the nil trigger map → jsonb `null`.

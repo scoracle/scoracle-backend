@@ -25,8 +25,6 @@
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
-use crate::embed::cosine_similarity;
-use crate::resolve::load_identity_candidate;
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
@@ -88,7 +86,6 @@ pub struct Narrative {
     pub impact: i32,
     pub trajectory: String,
     pub topic_heat: i32,
-    pub relevance: Option<f32>,
     /// Corroboration weight from the narratives stage (Phase 1): how many distinct sources
     /// backed the storyline. Was persisted from day one and read by nothing downstream.
     pub source_count: i32,
@@ -204,7 +201,6 @@ pub async fn load_latest_narratives(
             impact,
             trajectory,
             topic_heat,
-            relevance: None,
             source_count,
             source_age_days,
         });
@@ -212,41 +208,21 @@ pub async fn load_latest_narratives(
     Ok((narratives, dedupe_i64(ids)))
 }
 
-async fn weight_narratives(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport: &str,
-    narratives: &mut [Narrative],
-) -> Result<()> {
-    if hx.embedder.is_some() && !narratives.is_empty() {
-        let identity =
-            load_identity_candidate(&hx.pool, entity_type, entity_id, entity_name, sport).await?;
-        let identity_text = crate::resolve::identity_text(&identity);
-        let mut texts = Vec::with_capacity(narratives.len() + 1);
-        texts.push(identity_text);
-        texts.extend(narratives.iter().map(|n| format!("{} {}", n.title, n.body)));
-        let vectors = hx.embed(&texts).await.context("embed vibe narratives")?;
-        let (identity_vec, narrative_vecs) = vectors
-            .split_first()
-            .expect("identity plus at least one narrative vector");
-        for (n, v) in narratives.iter_mut().zip(narrative_vecs) {
-            n.relevance = Some(cosine_similarity(identity_vec, v));
-        }
-    }
-
+/// order_narratives orders the storylines for the prompt: topic heat → impact → title.
+///
+/// Phase 2 dropped the identity re-load + candle embed that used to compute a per-narrative
+/// relevance ordering key: its only product was this sort's primary axis, the offline parity
+/// bins (no embedder) never ran it, and every debounce-skipped wake paid it for nothing.
+/// Topic heat is the durable relevance proxy (candle-clustered upstream, and already in both
+/// the prompt tags and the debounce pre-image), so live ordering now matches what the parity
+/// bins always produced.
+fn order_narratives(narratives: &mut [Narrative]) {
     narratives.sort_by(|a, b| {
-        let rel = b
-            .relevance
-            .unwrap_or(f32::NEG_INFINITY)
-            .partial_cmp(&a.relevance.unwrap_or(f32::NEG_INFINITY))
-            .unwrap_or(std::cmp::Ordering::Equal);
-        rel.then_with(|| b.topic_heat.cmp(&a.topic_heat))
+        b.topic_heat
+            .cmp(&a.topic_heat)
             .then_with(|| b.impact.cmp(&a.impact))
             .then_with(|| a.title.cmp(&b.title))
     });
-    Ok(())
 }
 
 
@@ -314,7 +290,7 @@ pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) 
 /// Splitting the load from the model call lets the production handler gate on `input_hash`
 /// BEFORE paying for the GPU (the parity harness skips the gate — it must always run).
 pub struct VibeContext {
-    /// Weighted/ordered for the prompt (relevance → topic heat → impact → title).
+    /// Ordered for the prompt (topic heat → impact → title).
     pub narratives: Vec<Narrative>,
     pub heat: Vec<HeatItem>,
     /// Deduped union of the narratives' source article ids (provenance).
@@ -352,15 +328,7 @@ pub async fn load_vibe_context(
         load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
         load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
     )?;
-    weight_narratives(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        &sport,
-        &mut narratives,
-    )
-    .await?;
+    order_narratives(&mut narratives);
 
     // Hash BEFORE any model involvement: the pre-image is order-insensitive (sorted lines),
     // so the weighting above cannot perturb it.
@@ -924,7 +892,6 @@ mod tests {
             impact,
             trajectory: trajectory.into(),
             topic_heat: 42,
-            relevance: Some(0.9),
             source_count: 5,
             source_age_days: Some(1),
         }
@@ -965,7 +932,7 @@ mod tests {
 
     #[test]
     fn input_hash_ignores_narrative_ordering() {
-        // weight_narratives reorders for the prompt (relevance/topic-heat/impact); the
+        // order_narratives reorders for the prompt (topic-heat/impact/title); the
         // debounce key must not care.
         let a = test_narrative("Alpha story", 3, "developing_story");
         let b = test_narrative("Trade buzz", 7, "heating_up");

@@ -195,6 +195,29 @@ pub async fn fail(
     Ok(())
 }
 
+/// release returns a leased item to 'pending' with no attempt penalty — the
+/// shutdown path hands unprocessed claims straight back so the next boot picks
+/// them up immediately instead of waiting out stale-lease recovery. Acts only
+/// on a row still 'running'.
+pub async fn release(pool: &PgPool, it: &Item) -> Result<()> {
+    sqlx::query(
+        r#"
+        UPDATE pipeline_work
+           SET status = 'pending', updated_at = NOW(), available_at = NOW()
+         WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+           AND status = 'running'
+        "#,
+    )
+    .bind(it.stage.as_str())
+    .bind(it.entity_type.as_str())
+    .bind(it.entity_id)
+    .bind(it.sport.as_str())
+    .execute(pool)
+    .await
+    .with_context(|| format!("release {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
+    Ok(())
+}
+
 /// requeue_stale flips 'running' rows whose lease has expired (updated_at older
 /// than `lease`) back to 'pending', recovering work abandoned by a crashed
 /// worker. Returns the number of rows recovered.

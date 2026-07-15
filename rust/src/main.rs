@@ -144,6 +144,8 @@ async fn main() -> Result<()> {
         cfg.safety_net,
         cfg.stale_lease,
         cfg.scrub.topic_heat_interval,
+        cfg.handler_timeout,
+        cfg.watchdog,
     );
     worker.run().await
 }

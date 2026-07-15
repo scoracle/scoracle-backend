@@ -45,6 +45,15 @@ pub struct Config {
     /// Scrub article bucket + topic-heat policy (plan F2). The scrub model emits a bucket when it
     /// is already called; this config governs the candle fallback and the periodic heat-rank batch.
     pub scrub: ScrubConfig,
+    /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
+    /// call, DB acquire, embed) fails the item after this long instead of stalling the
+    /// drain forever (2026-07-15 incident follow-up). Zero disables.
+    pub handler_timeout: Duration,
+    /// The worker supervisor's no-progress threshold: a busy drain whose heartbeat is
+    /// older than this is declared wedged and the process exits for a clean systemd
+    /// restart (`Restart=always`). Must exceed the longest legitimately beat-free
+    /// stretch — the topic-heat full pass measured ~24 min on 2026-07-12. Zero disables.
+    pub watchdog: Duration,
 }
 
 impl Config {
@@ -75,6 +84,12 @@ impl Config {
             embed: EmbedConfig::from_env()?,
             resolve: ResolveConfig::from_env()?,
             scrub: ScrubConfig::from_env()?,
+            // 900s = 15 min: generous over the slowest observed item (a narratives batch
+            // item ran ~4-7 min under the 07-15 catch-up load) yet far under stale-lease.
+            handler_timeout: Duration::from_secs(env_u64("COGNITION_HANDLER_TIMEOUT_SECONDS", 900)?),
+            // 2700s = 45 min: above the 24-min topic-heat worst case with margin; a wedge
+            // self-heals in ≤45 min instead of the incident's 34 hours.
+            watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
         })
     }
 }

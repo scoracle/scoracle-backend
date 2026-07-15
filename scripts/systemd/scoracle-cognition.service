@@ -31,12 +31,12 @@ Environment=COGNITION_STAGES=scrub,peak,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3
-# The worker's shutdown path listens for ctrl_c (SIGINT on Unix); systemd's default
-# stop signal is SIGTERM, which the worker does NOT catch. Send SIGINT so a
-# stop/restart lets the in-flight drain finish and the process exit cleanly, instead
-# of being SIGKILLed mid-item (which would strand a leased row until the 30-min
-# stale-lease recovery). A drain that overruns TimeoutStopSec is still SIGKILLed and
-# recovered by stale-lease — the backstop, not the path.
+# The daemon handles SIGINT and SIGTERM itself (worker.rs supervisor task, post the
+# 2026-07-15 incident hardening): the drain stops at the next item boundary, releases
+# unprocessed claims back to 'pending', and a 75s in-process grace aborts a stuck
+# in-flight item — always inside systemd's default TimeoutStopSec (90s), so a stop
+# never escalates to SIGKILL. KillSignal stays SIGINT so this unit behaves identically
+# under a pre-hardening binary (which only caught SIGINT, and only between ticks).
 KillSignal=SIGINT
 
 # Logs go to the journal; view with:

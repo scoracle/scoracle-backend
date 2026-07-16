@@ -438,12 +438,11 @@ pub async fn refresh_topic_heat(
     // exact, and it also clears rows left behind by a model-identity change.
     if cache.persist {
         let keep: Vec<i64> = seen_ids.iter().copied().collect();
-        if let Err(e) = sqlx::query(
-            "DELETE FROM public.topic_heat_embeddings WHERE NOT (article_id = ANY($1))",
-        )
-        .bind(&keep)
-        .execute(&hx.pool)
-        .await
+        if let Err(e) =
+            sqlx::query("DELETE FROM public.topic_heat_embeddings WHERE NOT (article_id = ANY($1))")
+                .bind(&keep)
+                .execute(&hx.pool)
+                .await
         {
             warn!(error = %format!("{e:#}"), "topic heat persistent-cache prune failed");
         }
@@ -535,7 +534,10 @@ mod tests {
         cache.put(7, fp, vec![0.1, 0.2]);
         assert_eq!(cache.get(7, fp), Some(&vec![0.1, 0.2]));
         // Edited text → different fingerprint → miss (stale vector never served).
-        assert_eq!(cache.get(7, text_fingerprint("Star guard traded (updated)")), None);
+        assert_eq!(
+            cache.get(7, text_fingerprint("Star guard traded (updated)")),
+            None
+        );
         assert_eq!(cache.get(8, fp), None);
     }
 

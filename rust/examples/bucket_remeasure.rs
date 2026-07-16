@@ -168,8 +168,16 @@ fn confusion(scores: &[f32], labels: &[bool], thr: f32) -> (f64, f64, f64) {
         }
     }
     let acc = (tp + tn) / (tp + tn + fp + fn_);
-    let prec = if tp + fp > 0.0 { tp / (tp + fp) } else { f64::NAN };
-    let rec = if tp + fn_ > 0.0 { tp / (tp + fn_) } else { f64::NAN };
+    let prec = if tp + fp > 0.0 {
+        tp / (tp + fp)
+    } else {
+        f64::NAN
+    };
+    let rec = if tp + fn_ > 0.0 {
+        tp / (tp + fn_)
+    } else {
+        f64::NAN
+    };
     (acc, prec, rec)
 }
 
@@ -258,15 +266,19 @@ async fn main() -> Result<()> {
     );
     let t0 = Instant::now();
     let embedder = Embedder::from_config(&EmbedConfig::from_env()?)?;
-    println!("embedder loaded in {:.1}s, dim={}", t0.elapsed().as_secs_f64(), embedder.dim);
+    println!(
+        "embedder loaded in {:.1}s, dim={}",
+        t0.elapsed().as_secs_f64(),
+        embedder.dim
+    );
     let classifier = BucketClassifier::from_embedder(&embedder, scrub_cfg.clone())?;
     let transfer_centroid = mean_vec(&embed_all(&embedder, &canonical_transfer_sentences())?);
     let non_transfer_centroid =
         mean_vec(&embed_all(&embedder, &canonical_non_transfer_sentences())?);
 
     let full_score = |text: &str, v: &[f32]| -> f32 {
-        let contrastive = cosine_similarity(v, &transfer_centroid)
-            - cosine_similarity(v, &non_transfer_centroid);
+        let contrastive =
+            cosine_similarity(v, &transfer_centroid) - cosine_similarity(v, &non_transfer_centroid);
         let bonus = if keyword_hit(text, &scrub_cfg.bucket_keywords) {
             scrub_cfg.bucket_keyword_weight
         } else {
@@ -312,7 +324,10 @@ async fn main() -> Result<()> {
     if mismatches > 0 {
         bail!("replica disagrees with live classify_vector on {mismatches} articles — raw scores below would not describe live behavior");
     }
-    println!("== faithfulness ==  replica == live classify_vector on all {} articles", articles.len());
+    println!(
+        "== faithfulness ==  replica == live classify_vector on all {} articles",
+        articles.len()
+    );
 
     // --- score shift between forms (desc-nonempty only; empty desc is identical) --
     let labels_vec: Vec<bool> = articles.iter().map(|a| a.label_transfer).collect();
@@ -353,7 +368,10 @@ async fn main() -> Result<()> {
         .filter(|&&i| !labels_vec[i])
         .map(|&i| emdash_scores[i] - space_scores[i])
         .collect();
-    println!("\n== form shift (space -> em-dash), desc-nonempty n={} ==", nonempty.len());
+    println!(
+        "\n== form shift (space -> em-dash), desc-nonempty n={} ==",
+        nonempty.len()
+    );
     class_stats("vector cosine(space, emdash)", &vec_cos);
     class_stats("score delta (all)", &deltas);
     class_stats("score delta (label=transfer)", &deltas_pos);
@@ -416,7 +434,11 @@ async fn main() -> Result<()> {
     let (pos_s, neg_s) = split(&space_scores);
     let (pos_e, neg_e) = split(&emdash_scores);
     println!("\n== AUC (full score, vs GPU labels) ==");
-    println!("  space={:.4}  emdash={:.4}", auc(&pos_s, &neg_s), auc(&pos_e, &neg_e));
+    println!(
+        "  space={:.4}  emdash={:.4}",
+        auc(&pos_s, &neg_s),
+        auc(&pos_e, &neg_e)
+    );
 
     println!("\n== threshold sweep (acc / prec / rec on transfer) ==");
     println!("  thr      space                  emdash");
@@ -424,10 +446,12 @@ async fn main() -> Result<()> {
         let t = i as f32 * 0.01;
         let (a1, p1, r1) = confusion(&space_scores, &labels_vec, t);
         let (a2, p2, r2) = confusion(&emdash_scores, &labels_vec, t);
-        let mark = if (t - thr).abs() < 1e-6 { "<- live" } else { "" };
-        println!(
-            "  {t:+.2}   {a1:.3} / {p1:.3} / {r1:.3}    {a2:.3} / {p2:.3} / {r2:.3}   {mark}"
-        );
+        let mark = if (t - thr).abs() < 1e-6 {
+            "<- live"
+        } else {
+            ""
+        };
+        println!("  {t:+.2}   {a1:.3} / {p1:.3} / {r1:.3}    {a2:.3} / {p2:.3} / {r2:.3}   {mark}");
     }
 
     Ok(())

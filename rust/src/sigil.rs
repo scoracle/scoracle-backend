@@ -783,10 +783,7 @@ pub fn build_pillar_divergence(
 
     let peak_sign = rating.and_then(|r| trajectory_sign(&r.peak_trajectory));
     let vibe_sign = vibe.and_then(|v| sentiment_sign(v.sentiment));
-    let mom_sign = mom
-        .direction
-        .as_deref()
-        .and_then(trajectory_sign);
+    let mom_sign = mom.direction.as_deref().and_then(trajectory_sign);
     // PEAK strength: the LEVEL sign (is this an elite or a weak profile), distinct from the
     // trajectory sign. The classic rails conflict the fixtures measure — "strong PEAK vs
     // sliding momentum and negative narrative" — is a LEVEL-vs-direction disagreement that
@@ -924,7 +921,11 @@ pub fn build_synthesis_prompt(
     if !narratives.is_empty() {
         b.push_str("\n=== NEWS NARRATIVE ===\n");
         for n in narratives {
-            let mut tags = format!("impact {:.0}, {}", n.impact, trajectory_label(&n.trajectory));
+            let mut tags = format!(
+                "impact {:.0}, {}",
+                n.impact,
+                trajectory_label(&n.trajectory)
+            );
             // Corroboration + freshness (Phase 1): the synthesis should weigh how much a
             // pillar can be trusted, not just what it says.
             if n.source_count > 0 {
@@ -1311,7 +1312,7 @@ async fn generate_sigil_inner(
         num_predict: SIGIL_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
-    format_schema: None,
+        format_schema: None,
     };
 
     // sigil = route(SynthesisLogic) + extract(SigilParser). The fail-closed contract lives in the
@@ -1495,10 +1496,7 @@ async fn enqueue_oracle_for_sigil(
         entity_type: item.entity_type.clone(),
         entity_id: item.entity_id,
         sport: sport.to_string(),
-        input_version: Some(format!(
-            "sigil:{season}:{}",
-            input_hash.unwrap_or("marker")
-        )),
+        input_version: Some(format!("sigil:{season}:{}", input_hash.unwrap_or("marker"))),
         attempts: 0,
     };
     crate::work::enqueue(pool, &it).await
@@ -1627,7 +1625,7 @@ impl StageHandler for SigilHandler {
             num_predict: SIGIL_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         };
         let extracted = hx
             .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)
@@ -2083,11 +2081,23 @@ mod tests {
         assert_eq!(
             rendered,
             vec![
-                ("PEAK trajectory (negative) vs Momentum (negative)".to_string(), true),
+                (
+                    "PEAK trajectory (negative) vs Momentum (negative)".to_string(),
+                    true
+                ),
                 ("Vibe (positive) vs Momentum (negative)".to_string(), false),
-                ("PEAK trajectory (negative) vs Vibe (positive)".to_string(), false),
-                ("PEAK strength (strong) vs Momentum (negative)".to_string(), false),
-                ("PEAK strength (strong) vs Vibe (positive)".to_string(), true),
+                (
+                    "PEAK trajectory (negative) vs Vibe (positive)".to_string(),
+                    false
+                ),
+                (
+                    "PEAK strength (strong) vs Momentum (negative)".to_string(),
+                    false
+                ),
+                (
+                    "PEAK strength (strong) vs Vibe (positive)".to_string(),
+                    true
+                ),
             ]
         );
     }
@@ -2106,7 +2116,15 @@ mod tests {
         };
         assert!(build_pillar_divergence(&[], None, Some(&vibe), &mom).is_empty());
         let p = build_synthesis_prompt(
-            "player", "X", "NBA", &[], None, Some(&vibe), &mom, &[], None,
+            "player",
+            "X",
+            "NBA",
+            &[],
+            None,
+            Some(&vibe),
+            &mom,
+            &[],
+            None,
         );
         assert!(!p.contains("PILLAR AGREEMENT"));
     }

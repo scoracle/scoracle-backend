@@ -307,10 +307,7 @@ pub fn build_oracle_prompt(
     // The PEAK card.
     if let Some(r) = rating {
         if !r.divined_peak.is_empty() {
-            b.push_str(&format!(
-                "PEAK: {} ({}/100)",
-                r.divined_peak, r.notability
-            ));
+            b.push_str(&format!("PEAK: {} ({}/100)", r.divined_peak, r.notability));
             if !r.peak_trajectory_label.is_empty() {
                 b.push_str(&format!(" — {}", r.peak_trajectory_label));
             }
@@ -330,10 +327,7 @@ pub fn build_oracle_prompt(
     // The Momentum card.
     if let Some(direction) = mom.direction.as_deref() {
         match mom.momentum_score {
-            Some(s) => b.push_str(&format!(
-                "Momentum: {direction} ({})\n",
-                s.round() as i32
-            )),
+            Some(s) => b.push_str(&format!("Momentum: {direction} ({})\n", s.round() as i32)),
             None => b.push_str(&format!("Momentum: {direction}\n")),
         }
     } else {
@@ -785,24 +779,39 @@ mod tests {
     #[test]
     fn counts_sentences_ignoring_decimals() {
         assert_eq!(count_sentences("One. Two! Three?"), 3);
-        assert_eq!(count_sentences("He averages 2.5 assists. The arc holds."), 2);
+        assert_eq!(
+            count_sentences("He averages 2.5 assists. The arc holds."),
+            2
+        );
         assert_eq!(count_sentences("Trailing ellipsis... and then."), 2);
         assert_eq!(count_sentences("no terminator"), 0);
     }
 
     #[test]
     fn omen_crossroads_on_split_panel_regardless_of_direction() {
-        let (omen, _) = compute_omen(&sigil(80, Some(40)), Some(&rating("rising")), &momentum("rising"));
+        let (omen, _) = compute_omen(
+            &sigil(80, Some(40)),
+            Some(&rating("rising")),
+            &momentum("rising"),
+        );
         assert_eq!(omen, "crossroads");
     }
 
     #[test]
     fn omen_momentum_leads_peak_seconds() {
         // Momentum rising (weight 2) beats PEAK falling (weight 1) → ascendant.
-        let (omen, _) = compute_omen(&sigil(70, Some(80)), Some(&rating("falling")), &momentum("rising"));
+        let (omen, _) = compute_omen(
+            &sigil(70, Some(80)),
+            Some(&rating("falling")),
+            &momentum("rising"),
+        );
         assert_eq!(omen, "ascendant");
         // Momentum falling with PEAK steady → waning.
-        let (omen, _) = compute_omen(&sigil(70, None), Some(&rating("steady")), &momentum("falling"));
+        let (omen, _) = compute_omen(
+            &sigil(70, None),
+            Some(&rating("steady")),
+            &momentum("falling"),
+        );
         assert_eq!(omen, "waning");
         // Nothing directional → steady.
         let (omen, _) = compute_omen(&sigil(50, Some(90)), None, &SynthMomentum::default());
@@ -861,7 +870,17 @@ mod tests {
         let (omen, reason) = compute_omen(&s, Some(&r), &m);
         assert_eq!(omen, "crossroads");
         let p = build_oracle_prompt(
-            "player", "Marcus Vale", "NBA", &s, &[], Some(&r), Some(&v), &m, &[], omen, &reason,
+            "player",
+            "Marcus Vale",
+            "NBA",
+            &s,
+            &[],
+            Some(&r),
+            Some(&v),
+            &m,
+            &[],
+            omen,
+            &reason,
         );
         assert!(p.starts_with("Entity: Marcus Vale (NBA player)\n\n=== THE CARDS ===\n"));
         assert!(p.contains("Sigil: 78/100 (panel agreement 45/100)\n"));

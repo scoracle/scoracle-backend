@@ -159,9 +159,8 @@ pub async fn load_latest_narratives(
     // COALESCE(impact, 0): impact is int2 but the `0` literal is int4, so the result is
     // int4 → scan as i32 (matches Go scanning into `int`).
     #[allow(clippy::type_complexity)]
-    let rows: Vec<(String, String, i32, Vec<i64>, String, i32, i32, Option<i32>)> =
-        sqlx::query_as(
-            r#"
+    let rows: Vec<(String, String, i32, Vec<i64>, String, i32, i32, Option<i32>)> = sqlx::query_as(
+        r#"
         SELECT narrative_title, body, COALESCE(impact, 0), input_news_ids,
                COALESCE(trajectory, $4),
                COALESCE((
@@ -180,14 +179,14 @@ pub async fn load_latest_narratives(
           )
         ORDER BY impact DESC NULLS LAST
         "#,
-        )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(sport)
-        .bind(DEFAULT_TRAJECTORY)
-        .fetch_all(pool)
-        .await
-        .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(DEFAULT_TRAJECTORY)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load narratives {entity_type}/{entity_id}"))?;
 
     let mut narratives = Vec::with_capacity(rows.len());
     let mut ids: Vec<i64> = Vec::new();
@@ -225,7 +224,6 @@ fn order_narratives(narratives: &mut [Narrative]) {
     });
 }
 
-
 // ---------------------------------------------------------------------------
 // Input components + hash — the debounce key (F2, mig 147).
 // ---------------------------------------------------------------------------
@@ -262,7 +260,10 @@ pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) 
             .collect(),
     );
     out.push_str("],\"narrative_titles\":[");
-    push_sorted_lines(&mut out, narratives.iter().map(|n| n.title.clone()).collect());
+    push_sorted_lines(
+        &mut out,
+        narratives.iter().map(|n| n.title.clone()).collect(),
+    );
     out.push_str("],\"narrative_trajectories\":[");
     push_sorted_lines(
         &mut out,
@@ -523,9 +524,16 @@ pub async fn generate_vibe(
     temperature: f64,
 ) -> Result<VibeOutput> {
     let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    let (out, _, _) =
-        generate_vibe_from_context(hx, entity_type, entity_name, sport_raw, ctx, temperature, false)
-            .await?;
+    let (out, _, _) = generate_vibe_from_context(
+        hx,
+        entity_type,
+        entity_name,
+        sport_raw,
+        ctx,
+        temperature,
+        false,
+    )
+    .await?;
     Ok(out)
 }
 
@@ -541,8 +549,16 @@ pub async fn generate_vibe_parity(
     temperature: f64,
 ) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
     let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    generate_vibe_from_context(hx, entity_type, entity_name, sport_raw, ctx, temperature, true)
-        .await
+    generate_vibe_from_context(
+        hx,
+        entity_type,
+        entity_name,
+        sport_raw,
+        ctx,
+        temperature,
+        true,
+    )
+    .await
 }
 
 async fn generate_vibe_from_context(
@@ -578,15 +594,20 @@ async fn generate_vibe_from_context(
         ));
     }
 
-    let prompt =
-        build_sentiment_prompt(entity_type, entity_name, sport_raw, &ctx.narratives, &ctx.heat);
+    let prompt = build_sentiment_prompt(
+        entity_type,
+        entity_name,
+        sport_raw,
+        &ctx.narratives,
+        &ctx.heat,
+    );
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: VIBE_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
-    format_schema: None,
+        format_schema: None,
     };
 
     // vibe = route(EmotionalNews) + extract(VibeParser). The fail-closed contract lives in

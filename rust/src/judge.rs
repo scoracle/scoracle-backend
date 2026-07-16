@@ -109,8 +109,10 @@ mod tests {
         .unwrap();
         assert_eq!((v.specificity, v.grounding, v.non_generic), (4, 5, 3));
         // Out-of-range or incomplete → None, never clamped or defaulted.
-        assert!(parse_judge_verdict(r#"{"specificity": 9, "grounding": 5, "non_generic": 3}"#)
-            .is_none());
+        assert!(
+            parse_judge_verdict(r#"{"specificity": 9, "grounding": 5, "non_generic": 3}"#)
+                .is_none()
+        );
         assert!(parse_judge_verdict(r#"{"grounding": 5}"#).is_none());
         assert!(parse_judge_verdict("not json").is_none());
     }

@@ -11,7 +11,9 @@
 //! spike (momentum must not chase spiky rumor-driven vibe) and a clean two-rail decline
 //! (the set previously had no unambiguous `falling` case).
 
-use scoracle_cognition::momentum::{build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT};
+use scoracle_cognition::momentum::{
+    build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
+};
 use scoracle_cognition::sigil::{SynthMomentum, SynthRating, SynthVibe};
 use serde_json::json;
 

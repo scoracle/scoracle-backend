@@ -567,7 +567,7 @@ impl StageHandler for MomentumHandler {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         };
         let extracted = hx
             .extract(Role::MomentumLogic, &prompt, &opts, &MomentumParser)

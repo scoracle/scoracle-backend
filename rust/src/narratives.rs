@@ -410,8 +410,7 @@ async fn load_vetted_corpus_with_exclusions(
 
     let mut corpus = Vec::new();
     let mut exclusions = CorpusExclusions::default();
-    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch) in
-        rows
+    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch) in rows
     {
         match status.as_str() {
             "kept" => corpus.push(CorpusItem {
@@ -911,9 +910,8 @@ pub async fn load_narratives_material(
 
     // Hash the material inputs BEFORE dedup: the debounce must key on what news exists, not on
     // what the (embedder-dependent) dedup pass kept.
-    let input_hash = crate::util::hash_components(&build_narratives_input_components(
-        &corpus, &heat,
-    ));
+    let input_hash =
+        crate::util::hash_components(&build_narratives_input_components(&corpus, &heat));
 
     Ok(NarrativesMaterial {
         corpus,

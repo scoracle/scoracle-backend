@@ -1201,7 +1201,7 @@ pub async fn build_rating_request(
         num_predict: RATING_NUM_PREDICT,
         num_ctx: 0,
         json_mode: false,
-    format_schema: None,
+        format_schema: None,
     };
     let backend = hx.router.for_role(Role::StatsLogic);
     let request_body = backend.request_body(&built_prompt, &opts);
@@ -1880,7 +1880,9 @@ mod tests {
         // Without the filter the 0th-pct Tackling wins min-by-pct; with it, the weakness is
         // the worst stat the player actually plays.
         assert_eq!(
-            d.primary_weakness_to_exploit.as_ref().map(|f| f.label.as_str()),
+            d.primary_weakness_to_exploit
+                .as_ref()
+                .map(|f| f.label.as_str()),
             Some("Giveaways")
         );
     }

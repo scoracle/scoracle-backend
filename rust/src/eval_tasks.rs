@@ -38,7 +38,8 @@ use crate::momentum::{
 };
 use crate::narratives::{
     build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
-    NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION, NARRATIVES_SYSTEM_PROMPT,
+    NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION,
+    NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
 use crate::oracle::{
@@ -453,7 +454,7 @@ impl LensTask for VibeTask {
             num_predict: VIBE_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -541,7 +542,7 @@ impl LensTask for SigilTask {
             num_predict: SIGIL_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -954,7 +955,7 @@ impl LensTask for TransferTask {
             num_predict: TRANSFER_NUM_PREDICT,
             num_ctx: 0,
             json_mode: true,
-        format_schema: None,
+            format_schema: None,
         }
     }
     fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
@@ -965,7 +966,7 @@ impl LensTask for TransferTask {
             num_predict: TRANSFER_NUM_PREDICT,
             num_ctx: 0,
             json_mode: true,
-        format_schema: None,
+            format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1136,7 +1137,7 @@ impl LensTask for RatingTask {
             num_predict: RATING_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1254,7 +1255,7 @@ impl LensTask for MomentumTask {
             num_predict: MOMENTUM_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-        format_schema: None,
+            format_schema: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1354,7 +1355,6 @@ impl LensTask for MomentumTask {
         }
     }
 }
-
 
 fn disp_bool(b: Option<bool>) -> &'static str {
     match b {

@@ -156,7 +156,10 @@ async fn main() -> Result<()> {
             .ok()
             .filter(|v| !v.is_empty())
             .unwrap_or_else(|| "gemma3:4b".to_string());
-        println!("judge — model={judge_model} ({})", scoracle_cognition::judge::JUDGE_PROMPT_VERSION);
+        println!(
+            "judge — model={judge_model} ({})",
+            scoracle_cognition::judge::JUDGE_PROMPT_VERSION
+        );
         Some(Arc::new(scoracle_cognition::ollama::OllamaClient::new(
             &cfg.ollama_base_url,
             &judge_model,
@@ -437,7 +440,8 @@ async fn run_fixtures(
             println!("  ⚠ WARN {warn}");
         }
         println!("\n[{}]  (temp={})", fx.name, fx.temperature);
-        let (p, t) = run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx).await;
+        let (p, t) =
+            run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx).await;
         inc_pass += p;
         inc_total += t;
         if let Some(c) = candidate.as_ref() {

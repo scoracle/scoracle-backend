@@ -31,6 +31,8 @@ go/bin/
 # that can embed secrets — this is how the F-046 Postgres/Neon creds leaked).
 # The SHARED .claude/settings.json + .claude/hooks/ stay TRACKED on purpose.
 .claude/settings.local.json
+# Claude Code session lockfiles (live PIDs/timestamps — pure ephemera).
+**/.claude/scheduled_tasks.lock
 
 # Logs
 *.log

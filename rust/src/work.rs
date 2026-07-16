@@ -78,10 +78,26 @@ impl Item {
     }
 }
 
-/// Drainer policy, matching the Go defaults.
+/// Drainer policy. CLAIM_BATCH and MAX_ATTEMPTS match the Go defaults; the retry
+/// ramp below replaces the old flat 30-minute backoff.
 pub const CLAIM_BATCH: i64 = 10;
 pub const MAX_ATTEMPTS: i32 = 5;
-pub const BACKOFF: Duration = Duration::from_secs(30 * 60);
+
+/// retry_backoff ramps a failed item's delay by how many times it has already
+/// failed (`Item.attempts` as of the claim, i.e. BEFORE this failure is counted):
+/// 30s → 2m → 10m → 30m. Most first failures are transient (a model hiccup, a
+/// timed-out await), so the first retry comes fast instead of parking good work
+/// for 30 minutes; a persistently failing item still backs off to the old flat
+/// ceiling. With MAX_ATTEMPTS = 5 the four live retries walk the whole ramp,
+/// then the fifth failure dead-letters.
+pub fn retry_backoff(prior_failures: i32) -> Duration {
+    match prior_failures {
+        i32::MIN..=0 => Duration::from_secs(30),
+        1 => Duration::from_secs(2 * 60),
+        2 => Duration::from_secs(10 * 60),
+        _ => Duration::from_secs(30 * 60),
+    }
+}
 
 /// claim atomically leases up to `limit` ready rows for a stage, marking them
 /// 'running'. Ready = pending|failed with `available_at <= now` (a failed row
@@ -267,4 +283,19 @@ pub async fn enqueue(pool: &PgPool, it: &Item) -> Result<()> {
     .await
     .with_context(|| format!("enqueue {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn retry_backoff_ramps_then_caps() {
+        assert_eq!(retry_backoff(0), Duration::from_secs(30));
+        assert_eq!(retry_backoff(1), Duration::from_secs(2 * 60));
+        assert_eq!(retry_backoff(2), Duration::from_secs(10 * 60));
+        assert_eq!(retry_backoff(3), Duration::from_secs(30 * 60));
+        assert_eq!(retry_backoff(4), Duration::from_secs(30 * 60)); // capped
+        assert_eq!(retry_backoff(-1), Duration::from_secs(30)); // defensive: never negative-index
+    }
 }

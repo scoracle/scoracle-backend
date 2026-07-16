@@ -35,7 +35,7 @@
 
 use crate::harness::Harness;
 use crate::stage::StageHandler;
-use crate::work::{self, BACKOFF, CLAIM_BATCH, MAX_ATTEMPTS};
+use crate::work::{self, retry_backoff, CLAIM_BATCH, MAX_ATTEMPTS};
 use anyhow::{anyhow, Result};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
@@ -380,7 +380,8 @@ impl Worker {
 
     /// Drain every registered stage to empty. Iterates in registration order;
     /// when stages are added, register them in dependency order (transfers,
-    /// narratives, vibe, sigil) to match the Go `DrainAll` sequence.
+    /// narratives, vibe, momentum, sigil) so a hand-off enqueued mid-tick
+    /// drains in the same pass instead of waiting for the next one.
     async fn drain_all(&self, cause: &str, pulse: &Pulse) {
         for handler in &self.handlers {
             let stage = handler.stage();
@@ -418,10 +419,22 @@ impl Worker {
                             }
                         }
                         Err(e) => {
-                            warn!(error = %format!("{e:#}"), %stage, entity = item.entity_id, "handler failed; backing off");
-                            if let Err(e2) =
-                                work::fail(&self.pool, item, &format!("{e:#}"), BACKOFF, MAX_ATTEMPTS)
-                                    .await
+                            let backoff = retry_backoff(item.attempts);
+                            warn!(
+                                error = %format!("{e:#}"),
+                                %stage,
+                                entity = item.entity_id,
+                                backoff_secs = backoff.as_secs(),
+                                "handler failed; backing off"
+                            );
+                            if let Err(e2) = work::fail(
+                                &self.pool,
+                                item,
+                                &format!("{e:#}"),
+                                backoff,
+                                MAX_ATTEMPTS,
+                            )
+                            .await
                             {
                                 error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed");
                             }
@@ -453,7 +466,10 @@ impl Worker {
     /// back to 'pending' so the next boot picks them up immediately instead of
     /// waiting out the 30-min stale-lease recovery.
     async fn release_rest(&self, rest: &[work::Item]) {
-        info!(released = rest.len(), "shutdown: releasing unprocessed claims");
+        info!(
+            released = rest.len(),
+            "shutdown: releasing unprocessed claims"
+        );
         for item in rest {
             if let Err(e) = work::release(&self.pool, item).await {
                 warn!(
@@ -489,7 +505,11 @@ mod tests {
 
     #[test]
     fn stalled_zero_threshold_disables_watchdog() {
-        assert!(!stalled(true, Duration::from_secs(u64::MAX / 2), Duration::ZERO));
+        assert!(!stalled(
+            true,
+            Duration::from_secs(u64::MAX / 2),
+            Duration::ZERO
+        ));
     }
 
     #[test]

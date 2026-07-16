@@ -64,10 +64,9 @@ async fn main() -> Result<()> {
     // narratives, so the news rail is scrub -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
-    let enabled =
-        parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-            "scrub,peak,momentum,transfers,narratives,vibe,sigil,oracle".to_string()
-        }))?;
+    let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
+        "scrub,peak,momentum,transfers,narratives,vibe,sigil,oracle".to_string()
+    }))?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
     // narratives near-duplicate dedup, topic heat-rank, and vibe narrative relevance weighting. It
@@ -116,9 +115,6 @@ async fn main() -> Result<()> {
     if enabled.contains("peak") {
         handlers.push(Box::new(rating::PeakHandler::new()));
     }
-    if enabled.contains("momentum") {
-        handlers.push(Box::new(momentum::MomentumHandler::new()));
-    }
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));
     }
@@ -128,6 +124,12 @@ async fn main() -> Result<()> {
     }
     if enabled.contains("vibe") {
         handlers.push(Box::new(vibe::VibeHandler::new()));
+    }
+    // momentum consumes PEAK + vibe, so it registers after vibe: a vibe hand-off
+    // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
+    // for the next NOTIFY/safety-net wake.
+    if enabled.contains("momentum") {
+        handlers.push(Box::new(momentum::MomentumHandler::new()));
     }
     if enabled.contains("sigil") {
         handlers.push(Box::new(sigil::SigilHandler::new()));

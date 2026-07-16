@@ -13,9 +13,10 @@
 //! the model ONLY vets — is this a live rumor about THIS exact player, what stage, a grounded
 //! one-line summary. The subject same-person test is realised as the verdict's `subject` field plus
 //! the t5 identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
-//! JSON, exactly as Go does); the standalone embedding-backed `resolve_one` for transfers is a
-//! HORIZON refinement — it would restructure the one fused call into two and break Go-machinery
-//! parity, so it waits (Plan §1.3 "an improvement, not parity").
+//! JSON, exactly as Go does). A standalone embedding-backed single-candidate resolve for transfers
+//! was once sketched as a HORIZON refinement (`resolve_one`) — it would restructure the one fused
+//! call into two and break Go-machinery parity; the unused code was deleted (flow-friction
+//! Phase 4), and the idea lives in git history should it ever be wanted.
 //!
 //! FAIL CLOSED (the §1.2 invariant): `is_rumor: Option<bool>` — a model timeout, unparseable output,
 //! or a verdict that never committed to is_rumor persists an UNKNOWN row (is_rumor NULL), which is
@@ -709,7 +710,12 @@ pub struct TransferEvidence {
 }
 
 impl TransferEvidence {
-    pub fn from_news(news: &[NewsItem], total_articles: usize, best: &str, best_weight: f64) -> Self {
+    pub fn from_news(
+        news: &[NewsItem],
+        total_articles: usize,
+        best: &str,
+        best_weight: f64,
+    ) -> Self {
         let distinct_sources = news
             .iter()
             .map(|n| n.source.to_lowercase())
@@ -773,13 +779,24 @@ pub fn build_transfer_prompt(
     b.push_str(&format!(
         "Evidence (computed): {} article{}, {} distinct source{}; strongest source: {}.\n",
         evidence.total_articles,
-        if evidence.total_articles == 1 { "" } else { "s" },
+        if evidence.total_articles == 1 {
+            ""
+        } else {
+            "s"
+        },
         evidence.distinct_sources,
-        if evidence.distinct_sources == 1 { "" } else { "s" },
+        if evidence.distinct_sources == 1 {
+            ""
+        } else {
+            "s"
+        },
         if evidence.best_source.is_empty() {
             "none attributed".to_string()
         } else {
-            format!("{} (credibility {:.1})", evidence.best_source, evidence.best_weight)
+            format!(
+                "{} (credibility {:.1})",
+                evidence.best_source, evidence.best_weight
+            )
         }
     ));
 
@@ -958,11 +975,7 @@ pub fn build_transfer_input_components(
         .unwrap_or(0.0);
     let mut ids: Vec<i64> = news_ids.to_vec();
     ids.sort_unstable();
-    let ids_csv = ids
-        .iter()
-        .map(i64::to_string)
-        .collect::<Vec<_>>()
-        .join(",");
+    let ids_csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
     format!(
         "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"relationship\":{},\"tier_weight\":{}}}",
         go_json_string(relationship),
@@ -1080,7 +1093,7 @@ pub async fn build_pair_request(
         num_predict: TRANSFER_NUM_PREDICT,
         num_ctx: 0,
         json_mode: true,
-    format_schema: None,
+        format_schema: None,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
     let request_body = backend.request_body(&built_prompt, &opts);
@@ -1151,8 +1164,17 @@ pub async fn analyze_pair(
 ) -> Result<TransferPairOutput> {
     // Offline composition loads the relationship per pair; the production handler batches it.
     let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
-    match build_pair_request(hx, team_id, team_name, c, sport, tiers, relationship, temperature)
-        .await?
+    match build_pair_request(
+        hx,
+        team_id,
+        team_name,
+        c,
+        sport,
+        tiers,
+        relationship,
+        temperature,
+    )
+    .await?
     {
         PairBuild::Skipped {
             components,
@@ -1723,7 +1745,7 @@ async fn maybe_apply_transfer_identity(
         num_predict: 700,
         num_ctx: 0,
         json_mode: true,
-    format_schema: None,
+        format_schema: None,
     };
     let backend = hx.router.for_role(Role::EmotionalNews);
     let model_configured = backend.model().to_string();
@@ -2299,8 +2321,16 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
             "tier_weight":0.5,"volume":0.4,"recency":0.986,"recent_frac":1.0}"#;
         let aged = r#"{"distinct_sources":2,"recent_3d":1,"total_14d":4,"newest_age_hours":26.4,
             "tier_weight":0.5,"volume":0.4,"recency":0.693,"recent_frac":0.25}"#;
-        let a = hash_components(&build_transfer_input_components(&[11, 3, 8, 5], fresh, "none"));
-        let b = hash_components(&build_transfer_input_components(&[3, 5, 8, 11], aged, "none"));
+        let a = hash_components(&build_transfer_input_components(
+            &[11, 3, 8, 5],
+            fresh,
+            "none",
+        ));
+        let b = hash_components(&build_transfer_input_components(
+            &[3, 5, 8, 11],
+            aged,
+            "none",
+        ));
         assert_eq!(a, b);
     }
 

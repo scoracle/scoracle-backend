@@ -382,15 +382,6 @@ pub struct Candidate {
     pub identity: IdentityCard,
 }
 
-/// Resolved is the one candidate a `resolve_one` settled on, plus `subject` — an audit trail
-/// of who the text was REALLY about (the transfer subject-resolver shape).
-#[derive(Clone, Debug)]
-pub struct Resolved {
-    pub entity_id: i32,
-    pub entity_type: EntityType,
-    pub subject: String,
-}
-
 /// Resolution is the per-candidate kept/dropped verdict `resolve_set` returns (the news-scrub
 /// gate shape — vet WHICH linked candidates the text is genuinely about).
 #[derive(Clone, Debug)]
@@ -400,7 +391,7 @@ pub struct Resolution {
     pub kept: bool,
 }
 
-// `impl Harness { resolve_one, resolve_set }` is in `crate::resolve` — the embedding-hybrid recipe.
+// `impl Harness { resolve_set }` is in `crate::resolve` — the embedding-hybrid recipe.
 
 // ===========================================================================
 // Embed + cluster (Plan §1.4) — both REAL: Embed (candle, CPU) + cluster (deterministic).
@@ -480,7 +471,7 @@ pub fn cluster(vectors: &[Vector], threshold: f32) -> Vec<Cluster> {
 // Normalize (Plan §1.5) — SHAPED STUB. multilang = normalize + (narratives).
 // ===========================================================================
 
-/// RawMention is an entity surface-form found in normalized text (to be Resolved downstream).
+/// RawMention is an entity surface-form found in normalized text (to be resolved downstream).
 #[derive(Clone, Debug)]
 pub struct RawMention {
     pub text: String,

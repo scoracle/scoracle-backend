@@ -86,7 +86,10 @@ impl Config {
             scrub: ScrubConfig::from_env()?,
             // 900s = 15 min: generous over the slowest observed item (a narratives batch
             // item ran ~4-7 min under the 07-15 catch-up load) yet far under stale-lease.
-            handler_timeout: Duration::from_secs(env_u64("COGNITION_HANDLER_TIMEOUT_SECONDS", 900)?),
+            handler_timeout: Duration::from_secs(env_u64(
+                "COGNITION_HANDLER_TIMEOUT_SECONDS",
+                900,
+            )?),
             // 2700s = 45 min: above the 24-min topic-heat worst case with margin; a wedge
             // self-heals in ≤45 min instead of the incident's 34 hours.
             watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
@@ -182,13 +185,14 @@ impl EmbedConfig {
     }
 }
 
-/// ResolveConfig is the embedding-Resolve hybrid's cosine bands (Plan §1.3). A candidate whose
-/// article↔identity cosine is `≥ keep_threshold` is auto-kept and one `< drop_threshold` is
-/// auto-dropped — both WITHOUT a model call (the cheap CPU pre-filter). The `[drop, keep)` middle
-/// is the ambiguous band the model adjudicates. Defaults are the conservative band the L4
-/// experiment measured on the live vetted-label set (AUC 0.88): keep 0.75 (high agreement with
-/// the model adjudicator), drop 0.60 (near-zero genuine links lost in the shadow set). The live
-/// asymmetric gate now only uses the keep line; everything else goes to the local model.
+/// ResolveConfig is the embedding-Resolve hybrid's cosine bands (Plan §1.3). The live resolve
+/// gate is ASYMMETRIC and uses only the keep line: a candidate whose article↔identity cosine is
+/// `≥ keep_threshold` is auto-kept WITHOUT a model call (the cheap CPU pre-filter); everything
+/// below goes to the local model — the proxy never auto-drops. `drop_threshold` survives as the
+/// "low" line of narratives' per-article relevance banding (`relevance_band`, Phase 2 n7) and for
+/// the offline banding analysis. Defaults are the conservative band the L4 experiment measured on
+/// the live vetted-label set (AUC 0.88): keep 0.75 (high agreement with the model adjudicator),
+/// drop 0.60 (near-zero genuine links lost in the shadow set).
 #[derive(Clone, Debug)]
 pub struct ResolveConfig {
     /// cosine ≥ this → auto-keep (no model call).
@@ -208,8 +212,9 @@ impl Default for ResolveConfig {
 
 impl ResolveConfig {
     /// from_env reads `COGNITION_RESOLVE_{KEEP,DROP}_THRESHOLD`, defaulting to the measured
-    /// conservative band. A wider band (raise keep / lower drop) sends more to the model
-    /// (safer, less savings); a narrower band saves more GPU at some precision cost.
+    /// conservative band. Raising keep sends more candidates to the model (safer, less
+    /// savings); lowering it saves more GPU at some precision cost. The drop line only moves
+    /// narratives' relevance banding, never the resolve gate.
     pub fn from_env() -> Result<Self> {
         let d = Self::default();
         Ok(Self {

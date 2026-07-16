@@ -344,11 +344,11 @@ impl Worker {
         // queue for the whole worker tick).
         self.drain_all(cause, pulse).await;
         pulse.beat("topic-heat refresh");
-        self.maybe_refresh_topic_heat(cause).await;
+        self.maybe_refresh_topic_heat(cause, pulse).await;
         pulse.idle();
     }
 
-    async fn maybe_refresh_topic_heat(&self, cause: &str) {
+    async fn maybe_refresh_topic_heat(&self, cause: &str, pulse: &Pulse) {
         if self.topic_heat_interval.is_zero() {
             return;
         }
@@ -364,7 +364,8 @@ impl Worker {
         drop(last);
 
         let mut cache = self.topic_heat_cache.lock().await;
-        match crate::bucket::refresh_topic_heat(&self.harness, &mut cache).await {
+        let beat = |activity: &str| pulse.beat(activity);
+        match crate::bucket::refresh_topic_heat(&self.harness, &mut cache, &beat).await {
             Ok(r) if r.updated > 0 => info!(
                 updated = r.updated,
                 embedded = r.embedded,

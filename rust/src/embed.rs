@@ -56,6 +56,9 @@ pub struct Embedder {
     pooling: Pooling,
     /// The embedding dimensionality (BGE-small = 384) — exposed for callers sizing buffers.
     pub dim: usize,
+    /// Everything that determines the output vectors (repo@revision|pooling|max_tokens) in one
+    /// string — the cache key for persisted embeddings (mig 151): any change invalidates them.
+    pub identity: String,
 }
 
 impl Embedder {
@@ -118,6 +121,7 @@ impl Embedder {
             device,
             pooling,
             dim: bert_config.hidden_size,
+            identity: format!("{model_repo}@{revision}|{pooling:?}|{max_tokens}"),
         })
     }
 

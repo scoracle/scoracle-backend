@@ -13,6 +13,7 @@ use anyhow::{Context, Result};
 use sqlx::Row;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
+use tracing::{info, warn};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ArticleBucket {
@@ -119,17 +120,50 @@ fn keyword_bucket(text: &str, keywords: &[String]) -> ArticleBucket {
 /// Cross-pass embedding cache for `refresh_topic_heat`. The lookback window re-reads the same
 /// articles pass after pass and embeddings are deterministic for unchanged text, so only
 /// new/edited articles pay the CPU embedder — measured 2026-07-12, a full re-embed pass took
-/// ~24 min at ~900 articles and starved the work queue. In-memory only (the worker owns one
-/// for its lifetime); a restart pays one full pass and is warm from then on. Bounded by
-/// `retain_ids` to the current window (~900 × 384 floats ≈ 1.5 MB).
-#[derive(Default)]
+/// ~24 min at ~900 articles and starved the work queue. Bounded by `retain_ids` to the
+/// current window (~900 × 384 floats ≈ 1.5 MB).
+///
+/// Backed by `topic_heat_embeddings` (mig 151): the first refresh of a process hydrates from
+/// the table and every embed writes through to it, so a restart re-embeds only articles that
+/// arrived while the process was down — the 2026-07-16 deploy paid a 27-minute cold pass
+/// (933 articles) before its first work claim, which this removes. The table is a pure cache:
+/// hydration failure (e.g. migration not yet applied) degrades to the old cold-pass behavior
+/// with one WARN, and `persist` stops further table writes for the process lifetime.
 pub struct TopicHeatCache {
     entries: HashMap<i64, (u64, Vector)>,
+    /// One hydration attempt per process — set before the attempt so a failure never retries.
+    hydrated: bool,
+    /// Cleared when hydration shows the table is unusable; write-through and prune skip.
+    persist: bool,
+}
+
+impl Default for TopicHeatCache {
+    fn default() -> Self {
+        Self {
+            entries: HashMap::new(),
+            hydrated: false,
+            persist: true,
+        }
+    }
 }
 
 impl TopicHeatCache {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// absorb merges one persisted row into the in-memory cache — the pure half of hydration
+    /// (the SQL fetch stays in `refresh_topic_heat`). Returns false and skips rows whose bytes
+    /// can't decode to `dim` floats: a corrupt row must degrade to a re-embed, never poison
+    /// clustering.
+    fn absorb(&mut self, article_id: i64, fingerprint: i64, bytes: &[u8], dim: usize) -> bool {
+        match decode_vector(bytes, dim) {
+            Some(v) => {
+                self.entries.insert(article_id, (fingerprint as u64, v));
+                true
+            }
+            None => false,
+        }
     }
 
     /// A cached vector is valid only while the article text it embedded is unchanged.
@@ -164,6 +198,28 @@ fn text_fingerprint(text: &str) -> u64 {
     h.finish()
 }
 
+/// encode_vector packs an embedding as little-endian f32 bytes for mig 151's bytea column.
+fn encode_vector(v: &Vector) -> Vec<u8> {
+    let mut out = Vec::with_capacity(v.len() * 4);
+    for x in v {
+        out.extend_from_slice(&x.to_le_bytes());
+    }
+    out
+}
+
+/// decode_vector is encode_vector's inverse; None unless the bytes are exactly `dim` f32s.
+fn decode_vector(bytes: &[u8], dim: usize) -> Option<Vector> {
+    if dim == 0 || bytes.len() != dim * 4 {
+        return None;
+    }
+    Some(
+        bytes
+            .chunks_exact(4)
+            .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+            .collect(),
+    )
+}
+
 /// One `refresh_topic_heat` pass, for the worker's log line: how much work the cache saved.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct TopicHeatRefresh {
@@ -175,10 +231,57 @@ pub struct TopicHeatRefresh {
     pub cached: usize,
 }
 
-pub async fn refresh_topic_heat(hx: &Harness, cache: &mut TopicHeatCache) -> Result<TopicHeatRefresh> {
-    if hx.embedder.is_none() {
+pub async fn refresh_topic_heat(
+    hx: &Harness,
+    cache: &mut TopicHeatCache,
+    beat: &(dyn Fn(&str) + Sync),
+) -> Result<TopicHeatRefresh> {
+    let Some(embedder) = hx.embedder.as_ref() else {
         return Ok(TopicHeatRefresh::default());
+    };
+    let model = embedder.identity.clone();
+    let dim = embedder.dim;
+
+    // One-time hydration from mig 151's persistent cache: a restart re-embeds only what
+    // arrived while the process was down, not the whole hot window. `hydrated` is set
+    // before the attempt so a failure (table missing, permissions) warns once and the
+    // process runs on the in-memory cache alone — the pre-151 behavior.
+    if !cache.hydrated {
+        cache.hydrated = true;
+        match sqlx::query(
+            "SELECT article_id, fingerprint, embedding FROM public.topic_heat_embeddings WHERE model = $1",
+        )
+        .bind(&model)
+        .fetch_all(&hx.pool)
+        .await
+        {
+            Ok(rows) => {
+                let total = rows.len();
+                let mut absorbed = 0usize;
+                for row in rows {
+                    let id: i64 = row.get("article_id");
+                    let fp: i64 = row.get("fingerprint");
+                    let bytes: Vec<u8> = row.get("embedding");
+                    if cache.absorb(id, fp, &bytes, dim) {
+                        absorbed += 1;
+                    }
+                }
+                info!(
+                    absorbed,
+                    skipped = total - absorbed,
+                    "topic heat cache hydrated from topic_heat_embeddings"
+                );
+            }
+            Err(e) => {
+                cache.persist = false;
+                warn!(
+                    error = %format!("{e:#}"),
+                    "topic heat cache hydration failed; in-memory cache only for this process"
+                );
+            }
+        }
     }
+
     let rows = sqlx::query(
         r#"
         SELECT nae.sport, a.id, a.title, COALESCE(a.description, '') AS description,
@@ -219,7 +322,8 @@ pub async fn refresh_topic_heat(hx: &Harness, cache: &mut TopicHeatCache) -> Res
 
     let mut out = TopicHeatRefresh::default();
     let mut seen_ids: HashSet<i64> = HashSet::new();
-    for ((_sport, _day), articles) in groups {
+    let total_groups = groups.len();
+    for (group_no, ((_sport, _day), articles)) in groups.into_iter().enumerate() {
         seen_ids.extend(articles.iter().map(|a| a.id));
         let mut ids = Vec::with_capacity(articles.len());
         let mut heats = Vec::with_capacity(articles.len());
@@ -243,14 +347,61 @@ pub async fn refresh_topic_heat(hx: &Harness, cache: &mut TopicHeatCache) -> Res
                 }
             }
             if !miss_texts.is_empty() {
+                // The beat keeps the supervisor's watchdog reading an alive drain through a
+                // long embed pass (a cold pass legitimately runs tens of minutes), and names
+                // the step for the wedged-activity log.
+                beat(&format!(
+                    "topic-heat embed group {}/{} ({} texts, {} embedded so far)",
+                    group_no + 1,
+                    total_groups,
+                    miss_texts.len(),
+                    out.embedded
+                ));
                 let embedded = hx
                     .embed(&miss_texts)
                     .await
                     .context("embed topic heat batch")?;
                 out.embedded += embedded.len();
+                let mut new_ids: Vec<i64> = Vec::with_capacity(embedded.len());
+                let mut new_fps: Vec<i64> = Vec::with_capacity(embedded.len());
+                let mut new_blobs: Vec<Vec<u8>> = Vec::with_capacity(embedded.len());
                 for ((i, fp), v) in miss_idx.into_iter().zip(embedded) {
+                    if cache.persist {
+                        new_ids.push(articles[i].id);
+                        new_fps.push(fp as i64);
+                        new_blobs.push(encode_vector(&v));
+                    }
                     cache.put(articles[i].id, fp, v.clone());
                     vectors[i] = Some(v);
+                }
+                // Write-through per embed batch (not per pass): a crash mid-cold-pass keeps
+                // everything embedded so far. Failures degrade to in-memory only — a cache
+                // must never fail the refresh.
+                if cache.persist && !new_ids.is_empty() {
+                    if let Err(e) = sqlx::query(
+                        r#"
+                        INSERT INTO public.topic_heat_embeddings (article_id, fingerprint, model, embedding)
+                        SELECT v.id, v.fp, $4, v.blob
+                        FROM unnest($1::bigint[], $2::bigint[], $3::bytea[]) AS v(id, fp, blob)
+                        ON CONFLICT (article_id) DO UPDATE
+                            SET fingerprint = excluded.fingerprint,
+                                model       = excluded.model,
+                                embedding   = excluded.embedding,
+                                embedded_at = now()
+                        "#,
+                    )
+                    .bind(&new_ids)
+                    .bind(&new_fps)
+                    .bind(&new_blobs)
+                    .bind(&model)
+                    .execute(&hx.pool)
+                    .await
+                    {
+                        warn!(
+                            error = %format!("{e:#}"),
+                            "topic heat write-through failed; batch stays in-memory only"
+                        );
+                    }
                 }
             }
             let vectors: Vec<Vector> = vectors.into_iter().map(|v| v.expect("filled")).collect();
@@ -282,6 +433,21 @@ pub async fn refresh_topic_heat(hx: &Harness, cache: &mut TopicHeatCache) -> Res
         out.updated += res.rows_affected();
     }
     cache.retain_ids(&seen_ids);
+    // Prune the persistent rows to the same window (the SQL mirror of retain_ids), so the
+    // table stays bounded at the hot set (~1000 rows × ~1.5 KB). By-id rather than by-age:
+    // exact, and it also clears rows left behind by a model-identity change.
+    if cache.persist {
+        let keep: Vec<i64> = seen_ids.iter().copied().collect();
+        if let Err(e) = sqlx::query(
+            "DELETE FROM public.topic_heat_embeddings WHERE NOT (article_id = ANY($1))",
+        )
+        .bind(&keep)
+        .execute(&hx.pool)
+        .await
+        {
+            warn!(error = %format!("{e:#}"), "topic heat persistent-cache prune failed");
+        }
+    }
     Ok(out)
 }
 
@@ -387,5 +553,30 @@ mod tests {
         assert_eq!(cache.len(), 1);
         assert!(cache.get(2, 30).is_none());
         assert!(!cache.is_empty());
+    }
+
+    #[test]
+    fn vector_bytes_roundtrip() {
+        let v: Vector = vec![0.25, -1.5, 3.75e-3, f32::MIN_POSITIVE];
+        let bytes = encode_vector(&v);
+        assert_eq!(bytes.len(), v.len() * 4);
+        assert_eq!(decode_vector(&bytes, v.len()), Some(v));
+        // Wrong dim, truncated bytes, or a zero dim never yield a vector.
+        assert_eq!(decode_vector(&bytes, 3), None);
+        assert_eq!(decode_vector(&bytes[..7], 2), None);
+        assert_eq!(decode_vector(&[], 0), None);
+    }
+
+    #[test]
+    fn absorb_hydrates_only_decodable_rows() {
+        let mut cache = TopicHeatCache::new();
+        let v: Vector = vec![0.5, -0.5];
+        // A persisted u64 fingerprint travels as i64 with the same bit pattern.
+        let fp = u64::MAX - 1;
+        assert!(cache.absorb(42, fp as i64, &encode_vector(&v), 2));
+        assert_eq!(cache.get(42, fp), Some(&v));
+        // Corrupt bytes (wrong length for the dim) are skipped, not inserted.
+        assert!(!cache.absorb(43, 1, &[0_u8; 7], 2));
+        assert_eq!(cache.len(), 1);
     }
 }

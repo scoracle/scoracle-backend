@@ -148,12 +148,13 @@ func NewRouter(pool *pgxpool.Pool, appCache *cache.Cache, cfg *config.Config) *c
 			// Per-product endpoints keep each card independently cacheable and avoid
 			// rebuilding a bundled profile payload on every page load. /stats carries
 			// structured season data, /rating the stat read, /news and /transfers the
-			// news products, /momentum the trajectory data, and /sigil the final crown
-			// synthesis.
+			// news products, /momentum the trajectory data, /momentum/summary the
+			// generated momentum product, and /sigil the final crown synthesis.
 			r.Get("/{entityType:player|team}/{id}/stats", h.GetEntityStats)
 			r.Get("/{entityType:player|team}/{id}/rating", h.GetEntityRating)
 			r.Get("/{entityType:player|team}/{id}/sigil", h.GetEntitySigil)
 			r.Get("/{entityType:player|team}/{id}/momentum", h.GetTrendsPage)
+			r.Get("/{entityType:player|team}/{id}/momentum/summary", h.GetEntityMomentum)
 			r.Get("/team/{id}/results", h.GetTeamResults)
 			r.Get("/team/{id}/roster", h.GetRoster)
 			r.Get("/{entityType:player|team}/{id}/news", h.GetEntityNarratives)

@@ -95,10 +95,10 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		go runLoop(ctx, t.C, "alltime_rank", func() { recalcAlltimeRanks(ctx, pool, logger) })
 	}
 
-	// News scrub: backlog + repair only. It mops up the older unscrubbed tail,
-	// real-time inserts between pipeline runs, and links a failed in-run scrub
-	// left behind. SQL-only here: auto-vet primaries and enqueue candidate-rich
-	// secondaries to pipeline_work for Rust to disambiguate.
+	// News scrub: backstop only — ingest (persistArticles) vets and enqueues at
+	// the source. This mops up the older unscrubbed tail and repairs links whose
+	// scrub failed or was lost. SQL-only here: auto-vet primaries and enqueue
+	// candidate-rich secondaries to pipeline_work for Rust to disambiguate.
 	if cfg.NewsScrubInterval > 0 {
 		t := time.NewTicker(cfg.NewsScrubInterval)
 		tickers = append(tickers, t)
@@ -484,9 +484,12 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 	}
 }
 
-// scrubNewsLinks is the news-link scrub sweep — the async backlog/repair path.
-// This newest-first sweep handles the older tail, real-time inserts, and
-// failed-in-run links. SQL-only here: two bounded, non-destructive phases per
+// scrubNewsLinks is the news-link scrub sweep — the BACKSTOP behind the ingest
+// path. persistArticles vets primaries and enqueues secondary scrub work in its
+// own transaction at ingest, so in steady state this sweep finds nothing; it
+// exists for the pre-change backlog, links whose ingest-time enqueue was lost,
+// and failed/dead-lettered scrub items (re-enqueueing a 'failed' row resets its
+// attempts — the repair path). SQL-only: two bounded, non-destructive phases per
 // tick:
 //
 //  1. Auto-vet primaries (cheap SQL, no model): links at match_confidence >= 1.0
@@ -494,9 +497,11 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 //     disambiguation needed. Stamp them vetted=true in one bounded UPDATE.
 //  2. Enqueue candidate-rich secondaries: take the newest `batch` articles with
 //     an unscrubbed SECONDARY link (conf < 1.0 — the ones that actually need
-//     disambiguation) and enqueue each as a `scrub` pipeline_work item. The Rust
-//     ScrubHandler drains it, runs the asymmetric gate, and writes vetted (firing
-//     the mig-103 trigger).
+//     disambiguation) and enqueue each as a `scrub` pipeline_work item. Articles
+//     with a scrub item already pending/running are skipped so in-flight work
+//     doesn't eat the batch budget; 'failed' rows stay selectable on purpose.
+//     The Rust ScrubHandler drains it, runs the asymmetric gate, and writes
+//     vetted (firing the mig-103 trigger).
 //
 // Newest-first so the recent window the consumers read stays scrubbed; the
 // ancient tail is harmless (consumers filter by recency).
@@ -533,6 +538,12 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger 
 		FROM news_article_entities nae
 		JOIN news_articles a ON a.id = nae.article_id
 		WHERE nae.scrubbed_at IS NULL AND nae.match_confidence < 1.0
+		  AND NOT EXISTS (
+		      SELECT 1 FROM pipeline_work pw
+		      WHERE pw.stage = 'scrub' AND pw.entity_type = 'article'
+		        AND pw.entity_id = nae.article_id AND pw.sport = nae.sport
+		        AND pw.status IN ('pending', 'running')
+		  )
 		GROUP BY nae.article_id, nae.sport, a.published_at
 		ORDER BY a.published_at DESC NULLS LAST
 		LIMIT $1`, batch)

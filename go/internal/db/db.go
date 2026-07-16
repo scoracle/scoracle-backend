@@ -350,8 +350,13 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// Vibes leaderboard — the sport-wide sentiment board. Each entity's LATEST
 		// scored row in the 48h window (DISTINCT ON), ranked by sentiment desc. Joined
 		// to players/teams so the row carries name/image/team (one shape across every
-		// single-entity board the /leaderboard page renders). The partial index
-		// idx_vibe_scores_sport_sentiment covers the inner scan.
+		// single-entity board the /leaderboard page renders). The inner scan reads
+		// rows regardless of sentiment nullability (the NULL drop happens in
+		// `latest`, so a newer unscored row correctly hides a stale scored one), so
+		// the partial idx_vibe_scores_sport_sentiment CANNOT serve it; the planner
+		// uses idx_vibe_scores_recent over the 48h window plus a small sort
+		// (measured 0.9ms at prod volume, 2026-07-16 — a sport-leading index was
+		// tried and measured slower; don't add one without re-measuring).
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both).
 		"vibes_leaderboard": `WITH req AS (
 			SELECT upper($1::text) AS sport,
@@ -1190,6 +1195,47 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, convergence, disagreement, why_now, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'oracle', (SELECT row_to_json(o) FROM (SELECT reading, omen, sigil_score, model_version, prompt_version, generated_at FROM oracle_cur) o),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
+		)`,
+		// Entity momentum summary — the GENERATED Momentum product: direction /
+		// score (-5..5) / blurb from momentum_summaries (Rust momentum stage; until
+		// now sigil was its only reader) plus the numeric slopes behind it from
+		// latest_momentum_scores_per_entity. Serves product rows directly — unlike
+		// the *_trends_page statements at /momentum, which re-derive raw stats per
+		// request. Season scope mirrors entity_sigil: no ?season ⇒ current-season
+		// live view behind the same 72h freshness gate; explicit ?season=N ⇒ that
+		// season's final row, ungated. `scores` is season-gated only on explicit
+		// requests (the matview keeps one latest row per entity, whatever its
+		// season). Missing rows serve as JSON nulls, not 404 — the card renders
+		// its empty state. $1 sport · $2 entity_type · $3 entity_id · $4 season.
+		"entity_momentum": `WITH req AS (
+			SELECT upper($1::text) AS sport, lower($2::text) AS entity_type, $3::int AS entity_id,
+			       $4::int AS want_season,
+			       (SELECT current_season FROM public.sports WHERE id = upper($1::text)) AS cur_season
+		),
+		summary AS (
+			SELECT ms.direction, ms.score, ms.blurb, ms.model_version, ms.prompt_version, ms.generated_at
+			FROM public.momentum_summaries ms, req
+			WHERE ms.entity_type = req.entity_type AND ms.entity_id = req.entity_id AND ms.sport = req.sport
+			  AND ms.season = COALESCE(req.want_season, req.cur_season)
+			  AND (req.want_season IS NOT NULL OR ms.generated_at > NOW() - INTERVAL '72 hours')
+			ORDER BY ms.generated_at DESC LIMIT 1
+		),
+		scores AS (
+			SELECT l.momentum_score, l.vibe_slope, l.vibe_samples, l.vibe_window_start, l.vibe_window_end,
+			       l.rating_slope, l.rating_samples, l.rating_window_start, l.rating_window_end,
+			       l.season, l.generated_at
+			FROM public.latest_momentum_scores_per_entity l, req
+			WHERE l.sport = req.sport AND l.entity_type = req.entity_type AND l.entity_id = req.entity_id
+			  AND (req.want_season IS NULL OR l.season = req.want_season)
+		)
+		SELECT json_build_object(
+			'page', 'momentum_summary',
+			'sport', lower((SELECT sport FROM req)),
+			'entity_type', (SELECT entity_type FROM req),
+			'entity_id', (SELECT entity_id FROM req),
+			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
+			'summary', (SELECT row_to_json(s) FROM summary s),
+			'scores', (SELECT row_to_json(c) FROM scores c)
 		)`,
 		// Entity meta (two-rail model) — per-entity IDENTITY for the page header: name,
 		// image, physicals, current team/club and position (player_current_identity),
@@ -2065,6 +2111,9 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- One row per UTC day with >=1 non-null sentiment snapshot in [anchor, NOW].
 		-- Days with zero snapshots are absent — the frontend renders them as
 		-- honest gaps in the sparkline rather than zero-sentiment dots.
+		-- Live aggregation is deliberate: post-F2 vibe debounce the busiest
+		-- entity's season is ~200 rows and this measures 0.7ms (2026-07-16) —
+		-- a precomputed rollup would be machinery without a problem.
 		SELECT
 			DATE_TRUNC('day', vs.generated_at AT TIME ZONE 'UTC')::date AS day,
 			ROUND(AVG(vs.sentiment)::numeric, 0)::int AS sentiment_avg,

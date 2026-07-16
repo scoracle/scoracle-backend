@@ -641,6 +641,42 @@ func (h *Handler) GetEntitySigil(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_sigil", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
 }
 
+// GetEntityMomentum returns the entity's generated MOMENTUM product — direction
+// ("rising"/"falling"/"steady"), score (-5..5) and blurb from momentum_summaries,
+// plus the numeric vibe/rating slopes behind it. This is the product-row read;
+// the raw stat-trend aggregation stays at /momentum (GetTrendsPage).
+// @Summary Get the entity momentum summary (generated product)
+// @Description The entity's generated momentum summary — direction, score (-5..5), blurb — plus the numeric vibe/rating slopes it was derived from. Null fields when no summary exists yet.
+// @Tags data
+// @Produce json
+// @Param sport path string true "Sport" Enums(nba, nfl, football)
+// @Param entityType path string true "Entity type" Enums(player, team)
+// @Param id path int true "Entity ID"
+// @Param season query int false "Season year (default current)"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} respond.ErrorResponse
+// @Failure 500 {object} respond.ErrorResponse
+// @Router /{sport}/{entityType}/{id}/momentum/summary [get]
+func (h *Handler) GetEntityMomentum(w http.ResponseWriter, r *http.Request) {
+	sport, ok := parseSport(w, r)
+	if !ok {
+		return
+	}
+	entityType, ok := parseEntityType(w, r)
+	if !ok {
+		return
+	}
+	id, ok := parsePathID(w, r, "id", "entity id")
+	if !ok {
+		return
+	}
+	season, ok := optionalIntQuery(w, r, "season")
+	if !ok {
+		return
+	}
+	h.serveStatementJSON(w, r, "entity_momentum", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, season)
+}
+
 // GetEntityStats returns the entity's STATS product — the full season rating
 // (Composite breakdown, modes, fantasy, template, scoped ranks) + available
 // seasons. The Stats card + the ContentShell control strip read this. The

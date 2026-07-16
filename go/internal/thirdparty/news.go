@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/albapepper/scoracle-data/internal/work"
 )
 
 // ---------------------------------------------------------------------------
@@ -123,9 +125,10 @@ func (s *NewsService) Status() map[string]interface{} {
 // matched articles are linked back to the requested entity in
 // news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
 //
-// The second return is the article IDs that gained a fresh link on this call —
-// the batch the caller can hand to queueing/scrub logic. It is nil when
-// write-through is skipped or the persist failed.
+// The second return is the article IDs that gained a fresh link on this call.
+// It is informational — persistArticles already vets primaries and enqueues
+// scrub work in its own transaction. It is nil when write-through is skipped
+// or the persist failed.
 func (s *NewsService) GetEntityNews(
 	ctx context.Context,
 	entityType string,
@@ -147,10 +150,11 @@ func (s *NewsService) GetEntityNews(
 		return nil, nil, err
 	}
 
-	// Write-through: persist the matched articles and link them to this entity.
+	// Write-through: persist the matched articles and link them to this entity
+	// (persistArticles also vets primaries and enqueues scrub work in-txn).
 	// Non-fatal — a failed persist shouldn't break the response. affected is the
-	// set of articles that gained a NEW link this call (the ones the pipeline must
-	// scrub); it stays nil on the serving path / on persist failure.
+	// set of articles that gained a NEW link this call; it stays nil on the
+	// serving path / on persist failure.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
 		ids, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
@@ -170,11 +174,16 @@ func (s *NewsService) GetEntityNews(
 // "Warriors trade talks for Durant", linking both Warriors and Durant even if
 // only Durant was the queried entity.
 //
-// Runs in a single transaction. Errors are returned to the caller but don't
-// break the response path — the caller logs and moves on. The returned slice is
-// the article IDs that gained a NEW entity link (a fresh primary or secondary
-// link, RowsAffected>0) — i.e. the articles with unscrubbed links the pipeline
-// must scrub this run. An article re-seen with only pre-existing links is omitted.
+// Runs in a single transaction, and the transaction also opens the pipe ends:
+// fresh primary links are auto-vetted (firing the derive-enqueue trigger) and
+// articles with fresh secondary links are enqueued for the Rust scrub stage, so
+// new material flows on commit rather than on the maintenance sweep's cadence.
+//
+// Errors are returned to the caller but don't break the response path — the
+// caller logs and moves on. The returned slice is the article IDs that gained a
+// NEW entity link (a fresh primary or secondary link, RowsAffected>0); it is
+// informational — scrub queueing is handled here. An article re-seen with only
+// pre-existing links is omitted.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
@@ -194,7 +203,9 @@ func (s *NewsService) persistArticles(
 		pool = nil
 	}
 
-	affected := make(map[int64]bool)
+	affected := make(map[int64]bool)   // fresh primary OR secondary link — the informational return
+	vetPrimary := make([]int64, 0, len(articles))
+	needScrub := make(map[int64]bool) // fresh secondary link → needs the model's verdict
 
 	// The primary entity's own match input — needed to record its title position
 	// for the co-mention proximity gate. The fetch filter guarantees the primary
@@ -250,6 +261,7 @@ func (s *NewsService) persistArticles(
 		}
 		if ct.RowsAffected() > 0 {
 			affected[articleID] = true
+			vetPrimary = append(vetPrimary, articleID)
 		}
 
 		// Secondary links — scan the title against the cached entity pool
@@ -276,7 +288,43 @@ func (s *NewsService) persistArticles(
 			}
 			if ct.RowsAffected() > 0 {
 				affected[articleID] = true
+				needScrub[articleID] = true
 			}
+		}
+	}
+
+	// Open the pipe ends: vet and enqueue at ingest, inside this transaction, so
+	// a new article reaches the cognition stages on commit (mig-150 NOTIFY)
+	// instead of waiting for the maintenance sweep's next tick. The sweep stays
+	// on as the backstop for rows this path misses (pre-change backlog, repair).
+	//
+	// Primary links are exact matches (confidence 1.0) — deterministically
+	// relevant, same rule as the sweep's auto-vet phase. This must be an UPDATE,
+	// not vetted=TRUE on the INSERT: the mig-103 enqueue_derive_on_vetted trigger
+	// only watches UPDATE OF vetted.
+	if len(vetPrimary) > 0 {
+		if _, err := tx.Exec(ctx, `
+			UPDATE news_article_entities
+			   SET vetted = TRUE, scrubbed_at = NOW()
+			 WHERE article_id = ANY($1)
+			   AND entity_type = $2 AND entity_id = $3 AND sport = $4
+			   AND match_confidence >= 1.0 AND scrubbed_at IS NULL
+		`, vetPrimary, primaryEntityType, primaryEntityID, sportUpper); err != nil {
+			return nil, fmt.Errorf("auto-vet primary links: %w", err)
+		}
+	}
+
+	// Secondary links (confidence < 1.0) need the Rust ScrubHandler's verdict —
+	// enqueue one article-keyed scrub item each. Duplicate enqueues collapse on
+	// the pipeline_work PK without yanking a live lease.
+	for id := range needScrub {
+		if err := work.Enqueue(ctx, tx, work.Item{
+			Stage:      work.StageScrub,
+			EntityType: "article",
+			EntityID:   int(id),
+			Sport:      sportUpper,
+		}); err != nil {
+			return nil, err
 		}
 	}
 

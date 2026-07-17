@@ -15,10 +15,10 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s3"; // s3: prompt carries the rating scouting read
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s4"; // s4: direction decided in code (Session D), model narrates SCORE+READ
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -27,6 +27,13 @@ pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
 pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
 
 pub const MOMENTUM_NUM_PREDICT: i32 = 700;
+
+/// The steady band on the deterministic `momentum_score` (±100-scale: the average of the
+/// vibe-sentiment delta and the rating-percentile delta over the window). |score| < band ⇒
+/// steady; at or beyond ⇒ rising/falling by sign. ±10 blessed by Scott (Session D): a
+/// 10-point percentile/sentiment move is a real story, smaller is noise. Measured on
+/// 2026-07-14→16 live rows this yields ~33% steady / ~26% rising / ~41% falling.
+pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
 
 const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
@@ -39,20 +46,19 @@ Voice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama.
 Definitions:
 - PEAK trajectory = recent movement in statistical performance / rating signal.
 - Vibe trajectory = recent movement in narrative sentiment.
-- Momentum score is signed direction, not overall player/team quality: positive is rising, negative is falling, near zero is hold/steady or mixed.
+- The decided direction (rising, falling, or steady) is computed upstream by the deterministic trajectory engine and supplied in the prompt. It is a fact, not your call.
+- SCORE is signed conviction in the decided direction, not overall player/team quality.
 
 Output exactly:
-MOMENTUM: <rising|falling|steady>
 SCORE: <integer -5 to 5>
 READ: <one concise paragraph>
 
 Rules:
-- Pick rising only when the supplied trajectory is clearly positive overall.
-- Pick falling only when the supplied trajectory is clearly negative overall.
-- Pick steady when the signals are flat, sparse, or meaningfully split.
+- The decided direction is final. Never contradict it or re-litigate it in the READ.
+- SCORE sign must agree with the decided direction: rising is 1 to 5, falling is -5 to -1, steady is -1 to 1. Magnitude is how clean and strong the move is in the supplied numbers.
+- READ narrates the decided direction: what is moving (PEAK/rating vs Vibe/news), how hard, and what tension exists between the two markets.
+- When PEAK and Vibe disagree, name the conflict inside the READ and let the score magnitude reflect the mixed tape.
 - Do not chase sentiment hype when PEAK/rating does not confirm it.
-- Do not cling to a strong PEAK label when current trajectory is deteriorating.
-- When PEAK and Vibe disagree, pick steady, keep the score near zero unless one side is clearly dominant, and name the conflict inside the READ line. The MOMENTUM line must still be exactly rising, falling, or steady — never any other word.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
 
 #[derive(Clone, Debug)]
@@ -71,9 +77,11 @@ impl MomentumContext {
     }
 }
 
+/// The parsed model output — SCORE + READ only (s4). Direction left this contract in
+/// Session D: it is a deterministic fact (`momentum_direction_from_score`), decided in
+/// code and narrated by the model, exactly like sigil's omen.
 #[derive(Clone, Debug)]
 pub struct MomentumReply {
-    pub direction: String,
     pub score: i32,
     pub blurb: String,
 }
@@ -213,13 +221,28 @@ pub fn momentum_work_input_version(season: i32, input_hash: &str) -> String {
     format!("{MOMENTUM_WORK_PREFIX}{season}:{input_hash}")
 }
 
-fn momentum_direction_label(score: i32) -> &'static str {
-    if score >= 1 {
-        "rising"
-    } else if score <= -1 {
-        "falling"
-    } else {
-        "steady"
+/// The deterministic direction — the single author of `momentum_summaries.direction`
+/// (Session D, North Star #4: deterministic facts are computed, models narrate). The
+/// score is the ±100-scale signed slope average from `momentum_scores`; `None` (no
+/// durable snapshot, ~3.5% of generations) is honestly "steady": with no measured
+/// trajectory there is no measured move.
+pub fn momentum_direction_from_score(momentum_score: Option<f64>) -> &'static str {
+    match momentum_score {
+        Some(s) if s >= MOMENTUM_STEADY_BAND => "rising",
+        Some(s) if s <= -MOMENTUM_STEADY_BAND => "falling",
+        _ => "steady",
+    }
+}
+
+/// The legal SCORE range for a decided direction — the contract the model is asked to
+/// honor. A violating sign is clamped into range (never a hard failure: the direction is
+/// the truth, the score is narration, and failing the item would re-litigate a decided
+/// fact through retries).
+fn clamp_score_to_direction(direction: &str, score: i32) -> i32 {
+    match direction {
+        "rising" => score.clamp(1, 5),
+        "falling" => score.clamp(-5, -1),
+        _ => score.clamp(-1, 1),
     }
 }
 
@@ -337,6 +360,20 @@ pub fn build_momentum_prompt(
     if mom.empty() {
         b.push_str("(no durable momentum snapshot)\n");
     }
+    // The decided fact the model narrates (never decides) — the omen pattern. The band
+    // rationale is spelled out so the READ can ground "how hard is it moving" in the
+    // same scale the decision used.
+    match mom.momentum_score {
+        Some(score) => b.push_str(&format!(
+            "\nDirection (decided upstream, final): {} (momentum score {:+.1}, steady band ±{:.0})\n",
+            momentum_direction_from_score(Some(score)),
+            score,
+            MOMENTUM_STEADY_BAND
+        )),
+        None => b.push_str(
+            "\nDirection (decided upstream, final): steady (no durable momentum snapshot)\n",
+        ),
+    }
     b.push_str("\nWrite the Momentum read now.");
     b
 }
@@ -350,7 +387,6 @@ fn empty_dash(s: &str) -> &str {
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    let mut direction = String::new();
     let mut score = None;
     let mut read_lines: Vec<String> = Vec::new();
     let mut in_read = false;
@@ -360,8 +396,9 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
         if trimmed.is_empty() {
             continue;
         }
-        if let Some(rest) = strip_prefix_ci(trimmed, "MOMENTUM:") {
-            direction = normalize_momentum_direction(rest);
+        // s4 dropped the MOMENTUM line from the contract (direction is decided in code),
+        // but a model echoing the decided direction back is not an error — skip the line.
+        if strip_prefix_ci(trimmed, "MOMENTUM:").is_some() {
             in_read = false;
             continue;
         }
@@ -382,43 +419,16 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
 
     let blurb = clean_joined_lines(&read_lines);
     let score = score?;
-    if direction.is_empty() || blurb.is_empty() {
+    if blurb.is_empty() {
         return None;
     }
-    Some(MomentumReply {
-        direction,
-        score,
-        blurb,
-    })
+    Some(MomentumReply { score, blurb })
 }
 
 fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
     s.get(..prefix.len())
         .filter(|head| head.eq_ignore_ascii_case(prefix))
         .map(|_| &s[prefix.len()..])
-}
-
-fn normalize_momentum_direction(raw: &str) -> String {
-    let lower = raw.trim().to_lowercase();
-    if lower.contains("fall") || lower.contains("slid") || lower.contains("sliding") {
-        "falling".to_string()
-    } else if lower.contains("ris") || lower.contains("surg") || lower.contains("up") {
-        "rising".to_string()
-    } else if lower.contains("steady")
-        || lower.contains("flat")
-        || lower.contains("mixed")
-        // "MOMENTUM: Conflict" was the live failure behind 9 permanently-failed items: the
-        // system prompt's "name the conflict" rule led the model to name it ON THE MOMENTUM
-        // LINE. The contract's own rule makes the mapping unambiguous — meaningfully split
-        // signals ARE steady. ("hold" is the same trader-frame synonym.)
-        || lower.contains("conflict")
-        || lower.contains("split")
-        || lower.contains("hold")
-    {
-        "steady".to_string()
-    } else {
-        String::new()
-    }
 }
 
 fn parse_first_i32(s: &str) -> Option<i32> {
@@ -576,35 +586,28 @@ impl StageHandler for MomentumHandler {
             .value
             .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
 
-        // Direction reconciliation (Phase 2, log-first): the deterministic slope-sign from the
-        // SQL momentum snapshot is the numeric truth; the model's direction is a judgment over
-        // richer context (PEAK read, vibe prose). They MAY legitimately differ — but silently,
-        // never. Log the conflict now; a hard clamp (like PEAK's pct>=75 primary gate) is the
-        // follow-up once live frequency is known.
-        if let Some(det_score) = ctx.snapshot.momentum_score {
-            let deterministic = if det_score >= 1.0 {
-                "rising"
-            } else if det_score <= -1.0 {
-                "falling"
-            } else {
-                "steady"
-            };
-            if deterministic != reply.direction {
-                warn!(
-                    entity_type = %item.entity_type,
-                    entity_id,
-                    sport = %sport,
-                    model_direction = %reply.direction,
-                    deterministic_direction = deterministic,
-                    momentum_score = det_score,
-                    "momentum: model direction disagrees with deterministic slope sign"
-                );
-            }
+        // Direction is DECIDED here, not by the model (Session D, North Star #4). The same
+        // decided value went into the prompt, so the READ narrates it by construction; the
+        // score is clamped into the direction's legal range so the persisted row can never
+        // tell two stories (the 645-WARNs/day disagreement class is gone by design).
+        let direction = momentum_direction_from_score(ctx.snapshot.momentum_score);
+        let score = clamp_score_to_direction(direction, reply.score);
+        let score_clamped = score != reply.score;
+        if score_clamped {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id,
+                sport = %sport,
+                direction,
+                model_score = reply.score,
+                clamped_score = score,
+                "momentum: model score sign disagreed with decided direction; clamped"
+            );
         }
 
         let out = MomentumOutput {
-            direction: reply.direction,
-            score: reply.score,
+            direction: direction.to_string(),
+            score,
             blurb: reply.blurb,
             season: ctx.season,
             input_components_json: ctx.input_components_json.clone(),
@@ -645,8 +648,9 @@ impl StageHandler for MomentumHandler {
                     "num_predict": MOMENTUM_NUM_PREDICT,
                     "eval_count": out.eval_count,
                     "wall_ms": out.wall_ms,
-                    "deterministic_direction": ctx.snapshot.momentum_score
-                        .map(|s| momentum_direction_label(s.round() as i32)),
+                    "decided_direction": direction,
+                    "steady_band": MOMENTUM_STEADY_BAND,
+                    "score_clamped_to_direction": score_clamped,
                 }),
                 parser_outcome: "scored".to_string(),
             },
@@ -663,11 +667,8 @@ mod tests {
 
     #[test]
     fn parses_momentum_reply() {
-        let parsed = parse_momentum_reply(
-            "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is calm.",
-        )
-        .unwrap();
-        assert_eq!(parsed.direction, "rising");
+        let parsed =
+            parse_momentum_reply("SCORE: 3\nREAD: PEAK is rising while Vibe is calm.").unwrap();
         assert_eq!(parsed.score, 3);
         assert_eq!(parsed.blurb, "PEAK is rising while Vibe is calm.");
     }
@@ -680,18 +681,67 @@ mod tests {
     }
 
     #[test]
-    fn conflict_direction_normalizes_to_steady() {
-        // The live failure that stranded 9 momentum items: the prompt's "name the conflict"
-        // rule led the model to answer `MOMENTUM: Conflict` (with a decimal score, which the
-        // leading-integer scan already tolerates). Split signals ARE steady per the contract.
+    fn stray_momentum_line_is_tolerated_and_ignored() {
+        // s4 dropped MOMENTUM from the contract; a model echoing the decided direction (in
+        // any word, even the old Conflict failure) is skipped, never parsed as content.
         let parsed = parse_momentum_reply(
             "MOMENTUM: Conflict\nSCORE: -1.0\nREAD: Signals split between PEAK and Vibe.",
         )
         .unwrap();
-        assert_eq!(parsed.direction, "steady");
         assert_eq!(parsed.score, -1);
-        // Genuinely unknown direction words still fail closed.
-        assert!(parse_momentum_reply("MOMENTUM: banana\nSCORE: 1\nREAD: x.").is_none());
+        assert_eq!(parsed.blurb, "Signals split between PEAK and Vibe.");
+        // Missing SCORE or empty READ still fail closed.
+        assert!(parse_momentum_reply("READ: prose only, no score.").is_none());
+        assert!(parse_momentum_reply("SCORE: 2").is_none());
+    }
+
+    #[test]
+    fn direction_is_decided_by_band_not_model() {
+        // ±MOMENTUM_STEADY_BAND on the ±100-scale momentum_score; None (no durable
+        // snapshot) is honestly steady.
+        assert_eq!(momentum_direction_from_score(Some(10.0)), "rising");
+        assert_eq!(momentum_direction_from_score(Some(9.9)), "steady");
+        assert_eq!(momentum_direction_from_score(Some(-9.9)), "steady");
+        assert_eq!(momentum_direction_from_score(Some(-10.0)), "falling");
+        assert_eq!(momentum_direction_from_score(Some(0.0)), "steady");
+        assert_eq!(momentum_direction_from_score(None), "steady");
+    }
+
+    #[test]
+    fn score_clamps_into_the_decided_directions_range() {
+        assert_eq!(clamp_score_to_direction("rising", -3), 1);
+        assert_eq!(clamp_score_to_direction("rising", 4), 4);
+        assert_eq!(clamp_score_to_direction("falling", 2), -1);
+        assert_eq!(clamp_score_to_direction("falling", -5), -5);
+        assert_eq!(clamp_score_to_direction("steady", 4), 1);
+        assert_eq!(clamp_score_to_direction("steady", -4), -1);
+        assert_eq!(clamp_score_to_direction("steady", 0), 0);
+    }
+
+    #[test]
+    fn prompt_carries_the_decided_direction_line() {
+        let mom = SynthMomentum {
+            rating_slope: Some(50.7),
+            rating_samples: 4,
+            momentum_score: Some(50.7),
+            ..SynthMomentum::default()
+        };
+        let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom);
+        assert!(prompt.contains(
+            "Direction (decided upstream, final): rising (momentum score +50.7, steady band ±10)"
+        ));
+        // No snapshot → the decided line still exists and is honestly steady.
+        let empty = build_momentum_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            None,
+            None,
+            &SynthMomentum::default(),
+        );
+        assert!(empty.contains(
+            "Direction (decided upstream, final): steady (no durable momentum snapshot)"
+        ));
     }
 
     #[test]

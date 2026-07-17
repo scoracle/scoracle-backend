@@ -610,7 +610,6 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_excludes.as_ref().map_or(0, Vec::len);
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
-    n += x.momentum_direction.is_some() as usize;
     n += x.momentum_score_min.is_some() as usize;
     n += x.momentum_score_max.is_some() as usize;
     n
@@ -1090,13 +1089,12 @@ mod tests {
     #[test]
     fn unparseable_fixture_counts_authored_expectations() {
         let x = Expect {
-            momentum_direction: Some("steady".into()),
             momentum_score_min: Some(-1),
             momentum_score_max: Some(1),
             prose_includes: Some(vec!["PEAK".into(), "Vibe".into()]),
             prose_max_words: Some(80),
             ..Default::default()
         };
-        assert_eq!(expected_property_count(&x), 6);
+        assert_eq!(expected_property_count(&x), 5);
     }
 }

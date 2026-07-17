@@ -10,7 +10,7 @@ use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::rating::{
     build_rating_request, generate_rating, peak_work_input_version, persist_stat_summary,
-    RatingBuild, RatingOutput, RatingReq, RATING_TEMPERATURE,
+    RatingBuild, RatingOutput, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{corpus, db, work};
@@ -291,6 +291,7 @@ async fn enum_current_season(pool: &PgPool, sport: &str, season: i32) -> Result<
     let rows = sqlx::query(enum_current_season_sql())
         .bind(sport)
         .bind(season)
+        .bind(RATING_PROMPT_VERSION)
         .fetch_all(pool)
         .await
         .with_context(|| format!("enumerate current season {sport}/{season}"))?;
@@ -328,7 +329,7 @@ fn enum_current_season_sql() -> &'static str {
         ),
         latest AS (
             SELECT DISTINCT ON (entity_type, entity_id, sport, season)
-                   entity_type, entity_id, sport, season, generated_at, input_hash
+                   entity_type, entity_id, sport, season, generated_at, input_hash, prompt_version
             FROM stat_summaries
             WHERE sport = $1 AND season = $2
             ORDER BY entity_type, entity_id, sport, season, generated_at DESC
@@ -343,6 +344,10 @@ fn enum_current_season_sql() -> &'static str {
         WHERE s.generated_at IS NULL
            OR NULLIF(s.input_hash, '') IS NULL
            OR c.updated_at > s.generated_at
+           -- Contract leg (s11): a prompt/persona change re-enumerates entities whose stats
+           -- never move (offseason), so the new voice ships fleet-wide — self-throttled by
+           -- the nightly -limit, one regeneration per entity, then this leg goes quiet.
+           OR s.prompt_version IS DISTINCT FROM $3
         ORDER BY (s.generated_at IS NOT NULL) ASC, c.et, c.id
         "#
 }
@@ -515,5 +520,8 @@ mod tests {
         assert!(sql.contains("ORDER BY entity_type, entity_id, sport, season, generated_at DESC"));
         assert!(sql.contains("NULLIF(s.input_hash, '') IS NULL"));
         assert!(sql.contains("c.updated_at > s.generated_at"));
+        // s11 contract leg: a prompt-version bump re-enumerates stat-quiet entities so a
+        // persona change ships fleet-wide (self-throttled by the nightly -limit).
+        assert!(sql.contains("s.prompt_version IS DISTINCT FROM $3"));
     }
 }

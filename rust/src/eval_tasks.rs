@@ -322,12 +322,10 @@ pub struct Expect {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_max_sentences: Option<i32>,
     // momentum / trajectory reasoning rubric.
-    /// Momentum direction chosen from the analytical trajectory context (`rising`, `falling`,
-    /// `steady`). Fixture-first until Momentum becomes a versioned model generation.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub momentum_direction: Option<String>,
-    /// Signed Momentum score band. The eval prompt uses -5..5; the production DB score remains a
-    /// deterministic numeric input, not a model output.
+    /// Signed Momentum score band (-5..5, the model's conviction in the DECIDED direction).
+    /// Direction itself left the reply contract in momentum-s4 — it is computed in code
+    /// (`momentum::momentum_direction_from_score`) and supplied to the prompt as a fact, so
+    /// fixtures assert the score band and prose instead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub momentum_score_min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1291,13 +1289,6 @@ impl LensTask for MomentumTask {
         let word_count = reply.blurb.split_whitespace().count() as i32;
 
         if let Some(x) = expect {
-            if let Some(want) = x.momentum_direction.as_deref() {
-                checks.push(PropertyCheck {
-                    name: format!("momentum_direction:{want}"),
-                    pass: normalized_token(&reply.direction) == normalized_token(want),
-                    detail: format!("momentum={}", empty_dash(&reply.direction)),
-                });
-            }
             if let Some(min) = x.momentum_score_min {
                 checks.push(PropertyCheck {
                     name: "momentum_score_ge".into(),
@@ -1346,12 +1337,7 @@ impl LensTask for MomentumTask {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!(
-                "momentum={} score={} | {}",
-                empty_dash(&reply.direction),
-                reply.score,
-                reply.blurb
-            ),
+            display: format!("score={} | {}", reply.score, reply.blurb),
         }
     }
 }
@@ -1773,24 +1759,24 @@ mod tests {
     // --- momentum fixture-first trajectory rubric ---------------------------------
 
     #[test]
-    fn momentum_parser_extracts_direction_score_and_read() {
+    fn momentum_parser_extracts_score_and_read() {
+        // s4 contract: SCORE + READ; a stray MOMENTUM line (a model echoing the decided
+        // direction) is tolerated and ignored.
         let raw = "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is steady, so the current direction is modestly positive.";
         let parsed = parse_momentum_reply(raw).unwrap();
-        assert_eq!(parsed.direction, "rising");
         assert_eq!(parsed.score, 3);
         assert!(parsed.blurb.contains("PEAK is rising"));
     }
 
     #[test]
-    fn momentum_rubric_scores_direction_and_signed_band() {
+    fn momentum_rubric_scores_signed_band_and_prose() {
         let x = Expect {
-            momentum_direction: Some("falling".into()),
             momentum_score_max: Some(-2),
             prose_includes: Some(vec!["Vibe".into()]),
             prose_excludes: Some(vec!["surging".into()]),
             ..Default::default()
         };
-        let raw = "MOMENTUM: sliding\nSCORE: -3\nREAD: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let raw = "SCORE: -3\nREAD: Vibe is pulling the profile down despite a steadier PEAK read.";
         let v = MomentumTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);

@@ -25,7 +25,7 @@
 //! The deterministic profile assembly, input hash, and parser stay byte-stable. The s9 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
-use crate::harness::{EntityKey, Harness, Parser, Provenance};
+use crate::harness::{Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -40,7 +40,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s10"; // s10: z-magnitude weakness gate + degenerate-zero filter + usage-artifact rule
+pub const RATING_PROMPT_VERSION: &str = "s11"; // s11: opposing-scout persona + display-tier (retired) datapoint exclusion
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
@@ -60,10 +60,18 @@ const PEAK_WORK_PREFIX: &str = "peak:s";
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
 const MAX_STAT_FACTS: usize = 14;
 
-/// System prompt for the PEAK scouting-report contract.
+/// System prompt for the PEAK scouting-report contract. s11 (Session D, North Star #6): the
+/// voice is an OPPOSING SCOUT profiling the subject for a coaching staff preparing to face
+/// them — adversarial and actionable, never a fan's summary. The hard invariants survive
+/// verbatim from s10: the tier is the truth, the PEAK line is copied not chosen, weaknesses
+/// need a materially negative z, nothing below the 50th percentile gets praised, nothing is
+/// invented. Trend talk is banned by rule: trajectory narration is Momentum's job (Scott,
+/// Session D — "leave the trend of a metric to momentum").
 pub const RATING_SYSTEM_PROMPT: &str = r#"Task: write the entity's PEAK scouting report from the supplied Rating Engine profile.
 
-Voice: direct, analytical, sports-literate. No hype. Ground every claim in the supplied datapoints.
+Persona: you are an opposing scout preparing a strengths/weaknesses profile for your own coaching staff to game-plan AGAINST this entity. Clinical, adversarial, actionable. Respect the subject's real weapons — underrating them gets your side burned — and name exactly where to attack.
+
+Voice: direct, analytical, sports-literate. No hype, no fan framing. Ground every claim in the supplied datapoints.
 
 Definitions:
 - COMPOSITE = how well the entity performs overall.
@@ -85,15 +93,19 @@ PEAK rules:
 - Never choose an average, below average, poor, or merely above-average skill as the peak.
 
 Scouting-report rules:
-- Lead with real strengths: strong and elite skills.
-- Use Primary strength to stop and Primary weakness to exploit as the main scouting frame.
+- Write for the staff preparing to FACE this entity: what they beat you with, and where you attack.
+- Primary strength to stop is the game plan's first priority: state it as the threat to take away.
+- Primary weakness to exploit is where you attack: state it as an instruction, not an observation.
+- Every game-plan instruction must name the specific skill and its cited number (value, percentile, or z) it targets. Generic advice — play physical, disrupt rhythm, bring energy, stay disciplined — is invalid scouting.
+- Strong and elite secondary strengths are the counter-punch: name where this entity goes when the primary threat is taken away.
 - Cite values and percentiles as given.
-- Mention per-x support when it confirms the edge.
+- Mention per-x support when it confirms the edge is real and not a minutes artifact.
 - Do not praise marks below the 50th percentile.
-- Mention weaknesses only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as one.
-- If Primary weakness to exploit says None, name no weakness at all.
-- If nothing is strong or elite, say that plainly and name the best available impact with its percentile.
-- End with a clear scouting verdict on what kind of player/team this is.
+- Name a weakness only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as an exploit.
+- If Primary weakness to exploit says None, say the profile offers no clean exploit — do not invent one.
+- If nothing is strong or elite, say so plainly — this profile is not a game-plan priority — name the best available impact with its percentile, and keep the whole report to 2-3 sentences. A profile with no standout never earns an extended game plan.
+- This is a static profile: no trajectory, trend, or momentum talk. The trend read lives elsewhere.
+- End with a one-sentence scouting verdict tied to the named strength or weakness, citing its number — how you play THIS profile, not boilerplate. No label prefix on the verdict; it flows inside the paragraph.
 - Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.
 - Never invent a number, rate, role, or skill not in the data."#;
 
@@ -222,6 +234,9 @@ pub struct RatingExclusions {
     pub off_facet_stat_labels: Vec<String>,
     /// Zero-value, near-average-z usage artifacts (see `drop_degenerate_zero_datapoints`).
     pub degenerate_zero_stat_labels: Vec<String>,
+    /// Display-tier datapoints — retired from the rating equation (`in_comp=false AND
+    /// in_spec=false`) — excluded from the AI context (see `drop_display_tier_datapoints`).
+    pub display_tier_stat_labels: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -586,6 +601,31 @@ fn drop_off_facet_datapoints(p: &mut RatingProfile) -> Vec<String> {
     p.breakdown.retain(|d| !off_facet(d));
     for dps in p.rate_modes.values_mut() {
         dps.retain(|d| !off_facet(d));
+    }
+    dropped
+}
+
+/// drop_display_tier_datapoints removes datapoints the rating engine has RETIRED from its
+/// equation: `in_comp=false AND in_spec=false` — the display tier (migs 060/062: metrics that
+/// reward reactive volume or re-skin other signals; kept for the stats-page z-pizza, out of
+/// the composite and specialist pools). Session D (North Star #5): the scouting context is
+/// z-score-backed signal only, so the display tier stops leaking into prompts — before this
+/// filter a display-tier metric could even be CROWNED (367 FOOTBALL players' PEAK line was
+/// one, e.g. Dan Burn's "PEAK: Clearances", the exact case mig 062 called perverse). Runs on
+/// the breakdown AND the per-x rate modes; returns the dropped breakdown labels for the
+/// exclusions ledger. Flags are present on every stored breakdown element (verified across
+/// all sports/seasons 2026-07-17), so a missing-flag row cannot be silently emptied.
+fn drop_display_tier_datapoints(p: &mut RatingProfile) -> Vec<String> {
+    let display_tier = |d: &RatingDatapoint| !d.in_comp && !d.in_spec;
+    let dropped: Vec<String> = p
+        .breakdown
+        .iter()
+        .filter(|d| display_tier(d))
+        .map(|d| d.label.clone())
+        .collect();
+    p.breakdown.retain(|d| !display_tier(d));
+    for dps in p.rate_modes.values_mut() {
+        dps.retain(|d| !display_tier(d));
     }
     dropped
 }
@@ -1164,12 +1204,14 @@ pub async fn build_rating_request(
             season: req.season.unwrap_or(0),
         });
     };
-    // The off-facet + degenerate-zero filters run before EVERYTHING derived from the breakdown —
-    // the scouting decision, the prompt's datapoint list, notability, rate standouts, and the
-    // input_components hash — so every consumer sees one consistent, position-true view.
-    // (The hash change regenerates affected players once; that regen is the fix shipping.)
+    // The off-facet + degenerate-zero + display-tier filters run before EVERYTHING derived
+    // from the breakdown — the scouting decision, the prompt's datapoint list, notability,
+    // rate standouts, and the input_components hash — so every consumer sees one consistent,
+    // signal-only view. (The hash change regenerates affected entities once; that regen is
+    // the fix shipping — the F1-era precedent.)
     let off_facet_stat_labels = drop_off_facet_datapoints(&mut profile);
     let degenerate_zero_stat_labels = drop_degenerate_zero_datapoints(&mut profile);
+    let display_tier_stat_labels = drop_display_tier_datapoints(&mut profile);
     // No usable rating (no composite + empty breakdown) → the NULL-body marker path.
     if profile.composite_score.is_none() && profile.breakdown.is_empty() {
         return Ok(RatingBuild::NoStats {
@@ -1185,6 +1227,7 @@ pub async fn build_rating_request(
         budget_truncated_stat_labels: budget_truncated_stat_labels(&profile.breakdown, &decision),
         off_facet_stat_labels,
         degenerate_zero_stat_labels,
+        display_tier_stat_labels,
     };
     let peak_trajectory = load_peak_trajectory(
         &hx.pool,
@@ -1306,7 +1349,7 @@ pub async fn generate_rating(
     };
 
     if skip_unchanged {
-        if let Some(last) = last_commentary_hash(
+        if let Some((last_hash, last_prompt_version)) = last_commentary_provenance(
             hx,
             &req.entity_type,
             req.entity_id,
@@ -1315,7 +1358,12 @@ pub async fn generate_rating(
         )
         .await?
         {
-            if last == ready.input_hash {
+            // Skip only when BOTH the rating snapshot (input_hash) and the contract
+            // (prompt_version) are unchanged. The prompt_version leg is what ships a persona
+            // change fleet-wide: without it, entities whose stats never move (NBA/NFL in
+            // July) would speak the old voice until preseason. One regeneration per entity,
+            // then the row stamps s11 and the gate closes again.
+            if last_hash == ready.input_hash && last_prompt_version == RATING_PROMPT_VERSION {
                 return Ok(RatingOutput {
                     season: ready.season,
                     skipped_no_stats: false,
@@ -1385,11 +1433,15 @@ pub async fn generate_rating(
 }
 
 /// peak_work_input_version is the durable queue fingerprint for a PEAK card demand.
-/// It includes the season and the rating input hash (or an explicit marker token), so repeated
-/// enqueue attempts collapse while changed scouting input reopens the outstanding row.
+/// It includes the season, the PROMPT CONTRACT, and the rating input hash (or an explicit
+/// marker token), so repeated enqueue attempts collapse while changed scouting input — or a
+/// changed contract — reopens the outstanding row. The prompt-version leg (s11) is what lets
+/// a persona change reopen an already-done queue row: `work::enqueue`'s ON CONFLICT update
+/// only fires when input_version moved, so without it a quiet entity's done row would absorb
+/// the enqueue and the new voice would never ship there.
 pub fn peak_work_input_version(season: i32, input_hash: Option<&str>) -> String {
     format!(
-        "{PEAK_WORK_PREFIX}{season}:{}",
+        "{PEAK_WORK_PREFIX}{season}:{RATING_PROMPT_VERSION}:{}",
         input_hash.filter(|s| !s.is_empty()).unwrap_or("no-stats")
     )
 }
@@ -1401,27 +1453,36 @@ fn peak_work_season(input_version: Option<&str>) -> Option<i32> {
     season.parse::<i32>().ok().filter(|s| *s > 0)
 }
 
-/// last_commentary_hash returns the input_hash of the entity-season's LATEST commentary — the nightly
-/// skip signal. Canonical latest-generation rule (F-023): take the latest row regardless of
-/// nullability; a no-stats marker has a NULL input_hash → None → the next run never wrongly skips
-/// against an older real commentary the marker superseded. Mirrors `lastCommentaryHash`.
-async fn last_commentary_hash(
+/// last_commentary_provenance returns `(input_hash, prompt_version)` of the entity-season's
+/// LATEST commentary — the nightly skip signal. Canonical latest-generation rule (F-023): take
+/// the latest row regardless of nullability; a no-stats marker has a NULL input_hash → None →
+/// the next run never wrongly skips against an older real commentary the marker superseded.
+/// s11 widened the read from `last_commentary_hash` (hash only) to also carry prompt_version,
+/// so a contract/persona change reopens the gate exactly once per entity.
+async fn last_commentary_provenance(
     hx: &Harness,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
     season: i32,
-) -> Result<Option<String>> {
-    let key = EntityKey {
-        entity_type: entity_type.to_string(),
-        entity_id,
-        sport: sport.to_string(),
-        season: Some(season),
-    };
-    Ok(hx
-        .latest_row("stat_summaries", &key, "input_hash")
-        .await?
-        .filter(|s| !s.is_empty()))
+) -> Result<Option<(String, String)>> {
+    let row: Option<(Option<String>, String)> = sqlx::query_as(
+        r#"
+        SELECT input_hash, prompt_version FROM stat_summaries
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+        ORDER BY generated_at DESC LIMIT 1
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(season)
+    .fetch_optional(&hx.pool)
+    .await
+    .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
+    Ok(row.and_then(|(hash, pv)| {
+        hash.filter(|h| !h.is_empty()).map(|h| (h, pv))
+    }))
 }
 
 /// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and
@@ -1669,6 +1730,13 @@ fn rating_excluded_evidence(out: &RatingOutput) -> serde_json::Value {
             "dropped_stat_labels": &out.exclusions.degenerate_zero_stat_labels,
         }));
     }
+    if !out.exclusions.display_tier_stat_labels.is_empty() {
+        excluded.push(serde_json::json!({
+            "reason": "display_tier_retired_from_equation",
+            "dropped_count": out.exclusions.display_tier_stat_labels.len(),
+            "dropped_stat_labels": &out.exclusions.display_tier_stat_labels,
+        }));
+    }
     serde_json::json!(excluded)
 }
 
@@ -1819,6 +1887,93 @@ mod tests {
         );
         assert!(drop_off_facet_datapoints(&mut p).is_empty());
         assert_eq!(p.breakdown.len(), 2);
+    }
+
+    // --- display-tier (retired) filter: metrics the engine retired from its equation
+    // (in_comp=false AND in_spec=false — the mig 060/062 display tier) must never reach the
+    // scouting decision, the prompt, the PEAK crown, or the input_hash pre-image. The Dan
+    // Burn bug: "PEAK: Clearances" — a metric mig 062 demoted for rewarding reactive volume.
+    // -----------------------------------------------------------------------------------------------
+
+    fn tiered(label: &str, pct: f64, in_comp: bool, in_spec: bool) -> RatingDatapoint {
+        let mut d = dp(label, 10.0, 1.0, pct, 1, false);
+        d.in_comp = in_comp;
+        d.in_spec = in_spec;
+        d
+    }
+
+    #[test]
+    fn display_tier_filter_drops_retired_metrics_from_breakdown_and_modes() {
+        let mut p = nfl_profile(
+            "",
+            vec![
+                tiered("Goalscoring", 70.0, true, true),      // composite+specialist: stays
+                tiered("On-Court Impact", 60.0, true, false), // composite-only: stays
+                tiered("Penalties Won", 88.0, false, true),   // specialist-only: stays
+                tiered("Clearances", 96.0, false, false),     // display tier: dropped
+                tiered("Duels", 90.0, false, false),          // display tier: dropped
+            ],
+        );
+        p.rate_modes.insert(
+            "per_90".to_string(),
+            vec![
+                tiered("Goalscoring", 71.0, true, true),
+                tiered("Clearances", 95.0, false, false),
+            ],
+        );
+        let dropped = drop_display_tier_datapoints(&mut p);
+        assert_eq!(dropped, vec!["Clearances", "Duels"]);
+        let labels: Vec<&str> = p.breakdown.iter().map(|d| d.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            vec!["Goalscoring", "On-Court Impact", "Penalties Won"]
+        );
+        assert_eq!(p.rate_modes["per_90"].len(), 1);
+        assert_eq!(p.rate_modes["per_90"][0].label, "Goalscoring");
+    }
+
+    #[test]
+    fn retired_metric_never_reaches_prompt_preimage_or_crown() {
+        // The Session D golden: Dan Burn-shaped profile — a display-tier metric holds the top
+        // percentile. After the filter, the crown, the built prompt, and the input_components
+        // hash pre-image must all be free of it, and the crown falls to the best REAL signal.
+        let mut p = nfl_profile(
+            "",
+            vec![
+                tiered("Clearances", 96.0, false, false),
+                tiered("Duels", 90.0, false, false),
+                tiered("Interceptions", 80.0, true, true),
+                tiered("Tackling", 62.0, true, true),
+            ],
+        );
+        p.rate_modes.insert(
+            "per_game".to_string(),
+            vec![
+                tiered("Clearances", 94.0, false, false),
+                tiered("Interceptions", 82.0, true, true),
+            ],
+        );
+        drop_display_tier_datapoints(&mut p);
+
+        let decision = build_scouting_decision(&p);
+        assert_eq!(decision.required_peak_line, "PEAK: Interceptions");
+
+        let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60);
+        for retired in ["Clearances", "Duels"] {
+            assert!(
+                !prompt.contains(retired),
+                "retired metric {retired:?} leaked into the built prompt"
+            );
+        }
+        assert!(prompt.contains("Interceptions"));
+
+        let ic = input_components(&p);
+        for retired in ["Clearances", "Duels"] {
+            assert!(
+                !ic.contains(retired),
+                "retired metric {retired:?} leaked into the input_components pre-image"
+            );
+        }
     }
 
     #[test]
@@ -2149,6 +2304,22 @@ Then write the scouting paragraph on the next line. The first output characters 
         );
         assert_eq!(clean_commentary("  Identity: A poacher.  "), "A poacher.");
         assert_eq!(clean_commentary("Plain prose."), "Plain prose.");
+    }
+
+    #[test]
+    fn peak_work_token_carries_contract_and_still_parses_season() {
+        // The s11 token format: peak:s<season>:<prompt_version>:<hash|no-stats>. The
+        // prompt-version leg is what reopens a done queue row on a persona change; the
+        // season parse must survive the extra segment.
+        let v = peak_work_input_version(2025, Some("abc123"));
+        assert_eq!(v, format!("peak:s2025:{RATING_PROMPT_VERSION}:abc123"));
+        assert_eq!(peak_work_season(Some(&v)), Some(2025));
+        assert_eq!(
+            peak_work_input_version(2025, None),
+            format!("peak:s2025:{RATING_PROMPT_VERSION}:no-stats")
+        );
+        // Old-format tokens (pre-s11 rows still in pipeline_work) parse their season too.
+        assert_eq!(peak_work_season(Some("peak:s2024:deadbeef")), Some(2024));
     }
 
     #[test]

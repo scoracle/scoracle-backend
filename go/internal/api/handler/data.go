@@ -608,9 +608,12 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 // GetEntitySigil returns the entity's SIGIL product — the crown synthesis (score
 // 1-100 + blurb, fusing Rating + Vibe + Momentum) plus a bounded history, and the
 // Oracle voice of the card (`oracle`: reading + omen, mig 146) when a reading
-// exists. Read by the Sigil card AND the meta centre score. Canonical at /sigil.
+// exists. Serve-latest (Scott, 2026-07-16): the LATEST REAL synthesis + reading
+// at any age — clients render the timestamp; nothing is hidden behind a
+// freshness window. Read by the Sigil card AND the meta centre score.
+// Canonical at /sigil.
 // @Summary Get the entity Sigil (crown synthesis)
-// @Description The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history, and the Oracle reading + omen when one exists.
+// @Description The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history, and the latest Oracle reading + omen at any age (clients render the generated_at timestamp).
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

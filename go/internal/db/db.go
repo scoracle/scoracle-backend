@@ -474,13 +474,14 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			ORDER BY ss.entity_type, ss.entity_id, ss.generated_at DESC
 		),
 		latest AS (
-			-- F7: mirror the entity_sigil profile's 72h freshness gate (see its vibe_cur
-			-- CTE, ~L1133) so the board only crowns entities the profile corroborates —
-			-- otherwise an entity whose latest scored synthesis is >72h old ranks here
-			-- (with recap) while the profile returns current:null (the recap/score
-			-- mismatch bug). SHARED CONSTANT: both windows are INTERVAL '72 hours' — keep
-			-- them EQUAL or the mismatch returns. Explicit ?season=N keeps the no-window
-			-- final-crown behavior, exactly matching entity_sigil.
+			-- F7 (amended 2026-07-16): the board keeps the 72h freshness gate — a
+			-- leaderboard ranks what's CURRENT — but the entity_sigil profile no longer
+			-- shares it: the profile serves the latest real synthesis at any age,
+			-- timestamped (Scott's serve-latest ruling; see its vibe_cur CTE). The safe
+			-- direction of divergence: the board may omit a crown the profile still
+			-- shows — never crown one the profile denies — so the original F7
+			-- recap/score mismatch (board crowns, profile current:null) cannot return.
+			-- Explicit ?season=N keeps the no-window final-crown behavior.
 			SELECT lr.* FROM latest_raw lr, req
 			WHERE lr.score IS NOT NULL AND lr.blurb IS NOT NULL
 			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
@@ -1127,33 +1128,27 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- Season scope: no ?season ⇒ the LIVE view — the
 		-- current season plus legacy NULL-season rows (the pre-S12 event-driven default) —
 		-- so synthesizing an OLDER season can never become the current crown. An explicit
-		-- ?season=N selects that season exactly (its final crown, no freshness window).
-		latest_gen AS (
-			-- Canonical latest-generation rule: the latest synthesis WITHIN
-			-- the season scope, REGARDLESS of nullability.
-			SELECT max(vs.generated_at) AS g
+		-- ?season=N selects that season exactly (its final crown).
+		vibe_cur AS (
+			-- The profile card serves the LATEST REAL synthesis, whatever its age
+			-- (Scott, 2026-07-16): the reading is timestamped client-side instead of
+			-- hidden behind a freshness window. Markers no longer clear the served
+			-- crown here — a marker means "nothing new to say", not "unsay the last
+			-- read"; only an entity never scored at all serves current: null.
+			-- DELIBERATE DIVERGENCE from sigil_leaderboard's 'latest' CTE, which keeps
+			-- the 72h crown gate: the board may omit a crown the profile still shows
+			-- (timestamped) — never the reverse — so the F7 recap/score mismatch
+			-- (board showing a crown the profile cleared) cannot reopen.
+			SELECT vs.score, vs.blurb, vs.convergence, vs.disagreement, vs.why_now,
+			       vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
 			FROM public.sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
+			  AND vs.score IS NOT NULL
 			  AND CASE WHEN req.want_season IS NULL
 			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
 			           ELSE vs.season = req.want_season END
-		),
-		vibe_cur AS (
-			-- Surface the latest generation only when it is a real scored row AND (for the
-			-- live view) fresh. A newer no-pillar marker (score NULL) is the latest
-			-- generation → the score IS NOT NULL guard yields zero rows → current null,
-			-- clearing the stale crown. (History below keeps only scored points — a marker
-			-- changes the current projection, never the sparkline.)
-			SELECT vs.score, vs.blurb, vs.convergence, vs.disagreement, vs.why_now,
-			       vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
-			FROM public.sigil_synthesis vs, req, latest_gen
-			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
-			  AND vs.generated_at = latest_gen.g
-			  AND vs.score IS NOT NULL
-			  -- SHARED CONSTANT with sigil_leaderboard's 'latest' CTE (F7): both gate the
-			  -- live crown behind INTERVAL '72 hours'. Keep them equal — a drift reopens the
-			  -- recap/score mismatch (board shows a crown the profile has cleared).
-			  AND (req.want_season IS NOT NULL OR vs.generated_at > NOW() - INTERVAL '72 hours')
+			ORDER BY vs.generated_at DESC
+			LIMIT 1
 		),
 		vibe_hist AS (
 			SELECT vs.score, vs.generated_at
@@ -1165,26 +1160,19 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           ELSE vs.season = req.want_season END
 			ORDER BY vs.generated_at DESC LIMIT 14
 		),
-		-- The Oracle voice of the Sigil card (mig 146): the latest persona reading over this
-		-- crown. Same latest-generation + freshness discipline as vibe_cur — the latest
-		-- generation regardless of nullability, served only when it is a real reading (a newer
-		-- marker clears a stale reading, exactly like the crown itself); the 72h live gate
-		-- keeps the voice from outliving the crown it reads.
-		oracle_latest_gen AS (
-			SELECT max(o.generated_at) AS g
+		-- The Oracle voice of the Sigil card (mig 146): the latest REAL persona reading,
+		-- same serve-latest discipline as vibe_cur (Scott, 2026-07-16) — markers and age
+		-- never unsay the last reading; the client timestamps it instead.
+		oracle_cur AS (
+			SELECT o.reading, o.omen, o.sigil_score, o.model_version, o.prompt_version, o.generated_at
 			FROM public.oracle_readings o, req
 			WHERE o.entity_type = req.entity_type AND o.entity_id = req.entity_id AND o.sport = req.sport
+			  AND o.reading IS NOT NULL
 			  AND CASE WHEN req.want_season IS NULL
 			           THEN o.season = req.cur_season
 			           ELSE o.season = req.want_season END
-		),
-		oracle_cur AS (
-			SELECT o.reading, o.omen, o.sigil_score, o.model_version, o.prompt_version, o.generated_at
-			FROM public.oracle_readings o, req, oracle_latest_gen
-			WHERE o.entity_type = req.entity_type AND o.entity_id = req.entity_id AND o.sport = req.sport
-			  AND o.generated_at = oracle_latest_gen.g
-			  AND o.reading IS NOT NULL
-			  AND (req.want_season IS NOT NULL OR o.generated_at > NOW() - INTERVAL '72 hours')
+			ORDER BY o.generated_at DESC
+			LIMIT 1
 		)
 		SELECT json_build_object(
 			'page', 'sigil',

@@ -9,8 +9,9 @@
 //!
 //! Not a stage: `SigilHandler` runs decide → voice as two internal steps of one work item and
 //! persists ONE `sigil_synthesis` row carrying both. This module owns everything voice-shaped:
-//! the omen computation, the re-voice rule, the prompt/parse contract, and the transitional
-//! `oracle_readings` dual-write (Go serving reads that table until Session C flips it).
+//! the omen computation, the re-voice rule, and the prompt/parse contract. `oracle_readings`
+//! is FROZEN read-only history since Session C (mig 153 copied the latest readings into the
+//! merged columns; Go serves those) — `load_prior_voice`'s fallback read is the only touch.
 //!
 //! The re-voice rule (North Star #8, blessed by Scott 2026-07-16): a new reading is generated
 //! ONLY when the story the card tells changes — the computed omen flips, the score crosses an
@@ -32,7 +33,7 @@
 //! (nothing persisted; the retry re-runs decide — fail-closed beats a voiceless scored row).
 
 use crate::corpus::{write_heat_lines, HeatItem};
-use crate::harness::{Harness, Parser, Provenance};
+use crate::harness::{Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -41,7 +42,7 @@ use crate::trajectory::trajectory_label;
 use crate::util::{go_json_string, hash_components, truncate};
 use crate::work::Item;
 use anyhow::{bail, Context, Result};
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 
 /// Prompt version for the Oracle reading contract. or1 was the first contract: deterministic
 /// card stack + computed OMEN in the user prompt, subtle-mystic system voice, JSON
@@ -587,8 +588,7 @@ impl Parser<OracleReply> for OracleParser {
 // Output + persist + ledger.
 // ---------------------------------------------------------------------------
 
-/// The evidence bundle of one fresh voice generation — feeds the transitional
-/// `oracle_readings` dual-write and the OracleLogic ledger row.
+/// The evidence bundle of one fresh voice generation — feeds the OracleLogic ledger row.
 #[derive(Clone, Debug)]
 pub struct OracleOutput {
     pub reading: Option<String>,
@@ -596,7 +596,6 @@ pub struct OracleOutput {
     pub omen: Option<String>,
     /// Echo of the consumed sigil score.
     pub sigil_score: Option<i32>,
-    pub season: i32,
     /// Canonical components JSON (the consumed-generation pre-image).
     pub input_components_json: String,
     pub input_hash: Option<String>,
@@ -606,54 +605,6 @@ pub struct OracleOutput {
     pub request_body: Option<serde_json::Value>,
     pub eval_count: Option<i32>,
     pub wall_ms: Option<u64>,
-}
-
-impl OracleOutput {
-    fn provenance(&self) -> Provenance {
-        Provenance {
-            model_version: self.model.clone(),
-            prompt_version: self.prompt_version,
-            input_ids: Vec::new(),
-            input_hash: self.input_hash.clone(),
-            trigger_payload: None,
-        }
-    }
-}
-
-async fn persist_to_oracle_readings(
-    pool: &PgPool,
-    item: &Item,
-    sport: &str,
-    out: &OracleOutput,
-) -> Result<i64> {
-    let prov = out.provenance();
-    let entity_id = item.entity_id_i32()?;
-    let sigil_score: Option<i16> = out.sigil_score.map(|n| n as i16);
-    let row = sqlx::query(
-        r#"
-        INSERT INTO oracle_readings (
-            entity_type, entity_id, sport, season, trigger_type, trigger_payload,
-            reading, omen, sigil_score, input_components, input_hash,
-            model_version, prompt_version
-        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11)
-        RETURNING id
-        "#,
-    )
-    .bind(&item.entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(out.season)
-    .bind(out.reading.as_deref())
-    .bind(out.omen.as_deref())
-    .bind(sigil_score)
-    .bind(out.input_components_json.as_str())
-    .bind(prov.input_hash.as_deref())
-    .bind(prov.model_version.as_str())
-    .bind(prov.prompt_version)
-    .fetch_one(pool)
-    .await
-    .context("persist oracle reading")?;
-    Ok(row.get("id"))
 }
 
 fn oracle_included_evidence(out: &OracleOutput) -> serde_json::Value {
@@ -697,8 +648,6 @@ async fn write_oracle_ledger(
             pair_entity_id: None,
             trigger_type: "periodic".to_string(),
             trigger_payload: serde_json::json!({}),
-            // The product is the merged sigil_synthesis row; the transitional
-            // oracle_readings dual-write is serving plumbing, not the product.
             product_table: "sigil_synthesis".to_string(),
             product_row_ids: vec![sigil_row_id],
             model_version: out.model.clone(),
@@ -742,12 +691,11 @@ pub struct Voice {
     pub voiced_at: Option<String>,
     pub model_version: Option<String>,
     pub prompt_version: Option<String>,
-    /// Present iff the voice model RAN this generation — drives the transitional
-    /// `oracle_readings` dual-write and the OracleLogic ledger row.
+    /// Present iff the voice model RAN this generation — drives the OracleLogic ledger row.
     pub fresh: Option<FreshVoice>,
 }
 
-/// The call evidence of a freshly drawn reading (ledger + dual-write provenance).
+/// The call evidence of a freshly drawn reading (ledger provenance).
 #[derive(Clone, Debug)]
 pub struct FreshVoice {
     pub input_components_json: String,
@@ -845,16 +793,14 @@ pub async fn voice_decided_sigil(
     })
 }
 
-/// finish_fresh_voice runs the post-persist bookkeeping for a freshly drawn reading:
-/// the transitional `oracle_readings` dual-write (Go serving reads that table until
-/// Session C flips `entity_sigil` to the merged columns) and the OracleLogic ledger row.
-/// Best-effort like every ledger write; the dual-write failure is surfaced as an error
-/// because a silently stale served reading would defeat the whole session.
+/// finish_fresh_voice runs the post-persist bookkeeping for a freshly drawn reading: the
+/// OracleLogic ledger row. (The transitional `oracle_readings` dual-write stopped in
+/// Session C — mig 153 copied the latest readings into the merged columns and Go serves
+/// those; the table is frozen read-only history.) Best-effort like every ledger write.
 pub async fn finish_fresh_voice(
     hx: &Harness,
     item: &Item,
     sport: &str,
-    season: i32,
     voice: &Voice,
     sigil_row_id: i64,
 ) -> Result<()> {
@@ -866,7 +812,6 @@ pub async fn finish_fresh_voice(
         reading: voice.reading.clone(),
         omen: voice.omen.clone(),
         sigil_score: voice.voiced_score.map(|s| s as i32),
-        season,
         input_components_json: fresh.input_components_json.clone(),
         input_hash: Some(fresh.input_hash.clone()),
         model: voice.model_version.clone().unwrap_or_default(),
@@ -876,7 +821,6 @@ pub async fn finish_fresh_voice(
         eval_count: Some(fresh.eval_count),
         wall_ms: Some(fresh.wall_ms),
     };
-    persist_to_oracle_readings(&hx.pool, item, sport, &out).await?;
     write_oracle_ledger(&hx.pool, item, entity_id, sport, &out, sigil_row_id).await;
     Ok(())
 }

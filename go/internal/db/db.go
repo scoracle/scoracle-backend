@@ -438,6 +438,11 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// — (sport, score DESC, generated_at DESC) WHERE score IS NOT NULL AND blurb IS NOT NULL
 		// — covers the inner scan. Carries previous_score so the front door can show the crown's
 		// delta (sibling boards don't have a native previous; the Sigil synthesis does).
+		// Row prose is the Oracle READING (Session C, Scott's pick: clients clamp to the
+		// first sentence / line-clamp) — the blurb is internal scaffolding, never served;
+		// it survives below only in the marker filter, which the partial index mirrors.
+		// reading may be NULL on rows that predate the voice (explicit past seasons) —
+		// clients already treat null prose as "no expandable detail".
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 season
 		// (NULL ⇒ live/current view).
 		"sigil_leaderboard": `WITH req AS (
@@ -464,7 +469,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- explicit ?season=N ranks that season's board exactly.
 		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
-			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.generated_at
+			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.reading, ss.generated_at
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
@@ -492,7 +497,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- PLAYER
 				SELECT 'player'::text AS entity_type, p.id, p.name, p.photo_url AS image,
 				       cur.team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.previous_score, l.blurb, l.generated_at
+				       l.score, l.previous_score, l.reading, l.generated_at
 				FROM latest l
 				JOIN public.players p ON p.id = l.entity_id AND p.sport = (SELECT sport FROM req)
 				LEFT JOIN public.player_current_identity cur ON cur.player_id = p.id AND cur.sport = (SELECT sport FROM req)
@@ -506,7 +511,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 				-- TEAM
 				SELECT 'team'::text AS entity_type, t.id, t.name, t.logo_url AS image,
 				       t.id AS team_id, t.name AS team_name, t.short_code AS team_code, t.logo_url AS team_logo,
-				       l.score, l.previous_score, l.blurb, l.generated_at
+				       l.score, l.previous_score, l.reading, l.generated_at
 				FROM latest l
 				JOIN public.teams t ON t.id = l.entity_id AND t.sport = (SELECT sport FROM req)
 				WHERE l.entity_type = 'team'
@@ -1139,8 +1144,16 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- the 72h crown gate: the board may omit a crown the profile still shows
 			-- (timestamped) — never the reverse — so the F7 recap/score mismatch
 			-- (board showing a crown the profile cleared) cannot reopen.
-			SELECT vs.score, vs.blurb, vs.convergence, vs.disagreement, vs.why_now,
-			       vs.previous_score, vs.model_version, vs.prompt_version, vs.generated_at
+			-- ONE product object (Session C, 2026-07-16): the row itself carries the
+			-- Oracle voice — reading/omen/voiced_* merged by mig 152, latest pre-merge
+			-- readings copied in by mig 153, so no oracle_readings read and no
+			-- COALESCE. voiced_at is the drawn-at the client timestamp prefers; on a
+			-- carried-forward voice it is older than generated_at by design. The
+			-- blurb is internal scaffolding (the voice call's input) — NEVER served.
+			SELECT vs.score, vs.convergence, vs.disagreement, vs.why_now,
+			       vs.previous_score, vs.reading, vs.omen, vs.voiced_at,
+			       vs.voice_model_version, vs.voice_prompt_version,
+			       vs.model_version, vs.prompt_version, vs.generated_at
 			FROM public.sigil_synthesis vs, req
 			WHERE vs.entity_type = req.entity_type AND vs.entity_id = req.entity_id AND vs.sport = req.sport
 			  AND vs.score IS NOT NULL
@@ -1159,20 +1172,6 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			           THEN (vs.season = req.cur_season OR vs.season IS NULL)
 			           ELSE vs.season = req.want_season END
 			ORDER BY vs.generated_at DESC LIMIT 14
-		),
-		-- The Oracle voice of the Sigil card (mig 146): the latest REAL persona reading,
-		-- same serve-latest discipline as vibe_cur (Scott, 2026-07-16) — markers and age
-		-- never unsay the last reading; the client timestamps it instead.
-		oracle_cur AS (
-			SELECT o.reading, o.omen, o.sigil_score, o.model_version, o.prompt_version, o.generated_at
-			FROM public.oracle_readings o, req
-			WHERE o.entity_type = req.entity_type AND o.entity_id = req.entity_id AND o.sport = req.sport
-			  AND o.reading IS NOT NULL
-			  AND CASE WHEN req.want_season IS NULL
-			           THEN o.season = req.cur_season
-			           ELSE o.season = req.want_season END
-			ORDER BY o.generated_at DESC
-			LIMIT 1
 		)
 		SELECT json_build_object(
 			'page', 'sigil',
@@ -1180,8 +1179,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
-			'current', (SELECT row_to_json(v) FROM (SELECT score, blurb, convergence, disagreement, why_now, previous_score, model_version, prompt_version, generated_at FROM vibe_cur) v),
-			'oracle', (SELECT row_to_json(o) FROM (SELECT reading, omen, sigil_score, model_version, prompt_version, generated_at FROM oracle_cur) o),
+			'current', (SELECT row_to_json(v) FROM (SELECT score, convergence, disagreement, why_now, previous_score, reading, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity momentum summary — the GENERATED Momentum product: direction /

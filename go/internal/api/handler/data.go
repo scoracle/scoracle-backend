@@ -161,9 +161,10 @@ func (h *Handler) GetVibesLeaderboard(w http.ResponseWriter, r *http.Request) {
 
 // GetSigilLeaderboard returns the sport-wide Sigil board: entities ranked by their
 // latest Sigil synthesis score (1-100) — the holistic Rating+Vibe crown — enriched
-// with name/image/team and carrying previous_score for the crown's delta.
+// with name/image/team and carrying previous_score for the crown's delta. Row prose
+// is the Oracle reading (Session C; clients clamp) — the blurb is never served.
 // @Summary Sigil leaderboard
-// @Description Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Sigil blurb + previous_score delta.
+// @Description Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Oracle reading + previous_score delta.
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)
@@ -605,15 +606,16 @@ func (h *Handler) GetEntityTransfers(w http.ResponseWriter, r *http.Request) {
 	h.serveStatementJSON(w, r, "entity_transfers", dataCacheKey(r), cache.TTLNews, false, sport, entityType, id, scope)
 }
 
-// GetEntitySigil returns the entity's SIGIL product — the crown synthesis (score
-// 1-100 + blurb, fusing Rating + Vibe + Momentum) plus a bounded history, and the
-// Oracle voice of the card (`oracle`: reading + omen, mig 146) when a reading
-// exists. Serve-latest (Scott, 2026-07-16): the LATEST REAL synthesis + reading
-// at any age — clients render the timestamp; nothing is hidden behind a
-// freshness window. Read by the Sigil card AND the meta centre score.
-// Canonical at /sigil.
+// GetEntitySigil returns the entity's SIGIL product — ONE `current` object
+// (Session C): the decided crown synthesis (score 1-100, fusing Rating + Vibe +
+// Momentum) carrying its own Oracle voice (reading + omen + voiced_at — the
+// drawn-at clients timestamp), plus a bounded history. Serve-latest (Scott,
+// 2026-07-16): the LATEST REAL row at any age — clients render the timestamp;
+// nothing is hidden behind a freshness window. The synthesis blurb is internal
+// scaffolding and is never served. Read by the Sigil card AND the meta centre
+// score. Canonical at /sigil.
 // @Summary Get the entity Sigil (crown synthesis)
-// @Description The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history, and the latest Oracle reading + omen at any age (clients render the generated_at timestamp).
+// @Description The entity's holistic Sigil synthesis — one current object with the score (1-100) fusing Rating + Vibe + Momentum and its Oracle voice (reading, omen, voiced_at) — plus a bounded history, served at any age (clients render voiced_at/generated_at).
 // @Tags data
 // @Produce json
 // @Param sport path string true "Sport" Enums(nba, nfl, football)

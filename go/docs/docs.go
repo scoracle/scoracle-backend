@@ -690,7 +690,7 @@ const docTemplate = `{
         },
         "/{sport}/leaderboard/sigil": {
             "get": {
-                "description": "Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Sigil blurb + previous_score delta.",
+                "description": "Sport-wide board of entities ranked by their latest Sigil crown score (1-100), the holistic Rating+Vibe synthesis. With the Oracle reading + previous_score delta.",
                 "produces": [
                     "application/json"
                 ],
@@ -1715,7 +1715,7 @@ const docTemplate = `{
         },
         "/{sport}/{entityType}/{id}/sigil": {
             "get": {
-                "description": "The entity's holistic Sigil synthesis — score (1-100) + blurb fusing Rating + Vibe + Momentum — plus a bounded history.",
+                "description": "The entity's holistic Sigil synthesis — one current object with the score (1-100) fusing Rating + Vibe + Momentum and its Oracle voice (reading, omen, voiced_at) — plus a bounded history, served at any age (clients render voiced_at/generated_at).",
                 "produces": [
                     "application/json"
                 ],

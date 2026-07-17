@@ -1500,8 +1500,8 @@ async fn write_sigil_ledger(
 /// unchanged (`debounce_unchanged`), else: decide (SynthesisLogic), apply the re-voice rule
 /// (North Star #8 — omen flip / archetype band cross ±2pt / first reading), voice
 /// (OracleLogic) or carry the prior reading forward, and persist ONE sigil_synthesis row
-/// carrying both. A fresh reading also dual-writes `oracle_readings` (Go serving reads that
-/// table until Session C). Terminal stage — enqueues nothing downstream. The parity harness
+/// carrying both — the row Go serves (Session C; `oracle_readings` is frozen history).
+/// Terminal stage — enqueues nothing downstream. The parity harness
 /// reuses the loaders + `generate_sigil` core but writes the shadow table (decide only).
 pub struct SigilHandler;
 
@@ -1697,9 +1697,9 @@ impl StageHandler for SigilHandler {
             persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score, &voice)
                 .await?;
         write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-        // Fresh reading → transitional oracle_readings dual-write + the OracleLogic ledger
-        // row (two ledger rows per generation when the voice ran; one when it carried).
-        crate::oracle::finish_fresh_voice(hx, item, &sport, season, &voice, product_row_id).await?;
+        // Fresh reading → the OracleLogic ledger row (two ledger rows per generation when
+        // the voice ran; one when it carried).
+        crate::oracle::finish_fresh_voice(hx, item, &sport, &voice, product_row_id).await?;
         Ok(())
     }
 }

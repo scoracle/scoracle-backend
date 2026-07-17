@@ -588,7 +588,9 @@ entity). Also reachable as `GET /api/v1/{sport}/leaderboard?board=sigil`.
       "team_logo": "https://…",
       "score": 95,                     // latest Sigil crown score (1-100)
       "previous_score": 91,            // prior crown score (may be null) — for the delta
-      "blurb": "…",                    // the Sigil felt-read
+      "reading": "…",                  // the Oracle reading (clients clamp to one line;
+                                       // null on rows that predate the voice). The
+                                       // synthesis blurb is internal — never served.
       "generated_at": "2026-06-18T14:33:22-04:00",
       "rank": 1
     }

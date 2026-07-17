@@ -1400,6 +1400,7 @@ async fn persist_to_sigil_synthesis(
     season: i32,
     out: &SigilOutput,
     previous_score: Option<i16>,
+    voice: &crate::oracle::Voice,
 ) -> Result<i64> {
     let prov = out.provenance();
     let entity_id = item.entity_id_i32()?;
@@ -1407,13 +1408,20 @@ async fn persist_to_sigil_synthesis(
     // Phase 5.3 panel outputs — nullable columns (mig 143). All None for a marker or when the
     // model omitted the line; convergence rides the same smallint 1-100 shape as `score`.
     let convergence: Option<i16> = out.convergence.map(|n| n as i16);
+    // Voice columns (mig 152): the decided card and its voice persist as ONE row. voiced_at:
+    // a freshly drawn reading stamps NOW(); a carried one keeps its original drawn-at (bound
+    // as text — sqlx runs without date-time features; the value is only moved, never used).
     let row = sqlx::query(
         r#"
         INSERT INTO sigil_synthesis (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
             score, previous_score, blurb, input_components, input_hash,
-            model_version, prompt_version, convergence, disagreement, why_now
-        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11,$12,$13,$14)
+            model_version, prompt_version, convergence, disagreement, why_now,
+            reading, omen, voiced_score, voiced_at, voice_model_version, voice_prompt_version
+        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11,$12,$13,$14,
+            $15,$16,$17,
+            COALESCE($18::timestamptz, CASE WHEN $15 IS NOT NULL THEN NOW() END),
+            $19,$20)
         RETURNING id
         "#,
     )
@@ -1431,6 +1439,12 @@ async fn persist_to_sigil_synthesis(
     .bind(convergence)
     .bind(out.disagreement.as_deref())
     .bind(out.why_now.as_deref())
+    .bind(voice.reading.as_deref())
+    .bind(voice.omen.as_deref())
+    .bind(voice.voiced_score)
+    .bind(voice.voiced_at.as_deref())
+    .bind(voice.model_version.as_deref())
+    .bind(voice.prompt_version.as_deref())
     .fetch_one(pool)
     .await
     .context("persist sigil")?;
@@ -1480,34 +1494,15 @@ async fn write_sigil_ledger(
     .await;
 }
 
-/// enqueue_oracle_for_sigil hands the entity to the `oracle` stage — the reading over this
-/// synthesis. `input_hash` is the sigil generation's pillar hash (`None` for a marker); it
-/// rides `input_version` so an unchanged re-enqueue leaves an existing pending row untouched
-/// (the `work::enqueue` conflict policy).
-async fn enqueue_oracle_for_sigil(
-    pool: &PgPool,
-    item: &Item,
-    sport: &str,
-    season: i32,
-    input_hash: Option<&str>,
-) -> Result<()> {
-    let it = Item {
-        stage: Stage::Oracle,
-        entity_type: item.entity_type.clone(),
-        entity_id: item.entity_id,
-        sport: sport.to_string(),
-        input_version: Some(format!("sigil:{season}:{}", input_hash.unwrap_or("marker"))),
-        attempts: 0,
-    };
-    crate::work::enqueue(pool, &it).await
-}
-
-/// SigilHandler drains the durable `sigil` stage — the crown convergence. It reads the
-/// pillars season-exact, SKIPS the local model call when the pillar hash is unchanged
-/// (`debounce_unchanged`), else synthesizes and persists to sigil_synthesis. Every outcome
-/// hands off to the `oracle` stage (see the module doc). Mirrors `drainSigil`
-/// (current-season, SkipUnchanged=true). Registered in main.rs for the per-stage cutover;
-/// the parity harness reuses the loaders + `generate_sigil` core but writes the shadow table.
+/// SigilHandler drains the durable `sigil` stage — the crown convergence, decided then
+/// VOICED in one work item (Session B: the oracle stage folded in as an in-process second
+/// step). It reads the pillars season-exact, SKIPS both model calls when the pillar hash is
+/// unchanged (`debounce_unchanged`), else: decide (SynthesisLogic), apply the re-voice rule
+/// (North Star #8 — omen flip / archetype band cross ±2pt / first reading), voice
+/// (OracleLogic) or carry the prior reading forward, and persist ONE sigil_synthesis row
+/// carrying both. A fresh reading also dual-writes `oracle_readings` (Go serving reads that
+/// table until Session C). Terminal stage — enqueues nothing downstream. The parity harness
+/// reuses the loaders + `generate_sigil` core but writes the shadow table (decide only).
 pub struct SigilHandler;
 
 impl SigilHandler {
@@ -1562,10 +1557,19 @@ impl StageHandler for SigilHandler {
                 eval_count: None,
                 wall_ms: None,
             };
-            let product_row_id =
-                persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await?;
+            // The marker carries NULL voice columns — a no-pillar card has no voice, and
+            // serve-latest ignores markers, so the last real reading keeps serving.
+            let product_row_id = persist_to_sigil_synthesis(
+                &hx.pool,
+                item,
+                &sport,
+                season,
+                &out,
+                None,
+                &crate::oracle::Voice::marker(),
+            )
+            .await?;
             write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-            enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, None).await?;
             return Ok(());
         }
 
@@ -1592,10 +1596,9 @@ impl StageHandler for SigilHandler {
         let (prev_score_raw, prev_blurb, latest_hash) =
             hx.latest_with_hash("sigil_synthesis", &key).await?;
         if latest_hash.as_deref() == Some(input_hash.as_str()) {
-            // Unchanged → no model call, no persist — but STILL hand off to the Oracle: its own
-            // debounce makes an already-current reading a no-op, and a reading lost to an earlier
-            // failed enqueue catches up here instead of staying lost.
-            enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, Some(&input_hash)).await?;
+            // Unchanged → no model calls, no persist. The voice needs no self-healing hop
+            // anymore: it runs in-process with the decide, and a voice failure fails the whole
+            // item before anything persists — a persisted row always carries its voice.
             return Ok(());
         }
         let prev = prev_score_raw.map(|v| v as i32).unwrap_or(0);
@@ -1650,11 +1653,53 @@ impl StageHandler for SigilHandler {
             eval_count: Some(extracted.eval_count),
             wall_ms: Some(extracted.wall_ms),
         };
+        // The VOICE step (Session B): the decided card is in hand — never re-read from the
+        // DB. Apply the re-voice rule against the entity-season's current voice; draw a new
+        // reading only when the story changed, else carry the prior one forward verbatim.
+        let consumed = crate::oracle::ConsumedSigil {
+            score: reply.score,
+            blurb: out.blurb.clone().unwrap_or_default(),
+            convergence: out.convergence,
+            disagreement: out.disagreement.clone(),
+            why_now: out.why_now.clone(),
+            input_hash: out.input_hash.clone(),
+        };
+        let prior =
+            crate::oracle::load_prior_voice(&hx.pool, &item.entity_type, entity_id, &sport, season)
+                .await?;
+        let (omen, omen_reason) =
+            crate::oracle::compute_omen(&consumed, rating.as_ref(), &momentum);
+        let voice = match prior {
+            Some(p) if !crate::oracle::voice_should_regenerate(Some(&p), omen, consumed.score) => {
+                crate::oracle::Voice::carried(p)
+            }
+            _ => {
+                crate::oracle::voice_decided_sigil(
+                    hx,
+                    &item.entity_type,
+                    &name,
+                    &item.sport,
+                    &consumed,
+                    &narratives,
+                    rating.as_ref(),
+                    vibe.as_ref(),
+                    &momentum,
+                    &transfers,
+                    omen,
+                    &omen_reason,
+                )
+                .await?
+            }
+        };
+
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
         let product_row_id =
-            persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
+            persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score, &voice)
+                .await?;
         write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-        enqueue_oracle_for_sigil(&hx.pool, item, &sport, season, out.input_hash.as_deref()).await?;
+        // Fresh reading → transitional oracle_readings dual-write + the OracleLogic ledger
+        // row (two ledger rows per generation when the voice ran; one when it carried).
+        crate::oracle::finish_fresh_voice(hx, item, &sport, season, &voice, product_row_id).await?;
         Ok(())
     }
 }

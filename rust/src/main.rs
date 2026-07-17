@@ -22,8 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    bucket, config, db, embed, momentum, narratives, ollama, oracle, rating, scrub, sigil, stage,
-    transfer, vibe, worker,
+    bucket, config, db, embed, momentum, narratives, ollama, rating, scrub, sigil, stage, transfer,
+    vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -64,9 +64,10 @@ async fn main() -> Result<()> {
     // narratives, so the news rail is scrub -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
-    let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-        "scrub,peak,momentum,transfers,narratives,vibe,sigil,oracle".to_string()
-    }))?;
+    let enabled =
+        parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
+            "scrub,peak,momentum,transfers,narratives,vibe,sigil".to_string()
+        }))?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
     // narratives near-duplicate dedup, topic heat-rank, and vibe narrative relevance weighting. It
@@ -131,12 +132,10 @@ async fn main() -> Result<()> {
     if enabled.contains("momentum") {
         handlers.push(Box::new(momentum::MomentumHandler::new()));
     }
+    // sigil is the terminal stage: decide → voice as two internal steps of one work item
+    // (the oracle stage folded in, Session B 2026-07-16).
     if enabled.contains("sigil") {
         handlers.push(Box::new(sigil::SigilHandler::new()));
-    }
-    // oracle drains AFTER sigil in registration order — same-rail contiguity for the chain.
-    if enabled.contains("oracle") {
-        handlers.push(Box::new(oracle::OracleHandler::new()));
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
 
@@ -161,8 +160,11 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "narratives",
         "vibe",
         "sigil",
-        "oracle",
     ];
+    // Retired stage names are tolerated with a warning (never a boot failure): a stale
+    // COGNITION_STAGES in a unit override or .env must not take prod down at a cutover.
+    // `oracle` folded into the sigil stage 2026-07-16 (Session B).
+    const RETIRED: &[&str] = &["oracle"];
 
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();
@@ -173,6 +175,8 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     {
         if KNOWN.contains(&stage.as_str()) {
             stages.insert(stage);
+        } else if RETIRED.contains(&stage.as_str()) {
+            warn!(stage = %stage, "COGNITION_STAGES names a retired stage; ignoring");
         } else {
             unknown.push(stage);
         }
@@ -209,5 +213,15 @@ mod tests {
             .to_string();
         assert!(err.contains("headlinez"));
         assert!(err.contains("narratives"));
+    }
+
+    #[test]
+    fn parse_enabled_stages_ignores_retired_oracle() {
+        // A stale unit override or .env naming the folded-in stage must warn, not fail the
+        // boot (Session B cutover safety).
+        let stages = parse_enabled_stages("sigil,oracle").unwrap();
+        assert_eq!(stages.len(), 1);
+        assert!(stages.contains("sigil"));
+        assert!(!stages.contains("oracle"));
     }
 }

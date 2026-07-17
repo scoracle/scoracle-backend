@@ -1,19 +1,25 @@
-//! Oracle stage — the voiced reading over the assembled card stack (lens quality plan,
-//! "The Oracle Lens" 2026-07-12).
+//! Oracle — the VOICE step of the Sigil stage (Session B of the sigil pipeline cleanup,
+//! 2026-07-16; born as a separate stage in the lens quality plan, "The Oracle Lens"
+//! 2026-07-12).
 //!
 //! Sigil remains the analytic crown synthesis (expert-panel voice); the Oracle is the mystic
-//! who reads those cards to the user — the ONE lens allowed to lean into the arcane brand
-//! voice. Hard rule: the mysticism lives in the TELLING, never the facts — every claim grounds
-//! in the cards handed to the prompt, nothing invented.
+//! who reads the decided card to the user — the ONE lens allowed to lean into the arcane
+//! brand voice. Hard rule: the mysticism lives in the TELLING, never the facts — every claim
+//! grounds in the cards handed to the prompt, nothing invented.
 //!
-//! Oracle = `load consumed sigil + pillars + compute omen + route(OracleLogic) +
-//! extract(OracleParser) + persist`, with a `debounce_unchanged` gate keyed on the CONSUMED
-//! SIGIL GENERATION (score/blurb/panel fields + sigil's own `input_hash`) — the Oracle
-//! regenerates only when Sigil's reading changed. The chain is: pillar change → sigil
-//! re-synthesis → `SigilHandler` enqueues `oracle` → this handler sees changed sigil
-//! components → new reading. Pillar values re-read here are prompt-only color; they are
-//! deliberately OUTSIDE the hash (a pillar move re-runs sigil first anyway, and hashing both
-//! would double-regenerate every chain).
+//! Not a stage: `SigilHandler` runs decide → voice as two internal steps of one work item and
+//! persists ONE `sigil_synthesis` row carrying both. This module owns everything voice-shaped:
+//! the omen computation, the re-voice rule, the prompt/parse contract, and the transitional
+//! `oracle_readings` dual-write (Go serving reads that table until Session C flips it).
+//!
+//! The re-voice rule (North Star #8, blessed by Scott 2026-07-16): a new reading is generated
+//! ONLY when the story the card tells changes — the computed omen flips, the score crosses an
+//! archetype band (±2pt hysteresis vs the last-VOICED score), or no reading exists yet. Raw
+//! score deltas deliberately do NOT re-voice (offseason news-rail-only scores swing hard); a
+//! voice-skipped row CARRIES FORWARD the prior reading/omen/voiced_score/voiced_at verbatim,
+//! so the served card always holds its current voice and the drawn-at timestamp stays honest.
+//! This REPLACES the old consumed-generation hash debounce, whose key included the exact
+//! score and the temp-0.6 blurb prose — it re-voiced on essentially every real synthesis.
 //!
 //! The PEAK `ScoutingDecision` lesson applied from day one: the OMEN (ascendant / steady /
 //! waning / crossroads) is COMPUTED in code from the consumed sigil + pillar directions and
@@ -21,22 +27,20 @@
 //! computes one. The reply is grammar-constrained (`format_schema`) to a single-field JSON
 //! object, so the persona read can never arrive prose-wrapped.
 //!
-//! Fail-closed semantics: no scored Sigil synthesis (no row, or the latest row is a no-pillar
-//! marker) ⇒ persist a NULL-reading marker row with provenance, no model call. An unparseable
-//! or empty reply ⇒ `Err` → the work item backs off (mirrors `SigilParser`).
+//! Fail-closed semantics: a no-pillar sigil marker carries NULL voice columns (no model
+//! call). An unparseable or empty reply ⇒ `Err` → the whole sigil work item backs off
+//! (nothing persisted; the retry re-runs decide — fail-closed beats a voiceless scored row).
 
 use crate::corpus::{write_heat_lines, HeatItem};
-use crate::harness::{EntityKey, Harness, Parser, Provenance};
+use crate::harness::{Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::sigil::{load_pillars, SynthMomentum, SynthNarrative, SynthRating, SynthVibe};
-use crate::stage::StageHandler;
+use crate::sigil::{SynthMomentum, SynthNarrative, SynthRating, SynthVibe};
 use crate::trajectory::trajectory_label;
 use crate::util::{go_json_string, hash_components, truncate};
-use crate::work::{Item, Stage};
-use anyhow::{anyhow, bail, Context, Result};
-use async_trait::async_trait;
+use crate::work::Item;
+use anyhow::{bail, Context, Result};
 use sqlx::{PgPool, Row};
 
 /// Prompt version for the Oracle reading contract. or1 was the first contract: deterministic
@@ -254,6 +258,157 @@ pub fn compute_omen(
 }
 
 // ---------------------------------------------------------------------------
+// The re-voice rule (North Star #8) — when does a decided card get a NEW voice?
+// ---------------------------------------------------------------------------
+
+/// The product's major-arcana score bands, `(lo, hi)` inclusive, descending — the SAME
+/// discretization the web card renders (frontend `src/lib/vibe/archetypes.ts`; wiki
+/// "Vibe Score Surface"). The band is the product's own definition of "the score moved
+/// enough to change the card's face", which is why it is the re-voice threshold.
+pub const ARCHETYPE_BANDS: [(i32, i32); 11] = [
+    (95, 100), // The World
+    (85, 94),  // The Sun
+    (75, 84),  // The Star
+    (65, 74),  // Strength
+    (55, 64),  // The Magician
+    (45, 54),  // Temperance
+    (35, 44),  // The Hermit
+    (25, 34),  // The Moon
+    (15, 24),  // The Tower
+    (5, 14),   // Death
+    (1, 4),    // The Devil
+];
+
+/// archetype_band returns the `(lo, hi)` band a score falls in, clamping out-of-range
+/// input to the nearest band (scores are CHECK-constrained 1-100; defensive only).
+pub fn archetype_band(score: i32) -> (i32, i32) {
+    for &(lo, hi) in &ARCHETYPE_BANDS {
+        if score >= lo && score <= hi {
+            return (lo, hi);
+        }
+    }
+    if score > 100 {
+        (95, 100)
+    } else {
+        (1, 4)
+    }
+}
+
+/// The voice state the entity-season currently carries — the re-voice rule's baseline and
+/// the carry-forward source. Loaded from the latest voiced `sigil_synthesis` row, falling
+/// back to `oracle_readings` for pre-merge history.
+#[derive(Clone, Debug)]
+pub struct PriorVoice {
+    pub reading: String,
+    pub omen: Option<String>,
+    /// The sigil score the reading was drawn under (`oracle_readings.sigil_score` on the
+    /// fallback path). `None` on malformed history — treated as "re-voice".
+    pub voiced_score: Option<i32>,
+    /// Text-cast timestamptz (sqlx runs without date-time features; the value is only ever
+    /// moved between rows, never computed with).
+    pub voiced_at: String,
+    pub model_version: String,
+    pub prompt_version: String,
+}
+
+/// load_prior_voice reads the entity-season's current voice: merged rows first, then the
+/// pre-merge `oracle_readings` history (real readings only — markers never count as voice).
+pub async fn load_prior_voice(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    season: i32,
+) -> Result<Option<PriorVoice>> {
+    type MergedRow = (
+        String,
+        Option<String>,
+        Option<i16>,
+        String,
+        Option<String>,
+        Option<String>,
+    );
+    let merged: Option<MergedRow> = sqlx::query_as(
+        r#"
+            SELECT reading, omen, voiced_score, voiced_at::text,
+                   voice_model_version, voice_prompt_version
+            FROM sigil_synthesis
+            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+              AND reading IS NOT NULL AND voiced_at IS NOT NULL
+            ORDER BY generated_at DESC
+            LIMIT 1
+            "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(season)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load prior voice (merged) {entity_type}/{entity_id}"))?;
+    if let Some((reading, omen, voiced_score, voiced_at, model_version, prompt_version)) = merged {
+        return Ok(Some(PriorVoice {
+            reading,
+            omen,
+            voiced_score: voiced_score.map(|s| s as i32),
+            voiced_at,
+            model_version: model_version.unwrap_or_default(),
+            prompt_version: prompt_version.unwrap_or_default(),
+        }));
+    }
+
+    type LegacyRow = (String, Option<String>, Option<i16>, String, String, String);
+    let legacy: Option<LegacyRow> = sqlx::query_as(
+        r#"
+            SELECT reading, omen, sigil_score, generated_at::text, model_version, prompt_version
+            FROM oracle_readings
+            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+              AND reading IS NOT NULL
+            ORDER BY generated_at DESC
+            LIMIT 1
+            "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(season)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("load prior voice (legacy) {entity_type}/{entity_id}"))?;
+    Ok(legacy.map(
+        |(reading, omen, sigil_score, voiced_at, model_version, prompt_version)| PriorVoice {
+            reading,
+            omen,
+            voiced_score: sigil_score.map(|s| s as i32),
+            voiced_at,
+            model_version,
+            prompt_version,
+        },
+    ))
+}
+
+/// voice_should_regenerate is North Star #8 verbatim: a new reading is drawn ONLY when
+/// - no prior voice exists (first reading), or
+/// - the computed omen flipped, or
+/// - the new score crossed OUT of the last-voiced score's archetype band with ±2pt
+///   hysteresis (at least 2 points past the band edge — 84→85 flapping never re-voices).
+///
+/// Everything else keeps the prior reading, carried forward with its original timestamp.
+pub fn voice_should_regenerate(prior: Option<&PriorVoice>, new_omen: &str, new_score: i32) -> bool {
+    let Some(prior) = prior else {
+        return true;
+    };
+    if prior.omen.as_deref() != Some(new_omen) {
+        return true;
+    }
+    let Some(voiced) = prior.voiced_score else {
+        return true; // malformed history — re-voice rather than carry an unanchored reading
+    };
+    let (lo, hi) = archetype_band(voiced);
+    new_score <= lo - 2 || new_score >= hi + 2
+}
+
+// ---------------------------------------------------------------------------
 // Prompt assembly — deterministic card lines; the model narrates.
 // ---------------------------------------------------------------------------
 
@@ -432,19 +587,18 @@ impl Parser<OracleReply> for OracleParser {
 // Output + persist + ledger.
 // ---------------------------------------------------------------------------
 
-/// The result of running the oracle core for one entity, before persistence.
+/// The evidence bundle of one fresh voice generation — feeds the transitional
+/// `oracle_readings` dual-write and the OracleLogic ledger row.
 #[derive(Clone, Debug)]
 pub struct OracleOutput {
-    /// `None` ⇒ no-scored-sigil marker (no model call was made).
     pub reading: Option<String>,
-    /// Computed omen; `None` for the marker.
-    pub omen: Option<&'static str>,
-    /// Echo of the consumed sigil score; `None` for the marker.
+    /// Computed omen the reading was drawn under.
+    pub omen: Option<String>,
+    /// Echo of the consumed sigil score.
     pub sigil_score: Option<i32>,
     pub season: i32,
-    /// Canonical components JSON (the hash pre-image); `"{}"` for the marker.
+    /// Canonical components JSON (the consumed-generation pre-image).
     pub input_components_json: String,
-    /// The debounce key; `None` for the marker.
     pub input_hash: Option<String>,
     pub model: String,
     pub prompt_version: &'static str,
@@ -462,23 +616,6 @@ impl OracleOutput {
             input_ids: Vec::new(),
             input_hash: self.input_hash.clone(),
             trigger_payload: None,
-        }
-    }
-
-    fn marker(season: i32, model: String) -> Self {
-        OracleOutput {
-            reading: None,
-            omen: None,
-            sigil_score: None,
-            season,
-            input_components_json: "{}".to_string(),
-            input_hash: None,
-            model,
-            prompt_version: ORACLE_PROMPT_VERSION,
-            built_prompt: None,
-            request_body: None,
-            eval_count: None,
-            wall_ms: None,
         }
     }
 }
@@ -507,7 +644,7 @@ async fn persist_to_oracle_readings(
     .bind(sport)
     .bind(out.season)
     .bind(out.reading.as_deref())
-    .bind(out.omen)
+    .bind(out.omen.as_deref())
     .bind(sigil_score)
     .bind(out.input_components_json.as_str())
     .bind(prov.input_hash.as_deref())
@@ -542,12 +679,15 @@ async fn write_oracle_ledger(
     entity_id: i32,
     sport: &str,
     out: &OracleOutput,
-    product_row_id: i64,
+    sigil_row_id: i64,
 ) {
     insert_cognition_ledger_best_effort(
         pool,
         CognitionLedgerEntry {
-            stage: "oracle".to_string(),
+            // Post-merge the voice is a step of the sigil stage: stage names WHERE the call
+            // ran, lens/role name WHAT ran. Pre-merge rows carry stage "oracle" — an ops
+            // query grouping by (stage, lens) sees the continuity.
+            stage: "sigil".to_string(),
             lens: "oracle".to_string(),
             role: Role::OracleLogic.as_str().to_string(),
             entity_type: item.entity_type.clone(),
@@ -557,8 +697,10 @@ async fn write_oracle_ledger(
             pair_entity_id: None,
             trigger_type: "periodic".to_string(),
             trigger_payload: serde_json::json!({}),
-            product_table: "oracle_readings".to_string(),
-            product_row_ids: vec![product_row_id],
+            // The product is the merged sigil_synthesis row; the transitional
+            // oracle_readings dual-write is serving plumbing, not the product.
+            product_table: "sigil_synthesis".to_string(),
+            product_row_ids: vec![sigil_row_id],
             model_version: out.model.clone(),
             prompt_version: out.prompt_version.to_string(),
             output_contract_version: ORACLE_OUTPUT_CONTRACT_VERSION.to_string(),
@@ -584,129 +726,159 @@ async fn write_oracle_ledger(
 }
 
 // ---------------------------------------------------------------------------
-// The production handler.
+// The voice step — called by SigilHandler on every freshly DECIDED card.
 // ---------------------------------------------------------------------------
 
-/// OracleHandler drains the durable `oracle` stage — the reading over the cards. Enqueued by
-/// `SigilHandler` on every sigil outcome; debounced here on the consumed sigil generation, so
-/// an unchanged Sigil is a cheap no-op. The Oracle is the terminal stage of the chain — it
-/// enqueues nothing downstream.
-pub struct OracleHandler;
-
-impl OracleHandler {
-    pub fn new() -> Self {
-        OracleHandler
-    }
+/// Voice is what the merged `sigil_synthesis` row persists for the card's voice — either a
+/// freshly drawn reading or the prior one carried forward (the re-voice rule said the story
+/// did not change). All-`None` for a no-pillar marker.
+#[derive(Clone, Debug, Default)]
+pub struct Voice {
+    pub reading: Option<String>,
+    pub omen: Option<String>,
+    pub voiced_score: Option<i16>,
+    /// Text-cast timestamptz. `None` with a `Some` reading ⇒ freshly drawn (persist binds
+    /// NOW()); carried rows keep the prior row's original drawn-at.
+    pub voiced_at: Option<String>,
+    pub model_version: Option<String>,
+    pub prompt_version: Option<String>,
+    /// Present iff the voice model RAN this generation — drives the transitional
+    /// `oracle_readings` dual-write and the OracleLogic ledger row.
+    pub fresh: Option<FreshVoice>,
 }
 
-impl Default for OracleHandler {
-    fn default() -> Self {
-        Self::new()
-    }
+/// The call evidence of a freshly drawn reading (ledger + dual-write provenance).
+#[derive(Clone, Debug)]
+pub struct FreshVoice {
+    pub input_components_json: String,
+    pub input_hash: String,
+    pub built_prompt: String,
+    pub request_body: serde_json::Value,
+    pub eval_count: i32,
+    pub wall_ms: u64,
 }
 
-#[async_trait]
-impl StageHandler for OracleHandler {
-    fn stage(&self) -> Stage {
-        Stage::Oracle
+impl Voice {
+    /// The no-pillar marker's voice: nothing.
+    pub fn marker() -> Self {
+        Voice::default()
     }
 
-    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
-        let entity_id = item.entity_id_i32()?;
-        let sport = item.sport.to_uppercase();
-
-        // Gate BEFORE hydrating (Phase 2): sigil's self-healing enqueue-on-skip makes
-        // "sigil unchanged" the common case for an oracle wake, so read the consumed sigil
-        // and debounce on it first — the 5 pillar loaders and the name lookup run only
-        // once the gate passes.
-        let season = crate::sigil::resolve_season(&hx.pool, &sport, None).await?;
-
-        // No scored Sigil to read ⇒ marker (no model call; needs neither pillars nor name).
-        let Some(sigil) =
-            load_latest_sigil(&hx.pool, &item.entity_type, entity_id, &sport, season).await?
-        else {
-            let out = OracleOutput::marker(
-                season,
-                hx.router.for_role(Role::OracleLogic).model().to_string(),
-            );
-            let product_row_id = persist_to_oracle_readings(&hx.pool, item, &sport, &out).await?;
-            write_oracle_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-            return Ok(());
-        };
-
-        // Debounce on the consumed sigil generation: the Oracle re-reads ONLY when Sigil's
-        // reading changed.
-        let input_components_json = build_oracle_input_components(&sigil);
-        let input_hash = hash_components(&input_components_json);
-        let key = EntityKey {
-            entity_type: item.entity_type.clone(),
-            entity_id,
-            sport: sport.clone(),
-            season: Some(season),
-        };
-        if hx
-            .debounce_unchanged("oracle_readings", &key, &input_hash)
-            .await?
-        {
-            return Ok(()); // unchanged → cheap no-op (no model call, no persist)
+    /// carried keeps the prior reading verbatim — original omen, score baseline, drawn-at
+    /// timestamp, and voice provenance all travel with it.
+    pub fn carried(prior: PriorVoice) -> Self {
+        Voice {
+            reading: Some(prior.reading),
+            omen: prior.omen,
+            voiced_score: prior.voiced_score.map(|s| s as i16),
+            voiced_at: Some(prior.voiced_at),
+            model_version: Some(prior.model_version),
+            prompt_version: Some(prior.prompt_version),
+            fresh: None,
         }
-
-        // Gate passed: hydrate. load_pillars re-resolves the season internally — one cheap
-        // duplicate query on this (rare) path beats threading a season override through the
-        // shared sigil-stage loader.
-        let name =
-            crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport)
-                .await?;
-        let (_, narratives, rating, vibe, momentum, transfers) =
-            load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
-
-        let (omen, omen_reason) = compute_omen(&sigil, rating.as_ref(), &momentum);
-        let prompt = build_oracle_prompt(
-            &item.entity_type,
-            &name,
-            &item.sport,
-            &sigil,
-            &narratives,
-            rating.as_ref(),
-            vibe.as_ref(),
-            &momentum,
-            &transfers,
-            omen,
-            &omen_reason,
-        );
-        let opts = GenerateOptions {
-            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
-            temperature: Some(ORACLE_TEMPERATURE),
-            num_predict: ORACLE_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: Some(oracle_format_schema()),
-        };
-        let extracted = hx
-            .extract(Role::OracleLogic, &prompt, &opts, &OracleParser)
-            .await?;
-        let reply = extracted
-            .value
-            .ok_or_else(|| anyhow!("oracle: parser returned no value"))?;
-
-        let out = OracleOutput {
-            reading: Some(reply.reading),
-            omen: Some(omen),
-            sigil_score: Some(sigil.score),
-            season,
-            input_components_json,
-            input_hash: Some(input_hash),
-            model: extracted.model,
-            prompt_version: ORACLE_PROMPT_VERSION,
-            built_prompt: Some(extracted.built_prompt),
-            request_body: Some(extracted.request_body),
-            eval_count: Some(extracted.eval_count),
-            wall_ms: Some(extracted.wall_ms),
-        };
-        let product_row_id = persist_to_oracle_readings(&hx.pool, item, &sport, &out).await?;
-        write_oracle_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-        Ok(())
     }
+}
+
+/// voice_decided_sigil draws a fresh reading over a just-decided card: builds the prompt from
+/// the in-hand decide output + pillars (no DB re-read), routes OracleLogic, and returns the
+/// `Voice` for the merged persist. The caller has already applied `voice_should_regenerate`.
+#[allow(clippy::too_many_arguments)]
+pub async fn voice_decided_sigil(
+    hx: &Harness,
+    entity_type: &str,
+    entity_name: &str,
+    sport_raw: &str,
+    sigil: &ConsumedSigil,
+    narratives: &[SynthNarrative],
+    rating: Option<&SynthRating>,
+    vibe: Option<&SynthVibe>,
+    momentum: &SynthMomentum,
+    transfers: &[HeatItem],
+    omen: &'static str,
+    omen_reason: &str,
+) -> Result<Voice> {
+    let prompt = build_oracle_prompt(
+        entity_type,
+        entity_name,
+        sport_raw,
+        sigil,
+        narratives,
+        rating,
+        vibe,
+        momentum,
+        transfers,
+        omen,
+        omen_reason,
+    );
+    let opts = GenerateOptions {
+        system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+        temperature: Some(ORACLE_TEMPERATURE),
+        num_predict: ORACLE_NUM_PREDICT,
+        num_ctx: 0,
+        json_mode: false,
+        format_schema: Some(oracle_format_schema()),
+    };
+    let extracted = hx
+        .extract(Role::OracleLogic, &prompt, &opts, &OracleParser)
+        .await?;
+    let reply = extracted
+        .value
+        .ok_or_else(|| anyhow::anyhow!("oracle: parser returned no value"))?;
+
+    let input_components_json = build_oracle_input_components(sigil);
+    let input_hash = hash_components(&input_components_json);
+    Ok(Voice {
+        reading: Some(reply.reading),
+        omen: Some(omen.to_string()),
+        voiced_score: Some(sigil.score as i16),
+        voiced_at: None, // freshly drawn → persist stamps NOW()
+        model_version: Some(extracted.model),
+        prompt_version: Some(ORACLE_PROMPT_VERSION.to_string()),
+        fresh: Some(FreshVoice {
+            input_components_json,
+            input_hash,
+            built_prompt: extracted.built_prompt,
+            request_body: extracted.request_body,
+            eval_count: extracted.eval_count,
+            wall_ms: extracted.wall_ms,
+        }),
+    })
+}
+
+/// finish_fresh_voice runs the post-persist bookkeeping for a freshly drawn reading:
+/// the transitional `oracle_readings` dual-write (Go serving reads that table until
+/// Session C flips `entity_sigil` to the merged columns) and the OracleLogic ledger row.
+/// Best-effort like every ledger write; the dual-write failure is surfaced as an error
+/// because a silently stale served reading would defeat the whole session.
+pub async fn finish_fresh_voice(
+    hx: &Harness,
+    item: &Item,
+    sport: &str,
+    season: i32,
+    voice: &Voice,
+    sigil_row_id: i64,
+) -> Result<()> {
+    let Some(fresh) = &voice.fresh else {
+        return Ok(());
+    };
+    let entity_id = item.entity_id_i32()?;
+    let out = OracleOutput {
+        reading: voice.reading.clone(),
+        omen: voice.omen.clone(),
+        sigil_score: voice.voiced_score.map(|s| s as i32),
+        season,
+        input_components_json: fresh.input_components_json.clone(),
+        input_hash: Some(fresh.input_hash.clone()),
+        model: voice.model_version.clone().unwrap_or_default(),
+        prompt_version: ORACLE_PROMPT_VERSION,
+        built_prompt: Some(fresh.built_prompt.clone()),
+        request_body: Some(fresh.request_body.clone()),
+        eval_count: Some(fresh.eval_count),
+        wall_ms: Some(fresh.wall_ms),
+    };
+    persist_to_oracle_readings(&hx.pool, item, sport, &out).await?;
+    write_oracle_ledger(&hx.pool, item, entity_id, sport, &out, sigil_row_id).await;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -785,6 +957,112 @@ mod tests {
         );
         assert_eq!(count_sentences("Trailing ellipsis... and then."), 2);
         assert_eq!(count_sentences("no terminator"), 0);
+    }
+
+    fn prior(omen: &str, voiced_score: i32) -> PriorVoice {
+        PriorVoice {
+            reading: "The line holds.".to_string(),
+            omen: Some(omen.to_string()),
+            voiced_score: Some(voiced_score),
+            voiced_at: "2026-07-10 12:00:00+00".to_string(),
+            model_version: "qwen3".to_string(),
+            prompt_version: "or2".to_string(),
+        }
+    }
+
+    #[test]
+    fn archetype_bands_cover_1_to_100_contiguously() {
+        for score in 1..=100 {
+            let (lo, hi) = archetype_band(score);
+            assert!(score >= lo && score <= hi, "score {score} outside its band");
+        }
+        // Adjacent bands share no scores and leave no gaps.
+        for w in ARCHETYPE_BANDS.windows(2) {
+            assert_eq!(w[0].0, w[1].1 + 1);
+        }
+        // Defensive clamps.
+        assert_eq!(archetype_band(0), (1, 4));
+        assert_eq!(archetype_band(101), (95, 100));
+    }
+
+    #[test]
+    fn revoice_on_first_reading_and_omen_flip() {
+        // No prior voice → always draw.
+        assert!(voice_should_regenerate(None, "steady", 50));
+        // Omen flip re-voices regardless of score movement.
+        assert!(voice_should_regenerate(
+            Some(&prior("steady", 80)),
+            "ascendant",
+            80
+        ));
+        // Missing prior omen counts as a flip (malformed history — re-anchor).
+        let mut p = prior("steady", 80);
+        p.omen = None;
+        assert!(voice_should_regenerate(Some(&p), "steady", 80));
+    }
+
+    #[test]
+    fn revoice_on_band_cross_with_hysteresis() {
+        // Voiced at 84 (The Star, 75-84). In-band drift never re-voices.
+        assert!(!voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            75
+        ));
+        assert!(!voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            84
+        ));
+        // 1pt past the edge is flapping — held by hysteresis.
+        assert!(!voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            85
+        ));
+        assert!(!voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            74
+        ));
+        // 2pts past either edge crosses for real.
+        assert!(voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            86
+        ));
+        assert!(voice_should_regenerate(
+            Some(&prior("steady", 84)),
+            "steady",
+            73
+        ));
+        // A big collapse across several bands obviously re-voices.
+        assert!(voice_should_regenerate(
+            Some(&prior("steady", 90)),
+            "steady",
+            30
+        ));
+        // Malformed history (no voiced score) re-anchors.
+        let mut p = prior("steady", 80);
+        p.voiced_score = None;
+        assert!(voice_should_regenerate(Some(&p), "steady", 80));
+    }
+
+    #[test]
+    fn carried_voice_keeps_everything_verbatim() {
+        let v = Voice::carried(prior("waning", 42));
+        assert_eq!(v.reading.as_deref(), Some("The line holds."));
+        assert_eq!(v.omen.as_deref(), Some("waning"));
+        assert_eq!(v.voiced_score, Some(42));
+        assert_eq!(v.voiced_at.as_deref(), Some("2026-07-10 12:00:00+00"));
+        assert_eq!(v.model_version.as_deref(), Some("qwen3"));
+        assert!(
+            v.fresh.is_none(),
+            "carried voice never records a model call"
+        );
+        // Marker voice is all-NULL.
+        let m = Voice::marker();
+        assert!(m.reading.is_none() && m.omen.is_none() && m.voiced_at.is_none());
     }
 
     #[test]

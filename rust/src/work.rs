@@ -31,7 +31,8 @@ pub enum Stage {
     Narratives,
     Vibe,
     Sigil,
-    Oracle,
+    // `Oracle` retired 2026-07-16 (Session B): the voice is an in-process step of the
+    // Sigil stage now. Queue rows with stage='oracle' were swept at the cutover deploy.
 }
 
 impl Stage {
@@ -44,7 +45,6 @@ impl Stage {
             Stage::Narratives => "narratives",
             Stage::Vibe => "vibe",
             Stage::Sigil => "sigil",
-            Stage::Oracle => "oracle",
         }
     }
 }

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict v8T65wQsFSshGxrw2imilyGvLVvoqDwZGY1Gv6VcbNJ68dxyc2C8dLt7wfzYpmI
+\restrict r6Y6J0OUFlTXJ9wUaAlxz1CJQGprMyqT6krKP0SVRzSfFibBZIzxtd6e7udQGFq
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2899,7 +2899,13 @@ CREATE FUNCTION public.notify_pipeline_work_ready() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    PERFORM pg_notify('pipeline_work_ready', '');
+    -- `new_rows` is the statement's transition table (REFERENCING NEW TABLE below).
+    IF EXISTS (
+        SELECT 1 FROM new_rows
+        WHERE status = 'pending' AND available_at <= NOW()
+    ) THEN
+        PERFORM pg_notify('pipeline_work_ready', '');
+    END IF;
     RETURN NULL;  -- AFTER STATEMENT trigger: return value is ignored.
 END;
 $$;
@@ -6857,11 +6863,19 @@ CREATE TABLE public.sigil_synthesis (
     convergence smallint,
     disagreement text,
     why_now text,
+    reading text,
+    omen text,
+    voiced_score smallint,
+    voiced_at timestamp with time zone,
+    voice_model_version text,
+    voice_prompt_version text,
     CONSTRAINT sigil_synthesis_convergence_check CHECK (((convergence IS NULL) OR ((convergence >= 1) AND (convergence <= 100)))),
     CONSTRAINT sigil_synthesis_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT sigil_synthesis_omen_check CHECK (((omen IS NULL) OR (omen = ANY (ARRAY['ascendant'::text, 'steady'::text, 'waning'::text, 'crossroads'::text])))),
     CONSTRAINT sigil_synthesis_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 100)))),
     CONSTRAINT sigil_synthesis_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
-    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text])))
+    CONSTRAINT sigil_synthesis_trigger_type_check CHECK ((trigger_type = ANY (ARRAY['narrative_change'::text, 'sentiment_break'::text, 'composite_shift'::text, 'lazy_view'::text, 'periodic'::text, 'manual'::text]))),
+    CONSTRAINT sigil_synthesis_voiced_score_check CHECK (((voiced_score IS NULL) OR ((voiced_score >= 1) AND (voiced_score <= 100))))
 );
 
 
@@ -6891,6 +6905,34 @@ COMMENT ON COLUMN public.sigil_synthesis.disagreement IS 'Phase 5.3 panel output
 --
 
 COMMENT ON COLUMN public.sigil_synthesis.why_now IS 'Phase 5.3 panel output: one-line breaking-news freshness note explaining why the read moved now. NULL when nothing is fresh or it was unstated.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.reading; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.reading IS 'Oracle voice of this decided card (2-4 sentences). NULL = marker or pre-merge row. Carried forward verbatim from the prior row when the re-voice rule skips the model.';
+
+
+--
+-- Name: COLUMN sigil_synthesis.omen; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.omen IS 'Computed omen the current reading was drawn under (closed set; code-computed, never model output).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the current reading was drawn under — the re-voice hysteresis baseline (North Star #8).';
+
+
+--
+-- Name: COLUMN sigil_synthesis.voiced_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
 
 
 --
@@ -7179,6 +7221,26 @@ COMMENT ON TABLE public.stat_templates IS 'Per-(sport, position_group) counting-
 --
 
 COMMENT ON COLUMN public.stat_templates.facet IS 'Pizza grouping for the Composite card. NULL = single unfaceted pizza (the NFL/NBA fantasy templates); non-NULL = one pizza per facet, ordered by item sort_order (the football counting-stat pizzas).';
+
+
+--
+-- Name: topic_heat_embeddings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.topic_heat_embeddings (
+    article_id bigint NOT NULL,
+    fingerprint bigint NOT NULL,
+    model text NOT NULL,
+    embedding bytea NOT NULL,
+    embedded_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE topic_heat_embeddings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.topic_heat_embeddings IS 'Write-through cache of topic-heat article embeddings (mig 151). Reproducible from news_articles text; safe to truncate.';
 
 
 --
@@ -8271,6 +8333,14 @@ ALTER TABLE ONLY public.teams
 
 
 --
+-- Name: topic_heat_embeddings topic_heat_embeddings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topic_heat_embeddings
+    ADD CONSTRAINT topic_heat_embeddings_pkey PRIMARY KEY (article_id);
+
+
+--
 -- Name: transfer_identity_applications transfer_identity_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9194,10 +9264,17 @@ CREATE TRIGGER mark_momentum_refresh_vibe_scores AFTER INSERT OR UPDATE OF senti
 
 
 --
--- Name: pipeline_work pipeline_work_notify; Type: TRIGGER; Schema: public; Owner: -
+-- Name: pipeline_work pipeline_work_notify_insert; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER pipeline_work_notify AFTER INSERT OR UPDATE ON public.pipeline_work FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+CREATE TRIGGER pipeline_work_notify_insert AFTER INSERT ON public.pipeline_work REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
+
+
+--
+-- Name: pipeline_work pipeline_work_notify_update; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER pipeline_work_notify_update AFTER UPDATE ON public.pipeline_work REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.notify_pipeline_work_ready();
 
 
 --
@@ -9543,6 +9620,14 @@ ALTER TABLE ONLY public.teams
 
 
 --
+-- Name: topic_heat_embeddings topic_heat_embeddings_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.topic_heat_embeddings
+    ADD CONSTRAINT topic_heat_embeddings_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
 -- Name: transfer_identity_applications transfer_identity_applications_new_team_id_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9673,5 +9758,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict v8T65wQsFSshGxrw2imilyGvLVvoqDwZGY1Gv6VcbNJ68dxyc2C8dLt7wfzYpmI
+\unrestrict r6Y6J0OUFlTXJ9wUaAlxz1CJQGprMyqT6krKP0SVRzSfFibBZIzxtd6e7udQGFq
 

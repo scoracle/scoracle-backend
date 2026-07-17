@@ -150,3 +150,6 @@
 147_vibe_debounce
 148_transfer_debounce_comment
 149_vetted_trigger_membership_fingerprint
+150_pipeline_work_notify_pending_only
+151_topic_heat_embeddings
+152_sigil_voice_merge

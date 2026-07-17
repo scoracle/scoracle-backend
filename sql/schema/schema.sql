@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict r6Y6J0OUFlTXJ9wUaAlxz1CJQGprMyqT6krKP0SVRzSfFibBZIzxtd6e7udQGFq
+\restrict ePq18TgTeA8YmEc6G2iQ6yYgDpX2Ly8lAL37LgBryuRioq1l34ZjfOVQeNKEqN2
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -6369,7 +6369,7 @@ CREATE TABLE public.oracle_readings (
 -- Name: TABLE oracle_readings; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.oracle_readings IS 'Oracle lens readings: the persona-voiced 2-4 sentence read over the assembled cards, downstream of sigil_synthesis. reading NULL = marker (no scored Sigil to read). omen is computed in code, never a model output. input_hash debounces on the consumed Sigil generation.';
+COMMENT ON TABLE public.oracle_readings IS 'FROZEN read-only history (Session C, 2026-07-16). The Oracle voice lives on sigil_synthesis (reading/omen/voiced_* — mig 152) since the sigil-voice merge; the latest real reading per serving scope was copied there by mig 153. No reader, no writer. Retained for provenance; candidate for DROP in a later season.';
 
 
 --
@@ -9758,5 +9758,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict r6Y6J0OUFlTXJ9wUaAlxz1CJQGprMyqT6krKP0SVRzSfFibBZIzxtd6e7udQGFq
+\unrestrict ePq18TgTeA8YmEc6G2iQ6yYgDpX2Ly8lAL37LgBryuRioq1l34ZjfOVQeNKEqN2
 

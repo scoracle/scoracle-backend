@@ -11,7 +11,8 @@
 //! persists ONE `sigil_synthesis` row carrying both. This module owns everything voice-shaped:
 //! the omen computation, the re-voice rule, and the prompt/parse contract. `oracle_readings`
 //! is FROZEN read-only history since Session C (mig 153 copied the latest readings into the
-//! merged columns; Go serves those) — `load_prior_voice`'s fallback read is the only touch.
+//! merged columns; Go serves those) — no code path reads or writes it anymore (the last
+//! fallback read was deleted in Session E after proving it unreachable on prod).
 //!
 //! The re-voice rule (North Star #8, blessed by Scott 2026-07-16): a new reading is generated
 //! ONLY when the story the card tells changes — the computed omen flips, the score crosses an
@@ -296,14 +297,13 @@ pub fn archetype_band(score: i32) -> (i32, i32) {
 }
 
 /// The voice state the entity-season currently carries — the re-voice rule's baseline and
-/// the carry-forward source. Loaded from the latest voiced `sigil_synthesis` row, falling
-/// back to `oracle_readings` for pre-merge history.
+/// the carry-forward source. Loaded from the latest voiced `sigil_synthesis` row.
 #[derive(Clone, Debug)]
 pub struct PriorVoice {
     pub reading: String,
     pub omen: Option<String>,
-    /// The sigil score the reading was drawn under (`oracle_readings.sigil_score` on the
-    /// fallback path). `None` on malformed history — treated as "re-voice".
+    /// The sigil score the reading was drawn under. `None` on malformed history — treated
+    /// as "re-voice".
     pub voiced_score: Option<i32>,
     /// Text-cast timestamptz (sqlx runs without date-time features; the value is only ever
     /// moved between rows, never computed with).
@@ -312,8 +312,12 @@ pub struct PriorVoice {
     pub prompt_version: String,
 }
 
-/// load_prior_voice reads the entity-season's current voice: merged rows first, then the
-/// pre-merge `oracle_readings` history (real readings only — markers never count as voice).
+/// load_prior_voice reads the entity-season's current voice from the merged
+/// `sigil_synthesis` columns (real readings only — markers never count as voice).
+/// Mig 153 copied every latest `oracle_readings` reading into these columns, so no
+/// fallback to the frozen table exists — verified unreachable on prod 2026-07-17
+/// before the Session E deletion (zero entity-seasons with a legacy reading and no
+/// merged-voice row).
 pub async fn load_prior_voice(
     pool: &PgPool,
     entity_type: &str,
@@ -347,43 +351,14 @@ pub async fn load_prior_voice(
     .fetch_optional(pool)
     .await
     .with_context(|| format!("load prior voice (merged) {entity_type}/{entity_id}"))?;
-    if let Some((reading, omen, voiced_score, voiced_at, model_version, prompt_version)) = merged {
-        return Ok(Some(PriorVoice {
+    Ok(merged.map(
+        |(reading, omen, voiced_score, voiced_at, model_version, prompt_version)| PriorVoice {
             reading,
             omen,
             voiced_score: voiced_score.map(|s| s as i32),
             voiced_at,
             model_version: model_version.unwrap_or_default(),
             prompt_version: prompt_version.unwrap_or_default(),
-        }));
-    }
-
-    type LegacyRow = (String, Option<String>, Option<i16>, String, String, String);
-    let legacy: Option<LegacyRow> = sqlx::query_as(
-        r#"
-            SELECT reading, omen, sigil_score, generated_at::text, model_version, prompt_version
-            FROM oracle_readings
-            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
-              AND reading IS NOT NULL
-            ORDER BY generated_at DESC
-            LIMIT 1
-            "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .fetch_optional(pool)
-    .await
-    .with_context(|| format!("load prior voice (legacy) {entity_type}/{entity_id}"))?;
-    Ok(legacy.map(
-        |(reading, omen, sigil_score, voiced_at, model_version, prompt_version)| PriorVoice {
-            reading,
-            omen,
-            voiced_score: sigil_score.map(|s| s as i32),
-            voiced_at,
-            model_version,
-            prompt_version,
         },
     ))
 }

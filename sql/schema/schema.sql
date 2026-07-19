@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict kIso9d8Co7aqxsKE66NqnBKkHktuMdlQwdgQfUAW8Y9xpDmbJN9TwE7CwKagUUd
+\restrict h6yoEgr5TrYKz6BFZ8fJYqK70e4khqltg6nDX0eTb12stZLqPAE5AiNvRBQEs14
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2832,6 +2832,37 @@ $$;
 
 
 --
+-- Name: narrative_persons_track_affiliation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.narrative_persons_track_affiliation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.team_id IS NOT DISTINCT FROM OLD.team_id THEN
+        RETURN NEW;
+    END IF;
+    UPDATE narrative_person_affiliations
+       SET is_current = FALSE, valid_until = now()
+     WHERE person_id = NEW.id
+       AND entity_type = 'team'
+       AND is_current
+       AND (NEW.team_id IS NULL OR entity_id <> NEW.team_id);
+    IF NEW.team_id IS NOT NULL THEN
+        INSERT INTO narrative_person_affiliations
+            (person_id, sport, entity_type, entity_id, role, season, evidence)
+        SELECT NEW.id, NEW.sport, 'team', NEW.team_id, NEW.kind, s.current_season,
+               jsonb_build_object('source', 'narrative_persons.team_id')
+        FROM sports s WHERE s.id = NEW.sport
+        ON CONFLICT (person_id, entity_type, entity_id, role) WHERE is_current
+        DO NOTHING;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: notify_percentile_changed(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3990,7 +4021,8 @@ BEGIN
                'volume', round(f.volume::numeric, 3),
                'recency', round(f.recency::numeric, 3),
                'recent_frac', round(f.recent_frac::numeric, 3),
-               'window_days', p_window_days),
+               'window_days', p_window_days,
+               'window_oldest', f.oldest),
            f.total, f.distinct_sources,
            f.oldest, f.newest,
            'developing_story',
@@ -4448,6 +4480,102 @@ BEGIN
     RETURN QUERY SELECT v_app.id, v_app.override_id, 'reverted'::text, COALESCE(p_revert_reason, 'reverted applied transfer identity');
 END;
 $$;
+
+
+--
+-- Name: roll_narrative_episodes(text, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold integer DEFAULT 40, p_close_threshold integer DEFAULT 15, p_quiet_days integer DEFAULT 14, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_run timestamptz := clock_timestamp();
+BEGIN
+    -- Open: a link crossing the notability threshold with no open episode starts one.
+    -- started_at prefers the current window's oldest article (components.window_oldest,
+    -- refresh v2) over the link's all-time first_seen_at, so a REOPENED association is
+    -- dated from its new coverage. Slight overlap with a just-sealed episode's tail is
+    -- accepted fuzz.
+    INSERT INTO narrative_episodes
+        (sport, link_type, subject_type, subject_id, object_type, object_id,
+         status, season, started_at, peaked_at, peak_strength, last_strength,
+         article_count, distinct_sources, event_count, peak_components,
+         created_at, updated_at)
+    SELECT l.sport, l.link_type, l.subject_type, l.subject_id,
+           l.object_type, l.object_id,
+           'open', s.current_season,
+           COALESCE((l.components->>'window_oldest')::timestamptz,
+                    l.first_seen_at, v_run),
+           v_run, l.strength, l.strength,
+           l.article_count, l.distinct_sources, l.event_count, l.components,
+           v_run, v_run
+    FROM narrative_links l
+    JOIN sports s ON s.id = l.sport
+    WHERE l.sport = p_sport
+      AND l.strength >= p_open_threshold
+    ON CONFLICT (sport, link_type, subject_type, subject_id, object_type, object_id)
+        WHERE status = 'open'
+    DO NOTHING;
+
+    GET DIAGNOSTICS episodes_opened = ROW_COUNT;
+
+    -- Freshen every open episode from its link, whatever the current strength: track
+    -- the peak, keep counters at their episode-high (the link's window slides, so
+    -- GREATEST approximates "over the episode"), remember the latest strength.
+    UPDATE narrative_episodes e
+    SET last_strength = l.strength,
+        article_count = GREATEST(e.article_count, l.article_count),
+        distinct_sources = GREATEST(e.distinct_sources, l.distinct_sources),
+        event_count = GREATEST(e.event_count, l.event_count),
+        peak_strength = GREATEST(e.peak_strength, l.strength),
+        peaked_at = CASE WHEN l.strength > e.peak_strength THEN v_run
+                         ELSE e.peaked_at END,
+        peak_components = CASE WHEN l.strength > e.peak_strength THEN l.components
+                               ELSE e.peak_components END,
+        updated_at = v_run
+    FROM narrative_links l
+    WHERE e.sport = p_sport AND e.status = 'open'
+      AND l.sport = e.sport AND l.link_type = e.link_type
+      AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
+      AND l.object_type = e.object_type AND l.object_id = e.object_id;
+
+    GET DIAGNOSTICS episodes_updated = ROW_COUNT;
+
+    -- Seal: weak AND quiet → the story is over; write the memory. The mechanical path
+    -- only ever concludes 'fizzled' — 'confirmed' belongs to the event-driven path
+    -- (a trade_confirmed narrative_event sealing its trade_rumor episode).
+    UPDATE narrative_episodes e
+    SET status = 'sealed',
+        outcome = 'fizzled',
+        ended_at = COALESCE(l.last_event_at, e.updated_at),
+        last_strength = l.strength,
+        evidence = e.evidence || jsonb_build_object('sealed', jsonb_build_object(
+            'at', v_run,
+            'reason', 'quiet',
+            'final_strength', l.strength,
+            'close_threshold', p_close_threshold,
+            'quiet_days', p_quiet_days)),
+        updated_at = v_run
+    FROM narrative_links l
+    WHERE e.sport = p_sport AND e.status = 'open'
+      AND l.sport = e.sport AND l.link_type = e.link_type
+      AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
+      AND l.object_type = e.object_type AND l.object_id = e.object_id
+      AND l.strength < p_close_threshold
+      AND (l.last_event_at IS NULL
+           OR l.last_event_at < now() - make_interval(days => p_quiet_days));
+
+    GET DIAGNOSTICS episodes_sealed = ROW_COUNT;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION roll_narrative_episodes(p_sport text, p_open_threshold integer, p_close_threshold integer, p_quiet_days integer, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold integer, p_close_threshold integer, p_quiet_days integer, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer) IS 'Episode lifecycle over narrative_links state: open at strength >= open_threshold, track peak while open, seal as fizzled when strength < close_threshold AND quiet for quiet_days. Link_type-generic. Run after refresh_co_mention_links each night (cron-narrative-links.sh); the thresholds are the notability dial.';
 
 
 --
@@ -6162,6 +6290,79 @@ ALTER SEQUENCE public.momentum_summaries_id_seq OWNED BY public.momentum_summari
 
 
 --
+-- Name: narrative_episodes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_episodes (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    link_type text NOT NULL,
+    subject_type text NOT NULL,
+    subject_id integer NOT NULL,
+    object_type text NOT NULL,
+    object_id integer NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    outcome text,
+    season integer,
+    started_at timestamp with time zone NOT NULL,
+    peaked_at timestamp with time zone NOT NULL,
+    ended_at timestamp with time zone,
+    peak_strength smallint NOT NULL,
+    last_strength smallint,
+    article_count integer DEFAULT 0 NOT NULL,
+    distinct_sources integer DEFAULT 0 NOT NULL,
+    event_count integer DEFAULT 0 NOT NULL,
+    peak_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT narrative_episodes_last_strength_check CHECK (((last_strength IS NULL) OR ((last_strength >= 0) AND (last_strength <= 100)))),
+    CONSTRAINT narrative_episodes_link_type_check CHECK ((link_type = ANY (ARRAY['co_mention'::text, 'trade_rumor'::text, 'trade_confirmed'::text, 'injury'::text, 'contract_dispute'::text, 'praise'::text, 'criticism'::text]))),
+    CONSTRAINT narrative_episodes_no_self_loop_check CHECK ((NOT ((subject_type = object_type) AND (subject_id = object_id)))),
+    CONSTRAINT narrative_episodes_object_type_check CHECK ((object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text]))),
+    CONSTRAINT narrative_episodes_open_ended_check CHECK (((status = 'open'::text) = (ended_at IS NULL))),
+    CONSTRAINT narrative_episodes_open_outcome_check CHECK (((status = 'open'::text) = (outcome IS NULL))),
+    CONSTRAINT narrative_episodes_outcome_check CHECK (((outcome IS NULL) OR (outcome = ANY (ARRAY['confirmed'::text, 'fizzled'::text])))),
+    CONSTRAINT narrative_episodes_peak_strength_check CHECK (((peak_strength >= 0) AND (peak_strength <= 100))),
+    CONSTRAINT narrative_episodes_status_check CHECK ((status = ANY (ARRAY['open'::text, 'sealed'::text]))),
+    CONSTRAINT narrative_episodes_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_episodes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_episodes IS 'Bounded, outcome-tagged spans of narrative association — the graph''s long-term memory ("this is a place team A flirted with back in 2025"). Opened/peaked/sealed by roll_narrative_episodes() over narrative_links state; links forget by design, episodes are what remain. One open episode per edge (partial unique index); sealed rows accumulate per edge across seasons. outcome=confirmed is reserved for the event-driven path (e.g. a trade_confirmed narrative_event sealing a trade_rumor episode) — the mechanical quiet-seal only ever writes fizzled.';
+
+
+--
+-- Name: COLUMN narrative_episodes.season; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_episodes.season IS 'sports.current_season at open time — the era anchor for "back in 2025" retrieval. A span crossing seasons keeps its opening season.';
+
+
+--
+-- Name: narrative_episodes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.narrative_episodes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: narrative_episodes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.narrative_episodes_id_seq OWNED BY public.narrative_episodes.id;
+
+
+--
 -- Name: narrative_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6181,6 +6382,7 @@ CREATE TABLE public.narrative_events (
     model_version text NOT NULL,
     prompt_version text NOT NULL,
     extracted_at timestamp with time zone DEFAULT now() NOT NULL,
+    source text,
     CONSTRAINT narrative_events_confidence_check CHECK ((confidence = ANY (ARRAY['speculative'::text, 'reported'::text, 'confirmed'::text]))),
     CONSTRAINT narrative_events_object_pair_check CHECK (((object_type IS NULL) = (object_id IS NULL))),
     CONSTRAINT narrative_events_object_type_check CHECK (((object_type IS NULL) OR (object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))),
@@ -6198,10 +6400,24 @@ COMMENT ON TABLE public.narrative_events IS 'Append-only atomic narrative relati
 
 
 --
+-- Name: COLUMN narrative_events.article_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_events.article_id IS 'Soft reference to news_articles (no FK since mig 155): the rail is prunable feedstock, the event is durable memory. Join tolerantly.';
+
+
+--
 -- Name: COLUMN narrative_events.event_date; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.narrative_events.event_date IS 'The article''s published_at, denormalized so trajectory scans never join the rail.';
+
+
+--
+-- Name: COLUMN narrative_events.source; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_events.source IS 'Denormalized news_articles.source at extraction time, so attribution survives rail pruning.';
 
 
 --
@@ -6263,6 +6479,56 @@ CREATE TABLE public.narrative_links (
 --
 
 COMMENT ON TABLE public.narrative_links IS 'The narrative graph''s edge state: one row per (subject, object, link_type) with strength 0-100 + components breakdown (compute_transfer_heat house pattern) and the shared ±10-bucket trajectory vocabulary. co_mention rows are mechanical derivations from the vetted news rail (refresh_co_mention_links); typed rows aggregate narrative_events. Directed as stored; co_mention is symmetric and canonically ordered. A player''s own-team edge is legitimately strong — display layers filter current-roster pairs via player_current_identity, the graph does not.';
+
+
+--
+-- Name: narrative_person_affiliations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_person_affiliations (
+    id integer NOT NULL,
+    person_id integer NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    role text NOT NULL,
+    season integer,
+    valid_from timestamp with time zone DEFAULT now() NOT NULL,
+    valid_until timestamp with time zone,
+    is_current boolean DEFAULT true NOT NULL,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT narrative_person_affiliations_current_check CHECK ((is_current = (valid_until IS NULL))),
+    CONSTRAINT narrative_person_affiliations_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT narrative_person_affiliations_role_check CHECK ((role = ANY (ARRAY['coach'::text, 'agent'::text, 'executive'::text, 'family'::text, 'other'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_person_affiliations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_person_affiliations IS 'Interval-valued affiliation history for news-derived people, mirroring player_team_history ("he coached team B in 2019"). Entity-generic: a coach ties to a team, an agent ties to a player. The narrative_persons.team_id trigger maintains the automatic now-path; backdated intervals from extraction evidence insert directly with explicit valid_from/valid_until.';
+
+
+--
+-- Name: narrative_person_affiliations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.narrative_person_affiliations_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: narrative_person_affiliations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.narrative_person_affiliations_id_seq OWNED BY public.narrative_person_affiliations.id;
 
 
 --
@@ -8063,10 +8329,24 @@ ALTER TABLE ONLY public.momentum_summaries ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: narrative_episodes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_episodes ALTER COLUMN id SET DEFAULT nextval('public.narrative_episodes_id_seq'::regclass);
+
+
+--
 -- Name: narrative_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.narrative_events ALTER COLUMN id SET DEFAULT nextval('public.narrative_events_id_seq'::regclass);
+
+
+--
+-- Name: narrative_person_affiliations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_affiliations ALTER COLUMN id SET DEFAULT nextval('public.narrative_person_affiliations_id_seq'::regclass);
 
 
 --
@@ -8366,6 +8646,14 @@ ALTER TABLE ONLY public.momentum_summaries
 
 
 --
+-- Name: narrative_episodes narrative_episodes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_episodes
+    ADD CONSTRAINT narrative_episodes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: narrative_events narrative_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8379,6 +8667,14 @@ ALTER TABLE ONLY public.narrative_events
 
 ALTER TABLE ONLY public.narrative_links
     ADD CONSTRAINT narrative_links_pkey PRIMARY KEY (sport, link_type, subject_type, subject_id, object_type, object_id);
+
+
+--
+-- Name: narrative_person_affiliations narrative_person_affiliations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_affiliations
+    ADD CONSTRAINT narrative_person_affiliations_pkey PRIMARY KEY (id);
 
 
 --
@@ -9032,6 +9328,41 @@ CREATE INDEX idx_nae_vetted_lookup ON public.news_article_entities USING btree (
 
 
 --
+-- Name: idx_narrative_episodes_object; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_episodes_object ON public.narrative_episodes USING btree (sport, object_type, object_id, started_at DESC);
+
+
+--
+-- Name: idx_narrative_episodes_one_open; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_narrative_episodes_one_open ON public.narrative_episodes USING btree (sport, link_type, subject_type, subject_id, object_type, object_id) WHERE (status = 'open'::text);
+
+
+--
+-- Name: idx_narrative_episodes_season; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_episodes_season ON public.narrative_episodes USING btree (sport, season);
+
+
+--
+-- Name: idx_narrative_episodes_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_episodes_subject ON public.narrative_episodes USING btree (sport, subject_type, subject_id, started_at DESC);
+
+
+--
+-- Name: idx_narrative_episodes_type_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_episodes_type_status ON public.narrative_episodes USING btree (sport, link_type, status);
+
+
+--
 -- Name: idx_narrative_events_article; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9078,6 +9409,27 @@ CREATE INDEX idx_narrative_links_object ON public.narrative_links USING btree (s
 --
 
 CREATE INDEX idx_narrative_links_strength ON public.narrative_links USING btree (sport, strength DESC) WHERE ((strength IS NOT NULL) AND (strength > 0));
+
+
+--
+-- Name: idx_narrative_person_affiliations_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_person_affiliations_entity ON public.narrative_person_affiliations USING btree (sport, entity_type, entity_id);
+
+
+--
+-- Name: idx_narrative_person_affiliations_one_current; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_narrative_person_affiliations_one_current ON public.narrative_person_affiliations USING btree (person_id, entity_type, entity_id, role) WHERE is_current;
+
+
+--
+-- Name: idx_narrative_person_affiliations_person; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_person_affiliations_person ON public.narrative_person_affiliations USING btree (person_id, valid_from DESC);
 
 
 --
@@ -9760,6 +10112,13 @@ CREATE TRIGGER trg_football_derived_stats BEFORE INSERT OR UPDATE ON public.play
 
 
 --
+-- Name: narrative_persons trg_narrative_persons_affiliation; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_narrative_persons_affiliation AFTER INSERT OR UPDATE OF team_id ON public.narrative_persons FOR EACH ROW EXECUTE FUNCTION public.narrative_persons_track_affiliation();
+
+
+--
 -- Name: player_stats trg_nba_player_derived_stats; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -9865,11 +10224,11 @@ ALTER TABLE ONLY public.leagues
 
 
 --
--- Name: narrative_events narrative_events_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: narrative_episodes narrative_episodes_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.narrative_events
-    ADD CONSTRAINT narrative_events_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.narrative_episodes
+    ADD CONSTRAINT narrative_episodes_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -9886,6 +10245,22 @@ ALTER TABLE ONLY public.narrative_events
 
 ALTER TABLE ONLY public.narrative_links
     ADD CONSTRAINT narrative_links_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: narrative_person_affiliations narrative_person_affiliations_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_affiliations
+    ADD CONSTRAINT narrative_person_affiliations_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.narrative_persons(id) ON DELETE CASCADE;
+
+
+--
+-- Name: narrative_person_affiliations narrative_person_affiliations_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_affiliations
+    ADD CONSTRAINT narrative_person_affiliations_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -10291,5 +10666,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict kIso9d8Co7aqxsKE66NqnBKkHktuMdlQwdgQfUAW8Y9xpDmbJN9TwE7CwKagUUd
+\unrestrict h6yoEgr5TrYKz6BFZ8fJYqK70e4khqltg6nDX0eTb12stZLqPAE5AiNvRBQEs14
 

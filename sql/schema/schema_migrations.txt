@@ -155,3 +155,4 @@
 152_sigil_voice_merge
 153_sigil_voice_copy_freeze
 154_narrative_graph
+155_narrative_memory

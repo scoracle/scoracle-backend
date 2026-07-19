@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ePq18TgTeA8YmEc6G2iQ6yYgDpX2Ly8lAL37LgBryuRioq1l34ZjfOVQeNKEqN2
+\restrict kIso9d8Co7aqxsKE66NqnBKkHktuMdlQwdgQfUAW8Y9xpDmbJN9TwE7CwKagUUd
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3919,6 +3919,145 @@ $$;
 
 
 --
+-- Name: refresh_co_mention_links(text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_co_mention_links(p_sport text, p_window_days integer DEFAULT 90, OUT pairs_upserted integer, OUT pairs_zeroed integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_run_started timestamptz := clock_timestamp();
+BEGIN
+    -- Pair corpus mirrors compute_transfer_heat's house rules: vetted both sides, title
+    -- PROXIMITY within 50 when both positions are known, source-tier weighting with the
+    -- 0.3 unknown-source default. Differences, deliberate: no bucket filter (all news
+    -- counts toward association, not just transfer talk) and a 21-DAY recency half-life
+    -- instead of transfer heat's 72-hour decay — a standing association fades in weeks,
+    -- a trade window in days.
+    WITH corpus AS (
+        SELECT e1.entity_type AS subject_type, e1.entity_id AS subject_id,
+               e2.entity_type AS object_type,  e2.entity_id AS object_id,
+               a.source AS src, a.published_at AS ts
+        FROM news_articles a
+        JOIN news_article_entities e1 ON e1.article_id = a.id
+             AND e1.sport = p_sport AND e1.vetted IS TRUE
+        JOIN news_article_entities e2 ON e2.article_id = a.id
+             AND e2.sport = p_sport AND e2.vetted IS TRUE
+        WHERE a.published_at > now() - make_interval(days => p_window_days)
+          AND (e1.entity_type, e1.entity_id) < (e2.entity_type, e2.entity_id)
+          AND (e1.title_pos IS NULL OR e2.title_pos IS NULL
+               OR abs(e1.title_pos - e2.title_pos) <= 50)
+    ),
+    agg AS (
+        SELECT c.subject_type, c.subject_id, c.object_type, c.object_id,
+               count(*) AS total,
+               count(DISTINCT c.src) AS distinct_sources,
+               count(*) FILTER (WHERE c.ts > now() - INTERVAL '14 days') AS recent14,
+               max(c.ts) AS newest,
+               min(c.ts) AS oldest,
+               COALESCE(MAX(st.weight), 0.3) AS tier_weight
+        FROM corpus c
+        LEFT JOIN source_tiers st ON lower(st.source) = lower(c.src) AND st.kind = 'news'
+        GROUP BY 1, 2, 3, 4
+    ),
+    calc AS (
+        SELECT *,
+               EXTRACT(EPOCH FROM (now() - newest)) / 86400.0 AS age_days,
+               LEAST(1.0, distinct_sources::numeric / 5.0) AS volume,
+               recent14::numeric / GREATEST(total, 1) AS recent_frac
+        FROM agg
+    ),
+    fin AS (
+        SELECT *,
+               exp(-age_days / 21.0) AS recency,
+               GREATEST(0, LEAST(100, round(
+                   100 * tier_weight * exp(-age_days / 21.0)
+                       * (0.6 * volume + 0.4 * recent_frac))))::smallint AS strength
+        FROM calc
+    )
+    INSERT INTO narrative_links AS l
+        (sport, link_type, subject_type, subject_id, object_type, object_id,
+         strength, components, article_count, distinct_sources,
+         first_seen_at, last_event_at, trajectory, trajectory_components, updated_at)
+    SELECT p_sport, 'co_mention', f.subject_type, f.subject_id, f.object_type, f.object_id,
+           f.strength,
+           jsonb_build_object(
+               'article_count', f.total,
+               'distinct_sources', f.distinct_sources,
+               'recent_14d', f.recent14,
+               'newest_age_days', round(f.age_days::numeric, 1),
+               'tier_weight', f.tier_weight,
+               'volume', round(f.volume::numeric, 3),
+               'recency', round(f.recency::numeric, 3),
+               'recent_frac', round(f.recent_frac::numeric, 3),
+               'window_days', p_window_days),
+           f.total, f.distinct_sources,
+           f.oldest, f.newest,
+           'developing_story',
+           jsonb_build_object('previous', NULL, 'current', f.strength,
+                              'delta', NULL, 'direction', 'new_or_unmatched'),
+           v_run_started
+    FROM fin f
+    ON CONFLICT (sport, link_type, subject_type, subject_id, object_type, object_id)
+    DO UPDATE SET
+        strength = EXCLUDED.strength,
+        components = EXCLUDED.components,
+        article_count = EXCLUDED.article_count,
+        distinct_sources = EXCLUDED.distinct_sources,
+        first_seen_at = LEAST(l.first_seen_at, EXCLUDED.first_seen_at),
+        last_event_at = EXCLUDED.last_event_at,
+        -- The shared ±10-bucket trajectory vocabulary (rust/src/trajectory.rs
+        -- classify_delta / go/internal/db/db.go): keep all three homes in step.
+        trajectory = CASE
+            WHEN l.strength IS NULL THEN 'developing_story'
+            WHEN EXCLUDED.strength - l.strength >= 10 THEN 'heating_up'
+            WHEN EXCLUDED.strength - l.strength <= -10 THEN 'cooling_off'
+            ELSE 'developing_story' END,
+        trajectory_components = jsonb_build_object(
+            'previous', l.strength,
+            'current', EXCLUDED.strength,
+            'delta', CASE WHEN l.strength IS NULL THEN NULL
+                          ELSE EXCLUDED.strength - l.strength END,
+            'direction', CASE
+                WHEN l.strength IS NULL THEN 'new_or_unmatched'
+                WHEN EXCLUDED.strength - l.strength >= 10 THEN 'up'
+                WHEN EXCLUDED.strength - l.strength <= -10 THEN 'down'
+                ELSE 'stable' END),
+        updated_at = v_run_started;
+
+    GET DIAGNOSTICS pairs_upserted = ROW_COUNT;
+
+    -- Pairs that fell out of the window entirely: decay to 0 rather than delete, so
+    -- first_seen/trajectory history survives a quiet spell. (A periodic prune of
+    -- long-dead zero rows can come later if volume ever warrants it.)
+    UPDATE narrative_links l
+    SET trajectory = CASE WHEN l.strength >= 10 THEN 'cooling_off'
+                          ELSE 'developing_story' END,
+        trajectory_components = jsonb_build_object(
+            'previous', l.strength, 'current', 0,
+            'delta', -l.strength,
+            'direction', CASE WHEN l.strength >= 10 THEN 'down' ELSE 'stable' END),
+        strength = 0,
+        components = l.components || '{"decayed_out_of_window": true}'::jsonb,
+        updated_at = v_run_started
+    WHERE l.sport = p_sport
+      AND l.link_type = 'co_mention'
+      AND l.updated_at < v_run_started
+      AND l.strength IS DISTINCT FROM 0;
+
+    GET DIAGNOSTICS pairs_zeroed = ROW_COUNT;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_co_mention_links(p_sport text, p_window_days integer, OUT pairs_upserted integer, OUT pairs_zeroed integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_co_mention_links(p_sport text, p_window_days integer, OUT pairs_upserted integer, OUT pairs_zeroed integer) IS 'Recomputes all co_mention narrative_links for a sport from the vetted news rail — idempotent, set-based, no model calls. v1 reads news_article_entities only; extend with a narrative_person_mentions union once the extraction stage populates persons.';
+
+
+--
 -- Name: refresh_latest_momentum_scores_per_entity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6023,6 +6162,198 @@ ALTER SEQUENCE public.momentum_summaries_id_seq OWNED BY public.momentum_summari
 
 
 --
+-- Name: narrative_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_events (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    subject_type text NOT NULL,
+    subject_id integer NOT NULL,
+    predicate text NOT NULL,
+    object_type text,
+    object_id integer,
+    sentiment numeric(3,2),
+    confidence text NOT NULL,
+    article_id bigint NOT NULL,
+    event_date timestamp with time zone NOT NULL,
+    details jsonb DEFAULT '{}'::jsonb NOT NULL,
+    model_version text NOT NULL,
+    prompt_version text NOT NULL,
+    extracted_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT narrative_events_confidence_check CHECK ((confidence = ANY (ARRAY['speculative'::text, 'reported'::text, 'confirmed'::text]))),
+    CONSTRAINT narrative_events_object_pair_check CHECK (((object_type IS NULL) = (object_id IS NULL))),
+    CONSTRAINT narrative_events_object_type_check CHECK (((object_type IS NULL) OR (object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))),
+    CONSTRAINT narrative_events_predicate_check CHECK ((predicate = ANY (ARRAY['trade_rumor'::text, 'trade_confirmed'::text, 'injury'::text, 'contract_dispute'::text, 'praise'::text, 'criticism'::text]))),
+    CONSTRAINT narrative_events_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= '-1.0'::numeric) AND (sentiment <= 1.0)))),
+    CONSTRAINT narrative_events_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_events IS 'Append-only atomic narrative relations extracted from articles: the trajectory series is a time-ordered scan of this table per endpoint (or endpoint pair) — the graph''s event history. Deliberately small predicate vocabulary: precision over coverage; grow it by migration, with eval evidence, never by loosening the prompt alone.';
+
+
+--
+-- Name: COLUMN narrative_events.event_date; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_events.event_date IS 'The article''s published_at, denormalized so trajectory scans never join the rail.';
+
+
+--
+-- Name: narrative_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.narrative_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: narrative_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.narrative_events_id_seq OWNED BY public.narrative_events.id;
+
+
+--
+-- Name: narrative_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_links (
+    sport text NOT NULL,
+    link_type text NOT NULL,
+    subject_type text NOT NULL,
+    subject_id integer NOT NULL,
+    object_type text NOT NULL,
+    object_id integer NOT NULL,
+    strength smallint,
+    components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    weighted_sentiment numeric(4,3),
+    confidence text,
+    event_count integer DEFAULT 0 NOT NULL,
+    article_count integer DEFAULT 0 NOT NULL,
+    distinct_sources integer DEFAULT 0 NOT NULL,
+    first_seen_at timestamp with time zone,
+    last_event_at timestamp with time zone,
+    trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT narrative_links_co_mention_canonical_check CHECK (((link_type <> 'co_mention'::text) OR (subject_type < object_type) OR ((subject_type = object_type) AND (subject_id < object_id)))),
+    CONSTRAINT narrative_links_confidence_check CHECK (((confidence IS NULL) OR (confidence = ANY (ARRAY['speculative'::text, 'reported'::text, 'confirmed'::text])))),
+    CONSTRAINT narrative_links_link_type_check CHECK ((link_type = ANY (ARRAY['co_mention'::text, 'trade_rumor'::text, 'trade_confirmed'::text, 'injury'::text, 'contract_dispute'::text, 'praise'::text, 'criticism'::text]))),
+    CONSTRAINT narrative_links_no_self_loop_check CHECK ((NOT ((subject_type = object_type) AND (subject_id = object_id)))),
+    CONSTRAINT narrative_links_object_type_check CHECK ((object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text]))),
+    CONSTRAINT narrative_links_sentiment_check CHECK (((weighted_sentiment IS NULL) OR ((weighted_sentiment >= '-1.0'::numeric) AND (weighted_sentiment <= 1.0)))),
+    CONSTRAINT narrative_links_strength_check CHECK (((strength IS NULL) OR ((strength >= 0) AND (strength <= 100)))),
+    CONSTRAINT narrative_links_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text]))),
+    CONSTRAINT narrative_links_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_links; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_links IS 'The narrative graph''s edge state: one row per (subject, object, link_type) with strength 0-100 + components breakdown (compute_transfer_heat house pattern) and the shared ±10-bucket trajectory vocabulary. co_mention rows are mechanical derivations from the vetted news rail (refresh_co_mention_links); typed rows aggregate narrative_events. Directed as stored; co_mention is symmetric and canonically ordered. A player''s own-team edge is legitimately strong — display layers filter current-roster pairs via player_current_identity, the graph does not.';
+
+
+--
+-- Name: narrative_person_mentions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_person_mentions (
+    article_id bigint NOT NULL,
+    person_id integer NOT NULL,
+    sport text NOT NULL,
+    match_confidence numeric(4,3),
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE narrative_person_mentions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_person_mentions IS 'Article-to-person links, the person analogue of news_article_entities. Kept separate so the existing player/team scrub + derive-trigger machinery is untouched; a later migration may unify the rails once persons need those stages.';
+
+
+--
+-- Name: narrative_persons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_persons (
+    id integer NOT NULL,
+    sport text NOT NULL,
+    kind text NOT NULL,
+    name text NOT NULL,
+    aliases text[] DEFAULT '{}'::text[] NOT NULL,
+    team_id integer,
+    status text DEFAULT 'candidate'::text NOT NULL,
+    merged_into integer,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    mention_count integer DEFAULT 0 NOT NULL,
+    distinct_sources integer DEFAULT 0 NOT NULL,
+    first_seen_at timestamp with time zone,
+    last_seen_at timestamp with time zone,
+    model_version text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT narrative_persons_kind_check CHECK ((kind = ANY (ARRAY['coach'::text, 'agent'::text, 'executive'::text, 'family'::text, 'other'::text]))),
+    CONSTRAINT narrative_persons_merged_check CHECK (((status = 'merged'::text) = (merged_into IS NOT NULL))),
+    CONSTRAINT narrative_persons_status_check CHECK ((status = ANY (ARRAY['candidate'::text, 'active'::text, 'merged'::text, 'retired'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_persons; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_persons IS 'News-derived people (coaches, agents, executives) absent from provider seeding. Extraction creates candidates; promotion to active requires recurring multi-source evidence (thresholds live in the promotion step, not here). Same-name collisions are legal (two Mike Browns) — disambiguation is the resolve gate''s job, merges via status=merged + merged_into.';
+
+
+--
+-- Name: COLUMN narrative_persons.team_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_persons.team_id IS 'Current primary affiliation derived from news evidence (nullable — agents float free).';
+
+
+--
+-- Name: COLUMN narrative_persons.evidence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_persons.evidence IS 'Accumulated discovery evidence: mention/source tallies, team-affiliation votes, sample article ids — the promotion decision''s input, in one inspectable place.';
+
+
+--
+-- Name: narrative_persons_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.narrative_persons_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: narrative_persons_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.narrative_persons_id_seq OWNED BY public.narrative_persons.id;
+
+
+--
 -- Name: news_article_entities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7732,6 +8063,20 @@ ALTER TABLE ONLY public.momentum_summaries ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: narrative_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_events ALTER COLUMN id SET DEFAULT nextval('public.narrative_events_id_seq'::regclass);
+
+
+--
+-- Name: narrative_persons id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_persons ALTER COLUMN id SET DEFAULT nextval('public.narrative_persons_id_seq'::regclass);
+
+
+--
 -- Name: news_articles id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -8018,6 +8363,38 @@ ALTER TABLE ONLY public.momentum_scores
 
 ALTER TABLE ONLY public.momentum_summaries
     ADD CONSTRAINT momentum_summaries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: narrative_events narrative_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_events
+    ADD CONSTRAINT narrative_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: narrative_links narrative_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_links
+    ADD CONSTRAINT narrative_links_pkey PRIMARY KEY (sport, link_type, subject_type, subject_id, object_type, object_id);
+
+
+--
+-- Name: narrative_person_mentions narrative_person_mentions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_mentions
+    ADD CONSTRAINT narrative_person_mentions_pkey PRIMARY KEY (article_id, person_id);
+
+
+--
+-- Name: narrative_persons narrative_persons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_persons
+    ADD CONSTRAINT narrative_persons_pkey PRIMARY KEY (id);
 
 
 --
@@ -8652,6 +9029,90 @@ CREATE INDEX idx_momentum_summaries_input_hash ON public.momentum_summaries USIN
 --
 
 CREATE INDEX idx_nae_vetted_lookup ON public.news_article_entities USING btree (entity_type, entity_id, sport) WHERE (vetted IS TRUE);
+
+
+--
+-- Name: idx_narrative_events_article; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_events_article ON public.narrative_events USING btree (article_id);
+
+
+--
+-- Name: idx_narrative_events_dedupe; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_narrative_events_dedupe ON public.narrative_events USING btree (article_id, sport, subject_type, subject_id, predicate, COALESCE(object_type, ''::text), COALESCE(object_id, 0));
+
+
+--
+-- Name: idx_narrative_events_object_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_events_object_date ON public.narrative_events USING btree (sport, object_type, object_id, event_date DESC) WHERE (object_id IS NOT NULL);
+
+
+--
+-- Name: idx_narrative_events_subject_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_events_subject_date ON public.narrative_events USING btree (sport, subject_type, subject_id, event_date DESC);
+
+
+--
+-- Name: idx_narrative_links_last_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_links_last_event ON public.narrative_links USING btree (sport, last_event_at DESC) WHERE (last_event_at IS NOT NULL);
+
+
+--
+-- Name: idx_narrative_links_object; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_links_object ON public.narrative_links USING btree (sport, object_type, object_id);
+
+
+--
+-- Name: idx_narrative_links_strength; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_links_strength ON public.narrative_links USING btree (sport, strength DESC) WHERE ((strength IS NOT NULL) AND (strength > 0));
+
+
+--
+-- Name: idx_narrative_person_mentions_person; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_person_mentions_person ON public.narrative_person_mentions USING btree (person_id, created_at DESC);
+
+
+--
+-- Name: idx_narrative_persons_aliases; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_persons_aliases ON public.narrative_persons USING gin (aliases);
+
+
+--
+-- Name: idx_narrative_persons_lower_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_persons_lower_name ON public.narrative_persons USING btree (sport, lower(name));
+
+
+--
+-- Name: idx_narrative_persons_sport_kind_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_persons_sport_kind_status ON public.narrative_persons USING btree (sport, kind, status);
+
+
+--
+-- Name: idx_narrative_persons_team; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_narrative_persons_team ON public.narrative_persons USING btree (team_id, sport) WHERE (team_id IS NOT NULL);
 
 
 --
@@ -9404,6 +9865,78 @@ ALTER TABLE ONLY public.leagues
 
 
 --
+-- Name: narrative_events narrative_events_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_events
+    ADD CONSTRAINT narrative_events_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: narrative_events narrative_events_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_events
+    ADD CONSTRAINT narrative_events_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: narrative_links narrative_links_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_links
+    ADD CONSTRAINT narrative_links_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: narrative_person_mentions narrative_person_mentions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_mentions
+    ADD CONSTRAINT narrative_person_mentions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: narrative_person_mentions narrative_person_mentions_person_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_mentions
+    ADD CONSTRAINT narrative_person_mentions_person_id_fkey FOREIGN KEY (person_id) REFERENCES public.narrative_persons(id) ON DELETE CASCADE;
+
+
+--
+-- Name: narrative_person_mentions narrative_person_mentions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_person_mentions
+    ADD CONSTRAINT narrative_person_mentions_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: narrative_persons narrative_persons_merged_into_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_persons
+    ADD CONSTRAINT narrative_persons_merged_into_fkey FOREIGN KEY (merged_into) REFERENCES public.narrative_persons(id);
+
+
+--
+-- Name: narrative_persons narrative_persons_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_persons
+    ADD CONSTRAINT narrative_persons_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: narrative_persons narrative_persons_team_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.narrative_persons
+    ADD CONSTRAINT narrative_persons_team_fkey FOREIGN KEY (team_id, sport) REFERENCES public.teams(id, sport);
+
+
+--
 -- Name: news_article_entities news_article_entities_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9758,5 +10291,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ePq18TgTeA8YmEc6G2iQ6yYgDpX2Ly8lAL37LgBryuRioq1l34ZjfOVQeNKEqN2
+\unrestrict kIso9d8Co7aqxsKE66NqnBKkHktuMdlQwdgQfUAW8Y9xpDmbJN9TwE7CwKagUUd
 

@@ -3,8 +3,9 @@
 //! This is the Rust home for the narrative/transfer/vibe/sigil trajectory codes
 //! and display labels. The Go API SQL has a second home for the same served
 //! vocabulary in `go/internal/db/db.go` (CASE labels plus
-//! `COALESCE(trajectory, 'developing_story')`); update both homes if these codes
-//! ever change.
+//! `COALESCE(trajectory, 'developing_story')`), and the narrative-graph refresh
+//! (`refresh_co_mention_links`, migration 154) has a third — the same ±10 buckets
+//! in SQL CASE form; update all three homes if these codes ever change.
 
 pub const DEFAULT_TRAJECTORY: &str = "developing_story";
 

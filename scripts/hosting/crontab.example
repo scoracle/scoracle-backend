@@ -86,6 +86,16 @@ TZ=America/New_York
 0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
+# Narrative-graph co-mention refresh — nightly, after ingest (mig 154)
+# ---------------------------------------------------------------------------
+# Recomputes narrative_links co_mention edges from the vetted news rail. Pure
+# set-based SQL, sub-second per sport, no model calls. Runs 45 min after the
+# 00:00 ingest so the cognition daemon has scrubbed the sweep; the daily cadence
+# is deliberate — each link's heating_up/cooling_off is its strength delta vs
+# the previous run, so this schedule makes trajectory = day-over-day movement.
+45 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Stats-rail commentary — nightly, current season, regenerate only on new data
 # ---------------------------------------------------------------------------
 # The PEAK scouting-report analysis (the stats-rail twin of the news narrative).

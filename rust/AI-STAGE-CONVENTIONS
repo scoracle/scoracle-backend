@@ -87,6 +87,14 @@ Current path has four layered responsibilities (SQLCoder + role-routed local LLM
 - Any proposal to call Anthropic / OpenAI APIs for a production AI feature is a non-starter unless it's explicitly a dev-only prototype. Default to the local stack.
 - Personality/voice fine-tuning is a first-class feature, not a nice-to-have. Scoracle's tone (*terse, confident, sports-literate*) gets trained *into* the model, not prompted.
 - New AI features should start by asking "what problem shape is this" — language → LLM, tabular → XGBoost, graph → GNN — before picking a tool.
+- **Data is presented, not gatekept** (core doctrine, 2026-07-19). Derived signal is never
+  filtered out of a model's context for being weak — it is served WITH the context needed to
+  frame it correctly: reliability scores, sample sizes, source counts. The model decides
+  inclusion and HOW to voice it (*"he's only played them once — grain of salt"*). Effect
+  size and trust are orthogonal fields everywhere (`stat_matchups.adj_delta` vs
+  `.reliability` is the reference implementation); prompt contracts make framing mandatory
+  and banded, with bands set from the score's real distribution. Retrieval still ranks and
+  budgets — the gate is context allocation, never existence.
 
 ## Superseded ML plans (historical context)
 

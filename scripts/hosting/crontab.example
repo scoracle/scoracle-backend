@@ -112,6 +112,15 @@ TZ=America/New_York
 0 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-rust-statcommentary.sh -mode nightly -limit 400 >> /home/sheneveld/scoracle/scoracle-backend/logs/statcommentary.log 2>&1
 
 # ---------------------------------------------------------------------------
+# Stat-matchup refresh — nightly, after the drains (mig 156)
+# ---------------------------------------------------------------------------
+# Pairwise player-vs-team performance edges with reliability scores (presented,
+# not gatekept). Pure set-based SQL, seconds per stat, no model calls; stats only
+# move on game days so offseason runs are no-ops in effect. 03:30 = after the
+# football drain (23:00) and NBA/NFL processing, alongside statcommentary (03:00).
+30 3 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-stat-matchups.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/stat-matchups.log 2>&1
+
+# ---------------------------------------------------------------------------
 # Entity tier recomputation — weekly (Monday 02:00 ET)
 # ---------------------------------------------------------------------------
 # Rankings shift as the season progresses. One cheap SQL function call per

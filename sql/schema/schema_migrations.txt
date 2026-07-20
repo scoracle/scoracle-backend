@@ -156,3 +156,4 @@
 153_sigil_voice_copy_freeze
 154_narrative_graph
 155_narrative_memory
+156_stat_matchups

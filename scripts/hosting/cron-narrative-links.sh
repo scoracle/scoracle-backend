@@ -27,7 +27,9 @@ fi
 
 # Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
 # truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
-# roll episodes (open/peak/quiet-seal), then re-measure source performance.
+# roll episodes (open/peak/quiet-seal), score transfer likelihood on the fresh open
+# set (mig 161 — after roll so new stories get scored same-night), then re-measure
+# source performance.
 exec psql "$DB" -v ON_ERROR_STOP=1 -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_co_mention_links('FOOTBALL')
 UNION ALL
@@ -44,6 +46,11 @@ UNION ALL
 SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored
+UNION ALL
+SELECT 'NBA', now(), score_transfer_likelihood('NBA')
+UNION ALL
+SELECT 'NFL', now(), score_transfer_likelihood('NFL')" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, refresh_source_performance('FOOTBALL') AS sources
 UNION ALL
 SELECT 'NBA', now(), refresh_source_performance('NBA')

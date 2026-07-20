@@ -48,7 +48,7 @@ use tracing::{debug, warn};
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n7"; // n6: heat carries transfer summary+confidence; n7: per-article identity-relevance tags
+pub const NARRATIVES_PROMPT_VERSION: &str = "n8"; // n7: per-article identity-relevance tags; n8: relational memory card (per-entity graph memory, mig 163)
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 /// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
@@ -536,6 +536,7 @@ pub fn build_narratives_prompt(
     req: &NarrativesReq,
     news: &[CorpusItem],
     heat: &[HeatItem],
+    memory: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
@@ -567,8 +568,41 @@ pub fn build_narratives_prompt(
         b.push_str("\nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n");
         write_heat_lines(&mut b, heat);
     }
+    // Relational memory card (n8, mig 163): the graph's per-entity history — prior
+    // stories with outcomes, current stories with likelihood, ground-truth moves.
+    // CONTINUITY, NOT CORROBORATION (the echo-chamber rule): memory frames the arc a
+    // narrative sits in; it is never itself evidence for a new claim. Rendered only
+    // when the graph holds memory; deliberately NOT part of the input_hash.
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\nRelational memory (computed history for this entity — use for arc and continuity: what fizzled before, what is live now, what actually happened; do NOT treat a prior story as evidence for a new one):\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
+    }
     b.push_str("\nReturn the JSON object now.");
     b
+}
+
+/// load_entity_memory fetches the graph's per-entity memory card
+/// (`narrative_context_for_entity`, mig 163). `None` = no memory, no prompt section.
+/// Model-facing enrichment only — the relational layer is never user-exposed.
+pub async fn load_entity_memory(
+    pool: &sqlx::PgPool,
+    sport: &str,
+    entity_type: &str,
+    entity_id: i32,
+) -> Result<Option<String>> {
+    let row: (Option<String>,) =
+        sqlx::query_as("SELECT narrative_context_for_entity($1, $2, $3)")
+            .bind(sport)
+            .bind(entity_type)
+            .bind(entity_id)
+            .fetch_one(pool)
+            .await
+            .context("narrative_context_for_entity")?;
+    Ok(row.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -948,7 +982,24 @@ pub async fn finish_narratives_build(
     let deduped = dedup_corpus(hx, req, &sport_up, corpus).await?;
     let corpus = deduped.corpus;
 
-    let built_prompt = build_narratives_prompt(req, &corpus, &heat);
+    // Memory-load failure degrades to an unenriched prompt, mirroring the heat
+    // error-swallowing above: the corpus is the primary signal, memory is enrichment.
+    let memory = match load_entity_memory(&hx.pool, &sport_up, &req.entity_type, req.entity_id)
+        .await
+    {
+        Ok(m) => m,
+        Err(e) => {
+            warn!(
+                entity_type = %req.entity_type,
+                entity_id = req.entity_id,
+                sport = %sport_up,
+                error = %e,
+                "narratives: relational memory load failed (continuing without memory)"
+            );
+            None
+        }
+    };
+    let built_prompt = build_narratives_prompt(req, &corpus, &heat, memory.as_deref());
     let opts = GenerateOptions {
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1537,7 +1588,20 @@ mod tests {
             ),
             item(11, "", "Arsenal eye a new winger", "", None),
         ];
-        let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &news, &[]);
+        let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &news, &[], None);
+        assert!(
+            !p.contains("Relational memory"),
+            "no memory ⇒ no section (n7 byte-shape preserved)"
+        );
+        let with_mem = build_narratives_prompt(
+            &req("Bukayo Saka", "FOOTBALL", "player"),
+            &news,
+            &[],
+            Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
+        );
+        assert!(with_mem.contains("Relational memory (computed history"));
+        assert!(with_mem.contains("- Prior story: Real Madrid — fizzled"));
+        assert!(with_mem.contains("- Ground truth: Bukayo Saka completed"));
         assert_eq!(
             p,
             "Entity: Bukayo Saka (FOOTBALL player)\n\
@@ -1569,7 +1633,7 @@ mod tests {
                 confidence: None,
             },
         ];
-        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat);
+        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None);
         assert_eq!(
             p,
             "Entity: Some Team (NBA team)\n\
@@ -1598,7 +1662,7 @@ mod tests {
         let mut tagged = item(1, "ESPN", "Big story", "", None);
         tagged.relevance_band = Some("high".to_string());
         let untagged = item(2, "Sky", "Other item", "", None);
-        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &[tagged, untagged], &[]);
+        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &[tagged, untagged], &[], None);
         assert!(p.contains("1. [ESPN] (relevance high) Big story"));
         assert!(p.contains("2. [Sky] Other item"));
     }

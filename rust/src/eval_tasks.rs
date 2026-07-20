@@ -816,7 +816,7 @@ impl LensTask for NarrativeTask {
             sport: e.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        Ok(Some(build_narratives_prompt(&req, &corpus, &heat)))
+        Ok(Some(build_narratives_prompt(&req, &corpus, &heat, None))) // evals pin the memory-free prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline

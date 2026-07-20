@@ -111,14 +111,16 @@ async fn run_entity(hx: &Harness, s: &EntitySpec, vet: bool) -> Result<bool> {
         trigger_type: "periodic".to_string(),
     };
 
-    let ready = match build_rating_request(hx, &req, PARITY_TEMPERATURE).await? {
+    // with_memory=false: parity pins the memory-free prompt shape (the s12/n8 discipline)
+    // so the diff axes stay byte-stable against the Go-era rows.
+    let ready = match build_rating_request(hx, &req, PARITY_TEMPERATURE, false).await? {
         RatingBuild::NoStats { .. } => return Ok(false),
         RatingBuild::Ready(r) => *r,
     };
 
     // Optional model run (temp 0) — body/divined_peak for INSPECTION only (never the gate).
     let vetted: Option<RatingOutput> = if vet {
-        Some(generate_rating(hx, &req, PARITY_TEMPERATURE, false).await?)
+        Some(generate_rating(hx, &req, PARITY_TEMPERATURE, false, false).await?)
     } else {
         None
     };

@@ -97,7 +97,7 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
         season: args.season,
         trigger_type: args.trigger.clone(),
     };
-    let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged).await?;
+    let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged, true).await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(hx, &req, &out).await?;
         scoracle_cognition::momentum::enqueue_momentum_if_needed(
@@ -225,7 +225,9 @@ async fn enqueue_peak_target(hx: &Harness, t: &Target) -> Result<()> {
         season: Some(t.season),
         trigger_type: "periodic".to_string(),
     };
-    let input_version = match build_rating_request(hx, &req, RATING_TEMPERATURE).await? {
+    // with_memory=false: this build only mints the input_version (hash + season) for the
+    // queue row — the prompt is discarded, so the memory query would be pure waste.
+    let input_version = match build_rating_request(hx, &req, RATING_TEMPERATURE, false).await? {
         RatingBuild::NoStats { season } => peak_work_input_version(season, None),
         RatingBuild::Ready(r) => peak_work_input_version(r.season, Some(&r.input_hash)),
     };
@@ -250,7 +252,7 @@ async fn run_target(hx: &Harness, t: &Target, skip_unchanged: bool) -> Result<Ra
         season: Some(t.season),
         trigger_type: "periodic".to_string(),
     };
-    generate_rating(hx, &req, RATING_TEMPERATURE, skip_unchanged).await
+    generate_rating(hx, &req, RATING_TEMPERATURE, skip_unchanged, true).await
 }
 
 async fn persist_target(hx: &Harness, t: &Target, out: &RatingOutput) -> Result<()> {

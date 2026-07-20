@@ -40,7 +40,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s11"; // s11: opposing-scout persona + display-tier (retired) datapoint exclusion
+pub const RATING_PROMPT_VERSION: &str = "s12"; // s11: opposing-scout persona + display-tier exclusion; s12: cross-season memory card (mig 164 — junction rollout step 4)
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
@@ -742,7 +742,38 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
 /// decision card plus supporting datapoints: the model explains the prepared PEAK choice instead of
 /// inferring the structured label from the list. The `·` (U+00B7) and `—` (U+2014) are significant
 /// bytes; the tier labels are pctBand's deterministic output.
-pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) -> String {
+/// load_stat_memory fetches the cross-season stats memory card (`stat_context_for_entity`,
+/// mig 164): prior-season PEAK read, confirmed moves, reliability-framed matchup edges.
+/// `None` = no memory, no prompt section. Model-facing enrichment only — the relational
+/// layer is never user-exposed.
+pub async fn load_stat_memory(
+    pool: &PgPool,
+    sport: &str,
+    entity_type: &str,
+    entity_id: i32,
+    season: i32,
+) -> Result<Option<String>> {
+    let row: (Option<String>,) =
+        sqlx::query_as("SELECT stat_context_for_entity($1, $2, $3, $4)")
+            .bind(sport)
+            .bind(entity_type)
+            .bind(entity_id)
+            .bind(season)
+            .fetch_one(pool)
+            .await
+            .context("stat_context_for_entity")?;
+    Ok(row.0)
+}
+
+/// build_stat_prompt assembles the user prompt. `memory` is the cross-season memory card
+/// (s12, mig 164) — `None` when the graph holds none, and for the parity/eval paths
+/// (which pin the memory-free shape).
+pub fn build_stat_prompt(
+    req: &RatingReq,
+    p: &RatingProfile,
+    notability: i32,
+    memory: Option<&str>,
+) -> String {
     let mut b = String::new();
 
     let mut header = format!("{} {}", req.sport, req.entity_type);
@@ -782,6 +813,20 @@ pub fn build_stat_prompt(req: &RatingReq, p: &RatingProfile, notability: i32) ->
                 r.label,
                 r.pct
             ));
+        }
+    }
+
+    // Cross-season memory card (s12, mig 164): prior-season PEAK read (banked junction
+    // output — the echo-chamber rule applies), confirmed moves (regime-change context),
+    // matchup edges with reliability framing (presented, not gatekept). The L8 invariant
+    // survives untouched: the TIERS above are this season's truth; memory explains arc,
+    // never overrides a tier. Deliberately NOT part of input_components / input_hash.
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\nCross-season memory (computed history — arc context only: the datapoints and TIERS above are this season's truth and are never overridden by memory; use these lines for trajectory, new-club context, and matchup quirks; weigh each matchup line by its reliability — a low-reliability edge deserves an explicit grain of salt; a prior read is continuity, never evidence for the new one):\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
         }
     }
 
@@ -1185,11 +1230,15 @@ pub struct RatingReady {
 /// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
 /// canonical input-components + hash, the notability, `build_stat_prompt`, the s9 options, and the
 /// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
-/// [`Role::StatsLogic`] (rating is its first consumer).
+/// [`Role::StatsLogic`] (rating is its first consumer). `with_memory` loads the s12 cross-season
+/// memory card into the prompt (production); parity/eval/input-version callers pass `false` to
+/// pin the memory-free byte shape. The card needs `profile.season`, which is only known here —
+/// hence a flag rather than the other junctions' pre-loaded `Option<&str>`.
 pub async fn build_rating_request(
     hx: &Harness,
     req: &RatingReq,
     temperature: f64,
+    with_memory: bool,
 ) -> Result<RatingBuild> {
     let Some(mut profile) = load_rating_profile(
         &hx.pool,
@@ -1237,7 +1286,34 @@ pub async fn build_rating_request(
         &profile,
     )
     .await?;
-    let built_prompt = build_stat_prompt(req, &profile, notability);
+    // Memory-load failure degrades to an unenriched prompt (the n8/v12 discipline): the
+    // rating profile is the primary signal, memory is enrichment.
+    let memory = if with_memory {
+        match load_stat_memory(
+            &hx.pool,
+            &req.sport,
+            &req.entity_type,
+            req.entity_id,
+            profile.season,
+        )
+        .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    error = %e,
+                    "rating: cross-season memory load failed (continuing without memory)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let built_prompt = build_stat_prompt(req, &profile, notability, memory.as_deref());
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1317,8 +1393,9 @@ pub async fn generate_rating(
     req: &RatingReq,
     temperature: f64,
     skip_unchanged: bool,
+    with_memory: bool,
 ) -> Result<RatingOutput> {
-    let ready = match build_rating_request(hx, req, temperature).await? {
+    let ready = match build_rating_request(hx, req, temperature, with_memory).await? {
         RatingBuild::NoStats { season } => {
             // The NULL-body marker. Go sets Model = ollama.Model() even here (so the read path sees
             // "no profile" with provenance), unlike vibe/transfer markers.
@@ -1648,7 +1725,7 @@ impl StageHandler for PeakHandler {
             trigger_type: "periodic".to_string(),
         };
 
-        let out = generate_rating(hx, &req, RATING_TEMPERATURE, true).await?;
+        let out = generate_rating(hx, &req, RATING_TEMPERATURE, true, true).await?;
         if out.skipped_unchanged {
             debug!(
                 entity_type = %item.entity_type,
@@ -1958,7 +2035,7 @@ mod tests {
         let decision = build_scouting_decision(&p);
         assert_eq!(decision.required_peak_line, "PEAK: Interceptions");
 
-        let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60);
+        let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60, None);
         for retired in ["Clearances", "Duels"] {
             assert!(
                 !prompt.contains(retired),
@@ -2049,7 +2126,7 @@ mod tests {
     #[test]
     fn prompt_player_composite_datapoints_and_scoped_position() {
         let p = profile_player();
-        let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70);
+        let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None);
         assert_eq!(
             prompt,
             "Entity: Test Player (NBA player, Guard)\n\
@@ -2082,7 +2159,7 @@ Then write the scouting paragraph on the next line. The first output characters 
             scoped_ranks: HashMap::new(),
             rate_modes: HashMap::new(),
         };
-        let prompt = build_stat_prompt(&req("FOOTBALL", "team", "Test FC"), &p, 55);
+        let prompt = build_stat_prompt(&req("FOOTBALL", "team", "Test FC"), &p, 55, None);
         assert_eq!(
             prompt,
             "Entity: Test FC (FOOTBALL team)\n\
@@ -2097,6 +2174,25 @@ Primary weakness to exploit: None supplied.\n\
 \nWrite the identity analysis now. Start with this exact first line and no text before it: PEAK: Defense\n\
 Then write the scouting paragraph on the next line. The first output characters must be PEAK:."
         );
+    }
+
+    #[test]
+    fn cross_season_memory_renders_before_the_write_cue() {
+        // The s12 memory card renders as the last content section, bulleted, with the
+        // tier-truth guard in the header; None pins the s11 byte shape (the byte-fixtures
+        // above). Blank memory ⇒ no section.
+        let p = profile_player();
+        let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
+        let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(mem));
+        assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
+        assert!(prompt.contains("- Our prior read: season 2025 PEAK was \"Shooting\""));
+        assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
+        let mem_pos = prompt.find("Cross-season memory").unwrap();
+        let cue_pos = prompt.find("Write the identity analysis now").unwrap();
+        let dp_pos = prompt.find("Datapoints — value").unwrap();
+        assert!(dp_pos < mem_pos && mem_pos < cue_pos);
+        let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(" \n "));
+        assert!(!blank.contains("Cross-season memory"));
     }
 
     #[test]

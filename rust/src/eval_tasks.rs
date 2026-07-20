@@ -1156,7 +1156,8 @@ impl LensTask for RatingTask {
             season: None,
             trigger_type: "periodic".to_string(),
         };
-        match build_rating_request(hx, &req, 0.0).await? {
+        // with_memory=false: eval pins the memory-free prompt shape (the s12/n8 precedent).
+        match build_rating_request(hx, &req, 0.0, false).await? {
             RatingBuild::NoStats { .. } => Ok(None),
             RatingBuild::Ready(r) => Ok(Some(r.built_prompt)),
         }

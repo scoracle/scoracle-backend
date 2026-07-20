@@ -466,12 +466,16 @@ impl LensTask for VibeTask {
         if narratives.is_empty() && heat.is_empty() {
             return Ok(None);
         }
+        // Eval pins the continuity-free, memory-free prompt shape (the n8 precedent):
+        // fixtures measure the fresh-signal contract, not the v12 enrichment riders.
         Ok(Some(build_sentiment_prompt(
             &e.entity_type,
             &name,
             &e.sport,
             &narratives,
             &heat,
+            None,
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

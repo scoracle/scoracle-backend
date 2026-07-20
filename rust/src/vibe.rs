@@ -21,6 +21,12 @@
 //! On a debounce-skip the handler still enqueues Momentum (hash-gated and cheap) — the same
 //! self-healing shape as sigil's skip-path oracle enqueue. The offline parity harness
 //! (`bin/parity`) deliberately does NOT debounce: a parity run must always exercise the model.
+//!
+//! v12 (junction memory rollout step 2, 2026-07-19): the prompt gains the previous vibe read
+//! as a continuity anchor (the proven Sigil Phase-5.2 shape — prompt-only, never hashed) and
+//! the per-entity relational memory card (`narrative_context_for_entity`, mig 163 — same
+//! not-in-input-hash decision as n8/t8). Continuity discipline is the whiplash killer: the
+//! felt read moves like a belief, not a readout of the day's headlines.
 
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
@@ -36,10 +42,10 @@ use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v11"; // v11: heat lines carry the transfer lens summary + confidence
+pub const VIBE_PROMPT_VERSION: &str = "v12"; // v11: heat lines carry the transfer lens summary + confidence; v12: previous-read continuity + relational memory card (junction memory rollout step 2)
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -66,6 +72,7 @@ SCORE (1-100):
 - Weigh narratives by impact.
 - Transfer/trade activity is energy, not automatically good or bad.
 - If little is happening, stay near 50.
+- When a PREVIOUS VIBE is shown, treat its score as your prior: move from it deliberately and hold steady unless the new signals justify a change. This is memory, not a reset.
 
 VIBE:
 - One or two sentences. Use three only for a truly major multi-strand moment.
@@ -349,14 +356,53 @@ pub async fn load_vibe_context(
 // Prompt assembly.
 // ---------------------------------------------------------------------------
 
+/// The previous vibe read fed back into the prompt for continuity (v12 — the Sigil
+/// Phase-5.2 shape). Prompt-only: it is NOT part of `build_vibe_input_components` / the
+/// `input_hash` — the read always moves, so hashing it would self-trigger every re-run.
+/// Constructed only for a real prior read (latest row scored, not a NULL-sentiment marker).
+#[derive(Clone, Debug)]
+pub struct PrevVibe {
+    pub sentiment: i32,
+    /// The prior felt read; may be empty (the column is nullable) — then only the Score
+    /// line renders.
+    pub vibe_prompt: String,
+}
+
+/// load_latest_vibe_row fetches the entity's LATEST vibe_scores row in ONE query:
+/// sentiment + felt read (the continuity prior) and input_hash (the debounce gate) as a
+/// consistent, non-torn read — the sigil plan-A1 consolidation. Vibe owns the SQL because
+/// `Harness::latest_with_hash` is shaped to sigil's score/blurb columns.
+async fn load_latest_vibe_row(
+    pool: &PgPool,
+    key: &EntityKey,
+) -> Result<(Option<i16>, Option<String>, Option<String>)> {
+    let row: Option<(Option<i16>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT sentiment, prompt, input_hash FROM vibe_scores \
+         WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 \
+         ORDER BY generated_at DESC LIMIT 1",
+    )
+    .bind(&key.entity_type)
+    .bind(key.entity_id)
+    .bind(&key.sport)
+    .fetch_optional(pool)
+    .await
+    .with_context(|| format!("latest vibe row {}/{}", key.entity_type, key.entity_id))?;
+    Ok(row.unwrap_or((None, None, None)))
+}
+
 /// build_sentiment_prompt assembles the user prompt. `sport` is the original-case value used in
-/// the prompt; the SQL reads use the upper-cased form.
+/// the prompt; the SQL reads use the upper-cased form. `previous` is the prior vibe read for
+/// continuity (v12) — rendered as a lead-in anchor, `None` for the parity/eval paths and an
+/// entity's first read. `memory` is the per-entity relational memory card (mig 163) — `None`
+/// when the graph holds none.
 pub fn build_sentiment_prompt(
     entity_type: &str,
     entity_name: &str,
     sport: &str,
     narratives: &[Narrative],
     heat: &[HeatItem],
+    previous: Option<&PrevVibe>,
+    memory: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -366,6 +412,19 @@ pub fn build_sentiment_prompt(
         entity_name,
         sport
     ));
+
+    // Previous vibe (v12) — a continuity anchor set BEFORE the fresh signals so the model
+    // reads its prior before the new evidence (the sigil Phase-5.2 placement). Omitted
+    // entirely when there is no prior read: this section is prompt-only and outside the
+    // hash, so it needs no stable no-data placeholder.
+    if let Some(p) = previous {
+        b.push_str("\n=== PREVIOUS VIBE ===\n");
+        b.push_str(&format!("Score: {}/100\n", p.sentiment));
+        if !p.vibe_prompt.is_empty() {
+            b.push_str(&p.vibe_prompt);
+            b.push('\n');
+        }
+    }
 
     b.push_str(
         "\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n",
@@ -401,6 +460,20 @@ pub fn build_sentiment_prompt(
         b.push_str("- (none)\n");
     } else {
         write_heat_lines(&mut b, heat);
+    }
+
+    // Relational memory card (v12, mig 163): the graph's per-entity history — prior
+    // stories with outcomes, current stories with likelihood, ground-truth moves.
+    // CONTINUITY, NOT CORROBORATION (the echo-chamber rule): memory frames the arc the
+    // felt read sits in; it is never itself evidence for a new claim. Rendered only when
+    // the graph holds memory; deliberately NOT part of the input_hash.
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\nRelational memory (computed history for this entity — use for arc and continuity: what fizzled before, what is live now, what actually happened; do NOT treat a prior story as evidence for a new one):\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
     }
 
     b.push_str("\nRespond now (SCORE line, then VIBE line).");
@@ -514,7 +587,8 @@ impl Parser<VibeReply> for VibeParser {
 /// to the no-corpus marker when it is empty, else build the prompt and `extract`. The
 /// production handler calls `load_vibe_context` itself (to debounce before the model call)
 /// and then `generate_vibe_from_context`; this convenience wrapper is the undebounced
-/// load-and-generate composition.
+/// load-and-generate composition. Skips the v12 enrichment riders (continuity prior +
+/// relational memory) — those are the production handler's loads.
 pub async fn generate_vibe(
     hx: &Harness,
     entity_type: &str,
@@ -530,6 +604,8 @@ pub async fn generate_vibe(
         entity_name,
         sport_raw,
         ctx,
+        None,
+        None,
         temperature,
         false,
     )
@@ -539,7 +615,8 @@ pub async fn generate_vibe(
 
 /// generate_vibe_parity runs the same core as production while returning the
 /// parity-era prompt and request-body axes. NO debounce — a parity run must always
-/// exercise the model. Removed with the parity bins (see plan C1).
+/// exercise the model — and NO continuity prior / relational memory: parity prompts stay
+/// byte-stable (the sigil precedent). Removed with the parity bins (see plan C1).
 pub async fn generate_vibe_parity(
     hx: &Harness,
     entity_type: &str,
@@ -555,18 +632,23 @@ pub async fn generate_vibe_parity(
         entity_name,
         sport_raw,
         ctx,
+        None,
+        None,
         temperature,
         true,
     )
     .await
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn generate_vibe_from_context(
     hx: &Harness,
     entity_type: &str,
     entity_name: &str,
     sport_raw: &str,
     ctx: VibeContext,
+    previous: Option<&PrevVibe>,
+    memory: Option<&str>,
     temperature: f64,
     capture_parity: bool,
 ) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
@@ -600,6 +682,8 @@ async fn generate_vibe_from_context(
         sport_raw,
         &ctx.narratives,
         &ctx.heat,
+        previous,
+        memory,
     );
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
@@ -760,10 +844,11 @@ impl StageHandler for VibeHandler {
             sport: sport.clone(),
             season: None,
         };
-        if hx
-            .debounce_unchanged("vibe_scores", &key, &ctx.input_hash)
-            .await?
-        {
+        // One round-trip for the debounce hash AND the continuity prior (the sigil plan-A1
+        // non-torn read). F2 semantics preserved: no row / NULL hash → run.
+        let (prev_sentiment, prev_prompt, latest_hash) =
+            load_latest_vibe_row(&hx.pool, &key).await?;
+        if latest_hash.as_deref() == Some(ctx.input_hash.as_str()) {
             debug!(
                 entity_type = %item.entity_type,
                 entity_id = item.entity_id,
@@ -778,12 +863,45 @@ impl StageHandler for VibeHandler {
             return Ok(());
         }
 
+        // Previous vibe as prompt-only continuity (v12): built only for a real prior read
+        // (a scored row — a NULL-sentiment marker anchors nothing). Deliberately NOT folded
+        // into input_hash — the read always moves, so hashing it would self-trigger every
+        // re-run; the sigil Phase-5.2 discipline.
+        let previous = prev_sentiment.map(|s| PrevVibe {
+            sentiment: s as i32,
+            vibe_prompt: prev_prompt.unwrap_or_default(),
+        });
+        // Memory-load failure degrades to an unenriched prompt (the n8 discipline): the
+        // corpus is the primary signal, memory is enrichment.
+        let memory = match crate::narratives::load_entity_memory(
+            &hx.pool,
+            &sport,
+            &item.entity_type,
+            entity_id,
+        )
+        .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                warn!(
+                    entity_type = %item.entity_type,
+                    entity_id = item.entity_id,
+                    sport = %sport,
+                    error = %e,
+                    "vibe: relational memory load failed (continuing without memory)"
+                );
+                None
+            }
+        };
+
         let (out, _, _) = generate_vibe_from_context(
             hx,
             &item.entity_type,
             &name,
             &item.sport,
             ctx,
+            previous.as_ref(),
+            memory.as_deref(),
             VIBE_TEMPERATURE,
             false,
         )
@@ -875,11 +993,88 @@ mod tests {
 
     #[test]
     fn builds_prompt_with_empty_sections() {
-        let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[]);
+        // No previous, no memory ⇒ neither section renders (v11 byte-shape preserved).
+        let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], None, None);
         assert_eq!(
             p,
             "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line)."
         );
+    }
+
+    #[test]
+    fn previous_vibe_renders_as_continuity_lead_in() {
+        // A prior read renders a `=== PREVIOUS VIBE ===` block right after the Entity line,
+        // BEFORE the fresh narratives — the model reads its prior before the new evidence
+        // (the sigil Phase-5.2 placement).
+        let previous = PrevVibe {
+            sentiment: 68,
+            vibe_prompt: "Quietly surging into the playoff race.".into(),
+        };
+        let p = build_sentiment_prompt(
+            "player",
+            "Test Player",
+            "NBA",
+            &[],
+            &[],
+            Some(&previous),
+            None,
+        );
+        assert!(p.starts_with(
+            "Entity: Player Test Player (NBA)\n\n=== PREVIOUS VIBE ===\nScore: 68/100\nQuietly surging into the playoff race.\n\nNarratives forming"
+        ));
+    }
+
+    #[test]
+    fn previous_vibe_empty_read_renders_score_only() {
+        let previous = PrevVibe {
+            sentiment: 55,
+            vibe_prompt: String::new(),
+        };
+        let p = build_sentiment_prompt(
+            "team",
+            "Test Team",
+            "NFL",
+            &[],
+            &[],
+            Some(&previous),
+            None,
+        );
+        assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nNarratives forming"));
+    }
+
+    #[test]
+    fn memory_card_renders_between_heat_and_reply_cue() {
+        let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
+        let p = build_sentiment_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            &[],
+            &[],
+            None,
+            Some(mem),
+        );
+        assert!(p.contains("\nRelational memory (computed history"));
+        assert!(p.contains("- Prior story: Real Madrid — fizzled"));
+        assert!(p.contains("- Ground truth: completed"));
+        let heat_pos = p.find("Current transfer/trade activity").unwrap();
+        let mem_pos = p.find("Relational memory").unwrap();
+        let cue_pos = p.find("Respond now").unwrap();
+        assert!(heat_pos < mem_pos && mem_pos < cue_pos);
+    }
+
+    #[test]
+    fn blank_memory_renders_no_section() {
+        let p = build_sentiment_prompt(
+            "player",
+            "Test Player",
+            "NBA",
+            &[],
+            &[],
+            None,
+            Some("  \n "),
+        );
+        assert!(!p.contains("Relational memory"));
     }
 
     #[test]

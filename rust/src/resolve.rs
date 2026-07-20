@@ -34,12 +34,13 @@ use crate::route::Role;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use sqlx::PgPool;
+use std::collections::HashMap;
 
 /// The scrub relevance system prompt: disambiguate same-name candidates and — since the model is
 /// already reading the article to vet ambiguous candidate links — also tag the article bucket.
 /// The relevance verdict remains fail-closed and independent: an absent/unparseable bucket is
 /// ignored by the caller, which falls back to candle.
-const RESOLVE_BUCKET_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about, and classify the article as transfer/trade-related or other sports news.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nBucket rules:\n- bucket \"transfer\" for transfer, trade, loan, free-agency, signing, contract-move, bid, medical, or move-rumor coverage.\n- bucket \"other\" for match reports, injuries, previews, recaps, betting, tactical analysis, performance features, and general team news.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>], \"bucket\": \"transfer|other\"}";
+const RESOLVE_BUCKET_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about, and classify the article as transfer/trade-related or other sports news.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nCandidates with the same or nearly identical names are MUTUALLY EXCLUSIVE: keep at most ONE of them — the one whose identity (club, nationality, position) the article actually matches. Never keep two same-named candidates.\n\nBucket rules:\n- bucket \"transfer\" for transfer, trade, loan, free-agency, signing, contract-move, bid, medical, or move-rumor coverage.\n- bucket \"other\" for match reports, injuries, previews, recaps, betting, tactical analysis, performance features, and general team news.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>], \"bucket\": \"transfer|other\"}";
 
 /// The model budget for one adjudication call. Temperature 0.2 mirrors the scrub's "tight but a
 /// judgment call"; JSON mode tightens adherence to the `{"relevant":[…],"bucket":…}` contract.
@@ -132,6 +133,34 @@ pub async fn load_identity_candidate(
             position: opt(position),
         },
     })
+}
+
+/// normalize_name folds case and common Latin diacritics so same-name candidates group
+/// (the measured Ederson/Éderson pair; the two "Son" entities). Deliberately a tiny
+/// table, not a Unicode dependency: the provider corpus is Latin-script sports names.
+pub fn normalize_name(name: &str) -> String {
+    name.trim()
+        .to_lowercase()
+        .chars()
+        .map(|c| match c {
+            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ā' | 'ă' => 'a',
+            'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ė' | 'ě' => 'e',
+            'í' | 'ì' | 'î' | 'ï' | 'ī' | 'ı' => 'i',
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'ō' => 'o',
+            'ú' | 'ù' | 'û' | 'ü' | 'ū' | 'ů' => 'u',
+            'ç' | 'ć' | 'č' => 'c',
+            'ñ' | 'ń' => 'n',
+            'š' | 'ś' | 'ș' | 'ş' => 's',
+            'ž' | 'ź' | 'ż' => 'z',
+            'ý' | 'ÿ' => 'y',
+            'ł' => 'l',
+            'đ' => 'd',
+            'ğ' => 'g',
+            'ț' | 'ţ' => 't',
+            'ř' => 'r',
+            other => other,
+        })
+        .collect()
 }
 
 pub fn identity_text(c: &Candidate) -> String {
@@ -269,9 +298,11 @@ impl Harness {
         let (ctx, identities) = vectors.split_first().expect("embed returns ≥1 vector here");
 
         let mut out = Vec::with_capacity(candidates.len());
+        let mut cosines = Vec::with_capacity(candidates.len());
         let mut ambiguous = Vec::new(); // indices needing the model
         for (i, c) in candidates.iter().enumerate() {
             let cosine = cosine_similarity(ctx, &identities[i]);
+            cosines.push(cosine);
             let kept = match classify(cosine, &self.resolve) {
                 Decision::Keep => true,
                 Decision::Ambiguous => {
@@ -285,6 +316,33 @@ impl Harness {
                 kept,
             });
         }
+
+        // Same-name mutual exclusivity (junction rollout step 6 — the measured
+        // Ederson/Éderson failure): the cosine fast-track judges candidates
+        // INDEPENDENTLY, so two same-named candidates can both auto-keep on the same
+        // article. Any same-normalized-name group with 2+ members is demoted WHOLE into
+        // the ambiguous band — the adjudicator (which sees the identity cards) picks at
+        // most one; the proxy may never keep two. Grouped by (type, normalized name):
+        // a team legitimately sharing a player's name is not a collision.
+        let mut by_name: HashMap<(EntityType, String), Vec<usize>> = HashMap::new();
+        for (i, c) in candidates.iter().enumerate() {
+            by_name
+                .entry((c.entity_type, normalize_name(&c.name)))
+                .or_default()
+                .push(i);
+        }
+        for group in by_name.values() {
+            if group.len() < 2 {
+                continue;
+            }
+            for &i in group {
+                if out[i].kept {
+                    out[i].kept = false;
+                    ambiguous.push(i);
+                }
+            }
+        }
+        ambiguous.sort_unstable();
 
         let mut bucket = None;
         if !ambiguous.is_empty() {
@@ -306,6 +364,28 @@ impl Harness {
                 bucket = parsed.bucket;
             }
             // else: fail-closed — the ambiguous candidates keep their `kept = false` placeholder.
+        }
+
+        // Belt over the instruction: if the adjudicator still kept 2+ of a same-name
+        // group, keep only the best identity match (highest cosine) — "both" is never a
+        // valid same-name verdict, and the gate's precision bounds everything downstream.
+        for group in by_name.values() {
+            if group.len() < 2 {
+                continue;
+            }
+            let kept: Vec<usize> = group.iter().copied().filter(|&i| out[i].kept).collect();
+            if kept.len() > 1 {
+                let best = kept
+                    .iter()
+                    .copied()
+                    .max_by(|&a, &b| cosines[a].total_cmp(&cosines[b]))
+                    .expect("non-empty kept group");
+                for &i in &kept {
+                    if i != best {
+                        out[i].kept = false;
+                    }
+                }
+            }
         }
         Ok(ResolveSetOutcome {
             resolutions: out,
@@ -373,6 +453,39 @@ mod tests {
             identity: IdentityCard::default(),
         };
         assert_eq!(identity_text(&team), "Chelsea (team)");
+    }
+
+    #[test]
+    fn normalize_name_folds_case_and_diacritics() {
+        // The measured collision pairs group under one key…
+        assert_eq!(normalize_name("Ederson"), normalize_name("Éderson"));
+        assert_eq!(normalize_name("Son"), normalize_name("son "));
+        assert_eq!(normalize_name("Álvarez"), "alvarez");
+        assert_eq!(normalize_name("Kudryavtsev"), "kudryavtsev");
+        // …while genuinely different names stay distinct.
+        assert_ne!(normalize_name("Son"), normalize_name("Heung-min Son"));
+    }
+
+    #[test]
+    fn same_name_groups_key_by_type_and_normalized_name() {
+        // The group key the gate demotes on: (type, normalized name). A player and a
+        // team sharing a name is NOT a collision; two same-named players are.
+        let a = player("Ederson", Some("Brazilian"), Some("Man City"), Some("goalkeeper"));
+        let b = player("Éderson", Some("Brazilian"), Some("Atalanta"), Some("midfielder"));
+        let t = Candidate {
+            entity_type: EntityType::Team,
+            entity_id: 7,
+            name: "Ederson".to_string(),
+            identity: IdentityCard::default(),
+        };
+        assert_eq!(
+            (a.entity_type, normalize_name(&a.name)),
+            (b.entity_type, normalize_name(&b.name))
+        );
+        assert_ne!(
+            (a.entity_type, normalize_name(&a.name)),
+            (t.entity_type, normalize_name(&t.name))
+        );
     }
 
     #[test]

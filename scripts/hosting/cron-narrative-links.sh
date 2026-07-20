@@ -37,6 +37,11 @@ UNION ALL
 SELECT 'NBA', now(), * FROM refresh_co_mention_links('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM refresh_co_mention_links('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_typed_links('FOOTBALL')
+UNION ALL
+SELECT 'NBA', now(), * FROM refresh_typed_links('NBA')
+UNION ALL
+SELECT 'NFL', now(), * FROM refresh_typed_links('NFL')" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM seal_confirmed_episodes('FOOTBALL')
 UNION ALL
 SELECT 'NBA', now(), * FROM seal_confirmed_episodes('NBA')

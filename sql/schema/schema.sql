@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict WwI3hcdMBJQbqN7lQu8D2AFvKreoq3hjpnmBd576OLCzg1ObSp7Gl0V5dysZjTh
+\restrict oKaJCcN3LqPQCx9AKah60rTiIxRgGHGnn1jIH6R9QHH88aY7fHBc5cG2kl92bYs
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -4943,6 +4943,151 @@ COMMENT ON FUNCTION public.refresh_stat_matchups(p_sport text, p_stat_key text, 
 
 
 --
+-- Name: refresh_typed_links(text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_typed_links(p_sport text, p_window_days integer DEFAULT 90, OUT links_upserted integer, OUT links_zeroed integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_run timestamptz := clock_timestamp();
+BEGIN
+    WITH ev AS (
+        SELECT e.subject_type, e.subject_id, e.predicate, e.object_type, e.object_id,
+               e.article_id, e.source, e.event_date, e.sentiment,
+               CASE e.confidence WHEN 'confirmed' THEN 1.0
+                                 WHEN 'reported'  THEN 0.7
+                                 ELSE 0.4 END AS w,
+               CASE e.confidence WHEN 'confirmed' THEN 3
+                                 WHEN 'reported'  THEN 2
+                                 ELSE 1 END AS conf_rank
+        FROM narrative_events e
+        WHERE e.sport = p_sport
+          AND e.object_id IS NOT NULL
+          AND e.event_date > now() - make_interval(days => p_window_days)
+    ),
+    agg AS (
+        SELECT subject_type, subject_id, predicate, object_type, object_id,
+               count(*) AS total,
+               count(DISTINCT article_id) AS articles,
+               count(DISTINCT source) FILTER (WHERE source IS NOT NULL) AS distinct_sources,
+               sum(w) AS wsum,
+               count(*) FILTER (WHERE event_date > now() - interval '14 days') AS recent14,
+               max(event_date) AS newest,
+               min(event_date) AS oldest,
+               max(conf_rank) AS conf_rank,
+               sum(w * sentiment) FILTER (WHERE sentiment IS NOT NULL)
+                   / NULLIF(sum(w) FILTER (WHERE sentiment IS NOT NULL), 0) AS wsent
+        FROM ev
+        GROUP BY 1, 2, 3, 4, 5
+    ),
+    calc AS (
+        SELECT *,
+               EXTRACT(EPOCH FROM (now() - newest)) / 86400.0 AS age_days,
+               LEAST(1.0, wsum / 4.0) AS evidence,
+               LEAST(1.0, GREATEST(distinct_sources, 1)::numeric / 3.0) AS volume,
+               recent14::numeric / GREATEST(total, 1) AS recent_frac
+        FROM agg
+    ),
+    fin AS (
+        SELECT *,
+               exp(-age_days / 21.0) AS recency,
+               GREATEST(0, LEAST(100, round(
+                   100 * exp(-age_days / 21.0)
+                       * (0.5 * evidence + 0.3 * volume + 0.2 * recent_frac))))::smallint
+                   AS strength
+        FROM calc
+    )
+    INSERT INTO narrative_links AS l
+        (sport, link_type, subject_type, subject_id, object_type, object_id,
+         strength, components, weighted_sentiment, confidence,
+         event_count, article_count, distinct_sources,
+         first_seen_at, last_event_at, trajectory, trajectory_components, updated_at)
+    SELECT p_sport, f.predicate, f.subject_type, f.subject_id, f.object_type, f.object_id,
+           f.strength,
+           jsonb_build_object(
+               'event_count', f.total,
+               'article_count', f.articles,
+               'distinct_sources', f.distinct_sources,
+               'weighted_evidence', round(f.wsum::numeric, 2),
+               'recent_14d', f.recent14,
+               'newest_age_days', round(f.age_days::numeric, 1),
+               'evidence', round(f.evidence::numeric, 3),
+               'volume', round(f.volume::numeric, 3),
+               'recency', round(f.recency::numeric, 3),
+               'recent_frac', round(f.recent_frac::numeric, 3),
+               'window_days', p_window_days,
+               'window_oldest', f.oldest),
+           round(f.wsent::numeric, 3),
+           CASE f.conf_rank WHEN 3 THEN 'confirmed' WHEN 2 THEN 'reported'
+                            ELSE 'speculative' END,
+           f.total, f.articles, f.distinct_sources,
+           f.oldest, f.newest,
+           'developing_story',
+           jsonb_build_object('previous', NULL, 'current', f.strength,
+                              'delta', NULL, 'direction', 'new_or_unmatched'),
+           v_run
+    FROM fin f
+    ON CONFLICT (sport, link_type, subject_type, subject_id, object_type, object_id)
+    DO UPDATE SET
+        strength = EXCLUDED.strength,
+        components = EXCLUDED.components,
+        weighted_sentiment = EXCLUDED.weighted_sentiment,
+        confidence = EXCLUDED.confidence,
+        event_count = EXCLUDED.event_count,
+        article_count = EXCLUDED.article_count,
+        distinct_sources = EXCLUDED.distinct_sources,
+        first_seen_at = LEAST(l.first_seen_at, EXCLUDED.first_seen_at),
+        last_event_at = EXCLUDED.last_event_at,
+        -- The shared ±10-bucket trajectory vocabulary (trajectory.rs / db.go / co_mention).
+        trajectory = CASE
+            WHEN l.strength IS NULL THEN 'developing_story'
+            WHEN EXCLUDED.strength - l.strength >= 10 THEN 'heating_up'
+            WHEN EXCLUDED.strength - l.strength <= -10 THEN 'cooling_off'
+            ELSE 'developing_story' END,
+        trajectory_components = jsonb_build_object(
+            'previous', l.strength,
+            'current', EXCLUDED.strength,
+            'delta', CASE WHEN l.strength IS NULL THEN NULL
+                          ELSE EXCLUDED.strength - l.strength END,
+            'direction', CASE
+                WHEN l.strength IS NULL THEN 'new_or_unmatched'
+                WHEN EXCLUDED.strength - l.strength >= 10 THEN 'up'
+                WHEN EXCLUDED.strength - l.strength <= -10 THEN 'down'
+                ELSE 'stable' END),
+        updated_at = v_run;
+
+    GET DIAGNOSTICS links_upserted = ROW_COUNT;
+
+    -- Typed links whose events all fell out of the window: decay to 0, keep history.
+    UPDATE narrative_links l
+    SET trajectory = CASE WHEN l.strength >= 10 THEN 'cooling_off'
+                          ELSE 'developing_story' END,
+        trajectory_components = jsonb_build_object(
+            'previous', l.strength, 'current', 0,
+            'delta', -l.strength,
+            'direction', CASE WHEN l.strength >= 10 THEN 'down' ELSE 'stable' END),
+        strength = 0,
+        components = l.components || '{"decayed_out_of_window": true}'::jsonb,
+        updated_at = v_run
+    WHERE l.sport = p_sport
+      AND l.link_type <> 'co_mention'
+      AND l.strength > 0
+      AND l.updated_at < v_run;
+
+    GET DIAGNOSTICS links_zeroed = ROW_COUNT;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_typed_links(p_sport text, p_window_days integer, OUT links_upserted integer, OUT links_zeroed integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_typed_links(p_sport text, p_window_days integer, OUT links_upserted integer, OUT links_zeroed integer) IS 'Rolls narrative_events into typed narrative_links (link_type = predicate) with confidence weighting, recency decay, the shared trajectory vocabulary, and zero-decay out of window. Directional (no canonical ordering). Run nightly after refresh_co_mention_links; roll_narrative_episodes is link_type-generic, so typed links earn episodes the night they cross the open threshold.';
+
+
+--
 -- Name: request_sport_autofill_refresh(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5165,8 +5310,8 @@ BEGIN
          AND l.object_type = 'team' AND l.object_id = o.team_id
     ),
     rumor AS (
-        -- Best recent language signal per pair: max stage in the last 30 days with its
-        -- confidence, recency-decayed from the latest generation carrying that stage.
+        -- Best recent LEGACY language signal per pair: max stage in the last 30 days
+        -- with its confidence, recency-decayed from the latest staged generation.
         SELECT r.player_id, r.team_id,
                max(CASE r.stage WHEN 'here_we_go' THEN 4 WHEN 'advanced_talks' THEN 3
                                 WHEN 'concrete_interest' THEN 2 WHEN 'speculation' THEN 1
@@ -5176,6 +5321,24 @@ BEGIN
                max(r.source_count) AS recent_source_count
         FROM transfer_rumors r
         WHERE r.sport = p_sport AND r.generated_at > now() - interval '30 days'
+        GROUP BY 1, 2
+    ),
+    typed AS (
+        -- TYPED language signal (mig 167, step 8): trade events from the extraction
+        -- stage. confirmed maps to the top of the legacy ladder; a reported rumor to
+        -- concrete-interest grade; speculative to the bottom rung.
+        SELECT ne.subject_id AS player_id, ne.object_id AS team_id,
+               max(CASE WHEN ne.predicate = 'trade_confirmed' THEN 4
+                        WHEN ne.predicate = 'trade_rumor'
+                             AND ne.confidence = 'reported' THEN 2
+                        WHEN ne.predicate = 'trade_rumor' THEN 1
+                        ELSE 0 END) AS typed_rank,
+               max(ne.event_date) AS latest_typed
+        FROM narrative_events ne
+        WHERE ne.sport = p_sport
+          AND ne.event_date > now() - interval '30 days'
+          AND ne.subject_type = 'player' AND ne.object_type = 'team'
+          AND ne.predicate IN ('trade_rumor', 'trade_confirmed')
         GROUP BY 1, 2
     ),
     tiering AS (
@@ -5204,6 +5367,10 @@ BEGIN
                CASE WHEN ru.latest_staged IS NULL THEN 0
                     ELSE exp(-(EXTRACT(EPOCH FROM (now() - ru.latest_staged)) / 86400.0) / 14.0)
                END AS stage_recency,
+               COALESCE(ty.typed_rank, 0) AS typed_rank,
+               CASE WHEN ty.latest_typed IS NULL THEN 0
+                    ELSE exp(-(EXTRACT(EPOCH FROM (now() - ty.latest_typed)) / 86400.0) / 14.0)
+               END AS typed_recency,
                COALESCE(ru.recent_source_count, 0) AS recent_sources,
                COALESCE(t.best_tier, 0.3) AS best_tier,
                LEAST(5, round(COALESCE(pf.early_cred, 0)))::int AS perf_bonus,
@@ -5211,20 +5378,31 @@ BEGIN
                                   WHEN 'cooling_off' THEN 0 ELSE 50 END AS traj_score
         FROM linked li
         LEFT JOIN rumor ru ON ru.player_id = li.player_id AND ru.team_id = li.team_id
+        LEFT JOIN typed ty ON ty.player_id = li.player_id AND ty.team_id = li.team_id
         LEFT JOIN tiering t ON t.player_id = li.player_id AND t.team_id = li.team_id
         LEFT JOIN perf pf ON pf.player_id = li.player_id AND pf.team_id = li.team_id
     ),
-    scored AS (
+    langs AS (
+        -- The 0-100 language subscores: legacy rumor-stage vs typed extraction. The
+        -- fusion takes the GREATEST — typed is sparse today and degrades gracefully to
+        -- legacy; typed confidence is a fixed 0.85 (its confidence lives in the rank
+        -- mapping, not a per-generation float).
         SELECT c.*,
-               LEAST(100, GREATEST(0, round(
-                   0.40 * c.link_strength
-                 + 0.35 * 100 * (c.stage_rank / 4.0) * c.stage_conf * c.stage_recency
-                 + 0.15 * 100 * LEAST(1.0, c.best_tier)
-                 + 0.10 * c.traj_score
-               ) + c.perf_bonus))::smallint AS raw,
-               (c.recent_sources >= p_corrob_sources OR c.best_tier >= p_corrob_tier)
-                   AS corroborated
+               100 * (c.stage_rank / 4.0) * c.stage_conf * c.stage_recency AS legacy_lang,
+               100 * (c.typed_rank / 4.0) * 0.85 * c.typed_recency AS typed_lang
         FROM calc c
+    ),
+    scored AS (
+        SELECT l.*,
+               LEAST(100, GREATEST(0, round(
+                   0.40 * l.link_strength
+                 + 0.35 * GREATEST(l.legacy_lang, l.typed_lang)
+                 + 0.15 * 100 * LEAST(1.0, l.best_tier)
+                 + 0.10 * l.traj_score
+               ) + l.perf_bonus))::smallint AS raw,
+               (l.recent_sources >= p_corrob_sources OR l.best_tier >= p_corrob_tier)
+                   AS corroborated
+        FROM langs l
     ),
     final AS (
         SELECT s.*,
@@ -5247,6 +5425,12 @@ BEGIN
             'stage_rank', f.stage_rank,
             'stage_conf', f.stage_conf,
             'stage_recency', round(f.stage_recency::numeric, 3),
+            'typed_rank', f.typed_rank,
+            'typed_recency', round(f.typed_recency::numeric, 3),
+            'language_source', CASE
+                WHEN f.typed_lang = 0 AND f.legacy_lang = 0 THEN 'none'
+                WHEN f.typed_lang > f.legacy_lang THEN 'typed'
+                ELSE 'legacy' END,
             'best_tier', f.best_tier,
             'traj', f.traj_score,
             'perf_bonus', f.perf_bonus,
@@ -5273,7 +5457,7 @@ $$;
 -- Name: FUNCTION score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer) IS 'Fuses coverage + language stage + source tier + trajectory (+ earned early-caller bonus) into the served transfer likelihood on each open player-team episode, with hysteresis: rises freely only when corroborated (multi-source or tier-1), falls at a bounded rate. Run after roll_narrative_episodes in the nightly chain.';
+COMMENT ON FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer) IS 'Fuses coverage + language (GREATEST of legacy rumor-stage and typed-event signal, mig 167) + source tier + trajectory (+ earned early-caller bonus) into the served transfer likelihood on each open player-team episode, with hysteresis. Components record both language signals and which won. Run after roll_narrative_episodes.';
 
 
 --
@@ -11841,5 +12025,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WwI3hcdMBJQbqN7lQu8D2AFvKreoq3hjpnmBd576OLCzg1ObSp7Gl0V5dysZjTh
+\unrestrict oKaJCcN3LqPQCx9AKah60rTiIxRgGHGnn1jIH6R9QHH88aY7fHBc5cG2kl92bYs
 

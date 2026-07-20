@@ -167,3 +167,4 @@
 164_stat_context_for_entity
 165_graph_stage
 166_person_promotion
+167_typed_links

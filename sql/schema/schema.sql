@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict D9NGRPSJLCYRat2c2f8pZ2ncPpPFHlNWZiIY2jFRWyEqaFY8cHXPs50qwEFsBJ9
+\restrict nXqTy1ZymQAxHLeV0AcdStkXYNuPkoh9kmNgiTPffb14oDMQswYT54Qo5C0oTkH
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -4365,6 +4365,90 @@ $$;
 
 
 --
+-- Name: refresh_source_performance(text, numeric); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_source_performance(p_sport text, p_k numeric DEFAULT 5, OUT sources_written integer) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_run timestamptz := clock_timestamp();
+BEGIN
+    DELETE FROM source_performance WHERE sport = p_sport;
+
+    WITH apps AS (
+        SELECT DISTINCT ON (a.player_id, a.new_team_id)
+               a.player_id, a.new_team_id AS team_id, a.applied_at
+        FROM transfer_identity_applications a
+        WHERE a.sport = p_sport
+          AND a.applied_at IS NOT NULL AND a.reverted_at IS NULL
+        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
+    ),
+    attributions AS (
+        -- A source's first attribution per rumor pair.
+        SELECT r.player_id, r.team_id, s.source, min(r.generated_at) AS first_reported
+        FROM transfer_rumors r
+        CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
+        WHERE r.sport = p_sport
+        GROUP BY 1, 2, 3
+    ),
+    pair_advanced AS (
+        SELECT player_id, team_id, min(generated_at) AS first_advanced
+        FROM transfer_rumors
+        WHERE sport = p_sport AND stage IN ('advanced_talks', 'here_we_go')
+        GROUP BY 1, 2
+    ),
+    joined AS (
+        SELECT at.source, at.first_reported, pa.first_advanced, ap.applied_at
+        FROM attributions at
+        LEFT JOIN pair_advanced pa
+               ON pa.player_id = at.player_id AND pa.team_id = at.team_id
+        LEFT JOIN apps ap
+               ON ap.player_id = at.player_id AND ap.team_id = at.team_id
+    ),
+    agg AS (
+        SELECT source,
+               count(*) AS pairs_covered,
+               count(applied_at) AS confirmed_covered,
+               count(*) FILTER (
+                   WHERE applied_at IS NOT NULL
+                     AND (first_advanced IS NULL OR first_reported < first_advanced)
+               ) AS early_confirmed,
+               round(avg(EXTRACT(EPOCH FROM (applied_at - first_reported)) / 86400.0)
+                     FILTER (WHERE applied_at IS NOT NULL)::numeric, 1) AS avg_lead_days,
+               round(max(EXTRACT(EPOCH FROM (applied_at - first_reported)) / 86400.0)
+                     FILTER (WHERE applied_at IS NOT NULL)::numeric, 1) AS best_lead_days
+        FROM joined
+        GROUP BY source
+    )
+    INSERT INTO source_performance
+        (sport, source, pairs_covered, confirmed_covered, early_confirmed,
+         avg_lead_days, best_lead_days, reliability, components, computed_at)
+    SELECT p_sport, a.source, a.pairs_covered, a.confirmed_covered, a.early_confirmed,
+           a.avg_lead_days, a.best_lead_days,
+           round(100 * a.confirmed_covered / (a.confirmed_covered + p_k))::smallint,
+           jsonb_build_object(
+               'k', p_k,
+               'confirm_rate', CASE WHEN a.pairs_covered = 0 THEN NULL
+                    ELSE round(a.confirmed_covered::numeric / a.pairs_covered, 3) END,
+               'note', 'confirm_rate denominator includes open/unresolved pairs; '
+                       'lead days are signed (negative = pile-on after the move)'),
+           v_run
+    FROM agg a;
+
+    GET DIAGNOSTICS sources_written = ROW_COUNT;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_source_performance(p_sport text, p_k numeric, OUT sources_written integer) IS 'Full recompute of the per-source predictive record from transfer_rumors attribution x applied identity moves. Idempotent, set-based, no model calls. reliability = 100 * confirmed/(confirmed + k): n-based belief in the record.';
+
+
+--
 -- Name: refresh_sport_autofill(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4706,6 +4790,102 @@ $$;
 --
 
 COMMENT ON FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold integer, p_close_threshold integer, p_quiet_days integer, OUT episodes_opened integer, OUT episodes_updated integer, OUT episodes_sealed integer) IS 'Episode lifecycle over narrative_links state: open at strength >= open_threshold, track peak while open, seal as fizzled when strength < close_threshold AND quiet for quiet_days. Link_type-generic. Run after refresh_co_mention_links each night (cron-narrative-links.sh); the thresholds are the notability dial.';
+
+
+--
+-- Name: seal_confirmed_episodes(text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer DEFAULT 60, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer) RETURNS record
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_run timestamptz := clock_timestamp();
+BEGIN
+    -- Genuinely applied, unreverted moves only: earliest application per (player, team).
+    -- (failed_closed / manual_review / rejected rows are NOT ground truth.)
+    WITH apps AS (
+        SELECT DISTINCT ON (a.player_id, a.new_team_id)
+               a.id, a.player_id, a.new_team_id, a.old_team_id, a.applied_at
+        FROM transfer_identity_applications a
+        WHERE a.sport = p_sport
+          AND a.applied_at IS NOT NULL
+          AND a.reverted_at IS NULL
+        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
+    )
+    UPDATE narrative_episodes e
+    SET status = 'sealed',
+        outcome = 'confirmed',
+        ended_at = ap.applied_at,
+        evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
+            'application_id', ap.id,
+            'applied_at', ap.applied_at,
+            'old_team_id', ap.old_team_id,
+            'new_team_id', ap.new_team_id)),
+        updated_at = v_run
+    FROM apps ap
+    WHERE e.sport = p_sport AND e.status = 'open'
+      AND e.subject_type = 'player' AND e.subject_id = ap.player_id
+      AND e.object_type = 'team' AND e.object_id = ap.new_team_id
+      AND e.started_at <= ap.applied_at;
+
+    GET DIAGNOSTICS episodes_confirmed = ROW_COUNT;
+
+    -- Announcement lag: coverage went quiet (quiet-seal fired 'fizzled'), THEN the move
+    -- applied. Upgrade the label; ended_at stays at coverage end (it is true).
+    WITH apps AS (
+        SELECT DISTINCT ON (a.player_id, a.new_team_id)
+               a.id, a.player_id, a.new_team_id, a.old_team_id, a.applied_at
+        FROM transfer_identity_applications a
+        WHERE a.sport = p_sport
+          AND a.applied_at IS NOT NULL
+          AND a.reverted_at IS NULL
+        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
+    )
+    UPDATE narrative_episodes e
+    SET outcome = 'confirmed',
+        evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
+            'application_id', ap.id,
+            'applied_at', ap.applied_at,
+            'old_team_id', ap.old_team_id,
+            'new_team_id', ap.new_team_id,
+            'upgraded_from', 'fizzled')),
+        updated_at = v_run
+    FROM apps ap
+    WHERE e.sport = p_sport AND e.status = 'sealed' AND e.outcome = 'fizzled'
+      AND e.evidence->'confirmed' IS NULL
+      AND e.subject_type = 'player' AND e.subject_id = ap.player_id
+      AND e.object_type = 'team' AND e.object_id = ap.new_team_id
+      AND ap.applied_at >= e.ended_at
+      AND ap.applied_at <= e.ended_at + make_interval(days => p_lag_days);
+
+    GET DIAGNOSTICS episodes_upgraded = ROW_COUNT;
+
+    -- Revert stream: an application this function once consumed was rolled back.
+    -- The episode's confirmation claim must follow, or downstream calibration lies.
+    UPDATE narrative_episodes e
+    SET outcome = 'fizzled',
+        evidence = e.evidence || jsonb_build_object('confirmation_reverted', jsonb_build_object(
+            'application_id', a.id,
+            'reverted_at', a.reverted_at,
+            'noticed_at', v_run)),
+        updated_at = v_run
+    FROM transfer_identity_applications a
+    WHERE e.sport = p_sport AND e.outcome = 'confirmed'
+      AND e.evidence->'confirmation_reverted' IS NULL
+      AND (e.evidence->'confirmed'->>'application_id')::bigint = a.id
+      AND a.reverted_at IS NOT NULL;
+
+    GET DIAGNOSTICS episodes_reverted = ROW_COUNT;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION seal_confirmed_episodes(p_sport text, p_lag_days integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer) IS 'Episode outcome ground truth from transfer_identity_applications (applied, unreverted): seal open episodes confirmed, upgrade announcement-lag fizzles (<= lag_days after coverage end), downgrade when applications are reverted. Run BEFORE roll_narrative_episodes so confirmation beats same-night quiet-seal.';
 
 
 --
@@ -7718,6 +7898,32 @@ ALTER SEQUENCE public.sigil_synthesis_shadow_id_seq OWNED BY public.sigil_synthe
 
 
 --
+-- Name: source_performance; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.source_performance (
+    sport text NOT NULL,
+    source text NOT NULL,
+    pairs_covered integer NOT NULL,
+    confirmed_covered integer NOT NULL,
+    early_confirmed integer NOT NULL,
+    avg_lead_days numeric(6,1),
+    best_lead_days numeric(6,1),
+    reliability smallint NOT NULL,
+    components jsonb DEFAULT '{}'::jsonb NOT NULL,
+    computed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT source_performance_reliability_check CHECK (((reliability >= 0) AND (reliability <= 100)))
+);
+
+
+--
+-- Name: TABLE source_performance; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.source_performance IS 'Per-source measured transfer-prediction record: of the (player, team) pairs a source was attributed on (transfer_rumors.source_names), how many became applied moves, how many did the source report EARLY (before the pair ever reached advanced_talks), and with what lead time. The earned overlay to the assigned source_tiers prior. Presented, not gatekept: reliability is n-based belief in the track record itself — serve it with the score, do not filter by it. Feeding these weights back into scrub/heat/vibe is a separate, eval-gated step.';
+
+
+--
 -- Name: source_tiers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9099,6 +9305,14 @@ ALTER TABLE ONLY public.sigil_synthesis
 
 ALTER TABLE ONLY public.sigil_synthesis_shadow
     ADD CONSTRAINT sigil_synthesis_shadow_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: source_performance source_performance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.source_performance
+    ADD CONSTRAINT source_performance_pkey PRIMARY KEY (sport, source);
 
 
 --
@@ -10670,6 +10884,14 @@ ALTER TABLE ONLY public.sigil_synthesis
 
 
 --
+-- Name: source_performance source_performance_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.source_performance
+    ADD CONSTRAINT source_performance_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: sport_autofill_versions sport_autofill_versions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10880,5 +11102,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict D9NGRPSJLCYRat2c2f8pZ2ncPpPFHlNWZiIY2jFRWyEqaFY8cHXPs50qwEFsBJ9
+\unrestrict nXqTy1ZymQAxHLeV0AcdStkXYNuPkoh9kmNgiTPffb14oDMQswYT54Qo5C0oTkH
 

@@ -25,16 +25,27 @@ if [[ -z "$DB" ]]; then
     exit 1
 fi
 
-# Two steps, order matters: refresh recomputes the now-state links, then the episode
-# roll (mig 155) reads that state to open/peak/seal the long-memory layer.
+# Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
+# truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
+# roll episodes (open/peak/quiet-seal), then re-measure source performance.
 exec psql "$DB" -v ON_ERROR_STOP=1 -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_co_mention_links('FOOTBALL')
 UNION ALL
 SELECT 'NBA', now(), * FROM refresh_co_mention_links('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM refresh_co_mention_links('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM seal_confirmed_episodes('FOOTBALL')
+UNION ALL
+SELECT 'NBA', now(), * FROM seal_confirmed_episodes('NBA')
+UNION ALL
+SELECT 'NFL', now(), * FROM seal_confirmed_episodes('NFL')" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM roll_narrative_episodes('FOOTBALL')
 UNION ALL
 SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
 UNION ALL
-SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')"
+SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, refresh_source_performance('FOOTBALL') AS sources
+UNION ALL
+SELECT 'NBA', now(), refresh_source_performance('NBA')
+UNION ALL
+SELECT 'NFL', now(), refresh_source_performance('NFL')"

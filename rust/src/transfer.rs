@@ -53,7 +53,7 @@ use std::collections::HashMap;
 use tracing::{debug, warn};
 
 /// Prompt version for the transfer/trade vetting contract.
-pub const TRANSFER_PROMPT_VERSION: &str = "t7"; // t7: computed evidence card + no-credible-source stage ceiling
+pub const TRANSFER_PROMPT_VERSION: &str = "t8"; // t8: relational memory card (graph episodes + likelihood, mig 162) after the t7 evidence card
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
@@ -738,6 +738,7 @@ pub fn build_transfer_prompt(
     relationship: &str,
     news: &[NewsItem],
     evidence: &TransferEvidence,
+    memory: Option<&str>,
 ) -> String {
     let player_name = &c.player_name;
     let mut b = String::new();
@@ -799,6 +800,20 @@ pub fn build_transfer_prompt(
             )
         }
     ));
+
+    // Relational memory card (t8, mig 162): the graph's computed history for THIS
+    // pair — prior sealed stories with outcomes, the current story's likelihood and
+    // trajectory, recent confirmed moves. Rendered only when the graph holds memory;
+    // deliberately NOT part of the input_hash (memory rides along when the corpus
+    // changes — see the mig 162 header for the decision).
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\nRelational memory (computed history for this exact pair — weigh it: a story that fizzled before deserves more skepticism on thin evidence; a prior confirmed move changes the roster framing):\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
+    }
 
     b.push_str("\nNews headlines:\n");
     if news.is_empty() {
@@ -1045,6 +1060,27 @@ pub struct PairReady {
     pub input_hash: String,
 }
 
+/// load_relational_memory fetches the graph's computed memory card for the pair
+/// (`narrative_context_for_pair`, mig 162): prior sealed stories with outcomes, the
+/// current story's likelihood/trajectory, recent confirmed moves. `None` = the graph
+/// holds no memory for the pair (the prompt renders no section). Model-facing
+/// enrichment only — the relational layer is never user-exposed.
+pub async fn load_relational_memory(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: i32,
+) -> Result<Option<String>> {
+    let row: (Option<String>,) = sqlx::query_as("SELECT narrative_context_for_pair($1, $2, $3)")
+        .bind(sport)
+        .bind(player_id)
+        .bind(team_id)
+        .fetch_one(pool)
+        .await
+        .context("narrative_context_for_pair")?;
+    Ok(row.0)
+}
+
 /// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
 /// stays Postgres), the pair corpus, then `build_transfer_prompt` with the t5 options and the
 /// exact wire body. NO model call — these are the deterministic axes (the L2 finding: the
@@ -1086,7 +1122,16 @@ pub async fn build_pair_request(
     ));
 
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution, best_weight);
-    let built_prompt = build_transfer_prompt(team_name, c, sport, &relationship, &news, &evidence);
+    let memory = load_relational_memory(&hx.pool, sport, c.player_id, team_id).await?;
+    let built_prompt = build_transfer_prompt(
+        team_name,
+        c,
+        sport,
+        &relationship,
+        &news,
+        &evidence,
+        memory.as_deref(),
+    );
     let opts = GenerateOptions {
         system: Some(transfer_system_prompt(sport)),
         temperature: Some(temperature),
@@ -2138,7 +2183,7 @@ mod tests {
             source: "BBC".to_string(),
         }];
         let evidence = TransferEvidence::from_news(&news, 1, "BBC", 0.9);
-        let p = build_transfer_prompt("Arsenal", &c, "FOOTBALL", "current", &news, &evidence);
+        let p = build_transfer_prompt("Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None);
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Arsenal\nPlayer: Bukayo Saka\n\
@@ -2156,7 +2201,7 @@ Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credib
         // No nationality, unknown club, no position → identity is just name + "current club unknown".
         let c = cand("John Doe", "", "", "");
         let evidence = TransferEvidence::from_news(&[], 0, "", 0.0);
-        let p = build_transfer_prompt("Chelsea", &c, "FOOTBALL", "former", &[], &evidence);
+        let p = build_transfer_prompt("Chelsea", &c, "FOOTBALL", "former", &[], &evidence, None);
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: John Doe\n\
@@ -2180,7 +2225,23 @@ Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attr
             source: String::new(),
         }];
         let evidence = TransferEvidence::from_news(&news, 1, "", 0.0);
-        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence);
+        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None);
+        assert!(
+            !p.contains("Relational memory"),
+            "no memory ⇒ no section (t7 byte-shape preserved)"
+        );
+        let with_mem = build_transfer_prompt(
+            "Lakers",
+            &c,
+            "NBA",
+            "none",
+            &news,
+            &evidence,
+            Some("Prior flirtation fizzled: Jun 2026, peak coverage 55/100.\nCurrent story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up)."),
+        );
+        assert!(with_mem.contains("Relational memory (computed history"));
+        assert!(with_mem.contains("- Prior flirtation fizzled: Jun 2026, peak coverage 55/100."));
+        assert!(with_mem.contains("- Current story: tracked since Jul 05"));
         assert_eq!(
             p,
             "Sport: NBA\nTeam: Lakers\nPlayer: Victor Wembanyama\n\

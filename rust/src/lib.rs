@@ -38,6 +38,7 @@ pub mod corpus;
 pub mod db;
 pub mod embed;
 pub mod eval_tasks;
+pub mod graph;
 pub mod harness;
 pub mod judge;
 pub mod ledger;

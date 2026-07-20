@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict tIAdTULPsPOFycdma0ffbBP0vb88qDnC26BM0Z3fMxNcnip5fdQy2kDrmlp0Dw6
+\restrict kKyzrzoToeRl3lHH5Tx4XXxTAzD0GZPFRSp7wXtNj53lvt3j0D71OIeT1rcxm5I
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2961,6 +2961,73 @@ BEGIN
     PERFORM pg_notify('momentum_refresh_ready', v_sport);
 END;
 $$;
+
+
+--
+-- Name: narrative_context_for_pair(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+WITH sealed AS (
+    SELECT format(
+               'Prior %s: %s, peak coverage %s/100.',
+               CASE WHEN e.outcome = 'confirmed' THEN 'story ended in a CONFIRMED move'
+                    ELSE 'flirtation fizzled' END,
+               CASE WHEN to_char(e.started_at, 'Mon YYYY') = to_char(e.ended_at, 'Mon YYYY')
+                    THEN to_char(e.started_at, 'Mon YYYY')
+                    ELSE to_char(e.started_at, 'Mon YYYY') || ' - ' || to_char(e.ended_at, 'Mon YYYY')
+               END,
+               e.peak_strength) AS line,
+           e.ended_at
+    FROM narrative_episodes e
+    WHERE e.sport = p_sport AND e.link_type = 'co_mention' AND e.status = 'sealed'
+      AND e.subject_type = 'player' AND e.subject_id = p_player_id
+      AND e.object_type = 'team' AND e.object_id = p_team_id
+    ORDER BY e.ended_at DESC
+    LIMIT 3
+),
+open_ep AS (
+    SELECT format(
+               'Current story: tracked since %s, peak coverage %s/100%s%s.',
+               to_char(e.started_at, 'Mon DD'),
+               e.peak_strength,
+               COALESCE(', computed likelihood ' || e.likelihood || '/100', ''),
+               COALESCE(' (' || replace(l.trajectory, '_', ' ') || ')', '')) AS line
+    FROM narrative_episodes e
+    LEFT JOIN narrative_links l
+      ON l.sport = e.sport AND l.link_type = 'co_mention'
+     AND l.subject_type = e.subject_type AND l.subject_id = e.subject_id
+     AND l.object_type = e.object_type AND l.object_id = e.object_id
+    WHERE e.sport = p_sport AND e.link_type = 'co_mention' AND e.status = 'open'
+      AND e.subject_type = 'player' AND e.subject_id = p_player_id
+      AND e.object_type = 'team' AND e.object_id = p_team_id
+    LIMIT 1
+),
+recent_move AS (
+    SELECT format(
+               'Ground truth: the player completed a confirmed move to %s on %s.',
+               t.name, to_char(g.applied_at, 'Mon DD YYYY')) AS line
+    FROM transfer_ground_truth g
+    JOIN teams t ON t.id = g.team_id AND t.sport = g.sport
+    WHERE g.sport = p_sport AND g.player_id = p_player_id
+      AND g.applied_at > now() - interval '120 days'
+    ORDER BY g.applied_at DESC
+    LIMIT 1
+)
+SELECT NULLIF(concat_ws(E'\n',
+    (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
+    (SELECT line FROM open_ep),
+    (SELECT line FROM recent_move)), '');
+$$;
+
+
+--
+-- Name: FUNCTION narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The graph''s memory for one (player, team) pair as compact prompt lines: prior sealed stories with outcomes, the current open story + likelihood/trajectory, recent confirmed moves. NULL = no memory. Consumed by cognition-stage prompt builders (transfer t8 first) — the relational layer is model-facing, never user-facing.';
 
 
 --
@@ -11508,5 +11575,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tIAdTULPsPOFycdma0ffbBP0vb88qDnC26BM0Z3fMxNcnip5fdQy2kDrmlp0Dw6
+\unrestrict kKyzrzoToeRl3lHH5Tx4XXxTAzD0GZPFRSp7wXtNj53lvt3j0D71OIeT1rcxm5I
 

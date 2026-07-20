@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict TfCSPOMU4vPfZiJpDoTea4OVs6ozC3GL3arZj1eOQqdXtN6n0luskbDLVrSAg8c
+\restrict WwI3hcdMBJQbqN7lQu8D2AFvKreoq3hjpnmBd576OLCzg1ObSp7Gl0V5dysZjTh
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3055,11 +3055,25 @@ moves AS (
         OR (p_entity_type = 'team' AND g.team_id = p_entity_id))
     ORDER BY g.applied_at DESC
     LIMIT 2
+),
+figures AS (
+    -- Promoted (ACTIVE) news-derived people tied to this team — coaches, agents,
+    -- executives the provider never seeds (mig 166). News-derived accumulation:
+    -- graph-derived context, never ground truth.
+    SELECT format('Team figure: %s (%s, news-derived, %s sources).',
+               p.name, p.kind, p.distinct_sources) AS line,
+           p.mention_count
+    FROM narrative_persons p
+    WHERE p.sport = p_sport AND p_entity_type = 'team' AND p.team_id = p_entity_id
+      AND p.status = 'active' AND p.merged_into IS NULL
+    ORDER BY p.mention_count DESC
+    LIMIT 3
 )
 SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
     (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM open_eps),
-    (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves)), '');
+    (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
+    (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures)), '');
 $$;
 
 
@@ -3067,7 +3081,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves. Provenance-labeled lines — continuity, not corroboration. NULL = no memory. Consumers: narratives n8 first; vibe/sigil next. Model-facing only.';
+COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, and (teams, since mig 166) active news-derived team figures. Provenance-labeled lines — continuity, not corroboration. NULL = no memory. Consumers: narratives n8, vibe v12, sigil s15, momentum s5. Model-facing only.';
 
 
 --
@@ -3281,6 +3295,35 @@ CREATE FUNCTION public.position_group(p_sport text, p_position text) RETURNS tex
         ELSE NULL
     END;
 $$;
+
+
+--
+-- Name: promote_narrative_persons(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.promote_narrative_persons(p_sport text) RETURNS integer
+    LANGUAGE sql
+    AS $$
+WITH promoted AS (
+    UPDATE narrative_persons p
+       SET status = 'active', updated_at = NOW()
+     WHERE p.sport = p_sport
+       AND p.status = 'candidate'
+       AND p.merged_into IS NULL
+       AND p.distinct_sources >= 2
+       AND p.mention_count >= 3
+       AND p.last_seen_at - p.first_seen_at >= interval '2 days'
+    RETURNING p.id
+)
+SELECT count(*)::integer FROM promoted;
+$$;
+
+
+--
+-- Name: FUNCTION promote_narrative_persons(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly candidate->active promotion on accumulated evidence (>=2 sources, >=3 mentions, >=2 days span). Entityhood is earned, never granted by one extraction.';
 
 
 --
@@ -11798,5 +11841,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict TfCSPOMU4vPfZiJpDoTea4OVs6ozC3GL3arZj1eOQqdXtN6n0luskbDLVrSAg8c
+\unrestrict WwI3hcdMBJQbqN7lQu8D2AFvKreoq3hjpnmBd576OLCzg1ObSp7Gl0V5dysZjTh
 

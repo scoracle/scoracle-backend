@@ -166,3 +166,4 @@
 163_narrative_context_for_entity
 164_stat_context_for_entity
 165_graph_stage
+166_person_promotion

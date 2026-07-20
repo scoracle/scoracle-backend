@@ -28,8 +28,9 @@ fi
 # Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
 # truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
 # roll episodes (open/peak/quiet-seal), score transfer likelihood on the fresh open
-# set (mig 161 — after roll so new stories get scored same-night), then re-measure
-# source performance.
+# set (mig 161 — after roll so new stories get scored same-night), re-measure source
+# performance, then promote persons (mig 166 — evidence accumulated by the graph stage
+# earns candidate → active; promoted figures serve on team memory cards).
 exec psql "$DB" -v ON_ERROR_STOP=1 -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM refresh_co_mention_links('FOOTBALL')
 UNION ALL
@@ -55,4 +56,9 @@ SELECT 'FOOTBALL' AS sport, now() AS ran_at, refresh_source_performance('FOOTBAL
 UNION ALL
 SELECT 'NBA', now(), refresh_source_performance('NBA')
 UNION ALL
-SELECT 'NFL', now(), refresh_source_performance('NFL')"
+SELECT 'NFL', now(), refresh_source_performance('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, promote_narrative_persons('FOOTBALL') AS promoted
+UNION ALL
+SELECT 'NBA', now(), promote_narrative_persons('NBA')
+UNION ALL
+SELECT 'NFL', now(), promote_narrative_persons('NFL')"

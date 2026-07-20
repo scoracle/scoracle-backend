@@ -162,6 +162,8 @@ fn main() {
                 s.rating.as_ref(),
                 s.vibe.as_ref(),
                 &s.momentum,
+                // Fixtures pin the memory-free shape (the s5 eval discipline).
+                None,
             );
             json!({
                 "name": s.name,

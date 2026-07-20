@@ -15,10 +15,10 @@ use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s4"; // s4: direction decided in code (Session D), model narrates SCORE+READ
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s5"; // s4: direction decided in code (Session D); s5: relational memory card (per-entity arc context, mig 163 — junction rollout step 3)
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -59,6 +59,7 @@ Rules:
 - READ narrates the decided direction: what is moving (PEAK/rating vs Vibe/news), how hard, and what tension exists between the two markets.
 - When PEAK and Vibe disagree, name the conflict inside the READ and let the score magnitude reflect the mixed tape.
 - Do not chase sentiment hype when PEAK/rating does not confirm it.
+- RELATIONAL MEMORY lines are arc context: use them to name what is actually moving for THIS entity. They are never evidence for new claims and never override the decided direction.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
 
 #[derive(Clone, Debug)]
@@ -295,6 +296,10 @@ fn build_momentum_input_components(
     out
 }
 
+/// build_momentum_prompt assembles the user prompt. `memory` is the per-entity relational
+/// memory card (s5, mig 163) — `None` when the graph holds none, and for the eval/fixture
+/// paths (which pin the memory-free shape). Rendered BEFORE the decided-direction line so
+/// the decided fact stays adjacent to the reply cue.
 pub fn build_momentum_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -302,6 +307,7 @@ pub fn build_momentum_prompt(
     rating: Option<&SynthRating>,
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
+    memory: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
@@ -359,6 +365,20 @@ pub fn build_momentum_prompt(
     }
     if mom.empty() {
         b.push_str("(no durable momentum snapshot)\n");
+    }
+    // Relational memory card (s5, mig 163): per-entity arc context — prior stories with
+    // outcomes, live stories with likelihood, ground-truth moves. CONTINUITY, NOT
+    // CORROBORATION (the echo-chamber rule), and never a re-litigation of the decided
+    // direction: it grounds WHAT is moving in real stories so the READ names this
+    // entity's actual arc instead of generic filler. NOT part of the input_hash.
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\n=== RELATIONAL MEMORY (computed history) ===\n");
+        b.push_str("Arc context for the READ: what fizzled before, what is live now, what actually happened. Never evidence for a new claim, never a reason to contradict the decided direction.\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
     }
     // The decided fact the model narrates (never decides) — the omen pattern. The band
     // rationale is spelled out so the READ can ground "how hard is it moving" in the
@@ -563,6 +583,30 @@ impl StageHandler for MomentumHandler {
         // latest row — the hash it carried into input_version is the admission ticket. The
         // recomputed ctx.input_hash still stamps provenance on the row actually generated.
 
+        // Relational memory card (s5): load failure degrades to an unenriched prompt (the
+        // n8/v12 discipline — the trajectory numbers are the primary signal, memory is
+        // the arc context that keeps the READ entity-specific).
+        let memory = match crate::narratives::load_entity_memory(
+            &hx.pool,
+            &sport,
+            &item.entity_type,
+            entity_id,
+        )
+        .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                warn!(
+                    entity_type = %item.entity_type,
+                    entity_id,
+                    sport = %sport,
+                    error = %e,
+                    "momentum: relational memory load failed (continuing without memory)"
+                );
+                None
+            }
+        };
+
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,
@@ -570,6 +614,7 @@ impl StageHandler for MomentumHandler {
             ctx.rating.as_ref(),
             ctx.vibe.as_ref(),
             &ctx.snapshot,
+            memory.as_deref(),
         );
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
@@ -726,10 +771,13 @@ mod tests {
             momentum_score: Some(50.7),
             ..SynthMomentum::default()
         };
-        let prompt = build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom);
+        let prompt =
+            build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None);
         assert!(prompt.contains(
             "Direction (decided upstream, final): rising (momentum score +50.7, steady band ±10)"
         ));
+        // No memory ⇒ no section (s4 byte-shape preserved).
+        assert!(!prompt.contains("RELATIONAL MEMORY"));
         // No snapshot → the decided line still exists and is honestly steady.
         let empty = build_momentum_prompt(
             "player",
@@ -738,10 +786,48 @@ mod tests {
             None,
             None,
             &SynthMomentum::default(),
+            None,
         );
         assert!(empty.contains(
             "Direction (decided upstream, final): steady (no durable momentum snapshot)"
         ));
+    }
+
+    #[test]
+    fn relational_memory_renders_before_the_decided_direction() {
+        // The s5 memory card sits between the snapshot and the decided-direction line, so
+        // the decided fact stays adjacent to the reply cue. Instruction line + bullets.
+        let mom = SynthMomentum {
+            momentum_score: Some(50.7),
+            ..SynthMomentum::default()
+        };
+        let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nCurrent story: Chelsea — tracked since Jun 09, computed likelihood 85/100.";
+        let p = build_momentum_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            None,
+            None,
+            &mom,
+            Some(mem),
+        );
+        assert!(p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ"));
+        assert!(p.contains("- Prior story: Real Madrid — fizzled"));
+        let mem_pos = p.find("RELATIONAL MEMORY").unwrap();
+        let dir_pos = p.find("Direction (decided upstream, final)").unwrap();
+        let cue_pos = p.find("Write the Momentum read now").unwrap();
+        assert!(mem_pos < dir_pos && dir_pos < cue_pos);
+        // Blank memory ⇒ no section.
+        let blank = build_momentum_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            None,
+            None,
+            &mom,
+            Some(" \n  "),
+        );
+        assert!(!blank.contains("RELATIONAL MEMORY"));
     }
 
     #[test]

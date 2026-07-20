@@ -58,7 +58,7 @@ use sqlx::{PgPool, Row};
 /// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
 /// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
 /// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
-pub const SIGIL_PROMPT_VERSION: &str = "s14"; // s13: computed PILLAR AGREEMENT card; s14: de-parrotable DISAGREEMENT rubric
+pub const SIGIL_PROMPT_VERSION: &str = "s15"; // s14: de-parrotable DISAGREEMENT rubric; s15: relational memory card (per-entity arc memory, mig 163 — junction rollout step 3)
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
@@ -727,7 +727,8 @@ pub struct PrevSigil {
 /// build_synthesis_prompt assembles the user prompt. `sport_raw` is the original-case value used in
 /// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe). `previous` is the prior
 /// Sigil read for continuity (Phase 5.2) — rendered as a lead-in anchor, `None` for the parity
-/// path and an entity's first synthesis.
+/// path and an entity's first synthesis. `memory` is the per-entity relational memory card
+/// (s15, mig 163) — `None` when the graph holds none, and for the parity/eval paths.
 #[allow(clippy::too_many_arguments)]
 /// One deterministic cross-pillar direction comparison, computed in code before the model ever
 /// sees the pillars. The PEAK `ScoutingDecision` lesson (2026-07-10) applied to Sigil: the
@@ -876,6 +877,7 @@ pub fn build_synthesis_prompt(
     mom: &SynthMomentum,
     transfers: &[HeatItem],
     previous: Option<&PrevSigil>,
+    memory: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -1017,6 +1019,22 @@ pub fn build_synthesis_prompt(
         b.push_str("(no active transfer rumors)\n");
     } else {
         write_heat_lines(&mut b, transfers);
+    }
+
+    // Relational memory card (s15, mig 163): the graph's per-entity history — prior
+    // stories with outcomes, current stories with likelihood, ground-truth moves.
+    // CONTINUITY, NOT CORROBORATION (the echo-chamber rule): memory frames the arc the
+    // synthesis sits in; it is never itself evidence for a new claim. Rendered only when
+    // the graph holds memory; deliberately NOT part of the input_hash (the PREVIOUS
+    // SIGIL precedent: enrichment rides along, it never self-triggers).
+    if let Some(m) = memory.filter(|m| !m.trim().is_empty()) {
+        b.push_str("\n=== RELATIONAL MEMORY (computed history) ===\n");
+        b.push_str("Use for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n");
+        for line in m.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
     }
 
     b.push_str("\nRespond now.");
@@ -1303,7 +1321,9 @@ async fn generate_sigil_inner(
         &momentum,
         &transfers,
         // Parity is deterministic at temp 0 and intentionally skips the previous-Sigil
-        // continuity (as it skips SkipUnchanged/persist), so the prompt stays byte-stable.
+        // continuity AND the relational memory card (as it skips SkipUnchanged/persist),
+        // so the prompt stays byte-stable.
+        None,
         None,
     );
     let opts = GenerateOptions {
@@ -1611,6 +1631,30 @@ impl StageHandler for SigilHandler {
             blurb: prev_blurb.unwrap_or_default(),
         });
 
+        // Relational memory card (s15): loaded after the hash gate (a skip never pays the
+        // query); load failure degrades to an unenriched prompt (the n8/v12 discipline —
+        // the pillars are the primary signal, memory is enrichment).
+        let memory = match crate::narratives::load_entity_memory(
+            &hx.pool,
+            &sport,
+            &item.entity_type,
+            entity_id,
+        )
+        .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!(
+                    entity_type = %item.entity_type,
+                    entity_id,
+                    sport = %sport,
+                    error = %e,
+                    "sigil: relational memory load failed (continuing without memory)"
+                );
+                None
+            }
+        };
+
         let prompt = build_synthesis_prompt(
             &item.entity_type,
             &name,
@@ -1621,6 +1665,7 @@ impl StageHandler for SigilHandler {
             &momentum,
             &transfers,
             previous.as_ref(),
+            memory.as_deref(),
         );
         let opts = GenerateOptions {
             system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
@@ -2094,6 +2139,7 @@ mod tests {
             &mom,
             &[],
             None,
+            None,
         );
         assert_eq!(
             p,
@@ -2170,6 +2216,7 @@ mod tests {
             &mom,
             &[],
             None,
+            None,
         );
         assert!(!p.contains("PILLAR AGREEMENT"));
     }
@@ -2185,6 +2232,7 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
+            None,
             None,
         );
         assert_eq!(
@@ -2215,6 +2263,7 @@ mod tests {
             &SynthMomentum::default(),
             &transfers,
             None,
+            None,
         );
         assert!(p.contains(
             "=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n\nRespond now."
@@ -2239,6 +2288,7 @@ mod tests {
             &SynthMomentum::default(),
             &[],
             Some(&previous),
+            None,
         );
         assert!(p.starts_with(
             "Entity: Test Player (NBA player)\n\n=== PREVIOUS SIGIL ===\nScore: 68/100\nA quiet, season-long ascent.\n\n=== NEWS NARRATIVE ==="
@@ -2262,10 +2312,48 @@ mod tests {
             &SynthMomentum::default(),
             &[],
             Some(&previous),
+            None,
         );
         assert!(p.starts_with(
             "Entity: Test Team (NFL team)\n\n=== PREVIOUS SIGIL ===\nScore: 55/100\n\n=== NEWS NARRATIVE ==="
         ));
+    }
+
+    #[test]
+    fn relational_memory_renders_as_final_section() {
+        // The s15 memory card renders AFTER the pillars (evidence placement, the n8/v12
+        // position) with the echo-chamber instruction line, bulleted lines, and sits
+        // immediately before the reply cue. None/blank ⇒ no section (s14 byte-shape
+        // preserved — pinned by no_momentum_data_line_when_both_absent).
+        let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
+        let p = build_synthesis_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &[],
+            None,
+            Some(mem),
+        );
+        assert!(p.contains(
+            "=== TRANSFER HEAT ===\n(no active transfer rumors)\n\n=== RELATIONAL MEMORY (computed history) ===\nUse for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n- Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\n- Ground truth: completed a confirmed move to Arsenal on Jul 01 2026.\n\nRespond now."
+        ));
+        let blank = build_synthesis_prompt(
+            "player",
+            "Test Player",
+            "FOOTBALL",
+            &[],
+            None,
+            None,
+            &SynthMomentum::default(),
+            &[],
+            None,
+            Some("  \n "),
+        );
+        assert!(!blank.contains("RELATIONAL MEMORY"));
     }
 
     #[test]

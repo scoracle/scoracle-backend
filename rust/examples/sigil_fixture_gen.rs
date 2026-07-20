@@ -235,6 +235,8 @@ fn main() {
                 &s.momentum,
                 &s.transfers,
                 s.previous.as_ref(),
+                // Fixtures pin the memory-free shape (the s15 eval/parity discipline).
+                None,
             );
             json!({
                 "name": s.name,

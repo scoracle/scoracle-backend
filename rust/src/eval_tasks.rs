@@ -562,7 +562,9 @@ impl LensTask for SigilTask {
         {
             return Ok(None);
         }
-        // prev_sigil = None: deterministic + reproducible, exactly as the parity path (sigil.rs).
+        // prev_sigil = None, memory = None: deterministic + reproducible, exactly as the
+        // parity path (sigil.rs) — fixtures measure the fresh-pillar contract, not the
+        // s15 enrichment riders.
         Ok(Some(build_synthesis_prompt(
             &e.entity_type,
             &name,
@@ -572,6 +574,7 @@ impl LensTask for SigilTask {
             vibe.as_ref(),
             &momentum,
             &transfers,
+            None,
             None,
         )))
     }
@@ -1268,6 +1271,8 @@ impl LensTask for MomentumTask {
         if rating.is_none() && vibe.is_none() && momentum.empty() {
             return Ok(None);
         }
+        // Eval pins the memory-free prompt shape (the s5/n8 precedent): fixtures measure
+        // the fresh-signal contract, not the enrichment rider.
         Ok(Some(build_momentum_prompt(
             &e.entity_type,
             &name,
@@ -1275,6 +1280,7 @@ impl LensTask for MomentumTask {
             rating.as_ref(),
             vibe.as_ref(),
             &momentum,
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

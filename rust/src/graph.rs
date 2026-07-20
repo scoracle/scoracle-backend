@@ -25,10 +25,18 @@
 //! accumulation) composes it; `examples/graph_probe.rs` is the measured probe run
 //! BEFORE any wiring, per house culture.
 
-use crate::harness::Parser;
+use crate::harness::{Harness, Parser};
+use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
-use anyhow::Result;
+use crate::route::Role;
+use crate::stage::StageHandler;
+use crate::util::{go_json_string, hash_components};
+use crate::work::{Item, Stage};
+use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use serde::Deserialize;
+use sqlx::{PgPool, Row};
+use tracing::debug;
 
 pub const GRAPH_PROMPT_VERSION: &str = "g2"; // g2: person-extraction emphasis + object-attachment rule (probe 2026-07-19: g1 found 0 persons across 8 articles with Tuchel/Alonso present; one Rogers relation attached to the wrong club)
 
@@ -48,7 +56,7 @@ pub const PREDICATES: &[&str] = &[
 /// not the extractor, decides who becomes an entity).
 pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "other"];
 
-const GRAPH_SYSTEM_PROMPT: &str = "Task: extract structured narrative relations from one sports article.\n\nYou are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:\n\n1. \"relations\": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.\n   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH — for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.\n   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive). \n   - confidence: \"speculative\" (unsourced/rumored), \"reported\" (attributed to a source), \"confirmed\" (official/announced).\n   - Extract only what the text supports. No relation is the correct output for many articles.\n\n2. \"persons\": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.\n   - kind: coach | agent | executive | family | other.\n   - team_context: the number of the listed TEAM they are tied to, or null.\n   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.\n\nReturn ONLY this JSON object, no commentary:\n{\"relations\":[{\"subject\":1,\"predicate\":\"trade_rumor\",\"object\":2,\"sentiment\":0.0,\"confidence\":\"reported\"}],\"persons\":[{\"name\":\"...\",\"kind\":\"coach\",\"team_context\":2}]}";
+pub const GRAPH_SYSTEM_PROMPT: &str = "Task: extract structured narrative relations from one sports article.\n\nYou are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:\n\n1. \"relations\": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.\n   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH — for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.\n   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive). \n   - confidence: \"speculative\" (unsourced/rumored), \"reported\" (attributed to a source), \"confirmed\" (official/announced).\n   - Extract only what the text supports. No relation is the correct output for many articles.\n\n2. \"persons\": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.\n   - kind: coach | agent | executive | family | other.\n   - team_context: the number of the listed TEAM they are tied to, or null.\n   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.\n\nReturn ONLY this JSON object, no commentary:\n{\"relations\":[{\"subject\":1,\"predicate\":\"trade_rumor\",\"object\":2,\"sentiment\":0.0,\"confidence\":\"reported\"}],\"persons\":[{\"name\":\"...\",\"kind\":\"coach\",\"team_context\":2}]}";
 
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
@@ -99,6 +107,91 @@ pub struct GraphPerson {
 pub struct GraphExtraction {
     pub relations: Vec<GraphRelation>,
     pub persons: Vec<GraphPerson>,
+}
+
+/// One article's metadata for the extraction prompt.
+#[derive(Clone, Debug)]
+pub struct GraphArticle {
+    pub source: String,
+    pub published: String,
+    pub title: String,
+    pub description: String,
+}
+
+/// load_graph_article_context loads one article + its scrub-vetted entities as the
+/// closed candidate list (players with identity-card descriptors, teams by name) — the
+/// shared deterministic prefix of the probe, the eval lens, and the stage handler.
+/// `Ok(None)` when the article is missing or has no vetted entities (nothing to extract
+/// against — the fail-closed empty path).
+pub async fn load_graph_article_context(
+    pool: &PgPool,
+    article_id: i64,
+    sport: &str,
+) -> Result<Option<(GraphArticle, Vec<GraphCandidate>)>> {
+    let row = sqlx::query(
+        r#"
+        SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text, a.title,
+               COALESCE(a.description, '')
+        FROM news_articles a WHERE a.id = $1
+        "#,
+    )
+    .bind(article_id)
+    .fetch_optional(pool)
+    .await
+    .context("load graph article")?;
+    let Some(row) = row else { return Ok(None) };
+    let article = GraphArticle {
+        source: row.get(0),
+        published: row.get::<Option<String>, _>(1).unwrap_or_default(),
+        title: row.get(2),
+        description: row.get(3),
+    };
+
+    let cand_rows = sqlx::query(
+        r#"
+        SELECT e.entity_type, e.entity_id,
+               COALESCE(p.name, t.name, '?') AS name,
+               COALESCE(ct.name, '') AS current_club
+        FROM news_article_entities e
+        LEFT JOIN players p ON e.entity_type='player' AND p.id=e.entity_id AND p.sport=e.sport
+        LEFT JOIN teams t ON e.entity_type='team' AND t.id=e.entity_id AND t.sport=e.sport
+        LEFT JOIN player_current_identity pci
+               ON e.entity_type='player' AND pci.player_id=e.entity_id AND pci.sport=e.sport
+        LEFT JOIN teams ct ON ct.id=pci.team_id AND ct.sport=e.sport
+        WHERE e.article_id=$1 AND e.sport=$2 AND e.vetted IS TRUE
+        ORDER BY e.entity_type, e.entity_id
+        "#,
+    )
+    .bind(article_id)
+    .bind(sport)
+    .fetch_all(pool)
+    .await
+    .context("load graph candidates")?;
+    if cand_rows.is_empty() {
+        return Ok(None);
+    }
+    let candidates = cand_rows
+        .into_iter()
+        .map(|r| {
+            let entity_type: String = r.get(0);
+            let entity_id: i32 = r.get(1);
+            let name: String = r.get(2);
+            let club: String = r.get(3);
+            let descriptor = if entity_type == "team" {
+                format!("{name} (team)")
+            } else if club.is_empty() {
+                format!("{name} (player, current club unknown)")
+            } else {
+                format!("{name} (player, currently at {club})")
+            };
+            GraphCandidate {
+                entity_type,
+                entity_id,
+                descriptor,
+            }
+        })
+        .collect();
+    Ok(Some((article, candidates)))
 }
 
 /// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
@@ -251,6 +344,305 @@ impl Parser<GraphExtraction> for GraphParser<'_> {
             });
         }
         Ok(Some(out))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The stage handler — wired 2026-07-19 AFTER the fixture gate measured 12/12 at g2
+// (fixtures/graph/: object attachment, person discovery, over-extraction, unary).
+// Article-keyed, downstream of scrub via the mig-165 vetted-trigger enqueue.
+// ---------------------------------------------------------------------------
+
+/// build_graph_input_components is the canonical debounce pre-image: the article's
+/// material text plus the sorted vetted-candidate identity list. Same canonical-JSON
+/// discipline as the other stages; hashed into `graph_extractions.input_hash`.
+pub fn build_graph_input_components(
+    article: &GraphArticle,
+    candidates: &[GraphCandidate],
+) -> String {
+    let mut cands: Vec<String> = candidates
+        .iter()
+        .map(|c| format!("{}:{}", c.entity_type, c.entity_id))
+        .collect();
+    cands.sort();
+    let mut out = String::from("{\"candidates\":[");
+    for (i, c) in cands.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&go_json_string(c));
+    }
+    out.push_str("],\"description\":");
+    out.push_str(&go_json_string(&article.description));
+    out.push_str(",\"title\":");
+    out.push_str(&go_json_string(&article.title));
+    out.push('}');
+    out
+}
+
+/// GraphHandler drains the durable `graph` stage: load the article + vetted candidates,
+/// debounce on the material hash (bookkeeping row in `graph_extractions`), extract, and
+/// write `narrative_events` (upsert on the mig-154 dedupe key) + person candidates with
+/// idempotent evidence accumulation (the mention PK makes re-extraction a no-op bump).
+/// Fail-closed replies record a `failed_closed` bookkeeping row — same material never
+/// re-hammers the GPU — and write no events.
+pub struct GraphHandler;
+
+impl GraphHandler {
+    pub fn new() -> Self {
+        GraphHandler
+    }
+}
+
+impl Default for GraphHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+async fn upsert_event(pool: &PgPool, article_id: i64, sport: &str, model: &str, r: &GraphRelation) -> Result<i64> {
+    let row = sqlx::query(
+        r#"
+        INSERT INTO narrative_events
+            (sport, subject_type, subject_id, predicate, object_type, object_id,
+             sentiment, confidence, article_id, event_date, source, model_version, prompt_version)
+        SELECT $1, $2, $3, $4, $5, $6, $7::float8::numeric(3,2), $8, $9,
+               COALESCE(a.published_at, NOW()), a.source, $10, $11
+        FROM news_articles a WHERE a.id = $9
+        ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
+                     COALESCE(object_type, ''), COALESCE(object_id, 0))
+        DO UPDATE SET sentiment = EXCLUDED.sentiment, confidence = EXCLUDED.confidence,
+                      model_version = EXCLUDED.model_version,
+                      prompt_version = EXCLUDED.prompt_version, extracted_at = NOW()
+        RETURNING id
+        "#,
+    )
+    .bind(sport)
+    .bind(&r.subject_type)
+    .bind(r.subject_id)
+    .bind(&r.predicate)
+    .bind(r.object_type.as_deref())
+    .bind(r.object_id)
+    .bind(r.sentiment)
+    .bind(&r.confidence)
+    .bind(article_id)
+    .bind(model)
+    .bind(GRAPH_PROMPT_VERSION)
+    .fetch_one(pool)
+    .await
+    .context("upsert narrative_event")?;
+    Ok(row.get("id"))
+}
+
+/// accumulate_person resolves-or-creates the candidate person and, ONLY when this
+/// article is a NEW mention (the mention PK), bumps the evidence counters. Same-name
+/// active rows win the resolve; provider-dupe merges stay a later data-layer pass.
+async fn accumulate_person(pool: &PgPool, article_id: i64, sport: &str, model: &str, p: &GraphPerson) -> Result<i32> {
+    let person_id: i32 = sqlx::query_scalar(
+        r#"
+        WITH existing AS (
+            SELECT id FROM narrative_persons
+            WHERE sport = $1 AND lower(name) = lower($2) AND merged_into IS NULL
+            ORDER BY (status = 'active') DESC, mention_count DESC
+            LIMIT 1
+        ), ins AS (
+            INSERT INTO narrative_persons
+                (sport, kind, name, team_id, status, first_seen_at, last_seen_at, model_version)
+            SELECT $1, $3, $2, $4, 'candidate',
+                   COALESCE((SELECT published_at FROM news_articles WHERE id = $5), NOW()),
+                   COALESCE((SELECT published_at FROM news_articles WHERE id = $5), NOW()),
+                   $6
+            WHERE NOT EXISTS (SELECT 1 FROM existing)
+            RETURNING id
+        )
+        SELECT id FROM existing UNION ALL SELECT id FROM ins
+        "#,
+    )
+    .bind(sport)
+    .bind(&p.name)
+    .bind(&p.kind)
+    .bind(p.team_context_id)
+    .bind(article_id)
+    .bind(model)
+    .fetch_one(pool)
+    .await
+    .context("resolve/insert narrative_person")?;
+
+    let new_mention: Option<i32> = sqlx::query_scalar(
+        "INSERT INTO narrative_person_mentions (article_id, person_id, sport)
+         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING person_id",
+    )
+    .bind(article_id)
+    .bind(person_id)
+    .bind(sport)
+    .fetch_optional(pool)
+    .await
+    .context("insert person mention")?;
+
+    if new_mention.is_some() {
+        // Counter bump only on a NEW mention (idempotent re-extraction). The
+        // distinct_sources recount runs AFTER the mention insert committed its
+        // statement, so the fresh row is visible.
+        sqlx::query(
+            r#"
+            UPDATE narrative_persons p SET
+                mention_count = p.mention_count + 1,
+                distinct_sources = (
+                    SELECT count(DISTINCT a.source)
+                    FROM narrative_person_mentions m
+                    JOIN news_articles a ON a.id = m.article_id
+                    WHERE m.person_id = p.id AND a.source IS NOT NULL),
+                last_seen_at = GREATEST(
+                    COALESCE(p.last_seen_at, to_timestamp(0)),
+                    COALESCE((SELECT published_at FROM news_articles WHERE id = $2), NOW())),
+                team_id = COALESCE(p.team_id, $3),
+                updated_at = NOW()
+            WHERE p.id = $1
+            "#,
+        )
+        .bind(person_id)
+        .bind(article_id)
+        .bind(p.team_context_id)
+        .execute(pool)
+        .await
+        .context("bump person evidence")?;
+    }
+    Ok(person_id)
+}
+
+#[async_trait]
+impl StageHandler for GraphHandler {
+    fn stage(&self) -> Stage {
+        Stage::Graph
+    }
+
+    async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
+        let article_id = item.entity_id;
+        let sport = item.sport.to_uppercase();
+        let Some((article, candidates)) =
+            load_graph_article_context(&hx.pool, article_id, &sport).await?
+        else {
+            debug!(article_id, sport = %sport, "graph: no article or no vetted candidates");
+            return Ok(());
+        };
+
+        let input_components = build_graph_input_components(&article, &candidates);
+        let input_hash = hash_components(&input_components);
+        // Debounce on the bookkeeping row: same material AND same prompt contract ⇒ the
+        // extraction already ran (including a fail-closed one — never re-hammer the GPU
+        // on identical bytes). A prompt bump re-extracts everything once, like rating.
+        let prior: Option<(String, String)> = sqlx::query_as(
+            "SELECT input_hash, prompt_version FROM graph_extractions WHERE article_id = $1",
+        )
+        .bind(article_id)
+        .fetch_optional(&hx.pool)
+        .await
+        .context("graph debounce read")?;
+        if prior
+            .as_ref()
+            .is_some_and(|(h, v)| h == &input_hash && v == GRAPH_PROMPT_VERSION)
+        {
+            debug!(article_id, "graph: debounce-skip, material + contract unchanged");
+            return Ok(());
+        }
+
+        let prompt = build_graph_prompt(
+            &article.source,
+            &article.published,
+            &article.title,
+            &article.description,
+            &candidates,
+        );
+        let parser = GraphParser {
+            candidates: &candidates,
+        };
+        let extracted = hx
+            .extract(Role::EmotionalNews, &prompt, &graph_opts(), &parser)
+            .await?;
+        let model = extracted.model.clone();
+
+        let (outcome, relations, persons) = match &extracted.value {
+            None => ("failed_closed", &[][..], &[][..]),
+            Some(g) => ("extracted", g.relations.as_slice(), g.persons.as_slice()),
+        };
+
+        let mut event_ids = Vec::with_capacity(relations.len());
+        for r in relations {
+            event_ids.push(upsert_event(&hx.pool, article_id, &sport, &model, r).await?);
+        }
+        for p in persons {
+            accumulate_person(&hx.pool, article_id, &sport, &model, p).await?;
+        }
+
+        sqlx::query(
+            r#"
+            INSERT INTO graph_extractions
+                (article_id, sport, input_hash, prompt_version, model_version,
+                 parser_outcome, relations_n, persons_n, extracted_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            ON CONFLICT (article_id) DO UPDATE SET
+                sport = EXCLUDED.sport, input_hash = EXCLUDED.input_hash,
+                prompt_version = EXCLUDED.prompt_version,
+                model_version = EXCLUDED.model_version,
+                parser_outcome = EXCLUDED.parser_outcome,
+                relations_n = EXCLUDED.relations_n, persons_n = EXCLUDED.persons_n,
+                extracted_at = NOW()
+            "#,
+        )
+        .bind(article_id)
+        .bind(&sport)
+        .bind(&input_hash)
+        .bind(GRAPH_PROMPT_VERSION)
+        .bind(&model)
+        .bind(outcome)
+        .bind(relations.len() as i32)
+        .bind(persons.len() as i32)
+        .execute(&hx.pool)
+        .await
+        .context("upsert graph_extractions")?;
+
+        let entity_id_i32 = i32::try_from(article_id)
+            .map_err(|_| anyhow!("graph: article_id {article_id} outside i32 range"))?;
+        insert_cognition_ledger_best_effort(
+            &hx.pool,
+            CognitionLedgerEntry {
+                stage: "graph".to_string(),
+                lens: "graph".to_string(),
+                role: Role::EmotionalNews.as_str().to_string(),
+                entity_type: "article".to_string(),
+                entity_id: entity_id_i32,
+                sport: sport.clone(),
+                pair_entity_type: None,
+                pair_entity_id: None,
+                trigger_type: "periodic".to_string(),
+                trigger_payload: serde_json::json!({}),
+                product_table: "narrative_events".to_string(),
+                product_row_ids: event_ids,
+                model_version: model,
+                prompt_version: GRAPH_PROMPT_VERSION.to_string(),
+                output_contract_version: "graph-extraction-v1".to_string(),
+                input_ids: vec![article_id],
+                input_hash: Some(input_hash),
+                request_body: Some(extracted.request_body),
+                built_prompt: Some(extracted.built_prompt),
+                included_evidence: serde_json::json!({
+                    "relations_n": relations.len(),
+                    "persons": persons.iter().map(|p| format!("{} [{}]", p.name, p.kind)).collect::<Vec<_>>(),
+                }),
+                excluded_evidence: serde_json::json!({
+                    "parser_outcome": outcome,
+                }),
+                context_budget: serde_json::json!({
+                    "num_predict": 768,
+                    "eval_count": extracted.eval_count,
+                    "wall_ms": extracted.wall_ms,
+                }),
+                parser_outcome: outcome.to_string(),
+            },
+        )
+        .await;
+
+        Ok(())
     }
 }
 

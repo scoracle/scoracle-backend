@@ -31,6 +31,10 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
+use crate::graph::{
+    build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
+    GRAPH_PROMPT_VERSION,
+};
 use crate::harness::{Harness, Parser};
 use crate::momentum::{
     build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
@@ -165,6 +169,12 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "the Oracle",
             mandate: "Read the assembled cards aloud and deliver the entity's reading in the house voice.",
             credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented.",
+        }),
+        "graph" => Some(LensParameters {
+            rail: Rail::EmotionalNews,
+            operator: "narrative archivist",
+            mandate: "Extract the typed relations and person discoveries one vetted article actually states into the graph.",
+            credibility_guard: "Closed candidate list only; attach each relation to the true counterparty; an empty extraction beats an invented one.",
         }),
         _ => None,
     }
@@ -308,6 +318,29 @@ pub struct Expect {
     pub prose_min_words: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prose_max_words: Option<i32>,
+    // graph typed-extraction rubric (number-level: N = the fixture prompt's candidate numbering).
+    /// The fixture prompt's candidate list as entity TYPES by number ("player"/"team") — evaluate
+    /// reconstructs the GraphParser's candidate list from this (ids = the 1-based number), so the
+    /// REAL production parser runs and the checks assert on its resolved output.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub graph_candidate_types: Option<Vec<String>>,
+    /// Attachment discipline: each "subject:predicate:object" triple must exist in the parsed
+    /// relations (numbers; object "-" = unary/no counterparty; predicate "*" = any predicate).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relations_include: Option<Vec<String>>,
+    /// The object-attachment pin: no parsed relation may match any of these triples (same syntax) —
+    /// e.g. the g2-measured Rogers→Arsenal slip where Chelsea was the counterparty.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relations_exclude: Option<Vec<String>>,
+    /// Over-extraction guard: at most this many relations (0 pins the clean-empty case).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub relations_max: Option<i32>,
+    /// Person discovery: each "Name:kind" (kind optional) must appear in the parsed persons.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persons_include: Option<Vec<String>>,
+    /// No player leakage / no invention: no parsed person name may contain any of these.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persons_exclude: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -394,6 +427,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "transfer" => Some(Box::new(TransferTask)),
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
+        "graph" => Some(Box::new(GraphTask)),
         _ => None,
     }
 }
@@ -408,6 +442,7 @@ pub fn all_task_names() -> &'static [&'static str] {
         "transfer",
         "rating",
         "momentum",
+        "graph",
     ]
 }
 
@@ -1371,6 +1406,187 @@ fn empty_dash(s: &str) -> &str {
 
 fn contains_ci(haystack: &str, needle: &str) -> bool {
     haystack.to_lowercase().contains(&needle.to_lowercase())
+}
+
+// ---------------------------------------------------------------------------
+// Graph — the typed-extraction lens (junction rollout step 5). Fixture-gated BEFORE the
+// queue stage wires in: the fixtures pin the g2 probe's measured residuals (the
+// object-attachment slip, person-discovery misses, over-extraction). Live mode takes
+// `article:<id>:<SPORT>` specs and builds the exact production prompt via the shared
+// `load_graph_article_context` loader.
+// ---------------------------------------------------------------------------
+
+pub struct GraphTask;
+
+#[async_trait]
+impl LensTask for GraphTask {
+    fn name(&self) -> &'static str {
+        "graph"
+    }
+    fn role(&self) -> Role {
+        Role::EmotionalNews
+    }
+    fn prompt_version(&self) -> &'static str {
+        GRAPH_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        let mut o = graph_opts();
+        o.temperature = Some(temperature);
+        o
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        if e.entity_type != "article" {
+            anyhow::bail!(
+                "graph evals are article-keyed: use article:<id>:<SPORT> (got {})",
+                e.entity_type
+            );
+        }
+        let sport = e.sport.to_uppercase();
+        let Some((article, candidates)) =
+            load_graph_article_context(&hx.pool, i64::from(e.entity_id), &sport).await?
+        else {
+            return Ok(None);
+        };
+        Ok(Some(build_graph_prompt(
+            &article.source,
+            &article.published,
+            &article.title,
+            &article.description,
+            &candidates,
+        )))
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        // Reconstruct the fixture's candidate list from `graph_candidate_types` (entity
+        // ids = the 1-based prompt numbers) so the REAL production parser runs and the
+        // triple checks read directly in prompt-number terms.
+        let types: Vec<String> = expect
+            .and_then(|x| x.graph_candidate_types.clone())
+            .unwrap_or_default();
+        let candidates: Vec<GraphCandidate> = types
+            .iter()
+            .enumerate()
+            .map(|(i, t)| GraphCandidate {
+                entity_type: t.clone(),
+                entity_id: (i + 1) as i32,
+                descriptor: format!("candidate {}", i + 1),
+            })
+            .collect();
+        let parsed = GraphParser {
+            candidates: &candidates,
+        }
+        .parse(raw)
+        .ok()
+        .flatten();
+        let Some(g) = parsed else {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable (fail-closed)".into(),
+            };
+        };
+
+        // "subject:predicate:object" triple matcher — numbers are the prompt's 1-based
+        // candidate numbers (== the reconstructed entity ids); object "-" = unary;
+        // predicate "*" = any.
+        let triples: Vec<(i32, String, Option<i32>)> = g
+            .relations
+            .iter()
+            .map(|r| (r.subject_id, r.predicate.clone(), r.object_id))
+            .collect();
+        let matches = |spec: &str, (s, p, o): &(i32, String, Option<i32>)| -> bool {
+            let parts: Vec<&str> = spec.split(':').collect();
+            if parts.len() != 3 {
+                return false;
+            }
+            let Ok(want_s) = parts[0].parse::<i32>() else {
+                return false;
+            };
+            let pred_ok = parts[1] == "*" || parts[1] == p;
+            let obj_ok = if parts[2] == "-" {
+                o.is_none()
+            } else {
+                parts[2].parse::<i32>().ok() == *o
+            };
+            want_s == *s && pred_ok && obj_ok
+        };
+        let persons_detail = || {
+            format!(
+                "persons={:?}",
+                g.persons
+                    .iter()
+                    .map(|p| format!("{}[{}]", p.name, p.kind))
+                    .collect::<Vec<_>>()
+            )
+        };
+
+        let mut checks = Vec::new();
+        if let Some(x) = expect {
+            if let Some(incl) = &x.relations_include {
+                for spec in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("relation_present[{spec}]"),
+                        pass: triples.iter().any(|t| matches(spec, t)),
+                        detail: format!("relations={triples:?}"),
+                    });
+                }
+            }
+            if let Some(excl) = &x.relations_exclude {
+                for spec in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("relation_absent[{spec}]"),
+                        pass: !triples.iter().any(|t| matches(spec, t)),
+                        detail: format!("relations={triples:?}"),
+                    });
+                }
+            }
+            if let Some(max) = x.relations_max {
+                checks.push(PropertyCheck {
+                    name: "relations_le".into(),
+                    pass: (g.relations.len() as i32) <= max,
+                    detail: format!("{} ≤ {max}", g.relations.len()),
+                });
+            }
+            if let Some(incl) = &x.persons_include {
+                for spec in incl {
+                    let (name, kind) = match spec.split_once(':') {
+                        Some((n, k)) => (n, Some(k)),
+                        None => (spec.as_str(), None),
+                    };
+                    checks.push(PropertyCheck {
+                        name: format!("person_present[{spec}]"),
+                        pass: g.persons.iter().any(|p| {
+                            p.name.eq_ignore_ascii_case(name)
+                                && kind.is_none_or(|k| p.kind == k)
+                        }),
+                        detail: persons_detail(),
+                    });
+                }
+            }
+            if let Some(excl) = &x.persons_exclude {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("person_absent[{frag}]"),
+                        pass: !g
+                            .persons
+                            .iter()
+                            .any(|p| p.name.to_lowercase().contains(&frag.to_lowercase())),
+                        detail: persons_detail(),
+                    });
+                }
+            }
+        }
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!(
+                "{} relation(s), {} person(s)",
+                g.relations.len(),
+                g.persons.len()
+            ),
+        }
+    }
 }
 
 #[cfg(test)]

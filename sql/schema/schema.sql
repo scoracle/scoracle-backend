@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict qe8Nu3o27yLJ8AcdzU7NXFOUmqmJ35fczKpffmFpf5fAIttOWDG1vuu2KUodPz2
+\restrict TfCSPOMU4vPfZiJpDoTea4OVs6ozC3GL3arZj1eOQqdXtN6n0luskbDLVrSAg8c
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2507,11 +2507,34 @@ CREATE FUNCTION public.enqueue_derive_on_vetted() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    v_count  integer;
-    v_fp     text;
-    v_ver    text;
-    v_stages text[] := ARRAY['narratives', 'vibe'];
+    v_count       integer;
+    v_fp          text;
+    v_ver         text;
+    v_stages      text[] := ARRAY['narratives', 'vibe'];
+    v_graph_count integer;
 BEGIN
+    -- Per-ARTICLE graph extraction (mig 165): one item per article, reopened when the
+    -- article's vetted membership changes; the handler debounces on material hash, so
+    -- reopens are cheap. BEFORE the freshness gate below — extraction of a backfilled
+    -- old article is durable-memory work the 72h corpus gate must not suppress.
+    SELECT count(*) INTO v_graph_count
+      FROM public.news_article_entities
+     WHERE article_id = NEW.article_id AND vetted IS TRUE;
+
+    INSERT INTO public.pipeline_work
+        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+    VALUES ('graph', 'article', NEW.article_id::integer, NEW.sport, 'pending',
+            'g:' || v_graph_count, NOW(), NOW())
+    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+        status        = 'pending',
+        attempts      = 0,
+        available_at  = NOW(),
+        updated_at    = NOW(),
+        last_error    = NULL,
+        input_version = EXCLUDED.input_version
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
+
     -- Membership fingerprint over this entity's vetted, in-lookback (72h) links. Doubles as the
     -- mig-103 freshness gate: a stale backlog primary with no fresh vetted corpus yields count=0
     -- and enqueues nothing. One link row per (article, entity) by PK, so no DISTINCT needed;
@@ -6848,6 +6871,31 @@ ALTER SEQUENCE public.fixtures_id_seq OWNED BY public.fixtures.id;
 
 
 --
+-- Name: graph_extractions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.graph_extractions (
+    article_id bigint NOT NULL,
+    sport text NOT NULL,
+    input_hash text NOT NULL,
+    prompt_version text NOT NULL,
+    model_version text NOT NULL,
+    parser_outcome text NOT NULL,
+    relations_n integer DEFAULT 0 NOT NULL,
+    persons_n integer DEFAULT 0 NOT NULL,
+    extracted_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT graph_extractions_outcome_check CHECK ((parser_outcome = ANY (ARRAY['extracted'::text, 'failed_closed'::text])))
+);
+
+
+--
+-- Name: TABLE graph_extractions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.graph_extractions IS 'Per-article bookkeeping for the graph extraction stage: debounce anchor (input_hash + prompt_version) and observability (outcome, counts). Bookkeeping, not memory — narrative_events/persons are the durable products.';
+
+
+--
 -- Name: momentum_scores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9604,6 +9652,14 @@ ALTER TABLE ONLY public.fixtures
 
 
 --
+-- Name: graph_extractions graph_extractions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.graph_extractions
+    ADD CONSTRAINT graph_extractions_pkey PRIMARY KEY (article_id);
+
+
+--
 -- Name: leagues leagues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11260,6 +11316,22 @@ ALTER TABLE ONLY public.fixtures
 
 
 --
+-- Name: graph_extractions graph_extractions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.graph_extractions
+    ADD CONSTRAINT graph_extractions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: graph_extractions graph_extractions_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.graph_extractions
+    ADD CONSTRAINT graph_extractions_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: leagues leagues_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11726,5 +11798,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict qe8Nu3o27yLJ8AcdzU7NXFOUmqmJ35fczKpffmFpf5fAIttOWDG1vuu2KUodPz2
+\unrestrict TfCSPOMU4vPfZiJpDoTea4OVs6ozC3GL3arZj1eOQqdXtN6n0luskbDLVrSAg8c
 

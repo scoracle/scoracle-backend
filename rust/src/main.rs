@@ -22,8 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    bucket, config, db, embed, momentum, narratives, ollama, rating, scrub, sigil, stage, transfer,
-    vibe, worker,
+    bucket, config, db, embed, graph, momentum, narratives, ollama, rating, scrub, sigil, stage,
+    transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -66,7 +66,7 @@ async fn main() -> Result<()> {
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled =
         parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-            "scrub,peak,momentum,transfers,narratives,vibe,sigil".to_string()
+            "scrub,graph,peak,momentum,transfers,narratives,vibe,sigil".to_string()
         }))?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
@@ -113,6 +113,12 @@ async fn main() -> Result<()> {
     if enabled.contains("scrub") {
         handlers.push(Box::new(scrub::ScrubHandler::new()));
     }
+    // graph is article-keyed directly downstream of scrub (the mig-165 vetted-trigger
+    // enqueue): typed extraction into narrative_events + person-candidate evidence.
+    // Wired 2026-07-19 after the fixture gate measured 12/12 at g2.
+    if enabled.contains("graph") {
+        handlers.push(Box::new(graph::GraphHandler::new()));
+    }
     if enabled.contains("peak") {
         handlers.push(Box::new(rating::PeakHandler::new()));
     }
@@ -154,6 +160,7 @@ async fn main() -> Result<()> {
 fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     const KNOWN: &[&str] = &[
         "scrub",
+        "graph",
         "peak",
         "momentum",
         "transfers",

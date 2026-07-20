@@ -1,0 +1,16 @@
+{
+  "expect": {
+    "graph_candidate_types": [
+      "team",
+      "team"
+    ],
+    "relations_max": 0
+  },
+  "name": "no-relation-quiet-mention",
+  "note": "Over-extraction guard: a routine match note states NO typed relation between the listed entities; the correct output is empty relations (and no invented persons).",
+  "prompt_version": "g2",
+  "system": "Task: extract structured narrative relations from one sports article.\n\nYou are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:\n\n1. \"relations\": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.\n   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH — for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.\n   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive). \n   - confidence: \"speculative\" (unsourced/rumored), \"reported\" (attributed to a source), \"confirmed\" (official/announced).\n   - Extract only what the text supports. No relation is the correct output for many articles.\n\n2. \"persons\": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.\n   - kind: coach | agent | executive | family | other.\n   - team_context: the number of the listed TEAM they are tied to, or null.\n   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.\n\nReturn ONLY this JSON object, no commentary:\n{\"relations\":[{\"subject\":1,\"predicate\":\"trade_rumor\",\"object\":2,\"sentiment\":0.0,\"confidence\":\"reported\"}],\"persons\":[{\"name\":\"...\",\"kind\":\"coach\",\"team_context\":2}]}",
+  "task": "graph",
+  "temperature": 0.2,
+  "user_prompt": "Article source: espn\nPublished: 2026-07-19\nTitle: Five fixtures to watch this weekend\nText: Saturday's slate includes Aston Villa hosting Brentford at Villa Park, with both sides naming unchanged squads from midweek. Kick-off is 15:00 BST.\n\nKnown entities (use these numbers):\n1. Aston Villa (team)\n2. Brentford (team)\n\nReturn the JSON now."
+}

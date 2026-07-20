@@ -15,7 +15,8 @@ use anyhow::{Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::db;
 use scoracle_cognition::graph::{
-    build_graph_prompt, graph_opts, GraphCandidate, GraphParser, GRAPH_PROMPT_VERSION,
+    build_graph_prompt, graph_opts, load_graph_article_context, GraphParser,
+    GRAPH_PROMPT_VERSION,
 };
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
@@ -81,48 +82,14 @@ async fn main() -> Result<()> {
         let title: String = row.get(3);
         let description: String = row.get(4);
 
-        // Vetted candidates with identity descriptors (players: club card; teams: name).
-        let cand_rows = sqlx::query(
-            r#"
-            SELECT e.entity_type, e.entity_id,
-                   COALESCE(p.name, t.name, '?') AS name,
-                   COALESCE(ct.name, '') AS current_club
-            FROM news_article_entities e
-            LEFT JOIN players p ON e.entity_type='player' AND p.id=e.entity_id AND p.sport=e.sport
-            LEFT JOIN teams t ON e.entity_type='team' AND t.id=e.entity_id AND t.sport=e.sport
-            LEFT JOIN player_current_identity pci
-                   ON e.entity_type='player' AND pci.player_id=e.entity_id AND pci.sport=e.sport
-            LEFT JOIN teams ct ON ct.id=pci.team_id AND ct.sport=e.sport
-            WHERE e.article_id=$1 AND e.sport=$2 AND e.vetted IS TRUE
-            ORDER BY e.entity_type, e.entity_id
-            "#,
-        )
-        .bind(article_id)
-        .bind(&sport)
-        .fetch_all(&harness.pool)
-        .await?;
-
-        let candidates: Vec<GraphCandidate> = cand_rows
-            .into_iter()
-            .map(|r| {
-                let entity_type: String = r.get(0);
-                let entity_id: i32 = r.get(1);
-                let name: String = r.get(2);
-                let club: String = r.get(3);
-                let descriptor = if entity_type == "team" {
-                    format!("{name} (team)")
-                } else if club.is_empty() {
-                    format!("{name} (player, current club unknown)")
-                } else {
-                    format!("{name} (player, currently at {club})")
-                };
-                GraphCandidate {
-                    entity_type,
-                    entity_id,
-                    descriptor,
-                }
-            })
-            .collect();
+        // Shared deterministic prefix (single-homed in graph.rs since the eval lens +
+        // stage handler landed): article meta + vetted candidates with identity cards.
+        let Some((_article, candidates)) =
+            load_graph_article_context(&harness.pool, article_id, &sport).await?
+        else {
+            println!("── article {article_id} — no vetted candidates; skipped\n");
+            continue;
+        };
 
         let prompt = build_graph_prompt(
             source.as_deref().unwrap_or("unknown"),

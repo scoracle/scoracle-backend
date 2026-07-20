@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict nXqTy1ZymQAxHLeV0AcdStkXYNuPkoh9kmNgiTPffb14oDMQswYT54Qo5C0oTkH
+\restrict mGxT68prSNPwdYNFOjC1HPzpWVqH849tRqiFP46U7IWzgZanGniaS1uuqc5dhn0
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -4377,15 +4377,10 @@ BEGIN
     DELETE FROM source_performance WHERE sport = p_sport;
 
     WITH apps AS (
-        SELECT DISTINCT ON (a.player_id, a.new_team_id)
-               a.player_id, a.new_team_id AS team_id, a.applied_at
-        FROM transfer_identity_applications a
-        WHERE a.sport = p_sport
-          AND a.applied_at IS NOT NULL AND a.reverted_at IS NULL
-        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
+        SELECT player_id, team_id, applied_at
+        FROM transfer_ground_truth WHERE sport = p_sport
     ),
     attributions AS (
-        -- A source's first attribution per rumor pair.
         SELECT r.player_id, r.team_id, s.source, min(r.generated_at) AS first_reported
         FROM transfer_rumors r
         CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
@@ -4431,8 +4426,8 @@ BEGIN
                'k', p_k,
                'confirm_rate', CASE WHEN a.pairs_covered = 0 THEN NULL
                     ELSE round(a.confirmed_covered::numeric / a.pairs_covered, 3) END,
-               'note', 'confirm_rate denominator includes open/unresolved pairs; '
-                       'lead days are signed (negative = pile-on after the move)'),
+               'note', 'outcomes from transfer_ground_truth (both ledgers); lead days '
+                       'signed (negative = pile-on after the move)'),
            v_run
     FROM agg a;
 
@@ -4706,11 +4701,10 @@ CREATE FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshold in
 DECLARE
     v_run timestamptz := clock_timestamp();
 BEGIN
-    -- Open: a link crossing the notability threshold with no open episode starts one.
-    -- started_at prefers the current window's oldest article (components.window_oldest,
-    -- refresh v2) over the link's all-time first_seen_at, so a REOPENED association is
-    -- dated from its new coverage. Slight overlap with a just-sealed episode's tail is
-    -- accepted fuzz.
+    -- Open: a link crossing the notability threshold with no open episode starts one —
+    -- EXCEPT a player's own current team (employment coverage, not a story; and the
+    -- post-transfer reopen loop, mig 159). started_at prefers the current window's
+    -- oldest article (components.window_oldest) over all-time first_seen_at.
     INSERT INTO narrative_episodes
         (sport, link_type, subject_type, subject_id, object_type, object_id,
          status, season, started_at, peaked_at, peak_strength, last_strength,
@@ -4728,15 +4722,20 @@ BEGIN
     JOIN sports s ON s.id = l.sport
     WHERE l.sport = p_sport
       AND l.strength >= p_open_threshold
+      AND NOT (l.link_type = 'co_mention'
+               AND l.subject_type = 'player' AND l.object_type = 'team'
+               AND EXISTS (
+                   SELECT 1 FROM player_current_identity pci
+                   WHERE pci.sport = l.sport
+                     AND pci.player_id = l.subject_id
+                     AND pci.team_id = l.object_id))
     ON CONFLICT (sport, link_type, subject_type, subject_id, object_type, object_id)
         WHERE status = 'open'
     DO NOTHING;
 
     GET DIAGNOSTICS episodes_opened = ROW_COUNT;
 
-    -- Freshen every open episode from its link, whatever the current strength: track
-    -- the peak, keep counters at their episode-high (the link's window slides, so
-    -- GREATEST approximates "over the episode"), remember the latest strength.
+    -- Freshen every open episode from its link (unchanged from mig 155).
     UPDATE narrative_episodes e
     SET last_strength = l.strength,
         article_count = GREATEST(e.article_count, l.article_count),
@@ -4756,9 +4755,7 @@ BEGIN
 
     GET DIAGNOSTICS episodes_updated = ROW_COUNT;
 
-    -- Seal: weak AND quiet → the story is over; write the memory. The mechanical path
-    -- only ever concludes 'fizzled' — 'confirmed' belongs to the event-driven path
-    -- (a trade_confirmed narrative_event sealing its trade_rumor episode).
+    -- Seal: weak AND quiet (unchanged from mig 155).
     UPDATE narrative_episodes e
     SET status = 'sealed',
         outcome = 'fizzled',
@@ -4793,99 +4790,143 @@ COMMENT ON FUNCTION public.roll_narrative_episodes(p_sport text, p_open_threshol
 
 
 --
--- Name: seal_confirmed_episodes(text, integer); Type: FUNCTION; Schema: public; Owner: -
+-- Name: seal_confirmed_episodes(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer DEFAULT 60, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer) RETURNS record
+CREATE FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer DEFAULT 60, p_retro_article_floor integer DEFAULT 3, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer) RETURNS record
     LANGUAGE plpgsql
     AS $$
 DECLARE
     v_run timestamptz := clock_timestamp();
+    v_rev2 integer;
 BEGIN
-    -- Genuinely applied, unreverted moves only: earliest application per (player, team).
-    -- (failed_closed / manual_review / rejected rows are NOT ground truth.)
-    WITH apps AS (
-        SELECT DISTINCT ON (a.player_id, a.new_team_id)
-               a.id, a.player_id, a.new_team_id, a.old_team_id, a.applied_at
-        FROM transfer_identity_applications a
-        WHERE a.sport = p_sport
-          AND a.applied_at IS NOT NULL
-          AND a.reverted_at IS NULL
-        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
-    )
     UPDATE narrative_episodes e
     SET status = 'sealed',
         outcome = 'confirmed',
-        ended_at = ap.applied_at,
+        ended_at = g.applied_at,
         evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
-            'application_id', ap.id,
-            'applied_at', ap.applied_at,
-            'old_team_id', ap.old_team_id,
-            'new_team_id', ap.new_team_id)),
+            'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at)),
         updated_at = v_run
-    FROM apps ap
+    FROM transfer_ground_truth g
     WHERE e.sport = p_sport AND e.status = 'open'
-      AND e.subject_type = 'player' AND e.subject_id = ap.player_id
-      AND e.object_type = 'team' AND e.object_id = ap.new_team_id
-      AND e.started_at <= ap.applied_at;
+      AND g.sport = e.sport
+      AND e.subject_type = 'player' AND e.subject_id = g.player_id
+      AND e.object_type = 'team' AND e.object_id = g.team_id
+      AND e.started_at <= g.applied_at
+      -- Same ground-truth event never confirms twice (mig 159); a future NEW move for
+      -- the pair has a new ref and earns its own episode.
+      AND NOT EXISTS (
+          SELECT 1 FROM narrative_episodes e2
+          WHERE e2.sport = e.sport AND e2.link_type = e.link_type
+            AND e2.subject_type = e.subject_type AND e2.subject_id = e.subject_id
+            AND e2.object_type = e.object_type AND e2.object_id = e.object_id
+            AND e2.outcome = 'confirmed'
+            AND e2.evidence->'confirmed'->>'ledger' = g.ledger
+            AND (e2.evidence->'confirmed'->>'ref_id')::bigint = g.ref_id);
 
     GET DIAGNOSTICS episodes_confirmed = ROW_COUNT;
 
-    -- Announcement lag: coverage went quiet (quiet-seal fired 'fizzled'), THEN the move
-    -- applied. Upgrade the label; ended_at stays at coverage end (it is true).
-    WITH apps AS (
-        SELECT DISTINCT ON (a.player_id, a.new_team_id)
-               a.id, a.player_id, a.new_team_id, a.old_team_id, a.applied_at
-        FROM transfer_identity_applications a
-        WHERE a.sport = p_sport
-          AND a.applied_at IS NOT NULL
-          AND a.reverted_at IS NULL
-        ORDER BY a.player_id, a.new_team_id, a.applied_at ASC
-    )
     UPDATE narrative_episodes e
     SET outcome = 'confirmed',
         evidence = e.evidence || jsonb_build_object('confirmed', jsonb_build_object(
-            'application_id', ap.id,
-            'applied_at', ap.applied_at,
-            'old_team_id', ap.old_team_id,
-            'new_team_id', ap.new_team_id,
+            'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at,
             'upgraded_from', 'fizzled')),
         updated_at = v_run
-    FROM apps ap
+    FROM transfer_ground_truth g
     WHERE e.sport = p_sport AND e.status = 'sealed' AND e.outcome = 'fizzled'
       AND e.evidence->'confirmed' IS NULL
-      AND e.subject_type = 'player' AND e.subject_id = ap.player_id
-      AND e.object_type = 'team' AND e.object_id = ap.new_team_id
-      AND ap.applied_at >= e.ended_at
-      AND ap.applied_at <= e.ended_at + make_interval(days => p_lag_days);
+      AND g.sport = e.sport
+      AND e.subject_type = 'player' AND e.subject_id = g.player_id
+      AND e.object_type = 'team' AND e.object_id = g.team_id
+      AND g.applied_at >= e.ended_at
+      AND g.applied_at <= e.ended_at + make_interval(days => p_lag_days)
+      AND NOT EXISTS (
+          SELECT 1 FROM narrative_episodes e2
+          WHERE e2.sport = e.sport AND e2.link_type = e.link_type
+            AND e2.subject_type = e.subject_type AND e2.subject_id = e.subject_id
+            AND e2.object_type = e.object_type AND e2.object_id = e.object_id
+            AND e2.outcome = 'confirmed'
+            AND e2.evidence->'confirmed'->>'ledger' = g.ledger
+            AND (e2.evidence->'confirmed'->>'ref_id')::bigint = g.ref_id);
 
     GET DIAGNOSTICS episodes_upgraded = ROW_COUNT;
 
-    -- Revert stream: an application this function once consumed was rolled back.
-    -- The episode's confirmation claim must follow, or downstream calibration lies.
     UPDATE narrative_episodes e
     SET outcome = 'fizzled',
         evidence = e.evidence || jsonb_build_object('confirmation_reverted', jsonb_build_object(
-            'application_id', a.id,
-            'reverted_at', a.reverted_at,
-            'noticed_at', v_run)),
+            'reverted_at', a.reverted_at, 'noticed_at', v_run)),
         updated_at = v_run
     FROM transfer_identity_applications a
     WHERE e.sport = p_sport AND e.outcome = 'confirmed'
       AND e.evidence->'confirmation_reverted' IS NULL
-      AND (e.evidence->'confirmed'->>'application_id')::bigint = a.id
+      AND COALESCE(e.evidence->'confirmed'->>'ledger', 'application') = 'application'
+      AND COALESCE((e.evidence->'confirmed'->>'ref_id')::bigint,
+                   (e.evidence->'confirmed'->>'application_id')::bigint) = a.id
       AND a.reverted_at IS NOT NULL;
 
     GET DIAGNOSTICS episodes_reverted = ROW_COUNT;
+
+    UPDATE narrative_episodes e
+    SET outcome = 'fizzled',
+        evidence = e.evidence || jsonb_build_object('confirmation_reverted', jsonb_build_object(
+            'reverted_at', o.reverted_at, 'noticed_at', v_run)),
+        updated_at = v_run
+    FROM player_current_identity_overrides o
+    WHERE e.sport = p_sport AND e.outcome = 'confirmed'
+      AND e.evidence->'confirmation_reverted' IS NULL
+      AND e.evidence->'confirmed'->>'ledger' = 'override'
+      AND (e.evidence->'confirmed'->>'ref_id')::bigint = o.id
+      AND o.reverted_at IS NOT NULL;
+
+    GET DIAGNOSTICS v_rev2 = ROW_COUNT;
+    episodes_reverted := episodes_reverted + v_rev2;
+
+    INSERT INTO narrative_episodes
+        (sport, link_type, subject_type, subject_id, object_type, object_id,
+         status, outcome, season, started_at, peaked_at, ended_at,
+         peak_strength, last_strength, article_count, distinct_sources, event_count,
+         peak_components, evidence, created_at, updated_at)
+    SELECT g.sport, 'co_mention', 'player', g.player_id, 'team', g.team_id,
+           'sealed', 'confirmed', s.current_season,
+           l.first_seen_at,
+           COALESCE(l.last_event_at, g.applied_at),
+           GREATEST(g.applied_at, l.first_seen_at),
+           COALESCE(l.strength, 0), COALESCE(l.strength, 0),
+           l.article_count, l.distinct_sources, l.event_count,
+           l.components,
+           jsonb_build_object(
+               'confirmed', jsonb_build_object(
+                   'ledger', g.ledger, 'ref_id', g.ref_id, 'applied_at', g.applied_at),
+               'retroactive', jsonb_build_object(
+                   'minted_at', v_run,
+                   'peak_is_lower_bound', true,
+                   'reason', 'story predates the graph or never crossed the open threshold')),
+           v_run, v_run
+    FROM transfer_ground_truth g
+    JOIN sports s ON s.id = g.sport
+    JOIN narrative_links l
+      ON l.sport = g.sport AND l.link_type = 'co_mention'
+     AND l.subject_type = 'player' AND l.subject_id = g.player_id
+     AND l.object_type = 'team' AND l.object_id = g.team_id
+    WHERE g.sport = p_sport
+      AND l.article_count >= p_retro_article_floor
+      AND l.first_seen_at IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM narrative_episodes e
+          WHERE e.sport = g.sport AND e.link_type = 'co_mention'
+            AND e.subject_type = 'player' AND e.subject_id = g.player_id
+            AND e.object_type = 'team' AND e.object_id = g.team_id);
+
+    GET DIAGNOSTICS episodes_retroactive = ROW_COUNT;
 END;
 $$;
 
 
 --
--- Name: FUNCTION seal_confirmed_episodes(p_sport text, p_lag_days integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer); Type: COMMENT; Schema: public; Owner: -
+-- Name: FUNCTION seal_confirmed_episodes(p_sport text, p_lag_days integer, p_retro_article_floor integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer) IS 'Episode outcome ground truth from transfer_identity_applications (applied, unreverted): seal open episodes confirmed, upgrade announcement-lag fizzles (<= lag_days after coverage end), downgrade when applications are reverted. Run BEFORE roll_narrative_episodes so confirmation beats same-night quiet-seal.';
+COMMENT ON FUNCTION public.seal_confirmed_episodes(p_sport text, p_lag_days integer, p_retro_article_floor integer, OUT episodes_confirmed integer, OUT episodes_upgraded integer, OUT episodes_reverted integer, OUT episodes_retroactive integer) IS 'Episode outcomes from transfer_ground_truth (both ledgers): seal open episodes, upgrade announcement-lag fizzles, downgrade reverts, and retroactively mint sealed confirmed episodes for moves whose coverage predates the graph (peak = lower bound, flagged in evidence). Run BEFORE roll_narrative_episodes.';
 
 
 --
@@ -8272,6 +8313,44 @@ CREATE TABLE public.transfer_identity_applications (
 
 
 --
+-- Name: transfer_ground_truth; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.transfer_ground_truth AS
+ SELECT DISTINCT ON (sport, player_id, team_id) sport,
+    player_id,
+    team_id,
+    applied_at,
+    ledger,
+    ref_id
+   FROM ( SELECT a.sport,
+            a.player_id,
+            a.new_team_id AS team_id,
+            a.applied_at,
+            'application'::text AS ledger,
+            a.id AS ref_id
+           FROM public.transfer_identity_applications a
+          WHERE ((a.applied_at IS NOT NULL) AND (a.reverted_at IS NULL))
+        UNION ALL
+         SELECT o.sport,
+            o.player_id,
+            o.team_id,
+            o.applied_at,
+            'override'::text AS ledger,
+            o.id AS ref_id
+           FROM public.player_current_identity_overrides o
+          WHERE ((o.reverted_at IS NULL) AND (o.team_id IS NOT NULL))) u
+  ORDER BY sport, player_id, team_id, applied_at;
+
+
+--
+-- Name: VIEW transfer_ground_truth; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.transfer_ground_truth IS 'Applied, unreverted identity moves from BOTH ledgers (pipeline applications + manual operator overrides), earliest event per (player, team). The single source consumed by seal_confirmed_episodes and refresh_source_performance: to add a move to the confirmed list, write the appropriate ledger (manual override for operator-known facts) — never episode rows directly.';
+
+
+--
 -- Name: transfer_identity_applications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -11102,5 +11181,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict nXqTy1ZymQAxHLeV0AcdStkXYNuPkoh9kmNgiTPffb14oDMQswYT54Qo5C0oTkH
+\unrestrict mGxT68prSNPwdYNFOjC1HPzpWVqH849tRqiFP46U7IWzgZanGniaS1uuqc5dhn0
 

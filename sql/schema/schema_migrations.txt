@@ -168,3 +168,4 @@
 165_graph_stage
 166_person_promotion
 167_typed_links
+168_outputs_as_memories

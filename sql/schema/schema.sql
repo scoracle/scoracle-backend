@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict oKaJCcN3LqPQCx9AKah60rTiIxRgGHGnn1jIH6R9QHH88aY7fHBc5cG2kl92bYs
+\restrict 5O6eGVytWcBcHUZnok51cEdKTg0fFNtWPEaJQRiotBieuhbrM0rfOd0Rl1LgFVH
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3068,12 +3068,29 @@ figures AS (
       AND p.status = 'active' AND p.merged_into IS NULL
     ORDER BY p.mention_count DESC
     LIMIT 3
+),
+own_reads AS (
+    -- The junction family's own STRONGEST recent banked transfer verdict for this
+    -- player (outputs-as-memories, mig 168): highest stage first, then freshest —
+    -- a post-move own-club speculation row must not outrank a live here_we_go.
+    -- Continuity, NEVER corroboration.
+    SELECT format('Our prior read: our transfer lens staged %s as %s on %s (confidence %s).',
+               t.name, r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
+    FROM transfer_rumors r
+    JOIN teams t ON t.id = r.team_id AND t.sport = r.sport
+    WHERE r.sport = p_sport AND p_entity_type = 'player' AND r.player_id = p_entity_id
+      AND r.stage IS NOT NULL AND r.generated_at > now() - interval '30 days'
+    ORDER BY CASE r.stage WHEN 'here_we_go' THEN 4 WHEN 'advanced_talks' THEN 3
+                          WHEN 'concrete_interest' THEN 2 ELSE 1 END DESC,
+             r.generated_at DESC
+    LIMIT 1
 )
 SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
     (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM open_eps),
     (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
-    (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures)), '');
+    (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures),
+    (SELECT line FROM own_reads)), '');
 $$;
 
 
@@ -3081,7 +3098,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, and (teams, since mig 166) active news-derived team figures. Provenance-labeled lines — continuity, not corroboration. NULL = no memory. Consumers: narratives n8, vibe v12, sigil s15, momentum s5. Model-facing only.';
+COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, active news-derived team figures (mig 166), and the transfer lens''s own latest staged read as an "Our prior read:" line (mig 168). Provenance-labeled — continuity, not corroboration. NULL = no memory. Consumers: narratives n8, vibe v12, sigil s15, momentum s5. Model-facing only.';
 
 
 --
@@ -3136,11 +3153,36 @@ recent_move AS (
       AND g.applied_at > now() - interval '120 days'
     ORDER BY g.applied_at DESC
     LIMIT 1
+),
+first_read AS (
+    -- Our own banked verdicts (outputs-as-memories, mig 168). Continuity, NEVER
+    -- corroboration — the label is the echo-chamber defense.
+    SELECT r.id,
+           format('Our prior read: first staged %s on %s (confidence %s).',
+                  r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
+    FROM transfer_rumors r
+    WHERE r.sport = p_sport AND r.player_id = p_player_id AND r.team_id = p_team_id
+      AND r.stage IS NOT NULL
+    ORDER BY r.generated_at ASC
+    LIMIT 1
+),
+last_read AS (
+    SELECT r.id,
+           format('Our prior read: latest read %s on %s (confidence %s).',
+                  r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
+    FROM transfer_rumors r
+    WHERE r.sport = p_sport AND r.player_id = p_player_id AND r.team_id = p_team_id
+      AND r.stage IS NOT NULL
+    ORDER BY r.generated_at DESC
+    LIMIT 1
 )
 SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
     (SELECT line FROM open_ep),
-    (SELECT line FROM recent_move)), '');
+    (SELECT line FROM recent_move),
+    (SELECT line FROM first_read),
+    (SELECT l.line FROM last_read l
+      WHERE l.id <> (SELECT id FROM first_read))), '');
 $$;
 
 
@@ -3148,7 +3190,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The graph''s memory for one (player, team) pair as compact prompt lines: prior sealed stories with outcomes, the current open story + likelihood/trajectory, recent confirmed moves. NULL = no memory. Consumed by cognition-stage prompt builders (transfer t8 first) — the relational layer is model-facing, never user-facing.';
+COMMENT ON FUNCTION public.narrative_context_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The graph''s memory for one (player, team) pair as compact prompt lines: prior sealed stories with outcomes, the current open story + likelihood/trajectory, recent confirmed moves, and (mig 168) the junction''s own first + latest staged reads as "Our prior read:" continuity lines. NULL = no memory. Consumed by cognition-stage prompt builders (transfer t8) — model-facing, never user-facing.';
 
 
 --
@@ -12025,5 +12067,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oKaJCcN3LqPQCx9AKah60rTiIxRgGHGnn1jIH6R9QHH88aY7fHBc5cG2kl92bYs
+\unrestrict 5O6eGVytWcBcHUZnok51cEdKTg0fFNtWPEaJQRiotBieuhbrM0rfOd0Rl1LgFVH
 

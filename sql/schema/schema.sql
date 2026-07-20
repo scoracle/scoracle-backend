@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 5O6eGVytWcBcHUZnok51cEdKTg0fFNtWPEaJQRiotBieuhbrM0rfOd0Rl1LgFVH
+\restrict iLe23K12BrHGfoUF4g6hPzVlHEf8x1ylC2eat9WEhLhEvwIrZ0vDfzLBEpEboFa
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3346,15 +3346,51 @@ $$;
 CREATE FUNCTION public.promote_narrative_persons(p_sport text) RETURNS integer
     LANGUAGE sql
     AS $$
-WITH promoted AS (
-    UPDATE narrative_persons p
-       SET status = 'active', updated_at = NOW()
-     WHERE p.sport = p_sport
-       AND p.status = 'candidate'
-       AND p.merged_into IS NULL
-       AND p.distinct_sources >= 2
-       AND p.mention_count >= 3
-       AND p.last_seen_at - p.first_seen_at >= interval '2 days'
+WITH cand AS (
+    -- Count-eligible candidates (mig 166 criteria).
+    SELECT p.id
+    FROM narrative_persons p
+    WHERE p.sport = p_sport
+      AND p.status = 'candidate'
+      AND p.merged_into IS NULL
+      AND p.distinct_sources >= 2
+      AND p.mention_count >= 3
+      AND p.last_seen_at - p.first_seen_at >= interval '2 days'
+),
+votes AS (
+    SELECT m.person_id,
+           count(*) FILTER (WHERE m.team_context_id IS NOT NULL) AS voting_mentions,
+           mode() WITHIN GROUP (ORDER BY m.team_context_id)
+               FILTER (WHERE m.team_context_id IS NOT NULL) AS modal_team
+    FROM public.narrative_person_mentions m
+    WHERE m.sport = p_sport AND m.person_id IN (SELECT id FROM cand)
+    GROUP BY m.person_id
+),
+detail AS (
+    SELECT c.id AS person_id,
+           COALESCE(v.voting_mentions, 0) AS voting_mentions,
+           v.modal_team,
+           COALESCE((SELECT count(*) FROM public.narrative_person_mentions m2
+                      WHERE m2.person_id = c.id AND m2.sport = p_sport
+                        AND m2.team_context_id = v.modal_team), 0) AS modal_votes
+    FROM cand c
+    LEFT JOIN votes v ON v.person_id = c.id
+),
+eligible AS (
+    -- The team-token gate: no votes ⇒ vacuous pass (team-less person); votes present ⇒
+    -- the modal team must hold a clear majority (a split vote is ambiguous, held).
+    SELECT person_id, modal_team
+    FROM detail
+    WHERE voting_mentions = 0
+       OR modal_votes::numeric / voting_mentions >= 0.6
+),
+promoted AS (
+    UPDATE public.narrative_persons p
+       SET status = 'active',
+           team_id = COALESCE(e.modal_team, p.team_id),
+           updated_at = NOW()
+      FROM eligible e
+     WHERE e.person_id = p.id
     RETURNING p.id
 )
 SELECT count(*)::integer FROM promoted;
@@ -3365,7 +3401,7 @@ $$;
 -- Name: FUNCTION promote_narrative_persons(p_sport text); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly candidate->active promotion on accumulated evidence (>=2 sources, >=3 mentions, >=2 days span). Entityhood is earned, never granted by one extraction.';
+COMMENT ON FUNCTION public.promote_narrative_persons(p_sport text) IS 'Nightly candidate->active promotion on accumulated evidence (>=2 sources, >=3 mentions, >=2 days span) PLUS a team-token consistency gate (mig 169): mentions that vote on a team must show a clear-majority (>=60%) modal team, else the candidate is held; the modal team becomes the person''s team_id. Team-less candidates pass the token gate vacuously.';
 
 
 --
@@ -5005,6 +5041,7 @@ BEGIN
                                  ELSE 1 END AS conf_rank
         FROM narrative_events e
         WHERE e.sport = p_sport
+          AND e.origin = 'extraction'  -- mig 170: junction-authored events NEVER feed typed links
           AND e.object_id IS NOT NULL
           AND e.event_date > now() - make_interval(days => p_window_days)
     ),
@@ -5378,6 +5415,7 @@ BEGIN
                max(ne.event_date) AS latest_typed
         FROM narrative_events ne
         WHERE ne.sport = p_sport
+          AND ne.origin = 'extraction'  -- mig 170: junction-authored events NEVER feed the likelihood language input
           AND ne.event_date > now() - interval '30 days'
           AND ne.subject_type = 'player' AND ne.object_type = 'team'
           AND ne.predicate IN ('trade_rumor', 'trade_confirmed')
@@ -7558,9 +7596,11 @@ CREATE TABLE public.narrative_events (
     prompt_version text NOT NULL,
     extracted_at timestamp with time zone DEFAULT now() NOT NULL,
     source text,
+    origin text DEFAULT 'extraction'::text NOT NULL,
     CONSTRAINT narrative_events_confidence_check CHECK ((confidence = ANY (ARRAY['speculative'::text, 'reported'::text, 'confirmed'::text]))),
     CONSTRAINT narrative_events_object_pair_check CHECK (((object_type IS NULL) = (object_id IS NULL))),
     CONSTRAINT narrative_events_object_type_check CHECK (((object_type IS NULL) OR (object_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))),
+    CONSTRAINT narrative_events_origin_check CHECK ((origin = ANY (ARRAY['extraction'::text, 'junction'::text]))),
     CONSTRAINT narrative_events_predicate_check CHECK ((predicate = ANY (ARRAY['trade_rumor'::text, 'trade_confirmed'::text, 'injury'::text, 'contract_dispute'::text, 'praise'::text, 'criticism'::text]))),
     CONSTRAINT narrative_events_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= '-1.0'::numeric) AND (sentiment <= 1.0)))),
     CONSTRAINT narrative_events_subject_type_check CHECK ((subject_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
@@ -7593,6 +7633,13 @@ COMMENT ON COLUMN public.narrative_events.event_date IS 'The article''s publishe
 --
 
 COMMENT ON COLUMN public.narrative_events.source IS 'Denormalized news_articles.source at extraction time, so attribution survives rail pruning.';
+
+
+--
+-- Name: COLUMN narrative_events.origin; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_events.origin IS 'Provenance partition (mig 170): extraction = model read of one article (feeds typed links + likelihood); junction = a junction stage''s own banked verdict (walled out of every numeric feedback path — continuity/audit only, never corroboration).';
 
 
 --
@@ -7715,7 +7762,8 @@ CREATE TABLE public.narrative_person_mentions (
     person_id integer NOT NULL,
     sport text NOT NULL,
     match_confidence numeric(4,3),
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    team_context_id integer
 );
 
 
@@ -7724,6 +7772,13 @@ CREATE TABLE public.narrative_person_mentions (
 --
 
 COMMENT ON TABLE public.narrative_person_mentions IS 'Article-to-person links, the person analogue of news_article_entities. Kept separate so the existing player/team scrub + derive-trigger machinery is untouched; a later migration may unify the rails once persons need those stages.';
+
+
+--
+-- Name: COLUMN narrative_person_mentions.team_context_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_person_mentions.team_context_id IS 'Per-mention team vote from the graph extraction (the listed team the person was tied to in THIS article), or NULL. Aggregated by promote_narrative_persons for the team-token consistency gate.';
 
 
 --
@@ -10728,7 +10783,7 @@ CREATE INDEX idx_narrative_events_article ON public.narrative_events USING btree
 -- Name: idx_narrative_events_dedupe; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX idx_narrative_events_dedupe ON public.narrative_events USING btree (article_id, sport, subject_type, subject_id, predicate, COALESCE(object_type, ''::text), COALESCE(object_id, 0));
+CREATE UNIQUE INDEX idx_narrative_events_dedupe ON public.narrative_events USING btree (article_id, sport, subject_type, subject_id, predicate, COALESCE(object_type, ''::text), COALESCE(object_id, 0), origin);
 
 
 --
@@ -12067,5 +12122,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 5O6eGVytWcBcHUZnok51cEdKTg0fFNtWPEaJQRiotBieuhbrM0rfOd0Rl1LgFVH
+\unrestrict iLe23K12BrHGfoUF4g6hPzVlHEf8x1ylC2eat9WEhLhEvwIrZ0vDfzLBEpEboFa
 

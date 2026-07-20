@@ -1477,6 +1477,61 @@ pub async fn persist_transfer_row(
     Ok(row.get("id"))
 }
 
+/// bank_transfer_junction_event banks a SERVED transfer verdict as a narrative_event
+/// tagged `origin='junction'` (mig 170) — outputs-as-memories at the corpus level. It is
+/// WALLED OUT of the numeric feedback loop: both `refresh_typed_links` and the likelihood
+/// language input scan `origin='extraction'` only, so the junction can never corroborate
+/// itself. Anchored to the pair's OLDEST corpus article (stable across daily re-verdicts,
+/// so re-reads UPSERT the same row rather than accumulate). The stage maps to the event
+/// vocabulary: here_we_go ⇒ trade_confirmed/confirmed; advanced/concrete ⇒
+/// trade_rumor/reported; speculation ⇒ trade_rumor/speculative. Best-effort at the call
+/// site — a banking failure must never fail the already-persisted rumor.
+async fn bank_transfer_junction_event(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: i32,
+    stage: &str,
+    model: &str,
+    news_ids: &[i64],
+) -> Result<()> {
+    let Some(anchor) = news_ids.iter().copied().min() else {
+        return Ok(()); // no corpus article to anchor to — nothing to bank
+    };
+    let (predicate, confidence) = match stage {
+        "here_we_go" => ("trade_confirmed", "confirmed"),
+        "advanced_talks" | "concrete_interest" => ("trade_rumor", "reported"),
+        _ => ("trade_rumor", "speculative"),
+    };
+    sqlx::query(
+        r#"
+        INSERT INTO narrative_events
+            (sport, subject_type, subject_id, predicate, object_type, object_id,
+             sentiment, confidence, article_id, event_date, source, model_version,
+             prompt_version, origin)
+        SELECT $1, 'player', $2, $3, 'team', $4,
+               NULL, $5, a.id, NOW(), a.source, $6, $7, 'junction'
+        FROM news_articles a WHERE a.id = $8
+        ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
+                     COALESCE(object_type, ''), COALESCE(object_id, 0), origin)
+        DO UPDATE SET confidence = EXCLUDED.confidence, event_date = NOW(),
+                      model_version = EXCLUDED.model_version, extracted_at = NOW()
+        "#,
+    )
+    .bind(sport)
+    .bind(player_id)
+    .bind(predicate)
+    .bind(team_id)
+    .bind(confidence)
+    .bind(model)
+    .bind(TRANSFER_PROMPT_VERSION)
+    .bind(anchor)
+    .execute(pool)
+    .await
+    .context("bank transfer junction event")?;
+    Ok(())
+}
+
 async fn load_transfer_source_metadata(
     pool: &PgPool,
     news_ids: &[i64],
@@ -2070,6 +2125,31 @@ impl StageHandler for TransferHandler {
                         },
                     )
                     .await;
+                    // Outputs-as-memories, corpus half (mig 170): bank a SERVED rumor as
+                    // an origin='junction' event — unified event log + audit, walled out
+                    // of the numeric loop. Best-effort: never fail the persisted rumor.
+                    if row.is_rumor == Some(true) {
+                        if let Some(stage) = row.stage.as_deref() {
+                            if let Err(e) = bank_transfer_junction_event(
+                                &hx.pool,
+                                &sport,
+                                c.player_id,
+                                team_id,
+                                stage,
+                                &out.model,
+                                &out.news_ids,
+                            )
+                            .await
+                            {
+                                warn!(
+                                    team = team_id,
+                                    player = c.player_id,
+                                    error = %e,
+                                    "transfers: junction-event banking failed (best-effort)"
+                                );
+                            }
+                        }
+                    }
                     if let Some(heat) = out.heat {
                         if maybe_apply_transfer_identity(
                             hx,

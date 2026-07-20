@@ -405,12 +405,15 @@ async fn upsert_event(pool: &PgPool, article_id: i64, sport: &str, model: &str, 
         r#"
         INSERT INTO narrative_events
             (sport, subject_type, subject_id, predicate, object_type, object_id,
-             sentiment, confidence, article_id, event_date, source, model_version, prompt_version)
+             sentiment, confidence, article_id, event_date, source, model_version,
+             prompt_version, origin)
         SELECT $1, $2, $3, $4, $5, $6, $7::float8::numeric(3,2), $8, $9,
-               COALESCE(a.published_at, NOW()), a.source, $10, $11
+               COALESCE(a.published_at, NOW()), a.source, $10, $11, 'extraction'
         FROM news_articles a WHERE a.id = $9
+        -- origin joins the dedupe key (mig 170): an extraction event and a junction
+        -- verdict for the same (article, pair, predicate) coexist, never clobber.
         ON CONFLICT (article_id, sport, subject_type, subject_id, predicate,
-                     COALESCE(object_type, ''), COALESCE(object_id, 0))
+                     COALESCE(object_type, ''), COALESCE(object_id, 0), origin)
         DO UPDATE SET sentiment = EXCLUDED.sentiment, confidence = EXCLUDED.confidence,
                       model_version = EXCLUDED.model_version,
                       prompt_version = EXCLUDED.prompt_version, extracted_at = NOW()
@@ -469,12 +472,16 @@ async fn accumulate_person(pool: &PgPool, article_id: i64, sport: &str, model: &
     .context("resolve/insert narrative_person")?;
 
     let new_mention: Option<i32> = sqlx::query_scalar(
-        "INSERT INTO narrative_person_mentions (article_id, person_id, sport)
-         VALUES ($1, $2, $3) ON CONFLICT DO NOTHING RETURNING person_id",
+        "INSERT INTO narrative_person_mentions (article_id, person_id, sport, team_context_id)
+         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING RETURNING person_id",
     )
     .bind(article_id)
     .bind(person_id)
     .bind(sport)
+    // The per-mention team vote (mig 169): promote_narrative_persons aggregates these
+    // for the team-token consistency gate. NULL when this article tied the person to no
+    // listed team.
+    .bind(p.team_context_id)
     .fetch_optional(pool)
     .await
     .context("insert person mention")?;

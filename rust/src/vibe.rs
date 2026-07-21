@@ -352,6 +352,60 @@ pub async fn load_vibe_context(
     })
 }
 
+/// VIBE_WORK_PREFIX namespaces the vibe queue row's `input_version` (mirrors momentum's
+/// `momentum:s` prefix). Vibe is entity-scoped, so there is no season segment.
+const VIBE_WORK_PREFIX: &str = "vibe:";
+
+/// vibe_work_input_version derives the vibe queue row's reopen key from the material input hash, so
+/// the enqueue gate (`debounce_unchanged`) and the `pipeline_work` reopen gate agree — a stale
+/// re-enqueue with the same material is a no-op.
+pub fn vibe_work_input_version(input_hash: &str) -> String {
+    format!("{VIBE_WORK_PREFIX}{input_hash}")
+}
+
+/// enqueue_vibe_if_needed is the Phase-3 hand-off the narratives handler makes after it persists:
+/// narratives now feeds vibe (mirroring vibe → momentum), replacing the scrub `vetted` trigger's
+/// old parallel vibe fan-out (mig 174 removed it). It loads the material vibe context (this
+/// entity's latest narratives + transfer heat) and enqueues the Vibe stage ONLY when that context
+/// actually moved since the last `vibe_scores` row — `Ok(false)` when the context is empty or
+/// unchanged (nothing enqueued), `Ok(true)` on enqueue. Idempotent: `work::enqueue`'s ON CONFLICT
+/// reopens the row only when the `input_version` changed, so a redundant call is harmless.
+pub async fn enqueue_vibe_if_needed(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+) -> Result<bool> {
+    let sport = sport.to_uppercase();
+    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, &sport).await?;
+    if ctx.empty() {
+        return Ok(false);
+    }
+    let key = EntityKey {
+        entity_type: entity_type.to_string(),
+        entity_id,
+        sport: sport.clone(),
+        season: None,
+    };
+    if hx
+        .debounce_unchanged("vibe_scores", &key, &ctx.input_hash)
+        .await?
+    {
+        return Ok(false);
+    }
+    let it = Item {
+        stage: Stage::Vibe,
+        entity_type: entity_type.to_string(),
+        entity_id: i64::from(entity_id),
+        sport,
+        input_version: Some(vibe_work_input_version(&ctx.input_hash)),
+        attempts: 0,
+    };
+    crate::work::enqueue(&hx.pool, &it).await?;
+    Ok(true)
+}
+
 // ---------------------------------------------------------------------------
 // Prompt assembly.
 // ---------------------------------------------------------------------------

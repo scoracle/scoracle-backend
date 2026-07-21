@@ -1154,7 +1154,7 @@ fn parse_crown_score(v: &serde_json::Value) -> Option<i32> {
         }
         f.round() as i64
     } else if let Some(s) = v.as_str() {
-        let head = s.trim().split_whitespace().next()?;
+        let head = s.split_whitespace().next()?;
         let head = head.split_once('/').map(|(n, _)| n).unwrap_or(head).trim();
         match head.parse::<i64>() {
             Ok(n) => n,

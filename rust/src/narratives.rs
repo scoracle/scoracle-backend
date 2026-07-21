@@ -24,10 +24,11 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
+use crate::bucket::ArticleBucket;
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, write_heat_lines, HeatItem,
 };
-use crate::harness::{cluster, EntityKey, Harness, Parser, Provenance};
+use crate::harness::{EntityKey, Harness, Parser, Provenance};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -48,7 +49,7 @@ use tracing::{debug, warn};
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n8"; // n7: per-article identity-relevance tags; n8: relational memory card (per-entity graph memory, mig 163)
+pub const NARRATIVES_PROMPT_VERSION: &str = "n9"; // n7: per-article identity-relevance tags; n8: relational memory card (per-entity graph memory, mig 163); n9: primary junction — per-article transfer buckets (article_buckets), voiced episode heat + new/ongoing, candle-side dedup retired (relevance tags gone)
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 /// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
@@ -58,6 +59,8 @@ pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v2-schema";
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object
 /// cannot be prose-wrapped, `narratives` must exist, and every item carries title/body/articles.
+/// n9 adds the `article_buckets` section — the Journalist's per-article transfer/non-transfer label
+/// (own section, never bunched into a storyline); `transfer:true` ⇒ `news_articles.bucket='transfer'`.
 /// The tolerant balanced-brace salvager stays as the parse path — schema output is a strict
 /// subset of what it accepts, and it remains the safety net for the offline/parity bins.
 pub fn narratives_format_schema() -> serde_json::Value {
@@ -76,9 +79,20 @@ pub fn narratives_format_schema() -> serde_json::Value {
                     },
                     "required": ["title", "body", "articles"]
                 }
+            },
+            "article_buckets": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "article":  { "type": "integer" },
+                        "transfer": { "type": "boolean" }
+                    },
+                    "required": ["article", "transfer"]
+                }
             }
         },
-        "required": ["narratives"]
+        "required": ["narratives", "article_buckets"]
     })
 }
 
@@ -98,10 +112,6 @@ pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
 /// measured to still fit the 8GB card. Every other stage stays on the 4096 default.
 pub const NARRATIVES_NUM_CTX: i32 = 8192;
 
-/// Bounds the articles fed to the grouping prompt — wider than the vibe window so the model sees
-/// enough breadth to find the distinct storylines (Go's `maxNarrativeCorpus`).
-const MAX_NARRATIVE_CORPUS: i64 = 25;
-
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;
 
@@ -110,42 +120,42 @@ const DESC_TRUNCATE: usize = 200;
 /// `"259200 seconds"`.
 const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 
-/// DEDUP_THRESHOLD is the single-link cosine cutoff for the candle near-duplicate dedup VALUE-ADD
-/// (Plan §1.4). Two articles whose embeddings are ≥ this similar collapse to one storyline
-/// representative before the model call.
+/// System prompt for the Journalist (n9): group recent vetted news into distinct storylines, label
+/// each article transfer/non-transfer (the `article_buckets` section that routes the transfers
+/// stage), and voice the relational memory's episode heat + new/ongoing state. The candle now hands
+/// narratives a widened, pre-deduplicated corpus (the source-aware novelty gate runs at the tip of
+/// the spear), so the pre-n9 per-article relevance tags are gone.
 ///
-/// It is a deterministic CLUSTERING param, not a model identity/route — the embedding MODEL itself is
-/// config (`COGNITION_EMBED_*`, the boundary that matters: "models by role, never by name"), and the
-/// dedup ON/OFF is governed by whether the live worker loads the embedder (offline/parity bins do
-/// not → identity → byte-parity with Go). Kept a `pub const` (like the `cluster()` thresholds) to
-/// stay surgical — promoting it to `COGNITION_NARRATIVES_DEDUP_THRESHOLD` is a one-line `env_float`
-/// if live tuning ever demands it.
-pub const DEDUP_THRESHOLD: f32 = 0.85;
-
-/// System prompt for grouping recent vetted news into distinct storylines.
-pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: group recent vetted news into distinct storylines about ONE sports entity.
+/// DRAFT — this ships the n9 STRUCTURE (sections + output contract). The VOICE (exact wording, tone,
+/// the heat / new-vs-ongoing phrasing) is dialed in a dedicated voice-tuning session; treat the prose
+/// below as a placeholder that satisfies the contract, not the final copy.
+pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are the Journalist. Group recent vetted news into distinct storylines about ONE sports entity, and label each numbered article as transfer/trade-related or not.
 
 Voice: direct, sports-literate, grounded. No hype, no source list, no invented facts.
 
 Return STRICT JSON only (no markdown fences, no text before or after):
-{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...]}
+{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...], "article_buckets": [{"article": <article number>, "transfer": <true|false>}, ...]}
 
-Rules:
+Narrative rules:
 - Return at most 6 narratives, most consequential first.
 - Do not split one story across narratives.
 - Do not merge unrelated stories.
 - A quiet cycle can return one narrative or none.
 - Ignore vague hype when the sources do not name who, what, and where.
 - Ignore articles that are not actually about this entity.
-- Articles may carry a computed (relevance high|medium|low) tag — similarity to this entity's identity. High = clearly about this entity; low = likely about someone else or a passing mention.
-- Treat low-relevance articles as the noise the two rules above target. Never suppress a storyline backed by high-relevance articles as noise — noise filtering is for low-relevance and vague items only.
 
-For each:
+For each narrative:
 - title: short and specific, naming the key people/clubs; never generic like "Transfer news".
-- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story.
+- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story. Use the relational memory below to say whether this is a NEW story or a CONTINUING one, and whether coverage is heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal.
 - articles: the article numbers behind that storyline.
 
+article_buckets — label EVERY numbered article exactly once:
+- {"article": <its number>, "transfer": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise "transfer": false.
+- Judge each article on its own substance. Another team scheming around this entity is not this entity moving.
+
 If a "Known transfer/trade activity" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word "heat" and its numbers are internal; never mention them.
+
+Use the relational memory only for arc and continuity (what fizzled before, what is live now, what actually happened); never treat a prior story as evidence for a new claim.
 
 Do not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources."#;
 
@@ -177,10 +187,6 @@ pub struct CorpusItem {
     pub url: String,
     pub published_at_epoch: Option<i64>,
     pub fetched_at_epoch: Option<i64>,
-    /// Identity-relevance band ("high"/"medium"/"low"), computed by the embed pass against the
-    /// entity's identity card using the L4-validated resolve cosine bands. `None` when no
-    /// embedder is loaded (offline/parity bins) — the prompt then renders the pre-n7 shape.
-    pub relevance_band: Option<String>,
     /// Full article body (mig 171), preferred over `description` for the model-visible text when
     /// present. `None`/empty today for every row — no fetcher populates it yet (plan decision 3,
     /// "defer full-text, design for it"). The prompt render routes through [`article_body`], so
@@ -190,14 +196,7 @@ pub struct CorpusItem {
 
 #[derive(Clone, Debug, Default)]
 pub struct CorpusExclusions {
-    budget_truncated_news_ids: Vec<i64>,
     stale_news_ids: Vec<i64>,
-}
-
-#[derive(Clone, Debug)]
-struct DedupedCorpus {
-    corpus: Vec<CorpusItem>,
-    dropped_news_ids: Vec<i64>,
 }
 
 /// Narrative is one grounded storyline — title + body from the model, plus the DETERMINISTIC impact
@@ -229,10 +228,27 @@ struct ModelNarrative {
     articles: Vec<i32>,
 }
 
-/// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields.
+/// ModelArticleBucket is one entry of the n9 `article_buckets` section — the Journalist's per-article
+/// transfer label. `article` is the 1-indexed prompt number (grounded back to a news id like a cited
+/// narrative article); `transfer` maps to [`ArticleBucket::Transfer`] / [`ArticleBucket::NonTransfer`].
+/// `#[serde(default)]` mirrors Go's `encoding/json` tolerance: a missing/typed-wrong field defaults
+/// (article 0 → dropped in grounding, transfer false).
+#[derive(Clone, Debug, Default, Deserialize)]
+struct ModelArticleBucket {
+    #[serde(default)]
+    article: i32,
+    #[serde(default)]
+    transfer: bool,
+}
+
+/// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields. `narratives`
+/// drives the storyline persist; `article_buckets` (n9) drives the per-article `news_articles.bucket`
+/// write. Buckets are best-effort: a reply that truncates before the buckets section still succeeds
+/// as a narratives document (the buckets simply stay empty and no bucket is rewritten this cycle).
 #[derive(Clone, Debug, Default)]
 pub struct ParsedNarratives {
     narratives: Vec<ModelNarrative>,
+    article_buckets: Vec<ModelArticleBucket>,
 }
 
 impl ParsedNarratives {
@@ -268,20 +284,30 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 crate::util::truncate(raw, 200)
             ));
         }
-        Ok(Some(ParsedNarratives { narratives }))
+        // article_buckets (n9) is a best-effort side channel: parsed with the same tolerant salvager
+        // but never gates success — a truncated reply that salvaged narratives keeps them and simply
+        // labels no articles this cycle (downstream reads NULL bucket leniently).
+        let article_buckets = parse_article_buckets(raw);
+        Ok(Some(ParsedNarratives {
+            narratives,
+            article_buckets,
+        }))
     }
 }
 
 // ---------------------------------------------------------------------------
-// Corpus loader — byte-for-byte the SQL news_narratives.go runs (same query ⇒ same rows).
+// Corpus loader — the widened net (Cognition Phase 3): every vetted CANONICAL article for the
+// entity within the lookback, no transfer-bucket exclusion and no size cap. The scrub novelty gate
+// already collapsed reposts (`duplicate_of IS NULL` keeps only originals), so the honest compressor
+// runs once at the tip of the spear and narratives sees the full de-duplicated breadth.
 // ---------------------------------------------------------------------------
 
-/// load_vetted_corpus reads the entity's recent VETTED news links (the scrub gate kept), wider than
-/// the vibe window so the model sees enough breadth to find the distinct storylines. Verbatim Go SQL;
-/// only `published_at` is projected as an epoch `bigint` (`EXTRACT(EPOCH …)::bigint`, NULL-preserving)
-/// so the recency math needs no datetime crate, and the lookback is `make_interval(secs => $4)`
-/// (= Go's `$4::interval` of `"259200 seconds"`). `sport` is the UPPER-cased value (Go upper-cases
-/// before the read).
+/// load_vetted_corpus reads the entity's recent VETTED, CANONICAL news links (the scrub gate kept and
+/// the novelty gate did not suppress). Phase 3 widened it: the transfer-bucket exclusion is gone (the
+/// Journalist now labels transfer articles itself) and the 25-item cap is gone ("we cannot cap data";
+/// dedup is the compressor). `published_at` is projected as an epoch `bigint`
+/// (`EXTRACT(EPOCH …)::bigint`, NULL-preserving) so the recency math needs no datetime crate; the
+/// lookback is `make_interval(secs => $4)`. `sport` is the UPPER-cased value.
 pub async fn load_vetted_corpus(
     pool: &PgPool,
     entity_type: &str,
@@ -309,17 +335,15 @@ pub async fn load_vetted_corpus(
         JOIN news_articles a ON a.id = nae.article_id
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
           AND nae.vetted IS TRUE
-          AND a.bucket IS DISTINCT FROM 'transfer'
+          AND a.duplicate_of IS NULL
           AND (a.published_at IS NULL OR a.published_at > NOW() - make_interval(secs => $4))
-        ORDER BY a.topic_heat DESC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC
-        LIMIT $5
+        ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
         "#,
     )
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
-    .bind(MAX_NARRATIVE_CORPUS)
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus {entity_type}/{entity_id}"))?;
@@ -336,7 +360,6 @@ pub async fn load_vetted_corpus(
                     url,
                     published_at_epoch,
                     fetched_at_epoch,
-                    relevance_band: None,
                     full_text,
                 }
             },
@@ -344,11 +367,11 @@ pub async fn load_vetted_corpus(
         .collect())
 }
 
-/// load_vetted_corpus_with_exclusions is [`load_vetted_corpus`] and the exclusions diagnostic
-/// in ONE base scan (Phase 2 — the exclusions query used to re-run the same
-/// entity-links × articles join a second time). Kept rows carry the full payload in window-rank
-/// order (the old `ORDER BY … LIMIT` realization); excluded rows return only `(id, status)` —
-/// their payload columns are NULLed in SQL so months of stale history don't ride the wire.
+/// load_vetted_corpus_with_exclusions is [`load_vetted_corpus`] plus the exclusions diagnostic in ONE
+/// base scan. Phase 3 removed the size cap, so the only exclusion reason left is `stale_news` (outside
+/// the lookback window) — the `budget_truncated` band is gone with the cap. Kept rows carry the full
+/// payload in freshest-first order; the stale rows return only `(id, status)` (payload NULLed in SQL,
+/// so months of stale history never ride the wire) for the excluded-evidence telemetry.
 async fn load_vetted_corpus_with_exclusions(
     pool: &PgPool,
     entity_type: &str,
@@ -370,32 +393,18 @@ async fn load_vetted_corpus_with_exclusions(
         r#"
         WITH base AS (
             SELECT a.id, a.title, a.description, a.source, a.url,
-                   a.published_at, a.fetched_at, a.topic_heat, a.full_text
+                   a.published_at, a.fetched_at, a.full_text,
+                   CASE
+                     WHEN a.published_at IS NOT NULL
+                      AND a.published_at <= NOW() - make_interval(secs => $4)
+                       THEN 'stale_news'
+                     ELSE 'kept'
+                   END AS status
             FROM news_article_entities nae
             JOIN news_articles a ON a.id = nae.article_id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
               AND nae.vetted IS TRUE
-              AND a.bucket IS DISTINCT FROM 'transfer'
-        ),
-        fresh AS (
-            SELECT id,
-                   row_number() OVER (
-                       ORDER BY topic_heat DESC NULLS LAST, COALESCE(published_at, fetched_at) DESC
-                   ) AS rn
-            FROM base
-            WHERE published_at IS NULL OR published_at > NOW() - make_interval(secs => $4)
-        ),
-        classified AS (
-            SELECT b.*, f.rn,
-                   CASE
-                     WHEN b.published_at IS NOT NULL
-                      AND b.published_at <= NOW() - make_interval(secs => $4)
-                       THEN 'stale_news'
-                     WHEN f.rn > $5 THEN 'budget_truncated'
-                     ELSE 'kept'
-                   END AS status
-            FROM base b
-            LEFT JOIN fresh f USING (id)
+              AND a.duplicate_of IS NULL
         )
         SELECT id, status,
                CASE WHEN status = 'kept' THEN title END,
@@ -405,15 +414,14 @@ async fn load_vetted_corpus_with_exclusions(
                CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
                CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
                CASE WHEN status = 'kept' THEN full_text END
-        FROM classified
-        ORDER BY rn NULLS LAST, id
+        FROM base
+        ORDER BY (status = 'kept') DESC, COALESCE(published_at, fetched_at) DESC NULLS LAST, id
         "#,
     )
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
-    .bind(MAX_NARRATIVE_CORPUS)
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus + exclusions {entity_type}/{entity_id}"))?;
@@ -432,113 +440,20 @@ async fn load_vetted_corpus_with_exclusions(
                 url: url.unwrap_or_default(),
                 published_at_epoch,
                 fetched_at_epoch,
-                relevance_band: None,
                 full_text,
             }),
-            "stale_news" => exclusions.stale_news_ids.push(id),
-            _ => exclusions.budget_truncated_news_ids.push(id),
+            // Only 'stale_news' remains now the cap (budget_truncated) is gone.
+            _ => exclusions.stale_news_ids.push(id),
         }
     }
-    // The old exclusions arrays were array_agg(id ORDER BY id) — keep them ascending.
+    // The exclusions array mirrors the old array_agg(id ORDER BY id) — keep it ascending.
     exclusions.stale_news_ids.sort_unstable();
-    exclusions.budget_truncated_news_ids.sort_unstable();
     Ok((corpus, exclusions))
 }
 
 // ---------------------------------------------------------------------------
-// Embed+cluster dedup — the candle VALUE-ADD (Plan §1.4). Identity when no embedder (parity bins).
-// ---------------------------------------------------------------------------
-
-/// embed_text is what we vectorize per article — the title plus its blurb (the storyline content).
-fn embed_text(c: &CorpusItem) -> String {
-    if c.description.is_empty() {
-        c.title.clone()
-    } else {
-        format!("{} {}", c.title, c.description)
-    }
-}
-
-/// dedup_corpus collapses near-duplicate coverage before the model call: embed each article (candle,
-/// CPU), single-link `cluster()` at [`DEDUP_THRESHOLD`], and keep ONE representative per cluster — the
-/// freshest (smallest index, since the corpus is `published_at DESC`). `cluster()` returns members
-/// ascending and clusters ordered by smallest member, so the survivors stay in freshest-first order.
-///
-/// This is the dedup the Go pipeline never had (a deliberate improvement). It runs ONLY when an
-/// `Embedder` is loaded (the live handler); the offline parity bins build `Harness { embedder: None }`,
-/// so this is the IDENTITY and the assembled prompt is byte-identical to Go — the deterministic axes
-/// diff equal (Plan §3 gate). Where it DOES change the input set (live), that is documented value-add,
-/// never a parity break.
-/// relevance_band maps an article↔identity cosine onto the L4-validated resolve bands: ≥ the
-/// auto-keep line = "high" (clearly about this entity), < the auto-drop line = "low" (likely
-/// about someone else or a passing mention), between = "medium". Same semantics, same measured
-/// thresholds as the scrub Resolve gate — reused, not reinvented.
-fn relevance_band(cos: f32, cfg: &crate::config::ResolveConfig) -> &'static str {
-    if cos >= cfg.keep_threshold {
-        "high"
-    } else if cos < cfg.drop_threshold {
-        "low"
-    } else {
-        "medium"
-    }
-}
-
-/// dedup_corpus is the embed pass: near-duplicate collapse (the original L13 value-add) PLUS
-/// per-article identity-relevance tags (Phase 2, n7 — the deterministic scaffold for the
-/// recall-under-noise gap: the model was over-suppressing, dropping a real storyline together
-/// with off-entity noise; the tags hand it a computed about-this-entity signal instead of
-/// asking it to infer one). One embedding batch covers both: identity card first, articles
-/// after. No embedder (offline/parity bins) ⇒ identity function, untagged pre-n7 prompt shape.
-async fn dedup_corpus(
-    hx: &Harness,
-    req: &NarrativesReq,
-    sport_up: &str,
-    corpus: Vec<CorpusItem>,
-) -> Result<DedupedCorpus> {
-    if hx.embedder.is_none() || corpus.is_empty() || DEDUP_THRESHOLD <= 0.0 {
-        return Ok(DedupedCorpus {
-            corpus,
-            dropped_news_ids: Vec::new(),
-        });
-    }
-    let identity = crate::resolve::load_identity_candidate(
-        &hx.pool,
-        &req.entity_type,
-        req.entity_id,
-        &req.entity_name,
-        sport_up,
-    )
-    .await?;
-    let mut texts = Vec::with_capacity(corpus.len() + 1);
-    texts.push(crate::resolve::identity_text(&identity));
-    texts.extend(corpus.iter().map(embed_text));
-    let vectors = hx.embed(&texts).await.context("embed narrative corpus")?;
-    let (identity_vec, article_vecs) = vectors
-        .split_first()
-        .expect("identity plus article vectors");
-    let clusters = cluster(article_vecs, DEDUP_THRESHOLD);
-    let keep: Vec<usize> = clusters.iter().map(|c| c.members[0]).collect();
-    let dropped_news_ids = clusters
-        .iter()
-        .flat_map(|c| c.members.iter().skip(1))
-        .map(|i| corpus[*i].id)
-        .collect();
-    let kept_corpus = keep
-        .into_iter()
-        .map(|i| {
-            let mut item = corpus[i].clone();
-            let cos = crate::embed::cosine_similarity(identity_vec, &article_vecs[i]);
-            item.relevance_band = Some(relevance_band(cos, &hx.resolve).to_string());
-            item
-        })
-        .collect();
-    Ok(DedupedCorpus {
-        corpus: kept_corpus,
-        dropped_news_ids,
-    })
-}
-
-// ---------------------------------------------------------------------------
-// Prompt — byte-for-byte buildNarrativesPrompt.
+// Prompt — buildNarrativesPrompt (n9: no per-article relevance tag; the candle novelty gate is the
+// compressor now, so narratives sees the widened, canonical-only corpus straight from the loader).
 // ---------------------------------------------------------------------------
 
 /// article_body is the corpus-loader seam (mig 171, plan decision 3): the model-visible body
@@ -575,11 +490,6 @@ pub fn build_narratives_prompt(
         b.push_str(&format!("{}. ", i + 1));
         if !n.source.is_empty() {
             b.push_str(&format!("[{}] ", n.source));
-        }
-        // Identity-relevance tag (n7) — present only when the live embed pass ran, so the
-        // offline/parity prompt shape is unchanged.
-        if let Some(band) = &n.relevance_band {
-            b.push_str(&format!("(relevance {band}) "));
         }
         b.push_str(&n.title);
         let body = article_body(n);
@@ -715,6 +625,69 @@ fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
     (out, ok)
 }
 
+/// parse_article_buckets salvages the n9 `article_buckets` array the same tolerant way
+/// [`parse_narratives`] salvages storylines: find the `"article_buckets"` key, then keep every
+/// balanced top-level `{...}` inside its array that parses as a [`ModelArticleBucket`]. Unlike the
+/// narratives salvager there is NO success/failure bool — the buckets are a best-effort side channel,
+/// so an absent key, a missing `[`, or a truncated tail simply yields the objects salvaged so far
+/// (possibly none). The section is independent of `"narratives"` and may appear before or after it.
+fn parse_article_buckets(raw: &str) -> Vec<ModelArticleBucket> {
+    let mut out: Vec<ModelArticleBucket> = Vec::new();
+    let Some(key) = raw.find("\"article_buckets\"") else {
+        return out;
+    };
+    let Some(lb) = raw.as_bytes()[key..].iter().position(|&b| b == b'[') else {
+        return out;
+    };
+    let s = &raw.as_bytes()[key + lb + 1..];
+
+    let mut depth: i32 = 0;
+    let mut start: i64 = -1;
+    let mut in_str = false;
+    let mut esc = false;
+    let mut i = 0usize;
+    while i < s.len() {
+        let c = s[i];
+        if in_str {
+            if esc {
+                esc = false;
+            } else if c == b'\\' {
+                esc = true;
+            } else if c == b'"' {
+                in_str = false;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'"' => in_str = true,
+            b'{' => {
+                if depth == 0 {
+                    start = i as i64;
+                }
+                depth += 1;
+            }
+            b'}' => {
+                if depth > 0 {
+                    depth -= 1;
+                    if depth == 0 && start >= 0 {
+                        if let Ok(txt) = std::str::from_utf8(&s[start as usize..=i]) {
+                            if let Ok(b) = serde_json::from_str::<ModelArticleBucket>(txt) {
+                                out.push(b);
+                            }
+                        }
+                        start = -1;
+                    }
+                }
+            }
+            b']' if depth == 0 => return out, // array closed cleanly
+            _ => {}
+        }
+        i += 1;
+    }
+    out
+}
+
 // ---------------------------------------------------------------------------
 // Grounding — map article numbers back to the corpus, compute the deterministic per-narrative impact.
 // ---------------------------------------------------------------------------
@@ -770,6 +743,39 @@ fn ground_narratives(
             source_latest_epoch,
             source_oldest_epoch,
         });
+    }
+    out
+}
+
+/// ground_article_buckets maps the model's n9 `article_buckets` back to real news ids the same way
+/// [`ground_narratives`] maps cited articles: 1-indexed `article` numbers, deduped (first label per
+/// article wins) and bounded to the corpus. Returns `(news_id, bucket)` pairs the persist writes to
+/// `news_articles.bucket`. An out-of-range or `< 1` article number is dropped (the model referenced a
+/// slot that is not in the corpus). Unlabeled corpus articles are simply left untouched — the write
+/// only sets what the Journalist named this cycle.
+fn ground_article_buckets(
+    buckets: &[ModelArticleBucket],
+    news: &[CorpusItem],
+) -> Vec<(i64, ArticleBucket)> {
+    let mut seen: HashSet<usize> = HashSet::with_capacity(buckets.len());
+    let mut out: Vec<(i64, ArticleBucket)> = Vec::new();
+    for b in buckets {
+        if b.article < 1 {
+            continue;
+        }
+        let idx = (b.article - 1) as usize;
+        if idx >= news.len() {
+            continue;
+        }
+        if !seen.insert(idx) {
+            continue; // first label per article wins
+        }
+        let bucket = if b.transfer {
+            ArticleBucket::Transfer
+        } else {
+            ArticleBucket::NonTransfer
+        };
+        out.push((news[idx].id, bucket));
     }
     out
 }
@@ -906,16 +912,15 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
     out
 }
 
-/// NarrativesReady carries the assembled model inputs (the parity axes) plus the (possibly deduped)
+/// NarrativesReady carries the assembled model inputs (the parity axes) plus the widened, canonical
 /// corpus the grounding maps back to. `request_body` is computed from the SAME backend + opts the call
-/// will use, so it can never drift from what is POSTed.
+/// will use, so it can never drift from what is POSTed. (n9: near-duplicate collapse moved to the
+/// candle novelty gate, so the corpus here is already the deduplicated breadth — no embed pass.)
 pub struct NarrativesReady {
-    /// The numbered corpus the model sees (deduped when an embedder is loaded; identity otherwise).
+    /// The numbered corpus the model sees (widened, canonical-only — the loader already excludes
+    /// `duplicate_of` reposts the scrub novelty gate suppressed).
     pub corpus: Vec<CorpusItem>,
-    /// Corpus size BEFORE dedup (inspection: how many near-duplicates the candle pass dropped).
-    pub original_corpus_size: usize,
     pub corpus_exclusions: CorpusExclusions,
-    pub dedup_dropped_news_ids: Vec<i64>,
     pub opts: GenerateOptions,
     pub built_prompt: String,
     pub request_body: serde_json::Value,
@@ -924,15 +929,15 @@ pub struct NarrativesReady {
     pub input_hash: String,
 }
 
-/// NarrativesMaterial is the pre-dedup material phase: the concurrent loads plus the debounce
-/// hash, NO candle work. The live handler gates on `input_hash` between this and
-/// [`finish_narratives_build`] so a quiet wake never pays the dedup embed (Phase 2); the parity
-/// bins go through [`build_narratives_request`], which composes both phases unchanged.
+/// NarrativesMaterial is the material phase: the concurrent loads plus the debounce hash. The live
+/// handler gates on `input_hash` between this and [`finish_narratives_build`] so a quiet wake never
+/// pays the prompt assembly (Phase 2); the parity bins go through [`build_narratives_request`],
+/// which composes both phases unchanged.
 pub struct NarrativesMaterial {
     pub corpus: Vec<CorpusItem>,
     pub corpus_exclusions: CorpusExclusions,
     pub heat: Vec<HeatItem>,
-    /// SHA over [`build_narratives_input_components`] (pre-dedup) — the debounce key.
+    /// SHA over [`build_narratives_input_components`] — the debounce key.
     pub input_hash: String,
 }
 
@@ -970,8 +975,8 @@ pub async fn load_narratives_material(
         },
     )?;
 
-    // Hash the material inputs BEFORE dedup: the debounce must key on what news exists, not on
-    // what the (embedder-dependent) dedup pass kept.
+    // The debounce keys on the material fact — what vetted, canonical news exists (plus the heat
+    // facts) — independent of any downstream shaping.
     let input_hash =
         crate::util::hash_components(&build_narratives_input_components(&corpus, &heat));
 
@@ -983,8 +988,9 @@ pub async fn load_narratives_material(
     })
 }
 
-/// finish_narratives_build is the post-gate phase: the dedup embed (the candle pass) and the
-/// prompt/options/wire-body assembly.
+/// finish_narratives_build is the post-gate phase: the memory-card load plus the
+/// prompt/options/wire-body assembly. (n9: no candle embed pass — the corpus arrives already
+/// deduplicated from the loader, so this phase is pure assembly.)
 pub async fn finish_narratives_build(
     hx: &Harness,
     req: &NarrativesReq,
@@ -1006,9 +1012,6 @@ pub async fn finish_narratives_build(
             input_hash,
         });
     }
-    let original_corpus_size = corpus.len();
-    let deduped = dedup_corpus(hx, req, &sport_up, corpus).await?;
-    let corpus = deduped.corpus;
 
     // Memory-load failure degrades to an unenriched prompt, mirroring the heat
     // error-swallowing above: the corpus is the primary signal, memory is enrichment.
@@ -1045,9 +1048,7 @@ pub async fn finish_narratives_build(
 
     Ok(NarrativesBuild::Ready(Box::new(NarrativesReady {
         corpus,
-        original_corpus_size,
         corpus_exclusions,
-        dedup_dropped_news_ids: deduped.dropped_news_ids,
         opts,
         built_prompt,
         request_body,
@@ -1056,8 +1057,8 @@ pub async fn finish_narratives_build(
     })))
 }
 
-/// build_narratives_request runs the full deterministic prefix: load the vetted corpus, (if an
-/// embedder is loaded) dedup near-duplicates, load the transfer heat for grounding, then
+/// build_narratives_request runs the full deterministic prefix: load the widened vetted corpus, load
+/// the transfer heat for grounding, then
 /// `build_narratives_prompt` plus the n4 options and the exact wire body. NO model call — these
 /// are the deterministic axes (the L2 finding: the storyline grouping is not a temp-0 parity
 /// axis). The role is [`Role::NarrativeLogic`] (the news/transfer reasoner — narratives shares it
@@ -1088,11 +1089,13 @@ pub struct NarrativesOutput {
     /// Tokens evaluated by Ollama for this call. `None` on no-corpus marker rows.
     pub eval_count: Option<i32>,
     pub wall_ms: Option<u64>,
-    /// Inspection: corpus size before/after the candle dedup.
-    pub original_corpus_size: usize,
-    pub deduped_corpus_size: usize,
-    pub dedup_dropped_news_ids: Vec<i64>,
-    pub budget_truncated_news_ids: Vec<i64>,
+    /// n9 per-article transfer labels grounded back to real news ids — the persist writes each to
+    /// `news_articles.bucket`, which is what routes the transfers stage (mig 175). Empty on the
+    /// no-corpus marker path.
+    pub article_buckets: Vec<(i64, ArticleBucket)>,
+    /// Corpus articles outside the lookback window (excluded-evidence telemetry). The cap-based
+    /// `budget_truncated` reason retired with the 25-item cap (Phase 3), so `stale_news` is the only
+    /// exclusion left.
     pub stale_news_ids: Vec<i64>,
     /// The debounce key this generation was built from (Phase 1); persisted on every row of the
     /// generation so the next cycle's gate has something to compare against.
@@ -1156,10 +1159,7 @@ pub async fn generate_narratives_from_build(
                 request_body: None,
                 eval_count: None,
                 wall_ms: None,
-                original_corpus_size: 0,
-                deduped_corpus_size: 0,
-                dedup_dropped_news_ids: Vec::new(),
-                budget_truncated_news_ids: corpus_exclusions.budget_truncated_news_ids,
+                article_buckets: Vec::new(),
                 stale_news_ids: corpus_exclusions.stale_news_ids,
                 input_hash,
             });
@@ -1182,6 +1182,7 @@ pub async fn generate_narratives_from_build(
     })?;
 
     let narratives = ground_narratives(&parsed.narratives, &ready.corpus, now_epoch);
+    let article_buckets = ground_article_buckets(&parsed.article_buckets, &ready.corpus);
 
     Ok(NarrativesOutput {
         narratives,
@@ -1191,10 +1192,7 @@ pub async fn generate_narratives_from_build(
         request_body: Some(extracted.request_body),
         eval_count: Some(extracted.eval_count),
         wall_ms: Some(extracted.wall_ms),
-        original_corpus_size: ready.original_corpus_size,
-        deduped_corpus_size: ready.corpus.len(),
-        dedup_dropped_news_ids: ready.dedup_dropped_news_ids,
-        budget_truncated_news_ids: ready.corpus_exclusions.budget_truncated_news_ids,
+        article_buckets,
         stale_news_ids: ready.corpus_exclusions.stale_news_ids,
         input_hash: ready.input_hash,
     })
@@ -1214,34 +1212,27 @@ fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
             })
         })
         .collect();
+    // n9 per-article transfer labels: how many articles the Journalist tagged, and which it routed
+    // to the transfers stage (bucket='transfer').
+    let transfer_ids: Vec<i64> = out
+        .article_buckets
+        .iter()
+        .filter(|(_, b)| *b == ArticleBucket::Transfer)
+        .map(|(id, _)| *id)
+        .collect();
     json!({
         "input_news_ids": out.provenance().input_ids,
         "narratives": narratives,
-        "original_corpus_size": out.original_corpus_size,
-        "deduped_corpus_size": out.deduped_corpus_size,
+        "article_buckets": {
+            "labeled": out.article_buckets.len(),
+            "transfer_count": transfer_ids.len(),
+            "transfer_news_ids": transfer_ids,
+        },
     })
 }
 
 fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
     let mut excluded = Vec::new();
-    let dropped = out.dedup_dropped_news_ids.len();
-    if dropped > 0 {
-        excluded.push(json!({
-            "reason": "dedup_near_duplicate",
-            "dropped_count": dropped,
-            "dropped_news_ids": &out.dedup_dropped_news_ids,
-            "original_corpus_size": out.original_corpus_size,
-            "deduped_corpus_size": out.deduped_corpus_size,
-        }));
-    }
-    if !out.budget_truncated_news_ids.is_empty() {
-        excluded.push(json!({
-            "reason": "budget_truncated",
-            "dropped_count": out.budget_truncated_news_ids.len(),
-            "dropped_news_ids": &out.budget_truncated_news_ids,
-            "limit": MAX_NARRATIVE_CORPUS,
-        }));
-    }
     if !out.stale_news_ids.is_empty() {
         excluded.push(json!({
             "reason": "stale_news",
@@ -1442,6 +1433,34 @@ pub async fn persist_narratives(
         product_row_ids.push(inserted.get("id"));
     }
 
+    // n9: write the Journalist's per-article transfer labels to news_articles.bucket, in the SAME
+    // transaction as the storylines so the label and the narrative it came from commit atomically.
+    // The `IS DISTINCT FROM` guard skips no-op rewrites, so the mig-175 AFTER-UPDATE trigger
+    // (bucket → 'transfer' ⇒ enqueue transfers for the article's TEAM entities) fires only on a real
+    // change, never re-enqueueing an already-transfer article every cycle.
+    if !out.article_buckets.is_empty() {
+        let bucket_ids: Vec<i64> = out.article_buckets.iter().map(|(id, _)| *id).collect();
+        let bucket_labels: Vec<String> = out
+            .article_buckets
+            .iter()
+            .map(|(_, b)| b.as_db().to_string())
+            .collect();
+        sqlx::query(
+            r#"
+            UPDATE news_articles a
+               SET bucket = v.bucket
+              FROM unnest($1::bigint[], $2::text[]) AS v(id, bucket)
+             WHERE a.id = v.id
+               AND a.bucket IS DISTINCT FROM v.bucket
+            "#,
+        )
+        .bind(&bucket_ids)
+        .bind(&bucket_labels)
+        .execute(&mut *tx)
+        .await
+        .context("persist article buckets")?;
+    }
+
     tx.commit().await.context("commit narratives tx")?;
     insert_cognition_ledger_best_effort(
         pool,
@@ -1571,6 +1590,27 @@ impl StageHandler for NarrativesHandler {
             &out,
         )
         .await?;
+
+        // Phase 3 hand-off: narratives now feeds Vibe (mirroring vibe → momentum). Vibe reads this
+        // generation's storylines + the transfer heat, so enqueue it once that material has moved.
+        // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Any transfers routing
+        // rides the news_articles.bucket write in persist_narratives (mig 175 trigger).
+        if !crate::vibe::enqueue_vibe_if_needed(
+            hx,
+            &item.entity_type,
+            entity_id,
+            &req.entity_name,
+            &sport_up,
+        )
+        .await?
+        {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id,
+                sport = %sport_up,
+                "narratives: vibe enqueue skipped unchanged/empty context"
+            );
+        }
         Ok(())
     }
 }
@@ -1588,7 +1628,6 @@ mod tests {
             url: String::new(),
             published_at_epoch: epoch,
             fetched_at_epoch: epoch,
-            relevance_band: None,
             full_text: None,
         }
     }
@@ -1673,27 +1712,6 @@ mod tests {
 - Heat — heat 40\n\
 \nReturn the JSON object now."
         );
-    }
-
-    // --- relevance banding + tag rendering (n7) ---------------------------------------------------
-
-    #[test]
-    fn relevance_bands_reuse_the_resolve_thresholds() {
-        let cfg = crate::config::ResolveConfig::default(); // keep 0.75 / drop 0.60 (L4-measured)
-        assert_eq!(relevance_band(0.80, &cfg), "high");
-        assert_eq!(relevance_band(0.75, &cfg), "high");
-        assert_eq!(relevance_band(0.70, &cfg), "medium");
-        assert_eq!(relevance_band(0.59, &cfg), "low");
-    }
-
-    #[test]
-    fn prompt_renders_relevance_tag_only_when_present() {
-        let mut tagged = item(1, "ESPN", "Big story", "", None);
-        tagged.relevance_band = Some("high".to_string());
-        let untagged = item(2, "Sky", "Other item", "", None);
-        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &[tagged, untagged], &[], None);
-        assert!(p.contains("1. [ESPN] (relevance high) Big story"));
-        assert!(p.contains("2. [Sky] Other item"));
     }
 
     // --- full_text corpus seam (mig 171, plan decision 3) ------------------------------------------
@@ -1810,6 +1828,53 @@ mod tests {
         assert!(ok);
         assert_eq!(ns.len(), 1);
         assert_eq!(ns[0].title, "A } B");
+    }
+
+    // --- n9 article_buckets: tolerant parse + grounding -------------------------------------------
+
+    #[test]
+    fn parse_article_buckets_reads_the_section() {
+        let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}],
+                      "article_buckets": [{"article":1,"transfer":true},{"article":2,"transfer":false}]}"#;
+        let b = parse_article_buckets(raw);
+        assert_eq!(b.len(), 2);
+        assert_eq!((b[0].article, b[0].transfer), (1, true));
+        assert_eq!((b[1].article, b[1].transfer), (2, false));
+        // The full parse yields both sections; a reply with no buckets key parses to an empty section.
+        let doc = NarrativesParser.parse(raw).unwrap().unwrap();
+        assert_eq!(doc.article_buckets.len(), 2);
+        assert!(parse_article_buckets(r#"{"narratives": []}"#).is_empty());
+    }
+
+    #[test]
+    fn parse_article_buckets_salvages_truncated_tail() {
+        // The narratives array parsed cleanly; the buckets section truncates mid-object → keep the
+        // complete leading entries, drop the half-written one, never fail the document.
+        let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}], "article_buckets": [{"article":1,"transfer":true},{"article":2,"tr"#;
+        let doc = NarrativesParser.parse(raw).unwrap().unwrap();
+        assert_eq!(doc.narratives.len(), 1);
+        assert_eq!(doc.article_buckets.len(), 1);
+        assert_eq!(doc.article_buckets[0].article, 1);
+    }
+
+    #[test]
+    fn ground_article_buckets_maps_dedupes_and_bounds() {
+        let news = vec![
+            item(100, "BBC", "one", "", None),
+            item(101, "ESPN", "two", "", None),
+        ];
+        let parsed = vec![
+            ModelArticleBucket { article: 1, transfer: true },
+            ModelArticleBucket { article: 1, transfer: false }, // dup article → first label wins
+            ModelArticleBucket { article: 2, transfer: false },
+            ModelArticleBucket { article: 9, transfer: true }, // out of range → dropped
+            ModelArticleBucket { article: 0, transfer: true }, // < 1 → dropped
+        ];
+        let out = ground_article_buckets(&parsed, &news);
+        assert_eq!(
+            out,
+            vec![(100, ArticleBucket::Transfer), (101, ArticleBucket::NonTransfer)]
+        );
     }
 
     // --- ground_narratives: numbering, dedupe, bounds, drop-rules ---------------------------------

@@ -115,13 +115,12 @@ async fn run_entity(hx: &Harness, s: &EntitySpec, vet: bool) -> Result<bool> {
         .map(|v| format!("{} grounded narrative(s)", v.narratives.len()))
         .unwrap_or_else(|| "deterministic".to_string());
     println!(
-        "  ✓ {}/{} {} ({}) → corpus {}/{} | {} | {} bytes prompt",
+        "  ✓ {}/{} {} ({}) → corpus {} | {} | {} bytes prompt",
         s.entity_type,
         s.entity_id,
         name,
         s.sport,
-        ready.deduped_corpus_size(),
-        ready.original_corpus_size,
+        ready.corpus.len(),
         label,
         ready.built_prompt.len(),
     );
@@ -183,9 +182,8 @@ async fn insert_shadow(
         INSERT INTO news_summaries_shadow (
             source, entity_type, entity_id, sport, trigger_type, trigger_payload,
             narrative_title, body, impact, impact_components, input_news_ids,
-            original_corpus_size, deduped_corpus_size,
             model_version, prompt_version, temperature, built_prompt, ollama_request
-        ) VALUES ('rust',$1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+        ) VALUES ('rust',$1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13::jsonb)
         "#,
     )
     .bind(&s.entity_type)
@@ -196,8 +194,6 @@ async fn insert_shadow(
     .bind(row.impact)
     .bind(&row.impact_components)
     .bind(row.input_news_ids)
-    .bind(ready.original_corpus_size as i32)
-    .bind(ready.corpus.len() as i32)
     .bind(&ready.model_configured)
     .bind(NARRATIVES_PROMPT_VERSION)
     .bind(PARITY_TEMPERATURE as f32)
@@ -266,14 +262,4 @@ fn now_unix() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
-}
-
-trait ReadyExt {
-    fn deduped_corpus_size(&self) -> usize;
-}
-
-impl ReadyExt for NarrativesReady {
-    fn deduped_corpus_size(&self) -> usize {
-        self.corpus.len()
-    }
 }

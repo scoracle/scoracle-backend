@@ -97,14 +97,52 @@ impl Config {
     }
 }
 
-/// ScrubConfig drives the scrub novelty gate. Empty for now — the source-aware novelty gate's
-/// thresholds (cosine cutoff, verbatim overlap, lookback window) land here when that gate is built.
-#[derive(Clone, Debug, Default)]
-pub struct ScrubConfig {}
+/// ScrubConfig drives the scrub source-aware novelty gate (`COGNITION_NOVELTY_*`). After the
+/// relevance gate keeps an article's entities, the novelty pass compares the article against recent
+/// CANONICAL coverage of those same entities and — FIRST-SEEN wins — suppresses a near-duplicate
+/// that is either the SAME outlet reposting or a near-VERBATIM syndication, while letting genuine
+/// cross-outlet corroboration pass through (every distinct source counted). The retired
+/// `narratives::dedup_corpus` collapsed source-BLIND and destroyed that corroboration signal; this
+/// gate is the corrected version, run at the tip of the spear so a widened net stays clean.
+#[derive(Clone, Debug)]
+pub struct ScrubConfig {
+    /// Article↔article cosine at/above which two pieces are "the same story" (the near-dup line).
+    /// Mirrors the retired narratives `DEDUP_THRESHOLD` (0.85) — the same measured collapse point.
+    pub novelty_cosine: f32,
+    /// Token-Jaccard at/above which two articles are near-VERBATIM (syndicated wire copy) — which
+    /// suppresses even ACROSS outlets. Below it, a different outlet on the same story is treated as
+    /// independent corroboration and passes through.
+    pub verbatim_jaccard: f32,
+    /// How far back to look for a canonical original to dedup against. Reposts/syndication are
+    /// recent; the default matches the narratives news lookback (72h) so anything still inside a
+    /// corpus window can be collapsed at the gate.
+    pub novelty_lookback: Duration,
+}
+
+impl Default for ScrubConfig {
+    fn default() -> Self {
+        Self {
+            novelty_cosine: 0.85,
+            verbatim_jaccard: 0.90,
+            novelty_lookback: Duration::from_secs(259_200),
+        }
+    }
+}
 
 impl ScrubConfig {
+    /// from_env reads `COGNITION_NOVELTY_{COSINE,VERBATIM_JACCARD,LOOKBACK_SECONDS}`, defaulting to
+    /// the tuned band (0.85 / 0.90 / 72h). Raising `novelty_cosine` or `verbatim_jaccard` suppresses
+    /// LESS (more pass-through, the safe direction); lowering them suppresses more aggressively.
     pub fn from_env() -> Result<Self> {
-        Ok(Self {})
+        let d = Self::default();
+        Ok(Self {
+            novelty_cosine: env_f32("COGNITION_NOVELTY_COSINE", d.novelty_cosine)?,
+            verbatim_jaccard: env_f32("COGNITION_NOVELTY_VERBATIM_JACCARD", d.verbatim_jaccard)?,
+            novelty_lookback: Duration::from_secs(env_u64(
+                "COGNITION_NOVELTY_LOOKBACK_SECONDS",
+                d.novelty_lookback.as_secs(),
+            )?),
+        })
     }
 }
 
@@ -139,9 +177,10 @@ impl EmbedConfig {
 /// ResolveConfig is the embedding-Resolve hybrid's cosine bands (Plan §1.3). The live resolve
 /// gate is ASYMMETRIC and uses only the keep line: a candidate whose article↔identity cosine is
 /// `≥ keep_threshold` is auto-kept WITHOUT a model call (the cheap CPU pre-filter); everything
-/// below goes to the local model — the proxy never auto-drops. `drop_threshold` survives as the
-/// "low" line of narratives' per-article relevance banding (`relevance_band`, Phase 2 n7) and for
-/// the offline banding analysis. Defaults are the conservative band the L4 experiment measured on
+/// below goes to the local model — the proxy never auto-drops. `drop_threshold` is retained only for
+/// the offline banding analysis (the shadow/experiment bins); the live resolve gate and — since the
+/// n9 candle rework retired the per-article relevance tags — narratives both ignore it. Defaults are
+/// the conservative band the L4 experiment measured on
 /// the live vetted-label set (AUC 0.88): keep 0.75 (high agreement with the model adjudicator),
 /// drop 0.60 (near-zero genuine links lost in the shadow set).
 #[derive(Clone, Debug)]

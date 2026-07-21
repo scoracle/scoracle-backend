@@ -44,6 +44,7 @@ pub mod judge;
 pub mod ledger;
 pub mod momentum;
 pub mod narratives;
+pub mod novelty;
 pub mod ollama;
 pub mod rating;
 pub mod resolve;

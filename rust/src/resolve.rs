@@ -67,9 +67,9 @@ enum Decision {
 /// only thing the cheap proxy may decide on its own); everything else is `Ambiguous` and is routed to
 /// the model. The proxy NEVER auto-drops — the L5 shadow proved the auto-drop band lost distinct,
 /// non-redundant truth (0/9 dropped stories were captured elsewhere), so the diviner, not the sieve,
-/// makes every exclusion. `drop_threshold` stays in config because narratives' `relevance_band`
-/// reuses it live as the "low" relevance line (Phase 2 n7) and the OFFLINE banding analysis (the
-/// shadow/experiment bins) reads it; the live resolve gate itself ignores it.
+/// makes every exclusion. `drop_threshold` stays in config only for the OFFLINE banding analysis (the
+/// shadow/experiment bins); the live resolve gate ignores it, and the n9 candle rework retired the
+/// narratives per-article relevance tags that used to reuse it.
 fn classify(cosine: f32, cfg: &ResolveConfig) -> Decision {
     if cosine >= cfg.keep_threshold {
         Decision::Keep
@@ -82,9 +82,10 @@ fn classify(cosine: f32, cfg: &ResolveConfig) -> Decision {
 /// compares against the article, and the line the model sees. Current club leads (the strongest
 /// disambiguator); teams need no card. Mirrors the L4 experiment's framing so the live gate matches
 /// what was measured.
-/// load_identity_candidate builds the entity's identity card for embedding-relevance scoring —
-/// shared by vibe's narrative weighting and narratives' per-article relevance tags (moved here
-/// from vibe, its Phase-1 beachhead home). Teams get an empty card (name-only identity).
+/// load_identity_candidate builds the entity's identity card for embedding-relevance scoring. Teams
+/// get an empty card (name-only identity). Currently unused by any live stage — the n9 candle rework
+/// retired narratives' per-article relevance tags, its last caller — but kept as the reusable
+/// identity-card primitive for future embedding-relevance work.
 pub async fn load_identity_candidate(
     pool: &PgPool,
     entity_type: &str,

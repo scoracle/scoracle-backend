@@ -59,7 +59,7 @@ impl StageHandler for ScrubHandler {
         let sport = item.sport.to_uppercase();
 
         let row = sqlx::query(
-            "SELECT title, COALESCE(description, '') AS description FROM news_articles WHERE id = $1",
+            "SELECT title, COALESCE(description, '') AS description, COALESCE(source, '') AS source FROM news_articles WHERE id = $1",
         )
         .bind(article_id)
         .fetch_optional(&hx.pool)
@@ -70,6 +70,7 @@ impl StageHandler for ScrubHandler {
         };
         let title: String = row.get("title");
         let description: String = row.get("description");
+        let source: String = row.get("source");
 
         let cands = load_candidates(hx, article_id, &sport).await?;
         if cands.is_empty() {
@@ -77,7 +78,7 @@ impl StageHandler for ScrubHandler {
         }
 
         // Force-keep the primary (confidence ≥ 1.0); the asymmetric gate vets the secondaries.
-        let context = article_text(&title, &description);
+        let context = crate::novelty::article_text(&title, &description);
         let secondaries: Vec<Candidate> = cands
             .iter()
             .filter(|c| c.confidence < 1.0)
@@ -113,15 +114,34 @@ impl StageHandler for ScrubHandler {
                         .unwrap_or(false)
             })
             .collect();
-        apply_verdicts(hx, article_id, &sport, &entity_types, &entity_ids, &relevants).await
-    }
-}
+        // The vetted membership after this scrub (kept links) — the novelty gate's entity scope.
+        let vetted_entities: Vec<(EntityType, i32)> = cands
+            .iter()
+            .zip(&relevants)
+            .filter(|(_, &kept)| kept)
+            .map(|(c, _)| (c.entity_type, c.entity_id))
+            .collect();
 
-fn article_text(title: &str, description: &str) -> String {
-    if description.is_empty() {
-        title.to_string()
-    } else {
-        format!("{title} — {description}")
+        apply_verdicts(hx, article_id, &sport, &entity_types, &entity_ids, &relevants).await?;
+
+        // Source-aware novelty gate (Cognition Phase 2): suppress a near-dup repost (same outlet, or
+        // near-verbatim syndication) of recent canonical coverage; cross-outlet corroboration passes
+        // through. Reuses the relevance gate's context embedding when it ran. Writes `duplicate_of`
+        // only — membership is untouched, so no derive re-fires.
+        crate::novelty::gate(
+            hx,
+            crate::novelty::ArticleNovelty {
+                article_id,
+                sport: &sport,
+                source: &source,
+                context: &context,
+                context_vector: gate.context_vector.as_ref(),
+                vetted_entities: &vetted_entities,
+            },
+        )
+        .await
+        .context("novelty gate")?;
+        Ok(())
     }
 }
 

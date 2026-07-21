@@ -40,7 +40,6 @@ async fn main() -> Result<()> {
         embedder: None,
         resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
-        bucket_classifier: None,
     };
 
     let n_articles: i64 = std::env::var("GRAPH_PROBE_ARTICLES")

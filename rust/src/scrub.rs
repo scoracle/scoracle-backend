@@ -86,7 +86,7 @@ impl StageHandler for ScrubHandler {
         let gate = if secondaries.is_empty() {
             crate::resolve::ResolveSetOutcome::default()
         } else {
-            hx.resolve_set_with_bucket(Role::EmotionalNews, &context, &secondaries)
+            hx.resolve_set(Role::EmotionalNews, &context, &secondaries)
                 .await
                 .context("resolve_set gate")?
         };
@@ -113,29 +113,7 @@ impl StageHandler for ScrubHandler {
                         .unwrap_or(false)
             })
             .collect();
-        // Candle classify only on the fallback path (Phase 2): the model bucket is authoritative
-        // when the ambiguous-band call already ran. The fallback reuses the gate's context vector
-        // instead of re-embedding — the resolve text form is measured classifier-equivalent to the
-        // form the thresholds were tuned on (2026-07-13, examples/bucket_remeasure.rs). Only an
-        // article with no secondaries (no gate ran) pays a fresh embed.
-        let bucket = match gate.model_bucket {
-            Some(b) => b,
-            None => match gate.context_vector.as_deref() {
-                Some(v) => crate::bucket::classify_with_vector(hx, &context, v),
-                None => crate::bucket::classify_article(hx, &title, &description).await?,
-            },
-        };
-
-        apply_verdicts(
-            hx,
-            article_id,
-            &sport,
-            &entity_types,
-            &entity_ids,
-            &relevants,
-            bucket.as_db(),
-        )
-        .await
+        apply_verdicts(hx, article_id, &sport, &entity_types, &entity_ids, &relevants).await
     }
 }
 
@@ -224,19 +202,7 @@ async fn apply_verdicts(
     entity_types: &[String],
     entity_ids: &[i32],
     relevants: &[bool],
-    bucket: &str,
 ) -> Result<()> {
-    let mut tx = hx.pool.begin().await.context("begin scrub verdict tx")?;
-
-    // Article-level bucket first, so the mig-103 vetted trigger's downstream enqueue sees it in
-    // the same transaction.
-    sqlx::query("UPDATE news_articles SET bucket = $2 WHERE id = $1")
-        .bind(article_id)
-        .bind(bucket)
-        .execute(&mut *tx)
-        .await
-        .context("apply article bucket")?;
-
     sqlx::query(
         r#"
         UPDATE news_article_entities n
@@ -251,9 +217,8 @@ async fn apply_verdicts(
     .bind(entity_ids)
     .bind(relevants)
     .bind(sport)
-    .execute(&mut *tx)
+    .execute(&hx.pool)
     .await
     .context("apply verdicts")?;
-    tx.commit().await.context("commit scrub verdict tx")?;
     Ok(())
 }

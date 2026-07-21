@@ -42,8 +42,8 @@ pub struct Config {
     /// bands that auto-decide a candidate without a model call; the ambiguous middle goes to the
     /// model. Defaults are the conservative band the L4 experiment measured (AUC 0.88).
     pub resolve: ResolveConfig,
-    /// Scrub article bucket + topic-heat policy (plan F2). The scrub model emits a bucket when it
-    /// is already called; this config governs the candle fallback and the periodic heat-rank batch.
+    /// Scrub article bucket policy (plan F2). The scrub model emits a bucket when it is already
+    /// called; this config governs the candle fallback.
     pub scrub: ScrubConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
     /// call, DB acquire, embed) fails the item after this long instead of stalling the
@@ -52,7 +52,7 @@ pub struct Config {
     /// The worker supervisor's no-progress threshold: a busy drain whose heartbeat is
     /// older than this is declared wedged and the process exits for a clean systemd
     /// restart (`Restart=always`). Must exceed the longest legitimately beat-free
-    /// stretch — the topic-heat full pass measured ~24 min on 2026-07-12. Zero disables.
+    /// stretch of a single stage handler. Zero disables.
     pub watchdog: Duration,
 }
 
@@ -90,70 +90,21 @@ impl Config {
                 "COGNITION_HANDLER_TIMEOUT_SECONDS",
                 900,
             )?),
-            // 2700s = 45 min: above the 24-min topic-heat worst case with margin; a wedge
-            // self-heals in ≤45 min instead of the incident's 34 hours.
+            // 2700s = 45 min: generous over the slowest single handler; a wedge self-heals
+            // in ≤45 min instead of the incident's 34 hours.
             watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
         })
     }
 }
 
-/// ScrubConfig drives the Wave-5 rail split at the RSS entry point: transfer/non-transfer bucket
-/// classification plus periodic topic heat-rank. The model may emit an authoritative bucket on
-/// already-paid scrub calls; the contrastive candle scorer covers auto-kept articles.
-#[derive(Clone, Debug)]
-pub struct ScrubConfig {
-    /// contrastive score >= this => transfer bucket.
-    pub bucket_threshold: f32,
-    /// Added to the contrastive score when a transfer/trade keyword is present.
-    pub bucket_keyword_weight: f32,
-    /// Case-insensitive substring keywords for the cheap lexical feature.
-    pub bucket_keywords: Vec<String>,
-    /// Single-link cosine threshold for per-day topic clustering.
-    pub topic_heat_threshold: f32,
-    /// How far back each idempotent topic-heat refresh recomputes.
-    pub topic_heat_lookback: Duration,
-    /// Minimum interval between worker-driven topic-heat refreshes. Zero disables the hook.
-    pub topic_heat_interval: Duration,
-}
-
-impl Default for ScrubConfig {
-    fn default() -> Self {
-        Self {
-            bucket_threshold: 0.02,
-            bucket_keyword_weight: 0.08,
-            bucket_keywords: default_bucket_keywords(),
-            topic_heat_threshold: 0.78,
-            topic_heat_lookback: Duration::from_secs(36 * 3600),
-            topic_heat_interval: Duration::from_secs(15 * 60),
-        }
-    }
-}
+/// ScrubConfig drives the scrub novelty gate. Empty for now — the source-aware novelty gate's
+/// thresholds (cosine cutoff, verbatim overlap, lookback window) land here when that gate is built.
+#[derive(Clone, Debug, Default)]
+pub struct ScrubConfig {}
 
 impl ScrubConfig {
-    /// from_env reads `COGNITION_BUCKET_*` / `COGNITION_TOPIC_HEAT_*`, defaulting to the measured
-    /// F2 contrastive+keyword shape and the 0.75-0.80 topic-cluster band from the live probe.
     pub fn from_env() -> Result<Self> {
-        let d = Self::default();
-        Ok(Self {
-            bucket_threshold: env_f32("COGNITION_BUCKET_THRESHOLD", d.bucket_threshold)?,
-            bucket_keyword_weight: env_f32(
-                "COGNITION_BUCKET_KEYWORD_WEIGHT",
-                d.bucket_keyword_weight,
-            )?,
-            bucket_keywords: env_list("COGNITION_BUCKET_KEYWORDS", &d.bucket_keywords),
-            topic_heat_threshold: env_f32(
-                "COGNITION_TOPIC_HEAT_THRESHOLD",
-                d.topic_heat_threshold,
-            )?,
-            topic_heat_lookback: Duration::from_secs(env_u64(
-                "COGNITION_TOPIC_HEAT_LOOKBACK_SECONDS",
-                d.topic_heat_lookback.as_secs(),
-            )?),
-            topic_heat_interval: Duration::from_secs(env_u64(
-                "COGNITION_TOPIC_HEAT_INTERVAL_SECONDS",
-                d.topic_heat_interval.as_secs(),
-            )?),
-        })
+        Ok(Self {})
     }
 }
 
@@ -315,53 +266,6 @@ fn env_opt(key: &str) -> Option<String> {
 
 fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
-}
-
-fn env_list(key: &str, default: &[String]) -> Vec<String> {
-    env_opt(key)
-        .map(|raw| {
-            raw.split(',')
-                .map(|s| s.trim().to_lowercase())
-                .filter(|s| !s.is_empty())
-                .collect()
-        })
-        .filter(|v: &Vec<String>| !v.is_empty())
-        .unwrap_or_else(|| default.to_vec())
-}
-
-fn default_bucket_keywords() -> Vec<String> {
-    [
-        "transfer",
-        "trade",
-        "sign",
-        "signing",
-        "signs",
-        "deal",
-        "bid",
-        "loan",
-        "rumor",
-        "rumour",
-        "free agency",
-        "free agent",
-        "extension",
-        "contract",
-        "linked",
-        "target",
-        "interest",
-        "waive",
-        "waiver",
-        "swap",
-        "acquire",
-        "medical",
-        "personal terms",
-        "here we go",
-        "move to",
-        "joins",
-        "join",
-    ]
-    .iter()
-    .map(|s| s.to_string())
-    .collect()
 }
 
 fn env_u32(key: &str, default: u32) -> Result<u32> {

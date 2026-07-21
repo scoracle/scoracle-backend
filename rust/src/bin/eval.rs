@@ -789,7 +789,7 @@ fn fixture_raw_excerpt(raw: &str) -> String {
     out
 }
 
-/// build_harness constructs the read-only harness (pool + router; no embedder/bucket_classifier).
+/// build_harness constructs the read-only harness (pool + router; no embedder).
 /// Single-flight, so the GPU governor is moot; pin 1.
 async fn build_harness(cfg: &Config) -> Result<Harness> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
@@ -800,7 +800,6 @@ async fn build_harness(cfg: &Config) -> Result<Harness> {
         embedder: None,
         resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
-        bucket_classifier: None,
     })
 }
 

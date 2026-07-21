@@ -44,7 +44,6 @@ async fn main() -> Result<()> {
         embedder: None,
         resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
-        bucket_classifier: None,
     };
 
     let n: i64 = std::env::var("CROWN_PROBE_N")

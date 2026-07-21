@@ -22,8 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    bucket, config, db, embed, graph, momentum, narratives, ollama, rating, scrub, sigil, stage,
-    transfer, vibe, worker,
+    config, db, embed, graph, momentum, narratives, ollama, rating, scrub, sigil, stage, transfer,
+    vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -82,18 +82,6 @@ async fn main() -> Result<()> {
         None
     };
 
-    let bucket_classifier = if enabled.contains("scrub") {
-        match embedder.as_ref() {
-            Some(e) => Some(bucket::BucketClassifier::from_embedder(
-                e,
-                cfg.scrub.clone(),
-            )?),
-            None => None,
-        }
-    } else {
-        None
-    };
-
     // The capability context handed to every stage: the config-driven router (role → local model
     // from COGNITION_ROUTE_*), the embedder (Some only for scrub/narratives), the pool.
     let harness = Harness {
@@ -102,7 +90,6 @@ async fn main() -> Result<()> {
         embedder,
         resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
-        bucket_classifier,
     };
 
     // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
@@ -150,7 +137,6 @@ async fn main() -> Result<()> {
         handlers,
         cfg.safety_net,
         cfg.stale_lease,
-        cfg.scrub.topic_heat_interval,
         cfg.handler_timeout,
         cfg.watchdog,
     );

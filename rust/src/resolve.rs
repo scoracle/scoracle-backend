@@ -25,7 +25,6 @@
 //! (in [`crate::harness`]) with no change to it — the Plan §5 test that the library was drawn
 //! right. Requires `Harness.embedder = Some(..)`; an embed-less Harness errors (a wiring bug).
 
-use crate::bucket::ArticleBucket;
 use crate::config::ResolveConfig;
 use crate::embed::cosine_similarity;
 use crate::harness::{Candidate, EntityType, Harness, IdentityCard, Parser, Resolution, Vector};
@@ -36,17 +35,16 @@ use serde::Deserialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
 
-/// The scrub relevance system prompt: disambiguate same-name candidates and — since the model is
-/// already reading the article to vet ambiguous candidate links — also tag the article bucket.
-/// The relevance verdict remains fail-closed and independent: an absent/unparseable bucket is
-/// ignored by the caller, which falls back to candle.
-const RESOLVE_BUCKET_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about, and classify the article as transfer/trade-related or other sports news.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nCandidates with the same or nearly identical names are MUTUALLY EXCLUSIVE: keep at most ONE of them — the one whose identity (club, nationality, position) the article actually matches. Never keep two same-named candidates.\n\nBucket rules:\n- bucket \"transfer\" for transfer, trade, loan, free-agency, signing, contract-move, bid, medical, or move-rumor coverage.\n- bucket \"other\" for match reports, injuries, previews, recaps, betting, tactical analysis, performance features, and general team news.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>], \"bucket\": \"transfer|other\"}";
+/// The scrub relevance system prompt: disambiguate same-name candidates and choose which the
+/// article is genuinely about. Fail-closed and independent — an unparseable reply drops the
+/// ambiguous candidates.
+const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nCandidates with the same or nearly identical names are MUTUALLY EXCLUSIVE: keep at most ONE of them — the one whose identity (club, nationality, position) the article actually matches. Never keep two same-named candidates.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
 
 /// The model budget for one adjudication call. Temperature 0.2 mirrors the scrub's "tight but a
-/// judgment call"; JSON mode tightens adherence to the `{"relevant":[…],"bucket":…}` contract.
-fn adjudication_bucket_opts() -> GenerateOptions {
+/// judgment call"; JSON mode tightens adherence to the `{"relevant":[…]}` contract.
+fn adjudication_opts() -> GenerateOptions {
     GenerateOptions {
-        system: Some(RESOLVE_BUCKET_SYSTEM_PROMPT.to_string()),
+        system: Some(RESOLVE_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 512,
         num_ctx: 0,
@@ -201,22 +199,16 @@ fn build_relevance_prompt(context: &str, candidates: &[&Candidate]) -> String {
     b
 }
 
-pub struct RelevanceBucket {
-    pub relevant: Vec<usize>,
-    pub bucket: Option<ArticleBucket>,
-}
-
-/// RelevanceBucketParser turns the model's `{"relevant":[…],"bucket":…}` reply into the set of
-/// 1-indexed candidate numbers judged relevant plus the optional article bucket. Fail-closed on
-/// relevance: no JSON object, or unparseable, ⇒ `Ok(None)` (the caller drops the ambiguous
-/// candidates). Out-of-range indices are ignored (mirrors the Go `parseScrubRelevant` contract);
-/// an unrecognized bucket tag is `None` (the caller falls back to candle).
-pub struct RelevanceBucketParser {
+/// RelevanceParser turns the model's `{"relevant":[…]}` reply into the set of 1-indexed candidate
+/// numbers judged relevant. Fail-closed: no JSON object, or unparseable, ⇒ `Ok(None)` (the caller
+/// drops the ambiguous candidates). Out-of-range indices are ignored (mirrors the Go
+/// `parseScrubRelevant` contract).
+pub struct RelevanceParser {
     pub n: usize,
 }
 
-impl Parser<RelevanceBucket> for RelevanceBucketParser {
-    fn parse(&self, raw: &str) -> Result<Option<RelevanceBucket>> {
+impl Parser<Vec<usize>> for RelevanceParser {
+    fn parse(&self, raw: &str) -> Result<Option<Vec<usize>>> {
         let (start, end) = match (raw.find('{'), raw.rfind('}')) {
             (Some(s), Some(e)) if e > s => (s, e),
             _ => return Ok(None),
@@ -225,8 +217,6 @@ impl Parser<RelevanceBucket> for RelevanceBucketParser {
         struct Reply {
             #[serde(default)]
             relevant: Vec<i64>,
-            #[serde(default)]
-            bucket: String,
         }
         let reply: Reply = match serde_json::from_str(&raw[start..=end]) {
             Ok(r) => r,
@@ -238,21 +228,16 @@ impl Parser<RelevanceBucket> for RelevanceBucketParser {
             .filter(|&i| i >= 1 && (i as usize) <= self.n)
             .map(|i| i as usize)
             .collect();
-        Ok(Some(RelevanceBucket {
-            relevant,
-            bucket: ArticleBucket::from_model_tag(&reply.bucket),
-        }))
+        Ok(Some(relevant))
     }
 }
 
-/// ResolveSetOutcome is everything one scrub-gate pass produced: the per-candidate verdicts, the
-/// bucket tag when the ambiguous-band adjudication already ran (authoritative — a paid model call),
-/// and the embedded article-context vector so the candle bucket fallback can reuse it instead of
+/// ResolveSetOutcome is everything one scrub-gate pass produced: the per-candidate verdicts and the
+/// embedded article-context vector, which the source-aware novelty gate reuses instead of
 /// re-embedding the same article. `context_vector` is `None` only when there was nothing to gate.
 #[derive(Debug, Default)]
 pub struct ResolveSetOutcome {
     pub resolutions: Vec<Resolution>,
-    pub model_bucket: Option<ArticleBucket>,
     pub context_vector: Option<Vector>,
 }
 
@@ -261,27 +246,11 @@ impl Harness {
     /// shape (Plan §1.3), the clean 1:1 with `news_scrub.go::ScrubArticle`. Embeds the context + each
     /// identity once, bands each by cosine, and sends only the ambiguous band to the model in a
     /// SINGLE adjudication call. Fail-closed: if that call fails to parse, the ambiguous candidates
-    /// are dropped (`kept = false`), never kept on a guess.
+    /// are dropped (`kept = false`), never kept on a guess. Returns the verdicts plus the embedded
+    /// `context_vector`, which the source-aware novelty gate reuses instead of re-embedding.
     ///
     /// `role` names the adjudicator (typically [`Role::EmotionalNews`], the news-relevance reasoner).
     pub async fn resolve_set(
-        &self,
-        role: Role,
-        context: &str,
-        candidates: &[Candidate],
-    ) -> Result<Vec<Resolution>> {
-        Ok(self
-            .resolve_set_with_bucket(role, context, candidates)
-            .await?
-            .resolutions)
-    }
-
-    /// resolve_set_with_bucket is scrub's Wave-5 extension over [`Self::resolve_set`]. It preserves
-    /// the asymmetric relevance gate and returns a model bucket only when an ambiguous-band model
-    /// call was already needed. Auto-kept articles get `None` here and use the candle fallback —
-    /// which reuses `context_vector` instead of re-embedding (measured equivalent, 2026-07-13,
-    /// `examples/bucket_remeasure.rs`).
-    pub async fn resolve_set_with_bucket(
         &self,
         role: Role,
         context: &str,
@@ -344,7 +313,6 @@ impl Harness {
         }
         ambiguous.sort_unstable();
 
-        let mut bucket = None;
         if !ambiguous.is_empty() {
             let amb: Vec<&Candidate> = ambiguous.iter().map(|&i| &candidates[i]).collect();
             let prompt = build_relevance_prompt(context, &amb);
@@ -352,16 +320,15 @@ impl Harness {
                 .extract(
                     role,
                     &prompt,
-                    &adjudication_bucket_opts(),
-                    &RelevanceBucketParser { n: amb.len() },
+                    &adjudication_opts(),
+                    &RelevanceParser { n: amb.len() },
                 )
                 .await?;
-            if let Some(parsed) = extracted.value {
+            if let Some(relevant) = extracted.value {
                 // relevant is 1-indexed over `amb`, in band order.
                 for (k, &i) in ambiguous.iter().enumerate() {
-                    out[i].kept = parsed.relevant.contains(&(k + 1));
+                    out[i].kept = relevant.contains(&(k + 1));
                 }
-                bucket = parsed.bucket;
             }
             // else: fail-closed — the ambiguous candidates keep their `kept = false` placeholder.
         }
@@ -389,7 +356,6 @@ impl Harness {
         }
         Ok(ResolveSetOutcome {
             resolutions: out,
-            model_bucket: bucket,
             context_vector: Some(ctx.to_vec()),
         })
     }
@@ -489,31 +455,22 @@ mod tests {
     }
 
     #[test]
-    fn relevance_bucket_parser_fail_closed() {
-        let p = RelevanceBucketParser { n: 3 };
+    fn relevance_parser_fail_closed() {
+        let p = RelevanceParser { n: 3 };
         // Fail-closed cases → None (caller drops the ambiguous candidates).
         assert!(p.parse("").unwrap().is_none());
         assert!(p.parse("Sorry, I can't tell.").unwrap().is_none());
         assert!(p.parse("{not json").unwrap().is_none());
-        // Valid → the in-range relevant set; out-of-range filtered; bucket carried.
-        let r = p
-            .parse(r#"{"relevant":[1,3],"bucket":"transfer"}"#)
-            .unwrap()
-            .unwrap();
-        assert_eq!(r.relevant, vec![1, 3]);
-        assert_eq!(r.bucket, Some(ArticleBucket::Transfer));
+        // Valid → the in-range relevant set; out-of-range filtered.
+        let r = p.parse(r#"{"relevant":[1,3]}"#).unwrap().unwrap();
+        assert_eq!(r, vec![1, 3]);
         let r = p.parse(r#"{"relevant":[2,9,0]}"#).unwrap().unwrap(); // 9,0 dropped
-        assert_eq!(r.relevant, vec![2]);
-        assert_eq!(r.bucket, None); // absent bucket → caller's candle fallback
-                                    // Missing relevant key → empty set (everything ambiguous dropped, the conservative call).
+        assert_eq!(r, vec![2]);
+        // Missing relevant key → empty set (everything ambiguous dropped, the conservative call).
         let r = p.parse(r#"{"other":true}"#).unwrap().unwrap();
-        assert!(r.relevant.is_empty());
-        // Wrapped in prose → salvaged; junk bucket tag → None, relevance verdict unharmed.
-        let r = p
-            .parse("here:\n{\"relevant\":[2],\"bucket\":\"weather\"}\nok")
-            .unwrap()
-            .unwrap();
-        assert_eq!(r.relevant, vec![2]);
-        assert_eq!(r.bucket, None);
+        assert!(r.is_empty());
+        // Wrapped in prose → salvaged.
+        let r = p.parse("here:\n{\"relevant\":[2]}\nok").unwrap().unwrap();
+        assert_eq!(r, vec![2]);
     }
 }

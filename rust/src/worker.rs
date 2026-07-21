@@ -43,7 +43,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::Notify;
 use tracing::{debug, error, info, warn};
 
 const NOTIFY_CHANNEL: &str = "pipeline_work_ready";
@@ -58,7 +58,7 @@ const WATCHDOG_POLL: Duration = Duration::from_secs(60);
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
 
 /// Pulse is the drain's progress instrument, shared with the supervisor. The drain
-/// beats it at every step boundary (claim, per-item handle, bookkeeping, topic-heat);
+/// beats it at every step boundary (claim, per-item handle, bookkeeping);
 /// the supervisor reads it to tell a long-but-alive drain (beats keep advancing) from
 /// a wedged one (busy with a stale beat). `activity` names the step the last beat
 /// belongs to, so a watchdog fire points at the hung await instead of leaving a
@@ -105,8 +105,7 @@ impl Pulse {
 
 /// stalled is the watchdog predicate: a drain that claims to be busy but whose last
 /// beat is older than `threshold` is wedged — a healthy drain beats at every item and
-/// step boundary, and the longest legitimately beat-free stretch (the topic-heat full
-/// pass) measured ~24 min, under the 45-min default. Zero disables. Pure for tests.
+/// step boundary. Zero disables. Pure for tests.
 fn stalled(busy: bool, beat_age: Duration, threshold: Duration) -> bool {
     !threshold.is_zero() && busy && beat_age >= threshold
 }
@@ -220,7 +219,6 @@ pub struct Worker {
     handlers: Vec<Box<dyn StageHandler>>,
     safety_net: Duration,
     stale_lease: Duration,
-    topic_heat_interval: Duration,
     /// Per-item ceiling on one stage handler run (`COGNITION_HANDLER_TIMEOUT_SECONDS`;
     /// zero disables). A hung await inside a handler fails the item after this long
     /// instead of stalling the drain forever.
@@ -232,9 +230,6 @@ pub struct Worker {
     shutdown: Arc<AtomicBool>,
     /// Latest tick cause, written by the supervisor with each request.
     cause: Arc<StdMutex<&'static str>>,
-    last_topic_heat: Mutex<Option<Instant>>,
-    /// Cross-pass embedding cache — steady-state refreshes embed only new/changed articles.
-    topic_heat_cache: Mutex<crate::bucket::TopicHeatCache>,
 }
 
 impl Worker {
@@ -243,7 +238,6 @@ impl Worker {
         handlers: Vec<Box<dyn StageHandler>>,
         safety_net: Duration,
         stale_lease: Duration,
-        topic_heat_interval: Duration,
         handler_timeout: Duration,
         watchdog: Duration,
     ) -> Self {
@@ -254,13 +248,10 @@ impl Worker {
             handlers,
             safety_net,
             stale_lease,
-            topic_heat_interval,
             handler_timeout,
             watchdog,
             shutdown: Arc::new(AtomicBool::new(false)),
             cause: Arc::new(StdMutex::new("startup")),
-            last_topic_heat: Mutex::new(None),
-            topic_heat_cache: Mutex::new(crate::bucket::TopicHeatCache::new()),
         }
     }
 
@@ -339,43 +330,8 @@ impl Worker {
             Ok(_) => {}
             Err(e) => error!(error = %format!("{e:#}"), cause, "requeue stale failed"),
         }
-        // Drain BEFORE the topic-heat refresh: pending cognition work never waits behind the
-        // CPU embedder (measured 2026-07-12 — a full refresh pass took ~24 min and starved the
-        // queue for the whole worker tick).
         self.drain_all(cause, pulse).await;
-        pulse.beat("topic-heat refresh");
-        self.maybe_refresh_topic_heat(cause, pulse).await;
         pulse.idle();
-    }
-
-    async fn maybe_refresh_topic_heat(&self, cause: &str, pulse: &Pulse) {
-        if self.topic_heat_interval.is_zero() {
-            return;
-        }
-        let mut last = self.last_topic_heat.lock().await;
-        let due = match *last {
-            None => true,
-            Some(t) => t.elapsed() >= self.topic_heat_interval,
-        };
-        if !due {
-            return;
-        }
-        *last = Some(Instant::now());
-        drop(last);
-
-        let mut cache = self.topic_heat_cache.lock().await;
-        let beat = |activity: &str| pulse.beat(activity);
-        match crate::bucket::refresh_topic_heat(&self.harness, &mut cache, &beat).await {
-            Ok(r) if r.updated > 0 => info!(
-                updated = r.updated,
-                embedded = r.embedded,
-                cached = r.cached,
-                cause,
-                "refreshed topic heat"
-            ),
-            Ok(_) => {}
-            Err(e) => warn!(error = %format!("{e:#}"), cause, "topic heat refresh failed"),
-        }
     }
 
     /// Drain every registered stage to empty. Iterates in registration order;

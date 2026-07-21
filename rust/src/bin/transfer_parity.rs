@@ -71,7 +71,6 @@ async fn main() -> Result<()> {
         embedder: None,
         resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
-        bucket_classifier: None,
     };
 
     let max_pairs: usize = std::env::var("TRANSFER_PARITY_MAX_PAIRS")

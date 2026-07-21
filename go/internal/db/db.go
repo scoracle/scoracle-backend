@@ -435,12 +435,12 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		// shape exactly (DISTINCT ON latest scored row, enriched name/image/team) so the
 		// /leaderboard page renders one row shape across every board. Sources sigil_synthesis
 		// (append-only, latest-per-entity); the partial index idx_sigil_synthesis_sport_score
-		// — (sport, score DESC, generated_at DESC) WHERE score IS NOT NULL AND blurb IS NOT NULL
+		// — (sport, score DESC, generated_at DESC) WHERE score IS NOT NULL AND reading IS NOT NULL
 		// — covers the inner scan. Carries previous_score so the front door can show the crown's
 		// delta (sibling boards don't have a native previous; the Sigil synthesis does).
-		// Row prose is the Oracle READING (Session C, Scott's pick: clients clamp to the
-		// first sentence / line-clamp) — the blurb is internal scaffolding, never served;
-		// it survives below only in the marker filter, which the partial index mirrors.
+		// Row prose is the Oracle READING (Scott's pick: clients clamp to the first sentence /
+		// line-clamp). The reading is the marker filter now — a no-pillar marker carries a NULL
+		// reading (the crown fold retired the panel blurb), which the partial index mirrors.
 		// reading may be NULL on rows that predate the voice (explicit past seasons) —
 		// clients already treat null prose as "no expandable detail".
 		// $1 sport · $2 limit (NULL ⇒ 50) · $3 entity_type (NULL ⇒ both) · $4 season
@@ -460,7 +460,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		),
 		-- Canonical latest-generation rule: take each
 		-- entity's latest synthesis REGARDLESS of nullability (latest_raw), then drop
-		-- it if that latest generation is a no-pillar marker (score/blurb NULL). A
+		-- it if that latest generation is a no-pillar marker (score/reading NULL). A
 		-- newer marker therefore removes the entity from the crown board instead of the
 		-- old behavior, which filtered markers BEFORE the DISTINCT ON and left a stale
 		-- scored row ranked.
@@ -469,7 +469,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 		-- explicit ?season=N ranks that season's board exactly.
 		latest_raw AS (
 			SELECT DISTINCT ON (ss.entity_type, ss.entity_id)
-			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.blurb, ss.reading, ss.generated_at
+			       ss.entity_type, ss.entity_id, ss.score, ss.previous_score, ss.reading, ss.generated_at
 			FROM public.sigil_synthesis ss, req
 			WHERE ss.sport = req.sport
 			  AND (req.entity_type IS NULL OR ss.entity_type = req.entity_type)
@@ -488,7 +488,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- recap/score mismatch (board crowns, profile current:null) cannot return.
 			-- Explicit ?season=N keeps the no-window final-crown behavior.
 			SELECT lr.* FROM latest_raw lr, req
-			WHERE lr.score IS NOT NULL AND lr.blurb IS NOT NULL
+			WHERE lr.score IS NOT NULL AND lr.reading IS NOT NULL
 			  AND (req.want_season IS NOT NULL OR lr.generated_at > NOW() - INTERVAL '72 hours')
 		),
 		ranked AS (
@@ -1149,8 +1149,9 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			-- readings copied in by mig 153, so no oracle_readings read and no
 			-- COALESCE. voiced_at is the drawn-at the client timestamp prefers; on a
 			-- carried-forward voice it is older than generated_at by design. The
-			-- blurb is internal scaffolding (the voice call's input) — NEVER served.
-			SELECT vs.score, vs.convergence, vs.disagreement, vs.why_now,
+			-- reading IS the served voice now (the crown fold retired the panel blurb +
+			-- disagreement/why_now, 2026-07-21).
+			SELECT vs.score, vs.convergence,
 			       vs.previous_score, vs.reading, vs.omen, vs.voiced_at,
 			       vs.voice_model_version, vs.voice_prompt_version,
 			       vs.model_version, vs.prompt_version, vs.generated_at
@@ -1179,7 +1180,7 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'season', COALESCE((SELECT want_season FROM req), (SELECT cur_season FROM req)),
-			'current', (SELECT row_to_json(v) FROM (SELECT score, convergence, disagreement, why_now, previous_score, reading, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
+			'current', (SELECT row_to_json(v) FROM (SELECT score, convergence, previous_score, reading, omen, voiced_at, voice_model_version, voice_prompt_version, model_version, prompt_version, generated_at FROM vibe_cur) v),
 			'history', COALESCE((SELECT json_agg(json_build_object('score', score, 'generated_at', generated_at) ORDER BY generated_at DESC) FROM vibe_hist), '[]'::json)
 		)`,
 		// Entity momentum summary — the GENERATED Momentum product: direction /

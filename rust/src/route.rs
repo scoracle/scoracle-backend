@@ -30,23 +30,21 @@ use tokio::sync::Semaphore;
 
 /// Role names a model's JOB, not its name. Stages address a `Role`; the `Router` maps it to
 /// a concrete model. The one place a model id may appear is the router config (L2) — never
-/// in stage code. `StatsLogic` backs Rating/PEAK; `MomentumLogic` backs Momentum and
-/// `SynthesisLogic` backs Sigil — both split out of `StatsLogic` (2026-07-11) as *identity*
-/// splits so the earned PEAK route change (qwen3 22/22 vs mistral 18/22 on the drilldown
-/// fixtures) cannot silently flip Momentum (3 fixtures, too thin to earn it) or Sigil (never
-/// bake-off'd); un-configured they still resolve to the default model, so the split alone moves
-/// zero behavior. `NarrativeLogic` backs narratives (split 2026-07-12 on its earned 31/31 sweep win); `EmotionalNews` backs transfers, vibe, and scrub;
-/// `Multilang` is the HORIZON normalize role; `Sql` is the SQLCoder role. A future
-/// `TransferLogic` follows the same rule: identity first, model change only on a fixture win.
-/// Derives `Hash` for the L2 role→model map.
-/// `OracleLogic` backs the Oracle reading (identity split from day one, 2026-07-12 — same
-/// lesson as Momentum/Synthesis: the persona voice must never silently flip with another
-/// rail's route change; un-configured it resolves to the default model).
+/// in stage code. `StatsLogic` backs Rating/PEAK; `MomentumLogic` backs Momentum — split out of
+/// `StatsLogic` (2026-07-11) as an *identity* split so the earned PEAK route change (qwen3 22/22
+/// vs mistral 18/22 on the drilldown fixtures) cannot silently flip Momentum (3 fixtures, too
+/// thin to earn it); un-configured it still resolves to the default model, so the split alone
+/// moves zero behavior. `NarrativeLogic` backs narratives (split 2026-07-12 on its earned 31/31
+/// sweep win); `EmotionalNews` backs transfers, vibe, and scrub; `Multilang` is the HORIZON
+/// normalize role; `Sql` is the SQLCoder role. Derives `Hash` for the L2 role→model map.
+/// `OracleLogic` backs the crown (the Sigil): the ONE call that reads the five pillar cards and
+/// emits the reading + score (the panel's `SynthesisLogic` was folded in and retired, 2026-07-21).
+/// Identity split from day one (2026-07-12): the persona voice must never silently flip with
+/// another rail's route change; un-configured it resolves to the default model.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
     MomentumLogic,
-    SynthesisLogic,
     NarrativeLogic,
     OracleLogic,
     EmotionalNews,
@@ -57,11 +55,10 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 8] {
+    pub fn all() -> [Role; 7] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
-            Role::SynthesisLogic,
             Role::NarrativeLogic,
             Role::OracleLogic,
             Role::EmotionalNews,
@@ -76,7 +73,6 @@ impl Role {
         match self {
             Role::StatsLogic => "stats-logic",
             Role::MomentumLogic => "momentum-logic",
-            Role::SynthesisLogic => "synthesis-logic",
             Role::NarrativeLogic => "narrative-logic",
             Role::OracleLogic => "oracle-logic",
             Role::EmotionalNews => "emotional-news",
@@ -92,7 +88,6 @@ impl Role {
         match self {
             Role::StatsLogic => "STATS_LOGIC",
             Role::MomentumLogic => "MOMENTUM_LOGIC",
-            Role::SynthesisLogic => "SYNTHESIS_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",

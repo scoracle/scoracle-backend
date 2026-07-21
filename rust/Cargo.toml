@@ -25,12 +25,6 @@ path = "src/bin/parity.rs"
 name = "eval"
 path = "src/bin/eval.rs"
 
-# Offline sigil parity harness (L3). Writes ONLY sigil_synthesis_shadow; never claims the
-# live pipeline_work queue or writes sigil_synthesis. Twin of bin/parity.rs (vibe).
-[[bin]]
-name = "sigil_parity"
-path = "src/bin/sigil_parity.rs"
-
 # Step-3 rating batch. Rust replacement for go/cmd/statcommentary: single,
 # nightly, and backfill modes over the L12 rating core. Not a pipeline_work stage.
 [[bin]]

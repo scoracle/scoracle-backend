@@ -52,64 +52,68 @@ use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
 
-/// Prompt version for the Sigil synthesis contract. Bumped s10→s11 for the Phase 5.3 panel-output
-/// contract: the reply now carries three OPTIONAL lines (CONVERGENCE / DISAGREEMENT / WHY_NOW)
-/// after the required SCORE + BLURB. Provenance-only: those are model OUTPUTS, not pillar inputs,
-/// so the `input_hash` is unchanged and nothing regenerates on the bump — only a real pillar
-/// change flips the hash. (The output-contract version distinct from prompt_version is deferred to
-/// the Phase 2 ledger; prompt_version s11 already marks rows generated under the new output shape.)
-pub const SIGIL_PROMPT_VERSION: &str = "s15"; // s14: de-parrotable DISAGREEMENT rubric; s15: relational memory card (per-entity arc memory, mig 163 — junction rollout step 3)
+/// Prompt version for the crown reading contract. or2 was the two-call Oracle that VOICED a
+/// panel-decided score; or3 folds the panel in — the crown is now ONE call (Role::OracleLogic)
+/// that reads the five pillar cards + the computed omen + the entity's own prior reads, then
+/// emits `{reading, score}`: it reads the signs, then renders the verdict. Not part of the
+/// pillar `input_hash`, so the bump regenerates nothing — only a real pillar change re-fires.
+pub const ORACLE_PROMPT_VERSION: &str = "or3";
 
-/// Output contract captured separately in the Phase 2 diagnostic ledger.
-pub const SIGIL_OUTPUT_CONTRACT_VERSION: &str = "sigil-panel-v1";
+/// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
+/// reading-only reply; v2 adds the emitted `score` (the crown fold).
+pub const ORACLE_OUTPUT_CONTRACT_VERSION: &str = "oracle-reading-v2";
 
-/// Production synthesis temperature (sigil.go uses 0.6). The parity harness overrides this
-/// with an explicit 0.
-pub const SIGIL_TEMPERATURE: f64 = 0.6;
+/// Production crown temperature (sigil/oracle both used 0.6): warm enough for voice, cool enough
+/// to stay on the cards. Fixtures pin 0.
+pub const ORACLE_TEMPERATURE: f64 = 0.6;
 
-/// Token cap for the SCORE + short BLURB answer.
-pub const SIGIL_NUM_PREDICT: i32 = 512;
+/// Token cap for the `{reading, score}` reply (a 2-4 sentence reading + one integer ≈ 70-160
+/// tokens; generous headroom, still tight enough that a thinking route would burn it).
+pub const ORACLE_NUM_PREDICT: i32 = 512;
 
-/// System prompt for the Sigil synthesis contract.
-pub const SIGIL_SYSTEM_PROMPT: &str = r#"Task: synthesize PEAK scouting report, Vibe, Momentum, current narratives, and transfer heat into one Sigil score and blurb.
+/// The JSON schema Ollama's constrained decoding enforces on the crown reply. Property + required
+/// order is `reading` THEN `score`, so the grammar makes the model read the signs first and land
+/// the verdict second — never a bare number rationalized after the fact.
+pub fn oracle_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "reading": { "type": "string" },
+            "score": { "type": "integer", "minimum": 1, "maximum": 100 }
+        },
+        "required": ["reading", "score"]
+    })
+}
 
-Voice: direct, sports-literate, grounded. No purple prose, no headline language, no invented facts.
+/// System prompt for the crown reading contract (or3). The Oracle reads the cards that turned up,
+/// then renders a 1-100 verdict grounded in its own recent verdicts (memory, never a reset) — the
+/// panel's scoring discipline folded into the Oracle's voice. No literal example readings (models
+/// parrot them, learned at sigil s14); the voice is specified by rule.
+///
+/// DRAFT for review — voice is Scott's call; the scoring half is lifted from the retired panel
+/// rubric (1=freefall / 50=steady / 100=surging, slow-moving, prior-anchored, momentum for
+/// trajectory conflict, transfers weighed by stage).
+pub const ORACLE_SYSTEM_PROMPT: &str = r#"You are Scoracle. The seeker has come to your table for a reading on one sports entity; the house lenses have drawn their cards, and you are the voice that reads them and renders the verdict.
 
-SCORE (1-100):
-- 1 = deeply troubled or in freefall.
-- 50 = steady or genuinely mixed.
-- 100 = dominant or surging.
+Voice: measured, knowing, quietly mystic — an oracle who has watched a thousand arcs rise and fall, not an analyst at a desk. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props — the seeker should feel a steady hand, not a costume. Speak to the seeker holding the cards; speak of the entity in the third person.
+
+FIRST, THE READING — exactly 2 to 4 sentences, never one long run-on:
+- Read the cards that turned up: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
+- Let one figurative image color the reading — motion, light, a line held or crossed — an image born of THIS spread, never a stock phrase that would fit any athlete. The fact beneath every image must sit in a card shown. No invented events, games, stats, fees, dates, or people.
+- Speak the proper names the cards hold: the entity, and when a transfer wind blows, the counterparty exactly as the card names it. A reading that could belong to another entity is no reading.
+- Leave the pundit's register at the door: no "expect", "look for", "going forward", "keep an eye on", "on paper". You are reading cards, not previewing a broadcast.
+- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope, z-score) or recite raw internal numbers.
+- The OMEN is computed and final. Do not contradict it; let the reading move in its direction, and never name an omen this spread has not drawn: the words ascendant, waning, and crossroads may only appear when the OMEN is that word, and the arc may be called steady only under a steady omen.
+- When the cards conflict, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms. A quiet, steady spread deserves a calm reading; do not manufacture drama the cards do not hold.
+
+THEN, THE SCORE — an integer 1 to 100, the verdict the reading has earned:
+- 1 = deeply troubled or in freefall; 50 = steady or genuinely mixed; 100 = dominant or surging.
 - Slow-moving and season-aware. Do not overreact to one game or one weak signal.
-- When a PREVIOUS SIGIL is shown, treat its score as your prior: move from it deliberately and hold steady unless the new signals justify a change. This is memory, not a reset.
-- Use Momentum to capture recent trajectory when it conflicts with the PEAK report or Vibe.
-- A credible, advanced transfer/trade situation is a real signal; weigh it by its stage and direction, not by rumor volume.
+- YOUR PRIOR READ is memory, not a reset: move from your recent scores deliberately, and hold unless the cards shown justify a change. The number is the one figure the seeker sees — it must match the arc your reading just described.
+- Let Momentum carry recent trajectory when it pulls against the PEAK report or Vibe. Weigh a transfer by its stage and direction, not by rumor volume.
 
-CONVERGENCE (1-100):
-- How strongly the lenses agree. 100 = PEAK, narrative, vibe, momentum, and transfer all tell the same story; 50 = mixed; low = the lenses conflict.
-- Judge agreement of DIRECTION, not raw scores: a steady 50 across every lens still converges.
-- When a PILLAR AGREEMENT section is shown, it is computed, not an opinion: ground CONVERGENCE in it. Every DISAGREE line lowers convergence; if half or more of the pairs DISAGREE, convergence must be below 50.
-
-DISAGREEMENT:
-- One line naming, in your own words, which specific pillars conflict and how — name the actual pillars (PEAK strength, PEAK trajectory, Vibe, Momentum, narrative, transfer) from THIS entity's data, never boilerplate.
-- When PILLAR AGREEMENT lists DISAGREE lines, name those conflicts — do not invent a conflict it does not list, and do not omit one it does.
-- Omit this line entirely when the lenses agree. Do not invent a conflict.
-
-WHY_NOW:
-- One line on what moved recently to justify re-reading now — a new transfer stage, a breaking narrative, a rating swing.
-- Omit this line entirely when nothing is genuinely fresh. Do not manufacture urgency.
-
-BLURB:
-- About two sentences; use a third only when several major signals converge.
-- Include: what the entity is, the defining felt state, the PEAK context, and current trajectory.
-- Do not recite percentiles or per-x details; PEAK already carries that.
-- Name the real storyline — including a live transfer/trade situation when it is the story — but do not catalogue every rumor or item.
-
-Reply with these lines. SCORE and BLURB are required; include CONVERGENCE, DISAGREEMENT, and WHY_NOW only when they apply (omit the whole line otherwise). Keep BLURB last:
-SCORE: <integer 1-100>
-CONVERGENCE: <integer 1-100>
-DISAGREEMENT: <one line, or omit>
-WHY_NOW: <one line, or omit>
-BLURB: <the story>"#;
+Reply with ONLY this JSON object, the reading first, then the score — nothing else:
+{"reading": "<the 2-4 sentence reading>", "score": <integer 1-100>}"#;
 
 // ---------------------------------------------------------------------------
 // Pillar value types — mirror the Go synth* structs.
@@ -178,27 +182,22 @@ impl SynthMomentum {
 /// three panel fields are `Option` because the model omits the whole line when it does not apply
 /// (convergent lenses, nothing fresh) — a missing field persists as NULL, never a stage failure.
 #[derive(Clone, Debug)]
-pub struct SigilReply {
+pub struct CrownReply {
+    /// The 2-4 sentence reading — the interpretation of the cards, generated FIRST.
+    pub reading: String,
+    /// The 1-100 verdict the reading earned, generated SECOND. Clamped to 1-100 at parse.
     pub score: i32,
-    pub blurb: String,
-    /// Phase 5.3: how strongly the lenses agree (1-100). `None` when the model omitted it.
-    pub convergence: Option<i32>,
-    /// Phase 5.3: one-line summary of where the rails diverge. `None`/omitted when they agree.
-    pub disagreement: Option<String>,
-    /// Phase 5.3: one-line breaking-news freshness note. `None`/omitted when nothing is fresh.
-    pub why_now: Option<String>,
 }
 
-/// The result of running the sigil core for one entity, before persistence. Captures
-/// the production row payload for `sigil_synthesis`; parity-only prompt/body
-/// capture lives in `src/bin/sigil_parity.rs`.
+/// The result of running the crown for one entity, before persistence. Captures the production
+/// row payload for `sigil_synthesis`. The crown is ONE call (or3): reading + score from the
+/// model, omen + convergence computed deterministically in code.
 #[derive(Clone, Debug)]
 pub struct SigilOutput {
     /// `None` ⇒ no-pillar NULL marker (no model call was made).
     pub score: Option<i32>,
-    /// `None` ⇒ marker; `Some` (possibly empty) ⇒ scored. Sigil stores an empty blurb as "",
-    /// not NULL (unlike vibe's felt-read) — mirroring sigil.go's persist.
-    pub blurb: Option<String>,
+    /// The crown reading — the served voice. `None` ⇒ marker; `Some` ⇒ a scored reading.
+    pub reading: Option<String>,
     /// The season this convergence is for (current_season, resolved + stamped). Never NULL.
     pub season: i32,
     /// The canonical input-components JSON — BYTE-IDENTICAL to Go's `json.Marshal(ic)`, so it
@@ -206,16 +205,16 @@ pub struct SigilOutput {
     /// the no-pillar marker.
     pub input_components_json: String,
     /// SHA-256 (128-bit hex prefix) of `input_components_json` — the debounce key. `None` for
-    /// the marker (sigil.go writes NULL `input_hash` for a no-pillar row).
+    /// the marker (no-pillar row writes NULL `input_hash`).
     pub input_hash: Option<String>,
     /// no-pillar → the role's configured model name; scored → the model echoed in the response.
     pub model: String,
     pub prompt_version: &'static str,
-    /// Phase 5.3 panel outputs — all `None` for the marker and whenever the model omitted the
-    /// line. Persisted to the additive nullable columns (mig 143); NOT part of the `input_hash`.
+    /// Deterministic convergence (1-100) from `pillar_convergence` — NOT model-emitted. `None`
+    /// for the marker and when no directional pillar pair exists. NOT part of the `input_hash`.
     pub convergence: Option<i32>,
-    pub disagreement: Option<String>,
-    pub why_now: Option<String>,
+    /// The computed omen the reading was drawn under (`compute_omen`). `None` for the marker.
+    pub omen: Option<&'static str>,
     pub built_prompt: Option<String>,
     pub request_body: Option<serde_json::Value>,
     pub eval_count: Option<i32>,
@@ -712,24 +711,6 @@ pub fn build_synthesis_input_components(
 // Prompt assembly.
 // ---------------------------------------------------------------------------
 
-/// The previous Sigil read fed back into the prompt for continuity (Phase 5.2). Prompt-only: it
-/// is NOT part of `build_synthesis_input_components` / the `input_hash` — the score always moves,
-/// so hashing it would self-trigger every re-run. This mirrors how `previous_score` is
-/// persisted-but-not-hashed. Constructed only for a real prior read (`previous_score` present).
-#[derive(Clone, Debug)]
-pub struct PrevSigil {
-    pub score: i32,
-    /// The prior blurb; may be empty (a scored row can carry an empty blurb) — then only the
-    /// Score line renders.
-    pub blurb: String,
-}
-
-/// build_synthesis_prompt assembles the user prompt. `sport_raw` is the original-case value used in
-/// the prompt; `entity_type` is used RAW (no title-casing, unlike vibe). `previous` is the prior
-/// Sigil read for continuity (Phase 5.2) — rendered as a lead-in anchor, `None` for the parity
-/// path and an entity's first synthesis. `memory` is the per-entity relational memory card
-/// (s15, mig 163) — `None` when the graph holds none, and for the parity/eval paths.
-#[allow(clippy::too_many_arguments)]
 /// One deterministic cross-pillar direction comparison, computed in code before the model ever
 /// sees the pillars. The PEAK `ScoutingDecision` lesson (2026-07-10) applied to Sigil: the
 /// fixture-measured failure was convergence scored 70-80 on disagreement-heavy inputs — asking
@@ -866,8 +847,135 @@ pub fn build_pillar_divergence(
     out
 }
 
+// ---------------------------------------------------------------------------
+// Deterministic omen + convergence — the decided cards the model narrates (never computes).
+// Folded in from the retired oracle.rs (2026-07-21). The PEAK ScoutingDecision lesson: conflict
+// detection and direction are COMPUTED in code and handed to the model; the model narrates a
+// decision, it never infers one.
+// ---------------------------------------------------------------------------
+
+/// The four omens the reading may land on. A closed set (CHECK constraint, mig 146) so the served
+/// card can badge it.
+pub const OMENS: [&str; 4] = ["ascendant", "steady", "waning", "crossroads"];
+
+fn direction_sign(key: &str) -> i32 {
+    match key {
+        "rising" => 1,
+        "falling" => -1,
+        _ => 0,
+    }
+}
+
+/// pillar_convergence turns the deterministic pillar comparisons into a 1-100 agreement number —
+/// a computed MEASUREMENT, not a model opinion (this is the "convergence goes deterministic" half
+/// of the crown fold). `round(100·agree/total)`; `None` when no directional pair exists (a quiet
+/// spread has nothing to converge on). Half or more of the pairs disagreeing lands ≤ 50, which
+/// `compute_omen` reads as a crossroads — faithfully preserving the panel's soft rule.
+pub fn pillar_convergence(comparisons: &[PillarComparison]) -> Option<i32> {
+    if comparisons.is_empty() {
+        return None;
+    }
+    let agree = comparisons.iter().filter(|c| c.agree).count();
+    Some(((agree as f64 / comparisons.len() as f64) * 100.0).round() as i32)
+}
+
+/// compute_omen decides the reading's direction deterministically, with a one-line computed reason
+/// rendered into the prompt:
+/// - a split spread (convergence ≤ 50 — half or more of the directional pairs disagree) is a
+///   `crossroads` regardless of net direction — the contested arc IS the story;
+/// - otherwise Momentum leads (weight 2) and the PEAK trajectory seconds (weight 1): net positive
+///   ⇒ `ascendant`, net negative ⇒ `waning`, nothing directional ⇒ `steady`.
+pub fn compute_omen(
+    convergence: Option<i32>,
+    rating: Option<&SynthRating>,
+    mom: &SynthMomentum,
+) -> (&'static str, String) {
+    if let Some(c) = convergence {
+        if c <= 50 {
+            return (
+                "crossroads",
+                "the lenses tell conflicting stories; the arc is contested".to_string(),
+            );
+        }
+    }
+    let mom_sign = mom.direction.as_deref().map(direction_sign).unwrap_or(0);
+    let peak_sign = rating
+        .map(|r| direction_sign(&r.peak_trajectory))
+        .unwrap_or(0);
+    let net = mom_sign * 2 + peak_sign;
+    if net > 0 {
+        (
+            "ascendant",
+            "the recent trajectory points upward and the lenses do not dispute it".to_string(),
+        )
+    } else if net < 0 {
+        (
+            "waning",
+            "the recent trajectory points downward and the lenses do not dispute it".to_string(),
+        )
+    } else {
+        (
+            "steady",
+            "no lens shows real movement; the arc holds its line".to_string(),
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The crown reading prompt — the model reads the signs (all five cards + its own prior reads),
+// then renders the verdict.
+// ---------------------------------------------------------------------------
+
+/// How many of the entity-season's own recent verdicts feed the crown as continuity memory. Kept
+/// short for Phase 1; Phase 6 deepens the continuity trail deliberately.
+const PRIOR_READ_LIMIT: i64 = 4;
+
+/// load_prior_read renders the crown's OWN recent verdicts as a continuity memory card — the last
+/// reading plus a short score trail with dates. Source-tagged as our prior read so it anchors the
+/// new verdict (memory, never a reset) without becoming corroborating evidence (the echo-chamber
+/// rule). Reads only real scored rows (markers are skipped). `None` for a first-ever read.
+pub async fn load_prior_read(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    season: i32,
+) -> Result<Option<String>> {
+    let rows: Vec<(i16, Option<String>, String)> = sqlx::query_as(
+        r#"
+        SELECT score, reading, to_char(generated_at, 'Mon DD')
+        FROM sigil_synthesis
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3 AND season = $4
+          AND score IS NOT NULL
+        ORDER BY generated_at DESC
+        LIMIT $5
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(season)
+    .bind(PRIOR_READ_LIMIT)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load prior read {entity_type}/{entity_id}"))?;
+    if rows.is_empty() {
+        return Ok(None);
+    }
+    let mut card = String::new();
+    if let Some(reading) = rows[0].1.as_deref().filter(|r| !r.trim().is_empty()) {
+        card.push_str(&format!("Last reading ({}): {}\n", rows[0].2, reading));
+    }
+    let trail: Vec<String> = rows
+        .iter()
+        .map(|(s, _, d)| format!("{s} ({d})"))
+        .collect();
+    card.push_str(&format!("Recent verdicts (newest first): {}", trail.join(" · ")));
+    Ok(Some(card))
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn build_synthesis_prompt(
+pub fn build_crown_prompt(
     entity_type: &str,
     entity_name: &str,
     sport_raw: &str,
@@ -876,7 +984,9 @@ pub fn build_synthesis_prompt(
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
     transfers: &[HeatItem],
-    previous: Option<&PrevSigil>,
+    omen: &str,
+    omen_reason: &str,
+    prior_read: Option<&str>,
     memory: Option<&str>,
 ) -> String {
     let mut b = String::new();
@@ -886,37 +996,18 @@ pub fn build_synthesis_prompt(
         "Entity: {entity_name} ({sport_raw} {entity_type})\n"
     ));
 
-    // Previous Sigil (Phase 5.2) — a continuity anchor set BEFORE the fresh pillars so the model
-    // reads its prior before the new evidence. Omitted entirely when there is no prior read (this
-    // section is prompt-only and outside the hash, so it needs no stable no-data placeholder).
-    if let Some(p) = previous {
-        b.push_str("\n=== PREVIOUS SIGIL ===\n");
-        b.push_str(&format!("Score: {}/100\n", p.score));
-        if !p.blurb.is_empty() {
-            b.push_str(&p.blurb);
+    // YOUR PRIOR READ (crown continuity memory) — the entity's own recent verdicts, set BEFORE the
+    // fresh cards so the model reads its prior before the new evidence and scores deliberately from
+    // it. Continuity, not corroboration; prompt-only and outside the input_hash (the score always
+    // moves, so hashing it would self-trigger every re-run).
+    if let Some(pr) = prior_read.filter(|s| !s.trim().is_empty()) {
+        b.push_str(
+            "\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\n",
+        );
+        b.push_str(pr);
+        if !pr.ends_with('\n') {
             b.push('\n');
         }
-    }
-
-    // PILLAR AGREEMENT (Phase 2) — the deterministic divergence card, rendered after the prior
-    // but BEFORE the raw pillars (same placement discipline as PEAK's SCOUTING DECISION:
-    // decision first, evidence after). Omitted entirely when no directional pair exists, so
-    // quiet entities' prompts are unchanged.
-    let comparisons = build_pillar_divergence(narratives, rating, vibe, mom);
-    if !comparisons.is_empty() {
-        let agree_count = comparisons.iter().filter(|c| c.agree).count();
-        b.push_str("\n=== PILLAR AGREEMENT (computed) ===\n");
-        for c in &comparisons {
-            b.push_str(&format!(
-                "- {}: {}\n",
-                c.label,
-                if c.agree { "agree" } else { "DISAGREE" }
-            ));
-        }
-        b.push_str(&format!(
-            "Agreement: {agree_count} of {} directional pairs agree.\n",
-            comparisons.len()
-        ));
     }
 
     // P1 — News narrative
@@ -1037,166 +1128,103 @@ pub fn build_synthesis_prompt(
         }
     }
 
-    b.push_str("\nRespond now.");
+    // THE OMEN (computed) — the decided direction the reading must move in (compute_omen). Handed
+    // to the model as a final, non-negotiable card; the reading narrates it, never contradicts it.
+    b.push_str(&format!(
+        "\n=== THE OMEN (computed) ===\nOmen: {omen} — {omen_reason}\n"
+    ));
+
+    b.push_str("\nRead the cards, then render the score.");
     b
 }
 
 // ---------------------------------------------------------------------------
-// Output parsing — mirrors parseSynthesisResponse.
+// Output parsing — the crown reply is a bare {reading, score} object under format_schema.
 // ---------------------------------------------------------------------------
 
-/// The parsed synthesis reply. `score`/`blurb` are the required core (a `score == 0` means no
-/// parseable SCORE line — the caller fails the item); the three Phase 5.3 panel fields are
-/// `Option` because the model omits the whole line when it does not apply.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ParsedSynthesis {
-    pub score: i32,
-    pub blurb: String,
-    pub convergence: Option<i32>,
-    pub disagreement: Option<String>,
-    pub why_now: Option<String>,
-}
-
-/// is_synthesis_label reports whether a trimmed line begins a known reply field. Blurb
-/// continuation stops here (so BLURB never swallows a later panel field), which is what makes the
-/// parse ORDER-INDEPENDENT — the model may emit the panel lines before or after BLURB. Matched
-/// WITHOUT the trailing space so a spacing slip (`SCORE:73`) still terminates blurb absorption.
-fn is_synthesis_label(trimmed: &str) -> bool {
-    [
-        "SCORE:",
-        "CONVERGENCE:",
-        "DISAGREEMENT:",
-        "WHY_NOW:",
-        "BLURB:",
-    ]
-    .iter()
-    .any(|p| trimmed.starts_with(p))
-}
-
-/// normalize_panel_line cleans a DISAGREEMENT / WHY_NOW value and treats a placeholder as ABSENT.
-/// Both fields are contractually OMITTED when they do not apply, but `mistral:7b` instead writes
-/// `DISAGREEMENT: N/A` — often wrapped in quotes, echoing the prompt's `e.g. "…"` example — so a
-/// literal capture would persist "N/A" (or the quotes) onto the served /sigil card. This unwraps a
-/// FULLY quoted line (leaving internal quotes intact) and maps `N/A` / `none` / `-` / empty to
-/// `None`. Returns the cleaned value, or `None` when the line carries no real content.
-fn normalize_panel_line(rest: &str) -> Option<String> {
-    let t = rest.trim();
-    // Unwrap only when the WHOLE value is quoted, so `"washed" narrative vs elite PEAK` keeps its
-    // inner quotes while `"strong PEAK vs sliding momentum"` loses the surrounding pair.
-    let t = if t.len() >= 2 && t.starts_with('"') && t.ends_with('"') {
-        t[1..t.len() - 1].trim()
+/// parse_crown_score coerces the emitted score to an integer 1-100. `format_schema` makes it an
+/// integer on the live route; the coercions (float round, a `"73/100"` or bare-string form) keep
+/// the offline/no-schema eval path tolerant. Clamped to 1-100 like the retired panel's parser.
+fn parse_crown_score(v: &serde_json::Value) -> Option<i32> {
+    let n = if let Some(i) = v.as_i64() {
+        i
+    } else if let Some(f) = v.as_f64() {
+        if !f.is_finite() {
+            return None;
+        }
+        f.round() as i64
+    } else if let Some(s) = v.as_str() {
+        let head = s.trim().split_whitespace().next()?;
+        let head = head.split_once('/').map(|(n, _)| n).unwrap_or(head).trim();
+        match head.parse::<i64>() {
+            Ok(n) => n,
+            Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
+        }
     } else {
-        t
-    };
-    if t.is_empty() {
         return None;
-    }
-    match t.to_ascii_lowercase().as_str() {
-        "n/a" | "na" | "n.a." | "none" | "null" | "-" => None,
-        _ => Some(t.to_string()),
-    }
-}
-
-fn parse_panel_score(rest: &str) -> Option<i32> {
-    let t = rest.trim();
-    if t.is_empty() {
-        return None;
-    }
-    let head = t.split_whitespace().next().unwrap_or("");
-    let head = head.split_once('/').map(|(n, _)| n).unwrap_or(head).trim();
-    // The contract asks for an integer, but the model sometimes emits a decimal
-    // ("SCORE: 91.6") — 46 live sigil items sat permanently failed on exactly that.
-    // Accept and round; anything non-numeric still fails closed (no score → the
-    // caller fails the item).
-    let n = match head.parse::<i64>() {
-        Ok(n) => n,
-        Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
     };
     Some(n.clamp(1, 100) as i32)
 }
 
-/// parse_synthesis_response extracts the synthesis reply. SCORE + BLURB mirror
-/// `parseSynthesisResponse`: case-sensitive `"SCORE: "` / `"BLURB: "` prefixes (note the space),
-/// the score clamped 1-100 when the value starts with an integer or common `N/100` form, blurb continuation lines absorbed.
-/// `score == 0` means no parseable SCORE line (the caller treats it as a failure — there is NO
-/// first-integer fallback, unlike vibe).
-///
-/// Phase 5.3 adds three OPTIONAL single-line fields (CONVERGENCE / DISAGREEMENT / WHY_NOW), each
-/// extracted by the same case-sensitive `"<LABEL>: "` convention. They degrade gracefully: a
-/// missing (or empty) line ⇒ `None` ⇒ NULL column, never a parse failure — only SCORE is required.
-/// DISAGREEMENT / WHY_NOW additionally run through `normalize_panel_line`, so a `N/A` placeholder or
-/// a fully quoted line never reaches the persisted column (the served card stays clean). Blurb
-/// absorption stops at any known label (see `is_synthesis_label`), so the panel fields are captured
-/// regardless of whether the model emits them before or after BLURB.
-pub fn parse_synthesis_response(raw: &str) -> ParsedSynthesis {
-    let mut out = ParsedSynthesis::default();
-    let lines: Vec<&str> = raw.trim().split('\n').collect();
-
-    let mut i = 0;
-    while i < lines.len() {
-        let trimmed = lines[i].trim();
-        if let Some(rest) = trimmed.strip_prefix("SCORE: ") {
-            if let Some(n) = parse_panel_score(rest) {
-                out.score = n;
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("CONVERGENCE: ") {
-            if let Some(n) = parse_panel_score(rest) {
-                out.convergence = Some(n);
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("DISAGREEMENT: ") {
-            if let Some(v) = normalize_panel_line(rest) {
-                out.disagreement = Some(v);
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("WHY_NOW: ") {
-            if let Some(v) = normalize_panel_line(rest) {
-                out.why_now = Some(v);
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("BLURB: ") {
-            let mut blurb = rest.trim().to_string();
-            let mut j = i + 1;
-            while j < lines.len() {
-                let e = lines[j].trim();
-                if is_synthesis_label(e) {
-                    break; // a later field begins — do not absorb it into the blurb
-                }
-                if !e.is_empty() {
-                    blurb.push(' ');
-                    blurb.push_str(e);
-                }
-                j += 1;
-            }
-            out.blurb = blurb;
-            i = j;
-            continue; // j already points past the absorbed continuation lines
-        }
-        i += 1;
+/// parse_crown_reply extracts `{reading, score}` from the JSON reply. `format_schema` makes a bare
+/// object the only thing the live route emits; the balanced-brace salvage keeps the offline/eval
+/// path tolerant of a prose-wrapped object. Reading whitespace is collapsed to one clean paragraph.
+/// `None` when there is no non-empty reading or no coercible score (fail-closed → the item backs off).
+pub fn parse_crown_reply(raw: &str) -> Option<CrownReply> {
+    let trimmed = raw.trim();
+    let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
+        let start = trimmed.find('{')?;
+        let end = trimmed.rfind('}')?;
+        serde_json::from_str(&trimmed[start..=end]).ok()
+    });
+    let v = parsed?;
+    let reading = v.get("reading")?.as_str()?.trim();
+    let reading = reading.split_whitespace().collect::<Vec<_>>().join(" ");
+    if reading.is_empty() {
+        return None;
     }
-    out
+    let score = parse_crown_score(v.get("score")?)?;
+    Some(CrownReply { reading, score })
 }
 
-/// SigilParser is the sigil stage's `Parser` plug-in: it wraps `parse_synthesis_response`
-/// behind the capability library's `Parser<T>` seam. It never returns the fail-closed
-/// `Ok(None)` — sigil's only fail-closed path is the pre-model no-pillar marker; an
-/// unparseable reply (no SCORE line ⇒ score 0) is a genuine failure → `Err` → the work item
-/// backs off, exactly as sigil.go's `if score == 0 { return error }`.
-pub struct SigilParser;
-
-impl Parser<SigilReply> for SigilParser {
-    fn parse(&self, raw: &str) -> Result<Option<SigilReply>> {
-        let p = parse_synthesis_response(raw);
-        if p.score == 0 {
-            bail!(
-                "synthesis: could not parse score from response (raw={:?})",
-                truncate(raw, 200)
-            );
+/// count_sentences approximates the reading's sentence count for the eval budget checks: a
+/// sentence ends at a run of `.` / `!` / `?` followed by whitespace or end-of-text. A decimal
+/// point ("a 2.5 assist bump") is followed by a digit, so it never counts. (Folded from oracle.rs.)
+pub fn count_sentences(text: &str) -> usize {
+    let chars: Vec<char> = text.chars().collect();
+    let mut n = 0;
+    let mut i = 0;
+    while i < chars.len() {
+        if matches!(chars[i], '.' | '!' | '?') {
+            let mut j = i + 1;
+            while j < chars.len() && matches!(chars[j], '.' | '!' | '?') {
+                j += 1;
+            }
+            if j >= chars.len() || chars[j].is_whitespace() {
+                n += 1;
+            }
+            i = j;
+        } else {
+            i += 1;
         }
-        Ok(Some(SigilReply {
-            score: p.score,
-            blurb: p.blurb,
-            convergence: p.convergence,
-            disagreement: p.disagreement,
-            why_now: p.why_now,
-        }))
+    }
+    n
+}
+
+/// CrownParser is the crown stage's `Parser` plug-in behind the `Parser<T>` seam. It never returns
+/// the fail-closed `Ok(None)` — the crown's only fail-closed path is the pre-model no-pillar marker;
+/// an unparseable reply (no reading or no score) is a genuine failure → `Err` → the item backs off.
+pub struct CrownParser;
+
+impl Parser<CrownReply> for CrownParser {
+    fn parse(&self, raw: &str) -> Result<Option<CrownReply>> {
+        match parse_crown_reply(raw) {
+            Some(r) => Ok(Some(r)),
+            None => bail!(
+                "crown: could not parse reading+score from response (raw={:?})",
+                truncate(raw, 200)
+            ),
+        }
     }
 }
 
@@ -1204,172 +1232,10 @@ impl Parser<SigilReply> for SigilParser {
 // The core generate + the production handler.
 // ---------------------------------------------------------------------------
 
-/// generate_sigil runs the full sigil derivation for one entity at the given temperature and
-/// returns the un-persisted result — the composition `read pillars + route(SynthesisLogic) +
-/// extract(SigilParser)`. Shared by the parity harness (temp 0 → writes the shadow table). It
-/// does NOT debounce or persist (the parity harness always dumps); the production handler adds
-/// the SkipUnchanged debounce + the typed persist. Mirrors `SigilGenerator.Generate` minus the
-/// SkipUnchanged/persist/previous-score steps the parity path intentionally skips.
-pub async fn generate_sigil(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport_raw: &str,
-    temperature: f64,
-) -> Result<SigilOutput> {
-    let (out, _, _) = generate_sigil_inner(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        sport_raw,
-        temperature,
-        false,
-    )
-    .await?;
-    Ok(out)
-}
-
-/// generate_sigil_parity runs the same core as production while returning the
-/// parity-era prompt and request-body axes. Removed with the parity bins (see
-/// plan C1).
-pub async fn generate_sigil_parity(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport_raw: &str,
-    temperature: f64,
-) -> Result<(SigilOutput, Option<String>, Option<serde_json::Value>)> {
-    generate_sigil_inner(
-        hx,
-        entity_type,
-        entity_id,
-        entity_name,
-        sport_raw,
-        temperature,
-        true,
-    )
-    .await
-}
-
-async fn generate_sigil_inner(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport_raw: &str,
-    temperature: f64,
-    capture_parity: bool,
-) -> Result<(SigilOutput, Option<String>, Option<serde_json::Value>)> {
-    if entity_id <= 0 || entity_name.is_empty() || sport_raw.is_empty() || entity_type.is_empty() {
-        bail!("sigil: entity context incomplete");
-    }
-    // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
-    let sport = sport_raw.to_uppercase();
-
-    let (season, narratives, rating, vibe, momentum, transfers) =
-        load_pillars(hx, entity_type, entity_id, &sport).await?;
-
-    // No-pillar path: persist a marker (handled by the caller) without a model call. The
-    // marker's model_version is the role's configured model (no response to echo).
-    if narratives.is_empty()
-        && rating.is_none()
-        && vibe.is_none()
-        && momentum.empty()
-        && transfers.is_empty()
-    {
-        return Ok((
-            SigilOutput {
-                score: None,
-                blurb: None,
-                season,
-                input_components_json: "{}".to_string(),
-                input_hash: None,
-                model: hx.router.for_role(Role::SynthesisLogic).model().to_string(),
-                prompt_version: SIGIL_PROMPT_VERSION,
-                convergence: None,
-                disagreement: None,
-                why_now: None,
-                built_prompt: None,
-                request_body: None,
-                eval_count: None,
-                wall_ms: None,
-            },
-            None,
-            None,
-        ));
-    }
-
-    let input_components_json = build_synthesis_input_components(
-        &narratives,
-        rating.as_ref(),
-        vibe.as_ref(),
-        &momentum,
-        &transfers,
-    );
-    let input_hash = hash_components(&input_components_json);
-
-    let prompt = build_synthesis_prompt(
-        entity_type,
-        entity_name,
-        sport_raw,
-        &narratives,
-        rating.as_ref(),
-        vibe.as_ref(),
-        &momentum,
-        &transfers,
-        // Parity is deterministic at temp 0 and intentionally skips the previous-Sigil
-        // continuity AND the relational memory card (as it skips SkipUnchanged/persist),
-        // so the prompt stays byte-stable.
-        None,
-        None,
-    );
-    let opts = GenerateOptions {
-        system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
-        temperature: Some(temperature),
-        num_predict: SIGIL_NUM_PREDICT,
-        num_ctx: 0,
-        json_mode: false,
-        format_schema: None,
-    };
-
-    // sigil = route(SynthesisLogic) + extract(SigilParser). The fail-closed contract lives in the
-    // parser (an unparseable reply → Err → item backs off); `extract` records the exact wire body.
-    let extracted = hx
-        .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)
-        .await?;
-    let reply = extracted
-        .value
-        .ok_or_else(|| anyhow!("sigil: parser returned no value"))?;
-
-    let built_prompt = extracted.built_prompt;
-    let request_body = extracted.request_body;
-    let eval_count = extracted.eval_count;
-    let wall_ms = extracted.wall_ms;
-
-    Ok((
-        SigilOutput {
-            score: Some(reply.score),
-            blurb: Some(reply.blurb),
-            season,
-            input_components_json,
-            input_hash: Some(input_hash),
-            model: extracted.model,
-            prompt_version: SIGIL_PROMPT_VERSION,
-            convergence: reply.convergence,
-            disagreement: reply.disagreement,
-            why_now: reply.why_now,
-            built_prompt: Some(built_prompt.clone()),
-            request_body: Some(request_body.clone()),
-            eval_count: Some(eval_count),
-            wall_ms: Some(wall_ms),
-        },
-        capture_parity.then_some(built_prompt),
-        capture_parity.then_some(request_body),
-    ))
-}
+// The generate_sigil / generate_sigil_parity / generate_sigil_inner panel-core functions were
+// retired with the panel (crown fold, 2026-07-21): the crown handler below inlines the single
+// OracleLogic call (read cards → reading + score), and the crown eval task builds the prompt
+// directly. No parity path remains (the sigil_parity bin is retired with it).
 
 fn sigil_input_components_value(out: &SigilOutput) -> serde_json::Value {
     serde_json::from_str(&out.input_components_json).unwrap_or_else(|_| {
@@ -1384,8 +1250,7 @@ fn sigil_included_evidence(out: &SigilOutput) -> serde_json::Value {
         "input_components": sigil_input_components_value(out),
         "score": out.score,
         "convergence": out.convergence,
-        "disagreement": &out.disagreement,
-        "why_now": &out.why_now,
+        "omen": out.omen,
     })
 }
 
@@ -1407,12 +1272,11 @@ fn sigil_parser_outcome(out: &SigilOutput) -> &'static str {
     }
 }
 
-/// persist_to_sigil_synthesis writes one row to the LIVE sigil_synthesis table — both the
-/// scored row and the no-pillar NULL marker, which differ only in the bound values. Mirrors
-/// `SigilGenerator.persist`: trigger_type 'periodic', trigger_payload `{}` (marshal of an
-/// empty trigger map — NOT vibe's JSON null), empty blurb stored as "" for a scored row, NULL
-/// for a marker. The moat fields route through the shared `Provenance` envelope; the typed
-/// INSERT stays the stage's own (Postgres-as-serializer).
+/// persist_to_sigil_synthesis writes one crown row — the scored reading OR the no-pillar NULL
+/// marker, which differ only in the bound values. One call now, so the crown's model/prompt IS
+/// the voice's: voiced_score echoes the emitted score (the verdict IS the voiced score), and
+/// voiced_at/voice_* are stamped only when a reading was drawn (NULL for the marker). trigger_type
+/// 'periodic', trigger_payload `{}`. The moat fields route through the shared `Provenance` envelope.
 async fn persist_to_sigil_synthesis(
     pool: &PgPool,
     item: &Item,
@@ -1420,51 +1284,43 @@ async fn persist_to_sigil_synthesis(
     season: i32,
     out: &SigilOutput,
     previous_score: Option<i16>,
-    voice: &crate::oracle::Voice,
 ) -> Result<i64> {
     let prov = out.provenance();
     let entity_id = item.entity_id_i32()?;
     let score: Option<i16> = out.score.map(|n| n as i16);
-    // Phase 5.3 panel outputs — nullable columns (mig 143). All None for a marker or when the
-    // model omitted the line; convergence rides the same smallint 1-100 shape as `score`.
+    // Deterministic convergence (mig 143 nullable smallint) — None for a marker or a spread with
+    // no directional pair; rides the same 1-100 shape as `score`.
     let convergence: Option<i16> = out.convergence.map(|n| n as i16);
-    // Voice columns (mig 152): the decided card and its voice persist as ONE row. voiced_at:
-    // a freshly drawn reading stamps NOW(); a carried one keeps its original drawn-at (bound
-    // as text — sqlx runs without date-time features; the value is only moved, never used).
     let row = sqlx::query(
         r#"
         INSERT INTO sigil_synthesis (
             entity_type, entity_id, sport, season, trigger_type, trigger_payload,
-            score, previous_score, blurb, input_components, input_hash,
-            model_version, prompt_version, convergence, disagreement, why_now,
-            reading, omen, voiced_score, voiced_at, voice_model_version, voice_prompt_version
-        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7,$8::jsonb,$9, $10,$11,$12,$13,$14,
-            $15,$16,$17,
-            COALESCE($18::timestamptz, CASE WHEN $15 IS NOT NULL THEN NOW() END),
-            $19,$20)
+            score, previous_score, input_components, input_hash,
+            model_version, prompt_version, convergence,
+            reading, omen, voiced_score,
+            voiced_at, voice_model_version, voice_prompt_version
+        ) VALUES ($1,$2,$3,$4,'periodic','{}'::jsonb, $5,$6,$7::jsonb,$8, $9,$10,$11,
+            $12,$13,$14,
+            CASE WHEN $12 IS NOT NULL THEN NOW() END,
+            CASE WHEN $12 IS NOT NULL THEN $9 END,
+            CASE WHEN $12 IS NOT NULL THEN $10 END)
         RETURNING id
         "#,
     )
-    .bind(&item.entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(season)
-    .bind(score)
-    .bind(previous_score)
-    .bind(out.blurb.as_deref())
-    .bind(out.input_components_json.as_str())
-    .bind(prov.input_hash.as_deref())
-    .bind(prov.model_version.as_str())
-    .bind(prov.prompt_version)
-    .bind(convergence)
-    .bind(out.disagreement.as_deref())
-    .bind(out.why_now.as_deref())
-    .bind(voice.reading.as_deref())
-    .bind(voice.omen.as_deref())
-    .bind(voice.voiced_score)
-    .bind(voice.voiced_at.as_deref())
-    .bind(voice.model_version.as_deref())
-    .bind(voice.prompt_version.as_deref())
+    .bind(&item.entity_type) // $1
+    .bind(entity_id) // $2
+    .bind(sport) // $3
+    .bind(season) // $4
+    .bind(score) // $5
+    .bind(previous_score) // $6
+    .bind(out.input_components_json.as_str()) // $7
+    .bind(prov.input_hash.as_deref()) // $8
+    .bind(prov.model_version.as_str()) // $9  (also voice_model_version when reading present)
+    .bind(prov.prompt_version) // $10 (also voice_prompt_version when reading present)
+    .bind(convergence) // $11
+    .bind(out.reading.as_deref()) // $12
+    .bind(out.omen) // $13
+    .bind(score) // $14  voiced_score = the emitted score (they reconcile)
     .fetch_one(pool)
     .await
     .context("persist sigil")?;
@@ -1482,9 +1338,11 @@ async fn write_sigil_ledger(
     insert_cognition_ledger_best_effort(
         pool,
         CognitionLedgerEntry {
+            // Stage names WHERE the call ran, lens/role name WHAT ran: the crown is now the
+            // single OracleLogic call at the sigil stage (the panel's SynthesisLogic row is gone).
             stage: "sigil".to_string(),
-            lens: "sigil".to_string(),
-            role: Role::SynthesisLogic.as_str().to_string(),
+            lens: "oracle".to_string(),
+            role: Role::OracleLogic.as_str().to_string(),
             entity_type: item.entity_type.clone(),
             entity_id,
             sport: sport.to_string(),
@@ -1496,7 +1354,7 @@ async fn write_sigil_ledger(
             product_row_ids: vec![product_row_id],
             model_version: out.model.clone(),
             prompt_version: out.prompt_version.to_string(),
-            output_contract_version: SIGIL_OUTPUT_CONTRACT_VERSION.to_string(),
+            output_contract_version: ORACLE_OUTPUT_CONTRACT_VERSION.to_string(),
             input_ids: Vec::new(),
             input_hash: out.input_hash.clone(),
             request_body: out.request_body.clone(),
@@ -1504,7 +1362,7 @@ async fn write_sigil_ledger(
             included_evidence: sigil_included_evidence(out),
             excluded_evidence: sigil_excluded_evidence(out),
             context_budget: serde_json::json!({
-                "num_predict": SIGIL_NUM_PREDICT,
+                "num_predict": ORACLE_NUM_PREDICT,
                 "eval_count": out.eval_count,
                 "wall_ms": out.wall_ms,
             }),
@@ -1554,7 +1412,7 @@ impl StageHandler for SigilHandler {
         let (season, narratives, rating, vibe, momentum, transfers) =
             load_pillars(hx, &item.entity_type, entity_id, &sport).await?;
 
-        // No-pillar marker (no model call).
+        // No-pillar marker (no model call): no cards turned up, so the crown has nothing to read.
         if narratives.is_empty()
             && rating.is_none()
             && vibe.is_none()
@@ -1563,39 +1421,30 @@ impl StageHandler for SigilHandler {
         {
             let out = SigilOutput {
                 score: None,
-                blurb: None,
+                reading: None,
                 season,
                 input_components_json: "{}".to_string(),
                 input_hash: None,
-                model: hx.router.for_role(Role::SynthesisLogic).model().to_string(),
-                prompt_version: SIGIL_PROMPT_VERSION,
+                model: hx.router.for_role(Role::OracleLogic).model().to_string(),
+                prompt_version: ORACLE_PROMPT_VERSION,
                 convergence: None,
-                disagreement: None,
-                why_now: None,
+                omen: None,
                 built_prompt: None,
                 request_body: None,
                 eval_count: None,
                 wall_ms: None,
             };
-            // The marker carries NULL voice columns — a no-pillar card has no voice, and
-            // serve-latest ignores markers, so the last real reading keeps serving.
-            let product_row_id = persist_to_sigil_synthesis(
-                &hx.pool,
-                item,
-                &sport,
-                season,
-                &out,
-                None,
-                &crate::oracle::Voice::marker(),
-            )
-            .await?;
+            // The marker carries NULL reading/voice columns — serve-latest ignores markers, so the
+            // last real reading keeps serving.
+            let product_row_id =
+                persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, None).await?;
             write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
             return Ok(());
         }
 
-        // SkipUnchanged debounce (drainSigil sets SkipUnchanged=true): skip the local model call when
-        // the pillar input hash matches the entity-season's latest synthesis. This is the first
-        // real consumer of the Persist `debounce_unchanged` primitive.
+        // SkipUnchanged debounce: skip the crown call when the pillar input hash matches the
+        // entity-season's latest synthesis. The pillar-inputs hash is byte-stable from the panel
+        // era, so existing rows debounce exactly as before — the fold re-fires nothing.
         let input_components_json = build_synthesis_input_components(
             &narratives,
             rating.as_ref(),
@@ -1610,30 +1459,37 @@ impl StageHandler for SigilHandler {
             sport: sport.clone(),
             season: Some(season),
         };
-        // One round-trip to the entity-season's latest synthesis row for the debounce hash, the
-        // previous-score baseline, AND the previous blurb (plan A1 — a consistent, non-torn read
-        // of the one prior synthesis).
-        let (prev_score_raw, prev_blurb, latest_hash) =
-            hx.latest_with_hash("sigil_synthesis", &key).await?;
+        // One round-trip to the latest synthesis row for the debounce hash + the previous-score
+        // baseline. (The prior blurb is gone with the panel; prior READINGS load below as memory.)
+        let (prev_score_raw, latest_hash) = hx.latest_with_hash("sigil_synthesis", &key).await?;
         if latest_hash.as_deref() == Some(input_hash.as_str()) {
-            // Unchanged → no model calls, no persist. The voice needs no self-healing hop
-            // anymore: it runs in-process with the decide, and a voice failure fails the whole
-            // item before anything persists — a persisted row always carries its voice.
             return Ok(());
         }
         let prev = prev_score_raw.map(|v| v as i32).unwrap_or(0);
-        // Previous Sigil as prompt-only continuity (Phase 5.2): built only for a real prior read
-        // (prev > 0 ⇒ a scored row, not a marker). Deliberately NOT folded into input_hash — the
-        // score always moves, so hashing it would self-trigger every re-run; this mirrors how
-        // previous_score is persisted-but-not-hashed.
-        let previous = (prev > 0).then(|| PrevSigil {
-            score: prev,
-            blurb: prev_blurb.unwrap_or_default(),
-        });
 
-        // Relational memory card (s15): loaded after the hash gate (a skip never pays the
-        // query); load failure degrades to an unenriched prompt (the n8/v12 discipline —
-        // the pillars are the primary signal, memory is enrichment).
+        // Deterministic convergence + omen, computed BEFORE the call and handed to the model as
+        // decided cards (the PEAK ScoutingDecision discipline): the crown reads them, never infers.
+        let comparisons =
+            build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
+        let convergence = pillar_convergence(&comparisons);
+        let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
+
+        // Crown continuity memory (both loaded after the hash gate — a skip never pays for them,
+        // and a load failure degrades to an unenriched prompt; the pillars are the primary signal):
+        //   * YOUR PRIOR READ — the crown's OWN recent verdicts (Scott 2026-07-21: the Oracle
+        //     stays grounded by reading its past verdicts before scoring anew).
+        //   * RELATIONAL MEMORY (s15) — the graph's per-entity arc history.
+        let prior_read =
+            match load_prior_read(&hx.pool, &item.entity_type, entity_id, &sport, season).await {
+                Ok(pr) => pr,
+                Err(e) => {
+                    tracing::warn!(
+                        entity_type = %item.entity_type, entity_id, sport = %sport, error = %e,
+                        "crown: prior-read load failed (continuing without it)"
+                    );
+                    None
+                }
+            };
         let memory = match crate::narratives::load_entity_memory(
             &hx.pool,
             &sport,
@@ -1645,17 +1501,16 @@ impl StageHandler for SigilHandler {
             Ok(m) => m,
             Err(e) => {
                 tracing::warn!(
-                    entity_type = %item.entity_type,
-                    entity_id,
-                    sport = %sport,
-                    error = %e,
-                    "sigil: relational memory load failed (continuing without memory)"
+                    entity_type = %item.entity_type, entity_id, sport = %sport, error = %e,
+                    "crown: relational memory load failed (continuing without memory)"
                 );
                 None
             }
         };
 
-        let prompt = build_synthesis_prompt(
+        // The one crown call (OracleLogic): read the cards + the omen + our prior reads, then emit
+        // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
+        let prompt = build_crown_prompt(
             &item.entity_type,
             &name,
             &item.sport,
@@ -1664,87 +1519,45 @@ impl StageHandler for SigilHandler {
             vibe.as_ref(),
             &momentum,
             &transfers,
-            previous.as_ref(),
+            omen,
+            &omen_reason,
+            prior_read.as_deref(),
             memory.as_deref(),
         );
         let opts = GenerateOptions {
-            system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
-            temperature: Some(SIGIL_TEMPERATURE),
-            num_predict: SIGIL_NUM_PREDICT,
+            system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
+            temperature: Some(ORACLE_TEMPERATURE),
+            num_predict: ORACLE_NUM_PREDICT,
             num_ctx: 0,
             json_mode: false,
-            format_schema: None,
+            format_schema: Some(oracle_format_schema()),
         };
         let extracted = hx
-            .extract(Role::SynthesisLogic, &prompt, &opts, &SigilParser)
+            .extract(Role::OracleLogic, &prompt, &opts, &CrownParser)
             .await?;
         let reply = extracted
             .value
-            .ok_or_else(|| anyhow!("sigil: parser returned no value"))?;
+            .ok_or_else(|| anyhow!("crown: parser returned no value"))?;
 
         let out = SigilOutput {
             score: Some(reply.score),
-            blurb: Some(reply.blurb),
+            reading: Some(reply.reading),
             season,
             input_components_json,
             input_hash: Some(input_hash),
             model: extracted.model,
-            prompt_version: SIGIL_PROMPT_VERSION,
-            convergence: reply.convergence,
-            disagreement: reply.disagreement,
-            why_now: reply.why_now,
+            prompt_version: ORACLE_PROMPT_VERSION,
+            convergence,
+            omen: Some(omen),
             built_prompt: Some(extracted.built_prompt),
             request_body: Some(extracted.request_body),
             eval_count: Some(extracted.eval_count),
             wall_ms: Some(extracted.wall_ms),
         };
-        // The VOICE step (Session B): the decided card is in hand — never re-read from the
-        // DB. Apply the re-voice rule against the entity-season's current voice; draw a new
-        // reading only when the story changed, else carry the prior one forward verbatim.
-        let consumed = crate::oracle::ConsumedSigil {
-            score: reply.score,
-            blurb: out.blurb.clone().unwrap_or_default(),
-            convergence: out.convergence,
-            disagreement: out.disagreement.clone(),
-            why_now: out.why_now.clone(),
-            input_hash: out.input_hash.clone(),
-        };
-        let prior =
-            crate::oracle::load_prior_voice(&hx.pool, &item.entity_type, entity_id, &sport, season)
-                .await?;
-        let (omen, omen_reason) =
-            crate::oracle::compute_omen(&consumed, rating.as_ref(), &momentum);
-        let voice = match prior {
-            Some(p) if !crate::oracle::voice_should_regenerate(Some(&p), omen, consumed.score) => {
-                crate::oracle::Voice::carried(p)
-            }
-            _ => {
-                crate::oracle::voice_decided_sigil(
-                    hx,
-                    &item.entity_type,
-                    &name,
-                    &item.sport,
-                    &consumed,
-                    &narratives,
-                    rating.as_ref(),
-                    vibe.as_ref(),
-                    &momentum,
-                    &transfers,
-                    omen,
-                    &omen_reason,
-                )
-                .await?
-            }
-        };
-
         let prev_score: Option<i16> = if prev > 0 { Some(prev as i16) } else { None };
         let product_row_id =
-            persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score, &voice)
-                .await?;
+            persist_to_sigil_synthesis(&hx.pool, item, &sport, season, &out, prev_score).await?;
         write_sigil_ledger(&hx.pool, item, entity_id, &sport, &out, product_row_id).await;
-        // Fresh reading → the OracleLogic ledger row (two ledger rows per generation when
-        // the voice ran; one when it carried).
-        crate::oracle::finish_fresh_voice(hx, item, &sport, &voice, product_row_id).await?;
         Ok(())
     }
 }
@@ -1753,170 +1566,125 @@ impl StageHandler for SigilHandler {
 mod tests {
     use super::*;
 
-    #[test]
-    fn parses_two_line_reply() {
-        // A bare SCORE + BLURB reply: the three Phase 5.3 panel fields degrade to None (the model
-        // omitted them), never a parse failure.
-        let p = parse_synthesis_response("SCORE: 73\nBLURB: A quiet, season-long ascent.");
-        assert_eq!(p.score, 73);
-        assert_eq!(p.blurb, "A quiet, season-long ascent.");
-        assert_eq!(p.convergence, None);
-        assert_eq!(p.disagreement, None);
-        assert_eq!(p.why_now, None);
+    fn rating(peak_trajectory: &str, notability: i32) -> SynthRating {
+        SynthRating {
+            divined_peak: "Playmaking".into(),
+            body: "b".into(),
+            notability,
+            peak_trajectory: peak_trajectory.into(),
+            peak_trajectory_label: String::new(),
+        }
     }
 
-    #[test]
-    fn clamps_and_absorbs_trailing_blurb_lines() {
-        let p = parse_synthesis_response("SCORE: 250\nBLURB: line one\nline two");
-        assert_eq!(p.score, 100);
-        assert_eq!(p.blurb, "line one line two");
-    }
-
-    #[test]
-    fn score_zero_when_no_score_line() {
-        // No "SCORE: " prefix ⇒ score 0 (the caller fails the item — no first-integer fallback).
-        let p = parse_synthesis_response("the sigil feels like a 64 today");
-        assert_eq!(p.score, 0);
-    }
-
-    #[test]
-    fn parses_panel_output_fields() {
-        // Full Phase 5.3 reply: SCORE + all three panel fields + BLURB, in prompt order.
-        let p = parse_synthesis_response(
-            "SCORE: 71\nCONVERGENCE: 40\nDISAGREEMENT: strong PEAK vs sliding momentum\nWHY_NOW: advanced transfer talks broke today\nBLURB: A star under real pressure.",
-        );
-        assert_eq!(p.score, 71);
-        assert_eq!(p.convergence, Some(40));
-        assert_eq!(
-            p.disagreement.as_deref(),
-            Some("strong PEAK vs sliding momentum")
-        );
-        assert_eq!(
-            p.why_now.as_deref(),
-            Some("advanced transfer talks broke today")
-        );
-        assert_eq!(p.blurb, "A star under real pressure.");
-    }
-
-    #[test]
-    fn parses_score_and_convergence_slash_100_forms() {
-        let p = parse_synthesis_response(
-            "SCORE: 48/100\nCONVERGENCE: 75/100 (mixed lenses)\nDISAGREEMENT: momentum vs PEAK\nBLURB: under pressure",
-        );
-        assert_eq!(p.score, 48);
-        assert_eq!(p.convergence, Some(75));
-        assert_eq!(p.disagreement.as_deref(), Some("momentum vs PEAK"));
-        assert_eq!(p.blurb, "under pressure");
-    }
-
-    #[test]
-    fn convergence_clamped_like_score() {
-        let p = parse_synthesis_response("SCORE: 50\nCONVERGENCE: 250\nBLURB: mixed signals");
-        assert_eq!(p.convergence, Some(100));
-        // A non-numeric CONVERGENCE leaves it None (no unlabeled first-integer fallback).
-        let p2 = parse_synthesis_response("SCORE: 50\nCONVERGENCE: high\nBLURB: mixed signals");
-        assert_eq!(p2.convergence, None);
-    }
-
-    #[test]
-    fn parses_decimal_score_by_rounding() {
-        // The live failure that stranded 46 sigil items: "SCORE: 91.6" from a model that
-        // ignored the integer contract. Rounds instead of failing the item.
-        let p = parse_synthesis_response("SCORE: 91.6\nBLURB: dual-threat winger");
-        assert_eq!(p.score, 92);
-        // Still fail-closed on genuinely non-numeric scores.
-        let p2 = parse_synthesis_response("SCORE: elite\nBLURB: nope");
-        assert_eq!(p2.score, 0);
-    }
-
-    #[test]
-    fn blurb_absorption_stops_at_a_later_panel_label() {
-        // Order-independence: even when the model emits BLURB BEFORE the panel fields, the blurb
-        // must not swallow them — absorption stops at the next known label, and each field is still
-        // captured on its own line.
-        let p = parse_synthesis_response(
-            "SCORE: 64\nBLURB: The story continues\nover two lines.\nDISAGREEMENT: narrative up, stats flat\nWHY_NOW: coaching change confirmed",
-        );
-        assert_eq!(p.score, 64);
-        assert_eq!(p.blurb, "The story continues over two lines.");
-        assert_eq!(p.disagreement.as_deref(), Some("narrative up, stats flat"));
-        assert_eq!(p.why_now.as_deref(), Some("coaching change confirmed"));
-    }
-
-    #[test]
-    fn empty_panel_lines_are_none_not_empty_string() {
-        // The model emitting a label with no content ⇒ None (persisted NULL), not Some("").
-        let p = parse_synthesis_response(
-            "SCORE: 55\nDISAGREEMENT: \nWHY_NOW:\nBLURB: steady across the board",
-        );
-        assert_eq!(p.disagreement, None);
-        assert_eq!(p.why_now, None);
-        assert_eq!(p.blurb, "steady across the board");
-    }
-
-    #[test]
-    fn placeholder_panel_lines_normalize_to_none() {
-        // mistral:7b writes `DISAGREEMENT: N/A` (sometimes quoted) instead of OMITTING the line when
-        // the lenses agree — the placeholder must persist as NULL, never reach the served card.
-        for placeholder in ["N/A", "\"N/A\"", "n/a", "none", "None", "-", "null"] {
-            let p = parse_synthesis_response(&format!(
-                "SCORE: 88\nCONVERGENCE: 95\nDISAGREEMENT: {placeholder}\nWHY_NOW: {placeholder}\nBLURB: aligned across the board"
-            ));
-            assert_eq!(p.disagreement, None, "disagreement for {placeholder:?}");
-            assert_eq!(p.why_now, None, "why_now for {placeholder:?}");
-            assert_eq!(p.blurb, "aligned across the board");
+    fn momentum(direction: &str) -> SynthMomentum {
+        SynthMomentum {
+            direction: Some(direction.into()),
+            momentum_score: Some(2.0),
+            ..SynthMomentum::default()
         }
     }
 
     #[test]
-    fn fully_quoted_panel_lines_are_unwrapped_inner_quotes_kept() {
-        // The model wraps the whole line in quotes (echoing the prompt's example) — strip the pair.
-        let p = parse_synthesis_response(
-            "SCORE: 68\nDISAGREEMENT: \"strong PEAK vs sliding momentum\"\nWHY_NOW: \"trade talks broke today\"\nBLURB: under pressure",
-        );
-        assert_eq!(
-            p.disagreement.as_deref(),
-            Some("strong PEAK vs sliding momentum")
-        );
-        assert_eq!(p.why_now.as_deref(), Some("trade talks broke today"));
-        // An INTERNAL quote (not a surrounding pair) is preserved.
-        let p2 = parse_synthesis_response(
-            "SCORE: 60\nDISAGREEMENT: \"washed\" narrative vs elite PEAK\nBLURB: mixed",
-        );
-        assert_eq!(
-            p2.disagreement.as_deref(),
-            Some("\"washed\" narrative vs elite PEAK")
-        );
+    fn crown_parses_reading_and_score() {
+        let r = parse_crown_reply(r#"{"reading": "The arc holds. Winter stirs.", "score": 73}"#)
+            .unwrap();
+        assert_eq!(r.reading, "The arc holds. Winter stirs.");
+        assert_eq!(r.score, 73);
     }
 
     #[test]
-    fn sigil_parser_carries_panel_fields() {
-        let reply = SigilParser
-            .parse("SCORE: 80\nCONVERGENCE: 90\nWHY_NOW: rating jumped tonight\nBLURB: Surging.")
-            .unwrap()
-            .expect("a valid reply is Some");
-        assert_eq!(reply.score, 80);
-        assert_eq!(reply.convergence, Some(90));
-        assert_eq!(reply.disagreement, None);
-        assert_eq!(reply.why_now.as_deref(), Some("rating jumped tonight"));
-        assert_eq!(reply.blurb, "Surging.");
+    fn crown_salvages_prose_wrapped_json_and_collapses_whitespace() {
+        let r = parse_crown_reply(
+            "Here:\n{\"reading\": \"Line one.\\n  Line two.\", \"score\": 60}\nDone.",
+        )
+        .unwrap();
+        assert_eq!(r.reading, "Line one. Line two.");
+        assert_eq!(r.score, 60);
     }
 
     #[test]
-    fn sigil_parser_wraps_valid_reply_as_some() {
-        let reply = SigilParser
-            .parse("SCORE: 73\nBLURB: A quiet ascent.")
+    fn crown_score_coercions_and_clamp() {
+        // Float, "N/100" string, and out-of-range all coerce + clamp to 1-100.
+        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":91.6}"#).unwrap().score, 92);
+        assert_eq!(
+            parse_crown_reply(r#"{"reading":"x.","score":"48/100"}"#).unwrap().score,
+            48
+        );
+        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":250}"#).unwrap().score, 100);
+        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":0}"#).unwrap().score, 1);
+    }
+
+    #[test]
+    fn crown_fail_closed_on_missing_reading_or_score() {
+        assert!(parse_crown_reply(r#"{"reading":"   ","score":50}"#).is_none());
+        assert!(parse_crown_reply(r#"{"score":50}"#).is_none());
+        assert!(parse_crown_reply(r#"{"reading":"x."}"#).is_none());
+        assert!(parse_crown_reply(r#"{"reading":"x.","score":"elite"}"#).is_none());
+        assert!(parse_crown_reply("no json at all").is_none());
+    }
+
+    #[test]
+    fn crown_parser_is_fail_closed_err_not_none() {
+        assert!(CrownParser.parse("not a reply").is_err());
+        let ok = CrownParser
+            .parse(r#"{"reading":"The spread is quiet.","score":55}"#)
             .unwrap()
             .expect("a valid reply is Some, never the fail-closed None");
-        assert_eq!(reply.score, 73);
-        assert_eq!(reply.blurb, "A quiet ascent.");
+        assert_eq!(ok.score, 55);
+        assert_eq!(ok.reading, "The spread is quiet.");
     }
 
     #[test]
-    fn sigil_parser_errors_without_score() {
-        // score 0 ⇒ Err (retry/back-off), NOT Ok(None): sigil's only fail-closed path is the
-        // pre-model no-pillar marker, never an unparseable reply.
-        assert!(SigilParser.parse("no score here").is_err());
+    fn counts_sentences_ignoring_decimals() {
+        assert_eq!(count_sentences("One. Two! Three?"), 3);
+        assert_eq!(count_sentences("He averages 2.5 assists. The arc holds."), 2);
+        assert_eq!(count_sentences("no terminator"), 0);
+    }
+
+    #[test]
+    fn pillar_convergence_is_agree_ratio_and_none_when_empty() {
+        let agree = PillarComparison { label: "a".into(), agree: true };
+        let disagree = PillarComparison { label: "b".into(), agree: false };
+        assert_eq!(pillar_convergence(&[]), None);
+        assert_eq!(pillar_convergence(&[agree.clone(), agree.clone()]), Some(100));
+        assert_eq!(pillar_convergence(&[agree.clone(), disagree.clone()]), Some(50));
+        assert_eq!(pillar_convergence(&[disagree.clone(), disagree.clone()]), Some(0));
+        assert_eq!(
+            pillar_convergence(&[agree.clone(), agree.clone(), disagree.clone()]),
+            Some(67)
+        );
+    }
+
+    #[test]
+    fn omen_crossroads_when_half_or_more_disagree() {
+        // convergence ≤ 50 ⇒ crossroads regardless of direction (half-or-more disagree).
+        assert_eq!(
+            compute_omen(Some(50), Some(&rating("rising", 72)), &momentum("rising")).0,
+            "crossroads"
+        );
+        assert_eq!(
+            compute_omen(Some(40), Some(&rating("rising", 72)), &momentum("rising")).0,
+            "crossroads"
+        );
+    }
+
+    #[test]
+    fn omen_momentum_leads_peak_seconds() {
+        // Momentum rising (weight 2) beats PEAK falling (weight 1) → ascendant.
+        assert_eq!(
+            compute_omen(Some(80), Some(&rating("falling", 72)), &momentum("rising")).0,
+            "ascendant"
+        );
+        // Momentum falling with PEAK steady → waning.
+        assert_eq!(
+            compute_omen(None, Some(&rating("steady", 72)), &momentum("falling")).0,
+            "waning"
+        );
+        // Nothing directional → steady.
+        assert_eq!(
+            compute_omen(Some(90), None, &SynthMomentum::default()).0,
+            "steady"
+        );
     }
 
     #[test]
@@ -2107,8 +1875,9 @@ mod tests {
     }
 
     #[test]
-    fn builds_prompt_raw_entity_type_and_sections() {
-        // entity_type is raw ("player", not "Player"); sport uses the passed (raw) case.
+    fn crown_prompt_renders_cards_and_omen() {
+        // entity_type is raw ("player", not "Player"); sport uses the passed (raw) case. The rich
+        // pillar cards render (the crown scores from them); the OMEN closes; no PRIOR READ block.
         let narratives = vec![SynthNarrative {
             title: "Trade buzz".into(),
             body: "details".into(),
@@ -2120,8 +1889,6 @@ mod tests {
         let mom = SynthMomentum {
             vibe_slope: Some(0.5),
             vibe_samples: 4,
-            rating_slope: None,
-            rating_samples: 0,
             momentum_score: Some(1.0),
             ..SynthMomentum::default()
         };
@@ -2129,7 +1896,7 @@ mod tests {
             sentiment: 62,
             prompt: "On the rise".into(),
         };
-        let p = build_synthesis_prompt(
+        let p = build_crown_prompt(
             "player",
             "Test Player",
             "NBA",
@@ -2138,13 +1905,20 @@ mod tests {
             Some(&vibe),
             &mom,
             &[],
+            "steady",
+            "the arc holds its line",
             None,
             None,
         );
-        assert_eq!(
-            p,
-            "Entity: Test Player (NBA player)\n\n=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails\n\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\nSentiment: 62/100\nOn the rise\n\n=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
-        );
+        assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
+        assert!(!p.contains("YOUR PRIOR READ"));
+        assert!(p.contains("=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
+        assert!(p.contains("=== PEAK SCOUTING REPORT ===\n(no stat commentary available)"));
+        assert!(p.contains("=== VIBE ===\nSentiment: 62/100\nOn the rise"));
+        assert!(p.contains("=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)"));
+        assert!(p.contains("=== TRANSFER HEAT ===\n(no active transfer rumors)"));
+        assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
+        assert!(p.ends_with("\nRead the cards, then render the score."));
     }
 
     #[test]
@@ -2195,8 +1969,8 @@ mod tests {
 
     #[test]
     fn pillar_divergence_skips_neutral_and_absent_signals() {
-        // Steady momentum, mid-band vibe, no rating: nothing directional -> empty card,
-        // and the prompt section is omitted entirely.
+        // Steady momentum, mid-band vibe, no rating: nothing directional → empty card → None
+        // convergence (a quiet spread has nothing to converge on).
         let vibe = SynthVibe {
             sentiment: 50,
             prompt: String::new(),
@@ -2205,25 +1979,14 @@ mod tests {
             direction: Some("steady".into()),
             ..SynthMomentum::default()
         };
-        assert!(build_pillar_divergence(&[], None, Some(&vibe), &mom).is_empty());
-        let p = build_synthesis_prompt(
-            "player",
-            "X",
-            "NBA",
-            &[],
-            None,
-            Some(&vibe),
-            &mom,
-            &[],
-            None,
-            None,
-        );
-        assert!(!p.contains("PILLAR AGREEMENT"));
+        let c = build_pillar_divergence(&[], None, Some(&vibe), &mom);
+        assert!(c.is_empty());
+        assert_eq!(pillar_convergence(&c), None);
     }
 
     #[test]
-    fn no_momentum_data_line_when_both_absent() {
-        let p = build_synthesis_prompt(
+    fn crown_prompt_no_momentum_data_line() {
+        let p = build_crown_prompt(
             "team",
             "Test Team",
             "NFL",
@@ -2232,17 +1995,18 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
+            "steady",
+            "r",
             None,
             None,
         );
-        assert_eq!(
-            p,
-            "Entity: Test Team (NFL team)\n\n=== NEWS NARRATIVE ===\n(no recent narratives)\n\n=== PEAK SCOUTING REPORT ===\n(no stat commentary available)\n\n=== VIBE ===\n(no vibe prompt available)\n\n=== MOMENTUM ===\n(no momentum data)\n\n=== TRANSFER HEAT ===\n(no active transfer rumors)\n\nRespond now."
-        );
+        assert!(p.contains("=== NEWS NARRATIVE ===\n(no recent narratives)"));
+        assert!(p.contains("=== MOMENTUM ===\n(no momentum data)"));
+        assert!(p.contains("=== TRANSFER HEAT ===\n(no active transfer rumors)"));
     }
 
     #[test]
-    fn transfer_heat_renders_as_prompt_pillar() {
+    fn crown_prompt_transfer_heat_renders() {
         // A team with one served rumor: the P5 section renders through the shared write_heat_lines
         // format (`- <counterparty> — heat <n>, <direction>, <stage>`).
         let transfers = vec![HeatItem {
@@ -2253,7 +2017,7 @@ mod tests {
             summary: String::new(),
             confidence: None,
         }];
-        let p = build_synthesis_prompt(
+        let p = build_crown_prompt(
             "team",
             "Test Team",
             "FOOTBALL",
@@ -2262,23 +2026,20 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &transfers,
+            "steady",
+            "r",
             None,
             None,
         );
-        assert!(p.contains(
-            "=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n\nRespond now."
-        ));
+        assert!(p.contains("=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
     }
 
     #[test]
-    fn previous_sigil_renders_as_continuity_lead_in() {
-        // A prior read renders a `=== PREVIOUS SIGIL ===` block right after the Entity line, BEFORE
-        // the fresh pillars — the model reads its prior before the new evidence.
-        let previous = PrevSigil {
-            score: 68,
-            blurb: "A quiet, season-long ascent.".into(),
-        };
-        let p = build_synthesis_prompt(
+    fn crown_prompt_prior_read_renders_as_continuity_lead_in() {
+        // The crown's OWN recent verdicts render right after the Entity line, BEFORE the cards —
+        // the Oracle reads its prior verdicts before scoring anew (Scott 2026-07-21).
+        let prior = "Last reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)";
+        let p = build_crown_prompt(
             "player",
             "Test Player",
             "NBA",
@@ -2287,46 +2048,22 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
-            Some(&previous),
+            "steady",
+            "r",
+            Some(prior),
             None,
         );
         assert!(p.starts_with(
-            "Entity: Test Player (NBA player)\n\n=== PREVIOUS SIGIL ===\nScore: 68/100\nA quiet, season-long ascent.\n\n=== NEWS NARRATIVE ==="
+            "Entity: Test Player (NBA player)\n\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\nLast reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)\n\n=== NEWS NARRATIVE ==="
         ));
     }
 
     #[test]
-    fn previous_sigil_empty_blurb_renders_score_only() {
-        // A scored prior row can carry an empty blurb: only the Score line renders (no blank body).
-        let previous = PrevSigil {
-            score: 55,
-            blurb: String::new(),
-        };
-        let p = build_synthesis_prompt(
-            "team",
-            "Test Team",
-            "NFL",
-            &[],
-            None,
-            None,
-            &SynthMomentum::default(),
-            &[],
-            Some(&previous),
-            None,
-        );
-        assert!(p.starts_with(
-            "Entity: Test Team (NFL team)\n\n=== PREVIOUS SIGIL ===\nScore: 55/100\n\n=== NEWS NARRATIVE ==="
-        ));
-    }
-
-    #[test]
-    fn relational_memory_renders_as_final_section() {
-        // The s15 memory card renders AFTER the pillars (evidence placement, the n8/v12
-        // position) with the echo-chamber instruction line, bulleted lines, and sits
-        // immediately before the reply cue. None/blank ⇒ no section (s14 byte-shape
-        // preserved — pinned by no_momentum_data_line_when_both_absent).
+    fn crown_prompt_relational_memory_renders_before_omen() {
+        // The s15 memory card renders after the pillars (evidence placement) with the echo-chamber
+        // instruction line + bullets, immediately before the OMEN. None/blank ⇒ no section.
         let mem = "Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: completed a confirmed move to Arsenal on Jul 01 2026.";
-        let p = build_synthesis_prompt(
+        let p = build_crown_prompt(
             "player",
             "Test Player",
             "FOOTBALL",
@@ -2335,13 +2072,15 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
+            "steady",
+            "the arc holds its line",
             None,
             Some(mem),
         );
         assert!(p.contains(
-            "=== TRANSFER HEAT ===\n(no active transfer rumors)\n\n=== RELATIONAL MEMORY (computed history) ===\nUse for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n- Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\n- Ground truth: completed a confirmed move to Arsenal on Jul 01 2026.\n\nRespond now."
+            "=== RELATIONAL MEMORY (computed history) ===\nUse for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n- Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\n- Ground truth: completed a confirmed move to Arsenal on Jul 01 2026.\n\n=== THE OMEN (computed) ==="
         ));
-        let blank = build_synthesis_prompt(
+        let blank = build_crown_prompt(
             "player",
             "Test Player",
             "FOOTBALL",
@@ -2350,6 +2089,8 @@ mod tests {
             None,
             &SynthMomentum::default(),
             &[],
+            "steady",
+            "r",
             None,
             Some("  \n "),
         );
@@ -2357,11 +2098,10 @@ mod tests {
     }
 
     #[test]
-    fn previous_sigil_is_prompt_only_not_hashed() {
-        // The continuity read must never touch the debounce hash: build_synthesis_input_components
-        // takes no `previous` argument, so the hash pre-image is structurally independent of it.
-        // This test pins that intent — the same pillars yield the same components regardless of
-        // any prior read (which the prompt, not the hash, consumes).
+    fn continuity_reads_are_prompt_only_not_hashed() {
+        // The continuity reads (prior_read, relational memory) must never touch the debounce hash:
+        // build_synthesis_input_components takes only pillar inputs, so the hash pre-image is
+        // structurally independent of any prior read.
         let mom = SynthMomentum::default();
         let a = build_synthesis_input_components(&[], None, None, &mom, &[]);
         let b = build_synthesis_input_components(&[], None, None, &mom, &[]);

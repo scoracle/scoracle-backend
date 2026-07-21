@@ -46,18 +46,15 @@ use crate::narratives::{
     NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
-use crate::oracle::{
-    build_oracle_prompt, compute_omen, count_sentences, load_latest_sigil, oracle_format_schema,
-    parse_oracle_reply, ORACLE_NUM_PREDICT, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
-};
 use crate::rating::{
     build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
     RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
 use crate::route::Role;
 use crate::sigil::{
-    build_synthesis_prompt, load_pillars, parse_synthesis_response, SIGIL_NUM_PREDICT,
-    SIGIL_PROMPT_VERSION, SIGIL_SYSTEM_PROMPT,
+    build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
+    oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
+    ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
 use crate::transfer::{
     build_pair_request, load_candidates, load_tier_map, transfer_system_prompt, PairBuild,
@@ -158,17 +155,11 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             mandate: "Read PEAK/rating trajectory as price action and Vibe/news as investor sentiment, then decide whether momentum is rising, falling, or a hold.",
             credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength.",
         }),
-        "sigil" => Some(LensParameters {
-            rail: Rail::Synthesis,
-            operator: "reasoned expert network panelist",
-            mandate: "Summarize all pillars into the final Scoracle read.",
-            credibility_guard: "Preserve real disagreement between pillars instead of flattening it.",
-        }),
         "oracle" => Some(LensParameters {
             rail: Rail::Synthesis,
             operator: "the Oracle",
-            mandate: "Read the assembled cards aloud and deliver the entity's reading in the house voice.",
-            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented.",
+            mandate: "Read the five pillar cards aloud, deliver the entity's reading in the house voice, then render the Sigil verdict grounded in the entity's own prior reads.",
+            credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented; the score moves deliberately from prior verdicts.",
         }),
         "graph" => Some(LensParameters {
             rail: Rail::EmotionalNews,
@@ -421,7 +412,6 @@ pub trait LensTask: Send + Sync {
 pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
     match name {
         "vibe" => Some(Box::new(VibeTask)),
-        "sigil" => Some(Box::new(SigilTask)),
         "oracle" => Some(Box::new(OracleTask)),
         "narratives" => Some(Box::new(NarrativeTask)),
         "transfer" => Some(Box::new(TransferTask)),
@@ -436,7 +426,6 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
 pub fn all_task_names() -> &'static [&'static str] {
     &[
         "vibe",
-        "sigil",
         "oracle",
         "narratives",
         "transfer",
@@ -551,160 +540,8 @@ impl LensTask for VibeTask {
 }
 
 // ---------------------------------------------------------------------------
-// SigilTask — panel synthesis + the disagreement rubric.
-// ---------------------------------------------------------------------------
-
-pub struct SigilTask;
-
-/// disp_opt renders an optional convergence for the detail/echo lines.
-fn disp_opt(o: Option<i32>) -> String {
-    o.map(|c| c.to_string()).unwrap_or_else(|| "–".into())
-}
-
-#[async_trait]
-impl LensTask for SigilTask {
-    fn name(&self) -> &'static str {
-        "sigil"
-    }
-    fn role(&self) -> Role {
-        Role::SynthesisLogic
-    }
-    fn prompt_version(&self) -> &'static str {
-        SIGIL_PROMPT_VERSION
-    }
-    fn gen_options(&self, temperature: f64) -> GenerateOptions {
-        GenerateOptions {
-            system: Some(SIGIL_SYSTEM_PROMPT.to_string()),
-            temperature: Some(temperature),
-            num_predict: SIGIL_NUM_PREDICT,
-            num_ctx: 0,
-            json_mode: false,
-            format_schema: None,
-        }
-    }
-    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
-        let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
-        let sport = e.sport.to_uppercase();
-        let (_season, narratives, rating, vibe, momentum, transfers) =
-            load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
-        // No-pillar path: the stage would persist a marker without a model call (sigil.rs) — no
-        // synthesis to score.
-        if narratives.is_empty()
-            && rating.is_none()
-            && vibe.is_none()
-            && momentum.empty()
-            && transfers.is_empty()
-        {
-            return Ok(None);
-        }
-        // prev_sigil = None, memory = None: deterministic + reproducible, exactly as the
-        // parity path (sigil.rs) — fixtures measure the fresh-pillar contract, not the
-        // s15 enrichment riders.
-        Ok(Some(build_synthesis_prompt(
-            &e.entity_type,
-            &name,
-            &e.sport,
-            &narratives,
-            rating.as_ref(),
-            vibe.as_ref(),
-            &momentum,
-            &transfers,
-            None,
-            None,
-        )))
-    }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let p = parse_synthesis_response(raw);
-        // Mirrors SigilParser's fail-closed gate: no parseable SCORE ⇒ score 0 ⇒ not a valid reply.
-        let parsed = p.score != 0;
-        // `parse_synthesis_response` already normalizes DISAGREEMENT (N/A → None, quotes stripped),
-        // so this reflects exactly what is persisted + served.
-        let disagreement = p.disagreement.as_deref();
-        let mut checks = Vec::new();
-
-        if let Some(x) = expect {
-            if let Some(max) = x.convergence_max {
-                checks.push(PropertyCheck {
-                    name: "convergence_le".into(),
-                    pass: p.convergence.is_some_and(|c| c <= max),
-                    detail: format!("conv={} ≤ {max}", disp_opt(p.convergence)),
-                });
-            }
-            if let Some(min) = x.convergence_min {
-                checks.push(PropertyCheck {
-                    name: "convergence_ge".into(),
-                    pass: p.convergence.is_some_and(|c| c >= min),
-                    detail: format!("conv={} ≥ {min}", disp_opt(p.convergence)),
-                });
-            }
-            if let Some(want) = x.disagreement_nonempty {
-                checks.push(PropertyCheck {
-                    name: if want {
-                        "disagreement_present".into()
-                    } else {
-                        "disagreement_absent".into()
-                    },
-                    pass: disagreement.is_some() == want,
-                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
-                });
-            }
-            for s in x.disagreement_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("disagreement_includes:{s}"),
-                    pass: disagreement.is_some_and(|d| d.contains(s.as_str())),
-                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
-                });
-            }
-            for s in x.disagreement_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("disagreement_excludes:{s}"),
-                    pass: disagreement.is_none_or(|d| !d.contains(s.as_str())),
-                    detail: format!("disagreement={}", disagreement.unwrap_or("(none)")),
-                });
-            }
-            if let Some(want) = x.why_now_nonempty {
-                checks.push(PropertyCheck {
-                    name: if want {
-                        "why_now_present".into()
-                    } else {
-                        "why_now_absent".into()
-                    },
-                    pass: p.why_now.is_some() == want,
-                    detail: format!("why_now={}", p.why_now.as_deref().unwrap_or("(none)")),
-                });
-            }
-            for s in x.blurb_includes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("blurb_includes:{s}"),
-                    pass: p.blurb.contains(s.as_str()),
-                    detail: String::new(),
-                });
-            }
-            for s in x.blurb_excludes.iter().flatten() {
-                checks.push(PropertyCheck {
-                    name: format!("blurb_excludes:{s}"),
-                    pass: !p.blurb.contains(s.as_str()),
-                    detail: String::new(),
-                });
-            }
-        }
-
-        CaseVerdict {
-            parsed,
-            abs_err: None,
-            checks,
-            display: format!(
-                "score={} conv={} | {}",
-                p.score,
-                disp_opt(p.convergence),
-                p.blurb
-            ),
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// OracleTask — the persona reading over the assembled cards (downstream of Sigil).
+// OracleTask — the crown: reads all five pillar cards + prior reads, then emits {reading, score}.
+// (The panel SigilTask was retired in the crown fold, 2026-07-21.)
 // ---------------------------------------------------------------------------
 
 pub struct OracleTask;
@@ -734,20 +571,28 @@ impl LensTask for OracleTask {
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
         let sport = e.sport.to_uppercase();
-        let (season, narratives, rating, vibe, momentum, transfers) =
+        let (_season, narratives, rating, vibe, momentum, transfers) =
             load_pillars(hx, &e.entity_type, e.entity_id, &sport).await?;
-        // No scored Sigil ⇒ the stage would persist a marker without a model call — nothing to score.
-        let Some(sigil) =
-            load_latest_sigil(&hx.pool, &e.entity_type, e.entity_id, &sport, season).await?
-        else {
+        // No-pillar path: the stage would persist a marker without a model call — no cards to read.
+        if narratives.is_empty()
+            && rating.is_none()
+            && vibe.is_none()
+            && momentum.empty()
+            && transfers.is_empty()
+        {
             return Ok(None);
-        };
-        let (omen, omen_reason) = compute_omen(&sigil, rating.as_ref(), &momentum);
-        Ok(Some(build_oracle_prompt(
+        }
+        // Deterministic convergence + omen, exactly as the live handler. prior_read = None,
+        // memory = None: reproducible fixtures measure the fresh-card contract, not the
+        // memory enrichment riders.
+        let comparisons =
+            build_pillar_divergence(&narratives, rating.as_ref(), vibe.as_ref(), &momentum);
+        let convergence = pillar_convergence(&comparisons);
+        let (omen, omen_reason) = compute_omen(convergence, rating.as_ref(), &momentum);
+        Ok(Some(build_crown_prompt(
             &e.entity_type,
             &name,
             &e.sport,
-            &sigil,
             &narratives,
             rating.as_ref(),
             vibe.as_ref(),
@@ -755,10 +600,12 @@ impl LensTask for OracleTask {
             &transfers,
             omen,
             &omen_reason,
+            None,
+            None,
         )))
     }
-    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let Some(reading) = parse_oracle_reply(raw) else {
+    fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let Some(reply) = parse_crown_reply(raw) else {
             return CaseVerdict {
                 parsed: false,
                 abs_err: None,
@@ -766,6 +613,7 @@ impl LensTask for OracleTask {
                 display: "unparseable".into(),
             };
         };
+        let reading = reply.reading;
         let lower = reading.to_lowercase();
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
@@ -801,11 +649,13 @@ impl LensTask for OracleTask {
             }
         }
 
+        // The crown now emits the score too: measure it against the labeled expected score.
+        let abs_err = label.map(|l| ((reply.score as f64) - l).abs());
         CaseVerdict {
             parsed: true,
-            abs_err: None,
+            abs_err,
             checks,
-            display: reading,
+            display: format!("score={} | {}", reply.score, reading),
         }
     }
 }
@@ -1596,14 +1446,14 @@ mod tests {
     #[test]
     fn registry_resolves_known_tasks_and_rejects_unknown() {
         assert!(resolve_task("vibe").is_some());
-        assert!(resolve_task("sigil").is_some());
+        assert!(resolve_task("oracle").is_some());
         assert!(resolve_task("narratives").is_some());
         assert!(resolve_task("transfer").is_some());
         assert!(resolve_task("rating").is_some());
         assert!(resolve_task("momentum").is_some());
         assert!(resolve_task("nope").is_none());
         assert_eq!(resolve_task("vibe").unwrap().name(), "vibe");
-        assert_eq!(resolve_task("sigil").unwrap().name(), "sigil");
+        assert_eq!(resolve_task("oracle").unwrap().name(), "oracle");
         assert_eq!(resolve_task("narratives").unwrap().name(), "narratives");
         assert_eq!(resolve_task("transfer").unwrap().name(), "transfer");
         assert_eq!(resolve_task("rating").unwrap().name(), "rating");
@@ -1632,9 +1482,9 @@ mod tests {
         assert_eq!(transfer.rail, Rail::EmotionalNews);
         assert_eq!(transfer.operator, "transfer expert");
 
-        let sigil = lens_parameters("sigil").unwrap();
-        assert_eq!(sigil.rail, Rail::Synthesis);
-        assert_eq!(sigil.operator, "reasoned expert network panelist");
+        let oracle = lens_parameters("oracle").unwrap();
+        assert_eq!(oracle.rail, Rail::Synthesis);
+        assert_eq!(oracle.operator, "the Oracle");
     }
 
     #[test]
@@ -1648,102 +1498,39 @@ mod tests {
         assert_eq!(e.key(), "team:14:player:237:NBA");
     }
 
-    // --- sigil disagreement rubric ------------------------------------------------
+    // --- crown (Oracle) eval: reading + score -------------------------------------
 
-    const CONFLICTED: &str = "SCORE: 68\nCONVERGENCE: 40\nDISAGREEMENT: strong PEAK vs sliding momentum and negative narrative\nWHY_NOW: trade-demand reports\nBLURB: Elite wing under pressure.";
-    const CONVERGENT: &str =
-        "SCORE: 87\nCONVERGENCE: 95\nBLURB: A rising guard drawing All-Star buzz.";
+    const CROWN_OK: &str = r#"{"reading": "The winger's arc holds under a turning sky; the wind toward Liverpool stirs but nothing has broken. A steady hand on a rising line.", "score": 74}"#;
 
     #[test]
-    fn sigil_rubric_passes_on_conflicted_reply() {
+    fn crown_eval_parses_reading_and_scores_against_label() {
         let x = Expect {
-            convergence_max: Some(55),
-            disagreement_nonempty: Some(true),
-            disagreement_includes: Some(vec!["PEAK".into()]),
+            reading_min_sentences: Some(2),
+            reading_includes: Some(vec!["Liverpool".into()]),
             ..Default::default()
         };
-        let v = SigilTask.evaluate(CONFLICTED, None, Some(&x));
+        let v = OracleTask.evaluate(CROWN_OK, Some(70.0), Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+        assert_eq!(v.abs_err, Some(4.0)); // |74 - 70|
     }
 
     #[test]
-    fn sigil_rubric_fails_convergent_reply_against_conflict_expect() {
+    fn crown_eval_unparseable_reply_is_not_parsed() {
+        let v = OracleTask.evaluate("not json at all", None, None);
+        assert!(!v.parsed);
+    }
+
+    #[test]
+    fn crown_eval_reading_excludes_catches_pundit_register() {
+        // The reading must leave the pundit's register at the door.
+        let raw = r#"{"reading": "Keep an eye on this one going forward.", "score": 60}"#;
         let x = Expect {
-            convergence_max: Some(55),
-            disagreement_nonempty: Some(true),
+            reading_excludes: Some(vec!["keep an eye".into()]),
             ..Default::default()
         };
-        let v = SigilTask.evaluate(CONVERGENT, None, Some(&x));
-        // 95 is not <= 55, and there is no disagreement line.
-        assert!(!v.all_checks_pass());
-        assert_eq!(v.checks_passed(), 0);
-    }
-
-    #[test]
-    fn sigil_aligned_expect_inverts_between_the_two_replies() {
-        let x = Expect {
-            convergence_min: Some(70),
-            disagreement_nonempty: Some(false),
-            ..Default::default()
-        };
-        assert!(SigilTask
-            .evaluate(CONVERGENT, None, Some(&x))
-            .all_checks_pass());
-        assert!(!SigilTask
-            .evaluate(CONFLICTED, None, Some(&x))
-            .all_checks_pass());
-    }
-
-    #[test]
-    fn disagreement_excludes_catches_parroted_example() {
-        // The model parrots the system-prompt example for a case with no such conflict.
-        let parroted = "SCORE: 65\nCONVERGENCE: 80\nDISAGREEMENT: \"strong PEAK vs sliding momentum and negative narrative\"\nBLURB: Role player amid trade talk.";
-        let x = Expect {
-            disagreement_excludes: Some(vec!["sliding momentum".into()]),
-            ..Default::default()
-        };
-        let v = SigilTask.evaluate(parroted, None, Some(&x));
-        assert!(
-            !v.all_checks_pass(),
-            "excludes should catch the parroted string"
-        );
-    }
-
-    #[test]
-    fn placeholder_disagreement_scores_as_absent() {
-        // `DISAGREEMENT: N/A` (and quoted / none / dash) must score as ABSENT. Normalization lives
-        // in `parse_synthesis_response` (single source of truth); this guards it end-to-end via the
-        // eval's evaluate path, so the fixtures reflect what actually gets persisted + served.
-        for raw in [
-            "SCORE: 87\nCONVERGENCE: 95\nDISAGREEMENT: N/A\nBLURB: aligned.",
-            "SCORE: 87\nCONVERGENCE: 95\nDISAGREEMENT: \"none\"\nBLURB: aligned.",
-            "SCORE: 87\nCONVERGENCE: 95\nDISAGREEMENT: -\nBLURB: aligned.",
-        ] {
-            let x = Expect {
-                disagreement_nonempty: Some(false),
-                ..Default::default()
-            };
-            let v = SigilTask.evaluate(raw, None, Some(&x));
-            assert!(
-                v.all_checks_pass(),
-                "placeholder should be absent for {raw:?}: {:?}",
-                v.checks
-            );
-        }
-        // An excludes check must not match a placeholder either.
-        let x = Expect {
-            disagreement_excludes: Some(vec!["sliding".into()]),
-            ..Default::default()
-        };
-        let v = SigilTask.evaluate("SCORE: 50\nDISAGREEMENT: N/A\nBLURB: x.", None, Some(&x));
-        assert!(v.all_checks_pass());
-    }
-
-    #[test]
-    fn sigil_unparseable_reply_is_not_parsed() {
-        let v = SigilTask.evaluate("the sigil feels like a 64 today", None, None);
-        assert!(!v.parsed); // no SCORE line ⇒ score 0
+        let v = OracleTask.evaluate(raw, None, Some(&x));
+        assert!(!v.all_checks_pass(), "excludes should catch the parroted register");
     }
 
     // --- vibe MAE axis ------------------------------------------------------------
@@ -2020,38 +1807,38 @@ mod tests {
     #[test]
     fn fixture_round_trips_and_defaults_expect() {
         let json = r#"{
-            "name": "aligned-convergent",
-            "task": "sigil",
-            "prompt_version": "s11",
+            "name": "crown-read",
+            "task": "oracle",
+            "prompt_version": "or3",
             "system": "SYS",
             "user_prompt": "Entity: X",
             "temperature": 0.0,
-            "expect": { "convergence_min": 70, "disagreement_nonempty": false }
+            "expect": { "reading_min_sentences": 2, "score_min": 60 }
         }"#;
         let fx: Fixture = serde_json::from_str(json).unwrap();
-        assert_eq!(fx.name, "aligned-convergent");
-        assert_eq!(fx.expect.convergence_min, Some(70));
-        assert_eq!(fx.expect.disagreement_nonempty, Some(false));
-        assert_eq!(fx.expect.score_min, None); // defaulted
-                                               // A fixture may omit expect entirely.
-        let bare = r#"{"name":"n","task":"sigil","prompt_version":"s11","system":"s","user_prompt":"u","temperature":0.0}"#;
+        assert_eq!(fx.name, "crown-read");
+        assert_eq!(fx.expect.reading_min_sentences, Some(2));
+        assert_eq!(fx.expect.score_min, Some(60));
+        assert_eq!(fx.expect.convergence_min, None); // defaulted
+                                                     // A fixture may omit expect entirely.
+        let bare = r#"{"name":"n","task":"oracle","prompt_version":"or3","system":"s","user_prompt":"u","temperature":0.0}"#;
         let fx2: Fixture = serde_json::from_str(bare).unwrap();
-        assert_eq!(fx2.expect.convergence_min, None);
+        assert_eq!(fx2.expect.reading_min_sentences, None);
     }
 
     #[test]
     fn fixture_drift_flags_prompt_version_mismatch() {
         let mut fx = Fixture {
             name: "f".into(),
-            task: "sigil".into(),
-            prompt_version: SIGIL_PROMPT_VERSION.into(),
+            task: "oracle".into(),
+            prompt_version: ORACLE_PROMPT_VERSION.into(),
             system: "s".into(),
             user_prompt: "u".into(),
             temperature: 0.0,
             expect: Expect::default(),
         };
-        assert!(fixture_drift(&fx, &SigilTask).is_none());
-        fx.prompt_version = "s1".into();
-        assert!(fixture_drift(&fx, &SigilTask).is_some());
+        assert!(fixture_drift(&fx, &OracleTask).is_none());
+        fx.prompt_version = "or1".into();
+        assert!(fixture_drift(&fx, &OracleTask).is_some());
     }
 }

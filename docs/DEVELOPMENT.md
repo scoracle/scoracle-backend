@@ -78,6 +78,36 @@ Before restarting the Go API, make sure the live schema and prepared statements 
 
 Full migration operations live in `sql/README-migrations.md` and `RUNBOOK.md`.
 
+## Cognition memory taxonomy (continuity vs measurement)
+
+The relational DB is the cognition harness's memory. Every fact a stage reads carries a
+**provenance class**, and the two classes must never cross — this is the *echo-chamber rule*:
+the model's own conclusions may inform continuity but can never become evidence that inflates
+the numeric signal it later reads.
+
+- **Measurement** — anchored to raw inputs only: `news_articles` (provider articles) and
+  `transfer_ground_truth` (confirmed moves). This is what heat, likelihood, confirm/fizzle, and
+  typed-link scoring are computed from. Authoritative; feeds the numeric loop.
+- **Continuity** — the harness's own past outputs, re-surfaced to a stage as provenance-labeled
+  `"Our prior read:"` lines so a junction sees its own paper trail (mig 168, card-level). It
+  frames the arc a read sits in; it is *never itself evidence* for a new claim.
+
+The partition is enforced structurally, not just by prompt labels:
+
+- `narrative_events.origin` is `'extraction'` (a model read of one raw article — measurement) or
+  `'junction'` (a stage's own served verdict banked into the unified event log — continuity/audit),
+  added by **mig 170**. The dedupe key includes `origin`, so an extraction event and a junction
+  verdict for the same `(article, pair, predicate)` coexist without clobbering.
+- Every **measurement consumer** of `narrative_events` filters `origin = 'extraction'` — today
+  `refresh_typed_links` (events → typed links) and `score_transfer_likelihood` (events → likelihood
+  language input). Junction-authored events are invisible to both. Episodes derive from links
+  (already filtered) or backfill from the raw news rail, so they read no junction events directly.
+- **`assert_provenance_firewall()`** (mig 172) is the guard: it RAISEs if any named measurement
+  consumer's current body reads `narrative_events` without the `origin = 'extraction'` filter.
+  **Any future migration that rebuilds a measurement consumer must end with
+  `PERFORM public.assert_provenance_firewall();`** (register new consumers in the function's
+  `v_consumers` list), so a re-introduced leak is caught at apply time.
+
 ## Go Style
 
 - `gofmt` is authoritative.

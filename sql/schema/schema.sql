@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict iLe23K12BrHGfoUF4g6hPzVlHEf8x1ylC2eat9WEhLhEvwIrZ0vDfzLBEpEboFa
+\restrict ApyFmhZnN9aafhdfR5CBTVADWDO0DBWmLy45aClhgrEvydj5EMjtJq7RlzTds2H
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1790,6 +1790,67 @@ BEGIN
     RETURN QUERY SELECT v_app_id, v_override_id, v_status, v_reason;
 END;
 $$;
+
+
+--
+-- Name: assert_provenance_firewall(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assert_provenance_firewall() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    -- The measurement-side readers of narrative_events. Each MUST filter origin='extraction'
+    -- so junction-authored events (mig 170) stay invisible to the numeric feedback loop.
+    v_consumers text[] := ARRAY['refresh_typed_links', 'score_transfer_likelihood'];
+    v_name  text;
+    v_body  text;
+    v_norm  text;
+    v_missing text[] := ARRAY[]::text[];
+    v_absent  text[] := ARRAY[]::text[];
+BEGIN
+    FOREACH v_name IN ARRAY v_consumers LOOP
+        -- Concatenate all overloads' definitions (there is normally one live overload).
+        SELECT string_agg(pg_get_functiondef(p.oid), E'\n')
+          INTO v_body
+          FROM pg_proc p
+          JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname = 'public' AND p.proname = v_name;
+
+        IF v_body IS NULL THEN
+            v_absent := array_append(v_absent, v_name);
+            CONTINUE;
+        END IF;
+
+        -- A consumer that no longer reads narrative_events at all is not a leak; only flag
+        -- one that reads the table WITHOUT the extraction filter.
+        v_norm := regexp_replace(lower(v_body), '\s+', '', 'g');
+        IF position('narrative_events' IN v_norm) > 0
+           AND position('origin=''extraction''' IN v_norm) = 0 THEN
+            v_missing := array_append(v_missing, v_name);
+        END IF;
+    END LOOP;
+
+    IF array_length(v_absent, 1) > 0 THEN
+        RAISE EXCEPTION 'provenance firewall: measurement consumer(s) not found in public schema: %',
+            array_to_string(v_absent, ', ')
+            USING HINT = 'assert_provenance_firewall() names a function that no longer exists; update v_consumers if it was intentionally removed/renamed.';
+    END IF;
+
+    IF array_length(v_missing, 1) > 0 THEN
+        RAISE EXCEPTION 'provenance firewall breached: %() read narrative_events without an origin=''extraction'' filter',
+            array_to_string(v_missing, ', ')
+            USING HINT = 'A junction-authored event (origin=''junction'', mig 170) could re-enter the numeric loop. Re-add the origin=''extraction'' filter to the consumer''s narrative_events scan.';
+    END IF;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION assert_provenance_firewall(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assert_provenance_firewall() IS 'Provenance firewall guard (mig 172, plan decision 1): RAISEs if any measurement consumer of narrative_events (refresh_typed_links, score_transfer_likelihood) reads the table without an origin=''extraction'' filter, which would let junction-authored events (mig 170) re-enter the numeric loop. Call PERFORM public.assert_provenance_firewall() at the end of any future migration that rebuilds a measurement consumer.';
 
 
 --
@@ -7904,6 +7965,7 @@ CREATE TABLE public.news_articles (
     raw jsonb DEFAULT '{}'::jsonb NOT NULL,
     bucket text,
     topic_heat integer,
+    full_text text,
     CONSTRAINT news_articles_bucket_check CHECK (((bucket IS NULL) OR (bucket = ANY (ARRAY['transfer'::text, 'non_transfer'::text])))),
     CONSTRAINT news_articles_topic_heat_check CHECK (((topic_heat IS NULL) OR (topic_heat >= 1)))
 );
@@ -7921,6 +7983,13 @@ COMMENT ON COLUMN public.news_articles.bucket IS 'Wave 5 scrub bucket: transfer 
 --
 
 COMMENT ON COLUMN public.news_articles.topic_heat IS 'Wave 5 topic heat-rank: size of the article''s same-day embedding topic cluster, recomputed idempotently by the Rust cognition worker.';
+
+
+--
+-- Name: COLUMN news_articles.full_text; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.full_text IS 'Cognition refactor Phase 0 (mig 171): nullable article body for the corpus loader. NULL = not fetched (the only state today); the loader falls back to title+description. Reserved for a later provider/full-text fetch; no column semantics change when it lands.';
 
 
 --
@@ -12122,5 +12191,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict iLe23K12BrHGfoUF4g6hPzVlHEf8x1ylC2eat9WEhLhEvwIrZ0vDfzLBEpEboFa
+\unrestrict ApyFmhZnN9aafhdfR5CBTVADWDO0DBWmLy45aClhgrEvydj5EMjtJq7RlzTds2H
 

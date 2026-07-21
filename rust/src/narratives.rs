@@ -181,6 +181,11 @@ pub struct CorpusItem {
     /// entity's identity card using the L4-validated resolve cosine bands. `None` when no
     /// embedder is loaded (offline/parity bins) — the prompt then renders the pre-n7 shape.
     pub relevance_band: Option<String>,
+    /// Full article body (mig 171), preferred over `description` for the model-visible text when
+    /// present. `None`/empty today for every row — no fetcher populates it yet (plan decision 3,
+    /// "defer full-text, design for it"). The prompt render routes through [`article_body`], so
+    /// the seam is live but inert until a body fetch lands; behavior is unchanged while NULL.
+    pub full_text: Option<String>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -292,12 +297,14 @@ pub async fn load_vetted_corpus(
         String,
         Option<i64>,
         Option<i64>,
+        Option<String>,
     )> = sqlx::query_as(
         r#"
         SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(a.source, ''),
                COALESCE(a.url, ''),
                EXTRACT(EPOCH FROM a.published_at)::bigint,
-               EXTRACT(EPOCH FROM a.fetched_at)::bigint
+               EXTRACT(EPOCH FROM a.fetched_at)::bigint,
+               a.full_text
         FROM news_article_entities nae
         JOIN news_articles a ON a.id = nae.article_id
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
@@ -320,7 +327,7 @@ pub async fn load_vetted_corpus(
     Ok(rows
         .into_iter()
         .map(
-            |(id, title, description, source, url, published_at_epoch, fetched_at_epoch)| {
+            |(id, title, description, source, url, published_at_epoch, fetched_at_epoch, full_text)| {
                 CorpusItem {
                     id,
                     title,
@@ -330,6 +337,7 @@ pub async fn load_vetted_corpus(
                     published_at_epoch,
                     fetched_at_epoch,
                     relevance_band: None,
+                    full_text,
                 }
             },
         )
@@ -357,11 +365,12 @@ async fn load_vetted_corpus_with_exclusions(
         Option<String>,
         Option<i64>,
         Option<i64>,
+        Option<String>,
     )> = sqlx::query_as(
         r#"
         WITH base AS (
             SELECT a.id, a.title, a.description, a.source, a.url,
-                   a.published_at, a.fetched_at, a.topic_heat
+                   a.published_at, a.fetched_at, a.topic_heat, a.full_text
             FROM news_article_entities nae
             JOIN news_articles a ON a.id = nae.article_id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
@@ -394,7 +403,8 @@ async fn load_vetted_corpus_with_exclusions(
                CASE WHEN status = 'kept' THEN COALESCE(source, '') END,
                CASE WHEN status = 'kept' THEN COALESCE(url, '') END,
                CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
-               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END
+               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
+               CASE WHEN status = 'kept' THEN full_text END
         FROM classified
         ORDER BY rn NULLS LAST, id
         "#,
@@ -410,7 +420,8 @@ async fn load_vetted_corpus_with_exclusions(
 
     let mut corpus = Vec::new();
     let mut exclusions = CorpusExclusions::default();
-    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch) in rows
+    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch, full_text)
+        in rows
     {
         match status.as_str() {
             "kept" => corpus.push(CorpusItem {
@@ -422,6 +433,7 @@ async fn load_vetted_corpus_with_exclusions(
                 published_at_epoch,
                 fetched_at_epoch,
                 relevance_band: None,
+                full_text,
             }),
             "stale_news" => exclusions.stale_news_ids.push(id),
             _ => exclusions.budget_truncated_news_ids.push(id),
@@ -529,9 +541,24 @@ async fn dedup_corpus(
 // Prompt — byte-for-byte buildNarrativesPrompt.
 // ---------------------------------------------------------------------------
 
+/// article_body is the corpus-loader seam (mig 171, plan decision 3): the model-visible body
+/// text for one corpus item. Prefers `full_text` (the fetched article body) when present and
+/// non-empty, else falls back to `description` (the provider blurb). Today every `full_text` is
+/// `None`, so this returns `description` for every row and the prompt stays byte-for-byte
+/// identical to Go's — the seam is live but inert until a body fetcher populates the column
+/// (Phase 3 wires the fetch + a body-aware length cap; the render below still applies
+/// `DESC_TRUNCATE`).
+fn article_body(c: &CorpusItem) -> &str {
+    match c.full_text.as_deref() {
+        Some(t) if !t.trim().is_empty() => t,
+        _ => &c.description,
+    }
+}
+
 /// build_narratives_prompt assembles the user prompt, byte-for-byte the same as Go's
-/// `buildNarrativesPrompt`. The `—` (U+2014) bytes are significant. The heat section is OMITTED
-/// entirely when there is no transfer heat (unlike vibe's "(none)" line), matching Go's `if len(heat) > 0`.
+/// `buildNarrativesPrompt` while `full_text` is NULL (the current state). The `—` (U+2014) bytes
+/// are significant. The heat section is OMITTED entirely when there is no transfer heat (unlike
+/// vibe's "(none)" line), matching Go's `if len(heat) > 0`.
 pub fn build_narratives_prompt(
     req: &NarrativesReq,
     news: &[CorpusItem],
@@ -555,9 +582,10 @@ pub fn build_narratives_prompt(
             b.push_str(&format!("(relevance {band}) "));
         }
         b.push_str(&n.title);
-        if !n.description.is_empty() {
+        let body = article_body(n);
+        if !body.is_empty() {
             b.push_str(" — ");
-            b.push_str(&truncate_bytes(&n.description, DESC_TRUNCATE));
+            b.push_str(&truncate_bytes(body, DESC_TRUNCATE));
         }
         b.push('\n');
     }
@@ -1561,6 +1589,7 @@ mod tests {
             published_at_epoch: epoch,
             fetched_at_epoch: epoch,
             relevance_band: None,
+            full_text: None,
         }
     }
 
@@ -1665,6 +1694,30 @@ mod tests {
         let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &[tagged, untagged], &[], None);
         assert!(p.contains("1. [ESPN] (relevance high) Big story"));
         assert!(p.contains("2. [Sky] Other item"));
+    }
+
+    // --- full_text corpus seam (mig 171, plan decision 3) ------------------------------------------
+
+    #[test]
+    fn full_text_seam_prefers_body_else_falls_back_and_is_inert_when_null() {
+        // None (today's state for every row): renders `description` — byte-for-byte the pre-seam
+        // prompt, so the seam is inert until a fetcher populates full_text.
+        let none = item(1, "BBC", "Saka shines again", "A strong display in the win.", None);
+        assert_eq!(article_body(&none), "A strong display in the win.");
+
+        // Some(non-empty): the fetched body wins over the provider blurb.
+        let mut full = item(2, "BBC", "Title", "short blurb", None);
+        full.full_text = Some("The full article body with much more detail.".to_string());
+        assert_eq!(article_body(&full), "The full article body with much more detail.");
+
+        // Some(blank): whitespace-only body is not a body — fall back to description.
+        let mut blank = item(3, "BBC", "Title", "blurb here", None);
+        blank.full_text = Some("   \n ".to_string());
+        assert_eq!(article_body(&blank), "blurb here");
+
+        // The rendered prompt is unchanged when full_text is None (the parity guarantee).
+        let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &[none], &[], None);
+        assert!(p.contains("1. [BBC] Saka shines again — A strong display in the win.\n"));
     }
 
     // --- input components: the debounce pre-image ---------------------------------------------------

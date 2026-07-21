@@ -171,3 +171,5 @@
 168_outputs_as_memories
 169_person_team_vote_gate
 170_junction_events_partition
+171_news_article_full_text
+172_provenance_firewall_guard

@@ -460,6 +460,39 @@ mod tests {
     }
 
     #[test]
+    fn no_candidates_passes_as_canonical() {
+        // The base case: with nothing to compare against, an article is always canonical. (This is
+        // what `gate` sees for the first-ever article about an entity, or after the lookback window
+        // clears — corroboration/heat can only ever ACCUMULATE from a canonical first-seen.)
+        let x = vec![1.0_f32, 0.0];
+        assert_eq!(pick_repost(&x, "BBC Sport", "any text at all", &[], &cfg()), None);
+    }
+
+    #[test]
+    fn verbatim_jaccard_is_the_cross_outlet_boundary() {
+        // For DIFFERENT outlets with near-dup embeddings, `verbatim_jaccard` alone decides repost vs
+        // corroboration — the line the COGNITION_NOVELTY_VERBATIM_JACCARD config tunes. Just UNDER it
+        // is independent coverage (PASSES, counted as its own source); AT/OVER is syndicated wire copy
+        // (SUPPRESSED). This is the boundary the source-blind dedup could never draw.
+        let x = vec![1.0_f32, 0.0];
+        let base = "one two three four five six seven eight nine ten \
+                    eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty";
+        let x_text = format!("{base} alpha beta gamma"); // 23 distinct tokens (superset of base's 20)
+        // Candidate carries only the 20 shared tokens → jaccard 20/23 ≈ 0.87 < 0.90 → corroboration.
+        let corroborating = vec![cand(70, "Associated Press", base, vec![1.0, 0.0])];
+        assert_eq!(
+            pick_repost(&x, "Reuters", &x_text, &corroborating, &cfg()),
+            None
+        );
+        // Identical wording → jaccard 1.0 ≥ 0.90 → syndicated repost across outlets, suppressed.
+        let syndicated = vec![cand(71, "Associated Press", &x_text, vec![1.0, 0.0])];
+        assert_eq!(
+            pick_repost(&x, "Reuters", &x_text, &syndicated, &cfg()),
+            Some(71)
+        );
+    }
+
+    #[test]
     fn highest_cosine_wins_among_reposts() {
         let x = vec![1.0_f32, 0.0];
         let verbatim = "the exact same syndicated wire sentence for both rows";

@@ -1,0 +1,41 @@
+{
+  "expect": {
+    "all_cite_articles": true,
+    "body_excludes": [
+      "cooling",
+      "fizzled",
+      "gone quiet",
+      "faded",
+      "unlikely",
+      "stalled"
+    ],
+    "body_includes_any": [
+      "accelerat",
+      "gathering pace",
+      "gather",
+      "escalat",
+      "picking up",
+      "picked up",
+      "momentum",
+      "intensif",
+      "surg",
+      "heating",
+      "leading the race",
+      "priority",
+      "close"
+    ],
+    "max_article_num": 5,
+    "narratives_max": 6,
+    "narratives_min": 1,
+    "title_excludes": [
+      "Transfer news"
+    ]
+  },
+  "name": "heating-multi-source-surge",
+  "note": "n9 heat monotonicity (UP): a modest prior peak (45/100) on the memory card + a fresh multi-source surge escalating in a day. FLOOR: grouping+grounding. TARGET (voice-tuning): heat voiced up (accelerating/gathering pace), never cooling. article_buckets: all five transfer-related.",
+  "prompt_version": "n9",
+  "system": "Task: you are the Journalist. Group recent vetted news into distinct storylines about ONE sports entity, and label each numbered article as transfer/trade-related or not.\n\nVoice: direct, sports-literate, grounded. No hype, no source list, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...], \"article_buckets\": [{\"article\": <article number>, \"transfer\": <true|false>}, ...]}\n\nNarrative rules:\n- Return at most 6 narratives, most consequential first.\n- Do not split one story across narratives.\n- Do not merge unrelated stories.\n- A quiet cycle can return one narrative or none.\n- Ignore vague hype when the sources do not name who, what, and where.\n- Ignore articles that are not actually about this entity.\n\nFor each narrative:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story. Use the relational memory below to say whether this is a NEW story or a CONTINUING one, and whether coverage is heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal.\n- articles: the article numbers behind that storyline.\n\narticle_buckets — label EVERY numbered article exactly once:\n- {\"article\": <its number>, \"transfer\": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise \"transfer\": false.\n- Judge each article on its own substance. Another team scheming around this entity is not this entity moving.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word \"heat\" and its numbers are internal; never mention them.\n\nUse the relational memory only for arc and continuity (what fizzled before, what is live now, what actually happened); never treat a prior story as evidence for a new claim.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources.",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Mateus Andrade (SOCCER player)\n\nRecent news (numbered):\n1. [Fabrizio Romano] Bayern accelerate for Andrade — Bayern have opened formal talks with Flamengo for Andrade in the last 24 hours after weeks of quiet groundwork.\n2. [Kicker] Bayern make Andrade a priority signing — Bayern's board have greenlit a move and see the winger as their top summer target.\n3. [ESPN] Flamengo brace for Andrade bids — Multiple European clubs have contacted Flamengo, with Bayern now leading the race.\n4. [Bild] Andrade to Bayern: personal terms close — The player is said to favour the move and terms are near agreement, with the clubs still negotiating the fee.\n5. [Globo] Andrade transfer gathers pace — What was a slow-burning link has escalated sharply this week amid concrete Bayern interest.\n\nKnown transfer/trade activity (vetted facts — ground any transfer storyline in these, do not contradict them):\n- Bayern Munich — heat 82, outgoing, advanced_talks (confidence 0.7) — \"Bayern have opened formal talks with Flamengo for Andrade and personal terms are close.\"\n\nRelational memory (computed history for this entity — use for arc and continuity: what fizzled before, what is live now, what actually happened; do NOT treat a prior story as evidence for a new one):\n- Current story: Bayern Munich — tracked since Jun 02, peak coverage 45/100, computed likelihood 42/100.\n\nReturn the JSON object now."
+}

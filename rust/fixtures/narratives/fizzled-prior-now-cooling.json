@@ -1,0 +1,38 @@
+{
+  "expect": {
+    "all_cite_articles": true,
+    "body_excludes": [
+      "advanced talks",
+      "gathering pace",
+      "here we go",
+      "heating up",
+      "close to a deal"
+    ],
+    "body_includes_any": [
+      "cool",
+      "fad",
+      "fizzl",
+      "quiet",
+      "unlikely",
+      "played down",
+      "settled",
+      "not revisit",
+      "moved on",
+      "stall",
+      "no longer"
+    ],
+    "max_article_num": 2,
+    "narratives_max": 2,
+    "narratives_min": 1,
+    "title_excludes": [
+      "Transfer news"
+    ]
+  },
+  "name": "fizzled-prior-now-cooling",
+  "note": "n9 heat monotonicity (DOWN): a fizzled prior story on the memory card + a thin, de-escalating corpus. FLOOR: restraint (don't over-split a dying story) + grounding. TARGET (voice-tuning): heat voiced down (cooled/unlikely/settled), never up. article_buckets: both transfer-related.",
+  "prompt_version": "n9",
+  "system": "Task: you are the Journalist. Group recent vetted news into distinct storylines about ONE sports entity, and label each numbered article as transfer/trade-related or not.\n\nVoice: direct, sports-literate, grounded. No hype, no source list, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...], \"article_buckets\": [{\"article\": <article number>, \"transfer\": <true|false>}, ...]}\n\nNarrative rules:\n- Return at most 6 narratives, most consequential first.\n- Do not split one story across narratives.\n- Do not merge unrelated stories.\n- A quiet cycle can return one narrative or none.\n- Ignore vague hype when the sources do not name who, what, and where.\n- Ignore articles that are not actually about this entity.\n\nFor each narrative:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story. Use the relational memory below to say whether this is a NEW story or a CONTINUING one, and whether coverage is heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal.\n- articles: the article numbers behind that storyline.\n\narticle_buckets — label EVERY numbered article exactly once:\n- {\"article\": <its number>, \"transfer\": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise \"transfer\": false.\n- Judge each article on its own substance. Another team scheming around this entity is not this entity moving.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word \"heat\" and its numbers are internal; never mention them.\n\nUse the relational memory only for arc and continuity (what fizzled before, what is live now, what actually happened); never treat a prior story as evidence for a new claim.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources.",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Kai Sorensen (SOCCER player)\n\nRecent news (numbered):\n1. [Goal] Chelsea move for Sorensen unlikely to reignite — Sources say Chelsea have not revisited their winter interest in Sorensen and are focused elsewhere this window.\n2. [Ekstra Bladet] Sorensen happy to stay, says agent — The forward's representative played down transfer talk, saying his client is settled and not pushing to leave.\n\nRelational memory (computed history for this entity — use for arc and continuity: what fizzled before, what is live now, what actually happened; do NOT treat a prior story as evidence for a new one):\n- Prior story: Chelsea — fizzled (Mar 2026, peak coverage 84/100).\n\nReturn the JSON object now."
+}

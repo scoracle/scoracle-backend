@@ -877,15 +877,25 @@ pub enum NarrativesBuild {
     Ready(Box<NarrativesReady>),
 }
 
-/// build_narratives_input_components is the canonical debounce pre-image (Phase 1): the vetted
-/// corpus article ids (pre-dedup — the material fact is WHAT NEWS EXISTS, not what the embedder
-/// kept) plus the transfer-heat facts in sigil's `counterparty:heat:direction:stage` convention.
-/// The heat summary/confidence are deliberately excluded — derived commentary, not material facts.
-/// Same canonical-JSON discipline as `sigil::build_synthesis_input_components`.
+/// build_narratives_input_components is the canonical debounce pre-image: the `prompt_version` (so a
+/// contract bump forces exactly one regen — see below), the vetted corpus article ids (pre-dedup —
+/// the material fact is WHAT NEWS EXISTS, not what the embedder kept), plus the transfer-heat facts in
+/// sigil's `counterparty:heat:direction:stage` convention. The heat summary/confidence are
+/// deliberately excluded — derived commentary, not material facts. Same canonical-JSON discipline as
+/// `sigil::build_synthesis_input_components`.
+///
+/// `prompt_version` is folded in (M4 cutover lever): the debounce otherwise keys only on the corpus +
+/// heat, so on an n-bump (n8→n9) an entity whose news is unchanged is debounced and NEVER re-runs the
+/// new contract — its `article_buckets` stay NULL and no transfers enqueue. Including the version
+/// changes every entity's hash exactly once at cutover → one forced regen each → then it stabilizes.
+/// The regen also re-points vibe for free (the narratives handler enqueues vibe post-persist).
 pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem]) -> String {
     let mut ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
     ids.sort_unstable();
-    let mut out = String::from("{\"article_ids\":[");
+    let mut out = format!(
+        "{{\"prompt_version\":{},\"article_ids\":[",
+        crate::util::go_json_string(NARRATIVES_PROMPT_VERSION)
+    );
     for (i, id) in ids.iter().enumerate() {
         if i > 0 {
             out.push(',');
@@ -976,7 +986,8 @@ pub async fn load_narratives_material(
     )?;
 
     // The debounce keys on the material fact — what vetted, canonical news exists (plus the heat
-    // facts) — independent of any downstream shaping.
+    // facts) — AND the prompt_version, so an n-bump forces exactly one regen per entity at cutover
+    // (see build_narratives_input_components); otherwise unchanged-corpus entities never run n9.
     let input_hash =
         crate::util::hash_components(&build_narratives_input_components(&corpus, &heat));
 
@@ -1763,14 +1774,18 @@ mod tests {
             &[h("A", 70, "y"), h("B", 40, "worded another way")],
         );
         assert_eq!(one, two);
+        // prompt_version leads the pre-image (single-sourced from the const, so a bump can't silently
+        // rot this pin) — an n-bump changes every entity's hash once, forcing the cutover regen.
         assert_eq!(
             one,
-            r#"{"article_ids":[1,3],"transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}"#
+            format!(
+                r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}}"#
+            )
         );
         // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
         assert_eq!(
             build_narratives_input_components(&[a(1)], &[]),
-            r#"{"article_ids":[1]}"#
+            format!(r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1]}}"#)
         );
     }
 

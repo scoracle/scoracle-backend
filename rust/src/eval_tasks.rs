@@ -258,6 +258,13 @@ pub struct Expect {
     /// the corpus only has other teams scheming around them — the system prompt's hardest rule).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_excludes: Option<Vec<String>>,
+    /// Voice-direction check (OR-semantics, CASE-INSENSITIVE): at least ONE returned body contains at
+    /// least ONE of these strings. Unlike `body_includes` (every string must appear), this asserts a
+    /// storyline *voiced a direction at all* from a set of acceptable synonyms — the n9 fixtures use it
+    /// for "voiced this as CONTINUING / HEATING / COOLING" where the exact wording is free (the voice is
+    /// a draft, dialed in a later voice-tuning session). A voice-target axis, re-annotated when voice lands.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_includes_any: Option<Vec<String>>,
     /// Grounding: every returned storyline must (`true`) cite ≥1 article number — an uncited storyline
     /// is ungrounded and dropped downstream.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -775,6 +782,29 @@ impl LensTask for NarrativeTask {
                     name: format!("body_excludes:{s}"),
                     pass: !items.iter().any(|(_, b, _)| b.contains(s.as_str())),
                     detail: String::new(),
+                });
+            }
+            // OR-semantics voice-direction check: at least one body voices at least one acceptable
+            // synonym (case-insensitive — voice varies casing). One check for the whole set, so the
+            // detail names which words satisfied it (or that none did).
+            if let Some(any) = &x.body_includes_any {
+                let lowered: Vec<String> = items.iter().map(|(_, b, _)| b.to_lowercase()).collect();
+                let hit: Vec<&str> = any
+                    .iter()
+                    .filter(|s| {
+                        let needle = s.to_lowercase();
+                        lowered.iter().any(|b| b.contains(&needle))
+                    })
+                    .map(|s| s.as_str())
+                    .collect();
+                checks.push(PropertyCheck {
+                    name: format!("body_includes_any:[{}]", any.join("|")),
+                    pass: !hit.is_empty(),
+                    detail: if hit.is_empty() {
+                        "no listed synonym voiced".into()
+                    } else {
+                        format!("voiced {hit:?}")
+                    },
                 });
             }
             if let Some(want) = x.all_cite_articles {
@@ -1630,6 +1660,29 @@ mod tests {
     }
 
     #[test]
+    fn narratives_body_includes_any_is_or_and_case_insensitive() {
+        // Voice-direction target: passes when ANY one synonym is voiced in ANY body, matched
+        // case-insensitively; fails only when the whole set is absent.
+        let reply = r#"{"narratives":[{"title":"Vale saga","body":"The Kings pursuit is still GATHERING pace after months.","articles":[1]}]}"#;
+        // "gathering" (cased differently) satisfies the heating set even though "surging" is absent.
+        let heating = Expect {
+            body_includes_any: Some(vec!["surging".into(), "gathering".into()]),
+            ..Default::default()
+        };
+        assert!(NarrativeTask
+            .evaluate(reply, None, Some(&heating))
+            .all_checks_pass());
+        // None of the cooling words appear → the OR-check fails.
+        let cooling = Expect {
+            body_includes_any: Some(vec!["cooling".into(), "fizzled".into(), "gone quiet".into()]),
+            ..Default::default()
+        };
+        assert!(!NarrativeTask
+            .evaluate(reply, None, Some(&cooling))
+            .all_checks_pass());
+    }
+
+    #[test]
     fn narratives_quiet_cycle_is_parsed_with_zero_count() {
         // An empty array is a legitimate quiet cycle — parsed, count 0 (NOT unparseable).
         let v = NarrativeTask.evaluate(
@@ -1840,5 +1893,40 @@ mod tests {
         assert!(fixture_drift(&fx, &OracleTask).is_none());
         fx.prompt_version = "or1".into();
         assert!(fixture_drift(&fx, &OracleTask).is_some());
+    }
+
+    /// Integrity guard for the on-disk narratives fixtures. `Fixture`/`Expect` have no
+    /// `deny_unknown_fields`, so a misspelled expect key (e.g. `body_include_any`) parses fine and is
+    /// SILENTLY dropped — a toothless fixture that looks authored. This loads the real dir (via
+    /// `CARGO_MANIFEST_DIR`, so it is CWD-independent) and asserts (a) every file parses as a
+    /// narratives fixture and (b) each n9 voicing fixture actually carries a voicing axis — catching a
+    /// dropped field before it silently weakens the eval. It does NOT assert current-version (rot is a
+    /// warn, not an error — old-version fixtures are legitimately kept until re-captured).
+    #[test]
+    fn narratives_fixtures_on_disk_parse_and_n9_carry_a_voicing_axis() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/narratives");
+        let mut n9_seen = 0;
+        for entry in std::fs::read_dir(&dir).expect("read fixtures/narratives") {
+            let p = entry.unwrap().path();
+            if p.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&p).unwrap();
+            let fx: Fixture = serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
+            assert_eq!(fx.task, "narratives", "{} has wrong task", p.display());
+            if fx.prompt_version == "n9" {
+                n9_seen += 1;
+                assert!(
+                    fx.expect.body_includes_any.is_some() || fx.expect.body_excludes.is_some(),
+                    "n9 fixture {} carries no voicing axis (field-name drop?)",
+                    p.display()
+                );
+            }
+        }
+        assert!(
+            n9_seen >= 3,
+            "expected the three n9 voicing fixtures (regenerate: cargo run --example narratives_n9_fixtures), saw {n9_seen}"
+        );
     }
 }

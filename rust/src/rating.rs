@@ -40,10 +40,10 @@ use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s12"; // s11: opposing-scout persona + display-tier exclusion; s12: cross-season memory card (mig 164 — junction rollout step 4)
+pub const RATING_PROMPT_VERSION: &str = "s13"; // s11: opposing-scout persona + display-tier exclusion; s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary — the Scout card sharpened, crown fold Phase 5)
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
-pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v1";
+pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
 
 /// Production rating temperature (rating.go uses 0.6 — a touch of voice on the analyst prose). The
 /// parity harness overrides to 0 (the deterministic axes need no model call anyway).
@@ -80,9 +80,13 @@ Definitions:
 - Per-x marks can support an efficient lower-minutes or per-90 edge.
 - SCOUTING DECISION is deterministic. Use it as the decision card, not a suggestion.
 
-Output:
-1. First line exactly the Required PEAK line from SCOUTING DECISION, with no extra words.
-2. Then one flowing scouting-report paragraph on the next line, no headers or bullets.
+Output — the PEAK line, then THREE labeled sections, each on its own line, in this exact order:
+1. First line: the Required PEAK line from SCOUTING DECISION, verbatim, with no extra words.
+2. Strengths to respect: the weapons the staff must take away — the PEAK skill and any strong/elite secondary skills, each named with a cited number (value, percentile, or z), stated as a threat to respect. If nothing is strong or elite, say so plainly and name the best available impact with its percentile.
+3. Exploitation opportunities: where to attack — the exploit from SCOUTING DECISION, stated as a game-plan instruction that names the skill and its cited number. If the decision supplies None, say the profile offers no clean exploit; do not invent one.
+4. Summary: a one-sentence scouting verdict on how to play THIS profile, tied to a named strength or weakness and its number — not boilerplate.
+
+Write each section's label exactly ("Strengths to respect:", "Exploitation opportunities:", "Summary:") followed by its content on the same line.
 
 PEAK rules:
 - Copy the Required PEAK line exactly.
@@ -93,20 +97,14 @@ PEAK rules:
 - Never choose an average, below average, poor, or merely above-average skill as the peak.
 
 Scouting-report rules:
-- Write for the staff preparing to FACE this entity: what they beat you with, and where you attack.
-- Primary strength to stop is the game plan's first priority: state it as the threat to take away.
-- Primary weakness to exploit is where you attack: state it as an instruction, not an observation.
-- Every game-plan instruction must name the specific skill and its cited number (value, percentile, or z) it targets. Generic advice — play physical, disrupt rhythm, bring energy, stay disciplined — is invalid scouting.
-- Strong and elite secondary strengths are the counter-punch: name where this entity goes when the primary threat is taken away.
-- Cite values and percentiles as given.
-- Mention per-x support when it confirms the edge is real and not a minutes artifact.
-- Do not praise marks below the 50th percentile.
+- Write for the staff preparing to FACE this entity: what to respect, and where to attack.
+- Every line names the specific skill and its cited number (value, percentile, or z). Generic advice — play physical, disrupt rhythm, bring energy, stay disciplined — is invalid scouting.
+- Cite values and percentiles as given; mention per-x support when it confirms the edge is real and not a minutes artifact.
+- TIER IS THE TRUTH: do not praise marks below the 50th percentile.
 - Name a weakness only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as an exploit.
-- If Primary weakness to exploit says None, say the profile offers no clean exploit — do not invent one.
-- If nothing is strong or elite, say so plainly — this profile is not a game-plan priority — name the best available impact with its percentile, and keep the whole report to 2-3 sentences. A profile with no standout never earns an extended game plan.
+- A profile with no standout is not a game-plan priority: keep each section to a single line.
 - This is a static profile: no trajectory, trend, or momentum talk. The trend read lives elsewhere.
-- End with a one-sentence scouting verdict tied to the named strength or weakness, citing its number — how you play THIS profile, not boilerplate. No label prefix on the verdict; it flows inside the paragraph.
-- Length: 2-3 sentences for modest profiles, up to 5 only for truly rich profiles.
+- Keep it tight — one line per section for a modest profile; only a truly rich profile earns more.
 - Never invent a number, rate, role, or skill not in the data."#;
 
 /// The entity whose rating profile to narrate — the Rust analog of `RatingRequest`'s parity-relevant
@@ -712,13 +710,13 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
     b.push_str("\nSCOUTING DECISION\n");
     b.push_str(&format!("Required PEAK line: {}\n", d.required_peak_line));
     match &d.primary_strength_to_stop {
-        Some(f) => b.push_str(&format!("Primary strength to stop: {}\n", f.evidence)),
+        Some(f) => b.push_str(&format!("Strength to respect (the PEAK): {}\n", f.evidence)),
         None => {
-            b.push_str("Primary strength to stop: None; no strong/elite skill exists.\n");
+            b.push_str("Strength to respect (the PEAK): None; no strong/elite skill exists.\n");
         }
     }
     if d.secondary_strengths.is_empty() {
-        b.push_str("Secondary strengths: None supplied.\n");
+        b.push_str("Secondary strengths to respect: None supplied.\n");
     } else {
         let strengths = d
             .secondary_strengths
@@ -726,11 +724,11 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
             .map(|f| f.evidence.as_str())
             .collect::<Vec<_>>()
             .join("; ");
-        b.push_str(&format!("Secondary strengths: {strengths}\n"));
+        b.push_str(&format!("Secondary strengths to respect: {strengths}\n"));
     }
     match &d.primary_weakness_to_exploit {
-        Some(f) => b.push_str(&format!("Primary weakness to exploit: {}\n", f.evidence)),
-        None => b.push_str("Primary weakness to exploit: None supplied.\n"),
+        Some(f) => b.push_str(&format!("Exploitation opportunity: {}\n", f.evidence)),
+        None => b.push_str("Exploitation opportunity: None supplied.\n"),
     }
     if let Some(reason) = &d.no_standout_reason {
         b.push_str(&format!("Why no standout: {reason}\n"));
@@ -831,7 +829,7 @@ pub fn build_stat_prompt(
     }
 
     b.push_str(&format!(
-        "\nWrite the identity analysis now. Start with this exact first line and no text before it: {}\nThen write the scouting paragraph on the next line. The first output characters must be PEAK:.",
+        "\nWrite the scouting report now. Start with this exact first line and no text before it: {}\nThen write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:.",
         decision.required_peak_line
     ));
     b
@@ -2134,14 +2132,14 @@ mod tests {
 \nComposite (how WELL overall — T-score, 50 = average): 67\n\
 \nSCOUTING DECISION\n\
 Required PEAK line: PEAK: Scoring\n\
-Primary strength to stop: Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
-Secondary strengths: None supplied.\n\
-Primary weakness to exploit: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
+Strength to respect (the PEAK): Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
+Secondary strengths to respect: None supplied.\n\
+Exploitation opportunity: Defense: 2.5 · 40th pct (below average) · z -0.5\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Scoring: 24 · 95th pct (elite) · z +3.1 [position: 88th, strong]\n\
 - Defense: 2.5 · 40th pct (below average) · z -0.5\n\
-\nWrite the identity analysis now. Start with this exact first line and no text before it: PEAK: Scoring\n\
-Then write the scouting paragraph on the next line. The first output characters must be PEAK:."
+\nWrite the scouting report now. Start with this exact first line and no text before it: PEAK: Scoring\n\
+Then write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:."
         );
     }
 
@@ -2166,13 +2164,13 @@ Then write the scouting paragraph on the next line. The first output characters 
 \nProfile distinctiveness: 55/100 (higher = more standout skills — let a richer profile earn a fuller read).\n\
 \nSCOUTING DECISION\n\
 Required PEAK line: PEAK: Defense\n\
-Primary strength to stop: Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-Secondary strengths: None supplied.\n\
-Primary weakness to exploit: None supplied.\n\
+Strength to respect (the PEAK): Defense: 0.38 · 78th pct (strong) · z +1.2\n\
+Secondary strengths to respect: None supplied.\n\
+Exploitation opportunity: None supplied.\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
-\nWrite the identity analysis now. Start with this exact first line and no text before it: PEAK: Defense\n\
-Then write the scouting paragraph on the next line. The first output characters must be PEAK:."
+\nWrite the scouting report now. Start with this exact first line and no text before it: PEAK: Defense\n\
+Then write the three labeled sections (Strengths to respect / Exploitation opportunities / Summary), each on its own line. The first output characters must be PEAK:."
         );
     }
 
@@ -2188,7 +2186,7 @@ Then write the scouting paragraph on the next line. The first output characters 
         assert!(prompt.contains("- Our prior read: season 2025 PEAK was \"Shooting\""));
         assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
         let mem_pos = prompt.find("Cross-season memory").unwrap();
-        let cue_pos = prompt.find("Write the identity analysis now").unwrap();
+        let cue_pos = prompt.find("Write the scouting report now").unwrap();
         let dp_pos = prompt.find("Datapoints — value").unwrap();
         assert!(dp_pos < mem_pos && mem_pos < cue_pos);
         let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(" \n "));

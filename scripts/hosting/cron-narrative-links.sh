@@ -54,11 +54,22 @@ UNION ALL
 SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
-SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM seal_narrative_threads('FOOTBALL')
-UNION ALL
-SELECT 'NBA', now(), * FROM seal_narrative_threads('NBA')
-UNION ALL
-SELECT 'NFL', now(), * FROM seal_narrative_threads('NFL')" -c "
+DO \$\$
+DECLARE r record;
+BEGIN
+    -- Guarded: seal_narrative_threads arrives with mig 181. PL/pgSQL resolves the call at
+    -- first execution, so the IF lets this cron run (and be installed) before the migration.
+    IF to_regprocedure('public.seal_narrative_threads(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, t.resolved_count, t.faded_count
+                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport),
+                 LATERAL public.seal_narrative_threads(s.sport) t LOOP
+            RAISE NOTICE 'seal_narrative_threads % resolved=% faded=%',
+                r.sport, r.resolved_count, r.faded_count;
+        END LOOP;
+    ELSE
+        RAISE NOTICE 'seal_narrative_threads not installed yet (mig 181) — skipped';
+    END IF;
+END \$\$;" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored
 UNION ALL
 SELECT 'NBA', now(), score_transfer_likelihood('NBA')

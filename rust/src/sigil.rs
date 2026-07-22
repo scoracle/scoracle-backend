@@ -55,9 +55,13 @@ use sqlx::{PgPool, Row};
 /// Prompt version for the crown reading contract. or2 was the two-call Oracle that VOICED a
 /// panel-decided score; or3 folds the panel in — the crown is now ONE call (Role::OracleLogic)
 /// that reads the five pillar cards + the computed omen + the entity's own prior reads, then
-/// emits `{reading, score}`: it reads the signs, then renders the verdict. Not part of the
-/// pillar `input_hash`, so the bump regenerates nothing — only a real pillar change re-fires.
-pub const ORACLE_PROMPT_VERSION: &str = "or3";
+/// emits `{reading, score}`: it reads the signs, then renders the verdict. or4 is the Oracle
+/// voice pass (Characters Phase B, the LAST of the six): persona-first peer frame — five peers
+/// have published their stories, the Oracle's turn comes last — with peer-attributed card
+/// headers; the `{reading, score}` contract and every guard are unchanged. DELIBERATELY not
+/// part of the pillar `input_hash` (unlike the five pillar versions), so the bump regenerates
+/// nothing — the pillar cascade re-crowns organically as real changes arrive.
+pub const ORACLE_PROMPT_VERSION: &str = "or4";
 
 /// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
 /// reading-only reply; v2 adds the emitted `score` (the crown fold).
@@ -85,32 +89,33 @@ pub fn oracle_format_schema() -> serde_json::Value {
     })
 }
 
-/// System prompt for the crown reading contract (or3). The Oracle reads the cards that turned up,
-/// then renders a 1-100 verdict grounded in its own recent verdicts (memory, never a reset) — the
-/// panel's scoring discipline folded into the Oracle's voice. No literal example readings (models
-/// parrot them, learned at sigil s14); the voice is specified by rule.
-///
-/// DRAFT for review — voice is Scott's call; the scoring half is lifted from the retired panel
-/// rubric (1=freefall / 50=steady / 100=surging, slow-moving, prior-anchored, momentum for
-/// trajectory conflict, transfers weighed by stage).
-pub const ORACLE_SYSTEM_PROMPT: &str = r#"You are Scoracle. The seeker has come to your table for a reading on one sports entity; the house lenses have drawn their cards, and you are the voice that reads them and renders the verdict.
+/// System prompt for the crown reading contract (or4, the Oracle voice pass — Characters
+/// Phase B). Persona-first per wiki Characters.md's craft appendix: the Oracle is the sixth
+/// character at the table — the reader whose turn comes last, never a narrator above the story
+/// (the or3 "You are Scoracle" opening WAS that narrator frame; retired here). Five peers have
+/// published their stories; the Oracle reads their cards and renders the verdict, grounded in
+/// its own recent verdicts (memory, never a reset). No literal example readings (models parrot
+/// them, learned at sigil s14); the voice is specified by rule.
+pub const ORACLE_SYSTEM_PROMPT: &str = r#"You are the Oracle — the last voice at Scoracle's table. Five peers have already told this entity's story, each on their own card: The Journalist's storylines, The Scout's scouting brief, The Influencer's felt read, The Analyst's momentum call, The Insider's wire. The seeker has come for the reading; your turn comes last. You read what your peers have laid down, and you render the verdict.
 
-Voice: measured, knowing, quietly mystic — an oracle who has watched a thousand arcs rise and fall, not an analyst at a desk. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props — the seeker should feel a steady hand, not a costume. Speak to the seeker holding the cards; speak of the entity in the third person.
+Voice: measured, knowing, quietly mystic — the reader at the table who has watched a thousand arcs rise and fall, never an analyst at a desk, and never a narrator above the story. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props — the seeker should feel a steady hand, not a costume. Speak to the seeker holding the cards; speak of the entity in the third person. You may name one peer in passing when their card carries the turn — the Insider's wire stirs, the Analyst's call holds — never a roll call of all five; the reading is yours alone.
 
 FIRST, THE READING — exactly 2 to 4 sentences, never one long run-on:
-- Read the cards that turned up: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
+- Read the cards your peers have laid: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
 - Let one figurative image color the reading — motion, light, a line held or crossed — an image born of THIS spread, never a stock phrase that would fit any athlete. The fact beneath every image must sit in a card shown. No invented events, games, stats, fees, dates, or people.
 - Speak the proper names the cards hold: the entity, and when a transfer wind blows, the counterparty exactly as the card names it. A reading that could belong to another entity is no reading.
 - Leave the pundit's register at the door: no "expect", "look for", "going forward", "keep an eye on", "on paper". You are reading cards, not previewing a broadcast.
-- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope, z-score) or recite raw internal numbers.
-- The OMEN is computed and final. Do not contradict it; let the reading move in its direction, and never name an omen this spread has not drawn: the words ascendant, waning, and crossroads may only appear when the OMEN is that word, and the arc may be called steady only under a steady omen.
-- When the cards conflict, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms. A quiet, steady spread deserves a calm reading; do not manufacture drama the cards do not hold.
+- Read the cards' meaning, not their bookkeeping: never use the internal field words (notability, convergence, sentiment, impact, heat, slope, z-score) or recite raw internal numbers. The mood arrives as a number; speak the feeling it names, never the figure.
+- The reading is new prose, spoken at the table: never quote a card line or the omen line back, and never cite cards like footnotes. Name at most ONE peer, only when their card carries the turn.
+- The OMEN is computed and final. Do not contradict it; let the reading move in its direction, and never name an omen this spread has not drawn: ascendant, waning, and crossroads are OMEN NAMES, not idioms — each may appear only when the OMEN is that word (a struggling side is never "at a crossroads" unless the omen drew it), and the arc may be called steady only under a steady omen.
+- No parentheses in the reading, ever: a bookkeeping citation like (Mood: 30/100) is the analyst's desk, not the table. The numbers informed the cards; the reading speaks only their meaning.
+- When your peers disagree, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms. A quiet, steady spread deserves a calm reading; do not manufacture drama the cards do not hold.
 
 THEN, THE SCORE — an integer 1 to 100, the verdict the reading has earned:
 - 1 = deeply troubled or in freefall; 50 = steady or genuinely mixed; 100 = dominant or surging.
 - Slow-moving and season-aware. Do not overreact to one game or one weak signal.
-- YOUR PRIOR READ is memory, not a reset: move from your recent scores deliberately, and hold unless the cards shown justify a change. The number is the one figure the seeker sees — it must match the arc your reading just described.
-- Let Momentum carry recent trajectory when it pulls against the PEAK report or Vibe. Weigh a transfer by its stage and direction, not by rumor volume.
+- YOUR PRIOR READ is memory, not a reset: move from your recent scores deliberately, and hold unless the cards shown justify a change. Continuity of readings is your gravitas — the number is the one figure the seeker sees, and it must match the arc your reading just described.
+- Let The Analyst's momentum call carry recent trajectory when it pulls against The Scout's report or The Influencer's read. Weigh the Insider's wire by its stage and direction, not by rumor volume.
 
 Reply with ONLY this JSON object, the reading first, then the score — nothing else:
 {"reading": "<the 2-4 sentence reading>", "score": <integer 1-100>}"#;
@@ -896,7 +901,7 @@ pub fn compute_omen(
         if c <= 50 {
             return (
                 "crossroads",
-                "the lenses tell conflicting stories; the arc is contested".to_string(),
+                "the cards pull against each other; the arc is contested".to_string(),
             );
         }
     }
@@ -908,17 +913,17 @@ pub fn compute_omen(
     if net > 0 {
         (
             "ascendant",
-            "the recent trajectory points upward and the lenses do not dispute it".to_string(),
+            "the recent trajectory points upward and no card disputes it".to_string(),
         )
     } else if net < 0 {
         (
             "waning",
-            "the recent trajectory points downward and the lenses do not dispute it".to_string(),
+            "the recent trajectory points downward and no card disputes it".to_string(),
         )
     } else {
         (
             "steady",
-            "no lens shows real movement; the arc holds its line".to_string(),
+            "no card shows real movement; the arc holds its line".to_string(),
         )
     }
 }
@@ -1014,7 +1019,7 @@ pub fn build_crown_prompt(
 
     // P1 — News narrative
     if !narratives.is_empty() {
-        b.push_str("\n=== NEWS NARRATIVE ===\n");
+        b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n");
         for n in narratives {
             let mut tags = format!(
                 "impact {:.0}, {}",
@@ -1032,15 +1037,17 @@ pub fn build_crown_prompt(
             b.push_str(&format!("[{tags}] {}\n{}\n\n", n.title, n.body));
         }
     } else {
-        b.push_str("\n=== NEWS NARRATIVE ===\n(no recent narratives)\n");
+        b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)\n");
     }
 
     // P2 — PEAK scouting report (the stat end product)
-    b.push_str("\n=== PEAK SCOUTING REPORT ===\n");
+    b.push_str("\n=== THE SCOUT'S CARD (PEAK scouting report) ===\n");
     if let Some(r) = rating {
         if !r.divined_peak.is_empty() {
             b.push_str(&format!(
-                "Peak: {} (notability {}/100)\n",
+                // "profile strength", not "notability": gate round 2 showed echo-prone
+                // models reciting the internal field word straight off this line.
+                "Peak: {} — profile strength {}/100\n",
                 r.divined_peak, r.notability
             ));
         }
@@ -1056,9 +1063,12 @@ pub fn build_crown_prompt(
     }
 
     // P3 — Vibe felt-state
-    b.push_str("\n=== VIBE ===\n");
+    b.push_str("\n=== THE INFLUENCER'S CARD (vibe felt-read) ===\n");
     if let Some(v) = vibe {
-        b.push_str(&format!("Sentiment: {}/100\n", v.sentiment));
+        // "Mood", not "Sentiment": the or4 gate round 1 showed echo-prone models reciting
+        // the internal field word straight off the card into the reading (the banned-word
+        // rule lost to the card's own vocabulary — the Scout-pass lesson again).
+        b.push_str(&format!("Mood: {}/100\n", v.sentiment));
         if !v.prompt.is_empty() {
             b.push_str(&v.prompt);
             b.push('\n');
@@ -1068,7 +1078,7 @@ pub fn build_crown_prompt(
     }
 
     // P4 — Momentum
-    b.push_str("\n=== MOMENTUM ===\n");
+    b.push_str("\n=== THE ANALYST'S CARD (momentum) ===\n");
     if mom.blurb.is_some() || mom.direction.is_some() {
         let direction = mom.direction.as_deref().unwrap_or("steady");
         if let Some(score) = momentum_score(mom) {
@@ -1107,7 +1117,7 @@ pub fn build_crown_prompt(
     // P5 — Transfer heat (the transfer lens). Rendered through the SHARED `write_heat_lines`, so a
     // Sigil sees the served rumors in the same format as the vibe/narratives heat lines and the
     // /transfers card.
-    b.push_str("\n=== TRANSFER HEAT ===\n");
+    b.push_str("\n=== THE INSIDER'S CARD (transfer wire) ===\n");
     if transfers.is_empty() {
         b.push_str("(no active transfer rumors)\n");
     } else {
@@ -1136,7 +1146,7 @@ pub fn build_crown_prompt(
         "\n=== THE OMEN (computed) ===\nOmen: {omen} — {omen_reason}\n"
     ));
 
-    b.push_str("\nRead the cards, then render the score.");
+    b.push_str("\nYour peers have spoken; the table is yours. Read their cards, then render the score.");
     b
 }
 
@@ -1919,13 +1929,13 @@ mod tests {
         );
         assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
         assert!(!p.contains("YOUR PRIOR READ"));
-        assert!(p.contains("=== NEWS NARRATIVE ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
-        assert!(p.contains("=== PEAK SCOUTING REPORT ===\n(no stat commentary available)"));
-        assert!(p.contains("=== VIBE ===\nSentiment: 62/100\nOn the rise"));
-        assert!(p.contains("=== MOMENTUM ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)"));
-        assert!(p.contains("=== TRANSFER HEAT ===\n(no active transfer rumors)"));
+        assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
+        assert!(p.contains("=== THE SCOUT'S CARD (PEAK scouting report) ===\n(no stat commentary available)"));
+        assert!(p.contains("=== THE INFLUENCER'S CARD (vibe felt-read) ===\nMood: 62/100\nOn the rise"));
+        assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)"));
+        assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
         assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
-        assert!(p.ends_with("\nRead the cards, then render the score."));
+        assert!(p.ends_with("\nYour peers have spoken; the table is yours. Read their cards, then render the score."));
     }
 
     #[test]
@@ -2007,9 +2017,9 @@ mod tests {
             None,
             None,
         );
-        assert!(p.contains("=== NEWS NARRATIVE ===\n(no recent narratives)"));
-        assert!(p.contains("=== MOMENTUM ===\n(no momentum data)"));
-        assert!(p.contains("=== TRANSFER HEAT ===\n(no active transfer rumors)"));
+        assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
+        assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
+        assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
     }
 
     #[test]
@@ -2038,7 +2048,7 @@ mod tests {
             None,
             None,
         );
-        assert!(p.contains("=== TRANSFER HEAT ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
+        assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
     }
 
     #[test]
@@ -2061,7 +2071,7 @@ mod tests {
             None,
         );
         assert!(p.starts_with(
-            "Entity: Test Player (NBA player)\n\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\nLast reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)\n\n=== NEWS NARRATIVE ==="
+            "Entity: Test Player (NBA player)\n\n=== YOUR PRIOR READ (memory — your own past verdicts; continuity, not new evidence) ===\nLast reading (Jul 18): The arc holds.\nRecent verdicts (newest first): 72 (Jul 18) · 71 (Jul 14)\n\n=== THE JOURNALIST'S CARD (news storylines) ==="
         ));
     }
 

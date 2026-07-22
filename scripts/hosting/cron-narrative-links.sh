@@ -29,7 +29,9 @@ fi
 # truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
 # roll episodes (open/peak/quiet-seal), seal narrative THREADS (mig 181 — resolves
 # ground-truth-confirmed storylines first, then fades >=21d-quiet ones; the function
-# orders those internally), score transfer likelihood on the fresh open
+# orders those internally), promote established threads (mig 183 — source growth past
+# the authority gate flips continuity → established; after the thread seal so a fresh
+# ground-truth resolve promotes same-night), score transfer likelihood on the fresh open
 # set (mig 161 — after roll so new stories get scored same-night), re-measure source
 # performance, then promote persons (mig 166 — evidence accumulated by the graph stage
 # earns candidate → active; promoted figures serve on team memory cards).
@@ -68,6 +70,20 @@ BEGIN
         END LOOP;
     ELSE
         RAISE NOTICE 'seal_narrative_threads not installed yet (mig 181) — skipped';
+    END IF;
+END \$\$;" -c "
+DO \$\$
+DECLARE r record;
+BEGIN
+    -- Guarded: promote_established_threads arrives with mig 183 (Phase D authority).
+    -- AFTER the seal sweep so a same-night ground-truth resolve promotes immediately.
+    IF to_regprocedure('public.promote_established_threads(text)') IS NOT NULL THEN
+        FOR r IN SELECT s.sport, public.promote_established_threads(s.sport) AS promoted
+                 FROM (VALUES ('FOOTBALL'),('NBA'),('NFL')) s(sport) LOOP
+            RAISE NOTICE 'promote_established_threads % promoted=%', r.sport, r.promoted;
+        END LOOP;
+    ELSE
+        RAISE NOTICE 'promote_established_threads not installed yet (mig 183) — skipped';
     END IF;
 END \$\$;" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored

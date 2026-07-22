@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict jYMHkqbTAJSHlHsYwGDL68OgQqywuymcxOiwamuRh5OfxsDWs4SeDtIzPAeIehD
+\restrict e7QdgEA9yecMBiD7kWEA2eUU3Fgjd5xnsCKj7nieOBRj1vr4RNptuIDHkSFRCtF
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -5886,6 +5886,52 @@ BEGIN
     RETURN v_inserted;
 END;
 $$;
+
+
+--
+-- Name: source_reliability_for_pair(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.source_reliability_for_pair(p_sport text, p_player_id integer, p_team_id integer) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+WITH corpus_sources AS (
+    -- The distinct sources of the pair's CURRENT transfer corpus. Reuse compute_transfer_heat's
+    -- news_ids so "the corpus" has ONE definition and this card can never drift from what the
+    -- prompt shows. Empty news_ids (heat NULL / no corpus) ⇒ no rows ⇒ NULL card.
+    SELECT DISTINCT a.source AS src
+    FROM public.compute_transfer_heat(p_team_id, p_player_id, p_sport) h
+    CROSS JOIN LATERAL unnest(h.news_ids) AS n(news_id)
+    JOIN public.news_articles a ON a.id = n.news_id
+    WHERE a.source IS NOT NULL AND a.source <> ''
+),
+ranked AS (
+    -- Join each corpus source to its measured record; keep the corpus spelling for display so a
+    -- card line reads back to its [source] headline tag. Case-insensitive match into the record.
+    SELECT cs.src AS source, sp.reliability, sp.confirmed_covered,
+           sp.pairs_covered, sp.early_confirmed
+    FROM corpus_sources cs
+    JOIN public.source_performance sp
+      ON sp.sport = p_sport AND lower(sp.source) = lower(cs.src)
+    ORDER BY sp.reliability DESC, sp.confirmed_covered DESC, cs.src
+    LIMIT 6
+)
+SELECT NULLIF(string_agg(
+    format('%s: reliability %s/100 (%s of %s tracked move%s confirmed%s).',
+           r.source, r.reliability, r.confirmed_covered, r.pairs_covered,
+           CASE WHEN r.pairs_covered = 1 THEN '' ELSE 's' END,
+           CASE WHEN r.early_confirmed > 0
+                THEN ', ' || r.early_confirmed || ' reported early' ELSE '' END),
+    E'\n' ORDER BY r.reliability DESC, r.confirmed_covered DESC, r.source), '')
+FROM ranked r;
+$$;
+
+
+--
+-- Name: FUNCTION source_reliability_for_pair(p_sport text, p_player_id integer, p_team_id integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.source_reliability_for_pair(p_sport text, p_player_id integer, p_team_id integer) IS 'The measured track record of the sources on one (player, team) pair''s live transfer corpus, as compact prompt lines: for each source shown in the pair''s current News headlines, its GLOBAL per-sport source_performance record — reliability N/100, confirmed/tracked base rate, and early-call count. Sources are the pair''s corpus sources (reuses compute_transfer_heat.news_ids — one corpus definition, no drift); the numbers are each source''s overall record. Ordered most-reliable first, capped at 6. NULL = no corpus source has a measured record. Presented, not gatekept: the transfers voice WEIGHS it for steam vs fizzle, nothing filters by it. Consumed by the transfers prompt builder (t9) — model-facing, never user-facing.';
 
 
 --
@@ -12254,5 +12300,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict jYMHkqbTAJSHlHsYwGDL68OgQqywuymcxOiwamuRh5OfxsDWs4SeDtIzPAeIehD
+\unrestrict e7QdgEA9yecMBiD7kWEA2eUU3Fgjd5xnsCKj7nieOBRj1vr4RNptuIDHkSFRCtF
 

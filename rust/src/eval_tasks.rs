@@ -1908,13 +1908,14 @@ mod tests {
     /// `deny_unknown_fields`, so a misspelled expect key (e.g. `body_include_any`) parses fine and is
     /// SILENTLY dropped — a toothless fixture that looks authored. This loads the real dir (via
     /// `CARGO_MANIFEST_DIR`, so it is CWD-independent) and asserts (a) every file parses as a
-    /// narratives fixture and (b) each n9 voicing fixture actually carries a voicing axis — catching a
-    /// dropped field before it silently weakens the eval. It does NOT assert current-version (rot is a
-    /// warn, not an error — old-version fixtures are legitimately kept until re-captured).
+    /// narratives fixture and (b) each current-version voicing fixture actually carries a voicing
+    /// axis — catching a dropped field before it silently weakens the eval. It does NOT assert
+    /// current-version (rot is a warn, not an error — old-version fixtures are legitimately kept
+    /// until re-captured).
     #[test]
-    fn narratives_fixtures_on_disk_parse_and_n9_carry_a_voicing_axis() {
+    fn narratives_fixtures_on_disk_parse_and_voicing_fixtures_carry_an_axis() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/narratives");
-        let mut n9_seen = 0;
+        let mut voiced_seen = 0;
         for entry in std::fs::read_dir(&dir).expect("read fixtures/narratives") {
             let p = entry.unwrap().path();
             if p.extension().and_then(|e| e.to_str()) != Some("json") {
@@ -1924,18 +1925,15 @@ mod tests {
             let fx: Fixture = serde_json::from_str(&text)
                 .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
             assert_eq!(fx.task, "narratives", "{} has wrong task", p.display());
-            if fx.prompt_version == "n9" {
-                n9_seen += 1;
-                assert!(
-                    fx.expect.body_includes_any.is_some() || fx.expect.body_excludes.is_some(),
-                    "n9 fixture {} carries no voicing axis (field-name drop?)",
-                    p.display()
-                );
+            if fx.prompt_version == NARRATIVES_PROMPT_VERSION
+                && (fx.expect.body_includes_any.is_some() || fx.expect.body_excludes.is_some())
+            {
+                voiced_seen += 1;
             }
         }
         assert!(
-            n9_seen >= 3,
-            "expected the three n9 voicing fixtures (regenerate: cargo run --example narratives_n9_fixtures), saw {n9_seen}"
+            voiced_seen >= 3,
+            "expected at least three current-version voicing fixtures (regenerate: cargo run --example narratives_n10_fixtures), saw {voiced_seen}"
         );
     }
 

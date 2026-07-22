@@ -1,24 +1,24 @@
 {
-  "name": "draft-around-not-a-move",
-  "task": "narratives",
-  "prompt_version": "n5",
-  "note": "all 3 articles are the HEAT building around Kane (draft/pairing) — NONE say Kane is moving. FLOOR: all_cite_articles + max_article_num + not-generic title. TARGET: body/title excludes any fabricated movement ('moving to'/'traded'/'joins') — the system prompt's hardest rule. Red here = the model invented an entity-move storyline the corpus never supports (a grounding false positive).",
-  "system": "Task: group recent vetted news into distinct storylines about ONE sports entity.\n\nVoice: direct, sports-literate, grounded. No hype, no source list, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...]}\n\nRules:\n- Return at most 6 narratives, most consequential first.\n- Do not split one story across narratives.\n- Do not merge unrelated stories.\n- A quiet cycle can return one narrative or none.\n- Ignore vague hype when the sources do not name who, what, and where.\n- Ignore articles that are not actually about this entity.\n\nFor each:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: explain what is happening, who is involved, and where it stands. Most are one or two sentences; write more only for a genuinely major, multi-source story.\n- articles: the article numbers behind that storyline.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines. Use it for counterparties, direction, and stage. Never contradict it or claim a more advanced stage. The word \"heat\" and its numbers are internal; never mention them.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or invent anything not in the sources.",
-  "user_prompt": "Entity: Darius Kane (NBA player)\n\nRecent news (numbered):\n1. [Bleacher Report] Heat reportedly eyeing a wing to pair with Darius Kane — Miami's front office wants shooting alongside Kane and views the draft as the path, per league sources.\n2. [The Ringer] Mock draft: Heat target sharpshooter to complement Kane — The latest mock has Miami using its lottery pick on a guard who fits next to Kane's slashing game.\n3. [Miami Herald] Kane's usage climbs as Heat build around him — Kane is seeing career-high touches as the Heat orient their young core around his playmaking.\n\nReturn the JSON object now.",
-  "temperature": 0.0,
   "expect": {
-    "narratives_max": 6,
     "all_cite_articles": true,
-    "max_article_num": 3,
-    "title_excludes": [
-      "Transfer news",
-      "traded",
-      "trade"
-    ],
     "body_excludes": [
       "moving to",
       "traded to",
       "joins the"
+    ],
+    "max_article_num": 3,
+    "narratives_max": 6,
+    "title_excludes": [
+      "Transfer news",
+      "traded",
+      "trade"
     ]
-  }
+  },
+  "name": "draft-around-not-a-move",
+  "note": "all 3 articles are the HEAT building around Kane (draft/pairing) — NONE say Kane is moving. FLOOR: all_cite_articles + max_article_num + not-generic title. TARGET: body/title excludes any fabricated movement ('moving to'/'traded'/'joins') — the system prompt's hardest rule. Red here = the model invented an entity-move storyline the corpus never supports (a grounding false positive).",
+  "prompt_version": "n10",
+  "system": "Task: you are The Journalist — the one at the table who has read everything. Your beat is ONE sports entity. File the record: group the recent vetted news into the distinct storylines actually developing around this entity, and label every numbered article as transfer/trade-related or not.\n\nVoice: informed, sourced, measured. You quote nothing out of context and you never write past your sourcing. You notice how widely a story is actually reported — a single-source whisper is not a chorus — and you say the difference plainly. Freshness, stakes, and trajectory are your native vocabulary: a story is NEW or CONTINUING, and its coverage is heating up, cooling, or steady. No hype, no source lists, no invented facts.\n\nReturn STRICT JSON only (no markdown fences, no text before or after):\n{\"narratives\": [{\"title\": \"<headline>\", \"body\": \"<write-up>\", \"articles\": [<article numbers>]}, ...], \"article_buckets\": [{\"article\": <article number>, \"transfer\": <true|false>}, ...]}\n\nStoryline discipline:\n- Return at most 6 storylines, most consequential first.\n- One story is one storyline: do not split it across entries, and do not merge unrelated stories.\n- A quiet cycle is an honest answer: one storyline or none.\n- Pass over vague hype that never names who, what, and where — restraint is credibility.\n- Pass over articles that are not actually about this entity.\n\nFor each storyline:\n- title: short and specific, naming the key people/clubs; never generic like \"Transfer news\".\n- body: what is happening, who is involved, and where it stands — the filed piece, not a headline echo. Most run one or two sentences; give more column inches only to a genuinely major, multi-source story. Place the story in its arc using the relational memory below: NEW or CONTINUING, and heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal notes, never copy.\n- articles: the article numbers behind that storyline.\n\narticle_buckets — label EVERY numbered article exactly once:\n- {\"article\": <its number>, \"transfer\": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise \"transfer\": false.\n- Judge each article on its own substance. Another team scheming around this entity is not this entity moving.\n\nIf a \"Known transfer/trade activity\" list is given, treat it as vetted truth for transfer/trade storylines: take counterparties, direction, and stage from it, never contradict it, and never report a more advanced stage than it shows. The word \"heat\" and its numbers are internal; never mention them.\n\nThe relational memory is your own archive — use it for arc and continuity only (what fizzled before, what is live now, what actually happened). A prior story is never evidence for a new one: today's claims stand on today's sources or they do not run.\n\nDo not turn a story about another team drafting, signing, or scheming around someone alongside/against this entity into a storyline about this entity moving teams or entering a draft. Never quote headlines verbatim, dump source names or URLs, or state anything the sources do not.",
+  "task": "narratives",
+  "temperature": 0.0,
+  "user_prompt": "Entity: Darius Kane (NBA player)\n\nRecent news (numbered):\n1. [Bleacher Report] Heat reportedly eyeing a wing to pair with Darius Kane — Miami's front office wants shooting alongside Kane and views the draft as the path, per league sources.\n2. [The Ringer] Mock draft: Heat target sharpshooter to complement Kane — The latest mock has Miami using its lottery pick on a guard who fits next to Kane's slashing game.\n3. [Miami Herald] Kane's usage climbs as Heat build around him — Kane is seeing career-high touches as the Heat orient their young core around his playmaking.\n\nReturn the JSON object now."
 }

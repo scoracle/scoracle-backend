@@ -122,37 +122,39 @@ pub struct LensParameters {
     pub credibility_guard: &'static str,
 }
 
-/// lens_parameters is the code home for the current six-lens taxonomy.
+/// lens_parameters is the code home for the current six-lens taxonomy. `operator` carries the
+/// character identity (the cast locked in wiki/Characters.md, 2026-07-21); the junction's system
+/// prompt is that character's voice, so a voice change is a prompt change, never a rename here.
 pub fn lens_parameters(name: &str) -> Option<LensParameters> {
     match name {
         "narratives" => Some(LensParameters {
             rail: Rail::EmotionalNews,
-            operator: "beat writer",
+            operator: "The Journalist",
             mandate: "Compile the stories swirling around the entity into grounded storylines.",
             credibility_guard: "Group what sources actually say; do not inflate vague hype or off-entity noise.",
         }),
         "transfer" => Some(LensParameters {
             rail: Rail::EmotionalNews,
-            operator: "transfer expert",
+            operator: "The Insider",
             mandate: "Get movement predictions out quickly while preserving long-term credibility.",
             credibility_guard: "Fail closed on name-drops, stale links, weak sourcing, and misleading heat.",
         }),
         "vibe" => Some(LensParameters {
             rail: Rail::EmotionalNews,
-            operator: "content creator",
-            mandate: "Read the entity's current vibe so a creator can piggyback on the conversation.",
-            credibility_guard: "Separate interactable mood from durable truth; do not invent a narrative hook.",
+            operator: "The Influencer",
+            mandate: "Farm the engagement: find the emotion running through the entity's narratives and ride it into the felt read of the moment.",
+            credibility_guard: "Separate interactable mood from durable truth; the emotion must trace to the corpus — do not invent a narrative hook.",
         }),
         "rating" => Some(LensParameters {
             rail: Rail::StatsAnalytical,
-            operator: "opposing team scout",
+            operator: "The Scout",
             mandate: "Prepare for the entity by naming the greatest strength to stop and the greatest weakness to exploit.",
             credibility_guard: "Use supplied tiers and datapoints only; never turn average marks into strengths.",
         }),
         "momentum" => Some(LensParameters {
             rail: Rail::StatsAnalytical,
-            operator: "nimble trader",
-            mandate: "Read PEAK/rating trajectory as price action and Vibe/news as investor sentiment, then decide whether momentum is rising, falling, or a hold.",
+            operator: "The Analyst",
+            mandate: "Read the directional force of form (PEAK/rating trajectory) and feeling (Vibe/news), then narrate the decided direction with conviction.",
             credibility_guard: "Stay detached and results-only; do not chase sentiment hype or cling to stale PEAK strength.",
         }),
         "oracle" => Some(LensParameters {
@@ -1502,15 +1504,21 @@ mod tests {
     }
 
     #[test]
-    fn lens_parameters_capture_current_operating_personas() {
+    fn lens_parameters_capture_the_locked_cast() {
+        // The cast is an identity lock (wiki/Characters.md, 2026-07-21) — a rename here is a
+        // product decision, not a refactor.
         let rating = lens_parameters("rating").unwrap();
         assert_eq!(rating.rail, Rail::StatsAnalytical);
-        assert_eq!(rating.operator, "opposing team scout");
+        assert_eq!(rating.operator, "The Scout");
         assert!(rating.mandate.contains("greatest strength"));
+
+        assert_eq!(lens_parameters("narratives").unwrap().operator, "The Journalist");
+        assert_eq!(lens_parameters("transfer").unwrap().operator, "The Insider");
+        assert_eq!(lens_parameters("vibe").unwrap().operator, "The Influencer");
+        assert_eq!(lens_parameters("momentum").unwrap().operator, "The Analyst");
 
         let transfer = lens_parameters("transfer").unwrap();
         assert_eq!(transfer.rail, Rail::EmotionalNews);
-        assert_eq!(transfer.operator, "transfer expert");
 
         let oracle = lens_parameters("oracle").unwrap();
         assert_eq!(oracle.rail, Rail::Synthesis);

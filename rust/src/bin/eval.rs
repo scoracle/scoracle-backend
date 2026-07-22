@@ -58,7 +58,8 @@ use scoracle_cognition::eval_tasks::{
     all_task_names, fixture_drift, resolve_task, CaseVerdict, EntitySpec, Expect, Fixture, LensTask,
 };
 use scoracle_cognition::harness::Harness;
-use scoracle_cognition::route::{Inference, Router};
+use scoracle_cognition::judge::VoiceSpec;
+use scoracle_cognition::route::{Inference, Role, Router};
 use serde_json::Value;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -512,11 +513,21 @@ async fn run_one_fixture(
         }
     }
     if let Some(j) = judge {
+        // Voice axis (judge-v2): cast stages — every LensTask on its own character role — are
+        // judged in character via the registry's identity; utility tasks (graph, still on the
+        // shared Role::EmotionalNews) keep the three-axis rubric.
+        let params = task.parameters();
+        let voice_spec = VoiceSpec {
+            character: params.operator,
+            mandate: params.mandate,
+        };
+        let voice = (task.role() != Role::EmotionalNews).then_some(&voice_spec);
         match scoracle_cognition::judge::judge_reply(
             j.as_ref(),
             task.name(),
             &fx.user_prompt,
             &gen.response,
+            voice,
         )
         .await
         {
@@ -526,8 +537,12 @@ async fn run_one_fixture(
                 } else {
                     format!(" — worst: {}", v.worst_claim)
                 };
+                let voice_score = v
+                    .voice_fidelity
+                    .map(|n| format!(" voice={n}"))
+                    .unwrap_or_default();
                 println!(
-                    "      [judge] specificity={} grounding={} non-generic={}{worst}",
+                    "      [judge] specificity={} grounding={} non-generic={}{voice_score}{worst}",
                     v.specificity, v.grounding, v.non_generic
                 );
                 judge_agg.add(&v);
@@ -546,6 +561,9 @@ struct JudgeAgg {
     specificity: i64,
     grounding: i64,
     non_generic: i64,
+    // voice_fidelity is judged only on cast (character) replies, so it carries its own n.
+    voice_n: usize,
+    voice_fidelity: i64,
 }
 
 impl JudgeAgg {
@@ -554,12 +572,24 @@ impl JudgeAgg {
         self.specificity += i64::from(v.specificity);
         self.grounding += i64::from(v.grounding);
         self.non_generic += i64::from(v.non_generic);
+        if let Some(voice) = v.voice_fidelity {
+            self.voice_n += 1;
+            self.voice_fidelity += i64::from(voice);
+        }
     }
     fn summary(&self) -> Option<String> {
         (self.n > 0).then(|| {
             let f = |s: i64| s as f64 / self.n as f64;
+            let voice = if self.voice_n > 0 {
+                format!(
+                    " · voice {:.1}",
+                    self.voice_fidelity as f64 / self.voice_n as f64
+                )
+            } else {
+                String::new()
+            };
             format!(
-                "specificity {:.1} · grounding {:.1} · non-generic {:.1} (n={})",
+                "specificity {:.1} · grounding {:.1} · non-generic {:.1}{voice} (n={})",
                 f(self.specificity),
                 f(self.grounding),
                 f(self.non_generic),

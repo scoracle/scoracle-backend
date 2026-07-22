@@ -40,7 +40,7 @@ use std::collections::{HashMap, HashSet};
 use tracing::debug;
 
 /// Prompt version for the PEAK scouting-report contract.
-pub const RATING_PROMPT_VERSION: &str = "s13"; // s11: opposing-scout persona + display-tier exclusion; s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary — the Scout card sharpened, crown fold Phase 5)
+pub const RATING_PROMPT_VERSION: &str = "s14"; // s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
@@ -60,18 +60,16 @@ const PEAK_WORK_PREFIX: &str = "peak:s";
 /// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
 const MAX_STAT_FACTS: usize = 14;
 
-/// System prompt for the PEAK scouting-report contract. s11 (Session D, North Star #6): the
-/// voice is an OPPOSING SCOUT profiling the subject for a coaching staff preparing to face
-/// them — adversarial and actionable, never a fan's summary. The hard invariants survive
-/// verbatim from s10: the tier is the truth, the PEAK line is copied not chosen, weaknesses
-/// need a materially negative z, nothing below the 50th percentile gets praised, nothing is
-/// invented. Trend talk is banned by rule: trajectory narration is Momentum's job (Scott,
-/// Session D — "leave the trend of a metric to momentum").
-pub const RATING_SYSTEM_PROMPT: &str = r#"Task: write the entity's PEAK scouting report from the supplied Rating Engine profile.
+/// System prompt for the PEAK scouting-report contract. s14 (Characters Phase B): the voice IS
+/// The Scout — a persona-first coaching-staff brief in clipped game-plan imperatives (wiki
+/// Characters.md craft appendix: names the skill and the number; speaks to a coaching staff,
+/// never fans; tier is the truth). The hard invariants survive verbatim from s10-s13: the tier
+/// is the truth, the PEAK line is copied not chosen, weaknesses need a materially negative z,
+/// nothing below the 50th percentile gets praised, nothing is invented, and trend talk stays
+/// banned (The Analyst's turn — Scott, Session D: "leave the trend of a metric to momentum").
+pub const RATING_SYSTEM_PROMPT: &str = r#"Task: you are The Scout — the opposing scout. Brief your own coaching staff on the game plan AGAINST this entity, from the supplied Rating Engine profile.
 
-Persona: you are an opposing scout preparing a strengths/weaknesses profile for your own coaching staff to game-plan AGAINST this entity. Clinical, adversarial, actionable. Respect the subject's real weapons — underrating them gets your side burned — and name exactly where to attack.
-
-Voice: direct, analytical, sports-literate. No hype, no fan framing. Ground every claim in the supplied datapoints.
+Voice: clipped, tactical, game-plan imperatives. You speak to a coaching staff, never to fans — no hype, no fan framing, no essay prose. Stop this, attack that: name the skill and the number in every call. Respect the subject's real weapons — underrating them gets your side burned — and name exactly where to attack.
 
 Definitions:
 - COMPOSITE = how well the entity performs overall.
@@ -82,9 +80,9 @@ Definitions:
 
 Output — the PEAK line, then THREE labeled sections, each on its own line, in this exact order:
 1. First line: the Required PEAK line from SCOUTING DECISION, verbatim, with no extra words.
-2. Strengths to respect: the weapons the staff must take away — the PEAK skill and any strong/elite secondary skills, each named with a cited number (value, percentile, or z), stated as a threat to respect. If nothing is strong or elite, say so plainly and name the best available impact with its percentile.
-3. Exploitation opportunities: where to attack — the exploit from SCOUTING DECISION, stated as a game-plan instruction that names the skill and its cited number. If the decision supplies None, say the profile offers no clean exploit; do not invent one.
-4. Summary: a one-sentence scouting verdict on how to play THIS profile, tied to a named strength or weakness and its number — not boilerplate.
+2. Strengths to respect: the weapons your staff must take away — the PEAK skill and EVERY strong/elite secondary skill on the decision card, each named with a cited number (value, percentile, or z), each stated as a threat to respect; a weapon you omit is a weapon your staff does not prepare for. If nothing is strong or elite, say so plainly and still name the best available impact with its percentile (the Why-no-standout line supplies it) — never leave this section a bare None.
+3. Exploitation opportunities: where you attack — the exploit from SCOUTING DECISION, written as a game-plan instruction that names the skill and its cited number. When the card names a weakness, attack exactly that skill. Only when the card's Exploitation line itself says no clean exploit do you say so too — keep the words "no clean exploit" — and never claim no clean exploit when the card names a weakness.
+4. Summary: a one-sentence scouting verdict on how to play THIS profile, tied to a named strength or weakness and its number — not boilerplate. Open the verdict with the specific action on the named skill, never with generic effort language.
 
 Write each section's label exactly ("Strengths to respect:", "Exploitation opportunities:", "Summary:") followed by its content on the same line.
 
@@ -97,15 +95,17 @@ PEAK rules:
 - Never choose an average, below average, poor, or merely above-average skill as the peak.
 
 Scouting-report rules:
-- Write for the staff preparing to FACE this entity: what to respect, and where to attack.
-- Every line names the specific skill and its cited number (value, percentile, or z). Generic advice — play physical, disrupt rhythm, bring energy, stay disciplined — is invalid scouting.
-- Cite values and percentiles as given; mention per-x support when it confirms the edge is real and not a minutes artifact.
-- TIER IS THE TRUTH: do not praise marks below the 50th percentile.
+- You brief the staff preparing to FACE this entity: what to take away, and where to attack.
+- Imperatives over observations: call the action — take it away, force it, attack it — and every call names the specific skill and its cited number (value, percentile, or z). Generic advice — play physical, disrupt rhythm, bring energy, stay disciplined — is invalid scouting even when a named skill follows it: the action itself must be specific to that skill.
+- Never copy an evidence line from the card verbatim into a section: translate it into a call — verb first, then the skill and its cited number in plain words (write "96th percentile", never the card's " · " notation).
+- Keep sentences short and tactical: lines a coach can read aloud in the film room, not analyst prose.
+- Cite values and percentiles as given. When the card's strength line carries a per-x corroboration (per-36, per-90), your Strengths section repeats that per-x number — it is the proof the edge is real and not a minutes artifact, and dropping it undersells the threat.
+- TIER IS THE TRUTH: never inflate an average mark into a strength, and nothing below the 50th percentile gets praise.
 - Name a weakness only when a skill is below average or poor AND its z is meaningfully negative. A poor percentile with a near-zero z is a usage artifact, not a liability — do not present it as an exploit.
 - A profile with no standout is not a game-plan priority: keep each section to a single line.
-- This is a static profile: no trajectory, trend, or momentum talk. The trend read lives elsewhere.
+- This is a static profile: no trajectory, trend, or momentum talk — the trend read is another character's turn, never yours.
 - Keep it tight — one line per section for a modest profile; only a truly rich profile earns more.
-- Never invent a number, rate, role, or skill not in the data."#;
+- The supplied tiers and datapoints are everything you know: never invent a number, rate, role, or skill not in the data."#;
 
 /// The entity whose rating profile to narrate — the Rust analog of `RatingRequest`'s parity-relevant
 /// fields. `sport` is UPPER-cased by the caller (the Go CLI passes `sportUpper`); the header line uses
@@ -662,7 +662,19 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
         None => "PEAK: No standout skill".to_string(),
     };
 
-    let primary_strength_to_stop = primary.map(decision_fact);
+    let mut primary_strength_to_stop = primary.map(decision_fact);
+    // Per-x corroboration rides the strength line itself (s14): echo-prone models speak the
+    // card but skipped the separate rate-standouts section (gate rounds 1-2), so the proof
+    // the edge is real at low minutes must sit where the PEAK evidence is.
+    if let Some(f) = primary_strength_to_stop.as_mut() {
+        if let Some(r) = collect_rate_standouts(p).iter().find(|r| r.label == f.label) {
+            f.evidence.push_str(&format!(
+                " (corroborated {}: {:.0}th pct — the edge is real, not a minutes artifact)",
+                r.mode.replace('_', "-"),
+                r.pct
+            ));
+        }
+    }
     let secondary_strengths = facts
         .iter()
         .skip(1)
@@ -728,7 +740,10 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
     }
     match &d.primary_weakness_to_exploit {
         Some(f) => b.push_str(&format!("Exploitation opportunity: {}\n", f.evidence)),
-        None => b.push_str("Exploitation opportunity: None supplied.\n"),
+        // The card says the words the model must speak (s14): echo-prone local models
+        // reliably recite the card, so "no clean exploit" lives HERE, not "None supplied"
+        // (which they echoed verbatim instead of the contract phrase — gate round 2).
+        None => b.push_str("Exploitation opportunity: None — this profile offers no clean exploit.\n"),
     }
     if let Some(reason) = &d.no_standout_reason {
         b.push_str(&format!("Why no standout: {reason}\n"));
@@ -839,11 +854,14 @@ pub fn build_stat_prompt(
 // Input components + hash — the debounce key (Provenance.input_hash), the 5th parity axis.
 //
 // Reproduces Go's `(*ratingProfile).inputComponents` + `hashComponents`: the canonical JSON is
-// BYTE-IDENTICAL to `json.Marshal(map[string]any{...})` (sorted keys, HTML-escaped strings, Go's
-// shortest float form), so its SHA-256 128-bit hex prefix equals Go's `input_hash` — keeping the
-// cutover clean (no spurious nightly regens vs the Go-written rows). The datapoints walk the breakdown
-// in STORED order (NOT pct-sorted — unlike the prompt). Built with a tiny Go-JSON value emitter over
-// the shared `util::go_json_*` leaf encoders (the structure is nested: arrays of objects).
+// emitted exactly as `json.Marshal(map[string]any{...})` would (sorted keys, HTML-escaped strings,
+// Go's shortest float form). Through s13 the bytes were IDENTICAL to the Go-era pre-image (keeping
+// the cutover clean — no spurious nightly regens vs the Go-written rows); s14 deliberately ends
+// that byte-parity by folding `prompt_version` into the pre-image (the narratives M4 / vibe v13 /
+// momentum s6 pattern), so a version bump regenerates the fleet once through the hash itself. The
+// datapoints walk the breakdown in STORED order (NOT pct-sorted — unlike the prompt). Built with a
+// tiny Go-JSON value emitter over the shared `util::go_json_*` leaf encoders (the structure is
+// nested: arrays of objects).
 // ---------------------------------------------------------------------------
 
 /// GoJson is a minimal JSON value whose emit reproduces Go `encoding/json` byte-for-byte for our
@@ -910,6 +928,13 @@ pub fn input_components(p: &RatingProfile) -> String {
         .collect();
 
     let mut top: Vec<(String, GoJson)> = vec![
+        // prompt_version joins the pre-image at s14 (the narratives M4 / vibe v13 / momentum s6
+        // pattern): an s-bump changes every entity's hash once, forcing one regen as the
+        // nightly next touches it.
+        (
+            "prompt_version".to_string(),
+            GoJson::Str(RATING_PROMPT_VERSION.to_string()),
+        ),
         ("season".to_string(), GoJson::Int(p.season as i64)),
         ("peak_label".to_string(), GoJson::Str(p.peak_label.clone())),
         ("datapoints".to_string(), GoJson::Arr(datapoints)),
@@ -1434,10 +1459,12 @@ pub async fn generate_rating(
         .await?
         {
             // Skip only when BOTH the rating snapshot (input_hash) and the contract
-            // (prompt_version) are unchanged. The prompt_version leg is what ships a persona
-            // change fleet-wide: without it, entities whose stats never move (NBA/NFL in
+            // (prompt_version) are unchanged. This is what ships a persona change
+            // fleet-wide: without it, entities whose stats never move (NBA/NFL in
             // July) would speak the old voice until preseason. One regeneration per entity,
-            // then the row stamps s11 and the gate closes again.
+            // then the row stamps the new version and the gate closes again. (Since s14 the
+            // version is ALSO folded into the hash pre-image, so the hash leg alone would
+            // regen a bump; the explicit version leg stays as the belt-and-braces guard.)
             if last_hash == ready.input_hash && last_prompt_version == RATING_PROMPT_VERSION {
                 return Ok(RatingOutput {
                     season: ready.season,
@@ -2166,7 +2193,7 @@ Then write the three labeled sections (Strengths to respect / Exploitation oppor
 Required PEAK line: PEAK: Defense\n\
 Strength to respect (the PEAK): Defense: 0.38 · 78th pct (strong) · z +1.2\n\
 Secondary strengths to respect: None supplied.\n\
-Exploitation opportunity: None supplied.\n\
+Exploitation opportunity: None — this profile offers no clean exploit.\n\
 \nDatapoints — value · percentile + TIER (the percentile mapped to elite/strong/above average/average/below average/poor; THIS TIER IS THE TRUTH) · z (standard deviations above the mean: the scarcity/scale of the edge; a high z is a rarer, more premium skill); [position] percentile shown when present:\n\
 - Defense: 0.38 · 78th pct (strong) · z +1.2\n\
 \nWrite the scouting report now. Start with this exact first line and no text before it: PEAK: Defense\n\
@@ -2229,12 +2256,16 @@ Then write the three labeled sections (Strengths to respect / Exploitation oppor
     #[test]
     fn input_components_matches_go_marshal_bytes() {
         // Datapoints walk the breakdown in STORED order (NOT pct-sorted): Scoring then Defense.
-        // Top keys sorted: composite_score, datapoints, peak_label, position, season. Datapoint keys
-        // Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1 → "95"/"40".
+        // Top keys sorted: composite_score, datapoints, peak_label, position, prompt_version,
+        // season. Datapoint keys sorted: label, pct. composite round1(67.0)=67 → "67"; pct round1
+        // → "95"/"40". prompt_version is interpolated from the const (single-sourced: an s-bump
+        // changes the pre-image by design and must not need a hand-edit here).
         let ic = input_components(&profile_player());
         assert_eq!(
             ic,
-            r#"{"composite_score":67,"datapoints":[{"label":"Scoring","pct":95},{"label":"Defense","pct":40}],"peak_label":"Scoring","position":"Guard","season":2025}"#
+            format!(
+                r#"{{"composite_score":67,"datapoints":[{{"label":"Scoring","pct":95}},{{"label":"Defense","pct":40}}],"peak_label":"Scoring","position":"Guard","prompt_version":"{RATING_PROMPT_VERSION}","season":2025}}"#
+            )
         );
         // The hash is a deterministic function of those exact bytes.
         assert_eq!(hash_components(&ic), hash_components(&ic));
@@ -2257,7 +2288,9 @@ Then write the three labeled sections (Strengths to respect / Exploitation oppor
         // Empty breakdown → "datapoints":[] (Go marshals a non-nil empty slice as []); peak_label "".
         assert_eq!(
             input_components(&p),
-            r#"{"datapoints":[],"peak_label":"","season":2024}"#
+            format!(
+                r#"{{"datapoints":[],"peak_label":"","prompt_version":"{RATING_PROMPT_VERSION}","season":2024}}"#
+            )
         );
     }
 

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict e7QdgEA9yecMBiD7kWEA2eUU3Fgjd5xnsCKj7nieOBRj1vr4RNptuIDHkSFRCtF
+\restrict fhF2Z1SwKoKbSWvlJaOQ3NcdmVufoKhN7aYEkM4ZWqXLxEGubPEbtF1id7e1N7F
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3137,7 +3137,7 @@ sealed AS (
     FROM named
     WHERE status = 'sealed'
     ORDER BY ended_at DESC
-    LIMIT 4
+    LIMIT 6
 ),
 open_eps AS (
     SELECT format('Current story: %s — tracked since %s, peak coverage %s/100%s.',
@@ -3151,7 +3151,7 @@ open_eps AS (
           WHERE pci.sport = p_sport AND pci.player_id = p_entity_id
             AND pci.team_id = n.other_id))
     ORDER BY rank DESC
-    LIMIT 3
+    LIMIT 5
 ),
 moves AS (
     SELECT format('Ground truth: %s completed a confirmed move to %s on %s.',
@@ -3165,7 +3165,7 @@ moves AS (
       AND ((p_entity_type = 'player' AND g.player_id = p_entity_id)
         OR (p_entity_type = 'team' AND g.team_id = p_entity_id))
     ORDER BY g.applied_at DESC
-    LIMIT 2
+    LIMIT 3
 ),
 figures AS (
     -- Promoted (ACTIVE) news-derived people tied to this team — coaches, agents,
@@ -3178,22 +3178,91 @@ figures AS (
     WHERE p.sport = p_sport AND p_entity_type = 'team' AND p.team_id = p_entity_id
       AND p.status = 'active' AND p.merged_into IS NULL
     ORDER BY p.mention_count DESC
+    LIMIT 4
+),
+-- ------------------------------------------------------------------------------
+-- OUR OWN SELF-HISTORY (outputs-as-memories, mig 168 + Phase 6): five lenses, all
+-- provenance-labeled continuity, NEVER corroboration. Source-tagged where the lens banks it.
+-- ------------------------------------------------------------------------------
+own_narrative AS (
+    -- The Journalist's own recent reads (news_summaries). Richest lens: trajectory +
+    -- coverage + the story title, tagged with how many outlets backed it.
+    SELECT format('Our prior read (narrative, %s%s): %s%s%s.',
+               to_char(ns.generated_at, 'Mon DD'),
+               CASE WHEN ns.source_count > 0
+                    THEN format(', %s source%s', ns.source_count,
+                                CASE WHEN ns.source_count = 1 THEN '' ELSE 's' END)
+                    ELSE '' END,
+               replace(ns.trajectory, '_', ' '),
+               COALESCE(', coverage ' || ns.impact || '/100', ''),
+               COALESCE(' — "' || ns.narrative_title || '"', '')) AS line,
+           ns.generated_at AS ord
+    FROM news_summaries ns
+    WHERE ns.sport = p_sport AND ns.entity_type = p_entity_type AND ns.entity_id = p_entity_id
+      AND ns.body IS NOT NULL AND ns.generated_at > now() - interval '45 days'
+    ORDER BY ns.generated_at DESC
     LIMIT 3
 ),
-own_reads AS (
-    -- The junction family's own STRONGEST recent banked transfer verdict for this
-    -- player (outputs-as-memories, mig 168): highest stage first, then freshest —
-    -- a post-move own-club speculation row must not outrank a live here_we_go.
-    -- Continuity, NEVER corroboration.
-    SELECT format('Our prior read: our transfer lens staged %s as %s on %s (confidence %s).',
-               t.name, r.stage, to_char(r.generated_at, 'Mon DD'), r.confidence) AS line
+own_transfer AS (
+    -- The transfer lens's own recent staged reads (transfer_rumors). Players only.
+    -- Freshest two = the recent read trajectory, source-tagged.
+    SELECT format('Our prior read (transfer, %s%s): staged %s as %s%s.',
+               to_char(r.generated_at, 'Mon DD'),
+               CASE WHEN r.source_count > 0
+                    THEN format(', %s source%s', r.source_count,
+                                CASE WHEN r.source_count = 1 THEN '' ELSE 's' END)
+                    ELSE '' END,
+               t.name, r.stage,
+               COALESCE(' (confidence ' || r.confidence || ')', '')) AS line,
+           r.generated_at AS ord
     FROM transfer_rumors r
     JOIN teams t ON t.id = r.team_id AND t.sport = r.sport
     WHERE r.sport = p_sport AND p_entity_type = 'player' AND r.player_id = p_entity_id
       AND r.stage IS NOT NULL AND r.generated_at > now() - interval '30 days'
-    ORDER BY CASE r.stage WHEN 'here_we_go' THEN 4 WHEN 'advanced_talks' THEN 3
-                          WHEN 'concrete_interest' THEN 2 ELSE 1 END DESC,
-             r.generated_at DESC
+    ORDER BY r.generated_at DESC
+    LIMIT 2
+),
+own_vibe AS (
+    -- The vibe lens's own recent sentiment reads (vibe_scores). No source names banked;
+    -- tag with the article count instead.
+    SELECT format('Our prior read (vibe, %s): sentiment %s/100%s.',
+               to_char(v.generated_at, 'Mon DD'),
+               v.sentiment,
+               CASE WHEN array_length(v.input_news_ids, 1) > 0
+                    THEN format(' (%s article%s)', array_length(v.input_news_ids, 1),
+                                CASE WHEN array_length(v.input_news_ids, 1) = 1 THEN '' ELSE 's' END)
+                    ELSE '' END) AS line,
+           v.generated_at AS ord
+    FROM vibe_scores v
+    WHERE v.sport = p_sport AND v.entity_type = p_entity_type AND v.entity_id = p_entity_id
+      AND v.sentiment IS NOT NULL AND v.generated_at > now() - interval '45 days'
+    ORDER BY v.generated_at DESC
+    LIMIT 2
+),
+own_momentum AS (
+    -- The momentum lens's own recent reads (momentum_summaries).
+    SELECT format('Our prior read (momentum, %s): %s%s.',
+               to_char(m.generated_at, 'Mon DD'),
+               m.direction,
+               COALESCE(' (score ' || m.score || ')', '')) AS line,
+           m.generated_at AS ord
+    FROM momentum_summaries m
+    WHERE m.sport = p_sport AND m.entity_type = p_entity_type AND m.entity_id = p_entity_id
+      AND m.direction IS NOT NULL AND m.generated_at > now() - interval '45 days'
+    ORDER BY m.generated_at DESC
+    LIMIT 2
+),
+own_peak AS (
+    -- The PEAK lens's latest banked read (stat_summaries). Least-weighted (stats-heavy) —
+    -- the tail line. Season-keyed, so just the latest.
+    SELECT format('Our prior read (PEAK, season %s): "%s" (notability %s/100)%s.',
+               s.season, s.divined_peak, s.notability,
+               CASE WHEN COALESCE(s.peak_trajectory_label, '') <> ''
+                    THEN '; ' || s.peak_trajectory_label ELSE '' END) AS line
+    FROM stat_summaries s
+    WHERE s.sport = p_sport AND s.entity_type = p_entity_type AND s.entity_id = p_entity_id
+      AND s.body IS NOT NULL AND COALESCE(s.divined_peak, '') <> ''
+    ORDER BY s.season DESC, s.generated_at DESC
     LIMIT 1
 )
 SELECT NULLIF(concat_ws(E'\n',
@@ -3201,7 +3270,11 @@ SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM open_eps),
     (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
     (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures),
-    (SELECT line FROM own_reads)), '');
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_narrative),
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_transfer),
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_vibe),
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_momentum),
+    (SELECT line FROM own_peak)), '');
 $$;
 
 
@@ -3209,7 +3282,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, active news-derived team figures (mig 166), and the transfer lens''s own latest staged read as an "Our prior read:" line (mig 168). Provenance-labeled — continuity, not corroboration. NULL = no memory. Consumers: narratives n8, vibe v12, sigil s15, momentum s5. Model-facing only.';
+COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, active news-derived team figures (mig 166), and (Phase 6, mig 179) our own FIVE-lens source-tagged self-history as "Our prior read (<lens>, <date>[, N sources]): ..." continuity lines — narrative (news_summaries), transfer (transfer_rumors, players), vibe (vibe_scores), momentum (momentum_summaries), PEAK (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: narratives n9, vibe v12, momentum s5, sigil s15. Model-facing only.';
 
 
 --
@@ -12300,5 +12373,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict e7QdgEA9yecMBiD7kWEA2eUU3Fgjd5xnsCKj7nieOBRj1vr4RNptuIDHkSFRCtF
+\unrestrict fhF2Z1SwKoKbSWvlJaOQ3NcdmVufoKhN7aYEkM4ZWqXLxEGubPEbtF1id7e1N7F
 

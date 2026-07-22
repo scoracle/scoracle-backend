@@ -1929,4 +1929,39 @@ mod tests {
             "expected the three n9 voicing fixtures (regenerate: cargo run --example narratives_n9_fixtures), saw {n9_seen}"
         );
     }
+
+    /// Integrity guard for the on-disk transfer fixtures (same serde silent-drop hazard as the
+    /// narratives guard above). Asserts (a) every file parses as a transfer fixture and (b) each t9
+    /// fixture carries a steam/fizzle BEHAVIOUR axis — `transfer_stage` and/or a confidence bound —
+    /// so a dropped `transfer_stage`/`confidence_*` key can't silently gut the Phase 4 weighting
+    /// check. Version rot is not asserted (old-version fixtures are legitimately kept until re-run).
+    #[test]
+    fn transfer_fixtures_on_disk_parse_and_t9_carry_a_steam_fizzle_axis() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/transfer");
+        let mut t9_seen = 0;
+        for entry in std::fs::read_dir(&dir).expect("read fixtures/transfer") {
+            let p = entry.unwrap().path();
+            if p.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&p).unwrap();
+            let fx: Fixture = serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
+            assert_eq!(fx.task, "transfer", "{} has wrong task", p.display());
+            if fx.prompt_version == "t9" {
+                t9_seen += 1;
+                assert!(
+                    fx.expect.transfer_stage.is_some()
+                        || fx.expect.confidence_min.is_some()
+                        || fx.expect.confidence_max.is_some(),
+                    "t9 fixture {} carries no steam/fizzle axis (field-name drop?)",
+                    p.display()
+                );
+            }
+        }
+        assert!(
+            t9_seen >= 2,
+            "expected the two t9 steam/fizzle fixtures (regenerate: cargo run --example transfer_t9_fixtures), saw {t9_seen}"
+        );
+    }
 }

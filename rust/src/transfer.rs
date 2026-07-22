@@ -53,7 +53,7 @@ use std::collections::HashMap;
 use tracing::{debug, warn};
 
 /// Prompt version for the transfer/trade vetting contract.
-pub const TRANSFER_PROMPT_VERSION: &str = "t8"; // t8: relational memory card (graph episodes + likelihood, mig 162) after the t7 evidence card
+pub const TRANSFER_PROMPT_VERSION: &str = "t9"; // t9 (Phase 4, The Insider): source-reliability card (source_reliability_for_pair, mig 178) + explicit steam-vs-fizzle weighting of the memory card, after t8's relational memory card
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
@@ -111,6 +111,16 @@ Stage ladder:
 - here_we_go = agreed or imminent deal.
 - If evidence is thin, use speculation.
 - The Evidence line is computed, not claimed. A single source, or no credible source, never supports a stage beyond speculation on headline tone alone. advanced_talks and here_we_go need multiple independent credible sources, or one top-tier source explicitly reporting agreement/negotiation.
+
+Weigh who is reporting (Source track record, when shown):
+- A high-reliability source — especially one that reports moves EARLY — is strong grounding: let it support advancing the stage and raise confidence when it explicitly reports interest, negotiation, or agreement.
+- A low-reliability or unmeasured source is weak grounding: keep the stage cautious and confidence modest even on confident-sounding headlines. Do not let a rumour-mill tone alone advance the stage.
+
+Weigh the story so far (Relational memory, when shown) for steam vs fizzle:
+- A prior flirtation that FIZZLED, or a cooling trajectory, plus thin or weak new evidence → be more skeptical: hold the stage down and keep confidence low. Fans re-hype dead sagas; do not.
+- A heating trajectory and/or a rising computed likelihood, backed by reliable current sources → the story has steam: allow a higher stage when the CURRENT sources actually justify it.
+- A prior CONFIRMED move is roster fact — it reframes the relationship (an arrival already happened), not a reason to re-stage the same move.
+- Memory only adjusts how much skepticism to apply; it never manufactures a stage the current sources do not support. The current corpus is the ceiling.
 
 Return only this JSON object, with every field present:
 {{"is_rumor": true|false, "subject": "who the sources are actually about (real name/person, even if NOT this player)", "direction": "incoming"|"outgoing"|"unclear", "stage": "speculation"|"concrete_interest"|"advanced_talks"|"here_we_go", "summary": "one tight sentence: who, which clubs, any fee or picks the sources actually state, attributed to the source", "confidence": 0.0-1.0}}
@@ -694,13 +704,20 @@ fn has_return_signal(news: &[NewsItem]) -> bool {
         .any(|n| contains(&n.title) || contains(&n.description))
 }
 
-/// build_transfer_prompt assembles the user prompt — BYTE-IDENTICAL to `buildTransferPrompt`
-/// (the deterministic parity axis). The "·" separator (U+00B7) and the "—" (U+2014) are
-/// significant bytes; at temp 0 a single changed byte would change the model's output.
-/// TransferEvidence is the computed evidence-quality card (Phase 2, t7): corpus size, source
-/// diversity, and best-source credibility, measured in code before the model call. The model
-/// grades a claim it is HANDED the evidentiary weight of, instead of inferring "how solid is
-/// this" from headline tone — the failure mode behind roundup false-positives and over-staging.
+/// build_transfer_prompt assembles the user prompt. It was historically byte-identical to Go's
+/// `buildTransferPrompt` (the temp-0 parity axis); the Go transfer STAGE has since been retired
+/// (all derivation runs in the Rust harness — see `go/cmd/pipeline/main.go`), so this is now the
+/// sole implementation and free to evolve. The byte-fixture tests below still pin the assembly so
+/// prompt drift stays deliberate. The "·" separator (U+00B7) and the "—" (U+2014) are significant
+/// bytes; at temp 0 a single changed byte changes the model's output.
+///
+/// The cards, in order: TransferEvidence (Phase 2, t7) — corpus size, source diversity, and
+/// best-source credibility, measured in code so the model grades a claim it is HANDED the
+/// evidentiary weight of, instead of inferring "how solid is this" from headline tone (the failure
+/// mode behind roundup false-positives and over-staging); then the source-reliability card (Phase 4,
+/// t9, `source_reliability_for_pair`) — the MEASURED track record of those same sources; then the
+/// relational memory card (t8) — the pair's story arc. Evidence + reliability are "who is saying
+/// this and how good are they"; memory is "what has this saga done before."
 #[derive(Clone, Debug, Default)]
 pub struct TransferEvidence {
     pub total_articles: usize,
@@ -731,6 +748,7 @@ impl TransferEvidence {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn build_transfer_prompt(
     team_name: &str,
     c: &TransferCandidate,
@@ -738,6 +756,7 @@ pub fn build_transfer_prompt(
     relationship: &str,
     news: &[NewsItem],
     evidence: &TransferEvidence,
+    source_reliability: Option<&str>,
     memory: Option<&str>,
 ) -> String {
     let player_name = &c.player_name;
@@ -800,6 +819,20 @@ pub fn build_transfer_prompt(
             )
         }
     ));
+
+    // Source-reliability card (t9, mig 178): the MEASURED track record of the sources in
+    // THIS pair's corpus — reliability N/100, confirmed/tracked base rate, early-call count,
+    // one line per source. The data + the source→record JOIN are computed in SQL
+    // (source_reliability_for_pair); Rust only renders the finished lines. Rendered only when
+    // a corpus source has a measured record; like the memory card, NOT part of the input_hash.
+    if let Some(sr) = source_reliability.filter(|s| !s.trim().is_empty()) {
+        b.push_str("\nSource track record (measured — how these reporters' prior transfer claims resolved; weigh a claim by who is making it: a strong, early-calling source supports advancing the stage, a poor or unmeasured one keeps it cautious):\n");
+        for line in sr.lines() {
+            b.push_str("- ");
+            b.push_str(line);
+            b.push('\n');
+        }
+    }
 
     // Relational memory card (t8, mig 162): the graph's computed history for THIS
     // pair — prior sealed stories with outcomes, the current story's likelihood and
@@ -973,6 +1006,13 @@ fn row_from_verdict(
 /// `total_14d`/`volume` (pure functions of the id set / `distinct_sources` — redundant); and the
 /// article titles/descriptions/sources (prose — the ids are the identity; a headline edit is not
 /// new material).
+///
+/// INCLUDED (Phase 4): `prompt_version` — so a prompt-contract bump (e.g. t8→t9) changes every
+/// pair's fingerprint exactly once, forcing one regen each past the [`pair_unchanged`] debounce
+/// even over a frozen corpus. Without it, a quiet pair would keep serving its pre-bump read and
+/// never pick up the new card/instructions (the same debounce gap narratives closed at n9). The
+/// source-reliability and relational-memory CARDS themselves stay OUT — they ride along when the
+/// corpus moves, and their content is `NOW()`-derived measurement that must not tick the GPU.
 pub fn build_transfer_input_components(
     news_ids: &[i64],
     heat_components_json: &str,
@@ -992,7 +1032,8 @@ pub fn build_transfer_input_components(
     ids.sort_unstable();
     let ids_csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
     format!(
-        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"relationship\":{},\"tier_weight\":{}}}",
+        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"prompt_version\":{},\"relationship\":{},\"tier_weight\":{}}}",
+        go_json_string(TRANSFER_PROMPT_VERSION),
         go_json_string(relationship),
         go_json_float(tier_weight),
     )
@@ -1081,6 +1122,30 @@ pub async fn load_relational_memory(
     Ok(row.0)
 }
 
+/// load_source_reliability fetches the measured track record of the sources on the pair's
+/// live transfer corpus (`source_reliability_for_pair`, mig 178, Phase 4): for each source in
+/// the pair's current News headlines, its global per-sport `source_performance` record —
+/// reliability N/100, confirmed/tracked base rate, early-call count. `None` = no corpus source
+/// has a measured record (the prompt renders no section). Like [`load_relational_memory`], the
+/// data + the source→record JOIN live in SQL (the data layer); Rust only SELECTs the finished
+/// card and renders it. Model-facing enrichment only, never user-exposed; NOT part of the
+/// input_hash (it rides along when the corpus changes, same as the relational memory card).
+pub async fn load_source_reliability(
+    pool: &PgPool,
+    sport: &str,
+    player_id: i32,
+    team_id: i32,
+) -> Result<Option<String>> {
+    let row: (Option<String>,) = sqlx::query_as("SELECT source_reliability_for_pair($1, $2, $3)")
+        .bind(sport)
+        .bind(player_id)
+        .bind(team_id)
+        .fetch_one(pool)
+        .await
+        .context("source_reliability_for_pair")?;
+    Ok(row.0)
+}
+
 /// build_pair_request runs the deterministic prefix: `compute_transfer_heat` (SQL — the number
 /// stays Postgres), the pair corpus, then `build_transfer_prompt` with the t5 options and the
 /// exact wire body. NO model call — these are the deterministic axes (the L2 finding: the
@@ -1122,7 +1187,11 @@ pub async fn build_pair_request(
     ));
 
     let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution, best_weight);
-    let memory = load_relational_memory(&hx.pool, sport, c.player_id, team_id).await?;
+    // Two independent SQL card reads (story arc + source track record) — load concurrently.
+    let (memory, source_reliability) = tokio::try_join!(
+        load_relational_memory(&hx.pool, sport, c.player_id, team_id),
+        load_source_reliability(&hx.pool, sport, c.player_id, team_id),
+    )?;
     let built_prompt = build_transfer_prompt(
         team_name,
         c,
@@ -1130,6 +1199,7 @@ pub async fn build_pair_request(
         &relationship,
         &news,
         &evidence,
+        source_reliability.as_deref(),
         memory.as_deref(),
     );
     let opts = GenerateOptions {
@@ -2263,7 +2333,9 @@ mod tests {
             source: "BBC".to_string(),
         }];
         let evidence = TransferEvidence::from_news(&news, 1, "BBC", 0.9);
-        let p = build_transfer_prompt("Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None);
+        let p = build_transfer_prompt(
+            "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None,
+        );
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Arsenal\nPlayer: Bukayo Saka\n\
@@ -2281,7 +2353,9 @@ Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credib
         // No nationality, unknown club, no position → identity is just name + "current club unknown".
         let c = cand("John Doe", "", "", "");
         let evidence = TransferEvidence::from_news(&[], 0, "", 0.0);
-        let p = build_transfer_prompt("Chelsea", &c, "FOOTBALL", "former", &[], &evidence, None);
+        let p = build_transfer_prompt(
+            "Chelsea", &c, "FOOTBALL", "former", &[], &evidence, None, None,
+        );
         assert_eq!(
             p,
             "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: John Doe\n\
@@ -2305,10 +2379,14 @@ Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attr
             source: String::new(),
         }];
         let evidence = TransferEvidence::from_news(&news, 1, "", 0.0);
-        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None);
+        let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None, None);
         assert!(
             !p.contains("Relational memory"),
             "no memory ⇒ no section (t7 byte-shape preserved)"
+        );
+        assert!(
+            !p.contains("Source track record"),
+            "no reliability card ⇒ no section"
         );
         let with_mem = build_transfer_prompt(
             "Lakers",
@@ -2317,6 +2395,7 @@ Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attr
             "none",
             &news,
             &evidence,
+            None,
             Some("Prior flirtation fizzled: Jun 2026, peak coverage 55/100.\nCurrent story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up)."),
         );
         assert!(with_mem.contains("Relational memory (computed history"));
@@ -2332,6 +2411,48 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
 - Trade buzz\n\
 \nReturn the JSON verdict now."
         );
+    }
+
+    #[test]
+    fn prompt_renders_source_reliability_card_before_memory() {
+        // t9 (Phase 4): the source-reliability card renders as its own section, header + one
+        // "- " line per source, positioned AFTER Evidence and BEFORE the Relational memory card.
+        let c = cand("Bukayo Saka", "English", "Arsenal", "winger");
+        let news = vec![NewsItem {
+            id: 1,
+            title: "Saka linked with move".to_string(),
+            description: "Reports suggest interest.".to_string(),
+            source: "Fabrizio Romano".to_string(),
+        }];
+        let evidence = TransferEvidence::from_news(&news, 1, "Fabrizio Romano", 0.95);
+        let reliability = "Fabrizio Romano: reliability 83/100 (24 of 30 tracked moves confirmed, 15 reported early).\nTalkSport: reliability 21/100 (3 of 40 tracked moves confirmed).";
+        let memory = "Current story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up).";
+        let p = build_transfer_prompt(
+            "Arsenal",
+            &c,
+            "FOOTBALL",
+            "current",
+            &news,
+            &evidence,
+            Some(reliability),
+            Some(memory),
+        );
+        assert!(p.contains("\nSource track record (measured"));
+        assert!(p.contains(
+            "- Fabrizio Romano: reliability 83/100 (24 of 30 tracked moves confirmed, 15 reported early)."
+        ));
+        assert!(p.contains("- TalkSport: reliability 21/100 (3 of 40 tracked moves confirmed)."));
+        // Ordering: Evidence < Source track record < Relational memory < News headlines.
+        let ev = p.find("Evidence (computed)").expect("evidence card");
+        let sr = p.find("Source track record").expect("reliability card");
+        let mem = p.find("Relational memory").expect("memory card");
+        let hdl = p.find("News headlines").expect("headlines");
+        assert!(ev < sr && sr < mem && mem < hdl, "card order: {ev} {sr} {mem} {hdl}");
+        // Blank reliability ⇒ no section (mirrors the memory-card guard).
+        let none = build_transfer_prompt(
+            "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, Some("  "), None,
+        );
+        assert!(!none.contains("Source track record"));
     }
 
     // --- TransferParser fail-closed contract (mirrors Go TestParseTransferVerdictFailClosed) ------
@@ -2442,14 +2563,20 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         let comps = r#"{"distinct_sources": 3, "recent_3d": 2, "total_14d": 5,
             "newest_age_hours": 12.3, "tier_weight": 0.9, "volume": 0.6,
             "recency": 0.842, "recent_frac": 0.4}"#;
+        // prompt_version is interpolated (not hard-coded) so the assertion stays green across
+        // future prompt bumps — the point is the KEY is present and forces one regen per bump.
         assert_eq!(
             build_transfer_input_components(&[9, 4, 7], comps, "current"),
-            r#"{"distinct_sources":3,"news_ids":[4,7,9],"relationship":"current","tier_weight":0.9}"#
+            format!(
+                r#"{{"distinct_sources":3,"news_ids":[4,7,9],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"current","tier_weight":0.9}}"#
+            )
         );
         // Empty/degenerate components (the defensive path) keep a stable pre-image.
         assert_eq!(
             build_transfer_input_components(&[], "{}", "none"),
-            r#"{"distinct_sources":0,"news_ids":[],"relationship":"none","tier_weight":0}"#
+            format!(
+                r#"{{"distinct_sources":0,"news_ids":[],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"none","tier_weight":0}}"#
+            )
         );
     }
 

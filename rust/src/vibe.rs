@@ -718,7 +718,7 @@ async fn generate_vibe_from_context(
                 input_news_ids: Vec::new(),
                 input_components_json: ctx.input_components_json,
                 input_hash: ctx.input_hash,
-                model: hx.router.for_role(Role::EmotionalNews).model().to_string(),
+                model: hx.router.for_role(Role::VibeLogic).model().to_string(),
                 prompt_version: VIBE_PROMPT_VERSION,
                 built_prompt: None,
                 request_body: None,
@@ -748,11 +748,11 @@ async fn generate_vibe_from_context(
         format_schema: None,
     };
 
-    // vibe = route(EmotionalNews) + extract(VibeParser). The fail-closed contract lives in
+    // vibe = route(VibeLogic) + extract(VibeParser). The fail-closed contract lives in
     // the parser: an unparseable reply surfaces as its `Err` (item fails + backs off), and
     // `extract` records the exact wire body it sent.
     let extracted = hx
-        .extract(Role::EmotionalNews, &prompt, &opts, &VibeParser)
+        .extract(Role::VibeLogic, &prompt, &opts, &VibeParser)
         .await?;
 
     // VibeParser only ever returns `Ok(Some)` on success (vibe's no-corpus marker is the
@@ -966,7 +966,7 @@ impl StageHandler for VibeHandler {
             CognitionLedgerEntry {
                 stage: "vibe".to_string(),
                 lens: "vibe".to_string(),
-                role: Role::EmotionalNews.as_str().to_string(),
+                role: Role::VibeLogic.as_str().to_string(),
                 entity_type: item.entity_type.clone(),
                 entity_id,
                 sport: sport.clone(),

@@ -1150,7 +1150,7 @@ pub async fn load_source_reliability(
 /// stays Postgres), the pair corpus, then `build_transfer_prompt` with the t5 options and the
 /// exact wire body. NO model call — these are the deterministic axes (the L2 finding: the
 /// verdict is not a temp-0 parity axis, so the gate needs no GPU). The role is
-/// [`Role::EmotionalNews`] (the news/transfer reasoner). `relationship` is the deterministic
+/// [`Role::TransferLogic`] (The Insider's route seam). `relationship` is the deterministic
 /// team relationship, loaded by the caller (the handler batches it per team via
 /// [`team_relationships`]; offline paths use the per-pair [`team_relationship`]).
 #[allow(clippy::too_many_arguments)]
@@ -1210,7 +1210,7 @@ pub async fn build_pair_request(
         json_mode: true,
         format_schema: None,
     };
-    let backend = hx.router.for_role(Role::EmotionalNews);
+    let backend = hx.router.for_role(Role::TransferLogic);
     let request_body = backend.request_body(&built_prompt, &opts);
     let model_configured = backend.model().to_string();
 
@@ -1239,7 +1239,7 @@ fn skipped_pair_output(
     components: String,
     news_ids: Vec<i64>,
 ) -> TransferPairOutput {
-    let model = hx.router.for_role(Role::EmotionalNews).model().to_string();
+    let model = hx.router.for_role(Role::TransferLogic).model().to_string();
     TransferPairOutput {
         player_id,
         model,
@@ -1318,7 +1318,7 @@ pub async fn vet_pair(
     // and a generating pair hides it under GPU latency (Phase 2).
     let (extract_result, stale_result) = tokio::join!(
         hx.extract(
-            Role::EmotionalNews,
+            Role::TransferLogic,
             &ready.built_prompt,
             &ready.opts,
             &TransferParser,
@@ -1917,6 +1917,8 @@ async fn maybe_apply_transfer_identity(
         json_mode: true,
         format_schema: None,
     };
+    // Identity adjudication is a utility call (no character voice), so it stays on
+    // `EmotionalNews` — NOT `TransferLogic`, which is The Insider's voice seam only.
     let backend = hx.router.for_role(Role::EmotionalNews);
     let model_configured = backend.model().to_string();
     let generated = match hx
@@ -2167,7 +2169,7 @@ impl StageHandler for TransferHandler {
                         CognitionLedgerEntry {
                             stage: "transfers".to_string(),
                             lens: "transfer".to_string(),
-                            role: Role::EmotionalNews.as_str().to_string(),
+                            role: Role::TransferLogic.as_str().to_string(),
                             entity_type: "team".to_string(),
                             entity_id: team_id,
                             sport: sport.clone(),

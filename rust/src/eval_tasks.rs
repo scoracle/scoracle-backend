@@ -7,13 +7,14 @@
 //! stage loaders + prompt builders + parsers already in the lib — rather than reinventing them, so
 //! the eval measures the real prompt with only the backend swapped.
 //!
-//! The active rail taxonomy is:
-//!   - emotional/news rail: `narratives`, `transfer`, `vibe` (`Role::EmotionalNews`).
-//!   - stats/analytical rail: `rating`/PEAK (`Role::StatsLogic`) plus `momentum` on its own
-//!     `Role::MomentumLogic` (identity split 2026-07-11 — un-configured it resolves to the same
-//!     default model, so eval candidates configure `COGNITION_ROUTE_MOMENTUM_LOGIC_CANDIDATE`).
-//!   - synthesis rail: `sigil` on `Role::SynthesisLogic` (same identity split), so a stats-rail
-//!     route change can never silently flip the un-bake-off'd synthesis stage.
+//! Every CHARACTER task owns its role (identity splits: 2026-07-11 momentum, 07-12 narratives +
+//! sigil, 07-22 transfers + vibe), so no route change silently flips a sibling's voice:
+//! `rating`/PEAK on `Role::StatsLogic` (The Scout), `momentum` on `Role::MomentumLogic`
+//! (The Analyst), `narratives` on `Role::NarrativeLogic` (The Journalist), `transfer` on
+//! `Role::TransferLogic` (The Insider), `vibe` on `Role::VibeLogic` (The Influencer), and
+//! `sigil` on `Role::OracleLogic` (the Oracle). `graph` stays on `Role::EmotionalNews` —
+//! the utility role (no character voice). Un-configured, every role resolves to the same
+//! default model; eval candidates configure `COGNITION_ROUTE_<ROLE>_CANDIDATE`.
 //!
 //! `momentum` is deliberately eval-first: production Momentum is deterministic DB/read-model
 //! trajectory math today, not a queue stage and not a served model call. The task exists so candidate
@@ -473,7 +474,7 @@ impl LensTask for VibeTask {
         "vibe"
     }
     fn role(&self) -> Role {
-        Role::EmotionalNews
+        Role::VibeLogic
     }
     fn prompt_version(&self) -> &'static str {
         VIBE_PROMPT_VERSION
@@ -863,7 +864,7 @@ impl LensTask for TransferTask {
         "transfer"
     }
     fn role(&self) -> Role {
-        Role::EmotionalNews
+        Role::TransferLogic
     }
     fn prompt_version(&self) -> &'static str {
         TRANSFER_PROMPT_VERSION

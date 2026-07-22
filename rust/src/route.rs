@@ -1,9 +1,10 @@
 //! Route — the model-call seam: role → concrete model at runtime (Plan §1.1 / §2).
 //!
 //! A stage names a **role** (the model's JOB), never a model name; the `Router` resolves
-//! that role to a concrete backend. In Multi-Lens terms, a lens may span multiple stages
-//! (`narratives` + `vibe`), and multiple lenses may share one role (`narratives` and `transfers`
-//! both use `EmotionalNews` today). This is the *swap seam*: the three swaps the Hardware
+//! that role to a concrete backend. Every CHARACTER stage owns its role (the identity split:
+//! a character's voice must never silently flip with a sibling's route change), while utility
+//! calls (scrub-resolve, graph extraction, identity adjudication) share `EmotionalNews`.
+//! This is the *swap seam*: the three swaps the Hardware
 //! Roadmap brings — identity (`e4b` → `31B`), topology (one model → two concurrent → one
 //! unified fine-tune), backend (Ollama → vLLM) — all land here, and stage code never moves.
 //!
@@ -35,7 +36,11 @@ use tokio::sync::Semaphore;
 /// vs mistral 18/22 on the drilldown fixtures) cannot silently flip Momentum (3 fixtures, too
 /// thin to earn it); un-configured it still resolves to the default model, so the split alone
 /// moves zero behavior. `NarrativeLogic` backs narratives (split 2026-07-12 on its earned 31/31
-/// sweep win); `EmotionalNews` backs transfers, vibe, and scrub; `Multilang` is the HORIZON
+/// sweep win); `TransferLogic` backs transfers and `VibeLogic` backs vibe (split 2026-07-22 —
+/// the six-characters identity isolation: The Insider's and The Influencer's voices each get
+/// their own route seam; un-configured both resolve to the default model, zero behavior moved).
+/// `EmotionalNews` is UTILITY-only after that split: scrub-resolve, graph extraction, and
+/// transfer identity adjudication — calls with no character voice. `Multilang` is the HORIZON
 /// normalize role; `Sql` is the SQLCoder role. Derives `Hash` for the L2 role→model map.
 /// `OracleLogic` backs the crown (the Sigil): the ONE call that reads the five pillar cards and
 /// emits the reading + score (the panel's `SynthesisLogic` was folded in and retired, 2026-07-21).
@@ -46,6 +51,8 @@ pub enum Role {
     StatsLogic,
     MomentumLogic,
     NarrativeLogic,
+    TransferLogic,
+    VibeLogic,
     OracleLogic,
     EmotionalNews,
     Multilang,
@@ -55,11 +62,13 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 7] {
+    pub fn all() -> [Role; 9] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::NarrativeLogic,
+            Role::TransferLogic,
+            Role::VibeLogic,
             Role::OracleLogic,
             Role::EmotionalNews,
             Role::Multilang,
@@ -74,6 +83,8 @@ impl Role {
             Role::StatsLogic => "stats-logic",
             Role::MomentumLogic => "momentum-logic",
             Role::NarrativeLogic => "narrative-logic",
+            Role::TransferLogic => "transfer-logic",
+            Role::VibeLogic => "vibe-logic",
             Role::OracleLogic => "oracle-logic",
             Role::EmotionalNews => "emotional-news",
             Role::Multilang => "multilang",
@@ -89,6 +100,8 @@ impl Role {
             Role::StatsLogic => "STATS_LOGIC",
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
+            Role::TransferLogic => "TRANSFER_LOGIC",
+            Role::VibeLogic => "VIBE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",
             Role::EmotionalNews => "EMOTIONAL_NEWS",
             Role::Multilang => "MULTILANG",
@@ -327,6 +340,43 @@ mod tests {
             "local-news:latest"
         );
         assert_eq!(router.for_role(Role::Sql).model(), "sqlcoder:7b");
+    }
+
+    #[test]
+    fn character_role_split_is_inert_by_default() {
+        // The 2026-07-22 identity split: un-configured, TransferLogic and VibeLogic resolve to
+        // the same shared backend as every other default role — the split moves zero behavior
+        // until a human sets COGNITION_ROUTE_{TRANSFER,VIBE}_LOGIC.
+        let roles = Role::all()
+            .into_iter()
+            .map(|r| (r, spec("local-news:latest")))
+            .collect();
+        let router = Router::from_config(
+            &RouteConfig {
+                roles,
+                candidates: HashMap::new(),
+            },
+            Duration::from_secs(60),
+            1,
+        )
+        .unwrap();
+        assert!(Arc::ptr_eq(
+            &router.for_role(Role::TransferLogic),
+            &router.for_role(Role::EmotionalNews),
+        ));
+        assert!(Arc::ptr_eq(
+            &router.for_role(Role::VibeLogic),
+            &router.for_role(Role::EmotionalNews),
+        ));
+    }
+
+    #[test]
+    fn character_roles_have_stable_config_and_telemetry_identities() {
+        // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
+        assert_eq!(Role::TransferLogic.as_str(), "transfer-logic");
+        assert_eq!(Role::VibeLogic.as_str(), "vibe-logic");
+        assert_eq!(Role::TransferLogic.env_suffix(), "TRANSFER_LOGIC");
+        assert_eq!(Role::VibeLogic.env_suffix(), "VIBE_LOGIC");
     }
 
     #[test]

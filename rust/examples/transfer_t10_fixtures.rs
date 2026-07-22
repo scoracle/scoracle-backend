@@ -1,6 +1,9 @@
-//! transfer_t9_fixtures — regenerate the hand-authored t9 (The Insider) eval fixtures.
+//! transfer_t10_fixtures — regenerate the hand-authored Insider eval fixtures.
 //!
-//! Cognition refactor Phase 4. t9 adds two seams the transfers voice must WEIGH: the
+//! t10 is the Characters Phase B voice pass: the system prompt now speaks The Insider's telling
+//! (persona-first, from wiki/Characters.md's craft appendix — urgent but guarded, credibility
+//! above everything); the t9 CONTRACT — verdict JSON, gates, stage ladder, weighting — is
+//! unchanged. t9 (Cognition refactor Phase 4) added two seams the transfers voice must WEIGH: the
 //! source-reliability card (`source_reliability_for_pair`, mig 178 — the measured track record of
 //! the sources reporting the pair) and an explicit steam-vs-fizzle reading of the relational memory
 //! card (heating/cooling trajectory + fizzled/confirmed priors). The live pair build reads both cards
@@ -12,13 +15,13 @@
 //! guarantees the frozen `system`/`user_prompt` are byte-exact — a prompt bump means "re-run this
 //! example", not "hand-patch the JSON".
 //!
-//! FLOOR vs TARGET (same discipline as the n9 fixtures): the grounding FLOOR — is_rumor commitment,
-//! direction, subject discipline, no invented fee — is the real regression net and holds regardless
-//! of voice. The steam/fizzle axes (`transfer_stage`, `confidence_min`/`confidence_max`) are
-//! BEHAVIOUR TARGETS for the Phase 4 weighting: a red is a documented gap to dial in at the
-//! voice-tuning session (which also gives The Insider its named voice), not a harness failure.
+//! FLOOR vs TARGET (same discipline as the narratives fixtures): the grounding FLOOR — is_rumor
+//! commitment, direction, subject discipline, no invented fee — is the real regression net and
+//! holds regardless of voice. The steam/fizzle axes (`transfer_stage`, `confidence_min`/
+//! `confidence_max`) assert the Phase 4 weighting under the character's own telling; a red is a
+//! behaviour regression (or a documented model gap called out in the fixture's note).
 //!
-//!   cargo run --example transfer_t9_fixtures
+//!   cargo run --example transfer_t10_fixtures
 //!   cargo run --bin eval -- --task transfer --fixtures   (needs Ollama)
 
 use std::path::Path;
@@ -148,7 +151,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     );
-    write_fixture(&dir, &f1, "t9 STEAM: a top-tier, early-calling source (86/100) explicitly reports active negotiation + a corroborating source, and the memory card is heating (likelihood 68/100). FLOOR: is_rumor=true, incoming, names Bayern+Flamengo, no invented fee. TARGET (Phase 4 source-reliability + steam): advances to advanced_talks with confidence ≥ 0.6.")?;
+    write_fixture(&dir, &f1, "t10 STEAM: a top-tier, early-calling source (86/100) explicitly reports active negotiation + a corroborating source, and the memory card is heating (likelihood 68/100). FLOOR: is_rumor=true, incoming, names Bayern+Flamengo, no invented fee. VOICE+WEIGHTING: advances to advanced_talks with confidence ≥ 0.6.")?;
 
     // ── Fixture 2 — FIZZLE: a fizzled prior + a thin, low-reliability report ─────────────────────────
     // The same shape of story (a club "interested" in an outside player) but the ONLY source is a
@@ -182,7 +185,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     );
-    write_fixture(&dir, &f2, "t9 FIZZLE: a lone low-reliability source (14/100) with a thin 'keeping tabs' report, over a fizzled prior + cooling memory (likelihood 22/100). FLOOR: subject=Sorensen, no invented fee. TARGET (Phase 4 source-reliability + fizzle): held at speculation, confidence ≤ 0.5 — not re-hyped by the dead saga.")?;
+    write_fixture(&dir, &f2, "t10 FIZZLE: a lone low-reliability source (14/100) with a thin 'keeping tabs' report, over a fizzled prior + cooling memory (likelihood 22/100). FLOOR: subject=Sorensen, no invented fee. VOICE+WEIGHTING: held at speculation, confidence ≤ 0.5 — not re-hyped by the dead saga.")?;
 
     println!("\nrun: cargo run --bin eval -- --task transfer --fixtures   (needs Ollama)");
     Ok(())

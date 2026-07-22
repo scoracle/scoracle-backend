@@ -182,3 +182,4 @@
 180_vibe_hook
 181_narrative_threads
 182_thread_progression_card
+183_established_authority

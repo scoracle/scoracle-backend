@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 6IKsatwQMBfFbUmMfWaULWVHvt5DfvFvuPxGYb3yBmFPBJ82mfqAi47rHBudxAQ
+\restrict T8n9d6OvN2e0sq3FquBmhV9g5QKDLWmN4pxWW1z9ZTjj1Y9uu8sMHz3cIRXNCzU
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3167,6 +3167,24 @@ moves AS (
     ORDER BY g.applied_at DESC
     LIMIT 3
 ),
+established AS (
+    -- (mig 183, Phase D) ESTABLISHED stories: threads whose source growth crossed the
+    -- authority gate. They graduate OUT of the "Our story so far" progression block and
+    -- render here as one-line BACKGROUND FACTS — settled context the model may speak
+    -- from, deliberately carrying NO impact/likelihood figures (source count + opening
+    -- date are breadth and tenure, not measurement). Open threads only: a resolved
+    -- established thread's confirmation already renders as Ground truth above.
+    SELECT format('Established story (our archive, %s sources, since %s): "%s".',
+               t.distinct_sources,
+               to_char(t.opened_at, 'Mon DD'),
+               t.canonical_title) AS line,
+           t.last_progressed_at AS ord
+    FROM narrative_threads t
+    WHERE t.sport = p_sport AND t.entity_type = p_entity_type AND t.entity_id = p_entity_id
+      AND t.status = 'open' AND t.authority = 'established'
+    ORDER BY t.last_progressed_at DESC
+    LIMIT 2
+),
 figures AS (
     -- Promoted (ACTIVE) news-derived people tied to this team — coaches, agents,
     -- executives the provider never seeds (mig 166). News-derived accumulation:
@@ -3189,6 +3207,8 @@ own_narrative AS (
     -- open thread a header — current canonical title, opened date, totals — plus the last
     -- 3 chapters, newest-first, each tagged with its OWN cited source count. One multi-line
     -- block per thread; ord = recency so the outer aggregate keeps the freshest story first.
+    -- Continuity threads only (mig 183): established threads graduate to the background-
+    -- fact line above.
     SELECT format('Our story so far ("%s", opened %s, %s entr%s, %s source%s):%s',
                t.canonical_title,
                to_char(t.opened_at, 'Mon DD'),
@@ -3214,7 +3234,7 @@ own_narrative AS (
         ) c
     ) steps
     WHERE t.sport = p_sport AND t.entity_type = p_entity_type AND t.entity_id = p_entity_id
-      AND t.status = 'open' AND steps.txt IS NOT NULL
+      AND t.status = 'open' AND t.authority = 'continuity' AND steps.txt IS NOT NULL
     ORDER BY t.last_progressed_at DESC
     LIMIT 2
 ),
@@ -3284,6 +3304,7 @@ SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY ended_at DESC) FROM sealed),
     (SELECT string_agg(line, E'\n' ORDER BY rank DESC) FROM open_eps),
     (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM established),
     (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_narrative),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_transfer),
@@ -3297,7 +3318,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, active news-derived team figures (mig 166), and our own five-lens source-tagged self-history (mig 179). The narrative lens (mig 182, Phase C) renders THREAD PROGRESSION: per open narrative_threads row (mig 181) a header plus its last 3 chapters as "Our story so far (...)" with per-step cited source counts. The other lenses stay flat "Our prior read (<lens>, <date>[, N sources]): ..." lines — transfer (transfer_rumors, players), vibe (vibe_scores), momentum (momentum_summaries), PEAK (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: narratives n10, vibe v13, momentum s6, sigil or4. Model-facing only.';
+COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, ESTABLISHED stories (mig 183, Phase D: threads past the authority gate render as one-line background facts — "Established story (our archive, N sources, since <date>)" — between Ground truth and the self-history reads; never numeric evidence), active news-derived team figures (mig 166), and our own five-lens source-tagged self-history (mig 179). The narrative lens (mig 182, Phase C) renders THREAD PROGRESSION for CONTINUITY threads: per open narrative_threads row (mig 181) a header plus its last 3 chapters as "Our story so far (...)" with per-step cited source counts. The other lenses stay flat "Our prior read (<lens>, <date>[, N sources]): ..." lines — transfer (transfer_rumors, players), vibe (vibe_scores), momentum (momentum_summaries), PEAK (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: narratives n10, vibe v13, momentum s6, sigil or4. Model-facing only.';
 
 
 --
@@ -3423,6 +3444,79 @@ END;
 $$;
 
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: narrative_threads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.narrative_threads (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    canonical_title text NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    outcome text,
+    opened_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_progressed_at timestamp with time zone DEFAULT now() NOT NULL,
+    sealed_at timestamp with time zone,
+    entry_count integer DEFAULT 0 NOT NULL,
+    peak_impact smallint,
+    last_impact smallint,
+    last_trajectory text DEFAULT 'developing_story'::text NOT NULL,
+    distinct_sources integer DEFAULT 0 NOT NULL,
+    source_names text[] DEFAULT '{}'::text[] NOT NULL,
+    centroid real[],
+    authority text DEFAULT 'continuity'::text NOT NULL,
+    CONSTRAINT narrative_threads_authority_check CHECK ((authority = ANY (ARRAY['continuity'::text, 'established'::text]))),
+    CONSTRAINT narrative_threads_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT narrative_threads_last_impact_check CHECK (((last_impact IS NULL) OR ((last_impact >= 0) AND (last_impact <= 100)))),
+    CONSTRAINT narrative_threads_last_trajectory_check CHECK ((last_trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
+    CONSTRAINT narrative_threads_outcome_check CHECK ((outcome = ANY (ARRAY['resolved'::text, 'faded'::text]))),
+    CONSTRAINT narrative_threads_peak_impact_check CHECK (((peak_impact IS NULL) OR ((peak_impact >= 0) AND (peak_impact <= 100)))),
+    CONSTRAINT narrative_threads_sealed_shape CHECK ((((status = 'open'::text) AND (outcome IS NULL) AND (sealed_at IS NULL)) OR ((status = 'sealed'::text) AND (outcome IS NOT NULL) AND (sealed_at IS NOT NULL)))),
+    CONSTRAINT narrative_threads_status_check CHECK ((status = ANY (ARRAY['open'::text, 'sealed'::text])))
+);
+
+
+--
+-- Name: TABLE narrative_threads; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.narrative_threads IS 'Entity-keyed storyline identity (Characters Phase C, mig 181). One row per progressing story; news_summaries rows attach via thread_id by embedding-cosine match (>= 0.80 vs centroid, BGE-small, EWMA-updated). Replaces title-string storyline identity (F5): trajectory is classified vs the thread''s last_impact, so it survives title drift. Sealed nightly by seal_narrative_threads(): ground truth -> resolved, quiet 21d -> faded.';
+
+
+--
+-- Name: COLUMN narrative_threads.authority; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.narrative_threads.authority IS 'Authored-memory tier (Phase D, mig 183): ''continuity'' = self-history, weighed lightly; ''established'' = source growth crossed the gate (narrative_thread_established_gate) — the card renders it as background fact. One-way flip (no demotion v1), promoted nightly by promote_established_threads(). Presentation-tier only: never numeric evidence, never in an input_hash.';
+
+
+--
+-- Name: narrative_thread_established_gate(public.narrative_threads); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.narrative_thread_established_gate(t public.narrative_threads) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT (t.status = 'sealed' AND t.outcome = 'resolved')
+        OR (    t.distinct_sources >= 5
+            AND t.entry_count      >= 3
+            AND t.opened_at        <= now() - interval '14 days');
+$$;
+
+
+--
+-- Name: FUNCTION narrative_thread_established_gate(t public.narrative_threads); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.narrative_thread_established_gate(t public.narrative_threads) IS 'THE establishment gate (Phase D, mig 183) — the single auditable home for the authority thresholds: >= 5 distinct sources AND >= 3 entries AND >= 14 days old, OR ground-truth confirmed (sealed resolved, which mig 181''s seal sweep already vetted as transfer-flavored + applied since opening). Change thresholds HERE only.';
+
+
 --
 -- Name: notify_percentile_changed(); Type: FUNCTION; Schema: public; Owner: -
 --
@@ -3536,6 +3630,32 @@ CREATE FUNCTION public.position_group(p_sport text, p_position text) RETURNS tex
         ELSE NULL
     END;
 $$;
+
+
+--
+-- Name: promote_established_threads(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.promote_established_threads(p_sport text) RETURNS integer
+    LANGUAGE sql
+    AS $$
+WITH flipped AS (
+    UPDATE narrative_threads t
+       SET authority = 'established'
+     WHERE t.sport = p_sport
+       AND t.authority = 'continuity'
+       AND public.narrative_thread_established_gate(t)
+    RETURNING t.id
+)
+SELECT count(*)::integer FROM flipped;
+$$;
+
+
+--
+-- Name: FUNCTION promote_established_threads(p_sport text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.promote_established_threads(p_sport text) IS 'Nightly authority promotion (Phase D, mig 183, cron-narrative-links.sh): flips continuity threads that pass narrative_thread_established_gate() to established. One-way (no demotion v1); returns the number of threads flipped.';
 
 
 --
@@ -6278,10 +6398,6 @@ CREATE FUNCTION public.upsert_fixture(p_external_id integer, p_sport text, p_lea
 $$;
 
 
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
 --
 -- Name: leagues; Type: TABLE; Schema: public; Owner: -
 --
@@ -8150,45 +8266,6 @@ ALTER SEQUENCE public.narrative_persons_id_seq OWNED BY public.narrative_persons
 
 
 --
--- Name: narrative_threads; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.narrative_threads (
-    id bigint NOT NULL,
-    sport text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    canonical_title text NOT NULL,
-    status text DEFAULT 'open'::text NOT NULL,
-    outcome text,
-    opened_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_progressed_at timestamp with time zone DEFAULT now() NOT NULL,
-    sealed_at timestamp with time zone,
-    entry_count integer DEFAULT 0 NOT NULL,
-    peak_impact smallint,
-    last_impact smallint,
-    last_trajectory text DEFAULT 'developing_story'::text NOT NULL,
-    distinct_sources integer DEFAULT 0 NOT NULL,
-    source_names text[] DEFAULT '{}'::text[] NOT NULL,
-    centroid real[],
-    CONSTRAINT narrative_threads_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT narrative_threads_last_impact_check CHECK (((last_impact IS NULL) OR ((last_impact >= 0) AND (last_impact <= 100)))),
-    CONSTRAINT narrative_threads_last_trajectory_check CHECK ((last_trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
-    CONSTRAINT narrative_threads_outcome_check CHECK ((outcome = ANY (ARRAY['resolved'::text, 'faded'::text]))),
-    CONSTRAINT narrative_threads_peak_impact_check CHECK (((peak_impact IS NULL) OR ((peak_impact >= 0) AND (peak_impact <= 100)))),
-    CONSTRAINT narrative_threads_sealed_shape CHECK ((((status = 'open'::text) AND (outcome IS NULL) AND (sealed_at IS NULL)) OR ((status = 'sealed'::text) AND (outcome IS NOT NULL) AND (sealed_at IS NOT NULL)))),
-    CONSTRAINT narrative_threads_status_check CHECK ((status = ANY (ARRAY['open'::text, 'sealed'::text])))
-);
-
-
---
--- Name: TABLE narrative_threads; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.narrative_threads IS 'Entity-keyed storyline identity (Characters Phase C, mig 181). One row per progressing story; news_summaries rows attach via thread_id by embedding-cosine match (>= 0.80 vs centroid, BGE-small, EWMA-updated). Replaces title-string storyline identity (F5): trajectory is classified vs the thread''s last_impact, so it survives title drift. Sealed nightly by seal_narrative_threads(): ground truth -> resolved, quiet 21d -> faded.';
-
-
---
 -- Name: narrative_threads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -9860,6 +9937,7 @@ CREATE VIEW public.v_narrative_threads AS
     t.canonical_title,
     t.status,
     t.outcome,
+    t.authority,
     t.opened_at,
     t.last_progressed_at,
     t.sealed_at,
@@ -9887,7 +9965,7 @@ CREATE VIEW public.v_narrative_threads AS
 -- Name: VIEW v_narrative_threads; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON VIEW public.v_narrative_threads IS '"The story so far" with citations (F6, mig 182): each progressing-narrative thread (mig 181) joined to its attached news_summaries chapters — per-chapter title, body, impact, trajectory, cited article ids (entry_news_ids) and source names. Serving surface for The Journalist''s, The Insider''s, and The Influencer''s cards; group by thread_id, order by entry_recency_rank (1 = newest chapter).';
+COMMENT ON VIEW public.v_narrative_threads IS '"The story so far" with citations (F6, mig 182; authority added mig 183): each progressing-narrative thread (mig 181) joined to its attached news_summaries chapters — per-chapter title, body, impact, trajectory, cited article ids (entry_news_ids) and source names, plus the thread''s authority tier (continuity|established) for the client credibility surface. Serving surface for The Journalist''s, The Insider''s, and The Influencer''s cards; group by thread_id, order by entry_recency_rank (1 = newest chapter).';
 
 
 --
@@ -12604,5 +12682,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 6IKsatwQMBfFbUmMfWaULWVHvt5DfvFvuPxGYb3yBmFPBJ82mfqAi47rHBudxAQ
+\unrestrict T8n9d6OvN2e0sq3FquBmhV9g5QKDLWmN4pxWW1z9ZTjj1Y9uu8sMHz3cIRXNCzU
 

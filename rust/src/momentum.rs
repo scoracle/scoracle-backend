@@ -18,7 +18,7 @@ use sqlx::{PgPool, Row};
 use tracing::{debug, warn};
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s5"; // s4: direction decided in code (Session D); s5: relational memory card (per-entity arc context, mig 163 — junction rollout step 3)
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s6"; // s5: relational memory card (per-entity arc context, mig 163); s6: The Analyst voice pass (Characters Phase B) — trader/market metaphor retired (Scott 2026-07-22), persona-first form-reader, contract + decided-direction rules unchanged, prompt_version folded into the debounce pre-image
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -37,15 +37,18 @@ pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
 
 const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
-pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: write a Momentum read from the supplied PEAK and Vibe trajectory context.
+/// s6 is the Characters Phase B voice pass: the telling is The Analyst's (persona-first, from
+/// wiki/Characters.md's craft appendix — detached, directional, comparative, results-only).
+/// The trader/market metaphor is RETIRED (Scott's call, 2026-07-22): the identity is the form
+/// reader; form and feeling replace the two-markets frame. The s5 CONTRACT is unchanged:
+/// SCORE/READ shape, decided-direction-is-final rules, sign agreement, memory discipline.
+pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: you are The Analyst — the detached reader of form. Write the Momentum read from the supplied PEAK and Vibe trajectory context.
 
-Operator frame: savvy, nimble trader tracking two markets: PEAK/rating as price action and Vibe/news as investor sentiment. You are detached, not emotionally attached to the position, and results-only.
-
-Voice: direct, analytical, sports-literate. No hype, no fan logic, no melodrama. Ground every claim in the supplied numbers.
+Voice: detached, directional, comparative; results-only. You read two inputs — form (the PEAK/rating trajectory) and feeling (the Vibe/news trajectory) — and you narrate where it is heading versus where it was, with conviction and without attachment. No hype, no fan logic, no melodrama. Steady is an honest answer. Ground every claim in the supplied numbers.
 
 Definitions:
-- PEAK trajectory = recent movement in statistical performance / rating signal.
-- Vibe trajectory = recent movement in narrative sentiment.
+- PEAK trajectory = recent movement in statistical performance / rating signal (form).
+- Vibe trajectory = recent movement in narrative sentiment (feeling).
 - The decided direction (rising, falling, or steady) is computed upstream by the deterministic trajectory engine and supplied in the prompt. It is a fact, not your call.
 - SCORE is signed conviction in the decided direction, not overall player/team quality.
 
@@ -55,10 +58,12 @@ READ: <one concise paragraph>
 
 Rules:
 - The decided direction is final. Never contradict it or re-litigate it in the READ.
-- SCORE sign must agree with the decided direction: rising is 1 to 5, falling is -5 to -1, steady is -1 to 1. Magnitude is how clean and strong the move is in the supplied numbers.
-- READ narrates the decided direction: what is moving (PEAK/rating vs Vibe/news), how hard, and what tension exists between the two markets.
-- When PEAK and Vibe disagree, name the conflict inside the READ and let the score magnitude reflect the mixed tape.
-- Do not chase sentiment hype when PEAK/rating does not confirm it.
+- SCORE sign must agree with the decided direction: rising is 1 to 5, falling is -5 to -1, steady is -1 to 1. Magnitude is how clean and strong the move is in the supplied numbers: a clean move on healthy samples earns 3 or more; 1 is for barely-there moves. Commit to the decided direction — never describe a rising or falling entity as steady.
+- READ narrates the decided direction: what is moving (form vs feeling), how hard, and what tension exists between the two. Name the signals by their product names — PEAK for form, Vibe for feeling — when saying what moved.
+- When form and feeling disagree, name the conflict inside the READ and let the score magnitude reflect the mixed tape.
+- The READ is served to fans: never recite internal machinery — no momentum-score numbers, no "steady band", no rubric phrases. Translate the numbers into the sport.
+- Do not chase sentiment hype when the form does not confirm it.
+- Do not cling to stale PEAK strength when the recent numbers have moved on.
 - RELATIONAL MEMORY lines are arc context: use them to name what is actually moving for THIS entity. They are never evidence for new claims and never override the decided direction.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt."#;
 
@@ -252,7 +257,12 @@ fn build_momentum_input_components(
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
 ) -> String {
-    let mut pairs: Vec<(&'static str, String)> = Vec::new();
+    // prompt_version joins the pre-image at s6 (the narratives M4 / vibe v13 pattern): an
+    // s-bump changes every entity's hash once, forcing one regen as its pipeline next wakes.
+    let mut pairs: Vec<(&'static str, String)> = vec![(
+        "prompt_version",
+        go_json_string(MOMENTUM_PROMPT_VERSION),
+    )];
     if let Some(r) = rating {
         pairs.push(("divined_peak", go_json_string(&r.divined_peak)));
         pairs.push(("notability", r.notability.to_string()));
@@ -853,9 +863,13 @@ mod tests {
         };
         // The vibe prompt is non-empty on purpose: the golden proves the felt-read prose is
         // NOT in the hash pre-image (F1 material-only debounce) — only vibe_sentiment is.
+        // prompt_version joined at s6 (single-sourced from the const, so a bump can't
+        // silently rot this pin); keys stay sorted, so it lands alphabetically.
         assert_eq!(
             build_momentum_input_components(Some(&rating), Some(&vibe), &mom),
-            r#"{"divined_peak":"Rim protection","momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"peak_trajectory":"rising","peak_trajectory_label":"Composite rising","vibe_sentiment":62}"#
+            format!(
+                r#"{{"divined_peak":"Rim protection","momentum_rating_samples":6,"momentum_rating_slope":1.2,"momentum_score":1.2,"momentum_vibe_samples":4,"momentum_vibe_slope":-0,"notability":88,"peak_trajectory":"rising","peak_trajectory_label":"Composite rising","prompt_version":"{MOMENTUM_PROMPT_VERSION}","vibe_sentiment":62}}"#
+            )
         );
     }
 }

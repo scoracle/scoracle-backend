@@ -1,15 +1,22 @@
-//! momentum_fixture_gen — regenerate the momentum eval fixtures through the REAL production
-//! prompt builder (`momentum::build_momentum_prompt`, prompt version `momentum-s3`).
+//! momentum_s6_fixtures — regenerate the hand-authored Analyst eval fixtures.
 //!
-//! The original six fixtures froze prompts from the eval-only "momentum-eval-v3" fork (no
-//! Scouting read line, pre-unification builder). This example holds each scenario as pillar
-//! structs so the set regenerates mechanically on any prompt bump:
+//! s6 is the Characters Phase B voice pass: the system prompt now speaks The Analyst's
+//! telling (persona-first, from wiki/Characters.md's craft appendix — detached, directional,
+//! comparative, results-only; the trader/market metaphor RETIRED per Scott, 2026-07-22).
+//! The s5 CONTRACT — SCORE/READ shape, decided-direction-is-final, sign agreement, memory
+//! discipline — is unchanged, so the scenario set carries over intact: the eight cases
+//! (steady discipline, split rails, thin samples, sentiment spikes, clean decline) are the
+//! regression floor and hold regardless of voice.
 //!
-//!     cargo run --example momentum_fixture_gen > /tmp/momentum_fixtures.json
+//! Each scenario holds pillar structs and renders through the REAL production builder
+//! (`build_momentum_prompt` + `MOMENTUM_SYSTEM_PROMPT`), so the frozen `system`/`user_prompt`
+//! are byte-exact — a prompt bump means "re-run this example", not "hand-patch the JSON".
+//! Since s6 this writes the fixture files directly (the transfers/vibe generator pattern):
 //!
-//! Adds two scenarios the 2026-07-10 bakeoff notes asked for: a transfer-noise sentiment
-//! spike (momentum must not chase spiky rumor-driven vibe) and a clean two-rail decline
-//! (the set previously had no unambiguous `falling` case).
+//!     cargo run --example momentum_s6_fixtures
+//!     cargo run --bin eval -- --task momentum --fixtures   (needs Ollama)
+
+use std::path::Path;
 
 use scoracle_cognition::momentum::{
     build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
@@ -151,31 +158,36 @@ fn scenarios() -> Vec<Scenario> {
     ]
 }
 
-fn main() {
-    let out: Vec<serde_json::Value> = scenarios()
-        .into_iter()
-        .map(|s| {
-            let prompt = build_momentum_prompt(
-                s.entity_type,
-                s.entity,
-                s.sport,
-                s.rating.as_ref(),
-                s.vibe.as_ref(),
-                &s.momentum,
-                // Fixtures pin the memory-free shape (the s5 eval discipline).
-                None,
-            );
-            json!({
-                "name": s.name,
-                "task": "momentum",
-                "prompt_version": MOMENTUM_PROMPT_VERSION,
-                "note": s.note,
-                "system": MOMENTUM_SYSTEM_PROMPT,
-                "user_prompt": prompt,
-                "temperature": 0.0,
-                "expect": s.expect,
-            })
-        })
-        .collect();
-    println!("{}", serde_json::to_string_pretty(&out).unwrap());
+fn main() -> anyhow::Result<()> {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/momentum");
+    std::fs::create_dir_all(&dir)?;
+    let scenarios = scenarios();
+    let n = scenarios.len();
+    for s in scenarios {
+        let prompt = build_momentum_prompt(
+            s.entity_type,
+            s.entity,
+            s.sport,
+            s.rating.as_ref(),
+            s.vibe.as_ref(),
+            &s.momentum,
+            // Fixtures pin the memory-free shape (the s5 eval discipline).
+            None,
+        );
+        let v = json!({
+            "name": s.name,
+            "task": "momentum",
+            "prompt_version": MOMENTUM_PROMPT_VERSION,
+            "note": s.note,
+            "system": MOMENTUM_SYSTEM_PROMPT,
+            "user_prompt": prompt,
+            "temperature": 0.0,
+            "expect": s.expect,
+        });
+        let path = dir.join(format!("{}.json", s.name));
+        std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&v)?))?;
+        println!("wrote {} ({} chars prompt)", path.display(), prompt.len());
+    }
+    println!("done — {n} fixtures at {MOMENTUM_PROMPT_VERSION}");
+    Ok(())
 }

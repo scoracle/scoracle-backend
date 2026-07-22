@@ -27,7 +27,9 @@ fi
 
 # Order matters: refresh links (now-state), seal confirmed outcomes from roster ground
 # truth (mig 157 — MUST precede the roll so confirmation beats same-night quiet-seal),
-# roll episodes (open/peak/quiet-seal), score transfer likelihood on the fresh open
+# roll episodes (open/peak/quiet-seal), seal narrative THREADS (mig 181 — resolves
+# ground-truth-confirmed storylines first, then fades >=21d-quiet ones; the function
+# orders those internally), score transfer likelihood on the fresh open
 # set (mig 161 — after roll so new stories get scored same-night), re-measure source
 # performance, then promote persons (mig 166 — evidence accumulated by the graph stage
 # earns candidate → active; promoted figures serve on team memory cards).
@@ -52,6 +54,11 @@ UNION ALL
 SELECT 'NBA', now(), * FROM roll_narrative_episodes('NBA')
 UNION ALL
 SELECT 'NFL', now(), * FROM roll_narrative_episodes('NFL')" -c "
+SELECT 'FOOTBALL' AS sport, now() AS ran_at, * FROM seal_narrative_threads('FOOTBALL')
+UNION ALL
+SELECT 'NBA', now(), * FROM seal_narrative_threads('NBA')
+UNION ALL
+SELECT 'NFL', now(), * FROM seal_narrative_threads('NFL')" -c "
 SELECT 'FOOTBALL' AS sport, now() AS ran_at, score_transfer_likelihood('FOOTBALL') AS scored
 UNION ALL
 SELECT 'NBA', now(), score_transfer_likelihood('NBA')

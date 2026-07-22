@@ -52,6 +52,7 @@ pub mod route;
 pub mod scrub;
 pub mod sigil;
 pub mod stage;
+pub mod threads;
 pub mod trajectory;
 pub mod transfer;
 pub mod util;

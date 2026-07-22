@@ -868,15 +868,17 @@ fn direction_sign(key: &str) -> i32 {
 
 /// pillar_convergence turns the deterministic pillar comparisons into a 1-100 agreement number —
 /// a computed MEASUREMENT, not a model opinion (this is the "convergence goes deterministic" half
-/// of the crown fold). `round(100·agree/total)`; `None` when no directional pair exists (a quiet
-/// spread has nothing to converge on). Half or more of the pairs disagreeing lands ≤ 50, which
-/// `compute_omen` reads as a crossroads — faithfully preserving the panel's soft rule.
+/// of the crown fold). `round(100·agree/total)` floored at 1; `None` when no directional pair
+/// exists (a quiet spread has nothing to converge on). The floor matches the DB contract
+/// (`sigil_synthesis_convergence_check`: NULL or 1-100) — an all-disagree spread rounds to 0,
+/// which the check rejects and which carries no product meaning beyond 1 (anything ≤ 50 is
+/// already a crossroads to `compute_omen`, faithfully preserving the panel's soft rule).
 pub fn pillar_convergence(comparisons: &[PillarComparison]) -> Option<i32> {
     if comparisons.is_empty() {
         return None;
     }
     let agree = comparisons.iter().filter(|c| c.agree).count();
-    Some(((agree as f64 / comparisons.len() as f64) * 100.0).round() as i32)
+    Some((((agree as f64 / comparisons.len() as f64) * 100.0).round() as i32).max(1))
 }
 
 /// compute_omen decides the reading's direction deterministically, with a one-line computed reason
@@ -1642,13 +1644,18 @@ mod tests {
     }
 
     #[test]
-    fn pillar_convergence_is_agree_ratio_and_none_when_empty() {
+    fn pillar_convergence_is_agree_ratio_floored_to_db_contract() {
         let agree = PillarComparison { label: "a".into(), agree: true };
         let disagree = PillarComparison { label: "b".into(), agree: false };
         assert_eq!(pillar_convergence(&[]), None);
         assert_eq!(pillar_convergence(&[agree.clone(), agree.clone()]), Some(100));
         assert_eq!(pillar_convergence(&[agree.clone(), disagree.clone()]), Some(50));
-        assert_eq!(pillar_convergence(&[disagree.clone(), disagree.clone()]), Some(0));
+        // All-disagree rounds to 0, which sigil_synthesis_convergence_check rejects (NULL or
+        // 1-100) — the floor keeps the persist valid; ≤ 50 is a crossroads either way.
+        assert_eq!(
+            pillar_convergence(&[disagree.clone(), disagree.clone()]),
+            Some(1)
+        );
         assert_eq!(
             pillar_convergence(&[agree.clone(), agree.clone(), disagree.clone()]),
             Some(67)

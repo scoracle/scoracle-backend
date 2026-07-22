@@ -45,7 +45,7 @@ use sqlx::{PgPool, Row};
 use tracing::{debug, warn};
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v12"; // v11: heat lines carry the transfer lens summary + confidence; v12: previous-read continuity + relational memory card (junction memory rollout step 2)
+pub const VIBE_PROMPT_VERSION: &str = "v13"; // v12: previous-read continuity + relational memory card (junction memory rollout step 2); v13: The Influencer voice pass (Characters Phase B) — persona-first telling, card-quality prose + HOOK card title, prompt_version folded into the debounce pre-image
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
@@ -61,28 +61,44 @@ pub const VIBE_NUM_PREDICT: i32 = 512;
 const BODY_TRUNCATE: usize = 280;
 
 /// System prompt for the Vibe sentiment + felt-read contract.
-pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: produce a sentiment score and a short felt read from the supplied narratives and transfer/trade activity.
+///
+/// v13 is the Characters Phase B voice pass: the telling is The Influencer's (persona-first,
+/// from wiki/Characters.md's craft appendix — vivid, present tense, engagement-first, farmed
+/// sincerely). The v12 SCORE contract is unchanged (bands, impact weighting, heat-as-energy,
+/// stay-near-50, previous-read prior); VIBE upgrades from signal shape to card-quality prose
+/// and the reply gains a HOOK line — the Influencer's card title.
+pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: you are The Influencer — the one who knows what the room is feeling before the room does. Your platform is this entity's moment: read the supplied narratives and transfer/trade activity, find the emotion already running through them, and post the felt read — a score, a hook, and the vibe.
 
-Voice: direct, sports-literate, grounded. No hype, no melodrama, no invented drama.
+Voice: vivid, present tense, engagement-first. You ride the feeling because it is real, never because it clicks — sincerity is the craft: no manufactured outrage, no borrowed drama, no bait. When the room is loud, capture the roar; when it is flat, a true quiet read beats a loud false one.
 
 SCORE (1-100):
 - 1 = grim or in freefall.
 - 50 = quiet, unclear, or genuinely mixed.
 - 100 = euphoric or surging.
 - Weigh narratives by impact.
+- Let impact set the amplitude: when the strongest storyline's impact is 4 or less, the cycle is quiet — score it 40-65 whichever way it leans. Big feelings need big stories.
 - Transfer/trade activity is energy, not automatically good or bad.
-- If little is happening, stay near 50.
+- If little is happening, stay near 50 — a routine result in a quiet week is calm, not a surge. Never inflate a flat cycle to make content.
+- Reserve the extremes (under 15, over 90) for genuinely seismic moments — the room is rarely all the way up or all the way down.
 - When a PREVIOUS VIBE is shown, treat its score as your prior: move from it deliberately and hold steady unless the new signals justify a change. This is memory, not a reset.
+- Mood has history: relational memory showing a warm past under cold coverage (or the reverse) is a swing worth reading — the tension is the story, not a contradiction to smooth over.
+
+HOOK:
+- The title of the post: ONE line, under twelve words, present tense.
+- Name the feeling and who or what carries it — the specific player, club, move, or number.
+- Write it as the feeling, not a news headline — no "Topic: Subtitle" colon constructions, no title-case formality.
+- The hook must trace to the supplied signals. Never invent one the coverage does not back.
+- No caps-lock, no question-mark bait, no "you won't believe" mechanics — the emotion IS the draw.
 
 VIBE:
-- One or two sentences. Use three only for a truly major multi-strand moment.
-- Name the actual players, clubs, moves, or numbers behind the dominant threads.
-- Do not list every minor item.
+- The body of the post: two or three sentences of finished prose, written to be read — the felt read of the moment, not a data recap. A truly quiet cycle can be one sentence.
+- Present tense. Name the actual players, clubs, moves, and numbers behind the dominant threads; let minor items go.
 - Do not use generic phrases when the signals give specifics.
-- Ground every claim in the supplied signals.
+- Ground every claim in the supplied signals. Mood is not durable truth: capture what the room feels without promoting it to fact.
 
-Reply with exactly these two lines:
+Reply with exactly these three lines:
 SCORE: <integer 1-100>
+HOOK: <the one-line title>
 VIBE: <the felt read>"#;
 
 /// One narrative from the entity's latest generation (news_summaries).
@@ -109,6 +125,8 @@ pub struct VibeOutput {
     pub sentiment: Option<i32>,
     /// The one-sentence felt read; `None` when empty (the column is nullable).
     pub vibe_prompt: Option<String>,
+    /// The Influencer's card title (v13 HOOK line); `None` for markers and hook-less replies.
+    pub hook: Option<String>,
     /// Provenance: the narratives' source article ids, deduped in first-seen order.
     pub input_news_ids: Vec<i64>,
     /// The canonical material-inputs JSON — the pre-image of `input_hash` (F2).
@@ -235,10 +253,12 @@ fn order_narratives(narratives: &mut [Narrative]) {
 // Input components + hash — the debounce key (F2, mig 147).
 // ---------------------------------------------------------------------------
 
-/// build_vibe_input_components is the canonical debounce pre-image: the latest narrative
-/// titles/impacts/trajectories plus the transfer-heat facts in sigil's
-/// `counterparty:heat:direction:stage` convention — the material signals behind the sentiment.
-/// Same canonical-JSON discipline as `narratives::build_narratives_input_components`.
+/// build_vibe_input_components is the canonical debounce pre-image: the `prompt_version`
+/// (leading, the narratives M4 pattern — a v-bump forces exactly one regen per entity as its
+/// pipeline next wakes), the latest narrative titles/impacts/trajectories, plus the
+/// transfer-heat facts in sigil's `counterparty:heat:direction:stage` convention — the
+/// material signals behind the sentiment. Same canonical-JSON discipline as
+/// `narratives::build_narratives_input_components`.
 ///
 /// Deliberately EXCLUDED: narrative bodies (model prose — the F1 rule), `topic_heat` and
 /// `relevance` (derived ordering signals that tick without the storylines moving),
@@ -258,7 +278,10 @@ pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) 
         }
     }
 
-    let mut out = String::from("{\"narrative_impacts\":[");
+    let mut out = format!(
+        "{{\"prompt_version\":{},\"narrative_impacts\":[",
+        go_json_string(VIBE_PROMPT_VERSION)
+    );
     push_sorted_lines(
         &mut out,
         narratives
@@ -530,7 +553,7 @@ pub fn build_sentiment_prompt(
         }
     }
 
-    b.push_str("\nRespond now (SCORE line, then VIBE line).");
+    b.push_str("\nRespond now (SCORE line, then HOOK line, then VIBE line).");
     b
 }
 
@@ -548,11 +571,14 @@ fn title_first(s: &str) -> String {
 // Output parsing — mirrors parseSentimentAndPrompt + parseSentiment.
 // ---------------------------------------------------------------------------
 
-/// parse_sentiment_and_prompt extracts the SCORE (1-100) and the one-line VIBE from the
-/// model's two-line v6 reply. The score falls back to the first integer anywhere
-/// (format drift); the prompt is "" when absent. Mirrors `parseSentimentAndPrompt`.
-pub fn parse_sentiment_and_prompt(raw: &str) -> Result<(i32, String)> {
+/// parse_vibe_reply extracts the SCORE (1-100), the optional one-line HOOK (v13 — The
+/// Influencer's card title), and the VIBE prose from the model's labeled reply. Parse-compat
+/// with the two-line v6..v12 shape: HOOK is optional (`None` when absent), the score falls
+/// back to the first integer anywhere (format drift), and the vibe joins trailing lines —
+/// skipping a drifted post-VIBE HOOK line rather than swallowing it into the prose.
+pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
     let mut score: i32 = 0;
+    let mut hook: Option<String> = None;
     let mut prompt = String::new();
     let lines: Vec<&str> = raw.trim().split('\n').collect();
 
@@ -565,14 +591,20 @@ pub fn parse_sentiment_and_prompt(raw: &str) -> Result<(i32, String)> {
             if let Ok(n) = rest.parse::<i64>() {
                 score = n.clamp(1, 100) as i32;
             }
+        } else if hook.is_none() && up.starts_with("HOOK:") {
+            let h = t[5..].trim();
+            if !h.is_empty() {
+                hook = Some(h.to_string());
+            }
         } else if prompt.is_empty() && up.starts_with("VIBE:") {
             prompt = t[5..].trim().to_string();
             for extra in &lines[i + 1..] {
                 let e = extra.trim();
-                if !e.is_empty() {
-                    prompt.push(' ');
-                    prompt.push_str(e);
+                if e.is_empty() || e.to_uppercase().starts_with("HOOK:") {
+                    continue;
                 }
+                prompt.push(' ');
+                prompt.push_str(e);
             }
         }
     }
@@ -581,7 +613,14 @@ pub fn parse_sentiment_and_prompt(raw: &str) -> Result<(i32, String)> {
         // No SCORE: label parsed — fall back to the first integer anywhere.
         score = parse_sentiment(raw)?;
     }
-    Ok((score, prompt))
+    Ok((score, hook, prompt))
+}
+
+/// parse_sentiment_and_prompt is the two-line compat view (score + felt read) over
+/// [`parse_vibe_reply`] — kept for the callers that predate the v13 HOOK line. Mirrors
+/// `parseSentimentAndPrompt`.
+pub fn parse_sentiment_and_prompt(raw: &str) -> Result<(i32, String)> {
+    parse_vibe_reply(raw).map(|(score, _hook, prompt)| (score, prompt))
 }
 
 /// parse_sentiment pulls the first run of ASCII digits out of the response and clamps it
@@ -605,15 +644,18 @@ fn parse_sentiment(raw: &str) -> Result<i32> {
     }
 }
 
-/// VibeReply is the validated two-line answer — the SCORE (1-100) and the one-line felt
-/// read. The vibe Extract output shape (the `T` in `Parser<T>` / `Extracted<T>`).
+/// VibeReply is the validated answer — the SCORE (1-100), the optional HOOK (v13 — The
+/// Influencer's card title), and the felt read. The vibe Extract output shape (the `T` in
+/// `Parser<T>` / `Extracted<T>`).
 #[derive(Clone, Debug)]
 pub struct VibeReply {
     pub sentiment: i32,
+    /// The Influencer's card title; `None` on a v12-shape reply without a HOOK line.
+    pub hook: Option<String>,
     pub vibe_prompt: String,
 }
 
-/// VibeParser is the vibe stage's `Parser` plug-in: it wraps `parse_sentiment_and_prompt`
+/// VibeParser is the vibe stage's `Parser` plug-in: it wraps `parse_vibe_reply`
 /// behind the capability library's `Parser<T>` seam.
 /// It never returns the fail-closed `Ok(None)` — vibe's only fail-closed path is the
 /// no-corpus short-circuit *before* the model call (a NULL marker), so an unparseable reply
@@ -622,10 +664,11 @@ pub struct VibeParser;
 
 impl Parser<VibeReply> for VibeParser {
     fn parse(&self, raw: &str) -> Result<Option<VibeReply>> {
-        let (sentiment, vibe_prompt) = parse_sentiment_and_prompt(raw)
+        let (sentiment, hook, vibe_prompt) = parse_vibe_reply(raw)
             .with_context(|| format!("parse sentiment (raw={:?})", truncate(raw, 120)))?;
         Ok(Some(VibeReply {
             sentiment,
+            hook,
             vibe_prompt,
         }))
     }
@@ -715,6 +758,7 @@ async fn generate_vibe_from_context(
             VibeOutput {
                 sentiment: None,
                 vibe_prompt: None,
+                hook: None,
                 input_news_ids: Vec::new(),
                 input_components_json: ctx.input_components_json,
                 input_hash: ctx.input_hash,
@@ -775,6 +819,7 @@ async fn generate_vibe_from_context(
             } else {
                 Some(reply.vibe_prompt)
             },
+            hook: reply.hook,
             input_news_ids: ctx.news_ids,
             input_components_json: ctx.input_components_json,
             input_hash: ctx.input_hash,
@@ -797,6 +842,7 @@ fn vibe_included_evidence(out: &VibeOutput) -> serde_json::Value {
         "input_news_ids": &out.input_news_ids,
         "sentiment": out.sentiment,
         "vibe_prompt": &out.vibe_prompt,
+        "hook": &out.hook,
     })
 }
 
@@ -838,9 +884,9 @@ async fn persist_to_vibe_scores(
         INSERT INTO vibe_scores (
             entity_type, entity_id, sport,
             trigger_type, trigger_payload,
-            sentiment, prompt, input_news_ids,
+            sentiment, prompt, hook, input_news_ids,
             model_version, prompt_version, input_hash
-        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9)
+        ) VALUES ($1,$2,$3,'periodic','null'::jsonb,$4,$5,$6,$7,$8,$9,$10)
         RETURNING id
         "#,
     )
@@ -849,6 +895,7 @@ async fn persist_to_vibe_scores(
     .bind(sport)
     .bind(sentiment)
     .bind(out.vibe_prompt.as_deref())
+    .bind(out.hook.as_deref())
     .bind(prov.input_ids.as_slice())
     .bind(prov.model_version.as_str())
     .bind(prov.prompt_version)
@@ -1018,11 +1065,42 @@ mod tests {
 
     #[test]
     fn parses_two_line_reply() {
-        let (score, vibe) =
-            parse_sentiment_and_prompt("SCORE: 73\nVIBE: Quietly surging into the playoff race.")
-                .unwrap();
+        // v12-shape compat: a hook-less reply still parses; hook is None.
+        let (score, hook, vibe) =
+            parse_vibe_reply("SCORE: 73\nVIBE: Quietly surging into the playoff race.").unwrap();
         assert_eq!(score, 73);
+        assert_eq!(hook, None);
         assert_eq!(vibe, "Quietly surging into the playoff race.");
+    }
+
+    #[test]
+    fn parses_three_line_reply_with_hook() {
+        let (score, hook, vibe) = parse_vibe_reply(
+            "SCORE: 73\nHOOK: The building believes again\nVIBE: Quietly surging into the playoff race.",
+        )
+        .unwrap();
+        assert_eq!(score, 73);
+        assert_eq!(hook.as_deref(), Some("The building believes again"));
+        assert_eq!(vibe, "Quietly surging into the playoff race.");
+    }
+
+    #[test]
+    fn drifted_hook_after_vibe_is_not_swallowed() {
+        // Format drift: a HOOK line AFTER the VIBE line still parses as the hook and never
+        // joins into the felt-read prose.
+        let (score, hook, vibe) =
+            parse_vibe_reply("SCORE: 60\nVIBE: line one\nHOOK: The title\nline two").unwrap();
+        assert_eq!(score, 60);
+        assert_eq!(hook.as_deref(), Some("The title"));
+        assert_eq!(vibe, "line one line two");
+    }
+
+    #[test]
+    fn compat_view_drops_hook() {
+        let (score, vibe) =
+            parse_sentiment_and_prompt("SCORE: 73\nHOOK: The title\nVIBE: The read.").unwrap();
+        assert_eq!(score, 73);
+        assert_eq!(vibe, "The read.");
     }
 
     #[test]
@@ -1051,7 +1129,7 @@ mod tests {
         let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], None, None);
         assert_eq!(
             p,
-            "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then VIBE line)."
+            "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
         );
     }
 
@@ -1139,11 +1217,22 @@ mod tests {
     #[test]
     fn vibe_parser_wraps_valid_reply_as_some() {
         let reply = VibeParser
-            .parse("SCORE: 73\nVIBE: Quietly surging into the playoff race.")
+            .parse("SCORE: 73\nHOOK: The building believes again\nVIBE: Quietly surging into the playoff race.")
             .unwrap()
             .expect("a valid reply is Some, never the fail-closed None");
         assert_eq!(reply.sentiment, 73);
+        assert_eq!(reply.hook.as_deref(), Some("The building believes again"));
         assert_eq!(reply.vibe_prompt, "Quietly surging into the playoff race.");
+    }
+
+    #[test]
+    fn vibe_parser_accepts_hookless_v12_shape() {
+        let reply = VibeParser
+            .parse("SCORE: 73\nVIBE: Quietly surging into the playoff race.")
+            .unwrap()
+            .expect("a hook-less reply still parses");
+        assert_eq!(reply.sentiment, 73);
+        assert_eq!(reply.hook, None);
     }
 
     #[test]
@@ -1184,9 +1273,13 @@ mod tests {
             summary: "derived commentary".into(),
             confidence: Some(0.8),
         }];
+        // prompt_version leads the pre-image (single-sourced from the const, so a bump can't
+        // silently rot this pin) — a v-bump changes every entity's hash once, forcing the regen.
         assert_eq!(
             build_vibe_input_components(&narratives, &heat),
-            r#"{"narrative_impacts":["Alpha story:3","Trade buzz:7"],"narrative_titles":["Alpha story","Trade buzz"],"narrative_trajectories":["Alpha story:developing_story","Trade buzz:heating_up"],"transfer_heat":["Arsenal:40:incoming:speculation"]}"#
+            format!(
+                r#"{{"prompt_version":"{VIBE_PROMPT_VERSION}","narrative_impacts":["Alpha story:3","Trade buzz:7"],"narrative_titles":["Alpha story","Trade buzz"],"narrative_trajectories":["Alpha story:developing_story","Trade buzz:heating_up"],"transfer_heat":["Arsenal:40:incoming:speculation"]}}"#
+            )
         );
     }
 
@@ -1196,7 +1289,9 @@ mod tests {
         // transfer_heat key (sigil convention) — so quiet entities debounce on a stable hash.
         assert_eq!(
             build_vibe_input_components(&[], &[]),
-            r#"{"narrative_impacts":[],"narrative_titles":[],"narrative_trajectories":[]}"#
+            format!(
+                r#"{{"prompt_version":"{VIBE_PROMPT_VERSION}","narrative_impacts":[],"narrative_titles":[],"narrative_trajectories":[]}}"#
+            )
         );
     }
 

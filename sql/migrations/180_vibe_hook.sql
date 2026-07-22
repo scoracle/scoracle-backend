@@ -1,0 +1,11 @@
+-- 180_vibe_hook.sql
+--
+-- Characters Phase B (The Influencer voice pass, v13): vibe upgrades from signal shape to
+-- card-quality prose, and the reply gains a HOOK line — the Influencer's card title. Parsed
+-- by VibeParser and persisted here so the promoted standalone Vibe card (NavWell build-out)
+-- can serve a real title next to the felt read.
+--
+-- ADDITIVE + nullable: NULL for no-corpus markers and every pre-v13 row. No backfill — the
+-- v13 re-wave fills it organically as each entity's pipeline wakes. The Go read path keeps
+-- working untouched until the card build-out starts reading it.
+ALTER TABLE vibe_scores ADD COLUMN hook text;

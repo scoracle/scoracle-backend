@@ -62,7 +62,7 @@ use crate::transfer::{
     TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
 };
 use crate::vibe::{
-    build_sentiment_prompt, load_latest_narratives, parse_sentiment_and_prompt, VIBE_NUM_PREDICT,
+    build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
     VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 use anyhow::Result;
@@ -219,6 +219,9 @@ pub struct Expect {
     pub score_min: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub score_max: Option<i32>,
+    /// v13 Influencer card contract: the HOOK line (card title) must materialize.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hook_nonempty: Option<bool>,
     // sigil panel-disagreement rubric.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub convergence_min: Option<i32>,
@@ -513,8 +516,8 @@ impl LensTask for VibeTask {
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        match parse_sentiment_and_prompt(raw) {
-            Ok((s, v)) => {
+        match parse_vibe_reply(raw) {
+            Ok((s, hook, v)) => {
                 let mut checks = Vec::new();
                 if let Some(x) = expect {
                     if let Some(min) = x.score_min {
@@ -531,12 +534,22 @@ impl LensTask for VibeTask {
                             detail: format!("score={s} ≤ {max}"),
                         });
                     }
+                    if x.hook_nonempty == Some(true) {
+                        checks.push(PropertyCheck {
+                            name: "hook_nonempty".into(),
+                            pass: hook.is_some(),
+                            detail: format!("hook={}", hook.as_deref().unwrap_or("(absent)")),
+                        });
+                    }
                 }
                 CaseVerdict {
                     parsed: true,
                     abs_err: label.map(|l| (s as f64 - l).abs()),
                     checks,
-                    display: format!("score={s} | {v}"),
+                    display: match &hook {
+                        Some(h) => format!("score={s} | {h} — {v}"),
+                        None => format!("score={s} | {v}"),
+                    },
                 }
             }
             Err(_) => CaseVerdict {
@@ -1599,6 +1612,22 @@ mod tests {
             .all_checks_pass());
         assert!(!VibeTask
             .evaluate("SCORE: 70\nVIBE: bright", None, Some(&x))
+            .all_checks_pass());
+    }
+
+    #[test]
+    fn vibe_hook_nonempty_check() {
+        // v13 card contract: hook_nonempty fails a hook-less (v12-shape) reply, passes a
+        // three-line one.
+        let x = Expect {
+            hook_nonempty: Some(true),
+            ..Default::default()
+        };
+        assert!(VibeTask
+            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, Some(&x))
+            .all_checks_pass());
+        assert!(!VibeTask
+            .evaluate("SCORE: 30\nVIBE: grim", None, Some(&x))
             .all_checks_pass());
     }
 

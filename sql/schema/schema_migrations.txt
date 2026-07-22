@@ -173,3 +173,7 @@
 170_junction_events_partition
 171_news_article_full_text
 172_provenance_firewall_guard
+173_crown_fold_drop_panel_columns
+174_dag_resequence_vetted_to_narratives
+175_enqueue_transfers_on_transfer_bucket
+177_article_duplicate_of

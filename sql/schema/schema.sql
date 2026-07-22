@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict ApyFmhZnN9aafhdfR5CBTVADWDO0DBWmLy45aClhgrEvydj5EMjtJq7RlzTds2H
+\restrict jYMHkqbTAJSHlHsYwGDL68OgQqywuymcxOiwamuRh5OfxsDWs4SeDtIzPAeIehD
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2571,13 +2571,12 @@ DECLARE
     v_count       integer;
     v_fp          text;
     v_ver         text;
-    v_stages      text[] := ARRAY['narratives', 'vibe'];
     v_graph_count integer;
 BEGIN
-    -- Per-ARTICLE graph extraction (mig 165): one item per article, reopened when the
-    -- article's vetted membership changes; the handler debounces on material hash, so
-    -- reopens are cheap. BEFORE the freshness gate below — extraction of a backfilled
-    -- old article is durable-memory work the 72h corpus gate must not suppress.
+    -- Per-ARTICLE graph extraction (mig 165): one item per article, reopened when the article's
+    -- vetted membership changes; the handler debounces on material hash, so reopens are cheap.
+    -- BEFORE the freshness gate below — extraction of a backfilled old article is durable-memory
+    -- work the 72h corpus gate must not suppress. UNCHANGED by Phase 3.
     SELECT count(*) INTO v_graph_count
       FROM public.news_article_entities
      WHERE article_id = NEW.article_id AND vetted IS TRUE;
@@ -2596,10 +2595,12 @@ BEGIN
     WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
        OR public.pipeline_work.status = 'failed';
 
-    -- Membership fingerprint over this entity's vetted, in-lookback (72h) links. Doubles as the
-    -- mig-103 freshness gate: a stale backlog primary with no fresh vetted corpus yields count=0
-    -- and enqueues nothing. One link row per (article, entity) by PK, so no DISTINCT needed;
-    -- ORDER BY makes the aggregate deterministic.
+    -- Canonical membership fingerprint over this entity's vetted, in-lookback (72h) links. Phase 3:
+    -- `a.duplicate_of IS NULL` keeps only originals — a suppressed repost never perturbs the
+    -- fingerprint or re-fires narratives, matching the narratives corpus loader. Doubles as the
+    -- mig-103 freshness gate: a stale backlog primary with no fresh vetted canonical corpus yields
+    -- count=0 and enqueues nothing. One link row per (article, entity) by PK; ORDER BY makes the
+    -- aggregate deterministic.
     SELECT count(*),
            md5(string_agg(nae.article_id::text, ',' ORDER BY nae.article_id))
       INTO v_count, v_fp
@@ -2609,6 +2610,7 @@ BEGIN
        AND nae.entity_id   = NEW.entity_id
        AND nae.sport       = NEW.sport
        AND nae.vetted IS TRUE
+       AND a.duplicate_of IS NULL
        AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours');
 
     IF v_count = 0 THEN
@@ -2617,14 +2619,11 @@ BEGIN
 
     v_ver := v_count || ':' || v_fp;
 
-    IF NEW.entity_type = 'team' THEN
-        v_stages := ARRAY['transfers', 'narratives', 'vibe'];
-    END IF;
-
+    -- Phase 3: gate ONLY into narratives. transfers ← mig-175 bucket trigger; vibe ← narratives
+    -- handler (Rust). The team-vs-player fan-out and the vibe/transfers stages are gone from here.
     INSERT INTO public.pipeline_work
         (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    SELECT st, NEW.entity_type, NEW.entity_id, NEW.sport, 'pending', v_ver, NOW(), NOW()
-      FROM unnest(v_stages) AS st
+    VALUES ('narratives', NEW.entity_type, NEW.entity_id, NEW.sport, 'pending', v_ver, NOW(), NOW())
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
@@ -2640,6 +2639,57 @@ BEGIN
     -- nothing extra.
     PERFORM pg_notify('pipeline_work_ready', '');
 
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enqueue_transfers_if_transfer_related(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_transfers_if_transfer_related() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    -- One transfers item per vetted TEAM entity of the newly-transfer-bucketed article. The
+    -- input_version is the team's CANONICAL transfer-corpus fingerprint — vetted, duplicate_of IS
+    -- NULL, transfer bucket (`IS DISTINCT FROM 'non_transfer'`, matching the transfers handler),
+    -- inside the handler's 14-day link window — so ON CONFLICT reopens the item exactly when that
+    -- corpus moved and debounces an unchanged one. COALESCE(...,'0') keeps the key non-null when a
+    -- team's set is momentarily empty (defensive; the driving article normally makes it non-empty).
+    INSERT INTO public.pipeline_work
+        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+    SELECT 'transfers', 'team', te.entity_id, te.sport, 'pending',
+           't:' || (
+               SELECT count(*) || ':' ||
+                      COALESCE(md5(string_agg(x.article_id::text, ',' ORDER BY x.article_id)), '0')
+                 FROM public.news_article_entities x
+                 JOIN public.news_articles xa ON xa.id = x.article_id
+                WHERE x.entity_type = 'team'
+                  AND x.entity_id   = te.entity_id
+                  AND x.sport       = te.sport
+                  AND x.vetted IS TRUE
+                  AND xa.duplicate_of IS NULL
+                  AND xa.bucket IS DISTINCT FROM 'non_transfer'
+                  AND x.created_at > NOW() - INTERVAL '14 days'
+           ),
+           NOW(), NOW()
+      FROM public.news_article_entities te
+     WHERE te.article_id   = NEW.id
+       AND te.entity_type   = 'team'
+       AND te.vetted IS TRUE
+    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+        status        = 'pending',
+        attempts      = 0,
+        available_at  = NOW(),
+        updated_at    = NOW(),
+        last_error    = NULL,
+        input_version = EXCLUDED.input_version
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
+
+    -- Statement-level mig-133 notify trigger on pipeline_work covers the wake-up; no PERFORM here.
     RETURN NEW;
 END;
 $$;
@@ -7966,6 +8016,7 @@ CREATE TABLE public.news_articles (
     bucket text,
     topic_heat integer,
     full_text text,
+    duplicate_of bigint,
     CONSTRAINT news_articles_bucket_check CHECK (((bucket IS NULL) OR (bucket = ANY (ARRAY['transfer'::text, 'non_transfer'::text])))),
     CONSTRAINT news_articles_topic_heat_check CHECK (((topic_heat IS NULL) OR (topic_heat >= 1)))
 );
@@ -7990,6 +8041,13 @@ COMMENT ON COLUMN public.news_articles.topic_heat IS 'Wave 5 topic heat-rank: si
 --
 
 COMMENT ON COLUMN public.news_articles.full_text IS 'Cognition refactor Phase 0 (mig 171): nullable article body for the corpus loader. NULL = not fetched (the only state today); the loader falls back to title+description. Reserved for a later provider/full-text fetch; no column semantics change when it lands.';
+
+
+--
+-- Name: COLUMN news_articles.duplicate_of; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.duplicate_of IS 'Cognition refactor Phase 2 (mig 177): set by the scrub source-aware novelty gate to the canonical article this one is a near-dup REPOST of (same story AND same-outlet repost or near-verbatim syndication). NULL = canonical: first-seen, or genuine cross-outlet corroboration that is counted. Suppression sets this ONLY; vetted membership is untouched, so no derive re-fires. Consumed by narratives corpus filtering + canonical membership counting in Phase 3.';
 
 
 --
@@ -8750,15 +8808,12 @@ CREATE TABLE public.sigil_synthesis (
     trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
     score smallint,
     previous_score smallint,
-    blurb text,
     input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     input_hash text,
     model_version text,
     prompt_version text,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
     convergence smallint,
-    disagreement text,
-    why_now text,
     reading text,
     omen text,
     voiced_score smallint,
@@ -8779,7 +8834,7 @@ CREATE TABLE public.sigil_synthesis (
 -- Name: TABLE sigil_synthesis; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown synthesis (was vibe_synthesis). Fuses the three end products — Rating, Vibe, Momentum — into one holistic score + blurb.';
+COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown. The Oracle lens reads the five pillar cards (PEAK, Vibe, Momentum, narratives, transfers) + the entity''s own prior reads and emits one holistic score + reading (mig 173 crown fold — the panel blurb/disagreement/why_now were retired). omen + convergence are computed deterministically in code.';
 
 
 --
@@ -8787,20 +8842,6 @@ COMMENT ON TABLE public.sigil_synthesis IS 'The Sigil: the crown synthesis (was 
 --
 
 COMMENT ON COLUMN public.sigil_synthesis.convergence IS 'Phase 5.3 panel output: how strongly the lenses (PEAK/narrative/vibe/momentum/transfer) agree, 1-100. NULL = model did not emit it (pre-s11 row or omitted this run).';
-
-
---
--- Name: COLUMN sigil_synthesis.disagreement; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.disagreement IS 'Phase 5.3 panel output: short summary of where the rails diverge (e.g. strong stats vs negative narrative). NULL when the lenses agree or it was unstated.';
-
-
---
--- Name: COLUMN sigil_synthesis.why_now; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.sigil_synthesis.why_now IS 'Phase 5.3 panel output: one-line breaking-news freshness note explaining why the read moved now. NULL when nothing is fresh or it was unstated.';
 
 
 --
@@ -9216,7 +9257,7 @@ CREATE TABLE public.topic_heat_embeddings (
 -- Name: TABLE topic_heat_embeddings; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.topic_heat_embeddings IS 'Write-through cache of topic-heat article embeddings (mig 151). Reproducible from news_articles text; safe to truncate.';
+COMMENT ON TABLE public.topic_heat_embeddings IS 'Cognition refactor Phase 2 (mig 177): repurposed into the novelty gate''s article-embedding store — the CANONICAL article context embeddings the scrub gate compares new arrivals against (article_id, fingerprint=text hash, model=embedder identity, embedding=LE f32 bytes). Was the topic-heat write-through cache (mig 151). Reproducible from news_articles text; safe to truncate.';
 
 
 --
@@ -10954,6 +10995,13 @@ CREATE INDEX idx_news_articles_bucket ON public.news_articles USING btree (bucke
 
 
 --
+-- Name: idx_news_articles_duplicate_of; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_articles_duplicate_of ON public.news_articles USING btree (duplicate_of) WHERE (duplicate_of IS NOT NULL);
+
+
+--
 -- Name: idx_news_articles_fetched_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11251,7 +11299,7 @@ CREATE INDEX idx_sigil_synthesis_shadow_entity ON public.sigil_synthesis_shadow 
 -- Name: idx_sigil_synthesis_sport_score; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_sigil_synthesis_sport_score ON public.sigil_synthesis USING btree (sport, score DESC, generated_at DESC) WHERE ((score IS NOT NULL) AND (blurb IS NOT NULL));
+CREATE INDEX idx_sigil_synthesis_sport_score ON public.sigil_synthesis USING btree (sport, score DESC, generated_at DESC) WHERE ((score IS NOT NULL) AND (reading IS NOT NULL));
 
 
 --
@@ -11549,6 +11597,13 @@ CREATE TRIGGER enqueue_derive_on_vetted AFTER UPDATE OF vetted ON public.news_ar
 
 
 --
+-- Name: news_articles enqueue_transfers_if_transfer_related; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enqueue_transfers_if_transfer_related AFTER UPDATE OF bucket ON public.news_articles FOR EACH ROW WHEN (((new.bucket = 'transfer'::text) AND (new.bucket IS DISTINCT FROM old.bucket))) EXECUTE FUNCTION public.enqueue_transfers_if_transfer_related();
+
+
+--
 -- Name: event_box_scores mark_momentum_refresh_event_box_scores; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -11834,6 +11889,14 @@ ALTER TABLE ONLY public.news_article_entities
 
 ALTER TABLE ONLY public.news_article_entities
     ADD CONSTRAINT news_article_entities_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: news_articles news_articles_duplicate_of_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_articles
+    ADD CONSTRAINT news_articles_duplicate_of_fkey FOREIGN KEY (duplicate_of) REFERENCES public.news_articles(id) ON DELETE SET NULL;
 
 
 --
@@ -12191,5 +12254,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ApyFmhZnN9aafhdfR5CBTVADWDO0DBWmLy45aClhgrEvydj5EMjtJq7RlzTds2H
+\unrestrict jYMHkqbTAJSHlHsYwGDL68OgQqywuymcxOiwamuRh5OfxsDWs4SeDtIzPAeIehD
 

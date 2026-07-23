@@ -2061,8 +2061,9 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 		-- vibe_scores is append-only (BIGSERIAL PK + INSERT-only writes).
 		-- Legacy blurb-only rows have sentiment IS NULL — exclude them.
 		-- prompt is the felt-read blurb (same column the vibes leaderboard
-		-- serves AS blurb) — the profile News card's Vibe facet renders it.
-		SELECT vs.sentiment, vs.generated_at, vs.trigger_type, vs.prompt
+		-- serves AS blurb) — the profile Vibe card renders it. hook (mig 180,
+		-- v13) is The Influencer's card title; NULL on pre-v13 rows.
+		SELECT vs.sentiment, vs.generated_at, vs.trigger_type, vs.prompt, vs.hook
 		FROM vibe_scores vs, req
 		WHERE vs.entity_type = req.entity_type
 		  AND vs.entity_id = req.entity_id
@@ -2163,7 +2164,8 @@ func trendsStatement(sportTag, sportID string, leagueScoped bool) string {
 					'sentiment',    sentiment,
 					'generated_at', generated_at,
 					'trigger_type', trigger_type,
-					'blurb',        prompt
+					'blurb',        prompt,
+					'hook',         hook
 				) ORDER BY generated_at DESC)
 				FROM vibe_window
 			), '[]'::json)

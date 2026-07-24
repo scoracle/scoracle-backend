@@ -1025,6 +1025,17 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
+			-- The Journalist's card score (tarot deck Phase 4, mig 186): scope-INDEPENDENT
+			-- latest-non-NULL — serve-latest like the sigil crown, a stable baseline while the
+			-- scope control moves. Deliberately NOT filtered on body IS NOT NULL: a quiet-week
+			-- marker row legitimately carries the Journalist's own low score. NULL (never
+			-- scored) leaves the JSON null and the card draws the Veil.
+			'card_score', (SELECT ns2.card_score FROM public.news_summaries ns2
+			     WHERE ns2.entity_type = (SELECT entity_type FROM req)
+			       AND ns2.entity_id = (SELECT entity_id FROM req)
+			       AND ns2.sport = (SELECT sport FROM req)
+			       AND ns2.card_score IS NOT NULL
+			     ORDER BY ns2.generated_at DESC LIMIT 1),
 			'narratives', COALESCE((SELECT json_agg(row_to_json(n) ORDER BY n.impact DESC NULLS LAST)
 			     FROM (SELECT narrative_title, body, impact, impact_components, input_news_ids,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,
@@ -1118,6 +1129,15 @@ func registerPreparedStatements(ctx context.Context, conn *pgx.Conn) error {
 			'entity_type', (SELECT entity_type FROM req),
 			'entity_id', (SELECT entity_id FROM req),
 			'scope', (SELECT json_build_object('key', scope_key, 'label', label, 'starts_at', starts_at, 'ends_at', ends_at) FROM scope),
+			-- The Insider's card score (tarot deck Phase 4, mig 187): scope-INDEPENDENT latest
+			-- wrap — score is NOT NULL by table constraint, so latest row IS latest-non-NULL.
+			-- No row (never wrapped / empty wire) leaves the JSON null → the Veil; an emptied
+			-- board renders EmptyCard anyway, so a lingering score never displays.
+			'card_score', (SELECT s.score FROM public.insider_scores s
+			     WHERE s.entity_type = (SELECT entity_type FROM req)
+			       AND s.entity_id = (SELECT entity_id FROM req)
+			       AND s.sport = (SELECT sport FROM req)
+			     ORDER BY s.generated_at DESC LIMIT 1),
 			'transfers', COALESCE((SELECT json_agg(row_to_json(x) ORDER BY x.rank)
 			     FROM (SELECT id, name, image, heat, heat_components, direction, stage, summary, source_attribution,
 			                  updated_at, source_count, source_names, source_latest_at, source_oldest_at,

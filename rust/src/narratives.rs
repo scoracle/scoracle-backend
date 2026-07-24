@@ -1,25 +1,22 @@
-//! news narratives — the `Stage::Narratives` port (Plan §4; Cutover Step 2, L13). The LARGEST +
-//! heaviest GPU stage, and the one with genuine Rust value-add: it composes the candle
+//! news narratives — the `Stage::Narratives` queue handler. The largest GPU stage, and the one
+//! with native Rust value-add: it composes the candle
 //! **embed+cluster** primitive (group near-duplicate articles and drop them BEFORE the model call —
 //! the dedup the Go pipeline never had) with `route(EmotionalNews) + extract + persist`.
 //!
 //! Rust implementation of the news narrative stage:
-//! - `load_vetted_corpus` is the verbatim Go SQL (only the `published_at` column is returned as an
-//!   epoch `bigint` so the deterministic recency math needs no datetime crate; rows + order match).
+//! - `load_vetted_corpus` reads the vetted article context from Postgres.
 //! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
 //!   vibe via [`corpus::write_heat_lines`].
 //! - The n5 system prompt is model-neutral and schema-first for smaller local models.
-//! - `parse_narratives` mirrors Go's tolerant balanced-brace salvager byte-for-byte (a truncated tail
-//!   drops its last incomplete object; an empty `{"narratives": []}` is a successful parse → marker).
+//! - `parse_narratives` uses a tolerant balanced-brace salvager: a truncated tail drops its last
+//!   incomplete object; an empty `{"narratives": []}` is a successful parse -> marker.
 //! - `compute_news_impact` reproduces the deterministic per-narrative impact (volume + corroboration
 //!   + recency) byte-for-byte — like rating's `pctBand`, deterministic stage-shaping mirrored in Rust,
 //!     NOT moved to Postgres (it scores a MODEL-selected article subset, so it can't be a pure SQL stat).
 //!
-//! The ONE deliberate divergence is the **embed+cluster dedup**, which changes the INPUT corpus — an
-//! improvement, NOT a parity break (Plan §1.4 boundary: transient compute feeding a model → Rust,
-//! never a stored derived stat). It runs ONLY when an `Embedder` is loaded (the live handler builds
-//! `Harness { embedder: Some(..) }`); the offline parity bins build `embedder: None` → the dedup is
-//! the identity → the assembled prompt remains deterministic for inspection and shadow comparisons.
+//! The **embed+cluster dedup** changes the input corpus before the model call. This is deliberately
+//! transient compute inside Rust, not a stored derived stat. It runs only when an `Embedder` is
+//! loaded; deterministic request/eval paths can build a harness with `embedder: None`.
 //!
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
@@ -50,18 +47,23 @@ use tracing::{debug, warn};
 // ---------------------------------------------------------------------------
 
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
-pub const NARRATIVES_PROMPT_VERSION: &str = "n10"; // n7: per-article identity-relevance tags; n8: relational memory card (per-entity graph memory, mig 163); n9: primary junction — per-article transfer buckets (article_buckets), voiced episode heat + new/ongoing, candle-side dedup retired (relevance tags gone); n10: The Journalist voice pass (Characters Phase B) — persona-first telling, contract + guards unchanged
+/// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
+/// exactly one regen per news-active entity on the next sweep — no reconcile binary.
+pub const NARRATIVES_PROMPT_VERSION: &str = "n12"; // n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines; n11: multilingual source handling + English-only narratives; n10: The Journalist voice pass, contract + guards unchanged
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 /// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
-/// server, not hoped for by the prompt.
-pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v2-schema";
+/// server, not hoped for by the prompt. v3-schema: required `card_score` (the Journalist's
+/// 1-99 busyness verdict, the tarot deck's number) ordered after narratives/buckets.
+pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v3-schema";
 
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object
 /// cannot be prose-wrapped, `narratives` must exist, and every item carries title/body/articles.
 /// n9 adds the `article_buckets` section — the Journalist's per-article transfer/non-transfer label
 /// (own section, never bunched into a storyline); `transfer:true` ⇒ `news_articles.bucket='transfer'`.
+/// n12 adds required `card_score` — the Journalist's 1-99 busyness verdict — ordered AFTER
+/// narratives/buckets (sigil doctrine: read the signs first, land the verdict second).
 /// The tolerant balanced-brace salvager stays as the parse path — schema output is a strict
 /// subset of what it accepts, and it remains the safety net for the offline/parity bins.
 pub fn narratives_format_schema() -> serde_json::Value {
@@ -91,9 +93,10 @@ pub fn narratives_format_schema() -> serde_json::Value {
                     },
                     "required": ["article", "transfer"]
                 }
-            }
+            },
+            "card_score": { "type": "integer", "minimum": 1, "maximum": 99 }
         },
-        "required": ["narratives", "article_buckets"]
+        "required": ["narratives", "article_buckets", "card_score"]
     })
 }
 
@@ -121,23 +124,28 @@ const DESC_TRUNCATE: usize = 200;
 /// `"259200 seconds"`.
 const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 
-/// System prompt for The Journalist (n10): group recent vetted news into distinct storylines, label
+/// System prompt for The Journalist (n11): group recent vetted news into distinct storylines, label
 /// each article transfer/non-transfer (the `article_buckets` section that routes the transfers
 /// stage), and voice the relational memory's episode heat + new/ongoing state. The candle hands
 /// narratives a widened, pre-deduplicated corpus (the source-aware novelty gate runs at the tip of
 /// the spear), so the pre-n9 per-article relevance tags are gone.
 ///
-/// n10 is the Characters Phase B voice pass: the telling is The Journalist's (persona-first,
-/// fed from wiki/Characters.md's craft appendix — informed, sourced, measured; freshness,
-/// stakes, and trajectory as native vocabulary). The n9 CONTRACT is unchanged: same JSON
-/// schema, same storyline/bucket rules, same credibility guards — a voice change is a prompt
-/// change, never a contract change.
+/// n11 keeps the n10 Journalist voice pass and n9 JSON contract, but tells the model to read
+/// multilingual sources internally and emit English storylines. Same JSON schema, same
+/// storyline/bucket rules, same credibility guards.
+///
+/// n12 adds THE CARD SCORE (tarot deck, Phase 4): after filing the storylines and labeling the
+/// buckets, the Journalist lands a required 1-99 busyness verdict — volume-of-noise, not
+/// good-vs-bad. Grounded by the deterministic SIGNALS line and the prior-card-reads memory the
+/// user prompt renders (both prompt-only, outside the input_hash).
 pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are The Journalist — the one at the table who has read everything. Your beat is ONE sports entity. File the record: group the recent vetted news into the distinct storylines actually developing around this entity, and label every numbered article as transfer/trade-related or not.
 
 Voice: informed, sourced, measured. You quote nothing out of context and you never write past your sourcing. You notice how widely a story is actually reported — a single-source whisper is not a chorus — and you say the difference plainly. Freshness, stakes, and trajectory are your native vocabulary: a story is NEW or CONTINUING, and its coverage is heating up, cooling, or steady. No hype, no source lists, no invented facts.
 
+Language handling: numbered articles may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language, and one corpus can mix languages. Read each source in its language, translate meaning internally, and write every title, body, and other generated prose in English. Keep proper names, player names, club names, source names, and stated money/pick details exact or canonical. Never quote non-English headlines verbatim; paraphrase in English.
+
 Return STRICT JSON only (no markdown fences, no text before or after):
-{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...], "article_buckets": [{"article": <article number>, "transfer": <true|false>}, ...]}
+{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...], "article_buckets": [{"article": <article number>, "transfer": <true|false>}, ...], "card_score": <integer 1-99>}
 
 Storyline discipline:
 - Return at most 6 storylines, most consequential first.
@@ -154,6 +162,12 @@ For each storyline:
 article_buckets — label EVERY numbered article exactly once:
 - {"article": <its number>, "transfer": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise "transfer": false.
 - Judge each article on its own substance. Another team scheming around this entity is not this entity moving.
+
+THEN, THE CARD SCORE — an integer 1 to 99, your one-number read of how BUSY this entity's news cycle is:
+- Volume of noise, not good news versus bad: 1 = a silent week, ~50 = a steady beat, 85+ = a feeding frenzy the desk can barely file fast enough.
+- Score the cycle you just filed: how many storylines are live, how widely they are sourced, how fresh the freshest coverage is. The SIGNALS line is your deterministic tally; your storyline judgment refines it, never contradicts it wholesale.
+- YOUR PRIOR CARD READS is memory, not a reset: move deliberately from your previous card score, and hold unless the corpus justifies a change.
+- A quiet week is an honest answer: filing zero storylines earns a low card score, never a missing one.
 
 If a "Known transfer/trade activity" list is given, treat it as vetted truth for transfer/trade storylines: take counterparties, direction, and stage from it, never contradict it, and never report a more advanced stage than it shows. The word "heat" and its numbers are internal; never mention them.
 
@@ -251,6 +265,10 @@ struct ModelArticleBucket {
 pub struct ParsedNarratives {
     narratives: Vec<ModelNarrative>,
     article_buckets: Vec<ModelArticleBucket>,
+    /// The Journalist's n12 busyness verdict, clamped 1-99 at parse. Best-effort like the
+    /// buckets: a reply missing it (pre-n12 salvage, truncated tail) parses to `None`, never a
+    /// failure — the row simply persists NULL and the card falls back to the Veil.
+    card_score: Option<i16>,
 }
 
 impl ParsedNarratives {
@@ -290,9 +308,14 @@ impl Parser<ParsedNarratives> for NarrativesParser {
         // but never gates success — a truncated reply that salvaged narratives keeps them and simply
         // labels no articles this cycle (downstream reads NULL bucket leniently).
         let article_buckets = parse_article_buckets(raw);
+        // card_score (n12) is best-effort the same way: missing → None (NULL row → Veil), never
+        // a parse failure. The grammar makes it required on the live path; this tolerance covers
+        // truncated tails and the offline bins replaying pre-n12 output.
+        let card_score = parse_card_score(raw);
         Ok(Some(ParsedNarratives {
             narratives,
             article_buckets,
+            card_score,
         }))
     }
 }
@@ -353,7 +376,16 @@ pub async fn load_vetted_corpus(
     Ok(rows
         .into_iter()
         .map(
-            |(id, title, description, source, url, published_at_epoch, fetched_at_epoch, full_text)| {
+            |(
+                id,
+                title,
+                description,
+                source,
+                url,
+                published_at_epoch,
+                fetched_at_epoch,
+                full_text,
+            )| {
                 CorpusItem {
                     id,
                     title,
@@ -430,8 +462,17 @@ async fn load_vetted_corpus_with_exclusions(
 
     let mut corpus = Vec::new();
     let mut exclusions = CorpusExclusions::default();
-    for (id, status, title, description, source, url, published_at_epoch, fetched_at_epoch, full_text)
-        in rows
+    for (
+        id,
+        status,
+        title,
+        description,
+        source,
+        url,
+        published_at_epoch,
+        fetched_at_epoch,
+        full_text,
+    ) in rows
     {
         match status.as_str() {
             "kept" => corpus.push(CorpusItem {
@@ -473,14 +514,19 @@ fn article_body(c: &CorpusItem) -> &str {
 }
 
 /// build_narratives_prompt assembles the user prompt, byte-for-byte the same as Go's
-/// `buildNarrativesPrompt` while `full_text` is NULL (the current state). The `—` (U+2014) bytes
-/// are significant. The heat section is OMITTED entirely when there is no transfer heat (unlike
-/// vibe's "(none)" line), matching Go's `if len(heat) > 0`.
+/// `buildNarrativesPrompt` while `full_text` is NULL (the current state) and no `score_context`
+/// is given. The `—` (U+2014) bytes are significant. The heat section is OMITTED entirely when
+/// there is no transfer heat (unlike vibe's "(none)" line), matching Go's `if len(heat) > 0`.
+/// `score_context` (n12) is the pre-rendered SIGNALS line + prior-card-reads memory block that
+/// grounds the card score — rendered last, just before the reply instruction, so the verdict
+/// lands after the signs are read. Like the relational memory it is prompt-only: deliberately
+/// NOT part of the input_hash (the score always moves; hashing it would self-trigger).
 pub fn build_narratives_prompt(
     req: &NarrativesReq,
     news: &[CorpusItem],
     heat: &[HeatItem],
     memory: Option<&str>,
+    score_context: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
@@ -521,6 +567,15 @@ pub fn build_narratives_prompt(
             b.push('\n');
         }
     }
+    // Card-score grounding (n12): the deterministic SIGNALS tally + the Journalist's own prior
+    // card reads, rendered LAST so the busyness verdict lands after the corpus is read.
+    if let Some(sc) = score_context.filter(|s| !s.trim().is_empty()) {
+        b.push('\n');
+        b.push_str(sc);
+        if !sc.ends_with('\n') {
+            b.push('\n');
+        }
+    }
     b.push_str("\nReturn the JSON object now.");
     b
 }
@@ -534,15 +589,129 @@ pub async fn load_entity_memory(
     entity_type: &str,
     entity_id: i32,
 ) -> Result<Option<String>> {
-    let row: (Option<String>,) =
-        sqlx::query_as("SELECT narrative_context_for_entity($1, $2, $3)")
-            .bind(sport)
-            .bind(entity_type)
-            .bind(entity_id)
-            .fetch_one(pool)
-            .await
-            .context("narrative_context_for_entity")?;
+    let row: (Option<String>,) = sqlx::query_as("SELECT narrative_context_for_entity($1, $2, $3)")
+        .bind(sport)
+        .bind(entity_type)
+        .bind(entity_id)
+        .fetch_one(pool)
+        .await
+        .context("narrative_context_for_entity")?;
     Ok(row.0)
+}
+
+/// How many of the entity's own recent card scores feed the n12 prompt as continuity memory —
+/// mirrors sigil's `PRIOR_READ_LIMIT` (the Oracle's continuity trail).
+const PRIOR_CARD_READS_LIMIT: i64 = 4;
+
+/// The Journalist's own score memory: the latest non-NULL `card_score` (persisted as
+/// `card_score_prev` on the new generation — the continuity audit) plus the rendered
+/// prompt block.
+pub struct PriorCardReads {
+    pub latest: i16,
+    pub card: String,
+}
+
+/// load_prior_card_reads renders the Journalist's OWN recent card scores as a continuity memory
+/// block — mirrors sigil's `load_prior_read` (memory, never a reset; the echo-chamber rule).
+/// One generation carries one uniform card_score, so the trail is DISTINCT over `generated_at`.
+/// The previous generation's filed shape (storyline count, max impact) rides along: impact is
+/// computed post-parse, so it can only ground the NEXT call — this one. `None` for a first-ever
+/// scored read. Prompt-only, deliberately NOT part of the input_hash.
+pub async fn load_prior_card_reads(
+    pool: &sqlx::PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Option<PriorCardReads>> {
+    let trail: Vec<(i16, String)> = sqlx::query_as(
+        r#"
+        SELECT card_score, to_char(generated_at, 'Mon DD')
+        FROM (
+            SELECT DISTINCT generated_at, card_score
+            FROM news_summaries
+            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+              AND card_score IS NOT NULL
+        ) g
+        ORDER BY generated_at DESC
+        LIMIT $4
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(PRIOR_CARD_READS_LIMIT)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load prior card reads {entity_type}/{entity_id}"))?;
+    if trail.is_empty() {
+        return Ok(None);
+    }
+    // The latest generation's filed shape — markers count as an honest zero.
+    let (storylines, max_impact): (i64, Option<i16>) = sqlx::query_as(
+        r#"
+        SELECT count(*) FILTER (WHERE body IS NOT NULL), max(impact)
+        FROM news_summaries
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          AND generated_at = (
+              SELECT max(generated_at) FROM news_summaries
+              WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+          )
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("load prior generation shape {entity_type}/{entity_id}"))?;
+
+    let mut card = String::from(
+        "YOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\n",
+    );
+    let scores: Vec<String> = trail.iter().map(|(s, d)| format!("{s} ({d})")).collect();
+    card.push_str(&format!(
+        "Card scores (newest first): {}\n",
+        scores.join(" · ")
+    ));
+    match max_impact {
+        Some(m) => card.push_str(&format!(
+            "Your previous filing: {storylines} storyline(s), max impact {m}"
+        )),
+        None => card.push_str(&format!("Your previous filing: {storylines} storyline(s)")),
+    }
+    Ok(Some(PriorCardReads {
+        latest: trail[0].0,
+        card,
+    }))
+}
+
+/// render_signals_line writes the deterministic tally that grounds the card score: post-dedup
+/// article count, distinct sources, freshest-article age. Zero new queries — everything comes
+/// from the already-loaded corpus (the plan's "already in the corpus vec" guarantee).
+fn render_signals_line(corpus: &[CorpusItem], now_epoch: i64) -> String {
+    let sources: HashSet<&str> = corpus
+        .iter()
+        .filter(|c| !c.source.is_empty())
+        .map(|c| c.source.as_str())
+        .collect();
+    let mut line = format!(
+        "SIGNALS (deterministic tally for your card score): {} article(s) after dedup · {} distinct source(s)",
+        corpus.len(),
+        sources.len()
+    );
+    let freshest = corpus
+        .iter()
+        .filter_map(|c| c.published_at_epoch.or(c.fetched_at_epoch))
+        .max();
+    if let Some(f) = freshest {
+        let age_h = (now_epoch - f).max(0) / 3600;
+        if age_h < 48 {
+            line.push_str(&format!(" · freshest {age_h}h ago"));
+        } else {
+            line.push_str(&format!(" · freshest {}d ago", age_h / 24));
+        }
+    }
+    line
 }
 
 // ---------------------------------------------------------------------------
@@ -688,6 +857,27 @@ fn parse_article_buckets(raw: &str) -> Vec<ModelArticleBucket> {
         i += 1;
     }
     out
+}
+
+/// parse_card_score salvages the n12 `card_score` integer the same tolerant way the buckets are
+/// salvaged: find the key, skip to its value, parse the leading number, clamp 1-99. `None` for an
+/// absent key or a non-numeric value — never a parse failure (pre-n12 replays and truncated tails
+/// simply persist NULL → the Veil). A quoted or fractional value is tolerated like the crown's
+/// score parse (sigil `parse_crown_score`), minus the "N/100" form the tarot contract never uses.
+fn parse_card_score(raw: &str) -> Option<i16> {
+    let key = raw.find("\"card_score\"")?;
+    let rest = &raw[key + "\"card_score\"".len()..];
+    let colon = rest.find(':')?;
+    let val = rest[colon + 1..].trim_start().trim_start_matches('"');
+    let head: String = val
+        .chars()
+        .take_while(|c| c.is_ascii_digit() || *c == '-' || *c == '.')
+        .collect();
+    let n = match head.parse::<i64>() {
+        Ok(n) => n,
+        Err(_) => head.parse::<f64>().ok().filter(|f| f.is_finite())?.round() as i64,
+    };
+    Some(n.clamp(1, 99) as i16)
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +1129,9 @@ pub struct NarrativesReady {
     pub model_configured: String,
     /// SHA over [`build_narratives_input_components`] — the handler's debounce key.
     pub input_hash: String,
+    /// The latest non-NULL prior `card_score` (n12) — fed to the prompt as memory and persisted
+    /// as `card_score_prev` (continuity audit). Prompt-only: NOT part of `input_hash`.
+    pub card_score_prev: Option<i16>,
 }
 
 /// NarrativesMaterial is the material phase: the concurrent loads plus the debounce hash. The live
@@ -1028,22 +1221,50 @@ pub async fn finish_narratives_build(
 
     // Memory-load failure degrades to an unenriched prompt, mirroring the heat
     // error-swallowing above: the corpus is the primary signal, memory is enrichment.
-    let memory = match load_entity_memory(&hx.pool, &sport_up, &req.entity_type, req.entity_id)
-        .await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            warn!(
-                entity_type = %req.entity_type,
-                entity_id = req.entity_id,
-                sport = %sport_up,
-                error = %e,
-                "narratives: relational memory load failed (continuing without memory)"
-            );
-            None
-        }
-    };
-    let built_prompt = build_narratives_prompt(req, &corpus, &heat, memory.as_deref());
+    let memory =
+        match load_entity_memory(&hx.pool, &sport_up, &req.entity_type, req.entity_id).await {
+            Ok(m) => m,
+            Err(e) => {
+                warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %sport_up,
+                    error = %e,
+                    "narratives: relational memory load failed (continuing without memory)"
+                );
+                None
+            }
+        };
+    // Card-score grounding (n12): the deterministic SIGNALS tally + the Journalist's own prior
+    // card reads. Error-swallowed like memory (enrichment, never a generation blocker) and
+    // deliberately NOT in the input_hash (the score always moves — hashing it would self-trigger).
+    let prior_reads =
+        match load_prior_card_reads(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await {
+            Ok(p) => p,
+            Err(e) => {
+                warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %sport_up,
+                    error = %e,
+                    "narratives: prior card reads load failed (continuing without)"
+                );
+                None
+            }
+        };
+    let card_score_prev = prior_reads.as_ref().map(|p| p.latest);
+    let mut score_context = render_signals_line(&corpus, now_unix());
+    if let Some(p) = &prior_reads {
+        score_context.push('\n');
+        score_context.push_str(&p.card);
+    }
+    let built_prompt = build_narratives_prompt(
+        req,
+        &corpus,
+        &heat,
+        memory.as_deref(),
+        Some(&score_context),
+    );
     let opts = GenerateOptions {
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1067,6 +1288,7 @@ pub async fn finish_narratives_build(
         request_body,
         model_configured,
         input_hash,
+        card_score_prev,
     })))
 }
 
@@ -1087,13 +1309,12 @@ pub async fn build_narratives_request(
     finish_narratives_build(hx, req, material, temperature).await
 }
 
-/// The un-persisted result of one generation — everything the production persist (→ news_summaries)
-/// and the parity harness need. `narratives` empty ⇒ a marker row (no corpus, OR a real generation
-/// that yielded no usable grounded storyline). The twin of `rating::RatingOutput`.
+/// The un-persisted result of one generation. `narratives` empty means a marker row
+/// (no corpus, or a real generation that yielded no usable grounded storyline).
 #[derive(Clone, Debug)]
 pub struct NarrativesOutput {
     pub narratives: Vec<Narrative>,
-    /// The model that answered (configured model for the no-corpus marker — Go sets `a.ollama.Model()`).
+    /// The configured model; marker rows still carry provenance.
     pub model: String,
     pub prompt_version: &'static str,
     /// The exact prompt + wire body (the deterministic axes). `None` for the no-corpus marker (no call).
@@ -1113,6 +1334,13 @@ pub struct NarrativesOutput {
     /// The debounce key this generation was built from (Phase 1); persisted on every row of the
     /// generation so the next cycle's gate has something to compare against.
     pub input_hash: String,
+    /// The Journalist's n12 card score — generation-level (persisted on EVERY row, marker
+    /// included: a quiet week gets the Journalist's own low number). `None` only on the
+    /// no-corpus marker (no model call → the Veil) or a tolerated pre-n12/truncated reply.
+    pub card_score: Option<i16>,
+    /// The prior generation's card score (the memory line's value) — the continuity audit,
+    /// mirroring `sigil_synthesis.previous_score`. Audit-only, never served.
+    pub card_score_prev: Option<i16>,
 }
 
 impl NarrativesOutput {
@@ -1175,6 +1403,9 @@ pub async fn generate_narratives_from_build(
                 article_buckets: Vec::new(),
                 stale_news_ids: corpus_exclusions.stale_news_ids,
                 input_hash,
+                // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
+                card_score: None,
+                card_score_prev: None,
             });
         }
         NarrativesBuild::Ready(r) => *r,
@@ -1208,6 +1439,8 @@ pub async fn generate_narratives_from_build(
         article_buckets,
         stale_news_ids: ready.corpus_exclusions.stale_news_ids,
         input_hash: ready.input_hash,
+        card_score: parsed.card_score,
+        card_score_prev: ready.card_score_prev,
     })
 }
 
@@ -1342,35 +1575,37 @@ pub async fn persist_narratives(
         .narratives
         .iter()
         .enumerate()
-        .map(|(idx, n)| match outcomes.as_ref().and_then(|o| o.get(idx)) {
-            Some(o) => {
-                let reason = match o.delta_reason {
-                    "up" => "impact_up",
-                    "down" => "impact_down",
-                    "stable" => "impact_stable",
-                    other => other,
-                };
-                let components = json!({
-                    "previous_impact": o.previous_impact,
-                    "current_impact": n.impact,
-                    "impact_delta": o.impact_delta,
-                    "reason": reason,
-                    "thread_id": o.thread_id,
-                    "thread_action": if o.opened { "opened" } else { "attached" },
-                    "thread_cosine": o.cosine,
-                });
-                (n, o.trajectory, components, Some(o.thread_id))
-            }
-            None => {
-                let components = json!({
-                    "previous_impact": serde_json::Value::Null,
-                    "current_impact": n.impact,
-                    "impact_delta": serde_json::Value::Null,
-                    "reason": "thread_attach_unavailable",
-                });
-                (n, DEFAULT_TRAJECTORY, components, None)
-            }
-        })
+        .map(
+            |(idx, n)| match outcomes.as_ref().and_then(|o| o.get(idx)) {
+                Some(o) => {
+                    let reason = match o.delta_reason {
+                        "up" => "impact_up",
+                        "down" => "impact_down",
+                        "stable" => "impact_stable",
+                        other => other,
+                    };
+                    let components = json!({
+                        "previous_impact": o.previous_impact,
+                        "current_impact": n.impact,
+                        "impact_delta": o.impact_delta,
+                        "reason": reason,
+                        "thread_id": o.thread_id,
+                        "thread_action": if o.opened { "opened" } else { "attached" },
+                        "thread_cosine": o.cosine,
+                    });
+                    (n, o.trajectory, components, Some(o.thread_id))
+                }
+                None => {
+                    let components = json!({
+                        "previous_impact": serde_json::Value::Null,
+                        "current_impact": n.impact,
+                        "impact_delta": serde_json::Value::Null,
+                        "reason": "thread_attach_unavailable",
+                    });
+                    (n, DEFAULT_TRAJECTORY, components, None)
+                }
+            },
+        )
         .collect();
 
     const INSERT: &str = r#"
@@ -1380,13 +1615,15 @@ pub async fn persist_narratives(
             input_news_ids,
             narrative_updated_at, source_count, source_names, source_latest_at, source_oldest_at,
             trajectory, trajectory_components,
-            model_version, prompt_version, input_hash, thread_id, generated_at
+            model_version, prompt_version, input_hash, thread_id,
+            card_score, card_score_prev, generated_at
         ) VALUES (
             $1,$2,$3,$4,$5::jsonb, $6,$7,$8,$9::jsonb, $10,
             COALESCE(to_timestamp($11::double precision), NOW()), $12, $13,
             to_timestamp($14::double precision), to_timestamp($15::double precision),
             $16, $17::jsonb,
-            $18,$19,$20,$21,NOW()
+            $18,$19,$20,$21,
+            $22,$23,NOW()
         )
         RETURNING id"#;
 
@@ -1473,6 +1710,10 @@ pub async fn persist_narratives(
             .bind(prov.prompt_version)
             .bind(prov.input_hash.as_deref())
             .bind(thread_id)
+            // n12: generation-level card score — the SAME value on every row of the generation
+            // (scored storylines AND the called-empty marker); NULL only for no-corpus/pre-n12.
+            .bind(out.card_score)
+            .bind(out.card_score_prev)
             .fetch_one(&mut *tx)
             .await
             .context(context)?;
@@ -1702,7 +1943,13 @@ mod tests {
             ),
             item(11, "", "Arsenal eye a new winger", "", None),
         ];
-        let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &news, &[], None);
+        let p = build_narratives_prompt(
+            &req("Bukayo Saka", "FOOTBALL", "player"),
+            &news,
+            &[],
+            None,
+            None,
+        );
         assert!(
             !p.contains("Relational memory"),
             "no memory ⇒ no section (n7 byte-shape preserved)"
@@ -1712,6 +1959,7 @@ mod tests {
             &news,
             &[],
             Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
+            None,
         );
         assert!(with_mem.contains("Relational memory (computed history"));
         assert!(with_mem.contains("- Prior story: Real Madrid — fizzled"));
@@ -1747,7 +1995,7 @@ mod tests {
                 confidence: None,
             },
         ];
-        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None);
+        let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None, None);
         assert_eq!(
             p,
             "Entity: Some Team (NBA team)\n\
@@ -1766,13 +2014,22 @@ mod tests {
     fn full_text_seam_prefers_body_else_falls_back_and_is_inert_when_null() {
         // None (today's state for every row): renders `description` — byte-for-byte the pre-seam
         // prompt, so the seam is inert until a fetcher populates full_text.
-        let none = item(1, "BBC", "Saka shines again", "A strong display in the win.", None);
+        let none = item(
+            1,
+            "BBC",
+            "Saka shines again",
+            "A strong display in the win.",
+            None,
+        );
         assert_eq!(article_body(&none), "A strong display in the win.");
 
         // Some(non-empty): the fetched body wins over the provider blurb.
         let mut full = item(2, "BBC", "Title", "short blurb", None);
         full.full_text = Some("The full article body with much more detail.".to_string());
-        assert_eq!(article_body(&full), "The full article body with much more detail.");
+        assert_eq!(
+            article_body(&full),
+            "The full article body with much more detail."
+        );
 
         // Some(blank): whitespace-only body is not a body — fall back to description.
         let mut blank = item(3, "BBC", "Title", "blurb here", None);
@@ -1780,7 +2037,13 @@ mod tests {
         assert_eq!(article_body(&blank), "blurb here");
 
         // The rendered prompt is unchanged when full_text is None (the parity guarantee).
-        let p = build_narratives_prompt(&req("Bukayo Saka", "FOOTBALL", "player"), &[none], &[], None);
+        let p = build_narratives_prompt(
+            &req("Bukayo Saka", "FOOTBALL", "player"),
+            &[none],
+            &[],
+            None,
+            None,
+        );
         assert!(p.contains("1. [BBC] Saka shines again — A strong display in the win.\n"));
     }
 
@@ -1880,6 +2143,99 @@ mod tests {
         assert_eq!(ns[0].title, "A } B");
     }
 
+    // --- n12 card_score: schema, prompt section, tolerant parse -----------------------------------
+
+    #[test]
+    fn schema_requires_card_score_after_buckets() {
+        let schema = narratives_format_schema();
+        assert_eq!(
+            schema["required"],
+            json!(["narratives", "article_buckets", "card_score"]),
+            "verdict lands last (sigil doctrine: signs first, verdict second)"
+        );
+        assert_eq!(schema["properties"]["card_score"]["minimum"], json!(1));
+        assert_eq!(schema["properties"]["card_score"]["maximum"], json!(99));
+    }
+
+    #[test]
+    fn prompt_score_context_renders_last_before_reply_instruction() {
+        let news = vec![item(1, "BBC", "Saka shines again", "", None)];
+        let p = build_narratives_prompt(
+            &req("Bukayo Saka", "FOOTBALL", "player"),
+            &news,
+            &[],
+            None,
+            Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"),
+        );
+        let signals = p.find("SIGNALS (deterministic").unwrap();
+        let reply = p.find("\nReturn the JSON object now.").unwrap();
+        assert!(signals < reply, "score context precedes the reply instruction");
+        assert!(p.contains("Card scores (newest first): 58 (Jul 18) · 55 (Jul 12)"));
+        // None ⇒ byte-identical to the pre-n12 shape (the fixtures above pin it).
+        let bare = build_narratives_prompt(
+            &req("Bukayo Saka", "FOOTBALL", "player"),
+            &news,
+            &[],
+            None,
+            None,
+        );
+        assert!(!bare.contains("SIGNALS"));
+    }
+
+    #[test]
+    fn signals_line_counts_and_ages() {
+        let news = vec![
+            item(1, "BBC", "a", "", Some(10_000)),
+            item(2, "BBC", "b", "", Some(6_000)),
+            item(3, "ESPN", "c", "", None),
+        ];
+        // now = 10_000 + 6h → freshest 6h ago; BBC deduped to one source name.
+        let line = render_signals_line(&news, 10_000 + 6 * 3600);
+        assert_eq!(
+            line,
+            "SIGNALS (deterministic tally for your card score): 3 article(s) after dedup · 2 distinct source(s) · freshest 6h ago"
+        );
+        // ≥48h flips to days; no timestamps at all drops the age clause.
+        let old = render_signals_line(&news, 10_000 + 72 * 3600);
+        assert!(old.ends_with("freshest 3d ago"));
+        let untimed = vec![item(4, "BBC", "d", "", None)];
+        assert!(!render_signals_line(&untimed, 10_000).contains("freshest"));
+    }
+
+    #[test]
+    fn parse_card_score_tolerant_and_clamped() {
+        assert_eq!(parse_card_score(r#"{"card_score": 58}"#), Some(58));
+        assert_eq!(parse_card_score(r#"{"card_score": 250}"#), Some(99)); // clamp high
+        assert_eq!(parse_card_score(r#"{"card_score": -3}"#), Some(1)); // clamp low
+        assert_eq!(parse_card_score(r#"{"card_score": "72"}"#), Some(72)); // quoted
+        assert_eq!(parse_card_score(r#"{"card_score": 63.7}"#), Some(64)); // fractional
+        assert_eq!(parse_card_score(r#"{"narratives": []}"#), None); // pre-n12 reply
+        assert_eq!(parse_card_score(r#"{"card_score": "high"}"#), None); // non-numeric
+        assert_eq!(parse_card_score(r#"{"card_score":"#), None); // truncated at the value
+    }
+
+    #[test]
+    fn parser_carries_card_score_and_tolerates_absence() {
+        // Full n12 document: storylines + buckets + the verdict.
+        let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}], "article_buckets": [{"article":1,"transfer":false}], "card_score": 41}"#;
+        let doc = NarrativesParser.parse(raw).unwrap().unwrap();
+        assert_eq!(doc.card_score, Some(41));
+        // The model-called EMPTY document still lands its verdict — the quiet week gets the
+        // Journalist's own low number (persisted on the marker row downstream).
+        let quiet = NarrativesParser
+            .parse(r#"{"narratives": [], "article_buckets": [], "card_score": 4}"#)
+            .unwrap()
+            .unwrap();
+        assert!(quiet.narratives.is_empty());
+        assert_eq!(quiet.card_score, Some(4));
+        // Pre-n12 shape: still a successful parse, score None (NULL row → Veil).
+        let pre = NarrativesParser
+            .parse(r#"{"narratives": []}"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(pre.card_score, None);
+    }
+
     // --- n9 article_buckets: tolerant parse + grounding -------------------------------------------
 
     #[test]
@@ -1914,16 +2270,34 @@ mod tests {
             item(101, "ESPN", "two", "", None),
         ];
         let parsed = vec![
-            ModelArticleBucket { article: 1, transfer: true },
-            ModelArticleBucket { article: 1, transfer: false }, // dup article → first label wins
-            ModelArticleBucket { article: 2, transfer: false },
-            ModelArticleBucket { article: 9, transfer: true }, // out of range → dropped
-            ModelArticleBucket { article: 0, transfer: true }, // < 1 → dropped
+            ModelArticleBucket {
+                article: 1,
+                transfer: true,
+            },
+            ModelArticleBucket {
+                article: 1,
+                transfer: false,
+            }, // dup article → first label wins
+            ModelArticleBucket {
+                article: 2,
+                transfer: false,
+            },
+            ModelArticleBucket {
+                article: 9,
+                transfer: true,
+            }, // out of range → dropped
+            ModelArticleBucket {
+                article: 0,
+                transfer: true,
+            }, // < 1 → dropped
         ];
         let out = ground_article_buckets(&parsed, &news);
         assert_eq!(
             out,
-            vec![(100, ArticleBucket::Transfer), (101, ArticleBucket::NonTransfer)]
+            vec![
+                (100, ArticleBucket::Transfer),
+                (101, ArticleBucket::NonTransfer)
+            ]
         );
     }
 

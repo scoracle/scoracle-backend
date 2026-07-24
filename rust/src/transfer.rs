@@ -1,21 +1,15 @@
-//! Transfers stage — the team-keyed transfer/trade rumor vetting, ported from Go (Cutover Step 2).
-//!
-//! The Go source is the machinery spec. `transfer.go` is the loaders + the deterministic
-//! heat/relationship/direction + the prompt, parse, the former-player + grounding gates + persist;
-//! `transfer_heat.go` exposes `compute_transfer_heat`, a SQL function (stays Postgres); and
-//! `derive.go`'s drainTransfers is the queue driver (team Item → GenerateForTeam, fail-on-Unknown
-//! retry).
+//! Transfers stage — team-keyed transfer/trade rumor vetting.
 //!
 //! Composition (Plan §1.2 + §4): per (team, player) PAIR this composes `extract+validate`
 //! (fail-closed Option<bool> is_rumor, JSON mode), the subject same-person test, and the persist.
 //! The deterministic parts stay where they belong: `compute_transfer_heat`, the `direction`, and
 //! the team relationship are SQL/Postgres (the model never computes the number or the direction);
-//! the model ONLY vets — is this a live rumor about THIS exact player, what stage, a grounded
+//! the model ONLY vets: is this a live rumor about THIS exact player, what stage, and a grounded
 //! one-line summary. The subject same-person test is realised as the verdict's `subject` field plus
-//! the t5 identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
-//! JSON, exactly as Go does). A standalone embedding-backed single-candidate resolve for transfers
+//! the identity-card framing in the system prompt (the model returns is_rumor AND subject in ONE
+//! JSON). A standalone embedding-backed single-candidate resolve for transfers
 //! was once sketched as a HORIZON refinement (`resolve_one`) — it would restructure the one fused
-//! call into two and break Go-machinery parity; the unused code was deleted (flow-friction
+//! call into two and weaken the fail-closed contract; the unused code was deleted (flow-friction
 //! Phase 4), and the idea lives in git history should it ever be wanted.
 //!
 //! FAIL CLOSED (the §1.2 invariant): `is_rumor: Option<bool>` — a model timeout, unparseable output,
@@ -37,7 +31,8 @@
 //! THE t5 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
 //! but rewrites the instructions as schema-first rules for smaller local models.
 
-use crate::harness::{Harness, Parser};
+use crate::corpus::{load_transfer_heat, write_heat_lines, HeatItem};
+use crate::harness::{EntityKey, Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -53,36 +48,36 @@ use std::collections::HashMap;
 use tracing::{debug, warn};
 
 /// Prompt version for the transfer/trade vetting contract.
-pub const TRANSFER_PROMPT_VERSION: &str = "t10"; // t9 (Phase 4): source-reliability card (source_reliability_for_pair, mig 178) + explicit steam-vs-fizzle weighting of the memory card, after t8's relational memory card; t10: The Insider voice pass (Characters Phase B) — persona-first telling, contract + gates unchanged
+pub const TRANSFER_PROMPT_VERSION: &str = "t11"; // t11: multilingual source handling + English-only verdict strings; t10: The Insider voice pass, contract + gates unchanged
 
 /// Output schema version for transfer adjudication JSON, distinct from the prompt contract.
 pub const TRANSFER_OUTPUT_CONTRACT_VERSION: &str = "transfer-verdict-v1";
 
-/// Production vetting temperature (transfer.go uses 0.3). The parity harness overrides to 0.
+/// Production vetting temperature.
 pub const TRANSFER_TEMPERATURE: f64 = 0.3;
 
 /// Token cap for the JSON verdict.
 pub const TRANSFER_NUM_PREDICT: i32 = 900;
 
-/// Corpus + candidate governors — mirror transfer.go's consts exactly (the parity contract).
+/// Corpus + candidate governors.
 const TRANSFER_MAX_CORPUS_NEWS: i64 = 12;
-/// Default candidate pre-filter (min co-mention articles / 14d). Mirrors `transferDefaultMinArticles`.
+/// Default candidate pre-filter (min co-mention articles / 14d).
 pub const TRANSFER_DEFAULT_MIN_ARTICLES: i32 = 2;
 const TRANSFER_MAX_CANDIDATES: i32 = 40;
 /// How far apart (title chars) a team and player may be mentioned and still count as a genuine
-/// co-mention. Mirrors `comentionProximityChars` / migration 033's gate.
+/// co-mention.
 const COMENTION_PROXIMITY_CHARS: i32 = 50;
-/// Summary clip (transfer.go: `truncate(s, 240)`) and news-description clip (`truncate(d, 160)`).
+/// Summary and news-description clip sizes for prompt budget control.
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
 
 /// transfer_system_prompt is the model-neutral transfer/trade vetting prompt. `noun` is "trade" for
 /// NBA/NFL and "transfer" otherwise.
 ///
-/// t10 is the Characters Phase B voice pass: the telling is The Insider's (persona-first, from
-/// wiki/Characters.md's craft appendix — urgent but guarded, credibility above everything). The
-/// t9 CONTRACT is unchanged: same verdict JSON, same identity/kill-list gates, same stage
-/// ladder + evidence rule, same source-track-record and steam-vs-fizzle weighting.
+/// t11 keeps the t10 Insider voice pass and verdict contract, but tells the model to read
+/// multilingual sources internally and emit English verdict strings. The t9 CONTRACT is unchanged:
+/// same verdict JSON, same identity/kill-list gates, same stage ladder + evidence rule, same
+/// source-track-record and steam-vs-fizzle weighting.
 pub fn transfer_system_prompt(sport: &str) -> String {
     let noun = if sport == "NBA" || sport == "NFL" {
         "trade"
@@ -93,6 +88,8 @@ pub fn transfer_system_prompt(sport: &str) -> String {
         r#"Task: you are The Insider — first to the phone, last to burn a source. Decide whether the news reports a current {noun} involving BOTH the named team and the exact player in the identity line.
 
 Voice: urgent but guarded. You move fast because the window is short, and you stay standing because every call you file becomes track record. A name-drop is not a story, heat is not evidence, and nothing advances on headline tone alone — your credibility outlives any single scoop.
+
+Language handling: source headlines/descriptions may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read them in the source language, translate meaning internally, and write all JSON string outputs in English. Preserve proper names, player names, club names, source names, and stated money/pick details exactly or canonically; do not quote non-English source wording verbatim.
 
 Use the identity line to disambiguate same-name people. Current club and position are strong tie-breakers. When unsure it is the same person, set is_rumor=false.
 
@@ -186,7 +183,7 @@ where
 /// Prompt/version for the second, narrower current-identity adjudication gate. The normal transfer
 /// vet decides whether a row is a live rumor; this gate decides whether that already-vetted rumor is
 /// strong enough to mutate canonical current identity.
-pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v1";
+pub const TRANSFER_IDENTITY_ADJUDICATION_PROMPT_VERSION: &str = "identity-adjudication-v2";
 
 #[derive(Clone, Debug)]
 struct TransferIdentityThreshold {
@@ -268,6 +265,8 @@ fn transfer_identity_adjudication_system_prompt(sport: &str) -> String {
 
 Fail closed. You confirm or reject only the proposed IDs; never invent a different player or team ID.
 
+Language handling: evidence headlines/descriptions may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read them in the source language and translate meaning internally. The reason and evidence_spans must be English paraphrases of the evidence, while proper names and club names stay exact or canonical.
+
 Return only strict JSON with exactly these fields:
 {{"decision":"apply|reject","event_type":"transfer|trade|loan|signing|extension|rumor|false_positive","old_team_id":0,"new_team_id":0,"reason":"","evidence_spans":[]}}
 
@@ -346,8 +345,8 @@ impl Parser<TransferVerdict> for TransferParser {
     }
 }
 
-/// How a vetted pair was classified — drives the per-team tally (the Go `TransferResult` counts) and
-/// the fail-closed retry (any `Unknown` fails the team's stage item).
+/// How a vetted pair was classified. Drives the per-team tally and the fail-closed retry
+/// (any `Unknown` fails the team's stage item).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Outcome {
     Rumor,   // is_rumor TRUE — a vetted, served rumor
@@ -356,9 +355,7 @@ pub enum Outcome {
     Skipped, // no corpus (heat NULL), or unchanged material (the F3 fingerprint gate) — no row written
 }
 
-/// The persistable columns derived from a verdict (after the deterministic gates), shared by the
-/// production write (→ transfer_rumors) and the shadow write (→ transfer_rumors_shadow) so the two
-/// can never drift. Mirrors the branching in `transfer.go::persist`.
+/// The persistable columns derived from a verdict after the deterministic gates.
 #[derive(Clone, Debug)]
 pub struct TransferRow {
     pub is_rumor: Option<bool>,
@@ -371,8 +368,8 @@ pub struct TransferRow {
     pub trigger_payload: String, // JSON text ("{}" or {"subject": …})
 }
 
-/// The un-persisted result of vetting one (team, player) pair — everything the production handler
-/// (→ transfer_rumors) and the parity harness (→ shadow) need. The twin of `vibe::VibeOutput`.
+/// The un-persisted result of vetting one (team, player) pair. The production handler persists
+/// the served product row, and the ledger records the prompt/request/evidence envelope.
 #[derive(Clone, Debug)]
 pub struct TransferPairOutput {
     pub player_id: i32,
@@ -698,6 +695,32 @@ const RETURN_SIGNALS: &[&str] = &[
     "reunite",
     "bring back",
     "brings back",
+    "volver a",
+    "regresar a",
+    "vuelve a",
+    "regresa a",
+    "retour a",
+    "retour à",
+    "retour au",
+    "revient a",
+    "revient à",
+    "rejoindre",
+    "ruckkehr zu",
+    "rückkehr zu",
+    "kehrt zuruck",
+    "kehrt zurück",
+    "zuruck zu",
+    "zurück zu",
+    "ritorno a",
+    "torna a",
+    "tornare a",
+    "regresso ao",
+    "retorno ao",
+    "volta ao",
+    "voltar ao",
+    "terugkeer naar",
+    "keert terug",
+    "terug naar",
 ];
 
 /// has_return_signal reports whether the pair corpus contains return-move language (lower-cased
@@ -1073,11 +1096,10 @@ pub async fn pair_unchanged(
     Ok(matches!(latest, Some((Some(h), Some(_))) if h == input_hash))
 }
 
-/// PairBuild is the DETERMINISTIC prefix of `analyze_pair` — everything computed BEFORE the model
-/// call (heat → corpus → relationship → prompt → request body). Shared by the production handler
-/// AND the parity harness so the dumped `built_prompt`/`request_body` are EXACTLY what production
-/// sends (no drift between what we test and what we run). `Skipped` ⇒ no pair corpus (heat NULL),
-/// so no model call and no row (Go's `if heat == nil { res.Skipped++; return nil }`).
+/// PairBuild is the deterministic prefix of `analyze_pair`: everything computed before the model
+/// call (heat -> corpus -> relationship -> prompt -> request body). Shared by production and eval
+/// paths so inspection artifacts match what production sends. `Skipped` means no pair corpus
+/// (heat NULL), so no model call and no row.
 pub enum PairBuild {
     Skipped {
         components: String,
@@ -1086,7 +1108,7 @@ pub enum PairBuild {
     Ready(Box<PairReady>),
 }
 
-/// PairReady carries the assembled model inputs (the parity axes) plus the deterministic context the
+/// PairReady carries the assembled model inputs plus the deterministic context the
 /// post-model gates need (`news` for the former-player return-signal, `best_weight` for the grounding
 /// guard, `relationship` for direction). `request_body` is computed from the SAME backend + opts the
 /// call will use, so it can never drift from what is POSTed.
@@ -1270,11 +1292,10 @@ fn skipped_pair_output(
 /// analyze_pair runs the full vetting for one (team, player) pair at the given temperature and
 /// returns the un-persisted result (the L11 composition `extract+validate + subject-test + persist`,
 /// minus the persist) — `build_pair_request` (deterministic) then `vet_pair` (the model + the
-/// gates). NO debounce: the parity harness must always exercise the model, so the F3 fingerprint
-/// gate lives in the production handler, BETWEEN the builder and `vet_pair` (the same split as
-/// vibe's `load_vibe_context`). Mirrors `transfer.go::analyzePair`. A generate failure is swallowed
-/// into an UNKNOWN output (the fail-closed marker), NOT propagated — only a real DB/transport error
-/// returns `Err` (the per-team loop counts it as Errored and moves on, exactly as Go does).
+/// gates). No debounce here: the F3 fingerprint gate lives in the production handler, between the
+/// builder and `vet_pair` (the same split as vibe's `load_vibe_context`). A generate failure is
+/// swallowed into an UNKNOWN output (the fail-closed marker), not propagated. Only a real
+/// DB/transport error returns `Err`.
 pub async fn analyze_pair(
     hx: &Harness,
     team_id: i32,
@@ -2061,6 +2082,391 @@ async fn enqueue_sigil_for_transfer(
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// The Insider's card score (tarot deck, Phase 4) — "the wire wrap". An Oracle-shaped
+// end-of-drain call: after the pair verdicts are filed, the Insider wraps each touched
+// entity's wire in one number. The pair contract above stays FROZEN — the wrap versions
+// independently and never enters any pair's debounce fingerprint.
+// ---------------------------------------------------------------------------
+
+/// Prompt version for the wire wrap — SEPARATE from [`TRANSFER_PROMPT_VERSION`] by design:
+/// t11 sits in every pair's debounce fingerprint, so a t-bump forces a fleet-wide GPU re-vet.
+/// The wrap keys its own `insider_scores.input_hash`, so an is-bump self-backfills one wrap
+/// per rumor-active entity and touches no pair.
+pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is1";
+
+/// Output contract for the wire wrap, captured in the cognition ledger.
+pub const INSIDER_SCORE_OUTPUT_CONTRACT_VERSION: &str = "insider-score-v1";
+
+/// Vetting-grade temperature: the wrap is a judgment of the board, not creative prose.
+pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
+
+/// Token cap for the `{read, score}` reply (mirrors the crown's budget; a 1-2 sentence read
+/// plus one integer).
+pub const INSIDER_SCORE_NUM_PREDICT: i32 = 512;
+
+/// The grammar Ollama's constrained decoding enforces on the wrap reply — cloned from
+/// `sigil::oracle_format_schema()`'s shape. Property + required order is `read` THEN `score`,
+/// so the model reads the wire first and lands the verdict second; range is 1-99 (the tarot
+/// deck's display scale), never the crown's 1-100.
+pub fn insider_score_format_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "read":  { "type": "string" },
+            "score": { "type": "integer", "minimum": 1, "maximum": 99 }
+        },
+        "required": ["read", "score"]
+    })
+}
+
+/// System prompt for the wire wrap (is1). The Insider's voice (t10 Characters Phase B) carried
+/// into a busyness verdict: volume-of-noise on THIS entity's wire, not good-move-vs-bad-move.
+/// The read is persisted for audit and memory, never served.
+pub const INSIDER_SCORE_SYSTEM_PROMPT: &str = r#"Task: you are The Insider — first to the phone, last to burn a source. Your pair verdicts are filed; now wrap the wire: one number for how BUSY this entity's transfer/trade wire is right now.
+
+Voice: urgent but guarded. The wrap judges the volume and credibility of movement, never whether the moves would be good. Heat is not evidence and one name-drop is not a story — but a wire full of vetted, advancing calls is exactly what this number names.
+
+FIRST, THE READ — one or two tight sentences, written to print: what the wire holds (the counterparties and stages that carry it) and whether it is quickening or settling. Only facts from the board shown; never invent a fee, stage, or source. The word "heat" and its numbers are internal; never recite them.
+
+THEN, THE SCORE — an integer 1 to 99, the busyness of the wire:
+- 1 = a dead wire; ~50 = steady, credible interest; 85+ = deadline-day chaos.
+- Weigh stage and credibility over rumor count: one deal at the door outweighs five idle mentions.
+- YOUR PRIOR READS is memory, not a reset: move deliberately from your previous score, and hold unless the board shown justifies a change.
+
+Reply with ONLY this JSON object, the read first, then the score — nothing else:
+{"read": "<the 1-2 sentence read>", "score": <integer 1-99>}"#;
+
+/// The validated wrap reply — read + 1-99 score, clamped at parse.
+#[derive(Clone, Debug)]
+pub struct InsiderScoreReply {
+    pub read: String,
+    pub score: i16,
+}
+
+/// parse_insider_score_reply mirrors `sigil::parse_crown_reply`: tolerate prose around the
+/// object, fold whitespace in the read, clamp the score to the tarot range. `None` = nothing
+/// salvageable (a genuine failure the caller retries via the `errored` tally).
+fn parse_insider_score_reply(raw: &str) -> Option<InsiderScoreReply> {
+    let trimmed = raw.trim();
+    let parsed: Option<serde_json::Value> = serde_json::from_str(trimmed).ok().or_else(|| {
+        let start = trimmed.find('{')?;
+        let end = trimmed.rfind('}')?;
+        serde_json::from_str(&trimmed[start..=end]).ok()
+    });
+    let v = parsed?;
+    let read = v.get("read")?.as_str()?.trim();
+    let read = read.split_whitespace().collect::<Vec<_>>().join(" ");
+    if read.is_empty() {
+        return None;
+    }
+    let s = v.get("score")?;
+    let n = if let Some(i) = s.as_i64() {
+        i
+    } else if let Some(f) = s.as_f64() {
+        if !f.is_finite() {
+            return None;
+        }
+        f.round() as i64
+    } else if let Some(txt) = s.as_str() {
+        txt.split_whitespace().next()?.parse::<i64>().ok()?
+    } else {
+        return None;
+    };
+    Some(InsiderScoreReply {
+        read,
+        score: n.clamp(1, 99) as i16,
+    })
+}
+
+/// InsiderScoreParser is the wrap's `Parser` plug-in. Like the crown it never returns the
+/// fail-closed `Ok(None)` — the wrap's only no-row path is the pre-model empty board; an
+/// unparseable reply is a genuine failure → `Err` → the team item's `errored` tally retries it.
+struct InsiderScoreParser;
+
+impl Parser<InsiderScoreReply> for InsiderScoreParser {
+    fn parse(&self, raw: &str) -> Result<Option<InsiderScoreReply>> {
+        match parse_insider_score_reply(raw) {
+            Some(r) => Ok(Some(r)),
+            None => bail!(
+                "insider score: could not parse read+score from response (raw={:?})",
+                crate::util::truncate(raw, 200)
+            ),
+        }
+    }
+}
+
+/// build_insider_score_input_components is the wrap's debounce pre-image: prompt_version + the
+/// sorted active board, one `counterparty:heat:direction:stage` line per rumor — the same
+/// component line narratives hashes for its heat facts. Content-keyed, NOT row-id-keyed: a
+/// re-vet that lands the same verdict must not re-score the wire. Summary/confidence stay out
+/// (derived commentary, same rule as the narratives pre-image).
+pub fn build_insider_score_input_components(heat: &[HeatItem]) -> String {
+    let mut lines: Vec<String> = heat
+        .iter()
+        .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
+        .collect();
+    lines.sort();
+    let mut out = format!(
+        "{{\"prompt_version\":{},\"board\":[",
+        go_json_string(INSIDER_SCORE_PROMPT_VERSION)
+    );
+    for (i, line) in lines.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push_str(&go_json_string(line));
+    }
+    out.push_str("]}");
+    out
+}
+
+/// How many of the entity's own recent wraps feed the prompt as continuity memory — mirrors
+/// sigil's `PRIOR_READ_LIMIT`.
+const PRIOR_INSIDER_READ_LIMIT: i64 = 4;
+
+/// The Insider's own score memory: latest score (persisted as `previous_score` — continuity
+/// audit) plus the rendered prompt block.
+struct PriorInsiderRead {
+    latest: i16,
+    card: String,
+}
+
+/// load_prior_insider_read renders the Insider's OWN recent wraps as a continuity memory card —
+/// the last read plus a short score trail with dates, mirroring `sigil::load_prior_read`
+/// (memory, never a reset; the echo-chamber rule). `None` for a first-ever wrap. Prompt-only,
+/// deliberately NOT part of the input_hash.
+async fn load_prior_insider_read(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+) -> Result<Option<PriorInsiderRead>> {
+    let rows: Vec<(i16, Option<String>, String)> = sqlx::query_as(
+        r#"
+        SELECT score, read, to_char(generated_at, 'Mon DD')
+        FROM insider_scores
+        WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+        ORDER BY generated_at DESC
+        LIMIT $4
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(PRIOR_INSIDER_READ_LIMIT)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load prior insider read {entity_type}/{entity_id}"))?;
+    if rows.is_empty() {
+        return Ok(None);
+    }
+    let mut card = String::new();
+    if let Some(read) = rows[0].1.as_deref().filter(|r| !r.trim().is_empty()) {
+        card.push_str(&format!("Last read ({}): {}\n", rows[0].2, read));
+    }
+    let trail: Vec<String> = rows.iter().map(|(s, _, d)| format!("{s} ({d})")).collect();
+    card.push_str(&format!("Recent scores (newest first): {}", trail.join(" · ")));
+    Ok(Some(PriorInsiderRead {
+        latest: rows[0].0,
+        card,
+    }))
+}
+
+/// build_insider_score_prompt assembles the wrap's user prompt: identity line, the prior-reads
+/// memory card (before the fresh board, sigil doctrine: read your prior before the new
+/// evidence), then the active board via the shared [`write_heat_lines`] renderer.
+pub fn build_insider_score_prompt(
+    entity_name: &str,
+    sport: &str,
+    entity_type: &str,
+    heat: &[HeatItem],
+    prior: Option<&str>,
+) -> String {
+    let mut b = format!("Entity: {entity_name} ({sport} {entity_type})\n");
+    if let Some(p) = prior.filter(|s| !s.trim().is_empty()) {
+        b.push_str(
+            "\nYOUR PRIOR READS (memory — your own past wire wraps; continuity, not new evidence):\n",
+        );
+        b.push_str(p);
+        if !p.ends_with('\n') {
+            b.push('\n');
+        }
+    }
+    b.push_str(&format!(
+        "\nTHE ACTIVE WIRE ({} live vetted rumor(s), latest per counterparty):\n",
+        heat.len()
+    ));
+    write_heat_lines(&mut b, heat);
+    b.push_str("\nReturn the JSON object now.");
+    b
+}
+
+/// load_wire_touched_players returns the players named on the team's recently SERVED rumors —
+/// a cheap SUPERSET of the true active board (none of load_transfer_heat's cooling-off /
+/// direction / latest-per-counterparty logic): the wrap's own per-entity board load is the
+/// precise gate, so an over-included player simply loads an empty board and skips. This is what
+/// keeps a rumored player whose co-mention count faded OUT of the candidate list wrapped while
+/// the rumor itself stays live (candidates alone would let their card show a live board with no
+/// score).
+async fn load_wire_touched_players(
+    pool: &PgPool,
+    team_id: i32,
+    sport: &str,
+) -> Result<Vec<(i32, String)>> {
+    sqlx::query_as(
+        r#"
+        SELECT DISTINCT tr.player_id, p.name
+        FROM transfer_rumors tr
+        JOIN players p ON p.id = tr.player_id AND p.sport = tr.sport
+        WHERE tr.team_id = $1 AND tr.sport = $2
+          AND tr.is_rumor IS TRUE AND tr.heat > 0
+          AND tr.generated_at > NOW() - INTERVAL '7 days'
+        "#,
+    )
+    .bind(team_id)
+    .bind(sport)
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load wire-touched players team {team_id}"))
+}
+
+/// score_insider_entity runs the wire wrap for ONE entity: load the active board, skip when the
+/// wire is dead (no call, no row — the Veil comes from the empty rumor board, `insider_scores`
+/// deliberately has no marker rows) or unchanged (the board-hash debounce), else one
+/// `Role::TransferLogic` call → one `insider_scores` row + one cognition-ledger entry.
+async fn score_insider_entity(
+    hx: &Harness,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+) -> Result<()> {
+    let heat = load_transfer_heat(&hx.pool, entity_type, entity_id, sport).await?;
+    if heat.is_empty() {
+        return Ok(());
+    }
+    let input_hash = hash_components(&build_insider_score_input_components(&heat));
+    let key = EntityKey {
+        entity_type: entity_type.to_string(),
+        entity_id,
+        sport: sport.to_string(),
+        season: None,
+    };
+    if hx
+        .debounce_unchanged("insider_scores", &key, &input_hash)
+        .await?
+    {
+        debug!(
+            entity_type,
+            entity_id, "transfers: insider score debounce-skip, board unchanged"
+        );
+        return Ok(());
+    }
+    // Memory failure degrades to a first-wrap prompt (enrichment, never a blocker) — and like
+    // every memory card it stays OUT of the input_hash.
+    let prior = match load_prior_insider_read(&hx.pool, entity_type, entity_id, sport).await {
+        Ok(p) => p,
+        Err(e) => {
+            warn!(
+                entity_type,
+                entity_id,
+                error = %e,
+                "transfers: prior insider read load failed (continuing without)"
+            );
+            None
+        }
+    };
+    let prompt = build_insider_score_prompt(
+        entity_name,
+        sport,
+        entity_type,
+        &heat,
+        prior.as_ref().map(|p| p.card.as_str()),
+    );
+    let opts = GenerateOptions {
+        system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),
+        temperature: Some(INSIDER_SCORE_TEMPERATURE),
+        num_predict: INSIDER_SCORE_NUM_PREDICT,
+        num_ctx: 0,
+        json_mode: false,
+        format_schema: Some(insider_score_format_schema()),
+    };
+    let extracted = hx
+        .extract(Role::TransferLogic, &prompt, &opts, &InsiderScoreParser)
+        .await?;
+    let reply = extracted.value.ok_or_else(|| {
+        anyhow!("insider score: parser returned None (InsiderScoreParser signals failure via Err)")
+    })?;
+    let previous_score = prior.as_ref().map(|p| p.latest);
+
+    let row = sqlx::query(
+        r#"
+        INSERT INTO insider_scores (
+            sport, entity_type, entity_id, score, previous_score, read,
+            model_version, prompt_version, input_hash, generated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+        RETURNING id
+        "#,
+    )
+    .bind(sport)
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(reply.score)
+    .bind(previous_score)
+    .bind(reply.read.as_str())
+    .bind(extracted.model.as_str())
+    .bind(INSIDER_SCORE_PROMPT_VERSION)
+    .bind(input_hash.as_str())
+    .fetch_one(&hx.pool)
+    .await
+    .context("persist insider score")?;
+    let row_id: i64 = row.get("id");
+
+    insert_cognition_ledger_best_effort(
+        &hx.pool,
+        CognitionLedgerEntry {
+            stage: "transfers".to_string(),
+            lens: "insider_score".to_string(),
+            role: Role::TransferLogic.as_str().to_string(),
+            entity_type: entity_type.to_string(),
+            entity_id,
+            sport: sport.to_string(),
+            pair_entity_type: None,
+            pair_entity_id: None,
+            trigger_type: "periodic".to_string(),
+            trigger_payload: serde_json::Value::Null,
+            product_table: "insider_scores".to_string(),
+            product_row_ids: vec![row_id],
+            model_version: extracted.model.clone(),
+            prompt_version: INSIDER_SCORE_PROMPT_VERSION.to_string(),
+            output_contract_version: INSIDER_SCORE_OUTPUT_CONTRACT_VERSION.to_string(),
+            input_ids: Vec::new(),
+            input_hash: Some(input_hash),
+            request_body: Some(extracted.request_body),
+            built_prompt: Some(extracted.built_prompt),
+            included_evidence: serde_json::json!({
+                "active_rumors": heat.len(),
+                "board": heat
+                    .iter()
+                    .map(|t| format!("{}:{}:{}:{}", t.counterparty, t.heat, t.direction, t.stage))
+                    .collect::<Vec<_>>(),
+                "score": reply.score,
+                "previous_score": previous_score,
+            }),
+            excluded_evidence: serde_json::json!([]),
+            context_budget: serde_json::json!({
+                "num_predict": INSIDER_SCORE_NUM_PREDICT,
+                "eval_count": extracted.eval_count,
+                "wall_ms": extracted.wall_ms,
+            }),
+            parser_outcome: "parsed".to_string(),
+        },
+    )
+    .await;
+    Ok(())
+}
+
 /// TransferHandler drains the team-keyed `transfers` stage: load the co-mention candidates and vet
 /// each pair, persisting to transfer_rumors. Terminal for the transfers stage itself, but a served
 /// rumor now re-triggers the downstream `sigil` convergence (Phase 5.1). The vetted-link trigger
@@ -2069,6 +2475,8 @@ async fn enqueue_sigil_for_transfer(
 /// failure (UNKNOWN) or an infrastructure/persist error fails the team's item so the queue's backoff
 /// re-runs it — and on that re-run the F3 fingerprint gate skips every pair whose material inputs
 /// are unchanged since its last RESOLVED vetting, so only the failed pair pays for the retry.
+/// After the pair loop the Insider wraps the wire (Phase 4): one debounced card score per touched
+/// entity with a live board.
 pub struct TransferHandler;
 
 impl TransferHandler {
@@ -2298,6 +2706,53 @@ impl StageHandler for TransferHandler {
                 .await?;
         }
 
+        // The wire wrap (tarot deck, Phase 4): after the pair verdicts are filed, the Insider
+        // scores the wire of every entity this drain touches — the team, each candidate player,
+        // AND each player named on the team's served board (a rumored player can outlive the
+        // co-mention candidate window; their wire stays live and must stay scored) — inline,
+        // the `enqueue_sigil_for_transfer` dual-entity pattern without a queue stage. A dead or
+        // unchanged board pays nothing (skip inside); a failed wrap rides the existing
+        // `errored` retry tally — the persisted rumors stand, the team item retries, every
+        // unchanged pair debounce-skips, so only the wrap pays for the retry.
+        let mut wrap_targets: Vec<(&str, i32, String)> =
+            vec![("team", team_id, team_name.clone())];
+        let mut seen_players: std::collections::HashSet<i32> = std::collections::HashSet::new();
+        for c in &candidates {
+            if seen_players.insert(c.player_id) {
+                wrap_targets.push(("player", c.player_id, c.player_name.clone()));
+            }
+        }
+        match load_wire_touched_players(&hx.pool, team_id, &sport).await {
+            Ok(rumored) => {
+                for (player_id, name) in rumored {
+                    if seen_players.insert(player_id) {
+                        wrap_targets.push(("player", player_id, name));
+                    }
+                }
+            }
+            Err(e) => {
+                errored += 1;
+                warn!(
+                    team = team_id,
+                    error = %e,
+                    "transfers: wire-touched player load failed"
+                );
+            }
+        }
+        for (entity_type, entity_id, entity_name) in &wrap_targets {
+            if let Err(e) =
+                score_insider_entity(hx, entity_type, *entity_id, entity_name, &sport).await
+            {
+                errored += 1;
+                warn!(
+                    entity_type,
+                    entity_id,
+                    error = %e,
+                    "transfers: insider score failed"
+                );
+            }
+        }
+
         if errored > 0 {
             bail!(
                 "transfers: {errored} pair infrastructure/persist error(s) — retrying team {}",
@@ -2317,6 +2772,109 @@ impl StageHandler for TransferHandler {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- The wire wrap (Phase 4): grammar, parse, debounce pre-image, prompt ---------------------
+
+    fn heat_item(cp: &str, heat: i32, direction: &str, stage: &str, summary: &str) -> HeatItem {
+        HeatItem {
+            counterparty: cp.to_string(),
+            heat,
+            stage: stage.to_string(),
+            direction: direction.to_string(),
+            summary: summary.to_string(),
+            confidence: None,
+        }
+    }
+
+    #[test]
+    fn insider_score_schema_reads_first_lands_1_to_99() {
+        let schema = insider_score_format_schema();
+        assert_eq!(schema["required"], serde_json::json!(["read", "score"]));
+        assert_eq!(schema["properties"]["score"]["minimum"], serde_json::json!(1));
+        assert_eq!(schema["properties"]["score"]["maximum"], serde_json::json!(99));
+    }
+
+    #[test]
+    fn insider_score_reply_parses_and_clamps() {
+        let ok = parse_insider_score_reply(
+            r#"{"read": "The wire holds one advancing call.", "score": 62}"#,
+        )
+        .unwrap();
+        assert_eq!(ok.read, "The wire holds one advancing call.");
+        assert_eq!(ok.score, 62);
+        // Prose around the object is tolerated (the crown's salvage rule); scores clamp to 1-99.
+        let wrapped =
+            parse_insider_score_reply(r#"Here: {"read": "Quiet.", "score": 250} done"#).unwrap();
+        assert_eq!(wrapped.score, 99);
+        assert_eq!(
+            parse_insider_score_reply(r#"{"read": "x", "score": -5}"#)
+                .unwrap()
+                .score,
+            1
+        );
+        // An empty read or missing score is nothing salvageable → retry, never a served row.
+        assert!(parse_insider_score_reply(r#"{"read": "  ", "score": 50}"#).is_none());
+        assert!(parse_insider_score_reply(r#"{"read": "x"}"#).is_none());
+        assert!(InsiderScoreParser.parse("not a reply").is_err());
+    }
+
+    #[test]
+    fn insider_score_input_components_content_keyed_and_order_stable() {
+        // Same board in a different order ⇒ identical pre-image; summary/confidence never enter
+        // it (a re-worded summary alone must not re-score the wire).
+        let one = build_insider_score_input_components(&[
+            heat_item("Lakers", 80, "incoming", "advanced_talks", "worded one way"),
+            heat_item("Heat", 40, "outgoing", "speculation", "x"),
+        ]);
+        let two = build_insider_score_input_components(&[
+            heat_item("Heat", 40, "outgoing", "speculation", "y"),
+            heat_item("Lakers", 80, "incoming", "advanced_talks", "worded another way"),
+        ]);
+        assert_eq!(one, two);
+        assert_eq!(
+            one,
+            format!(
+                r#"{{"prompt_version":"{INSIDER_SCORE_PROMPT_VERSION}","board":["Heat:40:outgoing:speculation","Lakers:80:incoming:advanced_talks"]}}"#
+            )
+        );
+        // A heat/stage move flips the hash pre-image (the re-score trigger).
+        let moved = build_insider_score_input_components(&[
+            heat_item("Lakers", 85, "incoming", "here_we_go", ""),
+            heat_item("Heat", 40, "outgoing", "speculation", ""),
+        ]);
+        assert_ne!(one, moved);
+    }
+
+    #[test]
+    fn insider_score_prompt_memory_before_board() {
+        let board = vec![heat_item(
+            "Lakers",
+            80,
+            "incoming",
+            "advanced_talks",
+            "Lakers in advanced talks per ESPN",
+        )];
+        let p = build_insider_score_prompt(
+            "Some Team",
+            "NBA",
+            "team",
+            &board,
+            Some("Last read (Jul 18): The wire is warm.\nRecent scores (newest first): 62 (Jul 18) · 55 (Jul 12)"),
+        );
+        assert_eq!(
+            p,
+            "Entity: Some Team (NBA team)\n\
+\nYOUR PRIOR READS (memory — your own past wire wraps; continuity, not new evidence):\n\
+Last read (Jul 18): The wire is warm.\n\
+Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
+\nTHE ACTIVE WIRE (1 live vetted rumor(s), latest per counterparty):\n\
+- Lakers — heat 80, incoming, advanced_talks — \"Lakers in advanced talks per ESPN\"\n\
+\nReturn the JSON object now."
+        );
+        // First-ever wrap: no memory section at all.
+        let first = build_insider_score_prompt("Some Team", "NBA", "team", &board, None);
+        assert!(!first.contains("YOUR PRIOR READS"));
+    }
 
     fn cand(name: &str, nat: &str, club: &str, pos: &str) -> TransferCandidate {
         TransferCandidate {
@@ -2363,7 +2921,14 @@ Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credib
         let c = cand("John Doe", "", "", "");
         let evidence = TransferEvidence::from_news(&[], 0, "", 0.0);
         let p = build_transfer_prompt(
-            "Chelsea", &c, "FOOTBALL", "former", &[], &evidence, None, None,
+            "Chelsea",
+            &c,
+            "FOOTBALL",
+            "former",
+            &[],
+            &evidence,
+            None,
+            None,
         );
         assert_eq!(
             p,
@@ -2456,10 +3021,20 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         let sr = p.find("Source track record").expect("reliability card");
         let mem = p.find("Relational memory").expect("memory card");
         let hdl = p.find("News headlines").expect("headlines");
-        assert!(ev < sr && sr < mem && mem < hdl, "card order: {ev} {sr} {mem} {hdl}");
+        assert!(
+            ev < sr && sr < mem && mem < hdl,
+            "card order: {ev} {sr} {mem} {hdl}"
+        );
         // Blank reliability ⇒ no section (mirrors the memory-card guard).
         let none = build_transfer_prompt(
-            "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, Some("  "), None,
+            "Arsenal",
+            &c,
+            "FOOTBALL",
+            "current",
+            &news,
+            &evidence,
+            Some("  "),
+            None,
         );
         assert!(!none.contains("Source track record"));
     }
@@ -2545,7 +3120,22 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
             description: "A routine match report.".to_string(),
             source: "X".to_string(),
         }];
+        let multilingual = vec![
+            NewsItem {
+                id: 3,
+                title: "Le milieu fait son retour à Paris".to_string(),
+                description: String::new(),
+                source: "X".to_string(),
+            },
+            NewsItem {
+                id: 4,
+                title: "Der Stürmer steht vor der Rückkehr zu United".to_string(),
+                description: String::new(),
+                source: "Y".to_string(),
+            },
+        ];
         assert!(has_return_signal(&yes));
+        assert!(has_return_signal(&multilingual));
         assert!(!has_return_signal(&no));
     }
 

@@ -3,6 +3,7 @@ name = "scoracle-cognition"
 version = "0.0.0"
 edition = "2021"
 publish = false
+autobins = false
 description = "Scoracle Cognition Harness: durable pipeline_work queue consumer + Ollama model router — the Rust LLM-derivation (cognition) layer. Capability library + per-stage handlers."
 
 [lib]
@@ -12,12 +13,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "scoracle-cognition"
 path = "src/main.rs"
-
-# Offline vibe parity harness (Phase 1). Writes ONLY vibe_scores_shadow; never claims
-# the live pipeline_work queue or writes vibe_scores.
-[[bin]]
-name = "parity"
-path = "src/bin/parity.rs"
 
 # Offline A/B model eval harness (L2). Scores the role's incumbent vs candidate against
 # human labels; read-only on the pipeline. Never auto-promotes — a human edits COGNITION_ROUTE_*.
@@ -50,8 +45,9 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "tim
 # (e.g. add "tls-rustls" if you ever connect over TLS).
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres"] }
 
-# Ollama HTTP. http://localhost only, so no TLS backend pulled in.
-reqwest = { version = "0.12", default-features = false, features = ["json"] }
+# Ollama + article fetch HTTP. Article Reader resolves publisher HTTPS URLs; native-tls is already
+# present in the lockfile, so this keeps the fetcher leaner than pulling an extra TLS stack.
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

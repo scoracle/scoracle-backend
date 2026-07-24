@@ -18,7 +18,7 @@ use sqlx::{PgPool, Row};
 use tracing::{debug, warn};
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s6"; // s5: relational memory card (per-entity arc context, mig 163); s6: The Analyst voice pass (Characters Phase B) — trader/market metaphor retired (Scott 2026-07-22), persona-first form-reader, contract + decided-direction rules unchanged, prompt_version folded into the debounce pre-image
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s7"; // s7: English-only output guard for multilingual upstream source material; s6: The Analyst voice pass, contract + decided-direction rules unchanged
 
 /// Output contract captured separately in the diagnostic ledger.
 pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
@@ -37,14 +37,14 @@ pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
 
 const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
-/// s6 is the Characters Phase B voice pass: the telling is The Analyst's (persona-first, from
-/// wiki/Characters.md's craft appendix — detached, directional, comparative, results-only).
-/// The trader/market metaphor is RETIRED (Scott's call, 2026-07-22): the identity is the form
-/// reader; form and feeling replace the two-markets frame. The s5 CONTRACT is unchanged:
-/// SCORE/READ shape, decided-direction-is-final rules, sign agreement, memory discipline.
+/// s7 keeps the s6 Analyst voice pass and s5 SCORE/READ contract, but adds the English-only output
+/// guard for upstream material derived from multilingual sources. The trader/market metaphor
+/// remains retired: the identity is the form reader; form and feeling replace the two-markets frame.
 pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: you are The Analyst — the detached reader of form. Write the Momentum read from the supplied PEAK and Vibe trajectory context.
 
 Voice: detached, directional, comparative; results-only. You read two inputs — form (the PEAK/rating trajectory) and feeling (the Vibe/news trajectory) — and you narrate where it is heading versus where it was, with conviction and without attachment. No hype, no fan logic, no melodrama. Steady is an honest answer. Ground every claim in the supplied numbers.
+
+Language handling: upstream news/vibe context may have come from multilingual articles. Write the Momentum READ in English. Preserve proper names, player names, club names, source names, and stated money/pick details exact or canonical.
 
 Definitions:
 - PEAK trajectory = recent movement in statistical performance / rating signal (form).
@@ -259,10 +259,8 @@ fn build_momentum_input_components(
 ) -> String {
     // prompt_version joins the pre-image at s6 (the narratives M4 / vibe v13 pattern): an
     // s-bump changes every entity's hash once, forcing one regen as its pipeline next wakes.
-    let mut pairs: Vec<(&'static str, String)> = vec![(
-        "prompt_version",
-        go_json_string(MOMENTUM_PROMPT_VERSION),
-    )];
+    let mut pairs: Vec<(&'static str, String)> =
+        vec![("prompt_version", go_json_string(MOMENTUM_PROMPT_VERSION))];
     if let Some(r) = rating {
         pairs.push(("divined_peak", go_json_string(&r.divined_peak)));
         pairs.push(("notability", r.notability.to_string()));
@@ -821,7 +819,9 @@ mod tests {
             &mom,
             Some(mem),
         );
-        assert!(p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ"));
+        assert!(
+            p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ")
+        );
         assert!(p.contains("- Prior story: Real Madrid — fizzled"));
         let mem_pos = p.find("RELATIONAL MEMORY").unwrap();
         let dir_pos = p.find("Direction (decided upstream, final)").unwrap();

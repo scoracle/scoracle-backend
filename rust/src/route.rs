@@ -45,12 +45,15 @@ use tokio::sync::Semaphore;
 /// `OracleLogic` backs the crown (the Sigil): the ONE call that reads the five pillar cards and
 /// emits the reading + score (the panel's `SynthesisLogic` was folded in and retired, 2026-07-21).
 /// Identity split from day one (2026-07-12): the persona voice must never silently flip with
-/// another rail's route change; un-configured it resolves to the default model.
+/// another rail's route change; un-configured it resolves to the default model. `ArticleReader`
+/// is the post-scrub, pre-Journalist compressor: it reads fetched publisher bodies and emits compact
+/// evidence cards for Narratives, without carrying The Journalist's public voice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
     MomentumLogic,
     NarrativeLogic,
+    ArticleReader,
     TransferLogic,
     VibeLogic,
     OracleLogic,
@@ -62,11 +65,12 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 9] {
+    pub fn all() -> [Role; 10] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::NarrativeLogic,
+            Role::ArticleReader,
             Role::TransferLogic,
             Role::VibeLogic,
             Role::OracleLogic,
@@ -83,6 +87,7 @@ impl Role {
             Role::StatsLogic => "stats-logic",
             Role::MomentumLogic => "momentum-logic",
             Role::NarrativeLogic => "narrative-logic",
+            Role::ArticleReader => "article-reader",
             Role::TransferLogic => "transfer-logic",
             Role::VibeLogic => "vibe-logic",
             Role::OracleLogic => "oracle-logic",
@@ -100,6 +105,7 @@ impl Role {
             Role::StatsLogic => "STATS_LOGIC",
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
+            Role::ArticleReader => "ARTICLE_READER",
             Role::TransferLogic => "TRANSFER_LOGIC",
             Role::VibeLogic => "VIBE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",
@@ -128,7 +134,7 @@ pub trait Inference: Send + Sync {
     fn model(&self) -> &str;
 
     /// request_body returns the exact `/api/generate` body `generate` would POST for
-    /// `(prompt, opts)` — recorded for the parity diff.
+    /// `(prompt, opts)`.
     fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value;
 }
 
@@ -375,8 +381,10 @@ mod tests {
         // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
         assert_eq!(Role::TransferLogic.as_str(), "transfer-logic");
         assert_eq!(Role::VibeLogic.as_str(), "vibe-logic");
+        assert_eq!(Role::ArticleReader.as_str(), "article-reader");
         assert_eq!(Role::TransferLogic.env_suffix(), "TRANSFER_LOGIC");
         assert_eq!(Role::VibeLogic.env_suffix(), "VIBE_LOGIC");
+        assert_eq!(Role::ArticleReader.env_suffix(), "ARTICLE_READER");
     }
 
     #[test]

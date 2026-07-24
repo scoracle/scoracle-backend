@@ -5,9 +5,8 @@
 #
 # CADENCE IS THE TRAJECTORY BASELINE: each link's heating_up/cooling_off classification
 # is its strength delta vs the PREVIOUS refresh (±10 buckets, the shared vocabulary).
-# Daily — after the 00:00 ingest sweep has landed and the cognition daemon has had time
-# to scrub it — makes trajectory mean day-over-day movement. Running it much more often
-# flattens every delta into "stable"; don't.
+# The live cron runs this 45 minutes after each six-hour RSS ingest, after the
+# cognition daemon has had time to scrub the sweep.
 
 set -euo pipefail
 

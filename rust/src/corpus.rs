@@ -168,9 +168,8 @@ pub fn write_heat_lines(b: &mut String, heat: &[HeatItem]) {
     }
 }
 
-/// lookup_entity_name resolves the display name for the prompt. Mirrors
-/// `corpus.LookupEntityName` + drainVibe's `nameOf` (an empty/missing name is an error,
-/// so the work item fails and retries rather than generating against a blank prompt).
+/// lookup_entity_name resolves the display name for the prompt. An empty/missing name is an
+/// error, so the work item fails and retries rather than generating against a blank prompt.
 pub async fn lookup_entity_name(
     pool: &PgPool,
     entity_type: &str,

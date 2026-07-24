@@ -22,20 +22,22 @@ import (
 )
 
 // Stage names the derivation step a work item belongs to. Most stages are per-entity
-// (player/team); StageScrub is the exception — it is ARTICLE-keyed (entity_type='article',
-// entity_id=news_articles.id), the news ID-gate that on writing vetted fires the mig-103
-// trigger enqueuing the per-entity derive stages. Rust drains it; Go only
-// enqueues it from ingest/listener/maintenance paths.
+// (player/team); StageScrub and StageArticleRead are ARTICLE-keyed (entity_type='article',
+// entity_id=news_articles.id), and StageFixtureBoxscore is FIXTURE-keyed
+// (entity_type='fixture', entity_id=fixtures.id). Rust drains them; Go only
+// enqueues rows from ingest/listener/maintenance paths.
 type Stage string
 
 const (
-	StageScrub      Stage = "scrub"
-	StagePeak       Stage = "peak"
-	StageTransfers  Stage = "transfers"
-	StageNarratives Stage = "narratives"
-	StageVibe       Stage = "vibe"
-	StageMomentum   Stage = "momentum"
-	StageSigil      Stage = "sigil"
+	StageScrub           Stage = "scrub"
+	StageArticleRead     Stage = "article_read"
+	StageFixtureBoxscore Stage = "fixture_boxscore"
+	StagePeak            Stage = "peak"
+	StageTransfers       Stage = "transfers"
+	StageNarratives      Stage = "narratives"
+	StageVibe            Stage = "vibe"
+	StageMomentum        Stage = "momentum"
+	StageSigil           Stage = "sigil"
 )
 
 // Querier is the subset of pgx shared by *pgxpool.Pool and pgx.Tx, so Enqueue
@@ -49,7 +51,7 @@ type Querier interface {
 // Item identifies one unit of derivation work for an entity.
 type Item struct {
 	Stage        Stage
-	EntityType   string // "player" | "team"
+	EntityType   string // "player" | "team" | "article" | "fixture"
 	EntityID     int
 	Sport        string
 	InputVersion string // hash/version of the stage inputs; "" when unused

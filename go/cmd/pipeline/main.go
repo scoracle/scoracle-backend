@@ -30,7 +30,7 @@ import (
 func main() {
 	mode := flag.String("mode", "ingest", "compatibility flag; only ingest is supported")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
-	rssLimit := flag.Int("rss-limit", 10, "[sweep] articles per team RSS call")
+	rssLimit := flag.Int("rss-limit", 0, "[sweep] max articles per team RSS call; 0 = no truncation")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
 	flag.Parse()
 

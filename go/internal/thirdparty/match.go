@@ -14,19 +14,20 @@ func SportContextTerms(sport string) string {
 // EntityMatchInput describes the entity we're matching against text. All fields
 // besides Name are optional; richer inputs produce stricter, more accurate matches.
 type EntityMatchInput struct {
-	Name      string   // canonical display name (e.g., "LeBron James", "FC Bayern Munich")
-	FirstName string   // used for "first + last" multi-part matching (players)
-	LastName  string   // used for "first + last" multi-part matching (players)
-	Team      string   // optional team context — enables "name part + team" match for players
-	Aliases   []string // alternate name forms from search_aliases
-	Sport     string   // used to resolve sport-context terms for short aliases
+	EntityType string   // optional: 'player' | 'team'; enables team-specific alias handling
+	Name       string   // canonical display name (e.g., "LeBron James", "FC Bayern Munich")
+	FirstName  string   // used for "first + last" multi-part matching (players)
+	LastName   string   // used for "first + last" multi-part matching (players)
+	Team       string   // optional team context — enables "name part + team" match for players
+	Aliases    []string // alternate name forms from search_aliases
+	Sport      string   // used to resolve sport-context terms for short aliases
 }
 
 // MatchesEntity reports whether the supplied text mentions the given entity.
 // The logic is shared by news article filtering and downstream corpus stages,
 // so behavior stays consistent across the news rail.
 func MatchesEntity(text string, in EntityMatchInput) bool {
-	return nameInText(
+	if nameInText(
 		in.Name,
 		text,
 		in.FirstName,
@@ -34,7 +35,10 @@ func MatchesEntity(text string, in EntityMatchInput) bool {
 		in.Team,
 		in.Aliases,
 		SportContextTerms(in.Sport),
-	)
+	) {
+		return true
+	}
+	return isTeamEntity(in.EntityType) && trustedShortTeamAliasPos(text, in.Aliases) >= 0
 }
 
 // nameInText is the concrete matcher. It mirrors the previous news-only logic.
@@ -115,10 +119,16 @@ func wordBoundaryMatch(word, text string) bool {
 // — e.g. "Everton want Chelsea's Delap and Spurs' Gallagher" should NOT link
 // Chelsea↔Gallagher (66 chars apart) the way bare co-occurrence does.
 func FirstMatchPos(text string, in EntityMatchInput) int {
-	return firstMatchPos(
+	pos := firstMatchPos(
 		in.Name, text, in.FirstName, in.LastName, in.Team, in.Aliases,
 		SportContextTerms(in.Sport),
 	)
+	if isTeamEntity(in.EntityType) {
+		if aliasPos := trustedShortTeamAliasPos(text, in.Aliases); aliasPos >= 0 {
+			return earliest(pos, aliasPos)
+		}
+	}
+	return pos
 }
 
 // firstMatchPos mirrors nameInText's acceptance logic but returns the earliest
@@ -214,4 +224,30 @@ func wordBoundaryIndex(word, text string) int {
 		return -1
 	}
 	return loc[0]
+}
+
+func trustedShortTeamAliasPos(text string, aliases []string) int {
+	textLower := strings.ToLower(strings.TrimSpace(text))
+	if textLower == "" {
+		return -1
+	}
+
+	best := -1
+	consider := func(idx int) {
+		if idx >= 0 && (best == -1 || idx < best) {
+			best = idx
+		}
+	}
+	for _, alias := range aliases {
+		alias = strings.TrimSpace(alias)
+		if alias == "" || !trustedShortTeamAlias(alias) {
+			continue
+		}
+		consider(wordBoundaryIndex(strings.ToLower(alias), textLower))
+	}
+	return best
+}
+
+func isTeamEntity(entityType string) bool {
+	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }

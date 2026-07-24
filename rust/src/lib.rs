@@ -4,16 +4,12 @@
 //! original clean-the-data framing.) A durable `pipeline_work`
 //! queue consumer plus an Ollama client, wired to a LISTEN/NOTIFY drain loop, with
 //! per-stage derivation handlers. This library crate holds the reusable modules; the
-//! long-running service binary is `src/main.rs`, the offline temp-0 parity harness is
-//! `src/bin/parity.rs`, and the offline A/B model eval harness is `src/bin/eval.rs` — all
-//! built on top of it.
+//! long-running service binary is `src/main.rs`, and the offline A/B model eval harness is
+//! `src/bin/eval.rs`; both are built on top of this library crate.
 //!
-//! Phase 0 shipped the foundation (queue + Ollama clients, worker loop); Phase 1 added
-//! the first handler — [`vibe`] — proven byte-for-byte against Go at temperature 0. The
-//! direction is **library-first**: the capability library now exists — [`route`] (the model
-//! seam) and [`harness`] (the `Harness` context + the `extract` / persist / debounce / and
-//! the shaped Resolve · Embed · Normalize primitives) — and `vibe` is re-expressed as its
-//! first composition (`route + extract + persist`). Canonical doc:
+//! The layer is **library-first**: [`route`] owns model routing, [`harness`] owns the
+//! `Harness` context plus shared `extract` / persist / debounce primitives, and the stage
+//! modules compose those capabilities over SQL-backed inputs. Canonical doc:
 //! `scoracle-wiki/wiki/Architecture/Rust Cognition Harness.md`.
 //!
 //! The product model is three rails with six accountable lenses:
@@ -31,6 +27,8 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
+pub mod article_read;
+pub mod boxscore_fetch;
 pub mod bucket;
 pub mod buildinfo;
 pub mod config;

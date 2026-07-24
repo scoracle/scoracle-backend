@@ -99,7 +99,14 @@ pub async fn gate(hx: &Harness, article: ArticleNovelty<'_>) -> Result<Option<i6
     }
 
     // Canonical: persist its embedding so the next arrival compares against it without re-embedding.
-    persist_embedding(hx, article.article_id, article.context, x_vec, &embedder.identity).await?;
+    persist_embedding(
+        hx,
+        article.article_id,
+        article.context,
+        x_vec,
+        &embedder.identity,
+    )
+    .await?;
     Ok(None)
 }
 
@@ -223,8 +230,8 @@ fn pick_repost(
         if cosine < cfg.novelty_cosine {
             continue;
         }
-        let is_repost =
-            source_eq(x_source, &c.source) || token_jaccard(x_text, &c.text) >= cfg.verbatim_jaccard;
+        let is_repost = source_eq(x_source, &c.source)
+            || token_jaccard(x_text, &c.text) >= cfg.verbatim_jaccard;
         if is_repost && best.is_none_or(|(_, bc)| cosine > bc) {
             best = Some((c.article_id, cosine));
         }
@@ -414,7 +421,13 @@ mod tests {
             vec![1.0, 0.0], // cosine 1.0 with x
         )];
         assert_eq!(
-            pick_repost(&x, "BBC Sport", "Manchester City agree terms to sign the wide man", &cands, &cfg()),
+            pick_repost(
+                &x,
+                "BBC Sport",
+                "Manchester City agree terms to sign the wide man",
+                &cands,
+                &cfg()
+            ),
             None
         );
     }
@@ -424,9 +437,20 @@ mod tests {
         // Same outlet, near-dup embedding → the 24h thread-repost noise, suppressed even though the
         // wording differs (low Jaccard).
         let x = vec![1.0_f32, 0.0];
-        let cands = vec![cand(20, "BBC Sport", "Totally different words here entirely", vec![0.99, 0.14])];
+        let cands = vec![cand(
+            20,
+            "BBC Sport",
+            "Totally different words here entirely",
+            vec![0.99, 0.14],
+        )];
         assert_eq!(
-            pick_repost(&x, "bbc sport", "The club confirm the signing officially", &cands, &cfg()),
+            pick_repost(
+                &x,
+                "bbc sport",
+                "The club confirm the signing officially",
+                &cands,
+                &cfg()
+            ),
             Some(20)
         );
     }
@@ -456,7 +480,10 @@ mod tests {
         let x = vec![1.0_f32, 0.0];
         let mut c = cand(50, "BBC Sport", "current text", vec![1.0, 0.0]);
         c.fingerprint = text_fingerprint("older text it was embedded from") as i64;
-        assert_eq!(pick_repost(&x, "BBC Sport", "current text", &[c], &cfg()), None);
+        assert_eq!(
+            pick_repost(&x, "BBC Sport", "current text", &[c], &cfg()),
+            None
+        );
     }
 
     #[test]
@@ -465,7 +492,10 @@ mod tests {
         // what `gate` sees for the first-ever article about an entity, or after the lookback window
         // clears — corroboration/heat can only ever ACCUMULATE from a canonical first-seen.)
         let x = vec![1.0_f32, 0.0];
-        assert_eq!(pick_repost(&x, "BBC Sport", "any text at all", &[], &cfg()), None);
+        assert_eq!(
+            pick_repost(&x, "BBC Sport", "any text at all", &[], &cfg()),
+            None
+        );
     }
 
     #[test]
@@ -478,7 +508,7 @@ mod tests {
         let base = "one two three four five six seven eight nine ten \
                     eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty";
         let x_text = format!("{base} alpha beta gamma"); // 23 distinct tokens (superset of base's 20)
-        // Candidate carries only the 20 shared tokens → jaccard 20/23 ≈ 0.87 < 0.90 → corroboration.
+                                                         // Candidate carries only the 20 shared tokens → jaccard 20/23 ≈ 0.87 < 0.90 → corroboration.
         let corroborating = vec![cand(70, "Associated Press", base, vec![1.0, 0.0])];
         assert_eq!(
             pick_repost(&x, "Reuters", &x_text, &corroborating, &cfg()),
@@ -500,6 +530,9 @@ mod tests {
             cand(60, "Wire A", verbatim, vec![0.90, 0.44]), // lower cosine
             cand(61, "Wire B", verbatim, vec![1.0, 0.0]),   // higher cosine
         ];
-        assert_eq!(pick_repost(&x, "Original", verbatim, &cands, &cfg()), Some(61));
+        assert_eq!(
+            pick_repost(&x, "Original", verbatim, &cands, &cfg()),
+            Some(61)
+        );
     }
 }

@@ -1,0 +1,74 @@
+{
+  "stats": {
+    "data": [
+      {
+        "id": 10,
+        "passing_yards": 255,
+        "passing_touchdowns": 2,
+        "rushing_yards": 12,
+        "player": {
+          "id": 1001,
+          "first_name": "Home",
+          "last_name": "QB",
+          "position": "Quarterback",
+          "position_abbreviation": "QB"
+        },
+        "team": {
+          "id": 8,
+          "abbreviation": "BUF",
+          "full_name": "Buffalo Bills"
+        },
+        "game": {
+          "id": 12345,
+          "status": "Final",
+          "home_team": {"id": 8},
+          "visitor_team": {"id": 14},
+          "home_team_score": 28,
+          "visitor_team_score": 21
+        }
+      },
+      {
+        "id": 11,
+        "receiving_yards": 104,
+        "receiving_touchdowns": 1,
+        "receptions": 7,
+        "player": {
+          "id": 2001,
+          "first_name": "Away",
+          "last_name": "WR",
+          "position": "Wide Receiver",
+          "position_abbreviation": "WR"
+        },
+        "team": {
+          "id": 14,
+          "abbreviation": "KC",
+          "full_name": "Kansas City Chiefs"
+        },
+        "game": {
+          "id": 12345,
+          "status": "Final",
+          "home_team": {"id": 8},
+          "visitor_team": {"id": 14},
+          "home_team_score": 28,
+          "visitor_team_score": 21
+        }
+      }
+    ]
+  },
+  "team_stats": {
+    "data": [
+      {
+        "team": {"id": 8},
+        "first_downs": 22,
+        "total_yards": 372,
+        "possession_time_seconds": 1850
+      },
+      {
+        "team": {"id": 14},
+        "first_downs": 19,
+        "total_yards": 330,
+        "possession_time_seconds": 1750
+      }
+    ]
+  }
+}

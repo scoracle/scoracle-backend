@@ -91,11 +91,8 @@ pub fn build_judge_prompt(task_name: &str, evidence: &str, reply: &str) -> Strin
 pub fn parse_judge_verdict(raw: &str) -> Option<JudgeVerdict> {
     let v: JudgeVerdict = serde_json::from_str(raw.trim()).ok()?;
     let ok = |n: i32| (1..=5).contains(&n);
-    (ok(v.specificity)
-        && ok(v.grounding)
-        && ok(v.non_generic)
-        && v.voice_fidelity.is_none_or(ok))
-    .then_some(v)
+    (ok(v.specificity) && ok(v.grounding) && ok(v.non_generic) && v.voice_fidelity.is_none_or(ok))
+        .then_some(v)
 }
 
 /// judge_reply scores one (evidence, reply) pair. Temp 0 — the judge should be a ruler, not a
@@ -149,8 +146,10 @@ pub async fn judge_reply(
     let (gen, _) = backend.generate(&prompt, &opts).await?;
     // Fail closed on a missing axis: a voice-judged reply whose verdict lacks the axis is
     // unjudged, never silently three-axis.
-    Ok(parse_judge_verdict(&gen.response)
-        .filter(|v| voice.is_none() || v.voice_fidelity.is_some()))
+    Ok(
+        parse_judge_verdict(&gen.response)
+            .filter(|v| voice.is_none() || v.voice_fidelity.is_some()),
+    )
 }
 
 #[cfg(test)]
@@ -165,7 +164,7 @@ mod tests {
         .unwrap();
         assert_eq!((v.specificity, v.grounding, v.non_generic), (4, 5, 3));
         assert!(v.voice_fidelity.is_none()); // three-axis verdict stays three-axis
-        // Out-of-range or incomplete → None, never clamped or defaulted.
+                                             // Out-of-range or incomplete → None, never clamped or defaulted.
         assert!(
             parse_judge_verdict(r#"{"specificity": 9, "grounding": 5, "non_generic": 3}"#)
                 .is_none()

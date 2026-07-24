@@ -33,7 +33,7 @@
 //! noise) over the SAME public loaders + prompt the production handler uses — so the eval measures
 //! the real prompt, only the backend differs.
 //!
-//! SAFETY: like `bin/parity`, this is read-only on the live pipeline. It NEVER claims/enqueues
+//! SAFETY: this is read-only on the live pipeline. It NEVER claims/enqueues
 //! `pipeline_work`, NEVER writes a product table, and NEVER runs the service binary. Fixture mode
 //! builds no DB pool at all; capture writes only stdout. It reads the corpus tables and POSTs to
 //! Ollama; nothing else.

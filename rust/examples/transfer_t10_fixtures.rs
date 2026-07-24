@@ -101,7 +101,10 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
             .flat_map(|(k, val)| {
                 let mut out = vec![(k.clone(), val.clone())];
                 if k == "prompt_version" {
-                    out.push(("note".to_string(), serde_json::Value::String(note.to_string())));
+                    out.push((
+                        "note".to_string(),
+                        serde_json::Value::String(note.to_string()),
+                    ));
                 }
                 out
             })
@@ -110,7 +113,11 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
     }
     let path = dir.join(format!("{}.json", fx.name));
     std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&v)?))?;
-    println!("wrote {} ({} chars prompt)", path.display(), fx.user_prompt.len());
+    println!(
+        "wrote {} ({} chars prompt)",
+        path.display(),
+        fx.user_prompt.len()
+    );
     Ok(())
 }
 

@@ -183,3 +183,4 @@
 181_narrative_threads
 182_thread_progression_card
 183_established_authority
+185_football_team_news_aliases

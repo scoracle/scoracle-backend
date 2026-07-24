@@ -38,7 +38,7 @@ use serde::Deserialize;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
-pub const GRAPH_PROMPT_VERSION: &str = "g2"; // g2: person-extraction emphasis + object-attachment rule (probe 2026-07-19: g1 found 0 persons across 8 articles with Tuchel/Alonso present; one Rogers relation attached to the wrong club)
+pub const GRAPH_PROMPT_VERSION: &str = "g3"; // g3: multilingual article handling + English-only generated strings; g2: person-extraction emphasis + object-attachment rule
 
 /// The six-predicate vocabulary — MUST mirror the `narrative_events_predicate_check`
 /// constraint (mig 154). Grow both together, by migration, with eval evidence.
@@ -56,7 +56,25 @@ pub const PREDICATES: &[&str] = &[
 /// not the extractor, decides who becomes an entity).
 pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "other"];
 
-pub const GRAPH_SYSTEM_PROMPT: &str = "Task: extract structured narrative relations from one sports article.\n\nYou are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:\n\n1. \"relations\": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.\n   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH — for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.\n   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive). \n   - confidence: \"speculative\" (unsourced/rumored), \"reported\" (attributed to a source), \"confirmed\" (official/announced).\n   - Extract only what the text supports. No relation is the correct output for many articles.\n\n2. \"persons\": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.\n   - kind: coach | agent | executive | family | other.\n   - team_context: the number of the listed TEAM they are tied to, or null.\n   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.\n\nReturn ONLY this JSON object, no commentary:\n{\"relations\":[{\"subject\":1,\"predicate\":\"trade_rumor\",\"object\":2,\"sentiment\":0.0,\"confidence\":\"reported\"}],\"persons\":[{\"name\":\"...\",\"kind\":\"coach\",\"team_context\":2}]}";
+pub const GRAPH_SYSTEM_PROMPT: &str = r#"Task: extract structured narrative relations from one sports article.
+
+You are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:
+
+Language handling: the article title/text may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read it in the source language and translate meaning internally. Output JSON keys/enums exactly as specified in English. Any generated prose/string explanation must be English, while person names and proper names stay as written in the article. Do not drop relations or persons because the article is non-English.
+
+1. "relations": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.
+   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH -- for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.
+   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive).
+   - confidence: "speculative" (unsourced/rumored), "reported" (attributed to a source), "confirmed" (official/announced).
+   - Extract only what the text supports. No relation is the correct output for many articles.
+
+2. "persons": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.
+   - kind: coach | agent | executive | family | other.
+   - team_context: the number of the listed TEAM they are tied to, or null.
+   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.
+
+Return ONLY this JSON object, no commentary:
+{"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}]}"#;
 
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
@@ -204,7 +222,9 @@ pub fn build_graph_prompt(
     candidates: &[GraphCandidate],
 ) -> String {
     let mut b = String::new();
-    b.push_str(&format!("Article source: {source}\nPublished: {published}\n"));
+    b.push_str(&format!(
+        "Article source: {source}\nPublished: {published}\n"
+    ));
     b.push_str(&format!("Title: {title}\n"));
     if !description.trim().is_empty() {
         b.push_str(&format!("Text: {description}\n"));
@@ -400,7 +420,13 @@ impl Default for GraphHandler {
     }
 }
 
-async fn upsert_event(pool: &PgPool, article_id: i64, sport: &str, model: &str, r: &GraphRelation) -> Result<i64> {
+async fn upsert_event(
+    pool: &PgPool,
+    article_id: i64,
+    sport: &str,
+    model: &str,
+    r: &GraphRelation,
+) -> Result<i64> {
     let row = sqlx::query(
         r#"
         INSERT INTO narrative_events
@@ -440,7 +466,13 @@ async fn upsert_event(pool: &PgPool, article_id: i64, sport: &str, model: &str, 
 /// accumulate_person resolves-or-creates the candidate person and, ONLY when this
 /// article is a NEW mention (the mention PK), bumps the evidence counters. Same-name
 /// active rows win the resolve; provider-dupe merges stay a later data-layer pass.
-async fn accumulate_person(pool: &PgPool, article_id: i64, sport: &str, model: &str, p: &GraphPerson) -> Result<i32> {
+async fn accumulate_person(
+    pool: &PgPool,
+    article_id: i64,
+    sport: &str,
+    model: &str,
+    p: &GraphPerson,
+) -> Result<i32> {
     let person_id: i32 = sqlx::query_scalar(
         r#"
         WITH existing AS (
@@ -549,7 +581,10 @@ impl StageHandler for GraphHandler {
             .as_ref()
             .is_some_and(|(h, v)| h == &input_hash && v == GRAPH_PROMPT_VERSION)
         {
-            debug!(article_id, "graph: debounce-skip, material + contract unchanged");
+            debug!(
+                article_id,
+                "graph: debounce-skip, material + contract unchanged"
+            );
             return Ok(());
         }
 

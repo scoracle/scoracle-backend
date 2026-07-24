@@ -32,7 +32,7 @@ Shared process, vocabulary, and landmark history live in:
 ## Layer Role
 
 - Type: `backend/ai-cognition`
-- Owns: model routing, model calls, extraction, fail-closed parsing, model-derived products, queue-stage draining, rating commentary batch, offline parity/eval harnesses, and CPU embedding helpers.
+- Owns: model routing, model calls, extraction, fail-closed parsing, model-derived products, queue-stage draining, rating commentary batch, eval/operator-support tools, and CPU embedding helpers.
 - Does not own: provider ingestion, public API serving, client presentation, product doctrine, or visual doctrine.
 - Primary consumers: Postgres product tables, Go API prepared reads, and client cards through those API reads.
 
@@ -183,12 +183,12 @@ rust/
     ├── config.rs            # env config; mirrors Go var names (.env.local)
     ├── db.rs                # sqlx Postgres pool (bounded — the GPU is the real ceiling)
     ├── work.rs              # pipeline_work client: claim/complete/fail/requeue_stale/enqueue + the Stage enum
-    ├── ollama.rs            # Ollama HTTP client (mirrors go/internal/ml/ollama.go)
+    ├── ollama.rs            # local Ollama HTTP client
     ├── stage.rs             # StageHandler trait — the per-stage plug-in point
     ├── worker.rs            # LISTEN(pipeline_work_ready) + safety-net drain loop
     ├── route.rs             # the model-call seam (Role → concrete model); the GPU governor lives here
     ├── harness.rs           # Harness context + the capability primitives: extract, persist, debounce, resolve, embed, cluster (Plan §1)
-    ├── util.rs              # shared helpers: truncate, go_json_* (Go-encoding/json byte parity), hash_components
+    ├── util.rs              # shared helpers: truncate, canonical JSON formatting, hash_components
     ├── embed.rs             # candle CPU embedder (BGE-small default) + cosine_similarity
     ├── resolve.rs           # the asymmetric embedding-hybrid relevance gate (resolve_set + resolve_one)
     ├── scrub.rs             # news-scrub stage handler (asymmetric gate, writes news_article_entities.vetted)
@@ -200,11 +200,7 @@ rust/
     └── bin/
         ├── statcommentary.rs
         ├── eval.rs
-        ├── parity.rs
-        ├── sigil_parity.rs
-        ├── rating_parity.rs
-        ├── transfer_parity.rs
-        └── narratives_parity.rs
+        └── bucketlabel.rs
 ```
 
 ## Core Primitives
@@ -264,7 +260,7 @@ git status --short --branch
 
 3. Identify the owned stage or primitive.
 4. Preserve the product contract. If the contract changes, update `../ENDPOINTS.md`, `../README.md`, and the wiki if it is a landmark.
-5. Add or update focused tests/parity harnesses.
+5. Add or update focused tests, fixtures, or eval coverage.
 6. Run verification.
 7. Add a progress doc in `../../scoracle-wiki/progress_docs/scoracle-backend/`.
 8. Commit and push.
@@ -322,21 +318,17 @@ Use release script for production builds:
 
 The release script builds the live Go binaries plus the live Rust binaries from one commit, then places them atomically during full release.
 
-## Offline Harnesses
+## Offline Tools
 
-Offline bins are for parity, shadow, and eval work. They must not claim live queue work unless explicitly designed to do so.
+Offline bins are for evaluation and operator-support work. They must not claim live queue work unless explicitly designed to do so.
 
 | Binary | Purpose |
 |---|---|
-| `parity` | Vibe temp-0 parity/shadow harness. |
-| `sigil_parity` | Sigil temp-0 parity/shadow harness. |
-| `rating_parity` | Rating/stat commentary parity harness. |
-| `transfer_parity` | Transfer/trade parity harness. |
-| `narratives_parity` | Narratives parity harness. |
 | `eval` | Role/model A/B eval harness. |
+| `bucketlabel` | One-shot article bucket labeling TSV generator. |
 | `statcommentary` | Live rating batch binary. |
 
-Before changing a prompt, loader, parser, or shared JSON/hash utility, consider whether the relevant parity harness should be run or updated.
+Before changing a prompt, loader, parser, or shared JSON/hash utility, add or refresh focused tests/fixtures and consider whether `eval` should cover the behavior.
 
 ## Environment
 

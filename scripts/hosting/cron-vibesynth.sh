@@ -13,7 +13,8 @@
 # Because it only enqueues, this run needs ONLY the database (no Ollama / GPU). -limit
 # caps the number of items enqueued per run.
 #
-# Off-peak (05:00) avoids the corpus pipeline (00:00) and statcommentary (03:00).
+# Off-peak (05:00) avoids statcommentary (03:00) and lands after a six-hour RSS
+# ingest tick has had time to scrub and enqueue downstream work.
 #
 # Observability + overlap (FIRST-GPT-AUDIT Session 13): runs share a per-job advisory
 # lock ("vibesynth"), so two invocations can't overlap — the loser exits 0.

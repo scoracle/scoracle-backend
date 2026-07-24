@@ -10,7 +10,7 @@
 //! article ids are skipped on re-run, so a crashed run resumes and a completed run
 //! no-ops (a few seconds of DB query, zero GPU). Safe to leave on a cron line.
 //!
-//! SAFETY: like bin/parity and bin/eval, read-only on the live pipeline. NEVER claims
+//! SAFETY: like `bin/eval`, this is read-only on the live pipeline. NEVER claims
 //! `pipeline_work`, NEVER writes a product table. Reads `news_articles` +
 //! `news_article_entities`, POSTs to Ollama, writes ONLY the output TSV.
 //!

@@ -91,7 +91,8 @@ async fn main() -> Result<()> {
     println!("{total_entities} entities with un-threaded rows in the last {days}d");
 
     let start = Instant::now();
-    let (mut done, mut rows_attached, mut threads_opened, mut threads_faded) = (0usize, 0u64, 0u64, 0u64);
+    let (mut done, mut rows_attached, mut threads_opened, mut threads_faded) =
+        (0usize, 0u64, 0u64, 0u64);
     for ent in entities {
         if max_entities > 0 && done >= max_entities {
             break;
@@ -163,9 +164,15 @@ async fn main() -> Result<()> {
                     vector: vectors[k].clone(),
                 })
                 .collect();
-            let outcomes =
-                attach_generation(&mut tx, &sport, &entity_type, entity_id, &items, Some(epoch))
-                    .await?;
+            let outcomes = attach_generation(
+                &mut tx,
+                &sport,
+                &entity_type,
+                entity_id,
+                &items,
+                Some(epoch),
+            )
+            .await?;
             for (k, o) in (i..j).zip(&outcomes) {
                 let reason = match o.delta_reason {
                     "up" => "impact_up",

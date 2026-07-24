@@ -17,25 +17,29 @@ import (
 
 // Config controls maintenance task intervals. Zero duration disables a task.
 type Config struct {
-	CleanupInterval     time.Duration // Expired notifications + stale cache rows
-	CatchUpInterval     time.Duration // Sweep for missed NOTIFY events
-	AlltimeRankInterval time.Duration // season_composite_rank_alltime recompute cadence
-	NewsScrubInterval   time.Duration // news-link scrub sweep cadence (SQL auto-vet + enqueue to Rust)
-	NewsScrubBatch      int           // max candidate-rich articles enqueued per tick
-	StatsInterval       time.Duration // pipeline_stats daily corpus snapshot cadence
-	PeerCohortInterval  time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
+	CleanupInterval          time.Duration // Expired notifications + stale cache rows
+	CatchUpInterval          time.Duration // Sweep for missed NOTIFY events
+	AlltimeRankInterval      time.Duration // season_composite_rank_alltime recompute cadence
+	NewsScrubInterval        time.Duration // news-link scrub sweep cadence (SQL auto-vet + enqueue to Rust)
+	NewsScrubBatch           int           // max candidate-rich articles enqueued per tick
+	BoxscoreBackfillInterval time.Duration // recent final fixture_boxscore enqueue repair cadence
+	BoxscoreBackfillBatch    int           // max recent final fixtures enqueued per tick
+	StatsInterval            time.Duration // pipeline_stats daily corpus snapshot cadence
+	PeerCohortInterval       time.Duration // peer_cohort_aggregate (/momentum O1) refresh cadence
 }
 
 // DefaultConfig returns sensible production defaults.
 func DefaultConfig() Config {
 	return Config{
-		CleanupInterval:     30 * time.Minute,
-		CatchUpInterval:     15 * time.Minute,
-		AlltimeRankInterval: 24 * time.Hour,
-		NewsScrubInterval:   30 * time.Minute,
-		NewsScrubBatch:      15,
-		StatsInterval:       24 * time.Hour,
-		PeerCohortInterval:  24 * time.Hour,
+		CleanupInterval:          30 * time.Minute,
+		CatchUpInterval:          15 * time.Minute,
+		AlltimeRankInterval:      24 * time.Hour,
+		NewsScrubInterval:        30 * time.Minute,
+		NewsScrubBatch:           15,
+		BoxscoreBackfillInterval: 6 * time.Hour,
+		BoxscoreBackfillBatch:    100,
+		StatsInterval:            24 * time.Hour,
+		PeerCohortInterval:       24 * time.Hour,
 	}
 }
 
@@ -56,6 +60,7 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		"cleanup", cfg.CleanupInterval,
 		"catchup", cfg.CatchUpInterval,
 		"news_scrub", cfg.NewsScrubInterval,
+		"boxscore_backfill", cfg.BoxscoreBackfillInterval,
 		"pipeline_stats", cfg.StatsInterval,
 		"peer_cohort", cfg.PeerCohortInterval)
 
@@ -104,6 +109,18 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "news_scrub", func() {
 			scrubNewsLinks(ctx, pool, cfg, logger)
+		})
+	}
+
+	// Fixture box score fetch backfill: SQL-only enqueue repair for recent final
+	// fixtures missing a current fetch row. The Rust fixture_boxscore stage owns
+	// network fetch, parsing, and persistence.
+	if cfg.BoxscoreBackfillInterval > 0 {
+		enqueueRecentFixtureBoxscores(ctx, pool, cfg, logger)
+		t := time.NewTicker(cfg.BoxscoreBackfillInterval)
+		tickers = append(tickers, t)
+		go runLoop(ctx, t.C, "fixture_boxscore_backfill", func() {
+			enqueueRecentFixtureBoxscores(ctx, pool, cfg, logger)
 		})
 	}
 
@@ -361,6 +378,24 @@ func refreshPeerCohortAggregates(ctx context.Context, pool *pgxpool.Pool, logger
 		return
 	}
 	logger.Info("Peer-cohort aggregates refreshed", "cohorts", n)
+}
+
+func enqueueRecentFixtureBoxscores(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
+	batch := cfg.BoxscoreBackfillBatch
+	if batch <= 0 {
+		return
+	}
+	var n int
+	if err := pool.QueryRow(ctx,
+		`SELECT public.enqueue_recent_fixture_boxscores(NULL, INTERVAL '14 days', $1)`,
+		batch,
+	).Scan(&n); err != nil {
+		logger.Warn("Fixture boxscore backfill enqueue failed", "error", err)
+		return
+	}
+	if n > 0 {
+		logger.Info("Fixture boxscore backfill enqueued", "fixtures", n)
+	}
 }
 
 func listenMomentumRefresh(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) {

@@ -1,12 +1,9 @@
-//! StageHandler — the plug-in point for per-stage derivation logic.
+//! StageHandler — the plug-in point for Rust-owned derivation logic.
 //!
-//! Phase 0 shipped ZERO handlers; the worker is wired to drain only stages whose handler is
-//! registered, so adding a stage is additive and reversible (the Go Drainer keeps owning
-//! every other stage in the meantime). Phase 1 implemented the first handler — `vibe` — now
-//! re-expressed (L1) as a composition of the capability library's primitives.
-//!
-//! A handler receives the `Harness` — the capability context (pool + model router + the
-//! `extract`/persist/resolve/embed primitives) — generalizing the old `(pool, ollama)` pair.
+//! The Go layer produces `pipeline_work` rows and serves already-persisted products. The
+//! Rust worker is the only live queue consumer that performs model inference. Each handler
+//! receives the `Harness`: Postgres pool, model router, and the shared
+//! `extract`/persist/resolve/embed primitives.
 
 use crate::harness::Harness;
 use crate::work::{Item, Stage};
@@ -23,9 +20,8 @@ pub trait StageHandler: Send + Sync {
     /// any downstream stage (e.g. vibe → sigil). `Ok(())` completes the work row; `Err` fails
     /// it with backoff.
     ///
-    /// Contract note for implementers: persist to the SAME tables/columns the Go stage writes,
-    /// and reproduce its fail-closed semantics (NULL markers, `is_rumor` NULL → never served,
-    /// debounce hashes). The Go stage source is the spec — see
-    /// `go/internal/ml/{vibe,news_narratives,transfer,sigil}.go`.
+    /// Contract note for implementers: persist to the live product tables with fail-closed
+    /// semantics (NULL markers, `is_rumor` NULL -> never served, debounce hashes), then enqueue
+    /// downstream durable work when the product contract requires it.
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()>;
 }

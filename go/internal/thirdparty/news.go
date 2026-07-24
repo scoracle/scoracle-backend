@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -27,14 +28,20 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	newsDefaultLimit = 10
-	newsMaxLimit     = 50
-	newsMinArticles  = 3
-	newsRSSTimeout   = 15 * time.Second
+	newsMinArticles = 3
+	newsRSSTimeout  = 15 * time.Second
+	// Allow a small overlap around the cron boundary so a slightly late run does
+	// not miss items published just before the six-hour mark.
+	newsLookbackSlack = 15 * time.Minute
+
+	// Keep individual Google RSS query URLs bounded. Team aliases overflow into
+	// additional OR queries instead of being dropped.
+	newsMaxRSSQueryTerms = 10
 )
 
-// Time windows for escalation (hours). Capped at 12h to limit upstream load.
-var timeWindows = []int{12}
+// RSS query lookback windows (hours). The hosting cron runs the ingest every
+// six hours, so Google News searches use the same `when:6h` interval.
+var timeWindows = []int{6}
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{
@@ -42,6 +49,46 @@ var sportTerms = map[string]string{
 	"NFL":      "NFL football",
 	"FOOTBALL": "soccer football",
 }
+
+type rssEdition struct {
+	name string
+	hl   string
+	gl   string
+	ceid string
+}
+
+var defaultRSSEditions = []rssEdition{
+	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
+}
+
+var footballTeamRSSEditions = []rssEdition{
+	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
+	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
+	{name: "es-es", hl: "es-ES", gl: "ES", ceid: "ES:es"},
+	{name: "fr-fr", hl: "fr-FR", gl: "FR", ceid: "FR:fr"},
+	{name: "de-de", hl: "de-DE", gl: "DE", ceid: "DE:de"},
+	{name: "it-it", hl: "it-IT", gl: "IT", ceid: "IT:it"},
+	{name: "pt-pt", hl: "pt-PT", gl: "PT", ceid: "PT:pt"},
+	{name: "nl-nl", hl: "nl-NL", gl: "NL", ceid: "NL:nl"},
+}
+
+var trustedShortTeamAliases = map[string]bool{
+	"ASM":  true,
+	"ASSE": true,
+	"B04":  true,
+	"BMG":  true,
+	"BVB":  true,
+	"HSV":  true,
+	"LOSC": true,
+	"OL":   true,
+	"OM":   true,
+	"PSG":  true,
+	"RBL":  true,
+	"S04":  true,
+	"SGE":  true,
+}
+
+const broadTeamPrimaryConfidence = 0.95
 
 // ---------------------------------------------------------------------------
 // Article — normalized article shape
@@ -138,14 +185,7 @@ func (s *NewsService) GetEntityNews(
 	firstName, lastName string,
 	aliases []string,
 ) (map[string]interface{}, []int64, error) {
-	if limit < 1 {
-		limit = newsDefaultLimit
-	}
-	if limit > newsMaxLimit {
-		limit = newsMaxLimit
-	}
-
-	result, matched, err := s.fetchFromRSS(entityName, sport, team, limit, firstName, lastName, aliases)
+	result, matched, err := s.fetchFromRSS(ctx, entityType, entityName, sport, team, limit, firstName, lastName, aliases)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -203,13 +243,14 @@ func (s *NewsService) persistArticles(
 		pool = nil
 	}
 
-	affected := make(map[int64]bool)   // fresh primary OR secondary link — the informational return
+	affected := make(map[int64]bool) // fresh primary OR secondary link — the informational return
 	vetPrimary := make([]int64, 0, len(articles))
 	needScrub := make(map[int64]bool) // fresh secondary link → needs the model's verdict
 
 	// The primary entity's own match input — needed to record its title position
-	// for the co-mention proximity gate. The fetch filter guarantees the primary
-	// is in the title, so this is usually found.
+	// for the co-mention proximity gate. Broader team RSS now lets Google cast
+	// the net while Rust scrub decides relevance, so some primary links will not
+	// have an exact title position.
 	var primaryMatch *EntityMatchInput
 	for i := range pool {
 		if pool[i].entityType == primaryEntityType && pool[i].entityID == primaryEntityID {
@@ -245,37 +286,52 @@ func (s *NewsService) persistArticles(
 			return nil, fmt.Errorf("upsert article: %w", err)
 		}
 
-		// Primary link — the entity that was queried. Record its title position
-		// (NULL if not found in the title) for the co-mention proximity gate.
+		// Primary link — the entity that was queried. Team RSS search is now a
+		// broad candidate generator; primary team links are deliberately below
+		// confidence 1.0 so the Rust scrub gate sees the proposed team card and
+		// decides relevance. Player/news paths keep the exact-match auto-vet
+		// behavior.
 		primaryPos := -1
 		if primaryMatch != nil {
 			primaryPos = FirstMatchPos(a.Title, *primaryMatch)
+		}
+		primaryConfidence := 1.0
+		primaryNeedsScrub := isTeamEntity(primaryEntityType)
+		if primaryNeedsScrub {
+			primaryConfidence = broadTeamPrimaryConfidence
 		}
 		ct, err := tx.Exec(ctx, `
 			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
 			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, 1.0, posOrNil(primaryPos))
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, primaryConfidence, posOrNil(primaryPos))
 		if err != nil {
 			return nil, fmt.Errorf("link primary entity: %w", err)
 		}
 		if ct.RowsAffected() > 0 {
 			affected[articleID] = true
-			vetPrimary = append(vetPrimary, articleID)
+			if primaryNeedsScrub {
+				needScrub[articleID] = true
+			} else {
+				vetPrimary = append(vetPrimary, articleID)
+			}
 		}
 
-		// Secondary links — scan the title against the cached entity pool
+		// Secondary links — scan title + description against the cached entity pool
 		// to pick up co-mentioned teams/players, recording WHERE each matched
-		// so the proximity gate can drop far-apart co-mentions (roundup artifacts).
+		// in the title when available so the proximity gate can drop far-apart
+		// co-mentions (roundup artifacts). Description-only matches get NULL
+		// title_pos and are routed through scrub.
 		// ON CONFLICT DO NOTHING means re-matching the primary entity is a cheap no-op.
+		matchText := articleMatchText(a)
 		for i := range pool {
 			e := &pool[i]
-			// Skip the primary — we already linked it at confidence 1.0.
+			// Skip the primary — we already linked it above.
 			if e.entityType == primaryEntityType && e.entityID == primaryEntityID {
 				continue
 			}
 			pos := FirstMatchPos(a.Title, e.match)
-			if pos < 0 {
+			if pos < 0 && !MatchesEntity(matchText, e.match) {
 				continue
 			}
 			ct, err := tx.Exec(ctx, `
@@ -298,10 +354,10 @@ func (s *NewsService) persistArticles(
 	// instead of waiting for the maintenance sweep's next tick. The sweep stays
 	// on as the backstop for rows this path misses (pre-change backlog, repair).
 	//
-	// Primary links are exact matches (confidence 1.0) — deterministically
-	// relevant, same rule as the sweep's auto-vet phase. This must be an UPDATE,
-	// not vetted=TRUE on the INSERT: the mig-103 enqueue_derive_on_vetted trigger
-	// only watches UPDATE OF vetted.
+	// Non-team primary links are exact matches (confidence 1.0) and still auto-vet.
+	// Team RSS is broader now, so those primary links are enqueued to scrub above
+	// instead. This must be an UPDATE, not vetted=TRUE on the INSERT: the mig-103
+	// enqueue_derive_on_vetted trigger only watches UPDATE OF vetted.
 	if len(vetPrimary) > 0 {
 		if _, err := tx.Exec(ctx, `
 			UPDATE news_article_entities
@@ -393,9 +449,10 @@ func (s *NewsService) loadEntityPool(ctx context.Context, sport string) ([]cache
 			entityID:   id,
 			sport:      sport,
 			match: EntityMatchInput{
-				Name:    name,
-				Aliases: al,
-				Sport:   sport,
+				EntityType: "team",
+				Name:       name,
+				Aliases:    al,
+				Sport:      sport,
 			},
 		})
 	}
@@ -423,11 +480,12 @@ func (s *NewsService) loadEntityPool(ctx context.Context, sport string) ([]cache
 			entityID:   id,
 			sport:      sport,
 			match: EntityMatchInput{
-				Name:      name,
-				FirstName: first,
-				LastName:  last,
-				Aliases:   aliases,
-				Sport:     sport,
+				EntityType: "player",
+				Name:       name,
+				FirstName:  first,
+				LastName:   last,
+				Aliases:    aliases,
+				Sport:      sport,
 			},
 		})
 	}
@@ -575,27 +633,19 @@ type rssItem struct {
 	Description string `xml:"description"`
 }
 
-func (s *NewsService) fetchRSS(query string, hoursBack int) ([]Article, error) {
-	// Google News RSS accepts when:Nh / Nd / Ny. Use hours directly when
-	// under a day so callers can request sub-day windows like 12h.
-	var when string
-	switch {
-	case hoursBack <= 0:
-		when = "1d"
-	case hoursBack < 24:
-		when = fmt.Sprintf("%dh", hoursBack)
-	case hoursBack <= 168:
-		when = fmt.Sprintf("%dd", (hoursBack+23)/24)
-	default:
-		when = "30d"
+func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int, edition rssEdition) ([]Article, error) {
+	u, err := url.Parse("https://news.google.com/rss/search")
+	if err != nil {
+		return nil, err
 	}
+	q := u.Query()
+	q.Set("q", fmt.Sprintf("%s when:%s", query, rssWhenToken(hoursBack)))
+	q.Set("hl", edition.hl)
+	q.Set("gl", edition.gl)
+	q.Set("ceid", edition.ceid)
+	u.RawQuery = q.Encode()
 
-	u := fmt.Sprintf(
-		"https://news.google.com/rss/search?q=%s+when:%s&hl=en-US&gl=US&ceid=US:en",
-		url.QueryEscape(query), when,
-	)
-
-	req, err := http.NewRequest("GET", u, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -650,69 +700,50 @@ func (s *NewsService) fetchRSS(query string, hoursBack int) ([]Article, error) {
 		})
 	}
 
-	return articles, nil
+	return filterArticlesByLookback(articles, hoursBack, time.Now()), nil
 }
 
 func (s *NewsService) fetchFromRSS(
+	ctx context.Context,
+	entityType string,
 	entityName, sport, team string,
 	limit int,
 	firstName, lastName string,
 	aliases []string,
 ) (map[string]interface{}, []Article, error) {
-	sportSuffix := ""
-	if sport != "" {
-		if term, ok := sportTerms[strings.ToUpper(sport)]; ok {
-			sportSuffix = " " + term
-		}
-	}
-
-	// Build search queries: primary name first, then best alias as fallback.
 	searchName := buildSearchName(entityName, firstName, lastName)
-	searchQueries := []string{searchName + sportSuffix}
-
-	// Pick the best alias for a fallback query — prefer the longest one that
-	// differs meaningfully from the primary search name (likely the anglicized form).
-	if best := bestAliasQuery(searchName, aliases); best != "" {
-		searchQueries = append(searchQueries, best+sportSuffix)
-	}
+	searchQueries := buildRSSSearchQueries(entityType, searchName, sport, aliases)
+	editions := rssEditionsForEntity(entityType, sport)
 
 	var allArticles []Article
 
-	for _, query := range searchQueries {
-		for _, hours := range timeWindows {
-			articles, err := s.fetchRSS(query, hours)
-			if err != nil {
-				s.logger.Warn("RSS fetch error", "window_hours", hours, "error", err)
-				continue
-			}
+	for _, edition := range editions {
+		for _, query := range searchQueries {
+			for _, hours := range timeWindows {
+				if err := ctx.Err(); err != nil {
+					return nil, nil, err
+				}
+				articles, err := s.fetchRSS(ctx, query, hours, edition)
+				if err != nil {
+					s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", hours, "error", err)
+					continue
+				}
 
-			// Filter to articles that mention the entity (by name or alias).
-			matchInput := EntityMatchInput{
-				Name:      entityName,
-				FirstName: firstName,
-				LastName:  lastName,
-				Team:      team,
-				Aliases:   aliases,
-				Sport:     sport,
-			}
-			for _, a := range articles {
-				if MatchesEntity(a.Title, matchInput) {
-					allArticles = append(allArticles, a)
+				allArticles = append(allArticles, filterRSSArticles(entityType, entityName, sport, team, firstName, lastName, aliases, articles)...)
+				allArticles = deduplicateArticles(allArticles)
+
+				if len(allArticles) >= newsMinArticles {
+					break
+				}
+				if err := sleepContext(ctx, 100*time.Millisecond); err != nil {
+					return nil, nil, err
 				}
 			}
-			allArticles = deduplicateArticles(allArticles)
-
-			if len(allArticles) >= newsMinArticles {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
 		}
 	}
 
 	sortArticlesByDate(allArticles)
-	if len(allArticles) > limit {
-		allArticles = allArticles[:limit]
-	}
+	totalResults, allArticles := limitRSSArticles(allArticles, limit)
 
 	return map[string]interface{}{
 		"query":    entityName,
@@ -720,11 +751,214 @@ func (s *NewsService) fetchFromRSS(
 		"articles": allArticles,
 		"provider": "google_news_rss",
 		"meta": map[string]interface{}{
-			"total_results": len(allArticles),
+			"total_results": totalResults,
 			"returned":      len(allArticles),
 			"source":        "google_news_rss",
 		},
 	}, allArticles, nil
+}
+
+func buildRSSSearchQueries(entityType, primarySearch, sport string, aliases []string) []string {
+	if isTeamEntity(entityType) {
+		return buildTeamRSSSearchQueries(primarySearch, sport, aliases)
+	}
+
+	sportSuffix := rssSportSuffix(sport)
+	searchQueries := []string{primarySearch + sportSuffix}
+	if best := bestAliasQuery(primarySearch, aliases); best != "" {
+		searchQueries = append(searchQueries, best+sportSuffix)
+	}
+	return searchQueries
+}
+
+func filterRSSArticles(entityType, entityName, sport, team, firstName, lastName string, aliases []string, articles []Article) []Article {
+	if isTeamEntity(entityType) {
+		return articles
+	}
+	matchInput := EntityMatchInput{
+		EntityType: entityType,
+		Name:       entityName,
+		FirstName:  firstName,
+		LastName:   lastName,
+		Team:       team,
+		Aliases:    aliases,
+		Sport:      sport,
+	}
+	out := make([]Article, 0, len(articles))
+	for _, a := range articles {
+		if MatchesEntity(articleMatchText(a), matchInput) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+func buildTeamRSSSearchQueries(primarySearch, sport string, aliases []string) []string {
+	terms := teamRSSQueryTerms(primarySearch, sport, aliases)
+	if len(terms) == 0 {
+		return nil
+	}
+	suffix := teamRSSSportSuffix(sport)
+	queries := make([]string, 0, (len(terms)+newsMaxRSSQueryTerms-1)/newsMaxRSSQueryTerms)
+	for start := 0; start < len(terms); start += newsMaxRSSQueryTerms {
+		end := start + newsMaxRSSQueryTerms
+		if end > len(terms) {
+			end = len(terms)
+		}
+		queries = append(queries, joinRSSQueryTerms(terms[start:end])+suffix)
+	}
+	return queries
+}
+
+func rssSportSuffix(sport string) string {
+	if sport == "" {
+		return ""
+	}
+	if term, ok := sportTerms[strings.ToUpper(sport)]; ok {
+		return " " + term
+	}
+	return ""
+}
+
+func teamRSSSportSuffix(sport string) string {
+	// Football teams are searched across localized Google editions; appending the
+	// English "soccer football" suffix suppresses non-English sources and is no
+	// longer needed now that scrub gates relevance. Keep sport suffixes for NBA/NFL
+	// teams, where many team names are common English words.
+	if strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" {
+		return ""
+	}
+	return rssSportSuffix(sport)
+}
+
+func rssEditionsForEntity(entityType, sport string) []rssEdition {
+	if isTeamEntity(entityType) && strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" {
+		return footballTeamRSSEditions
+	}
+	return defaultRSSEditions
+}
+
+func teamRSSQueryTerms(primarySearch, sport string, aliases []string) []string {
+	football := strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL"
+	seen := make(map[string]bool)
+	terms := make([]string, 0, 1+len(aliases))
+	add := func(term string, primary bool) {
+		term = strings.TrimSpace(term)
+		if term == "" {
+			return
+		}
+		if !primary && football && shortRSSAlias(term) && !trustedShortTeamAlias(term) {
+			return
+		}
+		key := normalizedAliasKey(term)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		terms = append(terms, term)
+	}
+
+	add(primarySearch, true)
+	for _, alias := range aliases {
+		add(alias, false)
+	}
+	return terms
+}
+
+func trustedShortTeamAlias(alias string) bool {
+	return trustedShortTeamAliases[strings.ToUpper(strings.TrimSpace(alias))]
+}
+
+func normalizedAliasKey(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(s), " "))
+}
+
+func shortRSSAlias(s string) bool {
+	n := 0
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			n++
+		}
+	}
+	return n > 0 && n < 4
+}
+
+func joinRSSQueryTerms(terms []string) string {
+	if len(terms) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(terms))
+	for _, term := range terms {
+		parts = append(parts, formatRSSQueryTerm(term))
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "(" + strings.Join(parts, " OR ") + ")"
+}
+
+func formatRSSQueryTerm(term string) string {
+	term = strings.TrimSpace(strings.ReplaceAll(term, `"`, ""))
+	if strings.ContainsAny(term, " \t-") {
+		return `"` + term + `"`
+	}
+	return term
+}
+
+func rssWhenToken(hoursBack int) string {
+	// Google News RSS accepts when:Nh / Nd / Ny. Use hours directly when
+	// under a day so the six-hour cron searches only the matching lookback.
+	switch {
+	case hoursBack <= 0:
+		return "1d"
+	case hoursBack < 24:
+		return fmt.Sprintf("%dh", hoursBack)
+	case hoursBack <= 168:
+		return fmt.Sprintf("%dd", (hoursBack+23)/24)
+	default:
+		return "30d"
+	}
+}
+
+func filterArticlesByLookback(articles []Article, hoursBack int, now time.Time) []Article {
+	if hoursBack <= 0 || now.IsZero() {
+		return articles
+	}
+	cutoff := now.Add(-time.Duration(hoursBack)*time.Hour - newsLookbackSlack)
+	out := make([]Article, 0, len(articles))
+	for _, a := range articles {
+		published := parseArticleDate(a.PublishedAt)
+		if published.IsZero() || !published.Before(cutoff) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+func articleMatchText(a Article) string {
+	if a.Description == "" {
+		return a.Title
+	}
+	return a.Title + " " + a.Description
+}
+
+func limitRSSArticles(articles []Article, limit int) (int, []Article) {
+	total := len(articles)
+	if limit > 0 && len(articles) > limit {
+		return total, articles[:limit]
+	}
+	return total, articles
+}
+
+func sleepContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 // bestAliasQuery returns the best alias to use as a fallback search query.
@@ -771,17 +1005,55 @@ func buildSearchName(fullName, firstName, lastName string) string {
 	return fullName
 }
 
-// deduplicateArticles removes duplicate articles by URL.
+// deduplicateArticles removes duplicate articles by normalized source key.
 func deduplicateArticles(articles []Article) []Article {
 	seen := make(map[string]bool)
 	out := make([]Article, 0, len(articles))
 	for _, a := range articles {
-		if a.URL != "" && !seen[a.URL] {
-			seen[a.URL] = true
+		keys := articleDedupKeys(a)
+		if len(keys) == 0 {
 			out = append(out, a)
+			continue
 		}
+		if hasSeenArticleKey(seen, keys) {
+			continue
+		}
+		for _, key := range keys {
+			seen[key] = true
+		}
+		out = append(out, a)
 	}
 	return out
+}
+
+func articleDedupKeys(a Article) []string {
+	keys := make([]string, 0, 2)
+	if raw := strings.TrimSpace(a.URL); raw != "" {
+		u, err := url.Parse(raw)
+		if err == nil && strings.EqualFold(u.Hostname(), "news.google.com") {
+			u.RawQuery = ""
+			u.Fragment = ""
+			keys = append(keys, "url:"+strings.ToLower(u.String()))
+		} else {
+			keys = append(keys, "url:"+raw)
+		}
+	}
+	title := strings.Join(strings.Fields(a.Title), " ")
+	source := strings.Join(strings.Fields(a.Source), " ")
+	key := strings.TrimSpace(title + " " + source)
+	if key != "" {
+		keys = append(keys, "title_source:"+strings.ToLower(key))
+	}
+	return keys
+}
+
+func hasSeenArticleKey(seen map[string]bool, keys []string) bool {
+	for _, key := range keys {
+		if seen[key] {
+			return true
+		}
+	}
+	return false
 }
 
 // sortArticlesByDate sorts articles by published date, newest first.

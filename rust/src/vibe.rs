@@ -1,12 +1,9 @@
-//! Vibe stage — the first ported derivation handler (Phase 1 beachhead).
-//!
-//! Rust implementation of the vibe stage. The Go source provided the original machinery spec:
-//!   - `go/internal/ml/vibe.go`         — Generate, prompt assembly, parsing, persist
-//!   - `go/internal/ml/transfer_heat.go` — the shared transfer-heat primitive
-//!   - `go/internal/derive/derive.go`    — drainVibe: queue Item → request, downstream hand-off
+//! Vibe stage — the emotional/news rail end product.
 //!
 //! The deterministic loaders, prompt assembly, parser, and persist path live here so prompt changes
-//! are versioned and inspectable.
+//! are versioned and inspectable. SQL supplies the persisted narrative/transfer context; Rust owns
+//! the transient prompt shaping, model call, parsing, fail-closed marker, debounce, and downstream
+//! queue hand-off.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narratives AND no
 //! transfer heat, we skip the model and write a NULL-sentiment marker row (the read
@@ -18,9 +15,8 @@
 //! timestamps (mirroring narratives' key discipline) — and skips the GPU call when the
 //! latest `vibe_scores` row carries the same `input_hash` (mig 147). Marker rows carry the
 //! empty-material hash too, so quiet entities debounce instead of re-marking every cycle.
-//! On a debounce-skip the handler still enqueues Momentum (hash-gated and cheap) — the same
-//! self-healing shape as sigil's skip-path oracle enqueue. The offline parity harness
-//! (`bin/parity`) deliberately does NOT debounce: a parity run must always exercise the model.
+//! On a debounce-skip the handler still enqueues Momentum (hash-gated and cheap), so a prior
+//! missed hand-off self-heals without spending a model call.
 //!
 //! v12 (junction memory rollout step 2, 2026-07-19): the prompt gains the previous vibe read
 //! as a continuity anchor (the proven Sigil Phase-5.2 shape — prompt-only, never hashed) and
@@ -45,31 +41,30 @@ use sqlx::{PgPool, Row};
 use tracing::{debug, warn};
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v13"; // v12: previous-read continuity + relational memory card (junction memory rollout step 2); v13: The Influencer voice pass (Characters Phase B) — persona-first telling, card-quality prose + HOOK card title, prompt_version folded into the debounce pre-image
+pub const VIBE_PROMPT_VERSION: &str = "v14"; // v14: English-only output guard for multilingual upstream source material; v13: The Influencer voice pass + HOOK card title
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
 
-/// Production sentiment temperature (vibe.go uses 0.7). The parity harness overrides
-/// this with an explicit 0.
+/// Production sentiment temperature.
 pub const VIBE_TEMPERATURE: f64 = 0.7;
 
 /// Token cap for the two-line answer.
 pub const VIBE_NUM_PREDICT: i32 = 512;
 
-/// Body truncation in the prompt — mirrors `truncate(n.body, 280)` in vibe.go.
+/// Body truncation in the prompt.
 const BODY_TRUNCATE: usize = 280;
 
 /// System prompt for the Vibe sentiment + felt-read contract.
 ///
-/// v13 is the Characters Phase B voice pass: the telling is The Influencer's (persona-first,
-/// from wiki/Characters.md's craft appendix — vivid, present tense, engagement-first, farmed
-/// sincerely). The v12 SCORE contract is unchanged (bands, impact weighting, heat-as-energy,
-/// stay-near-50, previous-read prior); VIBE upgrades from signal shape to card-quality prose
-/// and the reply gains a HOOK line — the Influencer's card title.
+/// v14 keeps the v13 Influencer voice pass and v12 SCORE contract, but adds the English-only
+/// output guard for upstream material derived from multilingual sources. VIBE stays card-quality
+/// prose and the reply still carries the HOOK line.
 pub const VIBE_SYSTEM_PROMPT: &str = r#"Task: you are The Influencer — the one who knows what the room is feeling before the room does. Your platform is this entity's moment: read the supplied narratives and transfer/trade activity, find the emotion already running through them, and post the felt read — a score, a hook, and the vibe.
 
 Voice: vivid, present tense, engagement-first. You ride the feeling because it is real, never because it clicks — sincerity is the craft: no manufactured outrage, no borrowed drama, no bait. When the room is loud, capture the roar; when it is flat, a true quiet read beats a loud false one.
+
+Language handling: supplied narratives or transfer/trade lines may have been derived from multilingual sources. Write HOOK and VIBE in English. Preserve proper names, player names, club names, source names, and stated money/pick details exact or canonical; do not introduce non-English phrasing unless it is a proper name.
 
 SCORE (1-100):
 - 1 = grim or in freefall.
@@ -117,8 +112,7 @@ pub struct Narrative {
 }
 
 /// The result of running the vibe core for one entity, before persistence. Captures
-/// the production row payload for `vibe_scores`; parity-only prompt/body capture
-/// lives in `src/bin/parity.rs`.
+/// the production row payload for `vibe_scores`.
 #[derive(Clone, Debug)]
 pub struct VibeOutput {
     /// `None` ⇒ no-corpus NULL marker (no model call was made).
@@ -168,7 +162,7 @@ impl VibeOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Corpus loaders — byte-for-byte the same SQL the Go stage runs.
+// Corpus loaders.
 // ---------------------------------------------------------------------------
 
 /// load_latest_narratives returns the narratives from the entity's most recent
@@ -318,8 +312,8 @@ pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) 
 }
 
 /// The loaded-and-weighted vibe context: everything the prompt needs plus the debounce key.
-/// Splitting the load from the model call lets the production handler gate on `input_hash`
-/// BEFORE paying for the GPU (the parity harness skips the gate — it must always run).
+/// Splitting the load from the model call lets the handler gate on `input_hash`
+/// before paying for the GPU.
 pub struct VibeContext {
     /// Ordered for the prompt (topic heat → impact → title).
     pub narratives: Vec<Narrative>,
@@ -659,7 +653,7 @@ pub struct VibeReply {
 /// behind the capability library's `Parser<T>` seam.
 /// It never returns the fail-closed `Ok(None)` — vibe's only fail-closed path is the
 /// no-corpus short-circuit *before* the model call (a NULL marker), so an unparseable reply
-/// is a genuine failure → `Err` → the work item backs off, exactly as the Go stage does.
+/// is a genuine failure -> `Err` -> the work item backs off.
 pub struct VibeParser;
 
 impl Parser<VibeReply> for VibeParser {
@@ -695,7 +689,7 @@ pub async fn generate_vibe(
     temperature: f64,
 ) -> Result<VibeOutput> {
     let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    let (out, _, _) = generate_vibe_from_context(
+    let out = generate_vibe_from_context(
         hx,
         entity_type,
         entity_name,
@@ -704,37 +698,9 @@ pub async fn generate_vibe(
         None,
         None,
         temperature,
-        false,
     )
     .await?;
     Ok(out)
-}
-
-/// generate_vibe_parity runs the same core as production while returning the
-/// parity-era prompt and request-body axes. NO debounce — a parity run must always
-/// exercise the model — and NO continuity prior / relational memory: parity prompts stay
-/// byte-stable (the sigil precedent). Removed with the parity bins (see plan C1).
-pub async fn generate_vibe_parity(
-    hx: &Harness,
-    entity_type: &str,
-    entity_id: i32,
-    entity_name: &str,
-    sport_raw: &str,
-    temperature: f64,
-) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
-    let ctx = load_vibe_context(hx, entity_type, entity_id, entity_name, sport_raw).await?;
-    generate_vibe_from_context(
-        hx,
-        entity_type,
-        entity_name,
-        sport_raw,
-        ctx,
-        None,
-        None,
-        temperature,
-        true,
-    )
-    .await
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -747,31 +713,26 @@ async fn generate_vibe_from_context(
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
     temperature: f64,
-    capture_parity: bool,
-) -> Result<(VibeOutput, Option<String>, Option<serde_json::Value>)> {
+) -> Result<VibeOutput> {
     // No derived signal (no narratives AND no transfer heat) → no rating. Persist a
     // NULL-sentiment marker (handled by the caller); the read path returns "no data". No
     // model call is made, so the marker's model_version is the role's configured model.
     // The marker still carries the (empty-material) hash so quiet entities debounce.
     if ctx.empty() {
-        return Ok((
-            VibeOutput {
-                sentiment: None,
-                vibe_prompt: None,
-                hook: None,
-                input_news_ids: Vec::new(),
-                input_components_json: ctx.input_components_json,
-                input_hash: ctx.input_hash,
-                model: hx.router.for_role(Role::VibeLogic).model().to_string(),
-                prompt_version: VIBE_PROMPT_VERSION,
-                built_prompt: None,
-                request_body: None,
-                eval_count: None,
-                wall_ms: None,
-            },
-            None,
-            None,
-        ));
+        return Ok(VibeOutput {
+            sentiment: None,
+            vibe_prompt: None,
+            hook: None,
+            input_news_ids: Vec::new(),
+            input_components_json: ctx.input_components_json,
+            input_hash: ctx.input_hash,
+            model: hx.router.for_role(Role::VibeLogic).model().to_string(),
+            prompt_version: VIBE_PROMPT_VERSION,
+            built_prompt: None,
+            request_body: None,
+            eval_count: None,
+            wall_ms: None,
+        });
     }
 
     let prompt = build_sentiment_prompt(
@@ -811,28 +772,24 @@ async fn generate_vibe_from_context(
     let eval_count = extracted.eval_count;
     let wall_ms = extracted.wall_ms;
 
-    Ok((
-        VibeOutput {
-            sentiment: Some(reply.sentiment),
-            vibe_prompt: if reply.vibe_prompt.is_empty() {
-                None
-            } else {
-                Some(reply.vibe_prompt)
-            },
-            hook: reply.hook,
-            input_news_ids: ctx.news_ids,
-            input_components_json: ctx.input_components_json,
-            input_hash: ctx.input_hash,
-            model: extracted.model,
-            prompt_version: VIBE_PROMPT_VERSION,
-            built_prompt: Some(built_prompt.clone()),
-            request_body: Some(request_body.clone()),
-            eval_count: Some(eval_count),
-            wall_ms: Some(wall_ms),
+    Ok(VibeOutput {
+        sentiment: Some(reply.sentiment),
+        vibe_prompt: if reply.vibe_prompt.is_empty() {
+            None
+        } else {
+            Some(reply.vibe_prompt)
         },
-        capture_parity.then_some(built_prompt),
-        capture_parity.then_some(request_body),
-    ))
+        hook: reply.hook,
+        input_news_ids: ctx.news_ids,
+        input_components_json: ctx.input_components_json,
+        input_hash: ctx.input_hash,
+        model: extracted.model,
+        prompt_version: VIBE_PROMPT_VERSION,
+        built_prompt: Some(built_prompt),
+        request_body: Some(request_body),
+        eval_count: Some(eval_count),
+        wall_ms: Some(wall_ms),
+    })
 }
 
 fn vibe_included_evidence(out: &VibeOutput) -> serde_json::Value {
@@ -908,8 +865,7 @@ async fn persist_to_vibe_scores(
 
 /// VibeHandler drains the durable `vibe` stage: read the fresh narratives + heat, score
 /// with the model, persist to vibe_scores, and enqueue the Momentum gate before completing.
-/// This is the production path for the Phase 2 cutover (registered in main.rs); the Phase 1
-/// parity harness reuses the same core but writes the shadow table.
+/// This is the production path registered in `main.rs`.
 pub struct VibeHandler;
 
 impl VibeHandler {
@@ -932,7 +888,7 @@ impl StageHandler for VibeHandler {
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let entity_id = item.entity_id_i32()?;
-        // nameOf: the name lookup uses the queue's raw sport value (drainVibe).
+        // The name lookup uses the queue's raw sport value; sport normalization happens below.
         let name = lookup_entity_name(&hx.pool, &item.entity_type, entity_id, &item.sport).await?;
         let sport = item.sport.to_uppercase();
 
@@ -995,7 +951,7 @@ impl StageHandler for VibeHandler {
             }
         };
 
-        let (out, _, _) = generate_vibe_from_context(
+        let out = generate_vibe_from_context(
             hx,
             &item.entity_type,
             &name,
@@ -1004,7 +960,6 @@ impl StageHandler for VibeHandler {
             previous.as_ref(),
             memory.as_deref(),
             VIBE_TEMPERATURE,
-            false,
         )
         .await?;
         let product_row_id = persist_to_vibe_scores(&hx.pool, item, &sport, &out).await?;
@@ -1162,15 +1117,7 @@ mod tests {
             sentiment: 55,
             vibe_prompt: String::new(),
         };
-        let p = build_sentiment_prompt(
-            "team",
-            "Test Team",
-            "NFL",
-            &[],
-            &[],
-            Some(&previous),
-            None,
-        );
+        let p = build_sentiment_prompt("team", "Test Team", "NFL", &[], &[], Some(&previous), None);
         assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nNarratives forming"));
     }
 

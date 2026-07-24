@@ -121,8 +121,7 @@ fn main() {
     let out: Vec<serde_json::Value> = scenarios()
         .into_iter()
         .map(|s| {
-            let prompt =
-                build_graph_prompt(s.source, s.published, s.title, s.text, &s.candidates);
+            let prompt = build_graph_prompt(s.source, s.published, s.title, s.text, &s.candidates);
             json!({
                 "name": s.name,
                 "task": "graph",

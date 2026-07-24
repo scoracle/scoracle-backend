@@ -24,9 +24,8 @@ use std::path::Path;
 
 use scoracle_cognition::corpus::HeatItem;
 use scoracle_cognition::sigil::{
-    build_crown_prompt, build_pillar_divergence, compute_omen, pillar_convergence,
-    SynthMomentum, SynthNarrative, SynthRating, SynthVibe, ORACLE_PROMPT_VERSION,
-    ORACLE_SYSTEM_PROMPT,
+    build_crown_prompt, build_pillar_divergence, compute_omen, pillar_convergence, SynthMomentum,
+    SynthNarrative, SynthRating, SynthVibe, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
 use serde_json::json;
 
@@ -45,7 +44,13 @@ struct Scenario {
     expect: serde_json::Value,
 }
 
-fn narrative(title: &str, body: &str, impact: f64, trajectory: &str, sources: i32) -> SynthNarrative {
+fn narrative(
+    title: &str,
+    body: &str,
+    impact: f64,
+    trajectory: &str,
+    sources: i32,
+) -> SynthNarrative {
     SynthNarrative {
         title: title.to_string(),
         body: body.to_string(),
@@ -56,7 +61,13 @@ fn narrative(title: &str, body: &str, impact: f64, trajectory: &str, sources: i3
     }
 }
 
-fn rating(peak: &str, notability: i32, trajectory: &str, label: &str, body: &str) -> Option<SynthRating> {
+fn rating(
+    peak: &str,
+    notability: i32,
+    trajectory: &str,
+    label: &str,
+    body: &str,
+) -> Option<SynthRating> {
     Some(SynthRating {
         divined_peak: peak.to_string(),
         body: body.to_string(),
@@ -74,7 +85,15 @@ fn vibe(sentiment: i32, prompt: &str) -> Option<SynthVibe> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn momentum(direction: &str, score: f64, r_slope: Option<f64>, r_n: i32, v_slope: Option<f64>, v_n: i32, blurb: &str) -> SynthMomentum {
+fn momentum(
+    direction: &str,
+    score: f64,
+    r_slope: Option<f64>,
+    r_n: i32,
+    v_slope: Option<f64>,
+    v_n: i32,
+    blurb: &str,
+) -> SynthMomentum {
     SynthMomentum {
         direction: Some(direction.to_string()),
         blurb: Some(blurb.to_string()),
@@ -240,8 +259,12 @@ fn main() -> anyhow::Result<()> {
     for s in scenarios {
         // The REAL deterministic pipeline: divergence → convergence → omen. The scenario's
         // named omen is asserted, so a drifted omen rule fails HERE, not silently at the gate.
-        let comparisons =
-            build_pillar_divergence(&s.narratives, s.rating.as_ref(), s.vibe.as_ref(), &s.momentum);
+        let comparisons = build_pillar_divergence(
+            &s.narratives,
+            s.rating.as_ref(),
+            s.vibe.as_ref(),
+            &s.momentum,
+        );
         let convergence = pillar_convergence(&comparisons);
         let (omen, omen_reason) = compute_omen(convergence, s.rating.as_ref(), &s.momentum);
         assert_eq!(
@@ -278,7 +301,11 @@ fn main() -> anyhow::Result<()> {
         });
         let path = dir.join(format!("{}.json", s.name));
         std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&v)?))?;
-        println!("wrote {} (omen={omen}, {} chars prompt)", path.display(), prompt.len());
+        println!(
+            "wrote {} (omen={omen}, {} chars prompt)",
+            path.display(),
+            prompt.len()
+        );
     }
     println!("done — {n} fixtures at {ORACLE_PROMPT_VERSION}");
     Ok(())

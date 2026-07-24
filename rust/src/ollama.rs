@@ -1,10 +1,7 @@
-//! Ollama HTTP client — mirrors the Go `internal/ml` OllamaClient
-//! (`go/internal/ml/ollama.go`). Targets the local Ollama instance (default
-//! http://localhost:11434). No external providers; all inference stays local.
+//! Ollama HTTP client for the local inference boundary.
 //!
-//! Request/response field names match the Go structs byte-for-byte so the same
-//! prompt + options produce the same wire payload — the basis for the Phase 1
-//! temp-0 parity test against the Go stages.
+//! Targets the local Ollama instance (default http://localhost:11434). No external
+//! providers are used in production; all live inference stays in the Rust cognition layer.
 
 use crate::util::truncate;
 use anyhow::{anyhow, Context, Result};
@@ -30,11 +27,7 @@ pub struct OllamaClient {
 ///
 /// `temperature` is an `Option` on purpose: `None` omits the field (Ollama uses
 /// its own default, ~0.8, NON-deterministic) and `Some(t)` sends exactly `t` —
-/// INCLUDING `Some(0.0)`. The Go client (and Phase 0's first cut here) dropped
-/// temperature when `<= 0`, which silently un-pins temp-0 to that random default.
-/// The Phase 1 parity harness MUST pin an explicit `Some(0.0)` so the temp-0 diff
-/// against Go is exact; production vibe uses `Some(0.7)`. `num_predict` is still
-/// omitted when `<= 0`.
+/// INCLUDING `Some(0.0)`. `num_predict` is still omitted when `<= 0`.
 ///
 /// `num_ctx` (omitted when `<= 0`) overrides Ollama's server default context window —
 /// 4096 tokens on this box (verified live via `ollama ps`), far below what the models
@@ -143,8 +136,8 @@ impl OllamaClient {
 
     /// build_request assembles the `/api/generate` request body for `(prompt, opts)`.
     /// Single source of truth shared by `generate` (what we actually POST) and
-    /// `request_body` (what the parity harness records), so the stored request can
-    /// never drift from the sent one.
+    /// `request_body` (used by request builders and ledger capture), so stored
+    /// inspection data cannot drift from the sent request shape.
     fn build_request<'a>(
         &'a self,
         prompt: &'a str,
@@ -180,9 +173,8 @@ impl OllamaClient {
     }
 
     /// request_body returns the exact JSON body `generate` would POST for
-    /// `(prompt, opts)`. Used by the Phase 1 parity harness to persist the wire
-    /// request for the Go-vs-Rust diff (the Ollama JSON shape is the only coupling
-    /// per the plan §2, so a jsonb-equal body ⇒ equal temp-0 output).
+    /// `(prompt, opts)`. Deterministic request builders use this for inspection,
+    /// ledger capture, and eval fixtures without performing a model call.
     pub fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
         serde_json::to_value(self.build_request(prompt, opts)).unwrap_or(serde_json::Value::Null)
     }

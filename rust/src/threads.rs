@@ -339,7 +339,10 @@ mod tests {
         let new = unit(vec![0.0, 1.0]);
         let c = ewma_centroid(&old, &new, 0.2);
         let norm = c.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((norm - 1.0).abs() < 1e-5, "centroid must stay unit, got {norm}");
+        assert!(
+            (norm - 1.0).abs() < 1e-5,
+            "centroid must stay unit, got {norm}"
+        );
         // Moved toward the new vector but still dominated by the old.
         assert!(c[0] > c[1] && c[1] > 0.0);
         // Degenerate exact-opposite blend at alpha 0.5 collapses to zero → falls back to new.

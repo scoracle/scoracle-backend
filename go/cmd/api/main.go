@@ -123,6 +123,12 @@ func main() {
 			mc.NewsScrubInterval = 0 // disable the scrub ticker
 		}
 		mc.StatsInterval = cfg.PipelineStatsInterval
+		if !cfg.BoxscoreBackfillEnabled {
+			mc.BoxscoreBackfillInterval = 0
+		} else {
+			mc.BoxscoreBackfillInterval = cfg.BoxscoreBackfillInterval
+			mc.BoxscoreBackfillBatch = cfg.BoxscoreBackfillBatch
+		}
 		go maintenance.Start(ctx, dbPool, mc, logger)
 	} else {
 		logger.Warn("Database-backed background workers disabled in degraded mode")

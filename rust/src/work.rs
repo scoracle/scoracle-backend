@@ -25,6 +25,8 @@ use std::time::Duration;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Stage {
     Scrub,
+    ArticleRead,
+    FixtureBoxscore,
     Graph,
     Peak,
     Momentum,
@@ -40,6 +42,8 @@ impl Stage {
     pub fn as_str(self) -> &'static str {
         match self {
             Stage::Scrub => "scrub",
+            Stage::ArticleRead => "article_read",
+            Stage::FixtureBoxscore => "fixture_boxscore",
             Stage::Graph => "graph",
             Stage::Peak => "peak",
             Stage::Momentum => "momentum",
@@ -62,7 +66,7 @@ impl std::fmt::Display for Stage {
 #[derive(Clone, Debug)]
 pub struct Item {
     pub stage: Stage,
-    pub entity_type: String, // "player" | "team"
+    pub entity_type: String, // "player" | "team" | "article" | "fixture"
     pub entity_id: i64,
     pub sport: String,
     pub input_version: Option<String>,

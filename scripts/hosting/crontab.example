@@ -76,24 +76,24 @@ TZ=America/New_York
 0 4 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Corpus ingest — once daily overnight (Go funnel; Rust derives)
+# Corpus ingest — every six hours (Go funnel; Rust derives)
 # ---------------------------------------------------------------------------
 # RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so coverage
 # does not collapse in the offseason). This is ingest-only: the Rust Cognition
 # Harness owns scrub -> transfers -> narratives -> vibe -> sigil from the durable
 # pipeline_work queue. Do not run `-mode corpus` after the Step-3 cutover; that is
-# the legacy Go LLM chain.
-0 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
+# the legacy Go LLM chain. The Go RSS query window is `when:6h`, matching this
+# schedule.
+0 */6 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Narrative-graph co-mention refresh — nightly, after ingest (mig 154)
+# Narrative-graph co-mention refresh — every six hours, after ingest (mig 154)
 # ---------------------------------------------------------------------------
 # Recomputes narrative_links co_mention edges from the vetted news rail. Pure
-# set-based SQL, sub-second per sport, no model calls. Runs 45 min after the
-# 00:00 ingest so the cognition daemon has scrubbed the sweep; the daily cadence
-# is deliberate — each link's heating_up/cooling_off is its strength delta vs
-# the previous run, so this schedule makes trajectory = day-over-day movement.
-45 0 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
+# set-based SQL, sub-second per sport, no model calls. Runs 45 min after each
+# six-hour ingest so the cognition daemon has scrubbed the sweep; each link's
+# heating_up/cooling_off is its strength delta vs the previous run.
+45 */6 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Stats-rail commentary — nightly, current season, regenerate only on new data
@@ -104,8 +104,8 @@ TZ=America/New_York
 # or whose latest summary has no input_hash. The input_hash debounce still skips
 # non-material recomputes before any model call. Offseason nights should therefore
 # find little or no stats-rail GPU work. Runs at 03:00, after the news pipeline
-# (00:00) and the football drain (23:00) so ratings are fresh, and offset to ease
-# the shared Archbox GPU. -limit caps GENERATIONS (model calls) per night, NOT
+# (six-hour RSS cadence) and the football drain (23:00) so ratings are fresh, and
+# offset to ease the shared Archbox GPU. -limit caps GENERATIONS (model calls) per night, NOT
 # entities scanned; the initial fill is bounded to ~400 writes/night
 # (undone-first, so it progresses) and steady state rarely hits the cap.
 # Deep/previous seasons are deferred — backfilled in batches out of band (-mode backfill).

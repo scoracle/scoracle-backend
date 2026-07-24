@@ -32,9 +32,9 @@ pub struct Harness {
     /// Route primitive — owns the `Inference` backend(s) per role.
     pub router: Router,
     /// Embed+cluster capability (candle, CPU — Plan §1.4). `Option` because the model is a
-    /// heavy resource not every entry point needs: the experiment harness + (once it lands) the
-    /// hybrid Resolve gate construct it with `Some`; the parity/eval bins that never embed leave
-    /// it `None`. Loading it is `Embedder::from_config`.
+    /// heavy resource not every entry point needs: the service and embed-aware experiments
+    /// construct it with `Some`; eval/input-build paths that never embed leave it `None`.
+    /// Loading it is `Embedder::from_config`.
     pub embedder: Option<Embedder>,
     /// Embedding-Resolve cosine bands (Plan §1.3) — the policy the `resolve_*` primitives read
     /// to auto-decide the confident tails vs route the ambiguous middle to the model.
@@ -61,8 +61,7 @@ pub trait Parser<T> {
 
 /// Extracted carries the parsed value (or the fail-closed `None`) plus the provenance Persist
 /// needs. `request_body` is the *exact* wire body that was sent (sourced from the same
-/// `Inference::generate` call that POSTed it), so it can never drift from what was POSTed
-/// — the property the Phase-1 temp-0 proof leans on.
+/// `Inference::generate` call that POSTed it), so it can never drift from what was POSTed.
 #[derive(Debug)]
 pub struct Extracted<T> {
     /// `None` = the fail-closed marker.
@@ -71,7 +70,7 @@ pub struct Extracted<T> {
     pub model: String,
     /// The exact user prompt sent to the model.
     pub built_prompt: String,
-    /// The exact `/api/generate` wire body (for the parity diff / archive).
+    /// The exact `/api/generate` wire body for ledger/eval archive.
     pub request_body: serde_json::Value,
     /// Tokens the model evaluated (perf/telemetry; not all stages persist it).
     pub eval_count: i32,

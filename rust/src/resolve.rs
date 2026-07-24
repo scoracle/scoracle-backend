@@ -38,7 +38,7 @@ use std::collections::HashMap;
 /// The scrub relevance system prompt: disambiguate same-name candidates and choose which the
 /// article is genuinely about. Fail-closed and independent — an unparseable reply drops the
 /// ambiguous candidates.
-const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nCandidates with the same or nearly identical names are MUTUALLY EXCLUSIVE: keep at most ONE of them — the one whose identity (club, nationality, position) the article actually matches. Never keep two same-named candidates.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
+const RESOLVE_SYSTEM_PROMPT: &str = "Task: choose which listed candidates the article is genuinely about.\n\nThe article title/text may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read it in the source language and translate meaning internally; return the same JSON shape in English keys only.\n\nA candidate is relevant when the article concerns that exact person/team as a real subject or meaningful mention.\n\nA candidate is not relevant when:\n- the article is about a different same-name person; use current club, nationality, role, and position as tie-breakers.\n- the identity's current club/role/position contradicts the article.\n- the name appears only as incidental noise in a roundup or list.\n\nCandidates with the same or nearly identical names are MUTUALLY EXCLUSIVE: keep at most ONE of them — the one whose identity (club, nationality, position) the article actually matches. Never keep two same-named candidates.\n\nBe inclusive for genuine mentions and strict on same-name confusion. Return only this JSON object:\n{\"relevant\": [<candidate numbers>]}";
 
 /// The model budget for one adjudication call. Temperature 0.2 mirrors the scrub's "tight but a
 /// judgment call"; JSON mode tightens adherence to the `{"relevant":[…]}` contract.
@@ -437,8 +437,18 @@ mod tests {
     fn same_name_groups_key_by_type_and_normalized_name() {
         // The group key the gate demotes on: (type, normalized name). A player and a
         // team sharing a name is NOT a collision; two same-named players are.
-        let a = player("Ederson", Some("Brazilian"), Some("Man City"), Some("goalkeeper"));
-        let b = player("Éderson", Some("Brazilian"), Some("Atalanta"), Some("midfielder"));
+        let a = player(
+            "Ederson",
+            Some("Brazilian"),
+            Some("Man City"),
+            Some("goalkeeper"),
+        );
+        let b = player(
+            "Éderson",
+            Some("Brazilian"),
+            Some("Atalanta"),
+            Some("midfielder"),
+        );
         let t = Candidate {
             entity_type: EntityType::Team,
             entity_id: 7,

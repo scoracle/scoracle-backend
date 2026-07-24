@@ -45,6 +45,12 @@ fn ci(id: i64, source: &str, title: &str, description: &str) -> CorpusItem {
         published_at_epoch: None,
         fetched_at_epoch: None,
         full_text: None,
+        // Fixtures pin the reader-free corpus shape (no article_read evidence card), the same
+        // rule as the memory-free/score-context-free prompt pins above.
+        article_read_blurb: None,
+        article_read_status: None,
+        article_read_content_hash: None,
+        article_read_updated_epoch: None,
     }
 }
 
@@ -111,7 +117,10 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
             .flat_map(|(k, val)| {
                 let mut out = vec![(k.clone(), val.clone())];
                 if k == "prompt_version" {
-                    out.push(("note".to_string(), serde_json::Value::String(note.to_string())));
+                    out.push((
+                        "note".to_string(),
+                        serde_json::Value::String(note.to_string()),
+                    ));
                 }
                 out
             })
@@ -120,7 +129,11 @@ fn write_fixture(dir: &Path, fx: &Fixture, note: &str) -> anyhow::Result<()> {
     }
     let path = dir.join(format!("{}.json", fx.name));
     std::fs::write(&path, format!("{}\n", serde_json::to_string_pretty(&v)?))?;
-    println!("wrote {} ({} chars prompt)", path.display(), fx.user_prompt.len());
+    println!(
+        "wrote {} ({} chars prompt)",
+        path.display(),
+        fx.user_prompt.len()
+    );
     Ok(())
 }
 

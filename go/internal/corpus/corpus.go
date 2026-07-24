@@ -11,16 +11,18 @@ import (
 	"github.com/albapepper/scoracle-data/internal/thirdparty"
 )
 
-// sweepTimeout caps one team's RSS call. The RSS HTTP client already times out
-// at 15s; this is the outer ctx budget per team.
-const sweepTimeout = 30 * time.Second
+// sweepTimeout caps one team's full RSS sweep. Each individual RSS HTTP call
+// already times out at 15s; the wider alias/language net needs a larger outer
+// budget so slow editions do not cancel the whole team too aggressively.
+const sweepTimeout = 90 * time.Second
 
 // Team is a team we sweep RSS for.
 type Team struct {
-	ID      int
-	Sport   string
-	Name    string
-	Aliases []string
+	ID        int
+	Sport     string
+	Name      string
+	ShortCode string
+	Aliases   []string
 }
 
 // Sweep RSS-fetches every team in scope, writing through to news_article_entities
@@ -77,7 +79,7 @@ func LoadTeams(ctx context.Context, pool *pgxpool.Pool, sport string) ([]Team, e
 	qctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	rows, err := pool.Query(qctx, `
-		SELECT id, sport, name, COALESCE(search_aliases, ARRAY[]::text[])
+		SELECT id, sport, name, COALESCE(short_code, ''), COALESCE(search_aliases, ARRAY[]::text[])
 		FROM teams
 		WHERE sport = $1
 		ORDER BY id
@@ -90,8 +92,11 @@ func LoadTeams(ctx context.Context, pool *pgxpool.Pool, sport string) ([]Team, e
 	var out []Team
 	for rows.Next() {
 		var t Team
-		if err := rows.Scan(&t.ID, &t.Sport, &t.Name, &t.Aliases); err != nil {
+		if err := rows.Scan(&t.ID, &t.Sport, &t.Name, &t.ShortCode, &t.Aliases); err != nil {
 			return nil, err
+		}
+		if t.ShortCode != "" {
+			t.Aliases = append(t.Aliases, t.ShortCode)
 		}
 		out = append(out, t)
 	}

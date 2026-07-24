@@ -731,7 +731,9 @@ impl LensTask for NarrativeTask {
             sport: e.sport.clone(),
             trigger_type: "periodic".to_string(),
         };
-        Ok(Some(build_narratives_prompt(&req, &corpus, &heat, None, None))) // evals pin the memory-free, score-context-free prompt shape
+        Ok(Some(build_narratives_prompt(
+            &req, &corpus, &heat, None, None,
+        ))) // evals pin the memory-free, score-context-free prompt shape
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
         // Compose the stage's tolerant salvager so the eval scores exactly the storylines the pipeline
@@ -1452,8 +1454,7 @@ impl LensTask for GraphTask {
                     checks.push(PropertyCheck {
                         name: format!("person_present[{spec}]"),
                         pass: g.persons.iter().any(|p| {
-                            p.name.eq_ignore_ascii_case(name)
-                                && kind.is_none_or(|k| p.kind == k)
+                            p.name.eq_ignore_ascii_case(name) && kind.is_none_or(|k| p.kind == k)
                         }),
                         detail: persons_detail(),
                     });
@@ -1526,7 +1527,10 @@ mod tests {
         assert_eq!(rating.operator, "The Scout");
         assert!(rating.mandate.contains("greatest strength"));
 
-        assert_eq!(lens_parameters("narratives").unwrap().operator, "The Journalist");
+        assert_eq!(
+            lens_parameters("narratives").unwrap().operator,
+            "The Journalist"
+        );
         assert_eq!(lens_parameters("transfer").unwrap().operator, "The Insider");
         assert_eq!(lens_parameters("vibe").unwrap().operator, "The Influencer");
         assert_eq!(lens_parameters("momentum").unwrap().operator, "The Analyst");
@@ -1582,7 +1586,10 @@ mod tests {
             ..Default::default()
         };
         let v = OracleTask.evaluate(raw, None, Some(&x));
-        assert!(!v.all_checks_pass(), "excludes should catch the parroted register");
+        assert!(
+            !v.all_checks_pass(),
+            "excludes should catch the parroted register"
+        );
     }
 
     // --- vibe MAE axis ------------------------------------------------------------
@@ -1624,7 +1631,11 @@ mod tests {
             ..Default::default()
         };
         assert!(VibeTask
-            .evaluate("SCORE: 30\nHOOK: The slide is real\nVIBE: grim", None, Some(&x))
+            .evaluate(
+                "SCORE: 30\nHOOK: The slide is real\nVIBE: grim",
+                None,
+                Some(&x)
+            )
             .all_checks_pass());
         assert!(!VibeTask
             .evaluate("SCORE: 30\nVIBE: grim", None, Some(&x))
@@ -1712,7 +1723,11 @@ mod tests {
             .all_checks_pass());
         // None of the cooling words appear → the OR-check fails.
         let cooling = Expect {
-            body_includes_any: Some(vec!["cooling".into(), "fizzled".into(), "gone quiet".into()]),
+            body_includes_any: Some(vec![
+                "cooling".into(),
+                "fizzled".into(),
+                "gone quiet".into(),
+            ]),
             ..Default::default()
         };
         assert!(!NarrativeTask

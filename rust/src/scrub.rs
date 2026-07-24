@@ -1,12 +1,10 @@
-//! Scrub stage handler — the news ID-gate as a `pipeline_work` stage (Plan §8, L6 option (i)).
+//! Scrub stage handler — the news ID-gate as a `pipeline_work` stage.
 //!
-//! Ports `go/internal/ml/news_scrub.go::ScrubArticle` to a `StageHandler`: claim an ARTICLE-keyed
-//! work item → load the article + its candidate links (with identity cards) → force-keep the primary
-//! (confidence ≥ 1.0, the entity the article was fetched for) and run the ASYMMETRIC `resolve_set`
-//! gate (Plan §8) on the secondary fuzzy guesses → write `news_article_entities.vetted`. That write
-//! fires the mig-103 `AFTER UPDATE OF vetted` trigger, which enqueues the per-entity derive stages
-//! (narratives/vibe/transfers) exactly as today — so scrub joins the queue without changing the
-//! downstream contract. Terminal: the handler enqueues nothing itself (the trigger does).
+//! It claims an ARTICLE-keyed work item, loads the article plus candidate links with identity
+//! cards, force-keeps only exact links (confidence >= 1.0), runs the asymmetric `resolve_set`
+//! gate on every lower-confidence candidate (including broad team RSS primaries), and writes
+//! `news_article_entities.vetted`. That write fires the SQL trigger that enqueues downstream
+//! per-entity work. Terminal: the handler enqueues nothing itself.
 //!
 //! The gate spends local-model time only on the ambiguous band; the auto-keeps skip it. The proxy
 //! never auto-drops (the L5 shadow proved that loses non-redundant truth), so every exclusion is the
@@ -77,7 +75,8 @@ impl StageHandler for ScrubHandler {
             return Ok(());
         }
 
-        // Force-keep the primary (confidence ≥ 1.0); the asymmetric gate vets the secondaries.
+        // Force-keep exact links (confidence ≥ 1.0); the asymmetric gate vets lower-confidence
+        // candidates, including broad team RSS primaries inserted by the Go funnel.
         let context = crate::novelty::article_text(&title, &description);
         let secondaries: Vec<Candidate> = cands
             .iter()
@@ -122,7 +121,15 @@ impl StageHandler for ScrubHandler {
             .map(|(c, _)| (c.entity_type, c.entity_id))
             .collect();
 
-        apply_verdicts(hx, article_id, &sport, &entity_types, &entity_ids, &relevants).await?;
+        apply_verdicts(
+            hx,
+            article_id,
+            &sport,
+            &entity_types,
+            &entity_ids,
+            &relevants,
+        )
+        .await?;
 
         // Source-aware novelty gate (Cognition Phase 2): suppress a near-dup repost (same outlet, or
         // near-verbatim syndication) of recent canonical coverage; cross-outlet corroboration passes

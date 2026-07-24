@@ -14,6 +14,12 @@ import (
 // them isolated from real rows.
 const testSport = "ZZ_WORK_TEST"
 
+func TestStageFixtureBoxscoreLiteral(t *testing.T) {
+	if StageFixtureBoxscore != "fixture_boxscore" {
+		t.Fatalf("StageFixtureBoxscore = %q", StageFixtureBoxscore)
+	}
+}
+
 func testPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")

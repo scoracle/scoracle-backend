@@ -112,6 +112,6 @@ NEXT (non-SQL — a migration cannot carry these):
   2. Ensure COGNITION_STAGES includes `graph`:
        scrub,graph,peak,momentum,transfers,narratives,vibe,sigil
      Check the systemd unit AND any .env / .env.local override on the target.
-  3. Install the nightly relational cron (cron-narrative-links.sh @ 00:45,
+  3. Install the relational crons (cron-narrative-links.sh at :45 every 6 hours,
      cron-stat-matchups.sh @ 03:30) — see scripts/hosting/crontab.example.
 REMINDER

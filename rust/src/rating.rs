@@ -1,18 +1,16 @@
-//! Rating stage — the stats-rail PEAK scouting report, ported from Go (Cutover Step 2, L12).
+//! Rating stage — the stats-rail PEAK scouting report.
 //!
-//! The Go source was the machinery spec. `rating.go` supplied the loader + deterministic
-//! notability/pctBand/trimFloat/ordered-facts assembly + parse + persist. The Rust port now owns both
-//! shapes: the per-entity core here, and a `PeakHandler` queue stage for current-season need-based
-//! PEAK work. `cmd/statcommentary` remains the operator/batch entry point: nightly mode enqueues
-//! durable PEAK work, while explicit backfill can still run the core inline for historical seasons.
+//! Rust owns both PEAK shapes: the per-entity core here, and a `PeakHandler` queue stage for
+//! current-season need-based PEAK work. `cmd/statcommentary` remains the operator/batch entry
+//! point: nightly mode enqueues durable PEAK work, while explicit backfill can still run the core
+//! inline for historical seasons.
 //!
 //! Composition (Plan §1.2 + §4): `route(StatsLogic) + extract + persist`. Rating is the FIRST
 //! `Role::StatsLogic` consumer (vibe/transfers are `EmotionalNews`). The deterministic parts stay
 //! where they belong — composite / T-score / the `rating_breakdown` percentiles (`pct`/`z`) are
 //! Postgres-computed stored derived stats, READ here, never recomputed. The transient prompt-shaping
 //! (notability, `pctBand`, `trimFloat`, ordered facts) is mirrored in Rust byte-for-byte: it is NOT a
-//! stored derived stat (the rating.go comment: "like sigil's trendDir"), so by the transfers
-//! precedent it lives in the stage, exactly as Go does it. The L8 BREAKTHROUGH is preserved: the
+//! stored derived stat, so it lives in the Rust stage beside the model call. The L8 BREAKTHROUGH is preserved: the
 //! percentile→tier mapping (`pctBand`) is done DETERMINISTICALLY in code and fed to the model as a
 //! labeled FACT, and the model only VERBALIZES the labeled tier — it never maps percentile→quality
 //! itself (some local models invert this, e.g. calling a 37th-pct skill "above average").
@@ -45,8 +43,7 @@ pub const RATING_PROMPT_VERSION: &str = "s14"; // s12: cross-season memory card 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
 
-/// Production rating temperature (rating.go uses 0.6 — a touch of voice on the analyst prose). The
-/// parity harness overrides to 0 (the deterministic axes need no model call anyway).
+/// Production rating temperature.
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the PEAK line plus one identity paragraph.
@@ -57,7 +54,7 @@ pub const RATING_NUM_PREDICT: i32 = 1200;
 /// current-season demands without re-resolving the wrong season.
 const PEAK_WORK_PREFIX: &str = "peak:s";
 
-/// maxStatFacts bounds the breakdown datapoints fed to the prompt. Mirrors rating.go.
+/// maxStatFacts bounds the breakdown datapoints fed to the prompt.
 const MAX_STAT_FACTS: usize = 14;
 
 /// System prompt for the PEAK scouting-report contract. s14 (Characters Phase B): the voice IS
@@ -667,7 +664,10 @@ pub fn build_scouting_decision(p: &RatingProfile) -> ScoutingDecision {
     // card but skipped the separate rate-standouts section (gate rounds 1-2), so the proof
     // the edge is real at low minutes must sit where the PEAK evidence is.
     if let Some(f) = primary_strength_to_stop.as_mut() {
-        if let Some(r) = collect_rate_standouts(p).iter().find(|r| r.label == f.label) {
+        if let Some(r) = collect_rate_standouts(p)
+            .iter()
+            .find(|r| r.label == f.label)
+        {
             f.evidence.push_str(&format!(
                 " (corroborated {}: {:.0}th pct — the edge is real, not a minutes artifact)",
                 r.mode.replace('_', "-"),
@@ -743,7 +743,9 @@ fn render_scouting_decision(d: &ScoutingDecision) -> String {
         // The card says the words the model must speak (s14): echo-prone local models
         // reliably recite the card, so "no clean exploit" lives HERE, not "None supplied"
         // (which they echoed verbatim instead of the contract phrase — gate round 2).
-        None => b.push_str("Exploitation opportunity: None — this profile offers no clean exploit.\n"),
+        None => {
+            b.push_str("Exploitation opportunity: None — this profile offers no clean exploit.\n")
+        }
     }
     if let Some(reason) = &d.no_standout_reason {
         b.push_str(&format!("Why no standout: {reason}\n"));
@@ -766,15 +768,14 @@ pub async fn load_stat_memory(
     entity_id: i32,
     season: i32,
 ) -> Result<Option<String>> {
-    let row: (Option<String>,) =
-        sqlx::query_as("SELECT stat_context_for_entity($1, $2, $3, $4)")
-            .bind(sport)
-            .bind(entity_type)
-            .bind(entity_id)
-            .bind(season)
-            .fetch_one(pool)
-            .await
-            .context("stat_context_for_entity")?;
+    let row: (Option<String>,) = sqlx::query_as("SELECT stat_context_for_entity($1, $2, $3, $4)")
+        .bind(sport)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(season)
+        .fetch_one(pool)
+        .await
+        .context("stat_context_for_entity")?;
     Ok(row.0)
 }
 
@@ -1364,8 +1365,8 @@ pub async fn build_rating_request(
     })))
 }
 
-/// The un-persisted result of one generation — everything the production persist (→ stat_summaries)
-/// and the parity harness (→ shadow) need. The twin of `transfer::TransferPairOutput`.
+/// The un-persisted result of one generation. The production handler persists it to
+/// `stat_summaries`, and the ledger records the prompt/request/evidence envelope.
 #[derive(Clone, Debug)]
 pub struct RatingOutput {
     pub season: i32,
@@ -1582,9 +1583,7 @@ async fn last_commentary_provenance(
     .fetch_optional(&hx.pool)
     .await
     .with_context(|| format!("last commentary provenance {entity_type}/{entity_id}"))?;
-    Ok(row.and_then(|(hash, pv)| {
-        hash.filter(|h| !h.is_empty()).map(|h| (h, pv))
-    }))
+    Ok(row.and_then(|(hash, pv)| hash.filter(|h| !h.is_empty()).map(|h| (h, pv))))
 }
 
 /// persist_stat_summary writes ONE row to the LIVE stat_summaries table — the scored commentary and
@@ -2009,11 +2008,11 @@ mod tests {
         let mut p = nfl_profile(
             "",
             vec![
-                tiered("Goalscoring", 70.0, true, true),      // composite+specialist: stays
+                tiered("Goalscoring", 70.0, true, true), // composite+specialist: stays
                 tiered("On-Court Impact", 60.0, true, false), // composite-only: stays
-                tiered("Penalties Won", 88.0, false, true),   // specialist-only: stays
-                tiered("Clearances", 96.0, false, false),     // display tier: dropped
-                tiered("Duels", 90.0, false, false),          // display tier: dropped
+                tiered("Penalties Won", 88.0, false, true), // specialist-only: stays
+                tiered("Clearances", 96.0, false, false), // display tier: dropped
+                tiered("Duels", 90.0, false, false),     // display tier: dropped
             ],
         );
         p.rate_modes.insert(

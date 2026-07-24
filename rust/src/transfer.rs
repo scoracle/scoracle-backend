@@ -2266,7 +2266,10 @@ async fn load_prior_insider_read(
         card.push_str(&format!("Last read ({}): {}\n", rows[0].2, read));
     }
     let trail: Vec<String> = rows.iter().map(|(s, _, d)| format!("{s} ({d})")).collect();
-    card.push_str(&format!("Recent scores (newest first): {}", trail.join(" · ")));
+    card.push_str(&format!(
+        "Recent scores (newest first): {}",
+        trail.join(" · ")
+    ));
     Ok(Some(PriorInsiderRead {
         latest: rows[0].0,
         card,
@@ -2714,8 +2717,7 @@ impl StageHandler for TransferHandler {
         // unchanged board pays nothing (skip inside); a failed wrap rides the existing
         // `errored` retry tally — the persisted rumors stand, the team item retries, every
         // unchanged pair debounce-skips, so only the wrap pays for the retry.
-        let mut wrap_targets: Vec<(&str, i32, String)> =
-            vec![("team", team_id, team_name.clone())];
+        let mut wrap_targets: Vec<(&str, i32, String)> = vec![("team", team_id, team_name.clone())];
         let mut seen_players: std::collections::HashSet<i32> = std::collections::HashSet::new();
         for c in &candidates {
             if seen_players.insert(c.player_id) {
@@ -2790,8 +2792,14 @@ mod tests {
     fn insider_score_schema_reads_first_lands_1_to_99() {
         let schema = insider_score_format_schema();
         assert_eq!(schema["required"], serde_json::json!(["read", "score"]));
-        assert_eq!(schema["properties"]["score"]["minimum"], serde_json::json!(1));
-        assert_eq!(schema["properties"]["score"]["maximum"], serde_json::json!(99));
+        assert_eq!(
+            schema["properties"]["score"]["minimum"],
+            serde_json::json!(1)
+        );
+        assert_eq!(
+            schema["properties"]["score"]["maximum"],
+            serde_json::json!(99)
+        );
     }
 
     #[test]
@@ -2828,7 +2836,13 @@ mod tests {
         ]);
         let two = build_insider_score_input_components(&[
             heat_item("Heat", 40, "outgoing", "speculation", "y"),
-            heat_item("Lakers", 80, "incoming", "advanced_talks", "worded another way"),
+            heat_item(
+                "Lakers",
+                80,
+                "incoming",
+                "advanced_talks",
+                "worded another way",
+            ),
         ]);
         assert_eq!(one, two);
         assert_eq!(

@@ -1,6 +1,21 @@
 package thirdparty
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
+
+func TestRSSLookbackMatchesSixHourCron(t *testing.T) {
+	if len(timeWindows) != 1 || timeWindows[0] != 6 {
+		t.Fatalf("timeWindows = %#v, want []int{6}", timeWindows)
+	}
+}
+
+func TestRSSWhenTokenSupportsSixHourWindow(t *testing.T) {
+	if got := rssWhenToken(6); got != "6h" {
+		t.Fatalf("rssWhenToken(6) = %q, want 6h", got)
+	}
+}
 
 func TestNameInText_ExactMatch(t *testing.T) {
 	if !nameInText("FC Bayern Munchen", "FC Bayern Munchen wins again", "", "", "", nil, "") {
@@ -44,6 +59,29 @@ func TestNameInText_ShortAliasRequiresSportContext(t *testing.T) {
 	}
 }
 
+func TestMatchesEntity_TrustedShortTeamAlias(t *testing.T) {
+	in := EntityMatchInput{
+		EntityType: "team",
+		Name:       "Paris Saint Germain",
+		Aliases:    []string{"PSG"},
+		Sport:      "FOOTBALL",
+	}
+
+	if !MatchesEntity("PSG close in on new midfielder", in) {
+		t.Error("expected trusted short team alias PSG to match without explicit sport context")
+	}
+
+	untrusted := EntityMatchInput{
+		EntityType: "team",
+		Name:       "Manchester United",
+		Aliases:    []string{"MUN"},
+		Sport:      "FOOTBALL",
+	}
+	if MatchesEntity("MUN shares climb after earnings", untrusted) {
+		t.Error("generic provider-style short code should not match without sport context")
+	}
+}
+
 func TestNameInText_NoFalsePositive(t *testing.T) {
 	aliases := []string{"Bayern Munich"}
 
@@ -81,6 +119,164 @@ func TestBestAliasQuery(t *testing.T) {
 		got := bestAliasQuery(tt.primary, tt.aliases)
 		if got != tt.want {
 			t.Errorf("bestAliasQuery(%q, %v) = %q, want %q", tt.primary, tt.aliases, got, tt.want)
+		}
+	}
+}
+
+func TestBuildRSSSearchQueries_TeamUsesAliasGroup(t *testing.T) {
+	got := buildRSSSearchQueries(
+		"team",
+		"Manchester United",
+		"FOOTBALL",
+		[]string{"MUN", "Man UTD", "Man United", "MUFC"},
+	)
+	want := []string{`("Manchester United" OR "Man UTD" OR "Man United" OR MUFC)`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("buildRSSSearchQueries team = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_TeamAllowsTrustedShortAlias(t *testing.T) {
+	got := buildRSSSearchQueries("team", "Paris Saint Germain", "FOOTBALL", []string{"PSG", "Paris Saint-Germain"})
+	want := []string{`("Paris Saint Germain" OR PSG OR "Paris Saint-Germain")`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("buildRSSSearchQueries PSG = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_TeamBatchesBayernAliases(t *testing.T) {
+	got := buildRSSSearchQueries("team", "FC Bayern München", "FOOTBALL", []string{
+		"Bayern Munich",
+		"Bayern Munchen",
+		"Bayern München",
+		"Bayern",
+		"FC Bayern",
+		"FCB",
+		"Bayern Monaco",
+	})
+	want := []string{`("FC Bayern München" OR "Bayern Munich" OR "Bayern Munchen" OR "Bayern München" OR Bayern OR "FC Bayern" OR "Bayern Monaco")`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("buildRSSSearchQueries Bayern = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_TeamChunksWithoutDroppingAliases(t *testing.T) {
+	got := buildRSSSearchQueries("team", "Ajax", "FOOTBALL", []string{
+		"Ajax Alt 01", "Ajax Alt 02", "Ajax Alt 03", "Ajax Alt 04", "Ajax Alt 05", "Ajax Alt 06",
+		"Ajax Alt 07", "Ajax Alt 08", "Ajax Alt 09", "Ajax Alt 10", "Ajax Alt 11", "Ajax Alt 12",
+	})
+	want := []string{
+		`(Ajax OR "Ajax Alt 01" OR "Ajax Alt 02" OR "Ajax Alt 03" OR "Ajax Alt 04" OR "Ajax Alt 05" OR "Ajax Alt 06" OR "Ajax Alt 07" OR "Ajax Alt 08" OR "Ajax Alt 09")`,
+		`("Ajax Alt 10" OR "Ajax Alt 11" OR "Ajax Alt 12")`,
+	}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("buildRSSSearchQueries chunks = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_NonFootballTeamKeepsSportContext(t *testing.T) {
+	got := buildRSSSearchQueries("team", "Giants", "NFL", []string{"NYG"})
+	want := []string{`(Giants OR NYG) NFL football`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("buildRSSSearchQueries NFL team = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_PlayerKeepsConservativeFallback(t *testing.T) {
+	got := buildRSSSearchQueries("player", "FC Bayern Munchen", "FOOTBALL", []string{"Bayern Munich", "FC Bayern", "BAY"})
+	want := []string{"FC Bayern Munchen soccer football", "Bayern Munich soccer football"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("buildRSSSearchQueries player = %#v, want %#v", got, want)
+	}
+}
+
+func TestFilterRSSArticles_TeamKeepsGoogleResultsForScrub(t *testing.T) {
+	articles := []Article{{Title: "Markets rally after company earnings", Description: "No exact team wording."}}
+	got := filterRSSArticles("team", "Manchester United", "FOOTBALL", "", "", "", []string{"MUN"}, articles)
+	if len(got) != 1 {
+		t.Fatalf("team filter kept %d articles, want 1 for scrub adjudication", len(got))
+	}
+	player := filterRSSArticles("player", "LeBron James", "NBA", "Lakers", "LeBron", "James", nil, articles)
+	if len(player) != 0 {
+		t.Fatalf("player filter kept %d articles, want 0 without a match", len(player))
+	}
+}
+
+func TestLimitRSSArticles_ZeroMeansUncapped(t *testing.T) {
+	articles := []Article{{Title: "one"}, {Title: "two"}, {Title: "three"}}
+	total, got := limitRSSArticles(articles, 0)
+	if total != 3 || len(got) != 3 {
+		t.Fatalf("limitRSSArticles limit 0 = total %d len %d, want 3/3", total, len(got))
+	}
+}
+
+func TestLimitRSSArticles_PositiveLimitCapsReturnedOnly(t *testing.T) {
+	articles := []Article{{Title: "one"}, {Title: "two"}, {Title: "three"}}
+	total, got := limitRSSArticles(articles, 2)
+	if total != 3 || len(got) != 2 {
+		t.Fatalf("limitRSSArticles limit 2 = total %d len %d, want 3/2", total, len(got))
+	}
+}
+
+func TestFilterArticlesByLookbackDropsStaleRSSItems(t *testing.T) {
+	now := time.Date(2026, 7, 23, 18, 0, 0, 0, time.UTC)
+	articles := []Article{
+		{Title: "fresh", PublishedAt: now.Add(-5 * time.Hour).Format(time.RFC1123Z)},
+		{Title: "boundary overlap", PublishedAt: now.Add(-6*time.Hour - 10*time.Minute).Format(time.RFC1123Z)},
+		{Title: "stale", PublishedAt: now.Add(-6*time.Hour - 20*time.Minute).Format(time.RFC1123Z)},
+		{Title: "unknown date", PublishedAt: "not a date"},
+	}
+
+	got := filterArticlesByLookback(articles, 6, now)
+	if len(got) != 3 {
+		t.Fatalf("recent articles = %d, want 3: %#v", len(got), got)
+	}
+	for _, a := range got {
+		if a.Title == "stale" {
+			t.Fatalf("stale article was kept: %#v", got)
+		}
+	}
+}
+
+func TestDeduplicateArticlesNormalizesGoogleNewsURL(t *testing.T) {
+	articles := []Article{
+		{Title: "one", URL: "https://news.google.com/rss/articles/CBMiExample?hl=en-US&gl=US&ceid=US:en"},
+		{Title: "one", URL: "https://news.google.com/rss/articles/CBMiExample?hl=es-ES&gl=ES&ceid=ES:es"},
+		{Title: "two", URL: "https://news.google.com/rss/articles/CBMiOther?hl=en-US&gl=US&ceid=US:en"},
+	}
+
+	got := deduplicateArticles(articles)
+	if len(got) != 2 {
+		t.Fatalf("dedupe len = %d, want 2: %#v", len(got), got)
+	}
+}
+
+func TestDeduplicateArticlesCollapsesSameTitleAndSource(t *testing.T) {
+	articles := []Article{
+		{Title: "Manchester United agree deal", Source: "Example FC", URL: "https://news.google.com/rss/articles/one"},
+		{Title: "Manchester United agree deal", Source: "Example FC", URL: "https://news.google.com/rss/articles/two"},
+		{Title: "Manchester United agree deal", Source: "Other Outlet", URL: "https://news.google.com/rss/articles/three"},
+	}
+
+	got := deduplicateArticles(articles)
+	if len(got) != 2 {
+		t.Fatalf("dedupe len = %d, want 2: %#v", len(got), got)
+	}
+}
+
+func TestRSSEditionsForFootballTeams(t *testing.T) {
+	got := rssEditionsForEntity("team", "FOOTBALL")
+	if len(got) <= len(defaultRSSEditions) {
+		t.Fatalf("football team editions = %d, want more than default", len(got))
+	}
+
+	seen := make(map[string]bool)
+	for _, e := range got {
+		seen[e.hl] = true
+	}
+	for _, hl := range []string{"es-ES", "fr-FR", "de-DE", "it-IT", "pt-PT", "nl-NL"} {
+		if !seen[hl] {
+			t.Fatalf("football team editions missing %s: %#v", hl, got)
 		}
 	}
 }

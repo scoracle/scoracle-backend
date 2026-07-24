@@ -49,7 +49,7 @@ use tracing::{debug, warn};
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 /// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
 /// exactly one regen per news-active entity on the next sweep — no reconcile binary.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n12"; // n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines; n11: multilingual source handling + English-only narratives; n10: The Journalist voice pass, contract + guards unchanged
+pub const NARRATIVES_PROMPT_VERSION: &str = "n13"; // n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
 
 /// Output schema version for the parsed narrative document, distinct from the prompt contract.
 /// v2-schema: Ollama grammar-constrained decoding (Phase 5) — the shape is enforced by the
@@ -118,6 +118,7 @@ pub const NARRATIVES_NUM_CTX: i32 = 8192;
 
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;
+const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 
 /// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. Bound as the
 /// `make_interval(secs => …)` argument so the corpus boundary equals Go's `$4::interval` of
@@ -203,11 +204,13 @@ pub struct CorpusItem {
     pub url: String,
     pub published_at_epoch: Option<i64>,
     pub fetched_at_epoch: Option<i64>,
-    /// Full article body (mig 171), preferred over `description` for the model-visible text when
-    /// present. `None`/empty today for every row — no fetcher populates it yet (plan decision 3,
-    /// "defer full-text, design for it"). The prompt render routes through [`article_body`], so
-    /// the seam is live but inert until a body fetch lands; behavior is unchanged while NULL.
+    /// Full article body (mig 171), retained as a fallback if a reader stage is not available.
     pub full_text: Option<String>,
+    /// Compact article_read evidence card rendered into the prompt when status is success.
+    pub article_read_blurb: Option<String>,
+    pub article_read_status: Option<String>,
+    pub article_read_content_hash: Option<String>,
+    pub article_read_updated_epoch: Option<i64>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -349,15 +352,24 @@ pub async fn load_vetted_corpus(
         Option<i64>,
         Option<i64>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
     )> = sqlx::query_as(
         r#"
         SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(a.source, ''),
                COALESCE(a.url, ''),
                EXTRACT(EPOCH FROM a.published_at)::bigint,
                EXTRACT(EPOCH FROM a.fetched_at)::bigint,
-               a.full_text
+               a.full_text,
+               r.evidence_blurb,
+               r.status,
+               r.content_hash,
+               EXTRACT(EPOCH FROM r.updated_at)::bigint
         FROM news_article_entities nae
         JOIN news_articles a ON a.id = nae.article_id
+        LEFT JOIN news_article_readings r ON r.article_id = a.id
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
           AND nae.vetted IS TRUE
           AND a.duplicate_of IS NULL
@@ -385,6 +397,10 @@ pub async fn load_vetted_corpus(
                 published_at_epoch,
                 fetched_at_epoch,
                 full_text,
+                article_read_blurb,
+                article_read_status,
+                article_read_content_hash,
+                article_read_updated_epoch,
             )| {
                 CorpusItem {
                     id,
@@ -395,6 +411,10 @@ pub async fn load_vetted_corpus(
                     published_at_epoch,
                     fetched_at_epoch,
                     full_text,
+                    article_read_blurb,
+                    article_read_status,
+                    article_read_content_hash,
+                    article_read_updated_epoch,
                 }
             },
         )
@@ -423,11 +443,17 @@ async fn load_vetted_corpus_with_exclusions(
         Option<i64>,
         Option<i64>,
         Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
     )> = sqlx::query_as(
         r#"
         WITH base AS (
             SELECT a.id, a.title, a.description, a.source, a.url,
                    a.published_at, a.fetched_at, a.full_text,
+                   r.evidence_blurb, r.status AS article_read_status,
+                   r.content_hash AS article_read_content_hash, r.updated_at AS article_read_updated_at,
                    CASE
                      WHEN a.published_at IS NOT NULL
                       AND a.published_at <= NOW() - make_interval(secs => $4)
@@ -436,6 +462,7 @@ async fn load_vetted_corpus_with_exclusions(
                    END AS status
             FROM news_article_entities nae
             JOIN news_articles a ON a.id = nae.article_id
+            LEFT JOIN news_article_readings r ON r.article_id = a.id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
               AND nae.vetted IS TRUE
               AND a.duplicate_of IS NULL
@@ -447,7 +474,11 @@ async fn load_vetted_corpus_with_exclusions(
                CASE WHEN status = 'kept' THEN COALESCE(url, '') END,
                CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
                CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
-               CASE WHEN status = 'kept' THEN full_text END
+               CASE WHEN status = 'kept' THEN full_text END,
+               CASE WHEN status = 'kept' THEN evidence_blurb END,
+               CASE WHEN status = 'kept' THEN article_read_status END,
+               CASE WHEN status = 'kept' THEN article_read_content_hash END,
+               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM article_read_updated_at)::bigint END
         FROM base
         ORDER BY (status = 'kept') DESC, COALESCE(published_at, fetched_at) DESC NULLS LAST, id
         "#,
@@ -472,6 +503,10 @@ async fn load_vetted_corpus_with_exclusions(
         published_at_epoch,
         fetched_at_epoch,
         full_text,
+        article_read_blurb,
+        article_read_status,
+        article_read_content_hash,
+        article_read_updated_epoch,
     ) in rows
     {
         match status.as_str() {
@@ -484,6 +519,10 @@ async fn load_vetted_corpus_with_exclusions(
                 published_at_epoch,
                 fetched_at_epoch,
                 full_text,
+                article_read_blurb,
+                article_read_status,
+                article_read_content_hash,
+                article_read_updated_epoch,
             }),
             // Only 'stale_news' remains now the cap (budget_truncated) is gone.
             _ => exclusions.stale_news_ids.push(id),
@@ -499,18 +538,22 @@ async fn load_vetted_corpus_with_exclusions(
 // compressor now, so narratives sees the widened, canonical-only corpus straight from the loader).
 // ---------------------------------------------------------------------------
 
-/// article_body is the corpus-loader seam (mig 171, plan decision 3): the model-visible body
-/// text for one corpus item. Prefers `full_text` (the fetched article body) when present and
-/// non-empty, else falls back to `description` (the provider blurb). Today every `full_text` is
-/// `None`, so this returns `description` for every row and the prompt stays byte-for-byte
-/// identical to Go's — the seam is live but inert until a body fetcher populates the column
-/// (Phase 3 wires the fetch + a body-aware length cap; the render below still applies
-/// `DESC_TRUNCATE`).
-fn article_body(c: &CorpusItem) -> &str {
-    match c.full_text.as_deref() {
-        Some(t) if !t.trim().is_empty() => t,
-        _ => &c.description,
+/// article_context is the model-visible text for one corpus item. Successful Article Reader cards
+/// win; direct full_text remains a fallback; RSS description is the durable final fallback.
+fn article_context(c: &CorpusItem) -> (&str, usize) {
+    if c.article_read_status.as_deref() == Some("success") {
+        if let Some(t) = c
+            .article_read_blurb
+            .as_deref()
+            .filter(|t| !t.trim().is_empty())
+        {
+            return (t, ARTICLE_READ_BLURB_TRUNCATE);
+        }
     }
+    if let Some(t) = c.full_text.as_deref().filter(|t| !t.trim().is_empty()) {
+        return (t, ARTICLE_READ_BLURB_TRUNCATE);
+    }
+    (&c.description, DESC_TRUNCATE)
 }
 
 /// build_narratives_prompt assembles the user prompt, byte-for-byte the same as Go's
@@ -540,10 +583,10 @@ pub fn build_narratives_prompt(
             b.push_str(&format!("[{}] ", n.source));
         }
         b.push_str(&n.title);
-        let body = article_body(n);
+        let (body, body_cap) = article_context(n);
         if !body.is_empty() {
             b.push_str(" — ");
-            b.push_str(&truncate_bytes(body, DESC_TRUNCATE));
+            b.push_str(&truncate_bytes(body, body_cap));
         }
         b.push('\n');
     }
@@ -1095,6 +1138,23 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         out.push_str(&id.to_string());
     }
     out.push(']');
+    let article_readings: Vec<(i64, String)> = corpus
+        .iter()
+        .map(|c| {
+            (
+                c.id,
+                crate::article_read::reading_fingerprint(
+                    c.article_read_status.as_deref(),
+                    c.article_read_content_hash.as_deref(),
+                    c.article_read_updated_epoch,
+                ),
+            )
+        })
+        .collect();
+    out.push_str(",\"article_readings_hash\":");
+    out.push_str(&crate::util::go_json_string(
+        &crate::article_read::build_article_reading_input_components(&article_readings),
+    ));
     if !heat.is_empty() {
         let mut lines: Vec<String> = heat
             .iter()
@@ -1258,13 +1318,8 @@ pub async fn finish_narratives_build(
         score_context.push('\n');
         score_context.push_str(&p.card);
     }
-    let built_prompt = build_narratives_prompt(
-        req,
-        &corpus,
-        &heat,
-        memory.as_deref(),
-        Some(&score_context),
-    );
+    let built_prompt =
+        build_narratives_prompt(req, &corpus, &heat, memory.as_deref(), Some(&score_context));
     let opts = GenerateOptions {
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1916,6 +1971,10 @@ mod tests {
             published_at_epoch: epoch,
             fetched_at_epoch: epoch,
             full_text: None,
+            article_read_blurb: None,
+            article_read_status: None,
+            article_read_content_hash: None,
+            article_read_updated_epoch: None,
         }
     }
 
@@ -2008,12 +2067,10 @@ mod tests {
         );
     }
 
-    // --- full_text corpus seam (mig 171, plan decision 3) ------------------------------------------
+    // --- article_read/full_text corpus seam --------------------------------------------------------
 
     #[test]
-    fn full_text_seam_prefers_body_else_falls_back_and_is_inert_when_null() {
-        // None (today's state for every row): renders `description` — byte-for-byte the pre-seam
-        // prompt, so the seam is inert until a fetcher populates full_text.
+    fn article_context_prefers_article_read_then_body_then_description() {
         let none = item(
             1,
             "BBC",
@@ -2021,30 +2078,41 @@ mod tests {
             "A strong display in the win.",
             None,
         );
-        assert_eq!(article_body(&none), "A strong display in the win.");
+        assert_eq!(article_context(&none).0, "A strong display in the win.");
 
-        // Some(non-empty): the fetched body wins over the provider blurb.
+        let mut read = item(4, "BBC", "Title", "short blurb", None);
+        read.full_text = Some("The full article body with much more detail.".to_string());
+        read.article_read_status = Some("success".to_string());
+        read.article_read_blurb = Some(
+            "Evidence card: Saka scored, Arsenal won, and Arteta discussed his workload."
+                .to_string(),
+        );
+        assert_eq!(
+            article_context(&read).0,
+            "Evidence card: Saka scored, Arsenal won, and Arteta discussed his workload."
+        );
+
+        // Some(non-empty): the fetched body wins over the provider blurb when no reader card exists.
         let mut full = item(2, "BBC", "Title", "short blurb", None);
         full.full_text = Some("The full article body with much more detail.".to_string());
         assert_eq!(
-            article_body(&full),
+            article_context(&full).0,
             "The full article body with much more detail."
         );
 
         // Some(blank): whitespace-only body is not a body — fall back to description.
         let mut blank = item(3, "BBC", "Title", "blurb here", None);
         blank.full_text = Some("   \n ".to_string());
-        assert_eq!(article_body(&blank), "blurb here");
+        assert_eq!(article_context(&blank).0, "blurb here");
 
-        // The rendered prompt is unchanged when full_text is None (the parity guarantee).
         let p = build_narratives_prompt(
             &req("Bukayo Saka", "FOOTBALL", "player"),
-            &[none],
+            &[read],
             &[],
             None,
             None,
         );
-        assert!(p.contains("1. [BBC] Saka shines again — A strong display in the win.\n"));
+        assert!(p.contains("Evidence card: Saka scored"));
     }
 
     // --- input components: the debounce pre-image ---------------------------------------------------
@@ -2072,18 +2140,38 @@ mod tests {
             &[h("A", 70, "y"), h("B", 40, "worded another way")],
         );
         assert_eq!(one, two);
+        let article_readings_hash = crate::article_read::build_article_reading_input_components(&[
+            (1, "none::0".to_string()),
+            (3, "none::0".to_string()),
+        ]);
         // prompt_version leads the pre-image (single-sourced from the const, so a bump can't silently
         // rot this pin) — an n-bump changes every entity's hash once, forcing the cutover regen.
         assert_eq!(
             one,
             format!(
-                r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}}"#
+                r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1,3],"article_readings_hash":"{article_readings_hash}","transfer_heat":["A:70:incoming:speculation","B:40:incoming:speculation"]}}"#
             )
         );
         // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
+        let single_article_readings_hash =
+            crate::article_read::build_article_reading_input_components(&[(
+                1,
+                "none::0".to_string(),
+            )]);
         assert_eq!(
             build_narratives_input_components(&[a(1)], &[]),
-            format!(r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1]}}"#)
+            format!(
+                r#"{{"prompt_version":"{NARRATIVES_PROMPT_VERSION}","article_ids":[1],"article_readings_hash":"{single_article_readings_hash}"}}"#
+            )
+        );
+
+        let mut read = a(1);
+        read.article_read_status = Some("success".to_string());
+        read.article_read_content_hash = Some("body-a".to_string());
+        read.article_read_updated_epoch = Some(10);
+        assert_ne!(
+            build_narratives_input_components(&[read], &[]),
+            build_narratives_input_components(&[a(1)], &[])
         );
     }
 
@@ -2169,7 +2257,10 @@ mod tests {
         );
         let signals = p.find("SIGNALS (deterministic").unwrap();
         let reply = p.find("\nReturn the JSON object now.").unwrap();
-        assert!(signals < reply, "score context precedes the reply instruction");
+        assert!(
+            signals < reply,
+            "score context precedes the reply instruction"
+        );
         assert!(p.contains("Card scores (newest first): 58 (Jul 18) · 55 (Jul 12)"));
         // None ⇒ byte-identical to the pre-n12 shape (the fixtures above pin it).
         let bare = build_narratives_prompt(

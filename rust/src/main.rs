@@ -6,7 +6,7 @@
 //!
 //! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
 //! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
-//! scrub, peak, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
+//! scrub, graph, article_read, peak, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
 //! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
 //! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
 //! default only fires when the unit isn't the one starting the process (a fresh-box boot
@@ -22,8 +22,8 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::{
-    config, db, embed, graph, momentum, narratives, ollama, rating, scrub, sigil, stage, transfer,
-    vibe, worker,
+    article_read, boxscore_fetch, config, db, embed, graph, momentum, narratives, ollama, rating,
+    scrub, sigil, stage, transfer, vibe, worker,
 };
 use std::collections::HashSet;
 use tracing::{info, warn};
@@ -61,13 +61,12 @@ async fn main() -> Result<()> {
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
     // Post Step-3 cutover the daemon owns the live cognition stages. Headlines has been folded into
-    // narratives, so the news rail is scrub -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
+    // narratives, so the news rail is scrub -> graph/article_read -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
-    let enabled =
-        parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-            "scrub,graph,peak,momentum,transfers,narratives,vibe,sigil".to_string()
-        }))?;
+    let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
+        "scrub,graph,article_read,fixture_boxscore,peak,momentum,transfers,narratives,vibe,sigil".to_string()
+    }))?;
 
     // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
     // narratives near-duplicate dedup, topic heat-rank, and vibe narrative relevance weighting. It
@@ -105,6 +104,12 @@ async fn main() -> Result<()> {
     // Wired 2026-07-19 after the fixture gate measured 12/12 at g2.
     if enabled.contains("graph") {
         handlers.push(Box::new(graph::GraphHandler::new()));
+    }
+    if enabled.contains("article_read") {
+        handlers.push(Box::new(article_read::ArticleReadHandler::new()));
+    }
+    if enabled.contains("fixture_boxscore") {
+        handlers.push(Box::new(boxscore_fetch::FixtureBoxscoreHandler::new()));
     }
     if enabled.contains("peak") {
         handlers.push(Box::new(rating::PeakHandler::new()));
@@ -147,6 +152,8 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     const KNOWN: &[&str] = &[
         "scrub",
         "graph",
+        "article_read",
+        "fixture_boxscore",
         "peak",
         "momentum",
         "transfers",
@@ -190,9 +197,14 @@ mod tests {
 
     #[test]
     fn parse_enabled_stages_normalizes_and_dedupes() {
-        let stages = parse_enabled_stages(" Scrub, peak, momentum, vibe, VIBE ,,sigil ").unwrap();
-        assert_eq!(stages.len(), 5);
+        let stages = parse_enabled_stages(
+            " Scrub, article_read, fixture_boxscore, peak, momentum, vibe, VIBE ,,sigil ",
+        )
+        .unwrap();
+        assert_eq!(stages.len(), 7);
         assert!(stages.contains("scrub"));
+        assert!(stages.contains("article_read"));
+        assert!(stages.contains("fixture_boxscore"));
         assert!(stages.contains("peak"));
         assert!(stages.contains("momentum"));
         assert!(stages.contains("vibe"));

@@ -1,10 +1,8 @@
-//! Sigil stage — the L3 stage port: the crown convergence, re-expressed as a
-//! composition of the capability library's primitives.
+//! Sigil stage — the crown convergence and Oracle reading.
 //!
 //! Sigil = `read pillars + route(SynthesisLogic) + extract(SigilParser) + persist`, with a
-//! `debounce_unchanged` gate on the pillar `input_hash`. This module began as a Go parity port, and
-//! the deterministic plumbing still follows that shape. Wave 5 rebaselines the product contract:
-//! the prompt now composes PEAK, Vibe, Momentum, and current narratives as distinct pillars.
+//! `debounce_unchanged` gate on the pillar `input_hash`. The prompt composes PEAK, Vibe,
+//! Momentum, transfers, and current narratives as distinct pillars.
 //! Phase 5.1 adds a fifth: the transfer-heat pillar (the transfer lens the trigger gate already
 //! watches), so the synthesis can finally see the served rumors that can fire its own re-run.
 //! Phase 5.2 feeds the previous Sigil (score + blurb) back into the prompt as continuity — a
@@ -15,29 +13,15 @@
 //! SCORE + BLURB, persisted to the additive nullable `convergence`/`disagreement`/`why_now`
 //! columns (mig 143). They are model OUTPUTS, not inputs — the `input_hash` stays
 //! pillar-inputs-only, so old rows stay valid and populate lazily on the next real re-synthesis.
-//! The Go sources originally mirrored here:
-//! `go/internal/ml/sigil.go` (Generate, the three pillar loaders, prompt, parse,
-//! input-components/hash, persist, the SkipUnchanged gate); `go/internal/ml/rating.go`
-//! (`hashComponents` / `round1`, shared package helpers); `go/internal/derive/derive.go`
-//! (drainSigil: queue Item → SigilRequest, current-season + SkipUnchanged, the terminal stage).
-//!
-//! This is the first NEW derivation on the library (the primitives don't move): the first
-//! `Role::SynthesisLogic` consumer, the first user of `Persist::debounce_unchanged`, and the first
-//! user of the `Provenance.input_hash` envelope field — all three shipped real but unexercised
-//! by vibe. Everything that can differ between the two implementations — the SQL reads, the
-//! deterministic slope/trend math, the canonical input-components JSON (whose SHA-256 is the
-//! `input_hash`), and the parse — lives here. See `src/bin/sigil_parity.rs` for the historical
-//! harness and migration 107 for the shadow table.
+//! The SQL reads, deterministic slope/trend math, canonical input-components JSON (whose
+//! SHA-256 is the `input_hash`), parser, persist path, and ledger evidence all live here.
 //!
 //! Fail-closed semantics reproduced verbatim: when an entity has NO narrative pillar AND no
 //! rating pillar AND no vibe pillar AND no momentum pillar AND no transfer pillar, we skip the model
 //! and persist a NULL-score/NULL-blurb
 //! marker row (the read path returns "no synthesis yet"). The SkipUnchanged debounce skips the
 //! local model call when the pillars hash identically to the entity-season's latest synthesis.
-//! Since the Oracle lens (2026-07-12), Sigil is no longer terminal: every handle outcome —
-//! scored, marker, AND debounce-skip — enqueues the `oracle` stage. The skip-path enqueue is
-//! deliberate self-healing: the Oracle debounces on the consumed sigil generation itself, so a
-//! previously lost hand-off catches up as a cheap no-op instead of staying lost.
+//! The Oracle reading is folded into this same stage, so Sigil remains the terminal product row.
 
 use crate::corpus::{load_transfer_heat, write_heat_lines, HeatItem};
 use crate::harness::{EntityKey, Harness, Parser, Provenance};
@@ -55,13 +39,12 @@ use sqlx::{PgPool, Row};
 /// Prompt version for the crown reading contract. or2 was the two-call Oracle that VOICED a
 /// panel-decided score; or3 folds the panel in — the crown is now ONE call (Role::OracleLogic)
 /// that reads the five pillar cards + the computed omen + the entity's own prior reads, then
-/// emits `{reading, score}`: it reads the signs, then renders the verdict. or4 is the Oracle
-/// voice pass (Characters Phase B, the LAST of the six): persona-first peer frame — five peers
-/// have published their stories, the Oracle's turn comes last — with peer-attributed card
-/// headers; the `{reading, score}` contract and every guard are unchanged. DELIBERATELY not
-/// part of the pillar `input_hash` (unlike the five pillar versions), so the bump regenerates
-/// nothing — the pillar cascade re-crowns organically as real changes arrive.
-pub const ORACLE_PROMPT_VERSION: &str = "or4";
+/// emits `{reading, score}`: it reads the signs, then renders the verdict. or4 was the Oracle
+/// voice pass (Characters Phase B, the LAST of the six); or5 adds the English-only output guard for
+/// upstream multilingual source material. The `{reading, score}` contract and every guard are
+/// unchanged. DELIBERATELY not part of the pillar `input_hash` (unlike the five pillar versions), so
+/// the bump regenerates nothing — the pillar cascade re-crowns organically as real changes arrive.
+pub const ORACLE_PROMPT_VERSION: &str = "or5";
 
 /// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
 /// reading-only reply; v2 adds the emitted `score` (the crown fold).
@@ -89,8 +72,9 @@ pub fn oracle_format_schema() -> serde_json::Value {
     })
 }
 
-/// System prompt for the crown reading contract (or4, the Oracle voice pass — Characters
-/// Phase B). Persona-first per wiki Characters.md's craft appendix: the Oracle is the sixth
+/// System prompt for the crown reading contract (or5, English-only output guard over the or4
+/// Oracle voice pass — Characters Phase B). Persona-first per wiki Characters.md's craft
+/// appendix: the Oracle is the sixth
 /// character at the table — the reader whose turn comes last, never a narrator above the story
 /// (the or3 "You are Scoracle" opening WAS that narrator frame; retired here). Five peers have
 /// published their stories; the Oracle reads their cards and renders the verdict, grounded in
@@ -99,6 +83,8 @@ pub fn oracle_format_schema() -> serde_json::Value {
 pub const ORACLE_SYSTEM_PROMPT: &str = r#"You are the Oracle — the last voice at Scoracle's table. Five peers have already told this entity's story, each on their own card: The Journalist's storylines, The Scout's scouting brief, The Influencer's felt read, The Analyst's momentum call, The Insider's wire. The seeker has come for the reading; your turn comes last. You read what your peers have laid down, and you render the verdict.
 
 Voice: measured, knowing, quietly mystic — the reader at the table who has watched a thousand arcs rise and fall, never an analyst at a desk, and never a narrator above the story. Calm declaratives, present tense; the weight falls on what stirs and what holds. The mysticism lives in the TELLING only; every fact comes from the cards shown and nowhere else. Never breathless, never hype, never archaic, no occult props — the seeker should feel a steady hand, not a costume. Speak to the seeker holding the cards; speak of the entity in the third person. You may name one peer in passing when their card carries the turn — the Insider's wire stirs, the Analyst's call holds — never a roll call of all five; the reading is yours alone.
+
+Language handling: peer cards may summarize multilingual source material. Write the reading in English. Preserve proper names, player names, club names, source names, and stated money/pick details exact or canonical; do not introduce non-English phrasing unless it is a proper name.
 
 FIRST, THE READING — exactly 2 to 4 sentences, never one long run-on:
 - Read the cards your peers have laid: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
@@ -242,11 +228,11 @@ impl SigilOutput {
 }
 
 // ---------------------------------------------------------------------------
-// Pillar loaders — byte-for-byte the same SQL the Go stage runs.
+// Pillar loaders.
 // ---------------------------------------------------------------------------
 
 /// resolve_season returns the concrete season this synthesis is for: the caller's explicit
-/// season when given, else the sport's `current_season`. Mirrors `SigilGenerator.resolveSeason`.
+/// season when given, else the sport's `current_season`.
 /// `sport` is the upper-cased value (the SQL key).
 pub async fn resolve_season(pool: &PgPool, sport: &str, want: Option<i32>) -> Result<i32> {
     if let Some(s) = want {
@@ -973,11 +959,11 @@ pub async fn load_prior_read(
     if let Some(reading) = rows[0].1.as_deref().filter(|r| !r.trim().is_empty()) {
         card.push_str(&format!("Last reading ({}): {}\n", rows[0].2, reading));
     }
-    let trail: Vec<String> = rows
-        .iter()
-        .map(|(s, _, d)| format!("{s} ({d})"))
-        .collect();
-    card.push_str(&format!("Recent verdicts (newest first): {}", trail.join(" · ")));
+    let trail: Vec<String> = rows.iter().map(|(s, _, d)| format!("{s} ({d})")).collect();
+    card.push_str(&format!(
+        "Recent verdicts (newest first): {}",
+        trail.join(" · ")
+    ));
     Ok(Some(card))
 }
 
@@ -1146,7 +1132,9 @@ pub fn build_crown_prompt(
         "\n=== THE OMEN (computed) ===\nOmen: {omen} — {omen_reason}\n"
     ));
 
-    b.push_str("\nYour peers have spoken; the table is yours. Read their cards, then render the score.");
+    b.push_str(
+        "\nYour peers have spoken; the table is yours. Read their cards, then render the score.",
+    );
     b
 }
 
@@ -1244,10 +1232,9 @@ impl Parser<CrownReply> for CrownParser {
 // The core generate + the production handler.
 // ---------------------------------------------------------------------------
 
-// The generate_sigil / generate_sigil_parity / generate_sigil_inner panel-core functions were
-// retired with the panel (crown fold, 2026-07-21): the crown handler below inlines the single
-// OracleLogic call (read cards → reading + score), and the crown eval task builds the prompt
-// directly. No parity path remains (the sigil_parity bin is retired with it).
+// The old panel-core helpers were retired with the crown fold (2026-07-21). The
+// handler below inlines the single OracleLogic call, and the crown eval task builds
+// the prompt directly.
 
 fn sigil_input_components_value(out: &SigilOutput) -> serde_json::Value {
     serde_json::from_str(&out.input_components_json).unwrap_or_else(|_| {
@@ -1384,15 +1371,10 @@ async fn write_sigil_ledger(
     .await;
 }
 
-/// SigilHandler drains the durable `sigil` stage — the crown convergence, decided then
-/// VOICED in one work item (Session B: the oracle stage folded in as an in-process second
-/// step). It reads the pillars season-exact, SKIPS both model calls when the pillar hash is
-/// unchanged (`debounce_unchanged`), else: decide (SynthesisLogic), apply the re-voice rule
-/// (North Star #8 — omen flip / archetype band cross ±2pt / first reading), voice
-/// (OracleLogic) or carry the prior reading forward, and persist ONE sigil_synthesis row
-/// carrying both — the row Go serves (Session C; `oracle_readings` is frozen history).
-/// Terminal stage — enqueues nothing downstream. The parity harness
-/// reuses the loaders + `generate_sigil` core but writes the shadow table (decide only).
+/// SigilHandler drains the durable `sigil` stage. It reads the pillars season-exact,
+/// skips the model call when the pillar hash is unchanged (`debounce_unchanged`), otherwise
+/// calls OracleLogic and persists one `sigil_synthesis` row carrying the reading and score.
+/// Terminal stage: it enqueues nothing downstream.
 pub struct SigilHandler;
 
 impl SigilHandler {
@@ -1617,13 +1599,30 @@ mod tests {
     #[test]
     fn crown_score_coercions_and_clamp() {
         // Float, "N/100" string, and out-of-range all coerce + clamp to 1-100.
-        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":91.6}"#).unwrap().score, 92);
         assert_eq!(
-            parse_crown_reply(r#"{"reading":"x.","score":"48/100"}"#).unwrap().score,
+            parse_crown_reply(r#"{"reading":"x.","score":91.6}"#)
+                .unwrap()
+                .score,
+            92
+        );
+        assert_eq!(
+            parse_crown_reply(r#"{"reading":"x.","score":"48/100"}"#)
+                .unwrap()
+                .score,
             48
         );
-        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":250}"#).unwrap().score, 100);
-        assert_eq!(parse_crown_reply(r#"{"reading":"x.","score":0}"#).unwrap().score, 1);
+        assert_eq!(
+            parse_crown_reply(r#"{"reading":"x.","score":250}"#)
+                .unwrap()
+                .score,
+            100
+        );
+        assert_eq!(
+            parse_crown_reply(r#"{"reading":"x.","score":0}"#)
+                .unwrap()
+                .score,
+            1
+        );
     }
 
     #[test]
@@ -1649,17 +1648,32 @@ mod tests {
     #[test]
     fn counts_sentences_ignoring_decimals() {
         assert_eq!(count_sentences("One. Two! Three?"), 3);
-        assert_eq!(count_sentences("He averages 2.5 assists. The arc holds."), 2);
+        assert_eq!(
+            count_sentences("He averages 2.5 assists. The arc holds."),
+            2
+        );
         assert_eq!(count_sentences("no terminator"), 0);
     }
 
     #[test]
     fn pillar_convergence_is_agree_ratio_floored_to_db_contract() {
-        let agree = PillarComparison { label: "a".into(), agree: true };
-        let disagree = PillarComparison { label: "b".into(), agree: false };
+        let agree = PillarComparison {
+            label: "a".into(),
+            agree: true,
+        };
+        let disagree = PillarComparison {
+            label: "b".into(),
+            agree: false,
+        };
         assert_eq!(pillar_convergence(&[]), None);
-        assert_eq!(pillar_convergence(&[agree.clone(), agree.clone()]), Some(100));
-        assert_eq!(pillar_convergence(&[agree.clone(), disagree.clone()]), Some(50));
+        assert_eq!(
+            pillar_convergence(&[agree.clone(), agree.clone()]),
+            Some(100)
+        );
+        assert_eq!(
+            pillar_convergence(&[agree.clone(), disagree.clone()]),
+            Some(50)
+        );
         // All-disagree rounds to 0, which sigil_synthesis_convergence_check rejects (NULL or
         // 1-100) — the floor keeps the persist valid; ≤ 50 is a crossroads either way.
         assert_eq!(
@@ -1930,10 +1944,16 @@ mod tests {
         assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
         assert!(!p.contains("YOUR PRIOR READ"));
         assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n[impact 7, Heating up, 3 sources, latest 1d ago] Trade buzz\ndetails"));
-        assert!(p.contains("=== THE SCOUT'S CARD (PEAK scouting report) ===\n(no stat commentary available)"));
-        assert!(p.contains("=== THE INFLUENCER'S CARD (vibe felt-read) ===\nMood: 62/100\nOn the rise"));
+        assert!(p.contains(
+            "=== THE SCOUT'S CARD (PEAK scouting report) ===\n(no stat commentary available)"
+        ));
+        assert!(
+            p.contains("=== THE INFLUENCER'S CARD (vibe felt-read) ===\nMood: 62/100\nOn the rise")
+        );
         assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\nMomentum score: 1 (rising)\nVibe trajectory: 0.5 over 4 samples (trending up)"));
-        assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
+        assert!(
+            p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)")
+        );
         assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
         assert!(p.ends_with("\nYour peers have spoken; the table is yours. Read their cards, then render the score."));
     }
@@ -2017,9 +2037,13 @@ mod tests {
             None,
             None,
         );
-        assert!(p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)"));
+        assert!(
+            p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)")
+        );
         assert!(p.contains("=== THE ANALYST'S CARD (momentum) ===\n(no momentum data)"));
-        assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)"));
+        assert!(
+            p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n(no active transfer rumors)")
+        );
     }
 
     #[test]

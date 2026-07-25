@@ -122,17 +122,18 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	}
 }
 
-// TestFunnelCountsEditionsSkippedByLimit is the A2 measurement: with -rss-limit
-// set, runRSSQueryPastLimit only exempts edition 0, so a football team that fills
-// its limit from en-US never queries the seven localized editions. The counters
-// have to make that visible — it is otherwise indistinguishable from those
-// editions simply having no news.
-func TestFunnelCountsEditionsSkippedByLimit(t *testing.T) {
+// TestFunnelCountsQueriesSkippedByLimit pins what the -rss-limit cap can and cannot cost now that
+// football runs a SINGLE edition (en-GB). The edition-skipping failure this test was written for —
+// a team filling its limit from en-US and never reaching the seven localized editions — is
+// structurally gone: there are no other editions to lose. What remains is the query-level break,
+// which still stops alias lanes past the first two. The counters must show that distinction, so a
+// future edition addition makes editions_skipped meaningful again rather than silently.
+func TestFunnelCountsQueriesSkippedByLimit(t *testing.T) {
 	now := time.Now().Add(-1 * time.Hour)
 	items := make([]rssFixtureItem, 0, 12)
 	for i := 0; i < 12; i++ {
 		items = append(items, rssFixtureItem{
-			title:       fmt.Sprintf("Manchester United story %d", i),
+			title:       fmt.Sprintf("Paris Saint Germain story %d", i),
 			source:      fmt.Sprintf("Outlet %d", i),
 			link:        fmt.Sprintf("https://ex.test/%d", i),
 			published:   now,
@@ -149,23 +150,24 @@ func TestFunnelCountsEditionsSkippedByLimit(t *testing.T) {
 	})
 
 	_, _, f, err := s.GetEntityNews(context.Background(), "team", 1,
-		"Manchester United", "FOOTBALL", "", 12, "", "", []string{"Man United", "MUN"})
+		"Paris Saint Germain", "FOOTBALL", "", 12, "", "", []string{"PSG", "Paris Saint-Germain"})
 	if err != nil {
 		t.Fatalf("GetEntityNews: %v", err)
 	}
 
-	if f.EditionsQueried != 1 {
-		t.Fatalf("EditionsQueried = %d, want 1 — the limit should stop the sweep after en-US", f.EditionsQueried)
+	if f.EditionsQueried != len(footballTeamRSSEditions) {
+		t.Fatalf("EditionsQueried = %d, want all %d", f.EditionsQueried, len(footballTeamRSSEditions))
 	}
-	want := len(footballTeamRSSEditions) - 1
-	if f.EditionsSkipped != want {
-		t.Errorf("EditionsSkipped = %d, want %d", f.EditionsSkipped, want)
+	if f.EditionsSkipped != 0 {
+		t.Errorf("EditionsSkipped = %d, want 0 — a single edition cannot be skipped", f.EditionsSkipped)
 	}
-	if len(editionsSeen) != 1 || !editionsSeen["US:en"] {
-		t.Errorf("editions actually fetched = %v, want only US:en", editionsSeen)
+	if len(editionsSeen) != 1 || !editionsSeen["GB:en"] {
+		t.Errorf("editions actually fetched = %v, want only GB:en", editionsSeen)
 	}
-	if f.QueriesSkipped == 0 {
-		t.Error("QueriesSkipped = 0, want the unqueried grid counted")
+	// PSG yields three safe lanes (primary + PSG + Paris Saint-Germain). runRSSQueryPastLimit
+	// exempts only the first two, so exactly one lane is cut once the limit fills.
+	if f.QueriesSkipped != 1 {
+		t.Errorf("QueriesSkipped = %d, want 1 alias lane cut by the limit", f.QueriesSkipped)
 	}
 	if f.QueriesPlanned != f.QueriesRun+f.QueriesSkipped {
 		t.Errorf("query plan does not balance: planned %d, run %d, skipped %d",

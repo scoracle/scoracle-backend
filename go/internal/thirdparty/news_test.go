@@ -319,21 +319,16 @@ func TestDeduplicateArticlesCollapsesSameTitleAndSource(t *testing.T) {
 // here should fail loudly rather than quietly re-flood the pipeline.
 func TestRSSEditionsForFootballTeams(t *testing.T) {
 	got := rssEditionsForEntity("team", "FOOTBALL")
-	if len(got) <= len(defaultRSSEditions) {
-		t.Fatalf("football team editions = %d, want more than default (en-GB carries most football coverage)", len(got))
+	if len(got) == 0 {
+		t.Fatal("football team editions is empty — football ingestion would stop entirely")
 	}
-
-	seen := make(map[string]bool)
 	for _, e := range got {
-		seen[e.hl] = true
 		if !strings.HasPrefix(strings.ToLower(e.hl), "en-") {
 			t.Fatalf("non-English edition %q is live, but nothing downstream can read it yet: %#v", e.hl, got)
 		}
 	}
-	for _, hl := range []string{"en-US", "en-GB"} {
-		if !seen[hl] {
-			t.Fatalf("football team editions missing %s: %#v", hl, got)
-		}
+	if got[0].hl != "en-GB" {
+		t.Fatalf("football teams should lead with en-GB (British outlets cover all five leagues): %#v", got)
 	}
 }
 

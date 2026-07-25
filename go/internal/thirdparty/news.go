@@ -78,8 +78,16 @@ var defaultRSSEditions = []rssEdition{
 // Restore the localized editions when a model that reads them natively is in place (Scott's call:
 // at the 30B tier). Until then, ingesting text we cannot read is buying GPU load and noise, not
 // coverage. Re-adding them is this one slice — the edition machinery is untouched and still tested.
+// en-GB alone. We cover five leagues — Premier League (England), La Liga (Spain), Serie A (Italy),
+// Ligue 1 (France), Bundesliga (Germany) — so by the "only fetch countries whose leagues we cover"
+// rule the correct edition set is en-GB + es/it/fr/de. The four localized ones are PARKED, not
+// rejected, until a model that reads them exists; en-GB is kept because British outlets cover all
+// five leagues in English, and en-US was dropped because it duplicates that coverage more thinly.
+//
+// The named consequence, so nobody rediscovers it as a surprise: four of our five leagues are now
+// covered only by English-language reporting of them. That is a deliberate accuracy-over-breadth
+// trade while the pipeline is GPU-bound.
 var footballTeamRSSEditions = []rssEdition{
-	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
 	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
 }
 

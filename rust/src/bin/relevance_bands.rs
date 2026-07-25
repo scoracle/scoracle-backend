@@ -37,6 +37,55 @@ struct Decided {
     context: String,
     identity: String,
     vetted: bool,
+    lang: &'static str,
+}
+
+/// Stopword sets for a deliberately small language guess. The embedder is
+/// `bge-small-en-v1.5` — an ENGLISH-ONLY model — and the football sweep now runs eight localized
+/// Google editions, so "the proxy is weak" and "the proxy is being fed text its model never learned"
+/// are competing explanations that have to be separated before any threshold means anything.
+///
+/// Function words are the right signal here: they are the highest-frequency tokens in every one of
+/// these languages, they survive the short title+blurb the gate actually embeds, and they need no
+/// dependency. This is a partition for analysis, not a language tagger for production.
+const STOPWORDS: &[(&str, &[&str])] = &[
+    ("en", &["the", "and", "for", "with", "after", "from", "his", "has", "that", "will", "over", "against", "into"]),
+    ("es", &["el", "la", "los", "las", "por", "para", "con", "del", "que", "una", "sus", "está", "más", "según"]),
+    ("fr", &["le", "les", "des", "une", "pour", "avec", "dans", "sur", "qui", "est", "aux", "son", "plus", "après"]),
+    ("de", &["der", "die", "das", "und", "für", "mit", "von", "den", "ist", "auf", "dem", "ein", "nicht", "nach"]),
+    ("it", &["il", "lo", "gli", "che", "per", "con", "del", "della", "una", "sono", "più", "dopo", "nel", "sul"]),
+    ("pt", &["o", "os", "as", "por", "para", "com", "do", "da", "dos", "das", "uma", "não", "mais", "após"]),
+    ("nl", &["de", "het", "een", "van", "voor", "met", "niet", "aan", "zijn", "naar", "over", "door", "maar", "ook"]),
+];
+
+/// guess_lang picks the language whose function words appear most in the text. Ties and empty
+/// matches fall back to "unknown" rather than defaulting to English — an undetectable text should
+/// not silently pad the English bucket, which is the bucket the whole question turns on.
+fn guess_lang(text: &str) -> &'static str {
+    let lower = text.to_lowercase();
+    let tokens: Vec<&str> = lower
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|t| !t.is_empty())
+        .collect();
+    if tokens.len() < 4 {
+        return "unknown";
+    }
+    let mut best = ("unknown", 0usize);
+    let mut tied = false;
+    for (lang, words) in STOPWORDS {
+        let n = tokens.iter().filter(|t| words.contains(t)).count();
+        if n > best.1 {
+            best = (lang, n);
+            tied = false;
+        } else if n == best.1 && n > 0 {
+            tied = true;
+        }
+    }
+    if best.1 == 0 || tied {
+        "unknown"
+    } else {
+        best.0
+    }
 }
 
 #[tokio::main]
@@ -145,10 +194,13 @@ async fn main() -> Result<()> {
         };
         let title: String = r.get("title");
         let description: String = r.get("description");
+        let context = article_text(&title, &description);
+        let lang = guess_lang(&context);
         decided.push(Decided {
-            context: article_text(&title, &description),
+            context,
             identity: identity_text(&cand),
             vetted: r.get("vetted"),
+            lang,
         });
     }
 
@@ -173,17 +225,56 @@ async fn main() -> Result<()> {
         }
     }
 
-    let scored: Vec<(f32, bool)> = decided
+    let scored: Vec<(f32, bool, &'static str)> = decided
         .iter()
         .map(|d| {
             let c = cosine_similarity(&vectors[idx[&d.context]], &vectors[idx[&d.identity]]);
-            (c, d.vetted)
+            (c, d.vetted, d.lang)
         })
         .collect();
 
+    // Language mix first — if the non-English share is small, an English-only model cannot be the
+    // explanation for a weak proxy, and the blame lies with the text pair instead.
+    println!("\n=== language mix (stopword guess on the embedded context) ===");
+    let mut langs: Vec<&str> = STOPWORDS.iter().map(|(l, _)| *l).collect();
+    langs.push("unknown");
+    for l in &langs {
+        let n = scored.iter().filter(|(_, _, lg)| lg == l).count();
+        if n > 0 {
+            println!("  {l:<8} {n:>6}  ({:.1}%)", pct(n, scored.len()));
+        }
+    }
+
+    report("ALL LANGUAGES", &scored, resolve_cfg.keep_threshold);
+    let english: Vec<(f32, bool, &'static str)> = scored
+        .iter()
+        .filter(|(_, _, l)| *l == "en")
+        .copied()
+        .collect();
+    report("ENGLISH ONLY", &english, resolve_cfg.keep_threshold);
+    let non_english: Vec<(f32, bool, &'static str)> = scored
+        .iter()
+        .filter(|(_, _, l)| *l != "en" && *l != "unknown")
+        .copied()
+        .collect();
+    if !non_english.is_empty() {
+        report("NON-ENGLISH ONLY", &non_english, resolve_cfg.keep_threshold);
+    }
+
+    Ok(())
+}
+
+/// report prints the decisive above/below-keep-line split and the drop-threshold sweep for one
+/// subset, so subsets can be compared on identical axes.
+fn report(label: &str, scored: &[(f32, bool, &'static str)], keep_t: f32) {
+    println!("\n\n########## {label} ##########");
     let total = scored.len();
-    let kept_total = scored.iter().filter(|(_, v)| *v).count();
-    println!("\n=== overall ===");
+    if total == 0 {
+        println!("(empty)");
+        return;
+    }
+    let kept_total = scored.iter().filter(|(_, v, _)| *v).count();
+    println!("=== overall ===");
     println!(
         "decided {total}  kept {kept_total} ({:.1}%)  rejected {} ({:.1}%)",
         pct(kept_total, total),
@@ -192,11 +283,21 @@ async fn main() -> Result<()> {
     );
 
     // THE decisive split: above the keep line the CPU decided alone; below it the model decided.
-    let keep_t = resolve_cfg.keep_threshold;
-    let above: Vec<&(f32, bool)> = scored.iter().filter(|(c, _)| *c >= keep_t).collect();
-    let below: Vec<&(f32, bool)> = scored.iter().filter(|(c, _)| *c < keep_t).collect();
-    let below_kept = below.iter().filter(|(_, v)| *v).count();
-    let above_kept = above.iter().filter(|(_, v)| *v).count();
+    let above: Vec<&(f32, bool, &str)> = scored.iter().filter(|(c, _, _)| *c >= keep_t).collect();
+    let below: Vec<&(f32, bool, &str)> = scored.iter().filter(|(c, _, _)| *c < keep_t).collect();
+    let below_kept = below.iter().filter(|(_, v, _)| *v).count();
+    let above_kept = above.iter().filter(|(_, v, _)| *v).count();
+    let mean = |v: &[&(f32, bool, &str)]| -> f32 {
+        if v.is_empty() { 0.0 } else { v.iter().map(|(c, _, _)| *c).sum::<f32>() / v.len() as f32 }
+    };
+    let keeps: Vec<&(f32, bool, &str)> = scored.iter().filter(|(_, v, _)| *v).collect();
+    let rejects: Vec<&(f32, bool, &str)> = scored.iter().filter(|(_, v, _)| !*v).collect();
+    println!(
+        "mean cosine — kept {:.3}  rejected {:.3}  SEPARATION {:.3}",
+        mean(&keeps),
+        mean(&rejects),
+        mean(&keeps) - mean(&rejects)
+    );
 
     println!("\n=== the decisive number (keep_threshold = {keep_t}) ===");
     println!(
@@ -224,8 +325,8 @@ async fn main() -> Result<()> {
     println!("  t     auto-dropped   correct (was rejected)   ERASED (was kept)   model calls saved");
     let mut t = 0.05f32;
     while t <= keep_t + 0.0001 {
-        let dropped: Vec<&(f32, bool)> = below.iter().copied().filter(|(c, _)| *c < t).collect();
-        let erased = dropped.iter().filter(|(_, v)| *v).count();
+        let dropped: Vec<&(f32, bool, &str)> = below.iter().copied().filter(|(c, _, _)| *c < t).collect();
+        let erased = dropped.iter().filter(|(_, v, _)| *v).count();
         let correct = dropped.len() - erased;
         println!(
             "  {:.2}  {:>10}   {:>10} ({:>5.1}%)      {:>8} ({:>5.2}%)     {:>6} ({:.1}% of gate)",
@@ -241,8 +342,6 @@ async fn main() -> Result<()> {
         t += 0.05;
     }
     println!("\n  ERASED% is measured against ALL genuine links, i.e. the share of the real corpus\n  that threshold would silently delete. That is the number with no recovery path.");
-
-    Ok(())
 }
 
 fn pct(n: usize, d: usize) -> f64 {

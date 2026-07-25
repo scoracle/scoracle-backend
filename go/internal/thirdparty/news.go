@@ -63,15 +63,24 @@ var defaultRSSEditions = []rssEdition{
 	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
 }
 
+// footballTeamRSSEditions is ENGLISH-ONLY, deliberately, until the cognition layer can read other
+// languages first-hand.
+//
+// The localized editions (es-es, fr-fr, de-de, it-it, pt-pt, nl-nl) were live from 2026-07-23 and
+// measurably worked — they made the corpus only 24.1% English, with 45.3% definitively non-English.
+// The problem is that nothing downstream was ready for that:
+//
+//   - the candle's embedder is `bge-small-en-v1.5`, an ENGLISH-ONLY model, so it scored three
+//     quarters of the corpus on text its weights never saw;
+//   - the Article Reader was left translating AND summarizing in one 7B call on 76% of articles;
+//   - every prompt, guard list, and stopword downstream is English.
+//
+// Restore the localized editions when a model that reads them natively is in place (Scott's call:
+// at the 30B tier). Until then, ingesting text we cannot read is buying GPU load and noise, not
+// coverage. Re-adding them is this one slice — the edition machinery is untouched and still tested.
 var footballTeamRSSEditions = []rssEdition{
 	{name: "en-us", hl: "en-US", gl: "US", ceid: "US:en"},
 	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
-	{name: "es-es", hl: "es-ES", gl: "ES", ceid: "ES:es"},
-	{name: "fr-fr", hl: "fr-FR", gl: "FR", ceid: "FR:fr"},
-	{name: "de-de", hl: "de-DE", gl: "DE", ceid: "DE:de"},
-	{name: "it-it", hl: "it-IT", gl: "IT", ceid: "IT:it"},
-	{name: "pt-pt", hl: "pt-PT", gl: "PT", ceid: "PT:pt"},
-	{name: "nl-nl", hl: "nl-NL", gl: "NL", ceid: "NL:nl"},
 }
 
 var trustedShortTeamAliases = map[string]bool{
@@ -867,10 +876,14 @@ func rssSportSuffix(sport string) string {
 }
 
 func teamRSSSportSuffix(sport string) string {
-	// Football teams are searched across localized Google editions; appending the
-	// English "soccer football" suffix suppresses non-English sources and is no
-	// longer needed now that scrub gates relevance. Keep sport suffixes for NBA/NFL
-	// teams, where many team names are common English words.
+	// Football team queries carry no sport suffix. NOTE the original reason for this is now
+	// GONE: the suffix was dropped because it suppressed non-English sources across the
+	// localized editions, and those editions were retired (see footballTeamRSSEditions).
+	// Left as-is deliberately rather than silently restored — " soccer football" is two extra
+	// required terms on every query, so re-adding it trades noise for recall, and that trade
+	// needs the A4 funnel to measure it rather than a guess. Risky solo terms (nice, inter,
+	// como, …) already get the suffix via teamRSSSuffixForTerm regardless.
+	// Keep sport suffixes for NBA/NFL teams, where many team names are common English words.
 	if strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" {
 		return ""
 	}

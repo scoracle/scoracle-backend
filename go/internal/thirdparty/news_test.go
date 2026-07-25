@@ -311,17 +311,26 @@ func TestDeduplicateArticlesCollapsesSameTitleAndSource(t *testing.T) {
 	}
 }
 
+// TestRSSEditionsForFootballTeams pins the ENGLISH-ONLY contract. This test previously asserted the
+// opposite — that es-ES/fr-FR/de-DE/it-IT/pt-PT/nl-NL were present — and that assertion was correct
+// for its time. The editions were retired on measurement: they made the corpus only 24.1% English
+// while the candle's embedder (`bge-small-en-v1.5`) and every downstream prompt are English-only.
+// Restore them together with a model that reads them; until then a non-English locale appearing
+// here should fail loudly rather than quietly re-flood the pipeline.
 func TestRSSEditionsForFootballTeams(t *testing.T) {
 	got := rssEditionsForEntity("team", "FOOTBALL")
 	if len(got) <= len(defaultRSSEditions) {
-		t.Fatalf("football team editions = %d, want more than default", len(got))
+		t.Fatalf("football team editions = %d, want more than default (en-GB carries most football coverage)", len(got))
 	}
 
 	seen := make(map[string]bool)
 	for _, e := range got {
 		seen[e.hl] = true
+		if !strings.HasPrefix(strings.ToLower(e.hl), "en-") {
+			t.Fatalf("non-English edition %q is live, but nothing downstream can read it yet: %#v", e.hl, got)
+		}
 	}
-	for _, hl := range []string{"es-ES", "fr-FR", "de-DE", "it-IT", "pt-PT", "nl-NL"} {
+	for _, hl := range []string{"en-US", "en-GB"} {
 		if !seen[hl] {
 			t.Fatalf("football team editions missing %s: %#v", hl, got)
 		}

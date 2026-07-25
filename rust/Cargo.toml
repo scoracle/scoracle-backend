@@ -30,6 +30,10 @@ path = "src/bin/statcommentary.rs"
 # plan). Read-only on the pipeline; writes ONLY its output TSV. Resumable/idempotent —
 # a completed run no-ops, so it is safe on a cron line.
 [[bin]]
+name = "relevance_bands"
+path = "src/bin/relevance_bands.rs"
+
+[[bin]]
 name = "bucketlabel"
 path = "src/bin/bucketlabel.rs"
 

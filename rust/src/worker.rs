@@ -35,7 +35,7 @@
 
 use crate::harness::Harness;
 use crate::stage::StageHandler;
-use crate::work::{self, retry_backoff, CLAIM_BATCH, MAX_ATTEMPTS};
+use crate::work::{self, retry_backoff, MAX_ATTEMPTS};
 use anyhow::{anyhow, Result};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
@@ -56,6 +56,10 @@ const WATCHDOG_POLL: Duration = Duration::from_secs(60);
 /// stop never escalates to SIGKILL: signal → flag (drain exits at the next item
 /// boundary) → grace → abort → clean exit.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
+
+/// The live worker rotates stages one item at a time. LLM/model calls dominate
+/// runtime, so minimizing product-stage latency is worth the extra cheap claims.
+const STAGE_ROTATION_BATCH: i64 = 1;
 
 /// Pulse is the drain's progress instrument, shared with the supervisor. The drain
 /// beats it at every step boundary (claim, per-item handle, bookkeeping);
@@ -334,19 +338,20 @@ impl Worker {
         pulse.idle();
     }
 
-    /// Drain every registered stage to empty. Iterates in registration order;
-    /// when stages are added, register them in dependency order (transfers,
-    /// narratives, vibe, momentum, sigil) so a hand-off enqueued mid-tick
-    /// drains in the same pass instead of waiting for the next one.
+    /// Drain every registered stage to empty, rotating by one claim batch per stage.
+    /// The registration order still encodes the DAG, so a hand-off enqueued mid-tick
+    /// reaches downstream stages in the same pass. Rotating prevents a large upstream
+    /// wave (scrub/graph/article_read) from starving later product stages for hours.
     async fn drain_all(&self, cause: &str, pulse: &Pulse) {
-        for handler in &self.handlers {
-            let stage = handler.stage();
-            loop {
+        loop {
+            let mut made_progress = false;
+            for handler in &self.handlers {
                 if self.shutting_down() {
                     return;
                 }
+                let stage = handler.stage();
                 pulse.beat(&format!("claim {stage}"));
-                let items = match work::claim(&self.pool, stage, CLAIM_BATCH).await {
+                let items = match work::claim(&self.pool, stage, STAGE_ROTATION_BATCH).await {
                     Ok(items) => items,
                     Err(e) => {
                         error!(error = %format!("{e:#}"), %stage, cause, "claim failed");
@@ -354,8 +359,9 @@ impl Worker {
                     }
                 };
                 if items.is_empty() {
-                    break;
+                    continue;
                 }
+                made_progress = true;
                 debug!(%stage, n = items.len(), cause, "draining batch");
                 for (idx, item) in items.iter().enumerate() {
                     if self.shutting_down() {
@@ -397,6 +403,9 @@ impl Worker {
                         }
                     }
                 }
+            }
+            if !made_progress {
+                break;
             }
         }
     }

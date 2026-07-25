@@ -58,8 +58,8 @@ use crate::sigil::{
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
 use crate::transfer::{
-    build_pair_request, load_candidates, load_tier_map, transfer_system_prompt, PairBuild,
-    TransferParser, TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
+    build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
+    TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
 };
 use crate::vibe::{
     build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
@@ -921,7 +921,6 @@ impl LensTask for TransferTask {
         })?;
         let sport = e.sport.to_uppercase();
         let team_name = lookup_entity_name(&hx.pool, "team", e.entity_id, &sport).await?;
-        let tiers = load_tier_map(&hx.pool).await?;
         let candidate = load_candidates(&hx.pool, e.entity_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES)
             .await?
             .into_iter()
@@ -941,7 +940,6 @@ impl LensTask for TransferTask {
             &team_name,
             &candidate,
             &sport,
-            &tiers,
             relationship,
             0.0,
         )

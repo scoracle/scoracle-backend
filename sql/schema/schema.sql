@@ -7385,7 +7385,7 @@ CREATE TABLE public.cognition_ledger (
     context_budget jsonb DEFAULT '{}'::jsonb NOT NULL,
     parser_outcome text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text]))),
     CONSTRAINT cognition_ledger_pair_entity_type_check CHECK (((pair_entity_type IS NULL) OR (pair_entity_type = ANY (ARRAY['player'::text, 'team'::text]))))
 );
 
@@ -12683,4 +12683,3 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 --
 
 \unrestrict T8n9d6OvN2e0sq3FquBmhV9g5QKDLWmN4pxWW1z9ZTjj1Y9uu8sMHz3cIRXNCzU
-

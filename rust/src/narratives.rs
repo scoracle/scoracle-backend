@@ -120,9 +120,9 @@ pub const NARRATIVES_NUM_CTX: i32 = 8192;
 const DESC_TRUNCATE: usize = 200;
 const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 
-/// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. Bound as the
-/// `make_interval(secs => …)` argument so the corpus boundary equals Go's `$4::interval` of
-/// `"259200 seconds"`.
+/// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. A fresh
+/// Article Reader card also keeps an article in the corpus, so richer newly-enqueued evidence can
+/// wake The Journalist even when the source article's `published_at` has aged past this boundary.
 const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 
 /// System prompt for The Journalist (n11): group recent vetted news into distinct storylines, label
@@ -373,7 +373,11 @@ pub async fn load_vetted_corpus(
         WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
           AND nae.vetted IS TRUE
           AND a.duplicate_of IS NULL
-          AND (a.published_at IS NULL OR a.published_at > NOW() - make_interval(secs => $4))
+          AND (
+              a.published_at IS NULL
+              OR a.published_at > NOW() - make_interval(secs => $4)
+              OR r.updated_at > NOW() - make_interval(secs => $4)
+          )
         ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
         "#,
     )
@@ -457,6 +461,10 @@ async fn load_vetted_corpus_with_exclusions(
                    CASE
                      WHEN a.published_at IS NOT NULL
                       AND a.published_at <= NOW() - make_interval(secs => $4)
+                      AND (
+                          r.updated_at IS NULL
+                          OR r.updated_at <= NOW() - make_interval(secs => $4)
+                      )
                        THEN 'stale_news'
                      ELSE 'kept'
                    END AS status

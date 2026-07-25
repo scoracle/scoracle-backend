@@ -111,9 +111,6 @@ async fn main() -> Result<()> {
     if enabled.contains("fixture_boxscore") {
         handlers.push(Box::new(boxscore_fetch::FixtureBoxscoreHandler::new()));
     }
-    if enabled.contains("peak") {
-        handlers.push(Box::new(rating::PeakHandler::new()));
-    }
     if enabled.contains("transfers") {
         handlers.push(Box::new(transfer::TransferHandler::new()));
     }
@@ -124,7 +121,12 @@ async fn main() -> Result<()> {
     if enabled.contains("vibe") {
         handlers.push(Box::new(vibe::VibeHandler::new()));
     }
-    // momentum consumes PEAK + vibe, so it registers after vibe: a vibe hand-off
+    // PEAK feeds Momentum/Sigil, but it does not feed the news rail. Keep it after
+    // the news-product stages so a nightly stat backlog cannot delay The Journalist.
+    if enabled.contains("peak") {
+        handlers.push(Box::new(rating::PeakHandler::new()));
+    }
+    // momentum consumes PEAK + vibe, so it registers after both: a vibe hand-off
     // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
     // for the next NOTIFY/safety-net wake.
     if enabled.contains("momentum") {

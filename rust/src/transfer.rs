@@ -19,8 +19,8 @@
 //!
 //! DEBOUNCE (F3, flow-friction plan 2026-07-12): before each pair's model call the production
 //! handler fingerprints the pair's MATERIAL inputs — sorted pair-corpus article ids, the
-//! corpus-stable heat components (`distinct_sources`, `tier_weight`), and the deterministic
-//! relationship; no timestamps, no prose, no recency decay — and skips the GPU call, the insert,
+//! corpus-stable source diversity, and the deterministic relationship; no timestamps, no prose,
+//! no recency decay — and skips the GPU call, the insert,
 //! and the ledger row when the pair's latest RESOLVED `transfer_rumors` row carries the same
 //! `input_hash` (mig 145 reserved the column). UNKNOWN markers never satisfy the gate, so a
 //! model-failure retry re-vets ONLY the failed pair: the completed pairs skip on fingerprint
@@ -38,7 +38,7 @@ use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::{classify_delta, DEFAULT_TRAJECTORY};
-use crate::util::{go_json_float, go_json_string, hash_components, truncate_bytes};
+use crate::util::{go_json_string, hash_components, truncate_bytes};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
@@ -405,21 +405,6 @@ pub struct TransferPairOutput {
 // Loaders — byte-for-byte the SQL transfer.go runs (same query ⇒ same rows).
 // ---------------------------------------------------------------------------
 
-/// load_tier_map returns the source-credibility weights keyed `"kind:source"` (source lower-cased),
-/// for grounded attribution. Mirrors `loadTierMap`. `weight::float8` avoids the numeric→f64 scan
-/// landmine (sqlx has no numeric decode without the decimal feature).
-pub async fn load_tier_map(pool: &PgPool) -> Result<HashMap<String, f64>> {
-    let rows: Vec<(String, String, f64)> =
-        sqlx::query_as("SELECT kind, lower(source), weight::float8 FROM source_tiers")
-            .fetch_all(pool)
-            .await
-            .context("load tier map")?;
-    Ok(rows
-        .into_iter()
-        .map(|(kind, source, weight)| (format!("{kind}:{source}"), weight))
-        .collect())
-}
-
 /// load_candidates returns the team's co-mention candidate players with identity cards — the Rust
 /// port of `transfer.go::loadCandidates` (current club from `player_current_identity`; both vetted
 /// links required; co-mention proximity gate).
@@ -659,25 +644,14 @@ pub fn direction_for(relationship: &str) -> &'static str {
     }
 }
 
-/// best_source returns the highest-credibility source in the corpus and its weight (unknown sources
-/// default 0.3) — grounded attribution. Mirrors `bestSource`.
-fn best_source(news: &[NewsItem], tiers: &HashMap<String, f64>) -> (String, f64) {
-    let mut best = String::new();
-    let mut best_w = 0.0_f64;
+/// primary_source returns the first attributed source in the prompt corpus.
+fn primary_source(news: &[NewsItem]) -> String {
     for n in news {
-        if n.source.is_empty() {
-            continue;
-        }
-        let w = tiers
-            .get(&format!("news:{}", n.source.to_lowercase()))
-            .copied()
-            .unwrap_or(0.3);
-        if w > best_w {
-            best_w = w;
-            best = n.source.clone();
+        if !n.source.is_empty() {
+            return n.source.clone();
         }
     }
-    (best, best_w)
+    String::new()
 }
 
 /// return_signals: phrases indicating a genuine RETURN move (vs a former player merely mentioned).
@@ -741,28 +715,20 @@ fn has_return_signal(news: &[NewsItem]) -> bool {
 /// prompt drift stays deliberate. The "·" separator (U+00B7) and the "—" (U+2014) are significant
 /// bytes; at temp 0 a single changed byte changes the model's output.
 ///
-/// The cards, in order: TransferEvidence (Phase 2, t7) — corpus size, source diversity, and
-/// best-source credibility, measured in code so the model grades a claim it is HANDED the
-/// evidentiary weight of, instead of inferring "how solid is this" from headline tone (the failure
-/// mode behind roundup false-positives and over-staging); then the source-reliability card (Phase 4,
-/// t9, `source_reliability_for_pair`) — the MEASURED track record of those same sources; then the
-/// relational memory card (t8) — the pair's story arc. Evidence + reliability are "who is saying
-/// this and how good are they"; memory is "what has this saga done before."
+/// The cards, in order: TransferEvidence (Phase 2, t7) — corpus size and source diversity;
+/// then the source-reliability card (Phase 4, t9,
+/// `source_reliability_for_pair`) — the MEASURED track record of those same sources; then the
+/// relational memory card (t8) — the pair's story arc. Evidence is "how much corpus exists";
+/// reliability/memory are organic history rather than static source tiers.
 #[derive(Clone, Debug, Default)]
 pub struct TransferEvidence {
     pub total_articles: usize,
     pub distinct_sources: usize,
     pub best_source: String,
-    pub best_weight: f64,
 }
 
 impl TransferEvidence {
-    pub fn from_news(
-        news: &[NewsItem],
-        total_articles: usize,
-        best: &str,
-        best_weight: f64,
-    ) -> Self {
+    pub fn from_news(news: &[NewsItem], total_articles: usize, best: &str) -> Self {
         let distinct_sources = news
             .iter()
             .map(|n| n.source.to_lowercase())
@@ -773,7 +739,6 @@ impl TransferEvidence {
             total_articles,
             distinct_sources,
             best_source: best.to_string(),
-            best_weight,
         }
     }
 }
@@ -827,7 +792,7 @@ pub fn build_transfer_prompt(
     // Evidence card (t7): computed facts, not model inference. Rendered even when thin —
     // "1 article, 1 source" IS the signal the staging rules key on.
     b.push_str(&format!(
-        "Evidence (computed): {} article{}, {} distinct source{}; strongest source: {}.\n",
+        "Evidence (computed): {} article{}, {} distinct source{}; primary source: {}.\n",
         evidence.total_articles,
         if evidence.total_articles == 1 {
             ""
@@ -843,10 +808,7 @@ pub fn build_transfer_prompt(
         if evidence.best_source.is_empty() {
             "none attributed".to_string()
         } else {
-            format!(
-                "{} (credibility {:.1})",
-                evidence.best_source, evidence.best_weight
-            )
+            evidence.best_source.clone()
         }
     ));
 
@@ -1022,9 +984,7 @@ fn row_from_verdict(
 // ---------------------------------------------------------------------------
 
 /// build_transfer_input_components is the canonical per-pair debounce pre-image (F3): the sorted
-/// pair-corpus article ids (the corpus identity), the corpus-stable heat components
-/// (`distinct_sources` + `tier_weight` — the corroboration/credibility facts feeding the grounding
-/// guard, which move only when the corpus or the source-tier table moves), and the deterministic
+/// pair-corpus article ids (the corpus identity), the corpus-stable source diversity, and the deterministic
 /// `relationship` (it drives `direction` and the former-player gate, so an identity flip must
 /// re-vet even over a frozen corpus). Same canonical-JSON discipline as
 /// `vibe::build_vibe_input_components`.
@@ -1054,18 +1014,13 @@ pub fn build_transfer_input_components(
         .get("distinct_sources")
         .and_then(serde_json::Value::as_i64)
         .unwrap_or(0);
-    let tier_weight = comps
-        .get("tier_weight")
-        .and_then(serde_json::Value::as_f64)
-        .unwrap_or(0.0);
     let mut ids: Vec<i64> = news_ids.to_vec();
     ids.sort_unstable();
     let ids_csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
     format!(
-        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"prompt_version\":{},\"relationship\":{},\"tier_weight\":{}}}",
+        "{{\"distinct_sources\":{distinct_sources},\"news_ids\":[{ids_csv}],\"prompt_version\":{},\"relationship\":{}}}",
         go_json_string(TRANSFER_PROMPT_VERSION),
         go_json_string(relationship),
-        go_json_float(tier_weight),
     )
 }
 
@@ -1109,8 +1064,8 @@ pub enum PairBuild {
 }
 
 /// PairReady carries the assembled model inputs plus the deterministic context the
-/// post-model gates need (`news` for the former-player return-signal, `best_weight` for the grounding
-/// guard, `relationship` for direction). `request_body` is computed from the SAME backend + opts the
+/// post-model gates need (`news` for the former-player return-signal, `relationship` for direction).
+/// `request_body` is computed from the SAME backend + opts the
 /// call will use, so it can never drift from what is POSTed.
 pub struct PairReady {
     pub heat: i16,
@@ -1120,7 +1075,6 @@ pub struct PairReady {
     pub news: Vec<NewsItem>,
     pub relationship: String,
     pub attribution: String,
-    pub best_weight: f64,
     pub opts: GenerateOptions,
     pub built_prompt: String,
     pub request_body: serde_json::Value,
@@ -1189,7 +1143,6 @@ pub async fn build_pair_request(
     team_name: &str,
     c: &TransferCandidate,
     sport: &str,
-    tiers: &HashMap<String, f64>,
     relationship: String,
     temperature: f64,
 ) -> Result<PairBuild> {
@@ -1204,8 +1157,7 @@ pub async fn build_pair_request(
 
     let news = load_pair_news(&hx.pool, &news_ids).await?;
     let prompted_news_ids = news.iter().map(|n| n.id).collect();
-    // Grounding: credibility attribution comes from the CORPUS, not the model.
-    let (attribution, best_weight) = best_source(&news, tiers);
+    let attribution = primary_source(&news);
 
     // F3: fingerprint the material inputs now that they are all in hand (corpus ids + stable
     // heat components + relationship) — the handler gates on this BEFORE paying for the GPU.
@@ -1215,7 +1167,7 @@ pub async fn build_pair_request(
         &relationship,
     ));
 
-    let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution, best_weight);
+    let evidence = TransferEvidence::from_news(&news, news_ids.len(), &attribution);
     // Two independent SQL card reads (story arc + source track record) — load concurrently.
     let (memory, source_reliability) = tokio::try_join!(
         load_relational_memory(&hx.pool, sport, c.player_id, team_id),
@@ -1251,7 +1203,6 @@ pub async fn build_pair_request(
         news,
         relationship,
         attribution,
-        best_weight,
         opts,
         built_prompt,
         request_body,
@@ -1302,23 +1253,11 @@ pub async fn analyze_pair(
     team_name: &str,
     c: &TransferCandidate,
     sport: &str,
-    tiers: &HashMap<String, f64>,
     temperature: f64,
 ) -> Result<TransferPairOutput> {
     // Offline composition loads the relationship per pair; the production handler batches it.
     let relationship = team_relationship(&hx.pool, team_id, c.player_id, sport).await?;
-    match build_pair_request(
-        hx,
-        team_id,
-        team_name,
-        c,
-        sport,
-        tiers,
-        relationship,
-        temperature,
-    )
-    .await?
-    {
+    match build_pair_request(hx, team_id, team_name, c, sport, relationship, temperature).await? {
         PairBuild::Skipped {
             components,
             news_ids,
@@ -1384,22 +1323,6 @@ pub async fn vet_pair(
             // RETURN; otherwise the co-mention is historical background / a multi-entity artifact.
             if ready.relationship == "former" && !has_return_signal(&ready.news) {
                 v.is_rumor = Some(false);
-            }
-            // Grounding guard: a claimed rumor with no credible (tier-1/2) source is suspect.
-            if v.is_rumor == Some(true) && ready.best_weight < 0.5 {
-                v.confidence *= 0.5;
-                // Stage ceiling (t7): with no credible source a claim can never persist beyond
-                // speculation — the same evidence bar, applied to the stage itself. The model's
-                // original stage stays visible in the ledger's raw response.
-                if norm_stage(&v.stage) != "speculation" {
-                    warn!(
-                        player_id = player_id,
-                        model_stage = %v.stage,
-                        best_weight = ready.best_weight,
-                        "transfer: stage clamped to speculation (no credible source)"
-                    );
-                    v.stage = "speculation".to_string();
-                }
             }
         }
     }
@@ -2513,7 +2436,6 @@ impl StageHandler for TransferHandler {
         let team_name =
             crate::corpus::lookup_entity_name(&hx.pool, &item.entity_type, team_id, &item.sport)
                 .await?;
-        let tiers = load_tier_map(&hx.pool).await?;
         let candidates =
             load_candidates(&hx.pool, team_id, &sport, TRANSFER_DEFAULT_MIN_ARTICLES).await?;
         // Per-team hoists (Phase 2): one batched relationship read for the whole candidate set
@@ -2544,7 +2466,6 @@ impl StageHandler for TransferHandler {
                     &team_name,
                     c,
                     &sport,
-                    &tiers,
                     relationship,
                     TRANSFER_TEMPERATURE,
                 )
@@ -2913,7 +2834,7 @@ Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
             description: "Reports suggest interest.".to_string(),
             source: "BBC".to_string(),
         }];
-        let evidence = TransferEvidence::from_news(&news, 1, "BBC", 0.9);
+        let evidence = TransferEvidence::from_news(&news, 1, "BBC");
         let p = build_transfer_prompt(
             "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None,
         );
@@ -2922,7 +2843,7 @@ Recent scores (newest first): 62 (Jul 18) · 55 (Jul 12)\n\
             "Sport: FOOTBALL\nTeam: Arsenal\nPlayer: Bukayo Saka\n\
 Identity (the ONE specific player to judge): Bukayo Saka · English · currently at Arsenal · winger\n\
 Roster status: Bukayo Saka is CURRENTLY on Arsenal — so any move is a DEPARTURE (outgoing). Frame the summary as other clubs' interest in signing them.\n\
-Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credibility 0.9).\n\
+Evidence (computed): 1 article, 1 distinct source; primary source: BBC.\n\
 \nNews headlines:\n\
 - [BBC] Saka linked with move — Reports suggest interest.\n\
 \nReturn the JSON verdict now."
@@ -2933,7 +2854,7 @@ Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credib
     fn prompt_former_sparse_identity_no_news() {
         // No nationality, unknown club, no position → identity is just name + "current club unknown".
         let c = cand("John Doe", "", "", "");
-        let evidence = TransferEvidence::from_news(&[], 0, "", 0.0);
+        let evidence = TransferEvidence::from_news(&[], 0, "");
         let p = build_transfer_prompt(
             "Chelsea",
             &c,
@@ -2949,7 +2870,7 @@ Evidence (computed): 1 article, 1 distinct source; strongest source: BBC (credib
             "Sport: FOOTBALL\nTeam: Chelsea\nPlayer: John Doe\n\
 Identity (the ONE specific player to judge): John Doe · current club unknown\n\
 Roster status: John Doe is a FORMER Chelsea player who has SINCE LEFT. A 'former/ex-Chelsea' mention is just background, NOT a transfer rumor — set is_rumor=false UNLESS the sources genuinely report John Doe RETURNING to Chelsea (then it is incoming).\n\
-Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attributed.\n\
+Evidence (computed): 0 articles, 0 distinct sources; primary source: none attributed.\n\
 \nNews headlines:\n\
 - (none)\n\
 \nReturn the JSON verdict now."
@@ -2966,7 +2887,7 @@ Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attr
             description: String::new(),
             source: String::new(),
         }];
-        let evidence = TransferEvidence::from_news(&news, 1, "", 0.0);
+        let evidence = TransferEvidence::from_news(&news, 1, "");
         let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None, None);
         assert!(
             !p.contains("Relational memory"),
@@ -2994,7 +2915,7 @@ Evidence (computed): 0 articles, 0 distinct sources; strongest source: none attr
             "Sport: NBA\nTeam: Lakers\nPlayer: Victor Wembanyama\n\
 Identity (the ONE specific player to judge): Victor Wembanyama · French · currently at Spurs · center\n\
 Roster status: Victor Wembanyama is NOT on Lakers — so any move is an ARRIVAL (incoming). Frame the summary as Lakers pursuing them.\n\
-Evidence (computed): 1 article, 0 distinct sources; strongest source: none attributed.\n\
+Evidence (computed): 1 article, 0 distinct sources; primary source: none attributed.\n\
 \nNews headlines:\n\
 - Trade buzz\n\
 \nReturn the JSON verdict now."
@@ -3012,7 +2933,7 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
             description: "Reports suggest interest.".to_string(),
             source: "Fabrizio Romano".to_string(),
         }];
-        let evidence = TransferEvidence::from_news(&news, 1, "Fabrizio Romano", 0.95);
+        let evidence = TransferEvidence::from_news(&news, 1, "Fabrizio Romano");
         let reliability = "Fabrizio Romano: reliability 83/100 (24 of 30 tracked moves confirmed, 15 reported early).\nTalkSport: reliability 21/100 (3 of 40 tracked moves confirmed).";
         let memory = "Current story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up).";
         let p = build_transfer_prompt(
@@ -3181,14 +3102,14 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         assert_eq!(
             build_transfer_input_components(&[9, 4, 7], comps, "current"),
             format!(
-                r#"{{"distinct_sources":3,"news_ids":[4,7,9],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"current","tier_weight":0.9}}"#
+                r#"{{"distinct_sources":3,"news_ids":[4,7,9],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"current"}}"#
             )
         );
         // Empty/degenerate components (the defensive path) keep a stable pre-image.
         assert_eq!(
             build_transfer_input_components(&[], "{}", "none"),
             format!(
-                r#"{{"distinct_sources":0,"news_ids":[],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"none","tier_weight":0}}"#
+                r#"{{"distinct_sources":0,"news_ids":[],"prompt_version":"{TRANSFER_PROMPT_VERSION}","relationship":"none"}}"#
             )
         );
     }
@@ -3223,7 +3144,7 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         let grown = hash_components(&build_transfer_input_components(&[3, 5, 9], comps, "none"));
         // Deterministic relationship flip (identity applied / provider update).
         let former = hash_components(&build_transfer_input_components(&[3, 5], comps, "former"));
-        // Source-tier re-weighting (moves the grounding guard).
+        // Source-tier changes are deliberately ignored; source memory is organic, not static tiering.
         let retiered = hash_components(&build_transfer_input_components(
             &[3, 5],
             r#"{"distinct_sources":2,"tier_weight":0.9}"#,
@@ -3231,7 +3152,7 @@ Evidence (computed): 1 article, 0 distinct sources; strongest source: none attri
         ));
         assert_ne!(base, grown);
         assert_ne!(base, former);
-        assert_ne!(base, retiered);
+        assert_eq!(base, retiered);
     }
 
     #[test]

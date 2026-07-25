@@ -49,6 +49,10 @@ func DefaultConfig() Config {
 // backlog over a few ticks without ever holding a large lock.
 const newsScrubPrimaryBatch = 20000
 
+// newsScrubLookbackSQL mirrors the RSS ingest window plus its boundary slack.
+// The maintenance sweep is a repair path, not a second historical inflow.
+const newsScrubLookbackSQL = "12 hours 15 minutes"
+
 // alltimeRankSports are the sports whose season_composite_rank_alltime is
 // recomputed on the AlltimeRankInterval cadence.
 var alltimeRankSports = []string{"NBA", "NFL", "FOOTBALL"}
@@ -549,13 +553,16 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger 
 	// Phase 1 — auto-vet unscrubbed primaries (bounded, no model).
 	if tag, err := pool.Exec(ctx, `
 		WITH b AS (
-			SELECT ctid FROM news_article_entities
-			 WHERE scrubbed_at IS NULL AND match_confidence >= 1.0
+			SELECT nae.ctid
+			  FROM news_article_entities nae
+			  JOIN news_articles a ON a.id = nae.article_id
+			 WHERE nae.scrubbed_at IS NULL AND nae.match_confidence >= 1.0
+			   AND (a.published_at IS NULL OR a.published_at > NOW() - $2::interval)
 			 LIMIT $1
 		)
 		UPDATE news_article_entities n
 		   SET vetted = TRUE, scrubbed_at = NOW()
-		  FROM b WHERE n.ctid = b.ctid`, newsScrubPrimaryBatch); err != nil {
+		  FROM b WHERE n.ctid = b.ctid`, newsScrubPrimaryBatch, newsScrubLookbackSQL); err != nil {
 		logger.Warn("News scrub: auto-vet primaries failed", "error", err)
 	} else if tag.RowsAffected() > 0 {
 		logger.Info("News scrub: auto-vetted primary links", "count", tag.RowsAffected())
@@ -573,6 +580,7 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger 
 		FROM news_article_entities nae
 		JOIN news_articles a ON a.id = nae.article_id
 		WHERE nae.scrubbed_at IS NULL AND nae.match_confidence < 1.0
+		  AND (a.published_at IS NULL OR a.published_at > NOW() - $2::interval)
 		  AND NOT EXISTS (
 		      SELECT 1 FROM pipeline_work pw
 		      WHERE pw.stage = 'scrub' AND pw.entity_type = 'article'
@@ -581,7 +589,7 @@ func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger 
 		  )
 		GROUP BY nae.article_id, nae.sport, a.published_at
 		ORDER BY a.published_at DESC NULLS LAST
-		LIMIT $1`, batch)
+		LIMIT $1`, batch, newsScrubLookbackSQL)
 	if err != nil {
 		logger.Warn("News scrub: candidate query failed", "error", err)
 		return

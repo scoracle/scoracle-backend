@@ -1,19 +1,20 @@
 package thirdparty
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestRSSLookbackMatchesSixHourCron(t *testing.T) {
-	if len(timeWindows) != 1 || timeWindows[0] != 6 {
-		t.Fatalf("timeWindows = %#v, want []int{6}", timeWindows)
+func TestRSSLookbackMatchesBackfillCatchupWindow(t *testing.T) {
+	if len(timeWindows) != 1 || timeWindows[0] != 12 {
+		t.Fatalf("timeWindows = %#v, want []int{12}", timeWindows)
 	}
 }
 
-func TestRSSWhenTokenSupportsSixHourWindow(t *testing.T) {
-	if got := rssWhenToken(6); got != "6h" {
-		t.Fatalf("rssWhenToken(6) = %q, want 6h", got)
+func TestRSSWhenTokenSupportsTwelveHourWindow(t *testing.T) {
+	if got := rssWhenToken(12); got != "12h" {
+		t.Fatalf("rssWhenToken(12) = %q, want 12h", got)
 	}
 }
 
@@ -90,6 +91,24 @@ func TestNameInText_NoFalsePositive(t *testing.T) {
 	}
 }
 
+func TestNameInText_UsesEntityTermBoundaries(t *testing.T) {
+	if nameInText("Inter", "The international break changes the schedule", "", "", "", nil, "") {
+		t.Error("expected Inter not to match inside international")
+	}
+	if !nameInText("Inter", "Inter signs a new midfielder", "", "", "", nil, "") {
+		t.Error("expected Inter whole-word match")
+	}
+}
+
+func TestNameInText_AmbiguousFootballTeamNeedsContext(t *testing.T) {
+	if nameInText("Nice", "Nice weather expected this weekend", "", "", "", nil, "soccer football") {
+		t.Error("expected Nice to need football context")
+	}
+	if !nameInText("Nice", "Nice sign a new midfielder before the league opener", "", "", "", nil, "soccer football") {
+		t.Error("expected Nice to match with football context")
+	}
+}
+
 func TestNameInText_PlayerWithParts(t *testing.T) {
 	if !nameInText("LeBron James", "LeBron and James dominate", "LeBron", "James", "Lakers", nil, "") {
 		t.Error("expected first+last name match")
@@ -123,28 +142,28 @@ func TestBestAliasQuery(t *testing.T) {
 	}
 }
 
-func TestBuildRSSSearchQueries_TeamUsesAliasGroup(t *testing.T) {
+func TestBuildRSSSearchQueries_TeamUsesAliasLanes(t *testing.T) {
 	got := buildRSSSearchQueries(
 		"team",
 		"Manchester United",
 		"FOOTBALL",
 		[]string{"MUN", "Man UTD", "Man United", "MUFC"},
 	)
-	want := []string{`("Manchester United" OR "Man UTD" OR "Man United" OR MUFC)`}
-	if len(got) != len(want) || got[0] != want[0] {
+	want := []string{`"Manchester United"`, `"Man United"`, `"Man UTD"`}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
 		t.Fatalf("buildRSSSearchQueries team = %#v, want %#v", got, want)
 	}
 }
 
 func TestBuildRSSSearchQueries_TeamAllowsTrustedShortAlias(t *testing.T) {
 	got := buildRSSSearchQueries("team", "Paris Saint Germain", "FOOTBALL", []string{"PSG", "Paris Saint-Germain"})
-	want := []string{`("Paris Saint Germain" OR PSG OR "Paris Saint-Germain")`}
-	if len(got) != len(want) || got[0] != want[0] {
+	want := []string{`"Paris Saint Germain"`, `PSG`, `"Paris Saint-Germain"`}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
 		t.Fatalf("buildRSSSearchQueries PSG = %#v, want %#v", got, want)
 	}
 }
 
-func TestBuildRSSSearchQueries_TeamBatchesBayernAliases(t *testing.T) {
+func TestBuildRSSSearchQueries_TeamCapsSafeAliasLanes(t *testing.T) {
 	got := buildRSSSearchQueries("team", "FC Bayern München", "FOOTBALL", []string{
 		"Bayern Munich",
 		"Bayern Munchen",
@@ -154,31 +173,51 @@ func TestBuildRSSSearchQueries_TeamBatchesBayernAliases(t *testing.T) {
 		"FCB",
 		"Bayern Monaco",
 	})
-	want := []string{`("FC Bayern München" OR "Bayern Munich" OR "Bayern Munchen" OR "Bayern München" OR Bayern OR "FC Bayern" OR "Bayern Monaco")`}
-	if len(got) != len(want) || got[0] != want[0] {
+	want := []string{`"FC Bayern München"`, `"FC Bayern"`, `"Bayern Munich"`}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
 		t.Fatalf("buildRSSSearchQueries Bayern = %#v, want %#v", got, want)
 	}
 }
 
-func TestBuildRSSSearchQueries_TeamChunksWithoutDroppingAliases(t *testing.T) {
+func TestBuildRSSSearchQueries_TeamAvoidsAliasBags(t *testing.T) {
 	got := buildRSSSearchQueries("team", "Ajax", "FOOTBALL", []string{
 		"Ajax Alt 01", "Ajax Alt 02", "Ajax Alt 03", "Ajax Alt 04", "Ajax Alt 05", "Ajax Alt 06",
 		"Ajax Alt 07", "Ajax Alt 08", "Ajax Alt 09", "Ajax Alt 10", "Ajax Alt 11", "Ajax Alt 12",
 	})
 	want := []string{
-		`(Ajax OR "Ajax Alt 01" OR "Ajax Alt 02" OR "Ajax Alt 03" OR "Ajax Alt 04" OR "Ajax Alt 05" OR "Ajax Alt 06" OR "Ajax Alt 07" OR "Ajax Alt 08" OR "Ajax Alt 09")`,
-		`("Ajax Alt 10" OR "Ajax Alt 11" OR "Ajax Alt 12")`,
+		`Ajax`,
+		`"Ajax Alt 01"`,
+		`"Ajax Alt 02"`,
 	}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("buildRSSSearchQueries chunks = %#v, want %#v", got, want)
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
+		t.Fatalf("buildRSSSearchQueries alias lanes = %#v, want %#v", got, want)
+	}
+	for _, q := range got {
+		if strings.Contains(q, " OR ") {
+			t.Fatalf("team RSS query should not contain OR alias bags: %#v", got)
+		}
 	}
 }
 
 func TestBuildRSSSearchQueries_NonFootballTeamKeepsSportContext(t *testing.T) {
 	got := buildRSSSearchQueries("team", "Giants", "NFL", []string{"NYG"})
-	want := []string{`(Giants OR NYG) NFL football`}
-	if len(got) != len(want) || got[0] != want[0] {
+	want := []string{`Giants NFL football`, `NYG NFL football`}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("buildRSSSearchQueries NFL team = %#v, want %#v", got, want)
+	}
+}
+
+func TestBuildRSSSearchQueries_RiskyFootballPrimaryUsesSaferAlias(t *testing.T) {
+	got := buildRSSSearchQueries("team", "Inter", "FOOTBALL", []string{"Inter Milan", "Nerazzurri"})
+	want := []string{`"Inter Milan"`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("buildRSSSearchQueries Inter = %#v, want %#v", got, want)
+	}
+
+	nice := buildRSSSearchQueries("team", "Nice", "FOOTBALL", []string{"OGC Nice", "Nice FC"})
+	niceWant := []string{`"OGC Nice"`, `"Nice FC"`}
+	if len(nice) != len(niceWant) || nice[0] != niceWant[0] || nice[1] != niceWant[1] {
+		t.Fatalf("buildRSSSearchQueries Nice = %#v, want %#v", nice, niceWant)
 	}
 }
 
@@ -190,12 +229,20 @@ func TestBuildRSSSearchQueries_PlayerKeepsConservativeFallback(t *testing.T) {
 	}
 }
 
-func TestFilterRSSArticles_TeamKeepsGoogleResultsForScrub(t *testing.T) {
-	articles := []Article{{Title: "Markets rally after company earnings", Description: "No exact team wording."}}
-	got := filterRSSArticles("team", "Manchester United", "FOOTBALL", "", "", "", []string{"MUN"}, articles)
-	if len(got) != 1 {
-		t.Fatalf("team filter kept %d articles, want 1 for scrub adjudication", len(got))
+func TestFilterRSSArticles_TeamRequiresLocalMention(t *testing.T) {
+	articles := []Article{
+		{Title: "Markets rally after company earnings", Description: "No exact team wording."},
+		{Title: "Manchester United agree deal", Description: "Club confirms the move."},
+		{Title: "Man United track midfielder", Description: "Transfer latest."},
 	}
+	got := filterRSSArticles("team", "Manchester United", "FOOTBALL", "", "", "", []string{"MUN", "Man United"}, articles)
+	if len(got) != 2 {
+		t.Fatalf("team filter kept %d articles, want 2 local mentions: %#v", len(got), got)
+	}
+	if got[0].Title != "Manchester United agree deal" || got[1].Title != "Man United track midfielder" {
+		t.Fatalf("team filter kept wrong articles: %#v", got)
+	}
+
 	player := filterRSSArticles("player", "LeBron James", "NBA", "Lakers", "LeBron", "James", nil, articles)
 	if len(player) != 0 {
 		t.Fatalf("player filter kept %d articles, want 0 without a match", len(player))
@@ -221,13 +268,13 @@ func TestLimitRSSArticles_PositiveLimitCapsReturnedOnly(t *testing.T) {
 func TestFilterArticlesByLookbackDropsStaleRSSItems(t *testing.T) {
 	now := time.Date(2026, 7, 23, 18, 0, 0, 0, time.UTC)
 	articles := []Article{
-		{Title: "fresh", PublishedAt: now.Add(-5 * time.Hour).Format(time.RFC1123Z)},
-		{Title: "boundary overlap", PublishedAt: now.Add(-6*time.Hour - 10*time.Minute).Format(time.RFC1123Z)},
-		{Title: "stale", PublishedAt: now.Add(-6*time.Hour - 20*time.Minute).Format(time.RFC1123Z)},
+		{Title: "fresh", PublishedAt: now.Add(-11 * time.Hour).Format(time.RFC1123Z)},
+		{Title: "boundary overlap", PublishedAt: now.Add(-12*time.Hour - 10*time.Minute).Format(time.RFC1123Z)},
+		{Title: "stale", PublishedAt: now.Add(-12*time.Hour - 20*time.Minute).Format(time.RFC1123Z)},
 		{Title: "unknown date", PublishedAt: "not a date"},
 	}
 
-	got := filterArticlesByLookback(articles, 6, now)
+	got := filterArticlesByLookback(articles, 12, now)
 	if len(got) != 3 {
 		t.Fatalf("recent articles = %d, want 3: %#v", len(got), got)
 	}

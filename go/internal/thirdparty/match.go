@@ -3,6 +3,8 @@ package thirdparty
 import (
 	"regexp"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // SportContextTerms returns the phrase we expect to co-occur with short aliases.
@@ -21,6 +23,10 @@ type EntityMatchInput struct {
 	Team       string   // optional team context — enables "name part + team" match for players
 	Aliases    []string // alternate name forms from search_aliases
 	Sport      string   // used to resolve sport-context terms for short aliases
+}
+
+var ambiguousFootballEntityTerms = map[string]bool{
+	"nice": true,
 }
 
 // MatchesEntity reports whether the supplied text mentions the given entity.
@@ -51,7 +57,7 @@ func nameInText(name, text, firstName, lastName, team string, aliases []string, 
 	nameLower := strings.ToLower(strings.TrimSpace(name))
 	textLower := strings.ToLower(strings.TrimSpace(text))
 
-	if strings.Contains(textLower, nameLower) {
+	if entityTermIndex(nameLower, textLower, sportContext) >= 0 {
 		return true
 	}
 
@@ -68,7 +74,7 @@ func nameInText(name, text, firstName, lastName, team string, aliases []string, 
 			}
 			continue
 		}
-		if strings.Contains(textLower, aliasLower) {
+		if entityTermIndex(aliasLower, textLower, sportContext) >= 0 {
 			return true
 		}
 	}
@@ -92,7 +98,7 @@ func nameInText(name, text, firstName, lastName, team string, aliases []string, 
 		}
 
 		if team != "" && (fnMatch || lnMatch) {
-			if strings.Contains(textLower, strings.ToLower(strings.TrimSpace(team))) {
+			if entityTermIndex(strings.ToLower(strings.TrimSpace(team)), textLower, sportContext) >= 0 {
 				return true
 			}
 		}
@@ -102,6 +108,9 @@ func nameInText(name, text, firstName, lastName, team string, aliases []string, 
 }
 
 func wordBoundaryMatch(word, text string) bool {
+	if phraseBoundaryIndex(word, text) >= 0 {
+		return true
+	}
 	re, err := regexp.Compile(`\b` + regexp.QuoteMeta(word) + `\b`)
 	if err != nil {
 		return strings.Contains(text, word)
@@ -148,7 +157,7 @@ func firstMatchPos(name, text, firstName, lastName, team string, aliases []strin
 		}
 	}
 
-	consider(strings.Index(textLower, nameLower))
+	consider(entityTermIndex(nameLower, textLower, sportContext))
 
 	for _, alias := range aliases {
 		aliasLower := strings.ToLower(strings.TrimSpace(alias))
@@ -161,7 +170,7 @@ func firstMatchPos(name, text, firstName, lastName, team string, aliases []strin
 			}
 			continue
 		}
-		consider(strings.Index(textLower, aliasLower))
+		consider(entityTermIndex(aliasLower, textLower, sportContext))
 	}
 
 	nameParts := strings.Fields(nameLower)
@@ -186,13 +195,109 @@ func firstMatchPos(name, text, firstName, lastName, team string, aliases []strin
 			consider(earliest(fnIdx, lnIdx))
 		}
 		if team != "" && (fnIdx >= 0 || lnIdx >= 0) {
-			if strings.Contains(textLower, strings.ToLower(strings.TrimSpace(team))) {
+			if entityTermIndex(strings.ToLower(strings.TrimSpace(team)), textLower, sportContext) >= 0 {
 				consider(earliest(fnIdx, lnIdx)) // the player's span anchors the position
 			}
 		}
 	}
 
 	return best
+}
+
+func entityTermIndex(term, text, sportContext string) int {
+	if term == "" || text == "" {
+		return -1
+	}
+	idx := phraseBoundaryIndex(term, text)
+	if idx < 0 {
+		return -1
+	}
+	if sportContext != "" && ambiguousFootballEntityTerms[term] && !hasFootballContext(text) {
+		return -1
+	}
+	return idx
+}
+
+func phraseBoundaryIndex(term, text string) int {
+	if term == "" || text == "" {
+		return -1
+	}
+	offset := 0
+	for {
+		pos := strings.Index(text[offset:], term)
+		if pos < 0 {
+			return -1
+		}
+		start := offset + pos
+		end := start + len(term)
+		if hasTermBoundaryBefore(text, start) && hasTermBoundaryAfter(text, end) {
+			return start
+		}
+		offset = end
+		if offset >= len(text) {
+			return -1
+		}
+	}
+}
+
+func hasTermBoundaryBefore(text string, idx int) bool {
+	if idx <= 0 {
+		return true
+	}
+	r, _ := utf8.DecodeLastRuneInString(text[:idx])
+	return !isEntityTermRune(r)
+}
+
+func hasTermBoundaryAfter(text string, idx int) bool {
+	if idx >= len(text) {
+		return true
+	}
+	r, _ := utf8.DecodeRuneInString(text[idx:])
+	return !isEntityTermRune(r)
+}
+
+func isEntityTermRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r)
+}
+
+func hasFootballContext(text string) bool {
+	contextTerms := []string{
+		"football",
+		"soccer",
+		"transfer",
+		"transfers",
+		"sign",
+		"signs",
+		"signed",
+		"coach",
+		"manager",
+		"striker",
+		"midfielder",
+		"defender",
+		"goalkeeper",
+		"match",
+		"league",
+		"cup",
+		"uefa",
+		"fifa",
+		"premier league",
+		"serie a",
+		"la liga",
+		"bundesliga",
+		"ligue 1",
+		"calcio",
+		"mercato",
+		"futbol",
+		"fútbol",
+		"voetbal",
+		"fußball",
+	}
+	for _, term := range contextTerms {
+		if phraseBoundaryIndex(term, text) >= 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // earliest returns the smaller non-negative of a, b (or -1 if both are negative).

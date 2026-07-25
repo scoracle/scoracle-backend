@@ -146,11 +146,15 @@ pub async fn load_graph_article_context(
     article_id: i64,
     sport: &str,
 ) -> Result<Option<(GraphArticle, Vec<GraphCandidate>)>> {
+    // `duplicate_of IS NULL` is a belt-and-braces guard, not the primary control. Mig 193 stopped
+    // graph being enqueued for suppressed articles at the source; this makes a stale queue row or a
+    // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
+    // spending a model call on something scrub already threw away.
     let row = sqlx::query(
         r#"
         SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text, a.title,
                COALESCE(a.description, '')
-        FROM news_articles a WHERE a.id = $1
+        FROM news_articles a WHERE a.id = $1 AND a.duplicate_of IS NULL
         "#,
     )
     .bind(article_id)

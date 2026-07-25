@@ -359,9 +359,47 @@ impl StageHandler for ArticleReadHandler {
             &evidence.co_mentions,
         )
         .await?;
+        // graph runs HERE, not off the vetted trigger (mig 193). Reaching this line means the body
+        // was fetched, the model read it, and it did NOT come back `irrelevant` — so graph gets the
+        // summary as evidence, and never spends a call on a duplicate, an unreadable article, or one
+        // the reader overturned. Every other terminal path above returns before this point on
+        // purpose.
+        enqueue_graph_for_article(hx, article_id, &item.sport).await?;
         enqueue_narratives_for_article(hx, article_id).await?;
         Ok(())
     }
+}
+
+/// enqueue_graph_for_article queues typed extraction for an article whose reading succeeded.
+/// `input_version` carries the content hash so a re-read of changed content re-triggers extraction,
+/// while a re-run over identical content does not.
+async fn enqueue_graph_for_article(hx: &Harness, article_id: i64, sport: &str) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'graph', 'article', $1::integer, $2, 'pending',
+               'g:' || r.content_hash, NOW(), NOW()
+          FROM public.news_article_readings r
+         WHERE r.article_id = $1
+           AND r.status = 'success'
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status        = 'pending',
+            attempts      = 0,
+            available_at  = NOW(),
+            updated_at    = NOW(),
+            last_error    = NULL,
+            input_version = EXCLUDED.input_version
+        WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+           OR public.pipeline_work.status = 'failed'
+        "#,
+    )
+    .bind(article_id)
+    .bind(sport)
+    .execute(&hx.pool)
+    .await
+    .with_context(|| format!("enqueue graph for article {article_id}"))?;
+    Ok(())
 }
 
 async fn load_article(

@@ -4,6 +4,7 @@ package corpus
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,10 +35,19 @@ type Team struct {
 //     this run. This is the explicit batch the queueing layer derives from.
 //
 // ok/fail count the RSS calls. Honors ctx cancellation between teams.
+//
+// Observability: every team's fetch funnel is folded into a per-sport and a
+// per-run total (thirdparty.Funnel). The rolled-up lines land at Info as each
+// sport finishes and again at the end of the run, with per-team detail at
+// Debug. The per-sport line is deliberately emitted before the run total: a
+// sweep that is killed mid-flight — which has happened — still leaves evidence
+// of where its articles went.
 func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, rssPauseMs int, logger *slog.Logger) (runStart time.Time, affected map[int64]string, ok, fail int) {
 	news := thirdparty.NewNewsService(pool, logger)
 	runStart = time.Now().UTC()
 	affected = make(map[int64]string)
+
+	var runFunnel thirdparty.Funnel
 
 	for _, sport := range sports {
 		teams, err := LoadTeams(ctx, pool, sport)
@@ -47,13 +57,31 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		}
 		logger.Info("corpus: rss sweep starting", "sport", sport, "teams", len(teams))
 
-		for _, t := range teams {
+		var sportFunnel thirdparty.Funnel
+		var zeroAdmitted []string // teams RSS returned items for and the matcher kept none of
+		editionCapped := 0        // teams whose localized editions never ran
+
+		for i, t := range teams {
 			if ctx.Err() != nil {
+				logSportFunnel(logger, sport, len(teams), i, sportFunnel, zeroAdmitted, editionCapped)
+				runFunnel.Add(sportFunnel)
+				logRunFunnel(logger, runFunnel)
 				return runStart, affected, ok, fail
 			}
 			tctx, cancel := context.WithTimeout(ctx, sweepTimeout)
-			_, ids, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, "", rssLimit, "", "", t.Aliases)
+			_, ids, funnel, err := news.GetEntityNews(tctx, "team", t.ID, t.Name, t.Sport, "", rssLimit, "", "", t.Aliases)
 			cancel()
+
+			sportFunnel.Add(funnel)
+			logger.Debug("corpus: team funnel",
+				append([]any{"sport", sport, "team", t.Name, "id", t.ID}, funnel.LogAttrs()...)...)
+			if funnel.RSSItems > 0 && funnel.Matched == 0 {
+				zeroAdmitted = append(zeroAdmitted, t.Name)
+			}
+			if funnel.EditionsSkipped > 0 {
+				editionCapped++
+			}
+
 			if err != nil {
 				fail++
 				logger.Warn("corpus: rss fetch failed", "sport", sport, "team", t.Name, "id", t.ID, "error", err)
@@ -63,14 +91,63 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 					affected[id] = t.Sport
 				}
 			}
+			if (i+1)%sweepProgressEvery == 0 {
+				logger.Info("corpus: rss sweep progress",
+					append([]any{"sport", sport, "teams_done", i + 1, "teams", len(teams)}, sportFunnel.LogAttrs()...)...)
+			}
 			if rssPauseMs > 0 {
 				time.Sleep(time.Duration(rssPauseMs) * time.Millisecond)
 			}
 		}
+
+		logSportFunnel(logger, sport, len(teams), len(teams), sportFunnel, zeroAdmitted, editionCapped)
+		runFunnel.Add(sportFunnel)
 	}
+
 	logger.Info("corpus: rss sweep complete",
 		"ok", ok, "fail", fail, "fresh_articles", len(affected), "elapsed", time.Since(runStart).Round(time.Second))
+	logRunFunnel(logger, runFunnel)
 	return runStart, affected, ok, fail
+}
+
+// sweepProgressEvery is how often the running per-sport funnel is echoed at Info
+// during a long sport. FOOTBALL is ~142 teams over ten minutes; without this the
+// only signal between "starting" and "complete" is silence.
+const sweepProgressEvery = 50
+
+// zeroAdmittedSample bounds the team names carried on the per-sport line. The
+// count is the metric; the names are just enough to start debugging.
+const zeroAdmittedSample = 10
+
+// logSportFunnel emits one sport's rolled-up funnel. teamsDone is separate from
+// teamsTotal so a cancelled sweep reports honestly on what it actually covered.
+func logSportFunnel(logger *slog.Logger, sport string, teamsTotal, teamsDone int, f thirdparty.Funnel, zeroAdmitted []string, editionCapped int) {
+	sample := zeroAdmitted
+	if len(sample) > zeroAdmittedSample {
+		sample = sample[:zeroAdmittedSample]
+	}
+	logger.Info("corpus: rss sweep funnel",
+		append([]any{
+			"sport", sport,
+			"teams", teamsTotal,
+			"teams_done", teamsDone,
+			// A team that fetched items and admitted none is what a broken
+			// MatchesEntity looks like from here. One or two is normal; a whole
+			// sport going quiet is the regression this counter exists to catch.
+			"teams_zero_admitted", len(zeroAdmitted),
+			"zero_admitted_sample", strings.Join(sample, "; "),
+			"teams_edition_capped", editionCapped,
+		}, f.LogAttrs()...)...)
+}
+
+// logRunFunnel emits the whole-run funnel and flags a non-zero residual, which
+// means the fetch path grew a drop stage that nothing counts.
+func logRunFunnel(logger *slog.Logger, f thirdparty.Funnel) {
+	logger.Info("corpus: rss sweep funnel total", f.LogAttrs()...)
+	if r := f.Residual(); r != 0 {
+		logger.Warn("corpus: funnel does not balance — an uncounted drop stage exists in the RSS fetch path",
+			"residual", r)
+	}
 }
 
 // LoadTeams returns every team in the sport (no tier filter — coverage shouldn't

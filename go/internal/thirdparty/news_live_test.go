@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -52,7 +53,7 @@ func TestLiveRSSBroadTeamFlow(t *testing.T) {
 			continue
 		}
 
-		result, fresh, err := news.GetEntityNews(ctx, "team", team.id, team.name, team.sport, "", 0, "", "", team.aliases)
+		result, fresh, funnel, err := news.GetEntityNews(ctx, "team", team.id, team.name, team.sport, "", liveSmokeRSSLimit(), "", "", team.aliases)
 		if err != nil {
 			t.Fatalf("GetEntityNews %s: %v", team.name, err)
 		}
@@ -60,7 +61,10 @@ func TestLiveRSSBroadTeamFlow(t *testing.T) {
 		if !ok {
 			t.Fatalf("GetEntityNews %s returned unexpected articles payload: %#v", team.name, result["articles"])
 		}
-		t.Logf("team=%s sport=%s aliases=%d rss_articles=%d affected_article_ids=%d", team.name, team.sport, len(team.aliases), len(articles), len(fresh))
+		t.Logf("team=%s sport=%s aliases=%d rss_articles=%d affected_article_ids=%d funnel=%v", team.name, team.sport, len(team.aliases), len(articles), len(fresh), funnel.LogAttrs())
+		if r := funnel.Residual(); r != 0 {
+			t.Errorf("funnel does not balance for %s: residual %d (%v)", team.name, r, funnel.LogAttrs())
+		}
 		if len(articles) > 0 {
 			sawArticles = true
 		}
@@ -107,6 +111,25 @@ type liveSmokeTeam struct {
 	sport   string
 	name    string
 	aliases []string
+}
+
+// liveSmokeRSSLimit mirrors the pipeline's -rss-limit so the smoke can be run at
+// the production cap and at 0 (uncapped) and the two funnels compared. That
+// comparison is the only direct measurement of what the cap costs: the cap stops
+// the sweep before the localized editions run, and a smaller corpus looks
+// identical to those editions simply having no news.
+//
+//	SCORACLE_LIVE_RSS_SMOKE=1 SCORACLE_LIVE_RSS_DRY_RUN=1 SCORACLE_LIVE_RSS_LIMIT=12 go test ...
+func liveSmokeRSSLimit() int {
+	raw := strings.TrimSpace(os.Getenv("SCORACLE_LIVE_RSS_LIMIT"))
+	if raw == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }
 
 func liveSmokeTeams() []string {

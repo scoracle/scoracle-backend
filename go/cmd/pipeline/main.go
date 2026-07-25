@@ -32,9 +32,10 @@ func main() {
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
 	rssLimit := flag.Int("rss-limit", 12, "[sweep] max articles per team RSS call; 0 = no truncation")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
+	logLevel := flag.String("log-level", "info", "debug | info | warn | error; debug adds the per-team fetch funnel")
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: parseLogLevel(*logLevel)}))
 
 	_ = godotenv.Load(".env.local", ".env")
 	cfg, err := config.Load()
@@ -55,6 +56,22 @@ func main() {
 	defer pool.Close()
 
 	os.Exit(runIngestOnly(pool, *sport, *rssLimit, *rssPauseMs, logger))
+}
+
+// parseLogLevel maps the -log-level flag onto slog. An unrecognized value falls
+// back to Info rather than exiting: a typo in a cron line should not silence the
+// sweep entirely.
+func parseLogLevel(s string) slog.Level {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
 
 func runIngestOnly(pool *pgxpool.Pool, sportArg string, rssLimit, rssPauseMs int, logger *slog.Logger) int {

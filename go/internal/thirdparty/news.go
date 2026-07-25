@@ -130,6 +130,11 @@ type entityPool struct {
 	refreshed time.Time
 }
 
+// defaultRSSBaseURL is the Google News RSS search endpoint. Held in a field
+// rather than inlined so the funnel accounting can be exercised against a local
+// test server instead of the live endpoint.
+const defaultRSSBaseURL = "https://news.google.com/rss/search"
+
 // NewsService fetches entity news from Google News RSS.
 //
 // When constructed with a non-nil pool, every matched article is also
@@ -137,6 +142,7 @@ type entityPool struct {
 // That populates the long-term corpus consumed by the cognition layer.
 type NewsService struct {
 	httpClient *http.Client
+	rssBaseURL string
 	pool       *pgxpool.Pool
 	logger     *slog.Logger
 
@@ -155,6 +161,7 @@ func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
+		rssBaseURL:  defaultRSSBaseURL,
 		pool:        pool,
 		logger:      logger,
 		entityPools: make(map[string]*entityPool),
@@ -178,6 +185,10 @@ func (s *NewsService) Status() map[string]interface{} {
 // It is informational — persistArticles already vets primaries and enqueues
 // scrub work in its own transaction. It is nil when write-through is skipped
 // or the persist failed.
+//
+// The third return is the fetch funnel for this entity: how much of the query
+// grid ran and what each filter stage discarded. It is returned even on error,
+// because a sweep that times out mid-fetch still did (and dropped) real work.
 func (s *NewsService) GetEntityNews(
 	ctx context.Context,
 	entityType string,
@@ -186,10 +197,10 @@ func (s *NewsService) GetEntityNews(
 	limit int,
 	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, []int64, error) {
-	result, matched, err := s.fetchFromRSS(ctx, entityType, entityName, sport, team, limit, firstName, lastName, aliases)
+) (map[string]interface{}, []int64, Funnel, error) {
+	result, matched, funnel, err := s.fetchFromRSS(ctx, entityType, entityName, sport, team, limit, firstName, lastName, aliases)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, funnel, err
 	}
 
 	// Write-through: persist the matched articles and link them to this entity
@@ -207,7 +218,7 @@ func (s *NewsService) GetEntityNews(
 		}
 	}
 
-	return result, affected, nil
+	return result, affected, funnel, nil
 }
 
 // persistArticles upserts articles by URL hash and links them to the primary
@@ -635,8 +646,12 @@ type rssItem struct {
 	Description string `xml:"description"`
 }
 
-func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int, edition rssEdition) ([]Article, error) {
-	u, err := url.Parse("https://news.google.com/rss/search")
+// fetchRSS runs one (query, window, edition) request and returns the items that
+// survive the lookback filter. It records the raw item count and the window drop
+// into f — the window is the first place an article can vanish, and until now
+// the only trace of it was a smaller number downstream.
+func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int, edition rssEdition, f *Funnel) ([]Article, error) {
+	u, err := url.Parse(s.rssBaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -702,7 +717,10 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 		})
 	}
 
-	return filterArticlesByLookback(articles, hoursBack, time.Now()), nil
+	kept := filterArticlesByLookback(articles, hoursBack, time.Now())
+	f.RSSItems += len(articles)
+	f.WindowDropped += len(articles) - len(kept)
+	return kept, nil
 }
 
 func (s *NewsService) fetchFromRSS(
@@ -712,33 +730,52 @@ func (s *NewsService) fetchFromRSS(
 	limit int,
 	firstName, lastName string,
 	aliases []string,
-) (map[string]interface{}, []Article, error) {
+) (map[string]interface{}, []Article, Funnel, error) {
 	searchName := buildSearchName(entityName, firstName, lastName)
 	searchQueries := buildRSSSearchQueries(entityType, searchName, sport, aliases)
 	editions := rssEditionsForEntity(entityType, sport)
 
 	var allArticles []Article
+	f := Funnel{
+		Entities:        1,
+		EditionsPlanned: len(editions),
+		QueriesPlanned:  len(editions) * len(searchQueries),
+	}
 
 	for editionIdx, edition := range editions {
 		if limit > 0 && len(allArticles) >= limit && !runRSSQueryPastLimit(entityType, editionIdx, 0) {
+			// The limit ended the sweep here: this edition and every one after it
+			// go unqueried. Count the whole remaining grid so the cost of the cap
+			// is legible instead of showing up only as missing coverage.
+			f.EditionsSkipped += len(editions) - editionIdx
+			f.QueriesSkipped += (len(editions) - editionIdx) * len(searchQueries)
 			break
 		}
+		f.EditionsQueried++
 		for queryIdx, query := range searchQueries {
 			if limit > 0 && len(allArticles) >= limit && !runRSSQueryPastLimit(entityType, editionIdx, queryIdx) {
+				f.QueriesSkipped += len(searchQueries) - queryIdx
 				break
 			}
+			f.QueriesRun++
 			for _, hours := range timeWindows {
 				if err := ctx.Err(); err != nil {
-					return nil, nil, err
+					return nil, nil, f, err
 				}
-				articles, err := s.fetchRSS(ctx, query, hours, edition)
+				f.RSSCalls++
+				articles, err := s.fetchRSS(ctx, query, hours, edition, &f)
 				if err != nil {
+					f.RSSErrors++
 					s.logger.Warn("RSS fetch error", "edition", edition.name, "window_hours", hours, "error", err)
 					continue
 				}
 
-				allArticles = append(allArticles, filterRSSArticles(entityType, entityName, sport, team, firstName, lastName, aliases, articles)...)
-				allArticles = deduplicateArticles(allArticles)
+				kept := filterRSSArticles(entityType, entityName, sport, team, firstName, lastName, aliases, articles)
+				f.MatchRejected += len(articles) - len(kept)
+
+				beforeDedup := len(allArticles) + len(kept)
+				allArticles = deduplicateArticles(append(allArticles, kept...))
+				f.DedupCollapsed += beforeDedup - len(allArticles)
 
 				if limit > 0 && len(allArticles) >= limit {
 					break
@@ -747,7 +784,7 @@ func (s *NewsService) fetchFromRSS(
 					break
 				}
 				if err := sleepContext(ctx, 100*time.Millisecond); err != nil {
-					return nil, nil, err
+					return nil, nil, f, err
 				}
 			}
 		}
@@ -755,6 +792,8 @@ func (s *NewsService) fetchFromRSS(
 
 	sortArticlesByDate(allArticles)
 	totalResults, allArticles := limitRSSArticles(allArticles, limit)
+	f.LimitTruncated = totalResults - len(allArticles)
+	f.Matched = len(allArticles)
 
 	return map[string]interface{}{
 		"query":    entityName,
@@ -766,7 +805,7 @@ func (s *NewsService) fetchFromRSS(
 			"returned":      len(allArticles),
 			"source":        "google_news_rss",
 		},
-	}, allArticles, nil
+	}, allArticles, f, nil
 }
 
 func buildRSSSearchQueries(entityType, primarySearch, sport string, aliases []string) []string {

@@ -358,6 +358,15 @@ pub struct Expect {
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_max_sentences: Option<i32>,
+    /// Ceiling on how many DISTINCT peers the reading may name ("the Analyst", "the Insider", …).
+    ///
+    /// The Oracle prompt has always said "name at most ONE peer … never a roll call of all five;
+    /// the reading is yours alone", and nothing ever asserted it. The or8 gate passed 80/80 while
+    /// five of six readings named two, three, or four peers — the check did not exist, so the rule
+    /// was advice. A substring exclusion cannot express this: any ONE peer is legal, and only the
+    /// count is wrong, so it needs its own check.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reading_max_peers: Option<i32>,
     // momentum / trajectory reasoning rubric: PROSE ONLY.
     // momentum_score_min/max were removed in s11 — the Analyst no longer emits a score, so
     // there was nothing left for them to assert. Both numbers (direction and the ±5
@@ -632,7 +641,6 @@ impl LensTask for OracleTask {
             };
         };
         let reading = reply.reading;
-        let lower = reading.to_lowercase();
         let sentences = count_sentences(&reading);
         let mut checks = Vec::new();
 
@@ -651,18 +659,29 @@ impl LensTask for OracleTask {
                     detail: format!("sentences={sentences} ≤ {max}"),
                 });
             }
+            // contains_ci, not a raw `lower.contains`: these checks need the same typographic
+            // fold the prose checks got, or an expect written with an ASCII apostrophe silently
+            // never matches the model's U+2019.
             for s in x.reading_includes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("reading_includes:{s}"),
-                    pass: lower.contains(&s.to_lowercase()),
+                    pass: contains_ci(&reading, s),
                     detail: String::new(),
                 });
             }
             for s in x.reading_excludes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("reading_excludes:{s}"),
-                    pass: !lower.contains(&s.to_lowercase()),
+                    pass: !contains_ci(&reading, s),
                     detail: String::new(),
+                });
+            }
+            if let Some(max) = x.reading_max_peers {
+                let named = count_named_peers(&reading);
+                checks.push(PropertyCheck {
+                    name: "reading_max_peers".into(),
+                    pass: named as i32 <= max,
+                    detail: format!("peers={named} ≤ {max}"),
                 });
             }
         }
@@ -1225,6 +1244,18 @@ impl LensTask for MomentumTask {
         let mut checks = Vec::new();
         let word_count = reply.blurb.split_whitespace().count() as i32;
 
+        // Contract-level invariant, asserted whether or not this case carries an `expect`: the
+        // banned phrasings are banned for every READ, not for the fixtures that happened to trip
+        // one. See MOMENTUM_BANNED_PHRASES for why this is one check and not one per phrase.
+        let banned = MOMENTUM_BANNED_PHRASES
+            .iter()
+            .find(|p| contains_ci(&reply.blurb, p));
+        checks.push(PropertyCheck {
+            name: "no_banned_phrases".into(),
+            pass: banned.is_none(),
+            detail: banned.map_or_else(String::new, |p| format!("found {p:?}")),
+        });
+
         if let Some(x) = expect {
             for s in x.prose_includes.iter().flatten() {
                 checks.push(PropertyCheck {
@@ -1296,6 +1327,44 @@ fn empty_dash(s: &str) -> &str {
 fn contains_ci(haystack: &str, needle: &str) -> bool {
     fold_quotes(haystack).contains(&fold_quotes(needle))
 }
+
+/// How many DISTINCT peers a reading names. The Oracle may name at most one, and only when that
+/// card carries the turn — a roll call makes the reading a summary of the table rather than the
+/// Oracle's own verdict.
+///
+/// Matches "the Analyst"-style references only. A bare sport word ("the scout said") would be a
+/// false positive, so the definite article is required, which is how the prompt's own examples are
+/// written ("the Insider's wire stirs", "the Analyst's call holds").
+fn count_named_peers(reading: &str) -> usize {
+    const PEERS: [&str; 5] = ["analyst", "insider", "scout", "influencer", "journalist"];
+    let lower = reading.to_lowercase();
+    PEERS
+        .iter()
+        .filter(|p| lower.contains(&format!("the {p}")))
+        .count()
+}
+
+/// Phrases the momentum contract bans outright, checked on EVERY momentum reply as a single
+/// invariant rather than as a per-fixture expectation.
+///
+/// It began as `prose_excludes` entries injected into all eight fixtures — 6 phrases x 8 fixtures =
+/// 48 checks, which tripled the denominator, mostly fired where the phrase was never at risk, and
+/// made scores incomparable between revisions because the denominator moved whenever the list did.
+/// The ban is global, so it belongs in one place. One check per reply, with the offending phrase in
+/// the detail, says exactly as much and costs 8 checks instead of 48.
+///
+/// Deliberately specific. Bare "the engine" is banned in the prompt but NOT here: a football READ
+/// can legitimately say "the engine room of midfield", and a check that fails on correct prose
+/// trains everyone to ignore it.
+pub const MOMENTUM_BANNED_PHRASES: &[&str] = &[
+    "isn't a surge",
+    "isn't a collapse",
+    "the tape calls this",
+    "the engine sees this as",
+    "the momentum engine",
+    "the numbers say",
+    "steady band",
+];
 
 /// Lowercase and fold the typographic quote characters to their ASCII equivalents.
 fn fold_quotes(s: &str) -> String {

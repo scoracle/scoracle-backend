@@ -49,6 +49,12 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 # present in the lockfile, so this keeps the fetcher leaner than pulling an extra TLS stack.
 reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
 
+# FuturesUnordered — the worker's concurrent drain keeps N claimed items in flight inside the
+# ONE drain task (never spawned, so stage futures still don't cross a task boundary and need no
+# 'static/Send bound). Already in the lockfile via sqlx, so this is a direct-dep declaration
+# rather than a new download.
+futures = "0.3"
+
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"

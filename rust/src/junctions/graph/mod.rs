@@ -62,12 +62,18 @@ pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "ot
 
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
+///
+/// `num_ctx` borrows the Reader's `ARTICLE_NUM_CTX` rather than leaving it 0 (server default).
+/// graph and the Reader are the two stages on the local gemma3:4b, and ollama reloads the runner
+/// on every change of context size — measured as reloads arriving in PAIRS 12–17s apart, once per
+/// rotation. The 8192 runner is already what the Reader makes us pay for, so matching it costs no
+/// extra VRAM and takes the local reload rate to ~0.
 pub fn graph_opts() -> GenerateOptions {
     GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 768,
-        num_ctx: 0,
+        num_ctx: crate::junctions::reader::ARTICLE_NUM_CTX,
         json_mode: true,
         format_schema: None,
     }
@@ -533,6 +539,13 @@ impl StageHandler for GraphHandler {
     /// time. Making them overlap is a worker change, not a batch-size change.
     fn rotation_batch(&self) -> i64 {
         8
+    }
+
+    /// Two slots. graph and The Reader are the only stages on the local gemma3:4b, so between
+    /// them (2 + 2) they have to keep Archbox's 4 parallel slots busy — one each would leave the
+    /// card half idle, which is the whole thing the 4-slot change is meant to fix.
+    fn max_in_flight(&self) -> usize {
+        2
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

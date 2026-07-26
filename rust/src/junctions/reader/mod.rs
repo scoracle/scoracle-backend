@@ -35,7 +35,11 @@ const ARTICLE_MIN_WORDS: usize = 80;
 pub(crate) const ARTICLE_MAX_MODEL_CHARS: usize = 9_000;
 const ARTICLE_MAX_CO_MENTION_CANDIDATES: usize = 24;
 const ARTICLE_NUM_PREDICT: i32 = 900;
-const ARTICLE_NUM_CTX: i32 = 8192;
+/// The context size the LOCAL gemma3:4b runner is loaded with. `graph` deliberately sends this
+/// same value (see `junctions/graph/mod.rs`): both stages share one local runner, and ollama
+/// reloads the runner whenever a request asks for a different `num_ctx`. Two sizes here cost a
+/// pair of reloads every rotation. Change both or neither.
+pub(crate) const ARTICLE_NUM_CTX: i32 = 8192;
 const ARTICLE_FETCH_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; ScoracleBot/1.0; +https://scoracle.com)";
 const GOOGLE_NEWS_BATCH_URL: &str =
@@ -226,6 +230,11 @@ impl StageHandler for ArticleReadHandler {
     /// single article. Eight amortizes both while keeping the rotation responsive.
     fn rotation_batch(&self) -> i64 {
         8
+    }
+
+    /// Two slots — the other half of Archbox's 4. See the note on graph's `max_in_flight`.
+    fn max_in_flight(&self) -> usize {
+        2
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

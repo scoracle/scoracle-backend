@@ -176,6 +176,7 @@ async fn main() -> Result<()> {
         cfg.stale_lease,
         cfg.handler_timeout,
         cfg.watchdog,
+        cfg.drain_concurrency,
     );
     worker.run().await
 }

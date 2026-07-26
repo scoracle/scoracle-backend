@@ -105,7 +105,12 @@ with `resolve.rs` in the teardown.
    path first (4,457 singletons), add `continues_thread` to the output contract, fix E7
    (`threads.rs:131` has `FOR UPDATE` with no `ORDER BY`). This is what finally deletes
    `Harness.embedder` — `narratives` clustering and `threads.rs` centroid are its last two consumers.
-5. **Ollama is thrashing the GPU — measured 07-25, undecided.** **702 `llama runner started`
+5. **~~Ollama is thrashing the GPU~~ — RESOLVED.** The topology split took it 101 → 22
+   reloads/hour, and matching graph's `num_ctx` to the Reader's 8192 addresses the remainder
+   (see "Phase 2 as shipped"). Gemma is now pinned with `OLLAMA_KEEP_ALIVE=-1` on a box that
+   holds one model. The original diagnosis is kept below for its measurements.
+
+   **Ollama is thrashing the GPU — measured 07-25, undecided.** **702 `llama runner started`
    events in 6 hours** (~1 reload/min). `mistral:7b` (5.1 GB, every character) plus `gemma3:4b`
    (~3.3 GB, The Reader) is ~8.4 GB against the 1070 Ti's 8192 MiB, and `OLLAMA_KEEP_ALIVE=30m`
    has both trying to stay resident, so an evict-and-reload fires on nearly every alternation
@@ -186,6 +191,9 @@ ordering rather than a gate, which dissolves the rank confound in item 1 for fre
 Scott's calls, made with the measured numbers in hand. These SUPERSEDE anything below that
 conflicts.
 
+> **All four are now EXECUTED** (1, 2, 3 in the session after the restart; 4 earlier that day).
+> See "Phase 2 as shipped" at the end of this doc for what landed and what to watch.
+
 1. **Archbox comes off the sequencing approach entirely.** It should work items as they arrive,
    not one per rotation. The rotation existed to stop a single GPU being oversubscribed; the
    per-host semaphores (`dfbf78a`) now do that job properly, so **the governor becomes the
@@ -209,7 +217,12 @@ The intended end state: **Archbox never backlogs.** Reader and graph chew throug
 arrives on 4 slots, and the only thing anyone waits on is the Mac — which is the correct place for
 the constraint to live, since that is where the expensive character voices are.
 
-## PLAN — Phase 2: make the two machines actually work at the same time
+## PHASE 2 — SHIPPED 2026-07-26 afternoon (all four items below are DONE)
+
+> **Status: code complete, `cargo test --lib` 251 passed / 0 failed, zero build warnings.**
+> What changed, and what to watch, is recorded at the end of this section under
+> "Phase 2 as shipped". The plan text below is kept because its measurements are the
+> baseline the next window compares against.
 
 Written 2026-07-26 12:15 after a measured 30-minute window. Execute in a fresh context.
 
@@ -292,6 +305,134 @@ numbers, after concurrency, not before.
 
 **Also still open from the original list:** the read budget may no longer need to exist now that
 reads are not scarce (dissolves item 1's rank confound), and `topic_heat_embeddings` is orphaned.
+
+### Phase 2 as shipped — 2026-07-26 afternoon
+
+**The 1.87 GB was NOT a leak in our stack, and it is now reclaimed.** A cosmic-comp restart took
+the compositor from **1,872 MiB to 67 MiB**; total desktop GPU use is ~212 MiB across
+comp/panel/Xwayland/portal/ghostty/chrome. Free VRAM went **1,835 MiB → 3,916 MiB** against
+ollama's steady 3,880 MiB. It was 22 days of accumulation on a 3840x1600 ultrawide whose
+framebuffers only justify ~300 MB. **If it creeps back, the remedy is a logout/login, not a hunt
+through our code** — nothing in the harness allocates compositor memory.
+
+1. **graph's `num_ctx` — DONE.** `graph/mod.rs` now sends `reader::ARTICLE_NUM_CTX` (8192)
+   instead of `0`. `ARTICLE_NUM_CTX` became `pub(crate)` with a comment on both sides saying the
+   two must change together; the value is no longer duplicated, because drift between them is
+   precisely what caused the paired reloads.
+2. **Concurrent drain — DONE.** `worker.rs::drain_all` was `for handler { for item { await } }`.
+   It now keeps N claimed items in flight in a `FuturesUnordered`, topping up after each
+   completion. Per decision 1 **the governor is the scheduler**: the drain only keeps work
+   offered, and the per-host semaphores decide what runs.
+   - Concurrency is **intra-task** — the futures are polled by the one drain task and never
+     spawned, so the 07-15 incident property holds (stage futures, embedder and GPU stay off the
+     supervisor's task; nothing a handler does can pin the LISTEN socket).
+   - **The control is per-stage, not global.** `StageHandler::max_in_flight()` (new; default 1)
+     caps how many items of one stage may run at once. graph and The Reader are **2** each —
+     they are the only two stages on the local gemma3:4b, so between them they fill Archbox's 4
+     slots. Every Mac stage stays at 1: the Mac runs one request at a time by design, so extra
+     in-flight items there would only queue on its semaphore, holding leases and burning their
+     handler-timeout clock for no throughput.
+   - `max_in_flight` is NOT `rotation_batch`. The latter is how many rows to claim in one SQL
+     round trip; the former is how many slots the stage may hold. scrub wants 256 rows per trip
+     (its items are microseconds) but must hold ONE slot, because every slot it holds is a slot
+     the GPU cannot use.
+   - `COGNITION_DRAIN_CONCURRENCY` is now an optional **throttle**, not the primary knob. Unset
+     (the normal case) the worker derives the ceiling as the sum of the stages' caps, so it can
+     never bind. `=1` restores the old strictly-sequential drain — that is the rollback.
+   - **Sizing the ceiling to total GPU permits (5) was tried and is wrong** — recorded because it
+     is the obvious idea. The drain claims in DAG order, so scrub(1) + graph(2) + article_read(2)
+     fills all 5 and the six Mac stages get NOTHING until the local backlog (2,580 items) is
+     empty. The Mac would idle for hours while Archbox worked — the exact inversion of the goal.
+     `resolve_drain_concurrency` carries this note and a test asserts the ceiling cannot starve.
+   - E7 was the hard prerequisite and is fixed: `threads.rs` open-thread `SELECT … FOR UPDATE`
+     now has `ORDER BY id`.
+3. **`OLLAMA_NUM_PARALLEL=4` — DONE**, in a new drop-in
+   `/etc/systemd/system/ollama.service.d/concurrency.conf`, with `COGNITION_BACKEND_CONCURRENCY`
+   moved `localhost=3 → 4` to match. The drop-in also sets **`OLLAMA_KEEP_ALIVE=-1`** (pin gemma
+   in VRAM; Scott: "we won't be switching") and **`OLLAMA_MAX_LOADED_MODELS=1`** as the guard
+   that keeps the pin true. Note the old handoff claim that `OLLAMA_KEEP_ALIVE=30m` was set was
+   **wrong** — the unit had no `Environment=` lines at all and ollama was running the 5m default,
+   so an idle gap silently unloaded gemma and the next request paid a cold load.
+   Flash-attention/q8_0 KV stay deliberately absent (Pascal cc 6.1; their only win was headroom,
+   which the reclaim made moot).
+4. **Config defaults realigned to what actually runs.** `OLLAMA_TIMEOUT_SECONDS` default
+   **60 → 600** and `COGNITION_HANDLER_TIMEOUT_SECONDS` default **900 → 1200**. Both had been
+   overridden in `.env.local` by every real deploy, so reading `config.rs` misdescribed the
+   system — it cost this session a round-trip. Live values are unchanged.
+5. **`COGNITION_DB_MAX_CONNS` 5 → 25 — a real bug the concurrency exposed, caught in
+   production within two minutes of the deploy.** A pool of 5 was sized for a drain that ran ONE
+   item at a time. With up to 11 handlers in flight, each holding a connection and some holding a
+   transaction plus a query, the pool starved:
+   `narratives … debounce check news_summaries player/322: pool timed out while waiting for an
+   open connection`. **Anything that raises `max_in_flight` or adds a stage must re-check this
+   number** — it has to stay comfortably above the sum of the stage caps. Postgres here allows
+   100 with ~22 in use, and a pool max is a ceiling, not a preallocation.
+
+**The one thing to watch — the handler timeout now measures queueing.** An item's
+`COGNITION_HANDLER_TIMEOUT_SECONDS` (1200s) clock starts at claim, so it now covers time spent
+waiting on a busy host's semaphore, not just generation. The pathological case is several slow
+Mac items in flight at once: a narratives item has been observed at 4–7 min, and 4 of those
+queued ahead of a fifth would blow the budget.
+
+With every Mac stage capped at 1 in flight, the exposure is bounded at **six Mac items, five of
+them queued** on that one permit. At the ~55s calls measured on ministral-3:14b that is a ~275s
+wait — comfortable. At the 4–7 min a narratives item has been observed to take, the last in line
+would exceed 1200s and time out.
+
+Why that is survivable, and the lever if it bites:
+  * A timeout is fail-closed and self-healing: the item fails with backoff and retries. Nothing
+    is persisted for it and nothing is corrupted. It costs throughput, not correctness.
+  * Total throughput barely moves either way — the Mac runs one request at a time regardless, so
+    a queued item was never going to run sooner.
+  * **If it does bite**, set `COGNITION_DRAIN_CONCURRENCY` to ~6 rather than raising the timeout
+    (which must stay under `COGNITION_STALE_LEASE_SECONDS=1800`). At 6 the local stages take 5
+    (scrub 1 + graph 2 + article_read 2) and exactly one Mac item is in flight, so the Mac queue
+    disappears while local work exists. It returns when Archbox goes idle — unavoidable without
+    host-awareness.
+  * **The real fix, if it ever earns the work:** make the drain host-aware so it never claims
+    more for a host than that host can run. That needs a stage→host map the worker does not
+    have — `StageHandler` does not declare its role, and some stages use several.
+
+**Also watch:** `Pulse` is shared, so a busy drain now beats for whichever item moved last — the
+watchdog can no longer see one wedged item behind others making progress. That is acceptable
+because the per-item handler timeout, not the watchdog, is the guard for a hung handler; the
+watchdog stays the backstop for a drain where *everything* stopped.
+
+**Deploys are slower now, and that is expected — do not go looking for a hang.** On shutdown the
+drain lets in-flight items finish their own bookkeeping rather than abandoning their leases, so a
+restart waits for the slowest of up to 11 items instead of 1. In practice it runs to the
+supervisor's 75s `SHUTDOWN_GRACE`, which then aborts whatever is left (nothing is persisted for an
+aborted item; its lease recovers via `requeue_stale`). Expect `systemctl --user` to sit in
+`stop-sigterm` for up to ~75s after every binary deploy.
+
+### MEASURED AFTER THE CUTOVER — 2026-07-26 13:44
+
+All of it deployed, verified live, and holding.
+
+| | before | after |
+|---|---|---|
+| local generate calls | 255/hr (both hosts, 12:15 window) | **~1,940/hr local alone** (97 in 3 min) |
+| runner reloads ("switches") | 23/hr, in pairs every 4–5 min | **0** since ollama's restart, under full load |
+| `cosmic-comp` VRAM | 1,872 MiB | **67 MiB** |
+| free VRAM | 1,835 MiB | **3,039 MiB** (with 4 slots allocated) |
+| `OLLAMA_NUM_PARALLEL` | 1 | **4** |
+| `OLLAMA_KEEP_ALIVE` | 5m (default) | **pinned** (`-1`) |
+| DB pool | 5 | **25** |
+
+**The per-stage caps are provably holding in production.** Filtering `pipeline_work` to rows
+claimed after the restart: article_read 2/2, graph 2/2, and momentum/narratives/peak/sigil/vibe
+1/1 each — 9 in flight against a ceiling of 11, so the caps govern and the ceiling does not bind.
+The 4 local slots are exactly graph(2) + article_read(2), which is the whole design.
+
+**Reading `status='running'` needs care after a restart.** Aborted in-flight items keep their
+`running` row until `requeue_stale` reclaims them 30 min later, so a naive count shows stages
+over their cap. Filter by `updated_at > <service start>` before concluding anything is wrong —
+three such orphans (momentum 3, narratives 1030, transfers 68) were present and harmless here.
+
+**Verify a switch is a switch.** A `llama runner started` line immediately after
+`Started Ollama Service` is the pinned model's cold load, not an eviction. Only a reload with no
+preceding restart is a real switch, and with one model pinned on the card there should be none:
+`journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
 
 ## Operational
 

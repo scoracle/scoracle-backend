@@ -75,8 +75,7 @@ fn scenarios() -> Vec<Scenario> {
                 "High-usage creator whose efficiency and rim pressure are climbing; the shot profile keeps improving."),
             vibe: vibe(39, "Efficiency is climbing, but coverage has turned sour after public frustration with the rotation."),
             momentum: snapshot(0.2, 0.9, 6, -0.8, 5),
-            expect: json!({"momentum_direction": "steady", "momentum_score_min": -1, "momentum_score_max": 1,
-                           "prose_includes": ["PEAK", "Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["PEAK", "Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "noisy-flat-signals-steady",
@@ -86,8 +85,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Reliable separator on money downs; recent games alternate strong and quiet without a direction."),
             vibe: vibe(55, "Beat coverage is balanced: one strong practice week, one quiet game, and no larger storyline."),
             momentum: snapshot(0.6, 0.2, 5, -0.1, 4),
-            expect: json!({"momentum_direction": "steady", "momentum_score_min": -1, "momentum_score_max": 1,
-                           "prose_includes": ["steady"], "prose_excludes": ["falling"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["steady"], "prose_excludes": ["falling"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "rating-surge-vibe-flat",
@@ -97,8 +95,7 @@ fn scenarios() -> Vec<Scenario> {
                 "The press is winning the ball higher and more often; underlying numbers back the run of wins."),
             vibe: vibe(63, "Coverage is mostly calm; the tactical press is getting more praise after a run of wins."),
             momentum: snapshot(3.1, 1.4, 7, 0.2, 4),
-            expect: json!({"momentum_direction": "rising", "momentum_score_min": 2,
-                           "prose_includes": ["PEAK"], "prose_excludes": ["falling"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["PEAK"], "prose_excludes": ["falling"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "sparse-samples-stay-steady",
@@ -108,8 +105,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Explosive open-floor finisher; the recent uptick is real but rests on two games."),
             vibe: vibe(52, "Coverage is quiet and mostly waiting for a larger role before drawing conclusions."),
             momentum: snapshot(0.8, 1.6, 2, 0.1, 2),
-            expect: json!({"momentum_direction": "steady", "momentum_score_min": -1, "momentum_score_max": 1,
-                           "prose_includes": ["sample"], "prose_excludes": ["surging"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["sample"], "prose_excludes": ["surging"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "stats-down-vibe-up-near-zero",
@@ -119,8 +115,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Season-long elite at limiting chances, but the last stretch shows real defensive slippage."),
             vibe: vibe(68, "Supporter and local coverage is warming after a young forward's breakout week."),
             momentum: snapshot(-0.3, -1.1, 6, 0.9, 5),
-            expect: json!({"momentum_direction": "steady", "momentum_score_min": -1, "momentum_score_max": 1,
-                           "prose_includes": ["PEAK", "Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["PEAK", "Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "vibe-slide-steady-peak",
@@ -130,8 +125,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Anchor defender; the production has not moved even as the noise around her has."),
             vibe: vibe(35, "Local coverage has turned negative after late-game benchings and visible frustration."),
             momentum: snapshot(-1.4, 0.0, 6, -1.2, 5),
-            expect: json!({"momentum_direction": "falling", "momentum_score_max": 0,
-                           "prose_includes": ["Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_includes": ["Vibe"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "transfer-noise-sentiment-spike",
@@ -141,8 +135,7 @@ fn scenarios() -> Vec<Scenario> {
                 "Press-resistant carrier whose underlying numbers have not moved in a month."),
             vibe: vibe(75, "A burst of transfer rumor chatter has coverage buzzing, though nothing on the pitch has changed."),
             momentum: snapshot(0.9, 0.1, 6, 1.8, 3),
-            expect: json!({"momentum_direction": "steady", "momentum_score_min": -1, "momentum_score_max": 1,
-                           "prose_excludes": ["surging"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_excludes": ["surging"], "prose_min_words": 25, "prose_max_words": 260}),
         },
         Scenario {
             name: "clean-decline-falling",
@@ -152,8 +145,7 @@ fn scenarios() -> Vec<Scenario> {
                 "The attack has dried up: fewer chances created in each of the last five matches."),
             vibe: vibe(30, "Coverage is grim — a winless month, fan protests, and pressure on the manager."),
             momentum: snapshot(-3.2, -1.5, 6, -1.1, 5),
-            expect: json!({"momentum_direction": "falling", "momentum_score_max": -2,
-                           "prose_excludes": ["rising"], "prose_min_words": 25, "prose_max_words": 260}),
+            expect: json!({"prose_excludes": ["rising"], "prose_min_words": 25, "prose_max_words": 260}),
         },
     ]
 }

@@ -1,8 +1,11 @@
 //! Momentum stage — the generated trajectory card over PEAK, Vibe, and deterministic slopes.
 //!
 //! `momentum_scores` remains the numeric backbone for leaderboards and ranking. This stage adds the
-//! client-surfaced read: a direction, signed score, and concise blurb with provenance, persisted to
-//! `momentum_summaries` and consumed by Sigil as the Momentum pillar.
+//! client-surfaced read: a direction, a signed ±5 conviction, and the blurb with provenance,
+//! persisted to `momentum_summaries` and consumed by the Oracle as the Momentum pillar.
+//!
+//! As of s11 BOTH numbers are computed here and only the blurb comes from the model — see
+//! [`momentum_conviction_from_score`] for why the magnitude stopped being asked for.
 
 use crate::harness::{EntityKey, Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
@@ -61,7 +64,8 @@ impl MomentumContext {
 /// code and narrated by the model, exactly like sigil's omen.
 #[derive(Clone, Debug)]
 pub struct MomentumReply {
-    pub score: i32,
+    /// The READ, and only the READ. s11 removed `score`: the Analyst voices the momentum, it
+    /// does not decide it — see [`momentum_conviction_from_score`].
     pub blurb: String,
 }
 
@@ -213,16 +217,47 @@ pub fn momentum_direction_from_score(momentum_score: Option<f64>) -> &'static st
     }
 }
 
-/// The legal SCORE range for a decided direction — the contract the model is asked to
-/// honor. A violating sign is clamped into range (never a hard failure: the direction is
-/// the truth, the score is narration, and failing the item would re-litigate a decided
-/// fact through retries).
-fn clamp_score_to_direction(direction: &str, score: i32) -> i32 {
-    match direction {
-        "rising" => score.clamp(1, 5),
-        "falling" => score.clamp(-5, -1),
-        _ => score.clamp(-1, 1),
-    }
+/// The deterministic CONVICTION — the ±5 signed magnitude that used to be asked of the model
+/// and is now computed, completing the same pattern that already owns `direction`
+/// (North Star #4: deterministic facts are computed, models narrate).
+///
+/// Why it moved. The Analyst was miscast as a seat that *generates* a number. It is not: the
+/// number is already decided by the collision of the Scout rail and the emotional rails, and
+/// arrives as the ±100 `momentum_score`. Asking the model to re-derive that magnitude on a ±5
+/// scale duplicated information the system already had exactly — and it did not survive contact:
+/// `ministral-3:14b` never left {-1, 0, 1} across 8 fixtures and THREE prompt revisions (s8, s9,
+/// s10), so a genuine surge persisted as a 1. Sign disagreements were previously papered over by
+/// clamping; magnitude collapse had no such defence and silently weakened the Oracle's Momentum
+/// pillar. Computing it makes both failure classes structurally impossible rather than instructed
+/// against, and leaves the Analyst doing the thing it is actually good at: voicing the read.
+///
+/// The ladder. `momentum_score` is the ±100-scale signed slope average; `MOMENTUM_STEADY_BAND`
+/// (±10) already splits steady from rising/falling, and the bands below subdivide what is left.
+/// Inside the steady band a lean past half the band still reads as ±1, which preserves the old
+/// contract's "steady is -1..1". `None` (no durable snapshot, ~3.5% of generations) is honestly 0.
+///
+/// NOTE: these thresholds are reasoned, NOT calibrated — they were chosen without sight of the
+/// live distribution. Worth checking against real rows before trusting the tails:
+///   SELECT width_bucket(abs(momentum_score),0,100,10)*10 AS band, count(*)
+///     FROM public.latest_momentum_scores_per_entity GROUP BY 1 ORDER BY 1;
+pub fn momentum_conviction_from_score(momentum_score: Option<f64>) -> i32 {
+    let Some(s) = momentum_score else { return 0 };
+    let mag = s.abs();
+    let sign = if s < 0.0 { -1 } else { 1 };
+    let step = if mag < MOMENTUM_STEADY_BAND / 2.0 {
+        return 0; // genuinely flat: no measured lean at all
+    } else if mag < 20.0 {
+        1 // covers the top half of the steady band AND the first rising/falling notch
+    } else if mag < 35.0 {
+        2
+    } else if mag < 55.0 {
+        3
+    } else if mag < 80.0 {
+        4
+    } else {
+        5
+    };
+    sign * step
 }
 
 fn build_momentum_input_components(
@@ -278,7 +313,6 @@ fn build_momentum_input_components(
 }
 
 pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
-    let mut score = None;
     let mut read_lines: Vec<String> = Vec::new();
     let mut in_read = false;
 
@@ -293,8 +327,10 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
             in_read = false;
             continue;
         }
-        if let Some(rest) = strip_prefix_ci(trimmed, "SCORE:") {
-            score = parse_first_i32(rest).map(|s| s.clamp(-5, 5));
+        // s11 dropped SCORE from the contract (the magnitude is computed, like the direction
+        // before it). A model that still emits one is not an error — every prompt revision
+        // through s10 asked for it, and cached/echoing output is harmless. Skip the line.
+        if strip_prefix_ci(trimmed, "SCORE:").is_some() {
             in_read = false;
             continue;
         }
@@ -309,11 +345,10 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     }
 
     let blurb = clean_joined_lines(&read_lines);
-    let score = score?;
     if blurb.is_empty() {
         return None;
     }
-    Some(MomentumReply { score, blurb })
+    Some(MomentumReply { blurb })
 }
 
 fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
@@ -502,24 +537,13 @@ impl StageHandler for MomentumHandler {
             .value
             .ok_or_else(|| anyhow!("momentum: parser returned no value"))?;
 
-        // Direction is DECIDED here, not by the model (Session D, North Star #4). The same
-        // decided value went into the prompt, so the READ narrates it by construction; the
-        // score is clamped into the direction's legal range so the persisted row can never
-        // tell two stories (the 645-WARNs/day disagreement class is gone by design).
+        // BOTH numbers are DECIDED here, not by the model (North Star #4). Direction has been
+        // computed since s4; s11 moves the signed magnitude alongside it. The same decided
+        // direction went into the prompt, so the READ narrates it by construction — and because
+        // the score is now derived from the same `momentum_score` the direction came from, the
+        // persisted row cannot tell two stories. There is nothing left to clamp.
         let direction = momentum_direction_from_score(ctx.snapshot.momentum_score);
-        let score = clamp_score_to_direction(direction, reply.score);
-        let score_clamped = score != reply.score;
-        if score_clamped {
-            debug!(
-                entity_type = %item.entity_type,
-                entity_id,
-                sport = %sport,
-                direction,
-                model_score = reply.score,
-                clamped_score = score,
-                "momentum: model score sign disagreed with decided direction; clamped"
-            );
-        }
+        let score = momentum_conviction_from_score(ctx.snapshot.momentum_score);
 
         let out = MomentumOutput {
             direction: direction.to_string(),
@@ -566,7 +590,7 @@ impl StageHandler for MomentumHandler {
                     "wall_ms": out.wall_ms,
                     "decided_direction": direction,
                     "steady_band": MOMENTUM_STEADY_BAND,
-                    "score_clamped_to_direction": score_clamped,
+                    "computed_conviction": score,
                 }),
                 parser_outcome: "scored".to_string(),
             },

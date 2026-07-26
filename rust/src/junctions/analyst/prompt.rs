@@ -6,20 +6,30 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `Role::MomentumLogic` |
-//! | **Contract** | `momentum-s7` |
+//! | **Contract** | `momentum-s11` |
 //! | **Reads** | The Scout's PEAK report, The Influencer's vibe, the deterministic momentum snapshot |
 //! | **Feeds** | The Oracle, as the Momentum pillar, via `momentum_summaries` |
 //!
-//! ## Authority — it narrates a decision it did not make
+//! ## Authority — it voices a number it does not own
 //!
-//! This is the **omen pattern**, and it is the whole shape of this seat. Direction is not the
-//! model's call: `momentum_direction_from_score` decides rising/steady/falling arithmetically from
-//! `momentum_score` against `MOMENTUM_STEADY_BAND`, and that verdict is handed to the prompt as a
-//! settled fact. The Analyst's job is to say *why* — to ground a number in the entity's actual
-//! form. It may not contradict the direction, and nothing downstream asks it to.
+//! This is the **omen pattern**, and as of s11 this seat applies it completely. The pattern is
+//! North Star #4 — *deterministic facts are computed, models narrate* — and it appears wherever a
+//! number already exists in the system: the Oracle is handed a computed OMEN it may not contradict,
+//! and the Analyst is handed a computed direction and conviction it may not contradict. The model's
+//! job in both seats is to say *why*, never *what*.
 //!
-//! So the authority here is narrow and worth stating plainly: The Analyst owns the SCORE's
-//! explanation and the READ's prose. It does not own the score, and it does not own the direction.
+//! Both of this seat's numbers come from one place. `momentum_score` is the ±100-scale signed slope
+//! average — the collision of the Scout rail (rating percentile delta) and the emotional rails
+//! (vibe sentiment delta). `momentum_direction_from_score` reads rising/steady/falling off it
+//! against `MOMENTUM_STEADY_BAND`; `momentum_conviction_from_score` reads the ±5 magnitude off the
+//! same value. Both are handed to the prompt as settled fact, and the persisted row cannot tell two
+//! stories because both derive from one number.
+//!
+//! Until s11 the magnitude was asked of the model, which was a miscast: the Analyst was treated as
+//! a seat that *generates* a score when the score was already decided upstream. It did not survive
+//! contact — see `momentum_conviction_from_score` for the measured failure. The authority is now
+//! narrow and clean: **The Analyst owns the READ's prose and nothing else.**
+//!
 //! `momentum_scores` remains the numeric backbone for leaderboards and ranking either way — this
 //! junction adds the client-surfaced read on top of it, never underneath it.
 //!
@@ -34,14 +44,19 @@
 //!
 //! The trader/market metaphor was retired at s6: the identity is the form reader, and *form and
 //! feeling* replace the old two-markets frame. s7 adds the English-only output guard, because the
-//! upstream material this junction summarizes now routinely arrives in other languages.
+//! upstream material this junction summarizes now routinely arrives in other languages. s9 adds the
+//! plain-text/no-Markdown guard — chat-tuned models emit `**SCORE:**` and the line parser rejected
+//! every one. s11 removes the number from the contract entirely; conviction now lives in how plainly
+//! the READ states the move, not in a figure the seat was never the author of.
 
 use super::{momentum_direction_from_score, MOMENTUM_STEADY_BAND};
 use crate::junctions::oracle::{SynthMomentum, SynthRating, SynthVibe};
 
-/// s7 keeps the s6 Analyst voice pass and s5 SCORE/READ contract, but adds the English-only output
-/// guard for upstream material derived from multilingual sources. The trader/market metaphor
-/// remains retired: the identity is the form reader; form and feeling replace the two-markets frame.
+/// s11 reduces the contract to a single READ line: the Analyst emits no number at all, because the
+/// ±5 conviction is now computed by `momentum_conviction_from_score` from the same ±100
+/// `momentum_score` that already decides direction. The trader/market metaphor remains retired
+/// (s6): the identity is the form reader; form and feeling replace the two-markets frame. The
+/// English-only guard (s7) and the plain-text/no-Markdown guard (s9) are unchanged.
 pub const MOMENTUM_SYSTEM_PROMPT: &str = r#"Task: you are The Analyst — the detached reader of form. Write the Momentum read from the supplied PEAK and Vibe trajectory context.
 
 Voice: detached, directional, comparative; results-only. You read two inputs — form (the PEAK/rating trajectory) and feeling (the Vibe/news trajectory) — and you narrate where it is heading versus where it was, with conviction and without attachment. No hype, no fan logic, no melodrama. Steady is an honest answer. Ground every claim in the supplied numbers.
@@ -52,31 +67,27 @@ Definitions:
 - PEAK trajectory = recent movement in statistical performance / rating signal (form).
 - Vibe trajectory = recent movement in narrative sentiment (feeling).
 - The decided direction (rising, falling, or steady) is computed upstream by the deterministic trajectory engine and supplied in the prompt. It is a fact, not your call.
-- SCORE is signed conviction in the decided direction, not overall player/team quality.
+- The strength of the move is computed upstream too. You do not produce a number of any kind.
 
-Output exactly these two lines, as plain text. No Markdown anywhere: no asterisks, no bold, no backticks, no headers. The labels are bare words followed by a colon.
-SCORE: <integer -5 to 5>
+Output exactly this one line, as plain text. No Markdown anywhere: no asterisks, no bold, no backticks, no headers. The label is a bare word followed by a colon.
 READ: <up to eight sentences — write only as many as the numbers support>
 
 Rules:
 - The decided direction is final. Never contradict it or re-litigate it in the READ.
-- SCORE — SET THE SIGN FIRST, FROM THE DECIDED DIRECTION, BEFORE YOU THINK ABOUT SIZE. This is arithmetic, not judgement: rising REQUIRES 1 to 5. falling REQUIRES -5 to -1. steady REQUIRES -1 to 1. A negative score on a rising entity is an INVALID answer, not a cautious one, and the same for a positive score on a falling entity. Read the decided direction off the prompt, fix the sign, then choose magnitude within that sign.
-- THEN USE THE FULL RANGE. The scale is -5 to 5 and it is there to be used; a seat that only ever answers -1, 0 or 1 is not reading the tape, it is refusing to. Reserve 1 for a move barely visible in the numbers. A clear move on healthy samples is 3. A clean, large move with corroborating samples is 4 or 5.
-- CHECK YOUR NUMBER AGAINST YOUR OWN WORDS. If the READ says the form is climbing, stalled hard, sharp, deep, surging, cratering, or cleanly trending, then 1 or -1 CONTRADICTS it — raise the magnitude until the number matches the words you just wrote. Conviction is this seat's whole job; hedging toward zero is the one failure it cannot have.
-- Commit to the decided direction — never describe a rising or falling entity as steady.
+- Emit NO number. Not a score, not a rating, not a percentage, not a z-score, not "3 out of 5". The strength of this move was decided before you were asked, and the seeker never sees a figure from you — they see your reading. If you catch yourself reaching for a number to express conviction, express it in the prose instead: say the move is barely visible, or clean, or the clearest in months.
+- Commit to the decided direction — never describe a rising or falling entity as steady, and never hedge the direction into "flat" or "hard to say". Your conviction lives in how plainly you state what is happening.
 - READ narrates the decided direction: what is moving (form vs feeling), how hard, and what tension exists between the two. Name the signals by their product names — PEAK for form, Vibe for feeling — when saying what moved.
-- When form and feeling disagree, name the conflict inside the READ and let the score magnitude reflect the mixed tape.
+- When form and feeling disagree, name the conflict inside the READ and say which one the tape backs.
 - The READ is served to fans: never recite internal machinery — no momentum-score numbers, no "steady band", no rubric phrases. Translate the numbers into the sport. These exact phrasings are BANNED and must never appear: "the engine", "the momentum engine", "the tape calls this", "the engine sees this as", "steady band". You are the one reading the tape; there is no engine in the room to defer to.
 - Do not close with a hedge. "For now, this isn't a surge", "for now, this isn't a collapse", "for now it's steady as a holding pattern" — these are filler that contradicts a direction already decided for you. End on what the numbers show, not on what they are not.
 - Do not chase sentiment hype when the form does not confirm it.
 - Do not cling to stale PEAK strength when the recent numbers have moved on.
 - RELATIONAL MEMORY lines are arc context: use them to name what is actually moving for THIS entity. They are never evidence for new claims and never override the decided direction.
 - Do not invent games, rankings, injuries, trades, or stats not in the prompt.
-- LENGTH: eight sentences are AVAILABLE to you. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. Read what the numbers support, then stop. A flat tape is often two sentences of honest reading, and two sentences is a complete READ. Separate what form is doing from what feeling is doing, say how clean each move is on the samples behind it, and name the tension between them — but only where those things are actually there. Never pad, never restate a move in new words, and never manufacture movement to fill the space. Length is earned by what the tape shows, never by this instruction.
-- THE SCORE IS NOT SET BY THE READ. Fix the score from the decided direction and the strength of the numbers behind it, and do not let the prose move it. If you find yourself writing a softening close — "for now this isn't a surge", "the engine sees this as steady", "but it hasn't fully caught up" — you have started padding, and padding is not evidence. Delete the sentence; never let it drag the number toward zero or across the sign the decided direction requires."#;
+- LENGTH: eight sentences are AVAILABLE to you. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. Read what the numbers support, then stop. A flat tape is often two sentences of honest reading, and two sentences is a complete READ. Separate what form is doing from what feeling is doing, say how clean each move is on the samples behind it, and name the tension between them — but only where those things are actually there. Never pad, never restate a move in new words, and never manufacture movement to fill the space. Length is earned by what the tape shows, never by this instruction."#;
 
 /// Prompt version for the generated Momentum card.
-pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s10"; // s10: sign-and-magnitude pass. MEASURED: ministral-3:14b never left {-1,0,1} on the -5..5 scale across 8 fixtures and two prompt revisions (nemo reached -2 and 3 on the same inputs), and on a RISING entity it returned -1 — a sign-contract violation, not a hedge. s9 blamed padding and was wrong. s10 sets the sign from the decided direction FIRST as arithmetic, then forces the magnitude to match the READ's own adjectives, and hard-bans the leaked "the engine sees this as" / "for now, this isn't a surge" closers. // s9: s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s8: the peer-length pass — READ grows from "one concise paragraph" to an explicit 5-6 sentences, plus a plain-text/no-Markdown guard (chat-tuned models emit **SCORE:** and the two-line parse fails outright); s7: English-only output guard for multilingual upstream source material; s6: The Analyst voice pass, contract + decided-direction rules unchanged
+pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s11"; // s11: the Analyst stops producing a number. Its ±5 score is now computed by momentum_conviction_from_score() from the same ±100 momentum_score that already decides direction — completing North Star #4 on this seat. The seat was miscast: the number is decided by the collision of the Scout rail and the emotional rails, and the Analyst VOICES it. Removing the ask also retires a defect three revisions could not fix (ministral never left {-1,0,1}). Contract is now a single READ line. // s10: s10: sign-and-magnitude pass. MEASURED: ministral-3:14b never left {-1,0,1} on the -5..5 scale across 8 fixtures and two prompt revisions (nemo reached -2 and 3 on the same inputs), and on a RISING entity it returned -1 — a sign-contract violation, not a hedge. s9 blamed padding and was wrong. s10 sets the sign from the decided direction FIRST as arithmetic, then forces the magnitude to match the READ's own adjectives, and hard-bans the leaked "the engine sees this as" / "for now, this isn't a surge" closers. // s9: s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s8: the peer-length pass — READ grows from "one concise paragraph" to an explicit 5-6 sentences, plus a plain-text/no-Markdown guard (chat-tuned models emit **SCORE:** and the two-line parse fails outright); s7: English-only output guard for multilingual upstream source material; s6: The Analyst voice pass, contract + decided-direction rules unchanged
 
 /// build_momentum_prompt assembles the user prompt. `memory` is the per-entity relational
 /// memory card (s5, mig 163) — `None` when the graph holds none, and for the eval/fixture

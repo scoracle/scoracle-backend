@@ -7,10 +7,13 @@ use super::*;
 
 #[test]
 fn parses_momentum_reply() {
+    // s11: a SCORE line is tolerated (every contract through s10 asked for one) but ignored.
     let parsed =
         parse_momentum_reply("SCORE: 3\nREAD: PEAK is rising while Vibe is calm.").unwrap();
-    assert_eq!(parsed.score, 3);
     assert_eq!(parsed.blurb, "PEAK is rising while Vibe is calm.");
+    // ...and the READ alone is now the whole contract.
+    let bare = parse_momentum_reply("READ: PEAK is rising while Vibe is calm.").unwrap();
+    assert_eq!(bare.blurb, "PEAK is rising while Vibe is calm.");
 }
 
 #[test]
@@ -28,11 +31,11 @@ fn stray_momentum_line_is_tolerated_and_ignored() {
         "MOMENTUM: Conflict\nSCORE: -1.0\nREAD: Signals split between PEAK and Vibe.",
     )
     .unwrap();
-    assert_eq!(parsed.score, -1);
     assert_eq!(parsed.blurb, "Signals split between PEAK and Vibe.");
-    // Missing SCORE or empty READ still fail closed.
-    assert!(parse_momentum_reply("READ: prose only, no score.").is_none());
+    // An empty READ still fails closed — but a missing SCORE no longer does (s11).
     assert!(parse_momentum_reply("SCORE: 2").is_none());
+    assert!(parse_momentum_reply("").is_none());
+    assert!(parse_momentum_reply("READ: prose only, no score.").is_some());
 }
 
 #[test]
@@ -48,16 +51,42 @@ fn direction_is_decided_by_band_not_model() {
 }
 
 #[test]
-fn score_clamps_into_the_decided_directions_range() {
-    assert_eq!(clamp_score_to_direction("rising", -3), 1);
-    assert_eq!(clamp_score_to_direction("rising", 4), 4);
-    assert_eq!(clamp_score_to_direction("falling", 2), -1);
-    assert_eq!(clamp_score_to_direction("falling", -5), -5);
-    assert_eq!(clamp_score_to_direction("steady", 4), 1);
-    assert_eq!(clamp_score_to_direction("steady", -4), -1);
-    assert_eq!(clamp_score_to_direction("steady", 0), 0);
+fn conviction_is_computed_not_asked_of_the_model() {
+    // s11: the ±5 magnitude is derived from the SAME ±100 momentum_score that decides
+    // direction, so the pair can never disagree — the failure class the old clamp existed
+    // to paper over is now unrepresentable.
+    assert_eq!(momentum_conviction_from_score(None), 0);
+    assert_eq!(momentum_conviction_from_score(Some(0.0)), 0);
+    assert_eq!(momentum_conviction_from_score(Some(4.9)), 0); // flat: under half the band
+
+    // Inside the steady band a real lean still reads as ±1 (the old contract's steady range).
+    assert_eq!(momentum_conviction_from_score(Some(5.0)), 1);
+    assert_eq!(momentum_conviction_from_score(Some(-9.9)), -1);
+
+    // At and beyond the band the ladder opens up — the range the model never used.
+    assert_eq!(momentum_conviction_from_score(Some(10.0)), 1);
+    assert_eq!(momentum_conviction_from_score(Some(20.0)), 2);
+    assert_eq!(momentum_conviction_from_score(Some(35.0)), 3);
+    assert_eq!(momentum_conviction_from_score(Some(55.0)), 4);
+    assert_eq!(momentum_conviction_from_score(Some(80.0)), 5);
+    assert_eq!(momentum_conviction_from_score(Some(100.0)), 5);
+    assert_eq!(momentum_conviction_from_score(Some(-100.0)), -5);
 }
 
+#[test]
+fn conviction_sign_always_agrees_with_the_decided_direction() {
+    // The invariant the whole change buys: one source number, so one story. Sweep the scale.
+    for tenths in -1000..=1000 {
+        let s = f64::from(tenths) / 10.0;
+        let dir = momentum_direction_from_score(Some(s));
+        let conv = momentum_conviction_from_score(Some(s));
+        match dir {
+            "rising" => assert!((1..=5).contains(&conv), "rising got {conv} at score {s}"),
+            "falling" => assert!((-5..=-1).contains(&conv), "falling got {conv} at score {s}"),
+            _ => assert!((-1..=1).contains(&conv), "steady got {conv} at score {s}"),
+        }
+    }
+}
 #[test]
 fn prompt_carries_the_decided_direction_line() {
     let mom = SynthMomentum {
@@ -159,3 +188,4 @@ fn input_components_are_stable_and_sorted() {
         )
     );
 }
+

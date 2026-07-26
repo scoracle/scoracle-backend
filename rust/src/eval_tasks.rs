@@ -358,15 +358,10 @@ pub struct Expect {
     pub reading_min_sentences: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reading_max_sentences: Option<i32>,
-    // momentum / trajectory reasoning rubric.
-    /// Signed Momentum score band (-5..5, the model's conviction in the DECIDED direction).
-    /// Direction itself left the reply contract in momentum-s4 — it is computed in code
-    /// (`momentum::momentum_direction_from_score`) and supplied to the prompt as a fact, so
-    /// fixtures assert the score band and prose instead.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub momentum_score_min: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub momentum_score_max: Option<i32>,
+    // momentum / trajectory reasoning rubric: PROSE ONLY.
+    // momentum_score_min/max were removed in s11 — the Analyst no longer emits a score, so
+    // there was nothing left for them to assert. Both numbers (direction and the ±5
+    // conviction) are computed by the junction and unit-tested there, not gated here.
 }
 
 /// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
@@ -1231,20 +1226,6 @@ impl LensTask for MomentumTask {
         let word_count = reply.blurb.split_whitespace().count() as i32;
 
         if let Some(x) = expect {
-            if let Some(min) = x.momentum_score_min {
-                checks.push(PropertyCheck {
-                    name: "momentum_score_ge".into(),
-                    pass: reply.score >= min,
-                    detail: format!("score={} ≥ {min}", reply.score),
-                });
-            }
-            if let Some(max) = x.momentum_score_max {
-                checks.push(PropertyCheck {
-                    name: "momentum_score_le".into(),
-                    pass: reply.score <= max,
-                    detail: format!("score={} ≤ {max}", reply.score),
-                });
-            }
             for s in x.prose_includes.iter().flatten() {
                 checks.push(PropertyCheck {
                     name: format!("prose_includes:{s}"),
@@ -1279,7 +1260,7 @@ impl LensTask for MomentumTask {
             parsed: true,
             abs_err: None,
             checks,
-            display: format!("score={} | {}", reply.score, reply.blurb),
+            display: reply.blurb.clone(),
         }
     }
 }
@@ -1877,24 +1858,25 @@ mod tests {
     // --- momentum fixture-first trajectory rubric ---------------------------------
 
     #[test]
-    fn momentum_parser_extracts_score_and_read() {
-        // s4 contract: SCORE + READ; a stray MOMENTUM line (a model echoing the decided
-        // direction) is tolerated and ignored.
+    fn momentum_parser_extracts_the_read() {
+        // s11 contract: READ alone. Stray MOMENTUM and SCORE lines (models echoing what
+        // every contract through s10 asked for) are tolerated and ignored, never content.
         let raw = "MOMENTUM: rising\nSCORE: 3\nREAD: PEAK is rising while Vibe is steady, so the current direction is modestly positive.";
         let parsed = parse_momentum_reply(raw).unwrap();
-        assert_eq!(parsed.score, 3);
         assert!(parsed.blurb.contains("PEAK is rising"));
+        assert!(!parsed.blurb.contains('3'), "SCORE leaked into the blurb: {}", parsed.blurb);
     }
 
     #[test]
-    fn momentum_rubric_scores_signed_band_and_prose() {
+    fn momentum_rubric_scores_prose() {
+        // s11: the signed-band assertions are gone — the score is no longer the model's to
+        // get wrong. `momentum_conviction_from_score` is unit-tested in the junction instead.
         let x = Expect {
-            momentum_score_max: Some(-2),
             prose_includes: Some(vec!["Vibe".into()]),
             prose_excludes: Some(vec!["surging".into()]),
             ..Default::default()
         };
-        let raw = "SCORE: -3\nREAD: Vibe is pulling the profile down despite a steadier PEAK read.";
+        let raw = "READ: Vibe is pulling the profile down despite a steadier PEAK read.";
         let v = MomentumTask.evaluate(raw, None, Some(&x));
         assert!(v.parsed);
         assert!(v.all_checks_pass(), "checks: {:?}", v.checks);

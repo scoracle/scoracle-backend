@@ -200,15 +200,28 @@ pub struct RouteConfig {
     /// `COGNITION_ROUTE_<ROLE>_CANDIDATE` is set. Run by `bin/eval` against the incumbent;
     /// adoption is a human editing `COGNITION_ROUTE_<ROLE>`, never an auto-promote.
     pub candidates: HashMap<Role, ModelSpec>,
+    /// Per-BACKEND concurrency budget, keyed by `base_url` — the machine's budget, not the
+    /// role's. Six characters sharing one host share one entry, which is the point: the
+    /// semaphore models a physical GPU, so it must be keyed by the thing that has the GPU.
+    /// Any `base_url` absent here falls back to `OLLAMA_MAX_CONCURRENT`.
+    pub backend_concurrency: HashMap<String, usize>,
 }
 
 impl RouteConfig {
     /// from_env reads `COGNITION_ROUTE_<ROLE>` for every role (e.g.
     /// `COGNITION_ROUTE_EMOTIONAL_NEWS`), each defaulting to `default_model` on `base_url` —
     /// so with nothing configured every role is the one local model and routing moves zero bytes
-    /// vs L1. `COGNITION_ROUTE_<ROLE>_CANDIDATE` adds the optional eval challenger. Today
-    /// every backend is Ollama on the shared `base_url`; per-role backend/base_url overrides
-    /// are the topology/backend swaps (HORIZON — Plan §2.1), added when they are real.
+    /// vs L1. `COGNITION_ROUTE_<ROLE>_CANDIDATE` adds the optional eval challenger.
+    ///
+    /// **The topology split (Plan §2.1) is now real.** `COGNITION_ROUTE_<ROLE>_BASE_URL` puts a
+    /// role on a different machine — the router already keys backends by
+    /// `(backend, model, base_url)`, so two roles on two hosts get two clients with no further
+    /// ceremony. The intended shape is one model per machine: The Reader on the box with the
+    /// small fast GPU, the six characters on the box with the memory for a larger model.
+    ///
+    /// Nothing about the DB moves. The remote host runs `ollama serve` and nothing else; the
+    /// harness stays here, owns Postgres, and a remote generation is an ordinary HTTP response
+    /// persisted by the same code that persists a local one.
     pub fn from_env(default_model: &str, base_url: &str) -> Self {
         let mut roles = HashMap::new();
         let mut candidates = HashMap::new();
@@ -221,12 +234,18 @@ impl RouteConfig {
         };
         for role in Role::all() {
             let key = format!("COGNITION_ROUTE_{}", role.env_suffix());
+            // A role's host: its own override, else the shared default. Trailing slashes are
+            // trimmed so `http://mac:11434` and `http://mac:11434/` are ONE backend, not two
+            // clients hammering one Ollama (the cache key is the string).
+            let role_base = normalize_base_url(
+                &env_opt(&format!("{key}_BASE_URL")).unwrap_or_else(|| base_url.to_string()),
+            );
             roles.insert(
                 role,
                 ModelSpec {
                     backend: Backend::Ollama,
                     model: env_or(&key, default_model),
-                    base_url: base_url.to_string(),
+                    base_url: role_base.clone(),
                     think: parse_think(&format!("{key}_THINK")),
                 },
             );
@@ -236,14 +255,68 @@ impl RouteConfig {
                     ModelSpec {
                         backend: Backend::Ollama,
                         model: candidate_model,
-                        base_url: base_url.to_string(),
+                        // A challenger defaults to its role's host, not the global one, so
+                        // A/B-ing a remote role does not silently pull the challenger local.
+                        base_url: normalize_base_url(
+                            &env_opt(&format!("{key}_CANDIDATE_BASE_URL"))
+                                .unwrap_or_else(|| role_base.clone()),
+                        ),
                         think: parse_think(&format!("{key}_CANDIDATE_THINK")),
                     },
                 );
             }
         }
-        Self { roles, candidates }
+        Self {
+            roles,
+            candidates,
+            backend_concurrency: parse_backend_concurrency(&env_or(
+                "COGNITION_BACKEND_CONCURRENCY",
+                "",
+            )),
+        }
     }
+}
+
+/// normalize_base_url strips trailing slashes so two spellings of one host cannot become two
+/// backends with two independent concurrency budgets — which would silently double the load on
+/// a GPU the governor believes it is protecting.
+fn normalize_base_url(raw: &str) -> String {
+    raw.trim().trim_end_matches('/').to_string()
+}
+
+/// parse_backend_concurrency reads `COGNITION_BACKEND_CONCURRENCY` — a comma-separated
+/// `<base_url>=<permits>` list, e.g.
+/// `http://localhost:11434=3,http://mac-mini:11434=1`.
+///
+/// Keyed by host rather than by role because the semaphore models a GPU: the six characters
+/// sharing one machine must share one budget, and the Reader on its own machine must not be
+/// throttled by their traffic. Malformed entries are SKIPPED rather than fatal — a typo here
+/// should cost the default budget, not refuse to boot the pipeline.
+fn parse_backend_concurrency(raw: &str) -> HashMap<String, usize> {
+    let mut out = HashMap::new();
+    for entry in raw.split(',') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            continue;
+        }
+        // rsplit_once: base URLs contain no '=', but split from the right regardless so a
+        // query-string-bearing URL could never eat the permit count.
+        let Some((url, permits)) = entry.rsplit_once('=') else {
+            continue;
+        };
+        let Ok(n) = permits.trim().parse::<usize>() else {
+            continue;
+        };
+        let url = normalize_base_url(url);
+        // An empty host would never match a spec's base_url anyway; drop it rather than
+        // carry a junk entry that makes the parsed map lie about how many hosts are configured.
+        if url.is_empty() {
+            continue;
+        }
+        // 0 permits would block every call to that host forever.
+        out.insert(url, n.max(1));
+    }
+    out
 }
 
 fn env_opt(key: &str) -> Option<String> {
@@ -320,5 +393,50 @@ mod tests {
         let err = env_f32(key, 0.5).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
+    }
+
+    // --- the topology split: per-host concurrency budgets ---
+
+    #[test]
+    fn backend_concurrency_parses_a_two_host_split() {
+        let m = parse_backend_concurrency(
+            "http://localhost:11434=3, http://mac-mini:11434=1",
+        );
+        assert_eq!(m.get("http://localhost:11434"), Some(&3));
+        assert_eq!(m.get("http://mac-mini:11434"), Some(&1));
+        assert_eq!(m.len(), 2);
+    }
+
+    #[test]
+    fn backend_concurrency_is_empty_when_unset() {
+        assert!(parse_backend_concurrency("").is_empty());
+    }
+
+    #[test]
+    fn backend_concurrency_skips_malformed_entries_without_failing_boot() {
+        // A typo should cost that host the default budget, not refuse to start the pipeline.
+        let m = parse_backend_concurrency("garbage,http://a:1=2,http://b:1=notanumber,=5");
+        assert_eq!(m.get("http://a:1"), Some(&2));
+        assert_eq!(m.len(), 1);
+    }
+
+    #[test]
+    fn backend_concurrency_clamps_zero_to_one() {
+        // 0 permits would block every call to that host forever.
+        assert_eq!(parse_backend_concurrency("http://a:1=0").get("http://a:1"), Some(&1));
+    }
+
+    #[test]
+    fn backend_concurrency_key_matches_the_normalized_base_url() {
+        // The budget is looked up by the spec's base_url, so both sides must normalize the
+        // same way -- otherwise a trailing slash silently drops the host to the default budget.
+        let m = parse_backend_concurrency("http://mac-mini:11434/=2");
+        assert_eq!(m.get(&normalize_base_url("http://mac-mini:11434")), Some(&2));
+    }
+
+    #[test]
+    fn normalize_base_url_collapses_trailing_slashes_and_padding() {
+        assert_eq!(normalize_base_url("  http://mac:11434/  "), "http://mac:11434");
+        assert_eq!(normalize_base_url("http://mac:11434"), "http://mac:11434");
     }
 }

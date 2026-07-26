@@ -226,25 +226,36 @@ impl Router {
     /// is the shared per-call budget (`OLLAMA_TIMEOUT_SECONDS`); per-backend timeouts move
     /// into `ModelSpec` when topology splits (HORIZON).
     ///
-    /// `max_concurrent` is the GPU governor budget (`OLLAMA_MAX_CONCURRENT`): ONE semaphore,
-    /// built here and shared by every backend, caps total in-flight model calls across all
-    /// roles (one GPU → one budget). Clamped to ≥1 (0 would block every call forever).
+    /// The GPU governor budget is **per host**, keyed by `base_url`: one semaphore per distinct
+    /// machine, sized from `COGNITION_BACKEND_CONCURRENCY` with `max_concurrent`
+    /// (`OLLAMA_MAX_CONCURRENT`) as the fallback. Clamped to ≥1 (0 would block forever).
+    ///
+    /// It was one global semaphore until the topology split, on the reasoning "one GPU → one
+    /// budget". That premise dies the moment a role lives on another machine: a single permit
+    /// shared across two hosts makes them take turns, so the remote box idles while the local
+    /// one works and the split buys nothing. Keyed by host, the two drain concurrently — which
+    /// is the entire point of moving a role away.
+    ///
+    /// Single-host deploys are unaffected: every role resolves to one `base_url`, so one
+    /// semaphore is built and the behaviour is byte-identical to the global-budget version.
     pub fn from_config(
         cfg: &RouteConfig,
         timeout: Duration,
         max_concurrent: usize,
     ) -> Result<Self> {
-        // One shared GPU governor across every backend this router builds.
-        let gpu = Arc::new(Semaphore::new(max_concurrent.max(1)));
+        // One governor per distinct host, created on first sight of that host.
+        let mut governors: HashMap<String, Arc<Semaphore>> = HashMap::new();
         // Cache keyed by the spec's identity, so two roles naming the same model get the same
         // backend Arc rather than two clients hammering one Ollama.
         let mut built: HashMap<String, Arc<dyn Inference>> = HashMap::new();
         let mut incumbents = HashMap::with_capacity(cfg.roles.len());
         for (role, spec) in &cfg.roles {
+            let gpu = governor_for(&mut governors, cfg, spec, max_concurrent);
             incumbents.insert(*role, build_backend(&mut built, spec, timeout, &gpu)?);
         }
         let mut candidates = HashMap::with_capacity(cfg.candidates.len());
         for (role, spec) in &cfg.candidates {
+            let gpu = governor_for(&mut governors, cfg, spec, max_concurrent);
             candidates.insert(*role, build_backend(&mut built, spec, timeout, &gpu)?);
         }
         Ok(Self {
@@ -269,6 +280,29 @@ impl Router {
     pub fn candidate_for(&self, role: Role) -> Option<Arc<dyn Inference>> {
         self.candidates.get(&role).map(Arc::clone)
     }
+}
+
+/// governor_for returns the semaphore guarding the host a spec lives on, creating it the first
+/// time that host is seen. Every backend on one `base_url` shares it, so six characters on one
+/// machine share that machine's budget while a Reader on another machine keeps its own.
+fn governor_for(
+    governors: &mut HashMap<String, Arc<Semaphore>>,
+    cfg: &RouteConfig,
+    spec: &ModelSpec,
+    default_max_concurrent: usize,
+) -> Arc<Semaphore> {
+    if let Some(existing) = governors.get(&spec.base_url) {
+        return Arc::clone(existing);
+    }
+    let permits = cfg
+        .backend_concurrency
+        .get(&spec.base_url)
+        .copied()
+        .unwrap_or(default_max_concurrent)
+        .max(1);
+    let gpu = Arc::new(Semaphore::new(permits));
+    governors.insert(spec.base_url.clone(), Arc::clone(&gpu));
+    gpu
 }
 
 /// build_backend returns the `Arc<dyn Inference>` for a spec, constructing one per distinct
@@ -330,6 +364,7 @@ mod tests {
         let cfg = RouteConfig {
             roles,
             candidates: HashMap::new(),
+            backend_concurrency: HashMap::new(),
         };
         let router = Router::from_config(&cfg, Duration::from_secs(60), 1).unwrap();
 
@@ -361,6 +396,7 @@ mod tests {
             &RouteConfig {
                 roles,
                 candidates: HashMap::new(),
+                backend_concurrency: HashMap::new(),
             },
             Duration::from_secs(60),
             1,
@@ -397,6 +433,7 @@ mod tests {
             &RouteConfig {
                 roles,
                 candidates: HashMap::new(),
+                backend_concurrency: HashMap::new(),
             },
             Duration::from_secs(60),
             1,
@@ -414,7 +451,7 @@ mod tests {
         let mut candidates = HashMap::new();
         candidates.insert(Role::EmotionalNews, spec("candidate-news:latest"));
         let router = Router::from_config(
-            &RouteConfig { roles, candidates },
+            &RouteConfig { roles, candidates, backend_concurrency: HashMap::new() },
             Duration::from_secs(60),
             1,
         )
@@ -503,5 +540,120 @@ mod tests {
         // 2 permits ⇒ up to 2 in flight (and, with 6 contenders, exactly 2 — the bound is the
         // budget, not a hard-coded 1).
         assert_eq!(peak_under_governor(2, 6).await, 2);
+    }
+
+    // ---------------------------------------------------------------------------
+    // The topology split: one governor per HOST.
+    // ---------------------------------------------------------------------------
+
+    const ARCHBOX: &str = "http://localhost:11434";
+    const MAC: &str = "http://mac-mini:11434";
+
+    fn spec_on(model: &str, base_url: &str) -> ModelSpec {
+        ModelSpec {
+            backend: Backend::Ollama,
+            model: model.to_string(),
+            base_url: base_url.to_string(),
+            think: None,
+        }
+    }
+
+    fn cfg_with(budgets: &[(&str, usize)]) -> RouteConfig {
+        RouteConfig {
+            roles: HashMap::new(),
+            candidates: HashMap::new(),
+            backend_concurrency: budgets
+                .iter()
+                .map(|(u, n)| (u.to_string(), *n))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn one_governor_per_host_shared_within_a_host() {
+        let cfg = cfg_with(&[]);
+        let mut g = HashMap::new();
+        // Two different models on the SAME host share one budget — six characters on one
+        // machine must not each get their own permit.
+        let a = governor_for(&mut g, &cfg, &spec_on("mistral", ARCHBOX), 1);
+        let b = governor_for(&mut g, &cfg, &spec_on("gemma3:4b", ARCHBOX), 1);
+        assert!(Arc::ptr_eq(&a, &b), "same host must share one governor");
+        // A different host gets its OWN budget — this is what stops the two boxes taking turns.
+        let c = governor_for(&mut g, &cfg, &spec_on("mistral", MAC), 1);
+        assert!(!Arc::ptr_eq(&a, &c), "distinct hosts must not share a governor");
+        assert_eq!(g.len(), 2);
+    }
+
+    #[test]
+    fn per_host_budget_overrides_the_global_default() {
+        // Archbox reads with 3 in flight; the Mac generates one character at a time.
+        let cfg = cfg_with(&[(ARCHBOX, 3)]);
+        let mut g = HashMap::new();
+        let arch = governor_for(&mut g, &cfg, &spec_on("gemma3:4b", ARCHBOX), 1);
+        let mac = governor_for(&mut g, &cfg, &spec_on("mistral-nemo:12b", MAC), 1);
+        assert_eq!(arch.available_permits(), 3, "configured host uses its budget");
+        assert_eq!(mac.available_permits(), 1, "unlisted host falls back to the default");
+    }
+
+    #[test]
+    fn a_zero_budget_cannot_deadlock_a_host() {
+        // 0 permits would block every call to that host forever; clamp to 1.
+        let cfg = cfg_with(&[(MAC, 0)]);
+        let mut g = HashMap::new();
+        let mac = governor_for(&mut g, &cfg, &spec_on("mistral", MAC), 1);
+        assert_eq!(mac.available_permits(), 1);
+    }
+
+    #[test]
+    fn single_host_deploys_build_exactly_one_governor() {
+        // The regression that matters most: with no split configured, behaviour must be
+        // byte-identical to the old single global semaphore.
+        let roles: HashMap<Role, ModelSpec> = Role::all()
+            .into_iter()
+            .map(|r| (r, spec("local-news:latest")))
+            .collect();
+        let cfg = RouteConfig {
+            roles,
+            candidates: HashMap::new(),
+            backend_concurrency: HashMap::new(),
+        };
+        let mut g = HashMap::new();
+        for spec in cfg.roles.values() {
+            governor_for(&mut g, &cfg, spec, 1);
+        }
+        assert_eq!(g.len(), 1, "one host ⇒ one budget, as before the split");
+    }
+
+    #[tokio::test]
+    async fn two_hosts_run_concurrently_rather_than_taking_turns() {
+        // The whole point of the split. Two hosts, one permit each: the pair must reach a
+        // combined peak of 2 in flight. Under the old ONE-global-semaphore design this would
+        // be 1 — the remote box idling while the local one worked.
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let current = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let make = |permits: usize| -> Arc<dyn Inference> {
+            Arc::new(GovernedInference {
+                inner: Arc::new(PeakCounter {
+                    current: Arc::clone(&current),
+                    peak: Arc::clone(&peak),
+                }),
+                gpu: Arc::new(Semaphore::new(permits)),
+            })
+        };
+        let hosts = [make(1), make(1)];
+        let opts = GenerateOptions::default();
+        let mut handles = Vec::new();
+        for host in &hosts {
+            for _ in 0..3 {
+                let g = Arc::clone(host);
+                let o = opts.clone();
+                handles.push(tokio::spawn(async move { g.generate("x", &o).await }));
+            }
+        }
+        for h in handles {
+            h.await.unwrap().unwrap();
+        }
+        assert_eq!(peak.load(Ordering::SeqCst), 2);
     }
 }

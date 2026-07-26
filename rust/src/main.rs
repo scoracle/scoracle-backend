@@ -48,16 +48,48 @@ async fn main() -> Result<()> {
     let pool = db::build_pool(&cfg.database_url, cfg.db_max_conns).await?;
     info!("connected to postgres");
 
-    // Boot reachability check against the shared Ollama base (every role's backend today).
-    // The router builds its own per-role clients from config below; this throwaway only pings.
-    let ping_client =
-        ollama::OllamaClient::new(&cfg.ollama_base_url, &cfg.ollama_model, cfg.ollama_timeout)?;
-    match ping_client.ping().await {
-        Ok(()) => info!(base_url = %cfg.ollama_base_url, "ollama reachable"),
-        Err(e) => {
-            warn!(error = %e, base_url = %cfg.ollama_base_url, "ollama not reachable (continuing; claimed items will fail until it is)")
+    // Boot reachability check against EVERY host the route table names, not just the default
+    // base. Under the topology split a role can live on another machine, and the most likely
+    // failure by far is that machine being asleep — which should be one obvious WARN at boot
+    // rather than a slow trickle of failed items an hour later. Still non-fatal: a host that
+    // comes back mid-run heals on the next claim.
+    let mut hosts: Vec<&str> = cfg
+        .route
+        .roles
+        .values()
+        .map(|s| s.base_url.as_str())
+        .collect();
+    hosts.sort_unstable();
+    hosts.dedup();
+    for host in &hosts {
+        let ping_client = ollama::OllamaClient::new(*host, &cfg.ollama_model, cfg.ollama_timeout)?;
+        // A host's concurrency budget is its own; log it beside the ping so the resolved
+        // topology is legible from the boot lines alone.
+        let permits = cfg
+            .route
+            .backend_concurrency
+            .get(*host)
+            .copied()
+            .unwrap_or(cfg.ollama_max_concurrent);
+        match ping_client.ping().await {
+            Ok(()) => info!(base_url = %host, max_concurrent = permits, "ollama reachable"),
+            Err(e) => {
+                warn!(error = %e, base_url = %host, max_concurrent = permits, "ollama NOT reachable (continuing; roles on this host will fail until it is)")
+            }
         }
     }
+
+    // The resolved role → model@host table. With one host this is the familiar single-model
+    // deploy; with two it is the only place the split is visible at a glance, so a misrouted
+    // character is caught at boot instead of in a week-old sigil card.
+    let mut routes: Vec<String> = cfg
+        .route
+        .roles
+        .iter()
+        .map(|(role, spec)| format!("{}={}@{}", role.as_str(), spec.model, spec.base_url))
+        .collect();
+    routes.sort();
+    info!(hosts = hosts.len(), routes = %routes.join(" "), "resolved model topology");
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
     // Post Step-3 cutover the daemon owns the live cognition stages. Headlines has been folded into

@@ -126,6 +126,60 @@ with `resolve.rs` in the teardown.
 6. `topic_heat_embeddings` is orphaned — nothing reads or writes it. Drop in a later migration.
 7. `examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile (pre-existing).
 
+## The Archbox/Mac split — rollout (Phase 1 code shipped `dfbf78a`, NOT yet configured)
+
+One model per machine: **gemma3:4b alone on Archbox** (The Reader, the gatekeeper) and **the six
+characters on the M4 mac mini** (16 GB unified). This ends the VRAM thrashing (item 5) by removing
+the thing that causes it — two models on one 8 GB card — rather than tuning around it.
+
+**Networking: no hardware needed.** What crosses the wire is a prompt and a completion — tens of KB
+per call, at roughly one call per 30–60s. Any existing LAN is orders of magnitude more than enough;
+Wi-Fi is fine, wired is nice only for stability. LAN latency (~1 ms) against a ~55 s generation is
+0.002% overhead, so a Tailscale tunnel is equally fine and is the better default: it gives a stable
+MagicDNS name instead of a DHCP-assignable IP, and **the ollama API has no authentication**, so it
+must never be exposed to the internet. LAN or tailnet only.
+
+**On the Mac:**
+```sh
+brew install ollama && brew services start ollama
+launchctl setenv OLLAMA_HOST "0.0.0.0:11434"   # default binds localhost only
+sudo pmset -a sleep 0 disablesleep 1            # THE failure mode; also "Wake for network access"
+ollama pull mistral-nemo:12b                    # 12B @ Q4_K_M ≈ 7.1 GB — see below
+ollama run --verbose mistral-nemo:12b "..."     # record real tok/s before committing
+```
+Prefer a **12B at Q4_K_M over an 8B at Q8**: at a fixed memory budget parameter count beats
+quantization precision, and Q8 costs ~half the speed (M4 ≈ 120 GB/s ⇒ 8B@Q8 ≈ 10 tok/s vs
+12B@Q4 ≈ 13 tok/s) to buy back well under 1% perplexity. Avoid thinking models here — a reasoning
+trace multiplies output length 3–10x, and every character is on the critical path to the sigil card.
+
+**On Archbox** — append to `.env.local`, then restart the unit:
+```sh
+COGNITION_BACKEND_CONCURRENCY="http://localhost:11434=3,http://mac-mini:11434=1"
+for R in NARRATIVE_LOGIC ORACLE_LOGIC TRANSFER_LOGIC VIBE_LOGIC MOMENTUM_LOGIC \
+         STATS_LOGIC EMOTIONAL_NEWS MULTILANG SQL; do
+  COGNITION_ROUTE_${R}_BASE_URL="http://mac-mini:11434"
+  COGNITION_ROUTE_${R}="mistral-nemo:12b"
+done   # ARTICLE_READER is deliberately absent — it stays local on gemma3:4b
+```
+`OLLAMA_KEEP_ALIVE=30m` becomes harmless once each host holds one model, and the flash-attention
+drop-in from item 5 should be REMOVED if it was ever installed (pure downside on Pascal once gemma
+runs alone).
+
+**Verify before flipping** — reads no database, safe while the service is up:
+```sh
+set -a && source .env.local && set +a && cargo run --example topology_probe -- --ping
+```
+Expect two hosts, `article-reader` alone on localhost, and no "distinct models will contend"
+warning. Boot logs then carry `resolved model topology` and one `ollama reachable` per host.
+
+**Roll back** by deleting those env lines and restarting — the code is inert unconfigured, and
+single-host behaviour is byte-identical (test: `single_host_deploys_build_exactly_one_governor`).
+
+**Then reconsider the read budget.** `COGNITION_ARTICLE_READ_TOP_K` exists because reads were
+scarce and had to be rationed to Google's best-ranked hits. With gemma alone on the card at 3
+concurrent, scarcity likely ends — and if you read everything, `feed_rank` goes back to being an
+ordering rather than a gate, which dissolves the rank confound in item 1 for free.
+
 ## Operational
 
 - Env: `set -a && source .env.local && set +a`. `.env.local` is **gitignored** — the gemma route

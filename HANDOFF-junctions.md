@@ -129,7 +129,11 @@ with `resolve.rs` in the teardown.
    **Trap:** ollama is a **system** unit (`/etc/systemd/system/ollama.service`, `User=ollama`),
    NOT `systemctl --user` like the scoracle units. Restarting it drops every loaded model.
 6. `topic_heat_embeddings` is orphaned — nothing reads or writes it. Drop in a later migration.
-7. `examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile (pre-existing).
+7. ~~`examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile~~ — **FIXED
+   2026-07-26.** `graph_probe` set `resolve:` on `Harness` (gone with `resolve.rs` in the
+   teardown); `transfer_t10_fixtures` passed a 4th `best_weight` arg to
+   `TransferEvidence::from_news`, which lost that field. `cargo build --examples` is clean.
+   The graph gate this unblocked is recorded under "The graph-on-gemma gate" below.
 
 ## The Archbox/Mac split — rollout (Phase 1 code shipped `dfbf78a`, NOT yet configured)
 
@@ -433,6 +437,38 @@ three such orphans (momentum 3, narratives 1030, transfers 68) were present and 
 `Started Ollama Service` is the pinned model's cold load, not an eviction. Only a reload with no
 preceding restart is a real switch, and with one model pinned on the card there should be none:
 `journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
+
+### The graph-on-gemma gate — run retroactively 2026-07-26 (Phase 2 item 4)
+
+Both broken examples are repaired (open item 7), which unblocked the gate that item 4 wanted.
+
+**The fixtures were stale and would have gated the wrong contract.** `fixtures/graph/` was NOT
+empty — the earlier note here was wrong; it held four fixtures frozen at **`g2`** while the live
+builder is **`g3`**. The g2→g3 delta is not cosmetic: g3 adds the entire **Language handling**
+paragraph (read the source language, emit English keys/enums, never drop relations because the
+article is non-English), plus em-dash→`--` and a trailing-space fix. Regenerated via
+`examples/graph_fixture_gen.rs`; only `prompt_version` and `system` changed, with `user_prompt`,
+`expect` and the curated `note` preserved.
+
+**Result: gemma3:4b passes 10/12 property checks.**
+
+| fixture | verdict |
+|---|---|
+| object-attachment-two-suitors | **✓ all 5** — attaches to the true counterparty, finds the coach |
+| person-discovery-manager-named | **✓ all 4** — finds both coach and agent |
+| no-relation-quiet-mention | **✗** over-extracts: 1 relation where a clean empty was required |
+| unary-injury-no-counterparty | **✗** misses the unary injury entirely: 0 relations, wanted `1:injury:-` |
+
+Read that against what the set was built for. All four fixtures pin residuals **measured on the
+g1/g2 probes, before the gemma swap** — so the two gemma passes are the two failures the set was
+authored from, and the two it fails are different ones. The swap is not a regression on this
+evidence; it moved the residual. The open half is **over-extraction and unary relations**, which
+is the sharpest available statement of what to fix in the graph prompt next.
+
+**Do not A/B this against mistral on Archbox.** Loading a second model is exactly what
+`OLLAMA_MAX_LOADED_MODELS=1` and the `-1` keep-alive now forbid, and it would reintroduce the
+evict-and-reload thrash this whole day removed. Run a challenger on the Mac, or accept 10/12 as
+the recorded gemma baseline.
 
 ## Operational
 

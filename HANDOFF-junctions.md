@@ -1,8 +1,12 @@
-# Handoff — finish the junction pass, then reorganize `rust/src`
+# Handoff — the junction pass is DONE; open items below
 
-Repo `/home/sheneveld/scoracle/scoracle-backend`, branch `main`, tree clean, **~16 commits
-unpushed** (wiki has 1). Fetch/pull both repos first; parallel sessions push to origin.
+Repo `/home/sheneveld/scoracle/scoracle-backend`, branch `main`, tree clean.
+Fetch/pull both repos first; parallel sessions push to origin.
 **This Archbox IS production.** Prod actions need Scott's named approval.
+
+> **Tasks 1 and 2 completed 2026-07-25** (commits `d965459`, `3beb75c`, `a277c9a`, `d4b55d1`).
+> See "What landed" below before reading the rest — several sections of this doc describe the
+> old layout. The binary in `bin/` is UNCHANGED; the refactor is not deployed.
 
 Read `scoracle-wiki/progress_docs/2026-07-25_relevance-root-cause-and-teardown.md` — the plan of
 record, plus the evening ADDENDUM which supersedes several of its phases. Do not re-derive the
@@ -16,37 +20,42 @@ and all BGE/candle use outside `narratives`/`threads` are **deleted**. Novelty i
 `token_jaccard >= 0.90`. Headline passthrough, Google `feed_rank` (mig 194) and a per-entity read
 budget are live. The Reader runs `gemma3:4b`.
 
-## Task 1 — six junctions still own their prompts inline
+## What landed — Tasks 1 and 2, 2026-07-25
 
-`src/prompts/reader.rs` is the **reference implementation**; copy its shape exactly.
+Every model-calling seat is one directory under `rust/src/junctions/`, named for its **character**,
+holding exactly three files: `mod.rs` (stage machinery), `prompt.rs` (system prompt +
+`*_PROMPT_VERSION` + format schema + builder, nothing else), `tests.rs`.
 
-| junction | stage file | prompt version | builder |
+| junction | was | now | contract |
 |---|---|---|---|
-| The Journalist | `narratives.rs` (2,569) | `n13` | `build_narratives_prompt:613` |
-| The Oracle | `sigil.rs` (2,152) | `or5` | `build_crown_prompt:971` |
-| The Insider | `transfer.rs` (3,291) | `t11` + `is1` + identity-adjudication-v2 | `build_transfer_prompt:747`, `build_insider_score_prompt:2205` |
-| The Influencer | `vibe.rs` (1,255) | `v14` | `build_sentiment_prompt:469` |
-| The Analyst | `momentum.rs` (875) | `momentum-s7` | `build_momentum_prompt:311` |
-| The Scout | `rating.rs` (2,463) | `s14` | `build_stat_prompt:785` |
+| The Reader | `reader.rs` | `junctions/reader/` | `ar3` |
+| The Journalist | `narratives.rs` | `junctions/journalist/` | `n13` |
+| The Oracle | `sigil.rs` | `junctions/oracle/` | `or5` |
+| The Insider | `transfer.rs` | `junctions/insider/` | `t11` + `is1` + identity-adjudication-v2 |
+| The Influencer | `vibe.rs` | `junctions/influencer/` | `v14` |
+| The Analyst | `momentum.rs` | `junctions/analyst/` | `momentum-s7` |
+| The Scout | `rating.rs` | `junctions/scout/` | `s14` |
+| *(not a character)* | `graph.rs` | `junctions/graph/` | `g3` |
 
-`graph.rs` (`g3`) is typed extraction, not a character — migrate it, but do not invent a persona.
-`judge.rs` is eval tooling, not a live junction; leave it.
+`src/prompts/` was **deleted** — one home per junction, not two. This deviates from the plan above,
+which wanted a parallel `src/prompts/` tree; Scott chose one-dir-per-junction, so the already-shipped
+`prompts/reader.rs` folded into `junctions/reader/prompt.rs`. `judge.rs` is eval tooling, not a live
+junction, and was left alone.
 
-Per junction: move the `*_PROMPT_VERSION` const and the builder (plus any prompt-only helpers) into
-`src/prompts/<character>.rs`; `pub use` them from the stage module so no call site changes; make the
-types the builder touches `pub(crate)`. Write a character-grade header stating **seat, contract
-version, what it reads, what it feeds, and its authority** — and check the existing header for
-claims that stopped being true today (several still describe the Candle and the scrub gate).
-Update the table in `src/prompts/mod.rs` as each lands. `cargo test --lib` must stay at 230+ green.
+Also done: 2,982 lines of test module moved out of the stage files into `tests.rs` (no file in
+`src/junctions/` exceeds 2,000 lines now, down from four); six stale header claims corrected
+(`route(SynthesisLogic)` → `OracleLogic`, four wrong `route(EmotionalNews)` claims, prompt versions
+in prose reading n5/s9/t5). Verified byte-identical prompt bodies by diffing every line against the
+parent commit — the only differences are `use` statements and five deliberate visibility widenings.
+`cargo test --lib` stayed at **230 passed** through all four commits; zero build warnings.
 
-## Task 2 — then reorganize
+**Traps for the next session.** Queue-stage identifiers were deliberately NOT renamed —
+`pipeline_work` rows and `COGNITION_STAGES` still say `narratives`, `sigil`, `vibe`, `transfers`,
+`peak`, `momentum`, because those name rows in a table, not seats. And `examples/graph_probe.rs`
+joins `transfer_t10_fixtures.rs` as pre-existing-broken: it references `Harness.resolve`, deleted
+with `resolve.rs` in the teardown.
 
-The flat `src/` is idiomatic Rust; the problem is 30 modules with no sense of role and four files
-over 2,000 lines. Once prompts are extracted, group the junctions (`reader`, `narratives`, `sigil`,
-`transfer`, `vibe`, `momentum`, `rating`, `graph`) under `src/junctions/`, leaving infrastructure
-(`harness`, `route`, `ollama`, `work`, `worker`, `stage`, `db`, `config`, `ledger`, `embed`) and
-primitives (`novelty`, `threads`, `trajectory`, `bucket`, `corpus`, `util`) at the root. Mechanical,
-but do it as its own commit, after the prompts move, so a bisect can tell the two apart.
+**Not deployed.** `bin/scoracle-cognition` is still the pre-refactor binary; prod runs unchanged.
 
 ## Open items, in priority order
 
@@ -96,8 +105,26 @@ but do it as its own commit, after the prompts move, so a bisect can tell the tw
    path first (4,457 singletons), add `continues_thread` to the output contract, fix E7
    (`threads.rs:131` has `FOR UPDATE` with no `ORDER BY`). This is what finally deletes
    `Harness.embedder` — `narratives` clustering and `threads.rs` centroid are its last two consumers.
-5. `topic_heat_embeddings` is orphaned — nothing reads or writes it. Drop in a later migration.
-6. `examples/transfer_t10_fixtures.rs` does not compile (pre-existing, unrelated).
+5. **Ollama is thrashing the GPU — measured 07-25, undecided.** **702 `llama runner started`
+   events in 6 hours** (~1 reload/min). `mistral:7b` (5.1 GB, every character) plus `gemma3:4b`
+   (~3.3 GB, The Reader) is ~8.4 GB against the 1070 Ti's 8192 MiB, and `OLLAMA_KEEP_ALIVE=30m`
+   has both trying to stay resident, so an evict-and-reload fires on nearly every alternation
+   between The Reader and a character stage. Note this interacts with item 2: raising `TOP_K`
+   raises Reader volume, which raises the alternation rate.
+
+   Scott asked about `OLLAMA_FLASH_ATTENTION=1` + `OLLAMA_KV_CACHE_TYPE=q8_0`. q8_0 KV
+   **requires** FA (hard dependency), and this card is **compute capability 6.1 (Pascal)** — the
+   bad case: GP104 runs fp16 at 1/64 of fp32 and llama.cpp's tensor-core FA kernels need cc ≥ 7.5,
+   so it falls back to vec kernels. Expect flat-to-slower tok/s. The win is *headroom* (~240 MiB
+   off mistral's KV at 4096 ctx, less on gemma3's sliding-window attention) — roughly half the
+   ~400 MiB gap, so it is a coin flip alone. `OLLAMA_MAX_LOADED_MODELS=1` or a shorter keep-alive
+   on the Reader route attacks the thrash directly. Judge by the reload count, never tok/s:
+   `journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
+
+   **Trap:** ollama is a **system** unit (`/etc/systemd/system/ollama.service`, `User=ollama`),
+   NOT `systemctl --user` like the scoracle units. Restarting it drops every loaded model.
+6. `topic_heat_embeddings` is orphaned — nothing reads or writes it. Drop in a later migration.
+7. `examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile (pre-existing).
 
 ## Operational
 

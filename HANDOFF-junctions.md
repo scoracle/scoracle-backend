@@ -50,9 +50,29 @@ but do it as its own commit, after the prompts move, so a bisect can tell the tw
 
 ## Open items, in priority order
 
-1. **Watch The Reader's `irrelevant` rate.** gemma3:4b showed **0.0% across its first 14 readings**
-   against mistral's **14.4%** baseline. Too small to conclude, but it is now the *sole* relevance
-   judge — if it never rejects, it is doing half its job. Check before raising K.
+1. **Watch The Reader's `irrelevant` rate — and disambiguate it.** gemma3:4b sat at **0.0% across
+   its first 24 readings** against mistral's **14.4%** baseline. At n=24 that is p≈2.4% under the
+   baseline rate, so it is no longer dismissible as small-sample noise. It is now the *sole*
+   relevance judge; if it never rejects, it is doing half its job.
+
+   **But there is a strong confound, and it is the more likely explanation.** The 14.4% baseline was
+   measured on a FIFO queue of everything; gemma reads only top-ranked articles under the new budget,
+   and Google's top hits are genuinely more often about the entity. A lower rejection rate is what a
+   working ranking system *should* produce. The two are distinguishable only with a rank-matched
+   comparison, which was impossible on 07-25 because `feed_rank` had just started populating.
+
+   With a day of data, compare like with like — if the rate stays ~0% even on poorly-ranked
+   articles, the judge is the problem; if it rises as rank worsens, the ranking is working:
+   ```sql
+   SELECT CASE WHEN a.feed_rank IS NULL THEN 'unranked'
+               WHEN a.feed_rank < 3 THEN 'top3' ELSE 'rest' END AS band,
+          r.model_version, count(*),
+          round(100.0*count(*) FILTER (WHERE r.status='irrelevant')
+                /NULLIF(count(*) FILTER (WHERE r.status IN ('success','irrelevant')),0),1) AS irrelevant_pct
+     FROM news_article_readings r JOIN news_articles a ON a.id=r.article_id
+    WHERE r.updated_at > NOW()-INTERVAL '24 hours' GROUP BY 1,2 ORDER BY 1,2;
+   ```
+   A cheaper direct check: hand-read 20 of gemma's `success` verdicts for obvious false positives.
    ```sql
    SELECT model_version, count(*),
           round(100.0*count(*) FILTER (WHERE status='irrelevant')
@@ -61,7 +81,7 @@ but do it as its own commit, after the prompts move, so a bisect can tell the tw
    ```
 2. **Then raise the read budget to `COGNITION_ARTICLE_READ_TOP_K=8`** in `.env.local` + restart.
    Measured: K=4 → 701 reads/day (16.4% of ingest), K=8 → 1,058/day (24.7%) — Scott's 25% target.
-   gemma sustains ~2,887/day (120.3/hr vs mistral 53.7/hr, 2.24x), so K=8 is affordable.
+   gemma sustains ~3,150/day (131.4/hr vs mistral 53.7/hr, 2.45x), so K=8 is affordable.
 3. **Phase 2.3 — delete the panic guards** (`-rss-limit`, `short_code` solo lanes,
    `newsMaxTeamAliasRSSQueries`, risky-solo-term lists), then re-run
    `./scripts/ops/news_ingest_funnel.sh`. The funnel shows `-rss-limit` discarding **3,401 of 5,267**

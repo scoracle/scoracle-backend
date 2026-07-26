@@ -449,7 +449,11 @@ pub fn parse_vibe_reply(raw: &str) -> Result<(i32, Option<String>, String)> {
     let lines: Vec<&str> = raw.trim().split('\n').collect();
 
     for (i, line) in lines.iter().enumerate() {
-        let t = line.trim();
+        // Strip Markdown decoration before matching: a larger model may emit `**SCORE: 62**`,
+        // which does not start with `SCORE:` and would sink the whole reply. See
+        // `util::strip_markdown_emphasis` for the 2026-07-26 production break.
+        let t_owned = crate::util::strip_markdown_emphasis(line);
+        let t = t_owned.as_str();
         let up = t.to_uppercase();
         if score == 0 && up.starts_with("SCORE:") {
             // "SCORE:" is ASCII (6 bytes) regardless of case, so t[6..] is a boundary.

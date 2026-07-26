@@ -214,6 +214,119 @@ scarce and had to be rationed to Google's best-ranked hits. With gemma alone on 
 concurrent, scarcity likely ends — and if you read everything, `feed_rank` goes back to being an
 ordering rather than a gate, which dissolves the rank confound in item 1 for free.
 
+
+## DECISIONS — 2026-07-26 afternoon, before the compositor restart
+
+Scott's calls, made with the measured numbers in hand. These SUPERSEDE anything below that
+conflicts.
+
+1. **Archbox comes off the sequencing approach entirely.** It should work items as they arrive,
+   not one per rotation. The rotation existed to stop a single GPU being oversubscribed; the
+   per-host semaphores (`dfbf78a`) now do that job properly, so **the governor becomes the
+   scheduler** and the rotation constraint can go. Reader and graph pull continuously up to the
+   host's slot count.
+2. **The Mac keeps sequencing** — `COGNITION_BACKEND_CONCURRENCY` pins it at `=1`, because 16 GB
+   will not hold two KV allocations for a 14B and `OLLAMA_NUM_PARALLEL=1` there means a second
+   request would queue inside ollama with its timeout clock running.
+3. **4 concurrent slots on Archbox**, after the compositor restart frees ~1.8 GB. Set
+   `OLLAMA_NUM_PARALLEL=4` and `COGNITION_BACKEND_CONCURRENCY=http://localhost:11434=4,...`.
+   The two numbers must match: slots the harness will use vs slots ollama actually allocates.
+4. **Ingest moved 6h -> 12h** (`0 */12` in crontab, DONE 2026-07-26 12:40; previous crontab backed
+   up to `~/.cache/crontab/crontab.bak` and to this session's scratchpad). Deliberate while the
+   backlog drains and the tuning settles. **Known cost, accepted:** Google News RSS is a capped
+   rolling window, so half the sweeps means roughly half the articles ever seen — not deferred,
+   gone. It also sharpens the existing `-rss-limit` bias, which truncates AFTER `sortArticlesByDate`
+   and so drops the older half of a longer window by construction. Revert with `0 */6` when tuning
+   is done. `cron-narrative-links.sh` deliberately stays at 6h — different, cheap job.
+
+The intended end state: **Archbox never backlogs.** Reader and graph chew through work as it
+arrives on 4 slots, and the only thing anyone waits on is the Mac — which is the correct place for
+the constraint to live, since that is where the expensive character voices are.
+
+## PLAN — Phase 2: make the two machines actually work at the same time
+
+Written 2026-07-26 12:15 after a measured 30-minute window. Execute in a fresh context.
+
+**Where we are.** The split is live and correct: gemma3:4b alone on Archbox (Reader + graph),
+ministral-3:14b on the Mac (six character voices). Thrashing went from **101 reloads/hour to 22**,
+and those 22 have a known cause (item 1). Throughput is **255 calls/hour against a 310 baseline,
+-18%** — the Mac runs at ~89% utilisation while Archbox idles waiting on it, because the drain is
+sequential. Nothing is broken; the machine is just half-used.
+
+Measured 30-min window: graph 1446->1437 pending (draining at ~96/hr against ~78/hr arrivals),
+article_read 233->205 then re-injected to 453 by an ingest sweep, sigil flat at 426 (5 drained,
+~5 arrived — equilibrium, not a stall), Reader 134->95 reads/hr (starved by slow rotations).
+
+### 1. graph's num_ctx — one line, removes the last of the thrashing
+
+`reader/mod.rs:315` sends `num_ctx: 8192`; `graph/mod.rs:70` sends `num_ctx: 0`, which the client
+omits, so ollama falls back to its server default. **Two context sizes on one model force a runner
+reload**, and they alternate constantly. Set graph to `ARTICLE_NUM_CTX` (8192) — the 8192 runner is
+already what the Reader makes us pay for, so this costs no extra VRAM and should take reloads to
+~0. **Confirmed, not theorised:** reloads arrive in PAIRS 12-17s apart every 6-7 minutes
+(11:59:48/12:00:05, 12:05:48/12:06:01, 12:09:32/12:09:44, ...) -- one rotation loading 8192 for
+the Reader then the default for graph. Verify after the fix:
+`journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
+
+### 2. Phase 2 proper — concurrent drain
+
+`worker.rs:drain_all` is `for handler { for item { handle().await } }`. Make stages run
+concurrently; the per-host semaphores from `dfbf78a` already bound it correctly and need no change.
+
+**Prerequisite, not optional: fix E7 first.** `threads.rs:131` has `FOR UPDATE` with no `ORDER BY`.
+Two transactions locking the same rows in different orders is a textbook deadlock. It is harmless
+today ONLY because the drain is sequential — Phase 2 is precisely what makes it reachable.
+
+Watch for: two stages claiming the same item (the lease is the guard — verify it holds under
+concurrency), `Harness.embedder` shared across tasks (narratives is its last consumer), and the
+handler timeout now measuring wall time that includes waiting for a busy host.
+
+Expected result: the Reader recovers toward 134+/hr and graph runs flat out, because neither has to
+wait behind ~5 minutes of Mac work per rotation.
+
+### 3. OLLAMA_NUM_PARALLEL=2 on Archbox — after Phase 2, not before
+
+Batched inference reads the weights ONCE per batch, so on a bandwidth-bound card two slots approach
+2x throughput rather than 1.3x. Archbox has NO `OLLAMA_NUM_PARALLEL` set today, so it serves one at
+a time no matter what the harness sends — which is why this only pays off after Phase 2.
+
+**Use 3.** An earlier draft of this plan said 2, from a generic-4B estimate of ~1.1 GB per slot.
+That is wrong for this model: **gemma3 uses sliding-window attention on 5 of every 6 layers**, so
+those layers cap KV at a 1024-token window rather than the full 8192 and the cache is a fraction of
+a standard 4B's. Measured: ollama holds 3,880 MiB total for weights (~3.3 GB) plus KV plus compute
+buffers, so one slot's KV is ~350-500 MB. Against 1,835 MiB free, 3 slots (~+800 MiB) fits
+comfortably and 4 probably would. Set `localhost=3` in COGNITION_BACKEND_CONCURRENCY to match --
+it is already 3, so that line needs no change after all.
+
+**The 1.8 GB of 'missing' VRAM is the desktop, not a leak in our stack:** `cosmic-comp` holds
+1,872 MiB (plus ~150 MiB of panel/portal/Xwayland/ghostty). It has been up 22 days driving a
+3840x1600 ultrawide, whose framebuffers should cost ~300 MB -- so most of that is likely
+accumulation and a logout/login would reclaim it. NOT required for 3 slots; it is the lever if you
+ever want 5-6, or if the box goes headless.
+
+**And correct a live misconfiguration:** `COGNITION_BACKEND_CONCURRENCY` currently says
+`localhost=3`. With 2 slots the third request queues INSIDE ollama with its timeout clock running.
+Set `localhost=2` to match. It is a system unit: `/etc/systemd/system/ollama.service.d/`.
+
+### 4. Close the fixture-gate gap that let a bug into production
+
+The Markdown break (`**SCORE: -1**` rejected by a bare-prefix parser, fixed in `190a83a`) should
+never have shipped. `bin/eval` with `COGNITION_ROUTE_<ROLE>_CANDIDATE` exists to catch exactly this
+and was skipped. Two jobs: run the character fixtures for ministral-3:14b vs the mistral incumbent,
+and repair `examples/graph_probe.rs` (broken since `resolve.rs` was deleted) so the graph-on-gemma
+swap shipped today can be gated retroactively. `fixtures/graph/` is empty; regenerate via
+`examples/graph_fixture_gen.rs`.
+
+### 5. Then revisit capacity honestly
+
+The Mac at ~89% is the binding constraint, and 426 sigil items are not draining. Options once Phase
+2 lands: `mistral-nemo:12b` (7.1 GB vs 9.1 GB — faster, and leaves room for NUM_PARALLEL=2 on the
+Mac too), or move the highest-volume voice (momentum, 786/day) back to local gemma. Decide with
+numbers, after concurrency, not before.
+
+**Also still open from the original list:** the read budget may no longer need to exist now that
+reads are not scarce (dissolves item 1's rank confound), and `topic_heat_embeddings` is orphaned.
+
 ## Operational
 
 - Env: `set -a && source .env.local && set +a`. `.env.local` is **gitignored** — the gemma route

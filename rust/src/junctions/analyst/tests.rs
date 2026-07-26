@@ -17,6 +17,30 @@ fn parses_momentum_reply() {
 }
 
 #[test]
+fn parses_a_markdown_decorated_reply_the_2026_07_26_split_regression() {
+    // Verbatim from pipeline_work.last_error. The topology split moved The Analyst onto
+    // ministral-3:14b, which labels with Markdown; `**SCORE: -1**` does not start with
+    // `SCORE:`, so every reply was rejected as "momentum: invalid response" and the item
+    // failed and retried. A model swap must not be able to silently cost a whole junction.
+    //
+    // Kept across the s11 merge with its score assertion dropped, NOT weakened by accident:
+    // s11 removed `MomentumReply.score` entirely (the ±5 conviction is computed from
+    // momentum_score now), so there is no longer a field to assert. What this test still
+    // guards is the part that broke production — that a Markdown-labeled reply PARSES AT ALL
+    // rather than failing the item — plus the card-facing requirement below.
+    let parsed = parse_momentum_reply(
+        "**SCORE: -1**\n**READ:** Clark's **PEAK** remains flat—no change in his tackling.",
+    )
+    .expect("a Markdown-labeled reply must parse");
+    // The emphasis inside the prose is stripped too: this text reaches a card, and a card
+    // must never render literal asterisks.
+    assert_eq!(
+        parsed.blurb,
+        "Clark's PEAK remains flat—no change in his tackling."
+    );
+}
+
+#[test]
 fn stray_momentum_line_is_tolerated_and_ignored() {
     // s4 dropped MOMENTUM from the contract; a model echoing the decided direction (in
     // any word, even the old Conflict failure) is skipped, never parsed as content.

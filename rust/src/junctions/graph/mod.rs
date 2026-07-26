@@ -518,6 +518,23 @@ impl StageHandler for GraphHandler {
         Stage::Graph
     }
 
+    /// Matches The Reader's 8, for the same reason and on the same model.
+    ///
+    /// The trait's default of 1 assumes a model call is expensive relative to its neighbours.
+    /// After the 2026-07-26 topology split that stopped being true here: graph runs on gemma3:4b
+    /// locally while the six character stages each take ~40-60s on the Mac, so one rotation is
+    /// ~5 minutes of remote work in which graph — the highest-volume stage in the pipeline at
+    /// ~839 items/day — was allowed exactly ONE item. It fell behind at roughly 35 arrivals per
+    /// hour against ~12 drained, and the queue grew from 1,428 to 1,444 while being watched.
+    ///
+    /// 8 local calls is proportionate to a single remote character call, so this does not starve
+    /// the stages behind it — the balance the default is protecting. It is a mitigation, not the
+    /// cure: the drain is still sequential, so the two machines never actually work at the same
+    /// time. Making them overlap is a worker change, not a batch-size change.
+    fn rotation_batch(&self) -> i64 {
+        8
+    }
+
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let article_id = item.entity_id;
         let sport = item.sport.to_uppercase();

@@ -17,13 +17,6 @@ fn parses_momentum_reply() {
 }
 
 #[test]
-fn parse_first_i32_scans_sign_and_digits() {
-    assert_eq!(parse_first_i32("SCORE: 3"), Some(3));
-    assert_eq!(parse_first_i32("SCORE: -1.0"), Some(-1));
-    assert_eq!(parse_first_i32("no digits here"), None);
-}
-
-#[test]
 fn stray_momentum_line_is_tolerated_and_ignored() {
     // s4 dropped MOMENTUM from the contract; a model echoing the decided direction (in
     // any word, even the old Conflict failure) is skipped, never parsed as content.

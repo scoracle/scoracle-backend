@@ -357,19 +357,6 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
         .map(|_| &s[prefix.len()..])
 }
 
-fn parse_first_i32(s: &str) -> Option<i32> {
-    let mut buf = String::new();
-    let mut started = false;
-    for c in s.chars() {
-        if (c == '-' && !started) || c.is_ascii_digit() {
-            buf.push(c);
-            started = true;
-        } else if started {
-            break;
-        }
-    }
-    buf.parse::<i32>().ok()
-}
 
 fn clean_joined_lines(lines: &[String]) -> String {
     lines

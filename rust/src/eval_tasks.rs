@@ -1281,8 +1281,32 @@ fn empty_dash(s: &str) -> &str {
     }
 }
 
+/// Case-insensitive substring match, with typographic punctuation folded to ASCII first.
+///
+/// The folding is not cosmetic — it is what makes a banned-phrase check real. Fixture expects are
+/// hand-written with ASCII quotes (`isn't a surge`), while chat-tuned models emit the typographic
+/// forms (`isn’t a surge`, U+2019). Without folding, such an exclusion can NEVER fail: it silently
+/// passes on output that contains the banned phrase verbatim. That is the toothless-fixture hazard,
+/// and it hid a live momentum regression through the whole of s10 — the phrase ban added in s10 was
+/// reported as "10 → 0 occurrences" by a grep that could not match the model's own apostrophe.
+///
+/// Only quote characters are folded. Dashes are deliberately left alone: an em dash is a real
+/// stylistic signal some checks may legitimately want to assert on, and folding it to `-` would
+/// make those checks mean something different.
 fn contains_ci(haystack: &str, needle: &str) -> bool {
-    haystack.to_lowercase().contains(&needle.to_lowercase())
+    fold_quotes(haystack).contains(&fold_quotes(needle))
+}
+
+/// Lowercase and fold the typographic quote characters to their ASCII equivalents.
+fn fold_quotes(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\u{2018}' | '\u{2019}' | '\u{201B}' | '\u{02BC}' => '\'',
+            '\u{201C}' | '\u{201D}' | '\u{201F}' => '"',
+            other => other,
+        })
+        .collect::<String>()
+        .to_lowercase()
 }
 
 // ---------------------------------------------------------------------------
@@ -1820,6 +1844,49 @@ mod tests {
     fn transfer_malformed_reply_is_unparseable() {
         let v = TransferTask.evaluate("looks like a rumor", None, None);
         assert!(!v.parsed);
+    }
+
+    // --- typographic folding in the property matcher -----------------------------
+
+    /// The regression this exists to prevent: a banned-phrase exclusion written with an ASCII
+    /// apostrophe must still fail on model output that uses U+2019. Before folding, this check
+    /// passed on text containing the banned phrase verbatim — a check that cannot fail is worse
+    /// than no check, because the run reports green.
+    #[test]
+    fn prose_excludes_matches_across_typographic_apostrophes() {
+        // Real ministral-3:14b output from the momentum-s11 fixture gate (curly U+2019).
+        let reply = "READ: The tape holds firm and the samples are thin. \
+                     For now, this isn\u{2019}t a surge\u{2014}just a brief flash of what might come.";
+        let x = Expect {
+            prose_excludes: Some(vec!["isn't a surge".into()]),
+            ..Default::default()
+        };
+        let v = MomentumTask.evaluate(reply, None, Some(&x));
+        assert!(v.parsed, "reply should parse: {:?}", v.checks);
+        assert!(
+            !v.all_checks_pass(),
+            "ASCII-apostrophe exclusion must catch the U+2019 form; checks: {:?}",
+            v.checks
+        );
+    }
+
+    #[test]
+    fn prose_includes_matches_across_typographic_apostrophes() {
+        let reply = "READ: Harbor City\u{2019}s press is tightening cleanly across the last six.";
+        let x = Expect {
+            prose_includes: Some(vec!["Harbor City's press".into()]),
+            ..Default::default()
+        };
+        let v = MomentumTask.evaluate(reply, None, Some(&x));
+        assert!(v.parsed);
+        assert!(v.all_checks_pass(), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn fold_quotes_leaves_dashes_and_ordinary_text_alone() {
+        assert_eq!(fold_quotes("A\u{2014}B"), "a\u{2014}b");
+        assert_eq!(fold_quotes("\u{201C}quoted\u{201D}"), "\"quoted\"");
+        assert_eq!(fold_quotes("It\u{2019}s"), "it's");
     }
 
     // --- rating / stats-lens rubric ---------------------------------------------

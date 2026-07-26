@@ -1,7 +1,7 @@
 # Handoff — finish the junction pass, then reorganize `rust/src`
 
-Repo `/home/sheneveld/scoracle/scoracle-backend`, branch `main`, tip `1113a0a`, tree clean,
-**11 commits unpushed**. Fetch/pull both repos first; parallel sessions push to origin.
+Repo `/home/sheneveld/scoracle/scoracle-backend`, branch `main`, tree clean, **~16 commits
+unpushed** (wiki has 1). Fetch/pull both repos first; parallel sessions push to origin.
 **This Archbox IS production.** Prod actions need Scott's named approval.
 
 Read `scoracle-wiki/progress_docs/2026-07-25_relevance-root-cause-and-teardown.md` — the plan of
@@ -72,12 +72,16 @@ but do it as its own commit, after the prompts move, so a bisect can tell the tw
      FROM news_article_readings r JOIN news_articles a ON a.id=r.article_id
     WHERE r.updated_at > NOW()-INTERVAL '24 hours' GROUP BY 1,2 ORDER BY 1,2;
    ```
-   A cheaper direct check: hand-read 20 of gemma's `success` verdicts for obvious false positives.
+   A cheaper direct check that needs no rank data: hand-read 20 of gemma's `success` verdicts and
+   look for articles that plainly are not about the entity.
    ```sql
-   SELECT model_version, count(*),
-          round(100.0*count(*) FILTER (WHERE status='irrelevant')
-                /NULLIF(count(*) FILTER (WHERE status IN ('success','irrelevant')),0),1) AS irrelevant_pct
-     FROM news_article_readings WHERE updated_at > NOW()-INTERVAL '12 hours' GROUP BY 1;
+   SELECT t.name AS entity, left(a.title,70) AS title, left(r.evidence_blurb,90) AS blurb
+     FROM news_article_readings r
+     JOIN news_articles a ON a.id = r.article_id
+     JOIN news_article_entities nae ON nae.article_id = a.id AND nae.vetted IS TRUE
+     JOIN teams t ON t.id = nae.entity_id AND t.sport = nae.sport   -- sport! see Traps below
+    WHERE r.model_version = 'gemma3:4b' AND r.status = 'success'
+    ORDER BY r.updated_at DESC LIMIT 20;
    ```
 2. **Then raise the read budget to `COGNITION_ARTICLE_READ_TOP_K=8`** in `.env.local` + restart.
    Measured: K=4 → 701 reads/day (16.4% of ingest), K=8 → 1,058/day (24.7%) — Scott's 25% target.

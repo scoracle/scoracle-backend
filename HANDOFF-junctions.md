@@ -184,6 +184,28 @@ set -a && source .env.local && set +a && cargo run --example topology_probe -- -
 Expect two hosts, `article-reader` alone on localhost, and no "distinct models will contend"
 warning. Boot logs then carry `resolved model topology` and one `ollama reachable` per host.
 
+**OPEN ACTION — pin the Mac's address (2026-07-26, deferred).** `192.168.1.77` is a DHCP lease
+from the AT&T gateway at `192.168.1.254`, `lease_time` 24h. It normally survives reboots (DHCP
+re-offers the same address) but a gateway reboot/reset or a competing device breaks every character
+stage at once, because the `COGNITION_ROUTE_*_BASE_URL` lines below hardcode it. Fix: browse to
+`http://192.168.1.254` → Settings → LAN → IP Allocation → find MAC `1c:f6:4c:72:20:72` (en0, wired)
+→ fix it to `192.168.1.77`. Needs the Device Access Code on the gateway sticker. Do NOT set a static
+IP on the Mac instead — `.77` sits inside the DHCP pool and would risk an address conflict.
+Belt-and-braces regardless: `echo "192.168.1.77 mac-mini" | sudo tee -a /etc/hosts` on Archbox and
+use `http://mac-mini:11434` in the route vars, so a future move is one line instead of nine.
+
+**Mac unattended-boot chain — DONE 2026-07-26.** ollama runs as a system LaunchDaemon
+(`/Library/LaunchDaemons/ai.ollama.serve.plist`, root:wheel 644, `RunAtLoad`, `KeepAlive`,
+`ProcessType Interactive`, `UserName scotty`, `HOME=/Users/scotty`, all seven `OLLAMA_*` vars).
+It is NOT a LaunchAgent on purpose: agents need a login session, daemons do not. Logs go to
+`~/Library/Logs/ollama.{log,err}` — `/var/log` is root-owned and the job runs as scotty, so it
+could not write there. Binds `0.0.0.0`, never a specific IP, so a cold boot that races DHCP still
+comes up. `pmset`: `sleep 0`, `disksleep 0`, `womp 1`, `autorestart 1`. **FileVault was disabled**
+— it was the last blocker, since `HOME` must be readable at boot for the daemon to find the models.
+Ollama is now version-pinned at 0.32.4 (the app no longer runs, so it cannot self-update; it
+silently jumped 0.30.10 → 0.32.4 mid-session before this). Manual update = replace the app, then
+`sudo launchctl kickstart -k system/ai.ollama.serve`. **Still unverified: a real reboot.**
+
 **Roll back** by deleting those env lines and restarting — the code is inert unconfigured, and
 single-host behaviour is byte-identical (test: `single_host_deploys_build_exactly_one_governor`).
 

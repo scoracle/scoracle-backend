@@ -582,10 +582,54 @@ parsing rejected `article:<id>:<SPORT>` — the exact form `GraphTask::build_pro
 `ReaderTask::build_prompt` tell you to use — so `eval --task graph <article>` had never run since
 the task was written. `player|team|article` now parse.
 
-**Next, in order:** (a) decide whether to deploy ar5 — production still runs ar3, and invalidation
-is lazy so there is no re-read stampede; (b) `opponent_only` needs a different mechanism (subject
-attribution), and is the remaining measured gap; (c) the odds/betting class (46 by title) is
-untested against bodies and may be legitimate league reporting — measure before assuming.
+### ar6 — the model is never asked. 16/16.
+
+ar5 shipped and told a second story: `story_type` collapsed to the `general` catch-all on **84% of
+production reads** (52 of 62), so no reject class ever fired and the live rate stayed 0.0%. One
+field cannot answer "what shape is this page" and "what is this story about" at once.
+
+**ar6 removes `relevant` from the schema entirely.** The model is asked two EXTRACTIVE questions
+and `derive_relevance` computes the verdict:
+
+* `page_kind` — article | score_table | listing_or_schedule | video_clip | roundup | other.
+  Rejects a non-reporting page on its shape.
+* `entity_roles` — for every vetted entity: subject | opponent | passing_mention | absent. The
+  first mechanism that can reach an **opponent-only** story, which no page-shape signal ever
+  catches.
+
+`story_type` reverts to pure topic. **gemma3:4b now passes 16/16** — all three rejections and all
+three accepts.
+
+**Two derivation bugs found by measurement, both mine, both worth not repeating:**
+
+1. **Only vetted entities may vote.** Asked to label every vetted entity, the model ALSO
+   volunteers people from the body. On the opponent-only case it returned
+   `Dragojevic:subject, Clement:subject` — neither vetted — so an unfiltered `any(subject)` let
+   invented entries outvote the truth. `ArticleEvidenceParser` now carries the vetted list (the
+   `GraphParser` shape), and `Expect::reader_vetted` carries it into fixtures.
+2. **Omission is a rejection, not an unknown.** My first fallback treated "no vetted entity
+   labelled" as UNKNOWN → accept, and that was the whole remaining failure: the model omitted
+   `West Ham United` entirely, consistently across 3 runs. Measured before flipping it — every
+   accept case labels its vetted entity `subject` (Aston Villa, Arsenal, Real Madrid) and the
+   name-collision case labels it `absent`. It names the entity whenever the story is about it, so
+   a POPULATED list that skips it is evidence of absence.
+
+   Still permissive in one place on purpose: `entity_roles` entirely empty, or no vetted list at
+   all, accepts. Rejection clears the article's vetted links (mig 190) — destructive — and a
+   degenerate reply must not trigger it.
+
+**On the model question: gemma3:4b is not the bottleneck.** It made the hardest call in the set
+correctly (`West Ham United` → `opponent`, and `Baltimore Ravens` → `absent`) while the derivation
+around it was wrong. Do not swap the seat on this evidence. And the headroom would not fund it
+anyway: the 2,947 MiB free exists BECAUSE gemma3:4b's sliding-window attention makes its KV cheap
+— mistral:7b at 4 slots needs ~8.7 GB (4.4 weights + ~4.3 KV) and does not fit; it fits at 2
+slots, which halves the concurrency the day's work just bought.
+
+**Next, in order:** (a) deploy ar6 and measure the live rate against ar3's 0.8% (n=2,453) —
+production is on ar5, invalidation is lazy, no stampede; (b) the odds/betting class (46 by title)
+is still untested against bodies and may be legitimate league reporting — measure before assuming;
+(c) if a challenger is ever wanted, A/B it via `COGNITION_ROUTE_ARTICLE_READER_CANDIDATE` with
+`_CANDIDATE_BASE_URL` pointing at the Mac, so Archbox's single pinned model is never disturbed.
 
 ## Operational
 

@@ -6,7 +6,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `gemma3:4b` — extraction, not voice (2026-07-25) |
-//! | **Contract** | `ar3` |
+//! | **Contract** | `ar6` — describes the page; relevance is DERIVED, never asked |
 //! | **Reads** | the fetched publisher page |
 //! | **Feeds** | The Journalist (`narratives`), via `news_article_readings` |
 //! | **Budget** | top-K per entity by Google's `feed_rank` (mig 194) |
@@ -54,6 +54,7 @@ use crate::util::truncate;
 /// is conditioned on text the model has already committed to, drops ar3's "already-relevance-
 /// vetted" framing — which told the model the question was settled and then asked it anyway —
 /// and promotes the measured rejection classes out of a 12-item bullet list.
+///
 /// **ar5 (2026-07-26) — classify, then derive.** ar4's reorder alone was MEASURED NEUTRAL
 /// (13/16 both ways): with the verdict last, gemma wrote `story_type:"score"` and eight lines of
 /// stat-table facts and *still* answered `relevant:true`. The reasoning was on the line above the
@@ -64,7 +65,22 @@ use crate::util::truncate;
 /// boolean — the one thing it reliably fails. ar5 makes the reject classes first-class enum
 /// values, grammar-enforced in `article_read_format_schema`, and states the verdict as a lookup
 /// from the classification rather than a judgment.
-pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar5";
+///
+/// ar5 was refuted too, and most sharply: with the classes grammar-enforced, gemma labelled the
+/// boxscore `score_stub` and the broadcast page `broadcast_listing` — the exact reject classes,
+/// mapping stated directly above, classification emitted first — and still said `relevant:true`.
+/// Deriving the verdict in the parser took fixtures 13/16 → 15/16, but production told a second
+/// story: `story_type` collapsed to the `general` catch-all on **84% of reads**, so no reject
+/// class ever fired and the live rate stayed at 0.0%.
+///
+/// **ar6 (2026-07-26) — describe the page; the system decides.** `relevant` is GONE from the
+/// schema: the model is never given the question. It answers two extractive ones instead —
+/// `page_kind` (what shape is this page) and `entity_roles` (what part each vetted entity plays)
+/// — and `derive_relevance` computes the verdict. `story_type` reverts to pure topic, because
+/// overloading one field with "what shape" and "what about" is what produced the `general`
+/// collapse. `entity_roles` is also the first mechanism that can reach an opponent-only story,
+/// which no page-shape signal ever catches.
+pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar6";
 
 pub fn build_article_read_prompt(
     article: &ArticleRow,

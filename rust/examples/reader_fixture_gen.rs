@@ -134,6 +134,10 @@ fn main() {
                 &s.vetted,
                 &[],
             );
+            // The vetted list travels WITH the fixture: the production derivation only counts
+            // vetted entities' roles, so a fixture without it would score a different rule.
+            let mut expect = s.expect.clone();
+            expect["reader_vetted"] = json!(s.vetted);
             json!({
                 "name": s.name,
                 "task": "reader",
@@ -142,7 +146,7 @@ fn main() {
                 "system": ARTICLE_READ_SYSTEM_PROMPT,
                 "user_prompt": prompt,
                 "temperature": 0.2,
-                "expect": s.expect,
+                "expect": expect,
             })
         })
         .collect();

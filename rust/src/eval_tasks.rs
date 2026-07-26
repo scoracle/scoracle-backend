@@ -375,6 +375,12 @@ pub struct Expect {
     /// these (e.g. a team name the article never mentions).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub key_facts_exclude: Option<Vec<String>>,
+    /// The fixture prompt's VETTED entity list. `evaluate` hands it to `ArticleEvidenceParser` so
+    /// the real production derivation runs — and it is load-bearing, not decoration: only vetted
+    /// entities' roles count toward the verdict, because the model reliably volunteers extra
+    /// people from the body and an unfiltered vote lets them overturn a correct `opponent`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reader_vetted: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -1554,7 +1560,13 @@ impl LensTask for ReaderTask {
             .await
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
-        let parsed = ArticleEvidenceParser.parse(raw).ok().flatten();
+        let vetted: Vec<String> = expect
+            .and_then(|x| x.reader_vetted.clone())
+            .unwrap_or_default();
+        let parsed = ArticleEvidenceParser { vetted: &vetted }
+            .parse(raw)
+            .ok()
+            .flatten();
         let Some(ev): Option<ArticleEvidence> = parsed else {
             return CaseVerdict {
                 parsed: false,
@@ -1628,17 +1640,26 @@ impl LensTask for ReaderTask {
 mod tests {
     use super::*;
 
-    /// One raw reply in the Reader's contract shape.
+    /// One raw reply in the Reader's ar6 contract shape. There is no `relevant` key — the model is
+    /// never asked; `page_kind` and `entity_roles` are what the verdict is derived from.
     fn reader_raw(relevant: bool, blurb: &str, facts: &[&str]) -> String {
+        // Express the wanted verdict through the DESCRIPTIVE fields, which is the whole point of
+        // ar6: a rejection is now something the page is, not something the model asserts.
+        let (page_kind, role) = if relevant {
+            ("article", "subject")
+        } else {
+            ("listing_or_schedule", "passing_mention")
+        };
         serde_json::json!({
-            "relevant": relevant,
             "source_language": "en",
-            "evidence_blurb": blurb,
+            "page_kind": page_kind,
+            "entity_roles": [{"entity": "Some Club", "role": role}],
+            "story_type": "fixture",
             "key_facts": facts,
             "relevant_entities": [],
             "co_mentions": [],
-            "story_type": "fixture",
-            "caveats": ""
+            "caveats": "",
+            "evidence_blurb": blurb
         })
         .to_string()
     }

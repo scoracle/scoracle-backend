@@ -44,7 +44,7 @@ fn google_news_resolver_response_extracts_publisher_url() {
 #[test]
 fn parser_accepts_compact_evidence_card() {
     let raw = r#"{"source_language":"DE","evidence_blurb":"  Player X returned to training.  ","key_facts":[" one ",""],"relevant_entities":["Club"],"co_mentions":[],"story_type":" injury ","caveats":""}"#;
-    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }.parse(raw).unwrap().unwrap();
     assert_eq!(parsed.source_language, "de");
     assert_eq!(parsed.evidence_blurb, "Player X returned to training.");
     assert_eq!(parsed.key_facts, vec!["one"]);
@@ -54,7 +54,7 @@ fn parser_accepts_compact_evidence_card() {
 #[test]
 fn parser_accepts_co_mention_verdicts() {
     let raw = r#"{"relevant":true,"source_language":"en","evidence_blurb":"A filed item.","key_facts":[],"relevant_entities":["Club"],"co_mentions":[{"candidate":2,"relevant":true},{"candidate":0,"relevant":true},{"candidate":3,"relevant":false}],"story_type":"general","caveats":""}"#;
-    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }.parse(raw).unwrap().unwrap();
     assert_eq!(parsed.co_mentions.len(), 2);
     assert_eq!(parsed.co_mentions[0].candidate, 2);
     assert!(parsed.co_mentions[0].relevant);
@@ -62,36 +62,122 @@ fn parser_accepts_co_mention_verdicts() {
     assert!(!parsed.co_mentions[1].relevant);
 }
 
-#[test]
-fn reject_story_type_overrides_a_model_that_will_not_say_no() {
-    // The measured failure, verbatim: gemma3:4b classifies a boxscore `score_stub` — the exact
-    // reject class, with the mapping stated as a lookup and the classification emitted BEFORE the
-    // verdict — and still answers relevant=true. Three prompt revisions moved this by zero, so
-    // the verdict is derived from the classification rather than trusted.
-    let raw = r#"{"source_language":"en","story_type":"score_stub","key_facts":["West Ham 3, Southampton 0"],"relevant_entities":["West Ham United"],"co_mentions":[],"caveats":"","evidence_blurb":"West Ham beat Southampton 3-0.","relevant":true}"#;
-    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
-    assert!(!parsed.relevant, "score_stub must force relevant=false");
+/// The vetted entity list these tests score against. Only these names get a vote in
+/// `derive_relevance`, which is the whole point — the model volunteers others.
+fn vetted() -> Vec<String> {
+    ["West Ham United", "Baltimore Ravens", "Norwich City", "Aston Villa", "X"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+/// One ar6 reply. Note there is no `relevant` key — the model is never asked.
+fn ar6_raw(page_kind: &str, roles: &[(&str, &str)]) -> String {
+    let roles: Vec<_> = roles
+        .iter()
+        .map(|(e, r)| serde_json::json!({"entity": e, "role": r}))
+        .collect();
+    serde_json::json!({
+        "source_language": "en",
+        "page_kind": page_kind,
+        "entity_roles": roles,
+        "story_type": "general",
+        "key_facts": ["a fact"],
+        "relevant_entities": [],
+        "co_mentions": [],
+        "caveats": "",
+        "evidence_blurb": "A blurb."
+    })
+    .to_string()
 }
 
 #[test]
-fn reject_story_type_match_is_case_insensitive() {
-    let raw = r#"{"source_language":"en","story_type":"Broadcast_Listing","key_facts":[],"relevant_entities":[],"co_mentions":[],"caveats":"","evidence_blurb":"A TV listing.","relevant":true}"#;
-    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+fn a_non_reporting_page_shape_is_rejected() {
+    // The measured failure: gemma will not say no. Under ar6 it is not asked to — a score table
+    // is rejected on its SHAPE, even though the entity is genuinely named all over it.
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw("score_table", &[("West Ham United", "subject")]))
+        .unwrap()
+        .unwrap();
+    assert!(!parsed.relevant, "score_table is not reporting");
+}
+
+#[test]
+fn an_opponent_only_story_is_rejected_by_role() {
+    // The gap no page-shape signal could ever reach: real prose reporting, but the vetted entity
+    // is only who the subject plays against.
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw("article", &[("West Ham United", "opponent")]))
+        .unwrap()
+        .unwrap();
     assert!(!parsed.relevant);
 }
 
 #[test]
-fn reporting_story_type_never_forces_relevant_true() {
-    // The derivation is ONE-WAY on purpose: we are correcting a measured failure to say no, not
-    // overriding a no. A model that rejects on its own judgment keeps that judgment.
-    let raw = r#"{"source_language":"en","story_type":"transfer","key_facts":[],"relevant_entities":[],"co_mentions":[],"caveats":"","evidence_blurb":"Not about the club after all.","relevant":false}"#;
-    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
-    assert!(!parsed.relevant, "a reporting story_type must not resurrect a rejection");
+fn a_name_collision_is_rejected_as_absent() {
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw("article", &[("Baltimore Ravens", "absent")]))
+        .unwrap()
+        .unwrap();
+    assert!(!parsed.relevant);
+}
+
+#[test]
+fn one_subject_among_several_entities_is_enough() {
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw(
+            "article",
+            &[("Norwich City", "passing_mention"), ("Aston Villa", "subject")],
+        ))
+        .unwrap()
+        .unwrap();
+    assert!(parsed.relevant);
+}
+
+#[test]
+fn empty_entity_roles_is_unknown_not_rejection() {
+    // Rejection clears the article's vetted links, so a degenerate reply with NO labels at all
+    // must not trigger it. Page shape still applies on its own.
+    assert!(derive_relevance("article", &[], &vetted()));
+    assert!(!derive_relevance("listing_or_schedule", &[], &vetted()));
+    // Nor may an empty vetted list reject everything.
+    assert!(derive_relevance("article", &[], &[]));
+}
+
+#[test]
+fn omitting_the_vetted_entity_from_a_populated_list_rejects() {
+    // THE opponent-only failure, measured verbatim: the model labels the two people it found in
+    // the body as `subject` and leaves the vetted entity out entirely. It labels the entity
+    // whenever the story is about it, so a populated list that skips it is evidence of absence.
+    let raw = ar6_raw(
+        "article",
+        &[
+            ("Vanja Dragojevic", "subject"),
+            ("Philippe Clement", "subject"),
+        ],
+    );
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&raw)
+        .unwrap()
+        .unwrap();
+    assert!(
+        !parsed.relevant,
+        "non-vetted subjects must not carry an article the vetted entity is absent from"
+    );
+}
+
+#[test]
+fn role_and_page_kind_matching_is_case_insensitive() {
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw("Score_Table", &[("X", "Subject")]))
+        .unwrap()
+        .unwrap();
+    assert!(!parsed.relevant);
 }
 
 #[test]
 fn parser_fails_closed_on_empty_blurb() {
-    let parsed = ArticleEvidenceParser
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
         .parse(r#"{"evidence_blurb":" ","key_facts":[],"relevant_entities":[],"story_type":"general","caveats":""}"#)
         .unwrap();
     assert!(parsed.is_none());
@@ -99,8 +185,10 @@ fn parser_fails_closed_on_empty_blurb() {
 
 #[test]
 fn parser_accepts_irrelevant_without_blurb() {
-    let parsed = ArticleEvidenceParser
-        .parse(r#"{"relevant":false,"evidence_blurb":" ","key_facts":[],"relevant_entities":[],"story_type":"irrelevant","caveats":""}"#)
+    // ar6: the rejection comes from the page SHAPE, not from a `relevant` key the model no longer
+    // emits. A rejected read still gets the fallback blurb rather than failing closed to None.
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(r#"{"page_kind":"listing_or_schedule","entity_roles":[],"evidence_blurb":" ","key_facts":[],"relevant_entities":[],"story_type":"general","caveats":""}"#)
         .unwrap()
         .unwrap();
     assert!(!parsed.relevant);

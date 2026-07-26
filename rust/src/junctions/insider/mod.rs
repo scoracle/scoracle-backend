@@ -28,7 +28,7 @@
 //! row serving, which then cools off naturally with its sources — the source-freshness doctrine
 //! working, per the 2026-07-12 plan.
 //!
-//! THE t5 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
+//! THE t11 PROMPT keeps the L9 false-heat fixes (roundups are not rumors; never invent a fee or stage)
 //! but rewrites the instructions as schema-first rules for smaller local models.
 
 use crate::corpus::{load_transfer_heat, HeatItem};
@@ -1024,7 +1024,7 @@ pub async fn vet_pair(
     sport: &str,
     ready: PairReady,
 ) -> Result<TransferPairOutput> {
-    // route(EmotionalNews) + extract(TransferParser). A generate transport error → fail-closed
+    // route(TransferLogic) + extract(TransferParser). A generate transport error → fail-closed
     // UNKNOWN row (Go persists UNKNOWN on a model timeout, then the team item is retried), recording
     // the prompt/body that WAS sent for the parity diff.
     //

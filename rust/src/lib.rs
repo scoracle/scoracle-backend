@@ -16,7 +16,7 @@
 //!
 //! - Stats/analytical rail: Rating/PEAK plus Momentum trajectory.
 //! - Emotional/news rail: Narratives, Transfers, and Vibe.
-//! - Synthesis rail: Sigil, the final panel read.
+//! - Synthesis rail: Sigil — The Oracle reads the other five cards and renders the verdict.
 //!
 //! Momentum is now a queue stage: deterministic `momentum_scores` stays the numeric backbone, while
 //! `momentum_summaries` stores the generated direction/blurb product consumed by Sigil. The eval

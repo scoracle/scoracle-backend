@@ -1,13 +1,13 @@
 //! news narratives — the `Stage::Narratives` queue handler. The largest GPU stage, and the one
 //! with native Rust value-add: it composes the candle
 //! **embed+cluster** primitive (group near-duplicate articles and drop them BEFORE the model call —
-//! the dedup the Go pipeline never had) with `route(EmotionalNews) + extract + persist`.
+//! the dedup the Go pipeline never had) with `route(NarrativeLogic) + extract + persist`.
 //!
 //! Rust implementation of the news narrative stage:
 //! - `load_vetted_corpus` reads the vetted article context from Postgres.
 //! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
 //!   vibe via [`corpus::write_heat_lines`].
-//! - The n5 system prompt is model-neutral and schema-first for smaller local models.
+//! - The n13 system prompt is model-neutral and schema-first for smaller local models.
 //! - `parse_narratives` uses a tolerant balanced-brace salvager: a truncated tail drops its last
 //!   incomplete object; an empty `{"narratives": []}` is a successful parse -> marker.
 //! - `compute_news_impact` reproduces the deterministic per-narrative impact (volume + corroboration
@@ -1351,7 +1351,7 @@ pub async fn generate_narratives_from_build(
         NarrativesBuild::Ready(r) => *r,
     };
 
-    // route(EmotionalNews) + extract(NarrativesParser). A malformed/unsalvageable reply surfaces as
+    // route(NarrativeLogic) + extract(NarrativesParser). A malformed/unsalvageable reply surfaces as
     // the parser's Err → the item fails + backs off (Go's parse failure → retry), never a marker.
     let extracted = hx
         .extract(

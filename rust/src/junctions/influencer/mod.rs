@@ -545,7 +545,7 @@ impl Parser<VibeReply> for VibeParser {
 // ---------------------------------------------------------------------------
 
 /// generate_vibe runs the full vibe derivation for one entity at the given temperature and
-/// returns the un-persisted result. This is the L1 composition — `route(EmotionalNews) +
+/// returns the un-persisted result. This is the L1 composition — `route(VibeLogic) +
 /// extract(VibeParser)` — over the same loaders + prompt: load the context, short-circuit
 /// to the no-corpus marker when it is empty, else build the prompt and `extract`. The
 /// production handler calls `load_vibe_context` itself (to debounce before the model call)

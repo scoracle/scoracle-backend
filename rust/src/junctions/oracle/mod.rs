@@ -1,6 +1,6 @@
 //! Sigil stage — the crown convergence and Oracle reading.
 //!
-//! Sigil = `read pillars + route(SynthesisLogic) + extract(SigilParser) + persist`, with a
+//! Sigil = `read pillars + route(OracleLogic) + extract(SigilParser) + persist`, with a
 //! `debounce_unchanged` gate on the pillar `input_hash`. The prompt composes PEAK, Vibe,
 //! Momentum, transfers, and current narratives as distinct pillars.
 //! Phase 5.1 adds a fifth: the transfer-heat pillar (the transfer lens the trigger gate already
@@ -8,7 +8,7 @@
 //! Phase 5.2 feeds the previous Sigil (score + blurb) back into the prompt as continuity — a
 //! prompt-only anchor, deliberately kept OUT of the `input_hash` (the score always moves, so
 //! hashing it would self-trigger every re-run).
-//! Phase 5.3 makes panel DISAGREEMENT a first-class output: the synthesis reply gained three
+//! Phase 5.3 makes DISAGREEMENT between the five cards a first-class output: the reply gained three
 //! OPTIONAL lines (`CONVERGENCE:` / `DISAGREEMENT:` / `WHY_NOW:`) alongside the required
 //! SCORE + BLURB, persisted to the additive nullable `convergence`/`disagreement`/`why_now`
 //! columns (mig 143). They are model OUTPUTS, not inputs — the `input_hash` stays

@@ -20,7 +20,7 @@
 //! empty model body is a hard error (the work fails + retries), never a served row (Go returns an
 //! error too). So `RatingParser` never returns `Ok(None)` (like `VibeParser`).
 //!
-//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s9 prompt is
+//! The deterministic profile assembly, input hash, and parser stay byte-stable. The s14 prompt is
 //! Rust-owned and model-neutral, with the same core invariant: the labeled tier is the truth.
 
 use crate::harness::{Harness, Parser, Provenance};

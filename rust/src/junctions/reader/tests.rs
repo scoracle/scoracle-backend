@@ -62,6 +62,33 @@ fn parser_accepts_co_mention_verdicts() {
     assert!(!parsed.co_mentions[1].relevant);
 }
 
+/// An out-of-range candidate index costs its own verdict and nothing else.
+///
+/// The literal below is the reply that broke production on 2026-07-26: gemma3:4b answered
+/// `"candidate": 2080781384616956`, which does not fit the `i32` the field used to be, so serde
+/// failed the whole `ArticleEvidence` parse and took a valid reading with it. Because the defect
+/// lives in the reply's shape, the retry reproduced it every time — `article_read` entity 173300
+/// re-failed on a 30-minute backoff indefinitely. What must hold is that the article still parses
+/// and the surviving co-mentions are intact.
+#[test]
+fn parser_survives_an_unrepresentable_candidate_index() {
+    let raw = r#"{"source_language":"en","evidence_blurb":"A filed item.","key_facts":["one"],"relevant_entities":["Club"],"co_mentions":[{"candidate":2080781384616956,"relevant":true},{"candidate":3,"relevant":true}],"story_type":"general","caveats":""}"#;
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }.parse(raw).unwrap().unwrap();
+    // The junk index is zeroed and dropped by the `candidate > 0` filter; 3 is untouched.
+    assert_eq!(parsed.co_mentions.len(), 1);
+    assert_eq!(parsed.co_mentions[0].candidate, 3);
+    assert_eq!(parsed.evidence_blurb, "A filed item.");
+}
+
+/// Models write `"3"` for 3. That is the same index, so it must not be discarded as noise.
+#[test]
+fn parser_accepts_a_numeric_string_candidate_index() {
+    let raw = r#"{"source_language":"en","evidence_blurb":"A filed item.","key_facts":["one"],"relevant_entities":["Club"],"co_mentions":[{"candidate":"4","relevant":true}],"story_type":"general","caveats":""}"#;
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }.parse(raw).unwrap().unwrap();
+    assert_eq!(parsed.co_mentions.len(), 1);
+    assert_eq!(parsed.co_mentions[0].candidate, 4);
+}
+
 /// The vetted entity list these tests score against. Only these names get a vote in
 /// `derive_relevance`, which is the whole point — the model volunteers others.
 fn vetted() -> Vec<String> {

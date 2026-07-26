@@ -248,10 +248,36 @@ pub struct ArticleEntityRole {
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ArticleCoMentionVerdict {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_candidate_lossy")]
     pub candidate: i32,
     #[serde(default)]
     pub relevant: bool,
+}
+
+/// Deserialize `candidate` without letting a junk index cost the whole article.
+///
+/// It is a 1-based position in a list capped at [`ARTICLE_MAX_CO_MENTION_CANDIDATES`], so the only
+/// values that can mean anything are small. A plain `i32` field looks safe on that reasoning and is
+/// not: on 2026-07-26 gemma3:4b returned `"candidate": 2080781384616956`, which does not fit an
+/// `i32`, so serde failed the ENTIRE `ArticleEvidence` parse. The reading died with it, and because
+/// the defect is in the shape of the reply, every retry reproduced it — `article_read` entity
+/// 173300 sat on a 30-minute backoff re-failing indefinitely, holding a slot each time.
+///
+/// So the blast radius is bounded here instead: anything unrepresentable becomes 0 and is dropped
+/// by the `candidate > 0` filter alongside the rest of the noise. One bad index costs one
+/// co-mention verdict. Numeric strings are accepted because models emit `"3"` for 3, and that is
+/// the same index by any honest reading.
+fn de_candidate_lossy<'de, D>(d: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::Number(n) => {
+            n.as_i64().and_then(|v| i32::try_from(v).ok()).unwrap_or(0)
+        }
+        serde_json::Value::String(s) => s.trim().parse::<i32>().unwrap_or(0),
+        _ => 0,
+    })
 }
 
 /// Carries the VETTED entity names, because relevance cannot be derived without them — the same

@@ -181,6 +181,34 @@ concurrent, scarcity likely ends — and if you read everything, `feed_rank` goe
 ordering rather than a gate, which dissolves the rank confound in item 1 for free.
 
 
+## DECISIONS — 2026-07-26 afternoon, before the compositor restart
+
+Scott's calls, made with the measured numbers in hand. These SUPERSEDE anything below that
+conflicts.
+
+1. **Archbox comes off the sequencing approach entirely.** It should work items as they arrive,
+   not one per rotation. The rotation existed to stop a single GPU being oversubscribed; the
+   per-host semaphores (`dfbf78a`) now do that job properly, so **the governor becomes the
+   scheduler** and the rotation constraint can go. Reader and graph pull continuously up to the
+   host's slot count.
+2. **The Mac keeps sequencing** — `COGNITION_BACKEND_CONCURRENCY` pins it at `=1`, because 16 GB
+   will not hold two KV allocations for a 14B and `OLLAMA_NUM_PARALLEL=1` there means a second
+   request would queue inside ollama with its timeout clock running.
+3. **4 concurrent slots on Archbox**, after the compositor restart frees ~1.8 GB. Set
+   `OLLAMA_NUM_PARALLEL=4` and `COGNITION_BACKEND_CONCURRENCY=http://localhost:11434=4,...`.
+   The two numbers must match: slots the harness will use vs slots ollama actually allocates.
+4. **Ingest moved 6h -> 12h** (`0 */12` in crontab, DONE 2026-07-26 12:40; previous crontab backed
+   up to `~/.cache/crontab/crontab.bak` and to this session's scratchpad). Deliberate while the
+   backlog drains and the tuning settles. **Known cost, accepted:** Google News RSS is a capped
+   rolling window, so half the sweeps means roughly half the articles ever seen — not deferred,
+   gone. It also sharpens the existing `-rss-limit` bias, which truncates AFTER `sortArticlesByDate`
+   and so drops the older half of a longer window by construction. Revert with `0 */6` when tuning
+   is done. `cron-narrative-links.sh` deliberately stays at 6h — different, cheap job.
+
+The intended end state: **Archbox never backlogs.** Reader and graph chew through work as it
+arrives on 4 slots, and the only thing anyone waits on is the Mac — which is the correct place for
+the constraint to live, since that is where the expensive character voices are.
+
 ## PLAN — Phase 2: make the two machines actually work at the same time
 
 Written 2026-07-26 12:15 after a measured 30-minute window. Execute in a fresh context.

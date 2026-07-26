@@ -201,7 +201,10 @@ article_read 233->205 then re-injected to 453 by an ingest sweep, sigil flat at 
 omits, so ollama falls back to its server default. **Two context sizes on one model force a runner
 reload**, and they alternate constantly. Set graph to `ARTICLE_NUM_CTX` (8192) — the 8192 runner is
 already what the Reader makes us pay for, so this costs no extra VRAM and should take reloads to
-~0. Verify: `journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
+~0. **Confirmed, not theorised:** reloads arrive in PAIRS 12-17s apart every 6-7 minutes
+(11:59:48/12:00:05, 12:05:48/12:06:01, 12:09:32/12:09:44, ...) -- one rotation loading 8192 for
+the Reader then the default for graph. Verify after the fix:
+`journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
 
 ### 2. Phase 2 proper — concurrent drain
 
@@ -225,9 +228,19 @@ Batched inference reads the weights ONCE per batch, so on a bandwidth-bound card
 2x throughput rather than 1.3x. Archbox has NO `OLLAMA_NUM_PARALLEL` set today, so it serves one at
 a time no matter what the harness sends — which is why this only pays off after Phase 2.
 
-**The number is 2, not 3.** 8192 MiB total, 6276 used, 1831 free; gemma resident 4.43 GB (weights
-~3.3 + KV ~1.1 at ctx 8192). Each extra slot costs ~1.1 GB: two slots ~5.5 GB fits, three ~6.6 GB
-exceeds the ~6.3 GB ceiling.
+**Use 3.** An earlier draft of this plan said 2, from a generic-4B estimate of ~1.1 GB per slot.
+That is wrong for this model: **gemma3 uses sliding-window attention on 5 of every 6 layers**, so
+those layers cap KV at a 1024-token window rather than the full 8192 and the cache is a fraction of
+a standard 4B's. Measured: ollama holds 3,880 MiB total for weights (~3.3 GB) plus KV plus compute
+buffers, so one slot's KV is ~350-500 MB. Against 1,835 MiB free, 3 slots (~+800 MiB) fits
+comfortably and 4 probably would. Set `localhost=3` in COGNITION_BACKEND_CONCURRENCY to match --
+it is already 3, so that line needs no change after all.
+
+**The 1.8 GB of 'missing' VRAM is the desktop, not a leak in our stack:** `cosmic-comp` holds
+1,872 MiB (plus ~150 MiB of panel/portal/Xwayland/ghostty). It has been up 22 days driving a
+3840x1600 ultrawide, whose framebuffers should cost ~300 MB -- so most of that is likely
+accumulation and a logout/login would reclaim it. NOT required for 3 slots; it is the lever if you
+ever want 5-6, or if the box goes headless.
 
 **And correct a live misconfiguration:** `COGNITION_BACKEND_CONCURRENCY` currently says
 `localhost=3`. With 2 slots the third request queues INSIDE ollama with its timeout clock running.

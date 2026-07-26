@@ -27,7 +27,7 @@
 use std::path::Path;
 
 use scoracle_cognition::eval_tasks::{Expect, Fixture};
-use scoracle_cognition::transfer::{
+use scoracle_cognition::junctions::insider::{
     build_transfer_prompt, transfer_system_prompt, NewsItem, TransferCandidate, TransferEvidence,
     TRANSFER_PROMPT_VERSION,
 };

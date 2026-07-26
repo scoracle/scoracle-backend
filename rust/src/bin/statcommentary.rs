@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use scoracle_cognition::config::Config;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::ollama::OllamaClient;
-use scoracle_cognition::rating::{
+use scoracle_cognition::junctions::scout::{
     build_rating_request, generate_rating, peak_work_input_version, persist_stat_summary,
     RatingBuild, RatingOutput, RatingReq, RATING_PROMPT_VERSION, RATING_TEMPERATURE,
 };
@@ -98,7 +98,7 @@ async fn run_single(hx: &Harness, args: &Args) -> Result<()> {
     let out = generate_rating(hx, &req, RATING_TEMPERATURE, args.skip_unchanged, true).await?;
     if args.persist && !out.skipped_unchanged {
         persist_rating(hx, &req, &out).await?;
-        scoracle_cognition::momentum::enqueue_momentum_if_needed(
+        scoracle_cognition::junctions::analyst::enqueue_momentum_if_needed(
             hx,
             &req.entity_type,
             req.entity_id,

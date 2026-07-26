@@ -21,10 +21,10 @@ use anyhow::{anyhow, Result};
 use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
-use scoracle_cognition::{
-    boxscore_fetch, config, db, embed, graph, momentum, narratives, ollama, rating, reader,
-    scrub, sigil, stage, transfer, vibe, worker,
+use scoracle_cognition::junctions::{
+    analyst, graph, influencer, insider, journalist, oracle, reader, scout,
 };
+use scoracle_cognition::{boxscore_fetch, config, db, embed, ollama, scrub, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -110,30 +110,30 @@ async fn main() -> Result<()> {
         handlers.push(Box::new(boxscore_fetch::FixtureBoxscoreHandler::new()));
     }
     if enabled.contains("transfers") {
-        handlers.push(Box::new(transfer::TransferHandler::new()));
+        handlers.push(Box::new(insider::TransferHandler::new()));
     }
     // narratives needs the CPU embedder loaded above for its near-duplicate dedup step.
     if enabled.contains("narratives") {
-        handlers.push(Box::new(narratives::NarrativesHandler::new()));
+        handlers.push(Box::new(journalist::NarrativesHandler::new()));
     }
     if enabled.contains("vibe") {
-        handlers.push(Box::new(vibe::VibeHandler::new()));
+        handlers.push(Box::new(influencer::VibeHandler::new()));
     }
     // PEAK feeds Momentum/Sigil, but it does not feed the news rail. Keep it after
     // the news-product stages so a nightly stat backlog cannot delay The Journalist.
     if enabled.contains("peak") {
-        handlers.push(Box::new(rating::PeakHandler::new()));
+        handlers.push(Box::new(scout::PeakHandler::new()));
     }
     // momentum consumes PEAK + vibe, so it registers after both: a vibe hand-off
     // (enqueue_momentum_if_needed) drains in the same tick pass instead of waiting
     // for the next NOTIFY/safety-net wake.
     if enabled.contains("momentum") {
-        handlers.push(Box::new(momentum::MomentumHandler::new()));
+        handlers.push(Box::new(analyst::MomentumHandler::new()));
     }
     // sigil is the terminal stage: decide → voice as two internal steps of one work item
     // (the oracle stage folded in, Session B 2026-07-16).
     if enabled.contains("sigil") {
-        handlers.push(Box::new(sigil::SigilHandler::new()));
+        handlers.push(Box::new(oracle::SigilHandler::new()));
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
 

@@ -30,7 +30,7 @@ use std::path::Path;
 
 use scoracle_cognition::corpus::HeatItem;
 use scoracle_cognition::eval_tasks::{Expect, Fixture};
-use scoracle_cognition::vibe::{
+use scoracle_cognition::junctions::influencer::{
     build_sentiment_prompt, Narrative, PrevVibe, VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
 

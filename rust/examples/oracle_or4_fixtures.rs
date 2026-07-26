@@ -23,7 +23,7 @@
 use std::path::Path;
 
 use scoracle_cognition::corpus::HeatItem;
-use scoracle_cognition::sigil::{
+use scoracle_cognition::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, pillar_convergence, SynthMomentum,
     SynthNarrative, SynthRating, SynthVibe, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };

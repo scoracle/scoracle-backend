@@ -8,7 +8,7 @@ use crate::harness::{EntityKey, Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::sigil::{self, SynthMomentum, SynthRating, SynthVibe};
+use crate::junctions::oracle::{self, SynthMomentum, SynthRating, SynthVibe};
 use crate::stage::StageHandler;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
 use crate::work::{self, Item, Stage};
@@ -169,10 +169,10 @@ pub async fn load_momentum_context(
     entity_id: i32,
     sport: &str,
 ) -> Result<MomentumContext> {
-    let season = sigil::resolve_season(&hx.pool, sport, None).await?;
+    let season = oracle::resolve_season(&hx.pool, sport, None).await?;
     let (rating, vibe, snapshot) = tokio::try_join!(
-        sigil::load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
-        sigil::load_vibe_pillar(&hx.pool, entity_type, entity_id, sport),
+        oracle::load_rating_pillar(&hx.pool, entity_type, entity_id, sport, Some(season)),
+        oracle::load_vibe_pillar(&hx.pool, entity_type, entity_id, sport),
         load_momentum_snapshot(&hx.pool, entity_type, entity_id, sport),
     )?;
     let input_components_json =
@@ -594,7 +594,7 @@ impl StageHandler for MomentumHandler {
         // Relational memory card (s5): load failure degrades to an unenriched prompt (the
         // n8/v12 discipline — the trajectory numbers are the primary signal, memory is
         // the arc context that keeps the READ entity-specific).
-        let memory = match crate::narratives::load_entity_memory(
+        let memory = match crate::junctions::journalist::load_entity_memory(
             &hx.pool,
             &sport,
             &item.entity_type,

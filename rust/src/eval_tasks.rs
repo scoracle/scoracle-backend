@@ -32,36 +32,36 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
-use crate::graph::{
+use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
 };
 use crate::harness::{Harness, Parser};
-use crate::momentum::{
+use crate::junctions::analyst::{
     build_momentum_prompt, parse_momentum_reply, MOMENTUM_NUM_PREDICT, MOMENTUM_PROMPT_VERSION,
     MOMENTUM_SYSTEM_PROMPT,
 };
-use crate::narratives::{
+use crate::junctions::journalist::{
     build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
     NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
 };
 use crate::ollama::GenerateOptions;
-use crate::rating::{
+use crate::junctions::scout::{
     build_rating_request, RatingBuild, RatingParser, RatingReq, RATING_NUM_PREDICT,
     RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };
 use crate::route::Role;
-use crate::sigil::{
+use crate::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, count_sentences, load_pillars,
     oracle_format_schema, parse_crown_reply, pillar_convergence, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT,
 };
-use crate::transfer::{
+use crate::junctions::insider::{
     build_pair_request, load_candidates, transfer_system_prompt, PairBuild, TransferParser,
     TRANSFER_DEFAULT_MIN_ARTICLES, TRANSFER_NUM_PREDICT, TRANSFER_PROMPT_VERSION,
 };
-use crate::vibe::{
+use crate::junctions::influencer::{
     build_sentiment_prompt, load_latest_narratives, parse_vibe_reply, VIBE_NUM_PREDICT,
     VIBE_PROMPT_VERSION, VIBE_SYSTEM_PROMPT,
 };
@@ -708,7 +708,7 @@ impl LensTask for NarrativeTask {
             num_ctx: NARRATIVES_NUM_CTX,
             json_mode: false,
             // Grammar-constrained, matching the live stage (Phase 5).
-            format_schema: Some(crate::narratives::narratives_format_schema()),
+            format_schema: Some(crate::junctions::journalist::narratives_format_schema()),
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -933,7 +933,7 @@ impl LensTask for TransferTask {
             })?;
 
         let relationship =
-            crate::transfer::team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
+            crate::junctions::insider::team_relationship(&hx.pool, e.entity_id, player_id, &sport).await?;
         match build_pair_request(
             hx,
             e.entity_id,
@@ -1168,7 +1168,7 @@ impl LensTask for RatingTask {
 
 pub struct MomentumTask;
 
-// Momentum's prompt contract lives in `crate::momentum` (the production stage) — the eval task
+// Momentum's prompt contract lives in `crate::junctions::analyst` (the production stage) — the eval task
 // imports it rather than carrying a copy. It USED to carry its own fork ("momentum-eval-v3",
 // a duplicate system prompt, its own parser): a relic from momentum's fixture-first era that
 // silently diverged from production — the eval was measuring a prompt and a parser production

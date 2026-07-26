@@ -16,7 +16,7 @@
 //! Output: a JSON array of fixture objects; split into `fixtures/graph/<name>.json`.
 //! Offline — no DB, no model, no queue.
 
-use scoracle_cognition::graph::{
+use scoracle_cognition::junctions::graph::{
     build_graph_prompt, GraphCandidate, GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT,
 };
 use serde_json::json;

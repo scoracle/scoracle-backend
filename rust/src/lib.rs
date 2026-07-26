@@ -27,33 +27,32 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-pub mod reader;
-pub mod boxscore_fetch;
-pub mod bucket;
-pub mod buildinfo;
+/// The seven model-calling seats, one directory each. See [`junctions`] for the roster.
+pub mod junctions;
+
+// Infrastructure — the machinery every junction composes over.
 pub mod config;
-pub mod corpus;
 pub mod db;
 pub mod embed;
-pub mod eval_tasks;
-pub mod graph;
 pub mod harness;
-pub mod judge;
 pub mod ledger;
-pub mod momentum;
-pub mod narratives;
-pub mod novelty;
 pub mod ollama;
-pub mod prompts;
-pub mod rating;
 pub mod route;
-pub mod scrub;
-pub mod sigil;
 pub mod stage;
-pub mod threads;
-pub mod trajectory;
-pub mod transfer;
-pub mod util;
-pub mod vibe;
 pub mod work;
 pub mod worker;
+
+// Primitives — shared, junction-agnostic building blocks.
+pub mod bucket;
+pub mod buildinfo;
+pub mod corpus;
+pub mod novelty;
+pub mod threads;
+pub mod trajectory;
+pub mod util;
+
+// Non-junction stages and offline tooling.
+pub mod boxscore_fetch;
+pub mod eval_tasks;
+pub mod judge;
+pub mod scrub;

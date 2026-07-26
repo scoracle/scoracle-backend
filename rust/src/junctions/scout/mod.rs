@@ -1771,7 +1771,7 @@ impl StageHandler for PeakHandler {
             &out,
         )
         .await?;
-        crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+        crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
             .await?;
         Ok(())
     }

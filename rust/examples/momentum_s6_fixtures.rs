@@ -18,10 +18,10 @@
 
 use std::path::Path;
 
-use scoracle_cognition::momentum::{
+use scoracle_cognition::junctions::analyst::{
     build_momentum_prompt, MOMENTUM_PROMPT_VERSION, MOMENTUM_SYSTEM_PROMPT,
 };
-use scoracle_cognition::sigil::{SynthMomentum, SynthRating, SynthVibe};
+use scoracle_cognition::junctions::oracle::{SynthMomentum, SynthRating, SynthVibe};
 use serde_json::json;
 
 struct Scenario {

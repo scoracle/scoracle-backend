@@ -16,11 +16,11 @@ use scoracle_cognition::config::Config;
 use scoracle_cognition::corpus::lookup_entity_name;
 use scoracle_cognition::db;
 use scoracle_cognition::harness::Harness;
-use scoracle_cognition::narratives::load_entity_memory;
+use scoracle_cognition::junctions::journalist::load_entity_memory;
 use scoracle_cognition::ollama::GenerateOptions;
 use scoracle_cognition::ollama::OllamaClient;
 use scoracle_cognition::route::{Role, Router};
-use scoracle_cognition::sigil::{
+use scoracle_cognition::junctions::oracle::{
     build_crown_prompt, build_pillar_divergence, compute_omen, load_pillars, load_prior_read,
     oracle_format_schema, pillar_convergence, CrownParser, ORACLE_NUM_PREDICT,
     ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, ORACLE_TEMPERATURE,

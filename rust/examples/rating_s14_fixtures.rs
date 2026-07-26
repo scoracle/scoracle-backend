@@ -23,7 +23,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use scoracle_cognition::rating::{
+use scoracle_cognition::junctions::scout::{
     build_stat_prompt, compute_notability, RatingDatapoint, RatingProfile, RatingReq,
     RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT,
 };

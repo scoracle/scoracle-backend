@@ -24,10 +24,11 @@ use std::process::Command;
 use std::time::Duration;
 use tracing::warn;
 
-// The Reader's prompt and contract version live in `crate::prompts::reader` — one file per
-// junction, so a change to what this character is asked is a one-file diff. Re-exported here so
-// call sites and the ledger keep reading it from the stage module.
-pub use crate::prompts::reader::{build_article_read_prompt, ARTICLE_READ_PROMPT_VERSION};
+// The Reader's prompt and contract version live in `prompt.rs` — one file per junction, so a
+// change to what this character is asked is a one-file diff. Re-exported here so call sites and
+// the ledger keep reading it from the stage module.
+pub mod prompt;
+pub use prompt::{build_article_read_prompt, ARTICLE_READ_PROMPT_VERSION};
 pub const ARTICLE_READ_OUTPUT_CONTRACT_VERSION: &str = "article-reading-v3";
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 const ARTICLE_MIN_WORDS: usize = 80;

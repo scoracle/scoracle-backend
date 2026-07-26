@@ -1189,7 +1189,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .map(|c| {
             (
                 c.id,
-                crate::reader::reading_fingerprint(
+                crate::junctions::reader::reading_fingerprint(
                     c.article_read_status.as_deref(),
                     c.article_read_content_hash.as_deref(),
                     c.article_read_updated_epoch,
@@ -1199,7 +1199,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .collect();
     out.push_str(",\"article_readings_hash\":");
     out.push_str(&crate::util::go_json_string(
-        &crate::reader::build_article_reading_input_components(&article_readings),
+        &crate::junctions::reader::build_article_reading_input_components(&article_readings),
     ));
     if !heat.is_empty() {
         let mut lines: Vec<String> = heat
@@ -1983,7 +1983,7 @@ impl StageHandler for NarrativesHandler {
         // generation's storylines + the transfer heat, so enqueue it once that material has moved.
         // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Any transfers routing
         // rides the news_articles.bucket write in persist_narratives (mig 175 trigger).
-        if !crate::vibe::enqueue_vibe_if_needed(
+        if !crate::junctions::influencer::enqueue_vibe_if_needed(
             hx,
             &item.entity_type,
             entity_id,
@@ -2236,7 +2236,7 @@ mod tests {
             &[h("A", 70, "y"), h("B", 40, "worded another way")],
         );
         assert_eq!(one, two);
-        let article_readings_hash = crate::reader::build_article_reading_input_components(&[
+        let article_readings_hash = crate::junctions::reader::build_article_reading_input_components(&[
             (1, "none::0".to_string()),
             (3, "none::0".to_string()),
         ]);
@@ -2250,7 +2250,7 @@ mod tests {
         );
         // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
         let single_article_readings_hash =
-            crate::reader::build_article_reading_input_components(&[(
+            crate::junctions::reader::build_article_reading_input_components(&[(
                 1,
                 "none::0".to_string(),
             )]);

@@ -915,7 +915,7 @@ impl StageHandler for VibeHandler {
             // Still hand off: the momentum enqueue is hash-gated and cheap, so a previously
             // lost hand-off self-heals as a no-op — the same shape as sigil's skip-path
             // oracle enqueue.
-            crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+            crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
                 .await?;
             return Ok(());
         }
@@ -930,7 +930,7 @@ impl StageHandler for VibeHandler {
         });
         // Memory-load failure degrades to an unenriched prompt (the n8 discipline): the
         // corpus is the primary signal, memory is enrichment.
-        let memory = match crate::narratives::load_entity_memory(
+        let memory = match crate::junctions::journalist::load_entity_memory(
             &hx.pool,
             &sport,
             &item.entity_type,
@@ -999,7 +999,7 @@ impl StageHandler for VibeHandler {
 
         // Vibe now feeds Momentum first; Momentum persists the generated trajectory card and then
         // enqueues Sigil if the Momentum context actually moved.
-        if !crate::momentum::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
+        if !crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
             .await?
         {
             debug!(

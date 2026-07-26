@@ -1484,7 +1484,7 @@ impl StageHandler for SigilHandler {
                     None
                 }
             };
-        let memory = match crate::narratives::load_entity_memory(
+        let memory = match crate::junctions::journalist::load_entity_memory(
             &hx.pool,
             &sport,
             &item.entity_type,

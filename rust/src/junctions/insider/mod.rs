@@ -1722,7 +1722,7 @@ async fn maybe_apply_transfer_identity(
     Ok(false)
 }
 
-/// enqueue_sigil_for_transfer re-triggers panel synthesis for the player AND the team a freshly
+/// enqueue_sigil_for_transfer offers the player AND the team a freshly
 /// served rumor touches — the Phase 5.1 transfer→sigil trigger (the deferred half of the plan's
 /// trigger-topology step). Transfer heat is a Sigil pillar and part of its `input_hash` now, so a
 /// real change to the served-rumor set flips the hash and the re-run is real work; the Sigil
@@ -1739,16 +1739,24 @@ async fn enqueue_sigil_for_transfer(
     rumor_id: i64,
 ) -> Result<()> {
     let input_version = Some(rumor_id.to_string());
-    for (entity_type, entity_id) in [("player", player_id), ("team", team_id)] {
-        let sig = Item {
-            stage: Stage::Sigil,
-            entity_type: entity_type.to_string(),
-            entity_id: i64::from(entity_id),
-            sport: sport.to_string(),
-            input_version: input_version.clone(),
-            attempts: 0,
-        };
-        crate::work::enqueue(&hx.pool, &sig).await?;
+    // Both entities go through the completion barrier now, but they are NOT symmetric. This
+    // handler holds the TEAM's `transfers` row (it is the item being drained), so that row is
+    // still 'running' and must be excluded or the barrier can never fire. It holds nothing of the
+    // PLAYER's — a pending `transfers` row there is somebody else's outstanding work and must
+    // still block, so the player passes `None`.
+    for (entity_type, entity_id, except) in [
+        ("player", player_id, None),
+        ("team", team_id, Some(Stage::Transfers)),
+    ] {
+        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+            &hx.pool,
+            except,
+            entity_type,
+            i64::from(entity_id),
+            sport,
+            input_version.clone(),
+        )
+        .await?;
     }
     Ok(())
 }

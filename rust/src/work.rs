@@ -197,6 +197,77 @@ pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
     Ok(())
 }
 
+/// The five pillar stages the Oracle reads before it can crown an entity — one per character:
+/// `narratives` (The Journalist), `peak` (The Scout), `vibe` (The Influencer), `momentum`
+/// (The Analyst), `transfers` (The Insider).
+pub const PILLAR_STAGES: [Stage; 5] = [
+    Stage::Narratives,
+    Stage::Peak,
+    Stage::Vibe,
+    Stage::Momentum,
+    Stage::Transfers,
+];
+
+/// True when no pillar stage still owes this entity work — the Oracle's completion barrier.
+///
+/// This needs no new column and no migration, because the row lifecycle already encodes it:
+/// [`complete`] DELETEs the row, so "no row for this (stage, entity)" already means "that pillar
+/// has settled". The barrier is therefore just an absence check over [`PILLAR_STAGES`].
+///
+/// Two deliberate exclusions, both load-bearing:
+///
+/// `except` is the row THIS handler currently holds, when it holds one, and skipping it is what
+/// makes the barrier fire at all. The worker
+/// calls [`complete`] only AFTER the handler returns (see `worker.rs`), so a handler asking "are the
+/// pillars settled?" is still holding its own row in 'running'. Counting that row would mean the
+/// last pillar to finish always sees one outstanding item and the Oracle would never be enqueued.
+///
+/// `status = 'failed'` counts as SETTLED rather than outstanding. A pillar that has exhausted its
+/// retries is a dead-letter awaiting a human, and treating it as outstanding would block every
+/// reading for that entity indefinitely — one stuck character silencing the other five. A reading
+/// built on four pillars is worth more than no reading at all, and `load_pillars` already tolerates
+/// a missing pillar.
+pub async fn pillars_settled(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i64,
+    sport: &str,
+    except: Option<Stage>,
+) -> Result<bool> {
+    // `None` when the caller is releasing the barrier for a DIFFERENT entity than the one whose row
+    // it holds — the Insider's rumor path enqueues for both the team (whose `transfers` row it is
+    // running) and the player (whose rows it holds none of). Excluding `transfers` for that player
+    // would skip a genuinely outstanding row.
+    let stages: Vec<&str> = PILLAR_STAGES
+        .iter()
+        .map(|s| s.as_str())
+        .filter(|s| except.map(|e| e.as_str()) != Some(*s))
+        .collect();
+
+    let settled: bool = sqlx::query_scalar(
+        r#"
+        SELECT NOT EXISTS (
+            SELECT 1
+              FROM pipeline_work
+             WHERE entity_type = $1
+               AND entity_id   = $2
+               AND sport       = $3
+               AND stage       = ANY($4)
+               AND status <> 'failed'
+        )
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport)
+    .bind(&stages)
+    .fetch_one(pool)
+    .await
+    .with_context(|| format!("pillars_settled {entity_type}/{entity_id}"))?;
+
+    Ok(settled)
+}
+
 /// fail marks a leased item 'failed', records the cause, bumps attempts, and
 /// schedules a backoff before it is claimable again. At `max_attempts` the row
 /// is parked far in the future — a visible dead-letter, not an infinite retry.
@@ -322,5 +393,39 @@ mod tests {
         assert_eq!(retry_backoff(3), Duration::from_secs(30 * 60));
         assert_eq!(retry_backoff(4), Duration::from_secs(30 * 60)); // capped
         assert_eq!(retry_backoff(-1), Duration::from_secs(30)); // defensive: never negative-index
+    }
+
+    /// The barrier waits on exactly the five pillars — one per character. Sigil must never be in
+    /// the list: it is what the barrier RELEASES, and including it would make the Oracle wait on
+    /// itself and never crown anything.
+    #[test]
+    fn pillar_stages_are_the_five_characters_and_exclude_sigil() {
+        let names: Vec<&str> = PILLAR_STAGES.iter().map(|s| s.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["narratives", "peak", "vibe", "momentum", "transfers"]
+        );
+        assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
+    }
+
+    /// The `except` filter is what lets the barrier fire at all: the calling handler still holds
+    /// its own row in 'running' (the worker completes only after the handler returns), so that one
+    /// stage must drop out of the query. `None` drops nothing — the Insider's player path holds no
+    /// row for the entity it is releasing.
+    #[test]
+    fn except_drops_only_the_calling_stage() {
+        let with = |except: Option<Stage>| -> Vec<&str> {
+            PILLAR_STAGES
+                .iter()
+                .map(|s| s.as_str())
+                .filter(|s| except.map(|e| e.as_str()) != Some(*s))
+                .collect()
+        };
+        assert_eq!(with(None).len(), 5);
+        assert_eq!(with(Some(Stage::Momentum)).len(), 4);
+        assert!(!with(Some(Stage::Momentum)).contains(&"momentum"));
+        assert!(with(Some(Stage::Momentum)).contains(&"vibe"));
+        // A non-pillar stage is not in the list to begin with, so nothing is dropped.
+        assert_eq!(with(Some(Stage::Graph)).len(), 5);
     }
 }

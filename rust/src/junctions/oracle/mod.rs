@@ -31,10 +31,11 @@ use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::trajectory::DEFAULT_TRAJECTORY;
 use crate::util::{go_json_float, go_json_string, hash_components, round1, truncate};
-use crate::work::{Item, Stage};
+use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use sqlx::{PgPool, Row};
+use tracing::debug;
 
 // This junction's contract with its model — system prompt, contract version, and prompt
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
@@ -173,6 +174,74 @@ impl SigilOutput {
             trigger_payload: None,
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// The completion barrier.
+// ---------------------------------------------------------------------------
+
+/// Enqueue the Oracle only once every pillar has settled for this entity. Returns whether it did.
+///
+/// ## What this replaces
+///
+/// Three pillar handlers used to enqueue Sigil directly the moment their own card landed
+/// (`enqueue_sigil_for_peak`, `enqueue_sigil_for_momentum`, `enqueue_sigil_for_transfer`). That
+/// meant the Oracle could be crowned off a spread where the other characters had not spoken yet —
+/// it read whatever pillars happened to exist and rendered a verdict on a half-dealt table. The
+/// Sigil stage's own input-hash debounce hid the cost rather than fixing it: the reading was
+/// regenerated later, so the waste showed up as churn instead of as a wrong card.
+///
+/// Now all five pillar handlers call this, and the LAST one to settle is the one that enqueues.
+///
+/// ## Why five callers and not three
+///
+/// The Journalist (`narratives`) and The Influencer (`vibe`) never enqueued Sigil, because they
+/// reach the Oracle INDIRECTLY — narratives → vibe → momentum → sigil. That chain made them look
+/// like non-participants, but it is exactly why they must call this: whichever pillar finishes
+/// last has to be able to release the barrier, and on a quiet entity that can easily be one of
+/// these two.
+///
+/// ## Ordering — enqueue downstream BEFORE calling this
+///
+/// A handler that enqueues its own downstream work (peak → momentum, narratives → vibe) must do so
+/// FIRST. This barrier asks whether any pillar row is outstanding, so a not-yet-created downstream
+/// row is an invisible one: check first and the barrier sees a clear table, fires early, and the
+/// Oracle reads a spread that is about to change underneath it. Enqueue, then check.
+pub async fn enqueue_oracle_if_pillars_settled(
+    pool: &PgPool,
+    from: Option<Stage>,
+    entity_type: &str,
+    entity_id: i64,
+    sport: &str,
+    input_version: Option<String>,
+) -> Result<bool> {
+    debug_assert!(
+        from.is_none_or(|f| work::PILLAR_STAGES.contains(&f)),
+        "the barrier is released by pillar stages only; {from:?} is not one"
+    );
+
+    if !work::pillars_settled(pool, entity_type, entity_id, sport, from).await? {
+        debug!(
+            %entity_type, entity_id, %sport, from = ?from,
+            "oracle barrier: pillars still outstanding; not enqueuing"
+        );
+        return Ok(false);
+    }
+
+    let sig = Item {
+        stage: Stage::Sigil,
+        entity_type: entity_type.to_string(),
+        entity_id,
+        sport: sport.to_string(),
+        input_version,
+        attempts: 0,
+    };
+    work::enqueue(pool, &sig).await?;
+    debug!(
+        %entity_type, entity_id, %sport, from = ?from,
+        "oracle barrier: last pillar settled; enqueued sigil"
+    );
+    Ok(true)
 }
 
 // ---------------------------------------------------------------------------

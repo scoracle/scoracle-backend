@@ -29,7 +29,7 @@ use crate::ollama::GenerateOptions;
 use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::util::{go_json_float, go_json_string, hash_components, round1};
-use crate::work::{self, Item, Stage};
+use crate::work::{Item, Stage};
 use anyhow::{anyhow, bail, Context, Result};
 use async_trait::async_trait;
 use serde::{Deserialize, Deserializer};
@@ -1559,29 +1559,6 @@ pub async fn persist_stat_summary(
     Ok(())
 }
 
-/// enqueue_sigil_for_peak re-triggers panel synthesis after a newly persisted PEAK card or marker.
-/// The Sigil stage still performs its own input-hash debounce; this queue handoff is only the cheap,
-/// durable demand that the PEAK pillar changed.
-pub async fn enqueue_sigil_for_peak(
-    pool: &PgPool,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-    out: &RatingOutput,
-) -> Result<()> {
-    let sig = Item {
-        stage: Stage::Sigil,
-        entity_type: entity_type.to_string(),
-        entity_id: i64::from(entity_id),
-        sport: sport.to_string(),
-        input_version: Some(peak_work_input_version(
-            out.season,
-            out.input_hash.as_deref(),
-        )),
-        attempts: 0,
-    };
-    work::enqueue(pool, &sig).await
-}
 
 async fn current_season(pool: &PgPool, sport: &str) -> Result<i32> {
     sqlx::query_scalar("SELECT current_season FROM public.sports WHERE id = $1")
@@ -1642,6 +1619,18 @@ impl StageHandler for PeakHandler {
                 season = out.season,
                 "peak: skipped unchanged rating input"
             );
+            // An unchanged PEAK still SETTLES the peak pillar, so the barrier is offered here too.
+            // This is the skip path a quiet entity takes on nearly every sweep; leaving it out
+            // would strand exactly the entities whose spreads are ready to crown.
+            crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+                &hx.pool,
+                Some(Stage::Peak),
+                &item.entity_type,
+                item.entity_id,
+                &sport,
+                item.input_version.clone(),
+            )
+            .await?;
             return Ok(());
         }
 
@@ -1657,6 +1646,17 @@ impl StageHandler for PeakHandler {
         .await?;
         crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
             .await?;
+        // Downstream first, barrier second — the momentum enqueue above may create the row this
+        // check must wait on.
+        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+            &hx.pool,
+            Some(Stage::Peak),
+            &item.entity_type,
+            item.entity_id,
+            &sport,
+            item.input_version.clone(),
+        )
+        .await?;
         Ok(())
     }
 }

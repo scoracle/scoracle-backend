@@ -402,22 +402,6 @@ async fn persist_momentum_summary(
     Ok(row.get("id"))
 }
 
-async fn enqueue_sigil_for_momentum(
-    pool: &PgPool,
-    item: &Item,
-    sport: &str,
-    out: &MomentumOutput,
-) -> Result<()> {
-    let sig = Item {
-        stage: Stage::Sigil,
-        entity_type: item.entity_type.clone(),
-        entity_id: item.entity_id,
-        sport: sport.to_string(),
-        input_version: Some(momentum_work_input_version(out.season, &out.input_hash)),
-        attempts: 0,
-    };
-    work::enqueue(pool, &sig).await
-}
 
 fn momentum_included_evidence(ctx: &MomentumContext) -> serde_json::Value {
     serde_json::json!({
@@ -583,7 +567,19 @@ impl StageHandler for MomentumHandler {
             },
         )
         .await;
-        enqueue_sigil_for_momentum(&hx.pool, item, &sport, &out).await?;
+        // The Analyst is a pillar, not the Oracle's trigger. It used to enqueue Sigil outright,
+        // which crowned the entity off whatever pillars happened to exist; now it releases the
+        // barrier only if it is the LAST pillar to settle. Momentum enqueues no downstream work of
+        // its own, so there is nothing to enqueue before the check here.
+        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+            &hx.pool,
+            Some(Stage::Momentum),
+            &item.entity_type,
+            item.entity_id,
+            &sport,
+            Some(momentum_work_input_version(out.season, &out.input_hash)),
+        )
+        .await?;
         Ok(())
     }
 }

@@ -69,18 +69,20 @@ HOOK:
 - No caps-lock, no question-mark bait, no "you won't believe" mechanics — the emotion IS the draw.
 
 VIBE:
-- The body of the post: two or three sentences of finished prose, written to be read — the felt read of the moment, not a data recap. A truly quiet cycle can be one sentence.
+- The body of the post: up to eight sentences of finished prose, written to be read — the felt read of the moment, not a data recap.
 - Present tense. Name the actual players, clubs, moves, and numbers behind the dominant threads; let minor items go.
 - Do not use generic phrases when the signals give specifics.
 - Ground every claim in the supplied signals. Mood is not durable truth: capture what the room feels without promoting it to fact.
+- LENGTH — YOU TAKE YOUR SPACE. Eight sentences are yours and you generally use them. You are not a wire reporter rationing column inches; you are the voice everyone came to hear, and the feeling IS the content. Even a modest news cycle holds a full room's worth of mood — the anticipation, the doubt, the argument in the replies, what people are bracing for — and drawing that out is your job, not padding.
+- The line you never cross is FACTS. Stretch the feeling; never stretch the evidence. You may not invent an event, a game, a number, a quote, a suitor, or a development to fill your runtime, and you may not imply the room is louder than the signals show. Eight sentences of felt reading over two real threads is your craft; two sentences of real threads inflated into eight fabricated ones is the one thing that ends you. If the cycle is genuinely dead, say the room is quiet — in your voice, at whatever length that honestly takes.
 
-Reply with exactly these three lines:
+Reply with exactly these three lines, as plain text. No Markdown anywhere: no asterisks, no bold, no backticks, no headers. The labels are bare words followed by a colon.
 SCORE: <integer 1-100>
 HOOK: <the one-line title>
 VIBE: <the felt read>"#;
 
 /// Prompt version for the Vibe sentiment + felt-read contract.
-pub const VIBE_PROMPT_VERSION: &str = "v14"; // v14: English-only output guard for multilingual upstream source material; v13: The Influencer voice pass + HOOK card title
+pub const VIBE_PROMPT_VERSION: &str = "v16"; // v16, the ALLOWANCE pass — ceiling to eight sentences. The Influencer is the DELIBERATE EXCEPTION to the pass's brevity framing: where the other five are told an allowance is not a target, she is told to TAKE her space. She is strictly emotional — a YouTuber filling her runtime — and for her the feeling IS the content, so a modest cycle still earns a full room's worth of mood. Her limit is relocated from length to FACT: stretch the feeling, never the evidence. v15: the peer-length pass — the VIBE body grows from 2-3 to 5-6 sentences, plus an explicit plain-text/no-Markdown guard (chat-tuned models bold the labels and the three-line parse drops the HOOK); v14: English-only output guard for multilingual upstream source material; v13: The Influencer voice pass + HOOK card title
 
 /// build_sentiment_prompt assembles the user prompt. `sport` is the original-case value used in
 /// the prompt; the SQL reads use the upper-cased form. `previous` is the prior vibe read for

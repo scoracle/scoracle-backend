@@ -62,7 +62,7 @@ pub const NARRATIVES_OUTPUT_CONTRACT_VERSION: &str = "narratives-v3-schema";
 pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 
 /// Several multi-sentence narratives; the prompt caps count + body length.
-pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
+pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
 
 /// Context window for the narratives call. Narratives is the ONE stage whose prompt
 /// (~5.4k chars ≈ 1.4-1.8k tokens + system prompt) PLUS `NARRATIVES_NUM_PREDICT` (3000)
@@ -71,7 +71,7 @@ pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
 /// rules" narratives failures (L9, the red off-entity-and-hype-contamination fixture).
 /// 8192 fits the full budget with headroom; the KV-cache cost on mistral:7b is ~0.5GB,
 /// measured to still fit the 8GB card. Every other stage stays on the 4096 default.
-pub const NARRATIVES_NUM_CTX: i32 = 8192;
+pub const NARRATIVES_NUM_CTX: i32 = 16384;
 
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;

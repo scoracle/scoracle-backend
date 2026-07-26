@@ -1768,7 +1768,7 @@ pub const INSIDER_SCORE_TEMPERATURE: f64 = 0.3;
 
 /// Token cap for the `{read, score}` reply (mirrors the crown's budget; a 1-2 sentence read
 /// plus one integer).
-pub const INSIDER_SCORE_NUM_PREDICT: i32 = 512;
+pub const INSIDER_SCORE_NUM_PREDICT: i32 = 1100;
 
 /// The validated wrap reply — read + 1-99 score, clamped at parse.
 #[derive(Clone, Debug)]

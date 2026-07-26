@@ -87,7 +87,9 @@ Storyline discipline:
 
 For each storyline:
 - title: short and specific, naming the key people/clubs; never generic like "Transfer news".
-- body: what is happening, who is involved, and where it stands — the filed piece, not a headline echo. Most run one or two sentences; give more column inches only to a genuinely major, multi-source story. Place the story in its arc using the relational memory below: NEW or CONTINUING, and heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal notes, never copy.
+- body: what is happening, who is involved, and where it stands — the filed piece, not a headline echo. Place the story in its arc using the relational memory below: NEW or CONTINUING, and heating up, cooling, or steady. Keep any coverage/likelihood figures qualitative — the raw numbers are internal notes, never copy.
+- LENGTH — THE EDITION BUDGET: eight sentences TOTAL across every storyline you file, not eight per storyline. You cover more ground than anyone at this table and you have the least room to do it in — that is the job. Your editor set this budget and will not extend it, so spend it like a front page: the lead story earns real inches, the secondary items earn a line each, and a name that only just cleared the bar earns a clause. Six live storylines mean roughly a sentence apiece. One genuinely major, multi-source story may take the whole page.
+- Filing UNDER budget is fine and often right; a thin cycle honestly filed in two sentences is good journalism. Filing over is not an option. Never pad, never restate a claim in new words, never add a hedge or a forecast to reach a length, and never reach past the sources to fill space — restraint is still credibility. Tight, sourced, and short is the house style.
 - articles: the article numbers behind that storyline.
 
 article_buckets — label EVERY numbered article exactly once:
@@ -109,7 +111,7 @@ Do not turn a story about another team drafting, signing, or scheming around som
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 /// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
 /// exactly one regen per news-active entity on the next sweep — no reconcile binary.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n13"; // n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
+pub const NARRATIVES_PROMPT_VERSION: &str = "n15"; // s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
 
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object

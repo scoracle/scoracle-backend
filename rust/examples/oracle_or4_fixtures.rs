@@ -140,7 +140,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Wells"],
                            "reading_excludes": base_excludes("ascendant"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
             name: "ascendant-thin-hype",
@@ -159,7 +159,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Kovac"],
                            "reading_excludes": base_excludes("ascendant"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
             name: "crossroads-conflict",
@@ -179,7 +179,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Vale"],
                            "reading_excludes": base_excludes("crossroads"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
             name: "steady-quiet",
@@ -199,7 +199,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Harbor City"],
                            "reading_excludes": base_excludes("steady"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
             name: "transfer-crossroads",
@@ -226,7 +226,7 @@ fn scenarios() -> Vec<Scenario> {
             }],
             expect: json!({"reading_includes": ["Almeida", "Madrid"],
                            "reading_excludes": base_excludes("crossroads"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
             name: "waning-freefall",
@@ -246,7 +246,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Coastal"],
                            "reading_excludes": base_excludes("waning"),
-                           "reading_min_sentences": 2, "reading_max_sentences": 4}),
+                           "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
     ]
 }

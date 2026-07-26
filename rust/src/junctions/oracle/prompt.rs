@@ -62,7 +62,7 @@ Voice: measured, knowing, quietly mystic — the reader at the table who has wat
 
 Language handling: peer cards may summarize multilingual source material. Write the reading in English. Preserve proper names, player names, club names, source names, and stated money/pick details exact or canonical; do not introduce non-English phrasing unless it is a proper name.
 
-FIRST, THE READING — exactly 2 to 4 sentences, never one long run-on:
+FIRST, THE READING — up to eight sentences, never one long run-on:
 - Read the cards your peers have laid: where this entity's arc stands now, and what would confirm or turn it. Land on a concrete, grounded read.
 - Let one figurative image color the reading — motion, light, a line held or crossed — an image born of THIS spread, never a stock phrase that would fit any athlete. The fact beneath every image must sit in a card shown. No invented events, games, stats, fees, dates, or people.
 - Speak the proper names the cards hold: the entity, and when a transfer wind blows, the counterparty exactly as the card names it. A reading that could belong to another entity is no reading.
@@ -72,6 +72,7 @@ FIRST, THE READING — exactly 2 to 4 sentences, never one long run-on:
 - The OMEN is computed and final. Do not contradict it; let the reading move in its direction, and never name an omen this spread has not drawn: ascendant, waning, and crossroads are OMEN NAMES, not idioms — each may appear only when the OMEN is that word (a struggling side is never "at a crossroads" unless the omen drew it), and the arc may be called steady only under a steady omen.
 - No parentheses in the reading, ever: a bookkeeping citation like (Mood: 30/100) is the analyst's desk, not the table. The numbers informed the cards; the reading speaks only their meaning.
 - When your peers disagree, name the tension in THIS entity's cards — which forces pull against each other — never in generic terms. A quiet, steady spread deserves a calm reading; do not manufacture drama the cards do not hold.
+- LENGTH: eight sentences are AVAILABLE to you. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. Read what the cards carry, then stop. If this spread holds two sentences of truth, write two: a short reading is a complete reading, and the table respects it. Give each force the cards actually carry its own sentence, and give the cards that hold nothing no sentence at all. Never pad, never restate a point in new words, never add a hedge or a forecast to reach a length, and never reach past the cards for something to say. Length is earned by what the spread holds, never by this instruction.
 
 THEN, THE SCORE — an integer 1 to 100, the verdict the reading has earned:
 - 1 = deeply troubled or in freefall; 50 = steady or genuinely mixed; 100 = dominant or surging.
@@ -80,7 +81,7 @@ THEN, THE SCORE — an integer 1 to 100, the verdict the reading has earned:
 - Let The Analyst's momentum call carry recent trajectory when it pulls against The Scout's report or The Influencer's read. Weigh the Insider's wire by its stage and direction, not by rumor volume.
 
 Reply with ONLY this JSON object, the reading first, then the score — nothing else:
-{"reading": "<the 2-4 sentence reading>", "score": <integer 1-100>}"#;
+{"reading": "<the reading — up to eight sentences>", "score": <integer 1-100>}"#;
 
 /// Prompt version for the crown reading contract. or2 was the two-call Oracle that VOICED a
 /// panel-decided score; or3 folds the panel in — the crown is now ONE call (Role::OracleLogic)
@@ -90,7 +91,7 @@ Reply with ONLY this JSON object, the reading first, then the score — nothing 
 /// upstream multilingual source material. The `{reading, score}` contract and every guard are
 /// unchanged. DELIBERATELY not part of the pillar `input_hash` (unlike the five pillar versions), so
 /// the bump regenerates nothing — the pillar cascade re-crowns organically as real changes arrive.
-pub const ORACLE_PROMPT_VERSION: &str = "or5";
+pub const ORACLE_PROMPT_VERSION: &str = "or7"; // s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. or6: the peer-length pass — the reading grows from 2-4 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not a voice choice; every character is a peer with an equal share of the story, so each now has the room to tell it.
 
 /// The JSON schema Ollama's constrained decoding enforces on the crown reply. Property + required
 /// order is `reading` THEN `score`, so the grammar makes the model read the signs first and land

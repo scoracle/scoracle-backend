@@ -50,7 +50,7 @@ pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
 pub const RATING_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the PEAK line plus one identity paragraph.
-pub const RATING_NUM_PREDICT: i32 = 1200;
+pub const RATING_NUM_PREDICT: i32 = 2000;
 
 /// Durable PEAK queue input_version prefix. The queue key is entity/sport-scoped for historical
 /// compatibility; the season is carried in the version so the handler can drain explicit

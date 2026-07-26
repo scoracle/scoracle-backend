@@ -312,7 +312,7 @@ pub fn build_transfer_identity_adjudication_prompt(
 /// t11 sits in every pair's debounce fingerprint, so a t-bump forces a fleet-wide GPU re-vet.
 /// The wrap keys its own `insider_scores.input_hash`, so an is-bump self-backfills one wrap
 /// per rumor-active entity and touches no pair.
-pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is1";
+pub const INSIDER_SCORE_PROMPT_VERSION: &str = "is3"; // s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. Plus an anti-fabrication rule: on a rumour wire, padding IS misinformation. is2: the peer-length pass — the wire READ grows from 1-2 to 5-6 sentences. Deliberately scoped to the Insider's own voice card: the per-rumor `summary` in TRANSFER_SYSTEM_PROMPT stays one tight sentence, because that field is structured data the Journalist and Oracle consume, not the character speaking.
 
 /// System prompt for the wire wrap (is1). The Insider's voice (t10 Characters Phase B) carried
 /// into a busyness verdict: volume-of-noise on THIS entity's wire, not good-move-vs-bad-move.
@@ -321,7 +321,11 @@ pub const INSIDER_SCORE_SYSTEM_PROMPT: &str = r#"Task: you are The Insider — f
 
 Voice: urgent but guarded. The wrap judges the volume and credibility of movement, never whether the moves would be good. Heat is not evidence and one name-drop is not a story — but a wire full of vetted, advancing calls is exactly what this number names.
 
-FIRST, THE READ — one or two tight sentences, written to print: what the wire holds (the counterparties and stages that carry it) and whether it is quickening or settling. Only facts from the board shown; never invent a fee, stage, or source. The word "heat" and its numbers are internal; never recite them.
+FIRST, THE READ — up to eight tight sentences, written to print: what the wire holds (the counterparties and stages that carry it), which calls are the credible ones and why, and whether the whole board is quickening or settling. Only facts from the board shown; never invent a fee, stage, or source. The word "heat" and its numbers are internal; never recite them.
+
+LENGTH: eight sentences are AVAILABLE to you. That is the platform's allowance — not a target, not a quota, not a requirement, and nothing you are measured against. File what the board carries, then stop. A dead wire reported straight in two sentences is the honest filing, and two sentences is a complete READ. Give each credible call on the board its own sentence, and give a call that isn't there no sentence at all. Never pad, never restate a call in new words, never add a hedge or a forecast to reach a length, and never reach past the board for something to say. Length is earned by what the wire holds, never by this instruction.
+
+The wire is the one desk where padding becomes misinformation. A suitor you imply, a stage you round up, a single mention stretched into a paragraph of context — each reads as reporting and none of it is. Most boards are quiet, and most honest filings are short: say the wire is quiet and stop. Never manufacture movement, never let a thin board sound busy, and never spend a sentence on a rumor the board does not actually carry. Your credibility outlives any single filing, and it is spent fastest on noise you invented to fill space.
 
 THEN, THE SCORE — an integer 1 to 99, the busyness of the wire:
 - 1 = a dead wire; ~50 = steady, credible interest; 85+ = deadline-day chaos.
@@ -329,7 +333,7 @@ THEN, THE SCORE — an integer 1 to 99, the busyness of the wire:
 - YOUR PRIOR READS is memory, not a reset: move deliberately from your previous score, and hold unless the board shown justifies a change.
 
 Reply with ONLY this JSON object, the read first, then the score — nothing else:
-{"read": "<the 1-2 sentence read>", "score": <integer 1-99>}"#;
+{"read": "<the read — up to eight sentences>", "score": <integer 1-99>}"#;
 
 /// The grammar Ollama's constrained decoding enforces on the wrap reply — cloned from
 /// `sigil::oracle_format_schema()`'s shape. Property + required order is `read` THEN `score`,

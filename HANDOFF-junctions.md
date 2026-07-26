@@ -139,18 +139,30 @@ Wi-Fi is fine, wired is nice only for stability. LAN latency (~1 ms) against a ~
 MagicDNS name instead of a DHCP-assignable IP, and **the ollama API has no authentication**, so it
 must never be exposed to the internet. LAN or tailnet only.
 
-**On the Mac:**
-```sh
-brew install ollama && brew services start ollama
-launchctl setenv OLLAMA_HOST "0.0.0.0:11434"   # default binds localhost only
-sudo pmset -a sleep 0 disablesleep 1            # THE failure mode; also "Wake for network access"
-ollama pull mistral-nemo:12b                    # 12B @ Q4_K_M ≈ 7.1 GB — see below
-ollama run --verbose mistral-nemo:12b "..."     # record real tok/s before committing
-```
-Prefer a **12B at Q4_K_M over an 8B at Q8**: at a fixed memory budget parameter count beats
-quantization precision, and Q8 costs ~half the speed (M4 ≈ 120 GB/s ⇒ 8B@Q8 ≈ 10 tok/s vs
-12B@Q4 ≈ 13 tok/s) to buy back well under 1% perplexity. Avoid thinking models here — a reasoning
-trace multiplies output length 3–10x, and every character is on the critical path to the sigil card.
+**DECIDED 2026-07-26: the model is `ministral-3:14b`, and the Mac is DONE.** Mistral 3 (Dec 2025,
+Apache 2.0) ships as the *Ministral* line; the 14B is 13.9B @ Q4_K_M, 8.46 GiB. It beat
+`mistral-nemo:12b` on a head-to-head run of our own frozen fixture gate — see below. Nemo is still
+pulled on the Mac and is the natural challenger via `COGNITION_ROUTE_<ROLE>_CANDIDATE`.
+
+**On the Mac — already applied, do not redo.** Ollama was ALREADY installed (the .app, now 0.32.4,
+`/usr/local/bin/ollama` symlinks into the bundle) — do NOT `brew install`, that makes a second
+conflicting server. Live settings: `OLLAMA_CONTEXT_LENGTH=16384`, `NUM_PARALLEL=1`,
+`MAX_LOADED_MODELS=1`, `KEEP_ALIVE=24h`, `FLASH_ATTENTION=1`, `KV_CACHE_TYPE=q8_0`, host
+`0.0.0.0:11434`. Verified: `9.5 GB / 100% GPU / 16384 ctx`.
+
+- **16384 is not arbitrary.** The GGUF says `rope.scaling.original_context_length: 16384` with YaRN
+  factor 16 → the 256k headline is *extrapolated* from a natively 16k-trained model. 16k is the
+  largest window on trained ground, and independently the largest that fits. (Known upstream bug:
+  repetition above 128512.)
+- **`iogpu.wired_limit_mb` is NOT needed.** Predicted essential, measured unnecessary — FA + q8_0 KV
+  land the whole thing in 9.5 GB under the stock ~10.6 GB cap. Left at the default `0`.
+- **Flash attention flips sign vs Archbox.** Item 5 above is right that FA is a coin flip on Pascal;
+  on M4 Metal it is a straight win and is what makes 14B fit. Keep it ON here, OFF there.
+- **Speed, honestly: ~12 tok/s** (vs ~35-45 for mistral:7b on the 1070 Ti) *and* it emits ~60% more
+  text under the allowance pass. Character wall-clock goes UP. That is the accepted trade for
+  quality + freeing the card; characters are one call per entity per rotation, not volume-bound.
+- Avoid thinking models here — a reasoning trace multiplies output length 3–10x, and every character
+  is on the critical path to the sigil card. (`ministral-3` is non-thinking.)
 
 **On Archbox** — append to `.env.local`, then restart the unit:
 ```sh

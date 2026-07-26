@@ -52,7 +52,7 @@ pub const ORACLE_TEMPERATURE: f64 = 0.6;
 
 /// Token cap for the `{reading, score}` reply (a 2-4 sentence reading + one integer ≈ 70-160
 /// tokens; generous headroom, still tight enough that a thinking route would burn it).
-pub const ORACLE_NUM_PREDICT: i32 = 512;
+pub const ORACLE_NUM_PREDICT: i32 = 1100;
 
 // ---------------------------------------------------------------------------
 // Pillar value types — mirror the Go synth* structs.

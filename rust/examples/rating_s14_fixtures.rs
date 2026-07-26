@@ -80,7 +80,7 @@ fn scenarios() -> Vec<Scenario> {
             ],
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["rim protection"], "peak_excludes": ["no standout"],
-                           "prose_includes": ["96th", "turnover"], "prose_max_words": 130}),
+                           "prose_includes": ["96th", "turnover"], "prose_max_words": 420}),
         },
         Scenario {
             name: "no-standout-restraint",
@@ -95,7 +95,7 @@ fn scenarios() -> Vec<Scenario> {
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["No standout"], "peak_excludes": ["shooting"],
                            "prose_includes": ["64th", "turnover"],
-                           "prose_excludes": ["play physical"], "prose_max_words": 105}),
+                           "prose_excludes": ["play physical"], "prose_max_words": 420}),
         },
         Scenario {
             name: "rate-adjusted-limited-minutes",
@@ -113,7 +113,7 @@ fn scenarios() -> Vec<Scenario> {
             )]),
             expect: json!({"peak_includes": ["finishing"], "peak_excludes": ["No standout"],
                            "prose_includes": ["82", "per-36", "foul"],
-                           "prose_excludes": ["play physical"], "prose_max_words": 125}),
+                           "prose_excludes": ["play physical"], "prose_max_words": 420}),
         },
         Scenario {
             name: "fixed-budget-rich-profile",
@@ -130,7 +130,7 @@ fn scenarios() -> Vec<Scenario> {
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["high press"],
                            "prose_includes": ["94th", "shot creation", "foul"],
-                           "prose_min_words": 35, "prose_max_words": 135}),
+                           "prose_min_words": 50, "prose_max_words": 420}),
         },
         Scenario {
             name: "no-clean-exploit",
@@ -145,7 +145,7 @@ fn scenarios() -> Vec<Scenario> {
             ],
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["pick-and-roll"],
-                           "prose_includes": ["93", "no clean exploit"], "prose_max_words": 115}),
+                           "prose_includes": ["93", "no clean exploit"], "prose_max_words": 420}),
         },
         Scenario {
             name: "usage-artifact-not-exploit",
@@ -161,7 +161,7 @@ fn scenarios() -> Vec<Scenario> {
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["yards after catch"],
                            "prose_includes": ["drop", "31"], "prose_excludes": ["giveaway"],
-                           "prose_max_words": 130}),
+                           "prose_max_words": 420}),
         },
         Scenario {
             name: "team-profile-clipped",
@@ -176,7 +176,7 @@ fn scenarios() -> Vec<Scenario> {
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["suppression"],
                            "prose_includes": ["91", "progression"],
-                           "prose_excludes": ["momentum", "trending"], "prose_max_words": 120}),
+                           "prose_excludes": ["momentum", "trending"], "prose_max_words": 420}),
         },
         Scenario {
             name: "secondary-strengths-coverage",
@@ -192,7 +192,7 @@ fn scenarios() -> Vec<Scenario> {
             rate_modes: HashMap::new(),
             expect: json!({"peak_includes": ["pull-up"],
                            "prose_includes": ["95th", "playmaking", "steal"],
-                           "prose_min_words": 30, "prose_max_words": 135}),
+                           "prose_min_words": 50, "prose_max_words": 420}),
         },
     ]
 }

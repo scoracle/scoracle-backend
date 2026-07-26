@@ -29,7 +29,7 @@ pub const MOMENTUM_OUTPUT_CONTRACT_VERSION: &str = "momentum-summary-v1";
 /// Keep Momentum on the incumbent stats route until a broader fixture set proves a split.
 pub const MOMENTUM_TEMPERATURE: f64 = 0.3;
 
-pub const MOMENTUM_NUM_PREDICT: i32 = 700;
+pub const MOMENTUM_NUM_PREDICT: i32 = 1200;
 
 /// The steady band on the deterministic `momentum_score` (±100-scale: the average of the
 /// vibe-sentiment delta and the rating-percentile delta over the window). |score| < band ⇒

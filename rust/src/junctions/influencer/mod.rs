@@ -53,7 +53,7 @@ pub const VIBE_OUTPUT_CONTRACT_VERSION: &str = "vibe-score-v1";
 pub const VIBE_TEMPERATURE: f64 = 0.7;
 
 /// Token cap for the two-line answer.
-pub const VIBE_NUM_PREDICT: i32 = 512;
+pub const VIBE_NUM_PREDICT: i32 = 1100;
 
 /// Body truncation in the prompt.
 const BODY_TRUNCATE: usize = 280;

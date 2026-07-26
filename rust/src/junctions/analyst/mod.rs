@@ -283,7 +283,11 @@ pub fn parse_momentum_reply(raw: &str) -> Option<MomentumReply> {
     let mut in_read = false;
 
     for line in raw.lines() {
-        let trimmed = line.trim();
+        // Strip Markdown decoration before matching: `**SCORE: -1**` does not start with
+        // `SCORE:`, and on 2026-07-26 that rejected every reply from the post-split model.
+        // See `util::strip_markdown_emphasis`.
+        let trimmed_owned = crate::util::strip_markdown_emphasis(line);
+        let trimmed = trimmed_owned.as_str();
         if trimmed.is_empty() {
             continue;
         }

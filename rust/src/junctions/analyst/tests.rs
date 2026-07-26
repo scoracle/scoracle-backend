@@ -14,6 +14,25 @@ fn parses_momentum_reply() {
 }
 
 #[test]
+fn parses_a_markdown_decorated_reply_the_2026_07_26_split_regression() {
+    // Verbatim from pipeline_work.last_error. The topology split moved The Analyst onto
+    // ministral-3:14b, which labels with Markdown; `**SCORE: -1**` does not start with
+    // `SCORE:`, so every reply was rejected as "momentum: invalid response" and the item
+    // failed and retried. A model swap must not be able to silently cost a whole junction.
+    let parsed = parse_momentum_reply(
+        "**SCORE: -1**\n**READ:** Clark's **PEAK** remains flat—no change in his tackling.",
+    )
+    .expect("a Markdown-labeled reply must parse");
+    assert_eq!(parsed.score, -1);
+    // The emphasis inside the prose is stripped too: this text reaches a card, and a card
+    // must never render literal asterisks.
+    assert_eq!(
+        parsed.blurb,
+        "Clark's PEAK remains flat—no change in his tackling."
+    );
+}
+
+#[test]
 fn parse_first_i32_scans_sign_and_digits() {
     assert_eq!(parse_first_i32("SCORE: 3"), Some(3));
     assert_eq!(parse_first_i32("SCORE: -1.0"), Some(-1));

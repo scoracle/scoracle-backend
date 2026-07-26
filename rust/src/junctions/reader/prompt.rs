@@ -44,8 +44,27 @@ use crate::junctions::reader::{ArticleReadEntities, ArticleRow, CoMentionCandida
 use crate::util::truncate;
 
 /// The Reader's contract version. Bumping this invalidates every cached reading whose
-/// `prompt_version` differs, so a re-read is forced on the next pass.
-pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar3";
+/// `prompt_version` differs, so a re-read is forced on the next pass. Invalidation is LAZY — an
+/// article re-reads when it is next enqueued, not all at once.
+///
+/// **ar4 (2026-07-26) — the verdict moved to LAST.** ar3 asked for `relevant` as the first field
+/// of the reply, so the model rendered its verdict before writing a single word of analysis;
+/// measured, gemma3:4b accepted 99.1% of articles against mistral's 82.5% on the identical
+/// prompt. ar4 reorders the contract (`story_type` → facts → card → `relevant`) so the judgment
+/// is conditioned on text the model has already committed to, drops ar3's "already-relevance-
+/// vetted" framing — which told the model the question was settled and then asked it anyway —
+/// and promotes the measured rejection classes out of a 12-item bullet list.
+/// **ar5 (2026-07-26) — classify, then derive.** ar4's reorder alone was MEASURED NEUTRAL
+/// (13/16 both ways): with the verdict last, gemma wrote `story_type:"score"` and eight lines of
+/// stat-table facts and *still* answered `relevant:true`. The reasoning was on the line above the
+/// verdict and went unused, which refutes "it cannot reason before answering".
+///
+/// What ar4 got wrong was mine: it named the reject classes in prose but never made them values
+/// of `story_type` and never stated the mapping, so the model still had to re-derive a bare
+/// boolean — the one thing it reliably fails. ar5 makes the reject classes first-class enum
+/// values, grammar-enforced in `article_read_format_schema`, and states the verdict as a lookup
+/// from the classification rather than a judgment.
+pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar5";
 
 pub fn build_article_read_prompt(
     article: &ArticleRow,

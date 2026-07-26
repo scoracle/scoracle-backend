@@ -63,6 +63,33 @@ fn parser_accepts_co_mention_verdicts() {
 }
 
 #[test]
+fn reject_story_type_overrides_a_model_that_will_not_say_no() {
+    // The measured failure, verbatim: gemma3:4b classifies a boxscore `score_stub` — the exact
+    // reject class, with the mapping stated as a lookup and the classification emitted BEFORE the
+    // verdict — and still answers relevant=true. Three prompt revisions moved this by zero, so
+    // the verdict is derived from the classification rather than trusted.
+    let raw = r#"{"source_language":"en","story_type":"score_stub","key_facts":["West Ham 3, Southampton 0"],"relevant_entities":["West Ham United"],"co_mentions":[],"caveats":"","evidence_blurb":"West Ham beat Southampton 3-0.","relevant":true}"#;
+    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+    assert!(!parsed.relevant, "score_stub must force relevant=false");
+}
+
+#[test]
+fn reject_story_type_match_is_case_insensitive() {
+    let raw = r#"{"source_language":"en","story_type":"Broadcast_Listing","key_facts":[],"relevant_entities":[],"co_mentions":[],"caveats":"","evidence_blurb":"A TV listing.","relevant":true}"#;
+    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+    assert!(!parsed.relevant);
+}
+
+#[test]
+fn reporting_story_type_never_forces_relevant_true() {
+    // The derivation is ONE-WAY on purpose: we are correcting a measured failure to say no, not
+    // overriding a no. A model that rejects on its own judgment keeps that judgment.
+    let raw = r#"{"source_language":"en","story_type":"transfer","key_facts":[],"relevant_entities":[],"co_mentions":[],"caveats":"","evidence_blurb":"Not about the club after all.","relevant":false}"#;
+    let parsed = ArticleEvidenceParser.parse(raw).unwrap().unwrap();
+    assert!(!parsed.relevant, "a reporting story_type must not resurrect a rejection");
+}
+
+#[test]
 fn parser_fails_closed_on_empty_blurb() {
     let parsed = ArticleEvidenceParser
         .parse(r#"{"evidence_blurb":" ","key_facts":[],"relevant_entities":[],"story_type":"general","caveats":""}"#)

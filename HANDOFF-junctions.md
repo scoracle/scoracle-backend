@@ -530,10 +530,62 @@ a defect.
 because the model behaved — it wrote "New York City (Ravens)" with parentheses, which the
 substring check does not match. The invention it was written to catch was not caught here.
 
-**Next, in order:** (a) decide the boxscore rule; (b) sharpen the system prompt's rejection
-clause, using the fact that `story_type` already knows — and re-run this gate to measure it;
-(c) only then consider the seat itself. A deterministic pre-filter at scrub for boxscore/broadcast
-listings is independent and cheap, and would stop ~44 of these ever costing a GPU call.
+### ar3 → ar5: three prompt revisions, and why the fix ended up in the parser
+
+Each revision fixed a real defect. The first two moved the fixture score by **exactly zero**. That
+is the useful part of the record — do not re-run these experiments.
+
+| version | change | fixtures |
+|---|---|---|
+| ar3 | baseline: `relevant` FIRST, "already-relevance-vetted" framing | 13/16, 0-for-3 |
+| ar4 | verdict moved LAST; framing rewritten; reject classes promoted | **13/16, 0-for-3** |
+| ar5 | reject classes become grammar-enforced `story_type` enum values + explicit lookup rule | **13/16, 0-for-3** |
+| ar5 + derivation | `relevant` derived from `story_type` in the parser | **15/16** |
+
+**ar4 refuted the ordering hypothesis, and the refutation is verified.** A direct ollama call
+confirms the schema's property order IS honoured — `relevant` really was emitted last, after
+`story_type:"score"` and eight lines of stat-table facts. The model had its own analysis on the
+line above the verdict and still answered `true`. "It cannot reason before answering" is dead.
+
+**ar5 refuted the vocabulary hypothesis too, and did it most sharply.** With the reject classes as
+grammar-enforced enum values, gemma labelled the boxscore `score_stub` and the broadcast page
+`broadcast_listing` — the *exact* classes — with the mapping stated as a mechanical lookup
+directly above and the classification emitted first. Still `relevant:true`.
+
+**Conclusion: gemma3:4b classifies reliably and will not render a negative boolean.** So the
+boolean stopped being an input. `ArticleEvidenceParser` now derives `relevant` from `story_type`
+via `REJECT_STORY_TYPES`, ONE-WAY: a reject class forces `false`, a reporting class never forces
+`true` (we are correcting a failure to say no, not overriding a no).
+
+**The one still open — `opponent_only` — is a different problem.** gemma classified the Rangers
+story as `injury`, which correctly describes the STORY; what it missed is that the vetted entity
+(West Ham) is only the opponent. That needs subject attribution against the vetted list, not page
+classification, and no amount of format vocabulary will reach it.
+
+### TWO CORRECTIONS to the measurements above — read before acting on them
+
+1. **"90 trivially-identifiable non-articles" was a TITLE-pattern proxy and overstates the junk.**
+   The Reader judges the fetched BODY. Live-checked on real accepted articles: `178025`
+   ("How to watch United v Atletico", 226 words) is a genuine listings page and ar5 rejects it —
+   but `177468` ("How to Watch Nottingham Forest…") is a **2,449-word match preview** and
+   `177901` ("…Live Score") is a 912-word match report with goalscorers. Both are correctly
+   ACCEPTED. Title class ≠ body class.
+2. **The deterministic scrub pre-filter suggested earlier is WITHDRAWN.** A title regex on
+   `watch|live score|boxscore` would have destroyed that 2,449-word preview. Only the body can be
+   judged here. Do not build it.
+
+   What survives both corrections, untouched: **mistral 27.4% vs gemma 0.9% rank-matched on the
+   identical `ar3` prompt** (body-based, model-based), and the flag-football false positive.
+
+**Also fixed in passing: live eval was unreachable for BOTH article-keyed tasks.** `EntitySpec`
+parsing rejected `article:<id>:<SPORT>` — the exact form `GraphTask::build_prompt` and
+`ReaderTask::build_prompt` tell you to use — so `eval --task graph <article>` had never run since
+the task was written. `player|team|article` now parse.
+
+**Next, in order:** (a) decide whether to deploy ar5 — production still runs ar3, and invalidation
+is lazy so there is no re-read stampede; (b) `opponent_only` needs a different mechanism (subject
+attribution), and is the remaining measured gap; (c) the odds/betting class (46 by title) is
+untested against bodies and may be legitimate league reporting — measure before assuming.
 
 ## Operational
 

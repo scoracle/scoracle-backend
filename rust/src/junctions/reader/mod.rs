@@ -47,15 +47,28 @@ const ARTICLE_FETCH_USER_AGENT: &str =
 const GOOGLE_NEWS_BATCH_URL: &str =
     "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
 
-pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: compress one already-relevance-vetted sports article for The Journalist.
+pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: decide whether one fetched sports article is genuinely about the known vetted entities, then compress what it says for The Journalist.
 
-You are not writing the public story. You are preparing a compact evidence card from the article body so The Journalist can group storylines from richer source material.
+This article reached you because an RSS headline matched an entity name. That match is a GUESS and nothing has checked it. Deciding whether the FULL TEXT is really about the entity is your first job; the evidence card is your second.
 
-Rules:
+Do this by CLASSIFYING the page first, then reading the verdict off that classification. Answer in the order the fields are listed: story_type first, then what the text says (key_facts, relevant_entities, co_mentions), then the card (evidence_blurb), and the `relevant` verdict LAST.
+
+STEP 1 — choose exactly one story_type. Five of these values mean the page is not reporting on the entity:
+- score_stub — a result/boxscore/live-score page: a score with lineups, stats tables, possession, cards, attendance, next fixtures. A result table is not reporting.
+- broadcast_listing — a "watch"/"how to watch"/TV-times/streaming/replay page, or a schedule blurb.
+- opponent_only — the vetted entity appears only as the opposition, or only in passing, while the story is about someone else.
+- name_collision — a different club, age level, or competition sharing the name (youth, academy, reserves, women's, flag football, or a same-named club elsewhere). That is NOT the vetted entity.
+- off_entity — anything else not materially about a vetted entity: navigation, ads, sidebars, tags, comments, related-link roundups.
+The remaining values mean the page IS reporting on the entity: transfer, injury, performance, fixture (a genuine match preview or match report with actual reporting), roster, contract, general.
+
+STEP 2 — the verdict follows mechanically from STEP 1. Do not re-decide it:
+- story_type in {score_stub, broadcast_listing, opponent_only, name_collision, off_entity} => relevant=false, ALWAYS.
+- any other story_type => relevant=true.
+When relevant=false, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
+
+Other rules:
 - Use only the article text and the known vetted entities.
-- Set relevant=false when the full article is not materially about any known vetted entity, even if the RSS headline/snippet looked like a match. In that case, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
-- Set relevant=true only when the full article materially discusses at least one known vetted entity.
-- If co-mention candidates are provided, label every candidate exactly once in co_mentions. Set relevant=true only when the full article materially discusses that candidate; reject name collisions, roundup artifacts, and people/teams merely mentioned in navigation, ads, sidebars, tags, comments, or unrelated links.
+- If co-mention candidates are provided, label every candidate exactly once in co_mentions. Mark a candidate relevant only when the full article materially discusses that candidate; reject name collisions, roundup artifacts, and people/teams merely mentioned in navigation, ads, sidebars, tags, comments, or unrelated links.
 - Detect the source article language. Translate meaning into English before writing the evidence card.
 - evidence_blurb, key_facts, story_type, and caveats must be English.
 - Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.
@@ -64,8 +77,8 @@ Rules:
 - If the article is mostly boilerplate, say so in caveats.
 - Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
 
-Return strict JSON only:
-{"relevant":<true|false>,"source_language":"<ISO 639-1 language code or unknown>","evidence_blurb":"<2-4 compact English sentences, or short mismatch reason when relevant=false>","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"story_type":"transfer|injury|performance|fixture|roster|contract|general|irrelevant","caveats":"<short English caveat or empty string>"}"#;
+Return strict JSON only, with the keys in exactly this order:
+{"source_language":"<ISO 639-1 language code or unknown>","story_type":"transfer|injury|performance|fixture|roster|contract|general|score_stub|broadcast_listing|opponent_only|name_collision|off_entity","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"caveats":"<short English caveat or empty string>","evidence_blurb":"<2-4 compact English sentences, or short mismatch reason when relevant=false>","relevant":<true|false>}"#;
 
 /// The model budget for one article reading — the stage's options and `bin/eval`'s, from ONE
 /// definition (the `graph_opts()` pattern), so a fixture can never be scored under options
@@ -86,13 +99,32 @@ pub fn article_read_opts() -> GenerateOptions {
     }
 }
 
+/// FIELD ORDER IS THE CONTRACT, not a style choice (ar4, 2026-07-26). Constrained decoding emits
+/// required properties in the order given, so this ordering is what forces the model to
+/// characterize the article — `story_type`, then the facts, then the card — BEFORE it renders the
+/// `relevant` verdict, which now comes last.
+///
+/// Under ar3 `relevant` was FIRST: the model committed to the verdict as its opening token, with
+/// nothing written to reason from, and the highest-prior continuation is `true` because most
+/// articles genuinely are relevant. mistral:7b could carry the judgment internally and still open
+/// correctly; gemma3:4b could not, and rubber-stamped 99.1% of articles. The proof it was ordering
+/// rather than capability: gemma labelled boxscores and broadcast listings `story_type:"fixture"`
+/// CORRECTLY — at field 7, long after the verdict was already locked in.
+///
+/// The literal template at the end of `ARTICLE_READ_SYSTEM_PROMPT` must match this order.
 pub fn article_read_format_schema() -> serde_json::Value {
     json!({
         "type": "object",
         "properties": {
-            "relevant": { "type": "boolean" },
             "source_language": { "type": "string" },
-            "evidence_blurb": { "type": "string" },
+            // GRAMMAR-ENFORCED vocabulary (ar5). Without the enum the model invented values —
+            // ar4 measured it answering `story_type:"score"` and `"broadcast"`, adopting the
+            // reject list's wording while emitting terms no rule could act on. Constrained
+            // decoding now restricts it to exactly the classes the verdict maps from.
+            "story_type": { "type": "string", "enum": [
+                "transfer", "injury", "performance", "fixture", "roster", "contract", "general",
+                "score_stub", "broadcast_listing", "opponent_only", "name_collision", "off_entity"
+            ] },
             "key_facts": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
             "relevant_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 12 },
             "co_mentions": {
@@ -107,10 +139,11 @@ pub fn article_read_format_schema() -> serde_json::Value {
                     "required": ["candidate", "relevant"]
                 }
             },
-            "story_type": { "type": "string" },
-            "caveats": { "type": "string" }
+            "caveats": { "type": "string" },
+            "evidence_blurb": { "type": "string" },
+            "relevant": { "type": "boolean" }
         },
-        "required": ["relevant", "source_language", "evidence_blurb", "key_facts", "relevant_entities", "co_mentions", "story_type", "caveats"]
+        "required": ["source_language", "story_type", "key_facts", "relevant_entities", "co_mentions", "caveats", "evidence_blurb", "relevant"]
     })
 }
 
@@ -180,6 +213,17 @@ pub struct ArticleCoMentionVerdict {
 
 pub struct ArticleEvidenceParser;
 
+/// The `story_type` values that MEAN "not reporting on the vetted entity". `relevant` is derived
+/// from these rather than trusted from the model — see [`ArticleEvidenceParser`].
+pub const REJECT_STORY_TYPES: &[&str] = &[
+    "score_stub",
+    "broadcast_listing",
+    "opponent_only",
+    "name_collision",
+    "off_entity",
+    "irrelevant",
+];
+
 fn default_relevant() -> bool {
     true
 }
@@ -215,6 +259,24 @@ impl Parser<ArticleEvidence> for ArticleEvidenceParser {
             .filter(|c| c.candidate > 0)
             .take(ARTICLE_MAX_CO_MENTION_CANDIDATES)
             .collect();
+        // DERIVE the verdict from the classification instead of trusting the model's boolean.
+        //
+        // Earned the hard way over three measured prompt revisions (ar3→ar5), each of which fixed
+        // a real defect and moved the fixture score by exactly zero. Under ar5 gemma3:4b labels a
+        // boxscore `score_stub` and a broadcast page `broadcast_listing` — the precise reject
+        // classes — with the mapping stated as a mechanical lookup directly above, and the
+        // classification emitted BEFORE the verdict. It still answered `relevant:true` every time.
+        // The classification is reliable; the boolean is not; so the boolean stops being an input.
+        //
+        // Deliberately ONE-WAY. A reject class forces `relevant=false`, but a reporting class
+        // never forces `true` — if the model ever does reject on its own judgment, that judgment
+        // still stands. We are correcting a measured failure to say no, not overriding a no.
+        if REJECT_STORY_TYPES
+            .iter()
+            .any(|t| evidence.story_type.eq_ignore_ascii_case(t))
+        {
+            evidence.relevant = false;
+        }
         if evidence.evidence_blurb.is_empty() {
             if !evidence.relevant {
                 evidence.evidence_blurb =

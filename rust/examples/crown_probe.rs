@@ -42,7 +42,6 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?,
         embedder: None,
-        resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
     };
 

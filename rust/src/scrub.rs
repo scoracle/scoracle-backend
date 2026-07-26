@@ -1,25 +1,33 @@
-//! Scrub stage handler — the news ID-gate as a `pipeline_work` stage.
+//! Scrub stage handler — article bookkeeping as a `pipeline_work` stage. NO MODEL CALL.
 //!
-//! It claims an ARTICLE-keyed work item, loads the article plus candidate links with identity
-//! cards, force-keeps exact links (confidence >= 1.0), runs the asymmetric `resolve_set` gate on
-//! primary team candidates from the broad RSS funnel, and writes `news_article_entities.vetted`.
-//! Lower-confidence co-mentions are preserved as scrubbed-but-unvetted tokens for Article Reader,
-//! which has the full publisher text and can promote only the co-mentions that are actually
-//! material. A vetted write fires the SQL trigger that enqueues downstream per-entity work.
-//! Terminal: the handler enqueues nothing itself.
+//! It claims an ARTICLE-keyed work item, admits the article's links, defers co-mentions to the
+//! Article Reader, enqueues the read, and runs the near-verbatim novelty gate. A vetted write
+//! fires the SQL trigger that enqueues downstream per-entity work.
 //!
-//! The gate spends local-model time only on the ambiguous band; the auto-keeps skip it. The proxy
-//! never auto-drops (the L5 shadow proved that loses non-redundant truth), so every exclusion is the
-//! model's — fail-closed when the model won't commit.
+//! **This stage no longer judges relevance** (teardown plan §2.1). It used to run an
+//! embedding + GPU gate here, and that gate was measured to reject ~1 in 3 links at a rate
+//! UNCORRELATED with relevance — it was deleting a third of the genuinely good corpus
+//! ("Arsenal sign Greek winger Christos Tzolis" was rejected). Two facts made it deletable
+//! rather than repairable:
+//!
+//!   * Go now refuses to create a link at all unless the entity is named in the article text
+//!     (`filterRSSArticles` → `MatchesEntity`, restored in `328c9c9`). Measured live: 100% of
+//!     primary links carry the entity, 96.6% of them in the title itself. The question this gate
+//!     existed to answer is already answered deterministically, upstream, for free.
+//!   * The Article Reader is the sole relevance judge, and it is the only stage that reads the
+//!     publisher body. It can reject a whole article after fetching (mig 190), clearing the
+//!     sport's vetted links — so a false positive that survives Go still meets a judge holding
+//!     real evidence, rather than a headline-only guess.
+//!
+//! What remains here is fact, not judgment: which links exist, which are deferred, and whether
+//! this article is a near-verbatim repost of one already held.
 
-use crate::harness::{Candidate, EntityType, Harness, IdentityCard};
-use crate::route::Role;
+use crate::harness::{EntityType, Harness};
 use crate::stage::StageHandler;
 use crate::work::{self, Item, Stage};
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::Row;
-use std::collections::HashMap;
 
 /// Go marks broad team RSS primaries at 0.95. Lower-confidence links are co-mention
 /// candidates; when a primary exists, Article Reader owns their full-text verdict.
@@ -40,19 +48,17 @@ impl Default for ScrubHandler {
     }
 }
 
-/// One entity currently linked to an article (the fuzzy matcher's guess) + its identity card.
+/// One entity currently linked to an article. The identity card (name, nationality, club,
+/// position) is gone with the gate that rendered it into an embedding — nothing here needs to
+/// know WHO the entity is any more, only that the link exists and what has already been ruled.
 struct ScrubCandidate {
     entity_type: EntityType,
     entity_id: i32,
-    name: String,
-    nationality: String,
-    current_club: String,
-    position: String,
     confidence: f64,
     /// The link's settled verdict, or `None` when nobody has ruled yet. `Some(_)` means this link
-    /// is DONE — Candle already adjudicated it, or Article Reader promoted/rejected a co-mention.
-    /// Settled links are excluded from the adjudication set so a re-enqueue never re-pays the
-    /// model for a verdict already on disk; they still count toward the novelty gate's scope.
+    /// is DONE — Article Reader promoted/rejected a co-mention, or an earlier pass admitted it.
+    /// Settled links are excluded from the write set so a re-enqueue never re-stamps a verdict
+    /// already on disk; they still count toward the novelty gate's scope.
     vetted: Option<bool>,
 }
 
@@ -62,13 +68,20 @@ impl StageHandler for ScrubHandler {
         Stage::Scrub
     }
 
+    /// Scrub makes no model call any more — one item is a handful of indexed statements and a set
+    /// intersection. Draining it in real batches keeps a broad RSS sweep from sitting in the queue
+    /// behind the GPU stages; at one-per-rotation the post-teardown backlog would never clear.
+    fn rotation_batch(&self) -> i64 {
+        256
+    }
+
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         // The scrub item is article-keyed: entity_type='article', entity_id=news_articles.id.
         let article_id = item.entity_id;
         let sport = item.sport.to_uppercase();
 
         let row = sqlx::query(
-            "SELECT title, COALESCE(description, '') AS description, COALESCE(source, '') AS source FROM news_articles WHERE id = $1",
+            "SELECT title, COALESCE(description, '') AS description FROM news_articles WHERE id = $1",
         )
         .bind(article_id)
         .fetch_optional(&hx.pool)
@@ -79,26 +92,26 @@ impl StageHandler for ScrubHandler {
         };
         let title: String = row.get("title");
         let description: String = row.get("description");
-        let source: String = row.get("source");
 
         let cands = load_candidates(hx, article_id, &sport).await?;
         if cands.is_empty() {
             return Ok(());
         }
 
-        // Force-keep exact links (confidence ≥ 1.0). When the Go funnel has a primary team
-        // candidate (0.95), Candle only decides that primary article relevance; lower-confidence
-        // co-mentions are preserved for Article Reader's full-text verdict. If an old repair item
-        // has no primary-like candidate, keep the old behavior and adjudicate every candidate here.
+        // When the Go funnel has a primary team candidate (0.95), lower-confidence co-mentions are
+        // preserved for Article Reader's full-text verdict. If an old repair item has no
+        // primary-like candidate, every candidate is scrub-owned as before.
         let context = crate::novelty::article_text(&title, &description);
         let has_primary_like = cands
             .iter()
             .any(|c| c.confidence >= PRIMARY_TEAM_CONFIDENCE_FLOOR);
-        // A settled link (`vetted IS NOT NULL`) is never re-adjudicated. `pipeline_work` rows are
+        // A settled link (`vetted IS NOT NULL`) is never re-stamped. `pipeline_work` rows are
         // DELETED on completion, so the queue's idempotency key vanishes once an article is
-        // scrubbed — any later team that adds a link re-enqueues the whole article. Without this
-        // filter that re-enqueue re-sent every already-decided link to the model, re-paying GPU
-        // for verdicts already on disk. Settled links still feed the novelty gate's scope below.
+        // scrubbed — any later team that adds a link re-enqueues the whole article. This filter
+        // keeps that re-enqueue from overwriting a verdict already on disk, which now matters MORE
+        // than it did: the Article Reader may have rejected one of these links after reading the
+        // body (mig 190), and a blanket re-admit here would silently undo the only judgment in the
+        // pipeline that saw real evidence. Settled links still feed the novelty gate's scope below.
         let scrub_idxs: Vec<usize> = cands
             .iter()
             .enumerate()
@@ -117,44 +130,17 @@ impl StageHandler for ScrubHandler {
             Vec::new()
         };
 
-        let secondaries: Vec<Candidate> = scrub_idxs
-            .iter()
-            .map(|&idx| &cands[idx])
-            .filter(|c| c.confidence < 1.0)
-            .map(to_candidate)
-            .collect();
-        let gate = if secondaries.is_empty() {
-            crate::resolve::ResolveSetOutcome::default()
-        } else {
-            hx.resolve_set(Role::EmotionalNews, &context, &secondaries)
-                .await
-                .context("resolve_set gate")?
-        };
-        let resolutions = &gate.resolutions;
-        let kept_secondary: HashMap<(EntityType, i32), bool> = resolutions
-            .iter()
-            .map(|r| ((r.entity_type, r.entity_id), r.kept))
-            .collect();
-
-        // A verdict for every scrub-owned link: exact links are kept by rule, primary team
-        // candidates by Candle (default-drop on a missing verdict). Deferred co-mentions stay
-        // vetted=NULL and get only scrubbed_at stamped, so maintenance will not requeue them.
+        // Every scrub-owned link is admitted. This is not a lowered bar — it is the bar moving
+        // upstream to where the evidence actually is: Go already proved the entity is named in
+        // the article text before this link was allowed to exist, and the Article Reader will
+        // read the body and can still reject the whole article (mig 190). Deferred co-mentions
+        // stay vetted=NULL and get only scrubbed_at stamped, so maintenance will not requeue them.
         let entity_types: Vec<String> = scrub_idxs
             .iter()
             .map(|&idx| cands[idx].entity_type.as_str().to_string())
             .collect();
         let entity_ids: Vec<i32> = scrub_idxs.iter().map(|&idx| cands[idx].entity_id).collect();
-        let relevants: Vec<bool> = scrub_idxs
-            .iter()
-            .map(|&idx| {
-                let c = &cands[idx];
-                c.confidence >= 1.0
-                    || kept_secondary
-                        .get(&(c.entity_type, c.entity_id))
-                        .copied()
-                        .unwrap_or(false)
-            })
-            .collect();
+        let relevants: Vec<bool> = vec![true; scrub_idxs.len()];
         let deferred_entity_types: Vec<String> = deferred_idxs
             .iter()
             .map(|&idx| cands[idx].entity_type.as_str().to_string())
@@ -224,38 +210,20 @@ impl StageHandler for ScrubHandler {
             .await?;
         }
 
-        // Source-aware novelty gate (Cognition Phase 2): suppress a near-dup repost (same outlet, or
-        // near-verbatim syndication) of recent canonical coverage; cross-outlet corroboration passes
-        // through. Reuses the relevance gate's context embedding when it ran. Writes `duplicate_of`
-        // only — membership is untouched, so no derive re-fires.
+        // Near-verbatim novelty gate: suppress only a syndicated copy of coverage already held.
+        // Writes `duplicate_of` only — membership is untouched, so no derive re-fires.
         crate::novelty::gate(
             hx,
             crate::novelty::ArticleNovelty {
                 article_id,
                 sport: &sport,
-                source: &source,
                 context: &context,
-                context_vector: gate.context_vector.as_ref(),
                 vetted_entities: &vetted_entities,
             },
         )
         .await
         .context("novelty gate")?;
         Ok(())
-    }
-}
-
-fn to_candidate(c: &ScrubCandidate) -> Candidate {
-    let opt = |s: &str| (!s.is_empty()).then(|| s.to_string());
-    Candidate {
-        entity_type: c.entity_type,
-        entity_id: c.entity_id,
-        name: c.name.clone(),
-        identity: IdentityCard {
-            nationality: opt(&c.nationality),
-            current_club: opt(&c.current_club),
-            position: opt(&c.position),
-        },
     }
 }
 
@@ -280,10 +248,10 @@ fn article_read_co_mentions_input_version(cands: &[ScrubCandidate], idxs: &[usiz
     )
 }
 
-/// load_candidates returns every entity linked to the article with its identity card — the Rust port
-/// of `news_scrub.go::loadCandidates` (current club and position from `player_current_identity`).
-/// `match_confidence` is cast `::float8` (sqlx has no numeric→f64 without the
-/// decimal feature — the L5 landmine).
+/// load_candidates returns every entity linked to the article. The four identity-card joins
+/// (players, teams, `player_current_identity`, current club) are gone with the embedding gate that
+/// consumed them — this is now a single-table read. `match_confidence` is cast `::float8` (sqlx has
+/// no numeric→f64 without the decimal feature — the L5 landmine).
 async fn load_candidates(
     hx: &Harness,
     article_id: i64,
@@ -292,17 +260,9 @@ async fn load_candidates(
     let rows = sqlx::query(
         r#"
         SELECT nae.entity_type, nae.entity_id,
-               COALESCE(p.name, t.name, '')                  AS name,
-               COALESCE(p.nationality, '')                   AS nationality,
-               COALESCE(ct.name, '')                         AS current_club,
-               COALESCE(NULLIF(pci.position, 'Unknown'), '') AS position,
-               nae.match_confidence::float8                  AS confidence,
-               nae.vetted                                    AS vetted
+               nae.match_confidence::float8 AS confidence,
+               nae.vetted                   AS vetted
         FROM news_article_entities nae
-        LEFT JOIN players p ON nae.entity_type = 'player' AND p.id = nae.entity_id AND p.sport = nae.sport
-        LEFT JOIN teams   t ON nae.entity_type = 'team'   AND t.id = nae.entity_id AND t.sport = nae.sport
-        LEFT JOIN public.player_current_identity pci ON nae.entity_type = 'player' AND pci.player_id = nae.entity_id AND pci.sport = nae.sport
-        LEFT JOIN teams ct ON ct.id = pci.team_id AND ct.sport = nae.sport
         WHERE nae.article_id = $1 AND nae.sport = $2
         ORDER BY nae.match_confidence DESC, nae.entity_type, nae.entity_id
         "#,
@@ -322,10 +282,6 @@ async fn load_candidates(
         out.push(ScrubCandidate {
             entity_type,
             entity_id: r.get("entity_id"),
-            name: r.get("name"),
-            nationality: r.get("nationality"),
-            current_club: r.get("current_club"),
-            position: r.get("position"),
             confidence: r.get("confidence"),
             vetted: r.get("vetted"),
         });
@@ -333,10 +289,9 @@ async fn load_candidates(
     Ok(out)
 }
 
-/// apply_scrub_outcomes records Candle-owned verdicts and marks deferred co-mentions as handed
-/// to Article Reader. Kept/rejected primary writes use `vetted`; deferred co-mentions keep
-/// `vetted=NULL` but get `scrubbed_at=NOW()` so the maintenance sweep does not treat them as
-/// unprocessed Candle work.
+/// apply_scrub_outcomes admits the scrub-owned links and marks deferred co-mentions as handed to
+/// Article Reader. Admissions write `vetted`; deferred co-mentions keep `vetted=NULL` but get
+/// `scrubbed_at=NOW()` so the maintenance sweep does not treat them as unprocessed work.
 async fn apply_scrub_outcomes(
     hx: &Harness,
     article_id: i64,

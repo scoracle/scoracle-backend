@@ -45,7 +45,6 @@ pub mod narratives;
 pub mod novelty;
 pub mod ollama;
 pub mod rating;
-pub mod resolve;
 pub mod route;
 pub mod scrub;
 pub mod sigil;

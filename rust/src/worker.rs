@@ -57,8 +57,9 @@ const WATCHDOG_POLL: Duration = Duration::from_secs(60);
 /// boundary) → grace → abort → clean exit.
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(75);
 
-/// The live worker rotates stages one item at a time. LLM/model calls dominate
-/// runtime, so minimizing product-stage latency is worth the extra cheap claims.
+/// The live worker rotates stages one item at a time by default. LLM/model calls dominate
+/// runtime, so minimizing product-stage latency is worth the extra cheap claims. A stage with no
+/// model call overrides this via [`StageHandler::rotation_batch`] — see the note there.
 const STAGE_ROTATION_BATCH: i64 = 1;
 
 /// Pulse is the drain's progress instrument, shared with the supervisor. The drain
@@ -351,7 +352,8 @@ impl Worker {
                 }
                 let stage = handler.stage();
                 pulse.beat(&format!("claim {stage}"));
-                let items = match work::claim(&self.pool, stage, STAGE_ROTATION_BATCH).await {
+                let batch = handler.rotation_batch().max(STAGE_ROTATION_BATCH);
+                let items = match work::claim(&self.pool, stage, batch).await {
                     Ok(items) => items,
                     Err(e) => {
                         error!(error = %format!("{e:#}"), %stage, cause, "claim failed");

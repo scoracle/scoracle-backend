@@ -68,26 +68,24 @@ async fn main() -> Result<()> {
         "scrub,graph,article_read,fixture_boxscore,peak,momentum,transfers,narratives,vibe,sigil".to_string()
     }))?;
 
-    // The CPU embedder (candle, Plan §1.4) powers the scrub resolve pre-filter + bucket fallback,
-    // narratives near-duplicate dedup, topic heat-rank, and vibe narrative relevance weighting. It
-    // is a heavy resource, so it loads only when one of those stages is enabled.
-    let embedder = if enabled.contains("scrub")
-        || enabled.contains("narratives")
-        || enabled.contains("vibe")
-    {
-        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for scrub/narratives/vibe");
+    // The CPU embedder (candle, Plan §1.4) now has exactly ONE consumer left: narratives, for its
+    // pre-model corpus clustering and its thread-identity centroid cosine. Scrub no longer embeds
+    // anything — both its relevance gate and its novelty gate were deleted in the teardown
+    // (§2.1/§2.2). When Phase 3 moves thread identity into The Journalist's output contract, this
+    // whole block and `Harness.embedder` go with it.
+    let embedder = if enabled.contains("narratives") {
+        info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for narratives");
         Some(embed::Embedder::from_config(&cfg.embed)?)
     } else {
         None
     };
 
     // The capability context handed to every stage: the config-driven router (role → local model
-    // from COGNITION_ROUTE_*), the embedder (Some only for scrub/narratives), the pool.
+    // from COGNITION_ROUTE_*), the embedder (Some only for narratives), the pool.
     let harness = Harness {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder,
-        resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
     };
 

@@ -16,7 +16,7 @@
 //! real signatures + types), so the floor is drawn for the HORIZON stages without building
 //! infrastructure on speculation. See Plan §1.
 
-use crate::config::{ResolveConfig, ScrubConfig};
+use crate::config::ScrubConfig;
 use crate::embed::{cosine_similarity, Embedder};
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
@@ -35,11 +35,13 @@ pub struct Harness {
     /// heavy resource not every entry point needs: the service and embed-aware experiments
     /// construct it with `Some`; eval/input-build paths that never embed leave it `None`.
     /// Loading it is `Embedder::from_config`.
+    ///
+    /// SHRINKING: the relevance gate and the novelty gate no longer embed anything (teardown
+    /// §2.1/§2.2). The last two consumers are `narratives`' pre-model corpus clustering and
+    /// `threads`' centroid cosine — both retire in Phase 3, when The Journalist declares thread
+    /// identity itself and the embedder can be deleted outright.
     pub embedder: Option<Embedder>,
-    /// Embedding-Resolve cosine bands (Plan §1.3) — the policy the `resolve_*` primitives read
-    /// to auto-decide the confident tails vs route the ambiguous middle to the model.
-    pub resolve: ResolveConfig,
-    /// Scrub novelty-gate policy (relevance + source-aware near-dup suppression).
+    /// Near-verbatim novelty policy.
     pub scrub: ScrubConfig,
 }
 

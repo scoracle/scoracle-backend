@@ -828,7 +828,6 @@ async fn build_harness(cfg: &Config) -> Result<Harness> {
         pool,
         router,
         embedder: None,
-        resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
     })
 }

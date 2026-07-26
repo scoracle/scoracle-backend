@@ -67,7 +67,6 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder: None,
-        resolve: cfg.resolve.clone(),
         scrub: cfg.scrub.clone(),
     };
 

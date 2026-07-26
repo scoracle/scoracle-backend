@@ -24,11 +24,14 @@ use std::process::Command;
 use std::time::Duration;
 use tracing::warn;
 
-pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar3";
+// The Reader's prompt and contract version live in `crate::prompts::reader` — one file per
+// junction, so a change to what this character is asked is a one-file diff. Re-exported here so
+// call sites and the ledger keep reading it from the stage module.
+pub use crate::prompts::reader::{build_article_read_prompt, ARTICLE_READ_PROMPT_VERSION};
 pub const ARTICLE_READ_OUTPUT_CONTRACT_VERSION: &str = "article-reading-v3";
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 const ARTICLE_MIN_WORDS: usize = 80;
-const ARTICLE_MAX_MODEL_CHARS: usize = 9_000;
+pub(crate) const ARTICLE_MAX_MODEL_CHARS: usize = 9_000;
 const ARTICLE_MAX_CO_MENTION_CANDIDATES: usize = 24;
 const ARTICLE_NUM_PREDICT: i32 = 900;
 const ARTICLE_NUM_CTX: i32 = 8192;
@@ -86,13 +89,13 @@ pub fn article_read_format_schema() -> serde_json::Value {
 }
 
 #[derive(Debug)]
-struct ArticleRow {
-    url: String,
-    source: String,
-    title: String,
-    description: String,
-    duplicate_of: Option<i64>,
-    vetted_count: i64,
+pub(crate) struct ArticleRow {
+    pub(crate) url: String,
+    pub(crate) source: String,
+    pub(crate) title: String,
+    pub(crate) description: String,
+    pub(crate) duplicate_of: Option<i64>,
+    pub(crate) vetted_count: i64,
 }
 
 #[derive(Debug)]
@@ -103,20 +106,20 @@ struct FetchedArticle {
 }
 
 #[derive(Clone, Debug)]
-struct ArticleReadEntities {
-    vetted_names: Vec<String>,
-    co_mentions: Vec<CoMentionCandidate>,
+pub(crate) struct ArticleReadEntities {
+    pub(crate) vetted_names: Vec<String>,
+    pub(crate) co_mentions: Vec<CoMentionCandidate>,
 }
 
 #[derive(Clone, Debug)]
-struct CoMentionCandidate {
-    number: i32,
-    entity_type: String,
-    entity_id: i32,
-    name: String,
-    nationality: String,
-    current_club: String,
-    position: String,
+pub(crate) struct CoMentionCandidate {
+    pub(crate) number: i32,
+    pub(crate) entity_type: String,
+    pub(crate) entity_id: i32,
+    pub(crate) name: String,
+    pub(crate) nationality: String,
+    pub(crate) current_club: String,
+    pub(crate) position: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -536,43 +539,6 @@ fn fetch_with_chrome(raw_url: &str) -> Option<String> {
     String::from_utf8(output.stdout).ok()
 }
 
-fn build_article_read_prompt(
-    article: &ArticleRow,
-    text: &str,
-    entities: &ArticleReadEntities,
-) -> String {
-    let mut p = String::new();
-    p.push_str(&format!("Source: {}\n", article.source));
-    p.push_str(&format!("Title: {}\n", article.title));
-    if !article.description.trim().is_empty() {
-        p.push_str(&format!("RSS description: {}\n", article.description));
-    }
-    if !entities.vetted_names.is_empty() {
-        p.push_str("\nKnown vetted entities:\n");
-        for e in &entities.vetted_names {
-            p.push_str("- ");
-            p.push_str(e);
-            p.push('\n');
-        }
-    }
-    if !entities.co_mentions.is_empty() {
-        p.push_str("\nCo-mention candidates to verify from full text:\n");
-        for c in &entities.co_mentions {
-            p.push_str(&format!(
-                "{}. {} ({} {}, {})\n",
-                c.number,
-                c.name,
-                c.entity_type,
-                c.entity_id,
-                co_mention_identity(c)
-            ));
-        }
-    }
-    p.push_str("\nArticle text:\n");
-    p.push_str(&truncate(&normalize_space(text), ARTICLE_MAX_MODEL_CHARS));
-    p.push_str("\n\nReturn the JSON object now.");
-    p
-}
 
 async fn load_article_read_entities(
     pool: &sqlx::PgPool,
@@ -655,23 +621,6 @@ async fn load_article_read_entities(
     })
 }
 
-fn co_mention_identity(c: &CoMentionCandidate) -> String {
-    let mut parts = Vec::new();
-    if !c.position.is_empty() {
-        parts.push(c.position.as_str());
-    }
-    if !c.current_club.is_empty() {
-        parts.push(c.current_club.as_str());
-    }
-    if !c.nationality.is_empty() {
-        parts.push(c.nationality.as_str());
-    }
-    if parts.is_empty() {
-        "no identity card".to_string()
-    } else {
-        parts.join(", ")
-    }
-}
 
 async fn persist_terminal(
     hx: &Harness,

@@ -27,7 +27,7 @@
 //! stale current projections without deleting history, and they still carry the configured
 //! model and prompt versions rather than `NULL` provenance.
 
-pub mod article_read;
+pub mod reader;
 pub mod boxscore_fetch;
 pub mod bucket;
 pub mod buildinfo;
@@ -44,6 +44,7 @@ pub mod momentum;
 pub mod narratives;
 pub mod novelty;
 pub mod ollama;
+pub mod prompts;
 pub mod rating;
 pub mod route;
 pub mod scrub;

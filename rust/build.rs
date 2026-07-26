@@ -8,11 +8,17 @@
 // install` from a tarball), so the build never fails on a stripped source tree.
 //
 // The `-dirty` suffix release.sh adds on a dirty Go tree is intentionally NOT reproduced
-// here: a change to the Rust crate (or any file in the repo) re-runs this script and
-// produces a fresh build-time, so a fresh build is always distinguishable from a clean
-// one; the Go side's `-dirty` exists because the Go binary may be hand-built outside
+// here; the Go side's `-dirty` exists because the Go binary may be hand-built outside
 // release.sh and the marker is the only signal. release.sh is authoritative for the
 // Rust binaries too.
+//
+// KNOW THIS BEFORE TRUSTING THE STAMP. Emitting any `cargo:rerun-if-changed` REPLACES
+// cargo's default "re-run when any package file changed", so this script re-runs ONLY on
+// the paths listed below — build.rs itself and git HEAD movement. Editing source without
+// committing therefore produces a fresh BINARY carrying a STALE commit + build-time.
+// Measured live on 2026-07-26: the ar6 binary booted reporting the ar5 commit, because it
+// was built before the commit landed. The stamp means "HEAD when this was compiled", not
+// "what code is inside". To make a deploy self-describing, commit first, then build.
 
 use std::process::Command;
 

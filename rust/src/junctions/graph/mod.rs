@@ -38,7 +38,11 @@ use serde::Deserialize;
 use sqlx::{PgPool, Row};
 use tracing::debug;
 
-pub const GRAPH_PROMPT_VERSION: &str = "g3"; // g3: multilingual article handling + English-only generated strings; g2: person-extraction emphasis + object-attachment rule
+// This junction's contract with its model — system prompt, contract version, and prompt
+// builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
+// diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
+pub mod prompt;
+pub use prompt::{GRAPH_PROMPT_VERSION, GRAPH_SYSTEM_PROMPT, build_graph_prompt};
 
 /// The six-predicate vocabulary — MUST mirror the `narrative_events_predicate_check`
 /// constraint (mig 154). Grow both together, by migration, with eval evidence.
@@ -55,26 +59,6 @@ pub const PREDICATES: &[&str] = &[
 /// role guess maps to "other" rather than dropping the discovery (the promotion gate,
 /// not the extractor, decides who becomes an entity).
 pub const PERSON_KINDS: &[&str] = &["coach", "agent", "executive", "family", "other"];
-
-pub const GRAPH_SYSTEM_PROMPT: &str = r#"Task: extract structured narrative relations from one sports article.
-
-You are given the article and a NUMBERED list of known entities the article is about (already verified). Extract:
-
-Language handling: the article title/text may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language. Read it in the source language and translate meaning internally. Output JSON keys/enums exactly as specified in English. Any generated prose/string explanation must be English, while person names and proper names stay as written in the article. Do not drop relations or persons because the article is non-English.
-
-1. "relations": relations the article STATES OR CLEARLY IMPLIES between listed entities, or about one listed entity alone. Use entity NUMBERS only. Allowed predicates: trade_rumor, trade_confirmed, injury, contract_dispute, praise, criticism.
-   - subject: entity number (required). object: the number of the OTHER listed entity the relation is actually WITH -- for a transfer, the club the player is joining or leaving per THIS article, not just any club mentioned. Use null ONLY when no listed entity is the counterparty.
-   - sentiment: -1.0 (very negative for the subject) to 1.0 (very positive).
-   - confidence: "speculative" (unsourced/rumored), "reported" (attributed to a source), "confirmed" (official/announced).
-   - Extract only what the text supports. No relation is the correct output for many articles.
-
-2. "persons": EVERY person named in the article text who is NOT on the entity list and is not a player. Head coaches and managers named in the text ALWAYS belong here (e.g. a manager mentioned in a transfer story). So do agents, sporting directors/executives, and family members. Use their name exactly as written.
-   - kind: coach | agent | executive | family | other.
-   - team_context: the number of the listed TEAM they are tied to, or null.
-   Never list players here; never list people not named in the text. An empty persons list is WRONG whenever a coach or manager is named in the text.
-
-Return ONLY this JSON object, no commentary:
-{"relations":[{"subject":1,"predicate":"trade_rumor","object":2,"sentiment":0.0,"confidence":"reported"}],"persons":[{"name":"...","kind":"coach","team_context":2}]}"#;
 
 /// The model budget for one extraction call. Temperature 0.2 (tight but a judgment
 /// call, matching scrub adjudication); JSON mode tightens contract adherence.
@@ -214,31 +198,6 @@ pub async fn load_graph_article_context(
         })
         .collect();
     Ok(Some((article, candidates)))
-}
-
-/// build_graph_prompt lays out the article + numbered candidates (1-indexed, matching
-/// the reply contract).
-pub fn build_graph_prompt(
-    source: &str,
-    published: &str,
-    title: &str,
-    description: &str,
-    candidates: &[GraphCandidate],
-) -> String {
-    let mut b = String::new();
-    b.push_str(&format!(
-        "Article source: {source}\nPublished: {published}\n"
-    ));
-    b.push_str(&format!("Title: {title}\n"));
-    if !description.trim().is_empty() {
-        b.push_str(&format!("Text: {description}\n"));
-    }
-    b.push_str("\nKnown entities (use these numbers):\n");
-    for (i, c) in candidates.iter().enumerate() {
-        b.push_str(&format!("{}. {}\n", i + 1, c.descriptor));
-    }
-    b.push_str("\nReturn the JSON now.");
-    b
 }
 
 /// GraphParser validates the model reply against the candidate list and vocabularies.

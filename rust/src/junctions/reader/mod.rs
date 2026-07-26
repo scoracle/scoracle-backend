@@ -90,7 +90,7 @@ pub fn article_read_format_schema() -> serde_json::Value {
 }
 
 #[derive(Debug)]
-pub(crate) struct ArticleRow {
+pub struct ArticleRow {
     pub(crate) url: String,
     pub(crate) source: String,
     pub(crate) title: String,
@@ -107,13 +107,13 @@ struct FetchedArticle {
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct ArticleReadEntities {
+pub struct ArticleReadEntities {
     pub(crate) vetted_names: Vec<String>,
     pub(crate) co_mentions: Vec<CoMentionCandidate>,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct CoMentionCandidate {
+pub struct CoMentionCandidate {
     pub(crate) number: i32,
     pub(crate) entity_type: String,
     pub(crate) entity_id: i32,

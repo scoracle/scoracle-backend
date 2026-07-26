@@ -28,7 +28,9 @@ use tracing::warn;
 // change to what this character is asked is a one-file diff. Re-exported here so call sites and
 // the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{build_article_read_prompt, ARTICLE_READ_PROMPT_VERSION};
+pub use prompt::{
+    build_article_read_prompt, build_article_read_prompt_parts, ARTICLE_READ_PROMPT_VERSION,
+};
 pub const ARTICLE_READ_OUTPUT_CONTRACT_VERSION: &str = "article-reading-v3";
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 const ARTICLE_MIN_WORDS: usize = 80;
@@ -64,6 +66,25 @@ Rules:
 
 Return strict JSON only:
 {"relevant":<true|false>,"source_language":"<ISO 639-1 language code or unknown>","evidence_blurb":"<2-4 compact English sentences, or short mismatch reason when relevant=false>","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"story_type":"transfer|injury|performance|fixture|roster|contract|general|irrelevant","caveats":"<short English caveat or empty string>"}"#;
+
+/// The model budget for one article reading — the stage's options and `bin/eval`'s, from ONE
+/// definition (the `graph_opts()` pattern), so a fixture can never be scored under options
+/// production does not send. Temperature 0.2 live; the eval overrides it per case.
+///
+/// `format_schema` is what forces `relevant` to be present in every reply: it is in the schema's
+/// `required` list, so the model cannot decline to render a verdict. Worth knowing, because
+/// `ArticleEvidence::relevant` defaults to TRUE if the field is ever absent — fail-OPEN on the one
+/// field that gates the whole news rail. The schema is the only thing standing in front of that.
+pub fn article_read_opts() -> GenerateOptions {
+    GenerateOptions {
+        system: Some(ARTICLE_READ_SYSTEM_PROMPT.to_string()),
+        temperature: Some(0.2),
+        num_predict: ARTICLE_NUM_PREDICT,
+        num_ctx: ARTICLE_NUM_CTX,
+        json_mode: false,
+        format_schema: Some(article_read_format_schema()),
+    }
+}
 
 pub fn article_read_format_schema() -> serde_json::Value {
     json!({
@@ -116,15 +137,18 @@ pub struct ArticleReadEntities {
     pub(crate) co_mentions: Vec<CoMentionCandidate>,
 }
 
+/// One co-mention candidate line in the prompt. Fields are `pub` so a fixture generator outside
+/// the crate can render the live prompt via `build_article_read_prompt_parts` — it is prompt data
+/// with no invariant, not state.
 #[derive(Clone, Debug)]
 pub struct CoMentionCandidate {
-    pub(crate) number: i32,
-    pub(crate) entity_type: String,
-    pub(crate) entity_id: i32,
-    pub(crate) name: String,
-    pub(crate) nationality: String,
-    pub(crate) current_club: String,
-    pub(crate) position: String,
+    pub number: i32,
+    pub entity_type: String,
+    pub entity_id: i32,
+    pub name: String,
+    pub nationality: String,
+    pub current_club: String,
+    pub position: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -317,14 +341,7 @@ impl StageHandler for ArticleReadHandler {
         }
 
         let prompt = build_article_read_prompt(&article, &fetched.text, &entities);
-        let opts = GenerateOptions {
-            system: Some(ARTICLE_READ_SYSTEM_PROMPT.to_string()),
-            temperature: Some(0.2),
-            num_predict: ARTICLE_NUM_PREDICT,
-            num_ctx: ARTICLE_NUM_CTX,
-            json_mode: false,
-            format_schema: Some(article_read_format_schema()),
-        };
+        let opts = article_read_opts();
         let extracted = hx
             .extract(Role::ArticleReader, &prompt, &opts, &ArticleEvidenceParser)
             .await?;
@@ -422,6 +439,40 @@ async fn enqueue_graph_for_article(hx: &Harness, article_id: i64, sport: &str) -
     .await
     .with_context(|| format!("enqueue graph for article {article_id}"))?;
     Ok(())
+}
+
+/// build_article_read_prompt_for_eval assembles the EXACT production user prompt for one article
+/// — the same DB load, the same fetch, the same builder the stage calls — so `bin/eval` scores the
+/// contract that actually runs rather than a reconstruction of it.
+///
+/// `Ok(None)` mirrors every path where the stage writes a terminal marker WITHOUT a model call
+/// (article missing, duplicate, no vetted entities, body too short or paywalled). Those are
+/// deterministic bookkeeping, not judgments, so there is nothing for a model to be scored on.
+///
+/// It fetches over the network, exactly as the stage does. That is deliberate: an eval that read
+/// title+description from the DB would grade a prompt the Reader never sends, and the Reader's
+/// whole job is judging the FULL text.
+pub(crate) async fn build_article_read_prompt_for_eval(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+) -> Result<Option<String>> {
+    let Some(article) = load_article(pool, article_id, sport).await? else {
+        return Ok(None);
+    };
+    if article.duplicate_of.is_some() || article.vetted_count == 0 {
+        return Ok(None);
+    }
+    let fetched = fetch_article(&article.url).await?;
+    if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
+        return Ok(None);
+    }
+    let entities = load_article_read_entities(pool, article_id, sport).await?;
+    Ok(Some(build_article_read_prompt(
+        &article,
+        &fetched.text,
+        &entities,
+    )))
 }
 
 async fn load_article(

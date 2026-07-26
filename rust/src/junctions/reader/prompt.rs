@@ -52,23 +52,44 @@ pub fn build_article_read_prompt(
     text: &str,
     entities: &ArticleReadEntities,
 ) -> String {
+    build_article_read_prompt_parts(
+        &article.source,
+        &article.title,
+        &article.description,
+        text,
+        &entities.vetted_names,
+        &entities.co_mentions,
+    )
+}
+
+/// The same builder over plain data, so a fixture generator outside the crate can render the EXACT
+/// live prompt without a database row (the `build_graph_prompt` shape). `build_article_read_prompt`
+/// is a thin adapter onto this, so the two cannot drift.
+pub fn build_article_read_prompt_parts(
+    source: &str,
+    title: &str,
+    description: &str,
+    text: &str,
+    vetted_names: &[String],
+    co_mentions: &[CoMentionCandidate],
+) -> String {
     let mut p = String::new();
-    p.push_str(&format!("Source: {}\n", article.source));
-    p.push_str(&format!("Title: {}\n", article.title));
-    if !article.description.trim().is_empty() {
-        p.push_str(&format!("RSS description: {}\n", article.description));
+    p.push_str(&format!("Source: {source}\n"));
+    p.push_str(&format!("Title: {title}\n"));
+    if !description.trim().is_empty() {
+        p.push_str(&format!("RSS description: {description}\n"));
     }
-    if !entities.vetted_names.is_empty() {
+    if !vetted_names.is_empty() {
         p.push_str("\nKnown vetted entities:\n");
-        for e in &entities.vetted_names {
+        for e in vetted_names {
             p.push_str("- ");
             p.push_str(e);
             p.push('\n');
         }
     }
-    if !entities.co_mentions.is_empty() {
+    if !co_mentions.is_empty() {
         p.push_str("\nCo-mention candidates to verify from full text:\n");
-        for c in &entities.co_mentions {
+        for c in co_mentions {
             p.push_str(&format!(
                 "{}. {} ({} {}, {})\n",
                 c.number,

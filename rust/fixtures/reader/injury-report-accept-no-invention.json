@@ -1,0 +1,19 @@
+{
+  "expect": {
+    "article_relevant": true,
+    "key_facts_exclude": [
+      "surgery",
+      "season-ending"
+    ],
+    "key_facts_include": [
+      "hamstring"
+    ]
+  },
+  "name": "injury-report-accept-no-invention",
+  "note": "Accept + no-invention. The article gives a timeline and a cause; the return date is explicitly unconfirmed, so the card must not harden it into a fact. 'Do not invent context, implications, or sourcing.'",
+  "prompt_version": "ar3",
+  "system": "Task: compress one already-relevance-vetted sports article for The Journalist.\n\nYou are not writing the public story. You are preparing a compact evidence card from the article body so The Journalist can group storylines from richer source material.\n\nRules:\n- Use only the article text and the known vetted entities.\n- Set relevant=false when the full article is not materially about any known vetted entity, even if the RSS headline/snippet looked like a match. In that case, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.\n- Set relevant=true only when the full article materially discusses at least one known vetted entity.\n- If co-mention candidates are provided, label every candidate exactly once in co_mentions. Set relevant=true only when the full article materially discusses that candidate; reject name collisions, roundup artifacts, and people/teams merely mentioned in navigation, ads, sidebars, tags, comments, or unrelated links.\n- Detect the source article language. Translate meaning into English before writing the evidence card.\n- evidence_blurb, key_facts, story_type, and caveats must be English.\n- Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.\n- Do not invent context, implications, or sourcing.\n- Keep the evidence_blurb dense and neutral: what happened, who is involved, where it stands, and why it matters.\n- If the article is mostly boilerplate, say so in caveats.\n- Keep proper names in their canonical/source spelling unless an English name is clearly canonical.\n\nReturn strict JSON only:\n{\"relevant\":<true|false>,\"source_language\":\"<ISO 639-1 language code or unknown>\",\"evidence_blurb\":\"<2-4 compact English sentences, or short mismatch reason when relevant=false>\",\"key_facts\":[\"<English fact>\", \"...\"],\"relevant_entities\":[\"<name>\", \"...\"],\"co_mentions\":[{\"candidate\":<number>,\"relevant\":<true|false>}],\"story_type\":\"transfer|injury|performance|fixture|roster|contract|general|irrelevant\",\"caveats\":\"<short English caveat or empty string>\"}",
+  "task": "reader",
+  "temperature": 0.2,
+  "user_prompt": "Source: skysports\nTitle: Saka ruled out for six weeks with hamstring injury\nRSS description: Scans confirmed the tear on Monday.\n\nKnown vetted entities:\n- Arsenal\n\nArticle text:\nArsenal winger Bukayo Saka has been ruled out for around six weeks after scans confirmed a hamstring tear sustained in Sunday's win over Everton. The club have not put a firm date on his return and said only that they expect him back at some point after the November international break. Manager Mikel Arteta said the squad has cover in the position. Saka had started every league game this season.\n\nReturn the JSON object now."
+}

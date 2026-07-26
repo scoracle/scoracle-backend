@@ -59,7 +59,13 @@ with `resolve.rs` in the teardown.
 
 ## Open items, in priority order
 
-1. **Watch The Reader's `irrelevant` rate — and disambiguate it.** gemma3:4b sat at **0.0% across
+1. **~~Watch The Reader's `irrelevant` rate~~ — ANSWERED 2026-07-26. The confound is dead and the
+   judge is not judging.** See "The Reader's relevance gate — measured and now gated" below.
+   Short version: rank-matched on the SAME `unranked` band, mistral rejected **27.4%** (n=179) and
+   gemma **0.9%** (n=212). The ranking explanation is gone. Keep the original reasoning below for
+   the method; the conclusion is settled.
+
+   **Original framing (superseded).** gemma3:4b sat at **0.0% across
    its first 24 readings** against mistral's **14.4%** baseline. At n=24 that is p≈2.4% under the
    baseline rate, so it is no longer dismissible as small-sample noise. It is now the *sole*
    relevance judge; if it never rejects, it is doing half its job.
@@ -469,6 +475,65 @@ is the sharpest available statement of what to fix in the graph prompt next.
 `OLLAMA_MAX_LOADED_MODELS=1` and the `-1` keep-alive now forbid, and it would reintroduce the
 evict-and-reload thrash this whole day removed. Run a challenger on the Mac, or accept 10/12 as
 the recorded gemma baseline.
+
+### The Reader's relevance gate — measured and now gated (2026-07-26)
+
+**The confound in open item 1 is dissolved.** Rank-matched, same `unranked` band, 24h window:
+
+| band | mistral:7b | gemma3:4b |
+|---|---|---|
+| unranked | **27.4%** irrelevant (n=179) | **0.9%** (n=212) |
+| rest | — | 0.9% |
+| top3 | — | 0.5% |
+
+Like for like on comparable inputs, a 30× gap — "gemma only reads well-ranked articles so it
+should reject less" is dead. And gemma's rate is **flat across all three bands**; a working judge
+rejects more as rank worsens, so a verdict that barely moves with input quality is not grading
+the input. Classified by title pattern, it accepted **26 boxscore stubs, 18 broadcast listings and
+46 odds pages with ZERO rejections**; all 16 `irrelevant` verdicts it has EVER issued fall outside
+those classes. One accepted page was a youth flag-football listing, written up as evidence about
+the Baltimore Ravens under an invented club name ("The New York City Ravens…"). On the ~26pp gap
+against 2,002 accepted readings, order **~500 articles** are suspect.
+
+**Why nobody caught it: the Reader had no eval coverage at all** — the sole relevance judge for
+the whole news rail was the one junction with no fixture set. That is now fixed:
+`ReaderTask` (`eval_tasks.rs`), `fixtures/reader/` (6), `examples/reader_fixture_gen.rs`, and a
+new `Expect::article_relevant` axis. Run it with `cargo run --bin eval -- --task reader --fixtures`.
+
+**First result — 13/16 checks, and `relevant=true` on all six fixtures.** It has not returned
+`false` once.
+
+| fixture | verdict |
+|---|---|
+| transfer-report-accept-and-ground | ✓ accepts + grounds the fee, clubs, player |
+| injury-report-accept-no-invention | ✓ accepts, no invented surgery/season-ending |
+| non-english-accept-and-translate | ✓ accepts Spanish, card written in English |
+| name-collision-youth-flag-football | **✗** accepts a youth flag-football listing as Ravens news |
+| opponent-only-mention | **✗** accepts a wholly-Rangers story as West Ham news |
+| boxscore-stub-contested | **✗** — but see below, this one is a contract gap |
+
+**Recall and compression are fine; abstention is absent.** Every accept-side check passes. The
+failures are 0-for-3 on rejection, which is exactly the 0.9% production rate reproduced offline.
+
+**The most useful detail: gemma sets `story_type="fixture"` on BOTH the boxscore and the flag-
+football listing.** It correctly identifies what they are and marks them relevant anyway. The
+information is present in its own output; only the verdict is missing — which argues a prompt fix
+is worth trying before a model swap.
+
+**`boxscore-stub-contested` is a product decision, not a bug.** A boxscore genuinely IS about the
+vetted team, and the system prompt's only lever for contentless pages is
+*"If the article is mostly boilerplate, say so in caveats"* — there is no reject-non-reporting
+rule. The fixture encodes a PROPOSED sharpening. Decide the rule before treating its red check as
+a defect.
+
+**One honest caveat on the run above:** `key_fact_absent[New York City Ravens]` PASSED, but not
+because the model behaved — it wrote "New York City (Ravens)" with parentheses, which the
+substring check does not match. The invention it was written to catch was not caught here.
+
+**Next, in order:** (a) decide the boxscore rule; (b) sharpen the system prompt's rejection
+clause, using the fact that `story_type` already knows — and re-run this gate to measure it;
+(c) only then consider the seat itself. A deterministic pre-filter at scrub for boxscore/broadcast
+listings is independent and cheap, and would stop ~44 of these ever costing a GPU call.
 
 ## Operational
 

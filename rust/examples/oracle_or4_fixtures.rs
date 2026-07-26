@@ -110,8 +110,29 @@ fn momentum(
 /// drawn omen; the OTHER directional omen words must not appear (the undrawn-omen rule). The
 /// "(" exclusion pins the no-parentheses rule mechanically — gate round 2's failure mode was
 /// bookkeeping citations like "(Mood: 30/100)" folded into otherwise-passing readings.
+///
+/// or8 adds "percentile", "composite" and "momentum score". The prompt also bans "impact", "heat"
+/// and "slope", but those are NOT asserted here on purpose: each is ordinary sporting English
+/// ("the impact of the injury", "the heat of a title race") and the ban is on the field-name sense
+/// only. A check that fails on correct prose gets ignored, and an ignored check is worse than none
+/// — the same reason the momentum fixtures assert "the engine sees this as" rather than bare
+/// "the engine".
 fn base_excludes(omen: &str) -> Vec<&'static str> {
-    let mut ex = vec!["notability", "convergence", "sentiment", "z-score", "("];
+    let mut ex = vec![
+        "notability",
+        "convergence",
+        "sentiment",
+        "z-score",
+        "percentile",
+        "composite",
+        "momentum score",
+        "(",
+        // or9: Markdown in served prose. This seat never had a no-Markdown guard — the Analyst got
+        // one at s9 — and four of six or8 readings emitted bold.
+        "**",
+        // or9: the omen line handed back instead of read.
+        "the omen is",
+    ];
     for o in ["ascendant", "waning", "crossroads"] {
         if o != omen {
             ex.push(o);
@@ -140,6 +161,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Wells"],
                            "reading_excludes": base_excludes("ascendant"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
@@ -159,6 +181,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Kovac"],
                            "reading_excludes": base_excludes("ascendant"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
@@ -179,6 +202,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Vale"],
                            "reading_excludes": base_excludes("crossroads"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
@@ -199,6 +223,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Harbor City"],
                            "reading_excludes": base_excludes("steady"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
@@ -226,6 +251,7 @@ fn scenarios() -> Vec<Scenario> {
             }],
             expect: json!({"reading_includes": ["Almeida", "Madrid"],
                            "reading_excludes": base_excludes("crossroads"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
         Scenario {
@@ -246,6 +272,7 @@ fn scenarios() -> Vec<Scenario> {
             transfers: vec![],
             expect: json!({"reading_includes": ["Coastal"],
                            "reading_excludes": base_excludes("waning"),
+                           "reading_max_peers": 1,
                            "reading_min_sentences": 2, "reading_max_sentences": 9}),
         },
     ]

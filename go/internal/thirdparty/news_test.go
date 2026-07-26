@@ -412,3 +412,51 @@ func abs(x int) int {
 	}
 	return x
 }
+
+// --- cleanRSSDescription -----------------------------------------------------
+
+// Google News RSS descriptions arrive as anchor markup with the outlet name glued on by
+// non-breaking spaces. Tag-stripping alone left the literal entities in the text, which then
+// reached the model's prompt verbatim.
+func TestCleanRSSDescription_StripsMarkupAndEntities(t *testing.T) {
+	raw := `<a href="https://news.google.com/rss/articles/CBMi">Arsenal sign Greek winger Christos Tzolis</a>&nbsp;&nbsp;<font color="#6f6f6f">Sky Sports</font>`
+	got := cleanRSSDescription(raw)
+	want := "Arsenal sign Greek winger Christos Tzolis Sky Sports"
+	if got != want {
+		t.Errorf("cleanRSSDescription = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "&nbsp;") || strings.Contains(got, "<") {
+		t.Errorf("markup survived cleaning: %q", got)
+	}
+}
+
+func TestCleanRSSDescription_DecodesAmpersandsAndCollapsesSpace(t *testing.T) {
+	got := cleanRSSDescription("Brighton &amp; Hove Albion   &quot;done deal&quot;\n\nSource")
+	want := `Brighton & Hove Albion "done deal" Source`
+	if got != want {
+		t.Errorf("cleanRSSDescription = %q, want %q", got, want)
+	}
+	if cleanRSSDescription("") != "" {
+		t.Error("empty description should stay empty")
+	}
+}
+
+// FeedRank must be the article's position in the payload Google returned, not its position after
+// any later sort — sortArticlesByDate reorders the slice before persist.
+func TestFeedRank_SurvivesDateSort(t *testing.T) {
+	articles := []Article{
+		{Title: "top hit", PublishedAt: "Mon, 20 Jul 2026 08:00:00 +0000", FeedRank: 0},
+		{Title: "second", PublishedAt: "Tue, 21 Jul 2026 08:00:00 +0000", FeedRank: 1},
+	}
+	sortArticlesByDate(articles)
+	// The newer article now leads the slice, but each keeps the rank Google gave it.
+	if articles[0].Title != "second" {
+		t.Fatalf("precondition: expected date sort to reorder, got %q first", articles[0].Title)
+	}
+	for _, a := range articles {
+		want := map[string]int{"top hit": 0, "second": 1}[a.Title]
+		if a.FeedRank != want {
+			t.Errorf("%q FeedRank = %d, want %d", a.Title, a.FeedRank, want)
+		}
+	}
+}

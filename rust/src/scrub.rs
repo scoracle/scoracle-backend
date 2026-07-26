@@ -33,6 +33,45 @@ use sqlx::Row;
 /// candidates; when a primary exists, Article Reader owns their full-text verdict.
 const PRIMARY_TEAM_CONFIDENCE_FLOOR: f64 = 0.95;
 
+/// How many articles per entity, per sweep, are worth a model call — the read budget.
+///
+/// Ingest admits ~6,700 articles/day; the Article Reader sustains ~800/day sharing one GPU with
+/// eight other stages. Something has to choose, and the choice must be made at ADMISSION rather
+/// than by throttling the drain: throttle the drain and the queue simply grows while the GPU still
+/// runs flat out forever. Capping what is enqueued is what lets the queue actually reach empty —
+/// which is where the GPU's idle time comes from.
+///
+/// Budget per entity rather than a global daily quota, so a busy Arsenal news day cannot consume
+/// Brentford's coverage, and so the ceiling is predictable (204 entities x 4 sweeps x K) no matter
+/// how volume swings. Google's own ranking picks WHICH articles inside the budget — see
+/// `feed_rank` (mig 194). Everything outside it still reaches The Journalist on its headline
+/// (`narratives::article_context`); nothing is dropped, so this bounds cost, not coverage.
+///
+/// Ranking is per entity over the novelty lookback window (72h), not per sweep, so coverage grows
+/// sub-linearly in K — an article inside several entities' budgets is still one read. Measured
+/// against the live 72h corpus (12,584 articles):
+///
+/// | K | reads/day | coverage |
+/// |---|-----------|----------|
+/// | 2 |       463 |    10.8% |
+/// | 4 |       701 |    16.4% |
+/// | 6 |       892 |    20.9% |
+/// | 8 |     1,058 |    24.7% |
+///
+/// The Reader sustains ~800/day on `mistral:7b`. K=4 sits deliberately under that so the queue
+/// reaches empty and the GPU idles rather than running flat out — the point of having a cap at all.
+/// K=8 is the ~25% target and becomes affordable once the Reader moves to a smaller model
+/// (`gemma3:4b` measured 3x on decode); it is one env var, not a code change.
+const DEFAULT_ARTICLE_READ_TOP_K: i64 = 4;
+
+fn article_read_top_k() -> i64 {
+    std::env::var("COGNITION_ARTICLE_READ_TOP_K")
+        .ok()
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .filter(|k| *k >= 0)
+        .unwrap_or(DEFAULT_ARTICLE_READ_TOP_K)
+}
+
 /// ScrubHandler drains the article-keyed `scrub` stage.
 pub struct ScrubHandler;
 
@@ -192,7 +231,16 @@ impl StageHandler for ScrubHandler {
         )
         .await?;
 
-        if !deferred_idxs.is_empty() && article_admitted {
+        // The read budget. An article earns a model call by being one of the top `K` Google
+        // returned for at least ONE of the entities it is linked to — rank 1 for Arsenal and rank
+        // 40 for Chelsea is still Arsenal's top story and gets read. Everything else travels on its
+        // headline. `within_read_budget` is a fact about Google's ordering, not an opinion about
+        // the article, which is why this cap can sit in front of the sole relevance judge without
+        // becoming a second one.
+        let budgeted = article_admitted
+            && within_read_budget(hx, article_id, &sport, article_read_top_k()).await?;
+
+        if !deferred_idxs.is_empty() && budgeted {
             work::enqueue(
                 &hx.pool,
                 &Item {
@@ -287,6 +335,54 @@ async fn load_candidates(
         });
     }
     Ok(out)
+}
+
+/// within_read_budget reports whether this article is among the `k` best-ranked canonical articles
+/// Google returned for any entity it is vetted against, inside the current lookback.
+///
+/// `feed_rank` NULL sorts LAST: a pre-migration backlog article carries no ranking evidence and
+/// must never displace a fresh Google top hit. `k <= 0` disables reading entirely (every article
+/// passes through on its headline) — a deliberate escape hatch for giving the GPU a full stop
+/// without stopping ingest or losing coverage.
+async fn within_read_budget(hx: &Harness, article_id: i64, sport: &str, k: i64) -> Result<bool> {
+    if k <= 0 {
+        return Ok(false);
+    }
+    let within: bool = sqlx::query_scalar(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM news_article_entities me
+            WHERE me.article_id = $1 AND me.sport = $2 AND me.vetted IS TRUE
+              AND $1 IN (
+                  SELECT ranked.article_id
+                  FROM (
+                      SELECT peer.article_id,
+                             ROW_NUMBER() OVER (
+                                 ORDER BY a.feed_rank ASC NULLS LAST, a.fetched_at DESC, a.id
+                             ) AS pos
+                      FROM news_article_entities peer
+                      JOIN news_articles a ON a.id = peer.article_id
+                      WHERE peer.entity_type = me.entity_type
+                        AND peer.entity_id  = me.entity_id
+                        AND peer.sport      = me.sport
+                        AND peer.vetted IS TRUE
+                        AND a.duplicate_of IS NULL
+                        AND a.fetched_at >= NOW() - make_interval(secs => $3)
+                  ) ranked
+                  WHERE ranked.pos <= $4
+              )
+        )
+        "#,
+    )
+    .bind(article_id)
+    .bind(sport)
+    .bind(hx.scrub.novelty_lookback.as_secs_f64())
+    .bind(k)
+    .fetch_one(&hx.pool)
+    .await
+    .context("evaluate article read budget")?;
+    Ok(within)
 }
 
 /// apply_scrub_outcomes admits the scrub-owned links and marks deferred co-mentions as handed to

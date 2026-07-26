@@ -215,6 +215,15 @@ impl StageHandler for ArticleReadHandler {
         Stage::ArticleRead
     }
 
+    /// A small batch, unlike scrub's 256: this IS a model stage, so a large batch would starve the
+    /// product stages behind it in the rotation. But at one item per rotation the Reader spent more
+    /// wall clock waiting its turn than working — ~107s per article against ~50s of its own decode
+    /// — and a per-junction model choice would pay a cold model load (measured 17.9s) on every
+    /// single article. Eight amortizes both while keeping the rotation responsive.
+    fn rotation_batch(&self) -> i64 {
+        8
+    }
+
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
         let article_id = item.entity_id;
         let Some(article) = load_article(&hx.pool, article_id, &item.sport).await? else {

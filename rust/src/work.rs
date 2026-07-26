@@ -53,6 +53,24 @@ impl Stage {
             Stage::Sigil => "sigil",
         }
     }
+
+    /// The ORDER BY used when claiming this stage's work. A `&'static str` spliced into the query —
+    /// never user input, so there is nothing to escape.
+    ///
+    /// FIFO by `available_at` is right for stages whose items are interchangeable. Article reads
+    /// are not: the reading budget is finite, so when a backlog exists the order decides which
+    /// articles get a model call and which age out. Google already ranked them
+    /// (`news_articles.feed_rank`, mig 194), so drain best-first. NULLS LAST keeps pre-migration
+    /// backlog rows from displacing a fresh top hit.
+    fn claim_order(self) -> &'static str {
+        match self {
+            Stage::ArticleRead => {
+                "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
+                 ASC NULLS LAST, available_at"
+            }
+            _ => "available_at",
+        }
+    }
 }
 
 impl std::fmt::Display for Stage {
@@ -114,7 +132,7 @@ pub fn retry_backoff(prior_failures: i32) -> Duration {
 /// with FOR UPDATE SKIP LOCKED is already atomic under auto-commit, so we run
 /// it directly against the pool.
 pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>> {
-    let rows: Vec<(String, i64, String, Option<String>, i32)> = sqlx::query_as(
+    let rows: Vec<(String, i64, String, Option<String>, i32)> = sqlx::query_as(&format!(
         r#"
         WITH ready AS (
             SELECT entity_type, entity_id, sport
@@ -122,7 +140,7 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
             WHERE stage = $1
               AND status IN ('pending', 'failed')
               AND available_at <= NOW()
-            ORDER BY available_at
+            ORDER BY {}
             FOR UPDATE SKIP LOCKED
             LIMIT $2
         )
@@ -135,7 +153,8 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
            AND w.sport = r.sport
         RETURNING w.entity_type, w.entity_id::bigint, w.sport, w.input_version, w.attempts
         "#,
-    )
+        stage.claim_order(),
+    ))
     .bind(stage.as_str())
     .bind(limit)
     .fetch_all(pool)

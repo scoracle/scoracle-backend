@@ -122,6 +122,13 @@ type Article struct {
 	PublishedAt string  `json:"published_at"`
 	ImageURL    *string `json:"image_url"`
 	Author      *string `json:"author,omitempty"`
+
+	// FeedRank is this article's 0-based position in the RSS payload Google returned — its own
+	// ranking of what matters most for the query. Captured at parse time because
+	// sortArticlesByDate re-orders the slice before persist and would otherwise destroy it.
+	// Carried, never interpreted here: the reading budget downstream is finite, so this is what
+	// decides which articles are worth a model call and which pass through on their headline.
+	FeedRank int `json:"feed_rank"`
 }
 
 // ---------------------------------------------------------------------------
@@ -303,15 +310,16 @@ func (s *NewsService) persistArticles(
 
 		var articleID int64
 		err := tx.QueryRow(ctx, `
-			INSERT INTO news_articles (url_hash, url, source, title, description, published_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
 			ON CONFLICT (url_hash) DO UPDATE SET
 			    title       = EXCLUDED.title,
 			    description = EXCLUDED.description,
 			    source      = COALESCE(EXCLUDED.source, news_articles.source),
-			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at)
+			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
+			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
 			RETURNING id
-		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt).Scan(&articleID)
+		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank).Scan(&articleID)
 		if err != nil {
 			return nil, fmt.Errorf("upsert article: %w", err)
 		}
@@ -707,9 +715,8 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 	}
 
 	articles := make([]Article, 0, len(rss.Items))
-	htmlTagRe := regexp.MustCompile(`<[^>]+>`)
 
-	for _, item := range rss.Items {
+	for i, item := range rss.Items {
 		title := item.Title
 		source := "Google News"
 
@@ -719,7 +726,7 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 			title = strings.TrimSpace(title[:idx])
 		}
 
-		desc := htmlTagRe.ReplaceAllString(item.Description, "")
+		desc := cleanRSSDescription(item.Description)
 		if len(desc) > 300 {
 			desc = desc[:300] + "..."
 		}
@@ -731,6 +738,10 @@ func (s *NewsService) fetchRSS(ctx context.Context, query string, hoursBack int,
 			Source:      source,
 			PublishedAt: item.PubDate,
 			ImageURL:    nil,
+			// Google's own ordering, captured before anything re-sorts. Position 0 is the
+			// result Google ranked first for this query — the cheapest quality signal in the
+			// pipeline and the only one that costs nothing to produce.
+			FeedRank: i,
 		})
 	}
 
@@ -1161,6 +1172,42 @@ func filterArticlesByLookback(articles []Article, hoursBack int, now time.Time) 
 		}
 	}
 	return out
+}
+
+var (
+	rssHTMLTagRe    = regexp.MustCompile(`<[^>]+>`)
+	rssEntityRe     = regexp.MustCompile(`&(nbsp|amp|quot|apos|lt|gt|#3[49]|#160);`)
+	rssWhitespaceRe = regexp.MustCompile(`\s+`)
+)
+
+// cleanRSSDescription renders a Google News RSS <description> as plain text. It strips the anchor
+// markup, decodes the handful of entities Google actually emits, and collapses whitespace.
+//
+// This is data hygiene, not interpretation. The raw field is
+// `<a href="...">Headline</a>&nbsp;&nbsp;<font>Source</font>`, so tag-stripping alone left literal
+// "&nbsp;&nbsp;" glued between the headline and the outlet name — which then reached the model's
+// prompt verbatim and was embedded as if it were prose. 99.7% of descriptions are the title
+// repeated plus the source, so what this mostly does is make that redundancy legible to the
+// consumers that now have to decide whether the field adds anything.
+func cleanRSSDescription(raw string) string {
+	s := rssHTMLTagRe.ReplaceAllString(raw, " ")
+	s = rssEntityRe.ReplaceAllStringFunc(s, func(e string) string {
+		switch e {
+		case "&amp;":
+			return "&"
+		case "&quot;", "&#34;":
+			return `"`
+		case "&apos;", "&#39;":
+			return "'"
+		case "&lt;":
+			return "<"
+		case "&gt;":
+			return ">"
+		default: // &nbsp; / &#160;
+			return " "
+		}
+	})
+	return strings.TrimSpace(rssWhitespaceRe.ReplaceAllString(s, " "))
 }
 
 func articleMatchText(a Article) string {

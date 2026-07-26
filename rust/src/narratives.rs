@@ -546,8 +546,21 @@ async fn load_vetted_corpus_with_exclusions(
 // compressor now, so narratives sees the widened, canonical-only corpus straight from the loader).
 // ---------------------------------------------------------------------------
 
-/// article_context is the model-visible text for one corpus item. Successful Article Reader cards
-/// win; direct full_text remains a fallback; RSS description is the durable final fallback.
+/// article_context is the model-visible text for one corpus item, rendered AFTER its headline (the
+/// caller always writes `[source] title` first). Successful Article Reader cards win; direct
+/// full_text remains a fallback; the RSS description is used only when it actually says something
+/// the headline did not.
+///
+/// **Headline passthrough.** An article the Reader could not read — paywalled, fetch-failed, or
+/// simply never budgeted for — is not dropped and is not summarized from nothing. It travels on its
+/// headline, which is what a headline is written to do. What must NOT happen is the old behaviour:
+/// falling through to the RSS description, which is 99.7% the title repeated plus the outlet name,
+/// producing `[Sky Sports] Arsenal sign Tzolis — Arsenal sign Tzolis Sky Sports`. That is the same
+/// duplication that made the retired embedder judge headlines counted twice; here it wasted prompt
+/// budget and read as corroboration the corpus does not have.
+///
+/// Returning an empty context is therefore a real answer, not a failure: the headline above it is
+/// the evidence, and reading is an upgrade applied to it rather than a precondition for carrying it.
 fn article_context(c: &CorpusItem) -> (&str, usize) {
     if c.article_read_status.as_deref() == Some("success") {
         if let Some(t) = c
@@ -561,7 +574,32 @@ fn article_context(c: &CorpusItem) -> (&str, usize) {
     if let Some(t) = c.full_text.as_deref().filter(|t| !t.trim().is_empty()) {
         return (t, ARTICLE_READ_BLURB_TRUNCATE);
     }
+    if description_adds_nothing(&c.description, &c.title, &c.source) {
+        return ("", DESC_TRUNCATE);
+    }
     (&c.description, DESC_TRUNCATE)
+}
+
+/// description_adds_nothing reports whether the RSS description is just the headline (plus the
+/// outlet) restated. Token containment rather than string equality, because Google glues the source
+/// on and punctuation drifts between the two fields. Conservative by construction: a description
+/// carrying even one word of genuine new content is kept.
+fn description_adds_nothing(description: &str, title: &str, source: &str) -> bool {
+    let desc: Vec<String> = context_tokens(description);
+    if desc.is_empty() {
+        return true;
+    }
+    let mut known: HashSet<String> = context_tokens(title).into_iter().collect();
+    known.extend(context_tokens(source));
+    desc.iter().all(|t| known.contains(t))
+}
+
+fn context_tokens(s: &str) -> Vec<String> {
+    s.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 /// build_narratives_prompt assembles the user prompt, byte-for-byte the same as Go's
@@ -2073,6 +2111,56 @@ mod tests {
 - Heat — heat 40\n\
 \nReturn the JSON object now."
         );
+    }
+
+    // --- headline passthrough ----------------------------------------------------------------
+
+    #[test]
+    fn unread_article_travels_on_its_headline_alone() {
+        // The real shape of a Google News RSS row: description is the headline restated with the
+        // outlet glued on. The caller has already written "[Sky Sports] Arsenal sign ...", so
+        // repeating it as the body would render the same sentence twice.
+        let c = item(
+            1,
+            "Sky Sports",
+            "Arsenal sign Greek winger Christos Tzolis",
+            "Arsenal sign Greek winger Christos Tzolis Sky Sports",
+            None,
+        );
+        assert_eq!(article_context(&c).0, "");
+    }
+
+    #[test]
+    fn description_with_real_content_survives() {
+        // The 0.3% that carry an actual blurb must not be thrown away with the duplicates — one
+        // word of new content is enough to keep it.
+        let c = item(
+            2,
+            "BBC Sport",
+            "Arsenal sign Tzolis",
+            "The 23-year-old joins from Club Brugge for a fee of 35m euros.",
+            None,
+        );
+        assert!(article_context(&c).0.contains("Club Brugge"));
+    }
+
+    #[test]
+    fn description_adds_nothing_is_token_based() {
+        // Punctuation and case drift between title and description; containment, not equality.
+        assert!(description_adds_nothing(
+            "Arsenal sign Tzolis! - Sky Sports",
+            "Arsenal sign Tzolis",
+            "Sky Sports"
+        ));
+        assert!(description_adds_nothing("", "Any title", "Any source"));
+        // A subset of the title is still nothing new.
+        assert!(description_adds_nothing("Arsenal sign", "Arsenal sign Tzolis", ""));
+        // One genuinely new token is enough to keep it.
+        assert!(!description_adds_nothing(
+            "Arsenal sign Tzolis for 35m",
+            "Arsenal sign Tzolis",
+            "Sky Sports"
+        ));
     }
 
     // --- article_read/full_text corpus seam --------------------------------------------------------

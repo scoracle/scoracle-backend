@@ -64,14 +64,23 @@ pub const NARRATIVES_TEMPERATURE: f64 = 0.6;
 /// Several multi-sentence narratives; the prompt caps count + body length.
 pub const NARRATIVES_NUM_PREDICT: i32 = 3000;
 
-/// Context window for the narratives call. Narratives is the ONE stage whose prompt
-/// (~5.4k chars ≈ 1.4-1.8k tokens + system prompt) PLUS `NARRATIVES_NUM_PREDICT` (3000)
-/// exceeds Ollama's 4096-token server default — overflowing silently evicts the system
-/// prompt mid-generation, which is consistent with the long-standing "under-obeys explicit
-/// rules" narratives failures (L9, the red off-entity-and-hype-contamination fixture).
-/// 8192 fits the full budget with headroom; the KV-cache cost on mistral:7b is ~0.5GB,
-/// measured to still fit the 8GB card. Every other stage stays on the 4096 default.
-pub const NARRATIVES_NUM_CTX: i32 = 8192;
+/// Context window for the narratives call — now [`crate::route::VOICE_NUM_CTX`], the size EVERY
+/// character voice requests, because they share one runner and disagreement reloads it.
+///
+/// The original reasoning still holds and is why this constant exists: narratives' prompt plus
+/// `NARRATIVES_NUM_PREDICT` (3000) overflows a small context, and overflowing silently evicts the
+/// system prompt mid-generation — consistent with the long-standing "under-obeys explicit rules"
+/// failures (L9, the red off-entity-and-hype-contamination fixture). What changed is the arithmetic
+/// on both sides.
+///
+/// The old value of 8192 was set against Ollama's 4096 default with the note "every other stage
+/// stays on the 4096 default". On the Mac that note is false — the default there is 16384, so this
+/// was the only voice asking for something SMALLER than its peers, which (a) reloaded a ~9 GB model
+/// on every alternation into and out of narratives, and (b) still overflowed: measured over 8,899
+/// calls, prompt + 3000 exceeded 8192 on **153 of them (1.7%)**, p99 alone being ~7.1k prompt
+/// tokens. At 16384 that tail is 6 calls (0.07%). So the shared value is both the faster and the
+/// more correct one, and narratives no longer sets its own.
+pub const NARRATIVES_NUM_CTX: i32 = crate::route::VOICE_NUM_CTX;
 
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;

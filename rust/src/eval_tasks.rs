@@ -34,8 +34,8 @@
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
 use crate::util::truncate;
 use crate::junctions::reader::{
-    article_read_opts, build_article_read_prompt_for_eval, ArticleEvidence, ArticleEvidenceParser,
-    ARTICLE_READ_PROMPT_VERSION,
+    article_read_opts, build_article_read_prompt_for_eval, ArticleEntityRole, ArticleEvidence,
+    ArticleEvidenceParser, ARTICLE_READ_PROMPT_VERSION,
 };
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
@@ -1522,6 +1522,22 @@ impl LensTask for GraphTask {
     }
 }
 
+/// render_entity_roles compacts `entity_roles` to `name:role, name:role` for the one-line eval
+/// display.
+///
+/// It exists because `relevant` is DERIVED under ar6: a verdict line that shows only the derived
+/// boolean cannot tell you whether the page-shape half or the entity-role half produced it, and
+/// those two failure modes want opposite fixes. ar5's lesson was that a field can collapse to its
+/// catch-all in production while fixtures stay green (`story_type` → `general` on 84% of reads), so
+/// the inputs to the derivation have to be visible wherever the verdict is.
+fn render_entity_roles(roles: &[ArticleEntityRole]) -> String {
+    roles
+        .iter()
+        .map(|r| format!("{}:{}", r.entity, r.role))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// ReaderTask — the relevance gate's own gate.
 ///
 /// The Reader was the ONLY junction with no eval coverage, which is precisely how it ran for a day
@@ -1581,7 +1597,15 @@ impl LensTask for ReaderTask {
                 checks.push(PropertyCheck {
                     name: format!("relevant[{want}]"),
                     pass: ev.relevant == want,
-                    detail: format!("relevant={} story_type={:?}", ev.relevant, ev.story_type),
+                    // page_kind and entity_roles ARE the derivation (ar6); a bare
+                    // `relevant=false` says the gate fired but not which half fired it.
+                    detail: format!(
+                        "relevant={} page_kind={:?} roles=[{}] story_type={:?}",
+                        ev.relevant,
+                        ev.page_kind,
+                        render_entity_roles(&ev.entity_roles),
+                        ev.story_type
+                    ),
                 });
             }
             let facts = ev.key_facts.join(" | ");
@@ -1627,8 +1651,10 @@ impl LensTask for ReaderTask {
             abs_err: None,
             checks,
             display: format!(
-                "relevant={} {} key_fact(s) story_type={:?}",
+                "relevant={} page_kind={:?} roles=[{}] {} key_fact(s) story_type={:?}",
                 ev.relevant,
+                ev.page_kind,
+                render_entity_roles(&ev.entity_roles),
                 ev.key_facts.len(),
                 ev.story_type
             ),

@@ -53,8 +53,8 @@ fn cand(name: &str, nationality: &str, current_club: &str, position: &str) -> Tr
 }
 
 /// Build one hand-authored fixture: render the exact live prompt (with the reliability + memory
-/// cards), pin temp 0 for reproducibility, and attach the property rubric. `best` / `best_weight`
-/// feed the Evidence card so it agrees with the corpus the model reads.
+/// cards), pin temp 0 for reproducibility, and attach the property rubric. `best` feeds the
+/// Evidence card so it agrees with the corpus the model reads.
 #[allow(clippy::too_many_arguments)]
 fn fixture(
     name: &str,
@@ -64,12 +64,11 @@ fn fixture(
     c: &TransferCandidate,
     news: &[NewsItem],
     best: &str,
-    best_weight: f64,
     reliability: &str,
     memory: &str,
     expect: Expect,
 ) -> Fixture {
-    let evidence = TransferEvidence::from_news(news, news.len(), best, best_weight);
+    let evidence = TransferEvidence::from_news(news, news.len(), best);
     Fixture {
         name: name.to_string(),
         task: "transfer".to_string(),
@@ -141,7 +140,6 @@ fn main() -> anyhow::Result<()> {
             ni(2, "Kicker", "Bayern make Andrade their priority, open formal talks", "Bayern's board have opened formal negotiations with Flamengo and see the Brazilian as their top target."),
         ],
         "Fabrizio Romano",
-        0.95,
         "Fabrizio Romano: reliability 86/100 (28 of 33 tracked moves confirmed, 19 reported early).\nKicker: reliability 71/100 (18 of 26 tracked moves confirmed, 9 reported early).",
         "Current story: tracked since Jun 20, peak coverage 62/100, computed likelihood 68/100 (heating up).",
         Expect {
@@ -178,7 +176,6 @@ fn main() -> anyhow::Result<()> {
             "A report claims Chelsea are among clubs monitoring the forward, though no bid or talks are mentioned.",
         )],
         "TransferTavern",
-        0.3,
         "TransferTavern: reliability 14/100 (2 of 40 tracked moves confirmed).",
         "Prior flirtation fizzled: Feb 2026, peak coverage 79/100.\nCurrent story: tracked since Jul 10, peak coverage 30/100, computed likelihood 22/100 (cooling off).",
         Expect {

@@ -274,14 +274,22 @@ concurrency question matters more than the tok/s question.
   judgment is Scott's and belongs to the prompt session.
 - **Speed: 14.9 tok/s decode vs ministral's 12.4 — 1.20×**, a little under the 1.28× the size ratio
   predicts.
-- **Ministral carries ~551 tokens of fixed prompt overhead per call, and nemo carries none.** Same
-  13-token prompt string: `prompt_eval_count` = **564** for ministral, **13** for nemo, reproducible
-  across runs. At ministral's measured 118 tok/s prefill that is **~4.7 seconds burned per
-  generation** before any of our own prompt is read.
-  The likely cause is the vision tower — `ministral-3:14b` reports `mistral3.vision.block_count=24`
-  and advertises a `vision` capability. **The character work is pure text; we have never used it.**
-  So the real switching gain is larger than the 1.20× decode figure alone: roughly 20% on decode
-  *plus* ~4.7s of prefill on every call.
+- **A "551 tokens of overhead per call" finding was raised here and is WITHDRAWN — it was a
+  benchmark artifact and production never pays it.** Recorded rather than deleted, because the
+  measurement is a trap worth knowing about.
+  The same 13-token prompt reported `prompt_eval_count` 564 on ministral and 13 on nemo. The cause
+  is not the vision tower: ministral's chat template injects a long default Mistral identity block
+  **only when no system prompt is supplied** (`{{- if not $hasSystemPrompt }}[SYSTEM_PROMPT]You are
+  Ministral-3-14B-Instruct-2512...`). The benchmark sent none. Every junction sets
+  `GenerateOptions.system`, so the block is never injected in production — measured directly: the
+  same prompt **with** a system prompt reports `prompt_eval_count` **36**, not 564.
+  **Lesson for any future model benchmark here: always send a system prompt, or you are measuring
+  the template's fallback rather than the model.**
+  What remains true is that `ministral-3:14b` advertises a `vision` capability we never use
+  (`mistral3.vision.block_count=24`). That costs loaded weights, not prompt tokens — worth a look
+  when sizing VRAM, not a per-call saving.
+
+So nemo's measured advantage is the **1.20× decode and the 2 GB it frees for permits** — not more.
 
 Run gates with `scripts/hosting/model-gate.sh <task> <model>` — it waits for nothing and assumes you
 called it inside a rest window, which is the hour every three when the Mac is idle by design and a

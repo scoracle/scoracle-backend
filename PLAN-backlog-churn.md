@@ -55,6 +55,29 @@ straddled a service restart), which is why the sampler exists.
   the harness was active, so the duty cycle can be divided out rather than silently depressing the
   rate. `scoracle-qsample.timer`.
 
+- **Ingestion scaled back to one daily sweep** (`8eb6e02`, binary deployed 22:26). The corpus RSS
+  sweep moves from every twelve hours to `0 2 * * *`, and the lookback window moves with it from
+  12h to 24h. **The two are coupled and must stay that way** — `timeWindows` is both the `when:`
+  token sent to Google News and the cutoff in `filterArticlesByLookback`, so a window narrower than
+  the cron period drops the news in between twice over, silently and unrecoverably. A rewritten
+  test now fails if anyone narrows it below the cron period.
+  Per-entity volume stays bounded by `-rss-limit` (default 12, never overridden in the live
+  crontab), which is the property that makes the cadence safe to raise again later.
+
+### Correction to the load story
+
+The "no limit" half of the architectural shift was not real: `-rss-limit` has defaulted to 12 the
+whole time and the crontab never overrode it. What actually changed was the **reader** (top-4 per
+entity, `COGNITION_ARTICLE_READ_TOP_K`, also never overridden) and the **cadence** (6h → 12h). So
+the cap Scott remembered is intact; the cadence and the reader are what grew, and the cadence is
+now reverted.
+
+Worth knowing for the gauge: the daily sweep only throttles the *news-driven* chain
+(scrub → article_read → narratives → vibe → sigil). `momentum` inflow — ~24/hour, the second-largest
+queue — comes from the fixture-processing crons (`nba-process` every 30 min, `nfl-process` twice
+hourly), which were deliberately left alone. If tomorrow's gauge still reads short, those crons are
+the next dial, not the news sweep.
+
 ### Side effect worth knowing
 
 The stagger **incidentally defangs the `requeue_stale` starvation** (friction 1). `requeue_stale`

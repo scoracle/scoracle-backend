@@ -40,10 +40,18 @@ const (
 	newsMinTeamRSSQueriesBeforeLimit = 2
 )
 
-// RSS query lookback windows (hours). The hosting cron still runs every six
-// hours, but this is temporarily widened to `when:12h` while the football
-// alias/edition backfill drains so late or delayed items are not lost.
-var timeWindows = []int{12}
+// RSS query lookback windows (hours). This MUST cover the ingest cron's period or
+// the sweep is blind between runs: the window is both the `when:` token handed to
+// Google News and the client-side `filterArticlesByLookback` cutoff, so anything
+// older than it is dropped twice over and never reaches news_articles at all.
+//
+// 24h to match the daily 02:00 ingest (2026-07-26). The pairing has moved together
+// every time: 6h window with the six-hour cron, 12h when that went twelve-hourly.
+// A day's news now arrives in one sweep, and per-entity volume is bounded by
+// `-rss-limit` (default 12) rather than by how often the cron happens to fire --
+// which is the "top 12 headlines per entity per day" shape this pipeline started
+// with, and the one it is deliberately returning to while throughput is tuned.
+var timeWindows = []int{24}
 
 // Sport-specific search term suffixes for RSS.
 var sportTerms = map[string]string{

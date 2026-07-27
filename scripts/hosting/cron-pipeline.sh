@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Cron wrapper for the RSS ingest sweep (pipeline -mode ingest).
 #
-# RSS sweep only; Rust owns LLM derivation. This wrapper runs the every-six-hours
+# RSS sweep only; Rust owns LLM derivation. This wrapper runs the daily
 # Google News RSS sweep that writes news_articles + news_article_entities;
 # every model stage (scrub, transfers, narratives, vibe, sigil, rating) is
 # drained from the durable pipeline_work queue by the Rust Cognition Harness
@@ -12,8 +12,13 @@
 # binary can resolve DATABASE_* and provider keys (no OLLAMA_* needed — Go does
 # no model calls).
 #
-# Cron schedule — the ingest sweep every six hours (local time):
-#   0 */6 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest
+# Cron schedule — the ingest sweep once daily at 02:00 (local time):
+#   0 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest
+#
+# The cadence and the RSS lookback window MUST move together. `timeWindows` in
+# go/internal/thirdparty/news.go is 24h to match this daily schedule; running this
+# less often than that window is wide leaves an unswept gap that no later run
+# recovers, because the window is also the client-side freshness cutoff.
 #
 # Observability: the sweep logs rss_ok / rss_fail / fresh_articles per run.
 # Exit codes: 0 = success; 3 = partial (some RSS calls failed, retryable next

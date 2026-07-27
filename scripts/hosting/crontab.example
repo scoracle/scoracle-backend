@@ -76,24 +76,32 @@ TZ=America/New_York
 0 4 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/backup-postgres.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/backup.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Corpus ingest — every six hours (Go funnel; Rust derives)
+# Corpus ingest — daily at 02:00 (Go funnel; Rust derives)
 # ---------------------------------------------------------------------------
 # RSS-sweeps every team in NBA/NFL/FOOTBALL (no fixture/tier filter, so coverage
 # does not collapse in the offseason). This is ingest-only: the Rust Cognition
 # Harness owns scrub -> transfers -> narratives -> vibe -> sigil from the durable
 # pipeline_work queue. Do not run `-mode corpus` after the Step-3 cutover; that is
-# the legacy Go LLM chain. The Go RSS query window is `when:6h`, matching this
-# schedule.
-0 */6 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
+# the legacy Go LLM chain.
+#
+# The Go RSS query window (`timeWindows` in internal/thirdparty/news.go) is 24h and
+# MUST stay >= this cron's period. It is both the `when:` token sent to Google News
+# and the client-side freshness cutoff, so a gap between runs wider than the window
+# is news that is dropped twice and never ingested by any later sweep.
+#
+# Per-entity volume is bounded by `-rss-limit` (default 12), not by cron frequency:
+# one daily sweep taking the top 12 per entity is the intended shape. Raise the
+# cadence only after the cognition harness is measured able to drain what it adds.
+0 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-pipeline.sh -mode ingest >> /home/sheneveld/scoracle/scoracle-backend/logs/pipeline-ingest.log 2>&1
 
 # ---------------------------------------------------------------------------
-# Narrative-graph co-mention refresh — every six hours, after ingest (mig 154)
+# Narrative-graph co-mention refresh — daily, after ingest (mig 154)
 # ---------------------------------------------------------------------------
 # Recomputes narrative_links co_mention edges from the vetted news rail. Pure
-# set-based SQL, sub-second per sport, no model calls. Runs 45 min after each
-# six-hour ingest so the cognition daemon has scrubbed the sweep; each link's
+# set-based SQL, sub-second per sport, no model calls. Runs 45 min after the
+# daily ingest so the cognition daemon has scrubbed the sweep; each link's
 # heating_up/cooling_off is its strength delta vs the previous run.
-45 */6 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
+45 2 * * * /home/sheneveld/scoracle/scoracle-backend/scripts/hosting/cron-narrative-links.sh >> /home/sheneveld/scoracle/scoracle-backend/logs/narrative-links.log 2>&1
 
 # ---------------------------------------------------------------------------
 # Stats-rail commentary — nightly, current season, regenerate only on new data

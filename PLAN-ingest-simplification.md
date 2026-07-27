@@ -165,6 +165,46 @@ unlocks the option, not the feature.
 
 ---
 
+## Phase 4 — SEED, parked: one edition per league, in that league's language
+
+Scott's idea, 2026-07-26. Route each football team's RSS query to the edition of the country its
+league is in — Bundesliga clubs to `de-DE`, Premier League to `en-GB`, La Liga to `es-ES`, Serie A
+to `it-IT`, Ligue 1 to `fr-FR`.
+
+**Why it is a strong idea.** Local sports press is where football is actually covered. *Bild* on
+Bayern, *Marca* on Real Madrid, *Gazzetta* on Serie A — none of it reaches an `en-GB` query except
+second-hand. The current code names this cost itself: *"four of our five leagues are now covered
+only by English-language reporting of them,"* logged as a deliberate accuracy-over-breadth trade
+while the pipeline is GPU-bound.
+
+**How it differs from what was already tried, which matters.** Localized editions were live
+2026-07-23 and retired. But that version ran **every** edition for **every** football team — 6–7×
+the RSS calls, and a per-team corpus that was a language mix (24.1% English overall, 45.3%
+definitively non-English). Scott's version is **one edition per team, the correct one**. Same call
+count as today, no volume increase at all, and each team's corpus is coherently in one language
+instead of scrambled across seven. The cost objection that retired the first attempt does not apply
+to this shape.
+
+**Data is ready.** `teams.country` is clean for football: England 25, France 24, Spain 24, Italy 23,
+Germany 22, Monaco 1 (Ligue 1 → `fr-FR`). 23 teams have a NULL country and need a backfill or an
+`en-GB` fallback. The hook already exists — `rssEditionsForEntity(entityType, sport)` just needs the
+team's country threaded to it.
+
+**What still blocks it.** Three reasons were recorded for parking; this plan clears one of them:
+
+| blocker | status |
+|---|---|
+| BGE is `bge-small-en-v1.5`, English-only — scored a 76%-non-English corpus on text its weights never saw | **cleared by Phase 3**, which deletes the embedder outright |
+| The Reader translating *and* summarizing in one call | open — but the Reader runs on `gemma3:4b`, which is multilingual. **Worth measuring before assuming**, it may already be a non-issue |
+| Every prompt, guard list and stopword downstream is English | open, and the real work |
+
+So the sequencing is: Phase 3 first (it removes the hardest blocker as a side effect), then measure
+whether gemma3 reads the target languages well enough, then this. Do not start it before Phase 3 —
+the embedder would silently score the new corpus on weights that never saw those languages, which is
+exactly the failure that retired the first attempt.
+
+---
+
 ## Sequencing, and why this order
 
 1. **Phase 1** ✅ — independent, few lines, strictly closer to the goal.

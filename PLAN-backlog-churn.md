@@ -256,12 +256,32 @@ whether it loads and holds. Fully reversible, and a rest window is the free hour
 | lever | speed | concurrency | quality risk |
 |---|---|---|---|
 | **`VOICE_NUM_CTX` 16384 → 8192** | none | halves KV/sequence — may buy a permit on its own | **none**, if prompts fit. Journalist at corpus 40 ≈ 2,750 tok + system + 900 predict ≈ 4,500. Fails loudly as truncation, not subtly |
-| **`mistral-nemo:12b`** (7.1 GB, pulled) | ~1.3× | 2 GB freed → plausibly 2 permits | modest — mid-2024 Mistral/NVIDIA model |
+| **`mistral-nemo:12b`** (7.1 GB, pulled) | **1.20× measured** | 2 GB freed → up to 6 permits at 8192 | **gate-clean: 37/37 vs 36/37** |
 | `mistral:latest` (4.4 GB) | ~2× | 4.7 GB freed → plausibly 3–4 permits | **high** — this is Mistral **7B v0.3**, two generations back. Instruction-following is exactly what the voice contracts lean on |
 
 Order to try them: **ctx first** (free), then nemo, and treat the 7B as a last resort rather than a
-midpoint. A 1.3× model change becomes a ~2.5× system change if it buys the second permit, so the
+midpoint. A 1.2× model change becomes a ~2.5× system change if it buys the second permit, so the
 concurrency question matters more than the tok/s question.
+
+### Measured 2026-07-27, 18:00 rest window
+
+- **Gate: `mistral-nemo:12b` scored 37/37** on the momentum fixtures against ministral's **36/37**
+  baseline — it passes the `steady band` check ministral leaks. 8 fixtures, 37 property checks
+  (the "37" is checks, not fixtures); verified against the ollama access log as 8 real calls, not a
+  cached run. Log: `logs/model-eval/momentum-mistral-nemo_12b-20260727-1803.log`.
+  **Read this as "the contract holds", not "the voice is right".** Property checks are mechanical —
+  word counts, required/banned phrases. A model can pass all 37 and still sound wrong. The voice
+  judgment is Scott's and belongs to the prompt session.
+- **Speed: 14.9 tok/s decode vs ministral's 12.4 — 1.20×**, a little under the 1.28× the size ratio
+  predicts.
+- **Ministral carries ~551 tokens of fixed prompt overhead per call, and nemo carries none.** Same
+  13-token prompt string: `prompt_eval_count` = **564** for ministral, **13** for nemo, reproducible
+  across runs. At ministral's measured 118 tok/s prefill that is **~4.7 seconds burned per
+  generation** before any of our own prompt is read.
+  The likely cause is the vision tower — `ministral-3:14b` reports `mistral3.vision.block_count=24`
+  and advertises a `vision` capability. **The character work is pure text; we have never used it.**
+  So the real switching gain is larger than the 1.20× decode figure alone: roughly 20% on decode
+  *plus* ~4.7s of prefill on every call.
 
 Run gates with `scripts/hosting/model-gate.sh <task> <model>` — it waits for nothing and assumes you
 called it inside a rest window, which is the hour every three when the Mac is idle by design and a

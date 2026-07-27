@@ -132,10 +132,12 @@ type Article struct {
 	Author      *string `json:"author,omitempty"`
 
 	// FeedRank is this article's 0-based position in the RSS payload Google returned — its own
-	// ranking of what matters most for the query. Captured at parse time because
-	// sortArticlesByDate re-orders the slice before persist and would otherwise destroy it.
-	// Carried, never interpreted here: the reading budget downstream is finite, so this is what
-	// decides which articles are worth a model call and which pass through on their headline.
+	// ranking of what matters most for the query. Captured at parse time, before any reordering
+	// downstream can destroy it.
+	//
+	// This is the primary quality signal in the ingest path, and it is free. It decides which
+	// articles survive `-rss-limit` here, and which are worth a model call once the reading
+	// budget binds later. Both cuts rank by it, so "top N" means the same thing at every stage.
 	FeedRank int `json:"feed_rank"`
 }
 
@@ -826,7 +828,18 @@ func (s *NewsService) fetchFromRSS(
 		}
 	}
 
-	sortArticlesByDate(allArticles)
+	// Cut by Google's ranking, not by recency. This sort decides WHICH articles survive
+	// `-rss-limit`, and sorting by date here meant the cap kept the newest rather than the
+	// best: on the 2026-07-26 sweep that discarded 2,235 of 9,694 articles on publish time
+	// alone, while the read budget downstream was separately ranking by `feed_rank` — two
+	// different notions of "top N" in one path.
+	//
+	// Ranking relevance is the one thing Google is unambiguously better at than anything
+	// here, and FeedRank is that judgment for free. Recency is not this product's axis; the
+	// entity's story is, and a well-ranked piece from this morning beats a thin one from
+	// twenty minutes ago. Stable, so that at equal rank the primary query still outranks the
+	// alias lanes that ran after it.
+	sortArticlesByFeedRank(allArticles)
 	totalResults, allArticles := limitRSSArticles(allArticles, limit)
 	f.LimitTruncated = totalResults - len(allArticles)
 	f.Matched = len(allArticles)
@@ -1339,29 +1352,14 @@ func hasSeenArticleKey(seen map[string]bool, keys []string) bool {
 	return false
 }
 
-// sortArticlesByDate sorts articles by published date, newest first.
-func sortArticlesByDate(articles []Article) {
-	parseFmts := []string{
-		time.RFC1123Z,
-		time.RFC1123,
-		time.RFC3339,
-		"2006-01-02T15:04:05Z",
-		"2006-01-02T15:04:05-07:00",
-	}
-
-	parseDate := func(s string) time.Time {
-		s = strings.TrimSpace(s)
-		for _, f := range parseFmts {
-			if t, err := time.Parse(f, s); err == nil {
-				return t
-			}
-		}
-		return time.Time{}
-	}
-
-	sort.Slice(articles, func(i, j int) bool {
-		ti := parseDate(articles[i].PublishedAt)
-		tj := parseDate(articles[j].PublishedAt)
-		return ti.After(tj)
+// sortArticlesByFeedRank orders articles by the position Google gave them, best first.
+//
+// Stable on purpose: FeedRank is per-query, so the primary query's rank-3 and an alias
+// lane's rank-3 collide. Ties then resolve to the order the queries actually ran, which
+// puts the entity's own name ahead of its aliases.
+func sortArticlesByFeedRank(articles []Article) {
+	sort.SliceStable(articles, func(i, j int) bool {
+		return articles[i].FeedRank < articles[j].FeedRank
 	})
 }
+

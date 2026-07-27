@@ -466,22 +466,34 @@ func TestCleanRSSDescription_DecodesAmpersandsAndCollapsesSpace(t *testing.T) {
 	}
 }
 
-// FeedRank must be the article's position in the payload Google returned, not its position after
-// any later sort — sortArticlesByDate reorders the slice before persist.
-func TestFeedRank_SurvivesDateSort(t *testing.T) {
+// The -rss-limit cut must keep what Google ranked highest, not what published most recently.
+// This used to sort by date, which meant the cap discarded well-ranked articles for being a few
+// hours older — 2,235 of 9,694 on the 2026-07-26 sweep. Recency is not this product's axis.
+func TestFeedRankSortKeepsGooglesBestUnderLimit(t *testing.T) {
 	articles := []Article{
-		{Title: "top hit", PublishedAt: "Mon, 20 Jul 2026 08:00:00 +0000", FeedRank: 0},
-		{Title: "second", PublishedAt: "Tue, 21 Jul 2026 08:00:00 +0000", FeedRank: 1},
+		{Title: "stale but Google's top hit", PublishedAt: "Mon, 20 Jul 2026 08:00:00 +0000", FeedRank: 0},
+		{Title: "fresh also-ran", PublishedAt: "Tue, 21 Jul 2026 08:00:00 +0000", FeedRank: 7},
 	}
-	sortArticlesByDate(articles)
-	// The newer article now leads the slice, but each keeps the rank Google gave it.
-	if articles[0].Title != "second" {
-		t.Fatalf("precondition: expected date sort to reorder, got %q first", articles[0].Title)
+	sortArticlesByFeedRank(articles)
+
+	if articles[0].Title != "stale but Google's top hit" {
+		t.Fatalf("rank 0 must lead regardless of date, got %q first", articles[0].Title)
 	}
-	for _, a := range articles {
-		want := map[string]int{"top hit": 0, "second": 1}[a.Title]
-		if a.FeedRank != want {
-			t.Errorf("%q FeedRank = %d, want %d", a.Title, a.FeedRank, want)
-		}
+	if _, kept := limitRSSArticles(articles, 1); kept[0].FeedRank != 0 {
+		t.Errorf("limit kept FeedRank %d, want Google's best (0)", kept[0].FeedRank)
+	}
+}
+
+// FeedRank is per-query, so the primary query and an alias lane both produce a rank 0. A stable
+// sort keeps them in the order the queries ran, which is the entity's own name before its aliases.
+func TestFeedRankSortIsStableAcrossQueryLanes(t *testing.T) {
+	articles := []Article{
+		{Title: "primary query hit", FeedRank: 0},
+		{Title: "alias lane hit", FeedRank: 0},
+	}
+	sortArticlesByFeedRank(articles)
+
+	if articles[0].Title != "primary query hit" {
+		t.Errorf("tie must resolve to query order, got %q first", articles[0].Title)
 	}
 }

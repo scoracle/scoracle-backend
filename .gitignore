@@ -37,3 +37,4 @@ go/bin/
 # Logs
 *.log
 logs/
+logs/

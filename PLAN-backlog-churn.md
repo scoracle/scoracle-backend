@@ -205,9 +205,40 @@ Due **21:00, Mon 2026-07-27**. What it must answer:
    entity, the hash settles once and there is no amplification. Measure it; do not assume either way.
 7. **Did Phase 2 fix the zero-admit teams?** Fifteen clubs (Nice, Spezia, Leganés, Huesca, Amiens …)
    were admitted nothing by the regex tier that is now gone. Check them by name in the 02:00 funnel.
-8. **The verdict**, with the duty-cycle caveat applied: can we support current inflow, and if not,
+8. **Candidate model gates** — read `logs/model-eval/*.log` on the **Mac**. A momentum gate against
+   `mistral-nemo:12b` was queued for the 18:00 rest window; compare to the **36/37** baseline.
+   See "Making the Mac enough" below for what the result decides.
+9. **The verdict**, with the duty-cycle caveat applied: can we support current inflow, and if not,
    by what factor are we short? That factor is what decides between "tune prompts" and "bucket" and
    "scale back collection".
+
+---
+
+## Making the Mac enough — the three levers, measured
+
+The M4 is **memory-bandwidth-bound and saturated**: measured 12.4 tok/s decode on a 9.5 GB model is
+118 GB/s against the chip's 120 GB/s ceiling. So there is no tuning headroom on the Mac — only
+fewer bytes. Prefill (118 tok/s, compute-bound) scales with parameter count, so both halves of a
+generation improve roughly in proportion to how much smaller the model is.
+
+**The prize is not the tok/s — it is the permit.** `max_concurrent=1` exists because 16 GB holds one
+KV allocation, and that single permit is what serializes the six voices. It is the direct cause of
+friction 2: `transfers` makes N sequential calls per item and dead-letters at 1200s while *queueing*.
+Free model bytes → free KV bytes → a second permit → the serialization goes away.
+
+| lever | speed | concurrency | quality risk |
+|---|---|---|---|
+| **`VOICE_NUM_CTX` 16384 → 8192** | none | halves KV/sequence — may buy a permit on its own | **none**, if prompts fit. Journalist at corpus 40 ≈ 2,750 tok + system + 900 predict ≈ 4,500. Fails loudly as truncation, not subtly |
+| **`mistral-nemo:12b`** (7.1 GB, pulled) | ~1.3× | 2 GB freed → plausibly 2 permits | modest — mid-2024 Mistral/NVIDIA model |
+| `mistral:latest` (4.4 GB) | ~2× | 4.7 GB freed → plausibly 3–4 permits | **high** — this is Mistral **7B v0.3**, two generations back. Instruction-following is exactly what the voice contracts lean on |
+
+Order to try them: **ctx first** (free), then nemo, and treat the 7B as a last resort rather than a
+midpoint. A 1.3× model change becomes a ~2.5× system change if it buys the second permit, so the
+concurrency question matters more than the tok/s question.
+
+Run gates with `scripts/hosting/model-gate.sh <task> <model>` — it waits for nothing and assumes you
+called it inside a rest window, which is the hour every three when the Mac is idle by design and a
+gate neither competes with the drain nor is slowed by it.
 
 Commands are in `HANDOFF-plumbing.md` under *Useful commands*; the two new sources are
 `logs/queue-depth.csv` (Archbox) and `~/Library/Logs/ollama.log` (Mac).

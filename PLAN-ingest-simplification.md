@@ -253,6 +253,30 @@ waiting on it.
       One trap, recorded so it is not rediscovered: a comment in `eval_tasks.rs` cites `story_type →
       general on 84% of reads`. That is **ar5 history, not current state** — it is 15% now. Reading
       it as current would wrongly rule out the whole approach.
+
+      **Second bucket: related stories** (Scott, 2026-07-27). Group articles covering the same event
+      so the Journalist receives one storyline instead of six retellings of it — lean, concise,
+      still thorough. This is the highest-value half of the idea, because a corpus of 40 articles is
+      mostly the same handful of stories told repeatedly, and the Journalist currently pays full
+      prompt cost for every retelling.
+
+      **It is also the replacement Phase 3 needs.** Grouping-by-similarity is exactly what `threads`
+      does today — `cosine(title+body embedding, thread centroid) >= 0.80` — and that is one of the
+      two remaining BGE consumers. Phase 3's plan was for the Journalist to declare thread identity
+      itself; doing it in the Reader is better on every axis: it is sorting rather than synthesis,
+      it runs on the card with headroom, and the Reader sees the **full body** where the Journalist
+      sees a 900-byte blurb.
+
+      **The mechanism already exists in the Reader.** Do NOT have it emit a free-text storyline name
+      — "Saka injury" and "Bukayo Saka hamstring" will not match, which is the whole problem
+      embeddings were solving. Use the house closed-candidate-list pattern instead (the `resolve.rs`
+      trick, already used by graph): show the Reader the entity's currently-open storylines as a
+      NUMBERED list, and have it either attach to one by number or declare a new one. The Reader
+      already takes numbered co-mention candidates and returns picks by number — same shape, same
+      parser discipline, no free-text resolution anywhere.
+
+      Grouping then becomes a `GROUP BY` rather than a clustering pass, and BGE has no consumer left
+      in this path.
    2. **Context size** — goes hand in hand with bucketing, since bucketing is what makes the context
       budget bind. Owns `COGNITION_JOURNALIST_CORPUS_LIMIT` (currently 40) and the six voices'
       shared 16,384-token window.

@@ -205,24 +205,44 @@ exactly the failure that retired the first attempt.
 
 ---
 
-## Sequencing, and why this order
+## Sequencing — the prompt session is the LAST phase
 
-1. **Phase 1** ✅ — independent, few lines, strictly closer to the goal.
-2. **Phase 2** — do while the backlog is throttled and the 02:00 daily sweep is the only inflow.
-   Changing what lands in the corpus is much easier to read against one sweep a day than against
-   a continuous drip.
-3. **Phase 3** — after the prompt session, since it *is* a prompt change.
+Scott's call, 2026-07-26. Everything mechanical lands first; the LLM prompt session closes the plan
+out. Nothing that needs a prompt decision gets attempted before it, and nothing mechanical is left
+waiting on it.
 
-Phase 2 should land on a day when its first sweep can be watched: the funnel numbers will move a
-lot, and `Residual()` going non-zero is the alarm that the refactor dropped something silently.
+1. ✅ **Phase 1** — the ingest cut ranks by `feed_rank`.
+2. ✅ **Phase 2** — regex tier retired, players stop auto-vetting, `-rss-limit` = one Google page.
+3. **Plumbing** — the open frictions from `HANDOFF-plumbing.md` (stale-lease recovery, the handler
+   timeout that measures queueing, the unverified Oracle barrier, the two dead letters), plus
+   retiring the vestigial edition-grid scaffolding. All independent of any prompt.
+4. **LLM prompt session — FINAL PHASE.** In order:
+   1. **Bucketing** — first, and the critical one. Group trending summaries into one generation
+      covering N entities instead of N separate ones. The only lever that reduces the *number* of
+      items rather than the time each takes, and it spends gemma3's idle capacity.
+   2. **Context size** — goes hand in hand with bucketing, since bucketing is what makes the context
+      budget bind. Owns `COGNITION_JOURNALIST_CORPUS_LIMIT` (currently 40) and the six voices'
+      shared 16,384-token window.
+   3. **Delete BGE** — The Journalist declares thread identity in-prompt, retiring the last two
+      embedder consumers. Finishes a teardown already two-thirds done.
+5. **After the plan: per-league editions** (the Phase 4 seed above). It depends on BGE being gone,
+   and BGE goes in the final phase — so this is the first thing of the *next* epoch, not this one.
+
+Phase 2 landed 2026-07-26 23:14. Its first sweep is 02:00 the next morning: the funnel numbers will
+move a lot, and **`Residual()` going non-zero is the alarm** that the refactor dropped something
+silently. Everything else moving hard is expected.
 
 ---
 
-## Open questions for Scott
+## Decisions taken
 
-- **Read budget after Phase 2.** `COGNITION_ARTICLE_READ_TOP_K` is 4 and has never been overridden.
-  Once the Reader is the only relevance judge, is 4 still right, or does the "clean, expansive base"
-  want 6–8? This is the one dial that directly buys GPU load, so it is a deliberate call rather than
-  a default — and it is the thing the 21:00 gauge should inform.
-- **Zero-admit teams.** Fifteen teams currently get nothing. Phase 2 should fix them as a side
-  effect; worth verifying explicitly rather than assuming, since they are the hardest names.
+- **Read budget → 10** (was 4, never overridden). Set in `.env.local` 2026-07-26 23:28. The Reader
+  is now the only relevance judge, and a budget of 4 was sized for a pipeline that discarded 85%
+  before reaching it. The capacity is real and idle: `article_read`/`graph`/`scrub` run on Archbox's
+  gemma3 card, which held **zero** pending work all night while the Mac's single permit carried
+  ~930 items. **Flagged for the 21:00 checkpoint** — the second-order cost lands on the Mac, since
+  `narratives`' `input_version` hashes each article's read status and every new reading can reopen
+  that entity's Mac-routed narratives row. Drop toward 8 if narratives inflow climbs with it.
+- **Zero-admit teams.** Fifteen clubs were admitted nothing (Nice, Spezia, Leganés, Huesca,
+  Amiens …). Phase 2 should fix them as a side effect; verify explicitly at the 02:00 sweep rather
+  than assuming, since they are the hardest names and the reason to believe is a deletion.

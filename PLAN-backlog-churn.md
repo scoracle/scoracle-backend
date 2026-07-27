@@ -161,7 +161,15 @@ Due **21:00, Mon 2026-07-27**. What it must answer:
    edges, and confirmation that each resume's boot sweep recovered any orphans.
 5. **Dead-letter trend**, especially `transfers` — is friction 2 still bleeding capacity, and how
    much (generations spent on items that then dead-lettered).
-6. **The verdict**, with the duty-cycle caveat applied: can we support current inflow, and if not,
+6. **The read budget raised 4 → 10** (set 2026-07-26 23:28). Did the extra reading land on the
+   gemma3 card as intended, and did it push `narratives` inflow up? `narratives`' `input_version`
+   hashes every article's read status, so each new reading can reopen that entity's narratives row
+   — and narratives is **Mac**-routed, the saturated side. If narratives inflow tracks the budget
+   increase, drop toward 8. If most reads land in the post-sweep burst before narratives drains the
+   entity, the hash settles once and there is no amplification. Measure it; do not assume either way.
+7. **Did Phase 2 fix the zero-admit teams?** Fifteen clubs (Nice, Spezia, Leganés, Huesca, Amiens …)
+   were admitted nothing by the regex tier that is now gone. Check them by name in the 02:00 funnel.
+8. **The verdict**, with the duty-cycle caveat applied: can we support current inflow, and if not,
    by what factor are we short? That factor is what decides between "tune prompts" and "bucket" and
    "scale back collection".
 

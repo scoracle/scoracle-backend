@@ -291,6 +291,50 @@ concurrency question matters more than the tok/s question.
 
 So nemo's measured advantage is the **1.20× decode and the 2 GB it frees for permits** — not more.
 
+### Live-entity A/B on real production data — the result that matters
+
+Fixtures said nemo 37/37 vs ministral 36/37. Running both over **four real entities** the pipeline
+had just processed (`eval --task momentum team:29:FOOTBALL player:27133:FOOTBALL …` with
+`COGNITION_ROUTE_MOMENTUM_LOGIC_CANDIDATE`) told a different story. Log:
+`logs/model-eval/live-momentum-ab-*.log` on Archbox.
+
+**Verdicts agree completely** — both scored 4/4, identical momentum scores (−1, 1, −1, 0).
+
+**Speed is a brevity effect, not a hardware one:**
+
+| | warm rate | mean/call | tokens produced |
+|---|---|---|---|
+| ministral | 9.85 tok/s | 15.1s | 234 / 164 / 126 / 155 |
+| nemo | 10.24 tok/s | **8.9s** | 104 / 100 / 80 / 95 |
+
+Warm decode is **the same**. The whole 1.7×-per-call gap is nemo writing ~40% fewer tokens.
+**Consequence for the prompt session: prompt work that shortens ministral's output captures most of
+this win without changing models at all.** Model choice and output length are separable, and only
+one of them costs voice.
+
+**Voice: nemo is flatter, and leaks internals.** Ministral turns metrics into narrative ("£38m for
+João Gomes didn't just leave a gap; it exposed Cesar Peixoto's pre-season chaos"). Nemo restates
+them, and — not a matter of taste — **puts raw telemetry in user-facing prose**: "sentiment dropping
+by 17 points over 13 samples", "(−19.1 over 4 samples)", "(13.0 over 22 samples)", "82/100 sentiment
+score". That is a defect.
+
+**The meta-result, which outlives the model question:** the fixture gate scored nemo **37/37 and saw
+none of this**. Property checks test word counts and banned phrases; they cannot see "this reads
+like a stats dump instead of The Analyst". **A green gate is necessary and not sufficient — any
+model decision needs a live-entity A/B read by a human before it ships.**
+
+Both nemo problems look prompt-shaped rather than capability-shaped: the leak is a missing
+instruction, and the flatness may be the prompt relying on ministral's stylistic defaults instead of
+stating the voice. The real test is both models against an **optimized** prompt — which now has a
+baseline to beat and a named defect to check for.
+
+**Decision 2026-07-27: the 3-hour production swap was NOT done.** It would have produced confounded
+voice data (the model is not in the debounce hash, so nemo would only touch *new* entities, never
+the same ones) and it is a one-way door for the entities it did touch (switching back does not
+restore ministral output; only a content change or a prompt-version bump regenerates them). The
+live-entity A/B answered the voice question cleanly and for free. Throughput under concurrency
+remains unmeasured and is still worth a deliberate window later.
+
 Run gates with `scripts/hosting/model-gate.sh <task> <model>` — it waits for nothing and assumes you
 called it inside a rest window, which is the hour every three when the Mac is idle by design and a
 gate neither competes with the drain nor is slowed by it.

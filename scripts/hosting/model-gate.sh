@@ -12,21 +12,31 @@
 # six voices. The question is never "is it faster" (it is, in proportion to bytes) but "does the
 # voice survive". That is what the gate answers, against a known baseline.
 #
-# Usage:  model-gate.sh <task> <model> [route_env_var]
-#   model-gate.sh momentum mistral-nemo:12b
-#   model-gate.sh oracle   mistral-nemo:12b
+# Usage:  model-gate.sh <task> <incumbent> [candidate]
+#   model-gate.sh momentum ministral-3:14b mistral-nemo:12b   # A/B, side by side
+#   model-gate.sh momentum mistral-nemo:12b                   # single model vs the baselines below
 #
-# Baselines to compare against (2026-07-26, ministral-3:14b):
+# With a CANDIDATE the eval binary runs both over the same fixtures and prints its own side-by-side
+# report -- that is what `EvalReport` exists for ("the side-by-side the human reads"). It runs
+# all-incumbent then all-candidate so exactly ONE model swap happens, which matters on a 16 GB box
+# where OLLAMA_MAX_LOADED_MODELS=1 makes every swap a full reload.
+#
+# Read the PROSE, not just the check counts. The property checks (word counts, required and banned
+# phrases) say the contract holds; they cannot say the voice is right. That judgment is the whole
+# point of running two models over identical inputs.
+#
+# Baselines (2026-07-26, ministral-3:14b):
 #   momentum s13 : 36/37   -- the one red is a genuine `steady band` leak
 #   oracle   or8 : 94/98   -- all four reds are `reading_max_peers`, left red on purpose
 set -uo pipefail
 
-TASK="${1:?usage: model-gate.sh <task> <model> [route_env]}"
-MODEL="${2:?usage: model-gate.sh <task> <model> [route_env]}"
+TASK="${1:?usage: model-gate.sh <task> <incumbent> [candidate]}"
+MODEL="${2:?usage: model-gate.sh <task> <incumbent> [candidate]}"
+CANDIDATE="${3:-}"
 case "$TASK" in
-    momentum) ROUTE_ENV="${3:-COGNITION_ROUTE_MOMENTUM_LOGIC}" ;;
-    oracle)   ROUTE_ENV="${3:-COGNITION_ROUTE_ORACLE_LOGIC}" ;;
-    *)        ROUTE_ENV="${3:?unknown task; pass the route env var explicitly}" ;;
+    momentum) ROUTE_ENV="COGNITION_ROUTE_MOMENTUM_LOGIC" ;;
+    oracle)   ROUTE_ENV="COGNITION_ROUTE_ORACLE_LOGIC" ;;
+    *)        echo "unknown task '$TASK'" >&2; exit 2 ;;
 esac
 
 REPO=/Users/scotty/scoracle/scoracle-backend
@@ -44,8 +54,14 @@ export OLLAMA_BASE_URL="http://127.0.0.1:11434"
 export OLLAMA_TIMEOUT_SECONDS=600
 
 {
-    echo "=== $TASK gate | model=$MODEL | via $ROUTE_ENV | started $(date '+%F %T') ==="
-    env "$ROUTE_ENV=$MODEL" ./target/debug/eval --task "$TASK" --fixtures 2>&1
+    if [ -n "$CANDIDATE" ]; then
+        echo "=== $TASK A/B | incumbent=$MODEL | candidate=$CANDIDATE | $(date '+%F %T') ==="
+        env "$ROUTE_ENV=$MODEL" "${ROUTE_ENV}_CANDIDATE=$CANDIDATE" \
+            ./target/debug/eval --task "$TASK" --fixtures 2>&1
+    else
+        echo "=== $TASK gate | model=$MODEL | via $ROUTE_ENV | $(date '+%F %T') ==="
+        env "$ROUTE_ENV=$MODEL" ./target/debug/eval --task "$TASK" --fixtures 2>&1
+    fi
     echo "=== finished $(date '+%F %T') ==="
 } | tee "$OUT"
 

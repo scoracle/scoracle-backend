@@ -78,6 +78,42 @@ queue — comes from the fixture-processing crons (`nba-process` every 30 min, `
 hourly), which were deliberately left alone. If tomorrow's gauge still reads short, those crons are
 the next dial, not the news sweep.
 
+### Offset the two cards' rest windows
+
+Today the stagger pauses the whole `scoracle-cognition` process, which owns every stage, so **both
+cards rest at the same time** — verified in the sampler, where `article_read` pending is exactly
+flat through every `active=0` hour (5852→5852, 4856→4856). The Mac and the 1070 do different jobs
+and should not go dark together.
+
+**What this does and does not buy.** It does **not** recover the lost third — each card still rests
+one hour in three either way, so per-card throughput is unchanged. (An earlier note in this session
+said offsetting would "recover most of that third"; that was wrong.) What it buys is **pipeline
+continuity**: the Reader keeps producing evidence cards through the Mac's rest hour, so the DAG
+keeps flowing instead of the entire system halting. That is a latency and smoothness win, and it
+is worth **least** while both queues are deep — a backlogged stage always has work waiting, so
+accumulation gains nothing. **Do this after the backlogs clear, not before.**
+
+**Options, cheapest first:**
+
+1. **Split into two systemd units** (recommended). `COGNITION_STAGES` already partitions stages by
+   name, and the partition wanted here already exists: `scrub`/`graph`/`article_read` on Archbox,
+   the six voices on the Mac. Two units, each with its own pause/resume timers, trivially offset.
+   No code change at all.
+   - **The wrinkle that will bite:** `COGNITION_STAGES` currently lives in `.env.local`, which
+     loads *after* the unit's `Environment=` line and therefore **overrides it**. A per-unit
+     `EnvironmentFile=` loaded after `.env.local` is the fix; setting it in the unit body silently
+     does nothing.
+   - Costs: two pools, two LISTEN sockets, two embedders. The embedder is the real one — BGE loads
+     per process — and Phase 3 deletes it anyway, which is another reason to sequence this later.
+2. **Rest windows in the host governor** (`route.rs::governor_for`). Precise, one process. But an
+   item already claimed would block on the semaphore for the whole rest hour and burn its 1200s
+   handler timeout into a dead letter — friction 2 at full force. Needs the drain to stop *admitting*
+   for a resting host, not just stop serving it, which means option 3 anyway.
+3. **Teach the drain which host each stage routes to.** The honest design: one `backend_host()` on
+   `StageHandler`, with both the slot groups added today and the rest windows keyed off it. Largest
+   change, and the one that makes this a first-class concept rather than two mechanisms that happen
+   to agree.
+
 ### Side effect worth knowing
 
 The stagger **incidentally defangs the `requeue_stale` starvation** (friction 1). `requeue_stale`

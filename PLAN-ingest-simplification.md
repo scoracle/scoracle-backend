@@ -214,8 +214,10 @@ waiting on it.
 1. ✅ **Phase 1** — the ingest cut ranks by `feed_rank`.
 2. ✅ **Phase 2** — regex tier retired, players stop auto-vetting, `-rss-limit` = one Google page.
 3. **Plumbing** — the open frictions from `HANDOFF-plumbing.md` (stale-lease recovery, the handler
-   timeout that measures queueing, the unverified Oracle barrier, the two dead letters), plus
-   retiring the vestigial edition-grid scaffolding. All independent of any prompt.
+   timeout that measures queueing, the unverified Oracle barrier, the two dead letters), retiring
+   the vestigial edition-grid scaffolding, and offsetting the two cards' rest windows
+   (see `PLAN-backlog-churn.md` — sequenced after the backlogs clear, since it buys pipeline
+   continuity rather than throughput). All independent of any prompt.
 4. **LLM prompt session — FINAL PHASE.** In order:
    1. **Bucketing** — first, and the critical one. Group trending summaries into one generation
       covering N entities instead of N separate ones. The only lever that reduces the *number* of

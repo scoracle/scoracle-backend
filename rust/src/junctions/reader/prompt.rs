@@ -6,7 +6,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `gemma3:4b` — extraction, not voice (2026-07-25) |
-//! | **Contract** | `ar3` |
+//! | **Contract** | `ar6` — describes the page; relevance is DERIVED, never asked |
 //! | **Reads** | the fetched publisher page |
 //! | **Feeds** | The Journalist (`narratives`), via `news_article_readings` |
 //! | **Budget** | top-K per entity by Google's `feed_rank` (mig 194) |
@@ -44,31 +44,87 @@ use crate::junctions::reader::{ArticleReadEntities, ArticleRow, CoMentionCandida
 use crate::util::truncate;
 
 /// The Reader's contract version. Bumping this invalidates every cached reading whose
-/// `prompt_version` differs, so a re-read is forced on the next pass.
-pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar3";
+/// `prompt_version` differs, so a re-read is forced on the next pass. Invalidation is LAZY — an
+/// article re-reads when it is next enqueued, not all at once.
+///
+/// **ar4 (2026-07-26) — the verdict moved to LAST.** ar3 asked for `relevant` as the first field
+/// of the reply, so the model rendered its verdict before writing a single word of analysis;
+/// measured, gemma3:4b accepted 99.1% of articles against mistral's 82.5% on the identical
+/// prompt. ar4 reorders the contract (`story_type` → facts → card → `relevant`) so the judgment
+/// is conditioned on text the model has already committed to, drops ar3's "already-relevance-
+/// vetted" framing — which told the model the question was settled and then asked it anyway —
+/// and promotes the measured rejection classes out of a 12-item bullet list.
+///
+/// **ar5 (2026-07-26) — classify, then derive.** ar4's reorder alone was MEASURED NEUTRAL
+/// (13/16 both ways): with the verdict last, gemma wrote `story_type:"score"` and eight lines of
+/// stat-table facts and *still* answered `relevant:true`. The reasoning was on the line above the
+/// verdict and went unused, which refutes "it cannot reason before answering".
+///
+/// What ar4 got wrong was mine: it named the reject classes in prose but never made them values
+/// of `story_type` and never stated the mapping, so the model still had to re-derive a bare
+/// boolean — the one thing it reliably fails. ar5 makes the reject classes first-class enum
+/// values, grammar-enforced in `article_read_format_schema`, and states the verdict as a lookup
+/// from the classification rather than a judgment.
+///
+/// ar5 was refuted too, and most sharply: with the classes grammar-enforced, gemma labelled the
+/// boxscore `score_stub` and the broadcast page `broadcast_listing` — the exact reject classes,
+/// mapping stated directly above, classification emitted first — and still said `relevant:true`.
+/// Deriving the verdict in the parser took fixtures 13/16 → 15/16, but production told a second
+/// story: `story_type` collapsed to the `general` catch-all on **84% of reads**, so no reject
+/// class ever fired and the live rate stayed at 0.0%.
+///
+/// **ar6 (2026-07-26) — describe the page; the system decides.** `relevant` is GONE from the
+/// schema: the model is never given the question. It answers two extractive ones instead —
+/// `page_kind` (what shape is this page) and `entity_roles` (what part each vetted entity plays)
+/// — and `derive_relevance` computes the verdict. `story_type` reverts to pure topic, because
+/// overloading one field with "what shape" and "what about" is what produced the `general`
+/// collapse. `entity_roles` is also the first mechanism that can reach an opponent-only story,
+/// which no page-shape signal ever catches.
+pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar6";
 
 pub fn build_article_read_prompt(
     article: &ArticleRow,
     text: &str,
     entities: &ArticleReadEntities,
 ) -> String {
+    build_article_read_prompt_parts(
+        &article.source,
+        &article.title,
+        &article.description,
+        text,
+        &entities.vetted_names,
+        &entities.co_mentions,
+    )
+}
+
+/// The same builder over plain data, so a fixture generator outside the crate can render the EXACT
+/// live prompt without a database row (the `build_graph_prompt` shape). `build_article_read_prompt`
+/// is a thin adapter onto this, so the two cannot drift.
+pub fn build_article_read_prompt_parts(
+    source: &str,
+    title: &str,
+    description: &str,
+    text: &str,
+    vetted_names: &[String],
+    co_mentions: &[CoMentionCandidate],
+) -> String {
     let mut p = String::new();
-    p.push_str(&format!("Source: {}\n", article.source));
-    p.push_str(&format!("Title: {}\n", article.title));
-    if !article.description.trim().is_empty() {
-        p.push_str(&format!("RSS description: {}\n", article.description));
+    p.push_str(&format!("Source: {source}\n"));
+    p.push_str(&format!("Title: {title}\n"));
+    if !description.trim().is_empty() {
+        p.push_str(&format!("RSS description: {description}\n"));
     }
-    if !entities.vetted_names.is_empty() {
+    if !vetted_names.is_empty() {
         p.push_str("\nKnown vetted entities:\n");
-        for e in &entities.vetted_names {
+        for e in vetted_names {
             p.push_str("- ");
             p.push_str(e);
             p.push('\n');
         }
     }
-    if !entities.co_mentions.is_empty() {
+    if !co_mentions.is_empty() {
         p.push_str("\nCo-mention candidates to verify from full text:\n");
-        for c in &entities.co_mentions {
+        for c in co_mentions {
             p.push_str(&format!(
                 "{}. {} ({} {}, {})\n",
                 c.number,

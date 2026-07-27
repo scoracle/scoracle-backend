@@ -59,7 +59,13 @@ with `resolve.rs` in the teardown.
 
 ## Open items, in priority order
 
-1. **Watch The Reader's `irrelevant` rate — and disambiguate it.** gemma3:4b sat at **0.0% across
+1. **~~Watch The Reader's `irrelevant` rate~~ — ANSWERED 2026-07-26. The confound is dead and the
+   judge is not judging.** See "The Reader's relevance gate — measured and now gated" below.
+   Short version: rank-matched on the SAME `unranked` band, mistral rejected **27.4%** (n=179) and
+   gemma **0.9%** (n=212). The ranking explanation is gone. Keep the original reasoning below for
+   the method; the conclusion is settled.
+
+   **Original framing (superseded).** gemma3:4b sat at **0.0% across
    its first 24 readings** against mistral's **14.4%** baseline. At n=24 that is p≈2.4% under the
    baseline rate, so it is no longer dismissible as small-sample noise. It is now the *sole*
    relevance judge; if it never rejects, it is doing half its job.
@@ -105,7 +111,12 @@ with `resolve.rs` in the teardown.
    path first (4,457 singletons), add `continues_thread` to the output contract, fix E7
    (`threads.rs:131` has `FOR UPDATE` with no `ORDER BY`). This is what finally deletes
    `Harness.embedder` — `narratives` clustering and `threads.rs` centroid are its last two consumers.
-5. **Ollama is thrashing the GPU — measured 07-25, undecided.** **702 `llama runner started`
+5. **~~Ollama is thrashing the GPU~~ — RESOLVED.** The topology split took it 101 → 22
+   reloads/hour, and matching graph's `num_ctx` to the Reader's 8192 addresses the remainder
+   (see "Phase 2 as shipped"). Gemma is now pinned with `OLLAMA_KEEP_ALIVE=-1` on a box that
+   holds one model. The original diagnosis is kept below for its measurements.
+
+   **Ollama is thrashing the GPU — measured 07-25, undecided.** **702 `llama runner started`
    events in 6 hours** (~1 reload/min). `mistral:7b` (5.1 GB, every character) plus `gemma3:4b`
    (~3.3 GB, The Reader) is ~8.4 GB against the 1070 Ti's 8192 MiB, and `OLLAMA_KEEP_ALIVE=30m`
    has both trying to stay resident, so an evict-and-reload fires on nearly every alternation
@@ -124,7 +135,11 @@ with `resolve.rs` in the teardown.
    **Trap:** ollama is a **system** unit (`/etc/systemd/system/ollama.service`, `User=ollama`),
    NOT `systemctl --user` like the scoracle units. Restarting it drops every loaded model.
 6. `topic_heat_embeddings` is orphaned — nothing reads or writes it. Drop in a later migration.
-7. `examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile (pre-existing).
+7. ~~`examples/transfer_t10_fixtures.rs` and `examples/graph_probe.rs` do not compile~~ — **FIXED
+   2026-07-26.** `graph_probe` set `resolve:` on `Harness` (gone with `resolve.rs` in the
+   teardown); `transfer_t10_fixtures` passed a 4th `best_weight` arg to
+   `TransferEvidence::from_news`, which lost that field. `cargo build --examples` is clean.
+   The graph gate this unblocked is recorded under "The graph-on-gemma gate" below.
 
 ## The Archbox/Mac split — rollout (Phase 1 code shipped `dfbf78a`, NOT yet configured)
 
@@ -220,6 +235,9 @@ ordering rather than a gate, which dissolves the rank confound in item 1 for fre
 Scott's calls, made with the measured numbers in hand. These SUPERSEDE anything below that
 conflicts.
 
+> **All four are now EXECUTED** (1, 2, 3 in the session after the restart; 4 earlier that day).
+> See "Phase 2 as shipped" at the end of this doc for what landed and what to watch.
+
 1. **Archbox comes off the sequencing approach entirely.** It should work items as they arrive,
    not one per rotation. The rotation existed to stop a single GPU being oversubscribed; the
    per-host semaphores (`dfbf78a`) now do that job properly, so **the governor becomes the
@@ -243,7 +261,12 @@ The intended end state: **Archbox never backlogs.** Reader and graph chew throug
 arrives on 4 slots, and the only thing anyone waits on is the Mac — which is the correct place for
 the constraint to live, since that is where the expensive character voices are.
 
-## PLAN — Phase 2: make the two machines actually work at the same time
+## PHASE 2 — SHIPPED 2026-07-26 afternoon (all four items below are DONE)
+
+> **Status: code complete, `cargo test --lib` 251 passed / 0 failed, zero build warnings.**
+> What changed, and what to watch, is recorded at the end of this section under
+> "Phase 2 as shipped". The plan text below is kept because its measurements are the
+> baseline the next window compares against.
 
 Written 2026-07-26 12:15 after a measured 30-minute window. Execute in a fresh context.
 
@@ -326,6 +349,321 @@ numbers, after concurrency, not before.
 
 **Also still open from the original list:** the read budget may no longer need to exist now that
 reads are not scarce (dissolves item 1's rank confound), and `topic_heat_embeddings` is orphaned.
+
+### Phase 2 as shipped — 2026-07-26 afternoon
+
+**The 1.87 GB was NOT a leak in our stack, and it is now reclaimed.** A cosmic-comp restart took
+the compositor from **1,872 MiB to 67 MiB**; total desktop GPU use is ~212 MiB across
+comp/panel/Xwayland/portal/ghostty/chrome. Free VRAM went **1,835 MiB → 3,916 MiB** against
+ollama's steady 3,880 MiB. It was 22 days of accumulation on a 3840x1600 ultrawide whose
+framebuffers only justify ~300 MB. **If it creeps back, the remedy is a logout/login, not a hunt
+through our code** — nothing in the harness allocates compositor memory.
+
+1. **graph's `num_ctx` — DONE.** `graph/mod.rs` now sends `reader::ARTICLE_NUM_CTX` (8192)
+   instead of `0`. `ARTICLE_NUM_CTX` became `pub(crate)` with a comment on both sides saying the
+   two must change together; the value is no longer duplicated, because drift between them is
+   precisely what caused the paired reloads.
+2. **Concurrent drain — DONE.** `worker.rs::drain_all` was `for handler { for item { await } }`.
+   It now keeps N claimed items in flight in a `FuturesUnordered`, topping up after each
+   completion. Per decision 1 **the governor is the scheduler**: the drain only keeps work
+   offered, and the per-host semaphores decide what runs.
+   - Concurrency is **intra-task** — the futures are polled by the one drain task and never
+     spawned, so the 07-15 incident property holds (stage futures, embedder and GPU stay off the
+     supervisor's task; nothing a handler does can pin the LISTEN socket).
+   - **The control is per-stage, not global.** `StageHandler::max_in_flight()` (new; default 1)
+     caps how many items of one stage may run at once. graph and The Reader are **2** each —
+     they are the only two stages on the local gemma3:4b, so between them they fill Archbox's 4
+     slots. Every Mac stage stays at 1: the Mac runs one request at a time by design, so extra
+     in-flight items there would only queue on its semaphore, holding leases and burning their
+     handler-timeout clock for no throughput.
+   - `max_in_flight` is NOT `rotation_batch`. The latter is how many rows to claim in one SQL
+     round trip; the former is how many slots the stage may hold. scrub wants 256 rows per trip
+     (its items are microseconds) but must hold ONE slot, because every slot it holds is a slot
+     the GPU cannot use.
+   - `COGNITION_DRAIN_CONCURRENCY` is now an optional **throttle**, not the primary knob. Unset
+     (the normal case) the worker derives the ceiling as the sum of the stages' caps, so it can
+     never bind. `=1` restores the old strictly-sequential drain — that is the rollback.
+   - **Sizing the ceiling to total GPU permits (5) was tried and is wrong** — recorded because it
+     is the obvious idea. The drain claims in DAG order, so scrub(1) + graph(2) + article_read(2)
+     fills all 5 and the six Mac stages get NOTHING until the local backlog (2,580 items) is
+     empty. The Mac would idle for hours while Archbox worked — the exact inversion of the goal.
+     `resolve_drain_concurrency` carries this note and a test asserts the ceiling cannot starve.
+   - E7 was the hard prerequisite and is fixed: `threads.rs` open-thread `SELECT … FOR UPDATE`
+     now has `ORDER BY id`.
+3. **`OLLAMA_NUM_PARALLEL=4` — DONE**, in a new drop-in
+   `/etc/systemd/system/ollama.service.d/concurrency.conf`, with `COGNITION_BACKEND_CONCURRENCY`
+   moved `localhost=3 → 4` to match. The drop-in also sets **`OLLAMA_KEEP_ALIVE=-1`** (pin gemma
+   in VRAM; Scott: "we won't be switching") and **`OLLAMA_MAX_LOADED_MODELS=1`** as the guard
+   that keeps the pin true. Note the old handoff claim that `OLLAMA_KEEP_ALIVE=30m` was set was
+   **wrong** — the unit had no `Environment=` lines at all and ollama was running the 5m default,
+   so an idle gap silently unloaded gemma and the next request paid a cold load.
+   Flash-attention/q8_0 KV stay deliberately absent (Pascal cc 6.1; their only win was headroom,
+   which the reclaim made moot).
+4. **Config defaults realigned to what actually runs.** `OLLAMA_TIMEOUT_SECONDS` default
+   **60 → 600** and `COGNITION_HANDLER_TIMEOUT_SECONDS` default **900 → 1200**. Both had been
+   overridden in `.env.local` by every real deploy, so reading `config.rs` misdescribed the
+   system — it cost this session a round-trip. Live values are unchanged.
+5. **`COGNITION_DB_MAX_CONNS` 5 → 25 — a real bug the concurrency exposed, caught in
+   production within two minutes of the deploy.** A pool of 5 was sized for a drain that ran ONE
+   item at a time. With up to 11 handlers in flight, each holding a connection and some holding a
+   transaction plus a query, the pool starved:
+   `narratives … debounce check news_summaries player/322: pool timed out while waiting for an
+   open connection`. **Anything that raises `max_in_flight` or adds a stage must re-check this
+   number** — it has to stay comfortably above the sum of the stage caps. Postgres here allows
+   100 with ~22 in use, and a pool max is a ceiling, not a preallocation.
+
+**The one thing to watch — the handler timeout now measures queueing.** An item's
+`COGNITION_HANDLER_TIMEOUT_SECONDS` (1200s) clock starts at claim, so it now covers time spent
+waiting on a busy host's semaphore, not just generation. The pathological case is several slow
+Mac items in flight at once: a narratives item has been observed at 4–7 min, and 4 of those
+queued ahead of a fifth would blow the budget.
+
+With every Mac stage capped at 1 in flight, the exposure is bounded at **six Mac items, five of
+them queued** on that one permit. At the ~55s calls measured on ministral-3:14b that is a ~275s
+wait — comfortable. At the 4–7 min a narratives item has been observed to take, the last in line
+would exceed 1200s and time out.
+
+Why that is survivable, and the lever if it bites:
+  * A timeout is fail-closed and self-healing: the item fails with backoff and retries. Nothing
+    is persisted for it and nothing is corrupted. It costs throughput, not correctness.
+  * Total throughput barely moves either way — the Mac runs one request at a time regardless, so
+    a queued item was never going to run sooner.
+  * **If it does bite**, set `COGNITION_DRAIN_CONCURRENCY` to ~6 rather than raising the timeout
+    (which must stay under `COGNITION_STALE_LEASE_SECONDS=1800`). At 6 the local stages take 5
+    (scrub 1 + graph 2 + article_read 2) and exactly one Mac item is in flight, so the Mac queue
+    disappears while local work exists. It returns when Archbox goes idle — unavoidable without
+    host-awareness.
+  * **The real fix, if it ever earns the work:** make the drain host-aware so it never claims
+    more for a host than that host can run. That needs a stage→host map the worker does not
+    have — `StageHandler` does not declare its role, and some stages use several.
+
+**Also watch:** `Pulse` is shared, so a busy drain now beats for whichever item moved last — the
+watchdog can no longer see one wedged item behind others making progress. That is acceptable
+because the per-item handler timeout, not the watchdog, is the guard for a hung handler; the
+watchdog stays the backstop for a drain where *everything* stopped.
+
+**Deploys are slower now, and that is expected — do not go looking for a hang.** On shutdown the
+drain lets in-flight items finish their own bookkeeping rather than abandoning their leases, so a
+restart waits for the slowest of up to 11 items instead of 1. In practice it runs to the
+supervisor's 75s `SHUTDOWN_GRACE`, which then aborts whatever is left (nothing is persisted for an
+aborted item; its lease recovers via `requeue_stale`). Expect `systemctl --user` to sit in
+`stop-sigterm` for up to ~75s after every binary deploy.
+
+### MEASURED AFTER THE CUTOVER — 2026-07-26 13:44
+
+All of it deployed, verified live, and holding.
+
+| | before | after |
+|---|---|---|
+| local generate calls | 255/hr (both hosts, 12:15 window) | **~1,940/hr local alone** (97 in 3 min) |
+| runner reloads ("switches") | 23/hr, in pairs every 4–5 min | **0** since ollama's restart, under full load |
+| `cosmic-comp` VRAM | 1,872 MiB | **67 MiB** |
+| free VRAM | 1,835 MiB | **3,039 MiB** (with 4 slots allocated) |
+| `OLLAMA_NUM_PARALLEL` | 1 | **4** |
+| `OLLAMA_KEEP_ALIVE` | 5m (default) | **pinned** (`-1`) |
+| DB pool | 5 | **25** |
+
+**The per-stage caps are provably holding in production.** Filtering `pipeline_work` to rows
+claimed after the restart: article_read 2/2, graph 2/2, and momentum/narratives/peak/sigil/vibe
+1/1 each — 9 in flight against a ceiling of 11, so the caps govern and the ceiling does not bind.
+The 4 local slots are exactly graph(2) + article_read(2), which is the whole design.
+
+**Reading `status='running'` needs care after a restart.** Aborted in-flight items keep their
+`running` row until `requeue_stale` reclaims them 30 min later, so a naive count shows stages
+over their cap. Filter by `updated_at > <service start>` before concluding anything is wrong —
+three such orphans (momentum 3, narratives 1030, transfers 68) were present and harmless here.
+
+**Verify a switch is a switch.** A `llama runner started` line immediately after
+`Started Ollama Service` is the pinned model's cold load, not an eviction. Only a reload with no
+preceding restart is a real switch, and with one model pinned on the card there should be none:
+`journalctl -u ollama --since "1 hour ago" | grep -c "llama runner started"`.
+
+### The graph-on-gemma gate — run retroactively 2026-07-26 (Phase 2 item 4)
+
+Both broken examples are repaired (open item 7), which unblocked the gate that item 4 wanted.
+
+**The fixtures were stale and would have gated the wrong contract.** `fixtures/graph/` was NOT
+empty — the earlier note here was wrong; it held four fixtures frozen at **`g2`** while the live
+builder is **`g3`**. The g2→g3 delta is not cosmetic: g3 adds the entire **Language handling**
+paragraph (read the source language, emit English keys/enums, never drop relations because the
+article is non-English), plus em-dash→`--` and a trailing-space fix. Regenerated via
+`examples/graph_fixture_gen.rs`; only `prompt_version` and `system` changed, with `user_prompt`,
+`expect` and the curated `note` preserved.
+
+**Result: gemma3:4b passes 10/12 property checks.**
+
+| fixture | verdict |
+|---|---|
+| object-attachment-two-suitors | **✓ all 5** — attaches to the true counterparty, finds the coach |
+| person-discovery-manager-named | **✓ all 4** — finds both coach and agent |
+| no-relation-quiet-mention | **✗** over-extracts: 1 relation where a clean empty was required |
+| unary-injury-no-counterparty | **✗** misses the unary injury entirely: 0 relations, wanted `1:injury:-` |
+
+Read that against what the set was built for. All four fixtures pin residuals **measured on the
+g1/g2 probes, before the gemma swap** — so the two gemma passes are the two failures the set was
+authored from, and the two it fails are different ones. The swap is not a regression on this
+evidence; it moved the residual. The open half is **over-extraction and unary relations**, which
+is the sharpest available statement of what to fix in the graph prompt next.
+
+**Do not A/B this against mistral on Archbox.** Loading a second model is exactly what
+`OLLAMA_MAX_LOADED_MODELS=1` and the `-1` keep-alive now forbid, and it would reintroduce the
+evict-and-reload thrash this whole day removed. Run a challenger on the Mac, or accept 10/12 as
+the recorded gemma baseline.
+
+### The Reader's relevance gate — measured and now gated (2026-07-26)
+
+**The confound in open item 1 is dissolved.** Rank-matched, same `unranked` band, 24h window:
+
+| band | mistral:7b | gemma3:4b |
+|---|---|---|
+| unranked | **27.4%** irrelevant (n=179) | **0.9%** (n=212) |
+| rest | — | 0.9% |
+| top3 | — | 0.5% |
+
+Like for like on comparable inputs, a 30× gap — "gemma only reads well-ranked articles so it
+should reject less" is dead. And gemma's rate is **flat across all three bands**; a working judge
+rejects more as rank worsens, so a verdict that barely moves with input quality is not grading
+the input. Classified by title pattern, it accepted **26 boxscore stubs, 18 broadcast listings and
+46 odds pages with ZERO rejections**; all 16 `irrelevant` verdicts it has EVER issued fall outside
+those classes. One accepted page was a youth flag-football listing, written up as evidence about
+the Baltimore Ravens under an invented club name ("The New York City Ravens…"). On the ~26pp gap
+against 2,002 accepted readings, order **~500 articles** are suspect.
+
+**Why nobody caught it: the Reader had no eval coverage at all** — the sole relevance judge for
+the whole news rail was the one junction with no fixture set. That is now fixed:
+`ReaderTask` (`eval_tasks.rs`), `fixtures/reader/` (6), `examples/reader_fixture_gen.rs`, and a
+new `Expect::article_relevant` axis. Run it with `cargo run --bin eval -- --task reader --fixtures`.
+
+**First result — 13/16 checks, and `relevant=true` on all six fixtures.** It has not returned
+`false` once.
+
+| fixture | verdict |
+|---|---|
+| transfer-report-accept-and-ground | ✓ accepts + grounds the fee, clubs, player |
+| injury-report-accept-no-invention | ✓ accepts, no invented surgery/season-ending |
+| non-english-accept-and-translate | ✓ accepts Spanish, card written in English |
+| name-collision-youth-flag-football | **✗** accepts a youth flag-football listing as Ravens news |
+| opponent-only-mention | **✗** accepts a wholly-Rangers story as West Ham news |
+| boxscore-stub-contested | **✗** — but see below, this one is a contract gap |
+
+**Recall and compression are fine; abstention is absent.** Every accept-side check passes. The
+failures are 0-for-3 on rejection, which is exactly the 0.9% production rate reproduced offline.
+
+**The most useful detail: gemma sets `story_type="fixture"` on BOTH the boxscore and the flag-
+football listing.** It correctly identifies what they are and marks them relevant anyway. The
+information is present in its own output; only the verdict is missing — which argues a prompt fix
+is worth trying before a model swap.
+
+**`boxscore-stub-contested` is a product decision, not a bug.** A boxscore genuinely IS about the
+vetted team, and the system prompt's only lever for contentless pages is
+*"If the article is mostly boilerplate, say so in caveats"* — there is no reject-non-reporting
+rule. The fixture encodes a PROPOSED sharpening. Decide the rule before treating its red check as
+a defect.
+
+**One honest caveat on the run above:** `key_fact_absent[New York City Ravens]` PASSED, but not
+because the model behaved — it wrote "New York City (Ravens)" with parentheses, which the
+substring check does not match. The invention it was written to catch was not caught here.
+
+### ar3 → ar5: three prompt revisions, and why the fix ended up in the parser
+
+Each revision fixed a real defect. The first two moved the fixture score by **exactly zero**. That
+is the useful part of the record — do not re-run these experiments.
+
+| version | change | fixtures |
+|---|---|---|
+| ar3 | baseline: `relevant` FIRST, "already-relevance-vetted" framing | 13/16, 0-for-3 |
+| ar4 | verdict moved LAST; framing rewritten; reject classes promoted | **13/16, 0-for-3** |
+| ar5 | reject classes become grammar-enforced `story_type` enum values + explicit lookup rule | **13/16, 0-for-3** |
+| ar5 + derivation | `relevant` derived from `story_type` in the parser | **15/16** |
+
+**ar4 refuted the ordering hypothesis, and the refutation is verified.** A direct ollama call
+confirms the schema's property order IS honoured — `relevant` really was emitted last, after
+`story_type:"score"` and eight lines of stat-table facts. The model had its own analysis on the
+line above the verdict and still answered `true`. "It cannot reason before answering" is dead.
+
+**ar5 refuted the vocabulary hypothesis too, and did it most sharply.** With the reject classes as
+grammar-enforced enum values, gemma labelled the boxscore `score_stub` and the broadcast page
+`broadcast_listing` — the *exact* classes — with the mapping stated as a mechanical lookup
+directly above and the classification emitted first. Still `relevant:true`.
+
+**Conclusion: gemma3:4b classifies reliably and will not render a negative boolean.** So the
+boolean stopped being an input. `ArticleEvidenceParser` now derives `relevant` from `story_type`
+via `REJECT_STORY_TYPES`, ONE-WAY: a reject class forces `false`, a reporting class never forces
+`true` (we are correcting a failure to say no, not overriding a no).
+
+**The one still open — `opponent_only` — is a different problem.** gemma classified the Rangers
+story as `injury`, which correctly describes the STORY; what it missed is that the vetted entity
+(West Ham) is only the opponent. That needs subject attribution against the vetted list, not page
+classification, and no amount of format vocabulary will reach it.
+
+### TWO CORRECTIONS to the measurements above — read before acting on them
+
+1. **"90 trivially-identifiable non-articles" was a TITLE-pattern proxy and overstates the junk.**
+   The Reader judges the fetched BODY. Live-checked on real accepted articles: `178025`
+   ("How to watch United v Atletico", 226 words) is a genuine listings page and ar5 rejects it —
+   but `177468` ("How to Watch Nottingham Forest…") is a **2,449-word match preview** and
+   `177901` ("…Live Score") is a 912-word match report with goalscorers. Both are correctly
+   ACCEPTED. Title class ≠ body class.
+2. **The deterministic scrub pre-filter suggested earlier is WITHDRAWN.** A title regex on
+   `watch|live score|boxscore` would have destroyed that 2,449-word preview. Only the body can be
+   judged here. Do not build it.
+
+   What survives both corrections, untouched: **mistral 27.4% vs gemma 0.9% rank-matched on the
+   identical `ar3` prompt** (body-based, model-based), and the flag-football false positive.
+
+**Also fixed in passing: live eval was unreachable for BOTH article-keyed tasks.** `EntitySpec`
+parsing rejected `article:<id>:<SPORT>` — the exact form `GraphTask::build_prompt` and
+`ReaderTask::build_prompt` tell you to use — so `eval --task graph <article>` had never run since
+the task was written. `player|team|article` now parse.
+
+### ar6 — the model is never asked. 16/16.
+
+ar5 shipped and told a second story: `story_type` collapsed to the `general` catch-all on **84% of
+production reads** (52 of 62), so no reject class ever fired and the live rate stayed 0.0%. One
+field cannot answer "what shape is this page" and "what is this story about" at once.
+
+**ar6 removes `relevant` from the schema entirely.** The model is asked two EXTRACTIVE questions
+and `derive_relevance` computes the verdict:
+
+* `page_kind` — article | score_table | listing_or_schedule | video_clip | roundup | other.
+  Rejects a non-reporting page on its shape.
+* `entity_roles` — for every vetted entity: subject | opponent | passing_mention | absent. The
+  first mechanism that can reach an **opponent-only** story, which no page-shape signal ever
+  catches.
+
+`story_type` reverts to pure topic. **gemma3:4b now passes 16/16** — all three rejections and all
+three accepts.
+
+**Two derivation bugs found by measurement, both mine, both worth not repeating:**
+
+1. **Only vetted entities may vote.** Asked to label every vetted entity, the model ALSO
+   volunteers people from the body. On the opponent-only case it returned
+   `Dragojevic:subject, Clement:subject` — neither vetted — so an unfiltered `any(subject)` let
+   invented entries outvote the truth. `ArticleEvidenceParser` now carries the vetted list (the
+   `GraphParser` shape), and `Expect::reader_vetted` carries it into fixtures.
+2. **Omission is a rejection, not an unknown.** My first fallback treated "no vetted entity
+   labelled" as UNKNOWN → accept, and that was the whole remaining failure: the model omitted
+   `West Ham United` entirely, consistently across 3 runs. Measured before flipping it — every
+   accept case labels its vetted entity `subject` (Aston Villa, Arsenal, Real Madrid) and the
+   name-collision case labels it `absent`. It names the entity whenever the story is about it, so
+   a POPULATED list that skips it is evidence of absence.
+
+   Still permissive in one place on purpose: `entity_roles` entirely empty, or no vetted list at
+   all, accepts. Rejection clears the article's vetted links (mig 190) — destructive — and a
+   degenerate reply must not trigger it.
+
+**On the model question: gemma3:4b is not the bottleneck.** It made the hardest call in the set
+correctly (`West Ham United` → `opponent`, and `Baltimore Ravens` → `absent`) while the derivation
+around it was wrong. Do not swap the seat on this evidence. And the headroom would not fund it
+anyway: the 2,947 MiB free exists BECAUSE gemma3:4b's sliding-window attention makes its KV cheap
+— mistral:7b at 4 slots needs ~8.7 GB (4.4 weights + ~4.3 KV) and does not fit; it fits at 2
+slots, which halves the concurrency the day's work just bought.
+
+**Next, in order:** (a) deploy ar6 and measure the live rate against ar3's 0.8% (n=2,453) —
+production is on ar5, invalidation is lazy, no stampede; (b) the odds/betting class (46 by title)
+is still untested against bodies and may be legitimate league reporting — measure before assuming;
+(c) if a challenger is ever wanted, A/B it via `COGNITION_ROUTE_ARTICLE_READER_CANDIDATE` with
+`_CANDIDATE_BASE_URL` pointing at the Mac, so Archbox's single pinned model is never disturbed.
 
 ## Operational
 

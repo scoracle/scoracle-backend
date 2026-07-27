@@ -9,6 +9,9 @@
 //!
 //! Mechanics per generation (one `attach_generation` call, inside the persist transaction):
 //!   1. Load the entity's OPEN threads (`FOR UPDATE` — the row set is per-entity and small).
+//!      `ORDER BY id` is load-bearing, not cosmetic: two transactions taking the same row set
+//!      in different orders is a textbook deadlock, and the concurrent drain is what makes two
+//!      transactions on one entity reachable at all.
 //!   2. Per storyline: cosine(title+body embedding, thread centroid) — best match >= 0.80
 //!      attaches; otherwise a new thread opens. Storylines in the same generation can attach
 //!      to a thread opened earlier in that generation (the in-memory state is the truth).
@@ -134,6 +137,7 @@ pub async fn attach_generation(
                peak_impact::int AS peak_impact, entry_count, source_names
         FROM narrative_threads
         WHERE sport = $1 AND entity_type = $2 AND entity_id = $3 AND status = 'open'
+        ORDER BY id
         FOR UPDATE
         "#,
     )

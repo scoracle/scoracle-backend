@@ -1226,7 +1226,7 @@ pub async fn build_rating_request(
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: RATING_NUM_PREDICT,
-        num_ctx: 0,
+        num_ctx: crate::route::VOICE_NUM_CTX,
         json_mode: false,
         format_schema: None,
     };

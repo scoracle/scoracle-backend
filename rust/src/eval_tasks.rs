@@ -32,6 +32,11 @@
 //! build a prompt and POST to the model; they NEVER claim `pipeline_work` or write a product table.
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
+use crate::util::truncate;
+use crate::junctions::reader::{
+    article_read_opts, build_article_read_prompt_for_eval, ArticleEntityRole, ArticleEvidence,
+    ArticleEvidenceParser, ARTICLE_READ_PROMPT_VERSION,
+};
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
@@ -163,6 +168,12 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "the Oracle",
             mandate: "Read the five pillar cards aloud, deliver the entity's reading in the house voice, then render the Sigil verdict grounded in the entity's own prior reads.",
             credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented; the score moves deliberately from prior verdicts.",
+        }),
+        "reader" => Some(LensParameters {
+            rail: Rail::EmotionalNews,
+            operator: "The Reader",
+            mandate: "Judge whether one fetched article is materially about the vetted entities, and compress what it actually says for The Journalist.",
+            credibility_guard: "Reject what is not reporting on the entity — boxscore stubs, broadcast listings, and articles where the entity is only the opponent; an honest rejection beats a summarized non-story.",
         }),
         "graph" => Some(LensParameters {
             rail: Rail::EmotionalNews,
@@ -345,6 +356,31 @@ pub struct Expect {
     /// No player leakage / no invention: no parsed person name may contain any of these.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub persons_exclude: Option<Vec<String>>,
+    // reader / relevance-gate rubric.
+    /// THE relevance verdict — `ArticleEvidence::relevant`, the single field the whole news rail
+    /// gates on. `false` pins an article the Reader must REJECT.
+    ///
+    /// This axis exists because the Reader ran as sole relevance judge with no eval coverage at
+    /// all, and a 2026-07-26 measurement found gemma3:4b rejecting 0.9% against mistral's
+    /// rank-matched 27.4% — passing 26 boxscore stubs, 18 broadcast listings and 46 odds pages
+    /// with ZERO rejections. A gate nobody scores is not a gate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub article_relevant: Option<bool>,
+    /// Grounding on an ACCEPTED article: each string must appear in the parsed `key_facts`
+    /// (joined). Guards the other direction — a fixture set that only pinned rejections would be
+    /// passed by a model that rejects everything.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_facts_include: Option<Vec<String>>,
+    /// No-invention on the facts the Journalist inherits: no parsed `key_fact` may contain any of
+    /// these (e.g. a team name the article never mentions).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_facts_exclude: Option<Vec<String>>,
+    /// The fixture prompt's VETTED entity list. `evaluate` hands it to `ArticleEvidenceParser` so
+    /// the real production derivation runs — and it is load-bearing, not decoration: only vetted
+    /// entities' roles count toward the verdict, because the model reliably volunteers extra
+    /// people from the body and an unfiltered vote lets them overturn a correct `opponent`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reader_vetted: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -435,6 +471,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
         "graph" => Some(Box::new(GraphTask)),
+        "reader" => Some(Box::new(ReaderTask)),
         _ => None,
     }
 }
@@ -449,6 +486,7 @@ pub fn all_task_names() -> &'static [&'static str] {
         "rating",
         "momentum",
         "graph",
+        "reader",
     ]
 }
 
@@ -1558,9 +1596,230 @@ impl LensTask for GraphTask {
     }
 }
 
+/// render_entity_roles compacts `entity_roles` to `name:role, name:role` for the one-line eval
+/// display.
+///
+/// It exists because `relevant` is DERIVED under ar6: a verdict line that shows only the derived
+/// boolean cannot tell you whether the page-shape half or the entity-role half produced it, and
+/// those two failure modes want opposite fixes. ar5's lesson was that a field can collapse to its
+/// catch-all in production while fixtures stay green (`story_type` → `general` on 84% of reads), so
+/// the inputs to the derivation have to be visible wherever the verdict is.
+fn render_entity_roles(roles: &[ArticleEntityRole]) -> String {
+    roles
+        .iter()
+        .map(|r| format!("{}:{}", r.entity, r.role))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// ReaderTask — the relevance gate's own gate.
+///
+/// The Reader was the ONLY junction with no eval coverage, which is precisely how it ran for a day
+/// as sole relevance judge while rejecting 0.9% of articles against mistral's rank-matched 27.4%.
+/// Its fixtures therefore pin BOTH directions: articles that must be rejected (a boxscore stub, a
+/// broadcast listing, an opponent-only mention) and articles that must be accepted and correctly
+/// compressed. A one-directional set would be passed by a model that simply answers "no".
+pub struct ReaderTask;
+
+#[async_trait]
+impl LensTask for ReaderTask {
+    fn name(&self) -> &'static str {
+        "reader"
+    }
+    fn role(&self) -> Role {
+        Role::ArticleReader
+    }
+    fn prompt_version(&self) -> &'static str {
+        ARTICLE_READ_PROMPT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        let mut o = article_read_opts();
+        o.temperature = Some(temperature);
+        o
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        if e.entity_type != "article" {
+            anyhow::bail!(
+                "reader evals are article-keyed: use article:<id>:<SPORT> (got {})",
+                e.entity_type
+            );
+        }
+        // Fetches the live article, exactly as the stage does — see the note on
+        // build_article_read_prompt_for_eval. `None` = a path the stage settles without a model.
+        build_article_read_prompt_for_eval(&hx.pool, i64::from(e.entity_id), &e.sport.to_uppercase())
+            .await
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let vetted: Vec<String> = expect
+            .and_then(|x| x.reader_vetted.clone())
+            .unwrap_or_default();
+        let parsed = ArticleEvidenceParser { vetted: &vetted }
+            .parse(raw)
+            .ok()
+            .flatten();
+        let Some(ev): Option<ArticleEvidence> = parsed else {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable (fail-closed)".into(),
+            };
+        };
+        let mut checks = Vec::new();
+        if let Some(x) = expect {
+            if let Some(want) = x.article_relevant {
+                checks.push(PropertyCheck {
+                    name: format!("relevant[{want}]"),
+                    pass: ev.relevant == want,
+                    // page_kind and entity_roles ARE the derivation (ar6); a bare
+                    // `relevant=false` says the gate fired but not which half fired it.
+                    detail: format!(
+                        "relevant={} page_kind={:?} roles=[{}] story_type={:?}",
+                        ev.relevant,
+                        ev.page_kind,
+                        render_entity_roles(&ev.entity_roles),
+                        ev.story_type
+                    ),
+                });
+            }
+            let facts = ev.key_facts.join(" | ");
+            if let Some(incl) = &x.key_facts_include {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("key_fact_present[{frag}]"),
+                        pass: facts.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&facts, 160),
+                    });
+                }
+            }
+            if let Some(excl) = &x.key_facts_exclude {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("key_fact_absent[{frag}]"),
+                        pass: !facts.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&facts, 160),
+                    });
+                }
+            }
+            if let Some(incl) = &x.blurb_includes {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("blurb_present[{frag}]"),
+                        pass: ev.evidence_blurb.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&ev.evidence_blurb, 160),
+                    });
+                }
+            }
+            if let Some(excl) = &x.blurb_excludes {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("blurb_absent[{frag}]"),
+                        pass: !ev.evidence_blurb.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&ev.evidence_blurb, 160),
+                    });
+                }
+            }
+        }
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!(
+                "relevant={} page_kind={:?} roles=[{}] {} key_fact(s) story_type={:?}",
+                ev.relevant,
+                ev.page_kind,
+                render_entity_roles(&ev.entity_roles),
+                ev.key_facts.len(),
+                ev.story_type
+            ),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// One raw reply in the Reader's ar6 contract shape. There is no `relevant` key — the model is
+    /// never asked; `page_kind` and `entity_roles` are what the verdict is derived from.
+    fn reader_raw(relevant: bool, blurb: &str, facts: &[&str]) -> String {
+        // Express the wanted verdict through the DESCRIPTIVE fields, which is the whole point of
+        // ar6: a rejection is now something the page is, not something the model asserts.
+        let (page_kind, role) = if relevant {
+            ("article", "subject")
+        } else {
+            ("listing_or_schedule", "passing_mention")
+        };
+        serde_json::json!({
+            "source_language": "en",
+            "page_kind": page_kind,
+            "entity_roles": [{"entity": "Some Club", "role": role}],
+            "story_type": "fixture",
+            "key_facts": facts,
+            "relevant_entities": [],
+            "co_mentions": [],
+            "caveats": "",
+            "evidence_blurb": blurb
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn reader_task_is_wired_to_the_article_reader_seat() {
+        let t = resolve_task("reader").expect("reader must be registered");
+        assert_eq!(t.name(), "reader");
+        assert_eq!(t.role(), Role::ArticleReader);
+        assert_eq!(t.prompt_version(), ARTICLE_READ_PROMPT_VERSION);
+        // parameters() unwraps lens_parameters(name) with unreachable!() — a task registered
+        // without a cast entry panics at eval time rather than here, so assert it exists.
+        assert_eq!(t.parameters().operator, "The Reader");
+    }
+
+    #[test]
+    fn reader_scores_the_relevance_verdict_in_both_directions() {
+        let t = ReaderTask;
+        let want_reject = Expect {
+            article_relevant: Some(false),
+            ..Default::default()
+        };
+        // The measured production failure: accepting an article it should reject.
+        let v = t.evaluate(&reader_raw(true, "A youth flag football broadcast.", &[]), None, Some(&want_reject));
+        assert!(v.parsed);
+        assert!(!v.checks[0].pass, "relevant=true must FAIL an expect-reject fixture");
+
+        let v = t.evaluate(&reader_raw(false, "Not about the entity.", &[]), None, Some(&want_reject));
+        assert!(v.checks[0].pass, "relevant=false must PASS an expect-reject fixture");
+
+        // The other direction — a set that only pinned rejections would be passed by a model
+        // that answers "no" to everything.
+        let want_accept = Expect {
+            article_relevant: Some(true),
+            ..Default::default()
+        };
+        let v = t.evaluate(&reader_raw(false, "Not about the entity.", &[]), None, Some(&want_accept));
+        assert!(!v.checks[0].pass, "blanket rejection must FAIL an expect-accept fixture");
+    }
+
+    #[test]
+    fn reader_key_fact_checks_read_the_parsed_facts() {
+        let t = ReaderTask;
+        let raw = reader_raw(true, "blurb", &["Saka is out with a hamstring tear", "Arteta has cover"]);
+        let e = Expect {
+            article_relevant: Some(true),
+            key_facts_include: Some(vec!["hamstring".into()]),
+            key_facts_exclude: Some(vec!["surgery".into()]),
+            ..Default::default()
+        };
+        let v = t.evaluate(&raw, None, Some(&e));
+        assert!(v.checks.iter().all(|c| c.pass), "checks: {:?}", v.checks);
+    }
+
+    #[test]
+    fn reader_unparseable_reply_is_fail_closed() {
+        let v = ReaderTask.evaluate("not json at all", None, None);
+        assert!(!v.parsed);
+        assert!(v.checks.is_empty());
+    }
 
     #[test]
     fn registry_resolves_known_tasks_and_rejects_unknown() {

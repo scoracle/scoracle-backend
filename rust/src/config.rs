@@ -49,6 +49,15 @@ pub struct Config {
     /// restart (`Restart=always`). Must exceed the longest legitimately beat-free
     /// stretch of a single stage handler. Zero disables.
     pub watchdog: Duration,
+    /// Global ceiling on claimed items in flight across ALL stages
+    /// (`COGNITION_DRAIN_CONCURRENCY`). `None` when unset, which is the normal case: the worker
+    /// then derives it from the sum of every registered stage's `max_in_flight`, so the
+    /// per-stage caps are the single source of truth and adding a stage needs no arithmetic here.
+    ///
+    /// This is a CLAIM bound, not a GPU bound — the per-host semaphores in `route.rs` remain the
+    /// only thing deciding how many model calls actually run on a machine. Set it only to
+    /// throttle: `1` restores the old strictly-sequential drain.
+    pub drain_concurrency: Option<usize>,
 }
 
 impl Config {
@@ -64,29 +73,49 @@ impl Config {
         let ollama_model = env_or("OLLAMA_MODEL", "mistral:7b");
         let route = RouteConfig::from_env(&ollama_model, &ollama_base_url);
 
+        // ≥1: a 0-permit semaphore would block every model call forever.
+        let ollama_max_concurrent = env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
+
         Ok(Self {
             database_url,
-            db_max_conns: env_u32("COGNITION_DB_MAX_CONNS", 5)?,
+            // 25, raised from 5 when the drain went concurrent (2026-07-26). 5 was sized for a
+            // drain that ran ONE item at a time; with up to `drain_concurrency` handlers in
+            // flight — each holding a connection, and some holding a transaction plus a query —
+            // the pool starved and items failed with "pool timed out while waiting for an open
+            // connection". Comfortably above the sum of the stage caps (11), and Postgres here
+            // allows 100 with ~22 in use. A pool max is a ceiling, not a preallocation.
+            db_max_conns: env_u32("COGNITION_DB_MAX_CONNS", 25)?,
             ollama_base_url,
             ollama_model,
-            ollama_timeout: Duration::from_secs(env_u64("OLLAMA_TIMEOUT_SECONDS", 60)?),
-            // ≥1: a 0-permit semaphore would block every model call forever.
-            ollama_max_concurrent: env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1),
+            // 600s = 10 min. The old default was 60s, from L1 when every call was a short
+            // local mistral completion. It has been wrong since the first narrative generation
+            // and every real deploy overrode it in `.env.local`; a default that no running
+            // system uses is a trap for the next reader, so it now states the real budget.
+            ollama_timeout: Duration::from_secs(env_u64("OLLAMA_TIMEOUT_SECONDS", 600)?),
+            ollama_max_concurrent,
             safety_net: Duration::from_secs(env_u64("COGNITION_SAFETY_NET_SECONDS", 30)?),
             // 1800s = 30 min = Go derive.StaleLease.
             stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
             embed: EmbedConfig::from_env()?,
             scrub: ScrubConfig::from_env()?,
-            // 900s = 15 min: generous over the slowest observed item (a narratives batch
-            // item ran ~4-7 min under the 07-15 catch-up load) yet far under stale-lease.
+            // 1200s = 20 min: generous over the slowest observed item (a narratives batch
+            // item ran ~4-7 min under the 07-15 catch-up load) yet still under stale-lease,
+            // with room for the semaphore wait a concurrent drain adds on a busy host.
+            // Matches the deployed value; the former 900 default was overridden everywhere.
             handler_timeout: Duration::from_secs(env_u64(
                 "COGNITION_HANDLER_TIMEOUT_SECONDS",
-                900,
+                1200,
             )?),
             // 2700s = 45 min: generous over the slowest single handler; a wedge self-heals
             // in ≤45 min instead of the incident's 34 hours.
             watchdog: Duration::from_secs(env_u64("COGNITION_WATCHDOG_SECONDS", 2700)?),
+            drain_concurrency: match env_opt("COGNITION_DRAIN_CONCURRENCY") {
+                Some(raw) => Some(raw.parse::<usize>().map(|n| n.max(1)).with_context(|| {
+                    format!("COGNITION_DRAIN_CONCURRENCY must be an unsigned integer, got {raw:?}")
+                })?),
+                None => None,
+            },
         })
     }
 }
@@ -439,4 +468,5 @@ mod tests {
         assert_eq!(normalize_base_url("  http://mac:11434/  "), "http://mac:11434");
         assert_eq!(normalize_base_url("http://mac:11434"), "http://mac:11434");
     }
+
 }

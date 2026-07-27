@@ -37,8 +37,10 @@ use crate::harness::Harness;
 use crate::stage::StageHandler;
 use crate::work::{self, retry_backoff, MAX_ATTEMPTS};
 use anyhow::{anyhow, Result};
+use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
@@ -106,6 +108,27 @@ impl Pulse {
             self.activity.lock().unwrap().clone(),
         )
     }
+}
+
+/// resolve_drain_concurrency picks the drain's global in-flight ceiling. An explicit
+/// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is the sum of the stages' own caps, which
+/// by construction can never bind.
+///
+/// Getting this wrong starves a machine rather than merely slowing it. Sizing the ceiling to the
+/// topology's total GPU permits (4 local + 1 Mac = 5) looks right and is not: the drain claims in
+/// DAG order, so scrub(1) + graph(2) + article_read(2) fills all 5 and the six Mac stages get
+/// nothing at all until the local backlog — 2,580 items at the time of writing — is empty. The
+/// Mac would idle for hours while Archbox worked, which is the exact inversion of the goal.
+fn resolve_drain_concurrency(configured: Option<usize>, caps: &[usize]) -> usize {
+    configured
+        .unwrap_or_else(|| caps.iter().map(|c| (*c).max(1)).sum())
+        .max(1)
+}
+
+/// stage_room is how many items one stage may claim right now: its own remaining cap, further
+/// limited by what is left of the global budget. Zero means skip it this pass.
+fn stage_room(cap: usize, running: usize, budget_left: usize) -> usize {
+    cap.max(1).saturating_sub(running).min(budget_left)
 }
 
 /// stalled is the watchdog predicate: a drain that claims to be busy but whose last
@@ -231,6 +254,10 @@ pub struct Worker {
     /// The supervisor's no-progress threshold (`COGNITION_WATCHDOG_SECONDS`; zero
     /// disables): a busy drain whose heartbeat is older than this exits the process.
     watchdog: Duration,
+    /// Resolved ceiling on claimed items in flight across all stages: either
+    /// `COGNITION_DRAIN_CONCURRENCY` or, unset, the sum of the registered stages'
+    /// `max_in_flight`. A claim bound, not a GPU bound — see `drain_all`.
+    drain_concurrency: usize,
     /// Set by the supervisor on SIGINT/SIGTERM; the drain exits at the next boundary.
     shutdown: Arc<AtomicBool>,
     /// Latest tick cause, written by the supervisor with each request.
@@ -245,8 +272,14 @@ impl Worker {
         stale_lease: Duration,
         handler_timeout: Duration,
         watchdog: Duration,
+        drain_concurrency: Option<usize>,
     ) -> Self {
         let pool = harness.pool.clone();
+        // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
+        // is by construction the point past which the ceiling can never bind, so no stage is
+        // ever starved by a global number nobody tuned. An explicit value is a throttle.
+        let caps: Vec<usize> = handlers.iter().map(|h| h.max_in_flight()).collect();
+        let drain_concurrency = resolve_drain_concurrency(drain_concurrency, &caps);
         Self {
             pool,
             harness,
@@ -255,6 +288,7 @@ impl Worker {
             stale_lease,
             handler_timeout,
             watchdog,
+            drain_concurrency,
             shutdown: Arc::new(AtomicBool::new(false)),
             cause: Arc::new(StdMutex::new("startup")),
         }
@@ -339,20 +373,59 @@ impl Worker {
         pulse.idle();
     }
 
-    /// Drain every registered stage to empty, rotating by one claim batch per stage.
-    /// The registration order still encodes the DAG, so a hand-off enqueued mid-tick
-    /// reaches downstream stages in the same pass. Rotating prevents a large upstream
-    /// wave (scrub/graph/article_read) from starving later product stages for hours.
+    /// Drain every registered stage to empty, keeping up to `drain_concurrency` claimed items
+    /// in flight at once.
+    ///
+    /// This was a strictly sequential `for handler { for item { handle().await } }` until the
+    /// topology split made it the bottleneck: with The Reader and graph local on gemma3:4b and
+    /// the six character voices on the Mac, a sequential drain meant Archbox idled through every
+    /// Mac generation and the Mac idled through every local one. Measured 255 calls/hour against
+    /// a 310 baseline (-18%) with the Mac at ~89% utilisation — nothing broken, just half-used.
+    ///
+    /// **The governor is now the scheduler.** The drain's job is only to keep work OFFERED; the
+    /// per-host semaphores from the topology split (`route.rs::governor_for`) decide what
+    /// actually runs on each machine. Archbox pulls continuously up to its slot count, while the
+    /// Mac's single permit keeps its six voices sequenced — which is the intended shape, not a
+    /// limitation: 16 GB will not hold two KV allocations for a 14B.
+    ///
+    /// Registration order still encodes the DAG, and is still the claim order, so a hand-off
+    /// enqueued by an item that just finished is picked up on the very next top-up pass.
+    ///
+    /// Concurrency is *intra-task*: the futures live in a `FuturesUnordered` polled by this one
+    /// drain task and are never spawned. That preserves the property the 07-15 incident split
+    /// was built on — stage futures, the embedder and the GPU stay off the supervisor's task, so
+    /// nothing a handler does can pin the LISTEN socket.
     async fn drain_all(&self, cause: &str, pulse: &Pulse) {
+        let budget = self.drain_concurrency.max(1);
+        let mut inflight = FuturesUnordered::new();
+        // In-flight items per stage, so no one stage can own the whole budget. Keyed by the
+        // stage's static name because `Stage` is not `Hash`.
+        let mut per_stage: HashMap<&'static str, usize> = HashMap::new();
+
         loop {
-            let mut made_progress = false;
+            // Top up in registration (DAG) order until the budget is full or nothing is
+            // claimable. A stage with nothing pending is skipped, not waited on.
+            let mut claimed_any = false;
             for handler in &self.handlers {
-                if self.shutting_down() {
-                    return;
+                if self.shutting_down() || inflight.len() >= budget {
+                    break;
                 }
                 let stage = handler.stage();
+                // The per-stage cap is what keeps the DAG order from becoming a priority
+                // order. Without it the first stage with a deep queue and a big
+                // `rotation_batch` takes every slot: scrub claims 256, graph and the Reader
+                // claim 8, and with a budget of 5 whichever registers first starves the rest —
+                // including starving the GPU entirely behind model-free scrub work.
+                let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
+                let room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
+                if room == 0 {
+                    continue;
+                }
                 pulse.beat(&format!("claim {stage}"));
-                let batch = handler.rotation_batch().max(STAGE_ROTATION_BATCH);
+                let batch = handler
+                    .rotation_batch()
+                    .max(STAGE_ROTATION_BATCH)
+                    .min(room as i64);
                 let items = match work::claim(&self.pool, stage, batch).await {
                     Ok(items) => items,
                     Err(e) => {
@@ -363,53 +436,95 @@ impl Worker {
                 if items.is_empty() {
                     continue;
                 }
-                made_progress = true;
+                // The shutdown flag can flip while a claim is in flight. Those rows are ours
+                // and nothing has touched them yet, so hand them straight back rather than
+                // leaving them to the 30-min stale-lease sweep.
+                if self.shutting_down() {
+                    self.release_rest(&items).await;
+                    break;
+                }
+                claimed_any = true;
                 debug!(%stage, n = items.len(), cause, "draining batch");
-                for (idx, item) in items.iter().enumerate() {
-                    if self.shutting_down() {
-                        self.release_rest(&items[idx..]).await;
-                        return;
-                    }
-                    pulse.beat(&format!(
-                        "handle {stage} {}/{} {}",
-                        item.entity_type, item.entity_id, item.sport
-                    ));
-                    let outcome = self.handle_bounded(handler.as_ref(), item).await;
-                    pulse.beat(&format!("bookkeep {stage}"));
-                    match outcome {
-                        Ok(()) => {
-                            if let Err(e) = work::complete(&self.pool, item).await {
-                                error!(error = %format!("{e:#}"), %stage, "complete failed");
-                            }
-                        }
-                        Err(e) => {
-                            let backoff = retry_backoff(item.attempts);
-                            warn!(
-                                error = %format!("{e:#}"),
-                                %stage,
-                                entity = item.entity_id,
-                                backoff_secs = backoff.as_secs(),
-                                "handler failed; backing off"
-                            );
-                            if let Err(e2) = work::fail(
-                                &self.pool,
-                                item,
-                                &format!("{e:#}"),
-                                backoff,
-                                MAX_ATTEMPTS,
-                            )
-                            .await
-                            {
-                                error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed");
-                            }
-                        }
-                    }
+                *per_stage.entry(stage.as_str()).or_insert(0) += items.len();
+                for item in items {
+                    inflight.push(self.run_one(handler.as_ref(), item, pulse));
                 }
             }
-            if !made_progress {
+
+            if inflight.is_empty() {
+                // Nothing running and nothing claimable: the queue is drained.
+                if !claimed_any {
+                    break;
+                }
+                continue;
+            }
+
+            // Wait for exactly one item to finish, then loop to top up. Finishing one item
+            // frees one host slot AND may have enqueued downstream work, so re-claiming here
+            // is what keeps every machine's slots offered work continuously.
+            if let Some(done) = inflight.next().await {
+                if let Some(n) = per_stage.get_mut(done) {
+                    *n = n.saturating_sub(1);
+                }
+            }
+
+            if self.shutting_down() {
                 break;
             }
         }
+
+        // Let whatever is still running finish its own bookkeeping. On shutdown the
+        // supervisor's 75s grace drops this future if the wait outlasts it — the documented
+        // path: nothing was persisted for an aborted item and its lease recovers via
+        // requeue_stale.
+        while inflight.next().await.is_some() {}
+    }
+
+    /// run_one processes a single claimed item end to end: bounded handle, then complete-or-fail
+    /// bookkeeping. Split out of `drain_all` so N of these can be in flight at once.
+    ///
+    /// Note what concurrency does to [`Pulse`]: the beat is shared, so a busy drain now beats for
+    /// whichever item moved last and the watchdog can no longer see one wedged item behind others
+    /// making progress. That is acceptable because the per-item `handler_timeout` — not the
+    /// watchdog — is the guard for a hung handler; the watchdog remains the backstop for a drain
+    /// where *everything* has stopped, which still shows up as a stale beat.
+    /// Returns the stage's name so the drain can decrement that stage's in-flight count.
+    async fn run_one(
+        &self,
+        handler: &dyn StageHandler,
+        item: work::Item,
+        pulse: &Pulse,
+    ) -> &'static str {
+        let stage = handler.stage();
+        pulse.beat(&format!(
+            "handle {stage} {}/{} {}",
+            item.entity_type, item.entity_id, item.sport
+        ));
+        let outcome = self.handle_bounded(handler, &item).await;
+        pulse.beat(&format!("bookkeep {stage}"));
+        match outcome {
+            Ok(()) => {
+                if let Err(e) = work::complete(&self.pool, &item).await {
+                    error!(error = %format!("{e:#}"), %stage, "complete failed");
+                }
+            }
+            Err(e) => {
+                let backoff = retry_backoff(item.attempts);
+                warn!(
+                    error = %format!("{e:#}"),
+                    %stage,
+                    entity = item.entity_id,
+                    backoff_secs = backoff.as_secs(),
+                    "handler failed; backing off"
+                );
+                if let Err(e2) =
+                    work::fail(&self.pool, &item, &format!("{e:#}"), backoff, MAX_ATTEMPTS).await
+                {
+                    error!(error = %format!("{e2:#}"), %stage, "fail bookkeeping failed");
+                }
+            }
+        }
+        stage.as_str()
     }
 
     /// handle_bounded wraps one handler run in the per-item timeout. A timed-out item
@@ -477,6 +592,53 @@ mod tests {
             Duration::from_secs(u64::MAX / 2),
             Duration::ZERO
         ));
+    }
+
+    /// The live shape: scrub, graph(2), article_read(2), then six Mac voices at 1 each.
+    const LIVE_CAPS: &[usize] = &[1, 2, 2, 1, 1, 1, 1, 1, 1];
+
+    #[test]
+    fn unset_drain_concurrency_is_the_sum_of_the_stage_caps() {
+        assert_eq!(resolve_drain_concurrency(None, LIVE_CAPS), 11);
+    }
+
+    #[test]
+    fn the_derived_ceiling_never_binds_before_the_stage_caps_do() {
+        // The property that matters: with the ceiling unset, every stage can reach its own cap
+        // simultaneously. If this ever fails, some stage is being starved by the global number.
+        let budget = resolve_drain_concurrency(None, LIVE_CAPS);
+        let total: usize = LIVE_CAPS.iter().sum();
+        assert!(budget >= total, "budget {budget} would starve; caps total {total}");
+    }
+
+    #[test]
+    fn an_explicit_ceiling_overrides_the_caps_and_can_throttle() {
+        assert_eq!(resolve_drain_concurrency(Some(3), LIVE_CAPS), 3);
+        // 1 is the documented rollback: the old strictly-sequential drain.
+        assert_eq!(resolve_drain_concurrency(Some(1), LIVE_CAPS), 1);
+        // 0 would wedge the drain forever, so it clamps.
+        assert_eq!(resolve_drain_concurrency(Some(0), LIVE_CAPS), 1);
+    }
+
+    #[test]
+    fn no_handlers_still_yields_a_usable_ceiling() {
+        assert_eq!(resolve_drain_concurrency(None, &[]), 1);
+    }
+
+    #[test]
+    fn stage_room_stops_one_stage_owning_the_budget() {
+        // graph at cap 2 with nothing running may take 2 of a wide-open budget -- NOT the 8 its
+        // rotation_batch asks for, which is what starved every stage behind it.
+        assert_eq!(stage_room(2, 0, 10), 2);
+        // One already running leaves one.
+        assert_eq!(stage_room(2, 1, 10), 1);
+        // At its cap it is skipped even with budget to spare.
+        assert_eq!(stage_room(2, 2, 10), 0);
+        // A near-full budget clamps below the stage's own cap.
+        assert_eq!(stage_room(2, 0, 1), 1);
+        assert_eq!(stage_room(2, 0, 0), 0);
+        // A cap of 0 would silently disable a stage; treat it as 1.
+        assert_eq!(stage_room(0, 0, 10), 1);
     }
 
     #[test]

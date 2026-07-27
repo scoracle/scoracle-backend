@@ -48,6 +48,33 @@ use tokio::sync::Semaphore;
 /// another rail's route change; un-configured it resolves to the default model. `ArticleReader`
 /// is the post-scrub, pre-Journalist compressor: it reads fetched publisher bodies and emits compact
 /// evidence cards for Narratives, without carrying The Journalist's public voice.
+/// The context window EVERY character-voice role must request, because they share one runner.
+///
+/// ollama keys a loaded runner on its context size, so two roles on the same host and model asking
+/// for different sizes force an unload-and-reload on every alternation between them. That is a
+/// settled diagnosis, not a theory: it is what `graph` (`num_ctx: 0`) did against The Reader's 8192
+/// on the local card, and matching them took Archbox's reloads to zero.
+///
+/// The same defect was then measured on the Mac on 2026-07-26, where it costs far more because the
+/// model is ~9 GB. Of the six voices, `narratives` alone sent an explicit `num_ctx` (8192) and the
+/// other five sent nothing, taking the Mac's 16384 default — so the runner alternated between a
+/// 8.76 GB/8192 and a 9.49 GB/16384 configuration, fully unloading in between. Observed under
+/// untouched production load: two reloads per six-stage rotation at 24-39s of measured
+/// `load_duration` each, against a ~4.5 min rotation — roughly a fifth of the host's wall clock
+/// spent loading weights it already had.
+///
+/// 16384 rather than 8192 because it is what five of the six already ran at, so no voice loses
+/// context it has today, and because it fixes a second measured bug on the way past: narratives'
+/// prompt plus its 3000 `num_predict` exceeded 8192 on **153 of 8,899** calls (1.7%), and its own
+/// constant documents what that does — the system prompt is silently evicted mid-generation. At
+/// 16384 that tail falls to 6 calls (0.07%).
+///
+/// **This is for voices on the character host only.** `EmotionalNews`, `Multilang` and `Sql` are
+/// utility roles that resolve LOCALLY to gemma3:4b, where the shared runner is The Reader's and the
+/// agreed size is [`crate::junctions::reader::ARTICLE_NUM_CTX`]. Sending this value there would put
+/// a 16384 KV allocation on an 8 GB card and reintroduce exactly the thrash described above.
+pub const VOICE_NUM_CTX: i32 = 16384;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,

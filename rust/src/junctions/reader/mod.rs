@@ -28,28 +28,52 @@ use tracing::warn;
 // change to what this character is asked is a one-file diff. Re-exported here so call sites and
 // the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{build_article_read_prompt, ARTICLE_READ_PROMPT_VERSION};
+pub use prompt::{
+    build_article_read_prompt, build_article_read_prompt_parts, ARTICLE_READ_PROMPT_VERSION,
+};
 pub const ARTICLE_READ_OUTPUT_CONTRACT_VERSION: &str = "article-reading-v3";
 const ARTICLE_FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 const ARTICLE_MIN_WORDS: usize = 80;
 pub(crate) const ARTICLE_MAX_MODEL_CHARS: usize = 9_000;
 const ARTICLE_MAX_CO_MENTION_CANDIDATES: usize = 24;
 const ARTICLE_NUM_PREDICT: i32 = 900;
-const ARTICLE_NUM_CTX: i32 = 8192;
+/// The context size the LOCAL gemma3:4b runner is loaded with. `graph` deliberately sends this
+/// same value (see `junctions/graph/mod.rs`): both stages share one local runner, and ollama
+/// reloads the runner whenever a request asks for a different `num_ctx`. Two sizes here cost a
+/// pair of reloads every rotation. Change both or neither.
+pub(crate) const ARTICLE_NUM_CTX: i32 = 8192;
 const ARTICLE_FETCH_USER_AGENT: &str =
     "Mozilla/5.0 (compatible; ScoracleBot/1.0; +https://scoracle.com)";
 const GOOGLE_NEWS_BATCH_URL: &str =
     "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
 
-pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: compress one already-relevance-vetted sports article for The Journalist.
+pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: decide whether one fetched sports article is genuinely about the known vetted entities, then compress what it says for The Journalist.
 
-You are not writing the public story. You are preparing a compact evidence card from the article body so The Journalist can group storylines from richer source material.
+This article reached you because an RSS headline matched an entity name. That match is a GUESS and nothing has checked it. Deciding whether the FULL TEXT is really about the entity is your first job; the evidence card is your second.
 
-Rules:
+You are NOT asked whether the article is relevant. Do not answer that question anywhere. Describe the page accurately and the system decides relevance from your description. Two of the fields carry that weight, so spend your care there.
+
+FIELD 1 — page_kind: what SHAPE is this page, judged by its text, not its headline?
+- article — prose reporting: someone wrote sentences about what happened and what it means.
+- score_table — a result/boxscore/live-score page whose body is a score plus lineups, stats, possession, cards, attendance, next fixtures. A table with a headline is still a table.
+- listing_or_schedule — a "how to watch"/TV-times/streaming/kickoff-times page, or a schedule roundup of many fixtures. Note: a page TITLED "How to watch" that then contains a real 1,000-word preview is an `article`; judge the body.
+- video_clip — a page whose body is a video/highlights wrapper with little prose.
+- roundup — a link list, navigation, tags, or "related stories" aggregation.
+- other — anything else.
+
+FIELD 2 — entity_roles: for EVERY known vetted entity listed above, say what part it plays in THIS text. One entry per vetted entity, using the entity's name exactly as listed:
+- subject — the article is reporting ABOUT this entity; it is who the story concerns.
+- opponent — this entity appears only as the opposition in a story about someone else.
+- passing_mention — named in passing, in a list, or as background; the story is not about it.
+- absent — a different club, age level, or competition that merely shares the name (youth, academy, reserves, women's, flag football, a same-named club elsewhere), or not present in the text at all. This is NOT the vetted entity.
+
+Be strict about `subject`. If the story is about another club's player and this entity is who they face, that is `opponent`, not `subject`. If a youth or flag-football team shares the name, that is `absent`.
+
+Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general) — followed by the facts and the evidence card. If nothing here is about a vetted entity, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
+
+Other rules:
 - Use only the article text and the known vetted entities.
-- Set relevant=false when the full article is not materially about any known vetted entity, even if the RSS headline/snippet looked like a match. In that case, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
-- Set relevant=true only when the full article materially discusses at least one known vetted entity.
-- If co-mention candidates are provided, label every candidate exactly once in co_mentions. Set relevant=true only when the full article materially discusses that candidate; reject name collisions, roundup artifacts, and people/teams merely mentioned in navigation, ads, sidebars, tags, comments, or unrelated links.
+- If co-mention candidates are provided, label every candidate exactly once in co_mentions. Mark a candidate relevant only when the full article materially discusses that candidate; reject name collisions, roundup artifacts, and people/teams merely mentioned in navigation, ads, sidebars, tags, comments, or unrelated links.
 - Detect the source article language. Translate meaning into English before writing the evidence card.
 - evidence_blurb, key_facts, story_type, and caveats must be English.
 - Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.
@@ -58,16 +82,74 @@ Rules:
 - If the article is mostly boilerplate, say so in caveats.
 - Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
 
-Return strict JSON only:
-{"relevant":<true|false>,"source_language":"<ISO 639-1 language code or unknown>","evidence_blurb":"<2-4 compact English sentences, or short mismatch reason when relevant=false>","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"story_type":"transfer|injury|performance|fixture|roster|contract|general|irrelevant","caveats":"<short English caveat or empty string>"}"#;
+Return strict JSON only, with the keys in exactly this order:
+{"source_language":"<ISO 639-1 language code or unknown>","page_kind":"article|score_table|listing_or_schedule|video_clip|roundup|other","entity_roles":[{"entity":"<vetted entity name exactly as listed>","role":"subject|opponent|passing_mention|absent"}],"story_type":"transfer|injury|performance|fixture|roster|contract|general","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"caveats":"<short English caveat or empty string>","evidence_blurb":"<2-4 compact English sentences, or a short mismatch reason if the text is not about a vetted entity>"}"#;
 
+/// The model budget for one article reading — the stage's options and `bin/eval`'s, from ONE
+/// definition (the `graph_opts()` pattern), so a fixture can never be scored under options
+/// production does not send. Temperature 0.2 live; the eval overrides it per case.
+///
+/// `format_schema` no longer contains `relevant` at all (ar6). The model is not asked for the
+/// verdict and cannot express one; `derive_relevance` computes it from `page_kind` and
+/// `entity_roles`, both of which the schema DOES require. That also retires an old hazard — the
+/// serde default on `relevant` was `true`, fail-OPEN on the one field gating the news rail, with
+/// the schema's `required` list as the only thing standing in front of it.
+pub fn article_read_opts() -> GenerateOptions {
+    GenerateOptions {
+        system: Some(ARTICLE_READ_SYSTEM_PROMPT.to_string()),
+        temperature: Some(0.2),
+        num_predict: ARTICLE_NUM_PREDICT,
+        num_ctx: ARTICLE_NUM_CTX,
+        json_mode: false,
+        format_schema: Some(article_read_format_schema()),
+    }
+}
+
+/// FIELD ORDER IS THE CONTRACT, not a style choice (ar4, 2026-07-26). Constrained decoding emits
+/// required properties in the order given, so this ordering is what forces the model to
+/// characterize the article — `story_type`, then the facts, then the card — BEFORE it renders the
+/// `relevant` verdict, which now comes last.
+///
+/// Under ar3 `relevant` was FIRST: the model committed to the verdict as its opening token, with
+/// nothing written to reason from, and the highest-prior continuation is `true` because most
+/// articles genuinely are relevant. mistral:7b could carry the judgment internally and still open
+/// correctly; gemma3:4b could not, and rubber-stamped 99.1% of articles. The proof it was ordering
+/// rather than capability: gemma labelled boxscores and broadcast listings `story_type:"fixture"`
+/// CORRECTLY — at field 7, long after the verdict was already locked in.
+///
+/// The literal template at the end of `ARTICLE_READ_SYSTEM_PROMPT` must match this order.
 pub fn article_read_format_schema() -> serde_json::Value {
     json!({
         "type": "object",
         "properties": {
-            "relevant": { "type": "boolean" },
             "source_language": { "type": "string" },
-            "evidence_blurb": { "type": "string" },
+            // The two DESCRIPTIVE axes relevance is derived from (ar6). Both are extractive
+            // questions — what shape is this page, what part does each entity play — which is
+            // what a 4B does well. Neither is a judgment, and `relevant` is absent from this
+            // schema entirely: the model is never given the chance to answer it.
+            "page_kind": { "type": "string", "enum": [
+                "article", "score_table", "listing_or_schedule", "video_clip", "roundup", "other"
+            ] },
+            "entity_roles": {
+                "type": "array",
+                "maxItems": 12,
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "entity": { "type": "string" },
+                        "role": { "type": "string", "enum": [
+                            "subject", "opponent", "passing_mention", "absent"
+                        ] }
+                    },
+                    "required": ["entity", "role"]
+                }
+            },
+            // story_type is now purely the TOPIC. ar5 overloaded it with page-shape reject
+            // classes and it collapsed to the `general` catch-all on 84% of production reads —
+            // one field cannot answer "what shape" and "what about" at once.
+            "story_type": { "type": "string", "enum": [
+                "transfer", "injury", "performance", "fixture", "roster", "contract", "general"
+            ] },
             "key_facts": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
             "relevant_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 12 },
             "co_mentions": {
@@ -82,10 +164,10 @@ pub fn article_read_format_schema() -> serde_json::Value {
                     "required": ["candidate", "relevant"]
                 }
             },
-            "story_type": { "type": "string" },
-            "caveats": { "type": "string" }
+            "caveats": { "type": "string" },
+            "evidence_blurb": { "type": "string" }
         },
-        "required": ["relevant", "source_language", "evidence_blurb", "key_facts", "relevant_entities", "co_mentions", "story_type", "caveats"]
+        "required": ["source_language", "page_kind", "entity_roles", "story_type", "key_facts", "relevant_entities", "co_mentions", "caveats", "evidence_blurb"]
     })
 }
 
@@ -112,21 +194,34 @@ pub struct ArticleReadEntities {
     pub(crate) co_mentions: Vec<CoMentionCandidate>,
 }
 
+/// One co-mention candidate line in the prompt. Fields are `pub` so a fixture generator outside
+/// the crate can render the live prompt via `build_article_read_prompt_parts` — it is prompt data
+/// with no invariant, not state.
 #[derive(Clone, Debug)]
 pub struct CoMentionCandidate {
-    pub(crate) number: i32,
-    pub(crate) entity_type: String,
-    pub(crate) entity_id: i32,
-    pub(crate) name: String,
-    pub(crate) nationality: String,
-    pub(crate) current_club: String,
-    pub(crate) position: String,
+    pub number: i32,
+    pub entity_type: String,
+    pub entity_id: i32,
+    pub name: String,
+    pub nationality: String,
+    pub current_club: String,
+    pub position: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct ArticleEvidence {
-    #[serde(default = "default_relevant")]
+    /// DERIVED, never deserialized from the model (ar6) — see [`ArticleEvidenceParser`]. The model
+    /// is not asked whether the article is relevant and cannot express an opinion on it; this is
+    /// computed from `page_kind` and `entity_roles`.
+    #[serde(skip, default = "default_relevant")]
     pub relevant: bool,
+    /// What SHAPE the page is. Extractive, and half the relevance derivation.
+    #[serde(default)]
+    pub page_kind: String,
+    /// What part each vetted entity plays in the text. The other half — and the only thing that
+    /// can catch an opponent-only story, which no page-shape signal ever reaches.
+    #[serde(default)]
+    pub entity_roles: Vec<ArticleEntityRole>,
     #[serde(default)]
     pub source_language: String,
     pub evidence_blurb: String,
@@ -142,21 +237,124 @@ pub struct ArticleEvidence {
     pub caveats: String,
 }
 
+/// One vetted entity's part in the article text.
+#[derive(Clone, Debug, Deserialize)]
+pub struct ArticleEntityRole {
+    #[serde(default)]
+    pub entity: String,
+    #[serde(default)]
+    pub role: String,
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct ArticleCoMentionVerdict {
-    #[serde(default)]
+    #[serde(default, deserialize_with = "de_candidate_lossy")]
     pub candidate: i32,
     #[serde(default)]
     pub relevant: bool,
 }
 
-pub struct ArticleEvidenceParser;
+/// Deserialize `candidate` without letting a junk index cost the whole article.
+///
+/// It is a 1-based position in a list capped at [`ARTICLE_MAX_CO_MENTION_CANDIDATES`], so the only
+/// values that can mean anything are small. A plain `i32` field looks safe on that reasoning and is
+/// not: on 2026-07-26 gemma3:4b returned `"candidate": 2080781384616956`, which does not fit an
+/// `i32`, so serde failed the ENTIRE `ArticleEvidence` parse. The reading died with it, and because
+/// the defect is in the shape of the reply, every retry reproduced it — `article_read` entity
+/// 173300 sat on a 30-minute backoff re-failing indefinitely, holding a slot each time.
+///
+/// So the blast radius is bounded here instead: anything unrepresentable becomes 0 and is dropped
+/// by the `candidate > 0` filter alongside the rest of the noise. One bad index costs one
+/// co-mention verdict. Numeric strings are accepted because models emit `"3"` for 3, and that is
+/// the same index by any honest reading.
+fn de_candidate_lossy<'de, D>(d: D) -> Result<i32, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(match serde_json::Value::deserialize(d)? {
+        serde_json::Value::Number(n) => {
+            n.as_i64().and_then(|v| i32::try_from(v).ok()).unwrap_or(0)
+        }
+        serde_json::Value::String(s) => s.trim().parse::<i32>().unwrap_or(0),
+        _ => 0,
+    })
+}
+
+/// Carries the VETTED entity names, because relevance cannot be derived without them — the same
+/// shape `GraphParser` uses for its candidate list.
+///
+/// Measured necessity: asked to label "EVERY known vetted entity", gemma3:4b correctly labelled
+/// `West Ham United` as `opponent` — and then volunteered two people from the article body,
+/// neither of them vetted entities, as `subject`. A derivation that counts any `subject` lets
+/// invented entries outvote the one correct label. Only vetted names get a say.
+pub struct ArticleEvidenceParser<'a> {
+    pub vetted: &'a [String],
+}
+
+/// `page_kind` values whose BODY is not reporting, whatever the headline promised. A page of this
+/// shape cannot be materially about an entity because it is not materially about anything.
+pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_schedule", "roundup"];
+
+/// derive_relevance computes the verdict from the model's DESCRIPTION of the page. The model never
+/// sees this question (ar6); it answers "what shape is this page" and "what part does each entity
+/// play", and relevance falls out.
+///
+/// Earned over three measured prompt revisions. ar3→ar5 each fixed a real defect and moved the
+/// fixture score by zero: gemma3:4b labelled a boxscore `score_stub` — the exact reject class,
+/// with the mapping stated as a lookup directly above and emitted BEFORE the verdict — and still
+/// answered `relevant:true`. It classifies reliably and will not render a negative boolean, so it
+/// is no longer asked for one.
+///
+/// Two independent grounds for rejection:
+///   * the page is not reporting at all (`page_kind`), or
+///   * no vetted entity is a SUBJECT of it (`entity_roles`) — the only signal that reaches an
+///     opponent-only story, which page shape can never catch.
+///
+/// `entity_roles` being empty is treated as UNKNOWN, not as rejection: a model that under-fills
+/// the array must not silently reject the whole corpus. Page shape still applies.
+pub fn derive_relevance(
+    page_kind: &str,
+    entity_roles: &[ArticleEntityRole],
+    vetted: &[String],
+) -> bool {
+    if NON_REPORTING_PAGE_KINDS
+        .iter()
+        .any(|k| page_kind.eq_ignore_ascii_case(k))
+    {
+        return false;
+    }
+    // No labels at all, or nothing to check them against: UNKNOWN, so accept. Rejection CLEARS
+    // the article's vetted links (mig 190), which is destructive — a degenerate reply must not
+    // trigger it.
+    if entity_roles.is_empty() || vetted.is_empty() {
+        return true;
+    }
+    // Otherwise the model DID look, so its labels are evidence — including what it left out.
+    // Accept only when a VETTED entity is a subject.
+    //
+    // Both halves of that are measured (2026-07-26, gemma3:4b, 3 runs each):
+    //   * Only vetted entities may vote. Asked to label every vetted entity, the model also
+    //     volunteers people it found in the body — on the opponent-only case it returned
+    //     `Dragojevic:subject, Clement:subject`, neither of them vetted. An unfiltered
+    //     `any(subject)` lets those outvote the truth.
+    //   * Omission is a rejection, not an unknown. On that same case it OMITTED the vetted
+    //     `West Ham United` entirely and consistently, while every accept case labelled its
+    //     vetted entity `subject` (Aston Villa, Arsenal, Real Madrid) and the name-collision case
+    //     labelled it `absent`. The model reliably names the entity when the story is about it,
+    //     so a populated list that skips it is saying the story is not.
+    entity_roles.iter().any(|r| {
+        r.role.eq_ignore_ascii_case("subject")
+            && vetted
+                .iter()
+                .any(|v| v.trim().eq_ignore_ascii_case(r.entity.trim()))
+    })
+}
 
 fn default_relevant() -> bool {
     true
 }
 
-impl Parser<ArticleEvidence> for ArticleEvidenceParser {
+impl Parser<ArticleEvidence> for ArticleEvidenceParser<'_> {
     fn parse(&self, raw: &str) -> Result<Option<ArticleEvidence>> {
         let Some(slice) = json_object_slice(raw) else {
             return Ok(None);
@@ -187,6 +385,12 @@ impl Parser<ArticleEvidence> for ArticleEvidenceParser {
             .filter(|c| c.candidate > 0)
             .take(ARTICLE_MAX_CO_MENTION_CANDIDATES)
             .collect();
+        evidence.page_kind = normalize_space(&evidence.page_kind);
+        evidence.entity_roles.retain(|r| !r.entity.trim().is_empty());
+        // The verdict is COMPUTED here, not read. `relevant` is `#[serde(skip)]`, so whatever the
+        // model may have said about relevance never reached this struct in the first place.
+        evidence.relevant =
+            derive_relevance(&evidence.page_kind, &evidence.entity_roles, self.vetted);
         if evidence.evidence_blurb.is_empty() {
             if !evidence.relevant {
                 evidence.evidence_blurb =
@@ -226,6 +430,11 @@ impl StageHandler for ArticleReadHandler {
     /// single article. Eight amortizes both while keeping the rotation responsive.
     fn rotation_batch(&self) -> i64 {
         8
+    }
+
+    /// Two slots — the other half of Archbox's 4. See the note on graph's `max_in_flight`.
+    fn max_in_flight(&self) -> usize {
+        2
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {
@@ -308,16 +517,11 @@ impl StageHandler for ArticleReadHandler {
         }
 
         let prompt = build_article_read_prompt(&article, &fetched.text, &entities);
-        let opts = GenerateOptions {
-            system: Some(ARTICLE_READ_SYSTEM_PROMPT.to_string()),
-            temperature: Some(0.2),
-            num_predict: ARTICLE_NUM_PREDICT,
-            num_ctx: ARTICLE_NUM_CTX,
-            json_mode: false,
-            format_schema: Some(article_read_format_schema()),
-        };
+        let opts = article_read_opts();
         let extracted = hx
-            .extract(Role::ArticleReader, &prompt, &opts, &ArticleEvidenceParser)
+            .extract(Role::ArticleReader, &prompt, &opts, &ArticleEvidenceParser {
+                    vetted: &entities.vetted_names,
+                })
             .await?;
         let Some(evidence) = extracted.value else {
             persist_terminal(
@@ -413,6 +617,40 @@ async fn enqueue_graph_for_article(hx: &Harness, article_id: i64, sport: &str) -
     .await
     .with_context(|| format!("enqueue graph for article {article_id}"))?;
     Ok(())
+}
+
+/// build_article_read_prompt_for_eval assembles the EXACT production user prompt for one article
+/// — the same DB load, the same fetch, the same builder the stage calls — so `bin/eval` scores the
+/// contract that actually runs rather than a reconstruction of it.
+///
+/// `Ok(None)` mirrors every path where the stage writes a terminal marker WITHOUT a model call
+/// (article missing, duplicate, no vetted entities, body too short or paywalled). Those are
+/// deterministic bookkeeping, not judgments, so there is nothing for a model to be scored on.
+///
+/// It fetches over the network, exactly as the stage does. That is deliberate: an eval that read
+/// title+description from the DB would grade a prompt the Reader never sends, and the Reader's
+/// whole job is judging the FULL text.
+pub(crate) async fn build_article_read_prompt_for_eval(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+) -> Result<Option<String>> {
+    let Some(article) = load_article(pool, article_id, sport).await? else {
+        return Ok(None);
+    };
+    if article.duplicate_of.is_some() || article.vetted_count == 0 {
+        return Ok(None);
+    }
+    let fetched = fetch_article(&article.url).await?;
+    if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
+        return Ok(None);
+    }
+    let entities = load_article_read_entities(pool, article_id, sport).await?;
+    Ok(Some(build_article_read_prompt(
+        &article,
+        &fetched.text,
+        &entities,
+    )))
 }
 
 async fn load_article(

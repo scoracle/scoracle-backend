@@ -37,4 +37,21 @@ pub trait StageHandler: Send + Sync {
     fn rotation_batch(&self) -> i64 {
         1
     }
+
+    /// How many items of THIS stage may be in flight at once under the concurrent drain — the
+    /// cap that stops one stage owning the whole `COGNITION_DRAIN_CONCURRENCY` budget.
+    ///
+    /// It is not the same question as [`rotation_batch`], which is how many rows to claim in one
+    /// SQL round trip. A stage can want a big claim batch and still deserve one slot: scrub asks
+    /// for 256 rows because a round trip per microsecond-item is absurd, but it must not hold 256
+    /// slots — its items do no model work, so every slot it holds is a slot the GPU cannot use.
+    ///
+    /// Default 1. Raise it only for a stage that must keep MULTIPLE slots of one backend busy:
+    /// locally that is The Reader and graph, the two stages on gemma3:4b, which between them have
+    /// to fill Archbox's 4 parallel slots (2 + 2). A remote stage should stay at 1 — the Mac runs
+    /// one request at a time by design, so extra in-flight items there only queue on its
+    /// semaphore, holding leases and burning their handler-timeout clock for no throughput.
+    fn max_in_flight(&self) -> usize {
+        1
+    }
 }

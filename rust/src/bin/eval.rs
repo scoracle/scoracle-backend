@@ -1029,8 +1029,13 @@ fn parse_entity(s: &str) -> Result<EntitySpec> {
         ));
     }
     let entity_type = parts[0].to_lowercase();
-    if entity_type != "player" && entity_type != "team" {
-        return Err(anyhow!("bad entity_type in {s:?}; want player|team"));
+    // `article` is live-eval'able too: graph and reader are article-keyed, not entity-keyed. Both
+    // tasks' build_prompt tells you to pass `article:<id>:<SPORT>` — and this check rejected it,
+    // so their live modes were unreachable from the day they were written.
+    if entity_type != "player" && entity_type != "team" && entity_type != "article" {
+        return Err(anyhow!(
+            "bad entity_type in {s:?}; want player|team|article"
+        ));
     }
     let entity_id: i32 = parts[1]
         .parse()

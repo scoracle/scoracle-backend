@@ -6,15 +6,40 @@ import (
 	"time"
 )
 
-func TestRSSLookbackMatchesBackfillCatchupWindow(t *testing.T) {
-	if len(timeWindows) != 1 || timeWindows[0] != 12 {
-		t.Fatalf("timeWindows = %#v, want []int{12}", timeWindows)
+// ingestCronPeriodHours is the period of the hosting ingest cron
+// (`0 2 * * *` in scripts/hosting/crontab.example). Keep the two in step.
+const ingestCronPeriodHours = 24
+
+// The lookback window is both the `when:` token sent to Google News and the
+// cutoff in filterArticlesByLookback, so it bounds what a single sweep can see.
+// Narrower than the cron's period means every run leaves a gap that no later run
+// recovers -- news dropped twice over, with no error and nothing missing from
+// pipeline_work to reveal it. Widening is safe (already-seen URLs dedupe);
+// narrowing below the cron period is the direction that loses data silently.
+func TestRSSLookbackCoversIngestCronPeriod(t *testing.T) {
+	if len(timeWindows) != 1 {
+		t.Fatalf("timeWindows = %#v, want exactly one window", timeWindows)
+	}
+	if timeWindows[0] < ingestCronPeriodHours {
+		t.Fatalf(
+			"timeWindows = %#v, but the ingest cron runs every %dh -- a window narrower "+
+				"than the cron period silently drops the news in between",
+			timeWindows, ingestCronPeriodHours,
+		)
 	}
 }
 
-func TestRSSWhenTokenSupportsTwelveHourWindow(t *testing.T) {
-	if got := rssWhenToken(12); got != "12h" {
-		t.Fatalf("rssWhenToken(12) = %q, want 12h", got)
+func TestRSSWhenTokenSpansSubDayAndDayWindows(t *testing.T) {
+	for _, tc := range []struct {
+		hours int
+		want  string
+	}{
+		{12, "12h"},
+		{24, "1d"},
+	} {
+		if got := rssWhenToken(tc.hours); got != tc.want {
+			t.Fatalf("rssWhenToken(%d) = %q, want %q", tc.hours, got, tc.want)
+		}
 	}
 }
 

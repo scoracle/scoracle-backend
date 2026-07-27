@@ -1467,20 +1467,43 @@ fn clean_html(html: &str) -> String {
     decode_entities(&normalize_space(&out))
 }
 
+/// Case-insensitive ASCII search for `needle` in `haystack`, starting at byte offset `from`
+/// and returning an offset into `haystack` itself.
+///
+/// This exists because the obvious version — search a `to_lowercase()` copy, then index the
+/// original with the result — is only sound while lowercasing preserves byte length, and
+/// Unicode does not guarantee that. `İ` (U+0130, 2 bytes) lowercases to `i̇` (U+0069 U+0307,
+/// 3 bytes), so every offset past the first one drifts by a byte. A Galatasaray match report
+/// with 11 of them made the lowercase copy 11 bytes longer than the original and panicked the
+/// whole harness on `&html[pos..]` (2026-07-26, `start byte index 1040186 is out of bounds for
+/// string of length 1040175`).
+///
+/// HTML tag names are ASCII, so ASCII-case-insensitive matching is both sufficient here and
+/// length-preserving by construction. Every returned offset points at an ASCII byte, which is
+/// always a char boundary in UTF-8 — so the slices built from it cannot panic either.
+fn find_ascii_ci(haystack: &str, needle: &str, from: usize) -> Option<usize> {
+    let (h, n) = (haystack.as_bytes(), needle.as_bytes());
+    if n.is_empty() || from > h.len() || h.len() - from < n.len() {
+        return None;
+    }
+    (from..=h.len() - n.len()).find(|&i| h[i..i + n.len()].eq_ignore_ascii_case(n))
+}
+
 fn strip_element_blocks(html: &str, tag: &str) -> String {
     let mut out = String::new();
-    let lower = html.to_lowercase();
     let open = format!("<{tag}");
     let close = format!("</{tag}>");
     let mut pos = 0usize;
-    while let Some(start_rel) = lower[pos..].find(&open) {
-        let start = pos + start_rel;
+    while let Some(start) = find_ascii_ci(html, &open, pos) {
         out.push_str(&html[pos..start]);
-        if let Some(end_rel) = lower[start..].find(&close) {
-            pos = start + end_rel + close.len();
-        } else {
-            pos = html.len();
-            break;
+        // An unclosed block swallows the rest of the document, as before: better to drop a
+        // trailing tail than to emit raw script source as article text.
+        match find_ascii_ci(html, &close, start) {
+            Some(end) => pos = end + close.len(),
+            None => {
+                pos = html.len();
+                break;
+            }
         }
     }
     out.push_str(&html[pos..]);

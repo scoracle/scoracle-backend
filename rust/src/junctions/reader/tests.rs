@@ -11,6 +11,44 @@ fn clean_html_removes_tags_scripts_and_normalizes_space() {
     assert_eq!(clean_html(html), "Title A B & C.");
 }
 
+/// Regression for the 2026-07-26 harness panic: a page whose text lowercases to a *longer*
+/// byte string than the original. `İ` (U+0130, 2 bytes) becomes `i̇` (3 bytes), so the old
+/// search-the-lowercase-copy-then-index-the-original approach drifted one byte per occurrence
+/// and eventually sliced past the end of `html`. A Galatasaray report with 11 of them took the
+/// whole cognition service down with `start byte index 1040186 is out of bounds for string of
+/// length 1040175`.
+///
+/// The tag being stripped is deliberately placed *after* the drifting characters, since that is
+/// the only arrangement in which the offsets have diverged by the time they are used.
+#[test]
+fn clean_html_survives_text_whose_lowercase_is_longer() {
+    let turkish = "İstanbul İzmir İnönü İlkay İsmail İbrahim İdris İlhan İnan İpek İrem";
+    assert!(
+        turkish.to_lowercase().len() > turkish.len(),
+        "precondition: this text must expand when lowercased"
+    );
+
+    let html = format!("<p>{turkish}</p><script>bad()</script><p>Tail.</p>");
+    let cleaned = clean_html(&html);
+
+    assert!(!cleaned.contains("bad()"), "script block must still be stripped");
+    assert!(cleaned.contains("Tail."), "content after the script must survive");
+    assert!(cleaned.contains("İstanbul"), "original casing must be preserved");
+}
+
+/// Tag matching is case-insensitive, and must stay so now that it no longer goes through
+/// `to_lowercase`.
+#[test]
+fn clean_html_strips_uppercase_tags() {
+    assert_eq!(clean_html("<P>A</P><SCRIPT>bad()</SCRIPT><P>B</P>"), "A B");
+}
+
+/// An unclosed block swallows the remainder — preserved from the previous implementation.
+#[test]
+fn clean_html_drops_tail_of_unclosed_script() {
+    assert_eq!(clean_html("<p>Kept</p><script>oops"), "Kept");
+}
+
 #[test]
 fn google_news_article_id_extracts_rss_token() {
     let url = "https://news.google.com/rss/articles/CBMiabc123?oc=5&hl=en-US";

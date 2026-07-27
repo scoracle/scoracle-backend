@@ -1604,6 +1604,12 @@ impl LensTask for GraphTask {
 /// those two failure modes want opposite fixes. ar5's lesson was that a field can collapse to its
 /// catch-all in production while fixtures stay green (`story_type` → `general` on 84% of reads), so
 /// the inputs to the derivation have to be visible wherever the verdict is.
+///
+/// That collapse is FIXED, measured 2026-07-27 over 2,809 successful readings: `general` is down to
+/// 15% and the field discriminates — transfer 1,005, fixture 581, performance 293, injury 277,
+/// roster 69, contract 63. Recorded because the 84% figure above is a historical lesson, not a
+/// current state, and reading it as current would wrongly rule `story_type` out as a signal
+/// downstream — it is good enough to bucket on.
 fn render_entity_roles(roles: &[ArticleEntityRole]) -> String {
     roles
         .iter()

@@ -222,6 +222,37 @@ waiting on it.
    1. **Bucketing** — first, and the critical one. Group trending summaries into one generation
       covering N entities instead of N separate ones. The only lever that reduces the *number* of
       items rather than the time each takes, and it spends gemma3's idle capacity.
+
+      **Do the sorting in the Reader, not the Journalist** (Scott, 2026-07-27): *"It's not the brain
+      work, it's the sorting work."* Sorting belongs on the 1070, which has headroom; synthesis
+      belongs on the Mac, which does not. The Journalist should consume buckets, not build them.
+
+      **This is mostly already built, which is the surprise.** The Reader's output schema already
+      emits `story_type` per article — and it discriminates well. Measured 2026-07-27 over 2,809
+      successful readings:
+
+      | transfer | fixture | general | performance | injury | roster | contract |
+      |---|---|---|---|---|---|---|
+      | 1,005 | 581 | 424 | 293 | 277 | 69 | 63 |
+
+      So the sorting key **already exists, on the right machine, at no additional model cost**. Two
+      consequences:
+
+      - **`news_articles.bucket` is being derived twice.** `bucket.rs` records that the
+        transfer/non-transfer judgment was *moved to* the Journalist ("the Journalist labels each
+        article it reads, as the tail of the read", step n9). But the Reader already knows —
+        `story_type='transfer'` is 1,005 rows — and it knows from the **full body**, where the
+        Journalist only sees a 900-byte evidence blurb. Writing the bucket from the Reader and
+        deleting n9 removes work from the saturated host, shortens the narratives prompt AND its
+        output schema, and uses the better-informed judge. `ArticleBucket::from_model_tag` already
+        maps `trade`/`trades` → `Transfer`, so the off-vocabulary values the model emits are handled.
+      - **Grouping the Journalist's corpus by `story_type` needs no new inference at all** — it is a
+        prompt restructuring over a field already persisted in `news_article_readings.evidence`.
+        That is the cheapest possible version of "the Journalist consumes buckets".
+
+      One trap, recorded so it is not rediscovered: a comment in `eval_tasks.rs` cites `story_type →
+      general on 84% of reads`. That is **ar5 history, not current state** — it is 15% now. Reading
+      it as current would wrongly rule out the whole approach.
    2. **Context size** — goes hand in hand with bucketing, since bucketing is what makes the context
       budget bind. Owns `COGNITION_JOURNALIST_CORPUS_LIMIT` (currently 40) and the six voices'
       shared 16,384-token window.

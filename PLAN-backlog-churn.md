@@ -226,6 +226,33 @@ KV allocation, and that single permit is what serializes the six voices. It is t
 friction 2: `transfers` makes N sequential calls per item and dead-letters at 1200s while *queueing*.
 Free model bytes → free KV bytes → a second permit → the serialization goes away.
 
+### The KV arithmetic — the permit is a context-length decision, not a hardware limit
+
+From the model's own architecture (`/api/show`): 40 layers, 8 KV heads, key/value length 128, and
+`OLLAMA_KV_CACHE_TYPE=q8_0` in the launchd plist:
+
+```
+40 layers × 8 KV heads × (128 + 128) × 1 byte  =  80 KB per token
+```
+
+| context | KV per sequence | model + 2 sequences + buffers |
+|---|---|---|
+| 16384 (current) | 1.31 GB | 9.1 + 2.62 + ~0.7 = **12.4 GB** — marginal on 16 GB |
+| **8192** | **0.66 GB** | 9.1 + 1.31 + ~0.7 = **11.1 GB** — what ONE sequence costs today |
+| 8192 + `mistral-nemo:12b` | 0.66 GB | 7.1 + 6×0.66 + ~0.7 = **11.7 GB** — **six** sequences |
+
+**Two sequences at 8192 cost exactly what one at 16384 costs.** The second permit is arithmetically
+free, not merely likely. Nemo has the identical KV geometry (40 × 8 × 128), so its 2 GB saving buys
+sequences rather than speed alone — six of them, one per character voice.
+
+`max_concurrent=1` was almost certainly correct when the KV cache was f16: 2.62 GB per sequence, and
+two genuinely would not fit. `q8_0` halved that and the permit was never revisited. So the
+constraint shaping this whole session — six voices serialised, `transfers` dead-lettering at 1200s
+on *wait* rather than work — is a setting, not a wall.
+
+**Cheapest possible test:** set `OLLAMA_NUM_PARALLEL=2` in the plist, `launchctl kickstart`, and see
+whether it loads and holds. Fully reversible, and a rest window is the free hour to do it in.
+
 | lever | speed | concurrency | quality risk |
 |---|---|---|---|
 | **`VOICE_NUM_CTX` 16384 → 8192** | none | halves KV/sequence — may buy a permit on its own | **none**, if prompts fit. Journalist at corpus 40 ≈ 2,750 tok + system + 900 predict ≈ 4,500. Fails loudly as truncation, not subtly |

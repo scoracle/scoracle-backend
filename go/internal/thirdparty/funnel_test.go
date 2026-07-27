@@ -58,8 +58,13 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	fresh := now.Add(-2 * time.Hour)
 	stale := now.Add(-30 * time.Hour) // outside the 12h window + 15m slack
 
-	// 6 items per response: 3 admitted, 1 stale (window), 1 off-topic (matcher),
-	// 1 duplicate of the first by title+source (dedupe).
+	// 6 items per response: 4 admitted, 1 stale (window), 1 duplicate of the first by
+	// title+source (dedupe).
+	//
+	// "Markets rally after earnings" is the off-topic one. It used to be dropped here by
+	// MatchesEntity and is now admitted on purpose: ingest no longer judges relevance, so
+	// junk reaches the Reader and is rejected by something that read it. Keeping it in the
+	// fixture is the point — it proves the article flows through rather than vanishing.
 	body := rssFixture(
 		rssFixtureItem{"Manchester United agree deal", "Example FC", "https://ex.test/a", fresh, "Club confirms the move."},
 		rssFixtureItem{"Man United track midfielder", "Other Outlet", "https://ex.test/b", fresh, "Transfer latest."},
@@ -106,13 +111,15 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	if f.WindowDropped != f.RSSCalls {
 		t.Errorf("WindowDropped = %d, want 1 per call (%d)", f.WindowDropped, f.RSSCalls)
 	}
-	if f.MatchRejected != f.RSSCalls {
-		t.Errorf("MatchRejected = %d, want 1 per call (%d)", f.MatchRejected, f.RSSCalls)
+	// Structurally zero: ingest has no relevance filter. The counter stays so the
+	// Residual invariant still balances and a future filter has somewhere to report.
+	if f.MatchRejected != 0 {
+		t.Errorf("MatchRejected = %d, want 0 now that the Reader owns relevance", f.MatchRejected)
 	}
-	// 4 admitted per call, of which one is a title+source duplicate; every call
-	// after the first re-delivers the same three survivors.
-	if f.Matched != 3 {
-		t.Errorf("Matched = %d, want 3 distinct articles", f.Matched)
+	// 5 survive the window per call, of which one is a title+source duplicate; every
+	// call after the first re-delivers the same four survivors.
+	if f.Matched != 4 {
+		t.Errorf("Matched = %d, want 4 distinct articles", f.Matched)
 	}
 	if f.LimitTruncated != 0 {
 		t.Errorf("LimitTruncated = %d, want 0 when uncapped", f.LimitTruncated)

@@ -29,7 +29,7 @@ use crate::harness::{Harness, Parser};
 use crate::ledger::{insert_cognition_ledger_best_effort, CognitionLedgerEntry};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::stage::StageHandler;
+use crate::stage::{StageHandler, ARCHBOX_GEMMA_SLOTS};
 use crate::util::{go_json_string, hash_components};
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -541,11 +541,16 @@ impl StageHandler for GraphHandler {
         8
     }
 
-    /// Two slots. graph and The Reader are the only stages on the local gemma3:4b, so between
-    /// them (2 + 2) they have to keep Archbox's 4 parallel slots busy — one each would leave the
-    /// card half idle, which is the whole thing the 4-slot change is meant to fix.
+    /// graph and The Reader are the only stages on the local gemma3:4b and now share its slots on
+    /// demand rather than splitting them 2 + 2. graph registers BEFORE the Reader, so the drain
+    /// offers it slots first on every top-up pass: a burst of graph work reclaims the card within
+    /// one pass instead of waiting on the Reader's backlog.
     fn max_in_flight(&self) -> usize {
-        2
+        ARCHBOX_GEMMA_SLOTS.1
+    }
+
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        Some(ARCHBOX_GEMMA_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

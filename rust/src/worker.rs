@@ -110,18 +110,42 @@ impl Pulse {
     }
 }
 
+/// One handler's claim ceiling: `(max_in_flight, slot_group)`.
+type StageCap = (usize, Option<(&'static str, usize)>);
+type StageCaps = Vec<StageCap>;
+
 /// resolve_drain_concurrency picks the drain's global in-flight ceiling. An explicit
-/// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is the sum of the stages' own caps, which
+/// `COGNITION_DRAIN_CONCURRENCY` wins; otherwise it is derived from the stages' own caps, which
 /// by construction can never bind.
 ///
 /// Getting this wrong starves a machine rather than merely slowing it. Sizing the ceiling to the
 /// topology's total GPU permits (4 local + 1 Mac = 5) looks right and is not: the drain claims in
-/// DAG order, so scrub(1) + graph(2) + article_read(2) fills all 5 and the six Mac stages get
-/// nothing at all until the local backlog — 2,580 items at the time of writing — is empty. The
-/// Mac would idle for hours while Archbox worked, which is the exact inversion of the goal.
-fn resolve_drain_concurrency(configured: Option<usize>, caps: &[usize]) -> usize {
+/// DAG order, so scrub and the two gemma3 stages fill all 5 and the six Mac stages get nothing at
+/// all until the local backlog — 2,580 items at the time of writing — is empty. The Mac would idle
+/// for hours while Archbox worked, which is the exact inversion of the goal.
+///
+/// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Reader and
+/// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
+/// budget by slots that can never be used at once — and a global budget that cannot bind is a
+/// global budget that stops protecting the stages behind it.
+fn resolve_drain_concurrency(configured: Option<usize>, caps: &[StageCap]) -> usize {
     configured
-        .unwrap_or_else(|| caps.iter().map(|c| (*c).max(1)).sum())
+        .unwrap_or_else(|| {
+            let mut total = 0usize;
+            let mut counted: Vec<&'static str> = Vec::new();
+            for (cap, group) in caps {
+                match group {
+                    Some((name, budget)) => {
+                        if !counted.contains(name) {
+                            counted.push(name);
+                            total += (*budget).max(1);
+                        }
+                    }
+                    None => total += (*cap).max(1),
+                }
+            }
+            total
+        })
         .max(1)
 }
 
@@ -278,7 +302,10 @@ impl Worker {
         // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
         // is by construction the point past which the ceiling can never bind, so no stage is
         // ever starved by a global number nobody tuned. An explicit value is a throttle.
-        let caps: Vec<usize> = handlers.iter().map(|h| h.max_in_flight()).collect();
+        let caps: StageCaps = handlers
+            .iter()
+            .map(|h| (h.max_in_flight(), h.slot_group()))
+            .collect();
         let drain_concurrency = resolve_drain_concurrency(drain_concurrency, &caps);
         Self {
             pool,
@@ -401,6 +428,16 @@ impl Worker {
         // In-flight items per stage, so no one stage can own the whole budget. Keyed by the
         // stage's static name because `Stage` is not `Hash`.
         let mut per_stage: HashMap<&'static str, usize> = HashMap::new();
+        // In-flight per slot group, so stages sharing one backend's parallel slots divide them on
+        // demand instead of by a fixed split. Keyed by group name; ungrouped stages never appear.
+        let mut per_group: HashMap<&'static str, usize> = HashMap::new();
+        // stage name -> its group, so a finishing item can decrement the right counter without
+        // asking the handler again.
+        let group_of: HashMap<&'static str, (&'static str, usize)> = self
+            .handlers
+            .iter()
+            .filter_map(|h| h.slot_group().map(|g| (h.stage().as_str(), g)))
+            .collect();
 
         loop {
             // Top up in registration (DAG) order until the budget is full or nothing is
@@ -417,7 +454,14 @@ impl Worker {
                 // claim 8, and with a budget of 5 whichever registers first starves the rest —
                 // including starving the GPU entirely behind model-free scrub work.
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
-                let room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
+                let mut room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
+                // A grouped stage is additionally bounded by what its co-tenants have left. This
+                // is what lets The Reader spread into graph's idle slots without being able to
+                // oversubscribe the card when graph is working.
+                if let Some((name, group_budget)) = handler.slot_group() {
+                    let group_running = *per_group.get(name).unwrap_or(&0);
+                    room = room.min(group_budget.saturating_sub(group_running));
+                }
                 if room == 0 {
                     continue;
                 }
@@ -446,6 +490,9 @@ impl Worker {
                 claimed_any = true;
                 debug!(%stage, n = items.len(), cause, "draining batch");
                 *per_stage.entry(stage.as_str()).or_insert(0) += items.len();
+                if let Some((name, _)) = handler.slot_group() {
+                    *per_group.entry(name).or_insert(0) += items.len();
+                }
                 for item in items {
                     inflight.push(self.run_one(handler.as_ref(), item, pulse));
                 }
@@ -465,6 +512,11 @@ impl Worker {
             if let Some(done) = inflight.next().await {
                 if let Some(n) = per_stage.get_mut(done) {
                     *n = n.saturating_sub(1);
+                }
+                if let Some((name, _)) = group_of.get(done) {
+                    if let Some(n) = per_group.get_mut(name) {
+                        *n = n.saturating_sub(1);
+                    }
                 }
             }
 
@@ -601,6 +653,7 @@ fn note_supervisor_exit(exit: std::result::Result<(), tokio::task::JoinError>) {
 
 #[cfg(test)]
 mod tests {
+    use crate::stage::ARCHBOX_GEMMA_SLOTS;
     use super::*;
 
     #[test]
@@ -622,10 +675,26 @@ mod tests {
     }
 
     /// The live shape: scrub, graph(2), article_read(2), then six Mac voices at 1 each.
-    const LIVE_CAPS: &[usize] = &[1, 2, 2, 1, 1, 1, 1, 1, 1];
+    /// Production's shape: scrub, graph, article_read, then six single-slot remote stages.
+    /// graph and article_read share the gemma3 card's 4 slots rather than splitting them.
+    const GEMMA: Option<(&'static str, usize)> = Some(ARCHBOX_GEMMA_SLOTS);
+    const LIVE_CAPS: &[StageCap] = &[
+        (1, None),     // scrub
+        (4, GEMMA),    // graph
+        (4, GEMMA),    // article_read
+        (1, None),     // transfers
+        (1, None),     // narratives
+        (1, None),     // vibe
+        (1, None),     // peak
+        (1, None),     // momentum
+        (1, None),     // sigil
+    ];
 
     #[test]
-    fn unset_drain_concurrency_is_the_sum_of_the_stage_caps() {
+    fn unset_drain_concurrency_counts_a_shared_group_once() {
+        // 4 for the whole gemma3 card + 7 single-slot stages = 11 — the SAME ceiling as the old
+        // fixed 2 + 2 split, because the card's capacity did not change, only who may use it.
+        // Summing both grouped stages would say 15 and admit four claims the host cannot run.
         assert_eq!(resolve_drain_concurrency(None, LIVE_CAPS), 11);
     }
 
@@ -633,9 +702,40 @@ mod tests {
     fn the_derived_ceiling_never_binds_before_the_stage_caps_do() {
         // The property that matters: with the ceiling unset, every stage can reach its own cap
         // simultaneously. If this ever fails, some stage is being starved by the global number.
+        // Grouped stages count once, at the group budget — that IS the most they can hold at once.
         let budget = resolve_drain_concurrency(None, LIVE_CAPS);
-        let total: usize = LIVE_CAPS.iter().sum();
+        let mut total = 0usize;
+        let mut seen: Vec<&str> = Vec::new();
+        for (cap, group) in LIVE_CAPS {
+            match group {
+                Some((name, b)) => {
+                    if !seen.contains(name) {
+                        seen.push(name);
+                        total += b;
+                    }
+                }
+                None => total += cap,
+            }
+        }
         assert!(budget >= total, "budget {budget} would starve; caps total {total}");
+    }
+
+    #[test]
+    fn a_shared_group_lends_idle_slots_and_takes_them_back() {
+        let (_, budget) = ARCHBOX_GEMMA_SLOTS;
+
+        // graph idle: the Reader may take the whole card. This is the change — it was pinned to 2
+        // while 5,852 reads queued against a card that was half asleep.
+        let group_running = 0;
+        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 4);
+
+        // graph holding 2: the Reader is held to the remaining 2, never oversubscribing the host.
+        let group_running = 2;
+        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 2);
+
+        // graph holding all 4: the Reader waits rather than deepening the host's own queue.
+        let group_running = 4;
+        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 0);
     }
 
     #[test]

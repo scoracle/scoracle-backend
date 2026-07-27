@@ -10,7 +10,7 @@
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
-use crate::stage::StageHandler;
+use crate::stage::{StageHandler, ARCHBOX_GEMMA_SLOTS};
 use crate::util::{hash_components, truncate};
 use crate::work::{self, Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -432,9 +432,15 @@ impl StageHandler for ArticleReadHandler {
         8
     }
 
-    /// Two slots — the other half of Archbox's 4. See the note on graph's `max_in_flight`.
+    /// Up to the whole gemma3 card when graph is idle, which is most of the time — graph is
+    /// event-driven and the Reader is the stage with a standing backlog. Bounded by
+    /// [`ARCHBOX_GEMMA_SLOTS`], so graph reclaims its share the moment it has work.
     fn max_in_flight(&self) -> usize {
-        2
+        ARCHBOX_GEMMA_SLOTS.1
+    }
+
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        Some(ARCHBOX_GEMMA_SLOTS)
     }
 
     async fn handle(&self, hx: &Harness, item: &Item) -> Result<()> {

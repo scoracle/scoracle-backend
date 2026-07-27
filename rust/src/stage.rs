@@ -48,10 +48,37 @@ pub trait StageHandler: Send + Sync {
     ///
     /// Default 1. Raise it only for a stage that must keep MULTIPLE slots of one backend busy:
     /// locally that is The Reader and graph, the two stages on gemma3:4b, which between them have
-    /// to fill Archbox's 4 parallel slots (2 + 2). A remote stage should stay at 1 — the Mac runs
+    /// to fill Archbox's 4 parallel slots. A remote stage should stay at 1 — the Mac runs
     /// one request at a time by design, so extra in-flight items there only queue on its
     /// semaphore, holding leases and burning their handler-timeout clock for no throughput.
+    ///
+    /// For a stage in a [`slot_group`], this is its ceiling *within* that group, not its
+    /// guarantee: the group budget binds first.
     fn max_in_flight(&self) -> usize {
         1
     }
+
+    /// Stages that share one backend's parallel slots, as `(group name, total slots)`.
+    ///
+    /// This exists because a fixed split wastes a card. The Reader and graph both run on Archbox's
+    /// gemma3 and were pinned at 2 + 2 to fill its 4 slots — but graph is event-driven and sat at
+    /// ZERO pending work for a full day while the Reader had 5,852 items queued and could only use
+    /// half the card. The 2-slot cap, not the GPU, was setting the drain rate: ~500 reads/hour at
+    /// ~14s each is exactly two slots' worth.
+    ///
+    /// Grouped stages may each claim up to their own `max_in_flight`, bounded by what is left of
+    /// the group's total. So the Reader expands into graph's idle slots and gives them back as
+    /// soon as graph wants them — the drain tops up in registration order and graph registers
+    /// first, so it takes its slots on the very next pass rather than waiting for the Reader to
+    /// drain.
+    ///
+    /// `None` means ungrouped: the stage's `max_in_flight` is its whole story. Every remote stage
+    /// stays that way — sharing out a single-permit host would only deepen the queue behind it.
+    fn slot_group(&self) -> Option<(&'static str, usize)> {
+        None
+    }
 }
+
+/// The gemma3 card on Archbox, shared by The Reader and graph. Four parallel slots
+/// (`max_concurrent=4`), allocated on demand rather than split down the middle.
+pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 4);

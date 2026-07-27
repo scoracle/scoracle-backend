@@ -86,6 +86,30 @@ pub const NARRATIVES_NUM_CTX: i32 = crate::route::VOICE_NUM_CTX;
 const DESC_TRUNCATE: usize = 200;
 const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 
+/// Ceiling on how many articles reach one Journalist prompt.
+///
+/// The corpus load was unbounded, which was survivable only because ingest capped each entity at
+/// twelve headlines. Once ingest takes Google's page 1 whole, a busy club brings ~100 articles a
+/// day and this query would hand every one of them to a 16,384-token context shared by all six
+/// voices — failing as silent truncation inside the prompt rather than as a number in a log.
+///
+/// 40 is deliberately generous against the observed shape: read articles render at
+/// `ARTICLE_READ_BLURB_TRUNCATE` and the rest at `DESC_TRUNCATE`, so a full 40 with the usual four
+/// read is about 4*900 + 36*200 ≈ 11 KB — expansive, and still well clear of the ceiling.
+///
+/// The exact number is a VOICE decision, not a plumbing one: it trades breadth of evidence against
+/// room for the reply, and that trade belongs to the prompt-tuning session. Env-tunable so that
+/// session can move it without a rebuild.
+const DEFAULT_CORPUS_LIMIT: i64 = 40;
+
+fn corpus_limit() -> i64 {
+    std::env::var("COGNITION_JOURNALIST_CORPUS_LIMIT")
+        .ok()
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .filter(|n| *n > 0)
+        .unwrap_or(DEFAULT_CORPUS_LIMIT)
+}
+
 /// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. A fresh
 /// Article Reader card also keeps an article in the corpus, so richer newly-enqueued evidence can
 /// wake The Journalist even when the source article's `published_at` has aged past this boundary.
@@ -273,33 +297,42 @@ pub async fn load_vetted_corpus(
         Option<i64>,
     )> = sqlx::query_as(
         r#"
-        SELECT a.id, a.title, COALESCE(a.description, ''), COALESCE(a.source, ''),
-               COALESCE(a.url, ''),
-               EXTRACT(EPOCH FROM a.published_at)::bigint,
-               EXTRACT(EPOCH FROM a.fetched_at)::bigint,
-               a.full_text,
-               r.evidence_blurb,
-               r.status,
-               r.content_hash,
-               EXTRACT(EPOCH FROM r.updated_at)::bigint
-        FROM news_article_entities nae
-        JOIN news_articles a ON a.id = nae.article_id
-        LEFT JOIN news_article_readings r ON r.article_id = a.id
-        WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-          AND nae.vetted IS TRUE
-          AND a.duplicate_of IS NULL
-          AND (
-              a.published_at IS NULL
-              OR a.published_at > NOW() - make_interval(secs => $4)
-              OR r.updated_at > NOW() - make_interval(secs => $4)
-          )
-        ORDER BY COALESCE(a.published_at, a.fetched_at) DESC
+        SELECT * FROM (
+            SELECT a.id, a.title, COALESCE(a.description, '') AS description,
+                   COALESCE(a.source, '') AS source,
+                   COALESCE(a.url, '') AS url,
+                   EXTRACT(EPOCH FROM a.published_at)::bigint AS published_at,
+                   EXTRACT(EPOCH FROM a.fetched_at)::bigint AS fetched_at,
+                   a.full_text,
+                   r.evidence_blurb,
+                   r.status,
+                   r.content_hash,
+                   EXTRACT(EPOCH FROM r.updated_at)::bigint AS read_updated_at
+            FROM news_article_entities nae
+            JOIN news_articles a ON a.id = nae.article_id
+            LEFT JOIN news_article_readings r ON r.article_id = a.id
+            WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
+              AND nae.vetted IS TRUE
+              AND a.duplicate_of IS NULL
+              AND (
+                  a.published_at IS NULL
+                  OR a.published_at > NOW() - make_interval(secs => $4)
+                  OR r.updated_at > NOW() - make_interval(secs => $4)
+              )
+            -- WHICH articles: Google's ranking, same signal the read budget cuts on.
+            ORDER BY a.feed_rank ASC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC, a.id
+            LIMIT $5
+        ) top
+        -- IN WHAT ORDER: newest first, unchanged. Selection is a relevance decision;
+        -- presentation is a voice decision, and this query should only make the first.
+        ORDER BY COALESCE(published_at, fetched_at) DESC
         "#,
     )
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
+    .bind(corpus_limit())
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus {entity_type}/{entity_id}"))?;

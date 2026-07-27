@@ -48,9 +48,7 @@ const (
 // 24h to match the daily 02:00 ingest (2026-07-26). The pairing has moved together
 // every time: 6h window with the six-hour cron, 12h when that went twelve-hourly.
 // A day's news now arrives in one sweep, and per-entity volume is bounded by
-// `-rss-limit` (default 12) rather than by how often the cron happens to fire --
-// which is the "top 12 headlines per entity per day" shape this pipeline started
-// with, and the one it is deliberately returning to while throughput is tuned.
+// `-rss-limit` (one Google page) rather than by how often the cron happens to fire.
 var timeWindows = []int{24}
 
 // Sport-specific search term suffixes for RSS.
@@ -291,7 +289,6 @@ func (s *NewsService) persistArticles(
 	}
 
 	affected := make(map[int64]bool) // fresh primary OR secondary link — the informational return
-	vetPrimary := make([]int64, 0, len(articles))
 	needScrub := make(map[int64]bool) // fresh secondary link → needs the model's verdict
 
 	// The primary entity's own match input — needed to record its title position
@@ -334,20 +331,22 @@ func (s *NewsService) persistArticles(
 			return nil, fmt.Errorf("upsert article: %w", err)
 		}
 
-		// Primary link — the entity that was queried. Team RSS search is now a
-		// broad candidate generator; primary team links are deliberately below
-		// confidence 1.0 so the Rust scrub gate sees the proposed team card and
-		// decides relevance. Player/news paths keep the exact-match auto-vet
-		// behavior.
+		// Primary link — the entity that was queried. EVERY RSS search is a broad
+		// candidate generator now, players included, so every primary link lands
+		// below confidence 1.0 and is proposed to the scrub gate rather than
+		// asserted here.
+		//
+		// Players used to auto-vet at 1.0 on the grounds that they were "exact
+		// matches" — true only because filterRSSArticles had already guaranteed the
+		// name appeared in the text. That filter is gone, so the premise is gone
+		// with it: auto-vetting now would stamp vetted=TRUE on whatever Google
+		// happened to return, with nothing having read it. One path for both entity
+		// kinds, and the judge is downstream.
 		primaryPos := -1
 		if primaryMatch != nil {
 			primaryPos = FirstMatchPos(a.Title, *primaryMatch)
 		}
-		primaryConfidence := 1.0
-		primaryNeedsScrub := isTeamEntity(primaryEntityType)
-		if primaryNeedsScrub {
-			primaryConfidence = broadTeamPrimaryConfidence
-		}
+		primaryConfidence := broadTeamPrimaryConfidence
 		ct, err := tx.Exec(ctx, `
 			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
 			VALUES ($1, $2, $3, $4, $5, $6)
@@ -358,11 +357,7 @@ func (s *NewsService) persistArticles(
 		}
 		if ct.RowsAffected() > 0 {
 			affected[articleID] = true
-			if primaryNeedsScrub {
-				needScrub[articleID] = true
-			} else {
-				vetPrimary = append(vetPrimary, articleID)
-			}
+			needScrub[articleID] = true
 		}
 
 		// Secondary links — scan title + description against the cached entity pool
@@ -402,23 +397,16 @@ func (s *NewsService) persistArticles(
 	// instead of waiting for the maintenance sweep's next tick. The sweep stays
 	// on as the backstop for rows this path misses (pre-change backlog, repair).
 	//
-	// Non-team primary links are exact matches (confidence 1.0) and still auto-vet.
-	// Team RSS is broader now, so those primary links are enqueued to scrub above
-	// instead. This must be an UPDATE, not vetted=TRUE on the INSERT: the mig-103
-	// enqueue_derive_on_vetted trigger only watches UPDATE OF vetted.
-	if len(vetPrimary) > 0 {
-		if _, err := tx.Exec(ctx, `
-			UPDATE news_article_entities
-			   SET vetted = TRUE, scrubbed_at = NOW()
-			 WHERE article_id = ANY($1)
-			   AND entity_type = $2 AND entity_id = $3 AND sport = $4
-			   AND match_confidence >= 1.0 AND scrubbed_at IS NULL
-		`, vetPrimary, primaryEntityType, primaryEntityID, sportUpper); err != nil {
-			return nil, fmt.Errorf("auto-vet primary links: %w", err)
-		}
-	}
+	// The auto-vet pass that used to live here is gone. It stamped vetted=TRUE on
+	// confidence-1.0 player links without a model ever seeing them, which was only
+	// defensible while filterRSSArticles guaranteed the entity was named in the text.
+	// Nothing is vetted at ingest now; every link is proposed and scrub decides.
+	//
+	// Worth knowing if vetting is ever reinstated here: the mig-103
+	// enqueue_derive_on_vetted trigger watches UPDATE OF vetted, so it must be an
+	// UPDATE and never vetted=TRUE on the INSERT, or the derive never fires.
 
-	// Secondary links (confidence < 1.0) need the Rust ScrubHandler's verdict —
+	// Every link needs the Rust ScrubHandler's verdict —
 	// enqueue one article-keyed scrub item each. Duplicate enqueues collapse on
 	// the pipeline_work PK without yanking a live lease.
 	for id := range needScrub {
@@ -808,11 +796,20 @@ func (s *NewsService) fetchFromRSS(
 					continue
 				}
 
-				kept := filterRSSArticles(entityType, entityName, sport, team, firstName, lastName, aliases, articles)
-				f.MatchRejected += len(articles) - len(kept)
-
-				beforeDedup := len(allArticles) + len(kept)
-				allArticles = deduplicateArticles(append(allArticles, kept...))
+				// No relevance filter here any more. This used to run MatchesEntity over
+				// title+description and drop whatever did not name the entity — 4,859 of
+				// 9,694 articles on the 2026-07-26 sweep, half of everything Google
+				// returned, and fifteen clubs (Nice, Spezia, Leganés, Huesca …) admitted
+				// nothing at all because their names are short or ambiguous.
+				//
+				// It was re-deriving something the query already established: we asked
+				// Google for this entity, so the link IS the query. Relevance is now
+				// decided once, downstream, by something that reads the body instead of
+				// pattern-matching a headline. MatchRejected stays in the funnel and
+				// stays at zero -- the invariant still has to balance, and a filter
+				// returning here would need somewhere to report itself.
+				beforeDedup := len(allArticles) + len(articles)
+				allArticles = deduplicateArticles(append(allArticles, articles...))
 				f.DedupCollapsed += beforeDedup - len(allArticles)
 
 				if limit > 0 && len(allArticles) >= limit {
@@ -870,24 +867,6 @@ func buildRSSSearchQueries(entityType, primarySearch, sport string, aliases []st
 	return searchQueries
 }
 
-func filterRSSArticles(entityType, entityName, sport, team, firstName, lastName string, aliases []string, articles []Article) []Article {
-	matchInput := EntityMatchInput{
-		EntityType: entityType,
-		Name:       entityName,
-		FirstName:  firstName,
-		LastName:   lastName,
-		Team:       team,
-		Aliases:    aliases,
-		Sport:      sport,
-	}
-	out := make([]Article, 0, len(articles))
-	for _, a := range articles {
-		if MatchesEntity(articleMatchText(a), matchInput) {
-			out = append(out, a)
-		}
-	}
-	return out
-}
 
 func buildTeamRSSSearchQueries(primarySearch, sport string, aliases []string) []string {
 	primaryTerm := teamRSSPrimaryQueryTerm(primarySearch, sport, aliases)

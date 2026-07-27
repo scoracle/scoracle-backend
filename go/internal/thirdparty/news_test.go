@@ -254,25 +254,6 @@ func TestBuildRSSSearchQueries_PlayerKeepsConservativeFallback(t *testing.T) {
 	}
 }
 
-func TestFilterRSSArticles_TeamRequiresLocalMention(t *testing.T) {
-	articles := []Article{
-		{Title: "Markets rally after company earnings", Description: "No exact team wording."},
-		{Title: "Manchester United agree deal", Description: "Club confirms the move."},
-		{Title: "Man United track midfielder", Description: "Transfer latest."},
-	}
-	got := filterRSSArticles("team", "Manchester United", "FOOTBALL", "", "", "", []string{"MUN", "Man United"}, articles)
-	if len(got) != 2 {
-		t.Fatalf("team filter kept %d articles, want 2 local mentions: %#v", len(got), got)
-	}
-	if got[0].Title != "Manchester United agree deal" || got[1].Title != "Man United track midfielder" {
-		t.Fatalf("team filter kept wrong articles: %#v", got)
-	}
-
-	player := filterRSSArticles("player", "LeBron James", "NBA", "Lakers", "LeBron", "James", nil, articles)
-	if len(player) != 0 {
-		t.Fatalf("player filter kept %d articles, want 0 without a match", len(player))
-	}
-}
 
 func TestLimitRSSArticles_ZeroMeansUncapped(t *testing.T) {
 	articles := []Article{{Title: "one"}, {Title: "two"}, {Title: "three"}}

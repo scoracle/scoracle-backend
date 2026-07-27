@@ -30,7 +30,17 @@ import (
 func main() {
 	mode := flag.String("mode", "ingest", "compatibility flag; only ingest is supported")
 	sport := flag.String("sport", "", "NBA | NFL | FOOTBALL | all (default all)")
-	rssLimit := flag.Int("rss-limit", 12, "[sweep] max articles per team RSS call; 0 = no truncation")
+	// 100 is one page: Google News RSS returns at most 100 items per request, so this takes
+	// what a single search gives and truncates nothing that was ever offered. At 12 the cap
+	// never bound on a quiet club (Spezia returns 3) and bound ONLY on the entities with the
+	// most news (Arsenal returns 100, kept 12) -- it exclusively starved the biggest stories,
+	// which are the ones this product exists to tell.
+	//
+	// Keeping a number rather than 0 is deliberate: the fetch loop's early exit stops querying
+	// alias lanes once the cap is reached, so a busy club is satisfied by its primary query
+	// alone while a quiet one still runs every lane looking for the little that exists. 0 would
+	// disable that and make every entity pay for all three.
+	rssLimit := flag.Int("rss-limit", 100, "[sweep] max articles per entity, one Google News page; 0 = no truncation")
 	rssPauseMs := flag.Int("rss-pause-ms", 100, "[sweep] pause between team RSS calls (polite to Google News)")
 	logLevel := flag.String("log-level", "info", "debug | info | warn | error; debug adds the per-team fetch funnel")
 	flag.Parse()

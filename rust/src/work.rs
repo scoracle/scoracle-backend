@@ -210,39 +210,38 @@ pub const PILLAR_STAGES: [Stage; 5] = [
 
 /// True when no pillar stage still owes this entity work — the Oracle's completion barrier.
 ///
-/// This needs no new column and no migration, because the row lifecycle already encodes it:
-/// [`complete`] DELETEs the row, so "no row for this (stage, entity)" already means "that pillar
-/// has settled". The barrier is therefore just an absence check over [`PILLAR_STAGES`].
+/// This needs no migration, because the row lifecycle already encodes the answer: [`complete`]
+/// DELETEs the row, so "no row for this (stage, entity)" already means "that pillar has settled".
 ///
-/// Two deliberate exclusions, both load-bearing:
+/// ## Call this only AFTER `complete()`
 ///
-/// `except` is the row THIS handler currently holds, when it holds one, and skipping it is what
-/// makes the barrier fire at all. The worker
-/// calls [`complete`] only AFTER the handler returns (see `worker.rs`), so a handler asking "are the
-/// pillars settled?" is still holding its own row in 'running'. Counting that row would mean the
-/// last pillar to finish always sees one outstanding item and the Oracle would never be enqueued.
+/// The barrier takes no "except this stage" argument, and that is load-bearing rather than an
+/// omission. It originally did: handlers called it, and since the worker completes an item only
+/// AFTER its handler returns, each caller had to exclude the row it was still holding in
+/// 'running'. That was correct while the drain was `for handler { for item { await } }` and only
+/// one item was ever in flight.
 ///
-/// `status = 'failed'` counts as SETTLED rather than outstanding. A pillar that has exhausted its
-/// retries is a dead-letter awaiting a human, and treating it as outstanding would block every
-/// reading for that entity indefinitely — one stuck character silencing the other five. A reading
-/// built on four pillars is worth more than no reading at all, and `load_pillars` already tolerates
-/// a missing pillar.
+/// The concurrent drain broke it. With several items in flight, two pillar handlers for the SAME
+/// entity can both reach the check before either's row is deleted: each excludes only its own
+/// stage, each sees the other's row still 'running', and BOTH decline. Nothing enqueues the
+/// Oracle and the entity is never crowned — a lost wakeup, silent, and invisible in any log.
+///
+/// Asking after completion removes the race by construction rather than narrowing it. Rows only
+/// ever disappear, so the question is monotone: whoever completes last observes zero outstanding
+/// pillars and enqueues. A tie merely means two callers both see zero and both enqueue, which
+/// `enqueue`'s ON CONFLICT already coalesces.
+///
+/// `status = 'failed'` counts as SETTLED. A pillar that has exhausted its retries is a
+/// dead-letter awaiting a human, and treating it as outstanding would block every reading for
+/// that entity indefinitely — one stuck character silencing the other five. `load_pillars`
+/// already tolerates a missing pillar.
 pub async fn pillars_settled(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i64,
     sport: &str,
-    except: Option<Stage>,
 ) -> Result<bool> {
-    // `None` when the caller is releasing the barrier for a DIFFERENT entity than the one whose row
-    // it holds — the Insider's rumor path enqueues for both the team (whose `transfers` row it is
-    // running) and the player (whose rows it holds none of). Excluding `transfers` for that player
-    // would skip a genuinely outstanding row.
-    let stages: Vec<&str> = PILLAR_STAGES
-        .iter()
-        .map(|s| s.as_str())
-        .filter(|s| except.map(|e| e.as_str()) != Some(*s))
-        .collect();
+    let stages: Vec<&str> = PILLAR_STAGES.iter().map(|s| s.as_str()).collect();
 
     let settled: bool = sqlx::query_scalar(
         r#"
@@ -408,24 +407,4 @@ mod tests {
         assert!(!PILLAR_STAGES.contains(&Stage::Sigil));
     }
 
-    /// The `except` filter is what lets the barrier fire at all: the calling handler still holds
-    /// its own row in 'running' (the worker completes only after the handler returns), so that one
-    /// stage must drop out of the query. `None` drops nothing — the Insider's player path holds no
-    /// row for the entity it is releasing.
-    #[test]
-    fn except_drops_only_the_calling_stage() {
-        let with = |except: Option<Stage>| -> Vec<&str> {
-            PILLAR_STAGES
-                .iter()
-                .map(|s| s.as_str())
-                .filter(|s| except.map(|e| e.as_str()) != Some(*s))
-                .collect()
-        };
-        assert_eq!(with(None).len(), 5);
-        assert_eq!(with(Some(Stage::Momentum)).len(), 4);
-        assert!(!with(Some(Stage::Momentum)).contains(&"momentum"));
-        assert!(with(Some(Stage::Momentum)).contains(&"vibe"));
-        // A non-pillar stage is not in the list to begin with, so nothing is dropped.
-        assert_eq!(with(Some(Stage::Graph)).len(), 5);
-    }
 }

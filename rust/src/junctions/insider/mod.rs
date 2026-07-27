@@ -1729,42 +1729,38 @@ async fn maybe_apply_transfer_identity(
     Ok(false)
 }
 
-/// enqueue_sigil_for_transfer offers the player AND the team a freshly
-/// served rumor touches — the Phase 5.1 transfer→sigil trigger (the deferred half of the plan's
+/// enqueue_sigil_for_transfer offers the PLAYER a freshly served rumor names to the Oracle's
+/// completion barrier — the Phase 5.1 transfer→sigil trigger (the deferred half of the plan's
 /// trigger-topology step). Transfer heat is a Sigil pillar and part of its `input_hash` now, so a
 /// real change to the served-rumor set flips the hash and the re-run is real work; the Sigil
 /// `input_hash` debounce is the second guard, skipping the model call when the served-rumor set is
 /// unchanged. The persisted rumor id is the work-row `input_version`, so a done sigil row reopens
 /// on each new served rumor and idempotently coalesces to one pending row within a drain. `sport`
-/// is upper-cased (matching the news-rail sigil rows' conflict key), mirroring the rating→sigil
-/// `enqueue_sigil` in `bin/statcommentary`.
+/// is upper-cased (matching the news-rail sigil rows' conflict key).
+///
+/// The TEAM is deliberately absent: it is the entity being drained, so the worker offers it after
+/// completing this `transfers` item. Offering it from here would ask the barrier a question this
+/// handler's own un-deleted row is guaranteed to answer wrong.
 async fn enqueue_sigil_for_transfer(
     hx: &Harness,
-    team_id: i32,
     player_id: i32,
     sport: &str,
     rumor_id: i64,
 ) -> Result<()> {
     let input_version = Some(rumor_id.to_string());
-    // Both entities go through the completion barrier now, but they are NOT symmetric. This
-    // handler holds the TEAM's `transfers` row (it is the item being drained), so that row is
-    // still 'running' and must be excluded or the barrier can never fire. It holds nothing of the
-    // PLAYER's — a pending `transfers` row there is somebody else's outstanding work and must
-    // still block, so the player passes `None`.
-    for (entity_type, entity_id, except) in [
-        ("player", player_id, None),
-        ("team", team_id, Some(Stage::Transfers)),
-    ] {
-        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-            &hx.pool,
-            except,
-            entity_type,
-            i64::from(entity_id),
-            sport,
-            input_version.clone(),
-        )
-        .await?;
-    }
+    // Only the PLAYER is offered here. The team is the entity being drained, so the worker offers
+    // it after completing the transfers item — asking now, while this handler still holds that row,
+    // is the race the barrier's doc comment describes. The player holds no row we own, so it is
+    // safe to ask at any point; if one of the player's own pillars is mid-flight the barrier simply
+    // declines and that pillar's completion asks again.
+    crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+        &hx.pool,
+        "player",
+        i64::from(player_id),
+        sport,
+        input_version,
+    )
+    .await?;
     Ok(())
 }
 
@@ -2284,7 +2280,6 @@ impl StageHandler for TransferHandler {
                     if row.is_rumor == Some(true) {
                         if let Err(e) = enqueue_sigil_for_transfer(
                             hx,
-                            team_id,
                             c.player_id,
                             &sport,
                             persisted_rumor_id,

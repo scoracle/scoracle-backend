@@ -1619,18 +1619,6 @@ impl StageHandler for PeakHandler {
                 season = out.season,
                 "peak: skipped unchanged rating input"
             );
-            // An unchanged PEAK still SETTLES the peak pillar, so the barrier is offered here too.
-            // This is the skip path a quiet entity takes on nearly every sweep; leaving it out
-            // would strand exactly the entities whose spreads are ready to crown.
-            crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-                &hx.pool,
-                Some(Stage::Peak),
-                &item.entity_type,
-                item.entity_id,
-                &sport,
-                item.input_version.clone(),
-            )
-            .await?;
             return Ok(());
         }
 
@@ -1646,17 +1634,6 @@ impl StageHandler for PeakHandler {
         .await?;
         crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
             .await?;
-        // Downstream first, barrier second — the momentum enqueue above may create the row this
-        // check must wait on.
-        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-            &hx.pool,
-            Some(Stage::Peak),
-            &item.entity_type,
-            item.entity_id,
-            &sport,
-            item.input_version.clone(),
-        )
-        .await?;
         Ok(())
     }
 }

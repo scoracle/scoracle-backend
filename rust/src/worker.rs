@@ -507,6 +507,33 @@ impl Worker {
                 if let Err(e) = work::complete(&self.pool, &item).await {
                     error!(error = %format!("{e:#}"), %stage, "complete failed");
                 }
+                // The Oracle's completion barrier, offered from exactly one place and only AFTER
+                // the row is gone. Pillar handlers used to ask this themselves, which was correct
+                // while the drain ran one item at a time and is not correct now: with several
+                // items in flight, two pillars for the same entity could both ask while both rows
+                // were still 'running', both see the other outstanding, and both decline — the
+                // entity never crowned, with nothing in any log to say so. Asking after completion
+                // makes the question monotone, so whoever finishes last always sees zero.
+                //
+                // Best-effort by design. A failed enqueue must not fail an item whose real work is
+                // already persisted and whose row is already deleted; the next pillar to settle for
+                // this entity asks again, and Sigil's input-hash debounce makes a duplicate cheap.
+                if work::PILLAR_STAGES.contains(&item.stage) {
+                    if let Err(e) = crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
+                        &self.pool,
+                        &item.entity_type,
+                        item.entity_id,
+                        &item.sport,
+                        item.input_version.clone(),
+                    )
+                    .await
+                    {
+                        warn!(
+                            error = %format!("{e:#}"), %stage, entity = item.entity_id,
+                            "oracle barrier check failed (best-effort)"
+                        );
+                    }
+                }
             }
             Err(e) => {
                 let backoff = retry_backoff(item.attempts);

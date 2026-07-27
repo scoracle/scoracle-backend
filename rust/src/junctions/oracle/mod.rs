@@ -184,45 +184,29 @@ impl SigilOutput {
 ///
 /// ## What this replaces
 ///
-/// Three pillar handlers used to enqueue Sigil directly the moment their own card landed
-/// (`enqueue_sigil_for_peak`, `enqueue_sigil_for_momentum`, `enqueue_sigil_for_transfer`). That
-/// meant the Oracle could be crowned off a spread where the other characters had not spoken yet —
-/// it read whatever pillars happened to exist and rendered a verdict on a half-dealt table. The
-/// Sigil stage's own input-hash debounce hid the cost rather than fixing it: the reading was
-/// regenerated later, so the waste showed up as churn instead of as a wrong card.
+/// Pillar handlers used to enqueue Sigil the moment their own card landed, so the Oracle could be
+/// crowned off a spread where the other characters had not spoken yet — it read whatever pillars
+/// happened to exist and rendered a verdict on a half-dealt table. Sigil's own input-hash debounce
+/// hid the cost rather than fixing it: the reading was regenerated later, so the waste showed up as
+/// churn instead of as a wrong card.
 ///
-/// Now all five pillar handlers call this, and the LAST one to settle is the one that enqueues.
+/// ## Call this only AFTER `work::complete()`
 ///
-/// ## Why five callers and not three
-///
-/// The Journalist (`narratives`) and The Influencer (`vibe`) never enqueued Sigil, because they
-/// reach the Oracle INDIRECTLY — narratives → vibe → momentum → sigil. That chain made them look
-/// like non-participants, but it is exactly why they must call this: whichever pillar finishes
-/// last has to be able to release the barrier, and on a quiet entity that can easily be one of
-/// these two.
-///
-/// ## Ordering — enqueue downstream BEFORE calling this
-///
-/// A handler that enqueues its own downstream work (peak → momentum, narratives → vibe) must do so
-/// FIRST. This barrier asks whether any pillar row is outstanding, so a not-yet-created downstream
-/// row is an invisible one: check first and the barrier sees a clear table, fires early, and the
-/// Oracle reads a spread that is about to change underneath it. Enqueue, then check.
+/// The worker calls it once, for any pillar stage, immediately after completing the item — see
+/// [`work::pillars_settled`] for why asking before completion is racy under the concurrent drain.
+/// The Insider is the one other caller, because a served rumor settles nothing for the PLAYER it
+/// names: that is a different entity than the one being drained, holds no row this handler owns,
+/// and so is safe to ask about at any point.
 pub async fn enqueue_oracle_if_pillars_settled(
     pool: &PgPool,
-    from: Option<Stage>,
     entity_type: &str,
     entity_id: i64,
     sport: &str,
     input_version: Option<String>,
 ) -> Result<bool> {
-    debug_assert!(
-        from.is_none_or(|f| work::PILLAR_STAGES.contains(&f)),
-        "the barrier is released by pillar stages only; {from:?} is not one"
-    );
-
-    if !work::pillars_settled(pool, entity_type, entity_id, sport, from).await? {
+    if !work::pillars_settled(pool, entity_type, entity_id, sport).await? {
         debug!(
-            %entity_type, entity_id, %sport, from = ?from,
+            %entity_type, entity_id, %sport,
             "oracle barrier: pillars still outstanding; not enqueuing"
         );
         return Ok(false);
@@ -238,7 +222,7 @@ pub async fn enqueue_oracle_if_pillars_settled(
     };
     work::enqueue(pool, &sig).await?;
     debug!(
-        %entity_type, entity_id, %sport, from = ?from,
+        %entity_type, entity_id, %sport,
         "oracle barrier: last pillar settled; enqueued sigil"
     );
     Ok(true)

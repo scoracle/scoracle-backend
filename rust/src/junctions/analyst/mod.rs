@@ -571,19 +571,6 @@ impl StageHandler for MomentumHandler {
             },
         )
         .await;
-        // The Analyst is a pillar, not the Oracle's trigger. It used to enqueue Sigil outright,
-        // which crowned the entity off whatever pillars happened to exist; now it releases the
-        // barrier only if it is the LAST pillar to settle. Momentum enqueues no downstream work of
-        // its own, so there is nothing to enqueue before the check here.
-        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-            &hx.pool,
-            Some(Stage::Momentum),
-            &item.entity_type,
-            item.entity_id,
-            &sport,
-            Some(momentum_work_input_version(out.season, &out.input_hash)),
-        )
-        .await?;
         Ok(())
     }
 }

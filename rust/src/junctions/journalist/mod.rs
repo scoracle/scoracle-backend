@@ -1848,24 +1848,6 @@ impl StageHandler for NarrativesHandler {
             );
         }
 
-        // The Oracle's completion barrier. The Journalist reaches the Oracle only INDIRECTLY
-        // (narratives → vibe → momentum → sigil), which is why it never enqueued Sigil before —
-        // but that is exactly why it must offer here: whichever pillar settles LAST releases the
-        // barrier, and on a quiet entity whose vibe context did not move (the branch just above)
-        // this handler is the last one to run.
-        //
-        // Ordering is load-bearing: the vibe enqueue above must happen BEFORE this check, or the
-        // barrier sees a table with no vibe row, fires early, and the Oracle reads a spread that
-        // is about to change underneath it.
-        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-            &hx.pool,
-            Some(Stage::Narratives),
-            &item.entity_type,
-            item.entity_id,
-            &sport_up,
-            item.input_version.clone(),
-        )
-        .await?;
         Ok(())
     }
 }

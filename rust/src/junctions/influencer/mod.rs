@@ -793,18 +793,6 @@ impl StageHandler for VibeHandler {
             // oracle enqueue.
             crate::junctions::analyst::enqueue_momentum_if_needed(hx, &item.entity_type, entity_id, &sport)
                 .await?;
-            // ...and offer the Oracle's barrier on this path too. A quiet entity whose vibe
-            // context did not move takes THIS branch, so skipping the offer here would mean the
-            // commonest settling path never releases the barrier.
-            crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-                &hx.pool,
-                Some(Stage::Vibe),
-                &item.entity_type,
-                item.entity_id,
-                &sport,
-                item.input_version.clone(),
-            )
-            .await?;
             return Ok(());
         }
 
@@ -898,18 +886,6 @@ impl StageHandler for VibeHandler {
             );
         }
 
-        // The momentum enqueue above must come FIRST: it may create the very `momentum` row this
-        // barrier is meant to wait on, and a check that runs before it would see a clear table and
-        // crown the entity on a spread still in motion.
-        crate::junctions::oracle::enqueue_oracle_if_pillars_settled(
-            &hx.pool,
-            Some(Stage::Vibe),
-            &item.entity_type,
-            item.entity_id,
-            &sport,
-            item.input_version.clone(),
-        )
-        .await?;
 
         Ok(())
     }

@@ -669,9 +669,15 @@ is still untested against bodies and may be legitimate league reporting — meas
 
 - Env: `set -a && source .env.local && set +a`. `.env.local` is **gitignored** — the gemma route
   lives only on this box, with its rationale and rollback in a comment beside it.
-- Deploy is atomic rename, never `cp` (ETXTBSY), never `pkill`:
-  `cargo build --bin scoracle-cognition && cp target/debug/scoracle-cognition bin/.new && chmod 700 bin/.new && mv -f bin/.new bin/scoracle-cognition`
-  The systemd **user** path unit auto-restarts. Go binary is `go/bin/pipeline`, same pattern.
+- Deploy is atomic rename, never `cp` (ETXTBSY), never `pkill`. **Run it from `rust/`** — the paths
+  below are relative to that, and the repo root's `bin/` holds only `scoracle-api`, so running this
+  from the root silently targets the wrong directory (cost time on 2026-07-26):
+  `cd rust && cargo build --bin scoracle-cognition && cp target/debug/scoracle-cognition bin/.new && chmod 700 bin/.new && mv -f bin/.new bin/scoracle-cognition`
+  The deployed binary is therefore `rust/bin/scoracle-cognition`, which is what the unit's
+  `ExecStart` points at. The systemd **user** path unit auto-restarts. Go binary is
+  `go/bin/pipeline`, same pattern.
+- Verify a deploy took by reading the startup line rather than the file mtime — it prints the commit:
+  `journalctl --user -u scoracle-cognition -n 40 --no-pager | grep 'scoracle-cognition starting'`
 - `COGNITION_STAGES` in `.env.local` **overrides** the systemd unit. Units are `systemctl --user`.
 - `sql/schema/schema.sql` is a snapshot after mig 183; migs 184–194 live only in their files.
 

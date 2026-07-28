@@ -23,6 +23,7 @@ use crate::route::{Role, Router};
 use anyhow::{anyhow, Context, Result};
 use sqlx::PgPool;
 use std::collections::HashMap;
+use std::time::Duration;
 
 /// Harness — the capability context handed to every stage composition. Built once at boot.
 pub struct Harness {
@@ -43,6 +44,18 @@ pub struct Harness {
     pub embedder: Option<Embedder>,
     /// Near-verbatim novelty policy.
     pub scrub: ScrubConfig,
+    /// The worker's per-item ceiling (`COGNITION_HANDLER_TIMEOUT_SECONDS`), exposed so a handler
+    /// that makes N *sequential* model calls can stop itself before the axe falls instead of being
+    /// cancelled mid-loop. `Duration::ZERO` means unbounded, matching the worker's own reading of
+    /// a zero timeout — the eval and one-shot binaries build the harness that way, so an
+    /// inspection run always drives an entity to completion no matter how long it takes.
+    ///
+    /// Only `transfers` reads it today, and the asymmetry is the point: every other junction makes
+    /// exactly one `extract` call per item, so its wall clock is one generation and cannot
+    /// approach the ceiling. `transfers` makes one per candidate pair plus one per wire-wrap
+    /// target, so its wall clock is a queue depth — it hit 1200s on 18 teams on 2026-07-27, and
+    /// the half it lost was always the wrap, which runs last.
+    pub handler_budget: Duration,
 }
 
 // ===========================================================================

@@ -179,6 +179,10 @@ pub async fn claim(pool: &PgPool, stage: Stage, limit: i64) -> Result<Vec<Item>>
 /// complete removes a finished work item — only while still 'running' (the
 /// caller holds the lease). If a newer input reopened the row to 'pending'
 /// mid-flight, this is a no-op and the reopened work survives for reprocessing.
+///
+/// The `status = 'running'` guard is also what makes [`defer`] work: a handler that hands its own
+/// row back to 'pending' and then returns `Ok(())` passes through the worker's completion path
+/// without its row being deleted. That is the deferral protocol, not an accident — see [`defer`].
 pub async fn complete(pool: &PgPool, it: &Item) -> Result<()> {
     sqlx::query(
         r#"
@@ -303,6 +307,50 @@ pub async fn fail(
     .execute(pool)
     .await
     .with_context(|| format!("fail {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
+    Ok(())
+}
+
+/// defer hands a leased item back to 'pending' with NO attempt penalty, because it is not a
+/// failure: the handler did real, persisted work and has more to do, and stopped short of the
+/// worker's per-item ceiling so it could exit cleanly instead of being cancelled mid-loop.
+///
+/// Distinct from its two neighbours in both directions. Not [`fail`], which is for an error and
+/// burns one of five attempts — a handler that is *working* must not walk the retry ladder, and
+/// its 30-minute rungs are exactly the wrong pacing for an item that only needs another turn. Not
+/// [`complete`], which DELETEs the row — wrong here, because for a pillar stage that row is also
+/// the Oracle barrier's evidence that this pillar still owes the entity work. A deferred row stays
+/// visible to the barrier, so nothing gets crowned on half-finished input.
+///
+/// `note` is written to `last_error` — it is the only place the deferral is visible in the queue
+/// itself, and reading a deferral there as a failure would be worse than the mild lie of the
+/// column's name. A deferred row is 'pending', so [`enqueue`]'s conflict policy leaves it alone
+/// unless the input actually changed, which is the correct answer either way.
+///
+/// **The caller owes a progress guarantee.** `attempts` does not move, so nothing in this function
+/// bounds the number of rounds: an item that defers without resolving anything defers forever.
+/// Defer only after durable progress, and fall back to [`fail`]'s ladder when a round achieved
+/// nothing.
+pub async fn defer(pool: &PgPool, it: &Item, delay: Duration, note: &str) -> Result<()> {
+    sqlx::query(
+        r#"
+        UPDATE pipeline_work
+           SET status = 'pending',
+               available_at = NOW() + make_interval(secs => $5),
+               updated_at = NOW(),
+               last_error = $6
+         WHERE stage = $1 AND entity_type = $2 AND entity_id = $3 AND sport = $4
+           AND status = 'running'
+        "#,
+    )
+    .bind(it.stage.as_str())
+    .bind(it.entity_type.as_str())
+    .bind(it.entity_id)
+    .bind(it.sport.as_str())
+    .bind(delay.as_secs_f64())
+    .bind(truncate(note, 2000))
+    .execute(pool)
+    .await
+    .with_context(|| format!("defer {} {}/{}", it.stage, it.entity_type, it.entity_id))?;
     Ok(())
 }
 

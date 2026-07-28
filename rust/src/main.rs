@@ -119,6 +119,9 @@ async fn main() -> Result<()> {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder,
         scrub: cfg.scrub.clone(),
+        // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
+        // land inside it under its own power rather than being cancelled at it.
+        handler_budget: cfg.handler_timeout,
     };
 
     // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the

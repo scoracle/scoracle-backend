@@ -827,6 +827,9 @@ async fn build_harness(cfg: &Config) -> Result<Harness> {
         router,
         embedder: None,
         scrub: cfg.scrub.clone(),
+        // Unbounded: an inspection run drives its entity to completion. Nothing here is racing a
+        // worker timeout, and a truncated eval would be a worse artifact than a slow one.
+        handler_budget: Duration::ZERO,
     })
 }
 

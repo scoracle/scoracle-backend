@@ -45,7 +45,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
-use tracing::{debug, warn};
+use std::time::{Duration, Instant};
+use tracing::{debug, info, warn};
 
 // This junction's contract with its model — system prompt, contract version, and prompt
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
@@ -70,6 +71,46 @@ const TRANSFER_MAX_CANDIDATES: i32 = 40;
 /// How far apart (title chars) a team and player may be mentioned and still count as a genuine
 /// co-mention.
 const COMENTION_PROXIMITY_CHARS: i32 = 50;
+
+// --- Self-pacing against the worker's per-item ceiling -----------------------------------------
+//
+// This is the only stage whose wall clock is a queue depth rather than one generation: a team item
+// is one Mac call per candidate pair, then one more per wire-wrap target. At the 40-candidate cap
+// that is ~80 sequential generations, which does not fit inside a 1200s ceiling even on an idle
+// GPU — and queueing behind the other five voices is what actually pushed 18 teams over it on
+// 2026-07-27.
+//
+// Being cancelled at the ceiling is not merely slow, it is *biased*: the wrap runs last, so the
+// half that never ran was always the same half. Those teams kept producing rumors while their
+// `insider_scores` went two days stale. So the budget is split rather than spent first-come —
+// the pair loop gets half, the wrap is guaranteed the rest, and whatever is left over is deferred
+// to another turn instead of being thrown away.
+
+/// Fraction of the run's budget the pair loop may spend before it stops and defers the remainder.
+const TRANSFER_PAIR_BUDGET_FRAC: f64 = 0.50;
+/// Fraction at which the wire wrap stops too. The gap below 1.0 is headroom for the autofill
+/// refresh and the bookkeeping that follow — this handler must land inside the ceiling, not race
+/// it to the line.
+const TRANSFER_WRAP_BUDGET_FRAC: f64 = 0.85;
+/// How long a deferred team waits before it is claimable again. Claims order by `available_at`, so
+/// this puts a big team behind the other pending teams rather than letting it immediately re-take
+/// the stage's single in-flight slot and monopolise it round after round.
+const TRANSFER_DEFER_DELAY: Duration = Duration::from_secs(60);
+
+/// budget_deadline is the instant at which `frac` of the run's budget is spent, or `None` when the
+/// budget is unbounded (`Duration::ZERO` — eval and the one-shot binaries). `None` is what makes an
+/// inspection run drive a team to completion however long it takes.
+fn budget_deadline(start: Instant, budget: Duration, frac: f64) -> Option<Instant> {
+    if budget.is_zero() {
+        return None;
+    }
+    Some(start + budget.mul_f64(frac))
+}
+
+/// past reports whether a deadline exists and has arrived. An absent deadline is never past.
+fn past(deadline: Option<Instant>) -> bool {
+    matches!(deadline, Some(d) if Instant::now() >= d)
+}
 /// Summary and news-description clip sizes for prompt budget control.
 const SUMMARY_TRUNCATE: usize = 240;
 const DESC_TRUNCATE: usize = 160;
@@ -2138,10 +2179,23 @@ impl StageHandler for TransferHandler {
             load_transfer_identity_threshold(&hx.pool, &sport),
         )?;
 
+        let start = Instant::now();
+        let pair_deadline = budget_deadline(start, hx.handler_budget, TRANSFER_PAIR_BUDGET_FRAC);
+        let wrap_deadline = budget_deadline(start, hx.handler_budget, TRANSFER_WRAP_BUDGET_FRAC);
+
         let mut unknown = 0usize;
         let mut errored = 0usize;
+        let mut vetted = 0usize;
+        let mut pairs_deferred = 0usize;
         let mut autofill_refresh_wanted = false;
-        for c in &candidates {
+        for (idx, c) in candidates.iter().enumerate() {
+            // Stop on the budget, not on the axe. Everything behind this point is already
+            // persisted and will debounce-skip next round, so the pairs left here are the only
+            // ones that cost anything to carry forward.
+            if past(pair_deadline) {
+                pairs_deferred = candidates.len() - idx;
+                break;
+            }
             // Model-failure UNKNOWN is not an infrastructure error: it is a successful fail-closed
             // row that the `unknown` tally turns into a team retry. DB/build/persist errors are
             // infrastructure failures; keep scanning pairs for visibility, then fail the team item.
@@ -2300,7 +2354,11 @@ impl StageHandler for TransferHandler {
             .await;
             match pair {
                 Ok(Outcome::Unknown) => unknown += 1,
-                Ok(_) => {}
+                // Rumor/Cleared is a pair that reached a verdict on THIS run — the durable
+                // progress the deferral protocol requires. Skipped is a debounce hit or an empty
+                // corpus: correct, but it did not move the pair forward, so it does not count.
+                Ok(Outcome::Rumor) | Ok(Outcome::Cleared) => vetted += 1,
+                Ok(Outcome::Skipped) => {}
                 Err(e) => {
                     errored += 1;
                     warn!(
@@ -2329,6 +2387,10 @@ impl StageHandler for TransferHandler {
         // unchanged board pays nothing (skip inside); a failed wrap rides the existing
         // `errored` retry tally — the persisted rumors stand, the team item retries, every
         // unchanged pair debounce-skips, so only the wrap pays for the retry.
+        //
+        // Running LAST is why this needed its own budget: on a busy team the pair loop used to
+        // spend the whole ceiling and the wrap never ran at all, so the teams with the most
+        // transfer news were the ones whose scores went stale.
         let mut wrap_targets: Vec<(&str, i32, String)> = vec![("team", team_id, team_name.clone())];
         let mut seen_players: std::collections::HashSet<i32> = std::collections::HashSet::new();
         for c in &candidates {
@@ -2353,7 +2415,12 @@ impl StageHandler for TransferHandler {
                 );
             }
         }
-        for (entity_type, entity_id, entity_name) in &wrap_targets {
+        let mut wraps_deferred = 0usize;
+        for (idx, (entity_type, entity_id, entity_name)) in wrap_targets.iter().enumerate() {
+            if past(wrap_deadline) {
+                wraps_deferred = wrap_targets.len() - idx;
+                break;
+            }
             if let Err(e) =
                 score_insider_entity(hx, entity_type, *entity_id, entity_name, &sport).await
             {
@@ -2367,15 +2434,59 @@ impl StageHandler for TransferHandler {
             }
         }
 
+        let deferred = pairs_deferred + wraps_deferred;
+        info!(
+            team = team_id,
+            candidates = candidates.len(),
+            pairs_vetted = vetted,
+            pairs_unknown = unknown,
+            pairs_deferred,
+            wrap_targets = wrap_targets.len(),
+            wraps_deferred,
+            errored,
+            elapsed_s = start.elapsed().as_secs(),
+            "transfers: team drain finished"
+        );
+
+        // A real infrastructure failure still walks the retry ladder — that is what `attempts` is
+        // for, and a broken pool or a failing persist is not something another turn fixes.
         if errored > 0 {
             bail!(
                 "transfers: {errored} pair infrastructure/persist error(s) — retrying team {}",
                 item.entity_id
             );
         }
+
+        // Out of budget with work left. `vetted > 0` is the progress guarantee `work::defer`
+        // demands: a round that resolved nothing must not get a free turn, or a team whose very
+        // first pair outruns the whole budget would defer forever. Such a round falls through to
+        // the bails below and burns an attempt like any other stuck item.
+        //
+        // Deferring takes precedence over the `unknown` bail on purpose. Unresolved pairs are
+        // retried next round regardless (an UNKNOWN row never satisfies the F3 fingerprint gate),
+        // so making the item pay an attempt for them here would penalise a run that was making
+        // progress. The round that finally finishes inside its budget is the one that hands any
+        // still-unresolved pairs to the retry ladder.
+        if deferred > 0 && vetted > 0 {
+            let note = format!(
+                "deferred: {pairs_deferred} pair(s) + {wraps_deferred} wrap(s) left after {}s",
+                start.elapsed().as_secs()
+            );
+            crate::work::defer(&hx.pool, item, TRANSFER_DEFER_DELAY, &note).await?;
+            debug!(team = team_id, %note, "transfers: team deferred to another turn");
+            return Ok(());
+        }
+
         if unknown > 0 {
             bail!(
                 "transfers: {unknown} unresolved pair(s) (model failure) — retrying team {}",
+                item.entity_id
+            );
+        }
+        if deferred > 0 {
+            bail!(
+                "transfers: out of budget with {deferred} unit(s) left and no pair resolved — \
+                 retrying team {}",
                 item.entity_id
             );
         }

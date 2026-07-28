@@ -597,3 +597,51 @@ fn identity_adjudication_prompt_pins_candidate_ids() {
     assert!(!prompt.contains("heat"));
     assert!(!prompt.contains("Vetted summary"));
 }
+
+// --- Self-pacing against the worker's per-item ceiling ---------------------------------------
+
+/// The eval and one-shot binaries hand this junction a zero budget, and zero must mean unbounded
+/// rather than "already expired" — a deadline of `start + 0` would abandon a team before its first
+/// pair and make every inspection run useless.
+#[test]
+fn a_zero_budget_is_unbounded_not_already_expired() {
+    let start = Instant::now();
+    assert!(budget_deadline(start, Duration::ZERO, TRANSFER_PAIR_BUDGET_FRAC).is_none());
+    assert!(budget_deadline(start, Duration::ZERO, TRANSFER_WRAP_BUDGET_FRAC).is_none());
+    assert!(!past(None), "an absent deadline must never read as past");
+}
+
+/// The whole point of the split: the wire wrap runs last, so it only ever gets budget if the pair
+/// loop is made to stop short of the ceiling. This pins the ordering that guarantees it —
+/// pairs < wrap < the ceiling itself, with headroom left under the axe for the bookkeeping.
+#[test]
+fn the_wrap_is_guaranteed_a_share_of_the_budget_below_the_ceiling() {
+    let budget = Duration::from_secs(1200); // the production COGNITION_HANDLER_TIMEOUT_SECONDS
+    let start = Instant::now();
+    let pairs = budget_deadline(start, budget, TRANSFER_PAIR_BUDGET_FRAC).unwrap();
+    let wrap = budget_deadline(start, budget, TRANSFER_WRAP_BUDGET_FRAC).unwrap();
+
+    assert!(pairs < wrap, "the pair loop must stop before the wrap does");
+    assert!(
+        wrap < start + budget,
+        "the wrap must stop before the worker's ceiling, not at it"
+    );
+    assert!(
+        wrap - pairs >= Duration::from_secs(300),
+        "the wrap needs a real share, not a rounding error"
+    );
+    assert!(
+        (start + budget) - wrap >= Duration::from_secs(120),
+        "leave headroom under the ceiling for the autofill refresh and bookkeeping"
+    );
+}
+
+/// A deadline that has arrived reads as past; one still ahead does not. The loops check this
+/// *before* each unit of work, so an off-by-one here is the difference between deferring the tail
+/// and being cancelled mid-generation.
+#[test]
+fn past_fires_only_once_the_deadline_has_arrived() {
+    let now = Instant::now();
+    assert!(past(Some(now - Duration::from_millis(1))));
+    assert!(!past(Some(now + Duration::from_secs(30))));
+}

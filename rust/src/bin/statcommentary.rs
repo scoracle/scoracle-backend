@@ -68,6 +68,8 @@ async fn main() -> Result<()> {
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder: None,
         scrub: cfg.scrub.clone(),
+        // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
+        handler_budget: Duration::ZERO,
     };
 
     match args.mode.as_str() {

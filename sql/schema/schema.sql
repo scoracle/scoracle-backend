@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict T8n9d6OvN2e0sq3FquBmhV9g5QKDLWmN4pxWW1z9ZTjj1Y9uu8sMHz3cIRXNCzU
+\restrict b2ivL9yPRmNJin593ctD4Qf5qaSQ0Rc0PAr14b03TirDmiCVcynO88unDVNAw1m
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -38,6 +38,20 @@ CREATE SCHEMA nba;
 --
 
 CREATE SCHEMA nfl;
+
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
 
 --
@@ -2037,6 +2051,82 @@ $$;
 
 
 --
+-- Name: collapse_exact_title_duplicates(interval, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.collapse_exact_title_duplicates(p_lookback interval DEFAULT '72:00:00'::interval, p_min_title_len integer DEFAULT 30) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_marked integer;
+BEGIN
+    WITH cand AS (
+        SELECT a.id,
+               a.source,
+               a.published_at,
+               a.feed_rank,
+               -- strip punctuation, fold accents, collapse runs of spaces
+               unaccent(lower(regexp_replace(
+                   regexp_replace(a.title, '[^a-zA-Z0-9 ]', '', 'g'), ' +', ' ', 'g'))) AS norm,
+               EXISTS (SELECT 1 FROM public.news_article_entities e
+                        WHERE e.article_id = a.id AND e.vetted IS TRUE) AS corpus_visible,
+               EXISTS (SELECT 1 FROM public.news_article_readings r
+                        WHERE r.article_id = a.id) AS already_read
+          FROM public.news_articles a
+         WHERE a.published_at > now() - p_lookback
+           AND a.title <> ''
+           AND a.duplicate_of IS NULL
+    ),
+    grp AS (
+        SELECT norm
+          FROM cand
+         WHERE length(norm) >= p_min_title_len
+         GROUP BY norm
+        HAVING count(*) > 1
+           AND count(DISTINCT source) > 1     -- cross-source only
+    ),
+    ranked AS (
+        SELECT c.id,
+               c.source,
+               first_value(c.id) OVER w     AS canonical_id,
+               first_value(c.source) OVER w AS canonical_source
+          FROM cand c
+          JOIN grp g ON g.norm = c.norm
+        WINDOW w AS (
+            PARTITION BY c.norm
+            ORDER BY c.corpus_visible DESC,
+                     c.already_read    DESC,
+                     c.published_at    ASC,
+                     c.feed_rank       ASC NULLS LAST,
+                     c.id              ASC
+        )
+    )
+    UPDATE public.news_articles a
+       SET duplicate_of = r.canonical_id
+      FROM ranked r
+     WHERE a.id = r.id
+       AND r.id <> r.canonical_id
+       -- Per-PAIR cross-source check, not per-group. A group of {A, A, B} passes the group-level
+       -- `count(DISTINCT source) > 1` test, and without this the second A would be suppressed by
+       -- its own sibling -- exactly the same-source collapse the deleted cosine branch was doing.
+       -- The second A stays canonical; only B's copy is suppressed.
+       AND r.source IS DISTINCT FROM r.canonical_source
+       AND a.duplicate_of IS NULL;
+
+    GET DIAGNOSTICS v_marked = ROW_COUNT;
+    RETURN v_marked;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION collapse_exact_title_duplicates(p_lookback interval, p_min_title_len integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.collapse_exact_title_duplicates(p_lookback interval, p_min_title_len integer) IS 'Points byte-identical CROSS-SOURCE articles at one canonical copy, closing the race the per-article novelty gate cannot: two copies scrubbed before either has vetted membership are invisible to each other. Same-source repeats are NEVER collapsed (they are signal about the publication). Titles under p_min_title_len normalized chars are skipped (section headers like "Match Centre" repeat across unrelated articles). Canonical prefers the corpus-visible copy, then the already-read one, then the oldest. Writes duplicate_of only; membership untouched.';
+
+
+--
 -- Name: complete_sport_autofill_refresh(text, integer, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2386,10 +2476,6 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
     LANGUAGE sql STABLE
     AS $$
     WITH corpus AS (
-        -- News articles linking BOTH the team and the player, in PROXIMITY and
-        -- scrub-vetted on both sides. Wave 5 keeps NULL bucket rows during the
-        -- transition, but confirmed non-transfer articles no longer contribute
-        -- to transfer heat.
         SELECT 'news'::text AS kind, a.id::text AS item_id, a.source AS src, a.published_at AS ts
         FROM news_articles a
         JOIN news_article_entities te ON te.article_id = a.id AND te.entity_type='team'
@@ -2408,10 +2494,8 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
             count(DISTINCT c.src) AS distinct_sources,
             count(*) FILTER (WHERE c.ts > NOW() - INTERVAL '3 days') AS recent3,
             count(*) AS total,
-            max(c.ts) AS newest,
-            COALESCE(MAX(st.weight), 0.3) AS tier_weight
+            max(c.ts) AS newest
         FROM corpus c
-        LEFT JOIN source_tiers st ON lower(st.source) = lower(c.src) AND st.kind = c.kind
     ),
     calc AS (
         SELECT *,
@@ -2426,7 +2510,7 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
     SELECT
         CASE WHEN total = 0 THEN NULL
              ELSE GREATEST(0, LEAST(100,
-                    round(100 * tier_weight * recency * (0.6 * volume + 0.4 * recent_frac))))::smallint
+                    round(100 * recency * (0.6 * volume + 0.4 * recent_frac))))::smallint
         END,
         CASE WHEN total = 0 THEN '{}'::jsonb
              ELSE jsonb_build_object(
@@ -2434,7 +2518,6 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
                 'recent_3d', recent3,
                 'total_14d', total,
                 'newest_age_hours', round(age_hours::numeric, 1),
-                'tier_weight', tier_weight,
                 'volume', round(volume::numeric, 3),
                 'recency', round(recency::numeric, 3),
                 'recent_frac', round(recent_frac::numeric, 3))
@@ -2568,23 +2651,19 @@ CREATE FUNCTION public.enqueue_derive_on_vetted() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    v_count       integer;
-    v_fp          text;
-    v_ver         text;
-    v_graph_count integer;
+    v_vetted_count integer;
 BEGIN
-    -- Per-ARTICLE graph extraction (mig 165): one item per article, reopened when the article's
-    -- vetted membership changes; the handler debounces on material hash, so reopens are cheap.
-    -- BEFORE the freshness gate below — extraction of a backfilled old article is durable-memory
-    -- work the 72h corpus gate must not suppress. UNCHANGED by Phase 3.
-    SELECT count(*) INTO v_graph_count
+    SELECT count(*) INTO v_vetted_count
       FROM public.news_article_entities
      WHERE article_id = NEW.article_id AND vetted IS TRUE;
 
+    -- Article Reader is now the ONLY stage enqueued on a vetted write. It fetches the body,
+    -- summarizes, validates co-mentions, and may reject the article outright; whatever survives
+    -- that, it enqueues onward itself. `graph` is deliberately absent here — see the header.
     INSERT INTO public.pipeline_work
         (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    VALUES ('graph', 'article', NEW.article_id::integer, NEW.sport, 'pending',
-            'g:' || v_graph_count, NOW(), NOW())
+    VALUES ('article_read', 'article', NEW.article_id::integer, NEW.sport, 'pending',
+            'ar:' || v_vetted_count, NOW(), NOW())
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
@@ -2595,35 +2674,50 @@ BEGIN
     WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
        OR public.pipeline_work.status = 'failed';
 
-    -- Canonical membership fingerprint over this entity's vetted, in-lookback (72h) links. Phase 3:
-    -- `a.duplicate_of IS NULL` keeps only originals — a suppressed repost never perturbs the
-    -- fingerprint or re-fires narratives, matching the narratives corpus loader. Doubles as the
-    -- mig-103 freshness gate: a stale backlog primary with no fresh vetted canonical corpus yields
-    -- count=0 and enqueues nothing. One link row per (article, entity) by PK; ORDER BY makes the
-    -- aggregate deterministic.
-    SELECT count(*),
-           md5(string_agg(nae.article_id::text, ',' ORDER BY nae.article_id))
-      INTO v_count, v_fp
-      FROM public.news_article_entities nae
-      JOIN public.news_articles a ON a.id = nae.article_id
-     WHERE nae.entity_type = NEW.entity_type
-       AND nae.entity_id   = NEW.entity_id
-       AND nae.sport       = NEW.sport
-       AND nae.vetted IS TRUE
-       AND a.duplicate_of IS NULL
-       AND (a.published_at IS NULL OR a.published_at > NOW() - INTERVAL '72 hours');
+    PERFORM pg_notify('pipeline_work_ready', '');
+    RETURN NEW;
+END;
+$$;
 
-    IF v_count = 0 THEN
-        RETURN NEW;
+
+--
+-- Name: FUNCTION enqueue_derive_on_vetted(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.enqueue_derive_on_vetted() IS 'Enqueues article_read on a vetted news link. graph is NOT enqueued here — it is enqueued by the Rust ArticleReadHandler on its success path (mig 193) so it reads the summary rather than racing the reader for the headline.';
+
+
+--
+-- Name: enqueue_fixture_boxscore(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_fixture_boxscore(p_fixture_id integer) RETURNS boolean
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_sport text;
+    v_status text;
+    v_input_version text;
+BEGIN
+    SELECT sport, status, public.fixture_boxscore_input_version(id)
+      INTO v_sport, v_status, v_input_version
+      FROM public.fixtures
+     WHERE id = p_fixture_id;
+
+    IF v_sport IS NULL THEN
+        RETURN false;
+    END IF;
+    IF v_status NOT IN ('completed', 'seeded') THEN
+        RETURN false;
+    END IF;
+    IF v_input_version IS NULL THEN
+        RETURN false;
     END IF;
 
-    v_ver := v_count || ':' || v_fp;
-
-    -- Phase 3: gate ONLY into narratives. transfers ← mig-175 bucket trigger; vibe ← narratives
-    -- handler (Rust). The team-vs-player fan-out and the vibe/transfers stages are gone from here.
     INSERT INTO public.pipeline_work
         (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    VALUES ('narratives', NEW.entity_type, NEW.entity_id, NEW.sport, 'pending', v_ver, NOW(), NOW())
+    VALUES ('fixture_boxscore', 'fixture', p_fixture_id, v_sport, 'pending',
+            v_input_version, NOW(), NOW())
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
@@ -2634,12 +2728,82 @@ BEGIN
     WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
        OR public.pipeline_work.status = 'failed';
 
-    -- Redundant with the mig-133 statement-level pipeline_work notify trigger, but kept for the
-    -- minimal diff: pg_notify de-dups identical (channel,payload) within a txn, so this costs
-    -- nothing extra.
     PERFORM pg_notify('pipeline_work_ready', '');
+    RETURN true;
+END;
+$$;
 
+
+--
+-- Name: enqueue_fixture_boxscore_on_final(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_fixture_boxscore_on_final() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF NEW.status IN ('completed', 'seeded') THEN
+        IF TG_OP = 'INSERT' THEN
+            PERFORM public.enqueue_fixture_boxscore(NEW.id);
+        ELSIF OLD.status IS DISTINCT FROM NEW.status
+           OR OLD.home_score IS DISTINCT FROM NEW.home_score
+           OR OLD.away_score IS DISTINCT FROM NEW.away_score
+           OR OLD.external_id IS DISTINCT FROM NEW.external_id
+           OR OLD.home_team_id IS DISTINCT FROM NEW.home_team_id
+           OR OLD.away_team_id IS DISTINCT FROM NEW.away_team_id
+        THEN
+            PERFORM public.enqueue_fixture_boxscore(NEW.id);
+        END IF;
+    END IF;
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enqueue_fixture_boxscore_on_provider_map(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_fixture_boxscore_on_provider_map() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    PERFORM public.enqueue_fixture_boxscore(NEW.fixture_id);
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enqueue_recent_fixture_boxscores(text, interval, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_recent_fixture_boxscores(p_sport text DEFAULT NULL::text, p_since interval DEFAULT '14 days'::interval, p_limit integer DEFAULT 100) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    r record;
+    v_enqueued integer := 0;
+BEGIN
+    FOR r IN
+        SELECT f.id
+          FROM public.fixtures f
+          LEFT JOIN public.fixture_boxscore_fetches b ON b.fixture_id = f.id
+         WHERE f.status IN ('completed', 'seeded')
+           AND f.start_time >= NOW() - p_since
+           AND (p_sport IS NULL OR f.sport = p_sport)
+           AND (
+                b.fixture_id IS NULL
+             OR b.status IN ('fetch_failed', 'parse_failed', 'validation_failed', 'blocked')
+           )
+         ORDER BY f.start_time DESC
+         LIMIT GREATEST(COALESCE(p_limit, 100), 0)
+    LOOP
+        IF public.enqueue_fixture_boxscore(r.id) THEN
+            v_enqueued := v_enqueued + 1;
+        END IF;
+    END LOOP;
+    RETURN v_enqueued;
 END;
 $$;
 
@@ -2678,6 +2842,62 @@ BEGIN
       FROM public.news_article_entities te
      WHERE te.article_id   = NEW.id
        AND te.entity_type   = 'team'
+       AND te.vetted IS TRUE
+    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+        status        = 'pending',
+        attempts      = 0,
+        available_at  = NOW(),
+        updated_at    = NOW(),
+        last_error    = NULL,
+        input_version = EXCLUDED.input_version
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
+
+    -- Statement-level mig-133 notify trigger on pipeline_work covers the wake-up; no PERFORM here.
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enqueue_voices_on_routing_tags(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_voices_on_routing_tags() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    -- One work item per (subscribing stage, entity of the matching grain), for tags that were
+    -- ADDED by this update. `input_version` is that entity's fingerprint over its canonical,
+    -- vetted, in-window articles CARRYING THE SAME TAG -- the direct generalization of mig 175's
+    -- transfer-corpus fingerprint. ON CONFLICT therefore reopens an item exactly when that voice's
+    -- slice moved and debounces one that did not.
+    INSERT INTO public.pipeline_work
+        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+    SELECT s.stage, s.entity_type, te.entity_id, te.sport, 'pending',
+           's:' || t.tag || ':' || (
+               SELECT count(*) || ':' ||
+                      COALESCE(md5(string_agg(x.article_id::text, ',' ORDER BY x.article_id)), '0')
+                 FROM public.news_article_entities x
+                 JOIN public.news_articles xa ON xa.id = x.article_id
+                WHERE x.entity_type = s.entity_type
+                  AND x.entity_id   = te.entity_id
+                  AND x.sport       = te.sport
+                  AND x.vetted IS TRUE
+                  AND xa.duplicate_of IS NULL
+                  AND xa.routing_tags @> ARRAY[t.tag]
+                  AND x.created_at > NOW() - INTERVAL '14 days'
+           ),
+           NOW(), NOW()
+      FROM (
+            SELECT unnest(NEW.routing_tags)
+            EXCEPT
+            SELECT unnest(COALESCE(OLD.routing_tags, '{}'))
+           ) AS t(tag)
+      JOIN public.stage_routing_subscriptions s ON s.tag = t.tag
+      JOIN public.news_article_entities te
+        ON te.article_id  = NEW.id
+       AND te.entity_type = s.entity_type
        AND te.vetted IS TRUE
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
@@ -2925,6 +3145,35 @@ BEGIN
 
     RETURN QUERY SELECT v_players, v_teams;
 END;
+$$;
+
+
+--
+-- Name: fixture_boxscore_input_version(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.fixture_boxscore_input_version(p_fixture_id integer) RETURNS text
+    LANGUAGE sql STABLE
+    AS $$
+    SELECT 'fbf1:' ||
+           f.sport || ':' ||
+           f.season::text || ':' ||
+           COALESCE(f.league_id, 0)::text || ':' ||
+           f.home_team_id::text || ':' ||
+           f.away_team_id::text || ':' ||
+           COALESCE(f.home_score::text, '') || ':' ||
+           COALESCE(f.away_score::text, '') || ':' ||
+           COALESCE(
+               (
+                   SELECT string_agg(pfm.provider || '=' || pfm.provider_fixture_id, ',' ORDER BY pfm.provider)
+                   FROM public.provider_fixture_map pfm
+                   WHERE pfm.fixture_id = f.id
+                     AND pfm.sport = f.sport
+               ),
+               ''
+           )
+    FROM public.fixtures f
+    WHERE f.id = p_fixture_id;
 $$;
 
 
@@ -4705,12 +4954,6 @@ CREATE FUNCTION public.refresh_co_mention_links(p_sport text, p_window_days inte
 DECLARE
     v_run_started timestamptz := clock_timestamp();
 BEGIN
-    -- Pair corpus mirrors compute_transfer_heat's house rules: vetted both sides, title
-    -- PROXIMITY within 50 when both positions are known, source-tier weighting with the
-    -- 0.3 unknown-source default. Differences, deliberate: no bucket filter (all news
-    -- counts toward association, not just transfer talk) and a 21-DAY recency half-life
-    -- instead of transfer heat's 72-hour decay — a standing association fades in weeks,
-    -- a trade window in days.
     WITH corpus AS (
         SELECT e1.entity_type AS subject_type, e1.entity_id AS subject_id,
                e2.entity_type AS object_type,  e2.entity_id AS object_id,
@@ -4731,10 +4974,8 @@ BEGIN
                count(DISTINCT c.src) AS distinct_sources,
                count(*) FILTER (WHERE c.ts > now() - INTERVAL '14 days') AS recent14,
                max(c.ts) AS newest,
-               min(c.ts) AS oldest,
-               COALESCE(MAX(st.weight), 0.3) AS tier_weight
+               min(c.ts) AS oldest
         FROM corpus c
-        LEFT JOIN source_tiers st ON lower(st.source) = lower(c.src) AND st.kind = 'news'
         GROUP BY 1, 2, 3, 4
     ),
     calc AS (
@@ -4748,7 +4989,7 @@ BEGIN
         SELECT *,
                exp(-age_days / 21.0) AS recency,
                GREATEST(0, LEAST(100, round(
-                   100 * tier_weight * exp(-age_days / 21.0)
+                   100 * exp(-age_days / 21.0)
                        * (0.6 * volume + 0.4 * recent_frac))))::smallint AS strength
         FROM calc
     )
@@ -4763,7 +5004,6 @@ BEGIN
                'distinct_sources', f.distinct_sources,
                'recent_14d', f.recent14,
                'newest_age_days', round(f.age_days::numeric, 1),
-               'tier_weight', f.tier_weight,
                'volume', round(f.volume::numeric, 3),
                'recency', round(f.recency::numeric, 3),
                'recent_frac', round(f.recent_frac::numeric, 3),
@@ -4784,8 +5024,6 @@ BEGIN
         distinct_sources = EXCLUDED.distinct_sources,
         first_seen_at = LEAST(l.first_seen_at, EXCLUDED.first_seen_at),
         last_event_at = EXCLUDED.last_event_at,
-        -- The shared ±10-bucket trajectory vocabulary (rust/src/trajectory.rs
-        -- classify_delta / go/internal/db/db.go): keep all three homes in step.
         trajectory = CASE
             WHEN l.strength IS NULL THEN 'developing_story'
             WHEN EXCLUDED.strength - l.strength >= 10 THEN 'heating_up'
@@ -4805,9 +5043,6 @@ BEGIN
 
     GET DIAGNOSTICS pairs_upserted = ROW_COUNT;
 
-    -- Pairs that fell out of the window entirely: decay to 0 rather than delete, so
-    -- first_seen/trajectory history survives a quiet spell. (A periodic prune of
-    -- long-dead zero rows can come later if volume ever warrants it.)
     UPDATE narrative_links l
     SET trajectory = CASE WHEN l.strength >= 10 THEN 'cooling_off'
                           ELSE 'developing_story' END,
@@ -5708,8 +5943,6 @@ BEGIN
          AND l.object_type = 'team' AND l.object_id = o.team_id
     ),
     rumor AS (
-        -- Best recent LEGACY language signal per pair: max stage in the last 30 days
-        -- with its confidence, recency-decayed from the latest staged generation.
         SELECT r.player_id, r.team_id,
                max(CASE r.stage WHEN 'here_we_go' THEN 4 WHEN 'advanced_talks' THEN 3
                                 WHEN 'concrete_interest' THEN 2 WHEN 'speculation' THEN 1
@@ -5722,9 +5955,6 @@ BEGIN
         GROUP BY 1, 2
     ),
     typed AS (
-        -- TYPED language signal (mig 167, step 8): trade events from the extraction
-        -- stage. confirmed maps to the top of the legacy ladder; a reported rumor to
-        -- concrete-interest grade; speculative to the bottom rung.
         SELECT ne.subject_id AS player_id, ne.object_id AS team_id,
                max(CASE WHEN ne.predicate = 'trade_confirmed' THEN 4
                         WHEN ne.predicate = 'trade_rumor'
@@ -5734,23 +5964,13 @@ BEGIN
                max(ne.event_date) AS latest_typed
         FROM narrative_events ne
         WHERE ne.sport = p_sport
-          AND ne.origin = 'extraction'  -- mig 170: junction-authored events NEVER feed the likelihood language input
+          AND ne.origin = 'extraction'
           AND ne.event_date > now() - interval '30 days'
           AND ne.subject_type = 'player' AND ne.object_type = 'team'
           AND ne.predicate IN ('trade_rumor', 'trade_confirmed')
         GROUP BY 1, 2
     ),
-    tiering AS (
-        -- Best source tier among the pair's recent attributions.
-        SELECT r.player_id, r.team_id, max(st.weight) AS best_tier
-        FROM transfer_rumors r
-        CROSS JOIN LATERAL unnest(r.source_names) AS s(source)
-        JOIN source_tiers st ON lower(st.source) = lower(s.source) AND st.kind = 'news'
-        WHERE r.sport = p_sport AND r.generated_at > now() - interval '30 days'
-        GROUP BY 1, 2
-    ),
     perf AS (
-        -- Earned early-caller bonus: best (early_confirmed x its own reliability).
         SELECT r.player_id, r.team_id,
                max(spf.early_confirmed * spf.reliability / 100.0) AS early_cred
         FROM transfer_rumors r
@@ -5771,21 +5991,15 @@ BEGIN
                     ELSE exp(-(EXTRACT(EPOCH FROM (now() - ty.latest_typed)) / 86400.0) / 14.0)
                END AS typed_recency,
                COALESCE(ru.recent_source_count, 0) AS recent_sources,
-               COALESCE(t.best_tier, 0.3) AS best_tier,
                LEAST(5, round(COALESCE(pf.early_cred, 0)))::int AS perf_bonus,
                CASE li.trajectory WHEN 'heating_up' THEN 100
                                   WHEN 'cooling_off' THEN 0 ELSE 50 END AS traj_score
         FROM linked li
         LEFT JOIN rumor ru ON ru.player_id = li.player_id AND ru.team_id = li.team_id
         LEFT JOIN typed ty ON ty.player_id = li.player_id AND ty.team_id = li.team_id
-        LEFT JOIN tiering t ON t.player_id = li.player_id AND t.team_id = li.team_id
         LEFT JOIN perf pf ON pf.player_id = li.player_id AND pf.team_id = li.team_id
     ),
     langs AS (
-        -- The 0-100 language subscores: legacy rumor-stage vs typed extraction. The
-        -- fusion takes the GREATEST — typed is sparse today and degrades gracefully to
-        -- legacy; typed confidence is a fixed 0.85 (its confidence lives in the rank
-        -- mapping, not a per-generation float).
         SELECT c.*,
                100 * (c.stage_rank / 4.0) * c.stage_conf * c.stage_recency AS legacy_lang,
                100 * (c.typed_rank / 4.0) * 0.85 * c.typed_recency AS typed_lang
@@ -5794,13 +6008,11 @@ BEGIN
     scored AS (
         SELECT l.*,
                LEAST(100, GREATEST(0, round(
-                   0.40 * l.link_strength
-                 + 0.35 * GREATEST(l.legacy_lang, l.typed_lang)
-                 + 0.15 * 100 * LEAST(1.0, l.best_tier)
-                 + 0.10 * l.traj_score
+                   0.45 * l.link_strength
+                 + 0.40 * GREATEST(l.legacy_lang, l.typed_lang)
+                 + 0.15 * l.traj_score
                ) + l.perf_bonus))::smallint AS raw,
-               (l.recent_sources >= p_corrob_sources OR l.best_tier >= p_corrob_tier)
-                   AS corroborated
+               (l.recent_sources >= p_corrob_sources) AS corroborated
         FROM langs l
     ),
     final AS (
@@ -5830,7 +6042,6 @@ BEGIN
                 WHEN f.typed_lang = 0 AND f.legacy_lang = 0 THEN 'none'
                 WHEN f.typed_lang > f.legacy_lang THEN 'typed'
                 ELSE 'legacy' END,
-            'best_tier', f.best_tier,
             'traj', f.traj_score,
             'perf_bonus', f.perf_bonus,
             'recent_sources', f.recent_sources,
@@ -5856,7 +6067,7 @@ $$;
 -- Name: FUNCTION score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer) IS 'Fuses coverage + language (GREATEST of legacy rumor-stage and typed-event signal, mig 167) + source tier + trajectory (+ earned early-caller bonus) into the served transfer likelihood on each open player-team episode, with hysteresis. Components record both language signals and which won. Run after roll_narrative_episodes.';
+COMMENT ON FUNCTION public.score_transfer_likelihood(p_sport text, p_max_rise_uncorroborated integer, p_max_fall integer, p_corrob_sources integer, p_corrob_tier numeric, OUT episodes_scored integer) IS 'Fuses coverage + language (GREATEST of legacy rumor-stage and typed-event signal) + trajectory (+ earned early-caller bonus) into the served transfer likelihood on each open player-team episode, with hysteresis. Static source tiers are ignored; source performance can still appear as organic memory.';
 
 
 --
@@ -7445,6 +7656,56 @@ ALTER SEQUENCE public.cognition_ledger_id_seq OWNED BY public.cognition_ledger.i
 
 
 --
+-- Name: data_fetch_ledger; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.data_fetch_ledger (
+    id bigint NOT NULL,
+    target_type text NOT NULL,
+    target_id bigint NOT NULL,
+    sport text,
+    stage text NOT NULL,
+    status text NOT NULL,
+    source_url text,
+    final_url text,
+    final_domain text,
+    content_hash text,
+    model_version text,
+    prompt_version text,
+    output_contract_version text,
+    parser_outcome text,
+    error text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE data_fetch_ledger; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.data_fetch_ledger IS 'Append-only provenance for browser/fetch-backed data enrichment stages. Article Reader v1 records one row per fetch attempt so the current news_article_readings card can stay compact.';
+
+
+--
+-- Name: data_fetch_ledger_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.data_fetch_ledger_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: data_fetch_ledger_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.data_fetch_ledger_id_seq OWNED BY public.data_fetch_ledger.id;
+
+
+--
 -- Name: event_box_scores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7537,6 +7798,57 @@ ALTER SEQUENCE public.event_team_stats_id_seq OWNED BY public.event_team_stats.i
 
 
 --
+-- Name: fixture_boxscore_fetches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.fixture_boxscore_fetches (
+    fixture_id integer NOT NULL,
+    sport text NOT NULL,
+    provider text NOT NULL,
+    source_url text,
+    final_url text,
+    final_domain text,
+    status text NOT NULL,
+    content_hash text,
+    score jsonb DEFAULT '{}'::jsonb NOT NULL,
+    period_scoring jsonb DEFAULT '[]'::jsonb NOT NULL,
+    team_stats jsonb DEFAULT '[]'::jsonb NOT NULL,
+    player_stats jsonb DEFAULT '[]'::jsonb NOT NULL,
+    raw_labels jsonb DEFAULT '{}'::jsonb NOT NULL,
+    model_version text,
+    prompt_version text,
+    parser_version text,
+    output_contract_version text,
+    parser_outcome text DEFAULT 'no_call'::text NOT NULL,
+    last_error text,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT fixture_boxscore_fetches_status_check CHECK ((status = ANY (ARRAY['success'::text, 'not_supported'::text, 'not_final'::text, 'not_found'::text, 'blocked'::text, 'fetch_failed'::text, 'parse_failed'::text, 'validation_failed'::text])))
+);
+
+
+--
+-- Name: TABLE fixture_boxscore_fetches; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.fixture_boxscore_fetches IS 'Current normalized box score fetch state per fixture. Written by the Rust fixture_boxscore stage. This table preserves fetched/provider labels for downstream recap/stat-commentary work and deliberately does not mutate canonical event_box_scores/event_team_stats.';
+
+
+--
+-- Name: COLUMN fixture_boxscore_fetches.team_stats; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fixture_boxscore_fetches.team_stats IS 'Normalized per-team rows from the selected provider/source. Keys preserve provider labels when a canonical stat mapping is not yet owned by the seeder.';
+
+
+--
+-- Name: COLUMN fixture_boxscore_fetches.player_stats; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fixture_boxscore_fetches.player_stats IS 'Normalized per-player rows from the selected provider/source. Player IDs are provider IDs unless provider_entity_map resolves them in a later mapping step.';
+
+
+--
 -- Name: fixtures; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7616,6 +7928,68 @@ CREATE TABLE public.graph_extractions (
 --
 
 COMMENT ON TABLE public.graph_extractions IS 'Per-article bookkeeping for the graph extraction stage: debounce anchor (input_hash + prompt_version) and observability (outcome, counts). Bookkeeping, not memory — narrative_events/persons are the durable products.';
+
+
+--
+-- Name: insider_scores; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.insider_scores (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    score smallint NOT NULL,
+    previous_score smallint,
+    read text,
+    model_version text,
+    prompt_version text NOT NULL,
+    input_hash text,
+    generated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT insider_scores_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
+    CONSTRAINT insider_scores_previous_score_check CHECK (((previous_score IS NULL) OR ((previous_score >= 1) AND (previous_score <= 99)))),
+    CONSTRAINT insider_scores_score_check CHECK (((score >= 1) AND (score <= 99)))
+);
+
+
+--
+-- Name: TABLE insider_scores; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.insider_scores IS 'The Insider''s per-entity 1-99 wire-busyness verdict (tarot deck Phase 4b, mig 187). One row per wrap — an end-of-drain TransferLogic call after the pair loop, debounced on the active-board input_hash. No marker rows: an empty board writes nothing (the Veil comes from the empty board). Served as the Transfers card''s score (latest row, scope-independent); read/previous_score are audit + prompt memory only.';
+
+
+--
+-- Name: COLUMN insider_scores.read; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.read IS 'The Insider''s 1-2 sentence wire wrap (audit + next wrap''s continuity memory; never served).';
+
+
+--
+-- Name: COLUMN insider_scores.input_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.insider_scores.input_hash IS 'Debounce key: hash over prompt_version + the sorted active board (counterparty:heat:direction:stage per rumor). Content-keyed, not row-id-keyed.';
+
+
+--
+-- Name: insider_scores_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.insider_scores_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: insider_scores_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.insider_scores_id_seq OWNED BY public.insider_scores.id;
 
 
 --
@@ -8324,6 +8698,51 @@ COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the model sc
 
 
 --
+-- Name: news_article_readings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.news_article_readings (
+    article_id bigint NOT NULL,
+    status text NOT NULL,
+    final_url text,
+    final_domain text,
+    content_hash text,
+    extracted_words integer DEFAULT 0 NOT NULL,
+    evidence_blurb text,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    model_version text,
+    prompt_version text,
+    parser_outcome text DEFAULT 'no_call'::text NOT NULL,
+    last_error text,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT news_article_readings_extracted_words_check CHECK ((extracted_words >= 0)),
+    CONSTRAINT news_article_readings_status_check CHECK ((status = ANY (ARRAY['success'::text, 'irrelevant'::text, 'not_allowlisted'::text, 'duplicate'::text, 'no_vetted_entities'::text, 'paywall'::text, 'blocked'::text, 'empty_body'::text, 'fetch_failed'::text, 'parse_failed'::text])))
+);
+
+
+--
+-- Name: TABLE news_article_readings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.news_article_readings IS 'Article Reader v1: one current evidence card per news article, written by the Rust article_read stage after Candle scrub proves relevance. Stores compact model evidence and fetch provenance, not a raw article-body archive.';
+
+
+--
+-- Name: COLUMN news_article_readings.content_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_article_readings.content_hash IS 'SHA-256 prefix over cleaned fetched article text. Used with status/model fields as the Narratives debounce fingerprint so richer article reads reopen the Journalist.';
+
+
+--
+-- Name: COLUMN news_article_readings.evidence_blurb; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_article_readings.evidence_blurb IS 'Compact source-grounded blurb rendered into the Narratives prompt. NULL means the Journalist falls back to the RSS description.';
+
+
+--
 -- Name: news_articles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8341,6 +8760,8 @@ CREATE TABLE public.news_articles (
     topic_heat integer,
     full_text text,
     duplicate_of bigint,
+    feed_rank integer,
+    routing_tags text[] DEFAULT '{}'::text[] NOT NULL,
     CONSTRAINT news_articles_bucket_check CHECK (((bucket IS NULL) OR (bucket = ANY (ARRAY['transfer'::text, 'non_transfer'::text])))),
     CONSTRAINT news_articles_topic_heat_check CHECK (((topic_heat IS NULL) OR (topic_heat >= 1)))
 );
@@ -8372,6 +8793,20 @@ COMMENT ON COLUMN public.news_articles.full_text IS 'Cognition refactor Phase 0 
 --
 
 COMMENT ON COLUMN public.news_articles.duplicate_of IS 'Cognition refactor Phase 2 (mig 177): set by the scrub source-aware novelty gate to the canonical article this one is a near-dup REPOST of (same story AND same-outlet repost or near-verbatim syndication). NULL = canonical: first-seen, or genuine cross-outlet corroboration that is counted. Suppression sets this ONLY; vetted membership is untouched, so no derive re-fires. Consumed by narratives corpus filtering + canonical membership counting in Phase 3.';
+
+
+--
+-- Name: COLUMN news_articles.feed_rank; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.feed_rank IS 'Best (lowest) 0-based position Google ever returned this article at, across every entity query that surfaced it. Ingest keeps the minimum via LEAST() on conflict: one article is returned by several teams'' queries at different positions, so there is no single global rank — but "the highest Google ever ranked it, for anyone" is a fact, and it is the one that decides whether the article is worth a model call. NULL = pre-migration backlog; sorts last.';
+
+
+--
+-- Name: COLUMN news_articles.routing_tags; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_articles.routing_tags IS 'Content facts derived from the Editor''s story_type (and later its emotional register) -- "transfer", "injury", "roster", ... An article carries ALL that apply, which is what lets one story reach several voices at once. Superset of `bucket`, which is single-valued and stays until Phase E retires it. Tags are DERIVED in code, never asked of the model.';
 
 
 --
@@ -8421,6 +8856,9 @@ CREATE TABLE public.news_summaries (
     trajectory_components jsonb DEFAULT '{}'::jsonb NOT NULL,
     input_hash text,
     thread_id bigint,
+    card_score smallint,
+    card_score_prev smallint,
+    CONSTRAINT news_summaries_card_score_check CHECK (((card_score IS NULL) OR ((card_score >= 1) AND (card_score <= 99)))),
     CONSTRAINT news_summaries_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
     CONSTRAINT news_summaries_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
     CONSTRAINT news_summaries_trajectory_check CHECK ((trajectory = ANY (ARRAY['developing_story'::text, 'heating_up'::text, 'cooling_off'::text]))),
@@ -8506,6 +8944,20 @@ COMMENT ON COLUMN public.news_summaries.thread_id IS 'The progressing storyline 
 
 
 --
+-- Name: COLUMN news_summaries.card_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.card_score IS 'The Journalist''s 1-99 busyness verdict for this generation (n12, tarot deck Phase 4): model-assigned, uniform across the generation''s rows (called-empty marker included). NULL = no-corpus marker (no model call) or a pre-n12 row → the card draws the Veil. Served as the Narratives card''s score (latest non-NULL, scope-independent).';
+
+
+--
+-- Name: COLUMN news_summaries.card_score_prev; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.news_summaries.card_score_prev IS 'The previous generation''s card_score as fed to the n12 prompt''s memory line — the continuity audit (mirrors sigil_synthesis.previous_score). Audit-only, never served.';
+
+
+--
 -- Name: news_summaries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -8522,63 +8974,6 @@ CREATE SEQUENCE public.news_summaries_id_seq
 --
 
 ALTER SEQUENCE public.news_summaries_id_seq OWNED BY public.news_summaries.id;
-
-
---
--- Name: news_summaries_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.news_summaries_shadow (
-    id bigint NOT NULL,
-    source text DEFAULT 'rust'::text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT 'null'::jsonb NOT NULL,
-    narrative_title text,
-    body text,
-    impact smallint,
-    impact_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    original_corpus_size integer,
-    deduped_corpus_size integer,
-    model_version text,
-    prompt_version text NOT NULL,
-    temperature real NOT NULL,
-    built_prompt text,
-    ollama_request jsonb,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT news_summaries_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT news_summaries_shadow_impact_check CHECK (((impact IS NULL) OR ((impact >= 0) AND (impact <= 100)))),
-    CONSTRAINT news_summaries_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
-);
-
-
---
--- Name: TABLE news_summaries_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.news_summaries_shadow IS 'Rust Cognition Harness L13 narratives parity harness — offline shadow of news_summaries; holds source=rust and source=go rows. Diff built_prompt + ollama_request + model_version + prompt_version. Drop after narratives cutover.';
-
-
---
--- Name: news_summaries_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.news_summaries_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: news_summaries_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.news_summaries_shadow_id_seq OWNED BY public.news_summaries_shadow.id;
 
 
 --
@@ -8825,7 +9220,7 @@ CREATE TABLE public.pipeline_work (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     input_version text,
-    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text]))),
+    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text]))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
 
@@ -9205,61 +9600,6 @@ COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading 
 
 
 --
--- Name: sigil_synthesis_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sigil_synthesis_shadow (
-    id bigint NOT NULL,
-    source text DEFAULT 'rust'::text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    score smallint,
-    blurb text,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    temperature real NOT NULL,
-    built_prompt text,
-    ollama_request jsonb,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT sigil_synthesis_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT sigil_synthesis_shadow_score_check CHECK (((score IS NULL) OR ((score >= 1) AND (score <= 100)))),
-    CONSTRAINT sigil_synthesis_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
-);
-
-
---
--- Name: TABLE sigil_synthesis_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.sigil_synthesis_shadow IS 'Rust Cognition Harness L3 sigil parity harness — offline shadow of sigil_synthesis; holds source=rust and source=go temp-0 rows for the parity diff. Drop after sigil cutover.';
-
-
---
--- Name: sigil_synthesis_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.sigil_synthesis_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: sigil_synthesis_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.sigil_synthesis_shadow_id_seq OWNED BY public.sigil_synthesis_shadow.id;
-
-
---
 -- Name: source_performance; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9313,6 +9653,26 @@ CREATE TABLE public.sport_autofill_versions (
     reason text,
     CONSTRAINT sport_autofill_versions_status_check CHECK ((status = ANY (ARRAY['ready'::text, 'refreshing'::text, 'failed'::text])))
 );
+
+
+--
+-- Name: stage_routing_subscriptions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stage_routing_subscriptions (
+    tag text NOT NULL,
+    stage text NOT NULL,
+    entity_type text NOT NULL,
+    note text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE stage_routing_subscriptions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.stage_routing_subscriptions IS 'Maps a news_articles.routing_tags value to the stage that wants it, at the entity grain that stage is keyed on. Ships EMPTY: transfers still routes via mig 175, and Phase E migrates it with one INSERT per voice. Keeping this as DATA is the point -- adding the Influencer to the newsroom should be a row, not a trigger rewrite.';
 
 
 --
@@ -9486,63 +9846,6 @@ CREATE SEQUENCE public.stat_summaries_id_seq
 --
 
 ALTER SEQUENCE public.stat_summaries_id_seq OWNED BY public.stat_summaries.id;
-
-
---
--- Name: stat_summaries_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.stat_summaries_shadow (
-    id bigint NOT NULL,
-    source text DEFAULT 'rust'::text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    body text,
-    divined_peak text,
-    notability smallint,
-    notability_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    input_hash text,
-    model_version text,
-    prompt_version text NOT NULL,
-    temperature real NOT NULL,
-    built_prompt text,
-    ollama_request jsonb,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT stat_summaries_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT stat_summaries_shadow_notability_check CHECK (((notability IS NULL) OR ((notability >= 0) AND (notability <= 100)))),
-    CONSTRAINT stat_summaries_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
-);
-
-
---
--- Name: TABLE stat_summaries_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.stat_summaries_shadow IS 'Rust Cognition Harness L12 rating parity harness — offline shadow of stat_summaries; holds source=rust and source=go rows. Diff built_prompt + ollama_request (whole jsonb) + model_version + prompt_version + input_hash. Drop after rating cutover.';
-
-
---
--- Name: stat_summaries_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.stat_summaries_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: stat_summaries_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.stat_summaries_shadow_id_seq OWNED BY public.stat_summaries_shadow.id;
 
 
 --
@@ -9764,7 +10067,7 @@ COMMENT ON COLUMN public.transfer_rumors.trajectory IS 'Transfer-rumor trajector
 -- Name: COLUMN transfer_rumors.input_hash; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources/tier_weight from the heat components + the deterministic team relationship); the per-pair transfer debounce key (F3, flow-friction plan 2026-07-12). Time-decay heat components are deliberately excluded. NULL on pre-F3 rows, which never match — each pair regenerates once post-deploy, then stamps.';
+COMMENT ON COLUMN public.transfer_rumors.input_hash IS 'SHA-256 (128-bit hex prefix) of the pair''s material vetting inputs (sorted pair-corpus news ids + distinct_sources from the heat components + the deterministic team relationship); the per-pair transfer debounce key. Static source tiers are deliberately excluded.';
 
 
 --
@@ -9784,64 +10087,6 @@ CREATE SEQUENCE public.transfer_rumors_id_seq
 --
 
 ALTER SEQUENCE public.transfer_rumors_id_seq OWNED BY public.transfer_rumors.id;
-
-
---
--- Name: transfer_rumors_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.transfer_rumors_shadow (
-    id bigint NOT NULL,
-    source text DEFAULT 'rust'::text NOT NULL,
-    team_id integer NOT NULL,
-    player_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    heat smallint,
-    heat_components jsonb DEFAULT '{}'::jsonb NOT NULL,
-    is_rumor boolean,
-    direction text,
-    stage text,
-    model_summary text,
-    source_attribution text,
-    confidence real,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text,
-    prompt_version text NOT NULL,
-    temperature real NOT NULL,
-    built_prompt text,
-    ollama_request jsonb,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT transfer_rumors_shadow_heat_check CHECK (((heat IS NULL) OR ((heat >= 0) AND (heat <= 100)))),
-    CONSTRAINT transfer_rumors_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
-);
-
-
---
--- Name: TABLE transfer_rumors_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.transfer_rumors_shadow IS 'Rust Cognition Harness L11 transfers parity harness — offline shadow of transfer_rumors; holds source=rust (t4) and source=go (t3) rows. Diff built_prompt + (ollama_request - system). Drop after transfers cutover.';
-
-
---
--- Name: transfer_rumors_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.transfer_rumors_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: transfer_rumors_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.transfer_rumors_shadow_id_seq OWNED BY public.transfer_rumors_shadow.id;
 
 
 --
@@ -10065,67 +10310,6 @@ ALTER SEQUENCE public.vibe_scores_id_seq OWNED BY public.vibe_scores.id;
 
 
 --
--- Name: vibe_scores_shadow; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.vibe_scores_shadow (
-    id bigint NOT NULL,
-    source text DEFAULT 'rust'::text NOT NULL,
-    entity_type text NOT NULL,
-    entity_id integer NOT NULL,
-    sport text NOT NULL,
-    trigger_type text NOT NULL,
-    trigger_payload jsonb DEFAULT '{}'::jsonb NOT NULL,
-    sentiment smallint,
-    prompt text,
-    input_news_ids bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    model_version text NOT NULL,
-    prompt_version text NOT NULL,
-    temperature real NOT NULL,
-    built_prompt text,
-    ollama_request jsonb,
-    generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    input_hash text,
-    CONSTRAINT vibe_scores_shadow_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text]))),
-    CONSTRAINT vibe_scores_shadow_sentiment_check CHECK (((sentiment IS NULL) OR ((sentiment >= 1) AND (sentiment <= 100)))),
-    CONSTRAINT vibe_scores_shadow_source_check CHECK ((source = ANY (ARRAY['rust'::text, 'go'::text])))
-);
-
-
---
--- Name: TABLE vibe_scores_shadow; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.vibe_scores_shadow IS 'Rust-scrubber Phase 1 vibe parity harness — offline shadow of vibe_scores; holds source=rust and source=go temp-0 rows for the parity diff. Drop after vibe cutover.';
-
-
---
--- Name: COLUMN vibe_scores_shadow.input_hash; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.vibe_scores_shadow.input_hash IS 'Parity capture of vibe_scores.input_hash (migration 147) — a deterministic diff axis.';
-
-
---
--- Name: vibe_scores_shadow_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.vibe_scores_shadow_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: vibe_scores_shadow_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.vibe_scores_shadow_id_seq OWNED BY public.vibe_scores_shadow.id;
-
-
---
 -- Name: vibe_synthesis_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -10152,6 +10336,13 @@ ALTER TABLE ONLY public.cognition_ledger ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: data_fetch_ledger id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_fetch_ledger ALTER COLUMN id SET DEFAULT nextval('public.data_fetch_ledger_id_seq'::regclass);
+
+
+--
 -- Name: event_box_scores id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10170,6 +10361,13 @@ ALTER TABLE ONLY public.event_team_stats ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.fixtures ALTER COLUMN id SET DEFAULT nextval('public.fixtures_id_seq'::regclass);
+
+
+--
+-- Name: insider_scores id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insider_scores ALTER COLUMN id SET DEFAULT nextval('public.insider_scores_id_seq'::regclass);
 
 
 --
@@ -10250,13 +10448,6 @@ ALTER TABLE ONLY public.news_summaries ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
--- Name: news_summaries_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_summaries_shadow ALTER COLUMN id SET DEFAULT nextval('public.news_summaries_shadow_id_seq'::regclass);
-
-
---
 -- Name: notifications id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10320,13 +10511,6 @@ ALTER TABLE ONLY public.sigil_synthesis ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
--- Name: sigil_synthesis_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sigil_synthesis_shadow ALTER COLUMN id SET DEFAULT nextval('public.sigil_synthesis_shadow_id_seq'::regclass);
-
-
---
 -- Name: stat_definitions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10341,13 +10525,6 @@ ALTER TABLE ONLY public.stat_summaries ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
--- Name: stat_summaries_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stat_summaries_shadow ALTER COLUMN id SET DEFAULT nextval('public.stat_summaries_shadow_id_seq'::regclass);
-
-
---
 -- Name: transfer_identity_applications id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10359,13 +10536,6 @@ ALTER TABLE ONLY public.transfer_identity_applications ALTER COLUMN id SET DEFAU
 --
 
 ALTER TABLE ONLY public.transfer_rumors ALTER COLUMN id SET DEFAULT nextval('public.transfer_rumors_id_seq'::regclass);
-
-
---
--- Name: transfer_rumors_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transfer_rumors_shadow ALTER COLUMN id SET DEFAULT nextval('public.transfer_rumors_shadow_id_seq'::regclass);
 
 
 --
@@ -10390,13 +10560,6 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
--- Name: vibe_scores_shadow id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.vibe_scores_shadow ALTER COLUMN id SET DEFAULT nextval('public.vibe_scores_shadow_id_seq'::regclass);
-
-
---
 -- Name: auth_refresh_tokens auth_refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10418,6 +10581,14 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 ALTER TABLE ONLY public.cognition_ledger
     ADD CONSTRAINT cognition_ledger_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: data_fetch_ledger data_fetch_ledger_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.data_fetch_ledger
+    ADD CONSTRAINT data_fetch_ledger_pkey PRIMARY KEY (id);
 
 
 --
@@ -10453,6 +10624,14 @@ ALTER TABLE ONLY public.event_team_stats
 
 
 --
+-- Name: fixture_boxscore_fetches fixture_boxscore_fetches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.fixture_boxscore_fetches
+    ADD CONSTRAINT fixture_boxscore_fetches_pkey PRIMARY KEY (fixture_id);
+
+
+--
 -- Name: fixtures fixtures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10474,6 +10653,14 @@ ALTER TABLE ONLY public.fixtures
 
 ALTER TABLE ONLY public.graph_extractions
     ADD CONSTRAINT graph_extractions_pkey PRIMARY KEY (article_id);
+
+
+--
+-- Name: insider_scores insider_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insider_scores
+    ADD CONSTRAINT insider_scores_pkey PRIMARY KEY (id);
 
 
 --
@@ -10597,6 +10784,14 @@ ALTER TABLE ONLY public.news_article_entities
 
 
 --
+-- Name: news_article_readings news_article_readings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_article_readings
+    ADD CONSTRAINT news_article_readings_pkey PRIMARY KEY (article_id);
+
+
+--
 -- Name: news_articles news_articles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10618,14 +10813,6 @@ ALTER TABLE ONLY public.news_articles
 
 ALTER TABLE ONLY public.news_summaries
     ADD CONSTRAINT news_summaries_pkey PRIMARY KEY (id);
-
-
---
--- Name: news_summaries_shadow news_summaries_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_summaries_shadow
-    ADD CONSTRAINT news_summaries_shadow_pkey PRIMARY KEY (id);
 
 
 --
@@ -10805,14 +10992,6 @@ ALTER TABLE ONLY public.sigil_synthesis
 
 
 --
--- Name: sigil_synthesis_shadow sigil_synthesis_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.sigil_synthesis_shadow
-    ADD CONSTRAINT sigil_synthesis_shadow_pkey PRIMARY KEY (id);
-
-
---
 -- Name: source_performance source_performance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10845,6 +11024,14 @@ ALTER TABLE ONLY public.sports
 
 
 --
+-- Name: stage_routing_subscriptions stage_routing_subscriptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stage_routing_subscriptions
+    ADD CONSTRAINT stage_routing_subscriptions_pkey PRIMARY KEY (tag, stage, entity_type);
+
+
+--
 -- Name: stat_definitions stat_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10874,14 +11061,6 @@ ALTER TABLE ONLY public.stat_matchups
 
 ALTER TABLE ONLY public.stat_summaries
     ADD CONSTRAINT stat_summaries_pkey PRIMARY KEY (id);
-
-
---
--- Name: stat_summaries_shadow stat_summaries_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stat_summaries_shadow
-    ADD CONSTRAINT stat_summaries_shadow_pkey PRIMARY KEY (id);
 
 
 --
@@ -10949,14 +11128,6 @@ ALTER TABLE ONLY public.transfer_rumors
 
 
 --
--- Name: transfer_rumors_shadow transfer_rumors_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.transfer_rumors_shadow
-    ADD CONSTRAINT transfer_rumors_shadow_pkey PRIMARY KEY (id);
-
-
---
 -- Name: metadata_refresh_queue unique_pending_request; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11021,14 +11192,6 @@ ALTER TABLE ONLY public.vibe_scores
 
 
 --
--- Name: vibe_scores_shadow vibe_scores_shadow_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.vibe_scores_shadow
-    ADD CONSTRAINT vibe_scores_shadow_pkey PRIMARY KEY (id);
-
-
---
 -- Name: idx_football_autofill_pk; Type: INDEX; Schema: football; Owner: -
 --
 
@@ -11078,6 +11241,20 @@ CREATE INDEX idx_cognition_ledger_product_rows ON public.cognition_ledger USING 
 
 
 --
+-- Name: idx_data_fetch_ledger_stage_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_data_fetch_ledger_stage_status ON public.data_fetch_ledger USING btree (stage, status, generated_at DESC);
+
+
+--
+-- Name: idx_data_fetch_ledger_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_data_fetch_ledger_target ON public.data_fetch_ledger USING btree (target_type, target_id, generated_at DESC);
+
+
+--
 -- Name: idx_event_box_scores_fixture; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11124,6 +11301,27 @@ CREATE INDEX idx_event_team_stats_team_composite ON public.event_team_stats USIN
 --
 
 CREATE INDEX idx_event_team_stats_team_season ON public.event_team_stats USING btree (team_id, sport, season, league_id);
+
+
+--
+-- Name: idx_fixture_boxscore_fetches_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fixture_boxscore_fetches_hash ON public.fixture_boxscore_fetches USING btree (content_hash) WHERE (content_hash IS NOT NULL);
+
+
+--
+-- Name: idx_fixture_boxscore_fetches_sport_provider; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fixture_boxscore_fetches_sport_provider ON public.fixture_boxscore_fetches USING btree (sport, provider, updated_at DESC);
+
+
+--
+-- Name: idx_fixture_boxscore_fetches_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_fixture_boxscore_fetches_status ON public.fixture_boxscore_fetches USING btree (status, updated_at DESC);
 
 
 --
@@ -11393,6 +11591,20 @@ CREATE INDEX idx_narrative_threads_progressed ON public.narrative_threads USING 
 
 
 --
+-- Name: idx_news_article_readings_domain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_article_readings_domain ON public.news_article_readings USING btree (final_domain) WHERE (final_domain IS NOT NULL);
+
+
+--
+-- Name: idx_news_article_readings_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_article_readings_status ON public.news_article_readings USING btree (status, updated_at DESC);
+
+
+--
 -- Name: idx_news_articles_bucket; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11407,6 +11619,13 @@ CREATE INDEX idx_news_articles_duplicate_of ON public.news_articles USING btree 
 
 
 --
+-- Name: idx_news_articles_feed_rank; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_articles_feed_rank ON public.news_articles USING btree (feed_rank, id) WHERE (duplicate_of IS NULL);
+
+
+--
 -- Name: idx_news_articles_fetched_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11418,6 +11637,13 @@ CREATE INDEX idx_news_articles_fetched_at ON public.news_articles USING btree (f
 --
 
 CREATE INDEX idx_news_articles_published_at ON public.news_articles USING btree (published_at DESC);
+
+
+--
+-- Name: idx_news_articles_routing_tags; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_news_articles_routing_tags ON public.news_articles USING gin (routing_tags);
 
 
 --
@@ -11460,13 +11686,6 @@ CREATE INDEX idx_news_summaries_entity_recent ON public.news_summaries USING btr
 --
 
 CREATE INDEX idx_news_summaries_scope ON public.news_summaries USING btree (sport, entity_type, entity_id, generated_at DESC);
-
-
---
--- Name: idx_news_summaries_shadow_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_news_summaries_shadow_entity ON public.news_summaries_shadow USING btree (entity_type, entity_id, sport, source, generated_at DESC);
 
 
 --
@@ -11701,13 +11920,6 @@ CREATE INDEX idx_sigil_synthesis_entity_recent ON public.sigil_synthesis USING b
 
 
 --
--- Name: idx_sigil_synthesis_shadow_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_sigil_synthesis_shadow_entity ON public.sigil_synthesis_shadow USING btree (entity_type, entity_id, sport, season, source, generated_at DESC);
-
-
---
 -- Name: idx_sigil_synthesis_sport_score; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11747,13 +11959,6 @@ CREATE INDEX idx_stat_summaries_entity_recent ON public.stat_summaries USING btr
 --
 
 CREATE INDEX idx_stat_summaries_peak_trajectory ON public.stat_summaries USING btree (sport, peak_trajectory, generated_at DESC) WHERE ((body IS NOT NULL) AND (peak_trajectory IS NOT NULL));
-
-
---
--- Name: idx_stat_summaries_shadow_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_stat_summaries_shadow_entity ON public.stat_summaries_shadow USING btree (entity_type, entity_id, sport, season, source, generated_at DESC);
 
 
 --
@@ -11932,13 +12137,6 @@ CREATE INDEX idx_transfer_rumors_scope ON public.transfer_rumors USING btree (sp
 
 
 --
--- Name: idx_transfer_rumors_shadow_pair; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_transfer_rumors_shadow_pair ON public.transfer_rumors_shadow USING btree (team_id, player_id, sport, source, generated_at DESC);
-
-
---
 -- Name: idx_transfer_rumors_team_heat; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11988,17 +12186,17 @@ CREATE INDEX idx_vibe_scores_recent ON public.vibe_scores USING btree (generated
 
 
 --
--- Name: idx_vibe_scores_shadow_entity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_vibe_scores_shadow_entity ON public.vibe_scores_shadow USING btree (entity_type, entity_id, sport, source, generated_at DESC);
-
-
---
 -- Name: idx_vibe_scores_sport_sentiment; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_vibe_scores_sport_sentiment ON public.vibe_scores USING btree (sport, sentiment DESC, generated_at DESC) WHERE (sentiment IS NOT NULL);
+
+
+--
+-- Name: insider_scores_entity_latest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX insider_scores_entity_latest ON public.insider_scores USING btree (sport, entity_type, entity_id, generated_at DESC);
 
 
 --
@@ -12013,6 +12211,27 @@ CREATE TRIGGER enqueue_derive_on_vetted AFTER UPDATE OF vetted ON public.news_ar
 --
 
 CREATE TRIGGER enqueue_transfers_if_transfer_related AFTER UPDATE OF bucket ON public.news_articles FOR EACH ROW WHEN (((new.bucket = 'transfer'::text) AND (new.bucket IS DISTINCT FROM old.bucket))) EXECUTE FUNCTION public.enqueue_transfers_if_transfer_related();
+
+
+--
+-- Name: news_articles enqueue_voices_on_routing_tags; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enqueue_voices_on_routing_tags AFTER UPDATE OF routing_tags ON public.news_articles FOR EACH ROW WHEN ((new.routing_tags IS DISTINCT FROM old.routing_tags)) EXECUTE FUNCTION public.enqueue_voices_on_routing_tags();
+
+
+--
+-- Name: fixtures fixture_boxscore_enqueue_on_final; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER fixture_boxscore_enqueue_on_final AFTER INSERT OR UPDATE OF status, home_score, away_score, external_id, home_team_id, away_team_id ON public.fixtures FOR EACH ROW EXECUTE FUNCTION public.enqueue_fixture_boxscore_on_final();
+
+
+--
+-- Name: provider_fixture_map fixture_boxscore_enqueue_on_provider_map; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER fixture_boxscore_enqueue_on_provider_map AFTER INSERT OR UPDATE OF provider_fixture_id ON public.provider_fixture_map FOR EACH ROW EXECUTE FUNCTION public.enqueue_fixture_boxscore_on_provider_map();
 
 
 --
@@ -12168,6 +12387,22 @@ ALTER TABLE ONLY public.event_team_stats
 
 
 --
+-- Name: fixture_boxscore_fetches fixture_boxscore_fetches_fixture_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.fixture_boxscore_fetches
+    ADD CONSTRAINT fixture_boxscore_fetches_fixture_id_fkey FOREIGN KEY (fixture_id) REFERENCES public.fixtures(id) ON DELETE CASCADE;
+
+
+--
+-- Name: fixture_boxscore_fetches fixture_boxscore_fetches_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.fixture_boxscore_fetches
+    ADD CONSTRAINT fixture_boxscore_fetches_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: fixtures fixtures_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12189,6 +12424,14 @@ ALTER TABLE ONLY public.graph_extractions
 
 ALTER TABLE ONLY public.graph_extractions
     ADD CONSTRAINT graph_extractions_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: insider_scores insider_scores_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.insider_scores
+    ADD CONSTRAINT insider_scores_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -12309,6 +12552,14 @@ ALTER TABLE ONLY public.news_article_entities
 
 ALTER TABLE ONLY public.news_article_entities
     ADD CONSTRAINT news_article_entities_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: news_article_readings news_article_readings_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_article_readings
+    ADD CONSTRAINT news_article_readings_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
 
 
 --
@@ -12682,4 +12933,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict T8n9d6OvN2e0sq3FquBmhV9g5QKDLWmN4pxWW1z9ZTjj1Y9uu8sMHz3cIRXNCzU
+\unrestrict b2ivL9yPRmNJin593ctD4Qf5qaSQ0Rc0PAr14b03TirDmiCVcynO88unDVNAw1m
+

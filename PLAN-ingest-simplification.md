@@ -1,372 +1,394 @@
-# Plan — a simple, durable fetch funnel
+# Plan — the Editor's newsroom
 
-**The shape being built toward:**
+**Status 2026-07-28.** The design is settled. This document is the build order.
+
+The one-line shape:
 
 ```
-Google (one ranked query per entity)  ->  top N by rank  ->  dedup  ->  Reader  ->  characters
+Google (one ranked query per entity)  ->  CANDIDATE ARTICLES     (the query is a hypothesis, never a claim)
+  -> Go, generate:  which of our entities might be in this?      (lenient regex, ranked top-N, no judgment)
+  -> THE EDITOR:    is this sport reporting?                     (gate)
+                    who is actually in it?                       (discovery — names, not confirmations)
+                    what is this story, and what does it feel like?
+  -> PACKETS:       one storyline, multi-tagged, entity-indexed
+  -> per-voice fan-out:  Journalist · Influencer · Insider       (tags)
+                         Scout                                   (confirmed facts only)
 ```
 
-The Reader is the scrubbing layer. Nothing else judges relevance. No regex tier, no embedder,
-no second opinion on a question Google already answered.
+Three properties make this durable where every previous version was not:
 
-Opened 2026-07-26. Companion to [PLAN-backlog-churn.md](PLAN-backlog-churn.md) — that one is about
-draining what exists, this one is about not manufacturing it in the first place.
-
-> **⚠ 2026-07-28 — the shape above is superseded.** The arrow "Google -> Reader -> characters" is
-> right, but it assumed the ingest query names the entity an article is *about*. It does not; it
-> names a candidate. See [The turn](#the-turn--2026-07-28-ingest-is-a-candidate-generator) at the
-> bottom, which is now the governing design. Read it before acting on anything above it.
-
----
-
-## The measurement this rests on
-
-One real sweep, 2026-07-26 12:00, from `logs/pipeline-ingest.log`:
-
-| | count | share of what Google returned |
-|---|---|---|
-| RSS items Google returned | 9,694 | 100% |
-| `match_rejected` — our regex overrules Google | 4,859 | **50%** |
-| `limit_truncated` — over `-rss-limit`, was sorted by date | 2,235 | **23%** |
-| `dedup_collapsed` | 1,160 | 12% |
-| `matched` — actually persisted | 1,440 | 15% |
-
-472 RSS calls to fetch 9,694 articles, of which 85% are discarded by our own logic before the
-Reader sees anything. Then the read budget takes the top 4 per entity, so roughly **6–8% of what
-Google ranked for us reaches the stage that was designed to judge it.**
-
-Fifteen football teams were admitted **zero** articles: *Nantes, Huesca, Spezia, Real Valladolid,
-Nice, Darmstadt 98, LOSC Lille, Amiens SC, Leganés, VfL Bochum*. Those are precisely the
-short/ambiguous names the regex guard exists to protect, and it is starving them instead.
+1. **The gate does not depend on the vetted list.** "Is this sport reporting?" is answerable from the
+   text alone, so no upstream change to what is vetted, linked or queried can silently invert it.
+   That inversion is exactly what cost the pipeline ~90% of its output for two days.
+2. **Entity mapping is an Editor OUTPUT, not an ingest input.** The Editor adds links the query never
+   guessed — including players — and drops the ones it cannot find.
+3. **The packet is the unit, and it is read by every voice independently.** Three peers reading one
+   packet through three lenses is what makes disagreement possible, and disagreement is the product.
 
 ---
 
-## Phase 1 — the ingest cut ranks by Google ✅ DONE
+## The checklist
 
-`8f2a1c` (deployed 22:52). `-rss-limit` cut by publish date; it now cuts by `feed_rank`.
-`sortArticlesByDate` is deleted. The read budget downstream already ranked by `feed_rank`, so
-"top N" now means one thing end to end instead of two disagreeing things.
+Ordered so that each phase is verifiable before the next depends on it. Anything marked **BLOCKS**
+gates work downstream of it.
+
+### Phase A — foundations (no model contract changes)
+
+- [x] **A1. `pg_trgm` installed** — mig `195_pg_trgm.sql`, applied to Archbox, recorded. Extension
+      only, no index: a GIN trigram index on `news_articles.title` costs ~the size of the column and
+      should not be paid for before thresholds are settled. `unaccent` was already present (1.1).
+- [x] **A2. The Reader is renamed The Editor** (Tier 1) — commit `fc602f9`. Module, prose, eval task,
+      fixture generator. 280 tests, clippy 12 (both at baseline). Deliberately NOT renamed:
+      `article_read`/`ARTICLE_READ_*` (stage names, matching the convention that the Journalist's
+      stage is `narratives`), `ARTICLE_READ_PROMPT_VERSION`'s **value** `"ar6"` (a cache key — see
+      trap T1), and `Role::ArticleReader` (its `env_suffix()` is the live
+      `COGNITION_ROUTE_ARTICLE_READER` key on both machines — Tier 3).
+- [ ] **A3. Exact-title dedup sweep.** 3,467 duplicate-title groups / 4,749 collapsible articles in a
+      7-day window, of which only 736 are marked. `duplicate_of` is catching 2.6% of what exists.
+      Safe, mechanical, no thresholds, no model. Inflates every busyness verdict until it lands.
+- [ ] **A4. `news_articles.bucket` → a routing tag SET.** **BLOCKS Phase E.** Today `bucket` holds
+      one label and mig 175 routes `bucket='transfer'` → the Insider. A packet that is both transfer
+      and emotional cannot be expressed. Generalize to a set; the mig-175 trigger becomes a fan-out.
+      Keep the `IS DISTINCT FROM` guard — it is load-bearing, not an optimisation.
+- [ ] **A5. Journalist corpus `LIMIT` + `ORDER BY feed_rank`.** Carried over from the old Phase 2 and
+      still open. `load_vetted_corpus` orders by recency, which outranks Google a third time.
+      Measured today: p50 11 articles/team-day, p95 69, max 141.
+
+### Phase B — mapping and recovery (no new model contract)
+
+- [ ] **B1. The name resolver.** Editor-emitted name strings → canonical entities. Two deterministic
+      gates before anything is rubber-stamped: (a) the name must actually appear in the body we
+      already have — kills hallucinated entities at zero model cost; (b) resolve against the DB with
+      `pg_trgm`. **This is pg_trgm's real job** — resolving a short list of model-extracted names,
+      not scanning article bodies.
+- [ ] **B2. Go retires as judge, stays as clerk.** `MatchesEntity` becomes a candidate *generator*:
+      lenient, high-recall, ranked, top-N. It decides nothing. Leniency is bounded by prompt budget —
+      candidates go INTO the prompt, so hand over a ranked top-N, not everything that matched.
+- [ ] **B3. Unmatched-name capture.** Names the Editor found that resolve to nothing get persisted.
+      That set is the candidate pool for growing the DB later, and it costs nothing to keep now.
+      Junked articles keep a row so the unmatched names have something to hang on.
+- [ ] **B4. Re-mapping backfill over the 6,319 held articles.** **Do this before B2 goes live.** It
+      exercises the resolver on 6,000 real articles offline, where mistakes are inspectable. The
+      persisted `relevant_entities` already names the right entities on 5,423 of them, so a large
+      share costs **zero model calls**. See "Recovery, deliberately held" below.
+
+### Phase C — the Editor's new contract (one prompt version bump)
+
+- [ ] **C1. Discovery.** The Editor is currently handed `vetted_names` + `co_mentions` and asked what
+      part each plays. **It is never asked who else is in the article.** That is the whole bleed —
+      measured, it read 99 articles mentioning Vinicius Junior and linked him in 24.
+- [ ] **C2. Emotional register.** A small closed enum (celebration / outrage / resignation /
+      anticipation / neutral) **plus the phrase that shows it**. Never a score — the Influencer owns
+      the number. See trap T2.
+- [ ] **C3. Field order.** Extraction before anything derived. Field order IS the contract (ar4);
+      constrained decoding emits properties in schema order, and moving the verdict from first to
+      last was the difference between 99.1% rubber-stamping and a working gate.
+- [ ] **C4. Bump `ARTICLE_READ_PROMPT_VERSION`.** This is the change that *earns* the re-read wave.
+      Free here, catastrophic if done casually earlier.
+- [ ] **C5. Watch the output budget.** `ARTICLE_NUM_PREDICT` is 900 and the Editor covers 21% of
+      articles because it is the throughput bottleneck. **The Editor's output budget is coverage** —
+      every token added is articles/day not read. Keep both new fields terse.
+
+### Phase D — packets (storylines)
+
+- [ ] **D1. Schema.** `storylines` (identity, title, state, first_seen, last_updated) and
+      `storyline_entities` (the edge: role, joined_at, left_at, exit_reason, last_seen_at).
+- [ ] **D2. Incremental assignment.** **Not a batch compile** — there is no context window in which
+      "here is today's football corpus, find the stories" is a call you can make (football alone is
+      6,344 articles/day). Each article is offered a *shortlist* of candidate storylines — free,
+      because mapping just named the entities and entities point at their open stories — and it
+      attaches or opens a new one.
+- [ ] **D3. Use the closed-candidate-list pattern.** Do NOT emit a free-text storyline name: "Saka
+      injury" and "Bukayo Saka hamstring" will not match, which is the whole problem embeddings were
+      solving. Show a NUMBERED list and take a pick by number — the same shape and parser discipline
+      the co-mention path already uses (`resolve.rs`).
+- [ ] **D4. Tail attachment.** 79% of articles never earn a model read. Attach them to existing
+      storylines by similarity, no model call. **Respect the bands** — see trap T3.
+- [ ] **D5. Entity participation lifecycle.** The story has a lifespan; the entity's part in it has a
+      *separate* one. Arsenal joins, Arsenal's part ends, the story runs on at PSG. Fading is cheap
+      (`last_seen_at` + decay). Losing out is not — put that judgment on the **story**, once: when a
+      storyline resolves, name who it resolved for, and every other participant's edge closes as
+      "not the outcome" in one stroke. Derive the close in code; never ask a 4B to render it.
+- [ ] **D6. Packets carry contested state.** Same story, same day: *"Real Madrid reach agreement with
+      RB Leipzig"* and *"Real Madrid yet to reach agreement — The Athletic."* The disagreement IS the
+      story. A storyline storing one settled fact would flatten exactly what makes it interesting.
+
+### Phase E — the newsroom fan-out
+
+Depends on A4 and C2.
+
+- [ ] **E1. Per-voice routing, derived not asked.** Tags fall out of fields the Editor already emits:
+      `injury`/`roster` → (Scout, see E4), `transfer` → Insider, non-neutral register → Influencer,
+      always → Journalist. Asking gemma "which voices should see this?" is a judgment call, and this
+      codebase has paid three prompt revisions to learn it will not render those. Derived routing is
+      inspectable and cannot silently invert when the cast changes.
+- [ ] **E2. Per-voice re-wake fingerprint.** A packet that gains an article re-fans only to voices
+      whose **slice** changed. Diomande gains a suspension → the Scout's slice moved; the Insider's
+      did not. This is the mig-175 `IS DISTINCT FROM` guard one level up, and without it every
+      article on a running saga wakes every voice for every involved entity.
+- [ ] **E3. The Influencer goes direct.** Remove the Journalist gate. **This cannot land before C2** —
+      `enqueue_vibe_if_needed` returns `Ok(false)` on empty context, so an Editor-side enqueue with
+      no Editor-supplied material would silently no-op forever. Rebuild the debounce so Editor cues
+      count as material. Update her contract text: she may now be the *first* voice on a story, and
+      the current wording (*"may not introduce an event that no one else filed"*) assumes a peer
+      filed it first.
+- [ ] **E4. The Scout's fact feed.** The Scout is **not** a packet subscriber. Transfer speculation
+      never reaches it. It wakes on the confirmation layer — `transfer_identity_applications`
+      (adjudicated, with `deterministic_confidence`), `transfer_ground_truth` (applied, with ledger +
+      ref), `player_team_history` — where a threshold has been met and entity meta is updated. A row
+      there is a fact from the system of record, exactly like the percentile band it is already
+      handed. **No prose reaches the Scout.** See trap T4.
+- [ ] **E5. The Oracle's disagreement contract.** See "The disagreement finding" below — this is a
+      real unlock sitting unused, and E3 is necessary but **not sufficient** for it.
+
+### Phase F — deferred, with reasons
+
+- [ ] **F1. Rename Tier 3** — the `article_read` queue kind (a live queue with 6,268 pending items),
+      `news_article_readings`, `Role::ArticleReader` + `COGNITION_ROUTE_ARTICLE_READER`. Each is a
+      migration or a coordinated two-machine config change, not a text substitution. I would argue
+      for leaving `news_article_readings` alone: a migration and a schema snapshot for zero
+      behavioural gain.
+- [ ] **F2. Delete BGE.** Storylines replace `threads`' cosine clustering — grouping becomes a
+      `GROUP BY` rather than a clustering pass, and the embedder has no consumer left in this path.
+      This finishes a teardown already two-thirds done.
+- [ ] **F3. Per-league editions** (old Phase 4). One edition per team, the correct one — Bundesliga →
+      `de-DE`, La Liga → `es-ES`. Same call count as today. Blocked on F2; `teams.country` is clean
+      for football (23 NULLs need a backfill or an `en-GB` fallback).
+- [ ] **F4. Injuries and suspensions — BLOCKED, no data.** The Scout's contract promises them and
+      **no injury or suspension column exists anywhere in the schema**, nor any provider feed. The
+      only available source is news text, which is precisely what must not reach the Scout. Ship
+      confirmed transfers (E4) now; injuries wait for a source.
+- [ ] **F5. `vibe` is truncating.** Post-raise p99 output jumped 144 → 347 and 2 generations hit the
+      1100 cap exactly in 7 days. Recommend `VIBE_NUM_PREDICT` → 1600. Unrelated to this plan.
+- [ ] **F6. Plumbing** — `requeue_stale` on its own interval + startup guard, the unverified Oracle
+      barrier, the vestigial edition-grid scaffolding (`defaultRSSEditions`, `EditionsPlanned/
+      Queried/Skipped`, `runRSSQueryPastLimit`'s `editionIdx`), offsetting the two cards' rest
+      windows, two `article_read` dead letters.
 
 ---
 
-## How big is "page 1"? — measured 2026-07-26
+## The newsroom, as designed
 
-RSS has no pagination: one request returns one payload, and Google caps it at **100 items**.
-Sampled live with `when:1d`:
+```
+Editor ──packets, per-voice routing──> Journalist · Influencer · Insider
+       ──confirmed facts────────────>  Scout
+Analyst  <── Scout + Influencer outputs        (the one peer-aware seat, by design)
+Oracle   <── five cards                        (blind — she reads cards, not material)
+```
 
-| entity | items | | entity | items |
-|---|---|---|---|---|
-| Arsenal / Man Utd / Bayern / Lakers | 100 (capped) | | Leganés | 25 |
-| Chiefs | 94 | | Real Valladolid | 4 |
-| Celtics | 91 | | Darmstadt 98 | 4 |
-| Packers | 82 | | Huesca | 3 |
-| Jaguars | 64 | | Spezia | 3 |
+Verified against the code, 2026-07-28:
 
-Mean ≈ 52 over the sample. **The count is itself a relevance signal** — Arsenal returns 100 because
-there are 100 stories today; Spezia returns 3 because there are three. Taking whatever page 1 gives
-makes coverage scale with how much story actually exists, which is the product's stated lane.
-
-A flat `-rss-limit 12` does the opposite of what it looks like: it never binds on the small clubs
-(3 < 12, all kept) and **only ever bites the entities with the most news** — Arsenal keeps 12 of
-100. The cap exclusively starves the biggest stories.
-
-### What "no limit" actually costs
-
-Mostly nothing, with one hard exception.
-
-**Free:** GPU work does not scale with corpus size. `article_read` is capped at
-`COGNITION_ARTICLE_READ_TOP_K` per entity. `narratives`/`vibe`/`sigil` enqueue **per entity**,
-deduped by `input_version`, so one item per entity regardless of how many articles sit behind it —
-the re-run count tracks the number of *readings*, which the read budget already bounds. `scrub` is
-model-free. And one query per entity is **fewer** RSS calls than today's 472, not more.
-
-**The exception, and it is binding:** the Journalist loads its article corpus with **no `LIMIT`**
-(`journalist/mod.rs:285`) — every vetted, non-duplicate article in the window, `full_text` included.
-The six voices share one 16,384-token context. At ~7 articles/entity today that fits; at ~52 it
-will not. **Removing the ingest cap without capping the corpus load moves the overflow from ingest
-to the prompt, where it fails as truncation instead of as a counter.**
-
-That same query also does `ORDER BY COALESCE(a.published_at, a.fetched_at) DESC` — recency again,
-the third place it outranks Google. It should order by `feed_rank`.
-
-### The resulting shape
-
-Take page 1 whole, and move the throttles to the two places that actually spend GPU:
-
-1. **read budget** — top-K by `feed_rank` (exists, `COGNITION_ARTICLE_READ_TOP_K`)
-2. **Journalist corpus load** — needs a `LIMIT`, ordered by `feed_rank` (does not exist yet)
-
-The corpus becomes expansive and cheap — Postgres rows — and every cut that costs a model call is
-ranked by Google. One ranking, two budgets, one judge. That is a smaller idea than what is there
-now, not a larger one.
+- The vetted trigger now enqueues **only** `article_read`. The Editor is the sole entry point and
+  fans out itself.
+- **The Journalist** is already enqueued by the Editor directly. ✅
+- **The Insider** is already Editor-caused, via the `bucket` write → mig-175 trigger. This only
+  became true at n16 (2026-07-27); mig 174's comment still says "the Journalist (n9) labels each
+  article," which is now stale.
+- **The Influencer** is enqueued by the **Journalist**, not the Editor. ❌ → E3.
+- **The Analyst** reads *"The Scout's PEAK report, The Influencer's vibe"* — the only peer-aware
+  voice, and correctly so.
+- **The Oracle** reads five cards; `news_summaries` is the Journalist's *card*, not raw material.
+  She is blind in the intended sense.
 
 ---
 
-## Phase 2 — retire the regex tier, and let the query be the link
+## The disagreement finding — a built unlock sitting unused
 
-**The load-bearing question:** delete `MatchesEntity` and what links an article to an entity?
+The Oracle's contract already makes disagreement first-class: *"the reply may carry `CONVERGENCE:`,
+`DISAGREEMENT:` and `WHY_NOW:`... When the cards genuinely conflict, the honest reading says so."*
 
-Today: query Google for "Arsenal" → `MatchesEntity` re-checks that "Arsenal" appears in
-title+description → write `news_article_entities`. The regex is re-deriving something the query
-already established. We asked Google for Arsenal news; the link is the query.
+Measured over the whole `sigil_synthesis` table:
 
-**The change.** Link optimistically on the query that returned the article, and let the Reader
-confirm or reject. The Reader already emits relevance verdicts, `page_kind`, roles and co-mention
-findings — it is a strictly better judge of "is this actually about Nice the football club or Nice
-the city" than a regex over a headline, because it reads the body.
-
-**Why this does not blow up GPU load** — the important part:
-
-| | today | after |
-|---|---|---|
-| RSS calls | 472 | ~204 (one query per entity) |
-| articles fetched | 9,694 | ~2,448 (204 × top 12) |
-| articles persisted | 1,440 | ~2,000 after dedup |
-| **articles read** | **top 4/entity** | **top 4/entity — unchanged** |
-
-The read budget is what costs GPU, and it does not move. We fetch a quarter as much, discard
-almost none of it, and hand the Reader *better-ranked* candidates for the same model spend. The
-simplification is roughly load-neutral; it is the quality of what reaches the Reader that improves.
-
-**What is genuinely lost:** the regex is a cheap pre-filter that keeps obvious junk out of the
-corpus for free. Dropping it means some non-football "Nice" articles get persisted and occupy a
-read slot before being rejected. That is the trade — a small amount of wasted reading in exchange
-for deleting a tier that currently rejects half of everything and starves fifteen teams outright.
-
-**Also retire here:** the edition-grid scaffolding. `defaultRSSEditions` and
-`footballTeamRSSEditions` are one entry each; `EditionsPlanned/Queried/Skipped`,
-`runRSSQueryPastLimit`'s `editionIdx` arithmetic and `teams_edition_capped` are all machinery for
-a grid that no longer exists. Every log line reads `editions_skipped=0` because it structurally
-cannot read anything else.
-
-**Keep:** the `Funnel`. It is the reason this plan is evidence-based rather than a hunch, and its
-`Residual()` invariant is what would catch a silent drop introduced by this very refactor. Keep
-dedup. Keep the `newsLookbackSlack` boundary overlap.
-
----
-
-## Phase 3 — delete the embedder
-
-Already scoped in the code. From `harness.rs`:
-
-> SHRINKING: the relevance gate and the novelty gate no longer embed anything (teardown §2.1/§2.2).
-> The last two consumers are `narratives`' pre-model corpus clustering and `threads`' centroid
-> cosine — both retire in Phase 3, when The Journalist declares thread identity itself and the
-> embedder can be deleted outright.
-
-So "no more BGE" is not a new direction — it is the finish of a teardown already two-thirds done.
-Two consumers remain, and both are replaced by the same move: **The Journalist declares thread
-identity in-prompt instead of having it computed from cosine distance.**
-
-This is the largest piece and the only one that is really a prompt change, so it belongs with the
-prompt session rather than here. Sequence it after Phase 2 — fewer, better-ranked articles make
-thread identity an easier judgment, not a harder one.
-
-**Unlock worth knowing:** the localized football editions (es/it/fr/de) are parked partly *because*
-the embedder is `bge-small-en-v1.5`, English-only, and was scoring a 76%-non-English corpus on text
-its weights never saw. Deleting BGE removes one of the three blockers. The other two — the Reader
-translating and summarizing in one call, and English-only prompts downstream — remain, so this
-unlocks the option, not the feature.
-
----
-
-## Phase 4 — SEED, parked: one edition per league, in that league's language
-
-Scott's idea, 2026-07-26. Route each football team's RSS query to the edition of the country its
-league is in — Bundesliga clubs to `de-DE`, Premier League to `en-GB`, La Liga to `es-ES`, Serie A
-to `it-IT`, Ligue 1 to `fr-FR`.
-
-**Why it is a strong idea.** Local sports press is where football is actually covered. *Bild* on
-Bayern, *Marca* on Real Madrid, *Gazzetta* on Serie A — none of it reaches an `en-GB` query except
-second-hand. The current code names this cost itself: *"four of our five leagues are now covered
-only by English-language reporting of them,"* logged as a deliberate accuracy-over-breadth trade
-while the pipeline is GPU-bound.
-
-**How it differs from what was already tried, which matters.** Localized editions were live
-2026-07-23 and retired. But that version ran **every** edition for **every** football team — 6–7×
-the RSS calls, and a per-team corpus that was a language mix (24.1% English overall, 45.3%
-definitively non-English). Scott's version is **one edition per team, the correct one**. Same call
-count as today, no volume increase at all, and each team's corpus is coherently in one language
-instead of scrambled across seven. The cost objection that retired the first attempt does not apply
-to this shape.
-
-**Data is ready.** `teams.country` is clean for football: England 25, France 24, Spain 24, Italy 23,
-Germany 22, Monaco 1 (Ligue 1 → `fr-FR`). 23 teams have a NULL country and need a backfill or an
-`en-GB` fallback. The hook already exists — `rssEditionsForEntity(entityType, sport)` just needs the
-team's country threaded to it.
-
-**What still blocks it.** Three reasons were recorded for parking; this plan clears one of them:
-
-| blocker | status |
+| | |
 |---|---|
-| BGE is `bge-small-en-v1.5`, English-only — scored a 76%-non-English corpus on text its weights never saw | **cleared by Phase 3**, which deletes the embedder outright |
-| The Reader translating *and* summarizing in one call | open — but the Reader runs on `gemma3:4b`, which is multilingual. **Worth measuring before assuming**, it may already be a non-issue |
-| Every prompt, guard list and stopword downstream is English | open, and the real work |
+| sigil readings carrying prose | 13,252 |
+| that mention disagreement | **7** (0.05%) |
+| that carry `WHY_NOW` | **0 — never fired** |
+| deterministic `pillar_convergence` | avg 67.9, p50 74, **min 1**, max 100 |
 
-So the sequencing is: Phase 3 first (it removes the hardest blocker as a side effect), then measure
-whether gemma3 reads the target languages well enough, then this. Do not start it before Phase 3 —
-the embedder would silently score the new corpus on weights that never saw those languages, which is
-exactly the failure that retired the first attempt.
+**The system detects divergence and the voice never says it.** Two independent causes, and both must
+be fixed or the unlock does not land:
 
----
-
-## Sequencing — the prompt session is the LAST phase
-
-Scott's call, 2026-07-26. Everything mechanical lands first; the LLM prompt session closes the plan
-out. Nothing that needs a prompt decision gets attempted before it, and nothing mechanical is left
-waiting on it.
-
-1. ✅ **Phase 1** — the ingest cut ranks by `feed_rank`.
-2. ✅ **Phase 2** — regex tier retired, players stop auto-vetting, `-rss-limit` = one Google page.
-3. **Plumbing** — the open frictions from `HANDOFF-plumbing.md` (stale-lease recovery, the handler
-   timeout that measures queueing, the unverified Oracle barrier, the two dead letters), retiring
-   the vestigial edition-grid scaffolding, and offsetting the two cards' rest windows
-   (see `PLAN-backlog-churn.md` — sequenced after the backlogs clear, since it buys pipeline
-   continuity rather than throughput). All independent of any prompt.
-4. **LLM prompt session — FINAL PHASE.** In order:
-   1. **Bucketing** — first, and the critical one. Group trending summaries into one generation
-      covering N entities instead of N separate ones. The only lever that reduces the *number* of
-      items rather than the time each takes, and it spends gemma3's idle capacity.
-
-      **Do the sorting in the Reader, not the Journalist** (Scott, 2026-07-27): *"It's not the brain
-      work, it's the sorting work."* Sorting belongs on the 1070, which has headroom; synthesis
-      belongs on the Mac, which does not. The Journalist should consume buckets, not build them.
-
-      **This is mostly already built, which is the surprise.** The Reader's output schema already
-      emits `story_type` per article — and it discriminates well. Measured 2026-07-27 over 2,809
-      successful readings:
-
-      | transfer | fixture | general | performance | injury | roster | contract |
-      |---|---|---|---|---|---|---|
-      | 1,005 | 581 | 424 | 293 | 277 | 69 | 63 |
-
-      So the sorting key **already exists, on the right machine, at no additional model cost**. Two
-      consequences:
-
-      - **`news_articles.bucket` is being derived twice.** `bucket.rs` records that the
-        transfer/non-transfer judgment was *moved to* the Journalist ("the Journalist labels each
-        article it reads, as the tail of the read", step n9). But the Reader already knows —
-        `story_type='transfer'` is 1,005 rows — and it knows from the **full body**, where the
-        Journalist only sees a 900-byte evidence blurb. Writing the bucket from the Reader and
-        deleting n9 removes work from the saturated host, shortens the narratives prompt AND its
-        output schema, and uses the better-informed judge. `ArticleBucket::from_model_tag` already
-        maps `trade`/`trades` → `Transfer`, so the off-vocabulary values the model emits are handled.
-      - **Grouping the Journalist's corpus by `story_type` needs no new inference at all** — it is a
-        prompt restructuring over a field already persisted in `news_article_readings.evidence`.
-        That is the cheapest possible version of "the Journalist consumes buckets".
-
-      One trap, recorded so it is not rediscovered: a comment in `eval_tasks.rs` cites `story_type →
-      general on 84% of reads`. That is **ar5 history, not current state** — it is 15% now. Reading
-      it as current would wrongly rule out the whole approach.
-
-      **Second bucket: related stories** (Scott, 2026-07-27). Group articles covering the same event
-      so the Journalist receives one storyline instead of six retellings of it — lean, concise,
-      still thorough. This is the highest-value half of the idea, because a corpus of 40 articles is
-      mostly the same handful of stories told repeatedly, and the Journalist currently pays full
-      prompt cost for every retelling.
-
-      **It is also the replacement Phase 3 needs.** Grouping-by-similarity is exactly what `threads`
-      does today — `cosine(title+body embedding, thread centroid) >= 0.80` — and that is one of the
-      two remaining BGE consumers. Phase 3's plan was for the Journalist to declare thread identity
-      itself; doing it in the Reader is better on every axis: it is sorting rather than synthesis,
-      it runs on the card with headroom, and the Reader sees the **full body** where the Journalist
-      sees a 900-byte blurb.
-
-      **The mechanism already exists in the Reader.** Do NOT have it emit a free-text storyline name
-      — "Saka injury" and "Bukayo Saka hamstring" will not match, which is the whole problem
-      embeddings were solving. Use the house closed-candidate-list pattern instead (the `resolve.rs`
-      trick, already used by graph): show the Reader the entity's currently-open storylines as a
-      NUMBERED list, and have it either attach to one by number or declare a new one. The Reader
-      already takes numbered co-mention candidates and returns picks by number — same shape, same
-      parser discipline, no free-text resolution anywhere.
-
-      Grouping then becomes a `GROUP BY` rather than a clustering pass, and BGE has no consumer left
-      in this path.
-   2. **Context size** — goes hand in hand with bucketing, since bucketing is what makes the context
-      budget bind. Owns `COGNITION_JOURNALIST_CORPUS_LIMIT` (currently 40) and the six voices'
-      shared 16,384-token window.
-   3. **Delete BGE** — The Journalist declares thread identity in-prompt, retiring the last two
-      embedder consumers. Finishes a teardown already two-thirds done.
-5. **After the plan: per-league editions** (the Phase 4 seed above). It depends on BGE being gone,
-   and BGE goes in the final phase — so this is the first thing of the *next* epoch, not this one.
-
-Phase 2 landed 2026-07-26 23:14. Its first sweep is 02:00 the next morning: the funnel numbers will
-move a lot, and **`Residual()` going non-zero is the alarm** that the refactor dropped something
-silently. Everything else moving hard is expected.
+1. **Structural.** Two of the five pillars *cannot* disagree today, because vibe is a function of
+   narratives. The Oracle is reading the Journalist twice — once directly, once laundered through a
+   sentiment pass. E3 fixes this.
+2. **Contractual.** `DISAGREEMENT:` is an **optional** field the model may volunteer — which is
+   exactly what `relevant` was before ar6, when gemma rubber-stamped 99.1% of articles because
+   nothing forced the negative judgment. E5 fixes this: `pillar_convergence` is already computing
+   the divergence signal deterministically and the prompt does not use it. When it is low,
+   disagreement stops being optional.
 
 ---
 
-## Decisions taken
+## Measurements this plan rests on (2026-07-28)
 
-- **Read budget → 10** (was 4, never overridden). Set in `.env.local` 2026-07-26 23:28. The Reader
-  is now the only relevance judge, and a budget of 4 was sized for a pipeline that discarded 85%
-  before reaching it. The capacity is real and idle: `article_read`/`graph`/`scrub` run on Archbox's
-  gemma3 card, which held **zero** pending work all night while the Mac's single permit carried
-  ~930 items. **Flagged for the 21:00 checkpoint** — the second-order cost lands on the Mac, since
-  `narratives`' `input_version` hashes each article's read status and every new reading can reopen
-  that entity's Mac-routed narratives row. Drop toward 8 if narratives inflow climbs with it.
-- **Zero-admit teams.** Fifteen clubs were admitted nothing (Nice, Spezia, Leganés, Huesca,
-  Amiens …). Phase 2 should fix them as a side effect; verify explicitly at the 02:00 sweep rather
-  than assuming, since they are the hardest names and the reason to believe is a deletion.
+**Volume.** FOOTBALL 6,344 articles/day, NFL 1,148, NBA 648. Football is 78% of the pipeline —
+whatever gets built is a football system that also does NFL and NBA.
 
+**Coverage.** 21.3% of articles earn a model read. The other 79% reach the Journalist on their
+headline. Links are vetted by **Scrub** (a naming *fact*), not by the Editor — so the tail is carried
+at lower fidelity, not lost.
+
+**The collapse ratio.** Real Madrid, 2026-07-26 — 110 candidate articles, hand-counted into about
+**five stories** plus ~20 junk/spam/archive:
+
+| story | articles |
+|---|---|
+| Diomande → Real Madrid (RB Leipzig), PSG bidding then walking out | ~25 |
+| Vinicius Jr → Arsenal | ~15 |
+| Rodri: Man City → Madrid/PSG | ~7 |
+| Lee Kang-in → Atlético (**not a Real Madrid story at all**) | ~18 |
+| Julián Álvarez / Atlético / Barça | ~3 |
+| junk: Big Brother, Valencia wildfires, WTA Madrid, a Telugu film trailer, a U12 final from 2024, a fixture page dated 2027 | ~20 |
+| exact-duplicate titles from different sources | 3 pairs |
+
+**~20:1 on the biggest cluster**, on the entity where duplication is heaviest.
+
+**The player-discovery bleed.** Mention-vs-link over 7 days, joined on stable IDs:
+
+| player | mentions | linked |
+|---|---|---|
+| Rodri | 281 | 280 |
+| Kang-in Lee | 113 | 113 |
+| Yan Diomande | 385 | **200** |
+| Michael Olise | 144 | **70** |
+| Vinicius Junior | 182 | **39** |
+
+Caveat kept deliberately: the patterns over-match (`vinicius` also hits three other Viniciuses), so
+these are **upper bounds on mentions and therefore upper bounds on the miss rate**. Olise is the
+cleanest signal — distinctive surname, exact canonical name, still ~49% missed.
+
+Split by whether the Editor read the article, the miss rate is **barely better**: Olise 12/22 read vs
+58/122 unread; Vinicius 24/99 read vs 15/81 unread. **It is a contract gap, not a capacity gap** —
+the Editor has the body in context and is never asked who is in it.
+
+**Theories this session killed, recorded so they are not re-derived:**
+- *Accent folding.* `unaccent` was already installed; **0 teams and 8 players** lack an ASCII alias,
+  and Atlético is linked on 286 of 289 mentions. Not the bleed.
+- *Aliases generally.* Team matching is fine (~99%). The gap is player *discovery*, not name forms.
+- *"The tail is lost."* It is not — Scrub vets links for 100% of articles; reading is an upgrade.
 
 ---
 
-# The turn — 2026-07-28: ingest is a candidate generator
+## Recovery, deliberately held
 
-Scott, closing the session that found this: *"The idea behind the cron job firing for teams only
-isn't to exclude players, it's to gather the broad topics of the sport. Our keep criteria should be
-'is this about the sport?' — which flows to 'what entities does it include?'"*
+10,366 team links and 2,315 player links across **6,319 articles** were set `vetted = FALSE` during
+the 07-27 incident. That state is a ratchet: FALSE is excluded from the vetted list AND from the
+co-mention candidate pool (which selects `vetted IS NULL`), so nothing reconsiders them. All 6,319
+are still inside the 14-day window.
 
-That is a different pipeline from the one this plan was written around, and it is the correct one.
+**Do not re-arm them.** They need re-MAPPING, not re-judging. Re-arming pushes them through a gate
+about to be replaced, pays ~6,300 gemma reads to do it, and re-derives their links from the same
+query hypothesis that misfiled 2,043 of them. This is checklist item **B4**.
+
+---
+
+## Traps
+
+**T1 — `ARTICLE_READ_PROMPT_VERSION`'s value is a cache key, not a label.** Every reading whose
+`prompt_version` differs is invalidated and re-read lazily. Renaming the `ar` namespace as part of a
+cosmetic sweep would silently spend thousands of gemma calls re-reading the whole corpus. It gets
+bumped when a real contract change earns it (C4).
+
+**T2 — gemma will not render a negative or conflicting judgment as a bare field.** Proven three
+times: ar3 (99.1% accept), ar5 (labelled a boxscore `score_stub` and still said `relevant:true`), and
+now the Oracle's `DISAGREEMENT:` at 7-in-13,252. The answer every time is the same: **describe, then
+derive**. Never ask for the verdict.
+
+**T3 — similarity bands are not interchangeable.** Measured on the Real Madrid day:
+
+| band | pairs | meaning | action |
+|---|---|---|---|
+| ≥ 0.9 | 4 | true restatements | safe to dedup |
+| 0.5–0.75 | 28 | same story, **different or contradictory** claim | attach as a source — never collapse |
+
+At 0.71: *"Real Madrid reach agreement with RB Leipzig"* vs *"Real Madrid **yet to** reach agreement
+with RB Leipzig."* Opposite claims, high similarity. Naive dedup at a loose threshold would quietly
+delete the disagreement, which is the story.
+
+**T4 — the Scout's reliability is the L8 discipline, and prose breaks it.** The percentile→tier
+mapping was *taken away from the model* and fed in as a labeled fact, because local models invert the
+relation and call a 37th-percentile skill "above average." Everything reaching that seat must arrive
+as a fact requiring no interpretation. The other three voices are interpreters by trade; the Scout is
+not.
+
+**T5 — a green fixture gate cannot see a relevance regression.** The 78/78 narratives gate passed
+throughout the two days the pipeline was discarding 98% of its corpus. Gates test the contract; only
+production rates test the premise.
+
+**T6 — a rule calibrated against one population silently inverts when the population changes.** ar6's
+evidence was three team-subject articles; it was correct when written and catastrophic ten hours
+later, once Phase 2 changed what "vetted" meant. Anything keyed to the cast deserves a note about
+what the cast was when it was written.
+
+**T7 — expect the busyness verdicts to move.** Today five outlets on one rumor look like **five
+signals of activity**. Under packets it is one story with five sources. `card_score`, momentum, the
+whole "how much is happening here" read is currently counting *coverage volume* and calling it *news
+volume* — and it will separate hardest on the biggest clubs, where duplication is heaviest. The n16
+baselines and the 78/78 fixture gate are **not comparable across this change.**
+
+**T8 — mig 194 is applied but unrecorded** in `schema_migrations` (column, index and comment all
+verified present). Fully idempotent, so the next `migrate.sh` re-applies it as a no-op and records
+it. Self-healing — but it means 194 was applied by hand rather than through the runner.
+
+---
+
+# Appendix — the turn that produced this design (2026-07-28)
+
+Scott, opening the session that found it: *"The idea behind the cron job firing for teams only isn't
+to exclude players, it's to gather the broad topics of the sport. Our keep criteria should be 'is
+this about the sport?' — which flows to 'what entities does it include?'"*
 
 ## What the old shape assumed, and why it broke
 
-Every version of this plan treated the ingest query as a **claim**: we asked Google for Arsenal, so
-this article is about Arsenal, and the Reader's job is to confirm or deny it. Phase 2 leaned harder
-on that assumption, not less — "link optimistically on the query that returned the article, and let
-the Reader confirm or reject."
+Every earlier version of this plan treated the ingest query as a **claim**: we asked Google for
+Arsenal, so this article is about Arsenal, and the Reader's job is to confirm or deny it. Phase 2
+leaned harder on that assumption, not less.
 
 The assumption is false. Google's page 1 for a team is a sample of that team's *news neighbourhood*:
 the club, its players, its rivals, its league. Asking "is this about Arsenal?" of an article about
 Saka's hamstring gets a defensible **no**, and then we delete it.
 
-That is not hypothetical. It cost the pipeline ~90% of its output for two days:
+| per day | 07-25 | 07-26 | 07-27 | 07-28 (pre-fix) | 07-28 (post-fix) |
+|---|---|---|---|---|---|
+| Reader success rate | 71% | 73% | **2.2%** | 2.1% | **77%** |
+| vetted player links | 48 | 193 | **12** | 6 | recovering |
+| transfer rumors | 453 | 153 | **40** | 12 | recovering |
+| narratives | 1,686 | 1,242 | 793 | 217 | recovering |
 
-| per day | 07-25 | 07-26 | 07-27 | 07-28 (pre-fix) |
-|---|---|---|---|---|
-| Reader success rate | 71% | **73%** | **2.2%** | 2.1% |
-| vetted player links | 48 | 193 | **12** | 6 |
-| transfer rumors | 453 | 153 | **40** | 12 |
-| narratives | 1,686 | 1,242 | 793 | 217 |
+The proximate bug is written up in `ar7` (`3b565ed`). The architectural cause is this section's
+subject: **a relevance rule keyed to "is it about the entity we guessed" is only ever as good as the
+guess**, and it silently inverts whenever the guess changes.
 
-The proximate bug is written up in `ar7` (`3b565ed`) and in `derive_relevance`'s doc comment. The
-architectural cause is this section's subject: **a relevance rule keyed to "is it about the entity we
-guessed" is only ever as good as the guess**, and it silently inverts whenever the guess changes.
+## The three decisions, resolved
 
-## The shape being built toward now
+1. **How wide is "the sport"?** As wide as the sports we cover. But the league question turned out to
+   be *free*: an article about a league we do not cover names none of our entities, so the mapping
+   step junks it anyway. **The gate never has to know what leagues we cover** — and it should not,
+   because that recreates the same fragility. The gate asks a shape question only.
+2. **Sport news naming none of our entities?** Junk — but AFTER mapping, never before, and capture
+   the unmatched names (B3). Flagged for the future: once the DB grows on its own, those names are
+   the candidates.
+3. **Is the packet sport-level rather than entity-level?** Yes, **as long as the downstream output
+   stays entity-level.** The Editor compiles the stories of the day; the voices tell each entity's
+   version. This is what actually reaches `VOICE_NUM_CTX` 4096 — today the same article is re-read
+   and re-reasoned per entity, which is why the Journalist's prompt is 8,915 tokens at p99.
 
-```
-Google (one ranked query per entity)   ->  CANDIDATE ARTICLES (the query is a hypothesis, not a claim)
-  -> The Editor, gate:     is this about a sport we cover?        -> keep / junk
-  -> The Editor, mapping:  which of our entities are in it?       -> teams AND players, discovered
-  -> characters, per entity, off the mapping
-```
+## The regex was never wrong; it was wired as the judge instead of the clerk
 
-Two properties make this durable where the old shape was not:
+Phase 2 retired `MatchesEntity` because it rejected 50% of everything Google returned and starved
+fifteen clubs to zero. Measured again on 07-28, as a gate it is worse than that: restoring it would
+remove **64% of the junk and 54% of the genuinely successful reads**, because `teams.name` is
+canonical and the press writes "Spurs."
 
-1. **The gate does not depend on the vetted list.** "Is this sport reporting?" is answerable from the
-   text alone. No upstream change to what is vetted, linked, or queried can silently invert it —
-   which is exactly the failure mode that produced the table above.
-2. **Entity mapping is an Editor OUTPUT, not an ingest input.** `Scoracle-Character-Contracts-Proposal.md`
-   already says so — the Editor packet contains "entity mapping" — and the code never made that move.
-   The Editor adds links the query never guessed (including players) and drops the ones it cannot
-   find.
+As a **candidate generator** those same numbers are fine. Recall misses are cheap when a model
+adjudicates the shortlist afterwards, and precision costs nothing because the model discards what is
+not there. 204 teams and 15,986 players is a trivial lookup.
 
-`clear_vetted_entities_for_article` changes meaning accordingly: not "junk this article" but
-**"re-file it."**
+**Retire it as a filter, restore it as a generator.** That is the sentence this plan should have had
+from the start.
 
-### Measured: how much is misfiled rather than junk
+## Measured: how much was misfiled rather than junk
 
 Of the 6,296 articles the broken gate rejected between 07-27 00:00 and 07-28 07:04:
 
@@ -379,43 +401,33 @@ Of the 6,296 articles the broken gate rejected between 07-27 00:00 and 07-28 07:
 Roughly a third of the "junk" was an article about a real entity of ours, filed under the wrong one.
 Both figures are FLOORS — the match was exact-lowercase-name, so every "Spurs" and "Man Utd" missed.
 
-## The regex was never wrong; it was wired as the judge instead of the clerk
+---
 
-This resolves a contradiction that ran through the whole plan. Phase 2 retired `MatchesEntity`
-because it rejected 50% of everything Google returned and starved fifteen clubs to zero. Measured
-again on 07-28, as a gate it is worse than that: **restoring it would remove 64% of the junk and 54%
-of the genuinely successful reads**, because `teams.name` is canonical and the press writes "Spurs."
+# Appendix — completed phases (historical)
 
-As a **candidate generator** those same numbers are fine. Recall misses are cheap when a model
-adjudicates the shortlist afterwards, and precision costs nothing because the model discards what is
-not there. 204 teams and 15,986 players is a trivial lookup.
+**Phase 1 ✅** (`8f2a1c`, 2026-07-26) — the ingest cut ranks by `feed_rank` instead of publish date.
+`sortArticlesByDate` deleted. "Top N" now means one thing end to end instead of two disagreeing
+things.
 
-**Retire it as a filter, restore it as a generator.** That is the sentence this plan should have had
-from the start.
+**Phase 2 ✅** (2026-07-26 23:14) — regex tier retired, players stop auto-vetting, `-rss-limit` = one
+Google page. **Note:** this phase's funnel numbers were real (`match_rejected` 50% → 0, zero-admit
+clubs 15 → 0) and the product fell ~90% the same day. The funnel counted admissions, not usefulness.
+See T5.
 
-## Three decisions, open — do not build past these
+**The measurement Phase 1/2 rested on** — one sweep, 2026-07-26 12:00:
 
-1. **How wide is "the sport"?** Any sports reporting, or only sports/leagues we cover? Decides
-   whether a Serie A story fetched under a Premier League query is kept. Leaning keep, since we cover
-   Serie A, but it is a real scope line and it sets the gate's prompt.
-2. **Sport news naming none of our entities — keep or junk?** Everything downstream is entity-keyed,
-   so such an article has no consumer. Leaning junk AFTER mapping, never before: the mapping is what
-   tells you.
-3. **Is the packet sport-level rather than entity-level?** The one that matters most. If the Editor
-   gathers the day's topics for a sport, the natural artifact is one packet per sport per day with an
-   entity index, and each character's view is a slice of it. Today the same article is re-read and
-   re-reasoned per entity, and that duplication is precisely why the Journalist's prompt is 8,915
-   tokens at p99. **A sport-level packet is the version of this that actually reaches 4096.**
+| | count | share |
+|---|---|---|
+| RSS items Google returned | 9,694 | 100% |
+| `match_rejected` — our regex overruled Google | 4,859 | **50%** |
+| `limit_truncated` | 2,235 | 23% |
+| `dedup_collapsed` | 1,160 | 12% |
+| `matched` — actually persisted | 1,440 | 15% |
 
-## Recovery, deliberately held
+Fifteen football teams were admitted **zero** articles — precisely the short/ambiguous names the
+regex guard existed to protect.
 
-10,366 team links and 2,315 player links across **6,319 articles** were set `vetted = FALSE` during
-the incident. That state is a ratchet: FALSE is excluded from the vetted list AND from the co-mention
-candidate pool (which selects `vetted IS NULL`), so nothing reconsiders them. All 6,319 are still
-inside the 14-day window.
-
-**Do not re-arm them yet.** Under this design they need re-MAPPING, not re-judging. Re-arming today
-pushes them through a gate that is about to be replaced, pays ~6,300 gemma3 reads to do it, and
-re-derives their links from the same query hypothesis that misfiled 2,043 of them. The persisted
-`relevant_entities` already names the right entities on 5,423 of them, so once the mapping step
-exists a large share of the recovery costs **zero model calls**.
+**How big is page 1?** RSS has no pagination; Google caps at 100 items. Arsenal/Man Utd/Bayern/Lakers
+return 100 (capped); Spezia and Huesca return 3. **The count is itself a relevance signal** — coverage
+scales with how much story actually exists. A flat `-rss-limit` never binds on small clubs and
+exclusively starves the biggest stories.

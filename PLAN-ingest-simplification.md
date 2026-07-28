@@ -81,9 +81,20 @@ gates work downstream of it.
       Verified on Archbox in rolled-back transactions: inert with no subscriptions (0 enqueued);
       one article with two tags reaches **two different stages**; and adding a third tag later wakes
       **only** that tag's subscriber — E2's per-voice re-wake guard, working.
-- [ ] **A5. Journalist corpus `LIMIT` + `ORDER BY feed_rank`.** Carried over from the old Phase 2 and
-      still open. `load_vetted_corpus` orders by recency, which outranks Google a third time.
-      Measured today: p50 11 articles/team-day, p95 69, max 141.
+- [x] **A5. Journalist corpus `LIMIT` + `ORDER BY feed_rank`.** The fix already existed on
+      `load_vetted_corpus` — but that function is only reached by `eval_tasks`. The production path
+      is `load_vetted_corpus_with_exclusions`, and it was scanning **unbounded, ordered by
+      recency**. The fix had landed on the eval path and the live path never got it, which is the
+      direct cause of the Journalist's 8,915-token p99 while five of six voices fit 4096.
+
+      Now two orderings, deliberately separate: `feed_rank` decides WHICH articles survive the
+      budget, recency decides how survivors are PRESENTED. Restored the `budget_truncated`
+      exclusion band with it (retired in Phase 3 alongside the old cap) — an article dropped from
+      the evidence must be named somewhere, or the ledger's accounting silently stops adding up.
+
+      Verified on Archbox against FC Barcelona, 166 in-window articles: kept exactly **40**
+      (feed_rank 0–21), 126 `budget_truncated` (rank 21–98). The kept set averages **feed_rank 9.1
+      vs 36.0** under the old recency ordering.
 
 ### Phase B — mapping and recovery (no new model contract)
 

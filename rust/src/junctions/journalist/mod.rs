@@ -154,6 +154,10 @@ pub struct CorpusItem {
 #[derive(Clone, Debug, Default)]
 pub struct CorpusExclusions {
     stale_news_ids: Vec<i64>,
+    /// Articles inside the lookback window that lost the `COGNITION_JOURNALIST_CORPUS_LIMIT` cut on
+    /// `feed_rank`. Restored with the cap in A5 — an excluded article MUST be named somewhere, or
+    /// the ledger's evidence accounting silently stops adding up.
+    budget_truncated_ids: Vec<i64>,
 }
 
 /// Narrative is one grounded storyline — title + body from the model, plus the DETERMINISTIC impact
@@ -353,10 +357,26 @@ pub async fn load_vetted_corpus(
 }
 
 /// load_vetted_corpus_with_exclusions is [`load_vetted_corpus`] plus the exclusions diagnostic in ONE
-/// base scan. Phase 3 removed the size cap, so the only exclusion reason left is `stale_news` (outside
-/// the lookback window) — the `budget_truncated` band is gone with the cap. Kept rows carry the full
-/// payload in freshest-first order; the stale rows return only `(id, status)` (payload NULLed in SQL,
-/// so months of stale history never ride the wire) for the excluded-evidence telemetry.
+/// base scan. Kept rows carry the full payload in freshest-first order; excluded rows return only
+/// `(id, status)` (payload NULLed in SQL, so months of stale history never ride the wire) for the
+/// excluded-evidence telemetry.
+///
+/// ## A5 — the cap is back, on the path that actually runs
+///
+/// Phase 3 removed the size cap and retired `budget_truncated` with it. The cap was later restored
+/// on [`load_vetted_corpus`] — but that function is only reached by `eval_tasks`. **This one is the
+/// production path** (the narratives handler calls it), and it kept scanning UNBOUNDED, ordered by
+/// recency. So the fix landed on the eval path and the live path never got it, which is why the
+/// Journalist's prompt reaches 8,915 tokens at p99 while five of six voices fit 4096.
+///
+/// Two orderings, deliberately separate, matching [`load_vetted_corpus`]: `feed_rank` decides WHICH
+/// articles survive the budget (Google's ranking, the same signal the read budget cuts on), and
+/// recency decides what order the survivors are PRESENTED in.
+///
+/// The truncated ids are reported as their own exclusion band rather than dropped. An article that
+/// silently vanishes from the evidence accounting is the failure this codebase has already paid for
+/// twice — a gate whose inputs were not persisted, and a funnel that counted admissions instead of
+/// usefulness.
 async fn load_vetted_corpus_with_exclusions(
     pool: &PgPool,
     entity_type: &str,
@@ -382,7 +402,7 @@ async fn load_vetted_corpus_with_exclusions(
         r#"
         WITH base AS (
             SELECT a.id, a.title, a.description, a.source, a.url,
-                   a.published_at, a.fetched_at, a.full_text,
+                   a.published_at, a.fetched_at, a.full_text, a.feed_rank,
                    r.evidence_blurb, r.status AS article_read_status,
                    r.content_hash AS article_read_content_hash, r.updated_at AS article_read_updated_at,
                    CASE
@@ -401,27 +421,52 @@ async fn load_vetted_corpus_with_exclusions(
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
               AND nae.vetted IS TRUE
               AND a.duplicate_of IS NULL
+        ),
+        -- WHICH articles survive the budget: Google's ranking, the same signal the read budget
+        -- cuts on (mig 194). Ranking only the in-window rows keeps a stale article from consuming
+        -- a slot it would be excluded from anyway.
+        ranked AS (
+            SELECT base.*,
+                   CASE WHEN status = 'kept' THEN row_number() OVER (
+                       PARTITION BY (status = 'kept')
+                       ORDER BY feed_rank ASC NULLS LAST,
+                                COALESCE(published_at, fetched_at) DESC,
+                                id
+                   ) END AS rk
+            FROM base
+        ),
+        final AS (
+            SELECT ranked.*,
+                   CASE
+                     WHEN status <> 'kept' THEN status
+                     WHEN rk > $5      THEN 'budget_truncated'
+                     ELSE 'kept'
+                   END AS final_status
+            FROM ranked
         )
-        SELECT id, status,
-               CASE WHEN status = 'kept' THEN title END,
-               CASE WHEN status = 'kept' THEN COALESCE(description, '') END,
-               CASE WHEN status = 'kept' THEN COALESCE(source, '') END,
-               CASE WHEN status = 'kept' THEN COALESCE(url, '') END,
-               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
-               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
-               CASE WHEN status = 'kept' THEN full_text END,
-               CASE WHEN status = 'kept' THEN evidence_blurb END,
-               CASE WHEN status = 'kept' THEN article_read_status END,
-               CASE WHEN status = 'kept' THEN article_read_content_hash END,
-               CASE WHEN status = 'kept' THEN EXTRACT(EPOCH FROM article_read_updated_at)::bigint END
-        FROM base
-        ORDER BY (status = 'kept') DESC, COALESCE(published_at, fetched_at) DESC NULLS LAST, id
+        SELECT id, final_status,
+               CASE WHEN final_status = 'kept' THEN title END,
+               CASE WHEN final_status = 'kept' THEN COALESCE(description, '') END,
+               CASE WHEN final_status = 'kept' THEN COALESCE(source, '') END,
+               CASE WHEN final_status = 'kept' THEN COALESCE(url, '') END,
+               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
+               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
+               CASE WHEN final_status = 'kept' THEN full_text END,
+               CASE WHEN final_status = 'kept' THEN evidence_blurb END,
+               CASE WHEN final_status = 'kept' THEN article_read_status END,
+               CASE WHEN final_status = 'kept' THEN article_read_content_hash END,
+               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM article_read_updated_at)::bigint END
+        FROM final
+        -- IN WHAT ORDER: newest first, unchanged. Selection is a relevance decision; presentation
+        -- is a voice decision, and this query should only make the first.
+        ORDER BY (final_status = 'kept') DESC, COALESCE(published_at, fetched_at) DESC NULLS LAST, id
         "#,
     )
     .bind(entity_type)
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
+    .bind(corpus_limit())
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus + exclusions {entity_type}/{entity_id}"))?;
@@ -459,12 +504,13 @@ async fn load_vetted_corpus_with_exclusions(
                 article_read_content_hash,
                 article_read_updated_epoch,
             }),
-            // Only 'stale_news' remains now the cap (budget_truncated) is gone.
+            "budget_truncated" => exclusions.budget_truncated_ids.push(id),
             _ => exclusions.stale_news_ids.push(id),
         }
     }
-    // The exclusions array mirrors the old array_agg(id ORDER BY id) — keep it ascending.
+    // The exclusions arrays mirror the old array_agg(id ORDER BY id) — keep them ascending.
     exclusions.stale_news_ids.sort_unstable();
+    exclusions.budget_truncated_ids.sort_unstable();
     Ok((corpus, exclusions))
 }
 
@@ -1189,9 +1235,12 @@ pub struct NarrativesOutput {
     pub eval_count: Option<i32>,
     pub wall_ms: Option<u64>,
     /// Corpus articles outside the lookback window (excluded-evidence telemetry). The cap-based
-    /// `budget_truncated` reason retired with the 25-item cap (Phase 3), so `stale_news` is the only
+    /// `budget_truncated` is back with the corpus cap (A5); `stale_news` is no longer the only
     /// exclusion left.
     pub stale_news_ids: Vec<i64>,
+    /// Corpus articles inside the window that lost the `feed_rank` cut on
+    /// `COGNITION_JOURNALIST_CORPUS_LIMIT` (A5).
+    pub budget_truncated_ids: Vec<i64>,
     /// The debounce key this generation was built from (Phase 1); persisted on every row of the
     /// generation so the next cycle's gate has something to compare against.
     pub input_hash: String,
@@ -1262,6 +1311,7 @@ pub async fn generate_narratives_from_build(
                 eval_count: None,
                 wall_ms: None,
                 stale_news_ids: corpus_exclusions.stale_news_ids,
+                budget_truncated_ids: corpus_exclusions.budget_truncated_ids,
                 input_hash,
                 // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
                 card_score: None,
@@ -1296,6 +1346,7 @@ pub async fn generate_narratives_from_build(
         eval_count: Some(extracted.eval_count),
         wall_ms: Some(extracted.wall_ms),
         stale_news_ids: ready.corpus_exclusions.stale_news_ids,
+        budget_truncated_ids: ready.corpus_exclusions.budget_truncated_ids,
         input_hash: ready.input_hash,
         card_score: parsed.card_score,
         card_score_prev: ready.card_score_prev,
@@ -1330,6 +1381,14 @@ fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
             "dropped_count": out.stale_news_ids.len(),
             "dropped_news_ids": &out.stale_news_ids,
             "lookback_seconds": NEWS_LOOKBACK_SECS,
+        }));
+    }
+    if !out.budget_truncated_ids.is_empty() {
+        excluded.push(json!({
+            "reason": "budget_truncated",
+            "dropped_count": out.budget_truncated_ids.len(),
+            "dropped_news_ids": &out.budget_truncated_ids,
+            "corpus_limit": corpus_limit(),
         }));
     }
     json!(excluded)

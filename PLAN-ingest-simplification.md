@@ -154,10 +154,28 @@ Depends on A4 and C2.
 - [ ] **F3. Per-league editions** (old Phase 4). One edition per team, the correct one — Bundesliga →
       `de-DE`, La Liga → `es-ES`. Same call count as today. Blocked on F2; `teams.country` is clean
       for football (23 NULLs need a backfill or an `en-GB` fallback).
-- [ ] **F4. Injuries and suspensions — BLOCKED, no data.** The Scout's contract promises them and
-      **no injury or suspension column exists anywhere in the schema**, nor any provider feed. The
-      only available source is news text, which is precisely what must not reach the Scout. Ship
-      confirmed transfers (E4) now; injuries wait for a source.
+- [ ] **F4. Injuries and suspensions — blocker characterized 2026-07-28, and it is COMMERCIAL, not
+      technical.** No injury or suspension column exists anywhere in the schema. Probed all three
+      providers live with the configured keys:
+
+      | provider | sport | endpoint | result |
+      |---|---|---|---|
+      | BallDontLie | NBA | `/v1/player_injuries` | ✅ **works** — returns player, `return_date`, description |
+      | API-Sports | NFL | `/injuries` | endpoint exists, returns **"Your account is suspended"** |
+      | API-Sports | NBA | — | no injuries endpoint on `v2.nba` |
+      | SportMonks | FOOTBALL | `sidelined` / `injuries` | **not in plan entitlements** (`/v3/my/enrichments` lists odds, fixtures, teams, lineups, events, players — no injury/sideline/suspension grant) |
+
+      So it splits three ways, and only one is engineering work:
+      - **NBA is unblocked today.** BallDontLie returns real injury data on the current key.
+      - **NFL needs the API-Sports account looked at** — its american-football plan is free-tier
+        (seasons 2022–2024 only) and injuries reports the account suspended. Scott's to unblock.
+      - **FOOTBALL needs a SportMonks plan tier that grants injuries** — and football is **78% of
+        the pipeline**, so this is the one that decides whether the feature is worth building.
+
+      **Recommendation: do not build the ingest yet.** An NBA-only injury feed covers 8% of the
+      corpus, and the schema should be shaped by the football payload (the 78%) rather than
+      retrofitted to it later. Settle the SportMonks entitlement first, then build all three against
+      one shape. Confirmed transfers (E4) are unaffected and remain shippable now.
 - [ ] **F5. `vibe` is truncating.** Post-raise p99 output jumped 144 → 347 and 2 generations hit the
       1100 cap exactly in 7 days. Recommend `VIBE_NUM_PREDICT` → 1600. Unrelated to this plan.
 - [ ] **F6. Plumbing** — `requeue_stale` on its own interval + startup guard, the unverified Oracle

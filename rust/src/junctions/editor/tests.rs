@@ -169,7 +169,7 @@ fn a_non_reporting_page_shape_is_rejected() {
 
 /// REVERSED in ar7, deliberately. An opponent-only story used to be rejected on the reasoning
 /// that our entity is merely who the subject plays against. A match against us is news about us,
-/// and the narrower rule is what collapsed the Reader's yield from 73% to 2% once the vetted list
+/// and the narrower rule is what collapsed the Editor's yield from 73% to 2% once the vetted list
 /// held teams only. `absent` is the rejection signal now; `opponent` is not.
 #[test]
 fn an_opponent_only_story_is_now_kept() {

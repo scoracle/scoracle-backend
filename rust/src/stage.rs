@@ -47,7 +47,7 @@ pub trait StageHandler: Send + Sync {
     /// slots — its items do no model work, so every slot it holds is a slot the GPU cannot use.
     ///
     /// Default 1. Raise it only for a stage that must keep MULTIPLE slots of one backend busy:
-    /// locally that is The Reader and graph, the two stages on gemma3:4b, which between them have
+    /// locally that is The Editor and graph, the two stages on gemma3:4b, which between them have
     /// to fill Archbox's 4 parallel slots. A remote stage should stay at 1 — the Mac runs
     /// one request at a time by design, so extra in-flight items there only queue on its
     /// semaphore, holding leases and burning their handler-timeout clock for no throughput.
@@ -60,16 +60,16 @@ pub trait StageHandler: Send + Sync {
 
     /// Stages that share one backend's parallel slots, as `(group name, total slots)`.
     ///
-    /// This exists because a fixed split wastes a card. The Reader and graph both run on Archbox's
+    /// This exists because a fixed split wastes a card. The Editor and graph both run on Archbox's
     /// gemma3 and were pinned at 2 + 2 to fill its 4 slots — but graph is event-driven and sat at
-    /// ZERO pending work for a full day while the Reader had 5,852 items queued and could only use
+    /// ZERO pending work for a full day while the Editor had 5,852 items queued and could only use
     /// half the card. The 2-slot cap, not the GPU, was setting the drain rate: ~500 reads/hour at
     /// ~14s each is exactly two slots' worth.
     ///
     /// Grouped stages may each claim up to their own `max_in_flight`, bounded by what is left of
-    /// the group's total. So the Reader expands into graph's idle slots and gives them back as
+    /// the group's total. So the Editor expands into graph's idle slots and gives them back as
     /// soon as graph wants them — the drain tops up in registration order and graph registers
-    /// first, so it takes its slots on the very next pass rather than waiting for the Reader to
+    /// first, so it takes its slots on the very next pass rather than waiting for the Editor to
     /// drain.
     ///
     /// `None` means ungrouped: the stage's `max_in_flight` is its whole story. Every remote stage
@@ -79,6 +79,6 @@ pub trait StageHandler: Send + Sync {
     }
 }
 
-/// The gemma3 card on Archbox, shared by The Reader and graph. Four parallel slots
+/// The gemma3 card on Archbox, shared by The Editor and graph. Four parallel slots
 /// (`max_concurrent=4`), allocated on demand rather than split down the middle.
 pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 4);

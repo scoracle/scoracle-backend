@@ -124,7 +124,7 @@ type StageCaps = Vec<StageCap>;
 /// all until the local backlog — 2,580 items at the time of writing — is empty. The Mac would idle
 /// for hours while Archbox worked, which is the exact inversion of the goal.
 ///
-/// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Reader and
+/// Grouped stages contribute their GROUP's budget once, not each stage's ceiling. The Editor and
 /// graph may each claim up to 4, but only 4 between them, so summing both would inflate the global
 /// budget by slots that can never be used at once — and a global budget that cannot bind is a
 /// global budget that stops protecting the stages behind it.
@@ -404,7 +404,7 @@ impl Worker {
     /// in flight at once.
     ///
     /// This was a strictly sequential `for handler { for item { handle().await } }` until the
-    /// topology split made it the bottleneck: with The Reader and graph local on gemma3:4b and
+    /// topology split made it the bottleneck: with The Editor and graph local on gemma3:4b and
     /// the six character voices on the Mac, a sequential drain meant Archbox idled through every
     /// Mac generation and the Mac idled through every local one. Measured 255 calls/hour against
     /// a 310 baseline (-18%) with the Mac at ~89% utilisation — nothing broken, just half-used.
@@ -450,13 +450,13 @@ impl Worker {
                 let stage = handler.stage();
                 // The per-stage cap is what keeps the DAG order from becoming a priority
                 // order. Without it the first stage with a deep queue and a big
-                // `rotation_batch` takes every slot: scrub claims 256, graph and the Reader
+                // `rotation_batch` takes every slot: scrub claims 256, graph and the Editor
                 // claim 8, and with a budget of 5 whichever registers first starves the rest —
                 // including starving the GPU entirely behind model-free scrub work.
                 let running = *per_stage.get(stage.as_str()).unwrap_or(&0);
                 let mut room = stage_room(handler.max_in_flight(), running, budget - inflight.len());
                 // A grouped stage is additionally bounded by what its co-tenants have left. This
-                // is what lets The Reader spread into graph's idle slots without being able to
+                // is what lets The Editor spread into graph's idle slots without being able to
                 // oversubscribe the card when graph is working.
                 if let Some((name, group_budget)) = handler.slot_group() {
                     let group_running = *per_group.get(name).unwrap_or(&0);
@@ -724,16 +724,16 @@ mod tests {
     fn a_shared_group_lends_idle_slots_and_takes_them_back() {
         let (_, budget) = ARCHBOX_GEMMA_SLOTS;
 
-        // graph idle: the Reader may take the whole card. This is the change — it was pinned to 2
+        // graph idle: the Editor may take the whole card. This is the change — it was pinned to 2
         // while 5,852 reads queued against a card that was half asleep.
         let group_running = 0;
         assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 4);
 
-        // graph holding 2: the Reader is held to the remaining 2, never oversubscribing the host.
+        // graph holding 2: the Editor is held to the remaining 2, never oversubscribing the host.
         let group_running = 2;
         assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 2);
 
-        // graph holding all 4: the Reader waits rather than deepening the host's own queue.
+        // graph holding all 4: the Editor waits rather than deepening the host's own queue.
         let group_running = 4;
         assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 0);
     }

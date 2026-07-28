@@ -2,13 +2,13 @@
 //!
 //! A *junction* is a named seat with an identity, an authority, and a versioned contract. Six of
 //! them are **characters**: they are tuned for voice, their words reach the reader, and a deviation
-//! from the doctrine model has to re-earn its place. The seventh, [`reader`], is extraction rather
+//! from the doctrine model has to re-earn its place. The seventh, [`editor`], is extraction rather
 //! than voice. [`graph`] calls a model too, but it is typed extraction with no persona and no seat
 //! at the table.
 //!
 //! | junction | module | seat | contract |
 //! |---|---|---|---|
-//! | **The Reader** | [`reader`] | sole relevance judge | `ar3` |
+//! | **The Editor** | [`editor`] | sole relevance judge | `ar6` |
 //! | **The Journalist** | [`journalist`] | narrative memory | `n13` |
 //! | **The Oracle** | [`oracle`] | the sigil card's voice | `or5` |
 //! | **The Insider** | [`insider`] | transfer/trade vetting | `t11` + `is1` |
@@ -38,10 +38,10 @@
 //! depend on a junction.
 
 pub mod analyst;
+pub mod editor;
 pub mod graph;
 pub mod influencer;
 pub mod insider;
 pub mod journalist;
 pub mod oracle;
-pub mod reader;
 pub mod scout;

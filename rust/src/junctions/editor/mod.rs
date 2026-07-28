@@ -1,4 +1,4 @@
-//! Article Reader stage — the layer between Candle scrub and Narratives.
+//! Editor stage — the layer between Candle scrub and Narratives.
 //!
 //! Scrub admits an RSS hit as relevant enough to read. This stage then tries to resolve/fetch the
 //! publisher page, distill the cleaned body into a compact evidence blurb, persists that card, and
@@ -25,7 +25,7 @@ use std::process::Command;
 use std::time::Duration;
 use tracing::warn;
 
-// The Reader's prompt and contract version live in `prompt.rs` — one file per junction, so a
+// The Editor's prompt and contract version live in `prompt.rs` — one file per junction, so a
 // change to what this character is asked is a one-file diff. Re-exported here so call sites and
 // the ledger keep reading it from the stage module.
 pub mod prompt;
@@ -318,12 +318,12 @@ pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_sched
 /// players auto-vetting, so from 07-27 the list held teams only — and the rule silently became
 /// "reject every story whose subject is a person".
 ///
-/// It was not a small effect. The Reader's success rate fell 73% -> 2% overnight and stayed
+/// It was not a small effect. The Editor's success rate fell 73% -> 2% overnight and stayed
 /// there; on 5,417 of the 6,296 rejected articles the model had NAMED our linked team among the
 /// entities it found, and we discarded the article anyway. What we were throwing away included
 /// LeBron James signing with the 76ers, with a competent evidence card already written.
 ///
-/// It was also circular. A player link is vetted only by The Reader, but The Reader would not
+/// It was also circular. A player link is vetted only by The Editor, but The Editor would not
 /// accept an article whose subject was an unvetted player — so the player could never become
 /// vetted, and `clear_vetted_entities_for_article` unvetted the correct TEAM link on the way out.
 /// That ratchet is why vetted player links fell from 2,080/day to 6.
@@ -472,7 +472,7 @@ impl StageHandler for ArticleReadHandler {
     }
 
     /// A small batch, unlike scrub's 256: this IS a model stage, so a large batch would starve the
-    /// product stages behind it in the rotation. But at one item per rotation the Reader spent more
+    /// product stages behind it in the rotation. But at one item per rotation the Editor spent more
     /// wall clock waiting its turn than working — ~107s per article against ~50s of its own decode
     /// — and a per-junction model choice would pay a cold model load (measured 17.9s) on every
     /// single article. Eight amortizes both while keeping the rotation responsive.
@@ -481,7 +481,7 @@ impl StageHandler for ArticleReadHandler {
     }
 
     /// Up to the whole gemma3 card when graph is idle, which is most of the time — graph is
-    /// event-driven and the Reader is the stage with a standing backlog. Bounded by
+    /// event-driven and the Editor is the stage with a standing backlog. Bounded by
     /// [`ARCHBOX_GEMMA_SLOTS`], so graph reclaims its share the moment it has work.
     fn max_in_flight(&self) -> usize {
         ARCHBOX_GEMMA_SLOTS.1
@@ -682,7 +682,7 @@ async fn enqueue_graph_for_article(hx: &Harness, article_id: i64, sport: &str) -
 /// deterministic bookkeeping, not judgments, so there is nothing for a model to be scored on.
 ///
 /// It fetches over the network, exactly as the stage does. That is deliberate: an eval that read
-/// title+description from the DB would grade a prompt the Reader never sends, and the Reader's
+/// title+description from the DB would grade a prompt the Editor never sends, and the Editor's
 /// whole job is judging the FULL text.
 pub(crate) async fn build_article_read_prompt_for_eval(
     pool: &sqlx::PgPool,

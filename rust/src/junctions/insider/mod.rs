@@ -1653,14 +1653,14 @@ async fn maybe_apply_transfer_identity(
         system: Some(transfer_identity_adjudication_system_prompt(sport)),
         temperature: Some(0.0),
         num_predict: 700,
-        // The Reader's size, NOT `route::VOICE_NUM_CTX` — this is the one call in The Insider that
+        // The Editor's size, NOT `route::VOICE_NUM_CTX` — this is the one call in The Insider that
         // runs on `EmotionalNews`, which resolves LOCALLY to gemma3:4b, so the runner it shares is
-        // The Reader's and graph's. It sent `num_ctx: 0` (the server default) until 2026-07-26,
+        // The Editor's and graph's. It sent `num_ctx: 0` (the server default) until 2026-07-26,
         // which made it a dormant copy of the reload bug the voices had: harmless only because
         // identity adjudication fires rarely, and Archbox's reload count was 0 precisely because it
-        // had not run. The value must track whatever The Reader asks for; the voices' 16384 here
+        // had not run. The value must track whatever The Editor asks for; the voices' 16384 here
         // would put that KV allocation on an 8 GB card.
-        num_ctx: crate::junctions::reader::ARTICLE_NUM_CTX,
+        num_ctx: crate::junctions::editor::ARTICLE_NUM_CTX,
         json_mode: true,
         format_schema: None,
     };

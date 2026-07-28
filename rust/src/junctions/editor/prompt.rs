@@ -1,4 +1,4 @@
-//! # THE READER — the pipeline's sole relevance judge
+//! # THE EDITOR — the pipeline's sole relevance judge
 //!
 //! The only junction that reads the publisher's body text, and therefore the only one that ever
 //! answers "is this article actually about this entity?" from evidence rather than inference.
@@ -20,7 +20,7 @@
 //!
 //! That authority was consolidated here on 2026-07-25. Before then a GPU gate in `scrub` ruled on
 //! relevance from the headline alone; it was measured rejecting ~1 in 3 links at a rate
-//! UNCORRELATED with relevance, and was deleted rather than repaired. Upstream of The Reader there
+//! UNCORRELATED with relevance, and was deleted rather than repaired. Upstream of The Editor there
 //! is now no opinion at all — Go records only whether the entity is *named* in the text, which is a
 //! fact, and Google decides what order to offer things in.
 //!
@@ -28,7 +28,7 @@
 //!
 //! The character junctions (The Journalist, The Oracle, The Insider, The Influencer, The Analyst,
 //! The Scout) are tuned for voice, and deviations from the doctrine model have to re-earn their
-//! place. The Reader is different in kind: it extracts a summary and a set of verdicts from text
+//! place. The Editor is different in kind: it extracts a summary and a set of verdicts from text
 //! that already exists. Nothing it writes is read aloud. That is why it can sit on a smaller,
 //! faster model than the characters without the same gate — and why it should, since it is the
 //! pipeline's throughput bottleneck and every article it cannot reach falls back to its headline.
@@ -40,10 +40,10 @@
 //! reaches The Journalist on its headline alone. Reading is an upgrade applied to the material that
 //! most deserves it, never a precondition for carrying it.
 
-use crate::junctions::reader::{ArticleReadEntities, ArticleRow, CoMentionCandidate, ARTICLE_MAX_MODEL_CHARS};
+use crate::junctions::editor::{ArticleReadEntities, ArticleRow, CoMentionCandidate, ARTICLE_MAX_MODEL_CHARS};
 use crate::util::truncate;
 
-/// The Reader's contract version. Bumping this invalidates every cached reading whose
+/// The Editor's contract version. Bumping this invalidates every cached reading whose
 /// `prompt_version` differs, so a re-read is forced on the next pass. Invalidation is LAZY — an
 /// article re-reads when it is next enqueued, not all at once.
 ///

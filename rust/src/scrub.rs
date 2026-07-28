@@ -1,7 +1,7 @@
 //! Scrub stage handler — article bookkeeping as a `pipeline_work` stage. NO MODEL CALL.
 //!
 //! It claims an ARTICLE-keyed work item, admits the article's links, defers co-mentions to the
-//! Article Reader, enqueues the read, and runs the near-verbatim novelty gate. A vetted write
+//! Editor, enqueues the read, and runs the near-verbatim novelty gate. A vetted write
 //! fires the SQL trigger that enqueues downstream per-entity work.
 //!
 //! **This stage no longer judges relevance** (teardown plan §2.1). It used to run an
@@ -14,7 +14,7 @@
 //!     (`filterRSSArticles` → `MatchesEntity`, restored in `328c9c9`). Measured live: 100% of
 //!     primary links carry the entity, 96.6% of them in the title itself. The question this gate
 //!     existed to answer is already answered deterministically, upstream, for free.
-//!   * The Article Reader is the sole relevance judge, and it is the only stage that reads the
+//!   * The Editor is the sole relevance judge, and it is the only stage that reads the
 //!     publisher body. It can reject a whole article after fetching (mig 190), clearing the
 //!     sport's vetted links — so a false positive that survives Go still meets a judge holding
 //!     real evidence, rather than a headline-only guess.
@@ -30,12 +30,12 @@ use async_trait::async_trait;
 use sqlx::Row;
 
 /// Go marks broad team RSS primaries at 0.95. Lower-confidence links are co-mention
-/// candidates; when a primary exists, Article Reader owns their full-text verdict.
+/// candidates; when a primary exists, Editor owns their full-text verdict.
 const PRIMARY_TEAM_CONFIDENCE_FLOOR: f64 = 0.95;
 
 /// How many articles per entity, per sweep, are worth a model call — the read budget.
 ///
-/// Ingest admits ~6,700 articles/day; the Article Reader sustains ~800/day sharing one GPU with
+/// Ingest admits ~6,700 articles/day; the Editor sustains ~800/day sharing one GPU with
 /// eight other stages. Something has to choose, and the choice must be made at ADMISSION rather
 /// than by throttling the drain: throttle the drain and the queue simply grows while the GPU still
 /// runs flat out forever. Capping what is enqueued is what lets the queue actually reach empty —
@@ -58,9 +58,9 @@ const PRIMARY_TEAM_CONFIDENCE_FLOOR: f64 = 0.95;
 /// | 6 |       892 |    20.9% |
 /// | 8 |     1,058 |    24.7% |
 ///
-/// The Reader sustains ~800/day on `mistral:7b`. K=4 sits deliberately under that so the queue
+/// The Editor sustains ~800/day on `mistral:7b`. K=4 sits deliberately under that so the queue
 /// reaches empty and the GPU idles rather than running flat out — the point of having a cap at all.
-/// K=8 is the ~25% target and becomes affordable once the Reader moves to a smaller model
+/// K=8 is the ~25% target and becomes affordable once the Editor moves to a smaller model
 /// (`gemma3:4b` measured 3x on decode); it is one env var, not a code change.
 const DEFAULT_ARTICLE_READ_TOP_K: i64 = 4;
 
@@ -95,7 +95,7 @@ struct ScrubCandidate {
     entity_id: i32,
     confidence: f64,
     /// The link's settled verdict, or `None` when nobody has ruled yet. `Some(_)` means this link
-    /// is DONE — Article Reader promoted/rejected a co-mention, or an earlier pass admitted it.
+    /// is DONE — Editor promoted/rejected a co-mention, or an earlier pass admitted it.
     /// Settled links are excluded from the write set so a re-enqueue never re-stamps a verdict
     /// already on disk; they still count toward the novelty gate's scope.
     vetted: Option<bool>,
@@ -138,7 +138,7 @@ impl StageHandler for ScrubHandler {
         }
 
         // When the Go funnel has a primary team candidate (0.95), lower-confidence co-mentions are
-        // preserved for Article Reader's full-text verdict. If an old repair item has no
+        // preserved for Editor's full-text verdict. If an old repair item has no
         // primary-like candidate, every candidate is scrub-owned as before.
         let context = crate::novelty::article_text(&title, &description);
         let has_primary_like = cands
@@ -148,7 +148,7 @@ impl StageHandler for ScrubHandler {
         // DELETED on completion, so the queue's idempotency key vanishes once an article is
         // scrubbed — any later team that adds a link re-enqueues the whole article. This filter
         // keeps that re-enqueue from overwriting a verdict already on disk, which now matters MORE
-        // than it did: the Article Reader may have rejected one of these links after reading the
+        // than it did: the Editor may have rejected one of these links after reading the
         // body (mig 190), and a blanket re-admit here would silently undo the only judgment in the
         // pipeline that saw real evidence. Settled links still feed the novelty gate's scope below.
         let scrub_idxs: Vec<usize> = cands
@@ -171,7 +171,7 @@ impl StageHandler for ScrubHandler {
 
         // Every scrub-owned link is admitted. This is not a lowered bar — it is the bar moving
         // upstream to where the evidence actually is: Go already proved the entity is named in
-        // the article text before this link was allowed to exist, and the Article Reader will
+        // the article text before this link was allowed to exist, and the Editor will
         // read the body and can still reject the whole article (mig 190). Deferred co-mentions
         // stay vetted=NULL and get only scrubbed_at stamped, so maintenance will not requeue them.
         let entity_types: Vec<String> = scrub_idxs
@@ -196,7 +196,7 @@ impl StageHandler for ScrubHandler {
             || cands.iter().any(|c| c.vetted == Some(true));
 
         // The vetted membership after this scrub plus deferred co-mentions — the novelty gate's
-        // conservative scope. Co-mentions are not consumer-visible until Article Reader promotes
+        // conservative scope. Co-mentions are not consumer-visible until Editor promotes
         // them, but including them here avoids suppressing an article that may be unique for a
         // co-mentioned player/team once the full text is read.
         let vetted_entities: Vec<(EntityType, i32)> = if article_admitted {
@@ -386,7 +386,7 @@ async fn within_read_budget(hx: &Harness, article_id: i64, sport: &str, k: i64) 
 }
 
 /// apply_scrub_outcomes admits the scrub-owned links and marks deferred co-mentions as handed to
-/// Article Reader. Admissions write `vetted`; deferred co-mentions keep `vetted=NULL` but get
+/// Editor. Admissions write `vetted`; deferred co-mentions keep `vetted=NULL` but get
 /// `scrubbed_at=NOW()` so the maintenance sweep does not treat them as unprocessed work.
 async fn apply_scrub_outcomes(
     hx: &Harness,

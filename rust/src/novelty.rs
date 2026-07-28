@@ -22,7 +22,7 @@
 //!
 //! What is left is auditable (you can print the overlapping tokens), model-free, and cannot
 //! silently delete a contradiction. The asymmetry justifies the direction: a missed suppression
-//! costs one reader call, a wrong suppression is a permanent hole in the narrative.
+//! costs one editor call, a wrong suppression is a permanent hole in the narrative.
 //!
 //! Suppression sets `duplicate_of` ONLY; it never touches `news_article_entities.vetted`, so the
 //! membership the derive trigger keys on is unchanged and no re-derive is provoked.

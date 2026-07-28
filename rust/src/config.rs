@@ -245,7 +245,7 @@ impl RouteConfig {
     /// **The topology split (Plan §2.1) is now real.** `COGNITION_ROUTE_<ROLE>_BASE_URL` puts a
     /// role on a different machine — the router already keys backends by
     /// `(backend, model, base_url)`, so two roles on two hosts get two clients with no further
-    /// ceremony. The intended shape is one model per machine: The Reader on the box with the
+    /// ceremony. The intended shape is one model per machine: The Editor on the box with the
     /// small fast GPU, the six characters on the box with the memory for a larger model.
     ///
     /// Nothing about the DB moves. The remote host runs `ollama serve` and nothing else; the
@@ -318,7 +318,7 @@ fn normalize_base_url(raw: &str) -> String {
 /// `http://localhost:11434=3,http://mac-mini:11434=1`.
 ///
 /// Keyed by host rather than by role because the semaphore models a GPU: the six characters
-/// sharing one machine must share one budget, and the Reader on its own machine must not be
+/// sharing one machine must share one budget, and the Editor on its own machine must not be
 /// throttled by their traffic. Malformed entries are SKIPPED rather than fatal — a typo here
 /// should cost the default budget, not refuse to boot the pipeline.
 fn parse_backend_concurrency(raw: &str) -> HashMap<String, usize> {

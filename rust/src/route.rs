@@ -52,7 +52,7 @@ use tokio::sync::Semaphore;
 ///
 /// ollama keys a loaded runner on its context size, so two roles on the same host and model asking
 /// for different sizes force an unload-and-reload on every alternation between them. That is a
-/// settled diagnosis, not a theory: it is what `graph` (`num_ctx: 0`) did against The Reader's 8192
+/// settled diagnosis, not a theory: it is what `graph` (`num_ctx: 0`) did against The Editor's 8192
 /// on the local card, and matching them took Archbox's reloads to zero.
 ///
 /// The same defect was then measured on the Mac on 2026-07-26, where it costs far more because the
@@ -70,8 +70,8 @@ use tokio::sync::Semaphore;
 /// 16384 that tail falls to 6 calls (0.07%).
 ///
 /// **This is for voices on the character host only.** `EmotionalNews`, `Multilang` and `Sql` are
-/// utility roles that resolve LOCALLY to gemma3:4b, where the shared runner is The Reader's and the
-/// agreed size is [`crate::junctions::reader::ARTICLE_NUM_CTX`]. Sending this value there would put
+/// utility roles that resolve LOCALLY to gemma3:4b, where the shared runner is The Editor's and the
+/// agreed size is [`crate::junctions::editor::ARTICLE_NUM_CTX`]. Sending this value there would put
 /// a 16384 KV allocation on an 8 GB card and reintroduce exactly the thrash described above.
 pub const VOICE_NUM_CTX: i32 = 16384;
 
@@ -311,7 +311,7 @@ impl Router {
 
 /// governor_for returns the semaphore guarding the host a spec lives on, creating it the first
 /// time that host is seen. Every backend on one `base_url` shares it, so six characters on one
-/// machine share that machine's budget while a Reader on another machine keeps its own.
+/// machine share that machine's budget while a Editor on another machine keeps its own.
 fn governor_for(
     governors: &mut HashMap<String, Arc<Semaphore>>,
     cfg: &RouteConfig,

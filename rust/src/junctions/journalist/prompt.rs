@@ -8,7 +8,7 @@
 //! |---|---|
 //! | **Seat** | `Role::NarrativeLogic` |
 //! | **Contract** | `n16` |
-//! | **Reads** | the vetted corpus, The Reader's evidence cards, The Insider's vetted transfer heat, the relational memory card, its own prior card reads |
+//! | **Reads** | the vetted corpus, The Editor's evidence cards, The Insider's vetted transfer heat, the relational memory card, its own prior card reads |
 //! | **Feeds** | The Influencer, The Oracle, and `narrative_threads`, via `news_summaries` |
 //!
 //! ## Authority — it defines what counts as a story
@@ -30,10 +30,10 @@
 //!
 //! ## What it does not decide
 //!
-//! Relevance. Since 2026-07-25 that belongs entirely to The Reader, and The Journalist never
+//! Relevance. Since 2026-07-25 that belongs entirely to The Editor, and The Journalist never
 //! re-litigates it: an article that arrives here has already earned its place. What it may see is
-//! The Reader's *evidence card* — a summary drawn from the publisher's body text rather than the
-//! headline — and n13's one change is to prefer that card when it exists. Articles The Reader never
+//! The Editor's *evidence card* — a summary drawn from the publisher's body text rather than the
+//! headline — and n13's one change is to prefer that card when it exists. Articles The Editor never
 //! reached still arrive, on their headline alone. Reading is an upgrade, never a precondition.
 //!
 //! Transfer facts, likewise, are handed down vetted. The heat section renders known direction and
@@ -115,7 +115,7 @@ Do not turn a story about another team drafting, signing, or scheming around som
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 /// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
 /// exactly one regen per news-active entity on the next sweep — no reconcile binary.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n16"; // n16 — THE ASSIGNMENT-DESK PASS: `article_buckets` is gone. The Journalist labelled every corpus article transfer/non-transfer as the tail of its generation, which made its output scale with the CORPUS instead of with the story — measured, the prose of a full six-storyline generation never passed 887 tokens while the generation reached 2,567. Labelling is sorting work; it belongs to The Editor, which already emits `story_type`, reads the FULL body rather than a 900-byte blurb of it, and runs on the card with headroom. What is left here is the job: voice the developing story. n15 was the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
+pub const NARRATIVES_PROMPT_VERSION: &str = "n16"; // n16 — THE ASSIGNMENT-DESK PASS: `article_buckets` is gone. The Journalist labelled every corpus article transfer/non-transfer as the tail of its generation, which made its output scale with the CORPUS instead of with the story — measured, the prose of a full six-storyline generation never passed 887 tokens while the generation reached 2,567. Labelling is sorting work; it belongs to The Editor, which already emits `story_type`, reads the FULL body rather than a 900-byte blurb of it, and runs on the card with headroom. What is left here is the job: voice the developing story. n15 was the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Editor evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
 
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object

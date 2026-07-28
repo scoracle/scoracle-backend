@@ -110,7 +110,7 @@ fn corpus_limit() -> i64 {
 }
 
 /// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. A fresh
-/// Article Reader card also keeps an article in the corpus, so richer newly-enqueued evidence can
+/// Editor card also keeps an article in the corpus, so richer newly-enqueued evidence can
 /// wake The Journalist even when the source article's `published_at` has aged past this boundary.
 const NEWS_LOOKBACK_SECS: f64 = 259_200.0;
 
@@ -474,11 +474,11 @@ async fn load_vetted_corpus_with_exclusions(
 // ---------------------------------------------------------------------------
 
 /// article_context is the model-visible text for one corpus item, rendered AFTER its headline (the
-/// caller always writes `[source] title` first). Successful Article Reader cards win; direct
+/// caller always writes `[source] title` first). Successful Editor cards win; direct
 /// full_text remains a fallback; the RSS description is used only when it actually says something
 /// the headline did not.
 ///
-/// **Headline passthrough.** An article the Reader could not read — paywalled, fetch-failed, or
+/// **Headline passthrough.** An article the Editor could not read — paywalled, fetch-failed, or
 /// simply never budgeted for — is not dropped and is not summarized from nothing. It travels on its
 /// headline, which is what a headline is written to do. What must NOT happen is the old behaviour:
 /// falling through to the RSS description, which is 99.7% the title repeated plus the outlet name,
@@ -953,7 +953,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .map(|c| {
             (
                 c.id,
-                crate::junctions::reader::reading_fingerprint(
+                crate::junctions::editor::reading_fingerprint(
                     c.article_read_status.as_deref(),
                     c.article_read_content_hash.as_deref(),
                     c.article_read_updated_epoch,
@@ -963,7 +963,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .collect();
     out.push_str(",\"article_readings_hash\":");
     out.push_str(&crate::util::go_json_string(
-        &crate::junctions::reader::build_article_reading_input_components(&article_readings),
+        &crate::junctions::editor::build_article_reading_input_components(&article_readings),
     ));
     if !heat.is_empty() {
         let mut lines: Vec<String> = heat

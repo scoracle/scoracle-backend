@@ -9,7 +9,7 @@
 //! |---|---|
 //! | **Seat** | `Role::EmotionalNews` — a route, not an identity |
 //! | **Contract** | `g3` |
-//! | **Reads** | one article (The Reader's summary first, when there is one) plus its vetted entities |
+//! | **Reads** | one article (The Editor's summary first, when there is one) plus its vetted entities |
 //! | **Feeds** | `narrative_events` and `narrative_persons` candidates — the relational memory the characters later read |
 //!
 //! ## Authority — deliberately almost none
@@ -20,7 +20,7 @@
 //! upstream, and the only novel names the model may emit are person discoveries — which land as
 //! `narrative_persons` CANDIDATES under evidence-gated promotion, never as direct entityhood.
 //!
-//! It was reordered to run BEHIND The Reader on 2026-07-25 (mig 193) so it extracts from the body
+//! It was reordered to run BEHIND The Editor on 2026-07-25 (mig 193) so it extracts from the body
 //! summary rather than the headline when one exists.
 //!
 //! ## Fail closed

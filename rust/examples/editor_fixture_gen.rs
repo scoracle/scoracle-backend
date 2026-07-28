@@ -1,8 +1,8 @@
-//! reader_fixture_gen — regenerate The Reader's eval fixtures through the REAL production prompt
+//! reader_fixture_gen — regenerate The Editor's eval fixtures through the REAL production prompt
 //! builder, so the frozen fixture prompts are byte-true to `ARTICLE_READ_PROMPT_VERSION`
 //! (the graph/sigil/momentum fixture-gen pattern).
 //!
-//! WHY THIS SET EXISTS. The Reader is the sole relevance judge for the entire news rail and was
+//! WHY THIS SET EXISTS. The Editor is the sole relevance judge for the entire news rail and was
 //! the ONLY junction with no eval coverage at all. On 2026-07-26, with a day of gemma3:4b data,
 //! a rank-matched comparison found it rejecting **0.9%** of articles against mistral's **27.4%**
 //! in the same `unranked` band — and passing **26 boxscore stubs, 18 broadcast listings and 46
@@ -18,7 +18,7 @@
 //! Output: a JSON array of fixture objects; split into `fixtures/reader/<name>.json`.
 //! Offline — no DB, no model, no queue, no fetch.
 
-use scoracle_cognition::junctions::reader::{
+use scoracle_cognition::junctions::editor::{
     build_article_read_prompt_parts, ARTICLE_READ_PROMPT_VERSION, ARTICLE_READ_SYSTEM_PROMPT,
 };
 use serde_json::json;

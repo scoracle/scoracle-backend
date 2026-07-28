@@ -11,10 +11,8 @@ what to be careful of.
 
 ## 1. Start here
 
-**Branch `editor-rename` is pushed and NOT merged.** Five commits, all green
-(`cargo test --lib` 284, clippy 12 — both at baseline). Nothing is deployed: the migrations and one
-backfill are live on Archbox, but **the binary has not shipped**, so A3's hourly sweep, A4's tag
-write and A5's corpus cap are all inert in production until it does.
+**Phase A is complete, merged to `main`, and DEPLOYED.** Released at commit `cec766a` on
+2026-07-28 12:17 EDT. `cargo test --lib` 284, clippy 12 — both at baseline.
 
 | commit | what |
 |---|---|
@@ -23,11 +21,54 @@ write and A5's corpus cap are all inert in production until it does.
 | `af441be` | **A3** — exact-title dedup sweep |
 | `fff0c27` + `c8e90fc` | **F4** — probed, then reframed when third-party ingestion was retired |
 | `e953609` | **A4** — routing tags replace the single-valued bucket |
-| *(this one)* | **A5** — the corpus cap, on the path that actually runs |
+| `676258a` | **A5** — the corpus cap, on the path that actually runs |
+| `4fce117` | the previous handoff |
+| `cec766a` | schema snapshot (195/196/197) — the deployed commit |
 
-**Phase A is complete.** Next unticked item is **B1** (the name resolver), and the cheapest way in
-is **B4** — the re-mapping backfill over the 6,319 held articles, which costs zero model calls and
-exercises the resolver offline before it touches the live rail.
+Migrations 195, 196, 197 applied; `snapshot-schema.sh` run and committed. Both services active on
+`cec766a`. Next unticked item is **B1** (the name resolver), and the cheapest way in is **B4** — the
+re-mapping backfill over the 6,319 held articles, zero model calls, exercising the resolver offline
+before it touches the live rail.
+
+### Deploy verification — what is confirmed and what is NOT
+
+| | |
+|---|---|
+| daemon boots on the new binary | ✅ Postgres, both Ollama hosts, 9 stages registered |
+| **A4** routing tags being written | ✅ 36 articles inside 5 minutes, six tag sets matching the taxonomy exactly (`fixture`, `performance`, `transfer`, `general`, `injury`, `roster`) |
+| **A4** trigger inert | ✅ subscription table empty; nothing enqueued |
+| **A3** hourly sweep | ✅ runs, found 0 — expected, the backfill already cleared the 72h window |
+| **A5** prompt reduction | ⚠️ **NOT CONFIRMED** — see below |
+
+**A5 is the one still owed a verdict.** Baseline before deploy, 24h of narratives: **p50 1,850 /
+p99 7,401 / max 8,374** tokens. First two generations after: p50 578, max 1,510. That looks like a
+large win and **n = 2 cannot support the claim** — those two entities may simply have small corpora.
+Re-run the same query over a few hundred generations before believing it:
+
+```sql
+SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY length(built_prompt)/4) AS p50,
+       percentile_disc(0.99) WITHIN GROUP (ORDER BY length(built_prompt)/4) AS p99,
+       max(length(built_prompt)/4) AS max, count(*) AS n
+FROM cognition_ledger WHERE stage='narratives' AND built_prompt IS NOT NULL
+  AND generated_at > '2026-07-28 12:17:00-04';
+```
+
+Also still unobserved: **`budget_truncated` in `cognition_ledger.excluded_evidence`** (0 so far, and
+it should appear for the 126 over-cap teams). If it never appears while prompts shrink, the
+exclusion accounting is silently dropping articles — which is the exact failure A5 was written to
+avoid.
+
+**Expect a ~127-entity narratives regen wave.** 126 of 204 teams (62%) were over the 40 cap, plus
+one player. Their corpus shrank, so `input_hash` moved and each regenerates once. Bounded,
+one-time, self-limiting — and each subsequent generation is cheaper than the one it replaced.
+
+### One operational note from the deploy
+
+The `.path` rebuild watchers restarted the cognition daemon the moment the new binary was placed —
+**including through a scheduled pause window** (the pause fired 12:00, resume was armed for 13:00).
+So a deploy overrides the rest schedule as a side effect, and `--build-only` does NOT avoid it,
+because the watcher fires on binary placement rather than on the restart step. Worth knowing before
+deploying into a rest window; Scott was told and left it running.
 
 ---
 
@@ -76,8 +117,10 @@ probe found BallDontLie serving injury data on the live key.
 
 ## 4. State, and the things that will bite
 
-**Migrations applied to Archbox: 195, 196, 197.** `snapshot-schema.sh` has NOT been run for 196/197
-— the migration files say to, and it is outstanding.
+**Migrations applied to Archbox: 195, 196, 197**, and `snapshot-schema.sh` has been run and
+committed (`cec766a`). Note the ledger gained **12** versions in that snapshot, not 3 — `sql/schema/`
+had drifted well behind live before this session, so it was not a reliable picture of prod for a
+while. The CI schema job and the restore drill both diff against it.
 
 **Mig 194 is applied but unrecorded** in `schema_migrations` (verified: column, index and comment all
 present). Fully idempotent, so the next `migrate.sh` re-applies it as a no-op and records it. Self-

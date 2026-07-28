@@ -134,10 +134,22 @@ Depends on A4 and C2.
       filed it first.
 - [ ] **E4. The Scout's fact feed.** The Scout is **not** a packet subscriber. Transfer speculation
       never reaches it. It wakes on the confirmation layer — `transfer_identity_applications`
-      (adjudicated, with `deterministic_confidence`), `transfer_ground_truth` (applied, with ledger +
-      ref), `player_team_history` — where a threshold has been met and entity meta is updated. A row
-      there is a fact from the system of record, exactly like the percentile band it is already
-      handed. **No prose reaches the Scout.** See trap T4.
+      (adjudicated, with `deterministic_confidence`) and `transfer_ground_truth` (applied, with
+      ledger + ref) — where a threshold has been met and entity meta is updated. A row there is a
+      fact, exactly like the percentile band the Scout is already handed. **No prose reaches the
+      Scout.** See trap T4.
+
+      **This survives the retirement of third-party ingestion, and it is worth knowing why.**
+      `transfer_identity_applications` is populated off `source_rumor_id`/`source_synthesis_id` with
+      `'source': 'mistral_adjudication'` (migs 118/120/124) — it is **entirely news-derived**. No
+      vendor ever touched it. The chain is rumor → deterministic heat + confidence → threshold →
+      adjudication → applied, and that chain is exactly what makes a news-derived fact safe to hand
+      the Scout. It is the template F4 should follow.
+
+      **One caveat:** `player_team_history` is written by `detect_team_change`, which is driven by
+      provider roster sync, so it goes quiet now. E4 does not need it —
+      `transfer_identity_applications` is the richer record and the news-derived one — but anything
+      else keying on `player_team_history` freshness should be re-checked.
 - [ ] **E5. The Oracle's disagreement contract.** See "The disagreement finding" below — this is a
       real unlock sitting unused, and E3 is necessary but **not sufficient** for it.
 
@@ -154,28 +166,20 @@ Depends on A4 and C2.
 - [ ] **F3. Per-league editions** (old Phase 4). One edition per team, the correct one — Bundesliga →
       `de-DE`, La Liga → `es-ES`. Same call count as today. Blocked on F2; `teams.country` is clean
       for football (23 NULLs need a backfill or an `en-GB` fallback).
-- [ ] **F4. Injuries and suspensions — blocker characterized 2026-07-28, and it is COMMERCIAL, not
-      technical.** No injury or suspension column exists anywhere in the schema. Probed all three
-      providers live with the configured keys:
+- [ ] **F4. Injuries and suspensions come from the NEWS RAIL, and need a confirmation gate.**
+      **Third-party ingestion is retired** — Scott cancelled BallDontLie and SportMonks 2026-07-28.
+      The provider-entitlement question this item used to carry is moot; the probes that produced it
+      are recorded in commit `fff0c27` and should not be re-run.
 
-      | provider | sport | endpoint | result |
-      |---|---|---|---|
-      | BallDontLie | NBA | `/v1/player_injuries` | ✅ **works** — returns player, `return_date`, description |
-      | API-Sports | NFL | `/injuries` | endpoint exists, returns **"Your account is suspended"** |
-      | API-Sports | NBA | — | no injuries endpoint on `v2.nba` |
-      | SportMonks | FOOTBALL | `sidelined` / `injuries` | **not in plan entitlements** (`/v3/my/enrichments` lists odds, fixtures, teams, lineups, events, players — no injury/sideline/suspension grant) |
+      That makes the news rail the only source, which lands squarely on trap T4: the Scout must
+      never interpret prose. **The resolution is the confirmation pattern the transfer path already
+      proves** (see E4) — the news rail produces injury *claims*; a deterministic heat/confidence
+      threshold plus an adjudication step promotes a claim to *confirmed*; the Scout reads confirmed
+      only. The Scout still receives facts. They are simply facts confirmed by a gate rather than by
+      a vendor, which is what the transfer path has been doing all along.
 
-      So it splits three ways, and only one is engineering work:
-      - **NBA is unblocked today.** BallDontLie returns real injury data on the current key.
-      - **NFL needs the API-Sports account looked at** — its american-football plan is free-tier
-        (seasons 2022–2024 only) and injuries reports the account suspended. Scott's to unblock.
-      - **FOOTBALL needs a SportMonks plan tier that grants injuries** — and football is **78% of
-        the pipeline**, so this is the one that decides whether the feature is worth building.
-
-      **Recommendation: do not build the ingest yet.** An NBA-only injury feed covers 8% of the
-      corpus, and the schema should be shaped by the football payload (the 78%) rather than
-      retrofitted to it later. Settle the SportMonks entitlement first, then build all three against
-      one shape. Confirmed transfers (E4) are unaffected and remain shippable now.
+      Not scheduled — Scott, 2026-07-28: *"don't worry about those for now."* Recorded so the shape
+      is known when it is.
 - [ ] **F5. `vibe` is truncating.** Post-raise p99 output jumped 144 → 347 and 2 generations hit the
       1100 cap exactly in 7 days. Recommend `VIBE_NUM_PREDICT` → 1600. Unrelated to this plan.
 - [ ] **F6. Plumbing** — `requeue_stale` on its own interval + startup guard, the unverified Oracle

@@ -21,7 +21,6 @@
 //! `NarrativesHandler` is a live queue stage gated by `COGNITION_STAGES`. It is the News hub stage:
 //! transfer heat and source freshness are folded here before Vibe and Sigil consume the result.
 
-use crate::bucket::ArticleBucket;
 use crate::corpus::{
     dedupe_i64, load_transfer_heat, lookup_entity_name, HeatItem,
 };
@@ -186,29 +185,14 @@ struct ModelNarrative {
     articles: Vec<i32>,
 }
 
-/// ModelArticleBucket is one entry of the n9 `article_buckets` section — the Journalist's per-article
-/// transfer label. `article` is the 1-indexed prompt number (grounded back to a news id like a cited
-/// narrative article); `transfer` maps to [`ArticleBucket::Transfer`] / [`ArticleBucket::NonTransfer`].
-/// `#[serde(default)]` mirrors Go's `encoding/json` tolerance: a missing/typed-wrong field defaults
-/// (article 0 → dropped in grounding, transfer false).
-#[derive(Clone, Debug, Default, Deserialize)]
-struct ModelArticleBucket {
-    #[serde(default)]
-    article: i32,
-    #[serde(default)]
-    transfer: bool,
-}
-
-/// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields. `narratives`
-/// drives the storyline persist; `article_buckets` (n9) drives the per-article `news_articles.bucket`
-/// write. Buckets are best-effort: a reply that truncates before the buckets section still succeeds
-/// as a narratives document (the buckets simply stay empty and no bucket is rewritten this cycle).
+/// ParsedNarratives is the salvaged document — the `T` the [`NarrativesParser`] yields.
+/// `narratives` drives the storyline persist. The n9 `article_buckets` section was removed in n16;
+/// The Editor writes `news_articles.bucket` from its own `story_type` now.
 #[derive(Clone, Debug, Default)]
 pub struct ParsedNarratives {
     narratives: Vec<ModelNarrative>,
-    article_buckets: Vec<ModelArticleBucket>,
-    /// The Journalist's n12 busyness verdict, clamped 1-99 at parse. Best-effort like the
-    /// buckets: a reply missing it (pre-n12 salvage, truncated tail) parses to `None`, never a
+    /// The Journalist's n12 busyness verdict, clamped 1-99 at parse. Best-effort: a reply missing
+    /// it (pre-n12 salvage, truncated tail) parses to `None`, never a
     /// failure — the row simply persists NULL and the card falls back to the Veil.
     card_score: Option<i16>,
 }
@@ -246,17 +230,12 @@ impl Parser<ParsedNarratives> for NarrativesParser {
                 crate::util::truncate(raw, 200)
             ));
         }
-        // article_buckets (n9) is a best-effort side channel: parsed with the same tolerant salvager
-        // but never gates success — a truncated reply that salvaged narratives keeps them and simply
-        // labels no articles this cycle (downstream reads NULL bucket leniently).
-        let article_buckets = parse_article_buckets(raw);
         // card_score (n12) is best-effort the same way: missing → None (NULL row → Veil), never
         // a parse failure. The grammar makes it required on the live path; this tolerance covers
         // truncated tails and the offline bins replaying pre-n12 output.
         let card_score = parse_card_score(raw);
         Ok(Some(ParsedNarratives {
             narratives,
-            article_buckets,
             card_score,
         }))
     }
@@ -766,69 +745,6 @@ fn parse_narratives(raw: &str) -> (Vec<ModelNarrative>, bool) {
     (out, ok)
 }
 
-/// parse_article_buckets salvages the n9 `article_buckets` array the same tolerant way
-/// [`parse_narratives`] salvages storylines: find the `"article_buckets"` key, then keep every
-/// balanced top-level `{...}` inside its array that parses as a [`ModelArticleBucket`]. Unlike the
-/// narratives salvager there is NO success/failure bool — the buckets are a best-effort side channel,
-/// so an absent key, a missing `[`, or a truncated tail simply yields the objects salvaged so far
-/// (possibly none). The section is independent of `"narratives"` and may appear before or after it.
-fn parse_article_buckets(raw: &str) -> Vec<ModelArticleBucket> {
-    let mut out: Vec<ModelArticleBucket> = Vec::new();
-    let Some(key) = raw.find("\"article_buckets\"") else {
-        return out;
-    };
-    let Some(lb) = raw.as_bytes()[key..].iter().position(|&b| b == b'[') else {
-        return out;
-    };
-    let s = &raw.as_bytes()[key + lb + 1..];
-
-    let mut depth: i32 = 0;
-    let mut start: i64 = -1;
-    let mut in_str = false;
-    let mut esc = false;
-    let mut i = 0usize;
-    while i < s.len() {
-        let c = s[i];
-        if in_str {
-            if esc {
-                esc = false;
-            } else if c == b'\\' {
-                esc = true;
-            } else if c == b'"' {
-                in_str = false;
-            }
-            i += 1;
-            continue;
-        }
-        match c {
-            b'"' => in_str = true,
-            b'{' => {
-                if depth == 0 {
-                    start = i as i64;
-                }
-                depth += 1;
-            }
-            b'}' => {
-                if depth > 0 {
-                    depth -= 1;
-                    if depth == 0 && start >= 0 {
-                        if let Ok(txt) = std::str::from_utf8(&s[start as usize..=i]) {
-                            if let Ok(b) = serde_json::from_str::<ModelArticleBucket>(txt) {
-                                out.push(b);
-                            }
-                        }
-                        start = -1;
-                    }
-                }
-            }
-            b']' if depth == 0 => return out, // array closed cleanly
-            _ => {}
-        }
-        i += 1;
-    }
-    out
-}
-
 /// parse_card_score salvages the n12 `card_score` integer the same tolerant way the buckets are
 /// salvaged: find the key, skip to its value, parse the leading number, clamp 1-99. `None` for an
 /// absent key or a non-numeric value — never a parse failure (pre-n12 replays and truncated tails
@@ -905,39 +821,6 @@ fn ground_narratives(
             source_latest_epoch,
             source_oldest_epoch,
         });
-    }
-    out
-}
-
-/// ground_article_buckets maps the model's n9 `article_buckets` back to real news ids the same way
-/// [`ground_narratives`] maps cited articles: 1-indexed `article` numbers, deduped (first label per
-/// article wins) and bounded to the corpus. Returns `(news_id, bucket)` pairs the persist writes to
-/// `news_articles.bucket`. An out-of-range or `< 1` article number is dropped (the model referenced a
-/// slot that is not in the corpus). Unlabeled corpus articles are simply left untouched — the write
-/// only sets what the Journalist named this cycle.
-fn ground_article_buckets(
-    buckets: &[ModelArticleBucket],
-    news: &[CorpusItem],
-) -> Vec<(i64, ArticleBucket)> {
-    let mut seen: HashSet<usize> = HashSet::with_capacity(buckets.len());
-    let mut out: Vec<(i64, ArticleBucket)> = Vec::new();
-    for b in buckets {
-        if b.article < 1 {
-            continue;
-        }
-        let idx = (b.article - 1) as usize;
-        if idx >= news.len() {
-            continue;
-        }
-        if !seen.insert(idx) {
-            continue; // first label per article wins
-        }
-        let bucket = if b.transfer {
-            ArticleBucket::Transfer
-        } else {
-            ArticleBucket::NonTransfer
-        };
-        out.push((news[idx].id, bucket));
     }
     out
 }
@@ -1047,9 +930,9 @@ pub enum NarrativesBuild {
 /// `sigil::build_synthesis_input_components`.
 ///
 /// `prompt_version` is folded in (M4 cutover lever): the debounce otherwise keys only on the corpus +
-/// heat, so on an n-bump (n8→n9) an entity whose news is unchanged is debounced and NEVER re-runs the
-/// new contract — its `article_buckets` stay NULL and no transfers enqueue. Including the version
-/// changes every entity's hash exactly once at cutover → one forced regen each → then it stabilizes.
+/// heat, so on an n-bump (n15→n16) an entity whose news is unchanged is debounced and NEVER re-runs
+/// the new contract. Including the version changes every entity's hash exactly once at cutover → one
+/// forced regen each → then it stabilizes.
 /// The regen also re-points vibe for free (the narratives handler enqueues vibe post-persist).
 pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem]) -> String {
     let mut ids: Vec<i64> = corpus.iter().map(|c| c.id).collect();
@@ -1305,10 +1188,6 @@ pub struct NarrativesOutput {
     /// Tokens evaluated by Ollama for this call. `None` on no-corpus marker rows.
     pub eval_count: Option<i32>,
     pub wall_ms: Option<u64>,
-    /// n9 per-article transfer labels grounded back to real news ids — the persist writes each to
-    /// `news_articles.bucket`, which is what routes the transfers stage (mig 175). Empty on the
-    /// no-corpus marker path.
-    pub article_buckets: Vec<(i64, ArticleBucket)>,
     /// Corpus articles outside the lookback window (excluded-evidence telemetry). The cap-based
     /// `budget_truncated` reason retired with the 25-item cap (Phase 3), so `stale_news` is the only
     /// exclusion left.
@@ -1382,7 +1261,6 @@ pub async fn generate_narratives_from_build(
                 request_body: None,
                 eval_count: None,
                 wall_ms: None,
-                article_buckets: Vec::new(),
                 stale_news_ids: corpus_exclusions.stale_news_ids,
                 input_hash,
                 // No corpus → no call → no verdict: NULL binds and the card draws the Veil.
@@ -1408,7 +1286,6 @@ pub async fn generate_narratives_from_build(
     })?;
 
     let narratives = ground_narratives(&parsed.narratives, &ready.corpus, now_epoch);
-    let article_buckets = ground_article_buckets(&parsed.article_buckets, &ready.corpus);
 
     Ok(NarrativesOutput {
         narratives,
@@ -1418,7 +1295,6 @@ pub async fn generate_narratives_from_build(
         request_body: Some(extracted.request_body),
         eval_count: Some(extracted.eval_count),
         wall_ms: Some(extracted.wall_ms),
-        article_buckets,
         stale_news_ids: ready.corpus_exclusions.stale_news_ids,
         input_hash: ready.input_hash,
         card_score: parsed.card_score,
@@ -1440,22 +1316,9 @@ fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
             })
         })
         .collect();
-    // n9 per-article transfer labels: how many articles the Journalist tagged, and which it routed
-    // to the transfers stage (bucket='transfer').
-    let transfer_ids: Vec<i64> = out
-        .article_buckets
-        .iter()
-        .filter(|(_, b)| *b == ArticleBucket::Transfer)
-        .map(|(id, _)| *id)
-        .collect();
     json!({
         "input_news_ids": out.provenance().input_ids,
         "narratives": narratives,
-        "article_buckets": {
-            "labeled": out.article_buckets.len(),
-            "transfer_count": transfer_ids.len(),
-            "transfer_news_ids": transfer_ids,
-        },
     })
 }
 
@@ -1700,34 +1563,6 @@ pub async fn persist_narratives(
             .await
             .context(context)?;
         product_row_ids.push(inserted.get("id"));
-    }
-
-    // n9: write the Journalist's per-article transfer labels to news_articles.bucket, in the SAME
-    // transaction as the storylines so the label and the narrative it came from commit atomically.
-    // The `IS DISTINCT FROM` guard skips no-op rewrites, so the mig-175 AFTER-UPDATE trigger
-    // (bucket → 'transfer' ⇒ enqueue transfers for the article's TEAM entities) fires only on a real
-    // change, never re-enqueueing an already-transfer article every cycle.
-    if !out.article_buckets.is_empty() {
-        let bucket_ids: Vec<i64> = out.article_buckets.iter().map(|(id, _)| *id).collect();
-        let bucket_labels: Vec<String> = out
-            .article_buckets
-            .iter()
-            .map(|(_, b)| b.as_db().to_string())
-            .collect();
-        sqlx::query(
-            r#"
-            UPDATE news_articles a
-               SET bucket = v.bucket
-              FROM unnest($1::bigint[], $2::text[]) AS v(id, bucket)
-             WHERE a.id = v.id
-               AND a.bucket IS DISTINCT FROM v.bucket
-            "#,
-        )
-        .bind(&bucket_ids)
-        .bind(&bucket_labels)
-        .execute(&mut *tx)
-        .await
-        .context("persist article buckets")?;
     }
 
     tx.commit().await.context("commit narratives tx")?;

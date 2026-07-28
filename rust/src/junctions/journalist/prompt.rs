@@ -7,7 +7,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `Role::NarrativeLogic` |
-//! | **Contract** | `n13` |
+//! | **Contract** | `n16` |
 //! | **Reads** | the vetted corpus, The Reader's evidence cards, The Insider's vetted transfer heat, the relational memory card, its own prior card reads |
 //! | **Feeds** | The Influencer, The Oracle, and `narrative_threads`, via `news_summaries` |
 //!
@@ -18,10 +18,15 @@
 //! makes The Journalist the most load-bearing voice in the rail: a storyline it fails to notice is
 //! one nothing downstream can recover, and a storyline it invents propagates unchallenged.
 //!
-//! It also owns two verdicts beyond the prose. Every numbered article is labeled
-//! transfer/trade-related or not, which is what routes material to The Insider. And since n12 it
-//! returns a required 1–99 `card_score` — the busyness of the entity's news right now — rendered
-//! last in the prompt so the verdict lands after the corpus has been read.
+//! It also owns a verdict beyond the prose: since n12 it returns a required 1–99 `card_score` —
+//! the busyness of the entity's news right now — rendered last in the prompt so the verdict lands
+//! after the corpus has been read.
+//!
+//! Until n16 it owned a second one, labelling every numbered article transfer/trade-related to
+//! route material to The Insider. That is The Editor's now. It was never really a verdict: it was
+//! sorting, priced as though it were storytelling. It made this generation's length scale with the
+//! CORPUS rather than with the story, on the host with no headroom, from a 900-byte blurb of a body
+//! The Editor had already read in full.
 //!
 //! ## What it does not decide
 //!
@@ -55,28 +60,31 @@ use super::{CorpusItem, NarrativesReq, article_context};
 use crate::corpus::{HeatItem, write_heat_lines};
 use crate::util::truncate_bytes;
 
-/// System prompt for The Journalist (n11): group recent vetted news into distinct storylines, label
-/// each article transfer/non-transfer (the `article_buckets` section that routes the transfers
-/// stage), and voice the relational memory's episode heat + new/ongoing state. The candle hands
-/// narratives a widened, pre-deduplicated corpus (the source-aware novelty gate runs at the tip of
-/// the spear), so the pre-n9 per-article relevance tags are gone.
+/// System prompt for The Journalist: group recent vetted news into distinct storylines and voice
+/// the relational memory's episode heat + new/ongoing state. The candle hands narratives a
+/// widened, pre-deduplicated corpus (the source-aware novelty gate runs at the tip of the spear),
+/// so the pre-n9 per-article relevance tags are gone.
 ///
-/// n11 keeps the n10 Journalist voice pass and n9 JSON contract, but tells the model to read
-/// multilingual sources internally and emit English storylines. Same JSON schema, same
-/// storyline/bucket rules, same credibility guards.
+/// **n16 removed the per-article transfer labelling** (the n9 `article_buckets` section). Sorting
+/// articles is assignment-desk work and belongs to The Editor, which emits `story_type` from the
+/// full body. What is left here is the one thing only this character can do: voice the developing
+/// story.
 ///
-/// n12 adds THE CARD SCORE (tarot deck, Phase 4): after filing the storylines and labeling the
-/// buckets, the Journalist lands a required 1-99 busyness verdict — volume-of-noise, not
+/// n11 keeps the n10 Journalist voice pass, but tells the model to read multilingual sources
+/// internally and emit English storylines. Same storyline rules, same credibility guards.
+///
+/// n12 adds THE CARD SCORE (tarot deck, Phase 4): after filing the storylines, the Journalist
+/// lands a required 1-99 busyness verdict — volume-of-noise, not
 /// good-vs-bad. Grounded by the deterministic SIGNALS line and the prior-card-reads memory the
 /// user prompt renders (both prompt-only, outside the input_hash).
-pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are The Journalist — the one at the table who has read everything. Your beat is ONE sports entity. File the record: group the recent vetted news into the distinct storylines actually developing around this entity, and label every numbered article as transfer/trade-related or not.
+pub const NARRATIVES_SYSTEM_PROMPT: &str = r#"Task: you are The Journalist — the one at the table who has read everything. Your beat is ONE sports entity. File the record: group the recent vetted news into the distinct storylines actually developing around this entity.
 
 Voice: informed, sourced, measured. You quote nothing out of context and you never write past your sourcing. You notice how widely a story is actually reported — a single-source whisper is not a chorus — and you say the difference plainly. Freshness, stakes, and trajectory are your native vocabulary: a story is NEW or CONTINUING, and its coverage is heating up, cooling, or steady. No hype, no source lists, no invented facts.
 
 Language handling: numbered articles may be in English, Spanish, French, German, Italian, Portuguese, Dutch, or another language, and one corpus can mix languages. Read each source in its language, translate meaning internally, and write every title, body, and other generated prose in English. Keep proper names, player names, club names, source names, and stated money/pick details exact or canonical. Never quote non-English headlines verbatim; paraphrase in English.
 
 Return STRICT JSON only (no markdown fences, no text before or after):
-{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...], "article_buckets": [{"article": <article number>, "transfer": <true|false>}, ...], "card_score": <integer 1-99>}
+{"narratives": [{"title": "<headline>", "body": "<write-up>", "articles": [<article numbers>]}, ...], "card_score": <integer 1-99>}
 
 Storyline discipline:
 - Return at most 6 storylines, most consequential first.
@@ -91,10 +99,6 @@ For each storyline:
 - LENGTH — THE EDITION BUDGET: eight sentences TOTAL across every storyline you file, not eight per storyline. You cover more ground than anyone at this table and you have the least room to do it in — that is the job. Your editor set this budget and will not extend it, so spend it like a front page: the lead story earns real inches, the secondary items earn a line each, and a name that only just cleared the bar earns a clause. Six live storylines mean roughly a sentence apiece. One genuinely major, multi-source story may take the whole page.
 - Filing UNDER budget is fine and often right; a thin cycle honestly filed in two sentences is good journalism. Filing over is not an option. Never pad, never restate a claim in new words, never add a hedge or a forecast to reach a length, and never reach past the sources to fill space — restraint is still credibility. Tight, sourced, and short is the house style.
 - articles: the article numbers behind that storyline.
-
-article_buckets — label EVERY numbered article exactly once:
-- {"article": <its number>, "transfer": true} when the article is itself about a transfer, trade, signing, loan, or contract move (into or out of a club), otherwise "transfer": false.
-- Judge each article on its own substance. Another team scheming around this entity is not this entity moving.
 
 THEN, THE CARD SCORE — an integer 1 to 99, your one-number read of how BUSY this entity's news cycle is:
 - Volume of noise, not good news versus bad: 1 = a silent week, ~50 = a steady beat, 85+ = a feeding frenzy the desk can barely file fast enough.
@@ -111,17 +115,22 @@ Do not turn a story about another team drafting, signing, or scheming around som
 /// Bump when the prompt materially changes (traced in `news_summaries.prompt_version`).
 /// Rollout is free: prompt_version sits inside the generation `input_hash`, so an n-bump forces
 /// exactly one regen per news-active entity on the next sweep — no reconcile binary.
-pub const NARRATIVES_PROMPT_VERSION: &str = "n15"; // s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
+pub const NARRATIVES_PROMPT_VERSION: &str = "n16"; // n16 — THE ASSIGNMENT-DESK PASS: `article_buckets` is gone. The Journalist labelled every corpus article transfer/non-transfer as the tail of its generation, which made its output scale with the CORPUS instead of with the story — measured, the prose of a full six-storyline generation never passed 887 tokens while the generation reached 2,567. Labelling is sorting work; it belongs to The Editor, which already emits `story_type`, reads the FULL body rather than a 900-byte blurb of it, and runs on the card with headroom. What is left here is the job: voice the developing story. n15 was the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. The Journalist's eight sentences are a TOTAL edition budget across all storylines, not per storyline. n14: the peer-length pass — each storyline body grows from 1-2 to 5-6 sentences. The old ceiling was a 1070 Ti budget, not an editorial choice; the Journalist is a peer with an equal share of the story and now has the column inches to file it. n13: prefer Article Reader evidence cards when present; n12: the Journalist's card_score (tarot deck) — required 1-99 busyness verdict after the storylines
 
 /// The JSON schema Ollama's constrained decoding enforces on the narratives reply (Phase 5).
 /// Grammar-level guarantees the free-text contract could only ask for: the top-level object
 /// cannot be prose-wrapped, `narratives` must exist, and every item carries title/body/articles.
-/// n9 adds the `article_buckets` section — the Journalist's per-article transfer/non-transfer label
-/// (own section, never bunched into a storyline); `transfer:true` ⇒ `news_articles.bucket='transfer'`.
 /// n12 adds required `card_score` — the Journalist's 1-99 busyness verdict — ordered AFTER
-/// narratives/buckets (sigil doctrine: read the signs first, land the verdict second).
+/// narratives (sigil doctrine: read the signs first, land the verdict second).
 /// The tolerant balanced-brace salvager stays as the parse path — schema output is a strict
 /// subset of what it accepts, and it remains the safety net for the offline/parity bins.
+///
+/// **n16 removes `article_buckets`.** It was one object per corpus article — the largest term in
+/// this generation by far, and the reason the output grew with the CORPUS rather than with the
+/// story. Measured before removal: the prose of a full six-storyline generation never exceeded 887
+/// tokens, while the generation itself reached 2,567. The Editor now writes
+/// `news_articles.bucket` from the `story_type` it already emits, off the saturated host and from
+/// the full body rather than a 900-byte blurb of it.
 pub fn narratives_format_schema() -> serde_json::Value {
     serde_json::json!({
         "type": "object",
@@ -139,20 +148,9 @@ pub fn narratives_format_schema() -> serde_json::Value {
                     "required": ["title", "body", "articles"]
                 }
             },
-            "article_buckets": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "article":  { "type": "integer" },
-                        "transfer": { "type": "boolean" }
-                    },
-                    "required": ["article", "transfer"]
-                }
-            },
             "card_score": { "type": "integer", "minimum": 1, "maximum": 99 }
         },
-        "required": ["narratives", "article_buckets", "card_score"]
+        "required": ["narratives", "card_score"]
     })
 }
 

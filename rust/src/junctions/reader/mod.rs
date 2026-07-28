@@ -7,6 +7,7 @@
 //! read, it records a terminal fallback row and still wakes Narratives so the old
 //! title+description path keeps moving.
 
+use crate::bucket::ArticleBucket;
 use crate::harness::{Harness, Parser};
 use crate::ollama::GenerateOptions;
 use crate::route::Role;
@@ -955,6 +956,11 @@ async fn persist_model_outcome(
         "story_type": evidence.story_type,
         "caveats": evidence.caveats,
     });
+    let mut tx = hx
+        .pool
+        .begin()
+        .await
+        .with_context(|| format!("begin article_read persist {article_id}"))?;
     sqlx::query(
         r#"
         INSERT INTO public.news_article_readings (
@@ -992,9 +998,37 @@ async fn persist_model_outcome(
     .bind(evidence_json)
     .bind(model_version)
     .bind(ARTICLE_READ_PROMPT_VERSION)
-    .execute(&hx.pool)
+    .execute(&mut *tx)
     .await
     .with_context(|| format!("persist article_read {status} {article_id}"))?;
+
+    // The Editor's routing decision, written from the same read that produced it and in the same
+    // transaction, so the label and the evidence behind it can never disagree. This replaced the
+    // Journalist's n9 pass, which derived the same judgment on the saturated host from a 900-byte
+    // blurb of the body this call read in full.
+    //
+    // The `IS DISTINCT FROM` guard is load-bearing, not an optimisation: the mig-175 AFTER-UPDATE
+    // trigger enqueues `transfers` for the article's team entities whenever bucket becomes
+    // 'transfer'. Without the guard, every re-read of an unchanged transfer article would wake the
+    // slowest stage in the pipeline again for no new information.
+    if let Some(bucket) = ArticleBucket::from_story_type(&evidence.story_type) {
+        sqlx::query(
+            r#"
+            UPDATE public.news_articles
+               SET bucket = $2
+             WHERE id = $1
+               AND bucket IS DISTINCT FROM $2
+            "#,
+        )
+        .bind(article_id)
+        .bind(bucket.as_db())
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("persist article bucket {article_id}"))?;
+    }
+    tx.commit()
+        .await
+        .with_context(|| format!("commit article_read persist {article_id}"))?;
     insert_data_fetch_ledger_best_effort(
         hx,
         article_id,

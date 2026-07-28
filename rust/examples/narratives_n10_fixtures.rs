@@ -1,8 +1,9 @@
 //! narratives_n10_fixtures — regenerate the hand-authored Journalist eval fixtures.
 //!
-//! n10 is the Characters Phase B voice pass: the system prompt now speaks The Journalist's
-//! telling (persona-first, from wiki/Characters.md's craft appendix); the n9 CONTRACT —
-//! primary junction, article_buckets, voiced episode heat + new/ongoing — is unchanged.
+//! n10 is the Characters Phase B voice pass: the system prompt speaks The Journalist's telling
+//! (persona-first, from wiki/Characters.md's craft appendix). The per-article labelling half of
+//! the old contract left in n16 — The Editor writes `news_articles.bucket` now — so what these
+//! fixtures exercise is grouping, grounding, and voiced episode heat + new/ongoing.
 //!
 //! Two fixture families, all frozen through the LIVE prompt constants so a prompt bump means
 //! "re-run this example", never "hand-patch the JSON files":
@@ -172,7 +173,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     );
-    write_fixture(&dir, &f1, "n10 new-vs-ongoing (CONTINUING): a tracked multi-month saga (Current story on the memory card) with a corpus that advances it. FLOOR: grouping+grounding (count, all cite, in-range). VOICE: The Journalist places the story in its arc — continuing/ongoing, never brand-new. article_buckets: all four are transfer-related.")?;
+    write_fixture(&dir, &f1, "n10 new-vs-ongoing (CONTINUING): a tracked multi-month saga (Current story on the memory card) with a corpus that advances it. FLOOR: grouping+grounding (count, all cite, in-range). VOICE: The Journalist places the story in its arc — continuing/ongoing, never brand-new.")?;
 
     // ── heat monotonicity: the COOLING / fizzled side ──────────────────────────────────────────────
     // The memory card holds a FIZZLED prior story (high past peak, dead), and the fresh corpus is thin
@@ -205,7 +206,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     );
-    write_fixture(&dir, &f2, "n10 heat monotonicity (DOWN): a fizzled prior story on the memory card + a thin, de-escalating corpus. FLOOR: restraint (don't over-split a dying story) + grounding. VOICE: heat voiced down (cooled/unlikely/settled), never up. article_buckets: both transfer-related.")?;
+    write_fixture(&dir, &f2, "n10 heat monotonicity (DOWN): a fizzled prior story on the memory card + a thin, de-escalating corpus. FLOOR: restraint (don't over-split a dying story) + grounding. VOICE: heat voiced down (cooled/unlikely/settled), never up.")?;
 
     // ── heat monotonicity: the HEATING side ────────────────────────────────────────────────────────
     // A modest prior peak (45/100) on the memory card, then a fresh MULTI-SOURCE surge that escalates
@@ -241,7 +242,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
     );
-    write_fixture(&dir, &f3, "n10 heat monotonicity (UP): a modest prior peak (45/100) on the memory card + a fresh multi-source surge escalating in a day. FLOOR: grouping+grounding. VOICE: heat voiced up (accelerating/gathering pace), never cooling. article_buckets: all five transfer-related.")?;
+    write_fixture(&dir, &f3, "n10 heat monotonicity (UP): a modest prior peak (45/100) on the memory card + a fresh multi-source surge escalating in a day. FLOOR: grouping+grounding. VOICE: heat voiced up (accelerating/gathering pace), never cooling.")?;
 
     // ═══ Floor fixtures — grounding + restraint (ported from the n5-era hand-authored set) ═════════
 

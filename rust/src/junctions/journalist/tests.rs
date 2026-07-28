@@ -328,11 +328,11 @@ fn parse_respects_braces_inside_strings() {
 // --- n12 card_score: schema, prompt section, tolerant parse -----------------------------------
 
 #[test]
-fn schema_requires_card_score_after_buckets() {
+fn schema_requires_card_score_after_the_storylines() {
     let schema = narratives_format_schema();
     assert_eq!(
         schema["required"],
-        json!(["narratives", "article_buckets", "card_score"]),
+        json!(["narratives", "card_score"]),
         "verdict lands last (sigil doctrine: signs first, verdict second)"
     );
     assert_eq!(schema["properties"]["card_score"]["minimum"], json!(1));
@@ -401,14 +401,16 @@ fn parse_card_score_tolerant_and_clamped() {
 
 #[test]
 fn parser_carries_card_score_and_tolerates_absence() {
-    // Full n12 document: storylines + buckets + the verdict.
+    // A pre-n16 reply still carrying the retired buckets section: the extra key is ignored, the
+    // document parses. Offline bins replay real captured output, so tolerance here is not
+    // hypothetical.
     let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}], "article_buckets": [{"article":1,"transfer":false}], "card_score": 41}"#;
     let doc = NarrativesParser.parse(raw).unwrap().unwrap();
     assert_eq!(doc.card_score, Some(41));
     // The model-called EMPTY document still lands its verdict — the quiet week gets the
     // Journalist's own low number (persisted on the marker row downstream).
     let quiet = NarrativesParser
-        .parse(r#"{"narratives": [], "article_buckets": [], "card_score": 4}"#)
+        .parse(r#"{"narratives": [], "card_score": 4}"#)
         .unwrap()
         .unwrap();
     assert!(quiet.narratives.is_empty());
@@ -421,68 +423,26 @@ fn parser_carries_card_score_and_tolerates_absence() {
     assert_eq!(pre.card_score, None);
 }
 
-// --- n9 article_buckets: tolerant parse + grounding -------------------------------------------
+// --- n16: the retired n9 buckets section -----------------------------------------------------
 
+/// The Journalist no longer labels articles — The Editor writes `news_articles.bucket` from the
+/// `story_type` it already emits. This is the regression guard for the reason it moved: the
+/// section was one object per CORPUS article, so the output grew with the corpus rather than with
+/// the story, on the saturated host, from a 900-byte blurb of a body the Editor had read in full.
 #[test]
-fn parse_article_buckets_reads_the_section() {
-    let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}],
-                  "article_buckets": [{"article":1,"transfer":true},{"article":2,"transfer":false}]}"#;
-    let b = parse_article_buckets(raw);
-    assert_eq!(b.len(), 2);
-    assert_eq!((b[0].article, b[0].transfer), (1, true));
-    assert_eq!((b[1].article, b[1].transfer), (2, false));
-    // The full parse yields both sections; a reply with no buckets key parses to an empty section.
-    let doc = NarrativesParser.parse(raw).unwrap().unwrap();
-    assert_eq!(doc.article_buckets.len(), 2);
-    assert!(parse_article_buckets(r#"{"narratives": []}"#).is_empty());
-}
-
-#[test]
-fn parse_article_buckets_salvages_truncated_tail() {
-    // The narratives array parsed cleanly; the buckets section truncates mid-object → keep the
-    // complete leading entries, drop the half-written one, never fail the document.
-    let raw = r#"{"narratives": [{"title":"A","body":"b","articles":[1]}], "article_buckets": [{"article":1,"transfer":true},{"article":2,"tr"#;
-    let doc = NarrativesParser.parse(raw).unwrap().unwrap();
-    assert_eq!(doc.narratives.len(), 1);
-    assert_eq!(doc.article_buckets.len(), 1);
-    assert_eq!(doc.article_buckets[0].article, 1);
-}
-
-#[test]
-fn ground_article_buckets_maps_dedupes_and_bounds() {
-    let news = vec![
-        item(100, "BBC", "one", "", None),
-        item(101, "ESPN", "two", "", None),
-    ];
-    let parsed = vec![
-        ModelArticleBucket {
-            article: 1,
-            transfer: true,
-        },
-        ModelArticleBucket {
-            article: 1,
-            transfer: false,
-        }, // dup article → first label wins
-        ModelArticleBucket {
-            article: 2,
-            transfer: false,
-        },
-        ModelArticleBucket {
-            article: 9,
-            transfer: true,
-        }, // out of range → dropped
-        ModelArticleBucket {
-            article: 0,
-            transfer: true,
-        }, // < 1 → dropped
-    ];
-    let out = ground_article_buckets(&parsed, &news);
-    assert_eq!(
-        out,
-        vec![
-            (100, ArticleBucket::Transfer),
-            (101, ArticleBucket::NonTransfer)
-        ]
+fn the_schema_no_longer_asks_the_journalist_to_label_articles() {
+    let schema = narratives_format_schema();
+    assert!(
+        schema["properties"]["article_buckets"].is_null(),
+        "article_buckets must not be back in the output contract"
+    );
+    assert!(
+        !NARRATIVES_SYSTEM_PROMPT.contains("article_buckets"),
+        "the prompt must not ask for a section the schema does not accept"
+    );
+    assert!(
+        !NARRATIVES_SYSTEM_PROMPT.contains("label every numbered article"),
+        "labelling is the Editor's job now; the Journalist voices the story"
     );
 }
 

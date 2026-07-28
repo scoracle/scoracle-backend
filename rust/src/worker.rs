@@ -41,7 +41,7 @@ use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
 use sqlx::PgPool;
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 use tokio::signal::unix::{signal, SignalKind};
@@ -286,6 +286,11 @@ pub struct Worker {
     shutdown: Arc<AtomicBool>,
     /// Latest tick cause, written by the supervisor with each request.
     cause: Arc<StdMutex<&'static str>>,
+    /// Unix seconds of the last exact-title dedup sweep, 0 until the first runs. The sweep is
+    /// hourly, not per-tick: it closes a RACE (two copies scrubbed before either has vetted
+    /// membership are invisible to each other in `novelty::gate`), so it only has work to do
+    /// after a scrub batch has settled. Running it every tick would be pure write amplification.
+    last_dedup_sweep: Arc<AtomicI64>,
 }
 
 impl Worker {
@@ -318,6 +323,7 @@ impl Worker {
             drain_concurrency,
             shutdown: Arc::new(AtomicBool::new(false)),
             cause: Arc::new(StdMutex::new("startup")),
+            last_dedup_sweep: Arc::new(AtomicI64::new(0)),
         }
     }
 
@@ -383,6 +389,49 @@ impl Worker {
         self.shutdown.load(Ordering::Acquire)
     }
 
+    /// Collapse byte-identical CROSS-SOURCE articles onto one canonical copy, at most hourly.
+    ///
+    /// This closes a race `novelty::gate` structurally cannot: that gate compares a freshly
+    /// scrubbed article against recent canonical coverage of its OWN VETTED ENTITIES, so two
+    /// copies scrubbed in the same pass — before either has vetted membership — are invisible to
+    /// each other. Measured 2026-07-28: 2,057 of 32,016 corpus-visible articles in a 14-day window
+    /// were exact-title duplicates of another corpus-visible article, which is 6.4% of every
+    /// busyness verdict counting one story twice.
+    ///
+    /// A sweep is the only thing that can fix a race, and hourly is the right cadence: it has work
+    /// only after a scrub batch has settled, so per-tick would be pure write amplification.
+    ///
+    /// The guards live in `collapse_exact_title_duplicates` (mig 196) — cross-source only, a
+    /// minimum title length, and a canonical that prefers the corpus-visible copy. Failure is
+    /// logged and swallowed: this is hygiene, and it must never block a drain.
+    async fn sweep_exact_title_duplicates(&self, cause: &str, pulse: &Pulse) {
+        const SWEEP_INTERVAL_SECS: i64 = 3_600;
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let last = self.last_dedup_sweep.load(Ordering::Acquire);
+        if last != 0 && now.saturating_sub(last) < SWEEP_INTERVAL_SECS {
+            return;
+        }
+        self.last_dedup_sweep.store(now, Ordering::Release);
+
+        pulse.begin("dedup-sweep");
+        // 72h matches the novelty gate's own `novelty_lookback`: anything older has already been
+        // swept, and re-scanning the full narratives window every hour buys nothing.
+        let res: Result<i32, sqlx::Error> = sqlx::query_scalar(
+            "SELECT public.collapse_exact_title_duplicates(interval '72 hours', 30)",
+        )
+        .fetch_one(&self.pool)
+        .await;
+        match res {
+            Ok(n) if n > 0 => info!(collapsed = n, cause, "exact-title duplicates collapsed"),
+            Ok(_) => debug!(cause, "dedup sweep: nothing to collapse"),
+            Err(e) => error!(error = %format!("{e:#}"), cause, "dedup sweep failed"),
+        }
+    }
+
     /// One recover-then-drain cycle. No-op when no handlers are registered, so
     /// the scaffold never mutates the queue.
     async fn tick(&self, cause: &str, pulse: &Pulse) {
@@ -396,6 +445,7 @@ impl Worker {
             Ok(_) => {}
             Err(e) => error!(error = %format!("{e:#}"), cause, "requeue stale failed"),
         }
+        self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
         pulse.idle();
     }

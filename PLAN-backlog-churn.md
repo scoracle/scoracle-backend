@@ -250,8 +250,44 @@ two genuinely would not fit. `q8_0` halved that and the permit was never revisit
 constraint shaping this whole session — six voices serialised, `transfers` dead-lettering at 1200s
 on *wait* rather than work — is a setting, not a wall.
 
-**Cheapest possible test:** set `OLLAMA_NUM_PARALLEL=2` in the plist, `launchctl kickstart`, and see
-whether it loads and holds. Fully reversible, and a rest window is the free hour to do it in.
+**STATUS 2026-07-27 21:40: attempted, and the attempt was INVALID. The claim above is still
+untested — treat it as a hypothesis, not a result.**
+
+`OLLAMA_NUM_PARALLEL=2` was written to the plist and the job restarted with
+`sudo launchctl kickstart -k system/ai.ollama.serve`. Ollama then reported `n_slots = 1` at both
+16384 and 8192, which looked like a clean refutation. It was not:
+
+```
+plist on disk:   OLLAMA_NUM_PARALLEL=2
+running process: OLLAMA_NUM_PARALLEL=1     ← ps eww on the daemon
+```
+
+**`launchctl kickstart` restarts the JOB but launchd keeps its CACHED copy of the job definition.**
+A plist edit does nothing until the definition is reloaded. Ollama was correctly honouring the value
+it actually had. Two concurrent requests took 20.4s against 10.5s for one — exact serialisation,
+because there genuinely was one slot.
+
+**The correct sequence** (ollama is down between the two, so run them back-to-back, in a rest window):
+
+```sh
+sudo launchctl bootout system/ai.ollama.serve
+sudo launchctl bootstrap system /Library/LaunchDaemons/ai.ollama.serve.plist
+ps eww $(pgrep -f "ollama serve" | head -1) | tr ' ' '\n' | grep OLLAMA_NUM_PARALLEL   # verify
+```
+
+**Always verify a plist change against the running process, never against the file.** The file
+proves intent; `ps eww` proves effect.
+
+Two things to check once it is genuinely applied, because the KV arithmetic is necessary but may not
+be sufficient — ollama's own memory estimator gets the final say and it reserves headroom on a 16 GB
+unified-memory box:
+1. `n_slots` in `~/Library/Logs/ollama.err` — 2 or still 1?
+2. Two concurrent requests: wall time near 1× (parallel) or 2× (serialised)?
+
+Also note the cognition side has its own cap. `COGNITION_BACKEND_CONCURRENCY` in Archbox's
+`.env.local` pins `http://192.168.1.77:11434=1`, so raising ollama alone changes nothing end to end
+— and raising Archbox alone would queue a second request at an ollama still serving one, which makes
+the `transfers` handler-timeout bleed worse. **Both sides move together or neither does.**
 
 | lever | speed | concurrency | quality risk |
 |---|---|---|---|

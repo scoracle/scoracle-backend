@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict b2ivL9yPRmNJin593ctD4Qf5qaSQ0Rc0PAr14b03TirDmiCVcynO88unDVNAw1m
+\restrict h85BV8mTTr1SwRPewcvbMfgaKLWoeZR4bXOna0NsVuexT0En6TAFc8kVUdvzvF3
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3847,6 +3847,29 @@ $$;
 
 
 --
+-- Name: nrm(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.nrm(t text) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+    AS $$
+    SELECT btrim(
+             regexp_replace(
+               regexp_replace(
+                 lower(public.unaccent('public.unaccent'::regdictionary, t)),
+                 '[^a-z0-9]+', ' ', 'g'),
+               '\s+', ' ', 'g'))
+$$;
+
+
+--
+-- Name: FUNCTION nrm(t text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.nrm(t text) IS 'The single name normalizer: lower, unaccent, fold punctuation to spaces, collapse whitespace. Used by entity_name_surfaces, its indexes, and every resolver query. Do NOT reimplement in Rust or Go -- two normalizers that disagree is the failure mode mig 198 exists to avoid.';
+
+
+--
 -- Name: position_group(text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -5068,6 +5091,60 @@ $$;
 --
 
 COMMENT ON FUNCTION public.refresh_co_mention_links(p_sport text, p_window_days integer, OUT pairs_upserted integer, OUT pairs_zeroed integer) IS 'Recomputes all co_mention narrative_links for a sport from the vetted news rail — idempotent, set-based, no model calls. v1 reads news_article_entities only; extend with a narrative_person_mentions union once the extraction stage populates persons.';
+
+
+--
+-- Name: refresh_entity_name_surfaces(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.refresh_entity_name_surfaces() RETURNS bigint
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    n bigint;
+BEGIN
+    DELETE FROM public.entity_name_surfaces;
+
+    WITH nxt AS (
+        SELECT 'team'::text AS entity_type, t.id AS entity_id, t.sport,
+               public.nrm(t.name) AS norm, 'name'::text AS surface_kind
+          FROM public.teams t WHERE public.nrm(t.name) <> ''
+        UNION
+        SELECT 'team', t.id, t.sport, public.nrm(a), 'alias'
+          FROM public.teams t, unnest(t.search_aliases) a WHERE public.nrm(a) <> ''
+        UNION
+        SELECT 'player', p.id, p.sport, public.nrm(p.name), 'name'
+          FROM public.players p WHERE public.nrm(p.name) <> ''
+        UNION
+        SELECT 'player', p.id, p.sport, public.nrm(a), 'alias'
+          FROM public.players p, unnest(p.search_aliases) a WHERE public.nrm(a) <> ''
+    )
+    -- A canonical name and an alias can normalize to the same string (AC Milan carries alias
+    -- 'Milan'; 'Atletico de Madrid' folds onto its own accented name). The PK is per surface, so
+    -- collapse to one row per (entity, norm) and let 'name' win -- it is the stronger provenance.
+    INSERT INTO public.entity_name_surfaces (entity_type, entity_id, sport, norm, surface_kind)
+    SELECT DISTINCT ON (entity_type, entity_id, sport, norm)
+           entity_type, entity_id, sport, norm, surface_kind
+      FROM nxt
+     ORDER BY entity_type, entity_id, sport, norm,
+              (surface_kind = 'name') DESC;
+
+    GET DIAGNOSTICS n = ROW_COUNT;
+
+    -- Without this the planner sees an empty table and seq-scans every resolver lookup until
+    -- autovacuum notices. See the header: 38 ms vs 2 ms on the same query.
+    ANALYZE public.entity_name_surfaces;
+
+    RETURN n;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION refresh_entity_name_surfaces(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.refresh_entity_name_surfaces() IS 'Full rebuild of entity_name_surfaces from teams/players. Idempotent. Call after any roster or alias change; cheap enough (~19k rows) to run on a schedule.';
 
 
 --
@@ -7703,6 +7780,28 @@ CREATE SEQUENCE public.data_fetch_ledger_id_seq
 --
 
 ALTER SEQUENCE public.data_fetch_ledger_id_seq OWNED BY public.data_fetch_ledger.id;
+
+
+--
+-- Name: entity_name_surfaces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_name_surfaces (
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    norm text NOT NULL,
+    surface_kind text NOT NULL,
+    CONSTRAINT entity_name_surfaces_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text]))),
+    CONSTRAINT entity_name_surfaces_surface_kind_check CHECK ((surface_kind = ANY (ARRAY['name'::text, 'alias'::text])))
+);
+
+
+--
+-- Name: TABLE entity_name_surfaces; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_name_surfaces IS 'Normalized name/alias surfaces for teams and players. Rebuilt by refresh_entity_name_surfaces(), which ANALYZEs on the way out (mig 199 -- the rebuild otherwise leaves empty-table statistics and every lookup seq-scans). Exact match on (norm, sport) is the ONLY automatic resolution path; the trigram index is for ranking and review, never an unattended write. See mig 198 for the measured reason (spain -> team 394 clears any margin gate and is wrong).';
 
 
 --
@@ -10592,6 +10691,14 @@ ALTER TABLE ONLY public.data_fetch_ledger
 
 
 --
+-- Name: entity_name_surfaces entity_name_surfaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_name_surfaces
+    ADD CONSTRAINT entity_name_surfaces_pkey PRIMARY KEY (entity_type, entity_id, sport, norm);
+
+
+--
 -- Name: event_box_scores event_box_scores_fixture_id_player_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11252,6 +11359,20 @@ CREATE INDEX idx_data_fetch_ledger_stage_status ON public.data_fetch_ledger USIN
 --
 
 CREATE INDEX idx_data_fetch_ledger_target ON public.data_fetch_ledger USING btree (target_type, target_id, generated_at DESC);
+
+
+--
+-- Name: idx_entity_name_surfaces_lookup; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_name_surfaces_lookup ON public.entity_name_surfaces USING btree (norm, sport);
+
+
+--
+-- Name: idx_entity_name_surfaces_trgm; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_name_surfaces_trgm ON public.entity_name_surfaces USING gin (norm public.gin_trgm_ops);
 
 
 --
@@ -12355,6 +12476,14 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 
 --
+-- Name: entity_name_surfaces entity_name_surfaces_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_name_surfaces
+    ADD CONSTRAINT entity_name_surfaces_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: event_box_scores event_box_scores_fixture_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12933,5 +13062,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict b2ivL9yPRmNJin593ctD4Qf5qaSQ0Rc0PAr14b03TirDmiCVcynO88unDVNAw1m
+\unrestrict h85BV8mTTr1SwRPewcvbMfgaKLWoeZR4bXOna0NsVuexT0En6TAFc8kVUdvzvF3
 

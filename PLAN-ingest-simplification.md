@@ -98,21 +98,65 @@ gates work downstream of it.
 
 ### Phase B — mapping and recovery (no new model contract)
 
-- [ ] **B1. The name resolver.** Editor-emitted name strings → canonical entities. Two deterministic
-      gates before anything is rubber-stamped: (a) the name must actually appear in the body we
-      already have — kills hallucinated entities at zero model cost; (b) resolve against the DB with
-      `pg_trgm`. **This is pg_trgm's real job** — resolving a short list of model-extracted names,
-      not scanning article bodies.
+- [ ] **B1. The name resolver.** Editor-emitted name strings → canonical entities. Mig
+      `198_entity_name_resolution.sql` lays the groundwork: `nrm()` (the ONE normalizer, in SQL so
+      the index and the query provably agree — a Rust copy is the T-A5 trap in a new costume, and
+      there is no `unaccent` crate in the tree), `entity_name_surfaces`, and both indexes.
+
+      **Revised by measurement — see T9.** Exact match on the normalized surface is the *only*
+      automatic path. Trigram is a ranking and review channel, never an unattended write. The
+      original gate (a) — "the name must appear in the body we already have" — is a **live-path gate
+      only**: `news_articles.full_text` is NULL for all 150,566 articles and nothing writes it
+      (`journalist/prompt.rs:158` already records this). The Editor holds the body at read time and
+      does not persist it, so the offline backfill has no body to check against. Checked against
+      what IS retained (title + description + `evidence_blurb` + `key_facts`), only 76.9% of correct
+      resolutions "pass" — the failures are summarization, not hallucination, so applying it offline
+      would discard a quarter of the recovery for the wrong reason.
+
+      Ambiguity is **refused, not broken**: 59 of 15,654 exact resolutions (0.38%) hit more than one
+      entity, all same-sport player namesakes, zero team/player and zero cross-sport collisions.
+      Roster context (`team_rosters` ∩ the article's teams) resolves 46 of those 59 for free — but
+      **not Vinicius Jr**, where Vinicius Junior and Vinícius Tobias share Real Madrid and the rule
+      ties. That residual is what the aliases in mig 198 and the discovery seat below are for.
 - [ ] **B2. Go retires as judge, stays as clerk.** `MatchesEntity` becomes a candidate *generator*:
       lenient, high-recall, ranked, top-N. It decides nothing. Leniency is bounded by prompt budget —
       candidates go INTO the prompt, so hand over a ranked top-N, not everything that matched.
 - [ ] **B3. Unmatched-name capture.** Names the Editor found that resolve to nothing get persisted.
       That set is the candidate pool for growing the DB later, and it costs nothing to keep now.
       Junked articles keep a row so the unmatched names have something to hang on.
+
+      **Measured, and it is the larger half.** On the incident cohort, 10,263 name instances / 6,408
+      distinct names resolve to nothing. Sampling the most frequent shows they are not resolver
+      failures — they are a **census of what the DB does not model**: national teams (`spain` 62,
+      `france` 56), coaches and managers (`kyle shanahan` 60, `john lynch` 35, `andy reid` 23,
+      `xabi alonso` 23, `pep guardiola`), clubs outside our five leagues (`celtic` 45, `wrexham` 44,
+      `ajax` 31, `galatasaray`, `feyenoord`), other sports (`tadej pogacar`, `caitlin clark`), and
+      genuine non-sport noise (`andy burnham`, `ice`). Persisting them turns the Editor into a
+      standing survey of coverage gaps, which is worth more than the links B1 recovers.
 - [ ] **B4. Re-mapping backfill over the 6,319 held articles.** **Do this before B2 goes live.** It
       exercises the resolver on 6,000 real articles offline, where mistakes are inspectable. The
       persisted `relevant_entities` already names the right entities on 5,423 of them, so a large
       share costs **zero model calls**. See "Recovery, deliberately held" below.
+
+      **Pin the cohort to the incident window.** `vetted IS FALSE` alone is now **24,984 articles /
+      28,280 team / 9,044 player links** — normal scrub rejections have accumulated on top since
+      07-27, and those are legitimate. The cohort is articles whose Editor reading was updated
+      between 07-27 00:00 and 07-28 07:04: **6,377 articles / 10,409 team / 2,366 player**, which
+      reproduces the recorded 6,319 / 10,366 / 2,315 to within the drift since.
+
+      **Measured yield** (exact match on `entity_name_surfaces`, sport-scoped, ambiguity refused):
+
+      | | links | entities | articles |
+      |---|---|---|---|
+      | existing links flipping FALSE → TRUE | 9,818 | 905 | 5,370 |
+      | brand-new links the query never proposed | 5,910 (1,507 team, **4,403 player**) | 1,935 | 2,152 |
+
+      5,473 of 6,377 articles resolve at least one entity. Zero model calls.
+
+      **Staged, Scott's call 2026-07-28:** flips first, inspect, then the brand-new links as a second
+      pass. Brand-new rows carry a `match_confidence` sentinel distinct from Go's 0.95 primary so
+      Editor-derived links stay greppable and reversible. **And the trigger must be suppressed —
+      see T10**, or the cheap half of this item silently buys 5,370 Editor re-reads.
 
 ### Phase C — the Editor's new contract (one prompt version bump)
 
@@ -224,6 +268,36 @@ Depends on A4 and C2.
       is known when it is.
 - [ ] **F5. `vibe` is truncating.** Post-raise p99 output jumped 144 → 347 and 2 generations hit the
       1100 cap exactly in 7 days. Recommend `VIBE_NUM_PREDICT` → 1600. Unrelated to this plan.
+- [ ] **F7. A discovery / identity seat — the junction this plan keeps writing around.** Scott's
+      call, 2026-07-28: a future junction (a new character in the newsroom) owns the problems B1
+      hands off rather than solves.
+
+      **What accumulates for it, from the B1/B3 measurements:**
+
+      | residue | size | why deterministic code cannot finish it |
+      |---|---|---|
+      | true namesake ties | 13 of 59 after roster context | Vinicius Junior and Vinícius Tobias share a club — the roster rule ties, not resolves |
+      | people we do not model | ~60/day, e.g. `kyle shanahan`, `john lynch`, `andy reid` | coaches and executives drive real stories and fuzzy-match to real *players* (T9) |
+      | entities outside our leagues | `celtic`, `wrexham`, `ajax`, `galatasaray` | the DB boundary is a business decision; the article does not respect it |
+      | national teams | `spain`, `france`, `portugal` | a whole entity CLASS with no table |
+      | genuine noise | `andy burnham`, `lee child`, `ice` | needs judgment, not a threshold |
+
+      **The shape it must take, and why it is not just "ask a model which entity":** T2 says gemma
+      will not render a verdict as a bare field, proven three times (ar3 99.1% accept, ar5's
+      `score_stub` that still said `relevant:true`, the Oracle's `DISAGREEMENT:` at 7-in-13,252).
+      Asking *"which of these two is most relevant?"* is asking for the verdict. **Describe, then
+      derive** — the seat states what the text says about the person (club, role, competition,
+      nationality) and the match falls out deterministically against those facts.
+
+      Cheapest version first: much of this is **missing aliases wearing a disambiguation costume**.
+      `Inter Milan` and `Vinicius Jr` are unambiguous to any reader and ambiguous only to trigram; an
+      alias row fixes them permanently at zero inference cost (mig 198 seeds 15, hand-verified). The
+      seat earns its keep on what an alias *cannot* fix — the residual above — and the natural first
+      home for the evidence is **C1's discovery contract**, where the Editor already has the body
+      open. ~4 names/article × a club each ≈ 16 output tokens against `ARTICLE_NUM_PREDICT` 900,
+      under 2%, versus a whole extra inference. That buys disambiguation for *every* name rather
+      than only the ties we happen to detect — and C5 is the standing constraint: the Editor's
+      output budget IS coverage.
 - [ ] **F6. Plumbing** — `requeue_stale` on its own interval + startup guard, the unverified Oracle
       barrier, the vestigial edition-grid scaffolding (`defaultRSSEditions`, `EditionsPlanned/
       Queried/Skipped`, `runRSSQueryPastLimit`'s `editionIdx`), offsetting the two cards' rest
@@ -394,6 +468,41 @@ baselines and the 78/78 fixture gate are **not comparable across this change.**
 **T8 — mig 194 is applied but unrecorded** in `schema_migrations` (column, index and comment all
 verified present). Fully idempotent, so the next `migrate.sh` re-applies it as a no-op and records
 it. Self-healing — but it means 194 was applied by hand rather than through the runner.
+
+**T9 — a trigram margin gate protects against the wrong failure.** The intuition is that fuzzy
+matching goes wrong on TIES, so requiring the best match to beat the runner-up should make it safe.
+Measured over the 120 most frequent unresolved names, sport-scoped, it does not: the dominant error
+is a **confident single match to an entity that is simply not the one named**, and those have no
+runner-up at all, so they clear any margin gate:
+
+| model's name | best match | sim | margin | verdict |
+|---|---|---|---|---|
+| `spain` | team 394 `spa` | 0.429 | **0.429** | wrong — a national team we do not carry |
+| `pep guardiola` | player `sergi guardiola` | 0.500 | **0.500** | wrong — a manager, not a player |
+| `sheffield wednesday` | team 21 `sheffield utd` | 0.417 | **0.417** | wrong — a rival, same city |
+| `charlton athletic` | team 13258 `athletic club` | 0.455 | **0.455** | wrong — different country |
+| `lee child` | team 71 `lee` | 0.400 | **0.400** | wrong — a novelist |
+| `vinicius jr` | player 600687 `vinicius junior` | 0.556 | 0.082 | **correct** |
+
+Every wrong row clears the gate more comfortably than the one correct row. So **exact match is the
+only automatic write path**; trigram is a ranking and review channel. What the margin gate *does*
+catch is the true tie — `inter milan` scores 0.500 against **both** Inter (2930) and AC Milan (113),
+and a top-1 pick would link Inter Milan stories to their rivals on a coin flip.
+
+**T10 — flipping `vetted` FALSE → TRUE re-arms the article.** `enqueue_derive_on_vetted` fires
+`AFTER UPDATE OF vetted` and enqueues **`article_read` on the article**, with
+`input_version = 'ar:' || vetted_count`. Flipping links changes that count, so the `ON CONFLICT`
+clause re-opens even articles already read. Verified on Archbox in a rolled-back transaction: one
+flip, one new `article_read` row.
+
+That means the "cheap" half of B4 — restoring links that already exist — would have bought **~5,370
+Editor re-reads through the ar6 gate that C1 is about to replace**, which is precisely what
+"do not re-arm the 6,319" forbids. The backfill must suppress the trigger:
+`SET LOCAL session_replication_role = 'replica'` inside the transaction (verified: suppresses it,
+no lock, auto-reverts at commit; `ALTER TABLE ... DISABLE TRIGGER` would take an ACCESS EXCLUSIVE
+lock against a live pipeline). The links then become visible to the Journalist immediately, carrying
+the reading they already have. **Note the shape:** the trigger is article-keyed, so the blast radius
+of a vetted write is measured in re-reads, not in entity derivations.
 
 ---
 

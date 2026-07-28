@@ -193,6 +193,9 @@
 191_source_neutral_news
 192_cognition_ledger_article_entity
 193_graph_after_article_read
+194_news_feed_rank
 195_pg_trgm
 196_collapse_exact_title_duplicates
 197_article_routing_tags
+198_entity_name_resolution
+199_refresh_surfaces_analyze

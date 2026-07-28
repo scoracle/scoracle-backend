@@ -1081,6 +1081,31 @@ async fn persist_model_outcome(
         .await
         .with_context(|| format!("persist article bucket {article_id}"))?;
     }
+
+    // The same decision, multi-valued (mig 197). `bucket` can say transfer OR injury and never
+    // both, so a story could only ever reach one voice; the tag set is what lets one packet reach
+    // several. Written alongside `bucket` rather than instead of it — the Insider still reads
+    // `bucket`, and Phase E retires it deliberately once the subscriptions are seeded.
+    //
+    // Same `IS DISTINCT FROM` discipline, and for a sharper reason than the bucket write: the
+    // mig-197 trigger fans out over tags that were ADDED, so re-writing an identical tag set would
+    // be a no-op there anyway — but the guard keeps the UPDATE itself from touching the row and
+    // firing the trigger at all. Empty tag sets are still written: going from tagged to untagged is
+    // a real transition, and leaving the old set in place would route on a stale read.
+    let tags = crate::bucket::routing_tags_from_story_type(&evidence.story_type);
+    sqlx::query(
+        r#"
+        UPDATE public.news_articles
+           SET routing_tags = $2
+         WHERE id = $1
+           AND routing_tags IS DISTINCT FROM $2
+        "#,
+    )
+    .bind(article_id)
+    .bind(&tags)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("persist article routing tags {article_id}"))?;
     tx.commit()
         .await
         .with_context(|| format!("commit article_read persist {article_id}"))?;

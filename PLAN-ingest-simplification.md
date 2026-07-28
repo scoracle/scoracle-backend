@@ -43,13 +43,44 @@ gates work downstream of it.
       stage is `narratives`), `ARTICLE_READ_PROMPT_VERSION`'s **value** `"ar6"` (a cache key — see
       trap T1), and `Role::ArticleReader` (its `env_suffix()` is the live
       `COGNITION_ROUTE_ARTICLE_READER` key on both machines — Tier 3).
-- [ ] **A3. Exact-title dedup sweep.** 3,467 duplicate-title groups / 4,749 collapsible articles in a
-      7-day window, of which only 736 are marked. `duplicate_of` is catching 2.6% of what exists.
-      Safe, mechanical, no thresholds, no model. Inflates every busyness verdict until it lands.
-- [ ] **A4. `news_articles.bucket` → a routing tag SET.** **BLOCKS Phase E.** Today `bucket` holds
-      one label and mig 175 routes `bucket='transfer'` → the Insider. A packet that is both transfer
-      and emotional cannot be expressed. Generalize to a set; the mig-175 trigger becomes a fan-out.
-      Keep the `IS DISTINCT FROM` guard — it is load-bearing, not an optimisation.
+- [x] **A3. Exact-title dedup sweep.** Mig `196_collapse_exact_title_duplicates.sql`, applied to
+      Archbox. Backfill: **3,618 marked, corpus 32,006 → 30,291 (−5.4%)**; second run returns 0, so
+      it is idempotent. Wired HOURLY into the worker tick (not per-tick — it only has work after a
+      scrub batch settles).
+
+      Root cause was a race, not a missing mechanism: `novelty::gate` compares an article against
+      canonical coverage of its OWN VETTED ENTITIES, so two copies scrubbed in the same pass, before
+      either has membership, are invisible to each other. A per-article gate cannot close that.
+
+      Three guards, one of which the dry run earned: the cross-source check must be **per pair, not
+      per group** — a group of {A, A, B} passes a group-level `count(DISTINCT source) > 1` and then
+      suppresses A with its own sibling, which is exactly the same-source collapse the cosine branch
+      was deleted for. Verified: 0 same-source collapses among the 3,618. Also a 30-char minimum
+      title length (section headers like "Match Centre" and "El Tiempo" repeat verbatim across
+      unrelated articles), and a canonical that prefers the corpus-visible copy.
+
+      **Corrects an earlier number in this plan:** the "4,749 collapsible" figure counted articles
+      that never reach the Journalist. `load_vetted_corpus` already requires `vetted IS TRUE`, so
+      marking those changes nothing. The real corpus-visible duplication was **2,057 of 32,016
+      (6.4%)**.
+- [x] **A4. `news_articles.bucket` → a routing tag SET.** Mig `197_article_routing_tags.sql`,
+      applied to Archbox. Adds `news_articles.routing_tags text[]` (GIN indexed), the
+      `stage_routing_subscriptions` table, and a fan-out trigger over NEWLY-ADDED tags only.
+      `bucket.rs` gains `routing_tags_from_story_type`; the Editor writes tags alongside `bucket`.
+
+      **Tags are content facts, not voice names** — `transfer`, `injury`, `roster`. Who wants them
+      is data in `stage_routing_subscriptions`, which makes **E1 an INSERT rather than a code
+      change**, and means adding a voice never touches the trigger.
+
+      **Ships INERT**: the subscription table is empty, so the trigger fans out to nobody and
+      transfers keeps running off mig 175. Seeding `('transfer','transfers')` here would double-
+      enqueue against mig 175 with a *different* `input_version` — not a duplicate (ON CONFLICT
+      handles that) but a churn loop where the two fingerprints alternate and reopen the item
+      forever. Phase E migrates it deliberately.
+
+      Verified on Archbox in rolled-back transactions: inert with no subscriptions (0 enqueued);
+      one article with two tags reaches **two different stages**; and adding a third tag later wakes
+      **only** that tag's subscriber — E2's per-voice re-wake guard, working.
 - [ ] **A5. Journalist corpus `LIMIT` + `ORDER BY feed_rank`.** Carried over from the old Phase 2 and
       still open. `load_vetted_corpus` orders by recency, which outranks Google a third time.
       Measured today: p50 11 articles/team-day, p95 69, max 141.

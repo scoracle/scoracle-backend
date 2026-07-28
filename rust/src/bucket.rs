@@ -78,9 +78,105 @@ impl ArticleBucket {
     }
 }
 
+/// routing_tags_from_story_type projects The Editor's topic taxonomy onto the CONTENT FACTS a
+/// voice can subscribe to (`news_articles.routing_tags`, mig 197).
+///
+/// This is the multi-valued successor to [`ArticleBucket::from_story_type`], and the difference is
+/// the entire point of mig 197: `bucket` can say "transfer" OR "injury" and never both, so a story
+/// could only ever reach one voice. A tag set lets the Diomande story reach the Insider as a
+/// transfer AND the Influencer as a story about a player choosing one club over another, with
+/// neither waiting on the other.
+///
+/// **Tags are content facts, not voice names.** Which stage wants `injury` lives in
+/// `stage_routing_subscriptions`, as data. That keeps the routing decision an INSERT rather than a
+/// code change, and it means this function never has to know the cast.
+///
+/// **Derived, never asked.** `story_type` is already emitted; the projection happens here. Asking
+/// the model which voices should see an article is a judgment call, and ar3/ar5/ar6 are three
+/// measured demonstrations that a 4B will not render those reliably.
+///
+/// Off-vocabulary `story_type` values yield NO tags — the same fail-open discipline as
+/// `from_story_type` returning `None`. An unknown topic routes to nobody rather than being guessed
+/// onto a voice, and the article still reaches The Journalist through the corpus, which is not
+/// tag-gated.
+///
+/// The emotional register (C2) becomes an ADDITIONAL tag here once the Editor emits it. It is
+/// deliberately not modelled yet: the field does not exist, and inventing its vocabulary before
+/// the contract that produces it is how you get a tag nothing ever sets.
+pub fn routing_tags_from_story_type(story_type: &str) -> Vec<&'static str> {
+    match story_type.trim().to_lowercase().as_str() {
+        "transfer" => vec!["transfer"],
+        "injury" => vec!["injury"],
+        "roster" => vec!["roster"],
+        "contract" => vec!["contract"],
+        "performance" => vec!["performance"],
+        "fixture" => vec!["fixture"],
+        "general" => vec!["general"],
+        _ => vec![],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Every value in the Editor's schema enum must produce at least one tag, for the same reason
+    /// `every_editor_story_type_projects_to_a_bucket` exists: a topic this mapping does not know
+    /// routes to nobody, silently and forever. A new topic in the Editor's taxonomy has to be
+    /// answered here too, and this test is what says so.
+    #[test]
+    fn every_editor_story_type_produces_a_tag() {
+        for st in [
+            "transfer",
+            "injury",
+            "performance",
+            "fixture",
+            "roster",
+            "contract",
+            "general",
+        ] {
+            assert!(
+                !routing_tags_from_story_type(st).is_empty(),
+                "story_type {st} must produce at least one routing tag"
+            );
+        }
+    }
+
+    /// Off-vocabulary values route to nobody rather than being guessed onto a voice. The model does
+    /// emit them — `irrelevant` turned up 43 times in a week despite not being in the schema enum.
+    #[test]
+    fn off_vocabulary_story_types_produce_no_tags() {
+        assert!(routing_tags_from_story_type("irrelevant").is_empty());
+        assert!(routing_tags_from_story_type("").is_empty());
+    }
+
+    /// The tag projection must agree with the bucket projection on the one routing decision that
+    /// is live today, or mig 175 and mig 197 would disagree about the same article at cutover.
+    #[test]
+    fn tags_agree_with_bucket_on_transfer() {
+        for st in [
+            "transfer",
+            "injury",
+            "performance",
+            "fixture",
+            "roster",
+            "contract",
+            "general",
+        ] {
+            let is_transfer_bucket =
+                ArticleBucket::from_story_type(st) == Some(ArticleBucket::Transfer);
+            let has_transfer_tag = routing_tags_from_story_type(st).contains(&"transfer");
+            assert_eq!(
+                is_transfer_bucket, has_transfer_tag,
+                "bucket and tags disagree about transfer for story_type {st}"
+            );
+        }
+    }
+
+    #[test]
+    fn tags_normalize_case_and_whitespace() {
+        assert_eq!(routing_tags_from_story_type("  TRANSFER  "), vec!["transfer"]);
+    }
 
     #[test]
     fn model_bucket_tags_parse() {

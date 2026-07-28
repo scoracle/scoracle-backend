@@ -12,6 +12,11 @@ no second opinion on a question Google already answered.
 Opened 2026-07-26. Companion to [PLAN-backlog-churn.md](PLAN-backlog-churn.md) — that one is about
 draining what exists, this one is about not manufacturing it in the first place.
 
+> **⚠ 2026-07-28 — the shape above is superseded.** The arrow "Google -> Reader -> characters" is
+> right, but it assumed the ingest query names the entity an article is *about*. It does not; it
+> names a candidate. See [The turn](#the-turn--2026-07-28-ingest-is-a-candidate-generator) at the
+> bottom, which is now the governing design. Read it before acting on anything above it.
+
 ---
 
 ## The measurement this rests on
@@ -303,3 +308,114 @@ silently. Everything else moving hard is expected.
 - **Zero-admit teams.** Fifteen clubs were admitted nothing (Nice, Spezia, Leganés, Huesca,
   Amiens …). Phase 2 should fix them as a side effect; verify explicitly at the 02:00 sweep rather
   than assuming, since they are the hardest names and the reason to believe is a deletion.
+
+
+---
+
+# The turn — 2026-07-28: ingest is a candidate generator
+
+Scott, closing the session that found this: *"The idea behind the cron job firing for teams only
+isn't to exclude players, it's to gather the broad topics of the sport. Our keep criteria should be
+'is this about the sport?' — which flows to 'what entities does it include?'"*
+
+That is a different pipeline from the one this plan was written around, and it is the correct one.
+
+## What the old shape assumed, and why it broke
+
+Every version of this plan treated the ingest query as a **claim**: we asked Google for Arsenal, so
+this article is about Arsenal, and the Reader's job is to confirm or deny it. Phase 2 leaned harder
+on that assumption, not less — "link optimistically on the query that returned the article, and let
+the Reader confirm or reject."
+
+The assumption is false. Google's page 1 for a team is a sample of that team's *news neighbourhood*:
+the club, its players, its rivals, its league. Asking "is this about Arsenal?" of an article about
+Saka's hamstring gets a defensible **no**, and then we delete it.
+
+That is not hypothetical. It cost the pipeline ~90% of its output for two days:
+
+| per day | 07-25 | 07-26 | 07-27 | 07-28 (pre-fix) |
+|---|---|---|---|---|
+| Reader success rate | 71% | **73%** | **2.2%** | 2.1% |
+| vetted player links | 48 | 193 | **12** | 6 |
+| transfer rumors | 453 | 153 | **40** | 12 |
+| narratives | 1,686 | 1,242 | 793 | 217 |
+
+The proximate bug is written up in `ar7` (`3b565ed`) and in `derive_relevance`'s doc comment. The
+architectural cause is this section's subject: **a relevance rule keyed to "is it about the entity we
+guessed" is only ever as good as the guess**, and it silently inverts whenever the guess changes.
+
+## The shape being built toward now
+
+```
+Google (one ranked query per entity)   ->  CANDIDATE ARTICLES (the query is a hypothesis, not a claim)
+  -> The Editor, gate:     is this about a sport we cover?        -> keep / junk
+  -> The Editor, mapping:  which of our entities are in it?       -> teams AND players, discovered
+  -> characters, per entity, off the mapping
+```
+
+Two properties make this durable where the old shape was not:
+
+1. **The gate does not depend on the vetted list.** "Is this sport reporting?" is answerable from the
+   text alone. No upstream change to what is vetted, linked, or queried can silently invert it —
+   which is exactly the failure mode that produced the table above.
+2. **Entity mapping is an Editor OUTPUT, not an ingest input.** `Scoracle-Character-Contracts-Proposal.md`
+   already says so — the Editor packet contains "entity mapping" — and the code never made that move.
+   The Editor adds links the query never guessed (including players) and drops the ones it cannot
+   find.
+
+`clear_vetted_entities_for_article` changes meaning accordingly: not "junk this article" but
+**"re-file it."**
+
+### Measured: how much is misfiled rather than junk
+
+Of the 6,296 articles the broken gate rejected between 07-27 00:00 and 07-28 07:04:
+
+| | |
+|---|---|
+| name at least one of our entities | **5,423** |
+| name one of ours that was **not linked** | **2,043** |
+| player mentions among them | **6,210** |
+
+Roughly a third of the "junk" was an article about a real entity of ours, filed under the wrong one.
+Both figures are FLOORS — the match was exact-lowercase-name, so every "Spurs" and "Man Utd" missed.
+
+## The regex was never wrong; it was wired as the judge instead of the clerk
+
+This resolves a contradiction that ran through the whole plan. Phase 2 retired `MatchesEntity`
+because it rejected 50% of everything Google returned and starved fifteen clubs to zero. Measured
+again on 07-28, as a gate it is worse than that: **restoring it would remove 64% of the junk and 54%
+of the genuinely successful reads**, because `teams.name` is canonical and the press writes "Spurs."
+
+As a **candidate generator** those same numbers are fine. Recall misses are cheap when a model
+adjudicates the shortlist afterwards, and precision costs nothing because the model discards what is
+not there. 204 teams and 15,986 players is a trivial lookup.
+
+**Retire it as a filter, restore it as a generator.** That is the sentence this plan should have had
+from the start.
+
+## Three decisions, open — do not build past these
+
+1. **How wide is "the sport"?** Any sports reporting, or only sports/leagues we cover? Decides
+   whether a Serie A story fetched under a Premier League query is kept. Leaning keep, since we cover
+   Serie A, but it is a real scope line and it sets the gate's prompt.
+2. **Sport news naming none of our entities — keep or junk?** Everything downstream is entity-keyed,
+   so such an article has no consumer. Leaning junk AFTER mapping, never before: the mapping is what
+   tells you.
+3. **Is the packet sport-level rather than entity-level?** The one that matters most. If the Editor
+   gathers the day's topics for a sport, the natural artifact is one packet per sport per day with an
+   entity index, and each character's view is a slice of it. Today the same article is re-read and
+   re-reasoned per entity, and that duplication is precisely why the Journalist's prompt is 8,915
+   tokens at p99. **A sport-level packet is the version of this that actually reaches 4096.**
+
+## Recovery, deliberately held
+
+10,366 team links and 2,315 player links across **6,319 articles** were set `vetted = FALSE` during
+the incident. That state is a ratchet: FALSE is excluded from the vetted list AND from the co-mention
+candidate pool (which selects `vetted IS NULL`), so nothing reconsiders them. All 6,319 are still
+inside the 14-day window.
+
+**Do not re-arm them yet.** Under this design they need re-MAPPING, not re-judging. Re-arming today
+pushes them through a gate that is about to be replaced, pays ~6,300 gemma3 reads to do it, and
+re-derives their links from the same query hypothesis that misfiled 2,043 of them. The persisted
+`relevant_entities` already names the right entities on 5,423 of them, so once the mapping step
+exists a large share of the recovery costs **zero model calls**.

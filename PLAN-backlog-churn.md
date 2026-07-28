@@ -143,7 +143,27 @@ Generations run 20–45s. Cutting the median materially would roughly scale capa
 is the cheapest large win that needs no architectural change. Hand off to the prompt session with
 the note that **throughput is now a first-class reason to shorten prompts**, not just cost.
 
-**4. Fix the handler timeout so it does not measure queueing (friction 2).**
+**4. ✅ DONE 2026-07-28 (`c63a366`) — the handler timeout no longer measures queueing.**
+`transfers` now self-paces against `Harness.handler_budget`: the pair loop gets 50% of the worker's
+ceiling, the wire wrap is GUARANTEED the rest up to 85%, and anything left over is handed back with
+`work::defer` — pending, no attempt penalty, row NOT deleted (a pillar row is also the Oracle
+barrier's evidence that this pillar still owes the entity work). Deferring costs no attempt, so the
+caller owes a progress guarantee: defer only when a pair actually reached a verdict this round,
+otherwise fall through to the retry ladder.
+
+Two corrections to the diagnosis below, both measured on 07-27/28 and both in the *milder*
+direction. **There were no dead letters** — `enqueue`'s conflict policy resets a `failed` row to
+`attempts=0`, so the next news enqueue resurrects it. And **a timed-out attempt kept its work**:
+each pair persists as it completes and debounce-skips on retry, so the only generation lost was the
+one in flight when the axe fell.
+
+The real harm was different and worse: the wire wrap runs LAST, so on any team whose pairs consumed
+the ceiling `score_insider_entity` never ran at all. Newcastle was producing rumors at 07-27 20:25
+with an insider score from 07-25 10:17; daily `insider_scores` writes fell 572 -> 158.
+
+*Original diagnosis, kept for the reasoning:*
+
+**Fix the handler timeout so it does not measure queueing (friction 2).**
 `COGNITION_HANDLER_TIMEOUT_SECONDS=1200` is wall-clock from handler start, but an item's clock
 starts when its handler starts, not when it reaches the GPU. `transfers` is the stage that
 dead-letters because `insider/mod.rs:2184` calls `vet_pair` — a model call — **once per candidate

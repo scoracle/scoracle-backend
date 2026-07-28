@@ -1,7 +1,8 @@
-# Handoff — Phase A is done; the newsroom is next
+# Handoff — Phase A is done and PROVEN; B1's groundwork is in; `bin/remap.rs` is next
 
-Written 2026-07-28. Supersedes [`HANDOFF-editor-turn.md`](HANDOFF-editor-turn.md), which is still
-accurate on the relevance collapse but whose "three decisions, open" are all now settled.
+Written 2026-07-28, updated 18:10 EDT. Supersedes [`HANDOFF-editor-turn.md`](HANDOFF-editor-turn.md),
+which is still accurate on the relevance collapse but whose "three decisions, open" are all now
+settled.
 
 **Read [`PLAN-ingest-simplification.md`](PLAN-ingest-simplification.md) first.** It is a checklist,
 it is current, and it is the governing document. This file only tells you where the work stopped and
@@ -9,10 +10,23 @@ what to be careful of.
 
 ---
 
+## 0. The one thing to do first
+
+**Write `rust/src/bin/remap.rs`** — the B4 backfill. Everything it needs exists, is applied, and is
+verified. Read **T10 before you write a line of it**: the half of B4 that looks free is not.
+
+Decided, so you do not need to re-litigate: staged (flips first, inspect, then brand-new links);
+brand-new rows carry a `match_confidence` sentinel distinct from Go's 0.95; dry-run default;
+follow `bin/bucketlabel.rs`'s read-only posture.
+
+---
+
 ## 1. Start here
 
-**Phase A is complete, merged to `main`, and DEPLOYED.** Released at commit `cec766a` on
-2026-07-28 12:17 EDT. `cargo test --lib` 284, clippy 12 — both at baseline.
+**Phase A is complete, merged to `main`, DEPLOYED, and — as of this session — VERIFIED.** Released
+at commit `cec766a` on 2026-07-28 12:17 EDT. `cargo test --lib` 284, clippy 12 — both at baseline.
+
+**A5 is proven. The question two handoffs carried forward is closed.** See §1.1.
 
 | commit | what |
 |---|---|
@@ -24,43 +38,78 @@ what to be careful of.
 | `676258a` | **A5** — the corpus cap, on the path that actually runs |
 | `4fce117` | the previous handoff |
 | `cec766a` | schema snapshot (195/196/197) — the deployed commit |
+| `baaeb9a` | **B1 groundwork** — migs 198/199, trigram kept off the write path, T9/T10/F7 |
 
-Migrations 195, 196, 197 applied; `snapshot-schema.sh` run and committed. Both services active on
-`cec766a`. Next unticked item is **B1** (the name resolver), and the cheapest way in is **B4** — the
-re-mapping backfill over the 6,319 held articles, zero model calls, exercising the resolver offline
-before it touches the live rail.
+Migrations 195–199 applied; `snapshot-schema.sh` run and committed. Both services active on
+`cec766a` — **`baaeb9a` is schema + docs only, no binary change, so nothing was redeployed.**
 
-### Deploy verification — what is confirmed and what is NOT
+---
+
+## 1.2 What this session added (2026-07-28 afternoon)
+
+**B1's groundwork is applied and committed.** Mig `198_entity_name_resolution` — `nrm()` (the one
+normalizer, in SQL), `entity_name_surfaces` (16,690 rows), an exact-lookup btree, a GIN trigram
+index, and a hand-verified 15-alias seed. Mig `199_refresh_surfaces_analyze` — the rebuild now
+ANALYZEs, because it left empty-table statistics and the same lookup planned Seq Scan 38.2ms vs
+Bitmap Index Scan 2.3ms.
+
+**The plan's B1 design was revised by measurement — see T9.** "Resolve with pg_trgm" is unsafe as
+an automatic write path. Exact match on the normalized surface is the only automatic path; trigram
+ranks and reviews.
+
+**Mig 194 self-healed** exactly as T8 predicted — `migrate.sh` re-applied it as a no-op and recorded
+it. T8 can be struck.
+
+**The B4 cohort is now pinned.** `vetted IS FALSE` alone is **24,984 articles** today — normal scrub
+rejections have accumulated since 07-27 and those are legitimate. The incident cohort is articles
+whose Editor reading was updated between 07-27 00:00 and 07-28 07:04: **6,377 articles**, which
+reproduces the recorded 6,319 to within drift. **A backfill written against the bare predicate would
+touch 4× the intended set.**
+
+Live yield, exact match, ambiguity refused (123 of 15,948 raw hits, 0.77%):
+
+| class | team | player | total | articles |
+|---|---|---|---|---|
+| flip FALSE → TRUE | 7,727 | 2,105 | **9,832** | 5,278 |
+| brand-new | 1,583 | 4,367 | **5,950** | 1,694 |
+
+5,477 of 6,377 articles resolve at least one entity. Zero model calls.
+
+### 1.1 Deploy verification — ALL THREE ITEMS NOW CLOSED
 
 | | |
 |---|---|
 | daemon boots on the new binary | ✅ Postgres, both Ollama hosts, 9 stages registered |
-| **A4** routing tags being written | ✅ 36 articles inside 5 minutes, six tag sets matching the taxonomy exactly (`fixture`, `performance`, `transfer`, `general`, `injury`, `roster`) |
+| **A4** routing tags being written | ✅ 36 articles inside 5 minutes, six tag sets matching the taxonomy exactly |
 | **A4** trigger inert | ✅ subscription table empty; nothing enqueued |
 | **A3** hourly sweep | ✅ runs, found 0 — expected, the backfill already cleared the 72h window |
-| **A5** prompt reduction | ⚠️ **NOT CONFIRMED** — see below |
+| **A5** prompt reduction | ✅ **CONFIRMED** n=128 — p99 7,401 → 3,097, max 8,374 → 3,470 |
+| **A5** `budget_truncated` accounting | ✅ **CONFIRMED** — 5 bands, all reconciling exactly |
+| regen wave draining | ✅ 153 items enqueued post-deploy, 114 over-cap; drains ~10 over-cap / 4h |
 
-**A5 is the one still owed a verdict.** Baseline before deploy, 24h of narratives: **p50 1,850 /
-p99 7,401 / max 8,374** tokens. First two generations after: p50 578, max 1,510. That looks like a
-large win and **n = 2 cannot support the claim** — those two entities may simply have small corpora.
-Re-run the same query over a few hundred generations before believing it:
+**How A5 was closed, because the method matters more than the number.** The trap both prior attempts
+fell into was measuring the wrong population: the narratives queue is FIFO on `available_at`, the
+over-cap entities were enqueued *after* the deploy, and so the first ~110 generations were all
+small-corpus entities that never had large prompts. n=2 and n=48 were equally worthless for the same
+reason. **Always check whether your sample contains the population the change acts on.**
 
-```sql
-SELECT percentile_disc(0.5) WITHIN GROUP (ORDER BY length(built_prompt)/4) AS p50,
-       percentile_disc(0.99) WITHIN GROUP (ORDER BY length(built_prompt)/4) AS p99,
-       max(length(built_prompt)/4) AS max, count(*) AS n
-FROM cognition_ledger WHERE stage='narratives' AND built_prompt IS NOT NULL
-  AND generated_at > '2026-07-28 12:17:00-04';
-```
+*Mechanism, exact* (ledger 91976, team 79, 51 in-window): ranked all 51 by the production ordering
+(`feed_rank ASC NULLS LAST, published_at DESC, id`) and compared the tail beyond rank 40 against the
+recorded drop set — **11 of 11 predicted, 0 false drops, 0 false keeps.** All five capped
+generations reconcile: `dropped_count` == `length(dropped_news_ids)` (11/11, 6/6, 17/17, 5/5, 7/7).
 
-Also still unobserved: **`budget_truncated` in `cognition_ledger.excluded_evidence`** (0 so far, and
-it should appear for the 126 over-cap teams). If it never appears while prompts shrink, the
-exclusion accounting is silently dropping articles — which is the exact failure A5 was written to
-avoid.
+*Distribution:*
 
-**Expect a ~127-entity narratives regen wave.** 126 of 204 teams (62%) were over the 40 cap, plus
-one player. Their corpus shrank, so `input_hash` moved and each regenerates once. Bounded,
-one-time, self-limiting — and each subsequent generation is cheaper than the one it replaced.
+| | p50 | p90 | p99 | max | n |
+|---|---|---|---|---|---|
+| baseline (24h pre-deploy) | 1,850 | 4,886 | 7,401 | 8,374 | 228 |
+| post-deploy | **642** | **1,983** | **3,097** | **3,470** | 128 |
+
+Capped prompts cluster at 2,746–3,470. The sample is **enriched** for over-cap entities (47% of the
+queue vs 26% of entities carrying corpus), so the reduction is conservative, not flattering.
+
+~113 over-cap entities were still queued at deploy+6h. Self-limiting; each generation is cheaper
+than the one it replaces. Nothing to watch.
 
 ### One operational note from the deploy
 
@@ -90,7 +139,53 @@ newest-40 it was taking before.
 
 ---
 
-## 3. Traps this session added
+## 3. Traps — read these before writing `bin/remap.rs`
+
+**⚠️ T10 — flipping `vetted` FALSE → TRUE RE-ARMS the article.** The single most dangerous thing in
+this handoff, because the code looks safe. `enqueue_derive_on_vetted` fires `AFTER UPDATE OF vetted`
+and enqueues **`article_read` on the article**, with `input_version = 'ar:' || vetted_count` — so
+flipping links changes the count and the `ON CONFLICT` clause re-opens even articles already read.
+Verified in a rolled-back transaction: one flip, one new `article_read` row.
+
+B4's "free" half — restoring 9,832 links that already exist — would therefore buy **~5,278 Editor
+re-reads through the ar6 gate that C1 is about to replace.** That is exactly what *"do not re-arm
+the 6,319"* forbids, arriving through a side door. The instruction and the mechanism disagreed.
+
+Fix, verified: `SET LOCAL session_replication_role = 'replica'` inside the transaction. No lock,
+auto-reverts at commit. (`ALTER TABLE ... DISABLE TRIGGER` takes an ACCESS EXCLUSIVE lock against a
+live pipeline — do not.) The links then go visible to the Journalist immediately, carrying the
+reading they already have. **Note the shape: the trigger is article-keyed, so the blast radius of a
+vetted write is measured in re-reads, not entity derivations.**
+
+**T9 — a trigram margin gate protects against the wrong failure.** The intuition is that fuzzy
+matching fails on ties, so requiring a margin over the runner-up makes it safe. Measured over the
+120 most frequent unresolved names, it does not — the dominant error is a *confident single* match
+to an entity that is simply not the one named, and those have no runner-up at all:
+
+| model's name | best match | sim | margin | |
+|---|---|---|---|---|
+| `spain` | team 394 `spa` | 0.429 | 0.429 | wrong |
+| `pep guardiola` | player `sergi guardiola` | 0.500 | 0.500 | wrong |
+| `sheffield wednesday` | team 21 `sheffield utd` | 0.417 | 0.417 | wrong — a rival |
+| `lee child` | team 71 `lee` | 0.400 | 0.400 | wrong — a novelist |
+| `vinicius jr` | player 600687 | 0.556 | 0.082 | **correct** |
+
+Every wrong row clears the gate more comfortably than the one correct row. What a margin gate *does*
+catch is the true tie: `inter milan` scores 0.500 against **both** Inter and AC Milan.
+
+**Ambiguity is refused, not broken.** 123 of 15,948 (0.77%), all same-sport player namesakes. Roster
+context (`team_rosters` ∩ the article's teams) would resolve 46 of 59 exact ties for free — **but
+not Vinicius Jr**, where Vinicius Junior and Vinícius Tobias share Real Madrid and the rule ties.
+That residual is what the mig-198 aliases and the F7 discovery seat are for.
+
+**`full_text` is NULL for all 150,566 articles** and nothing writes it (`journalist/prompt.rs:158`
+already records this). So B1's gate (a) — "the name must appear in the body we already have" — is a
+**live-path gate only**. Applied offline against what *is* retained, only 76.9% of correct
+resolutions pass, and the failures are summarization, not hallucination.
+
+---
+
+## 3.1 Traps from the morning session
 
 **A capped eval path can hide an uncapped production path.** A5's fix existed for weeks on
 `load_vetted_corpus` — which only `eval_tasks` calls. The narratives handler calls a *sibling*
@@ -117,14 +212,15 @@ probe found BallDontLie serving injury data on the live key.
 
 ## 4. State, and the things that will bite
 
-**Migrations applied to Archbox: 195, 196, 197**, and `snapshot-schema.sh` has been run and
-committed (`cec766a`). Note the ledger gained **12** versions in that snapshot, not 3 — `sql/schema/`
-had drifted well behind live before this session, so it was not a reliable picture of prod for a
-while. The CI schema job and the restore drill both diff against it.
+**Migrations applied to Archbox: 195, 196, 197, 198, 199** — plus **194**, which self-healed. The
+ledger is at 201 versions and `snapshot-schema.sh` has been run and committed (`baaeb9a`). Note the
+ledger gained **12** versions in the `cec766a` snapshot, not 3 — `sql/schema/` had drifted well
+behind live before that session, so it was not a reliable picture of prod for a while. The CI schema
+job and the restore drill both diff against it. **It is accurate now; keep it that way — run
+`snapshot-schema.sh` and commit it with the migration, every time.**
 
-**Mig 194 is applied but unrecorded** in `schema_migrations` (verified: column, index and comment all
-present). Fully idempotent, so the next `migrate.sh` re-applies it as a no-op and records it. Self-
-healing; do not hand-fix it.
+**~~Mig 194 is applied but unrecorded~~ — RESOLVED.** `migrate.sh` re-applied it as a no-op and
+recorded it during this session's run, exactly as T8 predicted. No action needed; T8 can be struck.
 
 **A4 ships inert on purpose. Do not seed `('transfer','transfers')` casually.** Mig 175 still routes
 transfers off `bucket`. Seeding that pair would double-enqueue with a *different* `input_version` —
@@ -136,7 +232,10 @@ and should retire the mig-175 trigger in the same change.
 reading whose `prompt_version` differs is invalidated and re-read lazily. It gets bumped by C4, when
 a real contract change earns the re-read wave.
 
-**Do not re-arm the 6,319 held articles.** They need re-MAPPING, not re-judging — checklist item B4.
+**Do not re-arm the held articles.** They need re-MAPPING, not re-judging — checklist item B4. Two
+things this session sharpened: the cohort is **6,377** articles pinned to the incident window, not
+the 24,984 that `vetted IS FALSE` now matches (§1.2); and re-arming is not only something you might
+choose to do, it is something the `vetted` trigger will do FOR you unless suppressed (**T10**).
 
 **`player_team_history` goes quiet.** It is written by `detect_team_change`, which ran off provider
 roster sync, and third-party ingestion is retired. E4 does not need it —

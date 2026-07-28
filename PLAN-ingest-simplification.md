@@ -96,9 +96,32 @@ gates work downstream of it.
       (feed_rank 0–21), 126 `budget_truncated` (rank 21–98). The kept set averages **feed_rank 9.1
       vs 36.0** under the old recency ordering.
 
+      **PROVEN IN PRODUCTION 2026-07-28 17:58, n=128.** The claim was open for two sessions; it is
+      closed. Two independent confirmations:
+
+      *Mechanism, exact.* Ledger 91976 (team 79, 51 in-window): ranked all 51 by the production
+      ordering and compared the tail beyond position 40 against the recorded drop set — **11 of 11
+      predicted, 0 false drops, 0 false keeps.** The cap cuts on `feed_rank`, not recency. All five
+      capped generations reconcile (`dropped_count` == `length(dropped_news_ids)`: 11/11, 6/6,
+      17/17, 5/5, 7/7), so nothing leaves the evidence unaccounted for.
+
+      *Distribution.* | | p50 | p90 | p99 | max | n |
+      |---|---|---|---|---|---|
+      | baseline (24h pre) | 1,850 | 4,886 | 7,401 | 8,374 | 228 |
+      | post-deploy | 642 | 1,983 | 3,097 | 3,470 | 128 |
+
+      Capped prompts cluster at 2,746–3,470 — the population that produced the 7,401 p99 now *is*
+      the ceiling, and the ceiling is 3,470. **The sample is enriched for over-cap entities** (47% of
+      the narratives queue vs 26% of entities carrying corpus, because the regen wave is made of
+      entities whose corpus shrank), so the measured reduction is conservative.
+
+      Still draining: ~113 over-cap entities queued at deploy+6h, ~10 per four hours through the
+      pause windows. Self-limiting, and each generation is cheaper than the one it replaces.
+
 ### Phase B — mapping and recovery (no new model contract)
 
-- [ ] **B1. The name resolver.** Editor-emitted name strings → canonical entities. Mig
+- [~] **B1. The name resolver.** *Groundwork APPLIED and committed (`baaeb9a`); the resolver is not
+      yet wired to the live rail.* Editor-emitted name strings → canonical entities. Mig
       `198_entity_name_resolution.sql` lays the groundwork: `nrm()` (the ONE normalizer, in SQL so
       the index and the query provably agree — a Rust copy is the T-A5 trap in a new costume, and
       there is no `unaccent` crate in the tree), `entity_name_surfaces`, and both indexes.

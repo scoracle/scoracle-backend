@@ -308,15 +308,47 @@ pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_sched
 ///
 /// Two independent grounds for rejection:
 ///   * the page is not reporting at all (`page_kind`), or
-///   * no vetted entity is a SUBJECT of it (`entity_roles`) — the only signal that reaches an
-///     opponent-only story, which page shape can never catch.
+///   * every one of our entities is `absent` from it (`entity_roles`) — the model's own word for
+///     "a different club that merely shares the name, or not present in the text at all".
+///
+/// ## ar7 — the bar is `absent`, not `subject`
+///
+/// This rule used to demand that a vetted entity be the `subject`, and that was calibrated on
+/// 2026-07-26 against a vetted list containing BOTH teams and players. Phase 2 then stopped
+/// players auto-vetting, so from 07-27 the list held teams only — and the rule silently became
+/// "reject every story whose subject is a person".
+///
+/// It was not a small effect. The Reader's success rate fell 73% -> 2% overnight and stayed
+/// there; on 5,417 of the 6,296 rejected articles the model had NAMED our linked team among the
+/// entities it found, and we discarded the article anyway. What we were throwing away included
+/// LeBron James signing with the 76ers, with a competent evidence card already written.
+///
+/// It was also circular. A player link is vetted only by The Reader, but The Reader would not
+/// accept an article whose subject was an unvetted player — so the player could never become
+/// vetted, and `clear_vetted_entities_for_article` unvetted the correct TEAM link on the way out.
+/// That ratchet is why vetted player links fell from 2,080/day to 6.
+///
+/// So the bar moves to where the schema already put it. `absent` is the model's rejection signal
+/// and it is precise — a name collision, a youth/reserve side, or simply not in the text. Any
+/// other placement (`subject`, `opponent`, `passing_mention`) means the story is in this entity's
+/// world, and that is what the corpus is for. An opponent-only story is now KEPT, reversing an
+/// earlier deliberate call: a match against us is news about us.
+///
+/// Only OUR entities may vote, which was always the sound half of the rule — asked to label every
+/// listed entity, the model also volunteers people it found in the body, and an unfiltered scan
+/// lets those outvote the truth.
 ///
 /// `entity_roles` being empty is treated as UNKNOWN, not as rejection: a model that under-fills
 /// the array must not silently reject the whole corpus. Page shape still applies.
+///
+/// When the model placed none of our entities but still listed them among the entities it found,
+/// the omission is sloppiness rather than a verdict — measured, that describes 86% of the
+/// rejections above — so `found` is consulted as a last resort before rejecting.
 pub fn derive_relevance(
     page_kind: &str,
     entity_roles: &[ArticleEntityRole],
     vetted: &[String],
+    found: &[String],
 ) -> bool {
     if NON_REPORTING_PAGE_KINDS
         .iter()
@@ -330,24 +362,34 @@ pub fn derive_relevance(
     if entity_roles.is_empty() || vetted.is_empty() {
         return true;
     }
-    // Otherwise the model DID look, so its labels are evidence — including what it left out.
-    // Accept only when a VETTED entity is a subject.
-    //
-    // Both halves of that are measured (2026-07-26, gemma3:4b, 3 runs each):
-    //   * Only vetted entities may vote. Asked to label every vetted entity, the model also
-    //     volunteers people it found in the body — on the opponent-only case it returned
-    //     `Dragojevic:subject, Clement:subject`, neither of them vetted. An unfiltered
-    //     `any(subject)` lets those outvote the truth.
-    //   * Omission is a rejection, not an unknown. On that same case it OMITTED the vetted
-    //     `West Ham United` entirely and consistently, while every accept case labelled its
-    //     vetted entity `subject` (Aston Villa, Arsenal, Real Madrid) and the name-collision case
-    //     labelled it `absent`. The model reliably names the entity when the story is about it,
-    //     so a populated list that skips it is saying the story is not.
-    entity_roles.iter().any(|r| {
-        r.role.eq_ignore_ascii_case("subject")
-            && vetted
-                .iter()
-                .any(|v| v.trim().eq_ignore_ascii_case(r.entity.trim()))
+    // Only OUR entities vote. Asked to label every listed entity, the model also volunteers people
+    // it found in the body — on the opponent-only case it returned `Dragojevic:subject,
+    // Clement:subject`, neither of them ours. An unfiltered scan lets those outvote the truth.
+    let mut placed = entity_roles
+        .iter()
+        .filter(|r| entity_matches(vetted, &r.entity))
+        .peekable();
+    if placed.peek().is_some() {
+        // The model looked and placed our entity. Reject only on its own rejection word.
+        return placed.any(|r| !r.role.eq_ignore_ascii_case("absent"));
+    }
+    // It placed none of ours, but `relevant_entities` is a second, independent list of what it
+    // actually found. Our entity appearing there means it IS in the text and the missing role is
+    // an under-filled array, not a verdict. Measured: this covers 86% of the ar6 rejections.
+    found.iter().any(|f| entity_matches(vetted, f))
+}
+
+/// entity_matches tests one model-emitted name against our list. The list carries the
+/// `Name (team 42)` decoration the prompt renders, so a bare `Name` from the model has to match
+/// the undecorated head — an exact comparison against the decorated string never fires.
+fn entity_matches(ours: &[String], candidate: &str) -> bool {
+    let c = candidate.trim();
+    if c.is_empty() {
+        return false;
+    }
+    ours.iter().any(|v| {
+        let head = v.split(" (").next().unwrap_or(v).trim();
+        head.eq_ignore_ascii_case(c) || v.trim().eq_ignore_ascii_case(c)
     })
 }
 
@@ -391,7 +433,12 @@ impl Parser<ArticleEvidence> for ArticleEvidenceParser<'_> {
         // The verdict is COMPUTED here, not read. `relevant` is `#[serde(skip)]`, so whatever the
         // model may have said about relevance never reached this struct in the first place.
         evidence.relevant =
-            derive_relevance(&evidence.page_kind, &evidence.entity_roles, self.vetted);
+            derive_relevance(
+                &evidence.page_kind,
+                &evidence.entity_roles,
+                self.vetted,
+                &evidence.relevant_entities,
+            );
         if evidence.evidence_blurb.is_empty() {
             if !evidence.relevant {
                 evidence.evidence_blurb =
@@ -955,6 +1002,14 @@ async fn persist_model_outcome(
         })).collect::<Vec<_>>(),
         "story_type": evidence.story_type,
         "caveats": evidence.caveats,
+        // Both signals `derive_relevance` actually reads. They were absent from this envelope
+        // through the ar6 relevance incident, so the two fields that decided every verdict were
+        // the two nothing could observe — the diagnosis had to be inferred from blurbs instead.
+        "page_kind": evidence.page_kind,
+        "entity_roles": evidence.entity_roles.iter().map(|r| json!({
+            "entity": r.entity,
+            "role": r.role,
+        })).collect::<Vec<_>>(),
     });
     let mut tx = hx
         .pool

@@ -167,15 +167,30 @@ fn a_non_reporting_page_shape_is_rejected() {
     assert!(!parsed.relevant, "score_table is not reporting");
 }
 
+/// REVERSED in ar7, deliberately. An opponent-only story used to be rejected on the reasoning
+/// that our entity is merely who the subject plays against. A match against us is news about us,
+/// and the narrower rule is what collapsed the Reader's yield from 73% to 2% once the vetted list
+/// held teams only. `absent` is the rejection signal now; `opponent` is not.
 #[test]
-fn an_opponent_only_story_is_rejected_by_role() {
-    // The gap no page-shape signal could ever reach: real prose reporting, but the vetted entity
-    // is only who the subject plays against.
+fn an_opponent_only_story_is_now_kept() {
     let parsed = ArticleEvidenceParser { vetted: &vetted() }
         .parse(&ar6_raw("article", &[("West Ham United", "opponent")]))
         .unwrap()
         .unwrap();
-    assert!(!parsed.relevant);
+    assert!(parsed.relevant);
+}
+
+/// The case the ar6 rule threw away 6,296 times in two days: a person is the subject and our team
+/// is placed as a passing mention. Since Phase 2 stopped players auto-vetting, the player is not
+/// in the list at all and cannot be the subject — so demanding a subject rejected every
+/// player-led story in the corpus, including LeBron James signing with the 76ers.
+#[test]
+fn a_player_led_story_naming_our_team_is_kept() {
+    let parsed = ArticleEvidenceParser { vetted: &vetted() }
+        .parse(&ar6_raw("article", &[("Aston Villa", "passing_mention")]))
+        .unwrap()
+        .unwrap();
+    assert!(parsed.relevant, "a passing mention is still this entity's world");
 }
 
 #[test]
@@ -203,17 +218,64 @@ fn one_subject_among_several_entities_is_enough() {
 fn empty_entity_roles_is_unknown_not_rejection() {
     // Rejection clears the article's vetted links, so a degenerate reply with NO labels at all
     // must not trigger it. Page shape still applies on its own.
-    assert!(derive_relevance("article", &[], &vetted()));
-    assert!(!derive_relevance("listing_or_schedule", &[], &vetted()));
+    assert!(derive_relevance("article", &[], &vetted(), &[]));
+    assert!(!derive_relevance("listing_or_schedule", &[], &vetted(), &[]));
     // Nor may an empty vetted list reject everything.
-    assert!(derive_relevance("article", &[], &[]));
+    assert!(derive_relevance("article", &[], &[], &[]));
+}
+
+/// Everything the model placed is `absent` — its own word for a name collision or an entity that
+/// is simply not in the text. That is the one thing that still rejects on roles.
+#[test]
+fn all_absent_is_still_a_rejection() {
+    let roles = [
+        role("Baltimore Ravens", "absent"),
+        role("Norwich City", "absent"),
+    ];
+    assert!(!derive_relevance("article", &roles, &vetted(), &[]));
+    // ...but one non-absent placement among them is enough to keep the article.
+    let mixed = [
+        role("Baltimore Ravens", "absent"),
+        role("Norwich City", "passing_mention"),
+    ];
+    assert!(derive_relevance("article", &mixed, &vetted(), &[]));
+}
+
+/// The model placed none of OUR entities — it only labelled people it volunteered — but it listed
+/// our team among the entities it found. That is an under-filled array, not a verdict, and it
+/// described 86% of the ar6 rejections.
+#[test]
+fn an_unplaced_entity_is_rescued_by_the_found_list() {
+    let roles = [role("LeBron James", "subject")];
+    let found = vec!["Aston Villa".to_string()];
+    assert!(
+        derive_relevance("article", &roles, &vetted(), &found),
+        "our team appearing in relevant_entities means it IS in the text"
+    );
+    // With nothing of ours in either list, the rejection stands.
+    assert!(!derive_relevance("article", &roles, &vetted(), &["Chelsea".to_string()]));
+}
+
+/// A volunteered name must never carry the vote on its own — the sound half of the original rule.
+#[test]
+fn volunteered_entities_still_get_no_vote() {
+    let roles = [role("Dragojevic", "subject"), role("Clement", "subject")];
+    assert!(!derive_relevance("article", &roles, &vetted(), &[]));
+}
+
+fn role(entity: &str, role: &str) -> ArticleEntityRole {
+    ArticleEntityRole {
+        entity: entity.to_string(),
+        role: role.to_string(),
+    }
 }
 
 #[test]
 fn omitting_the_vetted_entity_from_a_populated_list_rejects() {
-    // THE opponent-only failure, measured verbatim: the model labels the two people it found in
-    // the body as `subject` and leaves the vetted entity out entirely. It labels the entity
-    // whenever the story is about it, so a populated list that skips it is evidence of absence.
+    // Measured verbatim: the model labels the two people it found in the body as `subject` and
+    // leaves our entity out entirely. Under ar7 an omission alone no longer decides — the
+    // `relevant_entities` list gets the last word — but here that list is empty too, so nothing
+    // in either place puts our entity in the text and the rejection stands.
     let raw = ar6_raw(
         "article",
         &[

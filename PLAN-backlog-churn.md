@@ -250,8 +250,34 @@ two genuinely would not fit. `q8_0` halved that and the permit was never revisit
 constraint shaping this whole session — six voices serialised, `transfers` dead-lettering at 1200s
 on *wait* rather than work — is a setting, not a wall.
 
-**STATUS 2026-07-27 21:40: attempted, and the attempt was INVALID. The claim above is still
-untested — treat it as a hypothesis, not a result.**
+**STATUS 2026-07-27 21:50: CONFIRMED, and live in production at 2 permits.** Measured on the Mac
+with real concurrent requests:
+
+| config | slots | processor | 2 requests, wall | aggregate |
+|---|---|---|---|---|
+| 16384, 1 slot *(the old default)* | 1 | 100% GPU | 20.4s | 12.5 tok/s |
+| 16384, 2 slots *(live now)* | 2 | **86% — spills to CPU**, 11 GB | 15.3s | 17.8 tok/s |
+| **8192, 2 slots** *(the target)* | 2 | **100% GPU, 9.5 GB** | **14.0s** | **19.4 tok/s** |
+
+**The arithmetic held: two sequences at 8192 cost exactly what one costs at 16384** — same 9.5 GB,
+same full GPU residency. That is **1.46×** throughput for no memory at all.
+
+At 16384 the second slot fits only by pushing 14% of the model to CPU, which costs ~6% on
+single-request latency. Still a net win (1.33×) because two-at-a-time beats one-at-a-time by more
+than the spill costs — but it is the inferior half of the result, and it is what production is
+running until `VOICE_NUM_CTX` comes down.
+
+**Live config as of 2026-07-27 21:47:** Mac plist `OLLAMA_NUM_PARALLEL=2`; Archbox
+`COGNITION_BACKEND_CONCURRENCY="http://localhost:11434=4,http://192.168.1.77:11434=2"`.
+Both sides had to move — with the Mac at 2 and Archbox still at 1 we would have paid the CPU-spill
+penalty and received no concurrency at all, which is strictly worse than either endpoint alone.
+Backup at `.env.local.bak-2107`.
+
+**Remaining to capture the other 13%:** `VOICE_NUM_CTX` 16384 → 8192 in `rust/src/route.rs`. It is a
+compile-time const, so this is a rebuild-and-deploy, not a config flip. Verify real prompt sizes fit
+8192 before shipping it — a prompt that overflows is truncated, and truncation is silent.
+
+### The earlier attempt, and why it read as a refutation
 
 `OLLAMA_NUM_PARALLEL=2` was written to the plist and the job restarted with
 `sudo launchctl kickstart -k system/ai.ollama.serve`. Ollama then reported `n_slots = 1` at both

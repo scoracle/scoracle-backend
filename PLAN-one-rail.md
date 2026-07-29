@@ -4,8 +4,9 @@
 *(Executors: keep this line current — phase pointer, last commit hash, date — every commit.)*
 *(Revised 2026-07-29, pre-execution audit: OLMo removed — measured, it does not hold the 4
 slots on the 1070 Ti; front page deferred to Appendix B D-6; teams.kind migration deferred
-into D-3; Editor capacity math made honest in 3.9 with a contingency ladder; duplicate
-short-circuit added in 3.4.)*
+into D-3; duplicate short-circuit added in 3.4. Capacity corrected in 3.9 — the legacy
+~7,400 reads/day was DEMAND-limited under the 2h-on/1h-off rest schedule with the card mostly
+idle, not a ceiling.)*
 
 Written 2026-07-28. This is the build order for the greenfield rail decided in
 [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
@@ -522,14 +523,15 @@ is claim order, `rust/src/main.rs:131-173`).
       Editor registered before article_read. **[DEPLOY]** the Go enqueue change. (Two
       watch-triggered restarts; do them together, outside a rest boundary.)
 - [ ] **3.9** Shadow measurement, 48h minimum, recorded in the Log:
-      (a) throughput: editor_reads/day vs arrivals/day. Honest math: the legacy Editor
-      sustained ~7,400/day on the SAME 4 slots; arrivals run ~8,140/day — the gap must close
-      via the 3.4 duplicate short-circuit and ep1's terser output, and shadow contention with
-      article_read tightens the window further. If sustained throughput < arrivals, apply IN
-      ORDER, one change per measurement: (1) confirm the short-circuit is firing, (2) trim
-      num_predict 900→750 (ep1 dropped co_mentions' output share), (3) trial a 5th slot at
-      num_ctx 6144 if VRAM allows, (4) STOP and surface — never silently accept <95% coverage
-      (§2 clause 1);
+      (a) throughput and coverage: editor_reads/day vs arrivals/day. Capacity context (Scott,
+      2026-07-29): the legacy ~7,400/day was DEMAND-limited, not a card ceiling — the harness
+      runs 2h on / 1h off (HANDOFF §10; a 16h duty day) and Gemma sits mostly idle inside it,
+      churning its queue fast. Arrivals (~8,140/day) should clear comfortably on the existing
+      schedule, with idle headroom left over for the Investigator. Measure anyway — assumed
+      headroom is how rails rot: record reads/day, p50/p95 queue wait, and GPU-busy fraction
+      across two duty days. If coverage still lands <95% within 24h: (1) confirm the 3.4
+      short-circuit is firing, (2) trim num_predict 900→750 (ep1 dropped co_mentions' output
+      share), (3) STOP and surface — never silently accept the miss (§2 clause 1);
       (b) coverage: % of arrivals read within 24h (goal ≥95%);
       (c) status distribution (fetch_failed/paywall/blocked bands vs legacy's);
       (d) discovery: on a 50-article sample of players with known bleed (Olise-class), linked-in-
@@ -633,7 +635,9 @@ names/day measured in B3, plus the namesake ties roster context can't split.)
 - [ ] **5A.3** `Stage::InvestigateEntity` + `Role::Investigator`
       (`COGNITION_ROUTE_INVESTIGATOR=gemma3:4b`, archbox base URL) + handler in
       `rust/src/junctions/investigator/`: slot_group = `ARCHBOX_GEMMA_SLOTS` (Scott's call: same
-      card), `max_in_flight` = 1 (the Editor outranks it; register after the Editor).
+      card), `max_in_flight` = 1 (the Editor outranks it; register after the Editor). The card's
+      idle time (3.9a) is expected to absorb this easily — raise the knob after 5A.10 if
+      contention stays nil.
 - [ ] **5A.4** Three adapters, kept separate (discovery ≠ retrieval ≠ interpretation):
       *Discovery*: (1) Wikipedia REST search+summary API (documented, structured, ToS-clean —
       the v1 workhorse for professional identity), (2) Google News RSS query for the name +

@@ -1,6 +1,10 @@
 # PLAN — One Rail
 
-**STATE: Phase 0 not started. Last plan commit: (this one). Updated 2026-07-29.**
+**STATE: Phase 0 COMPLETE (ground truth verified, no STOP). Next: Phase 1 (substrate, migrations
+200+). Last plan commit: (this one). Updated 2026-07-29.**
+*(Phase 0 deltas that bind later phases: §0.8 rewritten — psql runs on **archbox** over ssh, not on
+the Mac; and the **archbox checkout is behind this repo** (`cec766a`), with migrations 198/199
+untracked there — sync it before Phase 1 runs `sql/migrate.sh`. D-1 answered: `mistral-nemo:12b`.)*
 *(Executors: keep this line current — phase pointer, last commit hash, date — every commit.)*
 *(Revised 2026-07-29, pre-execution audit: OLMo removed — measured, it does not hold the 4
 slots on the 1070 Ti; front page deferred to Appendix B D-6; teams.kind migration deferred
@@ -67,8 +71,16 @@ This plan is executed one phase per session, by smaller models, on mobile. The p
    `news_article_entities.vetted` must suppress triggers with
    `SET LOCAL session_replication_role = 'replica'` (T10) — and never
    `ALTER TABLE ... DISABLE TRIGGER` (ACCESS EXCLUSIVE against a live pipeline).
-8. **DB access:** `set -a; source .env; source .env.local 2>/dev/null; set +a` in the repo root,
-   then `psql "$DATABASE_URL"`. (Phase 0 verifies the variable name; if it differs, fix this line.)
+8. **DB access — from archbox, not the Mac** (corrected by Phase 0). Postgres 18.4 (`scoracle`,
+   datadir `/mnt/data/postgres/data`) runs on archbox; the Mac has **no `psql` installed** and its
+   `.env` carries **empty** `DATABASE_URL`/`DATABASE_PRIVATE_URL` (no `.env.local` on the Mac — only
+   a `.bak`). The working incantation from a Mac session is:
+   ```
+   ssh archbox 'cd ~/scoracle/scoracle-backend && set -a; . ./.env; . ./.env.local; set +a; \
+     psql "${DATABASE_PRIVATE_URL:-$DATABASE_URL}" -c "select 1"'
+   ```
+   `~/.ssh/config` already defines `archbox` (192.168.1.92, user `sheneveld`, key auth — BatchMode
+   works). Prefer `DATABASE_PRIVATE_URL`, as `sql/migrate.sh` does.
 9. **Finish ritual, every session:** tick the checkboxes you completed, fill the phase Log with the
    numbers you measured, update the STATE line, commit everything (plan file included) as
    `rail: phase <N> — <short description>`, then print the next phase's **resume block** from the
@@ -282,33 +294,35 @@ Mac = the six voice stages.
 Purpose: verify this plan's recon against the live system before any DDL is authored, and prove
 the executor toolchain works from a fresh session.
 
-- [ ] **0.1** `set -a; source .env; set +a; psql "$DATABASE_URL" -c "select 1"` works. If the
+- [x] **0.1** `set -a; source .env; set +a; psql "$DATABASE_URL" -c "select 1"` works. If the
       variable is named differently, fix §0.8 and note it in the Log.
-- [ ] **0.2** Confirm migration state: `select max(version) from schema_migrations` → expect
+      → **DELTA (§0.8 rewritten):** not the variable name — the *host*. No `psql` on the Mac; Mac
+      `.env` has empty DB URLs. Works from archbox over ssh. See Log A.
+- [x] **0.2** Confirm migration state: `select max(version) from schema_migrations` → expect
       `199_refresh_surfaces_analyze` band; `ls sql/migrations | tail -3` matches. Confirm
       `sql/schema/schema.sql` snapshot is current (no unapplied files).
-- [ ] **0.3** Confirm the queue substrate: `\d pipeline_work` shows `stage text` with **no** CHECK
+- [x] **0.3** Confirm the queue substrate: `\d pipeline_work` shows `stage text` with **no** CHECK
       on stage; `entity_type` CHECK is `player|team|article|fixture`; PK
       `(stage, entity_type, entity_id, sport)`.
-- [ ] **0.4** Confirm `news_article_entities.entity_type` CHECK is `('player','team')` and
+- [x] **0.4** Confirm `news_article_entities.entity_type` CHECK is `('player','team')` and
       `entity_name_surfaces` CHECK likewise; count rows in `entity_name_surfaces` (expect ~16,700).
-- [ ] **0.5** Confirm `news_articles.full_text` is NULL for all rows
+- [x] **0.5** Confirm `news_articles.full_text` is NULL for all rows
       (`select count(*) from news_articles where full_text is not null` → 0).
-- [ ] **0.6** Confirm live triggers by name: `enqueue_derive_on_vetted`,
+- [x] **0.6** Confirm live triggers by name: `enqueue_derive_on_vetted`,
       `enqueue_transfers_if_transfer_related`, `enqueue_voices_on_routing_tags` on the news
       tables; `stage_routing_subscriptions` is empty.
-- [ ] **0.7** Confirm stage wire names in `rust/src/work.rs:42-55` = `scrub, article_read,
+- [x] **0.7** Confirm stage wire names in `rust/src/work.rs:42-55` = `scrub, article_read,
       fixture_boxscore, graph, peak, momentum, transfers, narratives, vibe, sigil`; and
       `ARCHBOX_GEMMA_SLOTS = ("archbox-gemma3", 4)` at `rust/src/stage.rs:84`.
-- [ ] **0.8** Confirm per-role base-url plumbing exists: `COGNITION_ROUTE_<X>_BASE_URL` in
+- [x] **0.8** Confirm per-role base-url plumbing exists: `COGNITION_ROUTE_<X>_BASE_URL` in
       `rust/src/config.rs` (~:269) and `COGNITION_BACKEND_CONCURRENCY` (~:301).
-- [ ] **0.9** Confirm `fixture_boxscore_fetches` exists (mig 189) and
+- [x] **0.9** Confirm `fixture_boxscore_fetches` exists (mig 189) and
       `rust/src/boxscore_fetch.rs` fetches **provider JSON** (BallDontLie pagination const) — the
       landing table is reusable, the sources are dead (subscriptions cancelled 2026-07-27/28).
-- [ ] **0.10** Record baseline numbers in the Log: articles/day by sport (7-day avg), current
+- [x] **0.10** Record baseline numbers in the Log: articles/day by sport (7-day avg), current
       `article_read` queue depth, `news_article_readings` rows, `narrative_persons` count,
       current disk free on the DB volume (bodies will add ~40–80 MB/day).
-- [ ] **0.11** Confirm the Mac's Ollama is reachable from archbox and note the exact installed
+- [x] **0.11** Confirm the Mac's Ollama is reachable from archbox and note the exact installed
       Mistral 12B tag (`curl http://<mac>:11434/api/tags`). Record hostname/IP in the Log. If the
       Mac is unreachable, note it — Phase 6 is the first phase that needs it.
 
@@ -316,7 +330,137 @@ the executor toolchain works from a fresh session.
 edit. **Commit:** `rail: phase 0 — ground truth verified`.
 
 ### Log (phase 0)
-*(executor fills)*
+
+Executed 2026-07-29 (session start 06:40 EDT), read-only. **No STOP condition hit** — every named
+file, function, table, trigger and constant matched the recon; every number landed in its stated
+band. Two deltas, both about *how the executor reaches the machines*, not about what the plan
+claims: **A** (DB access host — §0.8 rewritten) and **B** (archbox checkout is behind — a Phase 1
+precondition). Recorded below.
+
+**A. DB access is via archbox, not the Mac (0.1 — §0.8 rewritten).** The Mac has no `psql` binary
+(no libpq, no Postgres.app) and its `.env` ships `DATABASE_URL=` / `DATABASE_PRIVATE_URL=` **empty**;
+`.env.local` does not exist on the Mac (only `.env.local.bak.20260726-111052`). The live DB is
+**PostgreSQL 18.4**, database `scoracle`, datadir `/mnt/data/postgres/data`, on archbox
+(`192.168.1.92`, user `sheneveld`, already in `~/.ssh/config`, key auth works under `BatchMode`).
+Credentials live in `~/scoracle/scoracle-backend/.env.local` **on archbox** (17,564 B, 2026-07-27).
+§0.8 now carries the working incantation. Every measurement below was taken through it.
+
+**B. The archbox checkout is behind this repo — Phase 1 must sync it first.** archbox
+`~/scoracle/scoracle-backend` is on `main` at **`cec766a`** ("Schema snapshot: 195/196/197"), while
+this repo is at `90582f3`. On archbox, migrations **198 and 199 are untracked files** (applied to
+the DB, never committed there) and `sql/schema/schema.sql` + `schema_migrations.txt` are
+**modified-uncommitted**. The DB itself is fully correct (0.2 below); only the checkout drifted.
+Phase 1 authors migrations 200+ in *this* repo but must apply them from archbox — **sync archbox to
+this HEAD (or copy the migration file over) before running `sql/migrate.sh`**, or the runner will
+also sweep up 198/199's stale working-tree state into the snapshot. Not a blocker; a first step.
+
+**0.2 — migrations ✅.** `max(version) = 199_refresh_surfaces_analyze` (applied 2026-07-28
+15:28:41 EDT), exactly the expected band. **201 files / 201 recorded, zero drift in both
+directions** (`comm` both ways empty) — nothing unapplied. The **176 gap is confirmed real**
+(174, 175, 177, 178 present; no 176) — leave it; number from 200 up. `sql/schema/schema.sql`
+(537,374 B) was regenerated 15:29, one minute after 199 landed, and is committed clean
+(`git status sql/` empty here). Snapshot is current.
+
+**0.3 — queue substrate ✅ exact.** `pipeline_work`: `stage text NOT NULL` with **no CHECK on
+stage** (so a new `editor` / `investigate_entity` stage needs no DDL — as the plan assumes);
+`entity_type` CHECK = `player|team|article|fixture`; PK `(stage, entity_type, entity_id, sport)`.
+Also present, unclaimed by the recon but worth knowing: `status` CHECK `pending|running|failed`,
+partial claim index `(stage, available_at) WHERE status IN (pending, failed)`, and statement-level
+`notify_pipeline_work_ready()` triggers on INSERT/UPDATE (LISTEN/NOTIFY wakeup, not polling).
+
+**0.4 — entity CHECKs ✅.** `news_article_entities_entity_type_check` = `('player','team')`;
+`entity_name_surfaces_entity_type_check` = `('team','player')` (same set). Bonus:
+`entity_name_surfaces_surface_kind_check` = `('name','alias')`.
+**`entity_name_surfaces` = 16,690 rows** — in band (recon said ~16,700).
+
+**0.5 — bodies ✅.** `select count(*) from news_articles where full_text is not null` → **0**, out
+of **159,601** total articles. Body retention is genuinely greenfield; nothing to migrate.
+
+**0.6 — triggers ✅ all three, by exact name, all enabled (`tgenabled='O'`).**
+`enqueue_derive_on_vetted` — AFTER UPDATE OF `vetted` ON `news_article_entities`, FOR EACH ROW,
+WHEN `new.vetted IS TRUE AND old.vetted IS DISTINCT FROM new.vetted`.
+`enqueue_transfers_if_transfer_related` — AFTER UPDATE OF `bucket` ON `news_articles`,
+WHEN `new.bucket = 'transfer'`. `enqueue_voices_on_routing_tags` — AFTER UPDATE OF `routing_tags`
+ON `news_articles`, WHEN `routing_tags IS DISTINCT FROM`. These are the three the T10 rule is
+about. **`stage_routing_subscriptions` = 0 rows** ✅ (empty, as claimed).
+
+**0.7 — stage wire names ✅ exact.** `rust/src/work.rs:44-53` is verbatim `scrub, article_read,
+fixture_boxscore, graph, peak, momentum, transfers, narratives, vibe, sigil` (10 stages; the
+`as_str` match spans 42–55 as the recon said). `rust/src/stage.rs:84`:
+`pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 4);` ✅ — and its doc comment
+already reads "shared by The Editor and graph", so the slot-group seat the Editor takes is real
+and documented today.
+
+**0.8 — per-role plumbing ✅, line refs dead on.** `COGNITION_ROUTE_<ROLE>_BASE_URL` resolved at
+`config.rs:269-271` (via `normalize_base_url`, trailing slash trimmed so one host is one backend);
+role key built at `:265`; `COGNITION_BACKEND_CONCURRENCY` parsed at `:301-304`, parser at `:316`;
+`governor_for` at `route.rs:312-315`; per-call `num_ctx` at `ollama.rs:44` (applied `:153-154`,
+omitted when `<= 0`). **`COGNITION_ROUTE_<ROLE>_CANDIDATE[_BASE_URL]` also exists** (`config.rs:281-295`),
+defaulting a challenger to its role's own host — the §4 `COGNITION_ROUTE_EDITOR_CANDIDATE` hook is
+already built. Nothing new is needed to put the Editor on archbox and the voices on the Mac.
+
+**0.9 — box-score landing table ✅.** `fixture_boxscore_fetches` exists (mig
+`189_fixture_boxscore_fetches.sql`), PK `fixture_id`, FKs to `fixtures`/`sports`, payload columns
+`score / period_scoring / team_stats / player_stats / raw_labels` (jsonb) **plus
+`model_version, prompt_version, parser_version, output_contract_version, parser_outcome`** — the
+table was already shaped for a model-parsed path, which is exactly what 5B needs; it is reusable
+as claimed. Status CHECK already includes `not_supported|not_final|not_found|blocked|fetch_failed|
+parse_failed|validation_failed`. **1 row** in it (the dead-provider era). `rust/src/boxscore_fetch.rs`
+(57,785 B) fetches **provider JSON** from `https://api.balldontlie.io` with cursor pagination and
+`const MAX_BDL_PAGES: usize = 20` (`:26`), `per_page=100`, key from `BALLDONTLIE_API_KEY` — dead
+sources, live landing table. Confirmed.
+
+**0.10 — baselines.**
+
+| baseline | value |
+|---|---|
+| Articles ingested/day, steady state (07-25 → 07-28, 4 full days) | **5,584/day** (22,337 total) |
+| — FOOTBALL | 3,467/day |
+| — NFL | 1,365/day |
+| — NBA | 763/day |
+| `article_read` queue depth at 06:40 EDT | **7,426 pending**, 2 failed |
+| `news_article_readings` rows | **20,970** |
+| `narrative_persons` | **2,405** |
+| `entity_name_surfaces` | 16,690 |
+| `news_articles` total | 159,601 |
+| DB size | **11 GB** |
+| Disk free on DB volume (`/mnt/data`, 1.9 T) | **1.8 T free, 2% used** |
+
+Notes that change how these read:
+- **Ingest has no `sport` or `created_at` column.** `news_articles` is keyed by `fetched_at`, and
+  sport arrives only via the `news_article_entities` join. Per-sport rates above are
+  `count(distinct article)` through that join, so an article linked to two sports counts in both;
+  the 5,584/day total is the un-joined truth.
+- **2026-07-24 was a 32,160-article backfill spike** — a naive 7-day average reads 9,286/day and is
+  wrong. The 4-day window above excludes it. (07-22: 871, 07-23: 1,360, 07-24: **32,160**,
+  07-25: 5,117, 07-26: 2,818, 07-27: 6,046, 07-28: 8,356, 07-29 partial: 9,035.)
+- **Body retention is a non-issue on disk.** At the plan's 40–80 MB/day, 1.8 TB free is ~60+ years.
+  The DB volume is a separate 2 TB NVMe; note the **root volume `/` is at 86% (15 G free)** — the
+  DB is not on it, but archbox's root is the tighter resource.
+- **The 7,426 depth is a rest-window reading, not a backlog.** Sampled 38 min into the scheduled
+  pause. `logs/queue-depth.csv` (10-min sampler, `scoracle-qsample.timer`, has a `harness_active`
+  column) shows `article_read` pending per day as **min → max → end-of-day**: 07-27 `70 → 6,095 → 70`;
+  07-28 `1 → 8,133 → 20`; 07-29 (through 06:40) `4,197 → 8,754 → 7,426`. **The legacy rail drains
+  its day to ~zero every day.** This is direct evidence for the pre-execution audit's correction:
+  ~7,400/day is *demand met*, not a ceiling — 3.9's capacity math stands.
+- **Harness health: normal, mid-rest.** `scoracle-cognition.service` was `inactive dead` at check
+  time with `Result=success, NRestarts=0`, `ExecMainStartTimestamp=04:00:47`,
+  `ExecMainExitTimestamp=06:02:02`; `scoracle-cognition-pause.timer` fired 06:00, resume fires
+  07:00. That is the documented 2h-on/1h-off duty cycle (§0.6), not an outage. Running units:
+  `scoracle-api.service`; watchers `scoracle-api.path` + `scoracle-cognition.path` **active
+  (waiting)** — the §0.6 warning about builds into `go/bin/` and `rust/bin/` tripping a restart is
+  live and real. Postgres and Ollama are **system** units; the harness is a **user** unit.
+
+**0.11 — the Mac and its model ✅.** Mac = **`192.168.1.77`** (this box; en0). Ollama reachable
+**from archbox**: `curl http://192.168.1.77:11434/api/tags` from archbox returns the model list.
+**Exact Mistral 12B tag: `mistral-nemo:12b`** — 12.2B params, **Q4_0**, 7.07 GB, native
+`context_length` 1,024,000, `embedding_length` 5,120 (so the plan's `num_ctx 4096` is a deliberate
+budget, not a model limit). Also on the Mac: `ministral-3:14b` (13.9B Q4_K_M), `mistral-32k:latest`
+and `mistral:latest` (both 7.2B). `rust/src/route.rs:620` already references `mistral-nemo:12b` on
+MAC in its tests — the tag is consistent with the code. **On archbox:** `gemma3:4b` (4.3B, 3.34 GB)
+✅ resident — the Editor's engine is already on the card's host — plus `qwen3:8b`, `mistral:7b`.
+**No OLMo on either box**, consistent with the pre-execution audit removing it.
+→ Appendix B's "exact Ollama tag" question is answered: **`mistral-nemo:12b`**.
 
 ### Handoff (phase 0 → 1)
 ```
@@ -995,6 +1139,13 @@ legacy route envs removed from both machines' unit env files.
 - **D-1 · Voice model tag.** Scott: "Mistral 3:12b" on the Mac. Phase 0.11 records the exact
   installed Ollama tag; Phase 6.9 routes it. Routes are config — a different tag is an env
   edit, and any *model change* re-earns its seat on the voice fixtures (AI Stage Conventions).
+  **ANSWERED by Phase 0.11 → `mistral-nemo:12b`** (12.2B, Q4_0, 7.07 GB, native ctx 1,024,000),
+  installed on the Mac (192.168.1.77) and reachable from archbox. `rust/src/route.rs:620` already
+  names that tag on MAC, and it is the only 12B on the box — so the plan's "Mistral 12B" is this.
+  ⚠️ *One ambiguity for Scott, harmless until 6.9:* the Mac also carries **`ministral-3:14b`**
+  (13.9B, Q4_K_M), which matches the "**3**" in "Mistral 3:12b" while `mistral-nemo:12b` matches
+  the "**12b**". Default stands as `mistral-nemo:12b` (it is the 12B, and the code already
+  references it); if Scott meant the Ministral, Phase 6.9 is a one-line env edit.
 - **D-2 · Person kinds v1** default: coach, executive, owner, agent, official (auto-writable);
   family exists in the enum, never auto-written.
 - **D-3 · Out-of-scope clubs + national teams** default: census only (`rejected_out_of_scope`),

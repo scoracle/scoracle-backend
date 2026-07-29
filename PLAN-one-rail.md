@@ -1,7 +1,11 @@
 # PLAN — One Rail
 
-**STATE: Phase 0 not started. Last plan commit: (this one). Updated 2026-07-28.**
+**STATE: Phase 0 not started. Last plan commit: (this one). Updated 2026-07-29.**
 *(Executors: keep this line current — phase pointer, last commit hash, date — every commit.)*
+*(Revised 2026-07-29, pre-execution audit: OLMo removed — measured, it does not hold the 4
+slots on the 1070 Ti; front page deferred to Appendix B D-6; teams.kind migration deferred
+into D-3; Editor capacity math made honest in 3.9 with a contingency ladder; duplicate
+short-circuit added in 3.4.)*
 
 Written 2026-07-28. This is the build order for the greenfield rail decided in
 [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
@@ -166,11 +170,9 @@ supersedes the prior one; packets are never edited (archive-as-moat).
 | `unresolved_mentions jsonb` | B3's census, rolled up onto the packet |
 | `supersedes_packet_id bigint NULL, contract_version 'pk1'` | |
 
-### 1d. `front_pages` — the stories of the day
-
-One Editor model call per sport per day-close (the only model tokens in packet assembly): input is
-the day's packet headlines as a **numbered list**, output picks by number (D3 discipline — never
-free text) with one neutral line each. `front_pages(day, sport, compiled_at, items jsonb, model_version, contract_version 'fp1')`.
+*(A ranked "front page of the day" model call was audited out pre-execution: the packets ARE the
+compiled stories of the day, and a ranking product with no client surface is decoration.
+Appendix B D-6 holds the half-day of work for the day a surface exists.)*
 
 ---
 
@@ -209,7 +211,7 @@ from flip day.
 | organ | host | model | concurrency | notes |
 |---|---|---|---|---|
 | Lungs | archbox (Go) | none | — | Google News RSS, teams-only sweep, daily 02:00 cron. The query is the hypothesis; Go decides nothing. |
-| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` (incumbent; OLMo bakeoff is Appendix B) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 8. |
+| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` (the engine — §4 ruling; OLMo is out) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 8. |
 | Heart: the Investigator (module `rust/src/junctions/investigator/`; stages `investigate_entity`, `fixture_boxscore`) | archbox, same card | `gemma3:4b` (same resident model — no VRAM swap thrash) | same 4-slot group | Scott's call: the Investigator rides the Editor's card |
 | Brain: 6 voices | Mac | Mistral 12B (exact Ollama tag: Appendix B; routes are config, not doctrine) | 3 concurrent to start | `num_ctx` 4096 — the packet renderer's hard budget exists because of this |
 
@@ -235,6 +237,10 @@ Mac = the six voice stages.
   `investigate_entity` stages happen to align). **Renaming a live identifier is still forbidden**
   (T1/F1): stage strings, env keys, prompt versions, and table names never change as part of a
   file move. Files are safe to rename; identities are not.
+- **Gemma 3 4B is the Editor's engine — settled by hardware.** OLMo was tried and does not hold
+  the 4-slot concurrency on the 1070 Ti (Scott, 2026-07-29). Concurrency IS coverage, so holding
+  4 slots on the card is a precondition any future challenger must meet before quality is even
+  measured (`COGNITION_ROUTE_EDITOR_CANDIDATE` exists for that day). No bakeoff is scheduled.
 - **The regex tier goes entirely** — not demoted to clerk. The Google query is the only
   hypothesis Go contributes, recorded as the primary link (`match_confidence 0.95`,
   `go/internal/thirdparty/news.go:350`). HANDOFF §1.
@@ -251,6 +257,12 @@ Mac = the six voice stages.
 - **The Editor nominates; the Investigator verifies; search discovers; sources prove.** A model
   mention is never a database write. Every accepted fact cites a `source_documents` row.
   (Living-database doctrine, planning doc 2026-07-27.)
+- **Maintenance is demand-led, like growth.** The story that makes a fact stale is the same story
+  that re-arms its verification: a new mention of a decided candidate reopens it (5A.6),
+  re-verification supersedes changed relationships with dated validity, box scores revive
+  `player_team_history` and tiers through the existing triggers, and the transfer chain keeps
+  adjudicating movement. Nothing polls the world on a schedule to stay fresh; relevance drives
+  refresh.
 - **No prose reaches the Scout** (T4). The Scout's inputs stay: the stats platform (now fed by
   scraped box scores) + threshold-gated confirmations (`transfer_identity_applications` pattern).
 - **Voices read packets; packets are compiled in code.** The Editor's model budget goes to
@@ -331,7 +343,7 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
 - [ ] **1.2** Mig 201 `one_rail_editor_reads`: `editor_reads` per §1a (PK `article_id`, status
       CHECK = legacy taxonomy + `not_sport`), index on `(status, updated_at)`, GIN on
       `resolved` (jsonb_path_ops).
-- [ ] **1.3** Mig 202 `one_rail_packets`: `packets` + `front_pages` per §1c/§1d. Indexes:
+- [ ] **1.3** Mig 202 `one_rail_packets`: `packets` per §1c. Indexes:
       `packets(storyline_id, compiled_at DESC)`, `packets(day, sport)`, GIN `routing_tags`.
 - [ ] **1.4** Mig 203 `persons`: `persons` table — `id serial PK, sport text NULL, full_name text
       NOT NULL, kind text CHECK (coach|executive|owner|agent|family|official|other), team_id int
@@ -339,16 +351,12 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       superset of `narrative_persons.kind`; that graph-layer table is unaffected and reconciles
       later — Appendix B.)
 - [ ] **1.5** Mig 204 `person_entity_type`: extend `entity_type` CHECKs to admit `'person'` on
-      `news_article_entities`, `entity_name_surfaces`, and `cognition_ledger` (also add
-      `'candidate'` + `'fixture'` to `cognition_ledger`'s CHECK, and `'candidate'` to
-      `pipeline_work`'s). Pattern per CHECK: DROP CONSTRAINT, ADD CONSTRAINT ... NOT VALID,
+      `news_article_entities` and `entity_name_surfaces`; add `'candidate'` + `'fixture'` to
+      `cognition_ledger`'s CHECK; add `'candidate'` to `pipeline_work`'s. (Only what v1 writes —
+      no speculative admissions.) Pattern per CHECK: DROP CONSTRAINT, ADD CONSTRAINT ... NOT VALID,
       VALIDATE CONSTRAINT (row counts here validate in ms, but the pattern is the habit).
       **Do not** touch other entity_type CHECKs — only these four tables are on the rail.
-- [ ] **1.6** Mig 205 `teams_kind`: `teams.kind text NOT NULL DEFAULT 'club'
-      CHECK (kind IN ('club','national'))`. No national rows are inserted yet (Appendix B
-      decision); this just makes the class representable (the F7 "whole entity CLASS with no
-      table" residue).
-- [ ] **1.7** Mig 206 `investigator_substrate`: the eight acquisition tables per the 2026-07-27
+- [ ] **1.6** Mig 205 `investigator_substrate`: the eight acquisition tables per the 2026-07-27
       planning doc, backend-named: `entity_candidates` (with `state` CHECK: `pending, accepted,
       rejected_not_sport, rejected_insufficient_evidence, rejected_out_of_scope, ambiguous,
       deferred_source_unavailable`; `idempotency_key text UNIQUE`; `norm_name`, `kind_hint`,
@@ -365,7 +373,7 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       `entity_relationships` (subject triple, predicate, object triple, valid_from/to,
       source_document_id, state). A candidate, an attempt, a source, a fact, and a relationship
       are different things — combining them is how provenance disappears.
-- [ ] **1.8** Mig 207 `packet_routing`: trigger `enqueue_voices_on_packet` AFTER INSERT ON
+- [ ] **1.7** Mig 206 `packet_routing`: trigger `enqueue_voices_on_packet` AFTER INSERT ON
       `packets` — for each tag in `routing_tags` joined to `stage_routing_subscriptions`, insert
       `pipeline_work` rows per active `storyline_entities` participant of matching grain, with
       `input_version = 'pk:' || <that voice's slice_fingerprint>` (E2: unchanged slices do not
@@ -374,15 +382,15 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       `pg_notify('pipeline_work_ready','')`. **Ships live but fires into an empty subscription
       table + zero packets — doubly inert.** Do NOT seed subscriptions here (that is Phase 6; the
       mig-197 churn-loop lesson).
-- [ ] **1.9** Extend `refresh_entity_name_surfaces()` to include `persons`
-      (name + search_aliases, entity_type 'person') — mig 208. Run it; person surfaces = 0 rows
+- [ ] **1.8** Extend `refresh_entity_name_surfaces()` to include `persons`
+      (name + search_aliases, entity_type 'person') — mig 207. Run it; person surfaces = 0 rows
       today, which proves it's wired without changing behavior.
-- [ ] **1.10** `scripts/hosting/snapshot-schema.sh`; commit migrations + snapshot together.
+- [ ] **1.9** `scripts/hosting/snapshot-schema.sh`; commit migrations + snapshot together.
 
 **Verify:** `select count(*) from storylines` etc. all return 0; `\d+ packets` matches §1c;
-mig 207's trigger exists and `stage_routing_subscriptions` still has 0 rows; legacy pipeline
+mig 206's trigger exists and `stage_routing_subscriptions` still has 0 rows; legacy pipeline
 unaffected (`article_read` queue still draining — compare depth to Phase 0 Log).
-**Commit:** `rail: phase 1 — substrate migrations 200–208`.
+**Commit:** `rail: phase 1 — substrate migrations 200–207`.
 
 ### Log (phase 1)
 *(executor fills)*
@@ -478,10 +486,13 @@ is claim order, `rust/src/main.rs:131-173`).
       `news_articles.feed_rank ASC NULLS LAST` (copy the ArticleRead arm at `work.rs:65-73`) +
       add to `KNOWN` in `main.rs:188`.
 - [ ] **3.3** `Role::Editor` in `route.rs` (+ `Role::all()` array length bump + `env_suffix`
-      `EDITOR`). Route config on archbox: `COGNITION_ROUTE_EDITOR=gemma3:4b` (Appendix B holds
-      the OLMo bakeoff).
+      `EDITOR`). Route config on archbox: `COGNITION_ROUTE_EDITOR=gemma3:4b` (§4: settled by
+      hardware — no bakeoff scheduled).
 - [ ] **3.4** `EditorHandler` in `rust/src/junctions/editor/`: `slot_group()` =
-      `ARCHBOX_GEMMA_SLOTS`, `max_in_flight()` = 4, `rotation_batch()` = 8. Handle = fetch (via
+      `ARCHBOX_GEMMA_SLOTS`, `max_in_flight()` = 4, `rotation_batch()` = 8. Handle: if
+      `duplicate_of` is already set (the mig-196 exact-title sweep), short-circuit — status
+      `duplicate`, no fetch, no model call, no attach; the canonical carries the story (~5–12%
+      of arrivals, free coverage). Otherwise fetch (via
       fetch.rs) → persist `news_articles.full_text` + fetch metadata → build ep1 prompt (system
       prompt: port the ar7 text minus the co_mentions instructions, plus `names[]` descriptors,
       `result_line`; **property order per §1a**) → gemma call (temperature 0.2, num_predict 900,
@@ -511,8 +522,14 @@ is claim order, `rust/src/main.rs:131-173`).
       Editor registered before article_read. **[DEPLOY]** the Go enqueue change. (Two
       watch-triggered restarts; do them together, outside a rest boundary.)
 - [ ] **3.9** Shadow measurement, 48h minimum, recorded in the Log:
-      (a) throughput: editor_reads/day vs arrivals/day (goal ≥ arrivals — 4-slot gemma has ~4×
-      the legacy single-editor headroom; the legacy sustained ~7,400/day);
+      (a) throughput: editor_reads/day vs arrivals/day. Honest math: the legacy Editor
+      sustained ~7,400/day on the SAME 4 slots; arrivals run ~8,140/day — the gap must close
+      via the 3.4 duplicate short-circuit and ep1's terser output, and shadow contention with
+      article_read tightens the window further. If sustained throughput < arrivals, apply IN
+      ORDER, one change per measurement: (1) confirm the short-circuit is firing, (2) trim
+      num_predict 900→750 (ep1 dropped co_mentions' output share), (3) trial a 5th slot at
+      num_ctx 6144 if VRAM allows, (4) STOP and surface — never silently accept <95% coverage
+      (§2 clause 1);
       (b) coverage: % of arrivals read within 24h (goal ≥95%);
       (c) status distribution (fetch_failed/paywall/blocked bands vs legacy's);
       (d) discovery: on a 50-article sample of players with known bleed (Olise-class), linked-in-
@@ -537,8 +554,8 @@ every arrival in shadow on the ep1 contract, persists bodies to news_articles.fu
 reads to editor_reads, and touches nothing the legacy rail consumes (legacy module now lives
 at junctions/article_reader/, eval task article_reader). See Phase 3 Log for measured
 throughput/coverage.
-Read §0, §1b–§1d (storylines/packets/front page), then execute Phase 4 (storyline assembly +
-packet compile — all deterministic code, zero new model calls except the daily front page).
+Read §0, §1b–§1c (storylines/packets), then execute Phase 4 (storyline assembly + packet
+compile — all deterministic code, zero model calls).
 T3 is the law here: 0.5–0.75 similarity is the SAME STORY with a DIFFERENT CLAIM — attach,
 never collapse. The disagreement is the story.
 ```
@@ -562,26 +579,21 @@ never collapse. The disagreement is the story.
       quotes code-sliced from `full_text`; slice fingerprints per voice: journalist = hash of
       claims+headline, vibe = hash of register+phrase+claims, transfers = hash of
       transfer-typed claims), insert packet (supersedes prior), mark storyline clean. Packets
-      INSERT will fire mig 207's trigger — still inert (0 subscriptions).
+      INSERT will fire mig 206's trigger — still inert (0 subscriptions).
 - [ ] **4.4** Storyline lifecycle sweep (hourly, code): `open → dormant` after 14 quiet days;
       resolution stays manual/downstream for now (D5's close-in-one-stroke is wired but only
       invoked when a resolution is recorded — the transfer chain is the first writer, Phase 6).
-- [ ] **4.5** `front_pages` compile at day-close per sport (23:30 America/New_York tick):
-      numbered-list prompt over the day's packet headlines, pick-by-number + one neutral line,
-      `Role::Editor`, num_ctx 8192. Skip sports with <5 packets that day.
-- [ ] **4.6** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
+- [ ] **4.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
       shape: Diomande/Vinicius/Rodri/Lee Kang-in/Álvarez clusters — assert Lee Kang-in lands in
-      its own storyline, NOT Real Madrid's, per the hand count); front-page fixture with a
-      numbered-list parse.
-- [ ] **4.7** **[DEPLOY]** rust to archbox.
-- [ ] **4.8** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
+      its own storyline, NOT Real Madrid's, per the hand count).
+- [ ] **4.6** **[DEPLOY]** rust to archbox.
+- [ ] **4.7** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
       distribution (the top cluster should land ~15–25:1 against the 20:1 hand count — outside
       that band, STOP and inspect attach scores); % of reads attached vs opened-new; hand-inspect
       the 3 biggest storylines for wrong merges AND for a preserved contradiction (T3 spot
       check — find one "agreed"/"not agreed" pair sharing a packet's claims).
 
-**Verify:** 4.8 bands; front page renders for FOOTBALL with sane picks; packet trigger fired 0
-work rows (subscriptions still empty).
+**Verify:** 4.7 bands; packet trigger fired 0 work rows (subscriptions still empty).
 **Commit:** `rail: phase 4 — storylines assemble, packets compile`.
 
 ### Log (phase 4)
@@ -637,7 +649,7 @@ names/day measured in B3, plus the namesake ties roster context can't split.)
       name similarity alone never merges (T9's cousin; do not rebuild BGE here); match against
       existing `players`/`persons` first — if an existing entity matches with discriminator,
       resolve the candidate to it (write alias, no new row). New person → `persons` row +
-      `entity_aliases` (+ mirror into `entity_name_surfaces` via mig-208 refresh or direct
+      `entity_aliases` (+ mirror into `entity_name_surfaces` via the mig-207 refresh or direct
       insert) + `entity_facts`/`entity_relationships` (e.g. `coach_of` with valid_from) each
       citing a source_document. Anything less → `ambiguous` (first-class, terminal until new
       evidence) or `rejected_*` with reason. `acquisition_runs` records every attempt +
@@ -645,6 +657,10 @@ names/day measured in B3, plus the namesake ties roster context can't split.)
       use; nothing auto-writes it in v1).
 - [ ] **5A.6** Reopen policy: terminal candidates reopen only on a NEW distinct-article mention
       after `decided_at` + 30 days, or a manual reset. (No endless rediscovery loops.)
+      Reopening an ACCEPTED candidate is the **maintenance loop**, not an error: re-verification
+      re-runs the gate against current sources, supersedes changed relationships (`coach_of`
+      closes with `valid_to`, the new one opens dated), and appends new aliases. The story that
+      staled the fact is the story that fixes it.
 - [ ] **5A.7** Adversarial fixture set `rust/fixtures/investigate_entity/` from the B3 census:
       kyle shanahan (accept: coach, NFL, 49ers), xabi alonso (accept: coach — despite an
       ex-player record shape), pep guardiola (accept coach; must NOT merge into player `sergi
@@ -777,7 +793,7 @@ Phase 7 flips it.
       budget is named — the A5 rule).
 - [ ] **6.4** Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
       `('transfer','transfers','team')`, `('charged','vibe','*')`. The Journalist needs no row
-      (mig 207 fans narratives unconditionally). **Do not** also leave mig-175's article-grain
+      (mig 206 fans narratives unconditionally). **Do not** also leave mig-175's article-grain
       transfers trigger pointing at the same stage post-flip — Phase 7 drops it; until then the
       RAIL gate in the transfers handler ignores packet-work rows under legacy (input_version
       prefix `pk:` is the discriminator).
@@ -866,7 +882,10 @@ STOP, log the numbers, emit the block with BLOCKED.
       `rail-cutover-check.sh` once more against the live flip → snapshot-schema; commit.
 - [ ] **7.7** Watch 48h with point-in-time checks (not watchers): packets/day, narratives/day
       (expect a T7 step change — packets collapse coverage-volume into story-volume; the OLD
-      baselines are not comparable, record the new ones), vibe first-voice firings, transfers
+      baselines are not comparable, record the new ones), vibe first-voice firings AND total
+      vibe volume (the charged gate thins her cadence by design, but momentum's `vibe_slope`
+      must not starve — vibe samples down >70% vs legacy is a finding to surface, answered by
+      widening the `charged` derivation or a reconcile tick: decided, not drifted), transfers
       packet-work drains, Editor coverage, Investigator funnel, Mac throughput. Rollback
       trigger: any voice starving >6h or Editor coverage <80% → RAIL=legacy (env flip +
       Appendix A trigger revert), diagnose cold.
@@ -911,8 +930,8 @@ if removing something changes a passing test's behavior, STOP: that thing was no
       ingest, tier recompute, backups unchanged; add `rail-cutover-check.sh` renamed
       `rail-health-check.sh` weekly.
 - [ ] **8.6** Write `HANDOFF-one-rail.md`: what shipped, the new baselines, the open decisions
-      (Appendix B leftovers: F4 injury gates, national teams, OLMo, out-of-scope clubs), and
-      mark this plan **DONE** in the STATE line.
+      (Appendix B leftovers: F4 injury gates, national teams, out-of-scope clubs, the front
+      page), and mark this plan **DONE** in the STATE line.
 
 **Commit:** `rail: phase 8 — demolition complete; one rail`.
 
@@ -975,22 +994,21 @@ legacy route envs removed from both machines' unit env files.
 - **D-2 · Person kinds v1** default: coach, executive, owner, agent, official (auto-writable);
   family exists in the enum, never auto-written.
 - **D-3 · Out-of-scope clubs + national teams** default: census only (`rejected_out_of_scope`),
-  no auto-writes. `teams.kind='national'` exists (mig 205) for the day Scott widens the
-  boundary — a business decision, not a resolver decision.
+  no auto-writes. When Scott widens the boundary, `teams.kind` (club|national) is a two-minute
+  migration — deferred deliberately, since a column nothing writes is scar tissue. The boundary
+  is a business decision, not a resolver decision.
 - **D-4 · Box-score pilot: sport + source family. NO DEFAULT — Phase 5B blocks on this.**
   Recommendation: FOOTBALL (78% of volume) with one reputable structured source family after a
   terms/robots review in 5B.1; NBA is the fallback (smallest surface, cleanest tables).
 - **D-5 · Injury/suspension confirmation gates (F4 pattern)** default: deferred post-cutover;
   the Scout reads stats + transfer confirmations until then. (Scott flagged interest —
   schedule as its own mini-plan after Phase 8.)
-- **D-6 · OLMo-vs-Gemma Editor bakeoff** default: any time after Phase 3 via
-  `COGNITION_ROUTE_EDITOR_CANDIDATE` + the editor fixtures; judged on the fixture gate + the
-  living-database eval axes (unseeded-name recall, unsupported-name rate). Speed is a
-  production advantage Gemma keeps unless OLMo wins on quality (Editorial Voice revision doc).
-- **D-7 · Front-page surfacing** (does `front_pages` reach a client surface?) default: build
-  the table (Phase 4), no client surface until Scott picks one — a junction without a surface
-  is noise (AI Stage Conventions rule; this one is a product, not a junction, but the rule's
-  spirit applies).
+- **D-6 · The front page.** Audited out of the critical path: the packets are the compiled
+  stories of the day, and a ranking call with no client surface is decoration (a junction that
+  only decorates is noise — AI Stage Conventions; this is a product, not a junction, but the
+  rule's spirit applies). When Scott picks a surface, the package is a `front_pages` table +
+  one day-close pick-by-number call per sport (`Role::Editor`, D3 closed-list discipline) —
+  about a half-day of work sitting behind the decision.
 
 ---
 
@@ -1005,5 +1023,8 @@ legacy route envs removed from both machines' unit env files.
   people).
 - No new public reading junction: the Editor and the Investigator are supporting characters —
   the six-voice cast and the one-card-per-character surface are untouched (Characters doctrine).
+- No schedule scraping in v1 — completed games enter by news demand (`result_line`). Thinly
+  covered fixtures can be missed; provider-era `fixtures` rows stuck `scheduled` are the running
+  census of what demand alone doesn't catch, and the signal for a v2 schedule source.
 - No renames of live legacy identifiers (F1's lesson, §4 ruling) — files take character names;
   stage strings, env keys, prompt versions, and tables keep theirs until demolition.

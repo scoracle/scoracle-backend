@@ -15,7 +15,7 @@
 //!
 //!     cargo run --example reader_fixture_gen > /tmp/reader_fixtures.json
 //!
-//! Output: a JSON array of fixture objects; split into `fixtures/reader/<name>.json`.
+//! Output: a JSON array of fixture objects; split into `fixtures/editor/<name>.json`.
 //! Offline — no DB, no model, no queue, no fetch.
 
 use scoracle_cognition::junctions::editor::{

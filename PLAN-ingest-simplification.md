@@ -222,17 +222,65 @@ gates work downstream of it.
 
 ### Phase C — the Editor's new contract (one prompt version bump)
 
-- [ ] **C1. Discovery.** The Editor is currently handed `vetted_names` + `co_mentions` and asked what
-      part each plays. **It is never asked who else is in the article.** That is the whole bleed —
-      measured, it read 99 articles mentioning Vinicius Junior and linked him in 24.
+- [~] **C1. Discovery.** *Written and measured on fixtures; NOT deployed — the deploy is the re-read
+      wave, and that is C4's call.* The Editor is currently handed `vetted_names` + `co_mentions`
+      and asked what part each plays. **It is never asked who else is in the article.** That is the
+      whole bleed — measured, it read 99 articles mentioning Vinicius Junior and linked him in 24.
+
+      **The diagnosis was off by one important step, and the correction is the whole item.** The
+      Editor *was* being asked — through `relevant_entities`, a REQUIRED, grammar-enforced field.
+      That field had **no definition anywhere in the system prompt.** It appeared exactly once, in
+      the JSON template, as `"relevant_entities":["<name>", "..."]`. Nothing said what belonged in
+      it. And it is not decorative: `derive_relevance` uses it as the second half of the verdict
+      (86% of the ar6 rejections turn on it) and B1 wires it straight to the resolver. The
+      pipeline's discovery channel and half its relevance gate have been running on a 4B's guess
+      about what an unlabelled array name means. What it guessed was **generic NER** — which is the
+      correct behaviour for that prompt, and is exactly what B4 measured coming out of it.
+
+      ar7 adds FIELD 3: name every club and person the text involves, **including ones missing from
+      the vetted list, especially players, coaches and managers**, with four exclusions aimed at the
+      measured failures (full names not surnames; the club never its city; no competitions,
+      broadcasters or companies; no name the text does not contain).
+
+      **Measured, A/B on the same six fixtures, same model, same temperature** — the frozen ar6
+      system against the ar7 system, which the fixture harness makes an exact comparison:
+
+      | | ar6 | ar7 |
+      |---|---|---|
+      | property checks | 29/32 | **31/32** |
+      | `Baltimore Ravens` invented on a youth flag-football page | listed | **gone** |
+      | `Rangers` — the club the story is actually about | missed | **found** |
+      | managers / executives surfaced | Arteta only | Arteta, **Emery**, **Florentino Pérez** |
+      | broadcaster noise (`NFL+`, `NFL app`) | absent | **listed — the one regression** |
+
+      The two it fixed are the two that matter, and the regression is the one that cannot hurt:
+      `Baltimore Ravens` **resolves to a real team**, so under B1 it becomes a wrong link on an
+      article about children playing flag football. `NFL+` resolves to nothing — exact match refuses
+      it, and it lands in B3's capture table as noise. **Judge this field by the links it produces,
+      not by how clean the list reads.** Left as-is rather than tuned away: six fixtures is not a
+      population, and prompt-tuning against one of them is how ar4 and ar5 were both talked into
+      changes that production refuted.
+
+      **Field order is deliberately unchanged** — see the ar7 note in `editor/prompt.rs`. All four
+      fields are extractive, so C3 is already satisfied; moving `entity_roles`, which
+      `derive_relevance` reads, would confound this measurement against a live configuration
+      running at 77%.
 - [ ] **C2. Emotional register.** A small closed enum (celebration / outrage / resignation /
       anticipation / neutral) **plus the phrase that shows it**. Never a score — the Influencer owns
       the number. See trap T2.
 - [ ] **C3. Field order.** Extraction before anything derived. Field order IS the contract (ar4);
       constrained decoding emits properties in schema order, and moving the verdict from first to
       last was the difference between 99.1% rubber-stamping and a working gate.
-- [ ] **C4. Bump `ARTICLE_READ_PROMPT_VERSION`.** This is the change that *earns* the re-read wave.
-      Free here, catastrophic if done casually earlier.
+- [~] **C4. Bump `ARTICLE_READ_PROMPT_VERSION`.** This is the change that *earns* the re-read wave.
+      Free here, catastrophic if done casually earlier. **Bumped to `ar7` in code; NOT DEPLOYED.**
+      The value change is committed alongside C1 because a changed prompt under an unchanged version
+      is the worse failure — ar6 and ar7 readings would be indistinguishable in the cache. Deploying
+      is therefore the decision to spend the wave, and it is a separate act from writing it.
+
+      **What the wave costs, so the decision is made on a number.** Invalidation is lazy: a reading
+      re-reads when its article is next enqueued, not all at once. Coverage is 21.3% of articles and
+      the Editor is the throughput bottleneck, so the wave is bounded by what the queue offers
+      rather than by the corpus size.
 - [ ] **C5. Watch the output budget.** `ARTICLE_NUM_PREDICT` is 900 and the Editor covers 21% of
       articles because it is the throughput bottleneck. **The Editor's output budget is coverage** —
       every token added is articles/day not read. Keep both new fields terse.

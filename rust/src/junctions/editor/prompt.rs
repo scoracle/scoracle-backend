@@ -6,7 +6,7 @@
 //! | | |
 //! |---|---|
 //! | **Seat** | `gemma3:4b` — extraction, not voice (2026-07-25) |
-//! | **Contract** | `ar6` — describes the page; relevance is DERIVED, never asked |
+//! | **Contract** | `ar7` — describes the page and names who is in it; relevance is DERIVED, never asked |
 //! | **Reads** | the fetched publisher page |
 //! | **Feeds** | The Journalist (`narratives`), via `news_article_readings` |
 //! | **Budget** | top-K per entity by Google's `feed_rank` (mig 194) |
@@ -80,7 +80,47 @@ use crate::util::truncate;
 /// overloading one field with "what shape" and "what about" is what produced the `general`
 /// collapse. `entity_roles` is also the first mechanism that can reach an opponent-only story,
 /// which no page-shape signal ever catches.
-pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar6";
+///
+/// **ar7 (2026-07-28) — the discovery field finally gets a question.** The plan's C1 says "the
+/// Editor is never asked who is in the article." The truth was more specific and worse: it *was*
+/// asked, through a required, grammar-enforced field — and that field had **no definition anywhere
+/// in the prompt.** `relevant_entities` appeared exactly ONCE in the whole system prompt, inside
+/// the JSON template, as `"relevant_entities":["<name>", "..."]`. Nothing said what belonged in it.
+///
+/// The field is not decorative. `derive_relevance` uses it as the second half of the verdict — it
+/// rescues 86% of the ar6 rejections — and B1 wires it to the entity resolver. So the pipeline's
+/// discovery channel and half its relevance gate have been running on a model's guess about what
+/// an unlabelled array name might mean.
+///
+/// What that collected, measured over B4's 6,376-article backfill: `Paris` on *"Moulin Rouge
+/// dancers welcome Tour de France finale in Paris"*, alongside `Moulin Rouge` and `Tour de France`
+/// themselves; `Awalé Resources` and `Séguéla–Diamba Sud` on mining-stock pages; and on one of
+/// those, the invented `Fortuna Düsseldorf`, with a blurb asserting *"Fortuna Mining Corp., a
+/// subsidiary of Fortuna Düsseldorf."* That is generic NER, which is the correct behaviour for a
+/// field whose only instruction is its name.
+///
+/// ar7 adds FIELD 3: name every club and person the text involves — **including ones missing from
+/// the vetted list, especially players, coaches and managers** — with four exclusions aimed at the
+/// measured failures (full names, not surnames; the club, never its city; no competitions,
+/// broadcasters or companies; and no name the text does not contain).
+///
+/// Measured A/B on the six frozen fixtures, same model and temperature, frozen-ar6 system against
+/// ar7: 29/32 -> 31/32 property checks. It stopped inventing `Baltimore Ravens` on a youth
+/// flag-football page and started naming `Rangers`, the club its story was actually about; it also
+/// began listing `NFL+`. The two it fixed RESOLVE to real entities and would have become wrong
+/// links under B1; the one it broke resolves to nothing and lands in B3's capture as noise. Judge
+/// this field by the links it produces, not by how clean the list reads.
+///
+/// **Field ORDER is deliberately unchanged.** `relevant_entities` stays where ar6 put it, after
+/// `key_facts`. C3 wants extraction before derivation and all four fields here are extractive, so
+/// the order already satisfies it — while moving `entity_roles`, which `derive_relevance` reads,
+/// would re-open a configuration measured good at a 77% live success rate. One change, one
+/// measurement; ar4 is the precedent for how expensive a confounded reorder is.
+///
+/// **Output budget (C5) is unaffected and may improve.** The field already exists and is already
+/// emitted; ar7 defines it rather than adding it, and the exclusions delete tokens like
+/// `Séguéla–Diamba Sud` from the reply.
+pub const ARTICLE_READ_PROMPT_VERSION: &str = "ar7";
 
 pub fn build_article_read_prompt(
     article: &ArticleRow,

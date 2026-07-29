@@ -381,6 +381,20 @@ pub struct Expect {
     /// people from the body and an unfiltered vote lets them overturn a correct `opponent`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reader_vetted: Option<Vec<String>>,
+    /// DISCOVERY (ar7/C1): each string must appear in the parsed `relevant_entities`. This is the
+    /// axis for the bleed the whole newsroom plan turns on — the Editor read 99 articles mentioning
+    /// Vinicius Junior and linked him in 24 — and until ar7 the field it was supposed to name him
+    /// in had **no definition anywhere in the prompt**: `relevant_entities` appeared exactly once,
+    /// in the JSON template, as `"relevant_entities":["<name>", "..."]`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub names_include: Option<Vec<String>>,
+    /// PRECISION on the same field: none of these may appear. B4's backfill measured what an
+    /// undefined field collects — `Paris` on a Tour de France story, `Moulin Rouge`, and on a
+    /// mining-stock article the invented `Fortuna Düsseldorf`. Every name that RESOLVES becomes an
+    /// entity link the moment B1 wires this field to the resolver, so discovery and precision have
+    /// to be scored together or ar7 just trades one error class for another.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub names_exclude: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -1707,6 +1721,29 @@ impl LensTask for EditorTask {
                     });
                 }
             }
+            // The discovery axis. Matched against the JOINED list rather than per element, so a
+            // fixture can pin a surname the model wrote in full ("Saka" inside "Bukayo Saka") —
+            // B1 resolves on the whole surface, so scoring per element would be a lie about what
+            // the resolver actually sees.
+            let names = ev.relevant_entities.join(" | ");
+            if let Some(incl) = &x.names_include {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("name_found[{frag}]"),
+                        pass: names.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&names, 200),
+                    });
+                }
+            }
+            if let Some(excl) = &x.names_exclude {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("name_absent[{frag}]"),
+                        pass: !names.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&names, 200),
+                    });
+                }
+            }
             if let Some(incl) = &x.blurb_includes {
                 for frag in incl {
                     checks.push(PropertyCheck {
@@ -1731,10 +1768,11 @@ impl LensTask for EditorTask {
             abs_err: None,
             checks,
             display: format!(
-                "relevant={} page_kind={:?} roles=[{}] {} key_fact(s) story_type={:?}",
+                "relevant={} page_kind={:?} roles=[{}] names=[{}] {} key_fact(s) story_type={:?}",
                 ev.relevant,
                 ev.page_kind,
                 render_entity_roles(&ev.entity_roles),
+                truncate(&ev.relevant_entities.join(", "), 120),
                 ev.key_facts.len(),
                 ev.story_type
             ),

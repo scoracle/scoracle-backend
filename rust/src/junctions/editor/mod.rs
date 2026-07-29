@@ -70,6 +70,12 @@ FIELD 2 — entity_roles: for EVERY known vetted entity listed above, say what p
 
 Be strict about `subject`. If the story is about another club's player and this entity is who they face, that is `opponent`, not `subject`. If a youth or flag-football team shares the name, that is `absent`.
 
+FIELD 3 — relevant_entities: WHO IS IN THIS ARTICLE? The list above was guessed from the headline; you are reading the body, so you know better. Name every club and every person the text actually involves — including ones missing from that list, and especially players, coaches and managers.
+- Write each name as the article writes it, in full: "Bukayo Saka", not "Saka".
+- Name the club, never its city: "Paris Saint-Germain", not "Paris".
+- People and clubs only. Not competitions or trophies, not stadiums, not broadcasters, newspapers or websites, not companies or sponsors.
+- Only names the text actually contains. Never expand a name into a club it resembles.
+
 Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general) — followed by the facts and the evidence card. If nothing here is about a vetted entity, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
 
 Other rules:

@@ -1,5 +1,19 @@
 # Plan — the Editor's newsroom
 
+> ## ⚠️ SUPERSEDED IN DIRECTION, 2026-07-28 evening
+>
+> **Do not work this checklist top-to-bottom any more.** Scott's call at the end of that day: the
+> rail gets rebuilt greenfield rather than repaired in place, around one sentence —
+> *Go only reads headlines, so Go cannot decide anything, and the Google query is already the
+> proposal.* More than half of what follows turns out to be scar-tissue management and dissolves.
+>
+> **Read [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md) first.** It records the decision, where the rot
+> is, what is kept versus replaced, and which items below survive.
+>
+> This document remains the reference for **what was measured and why** — the traps (T1–T13), the
+> collapse ratio, the disagreement finding, the player bleed. Those were expensive and they carry
+> across. It is the *build order* that no longer applies.
+
 **Status 2026-07-28.** The design is settled. This document is the build order.
 
 The one-line shape:
@@ -598,6 +612,14 @@ Every wrong row clears the gate more comfortably than the one correct row. So **
 only automatic write path**; trigram is a ranking and review channel. What the margin gate *does*
 catch is the true tie — `inter milan` scores 0.500 against **both** Inter (2930) and AC Milan (113),
 and a top-1 pick would link Inter Milan stories to their rivals on a coin flip.
+
+**T13 — a staged mutation whose cohort predicate reads state the earlier stage writes.** `bin/remap`
+pins its cohort to "articles whose Editor reading moved in the incident window AND that still carry
+a rejected link". Applying the flips set 9,817 of those links to TRUE, which removed 4,964 articles
+from the cohort — so `-pass new` afterwards finds **1,047 links instead of 5,938**, silently, and
+would have reported success. Staging was the right call; the cohort simply has to be FROZEN before
+stage one, not recomputed for stage two. Not fixed, because Scott dropped the second pass and the
+fix would have no consumer — but the shape recurs anywhere a backfill is applied in stages.
 
 **T10 — flipping `vetted` FALSE → TRUE re-arms the article.** `enqueue_derive_on_vetted` fires
 `AFTER UPDATE OF vetted` and enqueues **`article_read` on the article**, with

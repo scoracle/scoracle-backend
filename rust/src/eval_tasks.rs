@@ -395,6 +395,11 @@ pub struct Expect {
     /// to be scored together or ar7 just trades one error class for another.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub names_exclude: Option<Vec<String>>,
+    /// C2: the expected emotional register. Pinned in BOTH directions on purpose — a fixture set
+    /// that only pinned non-neutral cases would be passed by a model that calls everything
+    /// `outrage`, which is the same shape of failure as ar3's 99.1% `relevant:true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub register_is: Option<String>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -1744,6 +1749,13 @@ impl LensTask for EditorTask {
                     });
                 }
             }
+            if let Some(want) = &x.register_is {
+                checks.push(PropertyCheck {
+                    name: format!("register[{want}]"),
+                    pass: ev.register.eq_ignore_ascii_case(want),
+                    detail: format!("register={:?} phrase={:?}", ev.register, ev.register_phrase),
+                });
+            }
             if let Some(incl) = &x.blurb_includes {
                 for frag in incl {
                     checks.push(PropertyCheck {
@@ -1768,13 +1780,15 @@ impl LensTask for EditorTask {
             abs_err: None,
             checks,
             display: format!(
-                "relevant={} page_kind={:?} roles=[{}] names=[{}] {} key_fact(s) story_type={:?}",
+                "relevant={} page_kind={:?} roles=[{}] names=[{}] {} key_fact(s) story_type={:?} register={:?}/{:?}",
                 ev.relevant,
                 ev.page_kind,
                 render_entity_roles(&ev.entity_roles),
                 truncate(&ev.relevant_entities.join(", "), 120),
                 ev.key_facts.len(),
-                ev.story_type
+                ev.story_type,
+                ev.register,
+                truncate(&ev.register_phrase, 40)
             ),
         }
     }

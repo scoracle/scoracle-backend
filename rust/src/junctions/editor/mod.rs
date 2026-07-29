@@ -76,7 +76,13 @@ FIELD 3 — relevant_entities: WHO IS IN THIS ARTICLE? The list above was guesse
 - People and clubs only. Not competitions or trophies, not stadiums, not broadcasters, newspapers or websites, not companies or sponsors.
 - Only names the text actually contains. Never expand a name into a club it resembles.
 
-Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general) — followed by the facts and the evidence card. If nothing here is about a vetted entity, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
+Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general).
+
+FIELD 4 — register_phrase, then register: how does this text FEEL, and what in it shows that?
+- register_phrase: quote the SHORT run of words from the article that carries the most feeling — a fan reaction, a manager's complaint, a celebration, a warning. Copy it from the text; do not write your own. If the text is flat reporting with no such phrase, use an empty string.
+- register: which one word best describes the phrase you just quoted? celebration, outrage, resignation, anticipation, or neutral. An empty register_phrase means neutral.
+
+Then the facts and the evidence card. If nothing here is about a vetted entity, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
 
 Other rules:
 - Use only the article text and the known vetted entities.
@@ -90,7 +96,7 @@ Other rules:
 - Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
 
 Return strict JSON only, with the keys in exactly this order:
-{"source_language":"<ISO 639-1 language code or unknown>","page_kind":"article|score_table|listing_or_schedule|video_clip|roundup|other","entity_roles":[{"entity":"<vetted entity name exactly as listed>","role":"subject|opponent|passing_mention|absent"}],"story_type":"transfer|injury|performance|fixture|roster|contract|general","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"caveats":"<short English caveat or empty string>","evidence_blurb":"<2-4 compact English sentences, or a short mismatch reason if the text is not about a vetted entity>"}"#;
+{"source_language":"<ISO 639-1 language code or unknown>","page_kind":"article|score_table|listing_or_schedule|video_clip|roundup|other","entity_roles":[{"entity":"<vetted entity name exactly as listed>","role":"subject|opponent|passing_mention|absent"}],"story_type":"transfer|injury|performance|fixture|roster|contract|general","register_phrase":"<short quote from the text, or empty string>","register":"celebration|outrage|resignation|anticipation|neutral","key_facts":["<English fact>", "..."],"relevant_entities":["<name>", "..."],"co_mentions":[{"candidate":<number>,"relevant":<true|false>}],"caveats":"<short English caveat or empty string>","evidence_blurb":"<2-4 compact English sentences, or a short mismatch reason if the text is not about a vetted entity>"}"#;
 
 /// The model budget for one article reading — the stage's options and `bin/eval`'s, from ONE
 /// definition (the `graph_opts()` pattern), so a fixture can never be scored under options
@@ -157,6 +163,14 @@ pub fn article_read_format_schema() -> serde_json::Value {
             "story_type": { "type": "string", "enum": [
                 "transfer", "injury", "performance", "fixture", "roster", "contract", "general"
             ] },
+            // C2. The PHRASE comes first and the label second, which is ar4's lesson applied to a
+            // new field: a label emitted before its evidence is a label conditioned on nothing.
+            // Neither is a judgment about US — they describe the text — so T2 is respected. The
+            // Influencer still owns the NUMBER; this seat never scores anything.
+            "register_phrase": { "type": "string" },
+            "register": { "type": "string", "enum": [
+                "celebration", "outrage", "resignation", "anticipation", "neutral"
+            ] },
             "key_facts": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
             "relevant_entities": { "type": "array", "items": { "type": "string" }, "maxItems": 12 },
             "co_mentions": {
@@ -174,7 +188,7 @@ pub fn article_read_format_schema() -> serde_json::Value {
             "caveats": { "type": "string" },
             "evidence_blurb": { "type": "string" }
         },
-        "required": ["source_language", "page_kind", "entity_roles", "story_type", "key_facts", "relevant_entities", "co_mentions", "caveats", "evidence_blurb"]
+        "required": ["source_language", "page_kind", "entity_roles", "story_type", "register_phrase", "register", "key_facts", "relevant_entities", "co_mentions", "caveats", "evidence_blurb"]
     })
 }
 
@@ -240,6 +254,12 @@ pub struct ArticleEvidence {
     pub co_mentions: Vec<ArticleCoMentionVerdict>,
     #[serde(default)]
     pub story_type: String,
+    /// C2 — the emotional register, and the phrase that shows it. Both DESCRIBE the text; neither
+    /// scores it. E1 routes non-neutral registers to the Influencer, and she still owns the number.
+    #[serde(default)]
+    pub register: String,
+    #[serde(default)]
+    pub register_phrase: String,
     #[serde(default)]
     pub caveats: String,
 }
@@ -301,6 +321,17 @@ pub struct ArticleEvidenceParser<'a> {
 /// `page_kind` values whose BODY is not reporting, whatever the headline promised. A page of this
 /// shape cannot be materially about an entity because it is not materially about anything.
 pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_schedule", "roundup"];
+
+/// The closed register vocabulary (C2). Small on purpose: E1 routes on `!= neutral`, so the set
+/// only has to separate "this text carries feeling" from "this text does not", and every value
+/// added is a value the Influencer's contract has to know about.
+pub const ARTICLE_REGISTERS: &[&str] = &[
+    "celebration",
+    "outrage",
+    "resignation",
+    "anticipation",
+    "neutral",
+];
 
 /// derive_relevance computes the verdict from the model's DESCRIPTION of the page. The model never
 /// sees this question (ar6); it answers "what shape is this page" and "what part does each entity
@@ -435,6 +466,17 @@ impl Parser<ArticleEvidence> for ArticleEvidenceParser<'_> {
             .take(ARTICLE_MAX_CO_MENTION_CANDIDATES)
             .collect();
         evidence.page_kind = normalize_space(&evidence.page_kind);
+        // C2, DERIVED rather than trusted, the ar6 discipline applied to a new field. The prompt
+        // states "an empty register_phrase means neutral"; enforcing it here is what makes the
+        // prompt and the persisted value provably agree instead of merely usually agreeing. An
+        // out-of-enum register also falls back to neutral — constrained decoding should make that
+        // impossible, and a field the router reads must not depend on "should".
+        evidence.register_phrase = normalize_space(&evidence.register_phrase);
+        evidence.register = normalize_space(&evidence.register).to_lowercase();
+        if evidence.register_phrase.is_empty() || !ARTICLE_REGISTERS.contains(&evidence.register.as_str())
+        {
+            evidence.register = "neutral".to_string();
+        }
         evidence.entity_roles.retain(|r| !r.entity.trim().is_empty());
         // The verdict is COMPUTED here, not read. `relevant` is `#[serde(skip)]`, so whatever the
         // model may have said about relevance never reached this struct in the first place.
@@ -1007,6 +1049,8 @@ async fn persist_model_outcome(
             "relevant": v.relevant,
         })).collect::<Vec<_>>(),
         "story_type": evidence.story_type,
+        "register": evidence.register,
+        "register_phrase": evidence.register_phrase,
         "caveats": evidence.caveats,
         // Both signals `derive_relevance` actually reads. They were absent from this envelope
         // through the ar6 relevance incident, so the two fields that decided every verdict were

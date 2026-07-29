@@ -1,6 +1,6 @@
-# Handoff — Phase A is done and PROVEN; B1's groundwork is in; `bin/remap.rs` is next
+# Handoff — B4's flips are applied; ar7 is written and measured; two things wait on Scott
 
-Written 2026-07-28, updated 18:10 EDT. Supersedes [`HANDOFF-editor-turn.md`](HANDOFF-editor-turn.md),
+Written 2026-07-28, updated 21:40 EDT. Supersedes [`HANDOFF-editor-turn.md`](HANDOFF-editor-turn.md),
 which is still accurate on the relevance collapse but whose "three decisions, open" are all now
 settled.
 
@@ -12,12 +12,20 @@ what to be careful of.
 
 ## 0. The one thing to do first
 
-**Write `rust/src/bin/remap.rs`** — the B4 backfill. Everything it needs exists, is applied, and is
-verified. Read **T10 before you write a line of it**: the half of B4 that looks free is not.
+**Two things are built, measured, and waiting on a decision that is Scott's, not yours.** Neither is
+half-finished; both are deliberately stopped one command short of production.
 
-Decided, so you do not need to re-litigate: staged (flips first, inspect, then brand-new links);
-brand-new rows carry a `match_confidence` sentinel distinct from Go's 0.95; dry-run default;
-follow `bin/bucketlabel.rs`'s read-only posture.
+| | state | the command | what it costs |
+|---|---|---|---|
+| **B4 brand-new links** | rehearsed clean, 5,938/5,938 rows, 0 re-arms | `remap -pass new -apply` | 5,938 INSERTs across 2,180 articles |
+| **ar7 (C1)** | 31/32 on fixtures, committed, **not deployed** | `scripts/hosting/release.sh` | the re-read wave |
+
+**Do not deploy ar7 casually.** Bumping `ARTICLE_READ_PROMPT_VERSION` is exactly the cache-key
+event T1 describes; the difference is that C4 says this one is *earned*. Deploying is the act of
+spending it, and it is a separate decision from having written it.
+
+If you are picking a third thing up: **B1 is on hold, by Scott's call, until C1 is deployed** — see
+§1.3. Wiring a resolver to an input you are about to change is T6 with the labels swapped.
 
 ---
 
@@ -45,7 +53,88 @@ Migrations 195–199 applied; `snapshot-schema.sh` run and committed. Both servi
 
 ---
 
-## 1.2 What this session added (2026-07-28 afternoon)
+## 1.3 What the evening session did (2026-07-28)
+
+| commit | what |
+|---|---|
+| `ec0afb4` | `bin/remap` — the B4 backfill, verified against the live cohort |
+| `0445211` | **B4 flips APPLIED** — 9,817 links, 0 articles re-armed |
+| `7d4d209` | **C1/ar7** — the discovery field gets a definition; 29/32 → 31/32 |
+
+**B4's flip pass is done.** 9,817 links (7,712 team / 2,105 player) across 5,374 articles went
+`vetted = TRUE` at 20:51 EDT, carrying the Editor reading they already had. Zero model calls, zero
+re-arms. `planning_docs/data/remap_flips.tsv` is the reversal record — one row per link with the
+matched surface and the article title.
+
+**T10 held, and the way it was held is the reusable part.** Suppression is asserted before the
+write (`SHOW session_replication_role` read back, bail on anything but `replica`) AND measured
+after it — the re-arm count is taken *inside* the transaction, where it sees the run's own
+uncommitted effect, and a non-zero count vetoes the commit. Then it was proven non-vacuous: one
+unsuppressed flip in a rolled-back transaction produces exactly one `article_read` row, and the same
+query catches it. **A guard that has never been observed firing is not yet a guard.**
+
+`remap` has three modes: dry-run (default, writes the inventory TSV and nothing else), `-rollback`
+(runs the REAL write, counts rows, asserts the invariant, throws it away), and `-apply`. `-rollback`
+is a mode rather than a psql scratch file on purpose — a copy of the statements would be a second
+query claiming to be the first, which is the divergence that cost A5 weeks.
+
+**Then the flip set was inspected, and it revised a premise.** 65 hand-labelled rows: ~5% clearly
+wrong, ~10% passing mentions rather than subjects — and **the errors are the Editor's emissions, not
+the resolver's matching.** `Paris` → team 4508 on *"Moulin Rouge dancers welcome Tour de France
+finale in Paris"*; on a mining-stock page, the invented `Fortuna Düsseldorf`, with a blurb asserting
+*"Fortuna Mining Corp., a subsidiary of Fortuna Düsseldorf."* Both **pass B1's gate (a)** — the name
+really is in the retained text. That gate was rejected offline for recall; it is also blind to this.
+
+**That finding is what produced ar7, and Scott's call to hold B1 behind it.** Offline, a 5% error
+rate is inspectable and reversible — there is a TSV. As a standing write path on the live rail it
+accumulates with nobody looking. So fix the input first.
+
+### The C1 finding, which is the one worth carrying forward
+
+The plan said *"the Editor is never asked who is in the article."* **It was asked** — through
+`relevant_entities`, a required, grammar-enforced field — **and that field had no definition
+anywhere in the system prompt.** One occurrence in 4,900 characters, inside the JSON template, as
+`"relevant_entities":["<name>", "..."]`. Nothing said what belonged in it.
+
+It is not a decorative field. `derive_relevance` uses it as the second half of the verdict (86% of
+the ar6 rejections turn on it) and B1 wires it to the resolver. The discovery channel and half the
+relevance gate were running on a 4B's guess about an unlabelled array name — and it guessed
+**generic NER**, which is the right answer to the prompt it was given.
+
+ar7 adds FIELD 3. Measured A/B on six frozen fixtures, same model, same temperature, frozen-ar6
+system against ar7 — **29/32 → 31/32**:
+
+| | ar6 | ar7 |
+|---|---|---|
+| `Baltimore Ravens` invented on a youth flag-football page | listed | **gone** |
+| `Rangers`, the club the story is actually about | missed | **found** |
+| managers surfaced | Arteta | Arteta, **Emery**, **Florentino Pérez** |
+| `NFL+`, `NFL app` | absent | **listed — the one regression** |
+
+**The composition matters more than the number.** The two it fixed RESOLVE to real entities and
+would have become wrong links under B1. The one it broke resolves to nothing — exact match refuses
+it and B3 captures it as noise. **Judge this field by the links it produces, not by how clean the
+list reads.** Left untuned on purpose: six fixtures is not a population, and tuning against one of
+them is how ar4 and ar5 were both talked into changes production refuted.
+
+### Two things that had to be fixed before that number meant anything
+
+**T11 — the Editor's fixture gate has been unrunnable since the A2 rename (`fc602f9`).** The task
+became `editor`; the directory stayed `fixtures/reader/`. The harness resolves `fixtures/<task>`,
+and nothing else in the tree references the old path, so `--task editor --fixtures` had been erroring
+on a missing directory for two days. **This gate exists because the Editor once ran as sole
+relevance judge with no coverage at all.** A rename that is "just text" is not just text when a path
+is computed from the name. Directory renamed.
+
+**T12 — a fixture pinned a rule the code had deliberately abandoned.** `opponent-only-mention`
+expected `relevant=false`; `derive_relevance` has KEPT opponent-only stories since ar6 — *"a match
+against us is news about us."* It had been wrong since that reversal and could not fail visibly,
+because of T11. Flipped, and its note now records both. **A green suite and a dead suite look
+identical from outside; only running it tells them apart.**
+
+---
+
+## 1.2 What the afternoon session added (2026-07-28)
 
 **B1's groundwork is applied and committed.** Mig `198_entity_name_resolution` — `nrm()` (the one
 normalizer, in SQL), `entity_name_surfaces` (16,690 rows), an exact-lookup btree, a GIN trigram
@@ -232,7 +321,9 @@ and should retire the mig-175 trigger in the same change.
 reading whose `prompt_version` differs is invalidated and re-read lazily. It gets bumped by C4, when
 a real contract change earns the re-read wave.
 
-**Do not re-arm the held articles.** They need re-MAPPING, not re-judging — checklist item B4. Two
+**Do not re-arm the held articles.** They need re-MAPPING, not re-judging — checklist item B4.
+**The flip half of that is now DONE** (`0445211`, 9,817 links, 0 re-arms); the brand-new half is
+rehearsed and waiting. The instruction still governs everything downstream of it. Two
 things this session sharpened: the cohort is **6,377** articles pinned to the incident window, not
 the 24,984 that `vetted IS FALSE` now matches (§1.2); and re-arming is not only something you might
 choose to do, it is something the `vetted` trigger will do FOR you unless suppressed (**T10**).

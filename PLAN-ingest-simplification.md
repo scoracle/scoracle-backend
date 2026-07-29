@@ -156,7 +156,9 @@ gates work downstream of it.
       `ajax` 31, `galatasaray`, `feyenoord`), other sports (`tadej pogacar`, `caitlin clark`), and
       genuine non-sport noise (`andy burnham`, `ice`). Persisting them turns the Editor into a
       standing survey of coverage gaps, which is worth more than the links B1 recovers.
-- [ ] **B4. Re-mapping backfill over the 6,319 held articles.** **Do this before B2 goes live.** It
+- [~] **B4. Re-mapping backfill over the 6,319 held articles.** *`rust/src/bin/remap.rs` shipped
+      (`ec0afb4`); the **flip pass is APPLIED** — 9,817 links, 2026-07-28 20:51 EDT. The brand-new
+      pass is rehearsed and waiting.* **Do this before B2 goes live.** It
       exercises the resolver on 6,000 real articles offline, where mistakes are inspectable. The
       persisted `relevant_entities` already names the right entities on 5,423 of them, so a large
       share costs **zero model calls**. See "Recovery, deliberately held" below.
@@ -180,6 +182,43 @@ gates work downstream of it.
       pass. Brand-new rows carry a `match_confidence` sentinel distinct from Go's 0.95 primary so
       Editor-derived links stay greppable and reversible. **And the trigger must be suppressed —
       see T10**, or the cheap half of this item silently buys 5,370 Editor re-reads.
+
+      **RUN, 2026-07-28 20:51 EDT.** `remap -pass flips -apply` — **9,817 links** (7,712 team /
+      2,105 player) across **5,374 articles**, committed. Live census at run time: 15,797 exact
+      resolutions, 5,938 brand-new still pending, 42 already TRUE, 59 instances / 23 names refused
+      as ambiguous. **0 `article_read` items enqueued or re-opened**, verified inside the
+      transaction and again from outside against the live queue (the 7 items moving in that window
+      were the ingest rail, zero overlap with the cohort). Inventory —
+      `planning_docs/data/remap_flips.tsv`, one row per link with the matched surface and the
+      article title — is the reversal record.
+
+      The T10 suppression is **asserted before the write and measured after it**, in-transaction,
+      where the count sees the run's own uncommitted effect; non-zero vetoes the commit. Proven
+      non-vacuous: one unsuppressed flip in a rolled-back transaction produces exactly one
+      `article_read` row and the same query catches it. A guard that cannot fire is not a guard.
+
+      **Inspected — the flip set is not clean, and the errors are the EDITOR'S, not the resolver's.**
+      65 hand-labelled rows (40 from the frequent-surface head, 25 from the rare tail):
+
+      | | share | mechanism |
+      |---|---|---|
+      | clearly wrong | ~5% | place-name collision, or the Editor naming an entity that is not there |
+      | passing mention, not subject | ~10% | `Juventus` on a Liverpool–Barcola story |
+      | rare-surface tail (888 rows, 9%) | cleanest stratum | player names lifted straight from the title |
+
+      Two named specimens, because the mechanisms are different and only one is ours. `Paris` →
+      team 4508 on *"Moulin Rouge dancers welcome Tour de France finale in Paris"* — the Editor
+      extracted a **place** correctly and the resolver turned it into a club (31 flips carry the bare
+      surface `Paris`; mig 198 refused `madrid` for being ambiguous and never had to consider a name
+      that resolves *uniquely* and *wrongly*). And on a mining-stock article the Editor emitted
+      **"Fortuna Düsseldorf"**, then wrote the blurb *"Fortuna Mining Corp., a subsidiary of Fortuna
+      Düsseldorf"* — a hallucinated corporate parent, not a matching failure.
+
+      **Both classes pass gate (a).** The name IS in the retained text — "Paris" in the title,
+      "Fortuna Düsseldorf" in the blurb. B1 rejected that gate offline for recall (76.9%); this says
+      it is also **blind to this failure mode**, so it was never the protection it looked like.
+      What would catch the `Paris` class is a place-vs-club disambiguation, which is F7's problem
+      by construction — see T9's shape: a confident single match with no runner-up.
 
 ### Phase C — the Editor's new contract (one prompt version bump)
 

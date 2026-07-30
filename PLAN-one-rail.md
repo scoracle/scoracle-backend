@@ -1,10 +1,14 @@
 # PLAN — One Rail
 
-**STATE: Phase 0 COMPLETE (ground truth verified, no STOP). Next: Phase 1 (substrate, migrations
-200+). Last plan commit: (this one). Updated 2026-07-29.**
-*(Phase 0 deltas that bind later phases: §0.8 rewritten — psql runs on **archbox** over ssh, not on
-the Mac; and the **archbox checkout is behind this repo** (`cec766a`), with migrations 198/199
-untracked there — sync it before Phase 1 runs `sql/migrate.sh`. D-1 answered: `mistral-nemo:12b`.)*
+**STATE: Phase 0 CLOSED — ground truth verified, all 11 boxes ticked, no STOP condition. Next:
+Phase 1 (substrate, migrations 200+). Last plan commit: (this one). Updated 2026-07-29.**
+*(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
+the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
+with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
+(3) **D-1 is closed by Scott, 2026-07-29:** `ministral-3:14b` on the Mac does all character work
+except the Editor and the Investigator; `gemma3:4b` is **pinned** on archbox for those two
+(`OLLAMA_KEEP_ALIVE=-1`, `MAX_LOADED_MODELS=1`, `NUM_PARALLEL=4`); `mistral-nemo:12b` is installed
+but **unused**. See §3 and Appendix B D-1.)*
 *(Executors: keep this line current — phase pointer, last commit hash, date — every commit.)*
 *(Revised 2026-07-29, pre-execution audit: OLMo removed — measured, it does not hold the 4
 slots on the 1070 Ti; front page deferred to Appendix B D-6; teams.kind migration deferred
@@ -31,7 +35,7 @@ HEART   THE EDITOR reads the body (archbox 1070 Ti, 4 slots)
    |      unresolved name -> web evidence -> persons/aliases/facts   (living database)
    |      result line     -> box-score scrape -> event_box_scores    (stats rail reborn)
    v
-BRAIN   the voices (Mac, Mistral 12B, 4096 ctx, concurrent)
+BRAIN   the voices (Mac, ministral-3:14b, 4096 ctx, concurrent)
           Journalist · Influencer · Insider  (packet subscribers, by tag)
           Scout  (confirmed facts + the stats platform only — never prose)
           Analyst (peer-aware) · Oracle (reads the five cards — unchanged)
@@ -224,9 +228,23 @@ from flip day.
 | organ | host | model | concurrency | notes |
 |---|---|---|---|---|
 | Lungs | archbox (Go) | none | — | Google News RSS, teams-only sweep, daily 02:00 cron. The query is the hypothesis; Go decides nothing. |
-| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` (the engine — §4 ruling; OLMo is out) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 8. |
-| Heart: the Investigator (module `rust/src/junctions/investigator/`; stages `investigate_entity`, `fixture_boxscore`) | archbox, same card | `gemma3:4b` (same resident model — no VRAM swap thrash) | same 4-slot group | Scott's call: the Investigator rides the Editor's card |
-| Brain: 6 voices | Mac | Mistral 12B (exact Ollama tag: Appendix B; routes are config, not doctrine) | 3 concurrent to start | `num_ctx` 4096 — the packet renderer's hard budget exists because of this |
+| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` — **pinned** (the engine — §4 ruling; OLMo is out) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 8. |
+| Heart: the Investigator (module `rust/src/junctions/investigator/`; stages `investigate_entity`, `fixture_boxscore`) | archbox, same card | `gemma3:4b` — **the same pinned instance**, not a second load | same 4-slot group | Scott's call: the Investigator rides the Editor's card |
+| Brain: 6 voices | Mac (192.168.1.77) | **`ministral-3:14b`** (13.9B Q4_K_M — Scott, 2026-07-29: all character work except Editor/Investigator; D-1 is now closed) | 3 concurrent to start | `num_ctx` 4096 — the packet renderer's hard budget exists because of this |
+
+**Gemma's pin is enforced by Ollama's own config, not by convention** (measured Phase 0.11):
+archbox's `ollama.service` runs `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_MAX_LOADED_MODELS=1`,
+`OLLAMA_NUM_PARALLEL=4`. Three consequences the rest of this plan depends on:
+
+1. `gemma3:4b` is resident permanently (`/api/ps` shows `expires_at` in the year 2318, 5.34 GB in
+   VRAM, `context_length` 8192). No cold-start cost on the Editor's hot path.
+2. `MAX_LOADED_MODELS=1` makes "the Investigator rides the Editor's model" a **hardware
+   constraint, not a style choice** — routing the Investigator to any other tag would evict Gemma
+   on every call and thrash the card. Same reason `COGNITION_ROUTE_EDITOR_CANDIDATE` (§4's future
+   bakeoff hook) must only ever run **offline via `bin/eval`**, never against the live rail: a
+   challenger load evicts the incumbent.
+3. `NUM_PARALLEL=4` is exactly `ARCHBOX_GEMMA_SLOTS`'s 4 — the harness's slot count and Ollama's
+   parallel count already agree. If either moves, both must.
 
 The plumbing for all of this **already exists** (verified 2026-07-28): per-role
 `COGNITION_ROUTE_<ROLE>_BASE_URL` (`rust/src/config.rs:269`), per-host semaphores via
@@ -323,11 +341,23 @@ the executor toolchain works from a fresh session.
       `article_read` queue depth, `news_article_readings` rows, `narrative_persons` count,
       current disk free on the DB volume (bodies will add ~40–80 MB/day).
 - [x] **0.11** Confirm the Mac's Ollama is reachable from archbox and note the exact installed
-      Mistral 12B tag (`curl http://<mac>:11434/api/tags`). Record hostname/IP in the Log. If the
+      voice-model tag (`curl http://<mac>:11434/api/tags`). Record hostname/IP in the Log. If the
       Mac is unreachable, note it — Phase 6 is the first phase that needs it.
+      → Reachable. Mac = 192.168.1.77. **Scott closed D-1 on 2026-07-29: `ministral-3:14b` for all
+      character work except Editor/Investigator; `gemma3:4b` pinned for those two; Nemo unused.**
 
 **Verify:** every box above either matched or has a Log entry explaining the delta and a plan
 edit. **Commit:** `rail: phase 0 — ground truth verified`.
+
+✅ **VERIFY SATISFIED — Phase 0 is CLOSED (2026-07-29).** All 11 boxes ticked. 9 of 11 matched the
+recon exactly with no edit needed; 2 produced deltas, each with a Log entry **and** the plan edit it
+required: **0.1** → §0.8 rewritten (DB access is archbox-over-ssh, not the Mac), and **0.11** → §3
+topology + Appendix B D-1 rewritten (Scott's model ruling). One additional finding not tied to a
+box — the **archbox checkout is behind this repo** — is recorded as Log entry B and carried into the
+STATE line as a Phase 1 precondition. **No STOP condition was hit:** every named file, function,
+table, trigger and constant matched, and every number landed in its stated band. Phase 0 wrote
+nothing to the database, built no binaries, and deployed nothing, as specified. Committed at
+`91c55b5`; this closing amendment follows it.
 
 ### Log (phase 0)
 
@@ -451,16 +481,37 @@ Notes that change how these read:
   (waiting)** — the §0.6 warning about builds into `go/bin/` and `rust/bin/` tripping a restart is
   live and real. Postgres and Ollama are **system** units; the harness is a **user** unit.
 
-**0.11 — the Mac and its model ✅.** Mac = **`192.168.1.77`** (this box; en0). Ollama reachable
-**from archbox**: `curl http://192.168.1.77:11434/api/tags` from archbox returns the model list.
-**Exact Mistral 12B tag: `mistral-nemo:12b`** — 12.2B params, **Q4_0**, 7.07 GB, native
-`context_length` 1,024,000, `embedding_length` 5,120 (so the plan's `num_ctx 4096` is a deliberate
-budget, not a model limit). Also on the Mac: `ministral-3:14b` (13.9B Q4_K_M), `mistral-32k:latest`
-and `mistral:latest` (both 7.2B). `rust/src/route.rs:620` already references `mistral-nemo:12b` on
-MAC in its tests — the tag is consistent with the code. **On archbox:** `gemma3:4b` (4.3B, 3.34 GB)
-✅ resident — the Editor's engine is already on the card's host — plus `qwen3:8b`, `mistral:7b`.
-**No OLMo on either box**, consistent with the pre-execution audit removing it.
-→ Appendix B's "exact Ollama tag" question is answered: **`mistral-nemo:12b`**.
+**0.11 — the Mac, and the model assignment ✅.** Mac = **`192.168.1.77`** (this box; en0). Ollama
+reachable **from archbox**: `curl http://192.168.1.77:11434/api/tags` run *on archbox* returns the
+list, so Phase 6's cross-host routing has a clear path.
+
+Measured inventory, both boxes:
+
+| host | installed tags | loaded at check time | role |
+|---|---|---|---|
+| Mac `192.168.1.77` | **`ministral-3:14b`** (13.9B Q4_K_M, 9.08 GB) | **loaded** (`expires_at` 2026-07-30) | **the six voices** |
+| | `mistral-nemo:12b` (12.2B Q4_0, 7.07 GB, native ctx 1,024,000) | not loaded | **unused** — installed, unrouted |
+| | `mistral-32k:latest`, `mistral:latest` (both 7.2B) | not loaded | unused spares |
+| archbox `192.168.1.92` | **`gemma3:4b`** (4.3B Q4_K_M, 3.34 GB) | **loaded, pinned** — 5.34 GB VRAM, `expires_at` **2318**-11-08 | **Editor + Investigator** |
+| | `qwen3:8b`, `mistral:7b` | not loaded | unused spares |
+
+**Scott's ruling, 2026-07-29 (closes D-1):** `ministral-3:14b` does **all character work except the
+Editor and the "seeker"** (= the Investigator); `gemma3:4b` is **pinned** for those two; **Nemo is
+present but not used**. One factual correction for the record: Nemo is installed on the **Mac**, not
+on archbox — archbox has no Nemo at all, and its unused spares are `qwen3:8b` and `mistral:7b`. The
+ruling's substance (Nemo unrouted) is confirmed either way; the box matters only so a future
+executor doesn't hunt for it on the wrong machine.
+
+**The pin is real config, not habit:** archbox `ollama.service` carries `OLLAMA_KEEP_ALIVE=-1`,
+`OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=4`. See §3 for the three consequences — most
+importantly that `MAX_LOADED_MODELS=1` turns "the Investigator shares the Editor's model" into a
+hardware constraint, and that `NUM_PARALLEL=4` already equals `ARCHBOX_GEMMA_SLOTS`'s 4.
+
+`num_ctx 4096` remains a deliberate budget, not a model limit (Ministral's native context is far
+larger). Note `rust/src/route.rs:620` names `mistral-nemo:12b` on MAC **in a test fixture only** —
+a test constant, not a route; Phase 6.9 sets the real route to `ministral-3:14b`, and 6.10 captures
+the voice fixtures against it. **No OLMo on either box**, consistent with the pre-execution audit
+removing it.
 
 ### Handoff (phase 0 → 1)
 ```
@@ -964,9 +1015,11 @@ Phase 7 flips it.
       here: when deterministic `pillar_convergence` < 40, the prompt hands the divergence as a
       decided fact and `DISAGREEMENT:` becomes a REQUIRED field (grammar-enforced), narrating
       it. One fixture proves it fires (a guard never observed firing is not a guard).
-- [ ] **6.9** Mac routing config (values from Phase 0 Log 0.11): for the six voice roles,
-      `COGNITION_ROUTE_<ROLE>_BASE_URL=http://<mac>:11434`, models per Appendix B D-1 (the
-      Mistral 12B tag), `COGNITION_BACKEND_CONCURRENCY=http://<mac>:11434=3,http://localhost:11434=4`,
+- [ ] **6.9** Mac routing config (values measured in Phase 0 Log 0.11): for the six voice roles,
+      `COGNITION_ROUTE_<ROLE>_BASE_URL=http://192.168.1.77:11434` and
+      `COGNITION_ROUTE_<ROLE>=ministral-3:14b` (Appendix B D-1, closed — **not** Nemo; Gemma stays
+      pinned on archbox for editor/investigate_entity and is never routed here),
+      `COGNITION_BACKEND_CONCURRENCY=http://192.168.1.77:11434=3,http://localhost:11434=4`,
       voice `num_ctx` stays 16384 under legacy / 4096 under packet (RAIL-scoped constant —
       change `VOICE_NUM_CTX` const to a RAIL-aware fn). Mac worker runs voice stages only
       (`COGNITION_STAGES` on the Mac).
@@ -1136,16 +1189,24 @@ legacy route envs removed from both machines' unit env files.
 
 ## Appendix B — Decisions Scott owns (defaults act if he is silent, except D-4)
 
-- **D-1 · Voice model tag.** Scott: "Mistral 3:12b" on the Mac. Phase 0.11 records the exact
-  installed Ollama tag; Phase 6.9 routes it. Routes are config — a different tag is an env
-  edit, and any *model change* re-earns its seat on the voice fixtures (AI Stage Conventions).
-  **ANSWERED by Phase 0.11 → `mistral-nemo:12b`** (12.2B, Q4_0, 7.07 GB, native ctx 1,024,000),
-  installed on the Mac (192.168.1.77) and reachable from archbox. `rust/src/route.rs:620` already
-  names that tag on MAC, and it is the only 12B on the box — so the plan's "Mistral 12B" is this.
-  ⚠️ *One ambiguity for Scott, harmless until 6.9:* the Mac also carries **`ministral-3:14b`**
-  (13.9B, Q4_K_M), which matches the "**3**" in "Mistral 3:12b" while `mistral-nemo:12b` matches
-  the "**12b**". Default stands as `mistral-nemo:12b` (it is the 12B, and the code already
-  references it); if Scott meant the Ministral, Phase 6.9 is a one-line env edit.
+- **D-1 · Voice model tag — CLOSED by Scott, 2026-07-29. The model assignment is now doctrine,
+  not a default.** Two engines, one per organ, and nothing else is routed:
+  - **`ministral-3:14b`** (13.9B, Q4_K_M, 9.08 GB) on the **Mac** — **all character work except
+    the Editor and the Investigator**: Journalist, Influencer, Insider, Scout, Analyst, Oracle.
+    Phase 6.9 routes these six. (Verified loaded on the Mac at Phase 0 check time.)
+  - **`gemma3:4b`** on **archbox** — the Editor and the Investigator (Scott's "seeker"; see the
+    naming ruling at the top of this plan — the character is THE INVESTIGATOR, `investigator/`
+    in code), **pinned**. Not a preference: archbox's Ollama runs `OLLAMA_KEEP_ALIVE=-1` with
+    `OLLAMA_MAX_LOADED_MODELS=1`, so Gemma is resident forever and a *second* model on that card
+    would **evict** it. See §3 and Log 0.11.
+  - **`mistral-nemo:12b` is not used.** It stays installed, unrouted. Scott's ruling ("Nemo is
+    there but not used") stands; the location is the **Mac**, not archbox — Nemo is not installed
+    on archbox at all (archbox's unused spares are `qwen3:8b` and `mistral:7b`). Recorded so a
+    future executor does not go looking for it on the wrong box.
+
+  This supersedes the earlier "Mistral 3:12b"/12B reading. Routes are still config — a tag change
+  is an env edit — but any *model change* re-earns its seat on the voice fixtures (AI Stage
+  Conventions), and `ministral-3:14b` is what the Phase 6.10 fixtures get captured against.
 - **D-2 · Person kinds v1** default: coach, executive, owner, agent, official (auto-writable);
   family exists in the enum, never auto-written.
 - **D-3 · Out-of-scope clubs + national teams** default: census only (`rejected_out_of_scope`),

@@ -1,7 +1,8 @@
 # PLAN — One Rail
 
-**STATE: Phase 0 CLOSED — ground truth verified, all 11 boxes ticked, no STOP condition. Next:
-Phase 1 (substrate, migrations 200+). Last plan commit: (this one). Updated 2026-07-29.**
+**STATE: Phase 0 CLOSED; plan REVISED 2026-08-01 (the character-flow revision, pre-Phase-1 —
+see the revision note below). Next: Phase 1 (substrate, migrations 200+; note 1.4's
+persons.kind now includes `player`). Last plan commit: (this one). Updated 2026-08-01.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -15,6 +16,19 @@ slots on the 1070 Ti; front page deferred to Appendix B D-6; teams.kind migratio
 into D-3; duplicate short-circuit added in 3.4. Capacity corrected in 3.9 — the legacy
 ~7,400 reads/day was DEMAND-limited under the 2h-on/1h-off rest schedule with the card mostly
 idle, not a ceiling.)*
+*(Revised 2026-08-01 — THE CHARACTER-FLOW REVISION. Scott's vision session; wiki docs
+synthesized: living-database-seeker, Character Contracts, Characters, AI Stage Conventions,
+Progressive Refinement Dataflow. What changed: (1) phases REORDERED — box scores are now
+Phase 4, before entity discovery (Phase 5) and storylines/packets (Phase 6): the cord is cut
+and the Scout starves on frozen stats. Mapping old→new: 5B→4, 5A→5, 4→6, 6→7, 7→8, 8→9.
+(2) D-4 sport CLOSED: FOOTBALL. (3) Investigator enqueue: immediate on person+descriptor
+(5.2). (4) `persons.kind` gains `player` (1.4, D-2). (5) Phase 7 gains the memory loop, the
+voice diet (RAIL-scoped prompt versions), the storyline memory lens, and the graph seam —
+graph's mig-193 enqueue dies with `article_read` at flip and would have silently starved the
+archivist; demolition would likewise have killed the episode rollups every memory card reads
+(9.5 now SPLITS cron-narrative-links.sh). (6) Four new §4 rulings: memory is characters-only;
+stats before the Scout; graph rides Gemma; empower the junction — Google does relevancy up
+front. Flow diagram rewritten with machines + tables.)*
 
 Written 2026-07-28. This is the build order for the greenfield rail decided in
 [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
@@ -25,25 +39,52 @@ it is the case for this plan and the map of the rot this plan must not rebuild.
 The two rails — news and stats — collide into one:
 
 ```
-LUNGS   Google News RSS, one ranked query per team, daily        the query IS the hypothesis
-   |    (Go: fetch + store + body retention. Zero judgment.)
-   v
-HEART   THE EDITOR reads the body (archbox 1070 Ti, 4 slots)
-   |      gate / discover / type / register  ->  editor_reads
-   |      storylines assembled in code       ->  packets
-   |    THE INVESTIGATOR verifies (same card, same slots)
-   |      unresolved name -> web evidence -> persons/aliases/facts   (living database)
-   |      result line     -> box-score scrape -> event_box_scores    (stats rail reborn)
-   v
-BRAIN   the voices (Mac, ministral-3:14b, 4096 ctx, concurrent)
-          Journalist · Influencer · Insider  (packet subscribers, by tag)
-          Scout  (confirmed facts + the stats platform only — never prose)
-          Analyst (peer-aware) · Oracle (reads the five cards — unchanged)
+LUNGS · archbox · Go · 02:00 cron
+  Google News RSS, one ranked query per team — Google does relevancy up front
+  → news_articles (query saved in raw.q)                    ⇒ enqueue editor
+     |
+     v
+HEART · archbox 1070 Ti · gemma3:4b PINNED · 4 slots (Editor + Investigator + graph)
+  THE EDITOR (stage editor) — fetch body → describe (ep1) → code derives
+  → news_articles.full_text, editor_reads
+  forks, in-handle:
+    result_line parses           ⇒ fixtures upsert → trigger → fixture_boxscore
+    unknown person + descriptor  ⇒ entity_candidates → investigate_entity
+    every successful read        ⇒ graph
+  THE DESK (pure code, zero tokens) — assemble + tag the stories of the day
+  → storylines / storyline_articles / storyline_entities → packets (append-only)
+  tags fan out ⇒ narratives (always) · transfers ('transfer') · vibe ('charged')
+
+  THE INVESTIGATOR (same pinned gemma, below the Editor)
+  A · box scores (fixture_boxscore): boxscore_sources URL → budgeted fetch
+      → DOM/JSON parse (never LLM numbers) → source_documents + landing row
+      → promote in ONE tx: event_box_scores + event_team_stats + finalize_fixture()
+      → percentiles → LISTEN percentile_changed ⇒ peak      ← stats before the Scout
+  B · mystery entities (investigate_entity): Wikipedia/Google discovery
+      → budgeted fetch → gemma DESCRIBES → code GATES
+      → persons / entity_aliases / entity_facts / entity_relationships
+      → tomorrow the resolver links the name (the living database compounds)
+
+  GRAPH (stage graph, gemma) — the archivist banks typed relations + people
+  → narrative_events / narrative_persons → nightly rollups → episodes
+  (these feed every character's memory card)
+     |
+     v
+BRAIN · Mac 192.168.1.77 · ministral-3:14b · 3 concurrent · num_ctx 4096 uniform
+  each voice's window: prompt ~550 + memory ~700 + packet ~2000 + output ~800
+  Journalist  narratives  every packet             → news_summaries
+  Insider     transfers   'transfer' packets       → transfer_rumors, insider_scores
+  Influencer  vibe        'charged' packets        → vibe_scores
+  Scout       peak        STATS ONLY, never prose  → stat_summaries
+  Analyst     momentum    peak/vibe moved          → momentum_summaries
+  Oracle      sigil       BLIND: 5 cards + own trail → sigil_synthesis
+  every voice reads its memory card in, banks its read back — memory never
+  enters input_hash; packets re-fan only when a voice's slice fingerprint moves
 ```
 
 **Naming ruling (Scott, 2026-07-28): the acquisition character is THE INVESTIGATOR.** Older docs
 (wiki Living Database, the 2026-07-27 planning docs) say "the Seeker" — same character, old name.
-Code, tables, and stages use `investigator`/`investigate_*`. Wiki updates land in Phase 8, not
+Code, tables, and stages use `investigator`/`investigate_*`. Wiki updates land in Phase 9, not
 before.
 
 ---
@@ -117,7 +158,7 @@ writing until cutover; two writers must never share one table, so this is a new 
 | `final_url, final_domain, content_hash, extracted_words` | fetch provenance |
 | `read jsonb` | the full ep1 model envelope (below) |
 | `resolved jsonb` | resolver outcome, written by code: `{links:[{entity_type,entity_id,sport,via_surface}], unresolved:[{name,kind_hint,descriptor}], refused_ambiguous:[...]}` |
-| `storyline_id bigint NULL` | attach result (Phase 4 writes it) |
+| `storyline_id bigint NULL` | attach result (Phase 6 writes it) |
 | `fetched_at, updated_at` | |
 
 **The ep1 model contract** (constrained decoding; property order IS the contract — extraction
@@ -148,7 +189,9 @@ before anything derived, the ar4 lesson). Fields, in schema order:
 HANDOFF §1 names; the numbered-candidate mechanism dies with the rail. Derivations (all in code,
 none asked of the model): relevance; entity links (exact `nrm()` match on
 `entity_name_surfaces` only — trigram ranks for review, never writes, T9); Investigator
-nominations (unresolved `names[]`); routing tags (from `story_type` + non-neutral `register` →
+nominations (unresolved `names[]` — a person-kind mention WITH a descriptor enqueues on first
+sight, Scott 2026-08-01; descriptor-less bare names wait for the 2-mention floor; refused ties
+always nominate — the full rule is 5.2); routing tags (from `story_type` + non-neutral `register` →
 tag `charged`); box-score nomination (`result_line` parses + `page_kind` ∈ article|score_table);
 mention quotes (code slices ±160 chars around the name's first occurrence in the **stored**
 `full_text` — the model never emits quotes; bodies are retained now precisely so evidence can be
@@ -197,7 +240,7 @@ Appendix B D-6 holds the half-day of work for the day a surface exists.)*
 
 **The single condition.** The Journalist reads packets instead of
 `load_vetted_corpus_with_exclusions` (`rust/src/junctions/journalist/mod.rs:380`) when, for **7
-consecutive days**, all five clauses hold (SQL for each lives in Phase 7):
+consecutive days**, all five clauses hold (SQL for each lives in Phase 8):
 
 1. **Coverage:** ≥95% of articles ingested each day have an `editor_reads` row within 24h.
 2. **Packet presence:** every (entity, day) that legacy produced a narratives corpus for (≥3
@@ -209,13 +252,16 @@ consecutive days**, all five clauses hold (SQL for each lives in Phase 7):
 5. **Accounting:** every packet's claims reference member articles only; ledger reconciliation
    finds 0 unaccounted drops (the A5 rule: an article dropped from evidence must be named).
 
-**The flip is one act:** `RAIL=packet` in both machines' env + the Phase 7 [DEPLOY]. Scott flips
+**The flip is one act:** `RAIL=packet` in both machines' env + the Phase 8 [DEPLOY]. Scott flips
 it; the harness never auto-promotes.
 
 **What happens to the old rail that day: it stops.** Same session, in order: legacy triggers
 dropped, Go stops enqueueing `scrub`, `COGNITION_STAGES` drops `article_read` + `scrub`. Deleted
-— not left running in parallel forever. Source excision follows in Phase 8 (Appendix A is the
-inventory); rollback stays possible for 7 days (env flip back + revert migration in Appendix A).
+— not left running in parallel forever. The graph seam moves in the same act: the Editor's
+RAIL=packet path takes over `enqueue_graph_for_article` as `article_read` stops claiming (wired
+7.13, verified 8.5) — the archivist never starves. Source excision follows in Phase 9 (Appendix
+A is the inventory); rollback stays possible for 7 days (env flip back + revert migration in
+Appendix A).
 
 **The old corpus is archive.** 150,566 articles, 265,204 links, and every `news_article_readings`
 row keep their state forever. No backfill of packets over history. The new rail is forward-only
@@ -228,9 +274,10 @@ from flip day.
 | organ | host | model | concurrency | notes |
 |---|---|---|---|---|
 | Lungs | archbox (Go) | none | — | Google News RSS, teams-only sweep, daily 02:00 cron. The query is the hypothesis; Go decides nothing. |
-| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` — **pinned** (the engine — §4 ruling; OLMo is out) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 8. |
+| Heart: the Editor (module `rust/src/junctions/editor/` — greenfield; stage `editor`) | archbox GTX 1070 Ti | `gemma3:4b` — **pinned** (the engine — §4 ruling; OLMo is out) | shares the 4-slot group | `ARCHBOX_GEMMA_SLOTS` (`rust/src/stage.rs:84`) is the pool. The legacy seat is renamed `junctions/article_reader/` (Phase 3.0) and dies in Phase 9. |
 | Heart: the Investigator (module `rust/src/junctions/investigator/`; stages `investigate_entity`, `fixture_boxscore`) | archbox, same card | `gemma3:4b` — **the same pinned instance**, not a second load | same 4-slot group | Scott's call: the Investigator rides the Editor's card |
-| Brain: 6 voices | Mac (192.168.1.77) | **`ministral-3:14b`** (13.9B Q4_K_M — Scott, 2026-07-29: all character work except Editor/Investigator; D-1 is now closed) | 3 concurrent to start | `num_ctx` 4096 — the packet renderer's hard budget exists because of this |
+| Heart: the archivist (module `rust/src/junctions/graph/`; stage `graph`) | archbox, same card | `gemma3:4b` — the same pinned instance (via `Role::EmotionalNews` default route — utility, not identity) | same 4-slot group, rotation batch 8 | num_ctx 8192 matches the Editor (no runner reload). Enqueue seam today: the legacy article_read handler (mig 193); moves to the Editor's RAIL=packet path at flip (7.13/8.5). Scott 2026-08-01: graph rides Gemma — high effort, low thought. |
+| Brain: 6 voices | Mac (192.168.1.77) | **`ministral-3:14b`** (13.9B Q4_K_M — Scott, 2026-07-29: all character work except Editor/Investigator; D-1 is now closed) | 3 concurrent to start | `num_ctx` 4096 uniform across all six (mixed num_ctx forces runner reloads, route.rs:52-75) — the window budget in 7.2 exists because of this |
 
 **Gemma's pin is enforced by Ollama's own config, not by convention** (measured Phase 0.11):
 archbox's `ollama.service` runs `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_MAX_LOADED_MODELS=1`,
@@ -251,11 +298,11 @@ The plumbing for all of this **already exists** (verified 2026-07-28): per-role
 `COGNITION_BACKEND_CONCURRENCY` `url=permits` (`config.rs:301`, `route.rs:315 governor_for`),
 per-call `num_ctx` (`ollama.rs:44`), slot groups (`stage.rs:77`). New roles: `Role::Editor`
 (`COGNITION_ROUTE_EDITOR`) and `Role::Investigator` (`COGNITION_ROUTE_INVESTIGATOR`); legacy
-`Role::ArticleReader` dies in Phase 8.
+`Role::ArticleReader` dies in Phase 9.
 
 Two worker deployments drain one Postgres queue; `COGNITION_STAGES` on each machine decides who
-claims what: archbox = editor/investigate_entity/fixture_boxscore (+ legacy stages until cutover),
-Mac = the six voice stages.
+claims what: archbox = editor/graph/investigate_entity/fixture_boxscore (+ legacy stages until
+cutover), Mac = the six voice stages.
 
 ---
 
@@ -280,7 +327,7 @@ Mac = the six voice stages.
   cutover the Editor's resolver writes player links; `title_pos` stays NULL on new links, which
   the co-mention/heat proximity gates treat as lenient. Co-mention refresh dies at demolition;
   `compute_transfer_heat` survives on Editor links — its volume gets a T7-style rebaseline in
-  Phase 8.
+  Phase 9.
 - **`vetted` becomes one fact: the Editor linked it.** Scrub-as-judge dies. The two-writer
   tri-state dies.
 - **Exact match on `nrm()` surfaces is the only automatic link path** (T9). Trigram ranks for
@@ -289,7 +336,7 @@ Mac = the six voice stages.
   mention is never a database write. Every accepted fact cites a `source_documents` row.
   (Living-database doctrine, planning doc 2026-07-27.)
 - **Maintenance is demand-led, like growth.** The story that makes a fact stale is the same story
-  that re-arms its verification: a new mention of a decided candidate reopens it (5A.6),
+  that re-arms its verification: a new mention of a decided candidate reopens it (5.6),
   re-verification supersedes changed relationships with dated validity, box scores revive
   `player_team_history` and tiers through the existing triggers, and the transfer chain keeps
   adjudicating movement. Nothing polls the world on a schedule to stay fresh; relevance drives
@@ -302,6 +349,26 @@ Mac = the six voice stages.
   Conflating them caused the 715-WARN storm. Decided facts are computed in code; models narrate.
 - **ar7/C2 must never deploy onto the legacy rail** (HANDOFF §5). Its contract IS ep1's ancestor;
   it ships as the greenfield `editor` stage, not as an `article_read` bump.
+- **Memory is characters-only** (Scott, 2026-08-01). The Editor is stateless — consistency comes
+  from a fixed contract, frozen evals, and deterministic gates, never hidden memory. The
+  Investigator writes facts and provenance, never memories. Each voice reads and banks its OWN
+  memory, provenance-labeled (`Ground truth:` / `Prior story:` / `Our prior read:` — the
+  echo-chamber rule from Progressive Refinement Dataflow). The Oracle is blind to evidence: five
+  cards + its own verdict trail, nothing else. Memory blocks stay OUT of `input_hash` (the
+  existing discipline, journalist/mod.rs:614 et al.); slice fingerprints (E2) are the only
+  re-fan gate.
+- **Stats land before the Scout reads** (Scott, 2026-08-01). The only roads to a `peak` enqueue
+  are the percentile chain — `finalize_fixture()` inside the promotion tx → percentile recompute
+  → `trg_percentile_changed_*` → `pg_notify('percentile_changed')` → Go listener (≥10 pts) —
+  plus the nightly statcommentary reconcile cron. Never packets, never prose, never a
+  pre-promotion fixture. The chain IS the enforcement (4.7).
+- **Graph rides Gemma on archbox** (Scott, 2026-08-01). Typed-relation extraction is high
+  effort, low thought — exactly the pinned card's work. The archivist shares
+  `ARCHBOX_GEMMA_SLOTS` today and keeps it; only its enqueue seam moves at flip (7.13/8.5).
+- **Empower the junction; Google does relevancy up front** (Scott, 2026-08-01). Every junction
+  is budgeted to produce RICH output — the three-audience read: downstream prompt, user surface,
+  archive. The ranked Google query is the relevancy filter at the front door; the rail never
+  re-derives what the query already decided.
 
 ---
 
@@ -342,7 +409,7 @@ the executor toolchain works from a fresh session.
       current disk free on the DB volume (bodies will add ~40–80 MB/day).
 - [x] **0.11** Confirm the Mac's Ollama is reachable from archbox and note the exact installed
       voice-model tag (`curl http://<mac>:11434/api/tags`). Record hostname/IP in the Log. If the
-      Mac is unreachable, note it — Phase 6 is the first phase that needs it.
+      Mac is unreachable, note it — Phase 7 is the first phase that needs it.
       → Reachable. Mac = 192.168.1.77. **Scott closed D-1 on 2026-07-29: `ministral-3:14b` for all
       character work except Editor/Investigator; `gemma3:4b` pinned for those two; Nemo unused.**
 
@@ -433,7 +500,7 @@ already built. Nothing new is needed to put the Editor on archbox and the voices
 `189_fixture_boxscore_fetches.sql`), PK `fixture_id`, FKs to `fixtures`/`sports`, payload columns
 `score / period_scoring / team_stats / player_stats / raw_labels` (jsonb) **plus
 `model_version, prompt_version, parser_version, output_contract_version, parser_outcome`** — the
-table was already shaped for a model-parsed path, which is exactly what 5B needs; it is reusable
+table was already shaped for a model-parsed path, which is exactly what Phase 4 needs; it is reusable
 as claimed. Status CHECK already includes `not_supported|not_final|not_found|blocked|fetch_failed|
 parse_failed|validation_failed`. **1 row** in it (the dead-provider era). `rust/src/boxscore_fetch.rs`
 (57,785 B) fetches **provider JSON** from `https://api.balldontlie.io` with cursor pagination and
@@ -483,7 +550,7 @@ Notes that change how these read:
 
 **0.11 — the Mac, and the model assignment ✅.** Mac = **`192.168.1.77`** (this box; en0). Ollama
 reachable **from archbox**: `curl http://192.168.1.77:11434/api/tags` run *on archbox* returns the
-list, so Phase 6's cross-host routing has a clear path.
+list, so Phase 7's cross-host routing has a clear path.
 
 Measured inventory, both boxes:
 
@@ -509,19 +576,24 @@ hardware constraint, and that `NUM_PARALLEL=4` already equals `ARCHBOX_GEMMA_SLO
 
 `num_ctx 4096` remains a deliberate budget, not a model limit (Ministral's native context is far
 larger). Note `rust/src/route.rs:620` names `mistral-nemo:12b` on MAC **in a test fixture only** —
-a test constant, not a route; Phase 6.9 sets the real route to `ministral-3:14b`, and 6.10 captures
-the voice fixtures against it. **No OLMo on either box**, consistent with the pre-execution audit
-removing it.
+a test constant, not a route; Phase 7.12 sets the real route to `ministral-3:14b`, and 7.11
+captures the voice fixtures against it. **No OLMo on either box**, consistent with the
+pre-execution audit removing it.
 
 ### Handoff (phase 0 → 1)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phase 0 (ground truth) is committed — see its Log for measured baselines and any deltas.
+Phase 0 (ground truth) is committed, and the plan was REVISED 2026-08-01 (the character-flow
+revision — read the revision note under STATE first; phases were renumbered). See the
+Phase 0 Log for measured baselines.
+PRECONDITION: sync the archbox checkout to this repo's HEAD before running sql/migrate.sh
+(Phase 0 Log entry B — archbox is behind, with migs 198/199 untracked there).
 Read §0 (protocol) and §1 (the packet contract), then execute Phase 1 (substrate migrations)
 top to bottom. Migrations 200+; template sql/migration_template.sql; apply with sql/migrate.sh;
 snapshot with scripts/hosting/snapshot-schema.sh; commit migration+snapshot together.
-Everything in Phase 1 is inert — no code reads the new tables yet. Do not deploy anything.
-Do not touch the legacy rail. STOP on surprise per §0.3.
+Note 1.4: persons.kind now includes 'player'. Everything in Phase 1 is inert — no code reads
+the new tables yet. Do not deploy anything. Do not touch the legacy rail. STOP on surprise
+per §0.3.
 ```
 
 ---
@@ -542,10 +614,12 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
 - [ ] **1.3** Mig 202 `one_rail_packets`: `packets` per §1c. Indexes:
       `packets(storyline_id, compiled_at DESC)`, `packets(day, sport)`, GIN `routing_tags`.
 - [ ] **1.4** Mig 203 `persons`: `persons` table — `id serial PK, sport text NULL, full_name text
-      NOT NULL, kind text CHECK (coach|executive|owner|agent|family|official|other), team_id int
-      NULL, search_aliases text[] DEFAULT '{}', meta jsonb DEFAULT '{}', created_at`. (Kinds are a
-      superset of `narrative_persons.kind`; that graph-layer table is unaffected and reconciles
-      later — Appendix B.)
+      NOT NULL, kind text CHECK (player|coach|executive|owner|agent|family|official|other), team_id
+      int NULL, search_aliases text[] DEFAULT '{}', meta jsonb DEFAULT '{}', created_at`. (`player`
+      added by Scott 2026-08-01 — story-relevant players OUTSIDE the stats platform: rookies
+      pre-debut, retired, foreign-league; the `players` table stays box-score-owned, see D-2.
+      Kinds are a superset of `narrative_persons.kind`; that graph-layer table is unaffected and
+      reconciles later — Appendix B.)
 - [ ] **1.5** Mig 204 `person_entity_type`: extend `entity_type` CHECKs to admit `'person'` on
       `news_article_entities` and `entity_name_surfaces`; add `'candidate'` + `'fixture'` to
       `cognition_ledger`'s CHECK; add `'candidate'` to `pipeline_work`'s. (Only what v1 writes —
@@ -576,7 +650,7 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       reopen). Plus an unconditional `narratives` fan-out per participant (the Journalist reads
       everything). Follow the mig-197 trigger's ON CONFLICT/input_version pattern +
       `pg_notify('pipeline_work_ready','')`. **Ships live but fires into an empty subscription
-      table + zero packets — doubly inert.** Do NOT seed subscriptions here (that is Phase 6; the
+      table + zero packets — doubly inert.** Do NOT seed subscriptions here (that is Phase 7; the
       mig-197 churn-loop lesson).
 - [ ] **1.8** Extend `refresh_entity_name_surfaces()` to include `persons`
       (name + search_aliases, entity_type 'person') — mig 207. Run it; person surfaces = 0 rows
@@ -599,7 +673,7 @@ exist and are inert; entity_type CHECKs admit 'person'; packet routing trigger i
 fires into an empty subscription table.
 Read §0 and §3, then execute Phase 2 (lungs — Go provenance, additive only).
 One [DEPLOY] step at the end; deploys restart services via the .path watchers — that is
-expected. Do not touch match.go or any regex path; deletions happen in Phase 8.
+expected. Do not touch match.go or any regex path; deletions happen in Phase 9.
 ```
 
 ---
@@ -751,59 +825,110 @@ every arrival in shadow on the ep1 contract, persists bodies to news_articles.fu
 reads to editor_reads, and touches nothing the legacy rail consumes (legacy module now lives
 at junctions/article_reader/, eval task article_reader). See Phase 3 Log for measured
 throughput/coverage.
-Read §0, §1b–§1c (storylines/packets), then execute Phase 4 (storyline assembly + packet
-compile — all deterministic code, zero model calls).
-T3 is the law here: 0.5–0.75 similarity is the SAME STORY with a DIFFERENT CLAIM — attach,
-never collapse. The disagreement is the story.
+Read §0, §3, §4 (rulings), Appendix B D-4 (CLOSED: FOOTBALL), then execute Phase 4 (the
+Investigator — box scores; the module junctions/investigator/, Role::Investigator, and the
+budgeted fetcher are all founded here and reused by Phase 5).
+Laws: one adapter per source family; DOM/JSON parsing, never regex, never LLM number-reading;
+fixture identity validated before anything writes; promotion calls finalize_fixture in the
+SAME tx (stats before the Scout, §4); a correction is a revision + recompute, never an
+overwrite. The landing table fixture_boxscore_fetches and stage fixture_boxscore already
+exist (mig 189 / rust/src/boxscore_fetch.rs) — you are replacing their SOURCES (providers
+cancelled) and moving the file, not changing their shape. The stage wire name
+fixture_boxscore is a live queue identity — it does NOT rename (§4 naming ruling).
 ```
 
 ---
 
-## Phase 4 — Heart II: storylines and packets (code, not calls)
+## Phase 4 — Heart II: the Investigator arrives (box scores; the stats rail reborn)
 
-- [ ] **4.1** `editor/storyline.rs`: the §1b attachment rule, invoked at the end of every Editor
-      handle (after `editor_reads` persists): compute candidates → attach or open → write
-      `storyline_articles`, upsert `storyline_entities` (join/`last_seen_at`), set
-      `editor_reads.storyline_id`. Log every decision (storyline_id, score, candidate count) at
-      debug level.
-- [ ] **4.2** Backfill pass (one-shot bin, rehearsed rolled-back first): attach the shadow
-      period's existing `editor_reads` (`attach_method='backfill'`, oldest first so storylines
-      form in arrival order).
-- [ ] **4.3** `editor/packet.rs` — compile on storyline-dirty with a 15-minute quiet debounce
-      (drain-loop tick checks `storylines.last_seen_at`): assemble §1c from member
-      `editor_reads` (claims from `key_facts` with article/source/published_at attribution —
-      NO dedup across sources beyond byte-identical facts; register = strongest non-neutral;
-      quotes code-sliced from `full_text`; slice fingerprints per voice: journalist = hash of
-      claims+headline, vibe = hash of register+phrase+claims, transfers = hash of
-      transfer-typed claims), insert packet (supersedes prior), mark storyline clean. Packets
-      INSERT will fire mig 206's trigger — still inert (0 subscriptions).
-- [ ] **4.4** Storyline lifecycle sweep (hourly, code): `open → dormant` after 14 quiet days;
-      resolution stays manual/downstream for now (D5's close-in-one-stroke is wired but only
-      invoked when a resolution is recorded — the transfer chain is the first writer, Phase 6).
-- [ ] **4.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
-      shape: Diomande/Vinicius/Rodri/Lee Kang-in/Álvarez clusters — assert Lee Kang-in lands in
-      its own storyline, NOT Real Madrid's, per the hand count).
-- [ ] **4.6** **[DEPLOY]** rust to archbox.
-- [ ] **4.7** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
-      distribution (the top cluster should land ~15–25:1 against the 20:1 hand count — outside
-      that band, STOP and inspect attach scores); % of reads attached vs opened-new; hand-inspect
-      the 3 biggest storylines for wrong merges AND for a preserved contradiction (T3 spot
-      check — find one "agreed"/"not agreed" pair sharing a packet's claims).
+Third-party stats are gone (cancelled 2026-07-27/28), and every day without this phase the
+Scout reads staler z-scores — that is why box scores are the FIRST Investigator job (Scott,
+2026-08-01). The news rail now *causes* the stats rail: the Editor's `result_line` nominates
+a completed fixture; the Investigator scrapes, validates, and promotes it; the existing
+percentile chain fires the Scout exactly as it did off the provider seeder.
+`player_team_history` comes back to life for free.
 
-**Verify:** 4.7 bands; packet trigger fired 0 work rows (subscriptions still empty).
-**Commit:** `rail: phase 4 — storylines assemble, packets compile`.
+This phase also founds the Investigator in code — the module, the role, and the budgeted
+fetcher land here; Phase 5 (entity discovery) reuses all three.
+
+- [ ] **4.1** The character's module + role: create `rust/src/junctions/investigator/`;
+      `git mv rust/src/boxscore_fetch.rs rust/src/junctions/investigator/boxscore.rs` (+ `use`
+      path updates; the stage wire name `fixture_boxscore` and the landing table are live
+      identities and do NOT rename, §4). `Role::Investigator` in `route.rs`
+      (`COGNITION_ROUTE_INVESTIGATOR=gemma3:4b` on archbox; `Role::all()` bump; `env_suffix`
+      `INVESTIGATOR`). The Investigator rides the pinned Gemma (§3 — hardware constraint); its
+      only v1 model calls are describe-only page triage.
+- [ ] **4.2** The budgeted fetcher (shared substrate — built here, reused by Phase 5): extend
+      `fetch.rs` with a per-domain budget (concurrency 1, ≥2s spacing per domain, respect
+      429/Retry-After, circuit-break a domain after repeated failures), cache by canonical URL
+      + content_hash into `source_documents` with a bounded `retained_excerpt`. No browser
+      automation; a domain that blocks direct fetch is a domain we skip (never stealth).
+- [ ] **4.3** `boxscore_sources` table (mig 208, data-not-code): sport, league_id NULL, domain,
+      discovery mode (url_template | search), parser_family, trust_state
+      (candidate|trusted|suspended), fetch_policy jsonb (rpm, concurrency, cache_ttl). **D-4
+      sport is CLOSED: FOOTBALL** (Scott, 2026-08-01). In-phase: terms/robots review of
+      candidate source families → seed ONE family, url_template mode (the surgical target-URL
+      scrape); record the review in the Log. NBA is the fallback only if every FOOTBALL family
+      fails review.
+- [ ] **4.4** Fixture nomination (code, Editor handle): parseable `result_line` + both teams
+      resolved → match `fixtures` within ±2d on (sport, home/away or reversed) → if found and
+      status ≠ completed, or scores differ, or no row: upsert a fixture row
+      (status='completed', scores from the parse, `external_id` NULL — Scoracle identity, not
+      provider identity) flagged `meta needs_verification`. The existing
+      `fixture_boxscore_enqueue_on_final` trigger enqueues `fixture_boxscore` off that upsert —
+      verify it fires; do NOT add a second enqueue. Rehearse the upsert rolled-back against a
+      real day first; fixture identity errors here are the highest-severity failure of the
+      phase.
+- [ ] **4.5** Extend `investigator/boxscore.rs`: `SourcePlan` from `boxscore_sources` (replacing
+      the provider map path for FOOTBALL), retrieval through the 4.2 fetcher into
+      `source_documents` + the existing `fixture_boxscore_fetches` landing row, one DOM/JSON
+      parser module per source family. A model may TRIAGE an unfamiliar page layout
+      (describe-only) — it never reads numbers into rows.
+- [ ] **4.6** Validation gate (code): fixture identity (teams, date, competition), final
+      status, participant completeness vs known rosters (warn-level, not fatal — rosters drift),
+      per-stat key mapping into `stat_definitions.key_name` for the sport (unmapped keys land in
+      `raw_labels`, never guessed), arithmetic checks (totals vs sums where the sport defines
+      them), source revision (content_hash change on refetch → revision, not overwrite).
+- [ ] **4.7** Promotion (the old seeder's job, now gated): validated landing row →
+      `event_box_scores` + `event_team_stats` + fixtures scores/status **+
+      `finalize_fixture(fixture_id, recompute)` — all in ONE tx**, parser_version stamped. That
+      call aggregates player_stats/team_stats and recomputes percentiles, which is the ONLY
+      road to the Scout: `trg_percentile_changed_*` → `pg_notify('percentile_changed')` → Go
+      listener (≥10 pts) → `peak`. **Stats-before-the-Scout is enforced by this ordering (§4
+      law).** Downstream fires by itself (verify, don't re-trigger): the percentile listener,
+      `trg_detect_team_change`, momentum-refresh marks.
+- [ ] **4.8** **The replay gate — the phase's proof.** Pick 20 provider-era completed FOOTBALL
+      fixtures with stored `event_box_scores`. Run the public-source path end-to-end into a
+      rolled-back tx; diff shared stat keys vs provider rows. Gate: 20/20 fixture identity,
+      ≥95% shared-key agreement (document every disagreement — some will be provider errors;
+      that is the finding, not a failure).
+- [ ] **4.9** Fixtures for the parser family (3 canned pages incl. one malformed), tests,
+      **[DEPLOY]** rust to archbox (`fixture_boxscore` already in `COGNITION_STAGES` from the
+      provider era — verify).
+- [ ] **4.10** Run live for 7 days on FOOTBALL, in the Log: fixtures nominated/verified per
+      day, validation failure taxonomy, promotion count, `detect_team_change` firings,
+      PEAK/momentum enqueues caused, and one Scout (`peak`) read post-promotion sampled for
+      sanity — plus the law check: assert no `peak` work row for a promoted fixture predates
+      its promotion tx (the collision achieved, in the right order).
+
+**Verify:** replay gate passed; live week promoted >0 fixtures with 0 identity errors; Scout
+read sane and strictly post-promotion.
+**Commit:** `rail: phase 4 — box scores from public sources; the stats rail reborn`.
 
 ### Log (phase 4)
 *(executor fills)*
 
-### Handoff (phase 4 → 5A)
+### Handoff (phase 4 → 5)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–4 committed: packets are compiling in shadow; collapse ratio measured (see Phase 4
-Log). Read §0, §4 (rulings), Appendix B decisions D-2/D-3, and the write-gate section of
-wiki planning doc 2026-07-27 (cross-repo_living-database-seeker) if reachable — else §1 and
-Phase 5A are self-contained. Execute Phase 5A (the Investigator — entity discovery, module
-junctions/investigator/).
+Phases 0–4 committed: the Editor reads in shadow; the Investigator scrapes FOOTBALL box
+scores from public sources; promotion calls finalize_fixture in-tx so the Scout only ever
+reads landed stats. The module junctions/investigator/, Role::Investigator, and the
+budgeted fetcher all exist — reuse them.
+Read §0, §4 (rulings), Appendix B decisions D-2/D-3, and the write-gate section of wiki
+planning doc 2026-07-27 (cross-repo_living-database-seeker) if reachable — else §1 and
+Phase 5 are self-contained. Execute Phase 5 (the Investigator — entity discovery, stage
+investigate_entity).
 Laws: the Editor nominates, the Investigator verifies; search discovers, sources prove;
 exact+discriminator or refuse — a name match alone NEVER merges identities; ambiguous is a
 first-class outcome. No entity is written because a model knows a name.
@@ -811,232 +936,136 @@ first-class outcome. No entity is written because a model knows a name.
 
 ---
 
-## Phase 5A — Heart III: the Investigator (entity discovery)
+## Phase 5 — Heart III: the Investigator (entity discovery)
 
 Demand-led acquisition: the resolver's refusals and unresolved `names[]` become durable work;
 verified people become `persons` rows the resolver can link tomorrow. (~60 coach-shaped
-names/day measured in B3, plus the namesake ties roster context can't split.)
+names/day measured in B3, plus the namesake ties roster context can't split.) The module,
+the role, and the budgeted fetcher already exist — Phase 4 founded them.
 
-- [ ] **5A.1** Nomination sweep (code, in the Editor handle after resolve): for each unresolved
+- [ ] **5.1** Nomination sweep (code, in the Editor handle after resolve): for each unresolved
       name with `kind_hint='person'` (and for `refused_ambiguous` ties): upsert
       `entity_candidates` (idempotency_key = `nrm(name)||sport`; repeat mention bumps
       `mention_count`/`last_seen_at`, never duplicates) + `candidate_mentions` row with the
       code-sliced quote + descriptor. Clubs/national teams nominate too but with
       `kind_hint='club'|'national_team'` — they take the `rejected_out_of_scope` path in v1
       (Appendix B D-3) and stand as the census.
-- [ ] **5A.2** Enqueue rule: candidate reaches `mention_count ≥ 2` distinct articles OR a
-      refused-ambiguous tie → `pipeline_work (stage='investigate_entity',
-      entity_type='candidate', entity_id=candidate.id)`. One-mention wonders wait (noise floor).
-- [ ] **5A.3** `Stage::InvestigateEntity` + `Role::Investigator`
-      (`COGNITION_ROUTE_INVESTIGATOR=gemma3:4b`, archbox base URL) + handler in
+- [ ] **5.2** Enqueue rule (Scott, 2026-08-01 — direct relation beats the floor): a person-kind
+      candidate whose mention carries a NON-EMPTY descriptor (the direct-story-relation signal:
+      "Real Madrid manager", "PSG sporting director") enqueues `pipeline_work
+      (stage='investigate_entity', entity_type='candidate', entity_id=candidate.id)` on FIRST
+      sight. So does any refused-ambiguous tie. Descriptor-less bare names keep the 2-mention
+      floor (the noise stays out; ~60/day person-shaped names measured in B3 sit comfortably
+      inside the 4.2 fetch budget).
+- [ ] **5.3** `Stage::InvestigateEntity` in `work.rs` + handler in
       `rust/src/junctions/investigator/`: slot_group = `ARCHBOX_GEMMA_SLOTS` (Scott's call: same
       card), `max_in_flight` = 1 (the Editor outranks it; register after the Editor). The card's
-      idle time (3.9a) is expected to absorb this easily — raise the knob after 5A.10 if
+      idle time (3.9a) is expected to absorb this easily — raise the knob after 5.10 if
       contention stays nil.
-- [ ] **5A.4** Three adapters, kept separate (discovery ≠ retrieval ≠ interpretation):
+- [ ] **5.4** Adapters, kept separate (discovery ≠ retrieval ≠ interpretation):
       *Discovery*: (1) Wikipedia REST search+summary API (documented, structured, ToS-clean —
       the v1 workhorse for professional identity), (2) Google News RSS query for the name +
-      sport term (reuses the lungs' client shape). *Retrieval*: `fetch.rs` with a per-domain
-      budget (concurrency 1, ≥2s spacing per domain, respect 429/Retry-After, cache by
-      canonical URL + content_hash into `source_documents` with a bounded `retained_excerpt`).
-      *Interpretation*: gemma **describes** the page — `{page_says: {name_forms[], role, org,
-      sport, league, nationality, dates[]}, quote}` — and CODE decides (5A.5). No browser
-      automation in v1; a domain that blocks direct fetch is a domain we skip (never stealth).
-- [ ] **5A.5** The write gate (`investigator/gate.rs`, deterministic): ACCEPT requires (a) ≥1
+      sport term (reuses the lungs' client shape). *Retrieval*: the Phase 4 budgeted fetcher
+      (4.2), caching into `source_documents`. *Interpretation*: gemma **describes** the page —
+      `{page_says: {name_forms[], role, org, sport, league, nationality, dates[]}, quote}` —
+      and CODE decides (5.5). No browser automation in v1; a domain that blocks direct fetch
+      is a domain we skip (never stealth).
+- [ ] **5.5** The write gate (`investigator/gate.rs`, deterministic): ACCEPT requires (a) ≥1
       `source_documents` row whose retained excerpt contains the name form, (b) sport-relevance
       from described role/org, (c) identity discriminator agreement (sport/league/team/role) —
       name similarity alone never merges (T9's cousin; do not rebuild BGE here); match against
       existing `players`/`persons` first — if an existing entity matches with discriminator,
-      resolve the candidate to it (write alias, no new row). New person → `persons` row +
-      `entity_aliases` (+ mirror into `entity_name_surfaces` via the mig-207 refresh or direct
-      insert) + `entity_facts`/`entity_relationships` (e.g. `coach_of` with valid_from) each
-      citing a source_document. Anything less → `ambiguous` (first-class, terminal until new
-      evidence) or `rejected_*` with reason. `acquisition_runs` records every attempt +
+      resolve the candidate to it (write alias, no new row). New person → `persons` row (kind
+      may be `player` for story-relevant players OUTSIDE the stats platform — rookies
+      pre-debut, retired, foreign-league; NEVER auto-insert `players` rows; if a person-kind
+      player later appears in a box score, the Investigator reconciles by alias/external id —
+      D-2) + `entity_aliases` (+ mirror into `entity_name_surfaces` via the mig-207 refresh or
+      direct insert) + `entity_facts`/`entity_relationships` (e.g. `coach_of` with valid_from)
+      each citing a source_document. Anything less → `ambiguous` (first-class, terminal until
+      new evidence) or `rejected_*` with reason. `acquisition_runs` records every attempt +
       query_plan. Personal-life facts are NOT metadata (family kind exists for future editorial
       use; nothing auto-writes it in v1).
-- [ ] **5A.6** Reopen policy: terminal candidates reopen only on a NEW distinct-article mention
+- [ ] **5.6** Reopen policy: terminal candidates reopen only on a NEW distinct-article mention
       after `decided_at` + 30 days, or a manual reset. (No endless rediscovery loops.)
       Reopening an ACCEPTED candidate is the **maintenance loop**, not an error: re-verification
       re-runs the gate against current sources, supersedes changed relationships (`coach_of`
       closes with `valid_to`, the new one opens dated), and appends new aliases. The story that
       staled the fact is the story that fixes it.
-- [ ] **5A.7** Adversarial fixture set `rust/fixtures/investigate_entity/` from the B3 census:
+- [ ] **5.7** Adversarial fixture set `rust/fixtures/investigate_entity/` from the B3 census:
       kyle shanahan (accept: coach, NFL, 49ers), xabi alonso (accept: coach — despite an
       ex-player record shape), pep guardiola (accept coach; must NOT merge into player `sergi
-      guardiola`), spain (out-of-scope national team → census, no write), celtic (out-of-scope
+      guardiola`), a drafted-but-undebuted rookie (accept: persons kind `player`, no `players`
+      row), spain (out-of-scope national team → census, no write), celtic (out-of-scope
       club), andy burnham / lee child / ice (rejected_not_sport), vinicius tobias vs junior
       (discriminator split or ambiguous — never a coin flip). Gate: 100%.
-- [ ] **5A.8** Review surface: SQL views `investigator_review_accepted` (latest 50 with sources),
+- [ ] **5.8** Review surface: SQL views `investigator_review_accepted` (latest 50 with sources),
       `investigator_funnel` (counts by state/kind/day). Sampling protocol in the Log: 20 accepted
       hand-checked; **one false merge is a stop-the-line event** (blocks widening any gate until
       explained + regression-fixtured).
-- [ ] **5A.9** Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
+- [ ] **5.9** Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
       `investigate_entity`).
-- [ ] **5A.10** Measure over 72h in the Log: nominations/day, candidates by state, acceptance
+- [ ] **5.10** Measure over 72h in the Log: nominations/day, candidates by state, acceptance
       rate, editor-slot contention (Editor coverage from Phase 3.9 must not degrade >5%), and
       the compounding metric: resolver links landing on `persons` rows (starts ~0, should grow
       as accepted coaches recur).
 
-**Verify:** 5A.8 sample clean (0 false merges); Editor coverage held; funnel view populated.
-**Commit:** `rail: phase 5A — the Investigator verifies people`.
+**Verify:** 5.8 sample clean (0 false merges); Editor coverage held; funnel view populated.
+**Commit:** `rail: phase 5 — the Investigator verifies people`.
 
-### Log (phase 5A)
+### Log (phase 5)
 *(executor fills)*
 
-### Handoff (phase 5A → 5B)
+### Handoff (phase 5 → 6)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–5A committed: entity discovery is live in shadow — coaches and unresolved names
-become verified persons rows with provenance. Read §0, §3, Appendix B D-4 (pilot sport +
-source family — confirm Scott has decided, else STOP and emit the block asking him), then
-execute Phase 5B (box scores — the stats rail reborn).
-Laws: one adapter per source family; DOM/JSON parsing, never regex, never LLM number-reading;
-fixture identity validated before anything writes; a correction is a revision + recompute,
-never an overwrite. The landing table fixture_boxscore_fetches and stage fixture_boxscore
-already exist (mig 189 / rust/src/boxscore_fetch.rs) — you are replacing their SOURCES
-(providers are cancelled) and moving the file under junctions/investigator/, not changing
-their shape. The stage wire name fixture_boxscore is a live queue identity — it does NOT
-rename (§4 naming ruling).
+Phases 0–5 committed: the Editor reads in shadow; the Investigator scrapes FOOTBALL box
+scores and verifies people — the living database compounds daily. Read §0, §1b–§1c
+(storylines/packets), then execute Phase 6 (storyline assembly + packet compile — all
+deterministic code, zero model calls).
+T3 is the law here: 0.5–0.75 similarity is the SAME STORY with a DIFFERENT CLAIM — attach,
+never collapse. The disagreement is the story.
 ```
 
 ---
 
-## Phase 5B — Heart IV: box scores (the collision, made real)
+## Phase 6 — Heart IV: storylines and packets (code, not calls)
 
-Third-party stats are gone (cancelled 2026-07-27/28). The news rail now *causes* the stats
-rail: the Editor's `result_line` nominates a completed fixture; the Investigator scrapes,
-validates, and promotes it; the existing triggers (derived stats, `detect_team_change`,
-tier/PEAK/momentum enqueues) fire off those writes exactly as they did off the provider seeder.
-`player_team_history` comes back to life for free.
+The desk work: everything in this phase is deterministic code — zero model tokens. The
+Editor's reads become storylines; storylines become packets; packets carry the tags that
+will route the characters (still inert — subscriptions stay empty until Phase 7).
 
-- [ ] **5B.1** `boxscore_sources` table (mig, data-not-code): sport, league_id NULL, domain,
-      discovery mode (url_template | search), parser_family, trust_state
-      (candidate|trusted|suspended), fetch_policy jsonb (rpm, concurrency, cache_ttl). Seed the
-      Appendix B D-4 pilot family only.
-- [ ] **5B.2** Fixture nomination (code, Editor handle): parseable `result_line` + both teams
-      resolved → match `fixtures` within ±2d on (sport, home/away or reversed) → if found and
-      status ≠ completed, or scores differ, or no row: upsert a fixture row
-      (status='completed', scores from the parse, `external_id` NULL — Scoracle identity, not
-      provider identity) flagged `meta needs_verification` → enqueue `fixture_boxscore`.
-      Rehearse the upsert rolled-back against a real day first; fixture identity errors here are
-      the highest-severity failure of the phase.
-- [ ] **5B.3** Move the box-score stage into the character's module: `git mv
-      rust/src/boxscore_fetch.rs rust/src/junctions/investigator/boxscore.rs` (+ `use` path
-      updates; the stage wire name `fixture_boxscore` and the landing table are live identities
-      and do NOT rename). Then extend it: `SourcePlan` from `boxscore_sources` (replacing the
-      provider map path for the pilot sport), retrieval through the 5A budgeted fetcher into
-      `source_documents` + the existing `fixture_boxscore_fetches` landing row, one DOM/JSON
-      parser module per source family. A model may TRIAGE an unfamiliar page layout
-      (describe-only) — it never reads numbers into rows.
-- [ ] **5B.4** Validation gate (code): fixture identity (teams, date, competition), final
-      status, participant completeness vs known rosters (warn-level, not fatal — rosters drift),
-      per-stat key mapping into `stat_definitions.key_name` for the sport (unmapped keys land in
-      `raw_labels`, never guessed), arithmetic checks (totals vs sums where the sport defines
-      them), source revision (content_hash change on refetch → revision, not overwrite).
-- [ ] **5B.5** Promotion (the old seeder's job, now gated): validated landing row →
-      `event_box_scores` + `event_team_stats` + fixtures scores/status in one tx, parser_version
-      stamped. Downstream fires by itself (verify, don't re-trigger): derived-stat BEFORE
-      triggers, `trg_detect_team_change`, tier/PEAK/momentum enqueue paths.
-- [ ] **5B.6** **The replay gate — the phase's proof.** Pick 20 provider-era completed fixtures
-      (pilot sport) with stored `event_box_scores`. Run the public-source path end-to-end into a
-      rolled-back tx; diff shared stat keys vs provider rows. Gate: 20/20 fixture identity, ≥95%
-      shared-key agreement (document every disagreement — some will be provider errors; that is
-      the finding, not a failure).
-- [ ] **5B.7** Fixtures for the parser family (3 canned pages incl. one malformed), tests,
-      **[DEPLOY]** rust to archbox (`fixture_boxscore` already in `COGNITION_STAGES` from the
-      provider era — verify).
-- [ ] **5B.8** Run live for 7 days on the pilot sport, in the Log: fixtures nominated/verified
-      per day, validation failure taxonomy, promotion count, `detect_team_change` firings,
-      PEAK/momentum enqueues caused, and one Scout (`peak`) read post-promotion sampled for
-      sanity (the Scout is now reading scraped-truth z-scores — the collision achieved).
+- [ ] **6.1** `editor/storyline.rs`: the §1b attachment rule, invoked at the end of every Editor
+      handle (after `editor_reads` persists, after the 5.1 nomination sweep): compute candidates
+      → attach or open → write `storyline_articles`, upsert `storyline_entities`
+      (join/`last_seen_at`), set `editor_reads.storyline_id`. Log every decision (storyline_id,
+      score, candidate count) at debug level.
+- [ ] **6.2** Backfill pass (one-shot bin, rehearsed rolled-back first): attach the shadow
+      period's existing `editor_reads` (`attach_method='backfill'`, oldest first so storylines
+      form in arrival order). The shadow corpus now spans Phases 3–5 — weeks of reads, not
+      48h; batch it and let it run.
+- [ ] **6.3** `editor/packet.rs` — compile on storyline-dirty with a 15-minute quiet debounce
+      (drain-loop tick checks `storylines.last_seen_at`): assemble §1c from member
+      `editor_reads` (claims from `key_facts` with article/source/published_at attribution —
+      NO dedup across sources beyond byte-identical facts; register = strongest non-neutral;
+      quotes code-sliced from `full_text`; slice fingerprints per voice: journalist = hash of
+      claims+headline, vibe = hash of register+phrase+claims, transfers = hash of
+      transfer-typed claims), insert packet (supersedes prior), mark storyline clean. Packets
+      INSERT will fire mig 206's trigger — still inert (0 subscriptions).
+- [ ] **6.4** Storyline lifecycle sweep (hourly, code): `open → dormant` after 14 quiet days;
+      resolution stays manual/downstream for now (D5's close-in-one-stroke is wired but only
+      invoked when a resolution is recorded — the transfer chain is the first writer, Phase 7).
+- [ ] **6.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
+      shape: Diomande/Vinicius/Rodri/Lee Kang-in/Álvarez clusters — assert Lee Kang-in lands in
+      its own storyline, NOT Real Madrid's, per the hand count).
+- [ ] **6.6** **[DEPLOY]** rust to archbox.
+- [ ] **6.7** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
+      distribution (the top cluster should land ~15–25:1 against the 20:1 hand count — outside
+      that band, STOP and inspect attach scores); % of reads attached vs opened-new; hand-inspect
+      the 3 biggest storylines for wrong merges AND for a preserved contradiction (T3 spot
+      check — find one "agreed"/"not agreed" pair sharing a packet's claims).
 
-**Verify:** replay gate passed; live week promoted >0 fixtures with 0 identity errors; Scout
-read sane.
-**Commit:** `rail: phase 5B — box scores from public sources`.
-
-### Log (phase 5B)
-*(executor fills)*
-
-### Handoff (phase 5B → 6)
-```
-Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–5B committed: the heart is whole — the Editor reads, packets compile, the
-Investigator verifies people and box scores; stats flow without providers. Read §0, §1c
-(slice fingerprints), §2 (you are wiring the seam the cutover will flip), §3 (Mac topology,
-from Phase 0 Log 0.11), then execute Phase 6 (the brain — voices onto packets, behind
-RAIL=legacy).
-Laws: no prose reaches the Scout (T4); the packet renderer's 4096 budget is HARD; voice
-routing is data (subscriptions), never asked of a model (E1); nothing user-visible changes
-until Phase 7 flips RAIL.
-```
-
----
-
-## Phase 6 — Brain: the voices read packets (wired, not yet live)
-
-Everything lands behind `RAIL` (env, default `legacy`). Legacy behavior is bit-identical until
-Phase 7 flips it.
-
-- [ ] **6.1** `RAIL` config (`rust/src/config.rs`): `legacy|packet`, read once at boot, logged
-      loudly at startup.
-- [ ] **6.2** Packet renderer (`editor/render.rs`): `(packet, entity, voice) → context block`,
-      hard budget ≤2,800 tokens (tiktoken-free heuristic: chars/3.6, then assert with
-      `eval_count` telemetry): headline, this entity's role + participation dates, claims
-      (attributed, contested pairs marked `⇄`, newest first, truncate oldest first), register +
-      phrase (Influencer render only), facts, one continuity line from the prior packet.
-      Property-based test: NO packet in the shadow corpus renders >2,800 for any voice.
-- [ ] **6.3** Journalist: `load_packet_corpus` beside `load_vetted_corpus_with_exclusions`
-      (`journalist/mod.rs:380`), selected by RAIL inside `load_narratives_material`
-      (`journalist/mod.rs:1078`). Packet path: entity's packets from the last 72h, rendered,
-      `num_ctx` 4096, `num_predict` 700, exclusions telemetry intact (every packet dropped by
-      budget is named — the A5 rule).
-- [ ] **6.4** Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
-      `('transfer','transfers','team')`, `('charged','vibe','*')`. The Journalist needs no row
-      (mig 206 fans narratives unconditionally). **Do not** also leave mig-175's article-grain
-      transfers trigger pointing at the same stage post-flip — Phase 7 drops it; until then the
-      RAIL gate in the transfers handler ignores packet-work rows under legacy (input_version
-      prefix `pk:` is the discriminator).
-- [ ] **6.5** Insider (`transfers` handler): RAIL=packet path reads the packet render (its
-      slice = transfer-typed claims) instead of the article-window query; the
-      `transfer_identity_applications` adjudication chain downstream is UNTOUCHED (it is kept
-      substrate, news-derived, and the Scout's road).
-- [ ] **6.6** Influencer (`vibe`): E3 — under packet RAIL she wakes from the packet trigger
-      (`charged` tag), first-voice-capable: fix `enqueue_vibe_if_needed`'s empty-context no-op
-      for packet work, update her contract text (she may file first; register_phrase is her
-      material). The Journalist-side enqueue remains for legacy mode only.
-- [ ] **6.7** Scout (`peak`): NO packet subscription (T4). Two confirmed-fact roads only:
-      (a) the stats platform (now Investigator-fed); (b) `transfer_identity_applications`
-      applied/adjudicated rows — add a compact "personnel changes since last read" block to the
-      PEAK context from that table (facts with dates, no prose). Injury/suspension confirmation
-      gates (the F4 pattern: claims → threshold → confirmed) are **deferred** to post-cutover
-      (Appendix B D-5) — do not improvise them here.
-- [ ] **6.8** Analyst + Oracle: Analyst's context assembly gains the packet render under RAIL
-      (peer-aware inputs unchanged). Oracle mechanics untouched — but implement E5 while we are
-      here: when deterministic `pillar_convergence` < 40, the prompt hands the divergence as a
-      decided fact and `DISAGREEMENT:` becomes a REQUIRED field (grammar-enforced), narrating
-      it. One fixture proves it fires (a guard never observed firing is not a guard).
-- [ ] **6.9** Mac routing config (values measured in Phase 0 Log 0.11): for the six voice roles,
-      `COGNITION_ROUTE_<ROLE>_BASE_URL=http://192.168.1.77:11434` and
-      `COGNITION_ROUTE_<ROLE>=ministral-3:14b` (Appendix B D-1, closed — **not** Nemo; Gemma stays
-      pinned on archbox for editor/investigate_entity and is never routed here),
-      `COGNITION_BACKEND_CONCURRENCY=http://192.168.1.77:11434=3,http://localhost:11434=4`,
-      voice `num_ctx` stays 16384 under legacy / 4096 under packet (RAIL-scoped constant —
-      change `VOICE_NUM_CTX` const to a RAIL-aware fn). Mac worker runs voice stages only
-      (`COGNITION_STAGES` on the Mac).
-- [ ] **6.10** Voice fixture refresh: capture packet-context fixtures via
-      `eval --capture-ledger` on shadow renders for narratives/vibe/transfers; gates green on
-      BOTH rails (legacy fixtures must still pass — nothing changed under legacy).
-- [ ] **6.11** Tests, clippy, **[DEPLOY]** rust to archbox AND the Mac worker, RAIL=legacy
-      everywhere. Verify boot logs on both machines print rail + routes + backend budgets.
-- [ ] **6.12** Dry-run under eval (not production): run each voice's packet path against 5
-      shadow packets on the Mac; record p50/p99 prompt tokens (≤3,200), output sanity, Mac
-      concurrent-3 sustained without runner reloads (uniform 4096 num_ctx per host — mixed
-      num_ctx forces reloads, `route.rs:52-75`).
-
-**Verify:** legacy production metrics unchanged over 48h post-deploy (T5 says gates can't see
-this — compare production rates to Phase 0/3 baselines); packet dry-runs within budget; both
-fixture gates green.
-**Commit:** `rail: phase 6 — the brain is wired for packets`.
+**Verify:** 6.7 bands; packet trigger fired 0 work rows (subscriptions still empty).
+**Commit:** `rail: phase 6 — storylines assemble, packets compile`.
 
 ### Log (phase 6)
 *(executor fills)*
@@ -1044,110 +1073,254 @@ fixture gates green.
 ### Handoff (phase 6 → 7)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–6 committed: the whole new rail runs in shadow; voices are wired for packets behind
-RAIL=legacy; Mac serves the six voices. Read §0 and ALL of §2 (the cutover condition — you are
-measuring it), then execute Phase 7. Phase 7 does NOT flip anything until the 7-day condition
+Phases 0–6 committed: the heart is whole — the Editor reads, the Investigator scrapes box
+scores and verifies people, storylines assemble, packets compile in shadow. Read §0, §1c
+(slice fingerprints), §2 (you are wiring the seam the cutover will flip), §3 (Mac topology,
+from Phase 0 Log 0.11), §4 (memory is characters-only), then execute Phase 7 (the brain —
+voices onto packets + the memory loop + the voice diet, behind RAIL=legacy).
+Laws: no prose reaches the Scout (T4); the 4096 window is HARD (prompt + memory + packet +
+output, 7.2); memory is characters-only and stays out of input_hash; voice routing is data
+(subscriptions), never asked of a model (E1); diet prompt versions are RAIL-scoped so
+legacy stays bit-identical; nothing user-visible changes until Phase 8 flips RAIL.
+```
+
+---
+
+## Phase 7 — Brain: the voices read packets, keep their memories, and go on a diet
+
+Everything lands behind `RAIL` (env, default `legacy`). Legacy behavior is bit-identical until
+Phase 8 flips it — including prompts: the diet versions are RAIL-scoped (7.11), so the legacy
+rail keeps n16/v16/t11/is3/s16/momentum-s13/or8 byte-identical until flip day.
+
+**The 4096 envelope (Scott, 2026-08-01 — the window budget, per voice; targets, measured in
+7.15).** Today's system prompts run 2.5–7.2 KB (or8 is ~1,800 tokens alone), `VOICE_NUM_CTX`
+is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would truncate at
+4096 (HANDOFF 2026-07-28 measurement). The diet makes the window honest:
+
+| part | budget |
+|---|---|
+| voice system prompt (post-diet) | ≤ ~550 tok (the voice, concise and clear — boilerplate cut) |
+| memory block (relational card + last-4 prior reads) | ≤ ~700 tok, code-truncated |
+| packet render (or stats context for the Scout) | ≤ ~2,000 tok |
+| `num_predict` reservation | ≤ 800 (Journalist 700; the 4000/2000/1200/1100-era reservations die with the 16384 window) |
+| **envelope** | **prompt p99 ≤ 3,300 over the shadow corpus, asserted via `eval_count` telemetry** |
+
+- [ ] **7.1** `RAIL` config (`rust/src/config.rs`): `legacy|packet`, read once at boot, logged
+      loudly at startup.
+- [ ] **7.2** Packet renderer (`editor/render.rs`): `(packet, entity, voice) → context block`,
+      hard budget ≤2,000 tokens (tiktoken-free heuristic: chars/3.6, then assert with
+      `eval_count` telemetry): headline, this entity's role + participation dates, claims
+      (attributed, contested pairs marked `⇄`, newest first, truncate oldest first), register +
+      phrase (Influencer render only), facts, one continuity line from the prior packet.
+      Property-based test: NO packet in the shadow corpus renders >2,000 for any voice.
+- [ ] **7.3** Journalist: `load_packet_corpus` beside `load_vetted_corpus_with_exclusions`
+      (`journalist/mod.rs:380`), selected by RAIL inside `load_narratives_material`
+      (`journalist/mod.rs:1078`). Packet path: entity's packets from the last 72h, rendered,
+      `num_ctx` 4096, `num_predict` 700, exclusions telemetry intact (every packet dropped by
+      budget is named — the A5 rule).
+- [ ] **7.4** Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
+      `('transfer','transfers','team')`, `('charged','vibe','*')`. The Journalist needs no row
+      (mig 206 fans narratives unconditionally). **Do not** also leave mig-175's article-grain
+      transfers trigger pointing at the same stage post-flip — Phase 8 drops it; until then the
+      RAIL gate in the transfers handler ignores packet-work rows under legacy (input_version
+      prefix `pk:` is the discriminator).
+- [ ] **7.5** Insider (`transfers` handler): RAIL=packet path reads the packet render (its
+      slice = transfer-typed claims) instead of the article-window query; the
+      `transfer_identity_applications` adjudication chain downstream is UNTOUCHED (it is kept
+      substrate, news-derived, and the Scout's road).
+- [ ] **7.6** Influencer (`vibe`): E3 — under packet RAIL she wakes from the packet trigger
+      (`charged` tag), first-voice-capable: fix `enqueue_vibe_if_needed`'s empty-context no-op
+      for packet work, update her contract text (she may file first; register_phrase is her
+      material). The Journalist-side enqueue remains for legacy mode only.
+- [ ] **7.7** Scout (`peak`): NO packet subscription (T4, §4 stats-before-Scout). Two
+      confirmed-fact roads only: (a) the stats platform (Investigator-fed since Phase 4);
+      (b) `transfer_identity_applications` applied/adjudicated rows — add a compact "personnel
+      changes since last read" block to the PEAK context from that table (facts with dates, no
+      prose). Injury/suspension confirmation gates (the F4 pattern: claims → threshold →
+      confirmed) are **deferred** to post-cutover (Appendix B D-5) — do not improvise them here.
+- [ ] **7.8** Analyst + Oracle: Analyst's context assembly gains the packet render under RAIL
+      (peer-aware inputs unchanged). Oracle mechanics untouched — but implement E5 while we are
+      here: when deterministic `pillar_convergence` < 40, the prompt hands the divergence as a
+      decided fact and `DISAGREEMENT:` becomes a REQUIRED field (grammar-enforced), narrating
+      it. One fixture proves it fires (a guard never observed firing is not a guard). For the
+      4096 window: cap each pillar body in `build_crown_prompt` (~350 tok/card — today it
+      truncates nothing) so five cards + memory + prompt fit the envelope.
+- [ ] **7.9** Memory continuity (verify, mostly not build — §4 memory ruling): each voice's
+      packet-era context KEEPS its memory card + prior-read block — the packet render replaces
+      the CORPUS, never the memory. The infrastructure exists and survives the flip:
+      `narrative_context_for_entity` (schema.sql:3353, five-lens self-history),
+      `narrative_context_for_pair` (Insider), `stat_context_for_entity` (Scout),
+      `source_reliability_for_pair`, and the per-voice last-4 loaders (journalist mod.rs:615,
+      insider :1924, oracle :931, influencer :408). Confirm each loader is called on the packet
+      path, provenance labels intact, memory still excluded from `input_hash`, memory-load
+      errors still degrade to unenriched prompts (never fail the item).
+- [ ] **7.10** Storyline memory lens (mig 2xx): extend `narrative_context_for_entity` with a
+      storylines section — open storylines via `storyline_entities` (role, joined_at, latest
+      packet headline, `Prior story:` provenance label) — so the Journalist's "life of stories"
+      memory survives thread retirement (Phase 9 kills thread clustering; the thread-fed lenses
+      age out via their own date windows and read archive until then). Run it; renders identical
+      output for entities with zero storylines, which proves it is wired without changing
+      behavior.
+- [ ] **7.11** **The voice diet — ONE re-earn event.** Per-voice system-prompt slim to the
+      envelope target: the voice stays (concise and clear on the character), the boilerplate,
+      restated field lists, and defensive hedging go. Version bumps (n17/v17/t12/is4/s17/
+      momentum-s14/or9), RAIL-scoped: legacy rail keeps the old consts verbatim, packet rail
+      gets the diet versions (the old consts die in Phase 9). Capture packet-context fixtures
+      via `eval --capture-ledger` on shadow renders against **ministral-3:14b** IN THE SAME
+      step (a model change re-earns its seat on the voice fixtures — D-1; one gate, not two),
+      judged with judge-v2's voice-fidelity axis. Gates green on BOTH rails (legacy fixtures
+      still pass against the untouched legacy prompts).
+- [ ] **7.12** Mac routing config (values measured in Phase 0 Log 0.11): for the six voice
+      roles, `COGNITION_ROUTE_<ROLE>_BASE_URL=http://192.168.1.77:11434` and
+      `COGNITION_ROUTE_<ROLE>=ministral-3:14b` (Appendix B D-1, closed — **not** Nemo; Gemma stays
+      pinned on archbox for editor/investigate_entity/graph and is never routed here),
+      `COGNITION_BACKEND_CONCURRENCY=http://192.168.1.77:11434=3,http://localhost:11434=4`,
+      voice `num_ctx` stays 16384 under legacy / 4096 under packet (RAIL-scoped constant —
+      change `VOICE_NUM_CTX` const to a RAIL-aware fn). Mac worker runs voice stages only
+      (`COGNITION_STAGES` on the Mac).
+- [ ] **7.13** Graph continuity (the G1 seam — §4 graph ruling): repoint
+      `load_graph_article_context` (graph/mod.rs:134) to prefer
+      `editor_reads.read->>'evidence_blurb'` with fallback to the legacy reading (safe on both
+      rails, deployable now); add the RAIL=packet-gated `enqueue_graph_for_article` call to the
+      new Editor handle AFTER its link writes (activates at flip — until then graph keeps
+      riding article_read via mig 193). Graph keeps `ARCHBOX_GEMMA_SLOTS` + num_ctx 8192.
+- [ ] **7.14** Tests, clippy, **[DEPLOY]** rust to archbox AND the Mac worker, RAIL=legacy
+      everywhere. Verify boot logs on both machines print rail + routes + backend budgets, and
+      diff the legacy prompt consts against HEAD~1 — byte-identical (the diet is packet-only).
+- [ ] **7.15** Dry-run under eval (not production): run each voice's packet path against 5
+      shadow packets on the Mac; record p50/p99 prompt tokens (p99 ≤3,300 INCLUDING the memory
+      block), output sanity, Mac concurrent-3 sustained without runner reloads (uniform 4096
+      num_ctx per host — mixed num_ctx forces reloads, `route.rs:52-75`).
+
+**Verify:** legacy production metrics unchanged over 48h post-deploy (T5 says gates can't see
+this — compare production rates to Phase 0/3 baselines; legacy prompts byte-identical); packet
+dry-runs within the envelope; both fixture gates green; memory blocks present in packet-path
+prompts (spot-check 5 ledger rows for the provenance labels).
+**Commit:** `rail: phase 7 — the brain is wired for packets; the voices keep their memories`.
+
+### Log (phase 7)
+*(executor fills)*
+
+### Handoff (phase 7 → 8)
+```
+Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
+Phases 0–7 committed: the whole new rail runs in shadow; voices are wired for packets +
+memories behind RAIL=legacy (diet prompts RAIL-scoped — legacy is bit-identical); Mac serves
+the six voices at uniform 4096. Read §0 and ALL of §2 (the cutover condition — you are
+measuring it), then execute Phase 8. Phase 8 does NOT flip anything until the 7-day condition
 is green and Scott has said "flip" — the flip is his act, prepared by you. If any clause fails,
 STOP, log the numbers, emit the block with BLOCKED.
 ```
 
 ---
 
-## Phase 7 — The cutover
+## Phase 8 — The cutover
 
-- [ ] **7.1** Write the five §2 condition queries as `scripts/rail-cutover-check.sh` (read-only,
+- [ ] **8.1** Write the five §2 condition queries as `scripts/rail-cutover-check.sh` (read-only,
       prints PASS/FAIL per clause with numbers; runnable daily by cron or by hand). Clause SQL
       sketches: (1) `editor_reads` within-24h coverage vs arrivals; (2) legacy corpus
       entity-days LEFT JOIN packet entity-days → 0 missing; (3) emit the day's 50-link audit
       sample as a table for hand/model review, record the score; (4) `eval --task editor
       --fixtures` + dead-letter count on editor/investigator stages; (5) packet-claims
       referential check + exclusions accounting.
-- [ ] **7.2** Run it daily for 7 consecutive days; paste each day's output into the Log. Any
+- [ ] **8.2** Run it daily for 7 consecutive days; paste each day's output into the Log. Any
       FAIL resets the window (and is a finding — fix, then restart the count).
-- [ ] **7.3** Prepare the flip-day migration (do not apply until flip): mig 2xx
+- [ ] **8.3** Prepare the flip-day migration (do not apply until flip): mig 2xx
       `retire_legacy_rail_triggers` — DROP `enqueue_derive_on_vetted` (T10 dies with it) and
       `enqueue_transfers_if_transfer_related`; leave `enqueue_voices_on_routing_tags`
       (article-grain, subscription table now serves packet grain; trigger fires into no
-      article-grain rows — dropped in Phase 8). The Appendix A revert block is the rollback.
-- [ ] **7.4** Prepare the flip-day Go change (do not deploy until flip): `persistArticles` stops
+      article-grain rows — dropped in Phase 9). The Appendix A revert block is the rollback.
+- [ ] **8.4** Prepare the flip-day Go change (do not deploy until flip): `persistArticles` stops
       enqueueing `scrub` (editor enqueue stays); regex secondary-link loop behind a
-      `LEGACY_LINKS=0` env default-off (deletion is Phase 8; off is enough for flip day).
-- [ ] **7.5** Prepare the Editor's link-writing switch (RAIL=packet side): the Editor begins
+      `LEGACY_LINKS=0` env default-off (deletion is Phase 9; off is enough for flip day).
+- [ ] **8.5** Prepare the Editor's link-writing switch (RAIL=packet side): the Editor begins
       writing `news_article_entities` rows for its resolved links (vetted=TRUE,
       `match_confidence=0.90` sentinel distinct from 0.95/0.8 so Editor links stay greppable),
       confirming/denying the 0.95 hypothesis link per `entity_roles`. Ordering on flip day
-      matters: **triggers drop BEFORE the Editor writes vetted** (T10).
-- [ ] **7.6** **FLIP (Scott's act, one sitting):** apply 7.3 migration → [DEPLOY] Go (7.4) →
+      matters: **triggers drop BEFORE the Editor writes vetted** (T10). The Editor's graph
+      enqueue (7.13) activates with RAIL=packet in the same deploy — within the first hour,
+      verify graph work rows are arriving from the Editor path (the archivist must not starve
+      when article_read stops claiming).
+- [ ] **8.6** **FLIP (Scott's act, one sitting):** apply 8.3 migration → [DEPLOY] Go (8.4) →
       [DEPLOY] rust with RAIL=packet on archbox + Mac, `COGNITION_STAGES` drops
       `article_read` + `scrub` on archbox, voice num_ctx 4096 on Mac → run
       `rail-cutover-check.sh` once more against the live flip → snapshot-schema; commit.
-- [ ] **7.7** Watch 48h with point-in-time checks (not watchers): packets/day, narratives/day
+- [ ] **8.7** Watch 48h with point-in-time checks (not watchers): packets/day, narratives/day
       (expect a T7 step change — packets collapse coverage-volume into story-volume; the OLD
       baselines are not comparable, record the new ones), vibe first-voice firings AND total
       vibe volume (the charged gate thins her cadence by design, but momentum's `vibe_slope`
       must not starve — vibe samples down >70% vs legacy is a finding to surface, answered by
       widening the `charged` derivation or a reconcile tick: decided, not drifted), transfers
-      packet-work drains, Editor coverage, Investigator funnel, Mac throughput. Rollback
-      trigger: any voice starving >6h or Editor coverage <80% → RAIL=legacy (env flip +
-      Appendix A trigger revert), diagnose cold.
+      packet-work drains, Editor coverage, Investigator funnel, graph enqueue rate (new seam vs
+      pre-flip baseline), Mac throughput. Rollback trigger: any voice starving >6h or Editor
+      coverage <80% → RAIL=legacy (env flip + Appendix A trigger revert), diagnose cold.
 
-**Verify:** 48h stable on the new rail. **Commit:** `rail: phase 7 — cutover; the old rail is
+**Verify:** 48h stable on the new rail. **Commit:** `rail: phase 8 — cutover; the old rail is
 off`.
 
-### Log (phase 7)
+### Log (phase 8)
 *(executor fills — including all 7 daily condition outputs and the flip-day timeline)*
 
-### Handoff (phase 7 → 8)
+### Handoff (phase 8 → 9)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–7 committed: RAIL=packet is live; the legacy rail is OFF (triggers dropped, scrub +
-article_read unscheduled, regex links disabled). 48h stability is in the Phase 7 Log.
-Read §0 and Appendix A (the demolition inventory), then execute Phase 8: delete the corpses,
+Phases 0–8 committed: RAIL=packet is live; the legacy rail is OFF (triggers dropped, scrub +
+article_read unscheduled, regex links disabled). 48h stability is in the Phase 8 Log.
+Read §0 and Appendix A (the demolition inventory), then execute Phase 9: delete the corpses,
 rebaseline what T7 says moved, update the wiki, write the closing handoff. Deletion only —
 if removing something changes a passing test's behavior, STOP: that thing was not a corpse.
+CAREFUL: 9.5 SPLITS cron-narrative-links.sh (co-mention refresh out; the typed-links/
+episodes/seal rollups STAY — they feed every memory card).
 ```
 
 ---
 
-## Phase 8 — Demolition, rebaseline, and the record
+## Phase 9 — Demolition, rebaseline, and the record
 
-- [ ] **8.1** Execute Appendix A top to bottom (Go, Rust, SQL, cron, env). Each bullet is its
-      own commit or tight group; `go test ./...` + `cargo test` green after every group.
-- [ ] **8.2** Freeze legacy artifacts as archive: `news_article_readings`,
+- [ ] **9.1** Execute Appendix A top to bottom (Go, Rust, SQL, cron, env). Each bullet is its
+      own commit or tight group; `go test ./...` + `cargo test` green after every group. The
+      legacy voice-prompt consts (n16/v16/t11/is3/s16/momentum-s13/or8) die here with the RAIL
+      scoping — the diet versions are the only prompts left.
+- [ ] **9.2** Freeze legacy artifacts as archive: `news_article_readings`,
       `narrative_threads`, old fixture dirs (move `rust/fixtures/article_reader/` →
       `rust/fixtures/_retired_article_reader/`) — COMMENT ON the tables as retired; no drops
       (the archive is the moat).
-- [ ] **8.3** Rebaseline (T7): 7-day fresh baselines for narratives/day, card_score
+- [ ] **9.3** Rebaseline (T7): 7-day fresh baselines for narratives/day, card_score
       distribution, momentum enqueue rate, transfer heat volume (player links now Editor-written;
-      proximity gates lenient) — recorded in the Log as the new normal. The old numbers are
-      history, not targets.
-- [ ] **8.4** Wiki updates (scoracle-wiki): Living Database status → shipped-for-people+scores,
+      proximity gates lenient), voice prompt-token distributions at 4096 (the new normal), and
+      graph enqueue rate on the Editor seam — recorded in the Log as the new normal. The old
+      numbers are history, not targets.
+- [ ] **9.4** Wiki updates (scoracle-wiki): Living Database status → shipped-for-people+scores,
       Seeker → Investigator rename note; AI Stage Conventions → stage table gains
       editor/investigate_entity (+ Editor/Investigator contracts, the packet as the narratives
-      corpus, VOICE ctx 4096, two-host topology, the character-named module convention);
+      corpus, VOICE ctx 4096 + the diet prompt versions, two-host topology — which supersedes
+      the old serial one-model "limit one" note — and the character-named module convention);
+      Characters/Character Contracts → memory-is-characters-only doctrine as shipped;
       Archbox Infrastructure → cron changes; DATA_FLOW.md + RUNBOOK.md in this repo likewise.
       Docs and code disagree → the code wins; make the docs agree.
-- [ ] **8.5** Crontab: remove `cron-narrative-links.sh` (co-mention refresh); confirm 02:00
-      ingest, tier recompute, backups unchanged; add `rail-cutover-check.sh` renamed
-      `rail-health-check.sh` weekly.
-- [ ] **8.6** Write `HANDOFF-one-rail.md`: what shipped, the new baselines, the open decisions
+- [ ] **9.5** Crontab: **SPLIT `cron-narrative-links.sh`** — co-mention refresh
+      (`refresh_co_mention_links`) OUT; `refresh_typed_links` / `roll_narrative_episodes` /
+      `seal_narrative_threads` STAY (they feed every memory card's relational lines — deleting
+      the whole script starves the memory loop). Confirm 02:00 ingest, tier recompute, backups
+      unchanged; add `rail-cutover-check.sh` renamed `rail-health-check.sh` weekly.
+- [ ] **9.6** Write `HANDOFF-one-rail.md`: what shipped, the new baselines, the open decisions
       (Appendix B leftovers: F4 injury gates, national teams, out-of-scope clubs, the front
       page), and mark this plan **DONE** in the STATE line.
 
-**Commit:** `rail: phase 8 — demolition complete; one rail`.
+**Commit:** `rail: phase 9 — demolition complete; one rail`.
 
-### Log (phase 8)
+### Log (phase 9)
 *(executor fills)*
 
 ---
 
-## Appendix A — Demolition inventory (execute in Phase 8; prepared by recon 2026-07-28)
+## Appendix A — Demolition inventory (execute in Phase 9; prepared by recon 2026-07-28)
 
 **Go** (the judging tier; keep the clerk):
 - `go/internal/thirdparty/match.go` — delete all EXCEPT `isTeamEntity` (move it beside its
   callers in `news.go`). `SportContextTerms` goes; the `sportTerms` map in `news.go:55` STAYS
   (query builder needs it).
-- `news.go`: secondary-link loop `:363-392` (+ its `LEGACY_LINKS` switch from 7.4),
+- `news.go`: secondary-link loop `:363-392` (+ its `LEGACY_LINKS` switch from 8.4),
   `articleMatchText :1213`, `posOrNil :548`, entity pool `:149-163, :181-182, :285-305,
   :437-532`, `BackfillTitlePositions :563-635`. Scrub enqueue block (already off since flip).
 - `go/cmd/comention-backfill/` — whole directory.
@@ -1168,32 +1341,33 @@ if removing something changes a passing test's behavior, STOP: that thing was no
   `narrative_threads.centroid` stops being written.
 - `ARTICLE_READ_*` consts, `ar*` prompt-version namespace (T1 retires with the cache it keyed).
 - Eval task `article_reader` (renamed in 3.0; the task name `editor` now belongs to the
-  greenfield junction) — unregister it; retire its fixtures dir per 8.2.
+  greenfield junction) — unregister it; retire its fixtures dir per 9.2.
 
 **SQL** (migration `2xx_demolition`, after 7-day rollback window):
 - DROP trigger `enqueue_voices_on_routing_tags` (article-grain; packet-grain trigger from mig
-  207 is the survivor) + function.
+  206 is the survivor) + function.
 - DROP functions `refresh_co_mention_links(...)`, `enqueue_derive_on_vetted()`,
-  `enqueue_transfers_if_transfer_related()` (triggers already dropped at 7.3).
+  `enqueue_transfers_if_transfer_related()` (triggers already dropped at 8.3).
 - `news_articles.bucket` — stop-write already happened (the greenfield Editor never wrote it);
   column stays, commented retired (archive).
 - `news_article_entities.title_pos` — stays as historical data, commented retired.
-- Recorded revert for the 7.3 trigger drops (rollback window only — delete this block in 8.1):
+- Recorded revert for the 8.3 trigger drops (rollback window only — delete this block in 9.1):
   re-CREATE `enqueue_derive_on_vetted` + `enqueue_transfers_if_transfer_related` from
   `sql/schema/schema.sql` @ the pre-flip snapshot commit.
 
-**Cron/env:** `cron-narrative-links.sh` out of crontab; `NEWS_SCRUB_ENABLED`, `LEGACY_LINKS`,
-legacy route envs removed from both machines' unit env files.
+**Cron/env:** `cron-narrative-links.sh` SPLIT, not removed (9.5): co-mention refresh out, the
+typed-links/episodes/seal rollups stay — they feed every memory card. `NEWS_SCRUB_ENABLED`,
+`LEGACY_LINKS`, legacy route envs removed from both machines' unit env files.
 
 ---
 
-## Appendix B — Decisions Scott owns (defaults act if he is silent, except D-4)
+## Appendix B — Decisions Scott owns (defaults act if he is silent; D-1 and D-4 are closed)
 
 - **D-1 · Voice model tag — CLOSED by Scott, 2026-07-29. The model assignment is now doctrine,
   not a default.** Two engines, one per organ, and nothing else is routed:
   - **`ministral-3:14b`** (13.9B, Q4_K_M, 9.08 GB) on the **Mac** — **all character work except
     the Editor and the Investigator**: Journalist, Influencer, Insider, Scout, Analyst, Oracle.
-    Phase 6.9 routes these six. (Verified loaded on the Mac at Phase 0 check time.)
+    Phase 7.12 routes these six. (Verified loaded on the Mac at Phase 0 check time.)
   - **`gemma3:4b`** on **archbox** — the Editor and the Investigator (Scott's "seeker"; see the
     naming ruling at the top of this plan — the character is THE INVESTIGATOR, `investigator/`
     in code), **pinned**. Not a preference: archbox's Ollama runs `OLLAMA_KEEP_ALIVE=-1` with
@@ -1206,19 +1380,25 @@ legacy route envs removed from both machines' unit env files.
 
   This supersedes the earlier "Mistral 3:12b"/12B reading. Routes are still config — a tag change
   is an env edit — but any *model change* re-earns its seat on the voice fixtures (AI Stage
-  Conventions), and `ministral-3:14b` is what the Phase 6.10 fixtures get captured against.
-- **D-2 · Person kinds v1** default: coach, executive, owner, agent, official (auto-writable);
-  family exists in the enum, never auto-written.
+  Conventions), and `ministral-3:14b` is what the Phase 7.11 fixtures get captured against (the
+  voice diet and the model re-earn are ONE gate, deliberately).
+- **D-2 · Person kinds v1 — updated by Scott, 2026-08-01:** player, coach, executive, owner,
+  agent, official (auto-writable); family exists in the enum, never auto-written. `player`
+  covers story-relevant players OUTSIDE the stats platform — rookies pre-debut, retired
+  legends, foreign-league players. The `players` table stays box-score-owned: the Investigator
+  NEVER auto-inserts `players` rows; if a person-kind player later appears in a box score, it
+  reconciles the two identities by alias/external id (5.5).
 - **D-3 · Out-of-scope clubs + national teams** default: census only (`rejected_out_of_scope`),
   no auto-writes. When Scott widens the boundary, `teams.kind` (club|national) is a two-minute
   migration — deferred deliberately, since a column nothing writes is scar tissue. The boundary
   is a business decision, not a resolver decision.
-- **D-4 · Box-score pilot: sport + source family. NO DEFAULT — Phase 5B blocks on this.**
-  Recommendation: FOOTBALL (78% of volume) with one reputable structured source family after a
-  terms/robots review in 5B.1; NBA is the fallback (smallest surface, cleanest tables).
+- **D-4 · Box-score pilot sport — CLOSED by Scott, 2026-08-01: FOOTBALL** (78% of volume; the
+  loop gets exercised hard and fast). The source FAMILY stays an in-phase decision: chosen in
+  4.3 after the terms/robots review, url_template mode (surgical target URLs). NBA is the
+  fallback only if every FOOTBALL family fails review.
 - **D-5 · Injury/suspension confirmation gates (F4 pattern)** default: deferred post-cutover;
   the Scout reads stats + transfer confirmations until then. (Scott flagged interest —
-  schedule as its own mini-plan after Phase 8.)
+  schedule as its own mini-plan after Phase 9.)
 - **D-6 · The front page.** Audited out of the critical path: the packets are the compiled
   stories of the day, and a ranking call with no client surface is decoration (a junction that
   only decorates is noise — AI Stage Conventions; this is a product, not a junction, but the
@@ -1244,3 +1424,8 @@ legacy route envs removed from both machines' unit env files.
   census of what demand alone doesn't catch, and the signal for a v2 schedule source.
 - No renames of live legacy identifiers (F1's lesson, §4 ruling) — files take character names;
   stage strings, env keys, prompt versions, and tables keep theirs until demolition.
+- No memory for the Editor or the Investigator — statelessness is the objectivity guarantee
+  (a fixed contract, frozen evals, and deterministic gates, never hidden memory). Memory
+  belongs to the six voices alone; the Oracle's is its own verdict trail, nothing else.
+- No LLM number-reading anywhere on the stats road — box-score numbers enter rows through
+  DOM/JSON parsers only; a model may describe or triage a page, never transcribe its digits.

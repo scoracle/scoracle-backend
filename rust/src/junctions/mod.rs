@@ -10,6 +10,7 @@
 //!
 //! | junction | module | seat | contract |
 //! |---|---|---|---|
+//! | **The Editor** | [`editor`] | the greenfield rail's reader (shadow until cutover) | `ep1` |
 //! | *(legacy reader)* | [`article_reader`] | sole relevance judge | `ar7` |
 //! | **The Journalist** | [`journalist`] | narrative memory | `n13` |
 //! | **The Oracle** | [`oracle`] | the sigil card's voice | `or5` |
@@ -41,6 +42,7 @@
 
 pub mod analyst;
 pub mod article_reader;
+pub mod editor;
 pub mod graph;
 pub mod influencer;
 pub mod insider;

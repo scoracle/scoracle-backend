@@ -26,6 +26,10 @@ use std::time::Duration;
 pub enum Stage {
     Scrub,
     ArticleRead,
+    /// The greenfield Editor (PLAN-one-rail Phase 3) — article-keyed like `ArticleRead`, whose
+    /// seat it shadows until cutover. Writes ONLY greenfield tables (`editor_reads`,
+    /// `news_articles.full_text`).
+    Editor,
     FixtureBoxscore,
     Graph,
     Peak,
@@ -43,6 +47,7 @@ impl Stage {
         match self {
             Stage::Scrub => "scrub",
             Stage::ArticleRead => "article_read",
+            Stage::Editor => "editor",
             Stage::FixtureBoxscore => "fixture_boxscore",
             Stage::Graph => "graph",
             Stage::Peak => "peak",
@@ -64,7 +69,10 @@ impl Stage {
     /// backlog rows from displacing a fresh top hit.
     fn claim_order(self) -> &'static str {
         match self {
-            Stage::ArticleRead => {
+            // The Editor drains best-first for the same reason ArticleRead does: when a backlog
+            // exists, order decides which articles get a model call, and Google already ranked
+            // them.
+            Stage::ArticleRead | Stage::Editor => {
                 "(SELECT a.feed_rank FROM public.news_articles a WHERE a.id = pipeline_work.entity_id) \
                  ASC NULLS LAST, available_at"
             }

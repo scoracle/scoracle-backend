@@ -81,6 +81,10 @@ pub enum Role {
     MomentumLogic,
     NarrativeLogic,
     ArticleReader,
+    /// The greenfield Editor (PLAN-one-rail Phase 3): reads every arrival on the ep1 contract.
+    /// Settled by hardware on gemma3:4b (§4 ruling) — `COGNITION_ROUTE_EDITOR` on archbox.
+    /// `ArticleReader` is the legacy seat it shadows; that role dies at cutover (Phase 9).
+    Editor,
     TransferLogic,
     VibeLogic,
     OracleLogic,
@@ -92,12 +96,13 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 10] {
+    pub fn all() -> [Role; 11] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::NarrativeLogic,
             Role::ArticleReader,
+            Role::Editor,
             Role::TransferLogic,
             Role::VibeLogic,
             Role::OracleLogic,
@@ -115,6 +120,7 @@ impl Role {
             Role::MomentumLogic => "momentum-logic",
             Role::NarrativeLogic => "narrative-logic",
             Role::ArticleReader => "article-reader",
+            Role::Editor => "editor",
             Role::TransferLogic => "transfer-logic",
             Role::VibeLogic => "vibe-logic",
             Role::OracleLogic => "oracle-logic",
@@ -133,6 +139,7 @@ impl Role {
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
             Role::ArticleReader => "ARTICLE_READER",
+            Role::Editor => "EDITOR",
             Role::TransferLogic => "TRANSFER_LOGIC",
             Role::VibeLogic => "VIBE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",

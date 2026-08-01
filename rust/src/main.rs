@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::junctions::{
-    analyst, article_reader, graph, influencer, insider, journalist, oracle, scout,
+    analyst, article_reader, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::{boxscore_fetch, config, db, embed, ollama, scrub, stage, worker};
 use std::collections::HashSet;
@@ -138,6 +138,12 @@ async fn main() -> Result<()> {
     if enabled.contains("graph") {
         handlers.push(Box::new(graph::GraphHandler::new()));
     }
+    // The greenfield Editor registers BEFORE the legacy article_read: registration order is
+    // claim order, so new arrivals outrank the legacy backlog inside the shared gemma group
+    // (PLAN-one-rail 3.2/3.8). graph stays first — it reclaims its slots on the next pass.
+    if enabled.contains("editor") {
+        handlers.push(Box::new(editor::EditorHandler::new()));
+    }
     if enabled.contains("article_read") {
         handlers.push(Box::new(article_reader::ArticleReadHandler::new()));
     }
@@ -189,6 +195,7 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "scrub",
         "graph",
         "article_read",
+        "editor",
         "fixture_boxscore",
         "peak",
         "momentum",

@@ -1,4 +1,4 @@
-//! reader_fixture_gen — regenerate The Editor's eval fixtures through the REAL production prompt
+//! article_reader_fixture_gen — regenerate The Editor's eval fixtures through the REAL production prompt
 //! builder, so the frozen fixture prompts are byte-true to `ARTICLE_READ_PROMPT_VERSION`
 //! (the graph/sigil/momentum fixture-gen pattern).
 //!
@@ -13,12 +13,12 @@
 //! passed perfectly by a model that answers "no" to everything, which is the opposite failure and
 //! just as bad — the read budget exists because reads are expensive.
 //!
-//!     cargo run --example reader_fixture_gen > /tmp/reader_fixtures.json
+//!     cargo run --example article_reader_fixture_gen > /tmp/reader_fixtures.json
 //!
-//! Output: a JSON array of fixture objects; split into `fixtures/editor/<name>.json`.
+//! Output: a JSON array of fixture objects; split into `fixtures/article_reader/<name>.json`.
 //! Offline — no DB, no model, no queue, no fetch.
 
-use scoracle_cognition::junctions::editor::{
+use scoracle_cognition::junctions::article_reader::{
     build_article_read_prompt_parts, ARTICLE_READ_PROMPT_VERSION, ARTICLE_READ_SYSTEM_PROMPT,
 };
 use serde_json::json;
@@ -140,7 +140,7 @@ fn main() {
             expect["reader_vetted"] = json!(s.vetted);
             json!({
                 "name": s.name,
-                "task": "reader",
+                "task": "article_reader",
                 "prompt_version": ARTICLE_READ_PROMPT_VERSION,
                 "note": s.note,
                 "system": ARTICLE_READ_SYSTEM_PROMPT,

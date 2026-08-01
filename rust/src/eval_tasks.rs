@@ -33,7 +33,7 @@
 
 use crate::corpus::{load_transfer_heat, lookup_entity_name};
 use crate::util::truncate;
-use crate::junctions::editor::{
+use crate::junctions::article_reader::{
     article_read_opts, build_article_read_prompt_for_eval, ArticleEntityRole, ArticleEvidence,
     ArticleEvidenceParser, ARTICLE_READ_PROMPT_VERSION,
 };
@@ -169,7 +169,7 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             mandate: "Read the five pillar cards aloud, deliver the entity's reading in the house voice, then render the Sigil verdict grounded in the entity's own prior reads.",
             credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented; the score moves deliberately from prior verdicts.",
         }),
-        "editor" => Some(LensParameters {
+        "article_reader" => Some(LensParameters {
             rail: Rail::EmotionalNews,
             operator: "The Editor",
             mandate: "Judge whether one fetched article is materially about the vetted entities, and compress what it actually says for The Journalist.",
@@ -490,7 +490,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "rating" => Some(Box::new(RatingTask)),
         "momentum" => Some(Box::new(MomentumTask)),
         "graph" => Some(Box::new(GraphTask)),
-        "editor" => Some(Box::new(EditorTask)),
+        "article_reader" => Some(Box::new(ArticleReaderTask)),
         _ => None,
     }
 }
@@ -505,7 +505,7 @@ pub fn all_task_names() -> &'static [&'static str] {
         "rating",
         "momentum",
         "graph",
-        "editor",
+        "article_reader",
     ]
 }
 
@@ -1637,19 +1637,21 @@ fn render_entity_roles(roles: &[ArticleEntityRole]) -> String {
         .join(", ")
 }
 
-/// EditorTask — the relevance gate's own gate.
+/// ArticleReaderTask — the legacy relevance gate's own gate (task `article_reader`, renamed from
+/// `editor` in Phase 3.0 of PLAN-one-rail to free the character's name for the greenfield Editor;
+/// the stage identity `article_read`, role, and prompt version are untouched by the rename).
 ///
-/// The Editor was the ONLY junction with no eval coverage, which is precisely how it ran for a day
+/// This seat was the ONLY junction with no eval coverage, which is precisely how it ran for a day
 /// as sole relevance judge while rejecting 0.9% of articles against mistral's rank-matched 27.4%.
 /// Its fixtures therefore pin BOTH directions: articles that must be rejected (a boxscore stub, a
 /// broadcast listing, an opponent-only mention) and articles that must be accepted and correctly
 /// compressed. A one-directional set would be passed by a model that simply answers "no".
-pub struct EditorTask;
+pub struct ArticleReaderTask;
 
 #[async_trait]
-impl LensTask for EditorTask {
+impl LensTask for ArticleReaderTask {
     fn name(&self) -> &'static str {
-        "editor"
+        "article_reader"
     }
     fn role(&self) -> Role {
         Role::ArticleReader
@@ -1823,9 +1825,9 @@ mod tests {
     }
 
     #[test]
-    fn editor_task_is_wired_to_the_article_reader_seat() {
-        let t = resolve_task("editor").expect("editor must be registered");
-        assert_eq!(t.name(), "editor");
+    fn article_reader_task_is_wired_to_the_article_reader_seat() {
+        let t = resolve_task("article_reader").expect("article_reader must be registered");
+        assert_eq!(t.name(), "article_reader");
         assert_eq!(t.role(), Role::ArticleReader);
         assert_eq!(t.prompt_version(), ARTICLE_READ_PROMPT_VERSION);
         // parameters() unwraps lens_parameters(name) with unreachable!() — a task registered
@@ -1835,7 +1837,7 @@ mod tests {
 
     #[test]
     fn reader_scores_the_relevance_verdict_in_both_directions() {
-        let t = EditorTask;
+        let t = ArticleReaderTask;
         let want_reject = Expect {
             article_relevant: Some(false),
             ..Default::default()
@@ -1860,7 +1862,7 @@ mod tests {
 
     #[test]
     fn reader_key_fact_checks_read_the_parsed_facts() {
-        let t = EditorTask;
+        let t = ArticleReaderTask;
         let raw = reader_raw(true, "blurb", &["Saka is out with a hamstring tear", "Arteta has cover"]);
         let e = Expect {
             article_relevant: Some(true),
@@ -1874,7 +1876,7 @@ mod tests {
 
     #[test]
     fn reader_unparseable_reply_is_fail_closed() {
-        let v = EditorTask.evaluate("not json at all", None, None);
+        let v = ArticleReaderTask.evaluate("not json at all", None, None);
         assert!(!v.parsed);
         assert!(v.checks.is_empty());
     }

@@ -234,7 +234,7 @@ fn input_components_are_stable_across_input_order() {
         &[h("A", 70, "y"), h("B", 40, "worded another way")],
     );
     assert_eq!(one, two);
-    let article_readings_hash = crate::junctions::editor::build_article_reading_input_components(&[
+    let article_readings_hash = crate::junctions::article_reader::build_article_reading_input_components(&[
         (1, "none::0".to_string()),
         (3, "none::0".to_string()),
     ]);
@@ -248,7 +248,7 @@ fn input_components_are_stable_across_input_order() {
     );
     // No heat ⇒ no transfer_heat key (mirrors sigil's conditional-key convention).
     let single_article_readings_hash =
-        crate::junctions::editor::build_article_reading_input_components(&[(
+        crate::junctions::article_reader::build_article_reading_input_components(&[(
             1,
             "none::0".to_string(),
         )]);

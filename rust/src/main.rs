@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::junctions::{
-    analyst, editor, graph, influencer, insider, journalist, oracle, scout,
+    analyst, article_reader, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::{boxscore_fetch, config, db, embed, ollama, scrub, stage, worker};
 use std::collections::HashSet;
@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
         handlers.push(Box::new(graph::GraphHandler::new()));
     }
     if enabled.contains("article_read") {
-        handlers.push(Box::new(editor::ArticleReadHandler::new()));
+        handlers.push(Box::new(article_reader::ArticleReadHandler::new()));
     }
     if enabled.contains("fixture_boxscore") {
         handlers.push(Box::new(boxscore_fetch::FixtureBoxscoreHandler::new()));

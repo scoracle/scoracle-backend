@@ -40,7 +40,7 @@
 //! reaches The Journalist on its headline alone. Reading is an upgrade applied to the material that
 //! most deserves it, never a precondition for carrying it.
 
-use crate::junctions::editor::{ArticleReadEntities, ArticleRow, CoMentionCandidate, ARTICLE_MAX_MODEL_CHARS};
+use crate::junctions::article_reader::{ArticleReadEntities, ArticleRow, CoMentionCandidate, ARTICLE_MAX_MODEL_CHARS};
 use crate::util::truncate;
 
 /// The Editor's contract version. Bumping this invalidates every cached reading whose

@@ -1660,7 +1660,7 @@ async fn maybe_apply_transfer_identity(
         // identity adjudication fires rarely, and Archbox's reload count was 0 precisely because it
         // had not run. The value must track whatever The Editor asks for; the voices' 16384 here
         // would put that KV allocation on an 8 GB card.
-        num_ctx: crate::junctions::editor::ARTICLE_NUM_CTX,
+        num_ctx: crate::junctions::article_reader::ARTICLE_NUM_CTX,
         json_mode: true,
         format_schema: None,
     };

@@ -872,7 +872,7 @@ tables. The legacy `article_read` keeps running untouched. Both share the 4-slot
 the new Editor registers FIRST so new arrivals outrank the legacy backlog (registration order
 is claim order, `rust/src/main.rs:131-173`).
 
-- [ ] **3.0** **The rename that frees the name (files only — §4 naming ruling).**
+- [x] **3.0** **The rename that frees the name (files only — §4 naming ruling).**
       `git mv rust/src/junctions/editor rust/src/junctions/article_reader` + update `use` paths;
       rename the legacy eval task string `editor` → `article_reader` in `eval_tasks.rs` AND
       `git mv rust/fixtures/editor rust/fixtures/article_reader` **in the same commit** (task

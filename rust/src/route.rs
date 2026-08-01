@@ -71,7 +71,7 @@ use tokio::sync::Semaphore;
 ///
 /// **This is for voices on the character host only.** `EmotionalNews`, `Multilang` and `Sql` are
 /// utility roles that resolve LOCALLY to gemma3:4b, where the shared runner is The Editor's and the
-/// agreed size is [`crate::junctions::editor::ARTICLE_NUM_CTX`]. Sending this value there would put
+/// agreed size is [`crate::junctions::article_reader::ARTICLE_NUM_CTX`]. Sending this value there would put
 /// a 16384 KV allocation on an 8 GB card and reintroduce exactly the thrash described above.
 pub const VOICE_NUM_CTX: i32 = 16384;
 

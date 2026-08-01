@@ -999,7 +999,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .map(|c| {
             (
                 c.id,
-                crate::junctions::editor::reading_fingerprint(
+                crate::junctions::article_reader::reading_fingerprint(
                     c.article_read_status.as_deref(),
                     c.article_read_content_hash.as_deref(),
                     c.article_read_updated_epoch,
@@ -1009,7 +1009,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .collect();
     out.push_str(",\"article_readings_hash\":");
     out.push_str(&crate::util::go_json_string(
-        &crate::junctions::editor::build_article_reading_input_components(&article_readings),
+        &crate::junctions::article_reader::build_article_reading_input_components(&article_readings),
     ));
     if !heat.is_empty() {
         let mut lines: Vec<String> = heat

@@ -45,3 +45,6 @@ go/bin/
 # Logs
 *.log
 logs/
+# The single env file is .env.local. A second .env is what caused the
+# load-order confusion; do not recreate it (RUNBOOK 11.1).
+.env

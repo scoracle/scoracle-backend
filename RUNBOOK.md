@@ -341,7 +341,7 @@ Full first-time setup + rationale: `../scoracle-wiki/progress_docs/scoracle-back
 `scripts/hosting/README.md`. Short path:
 
 1. Install Postgres 18, Ollama + `mistral:7b`, Go toolchain, the Python venv.
-2. Clone the repo; create `.env.local` (DB creds, provider keys, `JWT_SECRET`).
+2. Clone the repo; create `.env.local` — **the only env file** (see §11.1 for the key list).
 3. Restore the latest **off-disk/off-site** dump (§4) and `sql/migrate.sh` it to the latest schema.
 4. `scripts/hosting/install.sh` (renders systemd units), `loginctl enable-linger sheneveld`,
    `systemctl --user enable --now scoracle-api.path scoracle-api.service`.
@@ -350,6 +350,43 @@ Full first-time setup + rationale: `../scoracle-wiki/progress_docs/scoracle-back
 6. `scripts/hosting/release.sh` to build/stamp/verify; `scripts/hosting/restore-drill.sh` to prove
    the backup is bootable.
 7. Cloudflare Tunnel (`cloudflared`, `cloudflared-config.example.yml`) for `api.scoracle.com`.
+
+### 11.1 The environment: ONE file (consolidated 2026-08-01)
+
+**`.env.local` is the only env file.** There is no `.env` any more — it was deleted from the repo
+and both machines. Do not recreate one, and **never make a `.bak` copy inside the repo**: a backup
+of `.env.local` holds the same live secrets, and that is precisely how credentials reached git
+history twice (F-046, then `.env.local.bak.20260726-111052` on 2026-07-26). Backups belong in
+`~/env-backups` (0700/0600), outside the repo. `.gitignore` covers `.env.local*`, `.env*.bak*`
+and `.env`.
+
+Both systemd units load exactly one file:
+`EnvironmentFile=-/home/sheneveld/scoracle/scoracle-backend/.env.local`. The old two-file
+`.env` → `.env.local` overlay (later file silently overwrites earlier) is gone — that overlay was
+the source of the confusion, since the effective value of a key depended on load order.
+
+The consolidation merged both files, dropped **17 dead keys** and rotated three secrets. Retired
+and deliberately absent — the rail derives everything from Google News queries now, so no
+third-party provider credential is needed at all: `API_SPORTS_KEY`, `BALLDONTLIE_API_KEY`,
+`SPORTMONKS_API_TOKEN`, all nine `TWITTER_*`, plus legacy toggles `NEWS_SCRUB_VIA_QUEUE`,
+`CACHE_BACKEND`, `CACHE_WARMUP_ENABLED`, `OLLAMA_KEEP_ALIVE`, `OLLAMA_SHORT_TIMEOUT_SECONDS`.
+
+**The 42 live keys**, by group:
+
+| group | keys |
+|---|---|
+| Environment | `ENVIRONMENT` |
+| Database | `DATABASE_URL`, `DATABASE_PRIVATE_URL`, `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_CONNS`, `DB_POOL_MAX_LIFE_MINUTES` |
+| API server | `API_HOST`, `API_PORT`, `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS` |
+| Auth | `JWT_SECRET`, `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`, `FIREBASE_CREDENTIALS_FILE` |
+| Rate limiting | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REQUESTS`, `RATE_LIMIT_WINDOW`, `RATE_LIMIT_INTERNAL_KEY` |
+| Cache | `CACHE_ENABLED` |
+| Ollama | `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT` |
+| Cognition | `COGNITION_STAGES`, `COGNITION_BACKEND_CONCURRENCY`, `COGNITION_HANDLER_TIMEOUT_SECONDS`, `COGNITION_ARTICLE_READ_TOP_K`, `DERIVE_WORKER_ENABLED`, and the per-role routes `COGNITION_ROUTE_<ROLE>[_BASE_URL]` (12 keys today) |
+
+`COGNITION_ROUTE_*` keys are built at runtime by `format!("COGNITION_ROUTE_{}", role.env_suffix())`
+(`rust/src/config.rs:265`), so a plain grep for them finds nothing — **do not "clean them up" as
+unused.** `DERIVE_WORKER_ENABLED` is likewise referenced outside `rust/src`.
 
 ---
 
@@ -363,14 +400,20 @@ These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/p
   `OFFHOST_BACKUP_DIR`.
 - **F-035** — set the Ollama systemd drop-in `OLLAMA_NUM_PARALLEL=1` + `OLLAMA_MAX_LOADED_MODELS=1`
   (needs sudo).
-- **F-046 🔴 (security)** — credential leak, scope wider than first thought: **4 distinct secrets** (Neon
-  cloud pw, local archbox `scoracle` pw, `API_SPORTS_KEY`, retired provider bearer token) across **3 repos**
-  (`scoracle-backend`, `dotfiles`, the capital-`Scoracle` legacy clone) and a historically-tracked
-  `.env.local`. **S18 done:** working tree fully scrubbed + `.claude/settings.local.json` untracked +
-  gitignored. **Still gated on Scott:** rotate/revoke all 4 (the only real fix — treat as compromised),
-  then purge history (`git filter-repo` — install first — + force-push, coordinating archbox + archx220
-  + the Rust session). **Repair runbook: `PASSWORD-LEAK-REPAIR.md`** (repo root — Steps 1–3, redacted
-  re-derivation, rollback, next-session prompt). Full scope:
+- **F-046 🟠 (security) — reopened and largely closed 2026-08-01.** The 2026-06-24 plan was never
+  executed: rotation never happened and the history purge never ran, so **the leaked archbox
+  `scoracle` Postgres password was still the live one** as of 2026-08-01. It then got worse — a
+  new `.env.local.bak.20260726-111052` was **committed and pushed** on 2026-07-26 carrying 40
+  populated values (DB URLs, `JWT_SECRET`, `RATE_LIMIT_INTERNAL_KEY`, provider keys, five
+  Twitter/X tokens). The bare `.env.local` ignore rule never matched suffixed copies.
+  **Done 2026-08-01:** Postgres password, `JWT_SECRET` and `RATE_LIMIT_INTERNAL_KEY` all rotated
+  and verified live; env consolidated to a single `.env.local` with every third-party credential
+  deleted outright (§11.1); ignore rule widened to `.env.local*` / `.env*.bak*` / `.env`; history
+  purged and force-pushed. **Still on Scott** (see the session handoff): revoke the retired
+  provider keys at their dashboards, delete the abandoned Neon projects, and ask GitHub Support to
+  garbage-collect unreachable objects — a force-push alone does not remove old commits from
+  GitHub. The public `albapepper/Scoracle` legacy repo (superseded by this one) was deleted, which
+  ends the only *public* exposure. **Repair runbook: `PASSWORD-LEAK-REPAIR.md`.** Full scope:
   `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
   `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 

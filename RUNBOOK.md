@@ -412,11 +412,11 @@ These surfaced during the audit and are pre-launch work (see `../scoracle-wiki/p
   purged and force-pushed across all 12 branches, both clones re-synced to 0 occurrences. Scott
   completed the credential side the same day: all provider keys revoked at their dashboards,
   subscriptions ended, Neon projects deleted. **Net: every leaked value is now dead.**
-  One residual is *recorded but harmless* — GitHub's read-only `refs/pull/1|2/head` cannot be
-  rewritten by any force-push and still carry 4 literals, all four of them now revoked or rotated;
-  a Support GC request is optional tidiness. Remaining hygiene: delete the superseded public
-  `albapepper/Scoracle` repo (its one secret is revoked), which needs an interactive
-  `gh auth refresh -h github.com -s delete_repo` on the Mac. **Repair runbook: `PASSWORD-LEAK-REPAIR.md`.** Full scope:
+  The superseded public `albapepper/Scoracle` repo was deleted from GitHub (and its orphaned local
+  checkout removed), ending the last *public* trace. One residual is *recorded but harmless* —
+  GitHub's read-only `refs/pull/1|2/head` cannot be rewritten by any force-push and still carry
+  4 literals, all four of them now revoked or rotated; a Support GC request is optional tidiness.
+  **F-046 is CLOSED.** **Repair runbook: `PASSWORD-LEAK-REPAIR.md`.** Full scope:
   `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046 +
   `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`.
 

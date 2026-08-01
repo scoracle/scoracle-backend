@@ -26,6 +26,14 @@ go/bin/
 # .env is the committed template (safe defaults, no secrets).
 # .env.local holds real values and is ignored.
 .env.local
+# ...and EVERY backup of it. A `.bak` of .env.local holds the same live secrets as
+# .env.local itself, and the bare `.env.local` rule above did not match the suffixed
+# copies — which is exactly how `.env.local.bak.20260726-111052` (40 populated values:
+# DB URLs, JWT_SECRET, provider keys, Twitter tokens) got committed in 47e69a7 and
+# pushed to origin. Both spellings in use across the two machines are covered here.
+.env.local*
+.env*.bak*
+.env.local.bak*
 
 # Claude Code local settings (per-machine; accrues ad-hoc Bash permission grants
 # that can embed secrets — this is how the F-046 Postgres/Neon creds leaked).

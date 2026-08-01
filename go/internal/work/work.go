@@ -31,6 +31,10 @@ type Stage string
 const (
 	StageScrub           Stage = "scrub"
 	StageArticleRead     Stage = "article_read"
+	// StageEditor is the greenfield Editor (PLAN-one-rail Phase 3) — article-keyed like
+	// StageArticleRead, whose seat it shadows until cutover. Enqueued once per NEW article
+	// at ingest; drained only where COGNITION_STAGES includes 'editor' (archbox).
+	StageEditor          Stage = "editor"
 	StageFixtureBoxscore Stage = "fixture_boxscore"
 	StagePeak            Stage = "peak"
 	StageTransfers       Stage = "transfers"

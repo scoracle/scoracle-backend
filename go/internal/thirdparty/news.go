@@ -305,6 +305,7 @@ func (s *NewsService) persistArticles(
 
 	affected := make(map[int64]bool) // fresh primary OR secondary link — the informational return
 	needScrub := make(map[int64]bool) // fresh secondary link → needs the model's verdict
+	needEditor := make(map[int64]bool) // fresh ARTICLE ROW → the greenfield Editor reads it once
 
 	// The primary entity's own match input — needed to record its title position
 	// for the co-mention proximity gate. Broader team RSS now lets Google cast
@@ -352,7 +353,11 @@ func (s *NewsService) persistArticles(
 			}
 		}
 
+		// (xmax = 0) distinguishes a fresh INSERT from a conflict-update in the same
+		// statement — the standard idiom, used here so the editor enqueue below fires
+		// once per article's first sighting rather than once per sweep that re-sees it.
 		var articleID int64
+		var inserted bool
 		err := tx.QueryRow(ctx, `
 			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank, raw)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -362,10 +367,13 @@ func (s *NewsService) persistArticles(
 			    source      = COALESCE(EXCLUDED.source, news_articles.source),
 			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
 			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
-			RETURNING id
-		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
+			RETURNING id, (xmax = 0)
+		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID, &inserted)
 		if err != nil {
 			return nil, fmt.Errorf("upsert article: %w", err)
+		}
+		if inserted {
+			needEditor[articleID] = true
 		}
 
 		// Primary link — the entity that was queried. EVERY RSS search is a broad
@@ -449,6 +457,21 @@ func (s *NewsService) persistArticles(
 	for id := range needScrub {
 		if err := work.Enqueue(ctx, tx, work.Item{
 			Stage:      work.StageScrub,
+			EntityType: "article",
+			EntityID:   int(id),
+			Sport:      sportUpper,
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx,
+	// same ON CONFLICT discipline as scrub above. Keyed on fresh INSERTs rather than fresh
+	// links: the Editor's unit is the article, and a re-seen URL keeps its read. The stage
+	// drains only where COGNITION_STAGES includes 'editor' (archbox).
+	for id := range needEditor {
+		if err := work.Enqueue(ctx, tx, work.Item{
+			Stage:      work.StageEditor,
 			EntityType: "article",
 			EntityID:   int(id),
 			Sport:      sportUpper,

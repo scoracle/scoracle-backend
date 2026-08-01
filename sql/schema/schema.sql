@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict h85BV8mTTr1SwRPewcvbMfgaKLWoeZR4bXOna0NsVuexT0En6TAFc8kVUdvzvF3
+\restrict FNJhxhdvDUrMaewqOCFKqaIhqSx2XgnIfrfonInLFS07oq8Fbv3pfJYlOqKoGTy
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2860,6 +2860,68 @@ $$;
 
 
 --
+-- Name: enqueue_voices_on_packet(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enqueue_voices_on_packet() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    -- Arm 1: tag-subscribed voices. DISTINCT because two tags can reach the same (stage,
+    -- entity) pair — input_version is stage-keyed, so the rows are identical and collapse
+    -- (without it, ON CONFLICT would hit "cannot affect row a second time").
+    INSERT INTO public.pipeline_work
+        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+    SELECT DISTINCT s.stage, se.entity_type, se.entity_id, se.sport, 'pending',
+           'pk:' || COALESCE(NEW.slice_fingerprints ->> s.stage, NEW.id::text),
+           NOW(), NOW()
+      FROM unnest(NEW.routing_tags) AS t(tag)
+      JOIN public.stage_routing_subscriptions s ON s.tag = t.tag
+      JOIN public.storyline_entities se
+        ON se.storyline_id = NEW.storyline_id
+       AND se.entity_type  = s.entity_type
+       AND se.left_at IS NULL
+    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+        status        = 'pending',
+        attempts      = 0,
+        available_at  = NOW(),
+        updated_at    = NOW(),
+        last_error    = NULL,
+        input_version = EXCLUDED.input_version
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
+
+    -- Arm 2: the Journalist reads everything (§1c — an unconditional narratives fan-out per
+    -- active participant, at the player/team grain the voices are keyed on).
+    INSERT INTO public.pipeline_work
+        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+    SELECT 'narratives', se.entity_type, se.entity_id, se.sport, 'pending',
+           'pk:' || COALESCE(NEW.slice_fingerprints ->> 'narratives', NEW.id::text),
+           NOW(), NOW()
+      FROM public.storyline_entities se
+     WHERE se.storyline_id = NEW.storyline_id
+       AND se.left_at IS NULL
+       AND se.entity_type IN ('player','team')
+    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+        status        = 'pending',
+        attempts      = 0,
+        available_at  = NOW(),
+        updated_at    = NOW(),
+        last_error    = NULL,
+        input_version = EXCLUDED.input_version
+    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+       OR public.pipeline_work.status = 'failed';
+
+    -- The statement-level mig-133 notify trigger on pipeline_work already covers the wake-up;
+    -- identical (channel, payload) notifications coalesce within a transaction, so this
+    -- explicit notify is free — kept because it documents the wake-up contract at the seam.
+    PERFORM pg_notify('pipeline_work_ready', '');
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: enqueue_voices_on_routing_tags(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2911,6 +2973,20 @@ BEGIN
 
     -- Statement-level mig-133 notify trigger on pipeline_work covers the wake-up; no PERFORM here.
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: entity_aliases_no_update(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.entity_aliases_no_update() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RAISE EXCEPTION 'entity_aliases is append-only: supersede with a new row, never UPDATE '
+                    '(PLAN-one-rail.md 1.6)';
 END;
 $$;
 
@@ -5118,6 +5194,16 @@ BEGIN
         UNION
         SELECT 'player', p.id, p.sport, public.nrm(a), 'alias'
           FROM public.players p, unnest(p.search_aliases) a WHERE public.nrm(a) <> ''
+        UNION
+        -- Persons (mig 203): the Investigator's verified people. NULL-sport persons carry no
+        -- surfaces — resolution is sport-scoped, and the FK on sport is NOT NULL here.
+        SELECT 'person', pe.id, pe.sport, public.nrm(pe.full_name), 'name'
+          FROM public.persons pe
+         WHERE pe.sport IS NOT NULL AND public.nrm(pe.full_name) <> ''
+        UNION
+        SELECT 'person', pe.id, pe.sport, public.nrm(a), 'alias'
+          FROM public.persons pe, unnest(pe.search_aliases) a
+         WHERE pe.sport IS NOT NULL AND public.nrm(a) <> ''
     )
     -- A canonical name and an alias can normalize to the same string (AC Milan carries alias
     -- 'Milan'; 'Atletico de Madrid' folds onto its own accented name). The PK is per surface, so
@@ -5132,7 +5218,7 @@ BEGIN
     GET DIAGNOSTICS n = ROW_COUNT;
 
     -- Without this the planner sees an empty table and seq-scans every resolver lookup until
-    -- autovacuum notices. See the header: 38 ms vs 2 ms on the same query.
+    -- autovacuum notices. See mig 199's header: 38 ms vs 2 ms on the same query.
     ANALYZE public.entity_name_surfaces;
 
     RETURN n;
@@ -5144,7 +5230,7 @@ $$;
 -- Name: FUNCTION refresh_entity_name_surfaces(); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.refresh_entity_name_surfaces() IS 'Full rebuild of entity_name_surfaces from teams/players. Idempotent. Call after any roster or alias change; cheap enough (~19k rows) to run on a schedule.';
+COMMENT ON FUNCTION public.refresh_entity_name_surfaces() IS 'Full rebuild of entity_name_surfaces from teams/players/persons (persons since mig 207; NULL-sport persons are skipped — resolution is sport-scoped). Idempotent; ANALYZEs on the way out (mig 199). Call after any roster, alias, or person change.';
 
 
 --
@@ -7629,6 +7715,50 @@ CREATE VIEW nfl.team AS
 
 
 --
+-- Name: acquisition_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.acquisition_runs (
+    id bigint NOT NULL,
+    candidate_id bigint NOT NULL,
+    status text NOT NULL,
+    query_plan jsonb,
+    outcome text,
+    rejection_reason text,
+    model_version text,
+    parser_version text,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone
+);
+
+
+--
+-- Name: TABLE acquisition_runs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.acquisition_runs IS 'One Investigator attempt at one candidate: the query plan it budgeted, what came back, and the versions that judged it. A candidate can accrue many runs (deferred sources retry); the candidate row holds the standing verdict, the run holds the story of each try.';
+
+
+--
+-- Name: acquisition_runs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.acquisition_runs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: acquisition_runs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.acquisition_runs_id_seq OWNED BY public.acquisition_runs.id;
+
+
+--
 -- Name: auth_refresh_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7641,6 +7771,26 @@ CREATE TABLE public.auth_refresh_tokens (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_used_at timestamp with time zone
 );
+
+
+--
+-- Name: candidate_mentions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.candidate_mentions (
+    candidate_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    quote text,
+    editor_descriptor text,
+    observed_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE candidate_mentions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.candidate_mentions IS 'One row per (candidate, article): the evidence trail behind mention_count. quote is code-sliced ±160 chars around the name''s first occurrence in the STORED full_text — the model never emits quotes; editor_descriptor is the ep1 ≤6-word descriptor from the text.';
 
 
 --
@@ -7673,7 +7823,7 @@ CREATE TABLE public.cognition_ledger (
     context_budget jsonb DEFAULT '{}'::jsonb NOT NULL,
     parser_outcome text NOT NULL,
     generated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text]))),
+    CONSTRAINT cognition_ledger_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'candidate'::text, 'fixture'::text]))),
     CONSTRAINT cognition_ledger_pair_entity_type_check CHECK (((pair_entity_type IS NULL) OR (pair_entity_type = ANY (ARRAY['player'::text, 'team'::text]))))
 );
 
@@ -7783,6 +7933,289 @@ ALTER SEQUENCE public.data_fetch_ledger_id_seq OWNED BY public.data_fetch_ledger
 
 
 --
+-- Name: editor_reads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.editor_reads (
+    article_id bigint NOT NULL,
+    status text NOT NULL,
+    contract_version text NOT NULL,
+    model_version text,
+    parser_outcome text DEFAULT 'no_call'::text NOT NULL,
+    last_error text,
+    final_url text,
+    final_domain text,
+    content_hash text,
+    extracted_words integer DEFAULT 0 NOT NULL,
+    read jsonb DEFAULT '{}'::jsonb NOT NULL,
+    resolved jsonb DEFAULT '{}'::jsonb NOT NULL,
+    storyline_id bigint,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT editor_reads_extracted_words_check CHECK ((extracted_words >= 0)),
+    CONSTRAINT editor_reads_status_check CHECK ((status = ANY (ARRAY['success'::text, 'irrelevant'::text, 'paywall'::text, 'blocked'::text, 'empty_body'::text, 'fetch_failed'::text, 'parse_failed'::text, 'duplicate'::text, 'not_sport'::text])))
+);
+
+
+--
+-- Name: TABLE editor_reads; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.editor_reads IS 'The Editor''s read of one article (greenfield rail, contract ep1 — PLAN-one-rail.md §1a). Successor to news_article_readings; the two are never co-written — article_read keeps its table until cutover, the editor stage writes only this one.';
+
+
+--
+-- Name: COLUMN editor_reads.contract_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.editor_reads.contract_version IS 'ep1, ep2, ... — a cache key, not a label (T1): bumping it is what reopens work.';
+
+
+--
+-- Name: COLUMN editor_reads.read; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.editor_reads.read IS 'The full ep1 model envelope in schema order: source_language, page_kind, names[] (the discovery channel — name/kind_hint/descriptor), entity_roles[], story_type, result_line (verbatim-or-empty), register_phrase, register, key_facts[], caveats, evidence_blurb. The model DESCRIBES; every judgment is derived in code (T2).';
+
+
+--
+-- Name: COLUMN editor_reads.resolved; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.editor_reads.resolved IS 'Resolver outcome, written by CODE: {links:[{entity_type,entity_id,sport,via_surface}], unresolved:[{name,kind_hint,descriptor}], refused_ambiguous:[...]}. Exact nrm() surface match is the only automatic link path (T9); ambiguity is refused and nominated.';
+
+
+--
+-- Name: COLUMN editor_reads.storyline_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.editor_reads.storyline_id IS 'Attach result — Phase 6''s Desk writes it after scoring open storylines (§1b).';
+
+
+--
+-- Name: entity_aliases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_aliases (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text,
+    alias text NOT NULL,
+    norm_alias text NOT NULL,
+    source_document_id bigint,
+    state text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE entity_aliases; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_aliases IS 'APPEND-ONLY (enforced by trigger): a superseding decision is a new row, never an UPDATE. The provenance ledger behind operational alias copies (persons.search_aliases et al.), which mirror into entity_name_surfaces via refresh_entity_name_surfaces().';
+
+
+--
+-- Name: entity_aliases_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.entity_aliases_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: entity_aliases_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.entity_aliases_id_seq OWNED BY public.entity_aliases.id;
+
+
+--
+-- Name: entity_candidates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_candidates (
+    id bigint NOT NULL,
+    idempotency_key text NOT NULL,
+    norm_name text NOT NULL,
+    kind_hint text,
+    sport text,
+    target_entity_type text,
+    target_entity_id integer,
+    mention_count integer DEFAULT 0 NOT NULL,
+    state text DEFAULT 'pending'::text NOT NULL,
+    resolved_entity_type text,
+    resolved_entity_id integer,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    decided_at timestamp with time zone,
+    CONSTRAINT entity_candidates_state_check CHECK ((state = ANY (ARRAY['pending'::text, 'accepted'::text, 'rejected_not_sport'::text, 'rejected_insufficient_evidence'::text, 'rejected_out_of_scope'::text, 'ambiguous'::text, 'deferred_source_unavailable'::text])))
+);
+
+
+--
+-- Name: TABLE entity_candidates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_candidates IS 'A nominated name awaiting the Investigator''s verdict. Nominated by the Editor''s resolver (unresolved names[] per the 5.2 rule; refused ties always nominate) — never written directly from a model mention. The queue item is pipeline_work stage investigate_entity, entity_type ''candidate'', entity_id = this id.';
+
+
+--
+-- Name: COLUMN entity_candidates.idempotency_key; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.idempotency_key IS 'Resolver-defined dedup key so one mystery name is one candidate across articles and days. Shape owned by Phase 5 (e.g. kind_hint:sport:norm_name).';
+
+
+--
+-- Name: COLUMN entity_candidates.norm_name; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.norm_name IS 'public.nrm() of the mentioned name.';
+
+
+--
+-- Name: COLUMN entity_candidates.kind_hint; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.kind_hint IS 'The Editor''s ep1 kind_hint at nomination: person|club|national_team|other.';
+
+
+--
+-- Name: COLUMN entity_candidates.target_entity_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.target_entity_type IS 'Optional pointer (with target_entity_id) to an existing entity this candidate may duplicate — set when the refusal was a near-match rather than a blank.';
+
+
+--
+-- Name: COLUMN entity_candidates.state; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.state IS 'Decided candidates re-arm on new mentions (5.6): maintenance is demand-led, like growth.';
+
+
+--
+-- Name: COLUMN entity_candidates.resolved_entity_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.entity_candidates.resolved_entity_type IS 'Set with decided_at by the accept/reconcile path: the entity this candidate became or was linked to (person/player/team + id).';
+
+
+--
+-- Name: entity_candidates_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.entity_candidates_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: entity_candidates_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.entity_candidates_id_seq OWNED BY public.entity_candidates.id;
+
+
+--
+-- Name: entity_external_ids; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_external_ids (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text,
+    namespace text NOT NULL,
+    external_id text NOT NULL,
+    source_document_id bigint,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE entity_external_ids; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_external_ids IS 'Stable external handles (namespace + id, e.g. wikidata:Q615) for an entity triple. The reconciliation hook D-2 names: a person-kind player later appearing in a box score reconciles by alias/external id (5.5).';
+
+
+--
+-- Name: entity_external_ids_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.entity_external_ids_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: entity_external_ids_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.entity_external_ids_id_seq OWNED BY public.entity_external_ids.id;
+
+
+--
+-- Name: entity_facts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_facts (
+    id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text,
+    fact_type text NOT NULL,
+    value_text text,
+    value_jsonb jsonb,
+    valid_from timestamp with time zone,
+    valid_to timestamp with time zone,
+    source_document_id bigint NOT NULL,
+    state text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT entity_facts_state_check CHECK ((state = ANY (ARRAY['active'::text, 'superseded'::text, 'conflicted'::text])))
+);
+
+
+--
+-- Name: TABLE entity_facts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_facts IS 'One sourced claim about one entity. source_document_id is NOT NULL — every accepted fact cites a source (living-database doctrine); gemma DESCRIBES the page, code GATES the write. Re-verification supersedes with dated validity rather than editing in place (§4 demand-led maintenance).';
+
+
+--
+-- Name: entity_facts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.entity_facts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: entity_facts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.entity_facts_id_seq OWNED BY public.entity_facts.id;
+
+
+--
 -- Name: entity_name_surfaces; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7792,7 +8225,7 @@ CREATE TABLE public.entity_name_surfaces (
     sport text NOT NULL,
     norm text NOT NULL,
     surface_kind text NOT NULL,
-    CONSTRAINT entity_name_surfaces_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text]))),
+    CONSTRAINT entity_name_surfaces_entity_type_check CHECK ((entity_type = ANY (ARRAY['team'::text, 'player'::text, 'person'::text]))),
     CONSTRAINT entity_name_surfaces_surface_kind_check CHECK ((surface_kind = ANY (ARRAY['name'::text, 'alias'::text])))
 );
 
@@ -7801,7 +8234,55 @@ CREATE TABLE public.entity_name_surfaces (
 -- Name: TABLE entity_name_surfaces; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.entity_name_surfaces IS 'Normalized name/alias surfaces for teams and players. Rebuilt by refresh_entity_name_surfaces(), which ANALYZEs on the way out (mig 199 -- the rebuild otherwise leaves empty-table statistics and every lookup seq-scans). Exact match on (norm, sport) is the ONLY automatic resolution path; the trigram index is for ranking and review, never an unattended write. See mig 198 for the measured reason (spain -> team 394 clears any margin gate and is wrong).';
+COMMENT ON TABLE public.entity_name_surfaces IS 'Normalized name/alias surfaces for teams, players, and persons (mig 207). Rebuilt by refresh_entity_name_surfaces(), which ANALYZEs on the way out (mig 199 -- the rebuild otherwise leaves empty-table statistics and every lookup seq-scans). Exact match on (norm, sport) is the ONLY automatic resolution path; the trigram index is for ranking and review, never an unattended write. See mig 198 for the measured reason (spain -> team 394 clears any margin gate and is wrong).';
+
+
+--
+-- Name: entity_relationships; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entity_relationships (
+    id bigint NOT NULL,
+    subject_entity_type text NOT NULL,
+    subject_entity_id integer NOT NULL,
+    subject_sport text,
+    predicate text NOT NULL,
+    object_entity_type text NOT NULL,
+    object_entity_id integer NOT NULL,
+    object_sport text,
+    valid_from timestamp with time zone,
+    valid_to timestamp with time zone,
+    source_document_id bigint NOT NULL,
+    state text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT entity_relationships_state_check CHECK ((state = ANY (ARRAY['active'::text, 'superseded'::text, 'conflicted'::text])))
+);
+
+
+--
+-- Name: TABLE entity_relationships; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.entity_relationships IS 'Typed edge between two entity triples (coach_of, agent_of, ...), sourced and dated like entity_facts. Distinct from the graph layer''s narrative_events/narrative_persons — this is verified world structure, that is story structure.';
+
+
+--
+-- Name: entity_relationships_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.entity_relationships_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: entity_relationships_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.entity_relationships_id_seq OWNED BY public.entity_relationships.id;
 
 
 --
@@ -8771,7 +9252,7 @@ CREATE TABLE public.news_article_entities (
     title_pos smallint,
     vetted boolean,
     scrubbed_at timestamp with time zone,
-    CONSTRAINT news_article_entities_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text])))
+    CONSTRAINT news_article_entities_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
 );
 
 
@@ -9172,6 +9653,113 @@ ALTER SEQUENCE public.oracle_readings_id_seq OWNED BY public.oracle_readings.id;
 
 
 --
+-- Name: packets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.packets (
+    id bigint NOT NULL,
+    storyline_id bigint NOT NULL,
+    day date NOT NULL,
+    sport text NOT NULL,
+    compiled_at timestamp with time zone DEFAULT now() NOT NULL,
+    headline text,
+    story_types text[] DEFAULT '{}'::text[] NOT NULL,
+    register text,
+    register_phrase text,
+    claims jsonb DEFAULT '[]'::jsonb NOT NULL,
+    facts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    quotes jsonb DEFAULT '[]'::jsonb NOT NULL,
+    routing_tags text[] DEFAULT '{}'::text[] NOT NULL,
+    slice_fingerprints jsonb DEFAULT '{}'::jsonb NOT NULL,
+    unresolved_mentions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    supersedes_packet_id bigint,
+    contract_version text NOT NULL
+);
+
+
+--
+-- Name: TABLE packets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.packets IS 'A snapshot of a storyline at compile time (contract pk1 — PLAN-one-rail.md §1c). Compiled in CODE from member editor_reads; zero model tokens. Append-only: a new packet supersedes the prior one via supersedes_packet_id; rows are never edited.';
+
+
+--
+-- Name: COLUMN packets.headline; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.headline IS 'Best member title — lowest feed_rank among member articles.';
+
+
+--
+-- Name: COLUMN packets.register; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.register IS 'Strongest non-neutral register among members (ep1 enum), with its phrase alongside. The Influencer owns the score; the packet only carries the Editor''s description.';
+
+
+--
+-- Name: COLUMN packets.claims; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.claims IS '[{article_id, source, fact, published_at}] — contested state preserved, attributed (T3/D6: 0.5–0.75 similarity attaches, never collapses).';
+
+
+--
+-- Name: COLUMN packets.facts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.facts IS 'Thin, structured only: {story_types, result_line?, entities}. The Scout never reads packet prose (T4); confirmed facts reach it by other roads (§4).';
+
+
+--
+-- Name: COLUMN packets.quotes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.quotes IS 'Code-sliced ±160 chars around first name occurrence in STORED full_text — the model never emits quotes.';
+
+
+--
+-- Name: COLUMN packets.slice_fingerprints; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.slice_fingerprints IS 'Per-voice hash of that voice''s slice (E2), keyed by STAGE string (e.g. narratives, transfers, vibe) — the mig-206 fan-out reads slice_fingerprints ->> stage. A packet re-fans only to voices whose slice moved.';
+
+
+--
+-- Name: COLUMN packets.unresolved_mentions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.unresolved_mentions IS 'B3''s census, rolled up from member editor_reads.resolved.unresolved.';
+
+
+--
+-- Name: COLUMN packets.contract_version; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.packets.contract_version IS 'pk1, pk2, ... — a cache key, not a label (T1).';
+
+
+--
+-- Name: packets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.packets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: packets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.packets_id_seq OWNED BY public.packets.id;
+
+
+--
 -- Name: peer_cohort_aggregate; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9196,6 +9784,71 @@ CREATE TABLE public.peer_cohort_aggregate (
 --
 
 COMMENT ON TABLE public.peer_cohort_aggregate IS 'O1: precomputed per-cohort season aggregates for /momentum. Stores full-cohort SUMS+COUNTS so the read reconstructs exact leave-one-out peer averages. Refreshed by refresh_peer_cohort_aggregates().';
+
+
+--
+-- Name: persons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.persons (
+    id integer NOT NULL,
+    sport text,
+    full_name text NOT NULL,
+    kind text NOT NULL,
+    team_id integer,
+    search_aliases text[] DEFAULT '{}'::text[] NOT NULL,
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT persons_kind_check CHECK ((kind = ANY (ARRAY['player'::text, 'coach'::text, 'executive'::text, 'owner'::text, 'agent'::text, 'family'::text, 'official'::text, 'other'::text])))
+);
+
+
+--
+-- Name: TABLE persons; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.persons IS 'People the rail talks about who are NOT stats-platform players: coaches, executives, owners, agents, officials — and person-kind ''player'' for story-relevant players OUTSIDE the stats platform (D-2). Written only by the Investigator behind its code gates; a model mention is never a database write, and every accepted person cites source_documents provenance via the mig-205 acquisition tables.';
+
+
+--
+-- Name: COLUMN persons.sport; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.persons.sport IS 'Nullable: a person can be sport-scoped (most are) or not yet placed. NULL-sport persons carry no entity_name_surfaces rows (resolution is sport-scoped) until a sport is known.';
+
+
+--
+-- Name: COLUMN persons.kind; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.persons.kind IS 'D-2 v1: player/coach/executive/owner/agent/official are auto-writable by the accept gate; ''family'' exists in the enum but is NEVER auto-written; ''other'' is the census bucket. ''player'' = outside the stats platform — the players table stays box-score-owned.';
+
+
+--
+-- Name: COLUMN persons.team_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.persons.team_id IS 'Current-affiliation hint, bare integer — teams'' PK is composite (id, sport), so this carries no FK. Authority on affiliation lives in entity_facts/entity_relationships with dated validity; this is the convenience copy.';
+
+
+--
+-- Name: persons_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.persons_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: persons_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.persons_id_seq OWNED BY public.persons.id;
 
 
 --
@@ -9319,7 +9972,7 @@ CREATE TABLE public.pipeline_work (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_error text,
     input_version text,
-    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text]))),
+    CONSTRAINT pipeline_work_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'article'::text, 'fixture'::text, 'candidate'::text]))),
     CONSTRAINT pipeline_work_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'failed'::text])))
 );
 
@@ -9699,6 +10352,50 @@ COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading 
 
 
 --
+-- Name: source_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.source_documents (
+    id bigint NOT NULL,
+    url text NOT NULL,
+    final_url text,
+    domain text,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    content_hash text,
+    http_status integer,
+    title text,
+    retained_excerpt text,
+    headers jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+--
+-- Name: TABLE source_documents; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.source_documents IS 'The fetched page a fact cites: canonical url, redirect target, hash, and a retained excerpt. Same URL fetched twice is TWO rows — provenance is a point in time, not a link. Rows are never deleted while anything cites them (facts/relationships FK here without CASCADE, so a delete that would orphan provenance fails).';
+
+
+--
+-- Name: source_documents_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.source_documents_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: source_documents_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.source_documents_id_seq OWNED BY public.source_documents.id;
+
+
+--
 -- Name: source_performance; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9972,6 +10669,108 @@ COMMENT ON TABLE public.stat_templates IS 'Per-(sport, position_group) counting-
 --
 
 COMMENT ON COLUMN public.stat_templates.facet IS 'Pizza grouping for the Composite card. NULL = single unfaceted pizza (the NFL/NBA fantasy templates); non-NULL = one pizza per facet, ordered by item sort_order (the football counting-stat pizzas).';
+
+
+--
+-- Name: storyline_articles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.storyline_articles (
+    storyline_id bigint NOT NULL,
+    article_id bigint NOT NULL,
+    attached_at timestamp with time zone DEFAULT now() NOT NULL,
+    attach_method text NOT NULL,
+    CONSTRAINT storyline_articles_attach_method_check CHECK ((attach_method = ANY (ARRAY['auto'::text, 'backfill'::text])))
+);
+
+
+--
+-- Name: TABLE storyline_articles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.storyline_articles IS 'Membership edge: which articles a storyline is made of. Attachment is deterministic and logged (§1b scoring rule); ''auto'' is the live path, ''backfill'' a deliberate repair.';
+
+
+--
+-- Name: storyline_entities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.storyline_entities (
+    storyline_id bigint NOT NULL,
+    entity_type text NOT NULL,
+    entity_id integer NOT NULL,
+    sport text NOT NULL,
+    role text,
+    joined_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    left_at timestamp with time zone,
+    exit_reason text,
+    CONSTRAINT storyline_entities_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
+);
+
+
+--
+-- Name: TABLE storyline_entities; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.storyline_entities IS 'D5: an entity''s part in a storyline has its own lifespan. left_at IS NULL = active participant (the packet fan-out grain). On resolution, code names who the story resolved for and closes every other edge with exit_reason ''not_the_outcome'' in one stroke.';
+
+
+--
+-- Name: storylines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.storylines (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    title text,
+    status text DEFAULT 'open'::text NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone,
+    resolution jsonb,
+    CONSTRAINT storylines_status_check CHECK ((status = ANY (ARRAY['open'::text, 'resolved'::text, 'dormant'::text])))
+);
+
+
+--
+-- Name: TABLE storylines; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.storylines IS 'One running story, assembled deterministically in code (PLAN-one-rail.md §1b) — never compiled or matched by a model. Membership lives in storyline_articles; participants in storyline_entities; the compiled product is packets.';
+
+
+--
+-- Name: COLUMN storylines.title; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storylines.title IS 'Display only — the first member''s headline. NEVER used for matching (D3: free-text story names are banned from the join; entities + story_type + time are the join key).';
+
+
+--
+-- Name: COLUMN storylines.resolution; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.storylines.resolution IS 'Written by code when status flips to resolved: what happened and for whom. Shape owned by the Phase 6 assembler.';
+
+
+--
+-- Name: storylines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.storylines_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: storylines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.storylines_id_seq OWNED BY public.storylines.id;
 
 
 --
@@ -10428,6 +11227,13 @@ ALTER SEQUENCE public.vibe_synthesis_id_seq OWNED BY public.sigil_synthesis.id;
 
 
 --
+-- Name: acquisition_runs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_runs ALTER COLUMN id SET DEFAULT nextval('public.acquisition_runs_id_seq'::regclass);
+
+
+--
 -- Name: cognition_ledger id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10439,6 +11245,41 @@ ALTER TABLE ONLY public.cognition_ledger ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.data_fetch_ledger ALTER COLUMN id SET DEFAULT nextval('public.data_fetch_ledger_id_seq'::regclass);
+
+
+--
+-- Name: entity_aliases id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_aliases ALTER COLUMN id SET DEFAULT nextval('public.entity_aliases_id_seq'::regclass);
+
+
+--
+-- Name: entity_candidates id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_candidates ALTER COLUMN id SET DEFAULT nextval('public.entity_candidates_id_seq'::regclass);
+
+
+--
+-- Name: entity_external_ids id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_external_ids ALTER COLUMN id SET DEFAULT nextval('public.entity_external_ids_id_seq'::regclass);
+
+
+--
+-- Name: entity_facts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_facts ALTER COLUMN id SET DEFAULT nextval('public.entity_facts_id_seq'::regclass);
+
+
+--
+-- Name: entity_relationships id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_relationships ALTER COLUMN id SET DEFAULT nextval('public.entity_relationships_id_seq'::regclass);
 
 
 --
@@ -10561,6 +11402,20 @@ ALTER TABLE ONLY public.oracle_readings ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- Name: packets id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.packets ALTER COLUMN id SET DEFAULT nextval('public.packets_id_seq'::regclass);
+
+
+--
+-- Name: persons id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.persons ALTER COLUMN id SET DEFAULT nextval('public.persons_id_seq'::regclass);
+
+
+--
 -- Name: pipeline_runs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10610,6 +11465,13 @@ ALTER TABLE ONLY public.sigil_synthesis ALTER COLUMN id SET DEFAULT nextval('pub
 
 
 --
+-- Name: source_documents id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.source_documents ALTER COLUMN id SET DEFAULT nextval('public.source_documents_id_seq'::regclass);
+
+
+--
 -- Name: stat_definitions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -10621,6 +11483,13 @@ ALTER TABLE ONLY public.stat_definitions ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.stat_summaries ALTER COLUMN id SET DEFAULT nextval('public.stat_summaries_id_seq'::regclass);
+
+
+--
+-- Name: storylines id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storylines ALTER COLUMN id SET DEFAULT nextval('public.storylines_id_seq'::regclass);
 
 
 --
@@ -10659,6 +11528,14 @@ ALTER TABLE ONLY public.vibe_scores ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
+-- Name: acquisition_runs acquisition_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_runs
+    ADD CONSTRAINT acquisition_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: auth_refresh_tokens auth_refresh_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10672,6 +11549,14 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 ALTER TABLE ONLY public.auth_refresh_tokens
     ADD CONSTRAINT auth_refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: candidate_mentions candidate_mentions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.candidate_mentions
+    ADD CONSTRAINT candidate_mentions_pkey PRIMARY KEY (candidate_id, article_id);
 
 
 --
@@ -10691,11 +11576,67 @@ ALTER TABLE ONLY public.data_fetch_ledger
 
 
 --
+-- Name: editor_reads editor_reads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.editor_reads
+    ADD CONSTRAINT editor_reads_pkey PRIMARY KEY (article_id);
+
+
+--
+-- Name: entity_aliases entity_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_aliases
+    ADD CONSTRAINT entity_aliases_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entity_candidates entity_candidates_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_candidates
+    ADD CONSTRAINT entity_candidates_idempotency_key_key UNIQUE (idempotency_key);
+
+
+--
+-- Name: entity_candidates entity_candidates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_candidates
+    ADD CONSTRAINT entity_candidates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entity_external_ids entity_external_ids_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_external_ids
+    ADD CONSTRAINT entity_external_ids_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entity_facts entity_facts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_facts
+    ADD CONSTRAINT entity_facts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: entity_name_surfaces entity_name_surfaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.entity_name_surfaces
     ADD CONSTRAINT entity_name_surfaces_pkey PRIMARY KEY (entity_type, entity_id, sport, norm);
+
+
+--
+-- Name: entity_relationships entity_relationships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_relationships
+    ADD CONSTRAINT entity_relationships_pkey PRIMARY KEY (id);
 
 
 --
@@ -10939,11 +11880,27 @@ ALTER TABLE ONLY public.oracle_readings
 
 
 --
+-- Name: packets packets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.packets
+    ADD CONSTRAINT packets_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: peer_cohort_aggregate peer_cohort_aggregate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.peer_cohort_aggregate
     ADD CONSTRAINT peer_cohort_aggregate_pkey PRIMARY KEY (sport, season, league_id, entity_type, "position");
+
+
+--
+-- Name: persons persons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.persons
+    ADD CONSTRAINT persons_pkey PRIMARY KEY (id);
 
 
 --
@@ -11099,6 +12056,14 @@ ALTER TABLE ONLY public.sigil_synthesis
 
 
 --
+-- Name: source_documents source_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.source_documents
+    ADD CONSTRAINT source_documents_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: source_performance source_performance_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11176,6 +12141,30 @@ ALTER TABLE ONLY public.stat_summaries
 
 ALTER TABLE ONLY public.stat_templates
     ADD CONSTRAINT stat_templates_pkey PRIMARY KEY (sport, position_group, stat_key);
+
+
+--
+-- Name: storyline_articles storyline_articles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_articles
+    ADD CONSTRAINT storyline_articles_pkey PRIMARY KEY (storyline_id, article_id);
+
+
+--
+-- Name: storyline_entities storyline_entities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_entities
+    ADD CONSTRAINT storyline_entities_pkey PRIMARY KEY (storyline_id, entity_type, entity_id, sport);
+
+
+--
+-- Name: storylines storylines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storylines
+    ADD CONSTRAINT storylines_pkey PRIMARY KEY (id);
 
 
 --
@@ -11320,6 +12309,13 @@ CREATE UNIQUE INDEX idx_nfl_autofill_pk ON nfl.autofill_entities USING btree (id
 
 
 --
+-- Name: idx_acquisition_runs_candidate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_acquisition_runs_candidate ON public.acquisition_runs USING btree (candidate_id);
+
+
+--
 -- Name: idx_auth_refresh_user; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11362,6 +12358,48 @@ CREATE INDEX idx_data_fetch_ledger_target ON public.data_fetch_ledger USING btre
 
 
 --
+-- Name: idx_editor_reads_resolved; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_editor_reads_resolved ON public.editor_reads USING gin (resolved jsonb_path_ops);
+
+
+--
+-- Name: idx_editor_reads_status_updated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_editor_reads_status_updated ON public.editor_reads USING btree (status, updated_at);
+
+
+--
+-- Name: idx_entity_aliases_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_aliases_entity ON public.entity_aliases USING btree (entity_type, entity_id, sport);
+
+
+--
+-- Name: idx_entity_external_ids_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_external_ids_entity ON public.entity_external_ids USING btree (entity_type, entity_id, sport);
+
+
+--
+-- Name: idx_entity_external_ids_ns; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_external_ids_ns ON public.entity_external_ids USING btree (namespace, external_id);
+
+
+--
+-- Name: idx_entity_facts_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_facts_entity ON public.entity_facts USING btree (entity_type, entity_id, sport, fact_type);
+
+
+--
 -- Name: idx_entity_name_surfaces_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -11373,6 +12411,20 @@ CREATE INDEX idx_entity_name_surfaces_lookup ON public.entity_name_surfaces USIN
 --
 
 CREATE INDEX idx_entity_name_surfaces_trgm ON public.entity_name_surfaces USING gin (norm public.gin_trgm_ops);
+
+
+--
+-- Name: idx_entity_relationships_object; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_relationships_object ON public.entity_relationships USING btree (object_entity_type, object_entity_id, object_sport);
+
+
+--
+-- Name: idx_entity_relationships_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_entity_relationships_subject ON public.entity_relationships USING btree (subject_entity_type, subject_entity_id, subject_sport);
 
 
 --
@@ -11859,6 +12911,27 @@ CREATE INDEX idx_oracle_readings_input_hash ON public.oracle_readings USING btre
 
 
 --
+-- Name: idx_packets_day_sport; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_packets_day_sport ON public.packets USING btree (day, sport);
+
+
+--
+-- Name: idx_packets_routing_tags; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_packets_routing_tags ON public.packets USING gin (routing_tags);
+
+
+--
+-- Name: idx_packets_storyline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_packets_storyline ON public.packets USING btree (storyline_id, compiled_at DESC);
+
+
+--
 -- Name: idx_pipeline_runs_job_started; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -12087,6 +13160,27 @@ CREATE INDEX idx_stat_summaries_peak_trajectory ON public.stat_summaries USING b
 --
 
 CREATE INDEX idx_stat_summaries_sport_notability ON public.stat_summaries USING btree (sport, notability DESC, generated_at DESC) WHERE ((body IS NOT NULL) AND (notability IS NOT NULL));
+
+
+--
+-- Name: idx_storyline_articles_article; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_storyline_articles_article ON public.storyline_articles USING btree (article_id);
+
+
+--
+-- Name: idx_storyline_entities_entity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_storyline_entities_entity ON public.storyline_entities USING btree (entity_type, entity_id, sport, last_seen_at);
+
+
+--
+-- Name: idx_storylines_sport_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_storylines_sport_status ON public.storylines USING btree (sport, status, last_seen_at);
 
 
 --
@@ -12335,10 +13429,24 @@ CREATE TRIGGER enqueue_transfers_if_transfer_related AFTER UPDATE OF bucket ON p
 
 
 --
+-- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
+
+
+--
 -- Name: news_articles enqueue_voices_on_routing_tags; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER enqueue_voices_on_routing_tags AFTER UPDATE OF routing_tags ON public.news_articles FOR EACH ROW WHEN ((new.routing_tags IS DISTINCT FROM old.routing_tags)) EXECUTE FUNCTION public.enqueue_voices_on_routing_tags();
+
+
+--
+-- Name: entity_aliases entity_aliases_append_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER entity_aliases_append_only BEFORE UPDATE ON public.entity_aliases FOR EACH ROW EXECUTE FUNCTION public.entity_aliases_no_update();
 
 
 --
@@ -12468,6 +13576,14 @@ CREATE TRIGGER trg_sync_log_timestamp BEFORE UPDATE ON public.metadata_sync_log 
 
 
 --
+-- Name: acquisition_runs acquisition_runs_candidate_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_runs
+    ADD CONSTRAINT acquisition_runs_candidate_id_fkey FOREIGN KEY (candidate_id) REFERENCES public.entity_candidates(id) ON DELETE CASCADE;
+
+
+--
 -- Name: auth_refresh_tokens auth_refresh_tokens_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12476,11 +13592,123 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 
 --
+-- Name: candidate_mentions candidate_mentions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.candidate_mentions
+    ADD CONSTRAINT candidate_mentions_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: candidate_mentions candidate_mentions_candidate_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.candidate_mentions
+    ADD CONSTRAINT candidate_mentions_candidate_id_fkey FOREIGN KEY (candidate_id) REFERENCES public.entity_candidates(id) ON DELETE CASCADE;
+
+
+--
+-- Name: editor_reads editor_reads_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.editor_reads
+    ADD CONSTRAINT editor_reads_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: editor_reads editor_reads_storyline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.editor_reads
+    ADD CONSTRAINT editor_reads_storyline_id_fkey FOREIGN KEY (storyline_id) REFERENCES public.storylines(id) ON DELETE SET NULL;
+
+
+--
+-- Name: entity_aliases entity_aliases_source_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_aliases
+    ADD CONSTRAINT entity_aliases_source_document_id_fkey FOREIGN KEY (source_document_id) REFERENCES public.source_documents(id);
+
+
+--
+-- Name: entity_aliases entity_aliases_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_aliases
+    ADD CONSTRAINT entity_aliases_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: entity_candidates entity_candidates_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_candidates
+    ADD CONSTRAINT entity_candidates_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: entity_external_ids entity_external_ids_source_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_external_ids
+    ADD CONSTRAINT entity_external_ids_source_document_id_fkey FOREIGN KEY (source_document_id) REFERENCES public.source_documents(id);
+
+
+--
+-- Name: entity_external_ids entity_external_ids_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_external_ids
+    ADD CONSTRAINT entity_external_ids_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: entity_facts entity_facts_source_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_facts
+    ADD CONSTRAINT entity_facts_source_document_id_fkey FOREIGN KEY (source_document_id) REFERENCES public.source_documents(id);
+
+
+--
+-- Name: entity_facts entity_facts_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_facts
+    ADD CONSTRAINT entity_facts_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: entity_name_surfaces entity_name_surfaces_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.entity_name_surfaces
     ADD CONSTRAINT entity_name_surfaces_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: entity_relationships entity_relationships_object_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_relationships
+    ADD CONSTRAINT entity_relationships_object_sport_fkey FOREIGN KEY (object_sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: entity_relationships entity_relationships_source_document_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_relationships
+    ADD CONSTRAINT entity_relationships_source_document_id_fkey FOREIGN KEY (source_document_id) REFERENCES public.source_documents(id);
+
+
+--
+-- Name: entity_relationships entity_relationships_subject_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entity_relationships
+    ADD CONSTRAINT entity_relationships_subject_sport_fkey FOREIGN KEY (subject_sport) REFERENCES public.sports(id);
 
 
 --
@@ -12740,6 +13968,38 @@ ALTER TABLE ONLY public.notifications
 
 
 --
+-- Name: packets packets_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.packets
+    ADD CONSTRAINT packets_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: packets packets_storyline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.packets
+    ADD CONSTRAINT packets_storyline_id_fkey FOREIGN KEY (storyline_id) REFERENCES public.storylines(id);
+
+
+--
+-- Name: packets packets_supersedes_packet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.packets
+    ADD CONSTRAINT packets_supersedes_packet_id_fkey FOREIGN KEY (supersedes_packet_id) REFERENCES public.packets(id);
+
+
+--
+-- Name: persons persons_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.persons
+    ADD CONSTRAINT persons_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: pipeline_stats pipeline_stats_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12881,6 +14141,46 @@ ALTER TABLE ONLY public.stat_matchups
 
 ALTER TABLE ONLY public.stat_summaries
     ADD CONSTRAINT stat_summaries_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: storyline_articles storyline_articles_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_articles
+    ADD CONSTRAINT storyline_articles_article_id_fkey FOREIGN KEY (article_id) REFERENCES public.news_articles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: storyline_articles storyline_articles_storyline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_articles
+    ADD CONSTRAINT storyline_articles_storyline_id_fkey FOREIGN KEY (storyline_id) REFERENCES public.storylines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: storyline_entities storyline_entities_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_entities
+    ADD CONSTRAINT storyline_entities_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
+-- Name: storyline_entities storyline_entities_storyline_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storyline_entities
+    ADD CONSTRAINT storyline_entities_storyline_id_fkey FOREIGN KEY (storyline_id) REFERENCES public.storylines(id) ON DELETE CASCADE;
+
+
+--
+-- Name: storylines storylines_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.storylines
+    ADD CONSTRAINT storylines_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
 
 
 --
@@ -13062,5 +14362,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict h85BV8mTTr1SwRPewcvbMfgaKLWoeZR4bXOna0NsVuexT0En6TAFc8kVUdvzvF3
+\unrestrict FNJhxhdvDUrMaewqOCFKqaIhqSx2XgnIfrfonInLFS07oq8Fbv3pfJYlOqKoGTy
 

@@ -1,8 +1,8 @@
 # PLAN — One Rail
 
-**STATE: Phase 0 CLOSED; plan REVISED 2026-08-01 (the character-flow revision, pre-Phase-1 —
-see the revision note below). Next: Phase 1 (substrate, migrations 200+; note 1.4's
-persons.kind now includes `player`). Last plan commit: (this one). Updated 2026-08-01.**
+**STATE: Phases 0–1 CLOSED. Phase 1 executed 2026-08-01: migrations 200–207 applied on archbox
+and snapshotted; every new table is inert (0 rows, nothing reads them). Next: Phase 2 (lungs —
+Go provenance, one [DEPLOY]). Last plan commit: (this one). Updated 2026-08-01.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -121,9 +121,12 @@ This plan is executed one phase per session, by smaller models, on mobile. The p
    `.env` carries **empty** `DATABASE_URL`/`DATABASE_PRIVATE_URL` (no `.env.local` on the Mac — only
    a `.bak`). The working incantation from a Mac session is:
    ```
-   ssh archbox 'cd ~/scoracle/scoracle-backend && set -a; . ./.env; . ./.env.local; set +a; \
+   ssh archbox 'cd ~/scoracle/scoracle-backend && set -a; . ./.env.local; set +a; \
      psql "${DATABASE_PRIVATE_URL:-$DATABASE_URL}" -c "select 1"'
    ```
+   (Phase 1 correction: archbox no longer has a `.env` at all — the env consolidation, commit
+   `94a8a61`, left `.env.local` as the one file carrying the DB URLs. Sourcing `./.env` there
+   now errors harmlessly; don't.)
    `~/.ssh/config` already defines `archbox` (192.168.1.92, user `sheneveld`, key auth — BatchMode
    works). Prefer `DATABASE_PRIVATE_URL`, as `sql/migrate.sh` does.
 9. **Finish ritual, every session:** tick the checkboxes you completed, fill the phase Log with the
@@ -226,7 +229,7 @@ supersedes the prior one; packets are never edited (archive-as-moat).
 | `facts jsonb` | thin, structured only: `{story_types, result_line?, entities}` — the Scout never reads packet prose (T4); confirmed facts reach it by other roads (§4) |
 | `quotes jsonb` | code-sliced from stored bodies |
 | `routing_tags text[]` | derived: story types + `charged` |
-| `slice_fingerprints jsonb` | per-voice hash of that voice's slice (E2): `{journalist: h, vibe: h, transfers: h}` — a packet re-fans only to voices whose slice moved |
+| `slice_fingerprints jsonb` | per-voice hash of that voice's slice (E2): `{narratives: h, vibe: h, transfers: h}` — a packet re-fans only to voices whose slice moved. **Keys are STAGE strings, pinned by mig 206** (the trigger reads `slice_fingerprints ->> stage`; a missing key fails OPEN — re-fans every packet, never starves). Phase 6's compiler writes stage-keyed entries. |
 | `unresolved_mentions jsonb` | B3's census, rolled up onto the packet |
 | `supersedes_packet_id bigint NULL, contract_version 'pk1'` | |
 
@@ -604,29 +607,29 @@ Everything here is DDL that nothing reads yet. Safety comes from inertness, not 
 Follow §1's column specs exactly; conventions from neighboring migrations (timestamptz,
 `DEFAULT now()`, snake_case, COMMENT ON for every table).
 
-- [ ] **1.1** Mig 200 `one_rail_storylines`: `storylines`, `storyline_articles`,
+- [x] **1.1** Mig 200 `one_rail_storylines`: `storylines`, `storyline_articles`,
       `storyline_entities` per §1b. Indexes: `storyline_articles(article_id)`,
       `storyline_entities(entity_type, entity_id, sport, last_seen_at)`,
       `storylines(sport, status, last_seen_at)`.
-- [ ] **1.2** Mig 201 `one_rail_editor_reads`: `editor_reads` per §1a (PK `article_id`, status
+- [x] **1.2** Mig 201 `one_rail_editor_reads`: `editor_reads` per §1a (PK `article_id`, status
       CHECK = legacy taxonomy + `not_sport`), index on `(status, updated_at)`, GIN on
       `resolved` (jsonb_path_ops).
-- [ ] **1.3** Mig 202 `one_rail_packets`: `packets` per §1c. Indexes:
+- [x] **1.3** Mig 202 `one_rail_packets`: `packets` per §1c. Indexes:
       `packets(storyline_id, compiled_at DESC)`, `packets(day, sport)`, GIN `routing_tags`.
-- [ ] **1.4** Mig 203 `persons`: `persons` table — `id serial PK, sport text NULL, full_name text
+- [x] **1.4** Mig 203 `persons`: `persons` table — `id serial PK, sport text NULL, full_name text
       NOT NULL, kind text CHECK (player|coach|executive|owner|agent|family|official|other), team_id
       int NULL, search_aliases text[] DEFAULT '{}', meta jsonb DEFAULT '{}', created_at`. (`player`
       added by Scott 2026-08-01 — story-relevant players OUTSIDE the stats platform: rookies
       pre-debut, retired, foreign-league; the `players` table stays box-score-owned, see D-2.
       Kinds are a superset of `narrative_persons.kind`; that graph-layer table is unaffected and
       reconciles later — Appendix B.)
-- [ ] **1.5** Mig 204 `person_entity_type`: extend `entity_type` CHECKs to admit `'person'` on
+- [x] **1.5** Mig 204 `person_entity_type`: extend `entity_type` CHECKs to admit `'person'` on
       `news_article_entities` and `entity_name_surfaces`; add `'candidate'` + `'fixture'` to
       `cognition_ledger`'s CHECK; add `'candidate'` to `pipeline_work`'s. (Only what v1 writes —
       no speculative admissions.) Pattern per CHECK: DROP CONSTRAINT, ADD CONSTRAINT ... NOT VALID,
       VALIDATE CONSTRAINT (row counts here validate in ms, but the pattern is the habit).
       **Do not** touch other entity_type CHECKs — only these four tables are on the rail.
-- [ ] **1.6** Mig 205 `investigator_substrate`: the eight acquisition tables per the 2026-07-27
+- [x] **1.6** Mig 205 `investigator_substrate`: the eight acquisition tables per the 2026-07-27
       planning doc, backend-named: `entity_candidates` (with `state` CHECK: `pending, accepted,
       rejected_not_sport, rejected_insufficient_evidence, rejected_out_of_scope, ambiguous,
       deferred_source_unavailable`; `idempotency_key text UNIQUE`; `norm_name`, `kind_hint`,
@@ -643,7 +646,7 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       `entity_relationships` (subject triple, predicate, object triple, valid_from/to,
       source_document_id, state). A candidate, an attempt, a source, a fact, and a relationship
       are different things — combining them is how provenance disappears.
-- [ ] **1.7** Mig 206 `packet_routing`: trigger `enqueue_voices_on_packet` AFTER INSERT ON
+- [x] **1.7** Mig 206 `packet_routing`: trigger `enqueue_voices_on_packet` AFTER INSERT ON
       `packets` — for each tag in `routing_tags` joined to `stage_routing_subscriptions`, insert
       `pipeline_work` rows per active `storyline_entities` participant of matching grain, with
       `input_version = 'pk:' || <that voice's slice_fingerprint>` (E2: unchanged slices do not
@@ -652,18 +655,101 @@ Follow §1's column specs exactly; conventions from neighboring migrations (time
       `pg_notify('pipeline_work_ready','')`. **Ships live but fires into an empty subscription
       table + zero packets — doubly inert.** Do NOT seed subscriptions here (that is Phase 7; the
       mig-197 churn-loop lesson).
-- [ ] **1.8** Extend `refresh_entity_name_surfaces()` to include `persons`
+- [x] **1.8** Extend `refresh_entity_name_surfaces()` to include `persons`
       (name + search_aliases, entity_type 'person') — mig 207. Run it; person surfaces = 0 rows
       today, which proves it's wired without changing behavior.
-- [ ] **1.9** `scripts/hosting/snapshot-schema.sh`; commit migrations + snapshot together.
+- [x] **1.9** `scripts/hosting/snapshot-schema.sh`; commit migrations + snapshot together.
 
 **Verify:** `select count(*) from storylines` etc. all return 0; `\d+ packets` matches §1c;
 mig 206's trigger exists and `stage_routing_subscriptions` still has 0 rows; legacy pipeline
 unaffected (`article_read` queue still draining — compare depth to Phase 0 Log).
 **Commit:** `rail: phase 1 — substrate migrations 200–207`.
 
+✅ **VERIFY SATISFIED — Phase 1 is CLOSED (2026-08-01).** All 9 boxes ticked; migrations
+200–207 applied on archbox in one `migrate.sh` run (all self-txn, no errors, no lock waits) and
+snapshotted (209 versions in the ledger). Every count returned 0; `\d packets` matches §1c
+column-for-column; both new triggers (`enqueue_voices_on_packet`, `entity_aliases_append_only`)
+exist enabled; `stage_routing_subscriptions` = 0 rows; all four widened CHECKs are VALIDATED and
+the `pair_entity_type` CHECK is untouched. Legacy rail unaffected: `article_read` depth went
+3,847 → 3,822 *during* the apply (harness active, draining normally). **No STOP condition hit.**
+Two protocol deltas, both recorded below and edited into the plan: §0.8's incantation (archbox
+lost its `.env` to the env consolidation) and §1c's `slice_fingerprints` keys (pinned as stage
+strings by mig 206).
+
 ### Log (phase 1)
-*(executor fills)*
+
+Executed 2026-08-01, ~16:20–16:30 EDT, from a Mac session over ssh per §0.8. Harness was
+**active** (mid-duty-cycle, not a rest window) throughout — acceptable because everything here
+is inert DDL; mig 204, the only step locking live tables, carried `SET LOCAL lock_timeout='5s'`
+and applied instantly.
+
+**Precondition (Log B) — already resolved before this session.** archbox arrived at `b3af45b`
+with a **clean** tree: the untracked 198/199 + modified-snapshot state Phase 0 found is gone.
+The sync was one push + ff-pull: the single unpushed local commit (`7d1859c`, the plan revision
+itself) went to origin, archbox fast-forwarded to it. Migration files were then scp'd over,
+applied, and the checkout reconverged by pulling the phase commit at the end.
+
+**Delta A — archbox has no `.env` anymore.** The env consolidation (`94a8a61`) left `.env.local`
+as the only env file on archbox; §0.8's two-file incantation half-errors ("./.env: No such
+file"). Harmless — `.env.local` carries the URLs — but §0.8 is now corrected to source
+`.env.local` alone.
+
+**Pre-apply measurements.** `max(version)` = `199_refresh_surfaces_analyze`;
+`entity_name_surfaces` = **16,690** (identical to Phase 0); `article_read` depth **3,847**
+pending+failed at 16:20 EDT. Prod's `refresh_entity_name_surfaces()` matched mig 199's body
+**verbatim** (template rule: derive a rebuilt function from the current prod definition — mig
+207 was authored from exactly this).
+
+**Apply.** All 8 migrations applied `[self-txn]` in one run, zero errors. Mig 207's in-txn gate
+printed: `refresh rebuilt 16690 surfaces, 0 person rows as expected` — the persons arm is wired
+and behavior-neutral, proven in the same transaction (the gate RAISEs and rolls back the whole
+migration on any other outcome).
+
+**Post-apply verification (all bands met).** 14 new tables + `stage_routing_subscriptions` all
+0 rows. `\d packets` matches §1c exactly. Triggers `enqueue_voices_on_packet` (packets) and
+`entity_aliases_append_only` (entity_aliases) both enabled (`tgenabled='O'`). CHECKs:
+`news_article_entities` = player|team|**person**; `entity_name_surfaces` = team|player|**person**;
+`cognition_ledger` = player|team|article|**candidate**|**fixture**; `pipeline_work` =
+player|team|article|fixture|**candidate** — all `convalidated=t`. `article_read` depth 3,822
+(draining; Phase 0's intraday max band was ~8.7k, so today's afternoon depth is unremarkable).
+
+**Contract decisions pinned by these migrations** (the substrate is now the authority; later
+phases conform):
+
+- **`slice_fingerprints` keys are STAGE strings** (`narratives`, `transfers`, `vibe`, …).
+  Mig 206 reads `NEW.slice_fingerprints ->> s.stage`; §1c's old `{journalist: …}` example was
+  character shorthand and §1c now says so. A **missing** fingerprint falls back to
+  `'pk:' || packet id` — fail-open: the voice may re-read an unchanged slice, it never starves.
+- **Mig 206's narratives arm fans only to player/team participants.** `pipeline_work`'s CHECK
+  deliberately does not admit `person` (1.5 — only what v1 writes); a person-grain fan-out
+  would violate it and abort the packet INSERT. Person participants still live in
+  `storyline_entities`; they just don't wake voices.
+- **Both fan-out arms `SELECT DISTINCT`** — two tags reaching the same (stage, entity) produce
+  identical rows (input_version is stage-keyed, not tag-keyed), and without the collapse
+  ON CONFLICT dies with "cannot affect row a second time". (Mig 197's per-tag fingerprints
+  dodge this only because no two tags share a stage yet — noted here for the Phase 7 seeder.)
+- **`entity_aliases` append-only is trigger-enforced** (the plan offered trigger *or* habit; the
+  trigger won). UPDATE raises; supersession is a new row. DELETE is not blocked.
+- **Provenance NOT NULLs:** `entity_facts.source_document_id` and
+  `entity_relationships.source_document_id` are NOT NULL (every accepted fact cites a source —
+  doctrine as DDL). Aliases/external-ids keep it nullable (their operational copies can arrive
+  via reconciliation seeds). No CASCADE from `source_documents` — a delete that would orphan
+  provenance fails instead.
+- **Convention additions beyond the 1.6 letter,** all additive: `created_at` on the four
+  provenance tables (write-time vs `valid_from` world-time — two different clocks), entity-triple
+  indexes on aliases/external-ids/facts/relationships, FK-side index on
+  `acquisition_runs.candidate_id`, and `sports(id)` FKs on every nullable `sport` column.
+  Entity triples stay loose (no cross-table FK) by design — they span players/teams/persons.
+- **NULL-sport persons carry no name surfaces** (mig 207 skips them): resolution is sport-scoped
+  and `entity_name_surfaces.sport` is NOT NULL. A person becomes resolvable when its sport is
+  known — until then unresolvable is the honest state.
+- Mig 207's filename is `207_surfaces_include_persons` (1.8 named only the number).
+
+**Housekeeping.** Snapshot regenerated on archbox (14,366 lines, 209 ledger versions), scp'd
+back, committed here with the migrations; archbox reconverged to the phase commit via
+`git pull --ff-only` and ends clean. The snapshot diff was audited: beyond the new objects and
+the four CHECKs, the only churn is pg_dump 18's per-dump `\restrict` token and alphabetical
+reflow (e.g. `event_box_scores` moved, unchanged).
 
 ### Handoff (phase 1 → 2)
 ```

@@ -30,6 +30,19 @@ set -euo pipefail
 # without it the echo is captured alongside pwd and REPO_ROOT gets two lines.
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." >/dev/null && pwd)"
 
+# rustup puts cargo in ~/.cargo/bin, which is added to PATH by the shell's rc
+# files — and a NON-INTERACTIVE shell (`ssh archbox scripts/hosting/release.sh`,
+# cron, a systemd unit) never sources those. Without this the Go binaries build
+# fine and then the run dies at `cargo: command not found`, which is exactly what
+# happened on 2026-08-01. Prepend it here so a release is reproducible from
+# automation, not just from a logged-in terminal.
+[ -d "$HOME/.cargo/bin" ] && case ":$PATH:" in
+    *":$HOME/.cargo/bin:"*) ;;
+    *) PATH="$HOME/.cargo/bin:$PATH"; export PATH ;;
+esac
+command -v cargo >/dev/null || { echo "release.sh: cargo not found (looked in \$PATH and ~/.cargo/bin)" >&2; exit 127; }
+command -v go    >/dev/null || { echo "release.sh: go not found in \$PATH" >&2; exit 127; }
+
 BUILD_ONLY=0
 for arg in "$@"; do
     case "$arg" in

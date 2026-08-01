@@ -16,10 +16,9 @@ Type=simple
 # scripts/hosting/install.sh at install time. Do not hardcode a path here —
 # that is exactly the stale-path defect Session 2 of the audit removed.
 WorkingDirectory=__SCORACLE_REPO_ROOT__
-# EnvironmentFile order matters: systemd loads sequentially and DOES overwrite
-# on later files. Load .env first (committed template with empty defaults),
-# then .env.local (real values) wins.
-EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
+# ONE env file (consolidated 2026-08-01, RUNBOOK 11.1). There is no .env any more.
+# The old two-file overlay (.env then .env.local, later silently overwriting earlier)
+# made a key's effective value depend on load order; do not re-add a second file.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 ExecStart=__SCORACLE_REPO_ROOT__/go/bin/scoracle-api
 Restart=always

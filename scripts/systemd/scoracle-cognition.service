@@ -14,12 +14,11 @@ Type=simple
 # __SCORACLE_REPO_ROOT__ is rendered to the real repo path by
 # scripts/hosting/install.sh at install time. Do not hardcode a path here.
 WorkingDirectory=__SCORACLE_REPO_ROOT__
-# EnvironmentFile order matters: systemd loads sequentially and DOES overwrite on
-# later files. Load .env first (committed template), then .env.local (real values)
-# wins. The Rust crate reads os::env directly (it does NOT load .env.local itself),
-# so these files are how the daemon gets DATABASE_PRIVATE_URL + OLLAMA_* — the same
-# files scoracle-api reads, so both processes see one config.
-EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env
+# ONE env file (consolidated 2026-08-01, RUNBOOK 11.1). There is no .env any more.
+# The Rust crate reads os::env directly (it does NOT load .env.local itself), so this
+# file is how the daemon gets DATABASE_PRIVATE_URL + OLLAMA_* — the same file
+# scoracle-api reads, so both processes see one config. Do not re-add a second file:
+# the old .env/.env.local overlay made a key's value depend on load order.
 EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # Step 3 full cutover + headlines fold-in: Rust owns every live pipeline_work LLM stage
 # (scrub → graph/article_read → peak → transfers → narratives → vibe → sigil); Go is ingest + serve. The sigil

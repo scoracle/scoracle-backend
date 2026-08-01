@@ -124,6 +124,12 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	if f.LimitTruncated != 0 {
 		t.Errorf("LimitTruncated = %d, want 0 when uncapped", f.LimitTruncated)
 	}
+	// Every fixture description is non-empty, so the split is all-bearing. The
+	// pair partitions Matched — not a drop stage, so Residual ignores it.
+	if f.DescriptionBearing != f.Matched || f.DescriptionEmpty != 0 {
+		t.Errorf("description split = %d bearing / %d empty, want %d / 0",
+			f.DescriptionBearing, f.DescriptionEmpty, f.Matched)
+	}
 	if r := f.Residual(); r != 0 {
 		t.Errorf("funnel does not balance: residual %d (%v)", r, f.LogAttrs())
 	}
@@ -213,7 +219,7 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 }
 
 func TestFunnelAddRollsUpEveryField(t *testing.T) {
-	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
+	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
 	var got Funnel
 	got.Add(a)
 	got.Add(a)
@@ -221,7 +227,7 @@ func TestFunnelAddRollsUpEveryField(t *testing.T) {
 	// Compare against a doubled literal rather than field by field, so a Funnel
 	// that grows a counter without a matching line in Add fails to compile here
 	// instead of silently under-reporting in the rolled-up sweep totals.
-	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30}
+	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34}
 	if got != want {
 		t.Errorf("Add rolled up to %+v, want %+v", got, want)
 	}

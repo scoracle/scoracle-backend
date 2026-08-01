@@ -46,6 +46,14 @@ type Funnel struct {
 
 	// Matched is what reached persistArticles.
 	Matched int
+
+	// Description split of Matched — not a drop stage, so neither participates
+	// in the Residual invariant. Phase 3's Editor fetches bodies; this pair says
+	// up front how many arrivals carry a body-bearing RSS description versus an
+	// empty one, i.e. how often the fetch will be the only source of text.
+	// DescriptionBearing + DescriptionEmpty == Matched.
+	DescriptionBearing int
+	DescriptionEmpty   int
 }
 
 // Add folds another funnel into f. Written out field by field on purpose: a new
@@ -68,6 +76,8 @@ func (f *Funnel) Add(o Funnel) {
 	f.DedupCollapsed += o.DedupCollapsed
 	f.LimitTruncated += o.LimitTruncated
 	f.Matched += o.Matched
+	f.DescriptionBearing += o.DescriptionBearing
+	f.DescriptionEmpty += o.DescriptionEmpty
 }
 
 // Residual is the number of articles lost to a stage the funnel does not count.
@@ -97,6 +107,8 @@ func (f Funnel) LogAttrs() []any {
 		"dedup_collapsed", f.DedupCollapsed,
 		"limit_truncated", f.LimitTruncated,
 		"matched", f.Matched,
+		"desc_bearing", f.DescriptionBearing,
+		"desc_empty", f.DescriptionEmpty,
 		"residual", f.Residual(),
 	}
 }

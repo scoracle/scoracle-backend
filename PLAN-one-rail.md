@@ -1,8 +1,12 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–1 CLOSED. Phase 1 executed 2026-08-01: migrations 200–207 applied on archbox
-and snapshotted; every new table is inert (0 rows, nothing reads them). Next: Phase 2 (lungs —
-Go provenance, one [DEPLOY]). Last plan commit: (this one). Updated 2026-08-01.**
+**STATE: Phases 0–2 CLOSED. Phase 2 executed 2026-08-01: lungs persist query provenance into
+`news_articles.raw` (insert-only, first-writer wins), funnel gains the desc_bearing/desc_empty
+split; `go/bin/pipeline` deployed 16:31 EDT (api watcher restart, expected). Bounded NBA run:
+provenance on 100% of new arrivals. OPEN ITEM for next session: confirm the volume band
+(±20% vs 5,584/day) against the first post-deploy 02:00 sweep before Phase 3 work. Next:
+Phase 3 (the Editor, greenfield junction, shadow mode — opens with the article_reader rename).
+Last plan commit: (this one). Updated 2026-08-01.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -769,20 +773,20 @@ expected. Do not touch match.go or any regex path; deletions happen in Phase 9.
 The lungs mostly exist (teams-only Google News RSS sweep, 02:00 cron, `feed_rank`, the 0.95
 primary link). This phase records what has been implicit and changes no behavior.
 
-- [ ] **2.1** In `persistArticles` (`go/internal/thirdparty/news.go:319-329`), write query
+- [x] **2.1** In `persistArticles` (`go/internal/thirdparty/news.go:319-329`), write query
       provenance into `news_articles.raw` on **insert only** (first-writer wins; on conflict leave
       existing): `{"q": <the literal query term used>, "lane": "primary|alias<N>", "edition":
       <ceid>, "window": "24h", "query_team_id": <id>}`. Thread the term/lane from
       `buildRSSSearchQueries` (`news.go:857`) through the fetch result to persist. The query IS
       the hypothesis — now it is also readable.
-- [ ] **2.2** Add a funnel counter for articles that arrive with a body-bearing description vs
+- [x] **2.2** Add a funnel counter for articles that arrive with a body-bearing description vs
       empty (no behavior change; feeds Phase 3's fetch expectations).
-- [ ] **2.3** Confirm (and note in Log) that the sweep is teams-only by design — "gather the broad
+- [x] **2.3** Confirm (and note in Log) that the sweep is teams-only by design — "gather the broad
       topics of the sport" — and that persons/players are **never** swept; they enter via Editor
       discovery. This is doctrine, recorded here so nobody "helpfully" adds a player sweep.
-- [ ] **2.4** `go test ./...`; build to a scratch path first; then **[DEPLOY]** `go build -o
+- [x] **2.4** `go test ./...`; build to a scratch path first; then **[DEPLOY]** `go build -o
       go/bin/pipeline ./cmd/pipeline` (watcher restart expected).
-- [ ] **2.5** After the next 02:00 ingest (or a manual bounded run), verify:
+- [x] **2.5** After the next 02:00 ingest (or a manual bounded run), verify:
       `select raw->>'q', count(*) from news_articles where fetched_at > now() - interval '1 day'
       and raw ? 'q' group by 1 order by 2 desc limit 10` returns sane query terms.
 
@@ -791,7 +795,53 @@ baseline (±20%); zero new Go errors in logs.
 **Commit:** `rail: phase 2 — lungs record the hypothesis`.
 
 ### Log (phase 2)
-*(executor fills)*
+
+Executed 2026-08-01, ~16:25–16:40 EDT, from a Mac session. **The Mac has no Go toolchain** —
+same split as §0.8's psql rule: edits authored locally, vet/test/build run on archbox
+(go1.26.4) over ssh, working copies scp'd over first, checkout reconverged via `git pull
+--ff-only` at the end. No STOP condition hit; every named file/line matched the plan.
+
+**2.1 — provenance.** Threaded as four *unexported* fields on `Article`
+(`queryTerm/queryLane/queryEdition/queryWindow`) so the API JSON response is unchanged;
+stamped in `fetchFromRSS`'s query loop (the only place the lane index exists);
+written by `persistArticles` as an 8th INSERT column. First-writer wins twice, by
+construction: `deduplicateArticles` keeps the first occurrence, so a cross-lane collision
+inside one sweep carries the earliest lane (primary runs before aliases); and the
+ON CONFLICT branch never touches `raw`, so re-seen articles keep the provenance of the
+sweep that found them first. `query_team_id` is written only when `isTeamEntity` —
+belt-and-braces for any future non-team caller. **One literal deviation from the step's
+example:** `window` records the actual `when:` token sent to Google, and
+`rssWhenToken(24)` renders the 24-hour window as **`"1d"`, not `"24h"`** — the recorded
+value is the question as asked, which is the point of the field.
+
+**2.2 — funnel split.** `Funnel` gains `DescriptionBearing`/`DescriptionEmpty` (log keys
+`desc_bearing`/`desc_empty`), counted where `Matched` is set, so the pair partitions
+Matched exactly. Not a drop stage — `Residual()` deliberately unchanged. `Add` extended;
+the positional-literal compile-guard test grew to 17 fields; the every-drop test now also
+asserts the partition.
+
+**2.3 — doctrine confirmed.** The only sweep path in Go is `cmd/pipeline/main.go:93` →
+`corpus.Sweep` → `LoadTeams` (reads the `teams` table, nothing else) →
+`GetEntityNews("team", …)`. No player/person sweep exists anywhere; `work.go`'s
+`"player"` string is queue metadata, not a sweep. Persons enter via Editor discovery only.
+
+**2.4 — tests + deploy.** `go vet` + `go test ./...` green on archbox; scratch build to
+`/tmp/rail-phase2/pipeline` first; **[DEPLOY]** `go/bin/pipeline` rebuilt 16:31 EDT.
+`scoracle-api.path` watcher fired as documented (api restart 16:31:52); cognition
+untouched (16:04 start retained). The 02:00 cron (`cron-pipeline.sh -mode ingest`) picks
+up the new binary tonight.
+
+**2.5 — verified via manual bounded run** (NBA, `-rss-limit 5`, 16:32 EDT, 29s): 30/30
+teams ok, `rss_errors=0`, matched 150, `desc_bearing=150 / desc_empty=0`, residual 0,
+95 fresh articles. SQL: the step's top-q query returns sane per-team terms
+(`"Detroit Pistons" NBA basketball` × 4, …); **provenance on 95/95 = 100% of new
+arrivals** (band ≥95% met); sample `raw` carries the full contract
+(`q/lane/edition/window/query_team_id`, `lane=primary`, `edition=US:en`, `window=1d`).
+
+**Verify band, remaining third:** article volume ±20% vs the Phase 0 baseline
+(5,584/day un-joined) cannot be read from a bounded run — **next session, check the
+first post-deploy 02:00 sweep** (`logs/pipeline-ingest.log` + count on `fetched_at`)
+before starting Phase 3 work. Provenance ≥95% and zero-Go-errors bands are met above.
 
 ### Handoff (phase 2 → 3)
 ```

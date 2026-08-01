@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
@@ -137,6 +138,20 @@ type Article struct {
 	// articles survive `-rss-limit` here, and which are worth a model call once the reading
 	// budget binds later. Both cuts rank by it, so "top N" means the same thing at every stage.
 	FeedRank int `json:"feed_rank"`
+
+	// Query provenance — which (query, lane, edition, window) request surfaced this
+	// article. The query IS the hypothesis: every article is here because we asked
+	// Google a specific question, and until now that question was discarded at fetch
+	// time. persistArticles writes these into news_articles.raw on first insert.
+	//
+	// Unexported on purpose: provenance is for the corpus, not the API response, and
+	// unexported fields stay out of the JSON marshal. Dedup keeps the first occurrence,
+	// so an article seen by several lanes carries the lane that found it first (the
+	// sweep runs primary before aliases — first-writer wins is also best-writer wins).
+	queryTerm    string // literal search term as sent, minus the when: token
+	queryLane    string // "primary" or "alias<N>" per buildRSSSearchQueries order
+	queryEdition string // ceid of the edition that returned it
+	queryWindow  string // when: token, e.g. "24h"
 }
 
 // ---------------------------------------------------------------------------
@@ -315,10 +330,32 @@ func (s *NewsService) persistArticles(
 			publishedAt = &ts
 		}
 
+		// Query provenance (Phase 2, PLAN-one-rail): the question we asked Google,
+		// written on INSERT ONLY — the conflict branch never touches raw, so the
+		// first sweep that lands an article owns its provenance and re-seen
+		// articles keep theirs. query_team_id records which team's sweep asked;
+		// the sweep is teams-only by doctrine, so the guard is belt-and-braces
+		// for any non-team caller of GetEntityNews.
+		rawProv := []byte(`{}`)
+		if a.queryTerm != "" {
+			prov := map[string]any{
+				"q":       a.queryTerm,
+				"lane":    a.queryLane,
+				"edition": a.queryEdition,
+				"window":  a.queryWindow,
+			}
+			if isTeamEntity(primaryEntityType) {
+				prov["query_team_id"] = primaryEntityID
+			}
+			if b, jerr := json.Marshal(prov); jerr == nil {
+				rawProv = b
+			}
+		}
+
 		var articleID int64
 		err := tx.QueryRow(ctx, `
-			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO news_articles (url_hash, url, source, title, description, published_at, feed_rank, raw)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			ON CONFLICT (url_hash) DO UPDATE SET
 			    title       = EXCLUDED.title,
 			    description = EXCLUDED.description,
@@ -326,7 +363,7 @@ func (s *NewsService) persistArticles(
 			    published_at = COALESCE(EXCLUDED.published_at, news_articles.published_at),
 			    feed_rank   = LEAST(COALESCE(news_articles.feed_rank, EXCLUDED.feed_rank), EXCLUDED.feed_rank)
 			RETURNING id
-		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank).Scan(&articleID)
+		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID)
 		if err != nil {
 			return nil, fmt.Errorf("upsert article: %w", err)
 		}
@@ -796,6 +833,20 @@ func (s *NewsService) fetchFromRSS(
 					continue
 				}
 
+				// Stamp query provenance here, the only place the lane index is
+				// known. deduplicateArticles below keeps the first occurrence, so
+				// the stamp survives cross-lane collisions with the earliest lane.
+				lane := "primary"
+				if queryIdx > 0 {
+					lane = fmt.Sprintf("alias%d", queryIdx)
+				}
+				for i := range articles {
+					articles[i].queryTerm = query
+					articles[i].queryLane = lane
+					articles[i].queryEdition = edition.ceid
+					articles[i].queryWindow = rssWhenToken(hours)
+				}
+
 				// No relevance filter here any more. This used to run MatchesEntity over
 				// title+description and drop whatever did not name the entity — 4,859 of
 				// 9,694 articles on the 2026-07-26 sweep, half of everything Google
@@ -840,6 +891,13 @@ func (s *NewsService) fetchFromRSS(
 	totalResults, allArticles := limitRSSArticles(allArticles, limit)
 	f.LimitTruncated = totalResults - len(allArticles)
 	f.Matched = len(allArticles)
+	for _, a := range allArticles {
+		if a.Description != "" {
+			f.DescriptionBearing++
+		} else {
+			f.DescriptionEmpty++
+		}
+	}
 
 	return map[string]interface{}{
 		"query":    entityName,

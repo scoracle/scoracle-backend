@@ -5,16 +5,30 @@ Standalone, step-by-step repair for the F-046 credential leak. The **autonomous 
 *only* real fix. Canonical findings: `../scoracle-wiki/progress_docs/scoracle-backend/FIRST-GPT-AUDIT-FINDINGS.md` F-046. Discovery
 narrative: `progress_docs/2026-06-24_F-046-credential-leak-remediation.md`. Summary in `RUNBOOK.md` §12.
 
-## Status
+## Status — EXECUTED 2026-08-01
+
+> **The June plan below was never run.** It sat gated from 2026-06-24 to 2026-08-01, so the leaked
+> archbox `scoracle` Postgres password was still the **live** one that whole time — and on
+> 2026-07-26 a second leak (`.env.local.bak.20260726-111052`, 40 populated values) was committed
+> and pushed on top of it. Both are now repaired. Keep the steps below as the procedure; the table
+> is the record of what actually happened.
 
 | Phase | State |
 |---|---|
 | Working-tree scrub (all 4 secrets) | ✅ DONE (commit `fa9aeba`) |
 | Leak vector stopped — `.claude/settings.local.json` untracked + gitignored | ✅ DONE (`fa9aeba`) |
 | Full cross-repo / cross-secret scope mapped | ✅ DONE |
-| **Step 1 — Rotate / revoke the 4 credentials** | ⏳ **GATED ON SCOTT (do FIRST)** |
-| **Step 2 — Purge git history + force-push (3 repos)** | ⏳ GATED ON SCOTT |
-| **Step 3 — Post-repair verification** | ⏳ |
+| **Step 1 — Rotate the credentials we control** | ✅ **DONE 2026-08-01** — Postgres pw (32ch), `JWT_SECRET` (64ch), `RATE_LIMIT_INTERNAL_KEY` (48ch). The `scoracle` role is superuser and can `ALTER` its own password, so no sudo was needed. Verified: psql connects, API HTTP 200, harness logged "connected to postgres". |
+| **Step 1b — Retire the third-party keys** | ✅ **DONE** — Scott 2026-08-01: no third-party credential is needed any more, the rail derives everything from Google News queries. `API_SPORTS_KEY`, `BALLDONTLIE_API_KEY`, `SPORTMONKS_API_TOKEN` and all nine `TWITTER_*` **deleted** from env rather than rotated. Dashboard revocation still pending — see below. |
+| **Step 2 — Purge git history + force-push** | ✅ **DONE** — 15 literals + 3 secret-bearing paths removed from all history. `scoracle-backend` rewritten (872→871 commits) and force-pushed across all 12 branches; `dotfiles` rewritten (local-only). Both working clones re-synced and gc'd to 0 occurrences. |
+| **Step 3 — Post-repair verification** | ✅ **DONE** — all 15 literals verified absent from every ref on origin, Mac and archbox. |
+| **Residual — GitHub PR refs** | ⚠️ **OPEN, needs GitHub Support.** `refs/pull/1/head` and `refs/pull/2/head` are read-only hidden refs GitHub refuses to let anyone rewrite (`deny updating a hidden ref`). They still carry 4 literals: the Neon pw, `API_SPORTS_KEY`, the Twitter bearer, and the old Postgres pw (**already rotated, so inert**). The repo is **private**, which bounds this. The other three are third-party keys pending dashboard revocation — revoking them makes the residual inert too. |
+| **Residual — public legacy repo** | ⚠️ `albapepper/Scoracle` (PUBLIC, `API_SPORTS_KEY` ×7 commits) is superseded by `scoracle/scoracle-backend` and Scott chose to delete it. Blocked on `gh auth refresh -h github.com -s delete_repo` (interactive). |
+
+**Rollback:** full pre-purge mirrors at `~/scoracle-PREPURGE-2026-08-01/` on **both** machines
+(Mac: `scoracle-backend.git` + `scoracle-backend-remote-PREPURGE.git` = the exact pre-force-push
+remote, 872 commits/14 refs; archbox: `dotfiles.git`, `Scoracle-github.git` 455 commits, and
+`archbox-orphaned-stash.patch`). Old env files are in `~/env-backups/` (0700) on both.
 
 ## What leaked (scope)
 

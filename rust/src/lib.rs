@@ -34,6 +34,7 @@ pub mod junctions;
 pub mod config;
 pub mod db;
 pub mod embed;
+pub mod fetch;
 pub mod harness;
 pub mod ledger;
 pub mod ollama;

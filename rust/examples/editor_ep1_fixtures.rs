@@ -153,7 +153,10 @@ fn scenarios() -> Vec<Scenario> {
             expect: json!({
                 "article_relevant": true,
                 "key_facts_include": ["Vinicius"],
-                "blurb_excludes": ["confirma", "renovación"]
+                // Accented Spanish-only forms: bare "confirma" is a substring of the English
+                // "confirmation", which a correct English blurb may legitimately use (measured
+                // false red, 2026-08-01 iter11).
+                "blurb_excludes": ["confirmó", "renovación"]
             }),
         },
         Scenario {

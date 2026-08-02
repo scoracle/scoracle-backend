@@ -33,6 +33,13 @@ pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_sched
 /// placed none of ours but still listed one among the names it found, the omission is
 /// sloppiness rather than a verdict (measured at 86% of the ar6 rejections), so `names[]` is
 /// consulted as a last resort before rejecting.
+///
+/// A third ground, the descriptor arm (§1a, measured 2026-08-01): a hypothesis entity whose
+/// own `names[]` entry DESCRIBES a place ("capital city") does not count as present. gemma3:4b
+/// reliably writes the truth in the descriptor while still mislabeling the kind and the role
+/// (`Paris` on a Tour de France page: kind `club`, role `subject`, descriptor "capital city" —
+/// measured, stable across seven prompt iterations). The description is the model's; the
+/// judgment is ours (T2).
 pub fn derive_relevance(
     page_kind: &str,
     entity_roles: &[EditorEntityRole],
@@ -48,14 +55,66 @@ pub fn derive_relevance(
     if entity_roles.is_empty() || hypothesis.is_empty() {
         return true;
     }
+    // The model's own names[] entry for a role's entity, when it describes a place, retracts
+    // that role's vote — the descriptor outranks the role label (it is copied from the text;
+    // the label is a guess).
+    let described_as_place = |entity: &str| {
+        names
+            .iter()
+            .any(|n| n.name.eq_ignore_ascii_case(entity.trim()) && descriptor_names_place(&n.descriptor))
+    };
+    // A `passing_mention` vote with no matching names[] entry is a label with no referent
+    // (measured 2026-08-01: hypothesis "Fortuna" gets a passing_mention on a page whose only
+    // Fortuna is "Fortuna Mining Corp" — the model string-associates the role, but its own
+    // names list holds no such entity). Subject/opponent votes stand on their own: the model
+    // reliably lists a story's principals, so an unlisted principal is names under-fill, not
+    // evidence of absence.
+    let supported = |r: &EditorEntityRole| {
+        !r.role.eq_ignore_ascii_case("passing_mention")
+            || names
+                .iter()
+                .any(|n| n.name.eq_ignore_ascii_case(r.entity.trim()))
+    };
     let mut placed = entity_roles
         .iter()
         .filter(|r| entity_matches(hypothesis, &r.entity))
         .peekable();
     if placed.peek().is_some() {
-        return placed.any(|r| !r.role.eq_ignore_ascii_case("absent"));
+        return placed.any(|r| {
+            !r.role.eq_ignore_ascii_case("absent") && !described_as_place(&r.entity) && supported(r)
+        });
     }
-    names.iter().any(|n| entity_matches(hypothesis, &n.name))
+    names
+        .iter()
+        .any(|n| entity_matches(hypothesis, &n.name) && !descriptor_names_place(&n.descriptor))
+}
+
+/// descriptor_names_place is the descriptor arm of the resolver's gate (§1a: "the descriptor is
+/// what lets code refuse `Paris`-the-city → Paris-the-club"). True when the ≤6-word descriptor
+/// names a place rather than a club. Two lists, club words vetoing place words, because football
+/// descriptors use place words in club senses ("city rivals", "town's biggest derby"): a
+/// descriptor with any club-sense word is never place-flagged.
+pub fn descriptor_names_place(descriptor: &str) -> bool {
+    const PLACE_WORDS: &[&str] = &["city", "capital", "town", "village", "municipality"];
+    const CLUB_WORDS: &[&str] = &[
+        "club", "team", "side", "fc", "squad", "rivals", "rival", "derby", "manager", "coach",
+        "player", "striker", "keeper", "goalkeeper", "midfielder", "defender", "forward",
+        "winger", "captain",
+    ];
+    let mut saw_place = false;
+    for w in descriptor.split(|c: char| !c.is_alphanumeric()) {
+        if w.is_empty() {
+            continue;
+        }
+        let w = w.to_lowercase();
+        if CLUB_WORDS.contains(&w.as_str()) {
+            return false;
+        }
+        if PLACE_WORDS.contains(&w.as_str()) {
+            saw_place = true;
+        }
+    }
+    saw_place
 }
 
 /// entity_matches tests one model-emitted name against our hypothesis list. The list carries the
@@ -261,9 +320,17 @@ pub async fn resolve_names(
 pub fn group_hits(names: &[NameMention], hits: &[SurfaceHit]) -> Resolved {
     let mut out = Resolved::default();
     for mention in names {
+        // The descriptor arm (§1a): a mention whose descriptor names a place never takes a
+        // `team` link, whatever the kind_hint claims — gemma3:4b mislabels the kind ("Paris",
+        // kind `club`) while describing the truth ("capital city"). Person links are untouched.
+        let place = descriptor_names_place(&mention.descriptor);
         let compatible: Vec<&SurfaceHit> = hits
             .iter()
-            .filter(|h| h.name == mention.name && kind_compatible(&mention.kind_hint, &h.entity_type))
+            .filter(|h| {
+                h.name == mention.name
+                    && kind_compatible(&mention.kind_hint, &h.entity_type)
+                    && !(place && h.entity_type == "team")
+            })
             .collect();
         // One entity can match through several surfaces (name + alias on the same norm);
         // count DISTINCT entities, not rows. BTreeMap for deterministic candidate order.

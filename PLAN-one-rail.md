@@ -1,16 +1,15 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–2 CLOSED; Phase 3 BLOCKED at the 3.7 fixture gate. Executed 2026-08-01
-evening: 3.0–3.6 complete and committed — legacy module renamed article_reader (fixtures dir +
-task together), fetcher extracted to crate::fetch, greenfield Editor built end to end (stage
-`editor`, Role::Editor, ep1 contract, derive.rs resolver/kind-gate, editor_reads +
-full_text-only writes), Go enqueues editor per new article, eval task + 12 ep1 fixtures frozen
-at temp 0.0. The 3.7 gate holds at 44/53 (83%) vs the step's 100% — stable, four
-model-behavior-shaped failure classes logged; §0 rule 3 STOP. NOTHING DEPLOYED (3.8 also still
-gated on the Phase 2 volume band — first post-deploy 02:00 sweep). Phase 3 Log carries the
-iteration table, the schema-order finding (format_schema_raw — no stage ever shipped its
-documented field order before), and four options for Scott.
-Last plan commit: (this one). Updated 2026-08-01.**
+**STATE: Phases 0–2 CLOSED; Phase 3 through 3.7 COMPLETE — the gate is GREEN under Scott's
+2026-08-01 re-scope ruling (33/33 required checks, two consecutive runs at 48/53 overall;
+waived classes = names[] under-fill + register, judged by live links in 3.9(d)). Scott also
+ruled the Phase 2 volume band RE-BASELINED to the immediate pre-deploy run (8,356–9,035/day
+±20%) — the 5,584 baseline averaged over two low days and steady state had risen before the
+deploy. Closed this session: the descriptor place gate + the supported-vote rule in
+editor/derive.rs (§1a's descriptor arm, now real — Paris and Fortuna classes pass by CODE, not
+prompt luck). NOTHING DEPLOYED YET: 3.8 waits only on the first post-deploy 02:00 sweep
+(2026-08-02) confirming the re-baselined band, then deploys outside a rest boundary.
+Last plan commit: (this one). Updated 2026-08-01 late evening.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -926,8 +925,14 @@ is claim order, `rust/src/main.rs:131-173`).
       (Vinicius — expect `refused_ambiguous`). Target ≥12 fixtures. The evaluator must run the
       **production** parser + derive path, as the legacy task's evaluate does
       (`eval_tasks.rs:1677`).
-- [ ] **3.7** Tests + clippy at baseline; build target/debug; run
-      `cd rust && cargo run --bin eval -- --task editor --fixtures` → 100%.
+- [x] **3.7** Tests + clippy at baseline; build target/debug; run
+      `cd rust && cargo run --bin eval -- --task editor --fixtures` → 100% **on the required
+      axes** (re-scoped by Scott, 2026-08-01 — see Log): every `relevant`, `resolver_never_links`,
+      `resolver_refused`, `resolver_links`, `result_line_*`, `story_type`, `name_absent`,
+      `key_fact_*`, and `blurb_*` check must pass (33/33); `name_found`/`name_kind`/
+      `descriptor_nonempty`/`register` and their non-emission cascades (`resolver_unresolved` on
+      a name the model did not emit) are WAIVED here and judged by resolved-link rate on live
+      traffic in 3.9(d) (the ar7 lesson: judge the discovery channel by the links it produces).
 - [ ] **3.8** **[DEPLOY]** rust binary to archbox with `COGNITION_STAGES` += `editor`, the new
       Editor registered before article_read. **[DEPLOY]** the Go enqueue change. (Two
       watch-triggered restarts; do them together, outside a rest boundary.)
@@ -1045,22 +1050,102 @@ the first post-deploy 02:00 sweep (`logs/pipeline-ingest.log` + `fetched_at` cou
 green (or re-scoped) 3.7 gate. `COGNITION_STAGES` on archbox does not yet include `editor`;
 `COGNITION_ROUTE_EDITOR` is unset there (eval runs exported it ad hoc).
 
-### Handoff (phase 3, blocked → phase 3 resume)
+---
+
+**Resumed 2026-08-01, ~20:45–22:00 EDT (same Mac-session pattern). Scott ruled; the gate is
+GREEN re-scoped; 3.8 waits only on tonight's sweep.**
+
+**Scott's rulings (2026-08-01 evening), three of the four options, jointly:** (1) keep
+iterating the ep1 prompt; (2) re-scope the 3.7 bar to the axes code depends on; (4) judge
+`names[]` coverage by resolved links on live traffic (3.9(d)). Option (3) — label-first
+register — NOT taken: the §1a phrase-first order stands; the register misses stay waived, a
+known cost re-measured at cutover. Scott also ruled on the stale Phase 2 band — see the
+volume-band note at the end of this entry.
+
+**The re-scoped bar, precisely** (now also in the 3.7 step text): REQUIRED = every `relevant`,
+`resolver_never_links`, `resolver_refused`, `resolver_links`, `result_line_*`, `story_type`,
+`name_absent`, `key_fact_*`, `blurb_*` check — 33 of the 53. WAIVED = `name_found`,
+`name_kind`, `descriptor_nonempty`, `register`, and `resolver_unresolved` where the name was
+never emitted (a cascade of under-fill, not a resolver defect) — 20 of the 53. `name_absent`
+is deliberately REQUIRED (over-emission/invention is not under-fill).
+
+**Iterations 8–13 (numbering continues the first session's seven):**
+
+| iter | change | score | required axes |
+|---|---|---|---|
+| 8 | listing_or_schedule broadened; city rules; Vikings+Monaco `absent` examples | 39/53 | youth ✓, paris ✗✗, fortuna ✗ (new), under-fill worse |
+| 9 | place rule scoped; Santos identical-string example; passing_mention prose; quoted-people re-scan | 41/53 | paris ✗✗ (kind still `club`), fortuna flapped ✓ |
+| 10 | **descriptor place gate in derive.rs (code)** | 42/53 | paris ✓✓ FIRST TIME; fortuna flapped ✗ |
+| 11 | **supported-vote rule in derive.rs (code)**; prompt trimmed | 42/53 | all required ✓ except blurb_absent[confirma] (fixture bug) |
+| 12 | fixture token confirma→confirmó; more prose trimmed (Shanahan recovered) | 47/53 ×2 | all ✓ except name_absent[Gwladys] flap |
+| 13 | FIELD 2 exclusions name stands/ends/streets | **48/53 ×2, identical reds** | **33/33 ×2** |
+
+**The finding that settled it (probe, 2026-08-01):** gemma3:4b on the Paris page emits kind
+`club`, role `subject` — and descriptor **"capital city"**. The model writes the truth in the
+descriptor while guessing the labels. Seven first-session iterations plus three more here
+could not move the labels; §1a always said "the descriptor is what lets code refuse
+Paris-the-city → Paris-the-club" — that arm was designed but never implemented. It is now CODE
+(T2: the description is the model's; the judgment is ours):
+* `derive::descriptor_names_place` — place words (city/capital/town/village/municipality)
+  with a club-sense veto list ("city rivals" is club language and never flags). Unit-tested
+  both directions.
+* group_hits: a place-described mention never takes a `team` link, whatever the kind_hint
+  claims (Paris flows to `unresolved`, recorded, not dropped). Person links untouched.
+* derive_relevance: a role vote whose own `names[]` entry describes a place is retracted —
+  the descriptor (copied from text) outranks the role label (a guess).
+* derive_relevance: a `passing_mention` vote with no matching `names[]` entry is a label with
+  no referent and does not count (the Fortuna flap: hypothesis "Fortuna" string-associated
+  onto "Fortuna Mining Corp"; the model's own names list holds no "Fortuna"). Subject/opponent
+  votes still stand alone — an unlisted principal is names under-fill, not absence.
+
+Five new editor unit tests (313 lib tests green); clippy at baseline (both remaining warnings
+pre-date this session, in untouched files). Eval display now prints descriptors
+(`Paris<club "capital city">`) — that one-line change is what exposed the finding.
+
+**Fixture fix:** non-english `blurb_excludes` token "confirma" → "confirmó" — the bare stem is
+a substring of the English "confirmation", which a correct English blurb legitimately uses
+(measured false red, iter 11). Spanish-leakage detection keeps the accented forms.
+
+**Prompt (ep1 text, contract unchanged):** net additions that survived measurement:
+listing_or_schedule covers single-broadcast pages; Santos + Vikings worked `absent` examples;
+quoted-people re-scan (recovered Moyes/Clement/Barrett-Baxendale in most runs); FIELD 2
+exclusions name stands/ends/streets (killed the Gwladys venue over-emission). Additions that
+measurably HURT extraction were reverted (the iter-8 place paragraph and iter-9 subject/
+passing_mention prose each suppressed people — Shanahan vanished for four runs until the trim
+brought him back). Lesson repeated from ar4–ar7: on a 4B, every added rule taxes extraction
+somewhere else; put judgments in code and keep the prompt about describing.
+
+**Waived-class cost, stated honestly:** register `outrage` still reads neutral under
+phrase-first order (known C2 cost, Scott declined the reorder); surname-only mentions
+(Moyes/Arteta/Rangers/Bellingham) flap in and out of `names[]` run to run. Both are exactly
+what 3.9(d)'s live measurement is for; if linked-rate on the Olise-class sample lands under
+the legacy 39/182 baseline, the under-fill class comes back on the table.
+
+**Volume-band ruling (Phase 2 carry-over):** Scott re-baselined the ±20% band to the
+immediate pre-deploy steady state **8,356–9,035/day** (band midpoint ~8.8k → accept
+6,956–10,556). The written 5,584/day averaged 07-25→07-28 across two low days (2,818, 5,117)
+and was already exceeded by +58% BEFORE the Phase 2 deploy (07-28: 8,356 → 08-01: 8,877,
+DB-counted on `fetched_at`); the band's intent — the deploy changed nothing — is what tonight's
+02:00 sweep must confirm. One oddity to re-check there: the 07-31 and 08-01 sweeps both logged
+exactly `fresh_articles=8823` with different matched/dedup counts; a third identical value
+would mean a cap is binding somewhere, not coincidence.
+
+### Handoff (phase 3, 3.7 green → 3.8 deploy)
 ```
-BLOCKED: Phase 3 stopped at the 3.7 fixture gate — 44/53 (83%) vs 100%, stable; see Phase 3
-Log for the iteration table, the four failure classes, and the four options. Scott rules
-first; then:
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phase 3 steps 3.0–3.6 are committed (through e5896fa); nothing is deployed. Read §0, §1a,
-the Phase 3 Log (the gate table + findings 1–2), then: (1) confirm the Phase 2 volume band
-(±20% vs 5,584/day) against the first post-deploy 02:00 sweep — logs/pipeline-ingest.log +
-count on fetched_at; (2) execute Scott's ruling on the gate (iterate ep1 prompt / re-scope
-3.7 / revisit §1a emission order / judge names[] by live links); (3) only then 3.8 [DEPLOY]
-(COGNITION_STAGES += editor on archbox, COGNITION_ROUTE_EDITOR=gemma3:4b, editor registered
-before article_read, plus the Go enqueue binary — together, outside a rest boundary), then
-3.9 (48h shadow measurement) and 3.10. Archbox scratch build lives at ~/rail-phase3/
-(CARGO_TARGET_DIR=~/rail-phase3/target); eval logs at /tmp/rail-phase3-editor-*.log on
-archbox. The live archbox checkout must git pull --ff-only before any deploy build.
+Phase 3 through 3.7 COMPLETE: the gate is GREEN under Scott's re-scope (33/33 required
+checks, 48/53 overall, two identical consecutive runs; waived classes judged live in
+3.9(d)). The descriptor place gate + supported-vote rule live in editor/derive.rs. Scott
+re-baselined the Phase 2 volume band to 8,356–9,035/day ±20% (accept ~6,956–10,556).
+Read §0, the Phase 3 Log (resumed-session entry), then: (1) confirm the re-baselined band
+against the FIRST POST-DEPLOY 02:00 sweep (2026-08-02 ~02:31 completion) —
+logs/pipeline-ingest.log fresh_articles + DB count on fetched_at; also check whether
+fresh_articles=8823 repeats a third time (cap suspicion, see Log); (2) then 3.8 [DEPLOY]
+outside a rest boundary (04:00–06:00 EDT is clean): live archbox checkout git pull
+--ff-only first, COGNITION_STAGES += editor and COGNITION_ROUTE_EDITOR=gemma3:4b in the
+archbox env, rust binary + Go pipeline binary together; (3) then 3.9 (48h shadow
+measurement) and 3.10. Archbox scratch build lives at ~/rail-phase3/
+(CARGO_TARGET_DIR=~/rail-phase3/target); eval logs at /tmp/rail-phase3-editor-iter*.log.
 ```
 
 ### Handoff (phase 3 → 4)

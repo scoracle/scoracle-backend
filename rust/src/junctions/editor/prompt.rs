@@ -42,7 +42,7 @@ This article reached you because a ranked Google News query for a team matched i
 FIELD 1 — page_kind: what SHAPE is this page, judged by its text, not its headline?
 - article — prose reporting: someone wrote sentences about what happened and what it means.
 - score_table — a result/boxscore/live-score page whose body is a score plus lineups, stats, possession, cards, attendance, next fixtures. A table with a headline is still a table.
-- listing_or_schedule — a "how to watch"/TV-times/streaming/kickoff-times page, or a schedule roundup of many fixtures. Note: a page TITLED "How to watch" that then contains a real 1,000-word preview is an `article`; judge the body.
+- listing_or_schedule — a "how to watch"/TV-times/streaming/kickoff-times page, or a schedule roundup of many fixtures. A page for a single broadcast — watch X vs Y, the channel, the start time, where to stream, check local listings — is a listing too, even when it names only one game. Note: a page TITLED "How to watch" that then contains a real 1,000-word preview is an `article`; judge the body.
 - video_clip — a page whose body is a video/highlights wrapper with little prose.
 - roundup — a link list, navigation, tags, or "related stories" aggregation.
 - other — anything else.
@@ -53,9 +53,10 @@ Example shape (a different, imaginary story): [{"name":"Feyenoord","kind_hint":"
 
 For each entry:
 - name: as the article writes it, in full: "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club — if the text is about the city itself (an event, a race, a venue), the city does not belong in names at all, and never with kind_hint club.
+After listing, re-scan the text once for people you missed: anyone the text quotes ("said", "told"), any scorer, any manager or coach mentioned even by surname alone — each of them belongs in names. People only in this re-scan — never stadiums, stands, streets, or competitions.
 - kind_hint: person, club, national_team, or other.
 - descriptor: up to 6 words FROM THE TEXT naming the role, club, or context — "Real Madrid manager", "PSG sporting director". Copy what the text says; never write your own knowledge. If the text gives no role or context, use an empty string.
-People and clubs only. Not competitions or trophies, not stadiums, not broadcasters, newspapers or websites, not companies or sponsors. Only names the text actually contains — never expand a name into a club it resembles.
+People and clubs only. Not competitions or trophies, not stadiums or their stands, ends, or streets, not broadcasters, newspapers or websites, not companies or sponsors. Only names the text actually contains — never expand a name into a club it resembles.
 
 FIELD 3 — entity_roles: for EVERY hypothesis entity listed above — and ONLY those — say what part it plays in THIS text. One entry per hypothesis entity, using the entity's name exactly as listed, even when the entity is absent from the text. Never add anyone else here — people and clubs you found in the text belong in `names`:
 - subject — the article is reporting ABOUT this entity; it is who the story concerns.
@@ -64,6 +65,8 @@ FIELD 3 — entity_roles: for EVERY hypothesis entity listed above — and ONLY 
 - absent — a different club, age level, or competition that merely shares the name (youth, academy, reserves, women's, flag football, a same-named club elsewhere — even in the same sport), a city or place that merely shares the club's name in a story that is not about the club, or not present in the text at all. This is NOT the hypothesis entity.
 
 Be strict about `subject`. If the story is about another club's player and this entity is who they face, that is `opponent`, not `subject`. If a youth or flag-football team shares the name, that is `absent`. If the hypothesis entity is a club but the text never discusses the club itself — its matches, its players, its business — the entity is `absent`, even when its name appears as a place.
+
+Two worked examples of `absent` (imaginary, for shape only). Hypothesis "Santos", but the text covers the port city of Santos welcoming a cruise terminal — the name is everywhere, yet nothing is about the football club → {"entity":"Santos","role":"absent"}. Hypothesis "Minnesota Vikings", but the text is a youth flag football bracket where a team called the Vikings plays → {"entity":"Minnesota Vikings","role":"absent"} — a youth team sharing the name is not the NFL club.
 
 Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general). A hiring or firing is `roster`.
 

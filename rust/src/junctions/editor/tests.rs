@@ -110,6 +110,55 @@ fn volunteered_subjects_do_not_outvote_ours() {
     assert!(!read.relevant);
 }
 
+#[test]
+fn a_place_described_hypothesis_does_not_count_as_present() {
+    // The Moulin Rouge case as gemma3:4b actually emits it (measured 2026-08-01, stable across
+    // seven prompt iterations): role `subject`, kind `club` — and the truth in the descriptor.
+    // The descriptor is copied from the text; the labels are guesses. It retracts the vote.
+    let roles = [EditorEntityRole {
+        entity: "Paris".into(),
+        role: "subject".into(),
+    }];
+    let names = [mention("Paris", "club", "capital city")];
+    assert!(!derive_relevance(
+        "article",
+        &roles,
+        &["Paris".to_string()],
+        &names
+    ));
+    // Same shape on a real club story — "city rivals" is club language, the veto holds.
+    let roles = [EditorEntityRole {
+        entity: "Manchester City".into(),
+        role: "subject".into(),
+    }];
+    let names = [mention("Manchester City", "club", "city rivals")];
+    assert!(derive_relevance(
+        "article",
+        &roles,
+        &["Manchester City".to_string()],
+        &names
+    ));
+}
+
+#[test]
+fn an_unlisted_passing_mention_does_not_count() {
+    // The Fortuna shape: the model string-associates a passing_mention role onto the hypothesis
+    // name, but its own names[] holds only a different organization. No referent, no vote.
+    let read = parse(&ep1_raw(
+        "article",
+        &[("Baltimore Ravens", "passing_mention")],
+        &[("Ravens Mining Corp", "club", "mining company")],
+    ));
+    assert!(!read.relevant);
+    // A passing_mention the model DID list stays in this entity's world (the ar7 lesson).
+    let read = parse(&ep1_raw(
+        "article",
+        &[("Baltimore Ravens", "passing_mention")],
+        &[("Baltimore Ravens", "club", "mentioned in the notebook column")],
+    ));
+    assert!(read.relevant);
+}
+
 // ── parser normalization ────────────────────────────────────────────────────────────────────
 
 #[test]
@@ -321,6 +370,27 @@ fn a_place_named_other_never_auto_links() {
     let r = group_hits(&names, &hits);
     assert!(r.links.is_empty(), "kind `other` never auto-links");
     assert_eq!(r.unresolved.len(), 1);
+}
+
+#[test]
+fn a_place_described_club_kind_never_takes_the_team_link() {
+    // The descriptor arm (§1a): kind_hint says club, the descriptor says city — no link, and
+    // the mention is recorded as unresolved, not silently dropped.
+    let names = [mention("Paris", "club", "capital city")];
+    let hits = [hit("Paris", "team", 4508)];
+    let r = group_hits(&names, &hits);
+    assert!(r.links.is_empty(), "the descriptor arm refuses the club link");
+    assert_eq!(r.unresolved.len(), 1);
+}
+
+#[test]
+fn descriptor_place_words_and_the_club_veto() {
+    assert!(descriptor_names_place("capital city"));
+    assert!(descriptor_names_place("city hosting the finale"));
+    assert!(!descriptor_names_place("city rivals"), "club sense vetoes");
+    assert!(!descriptor_names_place("selling club"));
+    assert!(!descriptor_names_place("the hosts"));
+    assert!(!descriptor_names_place(""));
 }
 
 #[test]

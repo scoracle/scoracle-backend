@@ -2161,10 +2161,10 @@ impl LensTask for EditorTask {
                     &read
                         .names
                         .iter()
-                        .map(|n| format!("{}<{}>", n.name, n.kind_hint))
+                        .map(|n| format!("{}<{} {:?}>", n.name, n.kind_hint, n.descriptor))
                         .collect::<Vec<_>>()
                         .join(", "),
-                    140
+                    280
                 ),
                 truncate(&read.result_line, 40),
                 read.key_facts.len(),

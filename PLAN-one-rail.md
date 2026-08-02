@@ -1171,6 +1171,33 @@ queue wait, GPU-busy fraction, ≥95% coverage in 24h, status bands, the Olise-c
 sample vs 39/182, refusals/day, narratives/day vs baseline). 3.10 (full_text growth vs disk)
 rides the same readings.
 
+---
+
+**2026-08-02, 08:17 EDT: interim health check (+4h post-deploy) — all green; window-open
+baselines recorded. 3.9 NOT taken (window opens Aug 3 02:00; nothing to measure yet).**
+
+A resume session fired before the window opened; instead of readings, it verified the shadow
+deploy is holding and froze the baselines the Aug 4/Aug 5 sessions will diff against:
+
+* **Editor state:** `editor_reads` still exactly the smoke test — 13 success / 1 duplicate /
+  1 blocked, 0 failed. `pipeline_work` has zero `editor` rows (completed work is removed) —
+  queue fully drained. As expected: the 02:00 Aug 2 sweep pre-dated the Go enqueue deploy
+  (04:10), so no organic arrivals reach the Editor until the Aug 3 sweep.
+* **Services:** `scoracle-cognition`, `scoracle-api`, `scoracle-qsample.timer` all active;
+  `journalctl -p err` since 04:05 is EMPTY. Legacy `article_read` backlog 5,651 pending at
+  08:17 (down from 7.4k at 04:15), draining normally.
+* **Instrumentation for 3.9:** queue-depth.csv sampling with `harness_active` column confirmed
+  live (last sample 08:10). Queue-table caveat for the wait math: the table is named
+  **`pipeline_work`** (not work_queue) and completed rows are DELETED — p50/p95 queue wait must
+  come from `cognition_ledger` timings joined to `news_articles.fetched_at`, not from the queue
+  table.
+* **3.10 window-open baseline:** `news_articles` total relation 188 MB; `full_text` = 13 rows /
+  71 kB (smoke only — effectively zero). `/mnt/data`: 26G used, **1.8T free (2%)**, matching
+  Phase 0.
+* **3.9(f) baseline, table name pinned:** legacy narratives = **`narrative_episodes`** rows/day:
+  07-30: 649, 07-31: 609, 08-01: 646 (pre-window band ~609–649/day); 08-02 partial at 08:17
+  already 355 — on pace, deploy visibly changed nothing.
+
 ### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).

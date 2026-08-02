@@ -28,7 +28,11 @@ EnvironmentFile=-__SCORACLE_REPO_ROOT__/.env.local
 # same stages. PEAK is drained by the Rust daemon; `rust/bin/statcommentary` produces nightly PEAK work and handles explicit backfill.
 # NOTE: .env.local also sets COGNITION_STAGES and, loading later, OVERRIDES this line —
 # keep the two in sync (this one documents the production set for a fresh install).
-Environment=COGNITION_STAGES=scrub,graph,article_read,peak,momentum,transfers,narratives,vibe,sigil
+# `editor` is the greenfield Editor in SHADOW (PLAN-one-rail 3.8, 2026-08-02): it reads
+# every arrival on ep1 and writes editor_reads + news_articles.full_text only; the legacy
+# article_read keeps running until the Phase 8 cutover. Registration order is fixed in
+# main.rs (editor before article_read), not by this list's order.
+Environment=COGNITION_STAGES=scrub,graph,editor,article_read,peak,momentum,transfers,narratives,vibe,sigil
 ExecStart=__SCORACLE_REPO_ROOT__/rust/bin/scoracle-cognition
 Restart=always
 RestartSec=3

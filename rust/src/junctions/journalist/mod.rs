@@ -1186,6 +1186,7 @@ pub async fn finish_narratives_build(
         // the balanced-brace salvager was built for). The Go-parity free-text contract is
         // retired; the salvager stays as the tolerant parse path either way.
         format_schema: Some(narratives_format_schema()),
+        format_schema_raw: None,
     };
     let backend = hx.router.for_role(Role::NarrativeLogic);
     let request_body = backend.request_body(&built_prompt, &opts);

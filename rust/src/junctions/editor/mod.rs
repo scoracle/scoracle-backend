@@ -38,6 +38,9 @@ pub(crate) const EDITOR_NUM_CTX: i32 = 8192;
 /// The model budget for one editor read — one definition for the stage and `bin/eval`, so a
 /// fixture can never be scored under options production does not send. Temperature 0.2 live;
 /// the eval overrides it per case.
+///
+/// Both schema forms travel together: `format_schema_raw` is what Ollama receives (order-true),
+/// `format_schema` is the `Value` the ledger/eval capture path stores.
 pub fn editor_opts() -> GenerateOptions {
     GenerateOptions {
         system: Some(EDITOR_SYSTEM_PROMPT.to_string()),
@@ -46,74 +49,79 @@ pub fn editor_opts() -> GenerateOptions {
         num_ctx: EDITOR_NUM_CTX,
         json_mode: false,
         format_schema: Some(editor_format_schema()),
+        format_schema_raw: Some(EDITOR_FORMAT_SCHEMA_RAW.to_string()),
     }
 }
 
-/// FIELD ORDER IS THE CONTRACT (§1a; the ar4 lesson): constrained decoding emits required
-/// properties in the order given, extraction before anything derived. `relevant` is absent —
-/// the model is never given the question (ar6, carried forward); `co_mentions` is gone (the
-/// numbered-candidate loop dies with the legacy rail). The literal template at the end of
-/// [`EDITOR_SYSTEM_PROMPT`] must match this order.
-pub fn editor_format_schema() -> serde_json::Value {
-    json!({
-        "type": "object",
-        "properties": {
-            "source_language": { "type": "string" },
-            "page_kind": { "type": "string", "enum": [
-                "article", "score_table", "listing_or_schedule", "video_clip", "roundup", "other"
-            ] },
-            // The discovery channel (ep1): every person and club the TEXT involves, each with a
-            // kind hint and a ≤6-word descriptor FROM the text — what lets code refuse
-            // Paris-the-city → Paris-the-club and route an unknown coach to person-discovery
-            // instead of a fuzzy player match (T9).
-            "names": {
-                "type": "array",
-                "maxItems": 12,
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": { "type": "string" },
-                        "kind_hint": { "type": "string", "enum": [
-                            "person", "club", "national_team", "other"
-                        ] },
-                        "descriptor": { "type": "string" }
-                    },
-                    "required": ["name", "kind_hint", "descriptor"]
-                }
-            },
-            "entity_roles": {
-                "type": "array",
-                "maxItems": 12,
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "entity": { "type": "string" },
-                        "role": { "type": "string", "enum": [
-                            "subject", "opponent", "passing_mention", "absent"
-                        ] }
-                    },
-                    "required": ["entity", "role"]
-                }
-            },
-            "story_type": { "type": "string", "enum": [
-                "transfer", "injury", "performance", "fixture", "roster", "contract", "general"
-            ] },
-            // Verbatim-or-empty (§1a): code parses it; the model never says "a game happened".
-            "result_line": { "type": "string" },
-            // Phrase BEFORE label (describe → label). The Influencer owns the number; the
-            // Editor never scores.
-            "register_phrase": { "type": "string" },
-            "register": { "type": "string", "enum": [
-                "celebration", "outrage", "resignation", "anticipation", "neutral"
-            ] },
-            "key_facts": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
-            "caveats": { "type": "string" },
-            "evidence_blurb": { "type": "string" }
+/// FIELD ORDER IS THE CONTRACT (§1a; the ar4 lesson): constrained decoding emits properties in
+/// schema order, so extraction comes before anything a judgment could lean on. This is a RAW
+/// JSON literal, not a `json!` value, because `serde_json`'s map is BTreeMap-backed — a schema
+/// that travels as a `Value` reaches Ollama ALPHABETIZED, and the grammar then forces emission
+/// in that accidental order (measured on the first ep1 gate run: `entity_roles` emitted second,
+/// before a single name or fact was written — the ar3 shape). The raw string is POSTed
+/// byte-for-byte via `format_schema_raw`.
+///
+/// `relevant` is absent — the model is never given the question (ar6, carried forward);
+/// `co_mentions` is gone (the numbered-candidate loop dies with the legacy rail). The literal
+/// template at the end of [`EDITOR_SYSTEM_PROMPT`] must match this order.
+pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
+    "type": "object",
+    "properties": {
+        "source_language": { "type": "string" },
+        "page_kind": { "type": "string", "enum": [
+            "article", "score_table", "listing_or_schedule", "video_clip", "roundup", "other"
+        ] },
+        "names": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "kind_hint": { "type": "string", "enum": [
+                        "person", "club", "national_team", "other"
+                    ] },
+                    "descriptor": { "type": "string" }
+                },
+                "required": ["name", "kind_hint", "descriptor"]
+            }
         },
-        "required": ["source_language", "page_kind", "names", "entity_roles", "story_type",
-                     "result_line", "register_phrase", "register", "key_facts", "caveats",
-                     "evidence_blurb"]
-    })
+        "entity_roles": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "entity": { "type": "string" },
+                    "role": { "type": "string", "enum": [
+                        "subject", "opponent", "passing_mention", "absent"
+                    ] }
+                },
+                "required": ["entity", "role"]
+            }
+        },
+        "story_type": { "type": "string", "enum": [
+            "transfer", "injury", "performance", "fixture", "roster", "contract", "general"
+        ] },
+        "result_line": { "type": "string" },
+        "register_phrase": { "type": "string" },
+        "register": { "type": "string", "enum": [
+            "celebration", "outrage", "resignation", "anticipation", "neutral"
+        ] },
+        "key_facts": { "type": "array", "items": { "type": "string" }, "maxItems": 8 },
+        "caveats": { "type": "string" },
+        "evidence_blurb": { "type": "string" }
+    },
+    "required": ["source_language", "page_kind", "names", "entity_roles", "story_type",
+                 "result_line", "register_phrase", "register", "key_facts", "caveats",
+                 "evidence_blurb"]
+}"#;
+
+/// The ep1 schema as a `Value` — the ledger/eval capture form. Parsed from the raw literal so
+/// the two can never disagree on CONTENT; only the raw form carries the order.
+pub fn editor_format_schema() -> serde_json::Value {
+    serde_json::from_str(EDITOR_FORMAT_SCHEMA_RAW)
+        .expect("EDITOR_FORMAT_SCHEMA_RAW is valid JSON (unit-tested)")
 }
 
 #[derive(Debug)]
@@ -458,6 +466,40 @@ impl StageHandler for EditorHandler {
         // Desk) are Phases 4–6, and the legacy rail must not feel this stage exists.
         Ok(())
     }
+}
+
+/// build_editor_prompt_for_eval assembles the EXACT production user prompt for one article —
+/// the same DB load, the same fetch, the same builder the stage calls — so `bin/eval` scores
+/// the contract that actually runs rather than a reconstruction of it (the legacy seat's
+/// `build_article_read_prompt_for_eval` pattern).
+///
+/// `Ok(None)` mirrors every path where the stage writes a terminal marker WITHOUT a model call
+/// (article missing, duplicate, body too short or paywalled) — deterministic bookkeeping, not
+/// judgments, so there is nothing for a model to be scored on. It fetches over the network,
+/// exactly as the stage does.
+pub async fn build_editor_prompt_for_eval(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+) -> Result<Option<String>> {
+    let Some(article) = load_article(pool, article_id).await? else {
+        return Ok(None);
+    };
+    if article.duplicate_of.is_some() {
+        return Ok(None);
+    }
+    let fetched = fetch_article(&article.url).await?;
+    if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
+        return Ok(None);
+    }
+    let hypothesis = load_hypothesis_entities(pool, article_id, sport).await?;
+    Ok(Some(prompt::build_editor_prompt_parts(
+        &article.source,
+        &article.title,
+        &article.description,
+        &fetched.text,
+        &hypothesis,
+    )))
 }
 
 async fn load_article(pool: &sqlx::PgPool, article_id: i64) -> Result<Option<EditorArticleRow>> {

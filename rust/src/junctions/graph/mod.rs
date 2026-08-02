@@ -76,6 +76,7 @@ pub fn graph_opts() -> GenerateOptions {
         num_ctx: crate::junctions::article_reader::ARTICLE_NUM_CTX,
         json_mode: true,
         format_schema: None,
+        format_schema_raw: None,
     }
 }
 

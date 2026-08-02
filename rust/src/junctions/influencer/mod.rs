@@ -627,6 +627,7 @@ async fn generate_vibe_from_context(
         num_ctx: crate::route::VOICE_NUM_CTX,
         json_mode: false,
         format_schema: None,
+        format_schema_raw: None,
     };
 
     // vibe = route(VibeLogic) + extract(VibeParser). The fail-closed contract lives in

@@ -979,6 +979,7 @@ pub async fn build_pair_request(
         num_ctx: crate::route::VOICE_NUM_CTX,
         json_mode: true,
         format_schema: None,
+        format_schema_raw: None,
     };
     let backend = hx.router.for_role(Role::TransferLogic);
     let request_body = backend.request_body(&built_prompt, &opts);
@@ -1663,6 +1664,7 @@ async fn maybe_apply_transfer_identity(
         num_ctx: crate::junctions::article_reader::ARTICLE_NUM_CTX,
         json_mode: true,
         format_schema: None,
+        format_schema_raw: None,
     };
     // Identity adjudication is a utility call (no character voice), so it stays on
     // `EmotionalNews` — NOT `TransferLogic`, which is The Insider's voice seam only.
@@ -2050,6 +2052,7 @@ async fn score_insider_entity(
         num_ctx: crate::route::VOICE_NUM_CTX,
         json_mode: false,
         format_schema: Some(insider_score_format_schema()),
+        format_schema_raw: None,
     };
     let extracted = hx
         .extract(Role::TransferLogic, &prompt, &opts, &InsiderScoreParser)

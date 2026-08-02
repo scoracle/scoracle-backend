@@ -504,6 +504,7 @@ impl StageHandler for MomentumHandler {
             num_ctx: crate::route::VOICE_NUM_CTX,
             json_mode: false,
             format_schema: None,
+            format_schema_raw: None,
         };
         let extracted = hx
             .extract(Role::MomentumLogic, &prompt, &opts, &MomentumParser)

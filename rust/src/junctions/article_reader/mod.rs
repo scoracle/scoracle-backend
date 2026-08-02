@@ -113,6 +113,7 @@ pub fn article_read_opts() -> GenerateOptions {
         num_ctx: ARTICLE_NUM_CTX,
         json_mode: false,
         format_schema: Some(article_read_format_schema()),
+        format_schema_raw: None,
     }
 }
 

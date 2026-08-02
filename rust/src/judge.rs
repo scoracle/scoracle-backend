@@ -141,6 +141,7 @@ pub async fn judge_reply(
             "properties": properties,
             "required": required
         })),
+        format_schema_raw: None,
     };
     let prompt = build_judge_prompt(task_name, evidence, reply);
     let (gen, _) = backend.generate(&prompt, &opts).await?;

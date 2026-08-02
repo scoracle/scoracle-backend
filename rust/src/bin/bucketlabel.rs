@@ -138,6 +138,7 @@ async fn main() -> Result<()> {
         num_ctx: 0,
         json_mode: true,
         format_schema: None,
+        format_schema_raw: None,
     };
 
     let (mut n_done, mut n_transfer, mut n_other, mut n_unparsed) = (0u32, 0u32, 0u32, 0u32);

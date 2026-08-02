@@ -1229,6 +1229,7 @@ pub async fn build_rating_request(
         num_ctx: crate::route::VOICE_NUM_CTX,
         json_mode: false,
         format_schema: None,
+        format_schema_raw: None,
     };
     let backend = hx.router.for_role(Role::StatsLogic);
     let request_body = backend.request_body(&built_prompt, &opts);

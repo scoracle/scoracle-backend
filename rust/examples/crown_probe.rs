@@ -151,6 +151,7 @@ async fn main() -> Result<()> {
             num_ctx,
             json_mode: false,
             format_schema: Some(oracle_format_schema()),
+            format_schema_raw: None,
         };
 
         // Rough token estimate (≈ chars/4) for system + user + the reserved response budget —

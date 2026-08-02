@@ -49,6 +49,15 @@ pub struct GenerateOptions {
     /// `json_mode`'s "some valid JSON" and free-text's "hopefully JSON" (the narratives
     /// balanced-brace salvager exists because of the latter).
     pub format_schema: Option<serde_json::Value>,
+    /// The same schema as VERBATIM JSON text, for stages whose contract pins the PROPERTY ORDER
+    /// (PLAN-one-rail §1a: order IS the contract). `serde_json::Value` is BTreeMap-backed, so a
+    /// schema that travels as a `Value` reaches Ollama with its properties ALPHABETIZED — the
+    /// grammar then forces emission in that accidental order, whatever the documented contract
+    /// says. When set, this string is POSTed byte-for-byte as `format` (taking precedence over
+    /// `format_schema`); callers should set `format_schema` too, since ledger/eval capture
+    /// still reads the `Value` form. Legacy stages leave this `None` and keep their measured
+    /// (alphabetized) wire order untouched.
+    pub format_schema_raw: Option<String>,
 }
 
 /// GenerateResult holds the text output plus perf metrics. Callers doing
@@ -71,6 +80,27 @@ struct GenerateRequest<'a> {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    think: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    options: Option<serde_json::Value>,
+}
+
+/// The POSTed shape when a caller pins schema property order (`format_schema_raw`): identical
+/// to [`GenerateRequest`] except `format` is `RawValue`, serialized byte-for-byte. A separate
+/// struct because `serde_json::to_value` cannot represent `RawValue` — the ledger/inspection
+/// copy keeps flowing through `GenerateRequest`, whose `Value` form it always stored. For a
+/// caller with only `format_schema`, the wire bytes are identical either way (`Value::to_string`
+/// is the same serialization `.json(&req)` performs).
+#[derive(Serialize)]
+struct GenerateRequestWire<'a> {
+    model: &'a str,
+    prompt: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    system: Option<&'a str>,
+    stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<&'a serde_json::value::RawValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     think: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -187,14 +217,38 @@ impl OllamaClient {
         let req = self.build_request(prompt, opts);
         let request_body = serde_json::to_value(&req).unwrap_or(serde_json::Value::Null);
 
+        // Order-pinned schemas POST through the RawValue wire shape so the property order the
+        // contract documents is the order the grammar enforces; everything else keeps the
+        // byte-identical `.json(&req)` path it always had.
+        let raw_format: Option<Box<serde_json::value::RawValue>> = match &opts.format_schema_raw {
+            Some(raw) => Some(
+                serde_json::value::RawValue::from_string(raw.clone())
+                    .context("format_schema_raw is not valid JSON")?,
+            ),
+            None => None,
+        };
+
         let url = format!("{}/api/generate", self.base_url);
-        let resp = self
-            .http
-            .post(&url)
-            .json(&req)
-            .send()
-            .await
-            .context("ollama request")?;
+        let request = self.http.post(&url);
+        let request = match &raw_format {
+            Some(raw) => {
+                let wire = GenerateRequestWire {
+                    model: req.model,
+                    prompt: req.prompt,
+                    system: req.system,
+                    stream: req.stream,
+                    format: Some(raw),
+                    think: req.think,
+                    options: req.options.clone(),
+                };
+                let body = serde_json::to_string(&wire).context("serialize wire request")?;
+                request
+                    .header(reqwest::header::CONTENT_TYPE, "application/json")
+                    .body(body)
+            }
+            None => request.json(&req),
+        };
+        let resp = request.send().await.context("ollama request")?;
 
         let status = resp.status();
         let raw = resp.text().await.context("read ollama response")?;

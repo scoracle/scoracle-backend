@@ -37,6 +37,10 @@ use crate::junctions::article_reader::{
     article_read_opts, build_article_read_prompt_for_eval, ArticleEntityRole, ArticleEvidence,
     ArticleEvidenceParser, ARTICLE_READ_PROMPT_VERSION,
 };
+use crate::junctions::editor::{
+    build_editor_prompt_for_eval, derive as editor_derive, editor_opts, EditorRead,
+    EditorReadParser, EDITOR_CONTRACT_VERSION,
+};
 use crate::junctions::graph::{
     build_graph_prompt, graph_opts, load_graph_article_context, GraphCandidate, GraphParser,
     GRAPH_PROMPT_VERSION,
@@ -168,6 +172,12 @@ pub fn lens_parameters(name: &str) -> Option<LensParameters> {
             operator: "the Oracle",
             mandate: "Read the five pillar cards aloud, deliver the entity's reading in the house voice, then render the Sigil verdict grounded in the entity's own prior reads.",
             credibility_guard: "The mysticism lives in the telling, never the facts — every claim traces to a card; nothing invented; the score moves deliberately from prior verdicts.",
+        }),
+        "editor" => Some(LensParameters {
+            rail: Rail::EmotionalNews,
+            operator: "The Editor",
+            mandate: "Read every arrival's full text and describe it richly for the newsroom — shape, names with descriptors, roles, result line, register, facts — so code can derive everything downstream.",
+            credibility_guard: "Describe, never judge: no relevance verdicts, no invented names or results — only what the text contains, with the descriptor copied from the text.",
         }),
         "article_reader" => Some(LensParameters {
             rail: Rail::EmotionalNews,
@@ -400,6 +410,46 @@ pub struct Expect {
     /// `outrage`, which is the same shape of failure as ar3's 99.1% `relevant:true`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub register_is: Option<String>,
+    // greenfield editor (ep1) rubric — the fields below score the ep1 contract's additions.
+    /// ep1 topic pin (e.g. a hiring must be `roster` — the §1a ruling). Sparse use: story_type
+    /// discriminates well since the ar5 collapse was fixed, so only rule-bearing cases pin it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub story_type_is: Option<String>,
+    /// ep1 discovery kinds: each listed name must be emitted with exactly this `kind_hint`
+    /// (`{"Kyle Shanahan": "person"}`). The kind gate is what routes an unknown coach to
+    /// person-discovery instead of a fuzzy player match (T9), so it is scored, not assumed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_kind_is: Option<std::collections::BTreeMap<String, String>>,
+    /// ep1 descriptors: each listed name must carry a non-empty `descriptor`. The descriptor is
+    /// the 5.2 first-sight nomination trigger, so a bare name here is a lost discovery.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_descriptor_nonempty: Option<Vec<String>>,
+    /// ep1 `result_line` substring checks (verbatim-or-empty; an empty expectation is pinned by
+    /// including nothing and asserting `result_line_parses: false`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_line_includes: Option<Vec<String>>,
+    /// Whether the PRODUCTION `derive::parse_result_line` must parse the emitted line. `true`
+    /// pins a completed result the code can consume; `false` pins that no phantom result parses.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result_line_parses: Option<bool>,
+    /// Fixture-declared `entity_name_surfaces` rows for the resolver simulation: the eval runs
+    /// the PRODUCTION grouping/kind-gate (`derive::group_hits`) against these, with
+    /// case-insensitive name equality standing in for the database's `nrm()` exact match.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolver_surfaces: Option<Vec<ResolverSurfaceFx>>,
+    /// Names that must AUTO-LINK given the declared surfaces.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolver_links_include: Option<Vec<String>>,
+    /// Names that must NOT auto-link (the Paris case: the surface exists and the kind gate —
+    /// fed by the model's own kind_hint — must refuse it).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolver_links_exclude: Option<Vec<String>>,
+    /// Names that must land in `unresolved` — the Investigator's discovery channel.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolver_unresolved_include: Option<Vec<String>>,
+    /// Names that must be REFUSED as ambiguous (the namesake tie — never a coin flip).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolver_refused_include: Option<Vec<String>>,
     // oracle / persona-reading rubric.
     /// Reading substring checks, matched CASE-INSENSITIVELY (a voice lens varies casing freely;
     /// the jargon-exclusion checks must catch "Convergence" as well as "convergence").
@@ -426,6 +476,15 @@ pub struct Expect {
     // momentum_score_min/max were removed in s11 — the Analyst no longer emits a score, so
     // there was nothing left for them to assert. Both numbers (direction and the ±5
     // conviction) are computed by the junction and unit-tested there, not gated here.
+}
+
+/// One fixture-declared surface row for the greenfield editor's resolver simulation — the
+/// database state `derive::group_hits` is scored against.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ResolverSurfaceFx {
+    pub name: String,
+    pub entity_type: String,
+    pub entity_id: i32,
 }
 
 /// A frozen eval case: the exact `system` + `user_prompt` (captured or hand-authored), the run
@@ -491,6 +550,7 @@ pub fn resolve_task(name: &str) -> Option<Box<dyn LensTask>> {
         "momentum" => Some(Box::new(MomentumTask)),
         "graph" => Some(Box::new(GraphTask)),
         "article_reader" => Some(Box::new(ArticleReaderTask)),
+        "editor" => Some(Box::new(EditorTask)),
         _ => None,
     }
 }
@@ -506,6 +566,7 @@ pub fn all_task_names() -> &'static [&'static str] {
         "momentum",
         "graph",
         "article_reader",
+        "editor",
     ]
 }
 
@@ -551,6 +612,7 @@ impl LensTask for VibeTask {
             num_ctx: 0,
             json_mode: false,
             format_schema: None,
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -650,6 +712,7 @@ impl LensTask for OracleTask {
             json_mode: false,
             // Grammar-constrained single-field reply, matching the live stage.
             format_schema: Some(oracle_format_schema()),
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -780,6 +843,7 @@ impl LensTask for NarrativeTask {
             json_mode: false,
             // Grammar-constrained, matching the live stage (Phase 5).
             format_schema: Some(crate::junctions::journalist::narratives_format_schema()),
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -965,6 +1029,7 @@ impl LensTask for TransferTask {
             num_ctx: 0,
             json_mode: true,
             format_schema: None,
+            format_schema_raw: None,
         }
     }
     fn gen_options_for(&self, temperature: f64, e: &EntitySpec) -> GenerateOptions {
@@ -976,6 +1041,7 @@ impl LensTask for TransferTask {
             num_ctx: 0,
             json_mode: true,
             format_schema: None,
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1145,6 +1211,7 @@ impl LensTask for RatingTask {
             num_ctx: 0,
             json_mode: false,
             format_schema: None,
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1264,6 +1331,7 @@ impl LensTask for MomentumTask {
             num_ctx: 0,
             json_mode: false,
             format_schema: None,
+            format_schema_raw: None,
         }
     }
     async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
@@ -1791,6 +1859,317 @@ impl LensTask for ArticleReaderTask {
                 ev.story_type,
                 ev.register,
                 truncate(&ev.register_phrase, 40)
+            ),
+        }
+    }
+}
+
+/// EditorTask — the GREENFIELD Editor's gate (contract ep1, PLAN-one-rail Phase 3.6).
+///
+/// Runs the production `EditorReadParser` (which derives relevance) and the production
+/// derivations: `parse_result_line` on the emitted line, and `group_hits` — the resolver's
+/// kind-gate/grouping core — against fixture-declared surfaces, with case-insensitive name
+/// equality standing in for the database's exact `nrm()` match. So the fixtures score the same
+/// code path production runs, minus only the SQL normalizer.
+pub struct EditorTask;
+
+#[async_trait]
+impl LensTask for EditorTask {
+    fn name(&self) -> &'static str {
+        "editor"
+    }
+    fn role(&self) -> Role {
+        Role::Editor
+    }
+    fn prompt_version(&self) -> &'static str {
+        EDITOR_CONTRACT_VERSION
+    }
+    fn gen_options(&self, temperature: f64) -> GenerateOptions {
+        let mut o = editor_opts();
+        o.temperature = Some(temperature);
+        o
+    }
+    async fn build_prompt(&self, hx: &Harness, e: &EntitySpec) -> Result<Option<String>> {
+        if e.entity_type != "article" {
+            anyhow::bail!(
+                "editor evals are article-keyed: use article:<id>:<SPORT> (got {})",
+                e.entity_type
+            );
+        }
+        build_editor_prompt_for_eval(&hx.pool, i64::from(e.entity_id), &e.sport.to_uppercase())
+            .await
+    }
+    fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
+        let hypothesis: Vec<String> = expect
+            .and_then(|x| x.reader_vetted.clone())
+            .unwrap_or_default();
+        let parsed = EditorReadParser {
+            hypothesis: &hypothesis,
+        }
+        .parse(raw)
+        .ok()
+        .flatten();
+        let Some(read): Option<EditorRead> = parsed else {
+            return CaseVerdict {
+                parsed: false,
+                abs_err: None,
+                checks: Vec::new(),
+                display: "unparseable (fail-closed)".into(),
+            };
+        };
+        let mut checks = Vec::new();
+        if let Some(x) = expect {
+            if let Some(want) = x.article_relevant {
+                checks.push(PropertyCheck {
+                    name: format!("relevant[{want}]"),
+                    pass: read.relevant == want,
+                    detail: format!(
+                        "relevant={} page_kind={:?} roles=[{}] story_type={:?}",
+                        read.relevant,
+                        read.page_kind,
+                        read.entity_roles
+                            .iter()
+                            .map(|r| format!("{}:{}", r.entity, r.role))
+                            .collect::<Vec<_>>()
+                            .join(", "),
+                        read.story_type
+                    ),
+                });
+            }
+            let facts = read.key_facts.join(" | ");
+            if let Some(incl) = &x.key_facts_include {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("key_fact_present[{frag}]"),
+                        pass: facts.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&facts, 160),
+                    });
+                }
+            }
+            if let Some(excl) = &x.key_facts_exclude {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("key_fact_absent[{frag}]"),
+                        pass: !facts.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&facts, 160),
+                    });
+                }
+            }
+            // Discovery, matched against the JOINED name list (the model may write a pinned
+            // surname in full — the resolver sees the whole surface, so score what it sees).
+            let names = read
+                .names
+                .iter()
+                .map(|n| n.name.clone())
+                .collect::<Vec<_>>()
+                .join(" | ");
+            if let Some(incl) = &x.names_include {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("name_found[{frag}]"),
+                        pass: names.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&names, 200),
+                    });
+                }
+            }
+            if let Some(excl) = &x.names_exclude {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("name_absent[{frag}]"),
+                        pass: !names.to_lowercase().contains(&frag.to_lowercase()),
+                        detail: truncate(&names, 200),
+                    });
+                }
+            }
+            // ep1 kind + descriptor axes — matched per emitted mention whose name CONTAINS the
+            // expected name (same containment logic as name_found).
+            if let Some(kinds) = &x.name_kind_is {
+                for (who, want_kind) in kinds {
+                    let found = read
+                        .names
+                        .iter()
+                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()));
+                    checks.push(PropertyCheck {
+                        name: format!("name_kind[{who}={want_kind}]"),
+                        pass: found.is_some_and(|n| n.kind_hint.eq_ignore_ascii_case(want_kind)),
+                        detail: found
+                            .map(|n| format!("{} kind_hint={}", n.name, n.kind_hint))
+                            .unwrap_or_else(|| "name not emitted".into()),
+                    });
+                }
+            }
+            if let Some(who_list) = &x.name_descriptor_nonempty {
+                for who in who_list {
+                    let found = read
+                        .names
+                        .iter()
+                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()));
+                    checks.push(PropertyCheck {
+                        name: format!("descriptor_nonempty[{who}]"),
+                        pass: found.is_some_and(|n| !n.descriptor.trim().is_empty()),
+                        detail: found
+                            .map(|n| format!("{} descriptor={:?}", n.name, n.descriptor))
+                            .unwrap_or_else(|| "name not emitted".into()),
+                    });
+                }
+            }
+            if let Some(incl) = &x.result_line_includes {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("result_line_has[{frag}]"),
+                        pass: read
+                            .result_line
+                            .to_lowercase()
+                            .contains(&frag.to_lowercase()),
+                        detail: format!("result_line={:?}", read.result_line),
+                    });
+                }
+            }
+            if let Some(want) = x.result_line_parses {
+                let parsed_result = editor_derive::parse_result_line(&read.result_line);
+                checks.push(PropertyCheck {
+                    name: format!("result_line_parses[{want}]"),
+                    pass: parsed_result.is_some() == want,
+                    detail: format!(
+                        "result_line={:?} parsed={:?}",
+                        read.result_line, parsed_result
+                    ),
+                });
+            }
+            // Resolver simulation: production group_hits over fixture-declared surfaces.
+            let needs_resolver = x.resolver_links_include.is_some()
+                || x.resolver_links_exclude.is_some()
+                || x.resolver_unresolved_include.is_some()
+                || x.resolver_refused_include.is_some();
+            if needs_resolver {
+                let surfaces = x.resolver_surfaces.clone().unwrap_or_default();
+                let hits: Vec<editor_derive::SurfaceHit> = read
+                    .names
+                    .iter()
+                    .flat_map(|mention| {
+                        surfaces
+                            .iter()
+                            .filter(|s| s.name.eq_ignore_ascii_case(&mention.name))
+                            .map(|s| editor_derive::SurfaceHit {
+                                name: mention.name.clone(),
+                                entity_type: s.entity_type.clone(),
+                                entity_id: s.entity_id,
+                                sport: "FOOTBALL".to_string(),
+                                norm: s.name.to_lowercase(),
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                // Per-name verdict through the PRODUCTION grouping: linked | refused |
+                // unresolved | not_emitted. `not_emitted` passes only never-links checks —
+                // a name the model did not emit trivially cannot link.
+                let verdict_for = |who: &str| -> &'static str {
+                    let Some(mention) = read
+                        .names
+                        .iter()
+                        .find(|n| n.name.to_lowercase().contains(&who.to_lowercase()))
+                    else {
+                        return "not_emitted";
+                    };
+                    let r = editor_derive::group_hits(std::slice::from_ref(mention), &hits);
+                    if !r.links.is_empty() {
+                        "linked"
+                    } else if !r.refused_ambiguous.is_empty() {
+                        "refused"
+                    } else {
+                        "unresolved"
+                    }
+                };
+                for (list, want, label) in [
+                    (&x.resolver_links_include, "linked", "resolver_links"),
+                    (&x.resolver_unresolved_include, "unresolved", "resolver_unresolved"),
+                    (&x.resolver_refused_include, "refused", "resolver_refused"),
+                ] {
+                    if let Some(incl) = list {
+                        for who in incl {
+                            let got = verdict_for(who);
+                            checks.push(PropertyCheck {
+                                name: format!("{label}[{who}]"),
+                                pass: got == want,
+                                detail: format!("{who} -> {got}"),
+                            });
+                        }
+                    }
+                }
+                if let Some(excl) = &x.resolver_links_exclude {
+                    for who in excl {
+                        let got = verdict_for(who);
+                        checks.push(PropertyCheck {
+                            name: format!("resolver_never_links[{who}]"),
+                            pass: got != "linked",
+                            detail: format!("{who} -> {got}"),
+                        });
+                    }
+                }
+            }
+            if let Some(want) = &x.story_type_is {
+                checks.push(PropertyCheck {
+                    name: format!("story_type[{want}]"),
+                    pass: read.story_type.eq_ignore_ascii_case(want),
+                    detail: format!("story_type={:?}", read.story_type),
+                });
+            }
+            if let Some(want) = &x.register_is {
+                checks.push(PropertyCheck {
+                    name: format!("register[{want}]"),
+                    pass: read.register.eq_ignore_ascii_case(want),
+                    detail: format!(
+                        "register={:?} phrase={:?}",
+                        read.register, read.register_phrase
+                    ),
+                });
+            }
+            if let Some(incl) = &x.blurb_includes {
+                for frag in incl {
+                    checks.push(PropertyCheck {
+                        name: format!("blurb_present[{frag}]"),
+                        pass: read
+                            .evidence_blurb
+                            .to_lowercase()
+                            .contains(&frag.to_lowercase()),
+                        detail: truncate(&read.evidence_blurb, 160),
+                    });
+                }
+            }
+            if let Some(excl) = &x.blurb_excludes {
+                for frag in excl {
+                    checks.push(PropertyCheck {
+                        name: format!("blurb_absent[{frag}]"),
+                        pass: !read
+                            .evidence_blurb
+                            .to_lowercase()
+                            .contains(&frag.to_lowercase()),
+                        detail: truncate(&read.evidence_blurb, 160),
+                    });
+                }
+            }
+        }
+        CaseVerdict {
+            parsed: true,
+            abs_err: None,
+            checks,
+            display: format!(
+                "relevant={} page_kind={:?} names=[{}] result_line={:?} {} key_fact(s) story_type={:?} register={:?}",
+                read.relevant,
+                read.page_kind,
+                truncate(
+                    &read
+                        .names
+                        .iter()
+                        .map(|n| format!("{}<{}>", n.name, n.kind_hint))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    140
+                ),
+                truncate(&read.result_line, 40),
+                read.key_facts.len(),
+                read.story_type,
+                read.register,
             ),
         }
     }
@@ -2414,6 +2793,54 @@ mod tests {
             voiced_seen >= 3,
             "expected at least three current-version voicing fixtures (regenerate: cargo run --example narratives_n10_fixtures), saw {voiced_seen}"
         );
+    }
+
+    /// Integrity guard for the on-disk greenfield-editor fixtures (same serde silent-drop hazard
+    /// as the narratives guard above: a misspelled expect key parses fine and silently weakens
+    /// the gate). Asserts (a) every file parses, (b) task and prompt_version are the greenfield
+    /// identities, (c) the set pins BOTH directions (≥2 rejects, ≥2 accepts), and (d) each of
+    /// the Phase 3.6 derivation axes is exercised at least once — resolver refusal, resolver
+    /// unresolved (discovery), never-links (the descriptor gate), and a parsing result_line.
+    #[test]
+    fn editor_fixtures_on_disk_parse_and_cover_the_ep1_axes() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/editor");
+        let (mut n, mut rejects, mut accepts) = (0, 0, 0);
+        let (mut refused, mut unresolved, mut never_links, mut result_parses) =
+            (false, false, false, false);
+        for entry in std::fs::read_dir(&dir).expect("read fixtures/editor") {
+            let p = entry.unwrap().path();
+            if p.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&p).unwrap();
+            let fx: Fixture = serde_json::from_str(&text)
+                .unwrap_or_else(|e| panic!("fixture {} failed to parse: {e}", p.display()));
+            assert_eq!(fx.task, "editor", "{} has wrong task", p.display());
+            assert_eq!(
+                fx.prompt_version, EDITOR_CONTRACT_VERSION,
+                "{} frozen under a different contract",
+                p.display()
+            );
+            n += 1;
+            match fx.expect.article_relevant {
+                Some(false) => rejects += 1,
+                Some(true) => accepts += 1,
+                None => {}
+            }
+            refused |= fx.expect.resolver_refused_include.is_some();
+            unresolved |= fx.expect.resolver_unresolved_include.is_some();
+            never_links |= fx.expect.resolver_links_exclude.is_some();
+            result_parses |= fx.expect.result_line_parses == Some(true);
+        }
+        assert!(n >= 12, "Phase 3.6 targets ≥12 fixtures, found {n}");
+        assert!(
+            rejects >= 2 && accepts >= 2,
+            "both directions must stay pinned (rejects={rejects}, accepts={accepts})"
+        );
+        assert!(refused, "no fixture pins a resolver refusal (namesake tie)");
+        assert!(unresolved, "no fixture pins resolver discovery (coach shape)");
+        assert!(never_links, "no fixture pins the descriptor/kind gate (place collision)");
+        assert!(result_parses, "no fixture pins a parsing result_line");
     }
 
     /// Integrity guard for the on-disk transfer fixtures (same serde silent-drop hazard as the

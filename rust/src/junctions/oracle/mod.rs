@@ -1355,6 +1355,7 @@ impl StageHandler for SigilHandler {
             num_ctx: crate::route::VOICE_NUM_CTX,
             json_mode: false,
             format_schema: Some(oracle_format_schema()),
+            format_schema_raw: None,
         };
         let extracted = hx
             .extract(Role::OracleLogic, &prompt, &opts, &CrownParser)

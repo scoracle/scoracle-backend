@@ -1,15 +1,16 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–2 CLOSED; Phase 3 through 3.7 COMPLETE — the gate is GREEN under Scott's
-2026-08-01 re-scope ruling (33/33 required checks, two consecutive runs at 48/53 overall;
-waived classes = names[] under-fill + register, judged by live links in 3.9(d)). Scott also
-ruled the Phase 2 volume band RE-BASELINED to the immediate pre-deploy run (8,356–9,035/day
-±20%) — the 5,584 baseline averaged over two low days and steady state had risen before the
-deploy. Closed this session: the descriptor place gate + the supported-vote rule in
-editor/derive.rs (§1a's descriptor arm, now real — Paris and Fortuna classes pass by CODE, not
-prompt luck). NOTHING DEPLOYED YET: 3.8 waits only on the first post-deploy 02:00 sweep
-(2026-08-02) confirming the re-baselined band, then deploys outside a rest boundary.
-Last plan commit: (this one). Updated 2026-08-01 late evening.**
+**STATE: Phases 0–2 CLOSED; Phase 3 through 3.8 COMPLETE — the Editor is DEPLOYED IN SHADOW
+on archbox (2026-08-02 04:10 EDT, release.sh @ 4871fbe: COGNITION_STAGES += editor,
+COGNITION_ROUTE_EDITOR=gemma3:4b, registered before article_read; smoke-verified 15/15 reads,
+shadow purity spot-checked). The 3.7 gate is GREEN under Scott's re-scope (33/33 required ×2;
+waived = names[] under-fill + register, judged live in 3.9(d)); the descriptor place gate +
+supported-vote rule live in editor/derive.rs. The Phase 2 volume band (re-baselined by Scott
+to 8,356–9,035/day ±20%) is CLOSED: first post-deploy sweep 7,259 fresh, in band, zero errors.
+REMAINING IN PHASE 3: 3.9 (48h shadow measurement — window is Aug 3 02:00 → Aug 5 02:00 EDT,
+first organic Editor day is the 2026-08-03 sweep) and 3.10 (full_text growth check), then the
+phase Verify + close.
+Last plan commit: (this one). Updated 2026-08-02 ~04:20 EDT.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -933,7 +934,7 @@ is claim order, `rust/src/main.rs:131-173`).
       `descriptor_nonempty`/`register` and their non-emission cascades (`resolver_unresolved` on
       a name the model did not emit) are WAIVED here and judged by resolved-link rate on live
       traffic in 3.9(d) (the ar7 lesson: judge the discovery channel by the links it produces).
-- [ ] **3.8** **[DEPLOY]** rust binary to archbox with `COGNITION_STAGES` += `editor`, the new
+- [x] **3.8** **[DEPLOY]** rust binary to archbox with `COGNITION_STAGES` += `editor`, the new
       Editor registered before article_read. **[DEPLOY]** the Go enqueue change. (Two
       watch-triggered restarts; do them together, outside a rest boundary.)
 - [ ] **3.9** Shadow measurement, 48h minimum, recorded in the Log:
@@ -1130,22 +1131,68 @@ DB-counted on `fetched_at`); the band's intent — the deploy changed nothing �
 exactly `fresh_articles=8823` with different matched/dedup counts; a third identical value
 would mean a cap is binding somewhere, not coincidence.
 
-### Handoff (phase 3, 3.7 green → 3.8 deploy)
+---
+
+**2026-08-02, 02:28–04:20 EDT: both gates closed; 3.8 DEPLOYED and smoke-verified.**
+
+**Volume band (Phase 2 verify, third clause — CLOSED).** First post-deploy 02:00 sweep
+(2026-08-02, completed 02:28:12, 28m12s): `ok=204 fail=0`, **`fresh_articles=7259`** — inside
+the re-baselined band 6,956–10,556. DB cross-check: 7,176 rows on `fetched_at` in the sweep
+hour (delta vs 7,259 = ON CONFLICT collapses; normal). Zero `level=ERROR` lines in the ingest
+log, ever. The `8823` twice-coincidence did NOT repeat — coincidence, not a cap. Phase 2's
+verify is now green on all three clauses.
+
+**3.8 deploy (04:05–04:10 EDT, inside the 04:00–06:00 clean window).** Live checkout
+`git pull --ff-only` → 4871fbe (which adds `editor` to the unit template's documented set —
+the unit's `Environment=` line is overridden by `.env.local` per its own NOTE, both kept in
+sync). `.env.local`: `editor` inserted into `COGNITION_STAGES` (before `article_read`,
+cosmetically — registration order is hardcoded in main.rs), `COGNITION_ROUTE_EDITOR=gemma3:4b`
+added (backup at `/tmp/env.local.bak-38`). Then one `scripts/hosting/release.sh` — Go + Rust
+built at one commit, watchers masked across placement, units re-rendered, API + cognition
+restarted, health probe green. Worker log confirms: `stages=["scrub","graph","editor",
+"article_read",...]` — **the Editor claims before the legacy seat**; route
+`editor=gemma3:4b@localhost`.
+
+**Smoke test (the Phase-2 pattern: bounded manual run, NBA `-rss-limit 5`, 04:10, 28s).**
+15 fresh inserts (sweep logged 17 pre-conflict) → 15 `editor` work items enqueued by the new
+Go binary → queue drained in ~7 min → **15/15 editor_reads: 13 success, 1 duplicate (the
+mig-196 short-circuit fired: no fetch, no model call), 1 blocked (the 401/403 split), 0
+failed**. First row inspected: ep1 envelope well-formed; resolver linked "Nolan Traore" →
+player and "Brooklyn Nets" → team via exact surfaces. Ledger rows present both sides
+(`data_fetch_ledger`, `cognition_ledger` stage=editor — the duplicate/blocked correctly skip
+the model). **Shadow purity spot-check: 0 of the new articles had `bucket` set; `full_text`
+present on fetched ones — exactly the allowed writes.** Legacy rail: article_read backlog
+7.4k pending at 04:15 (normal overnight depth), draining, zero journal errors.
+
+**3.9 clock:** arrivals come only from the 02:00 cron (plus manual runs), so the first full
+organic day starts with the **2026-08-03 02:00 sweep**; the 48h minimum window is Aug 3
+02:00 → Aug 5 02:00 EDT, readings due in the Aug 4 and Aug 5 sessions (reads/day, p50/p95
+queue wait, GPU-busy fraction, ≥95% coverage in 24h, status bands, the Olise-class discovery
+sample vs 39/182, refusals/day, narratives/day vs baseline). 3.10 (full_text growth vs disk)
+rides the same readings.
+
+### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phase 3 through 3.7 COMPLETE: the gate is GREEN under Scott's re-scope (33/33 required
-checks, 48/53 overall, two identical consecutive runs; waived classes judged live in
-3.9(d)). The descriptor place gate + supported-vote rule live in editor/derive.rs. Scott
-re-baselined the Phase 2 volume band to 8,356–9,035/day ±20% (accept ~6,956–10,556).
-Read §0, the Phase 3 Log (resumed-session entry), then: (1) confirm the re-baselined band
-against the FIRST POST-DEPLOY 02:00 sweep (2026-08-02 ~02:31 completion) —
-logs/pipeline-ingest.log fresh_articles + DB count on fetched_at; also check whether
-fresh_articles=8823 repeats a third time (cap suspicion, see Log); (2) then 3.8 [DEPLOY]
-outside a rest boundary (04:00–06:00 EDT is clean): live archbox checkout git pull
---ff-only first, COGNITION_STAGES += editor and COGNITION_ROUTE_EDITOR=gemma3:4b in the
-archbox env, rust binary + Go pipeline binary together; (3) then 3.9 (48h shadow
-measurement) and 3.10. Archbox scratch build lives at ~/rail-phase3/
-(CARGO_TARGET_DIR=~/rail-phase3/target); eval logs at /tmp/rail-phase3-editor-iter*.log.
+Phase 3 through 3.8 COMPLETE and DEPLOYED: the Editor reads every arrival in shadow on
+archbox (release.sh @ 4871fbe, 2026-08-02 04:10 EDT; editor registered before
+article_read; smoke test 15/15 reads, 0 failed, shadow purity spot-checked). The 3.7
+gate is green re-scoped (33/33 required ×2); the Phase 2 volume band is closed (7,259
+fresh in band 6,956–10,556, zero errors).
+Read §0, the Phase 3 Log (2026-08-02 entry), then execute 3.9: the 48h shadow window is
+Aug 3 02:00 → Aug 5 02:00 EDT (the 2026-08-03 02:00 sweep is the Editor's first organic
+day — earlier editor_reads rows are the 15-article smoke test only). Record in the Log:
+(a) editor reads/day vs arrivals/day, p50/p95 queue wait, GPU-busy fraction across two
+duty days; (b) % of arrivals read within 24h (goal ≥95% — if <95%, check the 3.4
+duplicate short-circuit is firing, then consider num_predict 900→750, then STOP);
+(c) status distribution vs legacy bands; (d) the Olise-class 50-article discovery sample:
+linked-in-resolved rate vs the legacy 39/182 Vinicius baseline — THIS is where the waived
+names[]-under-fill class gets judged (Scott's ruling); (e) resolver refusals/day;
+(f) legacy narratives/day unchanged vs Phase 0 baseline. Then 3.10 (full_text growth vs
+the Phase 0 disk headroom: 1.8T free), the phase Verify (zero greenfield writes to
+legacy-read tables — column-diff on a sampled day), and the phase close + commit.
+queue-depth.csv (scoracle-qsample.timer, harness_active column) has the wait/depth data;
+cognition_ledger has per-call timings.
 ```
 
 ### Handoff (phase 3 → 4)

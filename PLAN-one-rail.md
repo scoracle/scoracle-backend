@@ -1,11 +1,15 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–2 CLOSED. Phase 2 executed 2026-08-01: lungs persist query provenance into
-`news_articles.raw` (insert-only, first-writer wins), funnel gains the desc_bearing/desc_empty
-split; `go/bin/pipeline` deployed 16:31 EDT (api watcher restart, expected). Bounded NBA run:
-provenance on 100% of new arrivals. OPEN ITEM for next session: confirm the volume band
-(±20% vs 5,584/day) against the first post-deploy 02:00 sweep before Phase 3 work. Next:
-Phase 3 (the Editor, greenfield junction, shadow mode — opens with the article_reader rename).
+**STATE: Phases 0–2 CLOSED; Phase 3 BLOCKED at the 3.7 fixture gate. Executed 2026-08-01
+evening: 3.0–3.6 complete and committed — legacy module renamed article_reader (fixtures dir +
+task together), fetcher extracted to crate::fetch, greenfield Editor built end to end (stage
+`editor`, Role::Editor, ep1 contract, derive.rs resolver/kind-gate, editor_reads +
+full_text-only writes), Go enqueues editor per new article, eval task + 12 ep1 fixtures frozen
+at temp 0.0. The 3.7 gate holds at 44/53 (83%) vs the step's 100% — stable, four
+model-behavior-shaped failure classes logged; §0 rule 3 STOP. NOTHING DEPLOYED (3.8 also still
+gated on the Phase 2 volume band — first post-deploy 02:00 sweep). Phase 3 Log carries the
+iteration table, the schema-order finding (format_schema_raw — no stage ever shipped its
+documented field order before), and four options for Scott.
 Last plan commit: (this one). Updated 2026-08-01.**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
@@ -883,18 +887,18 @@ is claim order, `rust/src/main.rs:131-173`).
       Gate: `cargo test` at baseline AND `cargo run --bin eval -- --task article_reader
       --fixtures` passes all 51 checks (proves the renamed gate can still fire).
       Commit separately: `rail: phase 3.0 — legacy editor module renamed article_reader`.
-- [ ] **3.1** Extract the fetcher into `rust/src/fetch.rs`: move `fetch_article` +
+- [x] **3.1** Extract the fetcher into `rust/src/fetch.rs`: move `fetch_article` +
       Google-News URL resolution + headless-Chrome fallback + `clean_html` out of
       `junctions/article_reader/mod.rs` (formerly editor/mod.rs:816-880) into a shared module;
       the legacy module calls the extracted functions (mechanical refactor, behavior identical —
       run the existing test suite).
-- [ ] **3.2** `Stage::Editor` (`"editor"`) in `work.rs` + `as_str` + claim ORDER BY
+- [x] **3.2** `Stage::Editor` (`"editor"`) in `work.rs` + `as_str` + claim ORDER BY
       `news_articles.feed_rank ASC NULLS LAST` (copy the ArticleRead arm at `work.rs:65-73`) +
       add to `KNOWN` in `main.rs:188`.
-- [ ] **3.3** `Role::Editor` in `route.rs` (+ `Role::all()` array length bump + `env_suffix`
+- [x] **3.3** `Role::Editor` in `route.rs` (+ `Role::all()` array length bump + `env_suffix`
       `EDITOR`). Route config on archbox: `COGNITION_ROUTE_EDITOR=gemma3:4b` (§4: settled by
       hardware — no bakeoff scheduled).
-- [ ] **3.4** `EditorHandler` in `rust/src/junctions/editor/`: `slot_group()` =
+- [x] **3.4** `EditorHandler` in `rust/src/junctions/editor/`: `slot_group()` =
       `ARCHBOX_GEMMA_SLOTS`, `max_in_flight()` = 4, `rotation_batch()` = 8. Handle: if
       `duplicate_of` is already set (the mig-196 exact-title sweep), short-circuit — status
       `duplicate`, no fetch, no model call, no attach; the canonical carries the story (~5–12%
@@ -908,11 +912,11 @@ is claim order, `rust/src/main.rs:131-173`).
       result_line parse → persist `editor_reads` (one tx) → ledger rows (`data_fetch_ledger` for
       the fetch AND `cognition_ledger` for the model call — closing the legacy seat's ledger gap;
       entity_type 'article').
-- [ ] **3.5** Enqueue seam: in Go `persistArticles`, alongside the existing scrub enqueue
+- [x] **3.5** Enqueue seam: in Go `persistArticles`, alongside the existing scrub enqueue
       (`news.go:412-421`), enqueue `stage='editor'` for every new article (same tx, same
       ON CONFLICT discipline). The Editor drains only where `COGNITION_STAGES` includes `editor`
       (archbox).
-- [ ] **3.6** Eval task `editor` (fresh) in `eval_tasks.rs`, fixtures dir `rust/fixtures/editor/`
+- [x] **3.6** Eval task `editor` (fresh) in `eval_tasks.rs`, fixtures dir `rust/fixtures/editor/`
       (empty until this step fills it): port the 7 legacy fixtures from
       `fixtures/article_reader/` to ep1 expectations, then add: a coach-discovery case
       (kyle-shanahan shape), a place-collision case (Paris/Moulin Rouge — expect `descriptor`
@@ -951,7 +955,113 @@ assert by column-diff on a sampled day).
 **Commit:** `rail: phase 3 — the Editor reads in shadow`.
 
 ### Log (phase 3)
-*(executor fills)*
+
+Executed 2026-08-01, ~16:37–18:00 EDT, from a Mac session. **STOPPED at the 3.7 fixture gate**
+(§0 rule 3): the ep1 set holds at **44/53 property checks (83%)**, stable across repeat runs,
+against the step's 100%. Steps 3.0–3.6 are complete and committed (449edec, 1b00776, f1d2881,
+904447b, e5896fa); **nothing is deployed** — 3.8 was already gated on the Phase 2 volume-band
+check (first post-deploy 02:00 sweep had not fired when this session ran), and now also on the
+gate. Legacy rail untouched throughout.
+
+**Build pattern** (Mac has no Go toolchain; classifier blocks writes into the live archbox
+checkout): Rust authored + unit-tested on the Mac; model-backed evals and Go vet/test run on
+archbox in a scratch copy `~/rail-phase3/` (own `CARGO_TARGET_DIR=~/rail-phase3/target`,
+env sourced from the live checkout's `.env.local`) — the live checkout stays clean at ec302be
+until it can `git pull --ff-only`.
+
+**3.0 — rename.** Files only; identities grep-verified untouched (stage `article_read`,
+`ARTICLE_READ_*`, `COGNITION_ROUTE_ARTICLE_READER`, ar7, `news_article_readings`). The
+fixture-gen example moved too (its emitted `task` field was stale "reader" — fixed to
+`article_reader`). Gate: 284 lib tests green; `eval --task article_reader --fixtures` on
+archbox = 44/44 properties + 7/7 parses — **the plan's "51 checks" = 44 + 7**. First run
+flapped one check at the fixtures' frozen temp 0.2 (43/44), clean on re-run — that flakiness
+is why the new ep1 set freezes 0.0 instead.
+
+**3.1 — fetch.rs.** fetch_article + GN resolution + Chrome fallback (env key untouched) +
+clean_html + body utilities (count_words, looks_paywalled, content_hash, domain_of,
+normalize_space, ARTICLE_MIN_WORDS) moved to crate::fetch; legacy re-imports; fetch-only tests
+moved with the code; 284 tests green at each step.
+
+**3.2–3.5 — inert plumbing.** Stage::Editor (claims by feed_rank like the legacy arm),
+Role::Editor (`COGNITION_ROUTE_EDITOR`, Role::all() → 11), EditorHandler (slot group
+ARCHBOX_GEMMA_SLOTS, max_in_flight 4, rotation 8, registered before article_read; mig-196
+duplicate short-circuit; blocked vs fetch_failed split on HTTP 401/403; T1 cache key =
+contract_version + content_hash; writes editor_reads + news_articles.full_text ONLY, resolver
+runs only on relevant reads, no downstream enqueues), derive.rs (relevance port, exact-nrm
+resolver with kind gate + refused ties, routing_tags, parse_result_line, 5.2
+nominates_immediately), Go StageEditor enqueued once per fresh INSERT via `(xmax = 0)`.
+26 new editor unit tests; go vet + go test green on archbox.
+
+**Two findings the plan should carry forward:**
+1. **`news_articles.full_text` is legacy-visible by design**: the Journalist's
+   `article_context` falls back to full_text (truncated to blurb length) for articles whose
+   legacy read is not `success` — so shadow full_text writes will enrich some legacy
+   narratives prompts. The plan names full_text as an allowed write; noted so 3.9(f)'s
+   narratives-volume check is read with this in mind (volume should hold; content enriches).
+2. **No stage has ever physically shipped its documented schema field order.**
+   `serde_json::Value` is BTreeMap-backed: every `format_schema` reaches Ollama with
+   properties ALPHABETIZED, and a live probe against archbox gemma confirmed Ollama's grammar
+   forces emission in exactly the received property order. ar4–ar7's documented orders were
+   therefore never the wire orders (ar7 emits `register` BEFORE `register_phrase` — label
+   before phrase, the C2 anti-pattern — and its measured-good numbers were earned in that
+   accidental order). `GenerateOptions.format_schema_raw` (new) POSTs a verbatim schema
+   string; the ep1 editor pins the true §1a order through it; every legacy stage keeps its
+   measured alphabetical bytes byte-for-byte.
+
+**3.6/3.7 — the gate, measured.** Task `editor` + 12 fixtures (legacy 7 ported to ep1 + the
+five named cases), frozen at temp 0.0, evaluator runs the production parser + derive path
+(group_hits scored against fixture-declared surfaces). Seven measured iterations:
+
+| config | score |
+|---|---|
+| initial prompt, alphabetical wire (accidental) | 40/53, 41/53 |
+| §1a order via format_schema_raw | 34/53 |
+| + worked example, roles/city rules | 36/53 |
+| + quoted-people rule, fixture fixes (hiring, banner pin) | 44/53 |
+| A/B same prompt on alphabetical order | 45/53 |
+| final config (§1a order, temp 0.0), run twice | **44/53, 44/53** |
+
+Order A/B is a wash (44 vs 45, inside noise); the §1a order is KEPT — it is the written
+contract and now physically real. Temp 0.0 stabilizes the score but not every check detail
+(Ollama batched decode). **Stable failure classes, all four model-behavior-shaped:**
+(a) secondary-person under-fill — gemma emits the headline person + clubs but drops quoted
+managers/scorers (Moyes, Arteta, Bellingham, Rangers-as-club): ~4-5 checks;
+(b) register `outrage` → neutral under phrase-first emission (label-first — the accidental
+legacy order — passes it; the C2 phrase-before-label doctrine measurably costs this on 4B);
+(c) name-collision roles: the Ravens youth page gets `passing_mention`/`subject`, not
+`absent`; (d) Paris-the-city labeled `subject`/kind `club` — descriptor does not prevent the
+link when the model itself calls the city a club. (a) improved from 1-2 names to 2-7 via the
+worked example; (b)–(d) never passed under the §1a order.
+
+**Options for Scott** (next session executes the ruling): (1) keep iterating ep1 prompt text
+against the frozen set; (2) relax the 3.7 bar to a named subset (e.g. 100% on relevance +
+resolver axes, waive the under-fill/register checks) and let 3.9's live shadow measure the
+rest; (3) revisit the §1a emission order now that order is controllable (label-first register
+measured better); (4) judge names[] coverage by resolved links on live traffic (the ar7
+lesson: "judge this field by the links it produces") rather than by fixture name lists.
+
+**Still open before 3.8 (both gates):** the Phase 2 volume band (±20% vs 5,584/day) against
+the first post-deploy 02:00 sweep (`logs/pipeline-ingest.log` + `fetched_at` count), AND a
+green (or re-scoped) 3.7 gate. `COGNITION_STAGES` on archbox does not yet include `editor`;
+`COGNITION_ROUTE_EDITOR` is unset there (eval runs exported it ad hoc).
+
+### Handoff (phase 3, blocked → phase 3 resume)
+```
+BLOCKED: Phase 3 stopped at the 3.7 fixture gate — 44/53 (83%) vs 100%, stable; see Phase 3
+Log for the iteration table, the four failure classes, and the four options. Scott rules
+first; then:
+Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
+Phase 3 steps 3.0–3.6 are committed (through e5896fa); nothing is deployed. Read §0, §1a,
+the Phase 3 Log (the gate table + findings 1–2), then: (1) confirm the Phase 2 volume band
+(±20% vs 5,584/day) against the first post-deploy 02:00 sweep — logs/pipeline-ingest.log +
+count on fetched_at; (2) execute Scott's ruling on the gate (iterate ep1 prompt / re-scope
+3.7 / revisit §1a emission order / judge names[] by live links); (3) only then 3.8 [DEPLOY]
+(COGNITION_STAGES += editor on archbox, COGNITION_ROUTE_EDITOR=gemma3:4b, editor registered
+before article_read, plus the Go enqueue binary — together, outside a rest boundary), then
+3.9 (48h shadow measurement) and 3.10. Archbox scratch build lives at ~/rail-phase3/
+(CARGO_TARGET_DIR=~/rail-phase3/target); eval logs at /tmp/rail-phase3-editor-*.log on
+archbox. The live archbox checkout must git pull --ff-only before any deploy build.
+```
 
 ### Handoff (phase 3 → 4)
 ```

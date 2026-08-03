@@ -141,9 +141,13 @@ pub fn parse_wikidata_entity(qid: &str, entity: &Value, source_document_id: i64)
             .map(str::to_string)
             .collect();
     }
-    item.occupations = claim_item_ids(entity, "P106");
-    item.member_of_teams = claim_item_ids(entity, "P54");
-    item.coach_of_teams = claim_item_ids(entity, "P6087");
+    item.occupations = claim_item_ids(entity, "P106", false);
+    // P54 keeps the whole career — the discriminator wants history. P6087 keeps only
+    // CURRENT tenures (no P582 end-time qualifier): a stale coaching stint must neither
+    // classify someone a coach today nor mint a wrong coach_of edge (the Pat Riley case —
+    // executive now, coach decades ago).
+    item.member_of_teams = claim_item_ids(entity, "P54", false);
+    item.coach_of_teams = claim_item_ids(entity, "P6087", true);
     item.date_of_birth = entity
         .pointer("/claims/P569/0/mainsnak/datavalue/value/time")
         .and_then(Value::as_str)
@@ -158,7 +162,8 @@ pub fn parse_wikidata_entity(qid: &str, entity: &Value, source_document_id: i64)
 }
 
 /// claim_item_ids collects every wikibase-entityid target of a property's statements.
-fn claim_item_ids(entity: &Value, prop: &str) -> Vec<String> {
+/// `current_only` drops statements carrying a P582 (end time) qualifier — ended tenures.
+fn claim_item_ids(entity: &Value, prop: &str, current_only: bool) -> Vec<String> {
     let Some(claims) = entity
         .pointer(&format!("/claims/{prop}"))
         .and_then(Value::as_array)
@@ -167,6 +172,7 @@ fn claim_item_ids(entity: &Value, prop: &str) -> Vec<String> {
     };
     claims
         .iter()
+        .filter(|c| !current_only || c.pointer("/qualifiers/P582").is_none())
         .filter_map(|c| {
             c.pointer("/mainsnak/datavalue/value/id")
                 .and_then(Value::as_str)
@@ -246,7 +252,7 @@ mod tests {
             "aliases": {"en": [{"value": "Erik Jon Spoelstra"}]},
             "sitelinks": {"enwiki": {"title": "Erik Spoelstra"}},
             "claims": {
-                "P106": [{"mainsnak": {"datavalue": {"value": {"id": "Q13365117"}}}}],
+                "P106": [{"mainsnak": {"datavalue": {"value": {"id": "Q5137571"}}}}],
                 "P6087": [{"mainsnak": {"datavalue": {"value": {"id": "Q169138"}}}}],
                 "P569": [{"mainsnak": {"datavalue": {"value": {"time": "+1970-11-01T00:00:00Z"}}}}],
                 "P2067": [{"mainsnak": {"datavalue": {"value": {
@@ -266,12 +272,30 @@ mod tests {
         assert_eq!(item.description, "American basketball coach");
         assert_eq!(item.aliases, vec!["Erik Jon Spoelstra"]);
         assert_eq!(item.enwiki_title.as_deref(), Some("Erik Spoelstra"));
-        assert_eq!(item.occupations, vec!["Q13365117"]);
+        assert_eq!(item.occupations, vec!["Q5137571"]);
         assert_eq!(item.coach_of_teams, vec!["Q169138"]);
         assert_eq!(item.date_of_birth.as_deref(), Some("+1970-11-01T00:00:00Z"));
         assert_eq!(item.weight_kg, Some(83.0));
         assert_eq!(item.height_cm, Some(185.0));
         assert_eq!(item.source_document_id, 42);
+    }
+
+    #[test]
+    fn ended_coaching_tenures_are_dropped_from_coach_of() {
+        // The Pat Riley shape: a P6087 statement with a P582 end qualifier is an ENDED
+        // tenure — it must not classify someone a coach today or mint a coach_of edge.
+        let mut e = entity();
+        e["claims"]["P6087"] = serde_json::json!([
+            {"mainsnak": {"datavalue": {"value": {"id": "Q121783"}}},
+             "qualifiers": {"P582": [{"datavalue": {"value": {"time": "+1990-01-01T00:00:00Z"}}}]}},
+            {"mainsnak": {"datavalue": {"value": {"id": "Q169138"}}}}
+        ]);
+        let item = parse_wikidata_entity("Q1", &e, 1);
+        assert_eq!(item.coach_of_teams, vec!["Q169138"], "only the open tenure survives");
+        // P54 career history keeps ended stints — the discriminator wants them.
+        e["claims"]["P54"] = e["claims"]["P6087"].clone();
+        let item = parse_wikidata_entity("Q1", &e, 1);
+        assert_eq!(item.member_of_teams.len(), 2);
     }
 
     #[test]

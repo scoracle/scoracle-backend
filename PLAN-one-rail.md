@@ -13,8 +13,30 @@ circuit-break, source_documents provenance, 7 new tests), 4.3-table (mig 208
 boxscore_sources applied + snapshot; SEEDED EMPTY pending the ruling). The 137-article
 corpus replay had NOT drained when this session ran (18:19 EDT; queue untouched since the
 18:00 rest pause; ETA ~23:00 EDT holds) — D-T1 verdict still owed by a later session.
-NEXT: Scott's source ruling → seed boxscore_sources → resume at 4.4.
-Last plan commit: (this one). Updated 2026-08-03 ~19:00 EDT (phase 4 blocked at 4.3-seed).**
+SUPERSEDED SAME EVENING by Scott's rulings (Phase 4 Log entries, 2026-08-03 ~19:10+):
+league-page review found a PASSING family (premierleague/pulselive — seed SQL awaits
+Scott, executor's DB-write perms blocked the COMMIT); 4.4 nomination BUILT+WIRED; then
+the target re-scoped — box-score target URLs park until a season starts; the Investigator
+system (mystery entities + metadata writes) is the priority, VETTED ON NBA (head coaches
+= the persons test class). Phase 5 machinery BUILT the same night (sweep 5.1/5.2, stage
+5.3, Wikidata adapters 5.4, gate 5.5, reopen 5.6, 13-case fixture gate 5.7 at 100%, review
+views 5.8 = mig 210; migs 209/210 applied+snapshotted; commits 12338b7/c852588/c49c8f2).
+v1 Investigator makes ZERO model calls (Wikidata structured claims; gemma prose triage →
+Appendix D follow-up). Smoke seeded: 3 NBA players + Spoelstra/Kerr candidates pending in
+investigate_entity. NOT deployed ([DEPLOY] 5.9 still open; COGNITION_STAGES unchanged).
+SMOKE: GREEN after three measured iterations (Phase 5 Log) — Spoelstra+Kerr accepted as
+persons kind=coach with coach_of edges + sourced aliases; Şengün enriched (dob/height/
+headshot from his real NBA.com id); 9 team wikidata mappings bootstrapped; Bailey +
+A.J. Green refused honestly (D-T6/7/8 logged). Three defects found+fixed+pinned in the
+smoke (wrong coach QID — Q13365117 is HANDBALL player, real one Q5137571; role priority
+P6087>coach-occ>player-occ with P582 ended-tenure filtering; excerpt-bound vs
+containment on >100k Wikidata JSON). OPERATIONAL: Mac character work PAUSED by Scott
+(COGNITION_STAGES narrowed to scrub,graph,editor,article_read; backup env at
+/tmp/env.local.bak-voice-pause on archbox; ministral unloaded; voice queues accumulate).
+NEXT: Scott eyeballs investigator_review_accepted → FULL NBA seed (~603 players,
+commented block in scripts/investigator-vetting-seed.sql) → 5.9 [DEPLOY] in a clean
+window (carries investigate_entity stage + the 4.4 fork + the sweep live) → 5.10 72h.
+Last plan commit: (this one). Updated 2026-08-03 ~20:00 EDT (phase 5 smoke green).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1818,7 +1840,64 @@ Built and committed (`c852588`), all 331 lib tests green:
   (all ~603 active-tier NBA players with gaps) left commented for Scott after the smoke
   review. Measured gap baseline: 0/1,311 NBA players carry date_of_birth or photo_url.
 
-*(bounded live smoke results follow)*
+**2026-08-03, 19:20–19:55 EDT: BOUNDED LIVE SMOKE — three iterations, ending GREEN on
+all five items; three real defects found and fixed by measurement (the whole point of
+vetting on NBA).** Method: throwaway debug build on archbox (live checkout's debug cache
+copied, new source overlaid — NO deploy, live service untouched; tree deleted after, root
+disk back to 88%), worker run with `COGNITION_STAGES=investigate_entity` under timeout,
+seeds from `scripts/investigator-vetting-seed.sql` SMOKE block.
+
+*Defects measurement found (each now regression-pinned):*
+1. **Kind misclassification, two layers.** (i) My occupation table said Q13365117 =
+   basketball coach; Wikidata says that QID is **handball player** — the real basketball
+   coach is **Q5137571** (verified live; every other QID in the table re-verified). (ii)
+   Order: P6087 current-tenure now outranks all occupations; coach occupation outranks
+   player occupation (dual P106 = retired player who coaches NOW — the Spoelstra item has
+   NO P6087, coaching lives only in P106). Plus qualifier-aware parsing: P6087 with a
+   P582 end qualifier is an ENDED tenure (the Pat Riley shape) — dropped; P54 keeps
+   history (the discriminator wants it).
+2. **Provenance containment vs the excerpt bound.** Şengün's claims JSON exceeds the
+   100k retained_excerpt, so the label sat past the truncation and his correct accept was
+   refused. Fix: clause (a) passes when the doc is the item's OWN wbgetentities fetch
+   (label parsed from that document = containment by construction); the excerpt arm stays
+   load-bearing for prose sources.
+3. Stage allowlist in main.rs didn't know `investigate_entity` (boot fail-fast worked as
+   designed).
+
+*Final state (all live-verified in DB):* Spoelstra → persons id 7 kind **coach**,
+coach_of team 16, Q440324; Kerr → persons id 6 kind **coach**, coach_of team 25, Q523630;
+both with append-only aliases (incl. full legal names) citing source_documents.
+Şengün → dob 2002-07-25, height_cm 211 (players.height "6'11\""), photo_url from his real
+NBA.com id 1630578 (P3647), wikidata+nba external ids; facts active+sourced; players
+convenience columns updated, nothing inserted. **9 team wikidata↔id mappings
+bootstrapped** with provenance on first contact. Honest refusals: "Airious Bailey" (our
+DB carries Ace Bailey's legal name; Wikidata label differs → thin evidence) and
+"A.J. Green" (nrm "a j green" ≠ "aj green" — initials normalization) both Ambiguous,
+never a guess. All Wikimedia fetches budgeted (2s spacing, 7d cache; cache hits observed
+across iterations); zero model calls.
+
+*Appendix D follow-ups from the smoke:* **D-T6** enrichment refusals leave no durable
+trace (log-only) — a census row or players.meta note would let the review surface count
+them. **D-T7** initials in nrm (A.J. ↔ AJ) — measure the class size before touching the
+normalizer. **D-T8** name-mismatch class (legal vs known name: Airious/Ace) — the
+Wikipedia-prose + gemma triage arm (5.4's deferred fallback) is the designed answer.
+
+**OPERATIONAL (Scott, 2026-08-03 ~19:50 EDT): the Mac's character work is PAUSED** — his
+call mid-session (Mac memory pressure). `COGNITION_STAGES` on archbox narrowed to
+`scrub,graph,editor,article_read` (backup: `/tmp/env.local.bak-voice-pause` on archbox),
+service restarted clean, `ministral-3:14b` unloaded from the Mac's Ollama (`ollama ps`
+empty). Voice queues (peak/momentum/transfers/narratives/vibe/sigil) accumulate until he
+resumes: restore the backup env + `systemctl --user restart scoracle-cognition`.
+The editor replay drain is UNAFFECTED (archbox stages kept) — D-T1 verdict still lands
+tonight. Scott also offered sudo on archbox: the standing want is
+`sudo mkdir /mnt/data/scratch && sudo chown sheneveld /mnt/data/scratch` so future
+rehearsal builds live off the root disk.
+
+**What remains open on this phase:** 5.9 [DEPLOY] (add `investigate_entity` to
+COGNITION_STAGES + place the release binary — fold into the next clean-window deploy,
+which also carries the 4.4 nomination fork and the sweep going live on organic reads);
+the FULL NBA seed (~603 players, commented block in the seed script) after Scott eyeballs
+`investigator_review_accepted`; 5.10's 72h readings post-deploy.
 
 ### Handoff (phase 5 → 6)
 ```

@@ -20,7 +20,7 @@ fn sport_occupations(sport: &str) -> (&'static [&'static str], &'static [&'stati
     match sport {
         "NBA" => (
             &["Q3665646"],  // basketball player
-            &["Q13365117"], // basketball coach
+            &["Q5137571"], // basketball coach
             "basketball",
         ),
         "FOOTBALL" => (
@@ -65,15 +65,26 @@ impl RoleClass {
     }
 }
 
-/// classify_role reads occupation QIDs + description text into a role class, sport-gated.
-/// Deterministic tables first, description keywords second, Unknown otherwise.
+/// classify_role reads the item's claims + description into a role class, sport-gated.
+/// P6087 (coach of a sports team) outranks everything: it is a CURRENT structural claim,
+/// while P106 occupations accumulate history — nearly every NBA head coach carries
+/// "basketball player" from a playing career (measured on the first live smoke,
+/// 2026-08-03: Spoelstra and Kerr both classified player and lost their coach_of edges).
+/// Occupation tables next, description keywords last, Unknown otherwise.
 pub fn classify_role(sport: &str, item: &WikidataItem) -> RoleClass {
     let (players, coaches, kw) = sport_occupations(sport);
-    if item.occupations.iter().any(|q| players.contains(&q.as_str())) {
-        return RoleClass::Player;
+    if !item.coach_of_teams.is_empty() {
+        return RoleClass::Coach;
     }
+    // Coach occupation before player occupation: a dual player+coach P106 record is a
+    // retired player who coaches NOW (actives never carry the coach occupation), while the
+    // reverse order misfiled Spoelstra as player on the 2026-08-03 smoke (his item has no
+    // P6087 — the coaching lives only in P106).
     if item.occupations.iter().any(|q| coaches.contains(&q.as_str())) {
         return RoleClass::Coach;
+    }
+    if item.occupations.iter().any(|q| players.contains(&q.as_str())) {
+        return RoleClass::Player;
     }
     let d = item.description.to_lowercase();
     if kw.is_empty() || !d.contains(kw) {
@@ -226,7 +237,7 @@ mod tests {
 
     #[test]
     fn role_classification_is_occupation_first_description_second() {
-        let coach = item("Erik Spoelstra", "American basketball coach", &["Q13365117"]);
+        let coach = item("Erik Spoelstra", "American basketball coach", &["Q5137571"]);
         assert_eq!(classify_role("NBA", &coach), RoleClass::Coach);
         // Description-only path (no occupation claim).
         let gm = item("Pat Riley", "American basketball executive", &[]);
@@ -277,7 +288,7 @@ mod tests {
             Verdict::RejectedNotSport
         );
         // Sport agrees, name does not (SQL nrm screen said no) → insufficient evidence.
-        let stranger = item("Someone Else", "American basketball coach", &["Q13365117"]);
+        let stranger = item("Someone Else", "American basketball coach", &["Q5137571"]);
         assert_eq!(
             decide("NBA", &[stranger], &[false], &[true]),
             Verdict::RejectedInsufficientEvidence

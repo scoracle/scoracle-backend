@@ -15,7 +15,7 @@
         {
           "label": "Erik Spoelstra",
           "description": "American basketball coach",
-          "occupations": ["Q13365117"],
+          "occupations": ["Q5137571"],
           "coach_of_teams": ["Q169138"]
         }
       ],
@@ -52,8 +52,8 @@
       ],
       "name_agreed": [true],
       "team_matched": [true],
-      "expect": "accept:player",
-      "_note": "Occupation table is player-first, so a dual player+manager record classifies as player — the accepted entity is still the right IDENTITY (the discriminator carried it); kind refinement for dual-record people is a D-T tuning item, not an identity risk."
+      "expect": "accept:coach",
+      "_note": "P6087 (coach of a sports team) outranks the P106 player history — the 2026-08-03 smoke found Spoelstra/Kerr classifying as player off their playing careers; a current structural claim beats accumulated occupations."
     },
     {
       "name": "pep-guardiola-must-not-merge-into-sergi",
@@ -86,6 +86,23 @@
       "team_matched": [true],
       "expect": "accept:player",
       "_note": "persons kind player — the write path NEVER inserts a players row (D-2); the handler creates a persons row for story-relevant players outside the stats platform."
+    },
+    {
+      "name": "spoelstra-shape-dual-occupation-no-p6087-classifies-coach",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Erik Spoelstra",
+          "description": "American basketball coach",
+          "occupations": ["Q3665646", "Q5137571"],
+          "member_of_teams": ["Q169138"],
+          "coach_of_teams": []
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:coach",
+      "_note": "The real Spoelstra item: NO P6087, coaching only in P106 alongside the playing career. Coach occupation outranks player occupation — actives never carry the coach occupation."
     },
     {
       "name": "andy-burnham-politician-rejects-not-sport",
@@ -164,7 +181,7 @@
         {
           "label": "Someone Entirely Else",
           "description": "American basketball coach",
-          "occupations": ["Q13365117"],
+          "occupations": ["Q5137571"],
           "coach_of_teams": ["Q169138"]
         }
       ],
@@ -187,7 +204,7 @@
         {
           "label": "Journeyman Coach",
           "description": "American basketball coach",
-          "occupations": ["Q13365117"],
+          "occupations": ["Q5137571"],
           "coach_of_teams": []
         }
       ],
@@ -203,7 +220,8 @@
           "label": "Pat Riley",
           "description": "American basketball executive",
           "occupations": [],
-          "coach_of_teams": ["Q169138"]
+          "coach_of_teams": [],
+          "_note": "His P6087 stints all carry P582 end qualifiers, so the parser (current-only filter) leaves coach_of_teams empty — the parser test pins that; this case pins the executive classification that follows."
         }
       ],
       "name_agreed": [true],

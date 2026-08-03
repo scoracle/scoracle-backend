@@ -204,6 +204,7 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
         "graph",
         "article_read",
         "editor",
+        "investigate_entity",
         "fixture_boxscore",
         "peak",
         "momentum",

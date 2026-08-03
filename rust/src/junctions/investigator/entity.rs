@@ -246,20 +246,27 @@ async fn resolve_team_qids(
     Ok(qids.iter().filter_map(|q| map.get(q).copied()).collect())
 }
 
-/// excerpt_contains is gate clause (a), asserted against the STORED provenance row right
-/// before any write: the retained excerpt must contain the name form we are about to trust.
-async fn excerpt_contains(pool: &PgPool, document_id: i64, needle: &str) -> Result<bool> {
+/// provenance_holds is gate clause (a), asserted against the STORED provenance row right
+/// before any write. Two ways to satisfy it: the retained excerpt contains the name form
+/// we are about to trust, OR the document is the item's own `wbgetentities` fetch — in
+/// which case the label was PARSED FROM that document, so containment holds by
+/// construction even when the excerpt bound truncated the labels section (measured on the
+/// 2026-08-03 smoke: Şengün's claims JSON exceeds the 100k excerpt and his accept was
+/// wrongly refused). The excerpt arm stays load-bearing for future prose-page sources.
+async fn provenance_holds(pool: &PgPool, it: &WikidataItem) -> Result<bool> {
     let found: Option<bool> = sqlx::query_scalar(
         r#"
         SELECT position(lower($2) in lower(retained_excerpt)) > 0
+            OR (url LIKE '%wbgetentities%' AND url LIKE '%' || $3 || '%')
         FROM public.source_documents WHERE id = $1
         "#,
     )
-    .bind(document_id)
-    .bind(needle)
+    .bind(it.source_document_id)
+    .bind(&it.label)
+    .bind(&it.qid)
     .fetch_optional(pool)
     .await
-    .context("check excerpt containment")?;
+    .context("check provenance containment")?;
     Ok(found.unwrap_or(false))
 }
 
@@ -332,7 +339,7 @@ async fn investigate_candidate(hx: &Harness, fetcher: &BudgetedFetcher, item: &I
         Verdict::Accept { item_idx, role } => {
             let it = &d.items[item_idx];
             // Clause (a): the provenance row must contain the label we are trusting.
-            if !excerpt_contains(&hx.pool, it.source_document_id, &it.label).await? {
+            if !provenance_holds(&hx.pool, it).await? {
                 finish_candidate(hx, &cand, "rejected_insufficient_evidence", None, &run_plan,
                     "accept item excerpt missing name form").await?;
                 return Ok(());
@@ -688,8 +695,8 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
         return Ok(());
     };
     let it = &d.items[item_idx];
-    if !excerpt_contains(&hx.pool, it.source_document_id, &it.label).await? {
-        warn!(player_id, qid = %it.qid, "enrichment accept item excerpt missing label; refusing");
+    if !provenance_holds(&hx.pool, it).await? {
+        warn!(player_id, qid = %it.qid, "enrichment accept item fails provenance containment; refusing");
         return Ok(());
     }
 

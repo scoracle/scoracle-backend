@@ -11,6 +11,7 @@
 //! | junction | module | seat | contract |
 //! |---|---|---|---|
 //! | **The Editor** | [`editor`] | the greenfield rail's reader (shadow until cutover) | `ep1` |
+//! | **The Investigator** | [`investigator`] | verification: box scores + entity discovery (no memory, no voice) | `fbf1` + `investigate-entity-wikidata-v1` |
 //! | *(legacy reader)* | [`article_reader`] | sole relevance judge | `ar7` |
 //! | **The Journalist** | [`journalist`] | narrative memory | `n13` |
 //! | **The Oracle** | [`oracle`] | the sigil card's voice | `or5` |

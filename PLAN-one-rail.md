@@ -1757,7 +1757,68 @@ the role, and the budgeted fetcher already exist — Phase 4 founded them.
 **Commit:** `rail: phase 5 — the Investigator verifies people`.
 
 ### Log (phase 5)
-*(executor fills)*
+
+**2026-08-03, ~19:10–20:30 EDT: Phase 5 machinery BUILT in the same session that opened
+Phase 4 (Scott's re-scope ruling — see Phase 4 Log entries 3–4: mystery-entity probing +
+reliable metadata writes outrank box-score target URLs while no sport is in season; NBA
+is the vetting sport; NBA head coaches are the non-player/team test class).**
+
+Built and committed (`c852588`), all 331 lib tests green:
+
+* **5.1/5.2 — the sweep** (`editor/candidates.rs`, hooked after persist in the Editor
+  handle): unresolved person-kind names + refused ties → `entity_candidates` upsert
+  (idempotency `lower(sport):nrm(name)` — nrm() runs IN SQL, mig 198) + a
+  `candidate_mentions` row whose quote is code-sliced ±160 chars (char-boundary safe; the
+  İ lesson has a regression test). Enqueue rule as ruled: descriptor-on-person or
+  refused-tie → first sight; bare names → 2-mention floor; clubs/NTs →
+  `rejected_out_of_scope` census, never enqueued (D-3). The 5.6 reopen rides the upsert
+  (terminal person/tie candidates reopen on a fresh mention after decided_at + 30d;
+  census rows never). `work::enqueue` idempotency prevents double-queuing.
+* **5.3 — the stage**: `Stage::InvestigateEntity` (`investigate_entity`, candidate- OR
+  player-keyed), handler registered after the Editor, `max_in_flight` 1, same slot group.
+* **5.4 — adapters, kept separate**: discovery = Wikidata action API (wbsearchentities /
+  wbgetentities) via the 4.2 BudgetedFetcher (2s spacing, 7-DAY cache — labels move
+  slowly; every response is a `source_documents` row); interpretation for structured
+  claims = **pure code** (`discover.rs::parse_wikidata_entity`: P106/P54/P6087/P569 +
+  unit-gated P2067/P2048 — a pounds amount can NEVER land in a kg field; unknown units
+  drop, never guess). The gemma prose-triage arm (for names Wikimedia doesn't know) is
+  deferred to Appendix D as a tuning follow-up — Role::Investigator idles until then, and
+  v1 makes ZERO model calls. Wikipedia REST summary adapter exists for that arm.
+* **5.5 — the gate** (`investigator/gate.rs`, pure + `entity.rs` writes): ACCEPT = (a)
+  stored excerpt contains the trusted name form (checked against `source_documents` at
+  write time), (b) sport-relevance (occupation-QID tables per sport, description keyword
+  fallback), (c) team-link discriminator (item's P54/P6087 QIDs resolved onto OUR teams
+  via label → `nrm` surface match; newly proven QID↔team mappings write back to
+  `entity_external_ids` with provenance — the mapping bootstraps itself). Name agreement
+  is a SCREEN only and runs through `public.nrm()` in SQL — the first Rust-fold draft
+  FAILED its own fixture on "Vinícius" vs "vinicius" and was replaced (mig 198's warning,
+  vindicated in-session). Resolve-to-existing first (alias, no new row; player merges
+  additionally require the career-team discriminator to agree — disagreement downgrades
+  to ambiguous, never a merge). New people → `persons` (D-2 kinds; `family`
+  unreachable) + append-only `entity_aliases` + direct surface mirror + role fact +
+  `coach_of` relationship when role=coach and the team resolved. Every non-accept records
+  `acquisition_runs` + a first-class state. **Enrichment mode** (player-keyed; Scott's
+  NBA project): STRICTER discriminator (career must include THIS player's current team),
+  facts date_of_birth / weight_kg / height_cm / photo_url written supersede-not-overwrite
+  with provenance; convenience copies UPDATE `players` (never insert — box-score-owned);
+  photo_url derives from P3647 (cdn.nba.com headshot URL — stored for clients, never
+  fetched by us; that host blocks bots, 4.3 review). Wikidata+nba external ids recorded.
+* **5.7 — the adversarial gate fixtures** (`fixtures/investigate_entity/cases.json`, 13
+  cases, 100% required by test `adversarial_fixture_gate_is_one_hundred_percent`):
+  spoelstra/shanahan/alonso accepts, **pep-must-not-merge-into-sergi** (ambiguous, never
+  accept without discriminator), rookie-as-persons-player, burnham/child not-sport,
+  vinicius namesake tie (never a coin flip) AND its discriminator split, thin-evidence
+  single survivor → ambiguous, no-name-agreement → insufficient. The nrm screen enters
+  fixtures as recorded input (it belongs to SQL).
+* **5.8 — review surface**: mig 210 (`investigator_review_accepted` latest-50 with
+  sources + last run; `investigator_funnel` day/state/kind/sport) applied + snapshotted.
+* **Vetting seeds** (`scripts/investigator-vetting-seed.sql`): SMOKE block applied —
+  3 headliner NBA players with missing dob/photo + Erik Spoelstra/Steve Kerr as
+  hand-seeded person candidates (5 pending `investigate_entity` items). FULL block
+  (all ~603 active-tier NBA players with gaps) left commented for Scott after the smoke
+  review. Measured gap baseline: 0/1,311 NBA players carry date_of_birth or photo_url.
+
+*(bounded live smoke results follow)*
 
 ### Handoff (phase 5 → 6)
 ```

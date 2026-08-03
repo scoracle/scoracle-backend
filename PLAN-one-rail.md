@@ -1,22 +1,15 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–2 CLOSED; Phase 3 through 3.8 COMPLETE — the Editor is DEPLOYED IN SHADOW
-on archbox (2026-08-02 04:10 EDT, release.sh @ 4871fbe: COGNITION_STAGES += editor,
-COGNITION_ROUTE_EDITOR=gemma3:4b, registered before article_read; smoke-verified 15/15 reads,
-shadow purity spot-checked). The 3.7 gate is GREEN under Scott's re-scope (33/33 required ×2;
-waived = names[] under-fill + register, judged live in 3.9(d)); the descriptor place gate +
-supported-vote rule live in editor/derive.rs. The Phase 2 volume band (re-baselined by Scott
-to 8,356–9,035/day ±20%) is CLOSED: first post-deploy sweep 7,259 fresh, in band, zero errors.
-REMAINING IN PHASE 3 — RE-SCOPED BY SCOTT 2026-08-03 (see the 20:15 Log entry): the 48h
-wall-clock window is no longer the gate; the CORPUS REPLAY is. 137 legacy-era bleed-class
-articles (all Olise + 50 Vinicius + 50 Diomande, Jul 27–Aug 2) are enqueued to the Editor;
-when drained (~23:00 Aug 3), measure the per-article PAIRED A/B vs news_article_entities
-and bring Scott the threshold verdict (bar: beats legacy per name; Vinicius already clears
-on organic day 1: 60.0% vs 54.9%). Then: Scott decides move-to-production + the post-flip
-debugging window. Production delay during this is accepted by Scott; do NOT fit both rails
-on the card (no 24h duty day). Legacy article_read is starved meanwhile (~11 reads Aug 3) —
-known and accepted for the window.
-Last plan commit: (this one). Updated 2026-08-03 ~20:15 EDT (ruling + replay enqueued).**
+**STATE: Phases 0–3 CLOSED. Phase 3 closed 2026-08-03 under Scott's §4 tuning ruling
+(plumbing gates phases; junction quality → Appendix D tuning ledger, never a gate): the
+Editor reads every arrival in shadow on archbox (deploy 4871fbe), Verify formally green
+(enqueue 100%, dup short-circuit 9.3% in band, zero greenfield writes to legacy-read tables
+— 5,857-article column-diff, bucket/routing_tags all zero). Quality baselines recorded in
+Appendix D; the 137-article corpus replay drains ~23:00 Aug 3 — record its paired verdict
+in D-T1 (not a gate). NEXT: Phase 4 (the Investigator — box scores). Accepted operational
+state: the Editor owns the gemma card; legacy article_read starved (~11 reads Aug 3),
+narratives decaying — accepted by Scott until cutover-shaped decisions; no 24h duty day.
+Last plan commit: (this one). Updated 2026-08-03 ~21:00 EDT (phase 3 closed).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -386,6 +379,13 @@ cutover), Mac = the six voice stages.
   is budgeted to produce RICH output — the three-audience read: downstream prompt, user surface,
   archive. The ranked Google query is the relevancy filter at the front door; the rail never
   re-derives what the query already decided.
+- **Plumbing gates phases; junction quality is a tuning knob** (Scott, 2026-08-03). The plan's
+  point is the pipeline — simple, lean, nimble, durable — with models bolted into junctions to
+  refine LATER. A phase closes when its plumbing is proven (flow, writes, purity, throughput
+  mechanics); model-quality numbers (link rates, under-fill, registers, parse rates) are
+  RECORDED and appended to **Appendix D (the tuning ledger)** as follow-ups, never a reason to
+  halt scaffolding. Don't fully refine as you go. A junction quality measurement can still
+  block at cutover-shaped decisions (Phase 8) — but not at build phases.
 
 ---
 
@@ -943,7 +943,10 @@ is claim order, `rust/src/main.rs:131-173`).
 - [x] **3.8** **[DEPLOY]** rust binary to archbox with `COGNITION_STAGES` += `editor`, the new
       Editor registered before article_read. **[DEPLOY]** the Go enqueue change. (Two
       watch-triggered restarts; do them together, outside a rest boundary.)
-- [ ] **3.9** Shadow measurement, 48h minimum, recorded in the Log:
+- [x] **3.9** *(RE-SCOPED by Scott 2026-08-03 — see §4 tuning ruling and the Log: plumbing
+      readings taken day-1; quality readings recorded and moved to Appendix D, not gates;
+      the 48h wait cancelled in favor of the corpus replay, whose verdict lands in D-T1.)*
+      Shadow measurement, 48h minimum, recorded in the Log:
       (a) throughput and coverage: editor_reads/day vs arrivals/day. Capacity context (Scott,
       2026-07-29): the legacy ~7,400/day was DEMAND-limited, not a card ceiling — the harness
       runs 2h on / 1h off (HANDOFF §10; a 16h duty day) and Gemma sits mostly idle inside it,
@@ -959,7 +962,8 @@ is claim order, `rust/src/main.rs:131-173`).
       `resolved` rate vs the legacy 39/182 Vinicius baseline;
       (e) resolver refusals/day (goes to the Investigator's future queue);
       (f) legacy rail health unchanged (narratives/day vs Phase 0 baseline — shadow purity).
-- [ ] **3.10** `full_text` growth check vs disk headroom from Phase 0 Log.
+- [x] **3.10** `full_text` growth check vs disk headroom from Phase 0 Log. *(Closed 2026-08-03:
+      ~23 MB/day toast-measured vs 1.8T free — ~8.4 GB/yr, a non-issue; Log 17:04 entry.)*
 
 **Verify:** 3.9 bands hold; fixture gate 100%; zero greenfield-Editor writes to any legacy-read
 table (`news_article_entities`, `news_articles.bucket/routing_tags` untouched by the new stage —
@@ -1352,6 +1356,31 @@ post-flip debugging window he asked for.
 
 ---
 
+**2026-08-03, 20:30–21:00 EDT: PHASE 3 CLOSED under the §4 tuning ruling (Scott,
+2026-08-03: plumbing gates phases; junction quality goes to the Appendix D tuning ledger
+as follow-up — "we don't need to fully refine as we go").**
+
+✅ **VERIFY SATISFIED.** (1) Plumbing bands hold: enqueue seam 100% (6,905/6,905, zero
+leaks), coverage 82.5% at +15.6h and climbing toward the 24h mark, duplicate short-circuit
+9.3% (in band 5–12%), ledger rows both sides, zero journal errors since deploy. (2) Fixture
+gate 100% on required axes (33/33 ×2, 3.7). (3) **Zero greenfield writes to legacy-read
+tables, formally column-diffed on the sampled day (Aug 3): 5,857 editor-read articles,
+bucket set 0, routing_tags set 0** — and 0 of them were touched by legacy, so the zeros
+are unambiguous. Code path confirms `news_articles.full_text` is the only legacy-table
+column written (mod.rs:670, write-if-different).
+
+Quality numbers measured en route (Vinicius 60.0% vs legacy 54.9% same-yardstick; Diomande
+66.7% per-success vs 49.4% but 38.5% raw; Olise no day-1 sample; under-fill = the whole
+miss class; parse_failed 2.6% vs legacy 0.1%) are RECORDED in Appendix D, not gates. The
+137-article corpus replay drains ~23:00 tonight; its paired verdict lands in D-T1 as the
+tuning baseline. The accepted operational state carries into Phase 4: the Editor owns the
+card, legacy article_read starved (~11 reads Aug 3), narratives decaying — Scott accepts
+this until cutover-shaped decisions; no 24h duty day (hardware stress ruled out).
+
+**Commit:** `rail: phase 3 — the Editor reads in shadow`.
+
+---
+
 ### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -1390,9 +1419,12 @@ every arrival in shadow on the ep1 contract, persists bodies to news_articles.fu
 reads to editor_reads, and touches nothing the legacy rail consumes (legacy module now lives
 at junctions/article_reader/, eval task article_reader). See Phase 3 Log for measured
 throughput/coverage.
-Read §0, §3, §4 (rulings), Appendix B D-4 (CLOSED: FOOTBALL), then execute Phase 4 (the
-Investigator — box scores; the module junctions/investigator/, Role::Investigator, and the
-budgeted fetcher are all founded here and reused by Phase 5).
+Read §0, §3, §4 (rulings — including the 2026-08-03 tuning ruling: plumbing gates phases,
+quality goes to Appendix D, never halt scaffolding on model-quality numbers), Appendix B
+D-4 (CLOSED: FOOTBALL), then execute Phase 4 (the Investigator — box scores; the module
+junctions/investigator/, Role::Investigator, and the budgeted fetcher are all founded here
+and reused by Phase 5). Housekeeping first, 5 minutes, not a gate: the 137-article corpus
+replay drained overnight — append its paired per-name verdict to Appendix D-T1, then move on.
 Laws: one adapter per source family; DOM/JSON parsing, never regex, never LLM number-reading;
 fixture identity validated before anything writes; promotion calls finalize_fixture in the
 SAME tx (stats before the Scout, §4); a correction is a revision + recompute, never an
@@ -1994,3 +2026,31 @@ typed-links/episodes/seal rollups stay — they feed every memory card. `NEWS_SC
   belongs to the six voices alone; the Oracle's is its own verdict trail, nothing else.
 - No LLM number-reading anywhere on the stats road — box-score numbers enter rows through
   DOM/JSON parsers only; a model may describe or triage a page, never transcribe its digits.
+
+---
+
+## Appendix D — The tuning ledger (junction knobs; follow-up, NEVER phase gates)
+
+*(Founded by Scott's 2026-08-03 ruling — see §4. Model-junction quality items are appended
+here with their measured baseline and revisited as tuning passes, typically post-cutover or
+in idle capacity. A phase may cite this ledger; it may not halt on it.)*
+
+- **D-T1 · names[] under-fill (the discovery miss class).** Every genuine bleed-class miss
+  on day 1 was the model omitting the player from `names[]` (clubs/agents emitted, player
+  skipped — "Yan Diomande's dream Real Madrid transfer…" → Jay-Z, two agents, no Yan).
+  Baselines, same-yardstick title-mention: legacy Vinicius 54.9% / Olise 57.4% / Diomande
+  49.4%; editor day-1 Vinicius **60.0%**, Diomande 66.7% per-success (38.5% raw). **The
+  137-article corpus replay (enqueued 2026-08-03 ~20:10, drains ~23:00) gives the paired
+  per-article verdict — record it here when read.** Candidate knobs: quoted-people-style
+  re-scan for title principals; interplay with the 2-mention floor; the Investigator
+  refusal/nomination backstop (Phase 5) which structurally catches what the prompt drops.
+- **D-T2 · register `outrage` reads neutral under phrase-first order.** Known C2 cost,
+  Scott declined the reorder 2026-08-01. Revisit only with a measured fixture set.
+- **D-T3 · parse_failed 2.6% vs legacy 0.1%** (day-1: 137 of 5,328). Diagnose a sample:
+  format_schema violations vs truncation (num_predict 900 interplay, D-T4).
+- **D-T4 · editor call cost: num_predict 900→750.** Call wall p50 33.4s / p95 56.2s /
+  avg 34.1s (~10 tok/s/slot at 4-parallel); editor demand ≈ 49 of the 64 daily slot-hours.
+  The knob trades tail-truncation risk (watch D-T3) against ~15% card time.
+- **D-T5 · descriptor leakage.** One live read emitted descriptor "team 277" (an internal
+  id, not text-derived) — contract says descriptors copy the text. Count instances before
+  caring.

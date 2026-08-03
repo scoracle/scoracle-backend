@@ -24,7 +24,8 @@ use scoracle_cognition::route::Router;
 use scoracle_cognition::junctions::{
     analyst, article_reader, editor, graph, influencer, insider, journalist, oracle, scout,
 };
-use scoracle_cognition::{boxscore_fetch, config, db, embed, ollama, scrub, stage, worker};
+use scoracle_cognition::junctions::investigator::boxscore;
+use scoracle_cognition::{config, db, embed, ollama, scrub, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -148,7 +149,7 @@ async fn main() -> Result<()> {
         handlers.push(Box::new(article_reader::ArticleReadHandler::new()));
     }
     if enabled.contains("fixture_boxscore") {
-        handlers.push(Box::new(boxscore_fetch::FixtureBoxscoreHandler::new()));
+        handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()));
     }
     if enabled.contains("transfers") {
         handlers.push(Box::new(insider::TransferHandler::new()));

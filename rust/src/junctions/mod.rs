@@ -46,6 +46,7 @@ pub mod editor;
 pub mod graph;
 pub mod influencer;
 pub mod insider;
+pub mod investigator;
 pub mod journalist;
 pub mod oracle;
 pub mod scout;

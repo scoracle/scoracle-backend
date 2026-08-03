@@ -53,7 +53,6 @@ pub mod trajectory;
 pub mod util;
 
 // Non-junction stages and offline tooling.
-pub mod boxscore_fetch;
 pub mod eval_tasks;
 pub mod judge;
 pub mod scrub;

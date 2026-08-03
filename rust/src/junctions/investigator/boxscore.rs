@@ -1780,7 +1780,7 @@ mod tests {
     #[test]
     fn parses_nba_bdl_sample() {
         let raw: Value = serde_json::from_str(include_str!(
-            "../fixtures/boxscore_fetch/nba_bdl_sample.json"
+            "../../../fixtures/boxscore_fetch/nba_bdl_sample.json"
         ))
         .unwrap();
         let parsed = parse_bdl_nba(&fixture("NBA"), &raw).unwrap();
@@ -1802,7 +1802,7 @@ mod tests {
     #[test]
     fn parses_nfl_bdl_sample() {
         let raw: Value = serde_json::from_str(include_str!(
-            "../fixtures/boxscore_fetch/nfl_bdl_sample.json"
+            "../../../fixtures/boxscore_fetch/nfl_bdl_sample.json"
         ))
         .unwrap();
         let parsed = parse_bdl_nfl(&fixture("NFL"), &raw).unwrap();
@@ -1816,7 +1816,7 @@ mod tests {
     #[test]
     fn parses_football_sportmonks_sample() {
         let raw: Value = serde_json::from_str(include_str!(
-            "../fixtures/boxscore_fetch/football_sportmonks_sample.json"
+            "../../../fixtures/boxscore_fetch/football_sportmonks_sample.json"
         ))
         .unwrap();
         let parsed = parse_sportmonks(&fixture("FOOTBALL"), &raw).unwrap();

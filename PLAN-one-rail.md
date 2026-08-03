@@ -1,15 +1,20 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–3 CLOSED. Phase 3 closed 2026-08-03 under Scott's §4 tuning ruling
-(plumbing gates phases; junction quality → Appendix D tuning ledger, never a gate): the
-Editor reads every arrival in shadow on archbox (deploy 4871fbe), Verify formally green
-(enqueue 100%, dup short-circuit 9.3% in band, zero greenfield writes to legacy-read tables
-— 5,857-article column-diff, bucket/routing_tags all zero). Quality baselines recorded in
-Appendix D; the 137-article corpus replay drains ~23:00 Aug 3 — record its paired verdict
-in D-T1 (not a gate). NEXT: Phase 4 (the Investigator — box scores). Accepted operational
-state: the Editor owns the gemma card; legacy article_read starved (~11 reads Aug 3),
-narratives decaying — accepted by Scott until cutover-shaped decisions; no 24h duty day.
-Last plan commit: (this one). Updated 2026-08-03 ~21:00 EDT (phase 3 closed).**
+**STATE: Phases 0–3 CLOSED. Phase 4 OPEN and BLOCKED at 4.3-seed on a Scott decision:
+the 2026-08-03 terms/robots review found EVERY keyless box-score family in BOTH D-4 sports
+failing (technical blocks of declared bots / robots disallow / JS-signature walls needing
+banned automation / explicit anti-AI license terms) — full review table in the Phase 4
+Log; the D-4 NBA fallback fails the same review. Unblock options for Scott are in the Log
+(recommended: api-football free tier — data-sufficient, 100 req/day vs measured ~10
+completed FOOTBALL fixtures/day, needs his 2-min registration). DONE under Phase 4:
+4.1 (junctions/investigator/ founded, Role::Investigator, boxscore_fetch.rs moved —
+builds+tests green), 4.2 (BudgetedFetcher in fetch.rs: per-domain 1-conc/≥2s/Retry-After/
+circuit-break, source_documents provenance, 7 new tests), 4.3-table (mig 208
+boxscore_sources applied + snapshot; SEEDED EMPTY pending the ruling). The 137-article
+corpus replay had NOT drained when this session ran (18:19 EDT; queue untouched since the
+18:00 rest pause; ETA ~23:00 EDT holds) — D-T1 verdict still owed by a later session.
+NEXT: Scott's source ruling → seed boxscore_sources → resume at 4.4.
+Last plan commit: (this one). Updated 2026-08-03 ~19:00 EDT (phase 4 blocked at 4.3-seed).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1458,19 +1463,20 @@ percentile chain fires the Scout exactly as it did off the provider seeder.
 This phase also founds the Investigator in code — the module, the role, and the budgeted
 fetcher land here; Phase 5 (entity discovery) reuses all three.
 
-- [ ] **4.1** The character's module + role: create `rust/src/junctions/investigator/`;
+- [x] **4.1** The character's module + role: create `rust/src/junctions/investigator/`;
       `git mv rust/src/boxscore_fetch.rs rust/src/junctions/investigator/boxscore.rs` (+ `use`
       path updates; the stage wire name `fixture_boxscore` and the landing table are live
       identities and do NOT rename, §4). `Role::Investigator` in `route.rs`
       (`COGNITION_ROUTE_INVESTIGATOR=gemma3:4b` on archbox; `Role::all()` bump; `env_suffix`
       `INVESTIGATOR`). The Investigator rides the pinned Gemma (§3 — hardware constraint); its
       only v1 model calls are describe-only page triage.
-- [ ] **4.2** The budgeted fetcher (shared substrate — built here, reused by Phase 5): extend
+- [x] **4.2** The budgeted fetcher (shared substrate — built here, reused by Phase 5): extend
       `fetch.rs` with a per-domain budget (concurrency 1, ≥2s spacing per domain, respect
       429/Retry-After, circuit-break a domain after repeated failures), cache by canonical URL
       + content_hash into `source_documents` with a bounded `retained_excerpt`. No browser
       automation; a domain that blocks direct fetch is a domain we skip (never stealth).
-- [ ] **4.3** `boxscore_sources` table (mig 208, data-not-code): sport, league_id NULL, domain,
+- [~] **4.3** *(table DONE — mig 208 applied, seeded EMPTY; seed BLOCKED on Scott's source
+      ruling — see Log)* `boxscore_sources` table (mig 208, data-not-code): sport, league_id NULL, domain,
       discovery mode (url_template | search), parser_family, trust_state
       (candidate|trusted|suspended), fetch_policy jsonb (rpm, concurrency, cache_ttl). **D-4
       sport is CLOSED: FOOTBALL** (Scott, 2026-08-01). In-phase: terms/robots review of
@@ -1523,7 +1529,88 @@ read sane and strictly post-promotion.
 **Commit:** `rail: phase 4 — box scores from public sources; the stats rail reborn`.
 
 ### Log (phase 4)
-*(executor fills)*
+
+**2026-08-03, 18:19–19:00 EDT: session opened Phase 4; 4.1–4.2 built; 4.3 review run to
+completion; BLOCKED at the 4.3 seed on a Scott decision (§0.3 stop — no improvisation).**
+
+*Housekeeping first (the D-T1 replay verdict):* NOT measurable — this session fired at
+18:19 EDT, before the drain. Queue state coherent: `editor` = 1,184 pending + 1 failed
+(exactly the enqueue-time total), untouched since the 18:00 rest-window pause (worker
+SIGINT 18:00:47, clean stop; resumes 19:00). The Phase 3 log's "~20:10 enqueue" stamp was
+UTC mislabeled EDT (~16:10 EDT actual). Drain ETA ~23:00 EDT holds at day-1 throughput.
+Measurement recipe pinned in D-T1 for the next session.
+
+**4.1 DONE (code, not yet deployed).** `git mv rust/src/boxscore_fetch.rs
+rust/src/junctions/investigator/boxscore.rs`; module founded with doctrine header;
+`Role::Investigator` added to route.rs (`as_str` "investigator", `env_suffix`
+"INVESTIGATOR", `Role::all()` 11→12). Stage wire name `fixture_boxscore` and landing
+table untouched (§4). Workspace builds; route (12) + boxscore (7) tests green.
+`COGNITION_ROUTE_INVESTIGATOR=gemma3:4b` env line deliberately deferred to the 4.9
+[DEPLOY] (un-configured, the role resolves to the default model — inert until then).
+
+**4.2 DONE (code).** `fetch.rs::BudgetedFetcher`: per-domain concurrency 1 (per-domain
+async mutex — structural, not advisory), min spacing floored at 2s (`FetchPolicy::new`
+clamps), 429/Retry-After honored as a domain hold (delay-seconds exact, date-form → flat
+60s, capped 300s), circuit-break at 4 consecutive failures → 15-min hold, provenance into
+`source_documents` (new row per fetch per mig-205 doctrine; title, bounded 100k-char
+retained_excerpt, header subset), cache probe by URL within `cache_ttl` reuses the newest
+2xx row without spending budget. 7 unit tests on the pure mechanics (spacing, circuit,
+Retry-After cap, header parse, title/excerpt bounds) — 13/13 fetch tests green. No browser
+automation anywhere on the path.
+
+**4.3 TABLE DONE, SEED BLOCKED. Migration 208 (`boxscore_sources`) applied on archbox +
+snapshot committed (210 versions). Seeded EMPTY** — because the terms/robots review
+(run live from archbox, the production fetch host, with the declared
+`ScoracleBot/1.0 (+https://scoracle.com)` UA) failed every candidate family:
+
+| # | family | sport | verdict | evidence (2026-08-03, from archbox) |
+|---|---|---|---|---|
+| 1 | fbref.com | FOOTBALL | **FAIL: blocked** | Cloudflare interactive challenge on `/robots.txt` itself (HTTP 403, `cType: 'interactive'`) to the declared bot |
+| 2 | ESPN (www + site.api) | both | **FAIL: robots + blocked** | `Disallow: */boxscore?` for `User-agent: *`; API host 403s the bot on robots.txt |
+| 3 | understat.com | FOOTBALL | **FAIL: robots** | `User-agent: * Disallow: /` |
+| 4 | sofascore.com | FOOTBALL | **FAIL: robots + ToS** | year-slugged match paths disallowed for `*`; ToS bans automated extraction; API signature-gated |
+| 5 | fotmob.com | FOOTBALL | **FAIL: robots** | `Disallow: /api/*` for `*` (the only data path; only Googlebot/Bing/etc. allowed) |
+| 6 | flashscore.com | FOOTBALL | **FAIL: technical** | robots permissive but data only via signed JS feeds (x-fsign) → banned automation (Appendix C) |
+| 7 | soccerway.com | FOOTBALL | **FAIL: technical** | serves the bot HTTP 200, but it is Livesport (Soccer24) — match data rides the same signed JS feeds as #6 |
+| 8 | worldfootball.net | FOOTBALL | **FAIL: blocked + license** | content pages 403 the bot; robots carries EU-790 Art.4 content-signals reserving AI use |
+| 9 | transfermarkt.com | FOOTBALL | **FAIL: license** | robots ALLOWS match pages + serves the bot 200 (server-rendered HTML, report ids extractable) — but its declared RSL license (`license.xml`) is `<prohibits type="usage">ai-all</prohibits>`; 4.5's Gemma triage + an AI product on top is squarely what it reserves. Override = Scott's legal-posture call, not the executor's |
+| 10 | football-data.org | FOOTBALL | terms PASS, **data insufficient (free) / provider (paid)** | free tier: 12 comps, no lineups/scorers/bookings — cannot feed player percentiles; €29/mo tier = re-entering a paid provider |
+| 11 | api-football | FOOTBALL | terms PASS, **needs Scott** | built-for-API product; free tier 100 req/day INCLUDES fixtures/events/lineups/player stats — data-sufficient; requires him to register (free) |
+| 12 | api.openligadb.de | FOOTBALL | open, **data insufficient** | fully open (200, keyless) but German comps only, no player-level rows |
+| 13 | cdn.nba.com liveData | NBA | **FAIL: blocked** | declared bot: silent Akamai tarpit (25s stall); plain curl UA: 403 Access Denied — passing requires browser impersonation = stealth |
+| 14 | stats.nba.com | NBA | **FAIL: blocked** | tarpits the declared bot (timeout); known to require ~10 spoofed browser headers = stealth |
+| 15 | basketball-reference.com | NBA | **FAIL: terms** | robots ALLOWS `/boxscores/` (crawl-delay 3) and the published bot policy tolerates <20 req/min "regardless of bot type" (2025 Finals G1 page fetched clean, both stat tables present) — but SR ToU clause 5 explicitly bans building tools/databases on scraped data AND any use where the data feeds AI-generated "answers, text, scores, statistics" |
+
+Also dismissed without probes: Wikipedia/Wikidata (no systematic per-matchday player
+stats — coverage, not access), StatsBomb open data (selected historic comps only),
+openfootball github (scores only, lag), balldontlie free tier (stats endpoints paid),
+official league APIs — premierleague.com/pulselive, UEFA (Origin-header gating = spoofing).
+
+**The finding: D-4's fallback clause fired and the fallback ALSO fails.** "NBA is the
+fallback only if every FOOTBALL family fails review" — every FOOTBALL family failed, and
+every keyless NBA family fails the same way. The public-web box-score commons is closed
+to declared, robots-respecting bots in 2026; what remains open is API products with free
+tiers. **Demand sizing for that path (measured):** FOOTBALL completed fixtures avg
+9.8/day, max 35/day (400→60d window) → api-football free tier (100 req/day) fits at ~2
+calls/fixture with ~30% headroom on the worst matchday; a paid tier exists if volume
+grows.
+
+**Options for Scott (the BLOCKED decision):**
+(a) **api-football free key — recommended.** ToS-clean (an API product), data-sufficient
+(lineups + events + player stats), free, sized to demand. ~2 min registration; token
+lands in archbox `.env.local` as e.g. `APIFOOTBALL_KEY`. Re-enters "a provider" only in
+the loosest sense (no contract, no cost; cancellable by deleting a row + env line).
+(b) football-data.org €29/mo — ToS-clean, EU-based, but paid provider re-entry.
+(c) Rule that a facts-only, rate-respecting fetcher may proceed against a terms-failed
+family (#9 transfermarkt or #15 basketball-reference are the technically-clean picks) —
+his legal-posture call; the executor default is the review verdict, i.e. no.
+(d) Neither → Phase 4 parks after 4.4 (nomination is source-independent) and the stats
+rail stays down — every day of which the Scout reads staler z-scores (the phase's own
+opening argument against waiting).
+
+**Session hygiene:** mig 208 applied + snapshot pulled; nothing deployed (no [DEPLOY]
+steps ran; `target/debug` builds only); no writes to any live table beyond the empty
+boxscore_sources DDL; the D-T1 pin edited in place. 4.4–4.10 untouched per §0.3.
 
 ### Handoff (phase 4 → 5)
 ```
@@ -2050,8 +2137,13 @@ in idle capacity. A phase may cite this ledger; it may not halt on it.)*
   skipped — "Yan Diomande's dream Real Madrid transfer…" → Jay-Z, two agents, no Yan).
   Baselines, same-yardstick title-mention: legacy Vinicius 54.9% / Olise 57.4% / Diomande
   49.4%; editor day-1 Vinicius **60.0%**, Diomande 66.7% per-success (38.5% raw). **The
-  137-article corpus replay (enqueued 2026-08-03 ~20:10, drains ~23:00) gives the paired
-  per-article verdict — record it here when read.** Candidate knobs: quoted-people-style
+  137-article corpus replay gives the paired per-article verdict — record it here when
+  read.** *(Checked 2026-08-03 18:19 EDT by the Phase 4 session, which fired before the
+  drain: editor queue still 1,184 pending — untouched since the 18:00 rest-window pause;
+  worker resumes 19:00; drain ETA ~23:00 EDT holds. The enqueue-time "~20:10" stamp was
+  UTC mislabeled EDT. Measure in the next session: replay rows = editor_reads on articles
+  with fetched_at < Aug 3 02:00, minus the 15 NBA smoke rows; per-name 2×2 vs
+  news_article_entities, ids Vinicius 600687 / Olise 24799984 / Diomande 37922937.)* Candidate knobs: quoted-people-style
   re-scan for title principals; interplay with the 2-mention floor; the Investigator
   refusal/nomination backstop (Phase 5) which structurally catches what the prompt drops.
 - **D-T2 · register `outrage` reads neutral under phrase-first order.** Known C2 cost,

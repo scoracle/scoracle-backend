@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict FNJhxhdvDUrMaewqOCFKqaIhqSx2XgnIfrfonInLFS07oq8Fbv3pfJYlOqKoGTy
+\restrict RCYvHWpeVX6c1v4TnArtKtVAeK0MSRMmqp6RhTW3CXG9DYyfhwMs3Yzl2ueDu5w
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -7774,6 +7774,89 @@ CREATE TABLE public.auth_refresh_tokens (
 
 
 --
+-- Name: boxscore_sources; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.boxscore_sources (
+    id bigint NOT NULL,
+    sport text NOT NULL,
+    league_id integer,
+    domain text NOT NULL,
+    discovery text NOT NULL,
+    url_template text,
+    parser_family text NOT NULL,
+    trust_state text DEFAULT 'candidate'::text NOT NULL,
+    fetch_policy jsonb DEFAULT '{}'::jsonb NOT NULL,
+    terms_review jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT boxscore_sources_discovery_check CHECK ((discovery = ANY (ARRAY['url_template'::text, 'search'::text]))),
+    CONSTRAINT boxscore_sources_trust_state_check CHECK ((trust_state = ANY (ARRAY['candidate'::text, 'trusted'::text, 'suspended'::text])))
+);
+
+
+--
+-- Name: TABLE boxscore_sources; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.boxscore_sources IS 'Source families the Investigator may fetch box scores from (PLAN-one-rail 4.3). One adapter per family (parser_family names the Rust parser module); adding or suspending a source is data, not a deploy. A family enters as candidate, earns trusted via the 4.8 replay gate, and is suspended — never deleted — when it misbehaves.';
+
+
+--
+-- Name: COLUMN boxscore_sources.league_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.boxscore_sources.league_id IS 'NULL = the family serves the whole sport; set when a family only covers one league.';
+
+
+--
+-- Name: COLUMN boxscore_sources.discovery; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.boxscore_sources.discovery IS 'url_template: match URLs are constructed/navigated from templates (the surgical target-URL scrape). search: match pages are discovered by query — Phase 5 substrate.';
+
+
+--
+-- Name: COLUMN boxscore_sources.url_template; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.boxscore_sources.url_template IS 'The template(s) for url_template discovery; interpretation belongs to the parser family (it may be a match-page template or an index-page template navigated in-family).';
+
+
+--
+-- Name: COLUMN boxscore_sources.fetch_policy; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.boxscore_sources.fetch_policy IS 'Budget knobs consumed by fetch.rs::BudgetedFetcher: {"rpm": N, "concurrency": 1, "min_spacing_secs": N, "cache_ttl_secs": N}. The fetcher floors spacing at 2s regardless of what this says (the 4.2 law).';
+
+
+--
+-- Name: COLUMN boxscore_sources.terms_review; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.boxscore_sources.terms_review IS 'The terms/robots review that admitted this family: {"reviewed_at", "robots", "terms", "verdict", "notes"} — the provenance of the right to fetch, next to the budget.';
+
+
+--
+-- Name: boxscore_sources_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.boxscore_sources_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: boxscore_sources_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.boxscore_sources_id_seq OWNED BY public.boxscore_sources.id;
+
+
+--
 -- Name: candidate_mentions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -11234,6 +11317,13 @@ ALTER TABLE ONLY public.acquisition_runs ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: boxscore_sources id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.boxscore_sources ALTER COLUMN id SET DEFAULT nextval('public.boxscore_sources_id_seq'::regclass);
+
+
+--
 -- Name: cognition_ledger id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -11549,6 +11639,22 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 ALTER TABLE ONLY public.auth_refresh_tokens
     ADD CONSTRAINT auth_refresh_tokens_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: boxscore_sources boxscore_sources_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.boxscore_sources
+    ADD CONSTRAINT boxscore_sources_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: boxscore_sources boxscore_sources_sport_domain_parser_family_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.boxscore_sources
+    ADD CONSTRAINT boxscore_sources_sport_domain_parser_family_key UNIQUE (sport, domain, parser_family);
 
 
 --
@@ -13592,6 +13698,14 @@ ALTER TABLE ONLY public.auth_refresh_tokens
 
 
 --
+-- Name: boxscore_sources boxscore_sources_sport_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.boxscore_sources
+    ADD CONSTRAINT boxscore_sources_sport_fkey FOREIGN KEY (sport) REFERENCES public.sports(id);
+
+
+--
 -- Name: candidate_mentions candidate_mentions_article_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14362,5 +14476,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FNJhxhdvDUrMaewqOCFKqaIhqSx2XgnIfrfonInLFS07oq8Fbv3pfJYlOqKoGTy
+\unrestrict RCYvHWpeVX6c1v4TnArtKtVAeK0MSRMmqp6RhTW3CXG9DYyfhwMs3Yzl2ueDu5w
 

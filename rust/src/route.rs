@@ -85,6 +85,11 @@ pub enum Role {
     /// Settled by hardware on gemma3:4b (§4 ruling) — `COGNITION_ROUTE_EDITOR` on archbox.
     /// `ArticleReader` is the legacy seat it shadows; that role dies at cutover (Phase 9).
     Editor,
+    /// The Investigator (PLAN-one-rail Phases 4–5): box-score retrieval and entity discovery.
+    /// Rides the SAME pinned gemma3:4b as the Editor (§3 — `MAX_LOADED_MODELS=1` makes any other
+    /// tag evict the incumbent); `COGNITION_ROUTE_INVESTIGATOR` on archbox. Its only v1 model
+    /// calls are describe-only page triage — numbers never enter rows through this role.
+    Investigator,
     TransferLogic,
     VibeLogic,
     OracleLogic,
@@ -96,13 +101,14 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 11] {
+    pub fn all() -> [Role; 12] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::NarrativeLogic,
             Role::ArticleReader,
             Role::Editor,
+            Role::Investigator,
             Role::TransferLogic,
             Role::VibeLogic,
             Role::OracleLogic,
@@ -121,6 +127,7 @@ impl Role {
             Role::NarrativeLogic => "narrative-logic",
             Role::ArticleReader => "article-reader",
             Role::Editor => "editor",
+            Role::Investigator => "investigator",
             Role::TransferLogic => "transfer-logic",
             Role::VibeLogic => "vibe-logic",
             Role::OracleLogic => "oracle-logic",
@@ -140,6 +147,7 @@ impl Role {
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
             Role::ArticleReader => "ARTICLE_READER",
             Role::Editor => "EDITOR",
+            Role::Investigator => "INVESTIGATOR",
             Role::TransferLogic => "TRANSFER_LOGIC",
             Role::VibeLogic => "VIBE_LOGIC",
             Role::OracleLogic => "ORACLE_LOGIC",

@@ -10,7 +10,8 @@ to 8,356–9,035/day ±20%) is CLOSED: first post-deploy sweep 7,259 fresh, in b
 REMAINING IN PHASE 3: 3.9 (48h shadow measurement — window is Aug 3 02:00 → Aug 5 02:00 EDT,
 first organic Editor day is the 2026-08-03 sweep) and 3.10 (full_text growth check), then the
 phase Verify + close.
-Last plan commit: (this one). Updated 2026-08-02 ~04:20 EDT.**
+Last plan commit: (this one). Updated 2026-08-02 ~21:55 EDT (second pre-window health check
++17.7h green; window opens in ~4h).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1198,6 +1199,39 @@ deploy is holding and froze the baselines the Aug 4/Aug 5 sessions will diff aga
   07-30: 649, 07-31: 609, 08-01: 646 (pre-window band ~609–649/day); 08-02 partial at 08:17
   already 355 — on pace, deploy visibly changed nothing.
 
+---
+
+**2026-08-02, 21:45–21:55 EDT: second pre-window health check (+17.7h post-deploy) — all
+green; two instrumentation pins corrected for the Aug 4/5 sessions. 3.9 still NOT taken
+(window opens Aug 3 02:00, ~4h from this check).**
+
+* **Rest-window false alarm, resolved:** `scoracle-cognition` showed `inactive` at 21:47 —
+  this is the §0.6 harness schedule, not a crash: `scoracle-cognition-pause.timer` stopped it
+  cleanly at 21:00 (SIGINT, drain at item boundary, stopped 21:02:02);
+  `scoracle-cognition-resume.timer` fires 22:00. Worker log at its 19:00 start confirms the
+  deployed order still holds: `stages=["scrub","graph","editor","article_read",...]`,
+  commit 4871fbe. `journalctl --user -p err` since deploy (04:05): still ZERO lines. Only
+  WARNs: two google-news URL-resolution timeouts (legacy article_read fetches via the shared
+  fetch.rs — expected noise).
+* **Editor state:** `editor_reads` still exactly the smoke test (13 success / 1 duplicate /
+  1 blocked, 0 failed); zero `editor` rows in `pipeline_work`. Correct — no arrivals since
+  the enqueue deploy; first organic items come with the Aug 3 02:00 sweep, whose crontab
+  entry is confirmed present (`0 2 * * * cron-pipeline.sh -mode ingest`).
+* **Legacy rail:** article_read backlog 1,043 pending at 21:47 (5,651 at 08:17; 7.4k at
+  04:15) — draining normally. `narrative_episodes` 08-02 partial: 573 at 21:47 vs band
+  609–649/day — plausible pace with the 22:00–24:00 duty block remaining; final Aug 2 count
+  gets read in the window sessions.
+* **PIN for the wait math (path correction):** the sampler CSV is
+  **`~/scoracle/scoracle-backend/logs/queue-depth.csv`** on archbox (the handoff block said
+  `queue-depth.csv` bare — there is no such file at repo root). Live and sampling: header
+  `ts,harness_active,stage,status,count`, last sample 21:40:47 with `harness_active=0`
+  (correctly 0 inside the rest window), 14,532 lines.
+* **PIN for 3.10 (metric definition):** the 71 kB window-open baseline is
+  `sum(pg_column_size(full_text))` (post-TOAST/compressed); the same 13 rows measure 128 kB
+  by `octet_length` (raw). Both re-measured tonight — 13 rows, 71 kB toast / 128 kB raw, i.e.
+  zero growth since 08:17, as expected. The Aug 4/5 growth check must diff **pg_column_size**
+  against 71 kB (or state its own metric); disk unchanged: /mnt/data 26G used, 1.8T free (2%).
+
 ### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -1218,8 +1252,9 @@ names[]-under-fill class gets judged (Scott's ruling); (e) resolver refusals/day
 (f) legacy narratives/day unchanged vs Phase 0 baseline. Then 3.10 (full_text growth vs
 the Phase 0 disk headroom: 1.8T free), the phase Verify (zero greenfield writes to
 legacy-read tables — column-diff on a sampled day), and the phase close + commit.
-queue-depth.csv (scoracle-qsample.timer, harness_active column) has the wait/depth data;
-cognition_ledger has per-call timings.
+logs/queue-depth.csv on archbox (scoracle-qsample.timer, harness_active column) has the
+wait/depth data; cognition_ledger has per-call timings (queue-wait via ledger ⋈ fetched_at —
+pipeline_work deletes completed rows); 3.10 diffs sum(pg_column_size(full_text)) vs 71 kB.
 ```
 
 ### Handoff (phase 3 → 4)

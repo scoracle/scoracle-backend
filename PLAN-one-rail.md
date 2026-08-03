@@ -7,15 +7,16 @@ shadow purity spot-checked). The 3.7 gate is GREEN under Scott's re-scope (33/33
 waived = names[] under-fill + register, judged live in 3.9(d)); the descriptor place gate +
 supported-vote rule live in editor/derive.rs. The Phase 2 volume band (re-baselined by Scott
 to 8,356–9,035/day ±20%) is CLOSED: first post-deploy sweep 7,259 fresh, in band, zero errors.
-REMAINING IN PHASE 3: 3.9 (48h shadow measurement — window is Aug 3 02:00 → Aug 5 02:00 EDT,
-first organic Editor day is the 2026-08-03 sweep) and 3.10 (full_text growth check), then the
-phase Verify + close.
-WATCH (day-1 interim, Aug 3 17:04 EDT): the Editor is healthy (77.2% of 6,905 arrivals read
-at +15.1h, on pace for ≥95% in 24h) but it has SATURATED the gemma card (38.05 of ~40
-available slot-hours) and the legacy article_read seat completed ZERO reads all day — 6,925
-of today's arrivals still pending. If the legacy backlog has not cleared before the Aug 4
-02:00 sweep, 3.9(f) is breaching → BLOCKED per §0.3; Scott decides. See the 2026-08-03 Log.
-Last plan commit: (this one). Updated 2026-08-03 ~17:30 EDT (day-1 interim readings taken).**
+REMAINING IN PHASE 3 — RE-SCOPED BY SCOTT 2026-08-03 (see the 20:15 Log entry): the 48h
+wall-clock window is no longer the gate; the CORPUS REPLAY is. 137 legacy-era bleed-class
+articles (all Olise + 50 Vinicius + 50 Diomande, Jul 27–Aug 2) are enqueued to the Editor;
+when drained (~23:00 Aug 3), measure the per-article PAIRED A/B vs news_article_entities
+and bring Scott the threshold verdict (bar: beats legacy per name; Vinicius already clears
+on organic day 1: 60.0% vs 54.9%). Then: Scott decides move-to-production + the post-flip
+debugging window. Production delay during this is accepted by Scott; do NOT fit both rails
+on the card (no 24h duty day). Legacy article_read is starved meanwhile (~11 reads Aug 3) —
+known and accepted for the window.
+Last plan commit: (this one). Updated 2026-08-03 ~20:15 EDT (ruling + replay enqueued).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1306,6 +1307,51 @@ so card-busy is a lower bound and legacy throughput must be counted from
 
 ---
 
+**2026-08-03, 17:45–20:15 EDT: SCOTT'S RULING — stop waiting for live accumulation; judge
+the Editor on the existing corpus, threshold-gate the move to production, then set a new
+debugging window post-flip. The 48h wall-clock window is no longer the gate; the CORPUS
+REPLAY is.**
+
+Scott (in session, after the day-1 GPU/starvation briefing): two passes are enough; we have
+an entire corpus to test with; train/test on existing data rather than waiting for new
+arrivals; once a high-enough threshold is crossed, move to production and set a new timer
+for debugging there. He also ruled: do NOT try to fit both rails on the card (no 24h duty
+day — no extra hardware stress), and production delay during the window is acceptable.
+
+**3.9(d) taken early, on day-1 organic data — with the definitional correction that
+re-frames the baseline.** The HANDOFF 39/182 was measured on an unrecorded mention
+definition; re-measured with ONE definition (title-mention, per-name) on both rails:
+legacy 7-day (Jul 27–Aug 2, news_article_entities): Vinicius 157/286 = **54.9%**, Olise
+27/47 = **57.4%**, Diomande 208/421 = **49.4%**. Editor day-1 organic: Vinicius 15/25 =
+**60.0%** (BEATS legacy), Diomande 10/26 = 38.5% raw — but the gap is design, not bleed:
+of the 26, 6 were `duplicate` (short-circuit; canonical carries the story), 4 `irrelevant`,
+1 `blocked`; of 15 actual reads Yan linked in 10 = **66.7% per-success (beats legacy)**.
+Olise: **zero title-mentions on Aug 3** — the sample-starvation problem in person, and
+what the corpus replay fixes. The 5 Diomande misses are ALL the waived names[]-under-fill
+class: the model emitted clubs/agents but not the player (one title literally "Yan
+Diomande's dream Real Madrid transfer…" → names[] had Jay-Z, two agents, RB Leipzig, no
+Yan). Refusals in the bleed sets: 0. Sport-scope note for anything replayed by hand:
+`resolve_names` filters `entity_name_surfaces` on `pipeline_work.sport` (derive.rs:287) —
+wrong sport = resolution impossible by construction.
+
+**CORPUS REPLAY ENQUEUED (the same-article A/B).** 137 legacy-era articles (Jul 27–Aug 2,
+duplicate_of IS NULL, title-mention: all 37 Olise + 50 md5-sampled Vinicius + 50 Diomande)
+inserted into pipeline_work stage='editor', sport='FOOTBALL' (rehearsed in a rolled-back tx
+first, ON CONFLICT DO NOTHING; insert 137, queue total 1,184 with ~1,047 organic remaining;
+~20 min of extra card time). Legacy's per-article verdicts on these exact articles are
+already in news_article_entities → when the queue drains (~23:00 tonight), the measurement
+is a per-article PAIRED comparison, per name: editor-linked × legacy-linked 2×2. Replay
+rows self-identify: any editor_reads row on an article with fetched_at < Aug 3 is replay
+(organic coverage starts Aug 3 02:00). Caveat to carry: week-old Google News URLs may
+fetch worse than fresh ones — judge link rate per successful read alongside the raw rate.
+
+**Threshold (for Scott to affirm):** the plan's written bar is "beats legacy" per bleed
+name on the same yardstick. Vinicius already clears it on organic day 1. The replay
+verdict + Scott's threshold call together decide the move-to-production step and the
+post-flip debugging window he asked for.
+
+---
+
 ### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -1314,28 +1360,26 @@ archbox (release.sh @ 4871fbe, 2026-08-02 04:10 EDT; editor registered before
 article_read; smoke test 15/15 reads, 0 failed, shadow purity spot-checked). The 3.7
 gate is green re-scoped (33/33 required ×2); the Phase 2 volume band is closed (7,259
 fresh in band 6,956–10,556, zero errors).
-WATCH FIRST (day-1 interim, Aug 3): the Editor saturated the gemma card (38 of ~40
-slot-hours) and legacy article_read completed ZERO reads on Aug 3 — read the 2026-08-03
-Log entry, then check (f) BEFORE anything else: did the legacy backlog (6.9k at 17:05)
-clear before the Aug 4 02:00 sweep? If not, 3.9(f) is breaching → BLOCKED per §0.3,
-surface to Scott (registration-order swap / slot split / num_predict trim / duty change
-are his options, not yours to execute).
-Read §0, the Phase 3 Log (2026-08-02 and 2026-08-03 entries), then execute 3.9: the 48h
-shadow window is Aug 3 02:00 → Aug 5 02:00 EDT (the 2026-08-03 02:00 sweep is the Editor's
-first organic day — earlier editor_reads rows are the 15-article smoke test only). Record
-in the Log:
-(a) editor reads/day vs arrivals/day, p50/p95 queue wait, GPU-busy fraction across two
-duty days; (b) % of arrivals read within 24h (goal ≥95% — if <95%, check the 3.4
-duplicate short-circuit is firing, then consider num_predict 900→750, then STOP);
-(c) status distribution vs legacy bands; (d) the Olise-class 50-article discovery sample:
-linked-in-resolved rate vs the legacy 39/182 Vinicius baseline — THIS is where the waived
-names[]-under-fill class gets judged (Scott's ruling); (e) resolver refusals/day;
-(f) legacy narratives/day unchanged vs Phase 0 baseline. Then 3.10 (full_text growth vs
-the Phase 0 disk headroom: 1.8T free), the phase Verify (zero greenfield writes to
-legacy-read tables — column-diff on a sampled day), and the phase close + commit.
-logs/queue-depth.csv on archbox (scoracle-qsample.timer, harness_active column) has the
-wait/depth data; cognition_ledger has per-call timings (queue-wait via ledger ⋈ fetched_at —
-pipeline_work deletes completed rows); 3.10 diffs sum(pg_column_size(full_text)) vs 71 kB.
+RE-SCOPED BY SCOTT 2026-08-03 (read the 2026-08-03 20:15 Log entry FIRST): the corpus
+replay replaces the 48h wait as the 3.9(d) gate. 137 legacy-era bleed-class articles
+(all 37 Olise + 50 Vinicius + 50 Diomande, Jul 27–Aug 2, title-mention, duplicate_of
+excluded) were enqueued to the Editor ~20:10 Aug 3; drain ETA ~23:00 Aug 3.
+DO NOW: (1) measure the paired per-article A/B — replay rows self-identify as
+editor_reads on articles with fetched_at < Aug 3 02:00 (minus the 15 smoke-test rows,
+article ids in the 2026-08-02 Log); per name, 2×2 editor-linked × legacy-linked
+(news_article_entities, entity ids: Vinicius Jr 600687, Olise 24799984, Yan Diomande
+37922937; resolver is sport-scoped — replay items carry FOOTBALL); report raw rate AND
+per-successful-read rate (stale Google News URLs fetch worse). Yardstick already taken:
+legacy title-mention rates Vinicius 54.9%, Olise 57.4%, Diomande 49.4%; editor organic
+day-1 Vinicius 60.0%. (2) Take the routine 3.9 a/b/c/e/f readings for the record
+(cognition_ledger ⋈ fetched_at for waits; narratives will show the accepted starvation
+dent). (3) 3.10: diff sum(pg_column_size(full_text)) vs 71 kB baseline (17.4 MB @ Aug 3
+17:00). (4) Verify: zero greenfield writes to legacy-read tables (bucket/routing_tags
+column-diff on a sampled day). (5) BRING SCOTT THE THRESHOLD VERDICT — bar is "beats
+legacy per name on the same yardstick"; he then rules on move-to-production and the
+post-flip debugging window. Do not deploy or change claim order without his ruling.
+Known+accepted meanwhile: legacy article_read starved (~11 reads Aug 3), narratives
+decaying; no 24h duty day (Scott: no extra hardware stress).
 ```
 
 ### Handoff (phase 3 → 4)

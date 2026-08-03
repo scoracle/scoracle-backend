@@ -37,6 +37,15 @@ archivist; demolition would likewise have killed the episode rollups every memor
 stats before the Scout; graph rides Gemma; empower the junction — Google does relevancy up
 front. Flow diagram rewritten with machines + tables.)*
 
+**THE GOAL (Scott, 2026-08-03 — read this before any phase):** We are dramatically
+simplifying so we can empower our models better. The deliverable of this plan is the
+PLUMBING — a pipeline as simple, lean, nimble, and durable as possible, where data flows
+naturally and frictionlessly and the models are trusted for the work at their junctions.
+**Tuning is the next step, AFTER the rail stands** — junction quality items go to the
+Appendix D tuning ledger and are refined on clean plumbing later, not litigated mid-build
+(§4 ruling). The old rails drowned in scar tissue precisely because quality was battled
+in place instead of tuned on a clean substrate. Do not rebuild that habit here.
+
 Written 2026-07-28. This is the build order for the greenfield rail decided in
 [`HANDOFF-newsroom.md`](HANDOFF-newsroom.md). Read that file's §1–§3 before touching anything —
 it is the case for this plan and the map of the rot this plan must not rebuild.
@@ -100,8 +109,9 @@ before.
 
 This plan is executed one phase per session, by smaller models, on mobile. The protocol:
 
-1. **Read first:** this section, the **STATE** line, the phase you are executing, and any appendix
-   that phase names. Do not read the whole repo. `HANDOFF-newsroom.md` §3 and the Traps section of
+1. **Read first:** the **GOAL** block at the top (simplify to empower the models; tuning
+   comes AFTER the rail stands), this section, the **STATE** line, the phase you are
+   executing, and any appendix that phase names. Do not read the whole repo. `HANDOFF-newsroom.md` §3 and the Traps section of
    `PLAN-ingest-simplification.md` are the background; consult them when a step cites T-numbers.
 2. **Work the phase top to bottom.** Checkboxes are ordered by dependency. Do not reorder, do not
    start the next phase.

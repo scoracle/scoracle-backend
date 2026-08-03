@@ -10,8 +10,12 @@ to 8,356–9,035/day ±20%) is CLOSED: first post-deploy sweep 7,259 fresh, in b
 REMAINING IN PHASE 3: 3.9 (48h shadow measurement — window is Aug 3 02:00 → Aug 5 02:00 EDT,
 first organic Editor day is the 2026-08-03 sweep) and 3.10 (full_text growth check), then the
 phase Verify + close.
-Last plan commit: (this one). Updated 2026-08-02 ~21:55 EDT (second pre-window health check
-+17.7h green; window opens in ~4h).**
+WATCH (day-1 interim, Aug 3 17:04 EDT): the Editor is healthy (77.2% of 6,905 arrivals read
+at +15.1h, on pace for ≥95% in 24h) but it has SATURATED the gemma card (38.05 of ~40
+available slot-hours) and the legacy article_read seat completed ZERO reads all day — 6,925
+of today's arrivals still pending. If the legacy backlog has not cleared before the Aug 4
+02:00 sweep, 3.9(f) is breaching → BLOCKED per §0.3; Scott decides. See the 2026-08-03 Log.
+Last plan commit: (this one). Updated 2026-08-03 ~17:30 EDT (day-1 interim readings taken).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1232,6 +1236,76 @@ green; two instrumentation pins corrected for the Aug 4/5 sessions. 3.9 still NO
   zero growth since 08:17, as expected. The Aug 4/5 growth check must diff **pg_column_size**
   against 71 kB (or state its own metric); disk unchanged: /mnt/data 26G used, 1.8T free (2%).
 
+**2026-08-03, 17:04–17:30 EDT: DAY-1 INTERIM READINGS (+15.1h into the window). The Editor
+is green on every axis it owns; the legacy seat is being starved of the card. 3.9 NOT
+closed (window runs to Aug 5 02:00; these are the interim numbers the Aug 4/5 sessions
+diff against).**
+
+**(a) throughput, day-1 partial.** Aug 3 sweep: **6,905 arrivals** (02:01–02:26). Enqueue
+seam: 100% — editor_reads 5,328 + pending 1,573 + running 4 = 6,905, zero leaks. Reads by
+17:05: **5,328 (77.2% at +15.1h)**, drain ~355/h against the 02:00 bulk dump; remaining
+~1,577 projects done ~21:00–23:00 — **≥95%-in-24h (b) is on pace**, formal read at the Aug 4
+session. Queue wait (cognition_ledger.generated_at − news_articles.fetched_at, n=3,995):
+**p50 7.77h / p95 14.42h** — shaped by the once-daily 02:00 dump, not by slot scarcity for
+the Editor itself. Model calls: 4,009 (duplicate/blocked/fetch_failed correctly skip the
+call), call wall **p50 33.4s / p95 56.2s / avg 34.1s** (~349 output tokens on the sampled
+call, ~10 tok/s/slot on the 1070 Ti at 4-parallel).
+
+**(c) status distribution, day-1 vs legacy 7-day (Jul 27–Aug 2, news_article_readings):**
+editor success 2,999 (56.3%) vs legacy 53.5%; irrelevant 858 (16.1%) vs 23.8% (partial-day +
+ep1-derive difference — re-read on the full window); **duplicate 496 (9.3%) — the 3.4
+short-circuit is firing, inside the predicted 5–12%**; blocked 593 (11.1%) + fetch_failed
+137 (2.6%) = 13.7% vs legacy's fetch_failed 12.3% (legacy has no blocked status — the
+401/403 split is new; combined bands match); empty_body 107 (2.0%) vs 2.2%; paywall 1 vs ~0.
+**Watch item: parse_failed 137 (2.6%) vs legacy 0.1%** — one work-item failed outright.
+Re-read on the full window before judging.
+
+**(e) refusals, day-1 partial:** 88 refused_ambiguous names across 88 reads (~1.7% of reads).
+Resolved shape confirmed: `resolved.links[] / unresolved[] / refused_ambiguous[]`.
+
+**(f) THE FLAG — legacy starvation under strict claim priority.** `news_article_readings`
+written today: **ZERO**. article_read pending 6,976 = **6,925 of today's arrivals + 51
+stale stragglers** (oldest fetched_at 2026-05-11 — pre-existing junk, not new). graph: 0
+ledger rows today (its enqueue seam is the legacy handler — starved downstream). Cause is
+arithmetic, not a bug: editor wall today = **38.05 slot-hours of the ~40 available**
+(15.1h × ⅔ duty × 4 slots) — registration order is strict priority, so article_read claims
+only when the editor queue is empty, which it never was. Steady-state projection: editor
+demand ≈ 5,200 calls/day × 34.1s ≈ **49 of the 64 daily slot-hours**, leaving ~15 for
+article_read + graph, which previously consumed most of the idle card to make 7,400
+reads/day. Unless legacy's per-call wall is ≲10s, combined demand exceeds the card:
+the legacy backlog compounds daily and narratives/day decays. This is precisely the
+"assumed headroom is how rails rot" scenario 3.9 exists to catch — and it is NOT covered
+by 3.9's remedy list (the short-circuit IS firing; num_predict trim shaves ~15% off editor
+wall, not enough to hand the card back). Not a purity violation: bucket untouched on all
+of today's editor-read articles (0 set); editor writes remain greenfield-only.
+**Decision: no mid-window knob turns (§0.4 — one change, one measurement). The Aug 4
+session reads (f) FIRST: Aug 3 final narratives, overnight legacy catch-up, article_read
+backlog at the 02:00 sweep. If the backlog did not clear, 3.9(f) is breaching → log,
+commit, BLOCKED per §0.3. Options to surface to Scott (not execute): registration-order
+swap, slot split (2+2), editor num_predict 900→750, duty-schedule change.**
+
+**(f) narratives:** Aug 2 FINAL = **573 vs band 609–649** (−6% below band low; the
+22:00–24:00 duty block added nothing after 573 @ 21:47). Aug 2 pre-dates today's
+contention (editor was idle post-smoke), so this is NOT starvation — plausibly a Sunday
+dip (the band was built from Thu/Fri/Sat). Aug 3 partial: 317 @ 17:04. Judge on full days.
+
+**(3.10 interim):** full_text **3,875 rows / 17.4 MB** pg_column_size-toast (baseline 71 kB)
+≈ ~23 MB/day steady-state ≈ ~8.4 GB/yr. news_articles total relation 188→211 MB. /mnt/data
+27G used, **1.8T free (2%)**. No risk; formal close with the window.
+
+**Services:** cognition/api/qsample all active; `journalctl --user -p err` since deploy
+(Aug 2 04:05): still ZERO lines. qsample live, last 17:00:47 `harness_active=1`.
+
+**PINs for the Aug 4/5 sessions:** (1) GPU-busy fraction = sum(`context_budget->>'wall_ms'`)
+from cognition_ledger over duty-hours × 4 slots — **filter stage: only editor (+graph) run
+on the archbox card; narratives/rating/sigil/vibe/momentum in the same ledger run on the
+Mac's ministral.** article_read writes NO ledger rows (the legacy gap persists until flip),
+so card-busy is a lower bound and legacy throughput must be counted from
+`news_article_readings.updated_at` (no created_at column). (2) editor_reads timestamps:
+`fetched_at`/`updated_at` (no created_at). (3) cognition_ledger timestamp: `generated_at`.
+
+---
+
 ### Handoff (phase 3, 3.8 deployed → 3.9 readings)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -1240,9 +1314,16 @@ archbox (release.sh @ 4871fbe, 2026-08-02 04:10 EDT; editor registered before
 article_read; smoke test 15/15 reads, 0 failed, shadow purity spot-checked). The 3.7
 gate is green re-scoped (33/33 required ×2); the Phase 2 volume band is closed (7,259
 fresh in band 6,956–10,556, zero errors).
-Read §0, the Phase 3 Log (2026-08-02 entry), then execute 3.9: the 48h shadow window is
-Aug 3 02:00 → Aug 5 02:00 EDT (the 2026-08-03 02:00 sweep is the Editor's first organic
-day — earlier editor_reads rows are the 15-article smoke test only). Record in the Log:
+WATCH FIRST (day-1 interim, Aug 3): the Editor saturated the gemma card (38 of ~40
+slot-hours) and legacy article_read completed ZERO reads on Aug 3 — read the 2026-08-03
+Log entry, then check (f) BEFORE anything else: did the legacy backlog (6.9k at 17:05)
+clear before the Aug 4 02:00 sweep? If not, 3.9(f) is breaching → BLOCKED per §0.3,
+surface to Scott (registration-order swap / slot split / num_predict trim / duty change
+are his options, not yours to execute).
+Read §0, the Phase 3 Log (2026-08-02 and 2026-08-03 entries), then execute 3.9: the 48h
+shadow window is Aug 3 02:00 → Aug 5 02:00 EDT (the 2026-08-03 02:00 sweep is the Editor's
+first organic day — earlier editor_reads rows are the 15-article smoke test only). Record
+in the Log:
 (a) editor reads/day vs arrivals/day, p50/p95 queue wait, GPU-busy fraction across two
 duty days; (b) % of arrivals read within 24h (goal ≥95% — if <95%, check the 3.4
 duplicate short-circuit is firing, then consider num_predict 900→750, then STOP);

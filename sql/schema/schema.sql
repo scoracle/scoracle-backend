@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict RCYvHWpeVX6c1v4TnArtKtVAeK0MSRMmqp6RhTW3CXG9DYyfhwMs3Yzl2ueDu5w
+\restrict meqXgBcEoovRkn7sYuZuG0cQLRyTyYtecgI7CKss4FauwfcGmfgIHltQucj8o2Q
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -8536,6 +8536,7 @@ CREATE TABLE public.fixtures (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     last_incomplete_reason text,
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
     CONSTRAINT different_teams CHECK ((home_team_id <> away_team_id)),
     CONSTRAINT fixtures_status_check CHECK ((status = ANY (ARRAY['scheduled'::text, 'in_progress'::text, 'completed'::text, 'seeded'::text, 'cancelled'::text, 'postponed'::text])))
 );
@@ -8546,6 +8547,13 @@ CREATE TABLE public.fixtures (
 --
 
 COMMENT ON COLUMN public.fixtures.last_incomplete_reason IS 'Why the most recent provider payload failed the completeness contract (seed/services/event/completeness.py). Distinct from last_seed_error, which records transport/processing failures. Cleared by mark_fixture_seeded().';
+
+
+--
+-- Name: COLUMN fixtures.meta; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.fixtures.meta IS 'Nomination/verification provenance (PLAN-one-rail 4.4): the Editor''s result_line nomination sets {"needs_verification": true, "nominated_by": "editor", "article_id"}; the Investigator''s validated promotion (4.7) sets needs_verification false. Never read by the legacy rail.';
 
 
 --
@@ -8653,6 +8661,106 @@ CREATE SEQUENCE public.insider_scores_id_seq
 --
 
 ALTER SEQUENCE public.insider_scores_id_seq OWNED BY public.insider_scores.id;
+
+
+--
+-- Name: investigator_funnel; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.investigator_funnel AS
+ SELECT date(last_seen_at) AS day,
+    state,
+    COALESCE(kind_hint, 'unknown'::text) AS kind_hint,
+    sport,
+    count(*) AS candidates,
+    sum(mention_count) AS mentions
+   FROM public.entity_candidates c
+  GROUP BY (date(last_seen_at)), state, COALESCE(kind_hint, 'unknown'::text), sport;
+
+
+--
+-- Name: VIEW investigator_funnel; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.investigator_funnel IS 'Nomination → decision funnel by day/state/kind/sport (PLAN-one-rail 5.8). The census classes (rejected_out_of_scope clubs/NTs, D-3) appear here and nowhere else.';
+
+
+--
+-- Name: source_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.source_documents (
+    id bigint NOT NULL,
+    url text NOT NULL,
+    final_url text,
+    domain text,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    content_hash text,
+    http_status integer,
+    title text,
+    retained_excerpt text,
+    headers jsonb DEFAULT '{}'::jsonb NOT NULL
+);
+
+
+--
+-- Name: TABLE source_documents; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.source_documents IS 'The fetched page a fact cites: canonical url, redirect target, hash, and a retained excerpt. Same URL fetched twice is TWO rows — provenance is a point in time, not a link. Rows are never deleted while anything cites them (facts/relationships FK here without CASCADE, so a delete that would orphan provenance fails).';
+
+
+--
+-- Name: investigator_review_accepted; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.investigator_review_accepted AS
+ SELECT c.id AS candidate_id,
+    c.norm_name,
+    c.kind_hint,
+    c.sport,
+    c.resolved_entity_type,
+    c.resolved_entity_id,
+    c.mention_count,
+    c.decided_at,
+    r.outcome,
+    r.query_plan,
+    sd.id AS source_document_id,
+    sd.url AS source_url,
+    sd.title AS source_title,
+    sd.fetched_at AS source_fetched_at
+   FROM ((public.entity_candidates c
+     LEFT JOIN LATERAL ( SELECT acquisition_runs.outcome,
+            acquisition_runs.query_plan
+           FROM public.acquisition_runs
+          WHERE (acquisition_runs.candidate_id = c.id)
+          ORDER BY acquisition_runs.finished_at DESC NULLS LAST
+         LIMIT 1) r ON (true))
+     LEFT JOIN LATERAL ( SELECT sd_1.id,
+            sd_1.url,
+            sd_1.final_url,
+            sd_1.domain,
+            sd_1.fetched_at,
+            sd_1.content_hash,
+            sd_1.http_status,
+            sd_1.title,
+            sd_1.retained_excerpt,
+            sd_1.headers
+           FROM (public.entity_aliases ea
+             JOIN public.source_documents sd_1 ON ((sd_1.id = ea.source_document_id)))
+          WHERE ((ea.entity_type = c.resolved_entity_type) AND (ea.entity_id = c.resolved_entity_id))
+          ORDER BY ea.created_at DESC
+         LIMIT 1) sd ON (true))
+  WHERE (c.state = 'accepted'::text)
+  ORDER BY c.decided_at DESC
+ LIMIT 50;
+
+
+--
+-- Name: VIEW investigator_review_accepted; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON VIEW public.investigator_review_accepted IS 'The 5.8 hand-check surface: latest 50 accepted candidates with their most recent acquisition run and the source document their aliases cite. One false merge here is a stop-the-line event — it blocks widening any gate until explained and regression-fixtured.';
 
 
 --
@@ -10432,31 +10540,6 @@ COMMENT ON COLUMN public.sigil_synthesis.voiced_score IS 'Sigil score the curren
 --
 
 COMMENT ON COLUMN public.sigil_synthesis.voiced_at IS 'When the current reading was actually drawn; older than generated_at on carried-forward rows.';
-
-
---
--- Name: source_documents; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.source_documents (
-    id bigint NOT NULL,
-    url text NOT NULL,
-    final_url text,
-    domain text,
-    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
-    content_hash text,
-    http_status integer,
-    title text,
-    retained_excerpt text,
-    headers jsonb DEFAULT '{}'::jsonb NOT NULL
-);
-
-
---
--- Name: TABLE source_documents; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.source_documents IS 'The fetched page a fact cites: canonical url, redirect target, hash, and a retained excerpt. Same URL fetched twice is TWO rows — provenance is a point in time, not a link. Rows are never deleted while anything cites them (facts/relationships FK here without CASCADE, so a delete that would orphan provenance fails).';
 
 
 --
@@ -14476,5 +14559,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RCYvHWpeVX6c1v4TnArtKtVAeK0MSRMmqp6RhTW3CXG9DYyfhwMs3Yzl2ueDu5w
+\unrestrict meqXgBcEoovRkn7sYuZuG0cQLRyTyYtecgI7CKss4FauwfcGmfgIHltQucj8o2Q
 

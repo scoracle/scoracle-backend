@@ -24,7 +24,9 @@ use serde_json::json;
 use sqlx::Row;
 use tracing::warn;
 
+pub mod candidates;
 pub mod derive;
+pub mod nominate;
 pub mod prompt;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
 
@@ -462,8 +464,27 @@ impl StageHandler for EditorHandler {
         )
         .await;
         ledger_model_call(hx, item, &extracted.model, "parsed", &extracted, &body_hash).await;
-        // NO downstream enqueues in shadow: the forks (box scores, nominations, graph, the
-        // Desk) are Phases 4–6, and the legacy rail must not feel this stage exists.
+        // The box-score fork (Phase 4.4) — the ONE live downstream of the Editor before
+        // cutover: a parsed result_line whose teams both resolve upserts a completed
+        // fixture; the existing fixture_boxscore_enqueue_on_final trigger owns the enqueue.
+        // Best-effort: the read is persisted, and a nomination hiccup must not re-run the
+        // model call. The other forks (nominations → Phase 5, packets/graph → Phases 6–7)
+        // remain OFF in shadow.
+        nominate::nominate_best_effort(&hx.pool, &item.sport, article_id, &read).await;
+        // The nomination sweep (Phase 5.1/5.2): the resolver's leftovers become durable
+        // candidates + evidence mentions; person-with-descriptor and refused ties enqueue
+        // investigate_entity. Irrelevant reads carry an empty Resolved, so this no-ops for
+        // them by construction. Best-effort for the same reason as the fixture fork.
+        if let Err(e) =
+            candidates::sweep_candidates(&hx.pool, &item.sport, article_id, &fetched.text, &resolved)
+                .await
+        {
+            tracing::warn!(
+                article_id,
+                error = %format!("{e:#}"),
+                "nomination sweep failed (read already persisted; continuing)"
+            );
+        }
         Ok(())
     }
 }

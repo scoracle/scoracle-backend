@@ -145,6 +145,13 @@ async fn main() -> Result<()> {
     if enabled.contains("editor") {
         handlers.push(Box::new(editor::EditorHandler::new()));
     }
+    // The Investigator (Phase 5): registered AFTER the Editor — the Editor outranks it on
+    // the shared slot group (max_in_flight 1), so discovery only rides the card's idle time.
+    if enabled.contains("investigate_entity") {
+        handlers.push(Box::new(
+            scoracle_cognition::junctions::investigator::entity::InvestigateEntityHandler::new()?,
+        ));
+    }
     if enabled.contains("article_read") {
         handlers.push(Box::new(article_reader::ArticleReadHandler::new()));
     }

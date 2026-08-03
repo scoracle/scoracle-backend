@@ -30,6 +30,10 @@ pub enum Stage {
     /// seat it shadows until cutover. Writes ONLY greenfield tables (`editor_reads`,
     /// `news_articles.full_text`).
     Editor,
+    /// The Investigator's entity-discovery stage (PLAN-one-rail Phase 5) — candidate-keyed
+    /// (`entity_type='candidate'`, entity_id = `entity_candidates.id`). Enqueued by the
+    /// Editor's nomination sweep (5.2); writes only through the 5.5 gate.
+    InvestigateEntity,
     FixtureBoxscore,
     Graph,
     Peak,
@@ -48,6 +52,7 @@ impl Stage {
             Stage::Scrub => "scrub",
             Stage::ArticleRead => "article_read",
             Stage::Editor => "editor",
+            Stage::InvestigateEntity => "investigate_entity",
             Stage::FixtureBoxscore => "fixture_boxscore",
             Stage::Graph => "graph",
             Stage::Peak => "peak",

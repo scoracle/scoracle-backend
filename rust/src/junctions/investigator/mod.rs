@@ -13,3 +13,8 @@
 //! statelessness is the objectivity guarantee (§4).
 
 pub mod boxscore;
+pub mod discover;
+pub mod entity;
+pub mod gate;
+#[cfg(test)]
+mod tests;

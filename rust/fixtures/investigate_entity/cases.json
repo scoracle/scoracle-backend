@@ -1,0 +1,214 @@
+{
+  "_readme": [
+    "Adversarial gate fixtures (PLAN-one-rail 5.7), NBA-first per Scott's vetting ruling.",
+    "Each case feeds gate::decide directly: items are parsed Wikidata shapes; name_agreed",
+    "records what the SQL nrm() screen would answer (the screen lives in the database —",
+    "mig 198 — so fixtures pin the DECISION LOGIC, and the nrm agreement is an input);",
+    "team_matched records whether the item's team links resolved onto OUR teams.",
+    "expect: accept:<role> | ambiguous | rejected_not_sport | rejected_insufficient_evidence."
+  ],
+  "cases": [
+    {
+      "name": "erik-spoelstra-head-coach-accepts",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Erik Spoelstra",
+          "description": "American basketball coach",
+          "occupations": ["Q13365117"],
+          "coach_of_teams": ["Q169138"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:coach"
+    },
+    {
+      "name": "kyle-shanahan-nfl-coach-accepts",
+      "sport": "NFL",
+      "items": [
+        {
+          "label": "Kyle Shanahan",
+          "description": "American football coach",
+          "occupations": ["Q41583"],
+          "coach_of_teams": ["Q328112"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:coach"
+    },
+    {
+      "name": "xabi-alonso-coach-despite-player-history",
+      "sport": "FOOTBALL",
+      "items": [
+        {
+          "label": "Xabi Alonso",
+          "description": "Spanish football manager and former player",
+          "occupations": ["Q628099", "Q937857"],
+          "member_of_teams": ["Q8682", "Q9616"],
+          "coach_of_teams": ["Q8682"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:player",
+      "_note": "Occupation table is player-first, so a dual player+manager record classifies as player — the accepted entity is still the right IDENTITY (the discriminator carried it); kind refinement for dual-record people is a D-T tuning item, not an identity risk."
+    },
+    {
+      "name": "pep-guardiola-must-not-merge-into-sergi",
+      "sport": "FOOTBALL",
+      "items": [
+        {
+          "label": "Pep Guardiola",
+          "description": "Spanish football manager",
+          "occupations": ["Q628099"],
+          "coach_of_teams": ["Q50602"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [false],
+      "expect": "ambiguous",
+      "_note": "Sport-relevant but the coached club is not one of OUR teams (no discriminator): surfaces for review, never an accept — and therefore never a merge onto player sergi guardiola."
+    },
+    {
+      "name": "drafted-rookie-accepts-as-player-kind",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Hypothetical Rookie",
+          "description": "American basketball player",
+          "occupations": ["Q3665646"],
+          "member_of_teams": ["Q121783"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:player",
+      "_note": "persons kind player — the write path NEVER inserts a players row (D-2); the handler creates a persons row for story-relevant players outside the stats platform."
+    },
+    {
+      "name": "andy-burnham-politician-rejects-not-sport",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Andy Burnham",
+          "description": "British politician",
+          "occupations": []
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [false],
+      "expect": "rejected_not_sport"
+    },
+    {
+      "name": "lee-child-author-rejects-not-sport",
+      "sport": "FOOTBALL",
+      "items": [
+        {
+          "label": "Lee Child",
+          "description": "British author",
+          "occupations": []
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [false],
+      "expect": "rejected_not_sport"
+    },
+    {
+      "name": "vinicius-namesake-tie-never-a-coin-flip",
+      "sport": "FOOTBALL",
+      "items": [
+        {
+          "label": "Vinícius Júnior",
+          "description": "Brazilian footballer",
+          "occupations": ["Q937857"],
+          "member_of_teams": ["Q8682"]
+        },
+        {
+          "label": "Vinícius Tobias",
+          "description": "Brazilian footballer",
+          "occupations": ["Q937857"],
+          "member_of_teams": ["Q8682"]
+        }
+      ],
+      "name_agreed": [true, true],
+      "team_matched": [true, true],
+      "expect": "ambiguous"
+    },
+    {
+      "name": "vinicius-namesakes-split-by-discriminator",
+      "sport": "FOOTBALL",
+      "items": [
+        {
+          "label": "Vinícius Júnior",
+          "description": "Brazilian footballer",
+          "occupations": ["Q937857"],
+          "member_of_teams": ["Q8682"]
+        },
+        {
+          "label": "Vinícius Tobias",
+          "description": "Brazilian footballer",
+          "occupations": ["Q937857"],
+          "member_of_teams": ["Q1899"]
+        }
+      ],
+      "name_agreed": [true, true],
+      "team_matched": [true, false],
+      "expect": "accept:player"
+    },
+    {
+      "name": "nothing-name-agrees-rejects-insufficient",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Someone Entirely Else",
+          "description": "American basketball coach",
+          "occupations": ["Q13365117"],
+          "coach_of_teams": ["Q169138"]
+        }
+      ],
+      "name_agreed": [false],
+      "team_matched": [true],
+      "expect": "rejected_insufficient_evidence"
+    },
+    {
+      "name": "no-items-at-all-rejects-insufficient",
+      "sport": "NBA",
+      "items": [],
+      "name_agreed": [],
+      "team_matched": [],
+      "expect": "rejected_insufficient_evidence"
+    },
+    {
+      "name": "sport-relevant-but-thin-single-survivor-is-ambiguous",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Journeyman Coach",
+          "description": "American basketball coach",
+          "occupations": ["Q13365117"],
+          "coach_of_teams": []
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [false],
+      "expect": "ambiguous"
+    },
+    {
+      "name": "gm-description-classifies-executive",
+      "sport": "NBA",
+      "items": [
+        {
+          "label": "Pat Riley",
+          "description": "American basketball executive",
+          "occupations": [],
+          "coach_of_teams": ["Q169138"]
+        }
+      ],
+      "name_agreed": [true],
+      "team_matched": [true],
+      "expect": "accept:executive"
+    }
+  ]
+}

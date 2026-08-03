@@ -1612,6 +1612,56 @@ opening argument against waiting).
 steps ran; `target/debug` builds only); no writes to any live table beyond the empty
 boxscore_sources DDL; the D-T1 pin edited in place. 4.4–4.10 untouched per §0.3.
 
+---
+
+**2026-08-03, ~19:10 EDT onward: Scott re-directed the session TWICE; the block is
+resolved and the phase re-scoped. RULINGS (do not re-litigate):**
+
+1. **"Try the actual league pages"** → the review continued onto official league sites
+   and FOUND A PASSING FAMILY: **premierleague.com / footballapi.pulselive.com** —
+   robots permissive (query-param disallows only; the API host serves no robots.txt),
+   the API serves the declared ScoracleBot UA openly (fixtures list, per-match
+   `teamLists` + 28 events + `/stats/match` verified on 2025/26 GW38), and the T&Cs
+   scan found NO automated-access, scraping, or AI clause (IP boilerplate + database
+   rights; CJEU BHB v William Hill noted in terms_review). UEFA's match API is equally
+   open but Scoracle's fixtures span ONLY the top-5 domestic leagues (measured: Serie
+   A/PL/La Liga 380/yr each, Bundesliga/Ligue 1 306/yr) — no UEFA comps, so it parks.
+   Bundesliga bapi 403s; La Liga is subscription-key-gated; Serie A unprobed (later).
+   Seed SQL for the pulselive_pl family was REHEARSED rolled-back (clean) but the
+   COMMIT was denied by the session's permission classifier — **Scott runs the
+   one-liner** (in the session reply; file: scratchpad seed_boxscore_source_commit.sql)
+   whenever he wants the family live. mig 209 (`fixtures.meta` jsonb, additive-inert)
+   applied + snapshotted for the 4.4 flag.
+2. **4.4 BUILT AND WIRED** (editor/nominate.rs + the mod.rs fork hook): result_line →
+   parse → per-name exact team resolution (refuse on ambiguous/unresolved/same-team) →
+   ±2d orientation-aware fixture match → correct-or-create with `meta
+   needs_verification` (seeded rows never regress; scores map to fixture orientation;
+   season + anchor derived in SQL from the article row — this crate never decodes
+   timestamps). The EXISTING trigger owns the enqueue (verified: fires on
+   INSERT-completed and on status/score/team UPDATE — no second enqueue added).
+   Best-effort at the call site: a nomination hiccup never re-runs the model call.
+3. **"Target URLs are a later tuning session — no covered sport is in season. Priority:
+   the Investigator probing mystery entities + a reliable metadata write path"**
+   (Scott, mid-session) → **4.5–4.10 PARK** (the landing-table/parser/replay-gate work
+   resumes when a season does — top-5 leagues restart ~Aug 14–15); the session moves to
+   **Phase 5** (nomination sweep, investigate_entity stage, discovery adapters, the
+   5.5 write gate) — which is exactly the discovery+metadata machinery he named. Phase
+   4's Verify stays OPEN pending the live-week gates; this is his ordering call, not a
+   §0.2 violation by the executor.
+4. **THE TARGET, clarified by Scott mid-session (ruling):** the Investigator system =
+   (i) track down event box scores, (ii) normalize names + match to correct DB entities,
+   (iii) search for mystery entities and populate the meta DB. **Vetting project: NBA** —
+   our NBA metadata is wrong/missing (measured: 0 of 1,311 NBA players carry
+   date_of_birth or photo_url; 16 missing weight, the rest untrusted), so metadata
+   repair is the proving ground; **NBA head coaches are the test class for
+   non-player/team entities** (persons kind=coach). Box-score LIVE sourcing waits for a
+   season (none of our covered sports is in season); the plumbing (4.4 nomination →
+   trigger → fixture_boxscore) stands ready. Source family for discovery/enrichment:
+   **Wikimedia (Wikidata action API + Wikipedia REST)** — terms-clean by design;
+   Wikidata claims are structured JSON, so ENRICHMENT NEEDS NO MODEL CALL
+   (describe-then-derive at its purest); gemma triages only prose pages on the
+   mystery-candidate path.
+
 ### Handoff (phase 4 → 5)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).

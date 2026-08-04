@@ -33,10 +33,15 @@ P6087>coach-occ>player-occ with P582 ended-tenure filtering; excerpt-bound vs
 containment on >100k Wikidata JSON). OPERATIONAL: Mac character work PAUSED by Scott
 (COGNITION_STAGES narrowed to scrub,graph,editor,article_read; backup env at
 /tmp/env.local.bak-voice-pause on archbox; ministral unloaded; voice queues accumulate).
-NEXT: Scott eyeballs investigator_review_accepted → FULL NBA seed (~603 players,
-commented block in scripts/investigator-vetting-seed.sql) → 5.9 [DEPLOY] in a clean
-window (carries investigate_entity stage + the 4.4 fork + the sweep live) → 5.10 72h.
-Last plan commit: (this one). Updated 2026-08-03 ~20:00 EDT (phase 5 smoke green).**
+SESSION CLOSED on Scott's ruling (~21:30 EDT): plumbing is IN; the meta-gathering RUN is
+parked as Appendix D-T9 (follow-up ops, not construction); 5.1–5.8 ticked, 5.9's
+tests/fixture arm done, its [DEPLOY] arm + 5.10 stay open. NEXT SESSION: (1) housekeeping
+— the D-T1 paired replay verdict (drain finished overnight; recipe pinned in D-T1);
+(2) 5.9 [DEPLOY] in a clean window (04:00–06:00 EDT; carries investigate_entity + the
+4.4 fork + the sweep live); (3) on Scott's go, D-T9 ops (FULL NBA seed → 5.8 hand-check →
+5.10 72h readings). Mac voice work PAUSED (Scott; resume recipe in Phase 5 Log 19:50
+entry). Sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority).
+Last plan commit: (this one). Updated 2026-08-03 ~21:35 EDT (session closed).**
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1709,26 +1714,26 @@ verified people become `persons` rows the resolver can link tomorrow. (~60 coach
 names/day measured in B3, plus the namesake ties roster context can't split.) The module,
 the role, and the budgeted fetcher already exist — Phase 4 founded them.
 
-- [ ] **5.1** Nomination sweep (code, in the Editor handle after resolve): for each unresolved
+- [x] **5.1** Nomination sweep (code, in the Editor handle after resolve): for each unresolved
       name with `kind_hint='person'` (and for `refused_ambiguous` ties): upsert
       `entity_candidates` (idempotency_key = `nrm(name)||sport`; repeat mention bumps
       `mention_count`/`last_seen_at`, never duplicates) + `candidate_mentions` row with the
       code-sliced quote + descriptor. Clubs/national teams nominate too but with
       `kind_hint='club'|'national_team'` — they take the `rejected_out_of_scope` path in v1
       (Appendix B D-3) and stand as the census.
-- [ ] **5.2** Enqueue rule (Scott, 2026-08-01 — direct relation beats the floor): a person-kind
+- [x] **5.2** Enqueue rule (Scott, 2026-08-01 — direct relation beats the floor): a person-kind
       candidate whose mention carries a NON-EMPTY descriptor (the direct-story-relation signal:
       "Real Madrid manager", "PSG sporting director") enqueues `pipeline_work
       (stage='investigate_entity', entity_type='candidate', entity_id=candidate.id)` on FIRST
       sight. So does any refused-ambiguous tie. Descriptor-less bare names keep the 2-mention
       floor (the noise stays out; ~60/day person-shaped names measured in B3 sit comfortably
       inside the 4.2 fetch budget).
-- [ ] **5.3** `Stage::InvestigateEntity` in `work.rs` + handler in
+- [x] **5.3** `Stage::InvestigateEntity` in `work.rs` + handler in
       `rust/src/junctions/investigator/`: slot_group = `ARCHBOX_GEMMA_SLOTS` (Scott's call: same
       card), `max_in_flight` = 1 (the Editor outranks it; register after the Editor). The card's
       idle time (3.9a) is expected to absorb this easily — raise the knob after 5.10 if
       contention stays nil.
-- [ ] **5.4** Adapters, kept separate (discovery ≠ retrieval ≠ interpretation):
+- [x] **5.4** Adapters, kept separate (discovery ≠ retrieval ≠ interpretation):
       *Discovery*: (1) Wikipedia REST search+summary API (documented, structured, ToS-clean —
       the v1 workhorse for professional identity), (2) Google News RSS query for the name +
       sport term (reuses the lungs' client shape). *Retrieval*: the Phase 4 budgeted fetcher
@@ -1736,7 +1741,7 @@ the role, and the budgeted fetcher already exist — Phase 4 founded them.
       `{page_says: {name_forms[], role, org, sport, league, nationality, dates[]}, quote}` —
       and CODE decides (5.5). No browser automation in v1; a domain that blocks direct fetch
       is a domain we skip (never stealth).
-- [ ] **5.5** The write gate (`investigator/gate.rs`, deterministic): ACCEPT requires (a) ≥1
+- [x] **5.5** The write gate (`investigator/gate.rs`, deterministic): ACCEPT requires (a) ≥1
       `source_documents` row whose retained excerpt contains the name form, (b) sport-relevance
       from described role/org, (c) identity discriminator agreement (sport/league/team/role) —
       name similarity alone never merges (T9's cousin; do not rebuild BGE here); match against
@@ -1751,24 +1756,24 @@ the role, and the budgeted fetcher already exist — Phase 4 founded them.
       new evidence) or `rejected_*` with reason. `acquisition_runs` records every attempt +
       query_plan. Personal-life facts are NOT metadata (family kind exists for future editorial
       use; nothing auto-writes it in v1).
-- [ ] **5.6** Reopen policy: terminal candidates reopen only on a NEW distinct-article mention
+- [x] **5.6** Reopen policy: terminal candidates reopen only on a NEW distinct-article mention
       after `decided_at` + 30 days, or a manual reset. (No endless rediscovery loops.)
       Reopening an ACCEPTED candidate is the **maintenance loop**, not an error: re-verification
       re-runs the gate against current sources, supersedes changed relationships (`coach_of`
       closes with `valid_to`, the new one opens dated), and appends new aliases. The story that
       staled the fact is the story that fixes it.
-- [ ] **5.7** Adversarial fixture set `rust/fixtures/investigate_entity/` from the B3 census:
+- [x] **5.7** Adversarial fixture set `rust/fixtures/investigate_entity/` from the B3 census:
       kyle shanahan (accept: coach, NFL, 49ers), xabi alonso (accept: coach — despite an
       ex-player record shape), pep guardiola (accept coach; must NOT merge into player `sergi
       guardiola`), a drafted-but-undebuted rookie (accept: persons kind `player`, no `players`
       row), spain (out-of-scope national team → census, no write), celtic (out-of-scope
       club), andy burnham / lee child / ice (rejected_not_sport), vinicius tobias vs junior
       (discriminator split or ambiguous — never a coin flip). Gate: 100%.
-- [ ] **5.8** Review surface: SQL views `investigator_review_accepted` (latest 50 with sources),
+- [x] **5.8** Review surface: SQL views `investigator_review_accepted` (latest 50 with sources),
       `investigator_funnel` (counts by state/kind/day). Sampling protocol in the Log: 20 accepted
       hand-checked; **one false merge is a stop-the-line event** (blocks widening any gate until
       explained + regression-fixtured).
-- [ ] **5.9** Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
+- [~] **5.9** *(tests+fixture gate DONE; [DEPLOY] OPEN — next clean window)* Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
       `investigate_entity`).
 - [ ] **5.10** Measure over 72h in the Log: nominations/day, candidates by state, acceptance
       rate, editor-slot contention (Editor coverage from Phase 3.9 must not degrade >5%), and
@@ -1898,6 +1903,22 @@ COGNITION_STAGES + place the release binary — fold into the next clean-window 
 which also carries the 4.4 nomination fork and the sweep going live on organic reads);
 the FULL NBA seed (~603 players, commented block in the seed script) after Scott eyeballs
 `investigator_review_accepted`; 5.10's 72h readings post-deploy.
+
+---
+
+**2026-08-03, ~21:30 EDT: SESSION CLOSED on Scott's ruling — "it's actually working; the
+plumbing is in; park the meta gathering as part of the follow-up plan; finish up this
+stage."** 5.1–5.8 ticked (built, tested, live-smoked green); 5.9 half-ticked (tests +
+13-case fixture gate done at 100%; the [DEPLOY] arm stays open for a clean window); 5.10
+waits on the deploy. The meta-gathering RUN is parked as **Appendix D-T9** per the
+ruling — machinery done, operations deferred. Under the §4 tuning law this phase's
+remaining substance is deploy + readings, not construction. Sudo note for the record:
+Scott ran the /mnt/data/scratch grant on the MAC by mistake (`/mnt/data: No such file`) —
+it must run ON archbox (`ssh archbox`, then the two sudo commands); low priority, his
+words: don't chase. D-T1's paired replay verdict still lands with the next session
+(drain was ~21 articles short at 20:28 EDT with the 21:00–22:00 rest pause ahead;
+recipe pinned in D-T1). Mac voice work remains PAUSED (his call) — resume recipe in the
+19:50 log entry above.
 
 ### Handoff (phase 5 → 6)
 ```
@@ -2346,3 +2367,20 @@ in idle capacity. A phase may cite this ledger; it may not halt on it.)*
 - **D-T5 · descriptor leakage.** One live read emitted descriptor "team 277" (an internal
   id, not text-derived) — contract says descriptors copy the text. Count instances before
   caring.
+- **D-T6 · enrichment refusals are log-only.** An `investigate_entity` player item that
+  refuses (ambiguous/insufficient) leaves no durable trace — the review surface cannot
+  count them. Candidate: a census row or a `players.meta` note on refusal.
+- **D-T7 · initials in nrm().** "A.J. Green" folds to `a j green`, Wikidata's "AJ Green"
+  to `aj green` — no agreement, honest refusal, missed enrichment. Measure the class size
+  across the roster before touching the one normalizer (mig 198 caution applies doubly).
+- **D-T8 · legal-name vs known-name mismatches.** Our "Airious Bailey" vs Wikidata's "Ace
+  Bailey" refuses at the name screen. The designed answer is 5.4's deferred prose arm
+  (Wikipedia search + gemma describe) — build it when this class proves big enough.
+- **D-T9 · THE META-GATHERING RUN IS PARKED (Scott, 2026-08-03 ~21:30 EDT: "the plumbing
+  is in; park the meta gathering as part of the follow-up plan").** The vetted machinery
+  stands ready; what remains is operational, not construction: (1) the FULL NBA seed
+  (~603 active-tier players with gaps — commented block in
+  `scripts/investigator-vetting-seed.sql`), (2) the 5.9 [DEPLOY] that lets the live
+  service drain it, (3) the 5.8 20-row hand-check + 5.10 72h readings, (4) widening to
+  FOOTBALL rosters when that season starts. Run as its own follow-up session(s) on
+  Scott's go.

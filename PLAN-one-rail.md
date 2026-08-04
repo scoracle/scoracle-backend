@@ -1,6 +1,37 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–3 CLOSED. Phase 4 OPEN and BLOCKED at 4.3-seed on a Scott decision:
+**STATE: Phases 0–3 CLOSED. Phase 4 OPEN-PARKED (4.1–4.4 done; box-score target URLs
+wait for a season — top-5 leagues restart ~Aug 14–15; the pulselive_pl seed one-liner
+still awaits Scott). Phase 5: 5.1–5.9 DONE — 5.9 [DEPLOY] EXECUTED 2026-08-04
+03:57–04:10 EDT in the clean window: archbox pulled 4871fbe → 78c923a (schema-snapshot
+local mods verified byte-identical to origin before discard), `.env.local`
+COGNITION_STAGES += `investigate_entity` ONLY (voice pause PRESERVED — do not resume
+voices without Scott's word; fresh backup /tmp/env.local.bak-59-predeploy; the
+voice-pause backup untouched), release.sh green (API serving 78c923ae5520, cognition
+active, zero journal errors). Worker registers
+stages=[scrub,graph,editor,investigate_entity,article_read]; investigator route
+gemma3:4b@localhost. ORGANIC VERIFY (+10 min): the sweep is LIVE — 84 new
+entity_candidates (69 pending persons, 15 club/NT census per D-3), 67
+investigate_entity items enqueued by the descriptor rule, funnel view populating by
+day/state/kind/sport, editor reading at ~9/min. Investigator drain = 0 at +10 min —
+EXPECTED, not a defect: the 7.5k overnight editor backlog holds the whole shared slot
+group (worker top-up is registration-order; the Editor outranks by design, 5.3);
+discovery rides card idle — 5.10's contention reading measures exactly this. D-T1
+REPLAY VERDICT RECORDED (Appendix D, 2026-08-03 ~22:25 EDT): per successful read the
+Editor beats legacy on ALL THREE names on the same articles — Vinicius 85.0% vs 40.0,
+Diomande 81.8 vs 56.8, Olise 83.3 vs 62.5, combined 83.3% vs 51.9%; Olise's raw-rate
+deficit is stale-URL fetch decay, not model quality; the written bar ("beats legacy per
+name, same yardstick") is MET wherever a read happens. OPEN: 5.10 72h readings (clock
+started at the deploy; Editor coverage must not degrade >5%); D-T9 ops ONLY ON SCOTT'S
+GO (FULL NBA seed → 5.8 20-row hand-check — one false merge is stop-the-line → 5.10
+close). Mac voice work PAUSED (Scott; resume recipe in Phase 5 Log 19:50 entry); voice
+queues accumulating (momentum 1,241 / sigil 391 / narratives 377 / peak 400 at deploy).
+Sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority). Last plan commit:
+(this one). Updated 2026-08-04 ~04:15 EDT.**
+
+*(Superseded STATE of 2026-08-03 ~21:35 EDT, kept for the record below.)*
+
+*Phases 0–3 CLOSED. Phase 4 OPEN and BLOCKED at 4.3-seed on a Scott decision:
 the 2026-08-03 terms/robots review found EVERY keyless box-score family in BOTH D-4 sports
 failing (technical blocks of declared bots / robots disallow / JS-signature walls needing
 banned automation / explicit anti-AI license terms) — full review table in the Phase 4
@@ -41,7 +72,7 @@ tests/fixture arm done, its [DEPLOY] arm + 5.10 stay open. NEXT SESSION: (1) hou
 4.4 fork + the sweep live); (3) on Scott's go, D-T9 ops (FULL NBA seed → 5.8 hand-check →
 5.10 72h readings). Mac voice work PAUSED (Scott; resume recipe in Phase 5 Log 19:50
 entry). Sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority).
-Last plan commit: (this one). Updated 2026-08-03 ~21:35 EDT (session closed).**
+Last plan commit: 78c923a. Updated 2026-08-03 ~21:35 EDT (session closed).*
 *(Phase 0 findings that bind later phases: (1) §0.8 rewritten — `psql` runs on **archbox** over ssh;
 the Mac has no psql and empty DB URLs. (2) The **archbox checkout is behind this repo** (`cec766a`),
 with migrations 198/199 untracked there — **sync it before Phase 1 runs `sql/migrate.sh`**.
@@ -1773,7 +1804,7 @@ the role, and the budgeted fetcher already exist — Phase 4 founded them.
       `investigator_funnel` (counts by state/kind/day). Sampling protocol in the Log: 20 accepted
       hand-checked; **one false merge is a stop-the-line event** (blocks widening any gate until
       explained + regression-fixtured).
-- [~] **5.9** *(tests+fixture gate DONE; [DEPLOY] OPEN — next clean window)* Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
+- [x] **5.9** *(DEPLOYED 2026-08-04 03:57–04:10 EDT @ 78c923a — see Log)* Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
       `investigate_entity`).
 - [ ] **5.10** Measure over 72h in the Log: nominations/day, candidates by state, acceptance
       rate, editor-slot contention (Editor coverage from Phase 3.9 must not degrade >5%), and
@@ -1919,6 +1950,35 @@ words: don't chase. D-T1's paired replay verdict still lands with the next sessi
 (drain was ~21 articles short at 20:28 EDT with the 21:00–22:00 rest pause ahead;
 recipe pinned in D-T1). Mac voice work remains PAUSED (his call) — resume recipe in the
 19:50 log entry above.
+
+---
+
+**2026-08-04, 03:57–04:15 EDT: 5.9 [DEPLOY] EXECUTED in the clean window — all four
+verify items GREEN; 5.10's 72h clock starts at this deploy.** (The session's D-T1
+housekeeping had already landed ~22:25 the night before — verdict + full 2×2 tables in
+Appendix D-T1; headline: per successful read the Editor beats legacy on all three names
+on the same articles, combined 83.3% vs 51.9%; Olise's raw deficit is stale-URL fetch
+decay.) Deploy record: (1) pre-flight — 11 local commits pushed to origin (incl. the
+D-T1 verdict 3246f14 and 78c923a adding `investigate_entity` to the cognition unit
+template's documented set, the 3.8 sync discipline, since install.sh re-renders units
+at release); archbox's two modified schema-snapshot files hash-verified byte-identical
+to origin/main before `git checkout --`; `git pull --ff-only` 4871fbe → 78c923a.
+(2) `.env.local`: COGNITION_STAGES=scrub,graph,editor,article_read →
++`,investigate_entity` — the ONLY line changed (diff-verified); voice pause preserved;
+backup /tmp/env.local.bak-59-predeploy. (3) release.sh: all binaries @ 78c923ae5520,
+API health green + serving the commit, cognition active, journal error-free. Worker
+boot: `stages=["scrub","graph","editor","investigate_entity","article_read"]`, route
+investigator=gemma3:4b@localhost. (4) Organic verify at +10 min: **the 4.4 fork + the
+sweep are LIVE** — 70 editor reads since deploy (46 success, ~9/min), **84 new
+entity_candidates** (69 pending persons; 13 club + 2 national_team census rows on the
+D-3 path), **67 investigate_entity items enqueued** by the 5.2 descriptor rule, funnel
+view populating (FOOTBALL 46 + NFL 23 pending persons on the day row). Investigator
+drain was 0 at +10 min — expected, not a defect: the overnight editor backlog (7,495
+at deploy) holds the whole ARCHBOX_GEMMA_SLOTS group and worker top-up is
+registration-order (the Editor outranks it, 5.3's design); discovery rides card idle.
+5.10 measures this contention for real. Note for the 5.10 reader: the investigator
+holds a card slot while doing pure HTTP/code work in v1 (zero model calls) — if idle
+never comes, the knob discussion belongs in Appendix D, not here.
 
 ### Handoff (phase 5 → 6)
 ```

@@ -2354,7 +2354,23 @@ in idle capacity. A phase may cite this ledger; it may not halt on it.)*
   worker resumes 19:00; drain ETA ~23:00 EDT holds. The enqueue-time "~20:10" stamp was
   UTC mislabeled EDT. Measure in the next session: replay rows = editor_reads on articles
   with fetched_at < Aug 3 02:00, minus the 15 NBA smoke rows; per-name 2×2 vs
-  news_article_entities, ids Vinicius 600687 / Olise 24799984 / Diomande 37922937.)* Candidate knobs: quoted-people-style
+  news_article_entities, ids Vinicius 600687 / Olise 24799984 / Diomande 37922937.)*
+  **REPLAY VERDICT (measured 2026-08-03 ~22:25 EDT, drain complete — 152 pre-Aug-3 reads
+  = 137 replay + 15 NBA smoke; name sets = token match on `nrm(title)`, one definition
+  on BOTH sides of each pair; the enqueue's substring pattern had caught false positives
+  — "Oliseh"/"idolises"/"Coliseum" — which the token match excludes):** per successful
+  read the Editor beats legacy on ALL THREE names, on the same articles — Vinicius
+  **85.0%** vs 40.0% (n=40; editor-only 20, legacy-only 2), Diomande **81.8%** vs 56.8%
+  (n=44; 11 vs 0), Olise **83.3%** vs 62.5% (n=24; 6 vs 1); combined 90/108 = **83.3%**
+  vs 51.9%. Raw (all statuses): Vinicius 64.2% and Diomande 67.9% beat both the paired
+  legacy raw (45.3/56.6) and the 7-day baselines; Olise raw 55.6% trails its paired
+  legacy 61.1% purely on fetch decay — 9 of 36 week-old Google News URLs produced no
+  read (6 blocked / 2 fetch_failed / 1 parse_failed) where legacy had linked at ingest
+  without needing the fetch (the recipe's stale-URL caveat, observed; organic articles
+  fetch fresh). Under-fill remains the miss class but is smaller than day-1 raw implied:
+  18 of 108 successful name-reads missed the player (16.7%). **The plan's written bar —
+  "beats legacy per name on the same yardstick" — is MET wherever a read happens.**
+  Candidate knobs: quoted-people-style
   re-scan for title principals; interplay with the 2-mention floor; the Investigator
   refusal/nomination backstop (Phase 5) which structurally catches what the prompt drops.
 - **D-T2 · register `outrage` reads neutral under phrase-first order.** Known C2 cost,

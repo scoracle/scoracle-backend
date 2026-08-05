@@ -13,10 +13,16 @@ stages=[scrub,graph,editor,investigate_entity,article_read]; investigator route
 gemma3:4b@localhost. ORGANIC VERIFY (+10 min): the sweep is LIVE — 84 new
 entity_candidates (69 pending persons, 15 club/NT census per D-3), 67
 investigate_entity items enqueued by the descriptor rule, funnel view populating by
-day/state/kind/sport, editor reading at ~9/min. Investigator drain = 0 at +10 min —
-EXPECTED, not a defect: the 7.5k overnight editor backlog holds the whole shared slot
-group (worker top-up is registration-order; the Editor outranks by design, 5.3);
-discovery rides card idle — 5.10's contention reading measures exactly this. D-T1
+day/state/kind/sport, editor reading at ~9/min. 5.10 INTERIM READ at +16.6h (2026-08-04
+~20:45 EDT, full numbers in the Phase 5 Log): ingest is a DAILY 02:00 EDT batch (not a
+stream) — day-1 nominations 4,448 (3,473 person, 58× the B3 estimate — day 1 flushes the
+standing corpus; read steady-state off day 2–3), 975 club/NT census; contention TOTAL —
+0 acquisition_runs, investigate_entity never sampled running, editor pending never below
+~1.7k (card idle is ≤1h/day before the next batch) — knob discussion parked as D-T10,
+NO knobs touched; coverage: Aug-3 batch 100% within 24h vs Aug-4 batch 77.6% at the same
++18.3h offset (batch +15.6% bigger, throughput −5.4%, zero slots lost to the
+investigator — judge the >5% bar on within-24h at the close); compounding metric NONZERO
+day 1 (5 resolver links onto persons — Spoelstra). D-T1
 REPLAY VERDICT RECORDED (Appendix D, 2026-08-03 ~22:25 EDT): per successful read the
 Editor beats legacy on ALL THREE names on the same articles — Vinicius 85.0% vs 40.0,
 Diomande 81.8 vs 56.8, Olise 83.3 vs 62.5, combined 83.3% vs 51.9%; Olise's raw-rate
@@ -27,7 +33,7 @@ GO (FULL NBA seed → 5.8 20-row hand-check — one false merge is stop-the-line
 close). Mac voice work PAUSED (Scott; resume recipe in Phase 5 Log 19:50 entry); voice
 queues accumulating (momentum 1,241 / sigil 391 / narratives 377 / peak 400 at deploy).
 Sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority). Last plan commit:
-(this one). Updated 2026-08-04 ~04:15 EDT.**
+(this one). Updated 2026-08-04 ~21:05 EDT (5.10 interim readings folded in).**
 
 *(Superseded STATE of 2026-08-03 ~21:35 EDT, kept for the record below.)*
 
@@ -1980,6 +1986,52 @@ registration-order (the Editor outranks it, 5.3's design); discovery rides card 
 holds a card slot while doing pure HTTP/code work in v1 (zero model calls) — if idle
 never comes, the knob discussion belongs in Appendix D, not here.
 
+---
+
+**2026-08-04, ~20:45–21:05 EDT: 5.10 INTERIM READINGS at +16.6h of 72 (window closes
+~Aug 7 04:00 EDT). No knobs touched; knob discussion opened as Appendix D-T10 per the
+deploy note.**
+
+*Operational shape discovered first (it reframes every reading below): news ingest is a
+DAILY cron batch* — `0 2 * * *` EDT, `cron-pipeline.sh -mode ingest` — not a continuous
+stream. The Aug-4 batch (7,985 arrivals, +15.6% vs Aug-3's 6,905) landed 02:00–02:28,
+all before the 03:57 deploy; zero arrivals since deploy is the schedule, not a stall.
+The editor spends ~19h of wall clock (incl. the every-3rd-hour rest pauses) digesting
+each batch, so the queue only empties in a ≤1h window before the next batch lands.
+
+* **Nominations/day (day 1): 4,448 candidates — 3,473 person** (FOOTBALL 1,806 / NFL
+  1,048 / NBA 619; 6,147 mentions) **+ 975 club/NT census rows** (837 club, 138
+  national_team, all `rejected_out_of_scope` per D-3). 3,462 enqueued = 99.7% of person
+  candidates: the ep1 contract asks for a descriptor, so the 5.2 descriptor rule fires
+  on effectively every person name on first sight — the 2-mention floor is near-dead
+  letter. Against B3's ~60/day coach-shaped estimate this is 58×, BUT day 1 flushes the
+  standing corpus of recurring names through "first sight" — steady-state must be read
+  off day 2–3 at the close before any knob talk.
+* **Candidates by state:** everything pending except the 2 smoke accepts
+  (Spoelstra/Kerr). **Acceptance rate: no new decisions** — see contention.
+* **Editor-slot contention: TOTAL, and structural.** 0 `acquisition_runs` since deploy;
+  `investigate_entity` never once sampled `running` across 101 ten-minute qsample rows;
+  editor pending never dropped below 1,664 (the minimum IS the latest sample, 20:40 —
+  the queue has been draining monotonically toward tonight's ≤1h idle window). The +10min
+  expectation ("discovery rides card idle") meets reality: under a daily ~8k batch there
+  is almost no card idle to ride. This is D-T10, not a 5.10 failure — the design
+  explicitly ranked the Editor first.
+* **Editor coverage (the >5% bar):** Aug-3 batch (pre-deploy): 94.9% at +18.3h → **100.0%
+  within 24h**. Aug-4 batch (post-deploy): **77.6% at the same +18.3h offset**. The raw
+  gap is batch size (+15.6%) plus the deploy window, NOT investigator slot theft — the
+  investigator got zero slots. Absolute throughput: 6,200 reads in 18.3h vs 6,552
+  (−5.4%); ~490/hr in active hours. Remaining 1,664 pending at 20:40 projects drained
+  ~02:00, right at the 24h bar — **judge the >5% bar on within-24h coverage at the
+  close**, when the Aug-5/6 batches give clean post-deploy days.
+* **Read statuses since deploy** (5,774 reads): 3,469 success (60.1%) / 1,059 irrelevant
+  / 488 duplicate (8.5%, in the 5–12% band) / 358 blocked / 181 fetch_failed / 142
+  parse_failed / 76 empty_body / 1 paywall.
+* **Compounding metric: NONZERO on day 1.** 5 resolver links landed on `persons` rows
+  since deploy (all Spoelstra, persons id 7, via the mig-207 surface mirror), alongside
+  8,335 player + 5,300 team links. The loop closes: a person the Investigator accepted
+  yesterday is a name the resolver links today. Growth is capped by the 2-row persons
+  table until the queue drains (D-T10) or D-T9 runs.
+
 ### Handoff (phase 5 → 6)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -2460,3 +2512,22 @@ in idle capacity. A phase may cite this ledger; it may not halt on it.)*
   service drain it, (3) the 5.8 20-row hand-check + 5.10 72h readings, (4) widening to
   FOOTBALL rosters when that season starts. Run as its own follow-up session(s) on
   Scott's go.
+- **D-T10 · investigator starvation under the daily ingest batch (measured 2026-08-04,
+  5.10 interim).** The facts: ingest is one ~7–9k-article batch at 02:00 EDT daily; the
+  Editor needs ~19h of wall (incl. rest pauses) to digest it, so shared-slot card idle
+  is ≤1h/day; the investigator (max_in_flight 1, registered after the Editor) logged 0
+  acquisition_runs in its first 16.6h against 3,462 enqueued items. Day-1 nominations
+  ran 58× the B3 estimate (3,473 person candidates — the descriptor rule fires on
+  ~100% of person names; the 2-mention floor is near-dead letter), though day 1 flushes
+  the standing corpus and steady-state must be read off day 2–3. Even fully unblocked,
+  the 4.2 budget (2s Wikimedia spacing, ~2 fetches/candidate) caps drain at ~900/day —
+  the queue grows either way if steady-state nominations stay in the thousands.
+  Candidate knobs, in rough order of leverage (MEASURE day-2/3 nomination rate at the
+  5.10 close first; decide nothing before then): (a) the v1 investigator makes ZERO
+  model calls — holding an ARCHBOX_GEMMA_SLOTS card slot for pure HTTP work is the
+  structural mismatch; a separate slot group (or slotless claim) frees it from editor
+  contention without costing the card anything; (b) tighten the 5.2 enqueue rule if
+  steady-state volume stays high (descriptor-on-first-sight currently admits
+  everything); (c) run the investigator through the GPU rest windows (the card rests;
+  HTTP doesn't need it) — interacts with the pause-timer design; (d) raise
+  max_in_flight only after (a), else it just deepens the same contention.

@@ -153,7 +153,7 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 }
 
 func TestFunnelAddRollsUpEveryField(t *testing.T) {
-	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
+	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 	var got Funnel
 	got.Add(a)
 	got.Add(a)
@@ -161,8 +161,26 @@ func TestFunnelAddRollsUpEveryField(t *testing.T) {
 	// Compare against a doubled literal rather than field by field, so a Funnel
 	// that grows a counter without a matching line in Add fails to compile here
 	// instead of silently under-reporting in the rolled-up sweep totals.
-	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28}
+	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30}
 	if got != want {
 		t.Errorf("Add rolled up to %+v, want %+v", got, want)
+	}
+}
+
+// D-T21's cap is not a fetch-path drop — it acts inside persistArticles, downstream of Matched,
+// and it discards no article. So it must NOT disturb the residual invariant, or a capped sweep
+// would fire the "a drop was added without a counter" alarm on every run.
+func TestReadsWithheldDoesNotBreakTheResidualInvariant(t *testing.T) {
+	f := Funnel{
+		RSSItems:       100,
+		WindowDropped:  10,
+		DedupCollapsed: 20,
+		LimitTruncated: 5,
+		Matched:        65,
+		ReadsWithheld:  65, // the cap withheld every single read
+	}
+
+	if r := f.Residual(); r != 0 {
+		t.Errorf("a fully-capped sweep must still balance: residual %d (%v)", r, f.LogAttrs())
 	}
 }

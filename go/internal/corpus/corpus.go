@@ -99,8 +99,13 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		runFunnel.Add(sportFunnel)
 	}
 
+	// `fresh_articles` is what will be READ, not what was WRITTEN — D-T21's cap can withhold a
+	// read from an article it just stored, so the two are printed side by side. A sweep that
+	// says `fresh_articles=0 reads_withheld=788` did real work; one that says `0 0` did not.
 	logger.Info("corpus: rss sweep complete",
-		"ok", ok, "fail", fail, "fresh_articles", len(affected), "elapsed", time.Since(runStart).Round(time.Second))
+		"ok", ok, "fail", fail, "fresh_articles", len(affected),
+		"reads_withheld", runFunnel.ReadsWithheld,
+		"elapsed", time.Since(runStart).Round(time.Second))
 	logRunFunnel(logger, runFunnel)
 	return runStart, affected, ok, fail
 }

@@ -249,10 +249,12 @@ func capFreshReads(fresh []int64, already, cap int) (kept []int64, withheld int)
 // matched articles are linked back to the requested entity in
 // news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
 //
-// The second return is the article IDs that gained a fresh link on this call.
-// It is informational — persistArticles already enqueues the Editor's read in
-// its own transaction. It is nil when write-through is skipped or the persist
-// failed.
+// The second return is the article IDs HANDED TO THE EDITOR on this call. Before D-T21 that
+// was the same set as "freshly inserted"; with the per-entity daily cap armed the two diverge,
+// and this is the smaller one — an article can be inserted and kept while its read is withheld.
+// Read it with `Funnel.ReadsWithheld`, which carries the difference. It is informational —
+// persistArticles already enqueues the read in its own transaction — and it is nil when
+// write-through is skipped or the persist failed.
 //
 // The third return is the fetch funnel for this entity: how much of the query
 // grid ran and what each filter stage discarded. It is returned even on error,
@@ -278,11 +280,15 @@ func (s *NewsService) GetEntityNews(
 	// serving path / on persist failure.
 	var affected []int64
 	if s.pool != nil && entityType != "" && entityID > 0 && len(matched) > 0 {
-		ids, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
+		ids, withheld, perr := s.persistArticles(ctx, sport, entityType, entityID, matched)
 		if perr != nil {
 			s.logger.Warn("persist failed", "sport", sport, "entity_type", entityType, "entity_id", entityID, "error", perr)
 		} else {
 			affected = ids
+			// D-T21: the cap's bite belongs in the funnel, not only in its own log line —
+			// otherwise a fully-capped sweep reports `fresh_articles=0` beside hundreds of
+			// rows it just wrote.
+			funnel.ReadsWithheld = withheld
 		}
 	}
 
@@ -307,17 +313,19 @@ func (s *NewsService) GetEntityNews(
 // decides what it is about.
 //
 // Errors are returned to the caller but don't break the response path — the caller logs and moves
-// on. The returned slice is the article IDs that were FRESHLY INSERTED this call (a re-seen URL is
-// omitted), which is the same set handed to the Editor.
+// on. The returned slice is the article IDs freshly inserted this call (a re-seen URL is omitted)
+// AND not withheld by D-T21's cap — i.e. exactly the set handed to the Editor. The second return
+// is how many fresh inserts the cap withheld, so the caller can report stored-but-unread rather
+// than silently printing a smaller number.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
 	primaryEntityID int,
 	articles []Article,
-) ([]int64, error) {
+) ([]int64, int, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer tx.Rollback(ctx)
 
@@ -379,7 +387,7 @@ func (s *NewsService) persistArticles(
 			RETURNING id, (xmax = 0)
 		`, hash, a.URL, nullIfEmpty(a.Source), a.Title, nullIfEmpty(a.Description), publishedAt, a.FeedRank, rawProv).Scan(&articleID, &inserted)
 		if err != nil {
-			return nil, fmt.Errorf("upsert article: %w", err)
+			return nil, 0, fmt.Errorf("upsert article: %w", err)
 		}
 		if inserted && !seenFresh[articleID] {
 			seenFresh[articleID] = true
@@ -401,7 +409,7 @@ func (s *NewsService) persistArticles(
 			 WHERE (raw->>'query_team_id')::int = $1
 			   AND fetched_at >= date_trunc('day', now())
 		`, primaryEntityID).Scan(&already); err != nil {
-			return nil, fmt.Errorf("count today's reads for entity: %w", err)
+			return nil, 0, fmt.Errorf("count today's reads for entity: %w", err)
 		}
 		// `already` includes the rows just inserted above, which ARE this sweep's fresh set —
 		// subtract them so the allowance is spent once, not twice.
@@ -424,12 +432,12 @@ func (s *NewsService) persistArticles(
 			EntityID:   int(id),
 			Sport:      sportUpper,
 		}); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// Count the skip, never just note it (§0b): a cap whose bite is invisible cannot be audited,
@@ -446,7 +454,7 @@ func (s *NewsService) persistArticles(
 
 	ids := make([]int64, len(needEditor))
 	copy(ids, needEditor)
-	return ids, nil
+	return ids, withheld, nil
 }
 
 func sha256Hex(s string) string {

@@ -52,6 +52,20 @@ type Funnel struct {
 	// DescriptionBearing + DescriptionEmpty == Matched.
 	DescriptionBearing int
 	DescriptionEmpty   int
+
+	// ReadsWithheld is D-T21's cap biting: articles that WERE inserted but whose
+	// Editor read was withheld because the entity had spent its daily allowance.
+	//
+	// Not a drop stage and NOT part of the Residual invariant — the cap acts inside
+	// persistArticles, downstream of Matched, and it discards no article. The row is
+	// written and keeps its provenance; only the read is withheld.
+	//
+	// It exists because without it the sweep log lies by omission. `fresh_articles`
+	// counts the ids handed back for the Editor, so a fully-capped sweep prints
+	// `fresh_articles=0` next to hundreds of genuinely new rows — the exact shape of
+	// "a WARN that says continuing hides its own frequency". Read the two together:
+	// fresh_articles is what will be READ, reads_withheld is what was STORED and skipped.
+	ReadsWithheld int
 }
 
 // Add folds another funnel into f. Written out field by field on purpose: a new
@@ -73,6 +87,7 @@ func (f *Funnel) Add(o Funnel) {
 	f.Matched += o.Matched
 	f.DescriptionBearing += o.DescriptionBearing
 	f.DescriptionEmpty += o.DescriptionEmpty
+	f.ReadsWithheld += o.ReadsWithheld
 }
 
 // Residual is the number of articles lost to a stage the funnel does not count.
@@ -101,6 +116,7 @@ func (f Funnel) LogAttrs() []any {
 		"matched", f.Matched,
 		"desc_bearing", f.DescriptionBearing,
 		"desc_empty", f.DescriptionEmpty,
+		"reads_withheld", f.ReadsWithheld,
 		"residual", f.Residual(),
 	}
 }

@@ -1,8 +1,23 @@
 # PLAN — One Rail
 
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. Phase 7 complete on its plumbing (7.11 +
-7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND AS OF 8.8 THE RELEVANCE
-REGEX IS DELETED.** Deployed on archbox @ `28fcf45` (2026-08-06 11:38 EDT), 9 stages, six voices on
+7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND THE HAND-ROLLED RELEVANCE
+MACHINERY IS GONE FROM BOTH ENDS OF INGEST — 8.8 deleted the judgment applied AFTER the fetch
+(the regex), 8.9 deleted the judgment applied BEFORE it (the query builder).** Deployed on archbox
+@ `9e4a12e` (2026-08-06 13:55 EDT). **8.9: 501 lines out / 108 in, `news.go` 1,126 → 753** — alias
+lane scoring, the 18-word risky-club list, the trusted-alias allowlists, the primary substitution,
+the per-term suffix branching, `bestAliasQuery` and the lane cap are deleted. **What runs now: one
+Google query per name we know the entity by, sport term on every lane, every lane runs, the cap
+applies to RESULTS.** Two things were KEPT because live measurement said so, and neither should be
+re-opened without new numbers: the sport suffix (bare "Nice" → the NHS institute, pharma and
+Formula 1; "Nice soccer football" → the club) and alias lanes (20–30% marginal unique recall:
+Spurs 18/47, Barça 29/102, PSG 16/47). Cost: **~44% more Google calls per sweep (402 → ~579)**.
+Verified live both sports: NBA 90/90 lanes, FOOTBALL 393/393 across 142 teams, 0 errors, **0
+zero-admitted teams**, residual 0. **THE RAIL IS NOW WHAT SCOTT ASKED FOR: Google does the
+relevancy, the Editor is the valve, and no hand-written heuristic sits between them.** Superseded
+detail of the 8.8 STATE follows.
+
+**(8.8 STATE, 2026-08-06 ~12:00 EDT.)** Deployed on archbox @ `28fcf45` (2026-08-06 11:38 EDT), 9 stages, six voices on
 ministral-3:14b at the Mac (4096, 3 concurrent). **8.8 done: 1,435 lines out, 79 in** — `match.go`
 entire, the secondary-link loop + entity pool, `FirstMatchPos` on the primary link, the
 `title_pos` writers (`posOrNil`, `BackfillTitlePositions`, `cmd/comention-backfill`), `funnel.go`'s

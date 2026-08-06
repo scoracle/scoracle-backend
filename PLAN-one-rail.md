@@ -1,5 +1,42 @@
 # PLAN — One Rail
 
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged). Phase 7 complete on its
+plumbing (junction pass 7.11 + 7.15 outstanding). **PHASE 8 IS BUILT AND ARMED: 8.1, 8.3, 8.4 and
+8.5 are DONE; only 8.6 (the flip), 8.2 (the 7-day window) and 8.7 (the 48h watch) remain.**
+DEPLOYED @ `e5dc978` (2026-08-06 09:10 EDT) on archbox, still `RAIL=legacy` — nothing user-visible
+has changed. **THE PACKET BRANCHES HAVE NOW EXECUTED.** Scott's direction this session: *"I want to
+get the new rail into production. Old rail totally shut down. That way we have several days of
+actual production to work with on the weekend"* — and *"no tuning as we go."* **D-T14 IS RESOLVED,
+path (b):** mig 212 gives mig 206's arm 2 the same subscription gate arm 1 has (an EXISTS on
+`stage='narratives'` at that grain — an existence gate, the tag column is NOT read, and NOT a
+wildcard), so with the table empty the trigger is inert and packets compile in shadow.
+**THE REAL BLOCKER WAS NOT THE TRIGGER — IT WAS THE DESK'S CADENCE:** `desk_sweep` ran after
+`drain_all`, which drains every stage TO EMPTY; with 6,096 editor items at ~3/min behind 30,222
+`article_read` items, "empty" was 34 hours away and the compiler was never called. The Desk now
+runs on its own 60s task (`desk_loop`, DB-only, deliberately not beating the drain's Pulse).
+**2,000+ packets compiled at ~200/min, `pk:` rows 0 continuously — the gate held under load**, and
+packet 2 reads as the product (15 attributed claims, 12 participants, distinct slice fingerprints).
+**§2 MEASURED FOR THE FIRST TIME: clause 1 97.3% PASS** (read it on a COMPLETE day — a partial day
+says 30% and means nothing), **clause 4a 0 dead-letters PASS**, **clause 5 4,654 claims / 0 orphans
+PASS**, clause 2 partial (181/197; unmeasurable before Aug 6 by construction — first honest reading
+Aug 7), clause 3 sample emitted and unscored, **clause 4b FAIL at 43–47/53 and unstable between
+identical temp=0 runs → D-T19, a tuning item, not a phase gate — but §2's text asks for 100%, so
+Scott must waive it explicitly or it must be scored green; do not let it be waived silently.**
+**THE FLIP IS ONE PREPARED ACT:** `sql/prepared/8.6_flip_day.sql` drops the three legacy triggers
+and seeds **FIVE** subscription rows (not the two 7.4 prepared — mig 212 means the JOURNALIST needs
+a row too) in one transaction with an abort-on-no-op assertion block, **rehearsed against live prod
+in a rolled-back transaction and verified to leave prod unchanged**. 8.4/8.5 are deployed and inert
+behind `RAIL` on purpose, so flip day is env + restart and no untested path meets production for
+the first time mid-cutover. **PHASE 6 STAYS OPEN on 6.7 alone** — window closes ~**Aug 8 22:08
+EDT**; `scripts/rail-6.7-bands.sh` said INTERIM at +10.4h (top cluster **19 IN BAND**, **98.6%
+attached**) and that is not the reading. New this session: **D-T18** (syndicated near-duplicates
+double a fact inside one packet) and **D-T19** (above). OPEN OUTSIDE PHASES: D-T9 ops ONLY ON
+SCOTT'S GO; sudo /mnt/data/scratch grant pending on archbox (low priority). Last plan commit:
+(this one). Updated 2026-08-06 ~09:20 EDT (packets are real; the flip is armed and waiting on
+Scott's word).**
+
+*(Superseded STATE of 2026-08-06 ~08:40 EDT — loose ends closed, packets still 0 — kept verbatim below.)*
+
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged). **PHASE 7 IS COMPLETE ON ITS
 PLUMBING — 7.7 landed 2026-08-06 and only the junction pass (7.11 + 7.15) is left in it.**
 DEPLOYED @ `2c6b038` (2026-08-06 08:23 EDT) on archbox: `RAIL=legacy`, `VOICE_NUM_CTX=4096`,
@@ -2964,7 +3001,11 @@ block with BLOCKED.
 
 ## Phase 8 — The cutover
 
-- [ ] **8.1** Write the five §2 condition queries as `scripts/rail-cutover-check.sh` (read-only,
+- [x] **8.1** *(Done 2026-08-06 — `scripts/rail-cutover-check.sh`. Clauses 1/2/4/5 print their own
+      PASS/FAIL with the numbers; clause 3 emits the day's link sample and reports SAMPLE, never
+      PASS, because no query can score a link. Clause 4 covers both halves — dead-letters and the
+      editor fixture gate. Run it with `DAY=` on a COMPLETE day: a partial day reads clause 1 as a
+      failure that is really just the day being young.)* Write the five §2 condition queries as `scripts/rail-cutover-check.sh` (read-only,
       prints PASS/FAIL per clause with numbers; runnable daily by cron or by hand). Clause SQL
       sketches: (1) `editor_reads` within-24h coverage vs arrivals; (2) legacy corpus
       entity-days LEFT JOIN packet entity-days → 0 missing; (3) emit the day's 50-link audit
@@ -2973,15 +3014,38 @@ block with BLOCKED.
       referential check + exclusions accounting.
 - [ ] **8.2** Run it daily for 7 consecutive days; paste each day's output into the Log. Any
       FAIL resets the window (and is a finding — fix, then restart the count).
-- [ ] **8.3** Prepare the flip-day migration (do not apply until flip): mig 2xx
+- [x] **8.3** *(Done 2026-08-06 — and FOLDED INTO 8.6's one act at `sql/prepared/8.6_flip_day.sql`,
+      because §2 requires the seed and the trigger drops to land together. Rehearsed on archbox in
+      a rolled-back transaction: 3 triggers dropped, 5 subscription rows seeded, the assertion
+      block passed, prod verified unchanged after ROLLBACK. **ONE DELIBERATE DEVIATION, flagged in
+      the file and to Scott:** mig 197's `enqueue_voices_on_routing_tags` is dropped in the act
+      rather than left for Phase 9. This step's reasoning — post-flip it fires into no
+      article-grain rows — is true post-flip and false DURING the flip, when `article_read` is
+      still draining and the seed has just armed it; for those minutes it would enqueue
+      `s:transfer:…` against mig 175's `t:…` on one row, the exact churn loop the act closes.)* Prepare the flip-day migration (do not apply until flip): mig 2xx
       `retire_legacy_rail_triggers` — DROP `enqueue_derive_on_vetted` (T10 dies with it) and
       `enqueue_transfers_if_transfer_related`; leave `enqueue_voices_on_routing_tags`
       (article-grain, subscription table now serves packet grain; trigger fires into no
       article-grain rows — dropped in Phase 9). The Appendix A revert block is the rollback.
-- [ ] **8.4** Prepare the flip-day Go change (do not deploy until flip): `persistArticles` stops
+- [x] **8.4** *(Done 2026-08-06 @ `5020c15`, DEPLOYED and inert — gated on `RAIL=packet` instead
+      of prepared-and-held, so flip day is env + restart with no untested code path meeting
+      production for the first time under load. `railIsPacket()` reads the env per call (Go's half
+      is two skipped writes; the Rust side still parses RAIL once at boot because there it rides a
+      whole drain). Default legacy: RAIL must be exactly `packet`, so an unset or misspelled value
+      can never silently retire the old rail. The regex loop is SKIPPED rather than env-flagged —
+      `LEGACY_LINKS` was not added, since RAIL already says everything it would.)* Prepare the flip-day Go change (do not deploy until flip): `persistArticles` stops
       enqueueing `scrub` (editor enqueue stays); regex secondary-link loop behind a
       `LEGACY_LINKS=0` env default-off (deletion is Phase 9; off is enough for flip day).
-- [ ] **8.5** Prepare the Editor's link-writing switch (RAIL=packet side): the Editor begins
+- [x] **8.5** *(Done 2026-08-06 @ `5020c15`, DEPLOYED and inert under `RAIL=legacy` —
+      `editor::write_links`. One transaction, so an article is never half-vetted. Irrelevant read
+      retracts every vetted row (mirroring the legacy `clear_vetted_entities_for_article`);
+      relevant read confirms its resolved links and denies the article's remaining `vetted IS NULL`
+      rows — that denial IS the "confirming/denying the 0.95 hypothesis" half, because the
+      hypothesis is confirmed exactly when the resolver reached it too. **The 0.90 sentinel applies
+      on INSERT only:** an existing 0.95 hypothesis row keeps its 0.95 when confirmed, because
+      overwriting it would erase how the article was found — `match_confidence = 0.90` still
+      greps the new rail's own links. Ordered BEFORE the graph enqueue, whose candidate set is
+      exactly these rows. Verified inert: 0 rows at 0.90 with RAIL=legacy.)* Prepare the Editor's link-writing switch (RAIL=packet side): the Editor begins
       writing `news_article_entities` rows for its resolved links (vetted=TRUE,
       `match_confidence=0.90` sentinel distinct from 0.95/0.8 so Editor links stay greppable),
       confirming/denying the 0.95 hypothesis link per `entity_roles`. Ordering on flip day
@@ -3008,6 +3072,73 @@ off`.
 
 ### Log (phase 8)
 *(executor fills — including all 7 daily condition outputs and the flip-day timeline)*
+
+**2026-08-06 08:45–09:15 EDT — THE PACKET BRANCHES EXECUTED. Scott's direction: "I want to get
+the new rail into production. Old rail totally shut down. That way we have several days of actual
+production to work with on the weekend."** Commits `94f1bf4` (mig 212) → `2f4d714` (snapshot) →
+`bfa3474` (the Desk's own task) → 8.1 → `5020c15` (8.4 + 8.5) → 8.6. Deployed @ `e5dc978`.
+`RAIL=legacy` throughout — nothing user-visible has changed yet.
+
+**D-T14 is resolved, path (b), and the flip's biggest unmeasured risk is now measured.** Mig 212
+gives mig 206's arm 2 the same subscription gate arm 1 has: `EXISTS` a row with
+`stage='narratives'` at that entity_type. The tag column is NOT read — an existence gate, not a
+tag join, and explicitly not a wildcard (D-T15's `'*'` trap in reverse). §1c's contract survives
+intact: the Journalist still reads every packet, at player/team grain, per active participant.
+With the table empty the whole trigger is inert, which is what makes a shadow compile possible.
+**Consequence carried into 8.6: the Journalist now needs a seed row like everyone else** — the
+flip-day seed is FIVE rows, not the two 7.4 prepared.
+
+**The real reason packets were 0 was not the trigger — it was the Desk's cadence.** Setting
+`COGNITION_PACKET_COMPILE=true` and restarting produced nothing, and the diagnosis is worth
+keeping: `desk_sweep` ran inside `tick()` immediately after `drain_all`, and `drain_all` drains
+every registered stage **to empty**. Measured at the time: 6,096 Editor items pending, draining at
+~3/min (35 nomination sweeps in 12 minutes), with 30,222 legacy `article_read` items behind them.
+"Empty" was ~34 hours away, so the Desk was never called at all. A cadence that depends on the
+queue being empty is not a cadence. The Desk now runs on its own task at 60s (`desk_loop`),
+spawned only where the Editor is seated. Safe off the drain because it is DB-only — no model call,
+no GPU, no embedder, none of what the 07-15 incident split kept off the supervisor's task — and it
+deliberately does NOT beat the drain's `Pulse`, since a Desk heartbeat would mask exactly the
+stall the watchdog exists to catch. **First sweep: 200 packets in 0.8 seconds.**
+
+**The shadow compile, measured.** Sustained ~200 packets/min against a 7,214-storyline backlog;
+2,000 compiled by 09:10 with 5,218 left. **`pk:` rows in `pipeline_work`: 0, continuously** — mig
+212's gate held under real load, and the mig-197 churn loop never started. A packet read by hand
+(id 2, storyline 7471, FOOTBALL): headline "Transfer news | Real Madrid make Michael Olise deal
+conditional, and Liverpool reject Vinicius offer", 15 attributed claims, 12 active participants
+with roles, `slice_fingerprints` carrying distinct vibe/transfers/narratives hashes. It reads as
+the product.
+
+**§2 as measured on the day (the first real reading of clauses 1, 2, 3, 5):**
+
+| clause | reading | verdict |
+|---|---|---|
+| 1 · coverage | 8,132 / 8,358 = **97.3%** (Aug 5, a complete day) | **PASS** |
+| 2 · packet presence | 181 / 197 entity-days, 16 missing (Aug 6, partial — compile still draining) | partial |
+| 3 · precision | 50-link sample emitted | needs a hand score |
+| 4a · dead-letters | **0** on editor/investigate_entity/fixture_boxscore | **PASS** |
+| 4b · editor fixtures | **43–47 / 53**, varying between identical runs at temp=0 | **FAIL** |
+| 5 · accounting | 4,654 claims checked, **0** orphans | **PASS** |
+
+Two notes the next session must not re-derive. **Clause 1 must be read on a COMPLETE day:** the
+same query against Aug 6 at 09:00 says 30.4%, which is not a coverage failure, it is a day that is
+nine hours old. **Clause 2 is structurally unmeasurable before today** — it compares legacy
+entity-days to packets compiled *that same day*, and no packet existed before 2026-08-06, so every
+prior day reads 0/N. Its first honest reading is Aug 7.
+
+**Clause 4b is a model-quality number, and by the standing rule it does not gate the rail.** Every
+miss is the Editor's `names[]` channel dropping a person the fixture asserts (Kyle Shanahan, Moyes,
+Arteta, Bellingham) plus one `register[outrage]` call, and the gate is not even stable — two
+identical `--fixtures` runs at temp=0 scored 47/53 and 43/53. §2 clause 4 asks for 100%, which this
+gate has never delivered. Surfaced to Scott as a weekend-tuning item rather than a stop, consistent
+with "plumbing gates phases; model quality goes to Appendix D."
+
+**The flip is now one act, and it is prepared.** `sql/prepared/8.6_flip_day.sql` drops the three
+legacy triggers and seeds the five subscription rows in ONE transaction, with an assertion block
+that aborts if either half no-ops. Rehearsed on archbox against live prod in a rolled-back
+transaction — 3 dropped, 5 seeded, assertions passed, prod verified unchanged after ROLLBACK.
+8.4 and 8.5 are DEPLOYED and inert behind `RAIL`, deliberately: prepared-and-held code meets
+production for the first time during the flip, which is the worst moment to discover it does not
+compile. Verified inert — 0 rows at `match_confidence = 0.90` under `RAIL=legacy`.
 
 ### Handoff (phase 8 → 9)
 ```
@@ -3368,3 +3499,29 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   identity encoding / honour `Content-Encoding` in `fetch.rs`; or a cheap pre-model sanity gate
   (a body whose decode produced a high replacement-char ratio is not prose). Measure the class
   again before spending anything on it — at 1 in 19,140 the gate may cost more than the miss.
+- **D-T18 · syndicated near-duplicates put the same fact in a packet twice (found 2026-08-06,
+  the first shadow compile).** Packet 2 (storyline 7471) carries "Celtic have wrapped up an 11
+  million pound deal for Kasper Hoog" AND "Celtic have signed Kasper Hoog"; "Bayern Munich's
+  sporting director denied rumours linking Michael Olise with a move to Real Madrid" AND "Bayern
+  Munich denies Michael Olise will be leaving" — 15 claims that are closer to 8 facts. The cause
+  is not the compiler: its two members are articles 186800 and 186793, both Goal.com transfer
+  roundups of the same hour, correctly clustered. The packet faithfully carries both sources, and
+  that is the right default (T3 — two outlets saying a thing is evidence, and suppressing a
+  restatement is how a contradiction gets silently dropped). But two lanes of ONE outlet is not
+  corroboration, it is syndication, and it spends the 2,000-token render budget twice. Class size
+  unmeasured. Candidate knobs: collapse claims sharing a source AND a high text similarity, keeping
+  the longer; or prefer one member per (source, hour) at assembly. **Measure how much of the render
+  budget it actually costs before spending anything** — on a packet with 3 members it is noise, and
+  the exact-title dedup sweep already catches the byte-identical case.
+- **D-T19 · the editor fixture gate is not stable, and §2 asks it for 100% (measured 2026-08-06).**
+  Two consecutive `eval --task editor --fixtures` runs at temp=0 scored 47/53 and 43/53 — same
+  binary, same fixtures, same model. Every miss is one of two shapes: `names[]` omitting a person
+  the fixture asserts (Kyle Shanahan, Moyes, Arteta, Bellingham — the coach/manager class above
+  all), or `register` reading `neutral` where the fixture says `outrage`. The names misses are the
+  documented honesty gap on `target` fixtures, not a harness fault. The live consequence is §2
+  clause 4, which asks this gate for 100% and has never had it. **Recorded as a tuning item, NOT a
+  phase gate** (the standing rule: plumbing gates phases, model quality goes here) — but §2's text
+  says otherwise, so the cutover session must either score it green, or Scott waives clause 4b
+  explicitly. Do not let it be waived silently. Candidate knobs: the ep1 prompt's names[] ask is
+  where the coach class is being lost; and temp=0 not being deterministic is itself worth one
+  measurement before tuning anything on top of it.

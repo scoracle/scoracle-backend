@@ -1,39 +1,34 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–3 CLOSED. Phase 4 OPEN-PARKED (4.1–4.4 done; box-score target URLs
-wait for a season — top-5 leagues restart ~Aug 14–15; the pulselive_pl seed one-liner
-still awaits Scott). Phase 5: 5.1–5.9 DONE — 5.9 [DEPLOY] EXECUTED 2026-08-04
-03:57–04:10 EDT in the clean window: archbox pulled 4871fbe → 78c923a (schema-snapshot
-local mods verified byte-identical to origin before discard), `.env.local`
-COGNITION_STAGES += `investigate_entity` ONLY (voice pause PRESERVED — do not resume
-voices without Scott's word; fresh backup /tmp/env.local.bak-59-predeploy; the
-voice-pause backup untouched), release.sh green (API serving 78c923ae5520, cognition
-active, zero journal errors). Worker registers
-stages=[scrub,graph,editor,investigate_entity,article_read]; investigator route
-gemma3:4b@localhost. ORGANIC VERIFY (+10 min): the sweep is LIVE — 84 new
-entity_candidates (69 pending persons, 15 club/NT census per D-3), 67
-investigate_entity items enqueued by the descriptor rule, funnel view populating by
-day/state/kind/sport, editor reading at ~9/min. 5.10 INTERIM READ at +16.6h (2026-08-04
-~20:45 EDT, full numbers in the Phase 5 Log): ingest is a DAILY 02:00 EDT batch (not a
-stream) — day-1 nominations 4,448 (3,473 person, 58× the B3 estimate — day 1 flushes the
-standing corpus; read steady-state off day 2–3), 975 club/NT census; contention TOTAL —
-0 acquisition_runs, investigate_entity never sampled running, editor pending never below
-~1.7k (card idle is ≤1h/day before the next batch) — knob discussion parked as D-T10,
-NO knobs touched; coverage: Aug-3 batch 100% within 24h vs Aug-4 batch 77.6% at the same
-+18.3h offset (batch +15.6% bigger, throughput −5.4%, zero slots lost to the
-investigator — judge the >5% bar on within-24h at the close); compounding metric NONZERO
-day 1 (5 resolver links onto persons — Spoelstra). D-T1
-REPLAY VERDICT RECORDED (Appendix D, 2026-08-03 ~22:25 EDT): per successful read the
-Editor beats legacy on ALL THREE names on the same articles — Vinicius 85.0% vs 40.0,
-Diomande 81.8 vs 56.8, Olise 83.3 vs 62.5, combined 83.3% vs 51.9%; Olise's raw-rate
-deficit is stale-URL fetch decay, not model quality; the written bar ("beats legacy per
-name, same yardstick") is MET wherever a read happens. OPEN: 5.10 72h readings (clock
-started at the deploy; Editor coverage must not degrade >5%); D-T9 ops ONLY ON SCOTT'S
-GO (FULL NBA seed → 5.8 20-row hand-check — one false merge is stop-the-line → 5.10
-close). Mac voice work PAUSED (Scott; resume recipe in Phase 5 Log 19:50 entry); voice
-queues accumulating (momentum 1,241 / sigil 391 / narratives 377 / peak 400 at deploy).
-Sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority). Last plan commit:
-(this one). Updated 2026-08-04 ~21:05 EDT (5.10 interim readings folded in).**
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (4.1–4.4 done; box-score target
+URLs wait for a season — top-5 leagues restart ~Aug 14–15; the pulselive_pl seed
+one-liner still awaits Scott). NEXT: Phase 6 (storylines + packets — deterministic code,
+zero model calls). PHASE 5 CLOSED 2026-08-05 ~21:40 EDT on Scott's tuning ruling — 5.10
+cut to +41h with every band GREEN (full numbers in the Phase 5 Log close entry): Editor
+within-24h coverage HELD at 100.0% post-deploy (identical to pre-deploy; >5% bar
+untouched); 5.8 hand-check 10/10 accepts clean, 0 false merges (census of all accepts;
+20-row protocol re-arms under D-T9); funnel populated end-to-end; the investigator
+caught the predicted 01:52–02:00 idle window (70 runs, 11.4% acceptance, every refusal
+honest) and the compounding metric jumped 5 → 102 resolver links onto persons (Alonso 59
+same-day). Known+accepted (D-T10): steady-state nominations ~3k persons/day vs ~70/day
+drain — queue 6,670 and growing; the drain knobs are the tuning session's first
+Investigator item. SCOTT'S 2026-08-05 RULING also founded `PLAN-character-tuning.md`
+(Character tuning session notes; convention in the Appendix D preamble: ledger = index,
+notes = diagnosis, nothing fixed mid-rail) — this session's editor findings recorded as
+D-T11 (input hygiene: 34.3% of prompts at the 9k cap, Yahoo 95% with nav-menu chrome,
+hex entities undecoded) and D-T12 (output tokens dominate call wall ~19s of 22s;
+capacity ~7.8k reads/day vs arrivals ~8–8.4k/day, zero headroom; concurrency verified
+real 4×4). D-T1 replay verdict stands (Editor beats legacy per name, combined 83.3% vs
+51.9%). OPEN ITEMS OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO (FULL NBA seed → 20-row
+hand-check → widen at season start); Mac voice work PAUSED (Scott; resume recipe in
+Phase 5 Log 19:50 entry — do not resume without his word), voice queues accumulating;
+sudo /mnt/data/scratch grant still pending ON ARCHBOX (low priority). Last plan commit:
+(this one). Updated 2026-08-05 ~21:40 EDT (phase 5 closed).**
+
+*(Superseded STATE of 2026-08-04 ~21:05 EDT: phase 5 mid-flight — 5.9 deployed @78c923a
+in the 04:00 clean window, organic verify green at +10min, 5.10 interim at +16.6h
+recorded contention TOTAL/coverage deferred/compounding nonzero; details preserved in
+the Phase 5 Log entries of 2026-08-04.)*
 
 *(Superseded STATE of 2026-08-03 ~21:35 EDT, kept for the record below.)*
 
@@ -1812,7 +1807,8 @@ the role, and the budgeted fetcher already exist — Phase 4 founded them.
       explained + regression-fixtured).
 - [x] **5.9** *(DEPLOYED 2026-08-04 03:57–04:10 EDT @ 78c923a — see Log)* Tests, fixture gate, **[DEPLOY]** rust to archbox (`COGNITION_STAGES` +=
       `investigate_entity`).
-- [ ] **5.10** Measure over 72h in the Log: nominations/day, candidates by state, acceptance
+- [x] **5.10** *(CLOSED at +41h by Scott's 2026-08-05 tuning ruling — all bands read GREEN;
+      longitudinal follow-up rides D-T10 — see Log)* Measure over 72h in the Log: nominations/day, candidates by state, acceptance
       rate, editor-slot contention (Editor coverage from Phase 3.9 must not degrade >5%), and
       the compounding metric: resolver links landing on `persons` rows (starts ~0, should grow
       as accepted coaches recur).
@@ -2031,6 +2027,39 @@ each batch, so the queue only empties in a ≤1h window before the next batch la
   8,335 player + 5,300 team links. The loop closes: a person the Investigator accepted
   yesterday is a name the resolver links today. Growth is capped by the 2-row persons
   table until the queue drains (D-T10) or D-T9 runs.
+
+---
+
+**2026-08-05, ~21:10–21:40 EDT: 5.10 CLOSED at +41h on Scott's ruling ("this is a tuning
+issue… finish up this phase") — every band GREEN; PHASE 5 CLOSED.** The ruling also founded
+`PLAN-character-tuning.md` (the Character tuning session notes; convention written into the
+Appendix D preamble) — this session's editor-efficiency findings landed there as D-T11/D-T12,
+not as rail work.
+
+✅ **VERIFY SATISFIED.** (1) **Editor coverage HELD exactly:** the Aug-4 batch (first full
+post-deploy day, 7,985 arrivals) finished **100.0% within 24h** — identical to the Aug-3
+pre-deploy batch's 100.0%; zero degradation against the >5% bar (the interim 77.6%
+same-offset read was batch size, as suspected — confirmed by the closed window). Aug-5
+batch (8,358 arrivals) tracking the same shape at 79.3% @ +19h. (2) **5.8 sample clean —
+0 false merges.** All 10 accepts in existence hand-checked (census, not sample; the 20-row
+protocol re-arms under D-T9 when the FULL seed runs): the 8 overnight organic accepts each
+picked the right identity out of genuine namesake fields — Dan Quinn (Commanders HC,
+Q5214234) split from two college-basketball Dan Quinns, a golfer-hockey player, and an
+actor; Ivan Jurić (Q556688) from two ORCID researchers and a historian; De Rossi (Q168497)
+from a bishop; plus Shevchenko, Alonso (the 5.7 fixture case, live), Iraola, McClure,
+Hickman. (3) **Funnel populated end to end:** pending 6,700 / accepted 10 / ambiguous 23 /
+not_sport 20 / insufficient 19 persons + 1,827 club/NT census.
+
+**The overnight proof the design needed:** the investigator caught the predicted idle
+window — 70 runs, 01:52–02:00 EDT, ended by the 02:00 batch — and decided 70 candidates
+honestly (11.4% acceptance; every ambiguous a refusal, never a coin flip). **The
+compounding metric compounds:** 102 resolver links landed on persons rows since deploy
+(vs 5 at the interim read) — Xabi Alonso, accepted 01:56, drew 59 links the same day;
+Iraola 23. Steady-state nominations ~3k persons/day (day-2 pace matched day-1 — not a
+corpus flush): queue 6,670 and growing ~2.7k/day vs ~70/day drain — recorded as D-T10's
+day-2 verdict; the drain-rate knobs are the tuning session's first Investigator item.
+
+**Commit:** `rail: phase 5 — the Investigator verifies people`.
 
 ### Handoff (phase 5 → 6)
 ```
@@ -2455,6 +2484,12 @@ typed-links/episodes/seal rollups stay — they feed every memory card. `NEWS_SC
 here with their measured baseline and revisited as tuning passes, typically post-cutover or
 in idle capacity. A phase may cite this ledger; it may not halt on it.)*
 
+*(Convention added by Scott's 2026-08-05 ruling: this ledger is the INDEX — one D-T number +
+one-line measured baseline per finding. The diagnosis detail — numbers, code pointers,
+candidate knobs, the measurement that settles each knob — lives in
+**`PLAN-character-tuning.md`**, the session notes for the post-rail Character tuning
+sessions. Rail sessions append to both as findings surface; they fix nothing mid-rail.)*
+
 - **D-T1 · names[] under-fill (the discovery miss class).** Every genuine bleed-class miss
   on day 1 was the model omitting the player from `names[]` (clubs/agents emitted, player
   skipped — "Yan Diomande's dream Real Madrid transfer…" → Jay-Z, two agents, no Yan).
@@ -2531,3 +2566,26 @@ in idle capacity. A phase may cite this ledger; it may not halt on it.)*
   everything); (c) run the investigator through the GPU rest windows (the card rests;
   HTTP doesn't need it) — interacts with the pause-timer design; (d) raise
   max_in_flight only after (a), else it just deepens the same contention.
+  **Day-2 verdict (2026-08-05): the design works, the arithmetic doesn't.** It caught
+  exactly the predicted idle — 70 runs in the 01:52–02:00 EDT window before the daily
+  batch re-buried the card; decisions honest (8 accepted / 23 ambiguous / 20 not_sport /
+  19 insufficient = 11.4% acceptance); but steady-state nominations are ~3k persons/day
+  (day-2 pace matched day-1 — NOT a corpus flush), queue +~2.7k/day vs ~70/day drain
+  (6,670 pending). The compounding upside is real: the 8 overnight accepts drew 102
+  resolver links onto persons the same day (Alonso 59, Iraola 23). Diagnosis + knobs in
+  PLAN-character-tuning.md §3.
+- **D-T11 · editor input hygiene (measured 2026-08-04/05, 4,774 ledgered calls).**
+  `clean_html` keeps site chrome (nav/footer text); 34.3% of prompts hit the 9,000-char
+  cap — sports.yahoo.com (top domain, 584 calls) 95% at cap with its "Article text"
+  opening on the full nav menu, so real prose truncates off the tail (feeds D-T1's
+  under-fill). `decode_entities` misses hex `&#x27;`. Knobs: article-element/boilerplate
+  strip before truncation + numeric-entity decode. Diagnosis in
+  PLAN-character-tuning.md §1.
+- **D-T12 · editor capacity fully subscribed; output tokens dominate the wall (same
+  sample).** Wall scales 16.9s→38.8s across prompt buckets but ~19s of the ~22s delta is
+  extra OUTPUT (~14 tok/s/slot at 4-parallel; only ~3s prompt eval) — num_predict trims
+  tails only; a real cut is an ep2 envelope bump (reopens all work; never casual).
+  Capacity ~7,800 reads/day (490/hr active; rest windows pause 8h/day) vs arrivals grown
+  to ~8,000–8,400/day; concurrency verified real (4×4, 100% GPU, 77% slot utilization);
+  within-24h coverage still 100.0% — zero headroom for growth. Rest-window and
+  model-swap knobs are Scott's calls. Diagnosis in PLAN-character-tuning.md §2.

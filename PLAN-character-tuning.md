@@ -114,6 +114,13 @@ anywhere on the rail:
   re-open either without new numbers:** the sport suffix (bare "Nice" returns the NHS institute and
   Formula 1; "Nice soccer football" returns the club) and alias lanes (20–30% marginal unique
   recall — Spurs 18/47, Barça 29/102, PSG 16/47). Cost: ~44% more Google calls per sweep.
+- ~~**`title_pos`'s only remaining readers are SQL functions**~~ / ~~the legacy link schema~~ —
+  **CLOSED 2026-08-06 by 8.11.** `news_article_entities` is five columns and one writer; `vetted`,
+  `match_confidence`, `scrubbed_at` and `title_pos` are dropped, and with them the three
+  reconciliation arms that made 8.10's bug possible. **The find that justified the whole rip:
+  `compute_transfer_heat` is LIVE (the Insider calls it per pair) and still carried the mig-033
+  proximity gate 8.8 removed from Rust — so the gate was half-alive in SQL for six hours after we
+  believed it deleted. Check both sides of a gate: SQL functions are code too.**
 - **`fetch.rs::clean_html` is a naive strip-all-tags** (§1, D-T11) — nav menus and footers reach
   the prompt, and **34.3% of editor prompts hit the 9,000-char truncation cap.** Hand-rolled
   extraction is spending the model's window on page furniture.

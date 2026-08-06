@@ -3213,6 +3213,25 @@ block with BLOCKED.
       transaction with the assertion inside it.** **Commit:** `editor: write_links loses an
       article's whole link set on a duplicate resolve`.
 
+- [x] **8.11** **THE EDITOR OWNS THE LINKS — the scrub-era table is gone.** Scott, reading 8.10's
+      report: *"Is this a band aid fix? … I want the actual durable, simple fix. Rip out the rotten
+      code, streamline, make it work the cleanest, simplest way."* He was right. 8.10's
+      `DISTINCT ON` closed the bug class, but the function only had ROOM for that bug because it
+      was marshalling a clean model output into the old rail's workflow table. `write_links` was
+      greenfield (8.5) — **the rot was the schema it served, and Go co-writing it.**
+      **(a)** Go writes NO links (measured first: every consumer already filtered `vetted IS TRUE`
+      and only the Editor sets it, so Go's 0.95 rows were invisible to the whole rail — pure write
+      amplification); the hypothesis they encoded lives on `news_articles.raw.query_team_id`.
+      **(b)** `write_links` is now *delete this article's rows, insert what the model resolved* —
+      two statements, one transaction, no `ON CONFLICT`, no arms, no tri-state; an irrelevant read
+      is the DELETE alone. **(c)** A row's EXISTENCE is the verdict; every reader (graph,
+      journalist, insider, 4 SQL functions) drops its `vetted` predicate. **(d)**
+      `load_hypothesis_entities` reads the query provenance, and deliberately never feeds the
+      Editor its own previous answer. **(e)** Mig 214 deletes the 150,966 rows every consumer was
+      already ignoring, rebuilds the 4 live functions, drops the 3 orphaned trigger functions, 2
+      indexes and 4 columns. **Deployed @ `6fbf798`, migrated, snapshotted @ `9986cab`.**
+      **Commit:** `rail: 8.11 — the Editor owns the links; the scrub-era table is gone`.
+
 **Verify:** 48h stable on the new rail. **Commit:** `rail: phase 8 — cutover; the old rail is
 off`.
 
@@ -3627,6 +3646,64 @@ they are on the record so nobody reads them as the fix leaking.
 non-determinism — the instrument, and nothing else can be scored until it holds still), then
 `momentum`'s markdown answers, which should ride 7.11's single re-earn rather than spend a
 fleet-wide regen of its own.
+
+**2026-08-06 ~15:30–16:20 EDT — 8.11, THE RIP. `news_article_entities` has FIVE columns.**
+
+Scott's challenge after 8.10: *"Is this a band aid fix? It feels like one."* It was — not the
+`DISTINCT ON` itself, which is correct, but stopping there. The honest diagnosis he pushed for:
+**`write_links` was greenfield code (8.5, `5020c15`), not ported — but it was serving a ported
+SCHEMA, and that is what gave the bug room to exist.**
+
+**What the table was carrying:** `vetted` as a TRI-STATE (NULL nobody looked / TRUE the scrub gate
+approved / FALSE it rejected), `match_confidence` as a provenance sentinel (0.95 Go's hypothesis,
+0.8 the regex secondary, 0.90 the Editor), `scrubbed_at` named for a stage deleted this morning,
+and `title_pos` behind a headline-proximity gate. **Two writers shared it** — Go at ingest, the
+Editor after reading — which is why the Editor's write needed three reconciliation arms.
+
+**The measurement that made the rip safe, taken before writing any code:** every live consumer —
+`graph`, `journalist`, `insider`, and all 7 SQL functions — used `vetted IS TRUE` as a plain
+existence test, and **nothing anywhere read `match_confidence`.** Only the Editor sets `vetted`.
+**So Go's 0.95 hypothesis rows were invisible to the entire packet rail** — write amplification
+whose only real effect was giving the Editor a second author to reconcile with.
+
+| | before | after |
+|---|---|---|
+| `news_article_entities` columns | 9 | **5** (`article_id, entity_type, entity_id, sport, created_at`) |
+| writers | 2 (Go + Editor) | **1 (the Editor)** |
+| `write_links` | 3 arms, upsert, tri-state | **DELETE + INSERT** |
+| `vetted` predicates in queries | 11 (Rust + SQL) | **0** |
+| rows | 405,018 | **254,052** |
+| indexes | 5 | **3** |
+
+**Mig 214, rehearsed rolled back then applied.** Deleted **150,966** rows — 52,963 explicit
+denials and 98,003 never adjudicated. **Every one of them was already invisible:** consumers
+filtered `vetted IS TRUE`, so the delete removed exactly what they were ignoring, and no live query
+saw a different row set. Rebuilt the 4 live functions without the retired predicates; dropped
+`enqueue_derive_on_vetted`, `enqueue_transfers_if_transfer_related`,
+`enqueue_voices_on_routing_tags` (orphans since the flip dropped their triggers — Appendix A had
+them in Phase 9; the column drop brought them forward); dropped `idx_nae_vetted_lookup` and
+`idx_news_entities_unscrubbed`.
+
+**`compute_transfer_heat` is why this mattered beyond tidiness.** It is LIVE — the Insider calls it
+per (team, player) pair — and it still carried the **mig-033 title-proximity gate that 8.8 removed
+from the Rust side hours earlier.** The same gate, half-alive in SQL, thinning pairs on a column
+nothing writes. **This also corrects a claim made in 8.8's log:** `title_pos`'s remaining readers
+were NOT all Phase 9 corpses.
+
+**Deploy order was F-022's, deliberately:** a column DROP inverts the usual order, so the binaries
+that stop reading those columns shipped FIRST (`6fbf798`), then the migration, then
+`snapshot-schema.sh` (`9986cab`). No prepared statement references the table, so the API's
+fail-fast-on-drift had nothing to catch.
+
+**Verified live after both halves:** 0 errors in the journal, the Editor writing links again
+(11 in the first 10 minutes — 7 team, 4 player), `compute_transfer_heat` still returning heat on
+7 of 25 sampled pairs, both units active, 412 Rust tests and the full Go suite green.
+
+**One correction to the design as it was pitched:** the option preview said duplicates "cannot
+error: nothing to conflict with". That is wrong and the code does not rely on it — two identical
+rows in ONE insert violate the primary key whether or not the table was just cleared, so
+`SELECT DISTINCT` is still required. It is now a distinct-on-the-key rather than a guard bolted
+onto an upsert, because after the rip the projection IS the key.
 
 ### Handoff (phase 8 → 9)
 ```

@@ -1,7 +1,12 @@
 # PLAN — One Rail
 
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
-for a season). PHASE 6 OPEN: 6.1–6.5 DONE, 6.6/6.7 BLOCKED ON A SCOTT RULING. The Desk is built
+for a season). PHASE 6 OPEN: 6.1–6.6 DONE, 6.7's 72h window RUNNING (closes ~Aug 8 22:10 EDT).
+DEPLOYED 2026-08-05 22:08 EDT @ `a6c467b` in the 22:00–00:00 active window — the live Editor
+attaches organically (4 of 4 post-deploy reads, 0 unattached-with-links, 0 errors), packets 0,
+boot line `packet_compile=false`. SCOTT'S RULING 2026-08-05: the packet fan-out seam is a TUNING
+item (D-T14), not a phase gate — "we're building the rail first"; no model testing until the
+rail is complete. The Desk is built
 (storyline.rs + packet.rs + bin/storylinefill + the worker's Desk pass; 363 tests green) and the
 shadow corpus is assembled — 12,571 reads → 6,164 storylines, 25,759 participant edges, 51.0%
 attached / 49.0% opened new, ZERO packets. §1b's rule needed TWO measured corrections, both
@@ -11,19 +16,19 @@ cover half the seed — after a conference listicle's 11-entity key gathered 304
 cluster now 109 over 4 days, hand-inspected as ONE saga (Vinicius→Arsenal) with the T3
 contradiction intact (ESPN "set to stay" beside Football365 "agreement in principle" beside six
 "deal not agreed"), not a merge; the residual saga-bleed is logged as D-T13.
-**THE BLOCKER: mig 206's arm 2 (the Journalist's `narratives` fan-out) is UNCONDITIONAL by
-design, so 6.3's "packets INSERT fires an inert trigger" is false — under RAIL=legacy it would
-alternate `input_version` with the legacy `article_read` enqueue on the same `pipeline_work`
-row (the mig-197 churn loop, arriving a phase early).** Contained, not fixed: the compile sweep
-sits behind `COGNITION_PACKET_COMPILE` (default OFF, logged at boot); no packet has ever been
-compiled. Scott picks: (a) leave it dark until Phase 7 lands RAIL + subscriptions (recommended);
-(b) mig 211 makes arm 2 subscription-gated and 7.4 seeds `narratives`; (c) compile under legacy
-and accept the churn. NEXT SESSION: (1) that ruling; (2) 6.6 [DEPLOY] in the 04:00–06:00 clean
-window — safe today ONLY with the flag unset, and it carries storyline attach + the hourly
-dormancy sweep alone; (3) 6.7's live 72h bands. OPEN ITEMS OUTSIDE PHASES unchanged: D-T9 ops
-ONLY ON SCOTT'S GO; Mac voice work PAUSED (do not resume without his word); sudo
-/mnt/data/scratch grant pending on archbox (low priority). Last plan commit: (this one).
-Updated 2026-08-05 ~23:10 EDT (phase 6 code in, deploy blocked).**
+**D-T14, the seam Scott parked:** mig 206's arm 2 fans `narratives` unconditionally, so a
+compiled packet would alternate `input_version` with the legacy `article_read` enqueue on one
+`pipeline_work` row (the mig-197 churn loop). The flag holds it; Phase 7 lands `RAIL` and seeds
+subscriptions; the tuning session decides the shape. Phase 6's Verify line is true as shipped —
+because nothing compiles, not because the trigger is inert. NEXT SESSION: (1) read 6.7's 72h
+bands at ~Aug 8 22:10 EDT (storylines/day/sport, articles-per-storyline, % attached, hand-inspect
+the 3 biggest for wrong merges + one preserved contradiction; the backfill numbers in the Log are
+the pre-deploy baseline) and close Phase 6; (2) then Phase 7 — the voices onto packets behind
+`RAIL=legacy`, where flipping `COGNITION_PACKET_COMPILE` finally belongs. 6.7 does NOT gate the
+start of Phase 7's build. OPEN ITEMS OUTSIDE PHASES unchanged: D-T9 ops ONLY ON SCOTT'S GO; Mac
+voice work PAUSED (do not resume without his word); sudo /mnt/data/scratch grant pending on
+archbox (low priority). Last plan commit: (this one). Updated 2026-08-05 ~22:25 EDT (phase 6
+deployed; 6.7 running).**
 
 *(Superseded STATE of 2026-08-05 ~21:40 EDT — phase 5 closed — kept verbatim below.)*
 
@@ -2134,8 +2139,8 @@ will route the characters (still inert — subscriptions stay empty until Phase 
 - [x] **6.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
       shape: Diomande/Vinicius/Rodri/Lee Kang-in/Álvarez clusters — assert Lee Kang-in lands in
       its own storyline, NOT Real Madrid's, per the hand count).
-- [ ] **6.6** **[DEPLOY]** rust to archbox. *(BLOCKED-ish: safe TODAY only with
-      `COGNITION_PACKET_COMPILE` unset — see the Log. Deferred to a clean window regardless.)*
+- [x] **6.6** **[DEPLOY]** rust to archbox. *(Done 2026-08-05 22:08 EDT @ `a6c467b`, packet
+      compile OFF per Scott's ruling → D-T14. Log has the deploy record + organic verify.)*
 - [ ] **6.7** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
       distribution (the top cluster should land ~15–25:1 against the 20:1 hand count — outside
       that band, STOP and inspect attach scores); % of reads attached vs opened-new; hand-inspect
@@ -2216,6 +2221,26 @@ Vinicius/Arsenal articles** — its seed article named Vinicius in passing, so t
 sagas share a 2-entity slice of a 4-entity key. That residue is one class, it is diagnosed, and
 it is a tuning item, not a mechanism failure → **D-T13**. No further tuning this session (§4: the
 rail stands first).
+
+**2026-08-05 ~22:05–22:20 EDT: SCOTT'S RULING, then 6.6 [DEPLOY] EXECUTED — 6.7's 72h clock
+starts here (window closes ~Aug 8 22:10 EDT).** The ruling: *"Leave all the actual model testing
+until we've completed the rail. Mark this issue as part of the tuning. We're going to go through
+each junction and tune — this is an issue for that session. We're building the rail first."* So
+the fan-out seam above is **D-T14**, not a phase gate: the flag stays off, the storyline half
+ships live, and Phase 7 lands `RAIL` before anything compiles a packet. Deploy record: (1)
+pre-flight — archbox `git pull --ff-only` → `a6c467b`, working tree clean; `.env.local`
+UNCHANGED (grep confirms `COGNITION_PACKET_COMPILE` absent = off; the voice pause and the 5.9
+stage list are untouched). Deployed inside the 22:00–00:00 ACTIVE window, so no rest window was
+overridden. (2) `scripts/hosting/release.sh` → all binaries @ `a6c467bce18a`, API healthy and
+serving the commit, cognition `active`. Boot lines: `stages=["scrub","graph","editor",
+"investigate_entity","article_read"]` and **`desk: storyline assembly always on; packet compile
+gated by COGNITION_PACKET_COMPILE packet_compile=false`**. (3) Organic verify at +8 min: of the
+successful reads since the deploy stamp, **4 of 4 attached, 0 unattached-with-links** — the live
+§1b path works on organic arrivals; **2 new storylines opened**, `attach_method` now `auto 4 /
+backfill 12,571`; **packets 0** (the trigger has still never fired); journal free of
+`storyline attach failed` / `packet compile failed` / errors. Candidate-query cost measured
+before the deploy on the busiest possible input (Real Madrid + Vinicius, 69 candidates):
+**18.5 ms**, against a stage whose model call is ~20–35 s.
 
 **6.3/6.4/6.5 — what is built but not running.** `packet.rs` compiles §1c in a pure function
 (members + participants → draft) with the loader and the append around it: headline by lowest
@@ -2719,3 +2744,21 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   principal recurs, a passing mention does not); (c) require the shared slice to include
   the storyline's dominant PERSON. Measure the bleed rate over a live 72h window (6.7)
   before choosing.
+- **D-T14 · the packet fan-out seam under RAIL=legacy (SCOTT'S RULING, 2026-08-05: "leave
+  all the actual model testing until we've completed the rail; mark this as part of the
+  tuning — we're going through each junction and tuning, this is an issue for that session.
+  We're building the rail first").** Mig 206's arm 2 (the Journalist's `narratives`
+  fan-out) is unconditional by design, so a compiled packet stamps `pk:<fingerprint>` onto
+  the same `(stage, entity_type, entity_id, sport)` rows the legacy `article_read` seat
+  stamps `n:<hash>` (`article_reader/mod.rs:1319`); `work::enqueue` reopens on any version
+  change, so the two writers would alternate forever — the mig-197 churn loop. Cost is
+  bounded even if it fires (voices paused; the Journalist debounces on its own material
+  hash, so a claimed row costs a corpus read, not a generation). **Held, not fixed:**
+  `COGNITION_PACKET_COMPILE` defaults OFF and is logged at boot (`packet_compile=false`);
+  zero packets have ever been compiled, so the trigger has never fired. The rail is built
+  around it — Phase 6 ships the storyline half live, Phase 7 lands `RAIL` and seeds
+  subscriptions, and the flag flips when this seam is the session's actual subject.
+  Candidate resolutions for that session: (a) flip the flag once RAIL exists (the default
+  path); (b) mig 211 makes arm 2 subscription-gated like arm 1, with 7.4 seeding
+  `narratives`. Phase 6's Verify line ("packet trigger fired 0 work rows") is TRUE as
+  shipped — because nothing compiles, not because the trigger is inert.

@@ -368,6 +368,19 @@ async fn already_attached(conn: &mut PgConnection, article_id: i64) -> Result<bo
 /// candidates is §1b's candidate set: OPEN storylines in this sport that share at least one
 /// ACTIVE participant with the read and were touched inside the 14-day window.
 ///
+/// **A storyline's identity is fixed at birth.** Only the SEED participants — the ones that
+/// joined with the article that opened the storyline — are matched against. Everyone a later
+/// member brings in still joins `storyline_entities` (they are participants; the fan-out and
+/// the packet want them), but they do not extend the join key.
+///
+/// This was measured, not assumed. With every participant matching, the 2026-08-05 backfill
+/// rehearsal over 2,000 shadow reads produced a 569-article storyline — 28% of the corpus in
+/// one "story". The mechanism is rich-get-richer: a player named in passing joins the entity
+/// set, the next article about THAT player attaches and brings its own cast, and within a day
+/// the set is large enough that any transfer piece naming two of its clubs lands in the blob.
+/// Freezing the key at the seed bounds it: a story can gather coverage of itself forever, and
+/// can never grow a new identity.
+///
 /// The dominant type is a mode over member reads, computed here rather than cached on the
 /// storyline: a cached rollup is a second writer of the same fact, and this query runs against
 /// a handful of candidates, not the table.
@@ -397,6 +410,12 @@ async fn candidates(
               CROSS JOIN clock c
               JOIN public.storyline_entities se
                 ON se.storyline_id = s.id AND se.left_at IS NULL
+               -- The SEED cast only: the participants that joined with the storyline's first
+               -- article all carry that article's clock, so the earliest joined_at IS the seed
+               -- set. Later arrivals participate without redefining what the story is about.
+               AND se.joined_at = (SELECT min(se2.joined_at)
+                                     FROM public.storyline_entities se2
+                                    WHERE se2.storyline_id = se.storyline_id)
               JOIN mine m
                 ON m.entity_type = se.entity_type AND m.entity_id = se.entity_id
              WHERE s.sport = $1
@@ -585,6 +604,9 @@ mod tests {
     #[derive(Clone, Debug)]
     struct SimStory {
         id: i64,
+        /// The seed cast — what the storyline is MATCHED on, fixed at birth.
+        seed: BTreeSet<(String, i32)>,
+        /// Everyone who has taken part, seed included — what the fan-out reaches.
         entities: BTreeSet<(String, i32)>,
         types: Vec<String>,
         last_seen: i64,
@@ -631,7 +653,7 @@ mod tests {
                     s.last_seen <= r.at && r.at - s.last_seen < CANDIDATE_WINDOW_DAYS * 24 * HOUR
                 })
                 .map(|s| {
-                    let shared: Vec<&(String, i32)> = s.entities.intersection(&mine).collect();
+                    let shared: Vec<&(String, i32)> = s.seed.intersection(&mine).collect();
                     Candidate {
                         storyline_id: s.id,
                         person_overlap: shared.iter().filter(|(t, _)| t != "team").count() as i32,
@@ -653,6 +675,7 @@ mod tests {
                 }
                 None => stories.push(SimStory {
                     id: stories.len() as i64 + 1,
+                    seed: mine.clone(),
                     entities: mine,
                     types: vec![r.story_type.to_string()],
                     last_seen: r.at,
@@ -759,6 +782,29 @@ mod tests {
         ]);
         assert_eq!(stories.len(), 1);
         assert_eq!(stories[0].members, 2);
+    }
+
+    /// The rich-get-richer failure the 2026-08-05 rehearsal measured (a 569-article "story"):
+    /// a cast picked up by a later member must not become part of what the storyline matches on.
+    #[test]
+    fn a_later_members_cast_does_not_extend_the_join_key() {
+        const RM: (&str, i32) = ("team", 3468);
+        const VINICIUS: (&str, i32) = ("player", 1);
+        const MBAPPE: (&str, i32) = ("player", 9);
+        const PSG: (&str, i32) = ("team", 5);
+        let stories = replay(&[
+            read(&[RM, VINICIUS], "transfer", 0),
+            // A Vinicius story that mentions Mbappé in passing: it attaches (same people)…
+            read(&[RM, VINICIUS, MBAPPE], "transfer", 1),
+            // …but the Mbappé story that follows must NOT be swallowed by it.
+            read(&[MBAPPE, PSG], "transfer", 2),
+        ]);
+        assert_eq!(stories.len(), 2, "{stories:#?}");
+        assert_eq!(stories[0].members, 2);
+        assert_eq!(stories[1].members, 1);
+        // Mbappé still PARTICIPATES in the Vinicius story — the fan-out reaches him there.
+        assert!(stories[0].entities.contains(&("player".to_string(), 9)));
+        assert!(!stories[0].seed.contains(&("player".to_string(), 9)));
     }
 
     #[test]

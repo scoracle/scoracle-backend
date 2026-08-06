@@ -3103,6 +3103,26 @@ block with BLOCKED.
       pre-flip baseline), Mac throughput. Rollback trigger: any voice starving >6h or Editor
       coverage <80% → RAIL=legacy (env flip + Appendix A trigger revert), diagnose cold.
 
+- [ ] **8.8** **THE REGEX EXCISION (Scott, 2026-08-06, post-flip): "remove all regex and have
+      Google's search handle the relevancy, then let our Editor layer handle the next layer."**
+      Its own session — see the prompt in the Handoff below. Pulled FORWARD out of Appendix A's
+      Go block because the regex is not merely dead, it is actively running: `news.go`'s primary
+      link still calls `FirstMatchPos` on every ingested article to compute a `title_pos` that
+      nothing on the packet rail reads. Scope, measured 2026-08-06 after the flip:
+      **(a)** `FirstMatchPos` on the primary link (the last live regex in the hot ingest path);
+      **(b)** the already-skipped secondary loop and the entity pool that exists only to feed it
+      (a per-sport DB query on a 1-hour cache);
+      **(c)** `match.go` entire (358 lines) except `isTeamEntity`;
+      **(d)** `BackfillTitlePositions` + `go/cmd/comention-backfill/` — entrypoints for a column
+      with no live reader;
+      **(e)** `funnel.go`'s `MatchRejected`, documented as permanently zero since the RSS filter
+      was removed;
+      **(f)** the Insider's proximity gate (`insider/mod.rs:342-343, 529-530`) — **and this is the
+      one that is a decision, not a deletion.** See the Log finding: it is ALREADY inert.
+      **NOT in scope: `rssHTMLTagRe`/`rssEntityRe`/`rssWhitespaceRe` (`news.go:1291-1293`).** Those
+      are RSS *parsing*, not relevancy — "remove all regex" means the relevance-guessing regex.
+      Deleting the parser is how this session breaks ingest.
+
 **Verify:** 48h stable on the new rail. **Commit:** `rail: phase 8 — cutover; the old rail is
 off`.
 
@@ -3236,6 +3256,46 @@ editor fixture gate) is FAIL at 43–47/53 and **Scott waived it explicitly for 
 as D-T19 with the waiver named, because §2's text asks for 100% and a waiver that lives only in a
 chat log is a waiver nobody can audit. Clause 1 reads low on a partial day by construction (41.2%
 at flip time, 97.3% on the last complete day) — do not read it before a day closes.
+
+**2026-08-06 ~11:30 EDT — THE REGEX SURFACE, MEASURED (scoping 8.8; no code changed).** Scott's
+direction after the flip: *"remove all regex and have Google's search handle the relevancy and then
+let our Editor layer handle the next layer."*
+
+**The architecture he is describing is already what runs — this is a deletion, not a redesign.**
+The primary link IS the query (`broadTeamPrimaryConfidence` 0.95: we asked Google about this
+entity, so the link is the hypothesis), and the Editor confirms or denies it having read the body
+(8.5). What is left is the machinery that used to *guess* relevance, still running beside it.
+
+**Finding 1 — the last live regex is on the primary link, and it feeds nothing.** `news.go:406`
+calls `FirstMatchPos(a.Title, *primaryMatch)` on every ingested article to write `title_pos`.
+Under `RAIL=packet` no consumer reads it (see finding 2), so this is regex burning ingest CPU to
+populate a dead column.
+
+**Finding 2 — THE INSIDER'S PROXIMITY GATE WENT INERT AT THE FLIP, SILENTLY.** `load_candidates`
+(`insider/mod.rs:318`) is deliberately NOT rail-gated — 7.5's ruling is "the rail decides what
+these articles SAY, never which articles they are" (mod.rs:1032), so pair IDENTITY still comes from
+`news_article_entities` on both rails. Its gate reads
+`te.title_pos IS NULL OR pe.title_pos IS NULL OR abs(te.title_pos - pe.title_pos) <= $5` — lenient
+by design, so **NULL means the gate passes**. The Editor's 8.5 write does not compute `title_pos`.
+Measured on live post-flip data: of **170 rows created since the flip, 0 have a `title_pos`** (all
+170 are Editor 0.90 inserts; the 60 rows that do carry one are Go's 0.95 primaries and pre-flip 0.8
+secondaries). **So the Insider's candidate set silently widened at 10:55 today** — every new pair
+passes a gate that used to thin them. Nobody decided that; it fell out of 8.5 not writing a column
+8.4 never mentioned. It is defensible — proximity-in-headline was a crutch for regex noise that no
+longer exists, and the Editor's links are real reads — but it must be **decided, not inherited**,
+which is why 8.8 lists it as the one item that is a judgment call rather than a deletion. Watch
+transfer volume in the meantime: `transfer_rumors` was 68/24h pre-flip.
+
+**Finding 3 — Appendix A's Go line numbers are STALE and will send a fresh session to the wrong
+code.** It was written by the 2026-07-28 recon. Spot-checked today: it cites the secondary-link
+loop at `news.go:363-392`; it is at `:445`. `BackfillTitlePositions` is cited at `:563-635`; it is
+at `:655`. Everything in that block still EXISTS — the symbols are right, the offsets are not.
+Grep by symbol, never by line.
+
+**Finding 4 — the RSS parsing regex is not in scope and deleting it breaks ingest.**
+`rssHTMLTagRe`, `rssEntityRe`, `rssWhitespaceRe` (`news.go:1291-1293`) strip tags and decode
+entities out of the RSS payload. They are parsing, not relevance. "Remove all regex" means the
+relevance-guessing regex; a literal reading takes the fetcher down.
 
 ### Handoff (phase 8 → 9)
 ```

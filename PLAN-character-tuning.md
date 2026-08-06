@@ -185,3 +185,59 @@ sharing a source AND high text similarity? Knobs, in increasing order of how muc
 per (source, hour) at assembly — cheaper, but it discards an article, so it owes an A5 exclusion
 line naming what it dropped. **Never dedupe across DIFFERENT sources** — that is the T3 line, and
 crossing it turns the contradiction-preserving property of a packet into a summarizer.
+
+---
+
+## 7 · Carried out of the flip (2026-08-06) — read these before tuning the Insider
+
+### 7a · D-T20 — the Insider's proximity gate went inert at the cutover, and nobody chose that
+
+**Measured on live post-flip data:** of 170 `news_article_entities` rows created since
+`RAIL=packet` went live, **0 carry a `title_pos`**. Every one is an Editor 8.5 insert, and the
+Editor does not compute that column.
+
+**Why it matters here rather than in the rail plan.** `insider::load_candidates`
+(`insider/mod.rs:318`) picks the (team, player) pairs the Insider will spend model calls on, and it
+is deliberately NOT rail-gated — 7.5 ruled that the packet replaces what articles SAY, never which
+articles they ARE. Its thinning clause is:
+
+```sql
+AND (te.title_pos IS NULL OR pe.title_pos IS NULL
+     OR abs(te.title_pos - pe.title_pos) <= $5)
+```
+
+NULL passes, by design. So at 10:55 EDT on 2026-08-06 the gate stopped thinning anything, and the
+Insider's candidate set widened — not by a decision, but as a side effect of 8.5 not writing a
+column 8.4 never mentioned.
+
+**This is probably the right outcome, which is exactly why it needs deciding rather than
+inheriting.** Headline proximity was a proxy for "is this co-mention real?" back when co-mentions
+came from a regex scanning a title. On the packet rail they come from the Editor having READ the
+body and resolved a name. Proximity is a crutch for noise that no longer exists.
+
+**But measure before you keep it or cut it.** The baseline: `transfer_rumors` ran **68 per 24h**
+pre-flip. If post-flip pair volume climbs sharply, the widened candidate set is spending Mac
+throughput on pairs the gate used to drop, and that is Insider tuning — it competes directly with
+the other five voices for the Mac's single permit. Knobs, in order: (a) delete the clause outright
+and let `HAVING count(DISTINCT te.article_id) >= $3` do the thinning (it is a better filter — it
+asks for corroboration across articles rather than adjacency in one headline); (b) replace
+proximity with the Editor's own `entity_roles` — a `passing_mention` pair is exactly what the
+gate was trying to drop, and now we have the model's word for it instead of a character offset.
+Knob (b) is the describe-then-derive version and is the one to reach for if (a) proves too loose.
+
+Tied to **8.8** in `PLAN-one-rail.md` (the regex excision session), which lists this as its one
+judgment call among otherwise straightforward deletions.
+
+### 7b · Prompt fat is the weekend's main event — the inventory is already written
+
+Scott, at the flip: *"We're going to be able to trim a LOT of fat from the legacy prompts that we
+copied over to the new rail."* The measurements that scope that work already exist and should not
+be re-derived:
+
+- **§2 of this file (D-T12)** — the Editor's output dominance and capacity numbers.
+- **PLAN-one-rail 7.2's window budget** — the per-voice 4096 envelope (system ≤550 tok, memory
+  ≤700, packet render ≤2,000, `num_predict` ≤800, prompt p99 ≤3,300). That table is the target
+  the trimming aims at, and `eval_count` telemetry is how you assert you hit it.
+- **7.11 is the step that owns the RAIL-scoped diet prompts** and is still open — it is where the
+  trimmed versions land, and its `s17` bump spends one fleet-wide regen, so batch every prompt
+  change into it rather than bumping twice.

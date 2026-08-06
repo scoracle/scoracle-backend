@@ -1,6 +1,44 @@
 # PLAN — One Rail
 
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
+for a season). PHASE 6 OPEN: 6.1–6.6 DONE and deployed @ `a6c467b`; **6.7's 72h window is
+RUNNING and closes ~Aug 8 22:10 EDT** — it could NOT be read this session (the session opened at
+22:12, four minutes after the deploy; a distribution over four minutes is noise). The +4-min
+checkpoint is healthy and logged: binary up 22:08:27, **17 of 17 linked reads attached since,
+0 unattached**, 6,170 storylines, packets 0. PHASE 7 STARTED, nothing deployed — the running
+binary is still Phase 6's. DONE: **7.1** `RAIL` (legacy|packet, default legacy, total parse,
+carried on the Harness, logged at boot); **7.2** `editor/render.rs` (hard 2,000-token budget,
+oldest-first truncation with every drop named, contested pairs marked `⇄` by a mechanical
+stem-overlap + opposite-polarity rule with BOTH always standing, and NO `Voice::Scout` variant so
+T4 is enforced by the type); **7.3** `load_packet_corpus` selected by rail inside
+`load_narratives_material`, returning the SAME `(Vec<CorpusItem>, CorpusExclusions)` so grounding,
+impact, the debounce hash and the marker path stay shared code — window+reservation rail-scoped
+together (16384/4000 legacy, 4096/700 packet) and `voice_num_ctx(rail)` moving ALL SIX voices at
+once (a lone voice at 4096 is the measured reload thrash); **7.13** graph continuity (52.0% of the
+last 24h now read the Editor's blurb, 0 legacy fallbacks; the packet-gated Editor→graph enqueue is
+dead code with a live test); **7.9** Journalist half verified and pinned (the render replaces the
+CORPUS, never the memory; memory stays out of `input_hash`). One deliberate Phase 6 contract
+extension: `packets.claims` now persists `story_type`, because the Insider's slice and its
+fingerprint must hash the same subset (zero packets exist, so it cost nothing). **Under
+`RAIL=legacy` every prompt is byte-identical — pinned by a test.** 380 tests green, clippy clean.
+**7.4 IS BLOCKED → D-T15 (needs Scott):** `stage_routing_subscriptions` is read by mig 197's LIVE
+`enqueue_voices_on_routing_tags` as well as mig 206's inert packet trigger, so seeding
+`('transfer','transfers','team')` starts the mig-197 churn loop on the transfers stage on the
+LEGACY rail (`s:` vs mig 175's still-live `t:` on one row); and `'*'` is not a wildcard in either
+trigger, so `('charged','vibe','*')` would fan to nobody. Seed written, corrected to two rows,
+DELIBERATELY UNAPPLIED at `sql/prepared/7.4_seed_packet_subscriptions.sql`. Cheap partial offered:
+seed only `charged`/`vibe` (no competing article-grain enqueue) and hold the transfers row until
+Phase 8 drops mig 175. NEXT SESSION: (1) build 7.5/7.6/7.8/7.10 (buildable now — only their
+wake-up depends on D-T15), then 7.12/7.14; (2) read 6.7's bands after Aug 8 22:10 EDT and close
+Phase 6. 7.11 and 7.15 stay parked by Scott's ruling (model testing waits for the rail) — the
+diet's prompt CODE is buildable, its ministral-3:14b re-earn is not. OPEN ITEMS OUTSIDE PHASES
+unchanged: D-T9 ops ONLY ON SCOTT'S GO; Mac voice work PAUSED (do not resume without his word);
+sudo /mnt/data/scratch grant pending on archbox (low priority). Last plan commit: (this one).
+Updated 2026-08-05 ~23:10 EDT (phase 7 started; 7.4 blocked; 6.7 still running).**
+
+*(Superseded STATE of 2026-08-05 ~22:25 EDT — phase 6 deployed, 6.7 running — kept verbatim below.)*
+
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
 for a season). PHASE 6 OPEN: 6.1–6.6 DONE, 6.7's 72h window RUNNING (closes ~Aug 8 22:10 EDT).
 DEPLOYED 2026-08-05 22:08 EDT @ `a6c467b` in the 22:00–00:00 active window — the live Editor
 attaches organically (4 of 4 post-deploy reads, 0 unattached-with-links, 0 errors), packets 0,
@@ -2259,6 +2297,22 @@ than joining Real Madrid's on a shared club link, the 20-article saga stays one 
 listicle does not swallow the conference, a passing mention does not extend the key, and a
 contradiction attaches rather than forking.
 
+**2026-08-05 ~22:12 EDT — 6.7 CHECKPOINT AT +4 MIN, NOT A READING. The 72h window opened
+tonight and closes ~Aug 8 22:10 EDT; at the time of this session only four minutes of
+post-deploy life existed, so the bands 6.7 asks for (storylines/day/sport, the
+articles-per-storyline distribution, % attached vs opened-new, the 3-biggest hand
+inspection) CANNOT be read yet — a distribution over four minutes is noise, and the
+backfill numbers above remain the pre-deploy baseline they were logged as. 6.7 stays
+OPEN.** What the checkpoint does prove is that the live path is healthy: the new binary's
+`ExecMainStartTimestamp` is 22:08:27, and of the successful reads with ≥1 resolved link
+since that instant, **17 of 17 attached, 0 unattached** (per-minute: 22:09 4/0, 22:10 6/0,
+22:11 4/0, 22:12 3/0). The 44 unattached-with-links rows all predate the restart (38 from
+22:01–22:07 under the old binary, 6 more at 22:08:00–22:08:27 before the new one took the
+seat) — they are the restart's shadow, not a failure. Totals: **6,170 storylines** (6,164
+backfill + 6 opened organically), `attach_method` auto 16 / backfill 12,571, **packets 0**
+(the trigger has still never fired). Nothing new for D-T13 at this resolution; the bleed
+rate it asks for is exactly what the 72h window is for.
+
 ### Handoff (phase 6 → 7)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -2294,20 +2348,27 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
 | `num_predict` reservation | ≤ 800 (Journalist 700; the 4000/2000/1200/1100-era reservations die with the 16384 window) |
 | **envelope** | **prompt p99 ≤ 3,300 over the shadow corpus, asserted via `eval_count` telemetry** |
 
-- [ ] **7.1** `RAIL` config (`rust/src/config.rs`): `legacy|packet`, read once at boot, logged
-      loudly at startup.
-- [ ] **7.2** Packet renderer (`editor/render.rs`): `(packet, entity, voice) → context block`,
+- [x] **7.1** `RAIL` config (`rust/src/config.rs`): `legacy|packet`, read once at boot, logged
+      loudly at startup. *(Done — parsed total, carried on the `Harness` so no handler re-reads
+      the env mid-drain.)*
+- [x] **7.2** Packet renderer (`editor/render.rs`): `(packet, entity, voice) → context block`,
       hard budget ≤2,000 tokens (tiktoken-free heuristic: chars/3.6, then assert with
       `eval_count` telemetry): headline, this entity's role + participation dates, claims
       (attributed, contested pairs marked `⇄`, newest first, truncate oldest first), register +
       phrase (Influencer render only), facts, one continuity line from the prior packet.
       Property-based test: NO packet in the shadow corpus renders >2,000 for any voice.
-- [ ] **7.3** Journalist: `load_packet_corpus` beside `load_vetted_corpus_with_exclusions`
+      *(Done — `editor/render.rs`, 10 tests; the Scout has no `Voice` variant, so T4 is enforced
+      by the type. The contested marker is a mechanical rule — Log.)*
+- [x] **7.3** Journalist: `load_packet_corpus` beside `load_vetted_corpus_with_exclusions`
       (`journalist/mod.rs:380`), selected by RAIL inside `load_narratives_material`
       (`journalist/mod.rs:1078`). Packet path: entity's packets from the last 72h, rendered,
       `num_ctx` 4096, `num_predict` 700, exclusions telemetry intact (every packet dropped by
-      budget is named — the A5 rule).
-- [ ] **7.4** Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
+      budget is named — the A5 rule). *(Done — it returns the SAME `(Vec<CorpusItem>,
+      CorpusExclusions)` so grounding/impact/hash/marker are shared code; window+reservation are
+      rail-scoped together and `voice_num_ctx(rail)` moves all six voices at once. Log.)*
+- [ ] **7.4** ⛔ **BLOCKED — D-T15** (seeding arms mig 197's LIVE article-grain trigger too; `'*'`
+      is not a wildcard). Prepared and unapplied at `sql/prepared/7.4_seed_packet_subscriptions.sql`.
+      Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
       `('transfer','transfers','team')`, `('charged','vibe','*')`. The Journalist needs no row
       (mig 206 fans narratives unconditionally). **Do not** also leave mig-175's article-grain
       transfers trigger pointing at the same stage post-flip — Phase 8 drops it; until then the
@@ -2334,7 +2395,8 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       it. One fixture proves it fires (a guard never observed firing is not a guard). For the
       4096 window: cap each pillar body in `build_crown_prompt` (~350 tok/card — today it
       truncates nothing) so five cards + memory + prompt fit the envelope.
-- [ ] **7.9** Memory continuity (verify, mostly not build — §4 memory ruling): each voice's
+- [x] **7.9** *(Journalist half done + pinned; the other voices' halves travel with 7.5/7.6/7.8.)*
+      Memory continuity (verify, mostly not build — §4 memory ruling): each voice's
       packet-era context KEEPS its memory card + prior-read block — the packet render replaces
       the CORPUS, never the memory. The infrastructure exists and survives the flip:
       `narrative_context_for_entity` (schema.sql:3353, five-lens self-history),
@@ -2367,7 +2429,8 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       voice `num_ctx` stays 16384 under legacy / 4096 under packet (RAIL-scoped constant —
       change `VOICE_NUM_CTX` const to a RAIL-aware fn). Mac worker runs voice stages only
       (`COGNITION_STAGES` on the Mac).
-- [ ] **7.13** Graph continuity (the G1 seam — §4 graph ruling): repoint
+- [x] **7.13** *(Done — 52.0% of the last 24h now read the Editor's blurb; the gated enqueue is
+      dead code with a live test until the flip.)* Graph continuity (the G1 seam — §4 graph ruling): repoint
       `load_graph_article_context` (graph/mod.rs:134) to prefer
       `editor_reads.read->>'evidence_blurb'` with fallback to the legacy reading (safe on both
       rails, deployable now); add the RAIL=packet-gated `enqueue_graph_for_article` call to the
@@ -2388,7 +2451,111 @@ prompts (spot-check 5 ledger rows for the provenance labels).
 **Commit:** `rail: phase 7 — the brain is wired for packets; the voices keep their memories`.
 
 ### Log (phase 7)
-*(executor fills)*
+
+**2026-08-05 ~22:15–23:05 EDT — the switch, the renderer, the Journalist's new corpus, the
+graph seam; 7.4 stopped on a measured hazard.** Commits `217bc46` (7.1–7.3) → `f24dcbf`
+(7.13/7.9/the 7.4 block). 380 tests green (363 → 380), clippy clean on every touched file.
+**Nothing deployed** — the running binary on archbox is still `a6c467b`, the Phase 6 one.
+
+**7.1 — `RAIL`.** `legacy|packet`, default legacy, parsed TOTAL (an unparseable value resolves
+to legacy rather than failing a boot, same reasoning as `env_bool`; the boot line states what
+it resolved to). Read once in `Config::from_env` and carried on the `Harness`, so no handler
+re-reads the environment mid-drain and two items in one pass cannot disagree about which
+corpus they are reading. Boot now prints `RAIL: the voices read legacy` beside the Desk's
+`packet_compile=false`.
+
+**7.2 — the renderer.** `editor/render.rs`: `(packet, entity, voice) → block`, hard-capped at
+2,000 estimated tokens (`chars/3.6`, deliberately pessimistic against a measured ~3.9, so the
+estimate errs toward rendering less; 7.15 still owes the `eval_count` assertion). Claims
+render newest-first and truncate from the OLD end, and every dropped article is NAMED in the
+block itself, not only in telemetry (A5). Two design choices worth the record:
+* **T4 is enforced by the type.** There is no `Voice::Scout` variant to pass. The law stops
+  being something a reviewer has to remember.
+* **The contested marker is mechanical** (T2 — code renders the judgment). Two claims are a
+  contested pair when their content-word stems overlap at ≥0.5 by the overlap coefficient AND
+  their negation polarity differs; both are then marked `⇄` and **both always stand**. Stems
+  are the first five characters of each non-stopword token — crude, and exactly enough to make
+  "agreed"/"agreement" one stem, which is the whole job. The Phase 6 Log's T3 spot-check is now
+  a fixture: Football365's "agreement in principle" and The Athletic's "deal not agreed" render
+  side by side, attributed, marked. Hedging is deliberately NOT contradiction ("could collapse"
+  does not contest "is agreed" — it is the same story told softer), and ESPN "set to stay" vs
+  Football365 "agreement reached" is tension without opposite polarity, so it goes unmarked.
+  A false mark costs a `⇄` on a line that stands anyway; a miss costs the pointer. Both are
+  survivable, which is the only reason a heuristic is allowed to hold this pen.
+
+**7.3 — the Journalist reads packets.** `load_packet_corpus` sits beside
+`load_vetted_corpus_with_exclusions`, selected by rail inside `load_narratives_material`. **The
+shape is deliberately unchanged**: it returns the same `(Vec<CorpusItem>, CorpusExclusions)` —
+one item per MEMBER ARTICLE, carrying that article's attributed facts, contested ones prefixed
+`⇄` — so the debounce hash, the SIGNALS line, citation grounding, impact scoring and the
+no-corpus marker path are all shared code, and the model still cites real `news_articles.id`s
+it can be grounded against. What changes is the material: read FACTS instead of headlines and
+body excerpts, with the storyline framing (the story, this entity's part in it, one
+`PREVIOUSLY:` line) rendered above the numbered evidence. The packet rail carries no bodies at
+all — that is the diet.
+* Window and reservation are rail-scoped **together** (`narratives_decode_budget`): 16384/4000
+  legacy, 4096/700 packet. A window that cannot hold its own reservation is the silent
+  system-prompt eviction this constant already documents, so they were never going to move
+  separately.
+* `VOICE_NUM_CTX` became `voice_num_ctx(rail)` and **all six voices** were switched to it in one
+  step. Doing only the Journalist would have put one voice at 4096 beside housemates at 16384 —
+  the measured reload thrash (~a fifth of the Mac's wall clock), reintroduced by the fix for it.
+* The narratives ledger now reads `context_budget` off the EXACT wire body instead of restating
+  the constants; a packet-rail call reporting legacy numbers would have been the one place the
+  flip was invisible.
+* **Pinned: under `RAIL=legacy` the prompt is byte-identical.** An empty or whitespace framing
+  is indistinguishable from no framing, so a legacy deploy carrying all of Phase 7 sends exactly
+  what the Phase 6 binary sent.
+
+**One Phase 6 contract extension, made deliberately.** `packets.claims` now persists
+`story_type` (§1c listed four fields; 6.3 kept the type in memory only). The Insider's slice IS
+the transfer-typed claims (7.5) and `slice_fingerprints.transfers` hashes exactly that subset —
+a renderer blind to the type would render a different slice than the fingerprint promises, and
+E2's "re-read only when YOUR slice moved" would be false in both directions (silent staleness,
+or a re-fan that changes nothing). Free to make: zero packets have ever been compiled.
+
+**7.13 — the G1 seam.** `load_graph_article_context` now prefers the Editor's
+`editor_reads.read->>'evidence_blurb'`, falls back to the legacy reading's, then the RSS
+description (last, because it is 99.7% the title repeated). Safe on both rails and deployable
+before the flip — and it is not cosmetic: over the last 24h on archbox, of 7,674 non-duplicate
+articles **3,990 (52.0%) now carry an Editor blurb and 0 fall through to the legacy blurb**, so
+this upgrades half the corpus today and is a no-op for the rest. The Editor also gained a
+`RAIL=packet`-gated `enqueue_graph_for_article`, keyed on the editor read's content_hash
+(`g:`), placed AFTER the link writes — graph's candidate list is the vetted entities, so an
+enqueue that beat them would fail closed for a reason that has nothing to do with the article.
+Under legacy it is dead code with a live test; graph keeps riding `article_read` via mig 193.
+
+**7.9 — verified, not built (the Journalist's half).** Every named loader exists and is called.
+`load_entity_memory` (`narrative_context_for_entity`) and `load_prior_card_reads` sit in
+`finish_narratives_build`, which is rail-independent: the rail only decides which corpus loader
+ran upstream, so **the packet render replaces the CORPUS and never the memory**. Memory stays
+structurally out of `input_hash` (`build_narratives_input_components` takes corpus + heat only)
+and still degrades to an unenriched prompt on error rather than failing the item. Pinned by a
+test. The plan's cited line numbers have drifted (they were pre-Phase-7) but every function is
+present: insider `narrative_context_for_pair` :887 / `source_reliability_for_pair` :911, oracle
+`load_prior_read` :931, influencer `load_latest_vibe_row` :408, scout `stat_context_for_entity`
+:716. The other voices' halves travel with 7.5/7.6/7.8, which have not been built.
+
+**7.4 — STOPPED per §0 rule 3, and this one is worth the stop → D-T15.** The step's stated data
+does not match the trigger it feeds, and the mismatch is live. `stage_routing_subscriptions` is
+read by TWO triggers: mig 206's packet trigger (inert — 0 packets, compile off) and mig 197's
+**`enqueue_voices_on_routing_tags`, which is enabled on `news_articles`** and fired by
+`article_reader`'s routing_tags write on every legacy read. Seeding
+`('transfer','transfers','team')` would therefore start enqueueing the transfers stage as
+`s:transfer:…` against mig 175's still-live `t:…` on the same `pipeline_work` key (all 132 live
+transfers rows are `t:` today) — the mig-197 churn loop, on the LEGACY rail, on a production
+stage: the same failure D-T14 parked for packets, arriving through the other door. Separately,
+**`'*'` is not a wildcard** — both triggers join `entity_type` on strict equality, so
+`('charged','vibe','*')` would fan out to nobody and the Influencer would silently never wake.
+The seed is written, corrected to two rows (player + team), and **deliberately unapplied** at
+`sql/prepared/7.4_seed_packet_subscriptions.sql` with its preconditions in the header. Not
+improvised around; the cheap partial (seed only `charged`/`vibe`, hold the transfers row until
+Phase 8 drops mig 175) is offered there and is what 7.6 actually needs.
+
+**Not started: 7.5, 7.6, 7.7, 7.8, 7.10, 7.11, 7.12, 7.14, 7.15.** 7.11 and 7.15 are model work
+Scott's 2026-08-05 ruling parks until the rail is complete (the diet's prompt CODE is buildable;
+its `eval --capture-ledger` re-earn against ministral-3:14b is the tuning session's). 7.5/7.6
+are buildable now and only their WAKE-UP depends on D-T15.
 
 ### Handoff (phase 7 → 8)
 ```
@@ -2762,3 +2929,24 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   path); (b) mig 211 makes arm 2 subscription-gated like arm 1, with 7.4 seeding
   `narratives`. Phase 6's Verify line ("packet trigger fired 0 work rows") is TRUE as
   shipped — because nothing compiles, not because the trigger is inert.
+- **D-T15 · seeding `stage_routing_subscriptions` arms a LIVE article-grain trigger too
+  (measured 2026-08-05 ~22:50 EDT, archbox — the 7.4 blocker).** The table is read by TWO
+  triggers, and 7.4's text accounts for one. Mig 206's `enqueue_voices_on_packet` is inert
+  (0 packets, compile off — D-T14); mig 197's **`enqueue_voices_on_routing_tags` is LIVE**
+  (`tgenabled='O'` on `news_articles`, fired by `article_reader`'s routing_tags write on
+  every legacy read — 37,590 articles carry tags, newest Aug 4 02:05). So the moment
+  `('transfer','transfers','team')` exists, mig 197 begins enqueueing
+  `(transfers, team, id, sport)` as `s:transfer:<count>:<md5>` against mig 175's still-live
+  `t:<count>:<md5>` on the SAME `pipeline_work` key (all 132 live transfers rows are `t:`
+  today) — two writers, one row, `ON CONFLICT` reopening on every alternation: the mig-197
+  churn loop, on the LEGACY rail, on a production stage. **Also found: `'*'` is not a
+  wildcard.** Both triggers join `entity_type` on strict equality (mig 206 line 52, mig 197
+  line 116), so 7.4's `('charged','vibe','*')` would fan out to nobody and the Influencer
+  would silently never wake. The seed is written, corrected to two rows (player + team —
+  the grains `pipeline_work`'s CHECK admits), and **deliberately unapplied** at
+  `sql/prepared/7.4_seed_packet_subscriptions.sql`, with its preconditions in the header.
+  Resolutions, Scott's call: (a) Phase 8 drops mig 175's trigger, leaving one writer;
+  (b) a migration narrows mig 197's trigger so the packet trigger is the only reader;
+  (c) **the cheap partial — seed only the two `charged`/`vibe` rows now** and hold the
+  transfers row until (a); `vibe` has no competing article-grain enqueue, so it carries no
+  churn risk, and it is what 7.6 actually needs.

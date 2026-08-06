@@ -12,8 +12,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -184,6 +186,64 @@ func isTeamEntity(entityType string) bool {
 	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }
 
+// editorReadsPerEntityDay is the cap on how many of ONE entity's articles the Editor is asked
+// to read in ONE ingest day (D-T21, Scott 2026-08-06: "limit the reader to N articles per
+// entity … that will free up enough headroom for the Investigator to get meaningful work in,
+// and the graph work as well").
+//
+// **0 means NO CAP, and 0 is the default, so deploying this code changes nothing.** The cap is
+// armed by setting `EDITOR_MAX_READS_PER_ENTITY_DAY` and restarting — one knob, reversible in
+// one restart, and the code meets production before the behaviour does.
+//
+// **The size is not a small number, and the measurement is why the knob exists at all.** An
+// entity-day averaged ~50 articles over 2026-08-02..06 (worst 259), so the cap is a large cut,
+// not a trim: 5/day removes 90.4% of the read stream, 10/day removes 82.2%, 15/day removes
+// 75.2%. Scott chose **10**. The Editor runs at ~96% of ingest and starves everything behind it
+// (`investigate_entity` 9,049 pending at ~57h when this was written), so what the cap buys is
+// that queue's drain — and what it costs is corpus depth per entity. Re-measure both before
+// moving it: links per read (1.27 player links/read) and the `irrelevant` rate (15.4%).
+func editorReadsPerEntityDay() int {
+	if v := os.Getenv("EDITOR_MAX_READS_PER_ENTITY_DAY"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+// capFreshReads bounds `fresh` (this sweep's newly-inserted article ids, IN THE ORDER GOOGLE
+// RETURNED THEM) to what remains of this entity's daily allowance, and reports how many it
+// withheld.
+//
+// **Which ones survive is Google's call, not ours.** `fresh` arrives in result order, so the cap
+// keeps the front of it — the articles Google ranked highest for the query we asked. That is the
+// whole ranking rule, deliberately: the rail just deleted 393 lines of alias scoring and lane
+// caps (8.9), and re-introducing a "which article is most worth reading" heuristic here would be
+// the same mistake in a new place. Simple and durable beats clever and fragile.
+//
+// `already` is counted from `news_articles` rather than tracked in state — the provenance written
+// on INSERT (`raw->>'query_team_id'`) is the same fact the cap is defined over, so there is
+// nothing to keep in sync and nothing to backfill. One extra query per sweep.
+//
+// **What is withheld is the READ, never the article.** The row is inserted and keeps its
+// provenance; only the Editor's `pipeline_work` item is skipped. Nothing is lost and a later
+// backfill can enqueue the remainder — but a skip that is invisible is a skip nobody can audit,
+// which is why the count is returned and logged rather than dropped (§0b: a WARN that says
+// "continuing" hides its own frequency).
+func capFreshReads(fresh []int64, already, cap int) (kept []int64, withheld int) {
+	if cap <= 0 {
+		return fresh, 0
+	}
+	remaining := cap - already
+	if remaining < 0 {
+		remaining = 0
+	}
+	if remaining >= len(fresh) {
+		return fresh, 0
+	}
+	return fresh[:remaining], len(fresh) - remaining
+}
+
 // GetEntityNews fetches news for an entity via Google News RSS.
 // entityType ("player"|"team") and entityID drive the write-through —
 // matched articles are linked back to the requested entity in
@@ -263,7 +323,11 @@ func (s *NewsService) persistArticles(
 
 	sportUpper := strings.ToUpper(sport)
 
-	needEditor := make(map[int64]bool) // fresh ARTICLE ROW → the greenfield Editor reads it once
+	// Fresh ARTICLE ROWS → the greenfield Editor reads each once. A SLICE, not a map, and the
+	// order is Google's result order: D-T21's cap keeps the front of this list, so the iteration
+	// order has to be the ranking rather than Go's randomized map order.
+	var needEditor []int64
+	seenFresh := make(map[int64]bool)
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -317,9 +381,35 @@ func (s *NewsService) persistArticles(
 		if err != nil {
 			return nil, fmt.Errorf("upsert article: %w", err)
 		}
-		if inserted {
-			needEditor[articleID] = true
+		if inserted && !seenFresh[articleID] {
+			seenFresh[articleID] = true
+			needEditor = append(needEditor, articleID)
 		}
+	}
+
+	// D-T21: bound this entity's reads for the ingest day. Counted from the provenance already
+	// on the rows, in the same transaction, so the number the cap acts on is the number the
+	// cap is defined over. Only team sweeps carry `query_team_id`, so only they are capped —
+	// that is a stated limit of the rule, not an oversight (31% of arrivals carry no team
+	// provenance and stay uncapped).
+	withheld := 0
+	if capN := editorReadsPerEntityDay(); capN > 0 && isTeamEntity(primaryEntityType) {
+		var already int
+		if err := tx.QueryRow(ctx, `
+			SELECT count(*)
+			  FROM news_articles
+			 WHERE (raw->>'query_team_id')::int = $1
+			   AND fetched_at >= date_trunc('day', now())
+		`, primaryEntityID).Scan(&already); err != nil {
+			return nil, fmt.Errorf("count today's reads for entity: %w", err)
+		}
+		// `already` includes the rows just inserted above, which ARE this sweep's fresh set —
+		// subtract them so the allowance is spent once, not twice.
+		already -= len(needEditor)
+		if already < 0 {
+			already = 0
+		}
+		needEditor, withheld = capFreshReads(needEditor, already, capN)
 	}
 
 	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so
@@ -327,7 +417,7 @@ func (s *NewsService) persistArticles(
 	// rather than fresh links: the Editor's unit is the article, and a re-seen URL keeps its
 	// read. Duplicate enqueues collapse on the pipeline_work PK without yanking a live lease.
 	// The stage drains only where COGNITION_STAGES includes 'editor' (archbox).
-	for id := range needEditor {
+	for _, id := range needEditor {
 		if err := work.Enqueue(ctx, tx, work.Item{
 			Stage:      work.StageEditor,
 			EntityType: "article",
@@ -342,10 +432,20 @@ func (s *NewsService) persistArticles(
 		return nil, err
 	}
 
-	ids := make([]int64, 0, len(needEditor))
-	for id := range needEditor {
-		ids = append(ids, id)
+	// Count the skip, never just note it (§0b): a cap whose bite is invisible cannot be audited,
+	// and "articles stored but never read" is precisely the number this knob is tuned on.
+	if withheld > 0 {
+		s.logger.Info("editor read cap reached",
+			"entity_type", primaryEntityType,
+			"entity_id", primaryEntityID,
+			"sport", sportUpper,
+			"enqueued", len(needEditor),
+			"withheld", withheld,
+			"cap_per_entity_day", editorReadsPerEntityDay())
 	}
+
+	ids := make([]int64, len(needEditor))
+	copy(ids, needEditor)
 	return ids, nil
 }
 

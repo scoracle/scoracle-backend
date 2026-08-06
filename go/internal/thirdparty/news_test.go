@@ -262,3 +262,87 @@ func TestFeedRankSortIsStableAcrossQueryLanes(t *testing.T) {
 		t.Errorf("tie must resolve to query order, got %q first", articles[0].Title)
 	}
 }
+
+// --------------------------------------------------------------------------
+// D-T21 — the per-entity daily read cap
+// --------------------------------------------------------------------------
+
+// The cap keeps the FRONT of the fresh list, because that list arrives in Google's result order
+// and Google is the relevancy source (8.9). If this ever starts keeping some other subset, a
+// ranking heuristic has grown back in the one place the rail spent 393 lines removing it from.
+func TestCapFreshReadsKeepsGooglesOrder(t *testing.T) {
+	fresh := []int64{10, 11, 12, 13, 14}
+
+	kept, withheld := capFreshReads(fresh, 0, 3)
+
+	if len(kept) != 3 || withheld != 2 {
+		t.Fatalf("cap 3 over 5 fresh: got %d kept / %d withheld, want 3/2", len(kept), withheld)
+	}
+	for i, want := range []int64{10, 11, 12} {
+		if kept[i] != want {
+			t.Errorf("kept[%d] = %d, want %d — the cap must keep Google's top results", i, kept[i], want)
+		}
+	}
+}
+
+// A cap of 0 is NO CAP and is the default, so deploying the code changes nothing until the env
+// knob is set. This is the test that protects the "deploy is inert" property.
+func TestCapFreshReadsZeroMeansNoCap(t *testing.T) {
+	fresh := []int64{1, 2, 3, 4, 5, 6, 7, 8}
+
+	for _, cap := range []int{0, -1} {
+		kept, withheld := capFreshReads(fresh, 99, cap)
+		if len(kept) != len(fresh) || withheld != 0 {
+			t.Errorf("cap %d: got %d kept / %d withheld, want all %d kept and 0 withheld",
+				cap, len(kept), withheld, len(fresh))
+		}
+	}
+}
+
+// The allowance is spent across the DAY, not per sweep: an entity that already had its fill this
+// morning gets nothing more tonight, and one that is over its allowance never goes negative.
+func TestCapFreshReadsSpendsTheDailyAllowance(t *testing.T) {
+	fresh := []int64{1, 2, 3, 4}
+
+	cases := []struct {
+		name         string
+		already, cap int
+		wantKept     int
+		wantWithheld int
+	}{
+		{"room for all", 0, 10, 4, 0},
+		{"partly spent", 8, 10, 2, 2},
+		{"exactly spent", 10, 10, 0, 4},
+		{"over the cap already", 15, 10, 0, 4},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			kept, withheld := capFreshReads(fresh, c.already, c.cap)
+			if len(kept) != c.wantKept || withheld != c.wantWithheld {
+				t.Errorf("already=%d cap=%d: got %d kept / %d withheld, want %d/%d",
+					c.already, c.cap, len(kept), withheld, c.wantKept, c.wantWithheld)
+			}
+		})
+	}
+}
+
+// The knob defaults to OFF and refuses nonsense rather than guessing, so a typo in the unit file
+// cannot silently cap production at some arbitrary number.
+func TestEditorReadsPerEntityDayDefaultsToNoCap(t *testing.T) {
+	t.Setenv("EDITOR_MAX_READS_PER_ENTITY_DAY", "")
+	if got := editorReadsPerEntityDay(); got != 0 {
+		t.Errorf("unset = %d, want 0 (no cap)", got)
+	}
+	t.Setenv("EDITOR_MAX_READS_PER_ENTITY_DAY", "ten")
+	if got := editorReadsPerEntityDay(); got != 0 {
+		t.Errorf("unparseable = %d, want 0 (no cap)", got)
+	}
+	t.Setenv("EDITOR_MAX_READS_PER_ENTITY_DAY", "-3")
+	if got := editorReadsPerEntityDay(); got != 0 {
+		t.Errorf("negative = %d, want 0 (no cap)", got)
+	}
+	t.Setenv("EDITOR_MAX_READS_PER_ENTITY_DAY", "10")
+	if got := editorReadsPerEntityDay(); got != 10 {
+		t.Errorf("set = %d, want 10", got)
+	}
+}

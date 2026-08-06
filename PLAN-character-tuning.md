@@ -570,7 +570,41 @@ be re-derived:
 D-T19 and nothing else, and both of these are behaviour changes that deserve their own measurement
 (§0 rule 4). They are the next session's material, in this order.
 
-### 8a · D-T21 — cap the reader at 5 articles per entity
+### 8a · D-T21 — cap the reader per entity · **BUILT AND INERT; SCOTT CHOSE 10/day; NOT DEPLOYED**
+
+**STATUS 2026-08-06 ~17:00 EDT.** The cap is written, unit-tested and green (Go builds, `go vet`
+clean, all packages pass), and it is **INERT: `EDITOR_MAX_READS_PER_ENTITY_DAY` defaults to 0, which
+means NO CAP, so shipping the binary changes nothing.** Arming it is env + restart:
+
+```
+# on archbox, in .env.local
+EDITOR_MAX_READS_PER_ENTITY_DAY=10
+systemctl --user restart <the ingest unit>     # then watch "editor read cap reached"
+```
+
+**Scott's call on the size, made against the measurement below: 10/day (~82% cut), not 5.**
+
+**What it does.** `persistArticles` counts this entity's articles already ingested today from the
+provenance already on the rows (`raw->>'query_team_id'`, same transaction, one extra query — no new
+state, nothing to backfill), and enqueues at most `cap - already` of this sweep's fresh inserts.
+**The article row is still INSERTED and keeps its provenance; only the Editor's read is withheld**,
+so nothing is lost and a backfill can enqueue the remainder later. The withheld count is **logged
+per sweep** (`editor read cap reached … enqueued=… withheld=…`) rather than dropped, because a cap
+whose bite is invisible cannot be tuned (§0b).
+**Which articles survive is Google's call, not ours:** the fresh list is kept in Google result order
+and the cap keeps its front. `needEditor` had to become a slice for that — it was a map, and Go
+randomizes map iteration, so the old code had no order to cap. A test pins the ordering precisely so
+a ranking heuristic cannot grow back where 8.9 removed one.
+**Only team sweeps are capped**, because only they carry `query_team_id` — a stated limit of the
+rule, not an oversight, and it leaves 31% of arrivals uncapped (see below).
+
+**Still owed before this is called done:** the deploy is Scott's explicit act (§0 rule 6), and after
+24h armed the before/after numbers must be read — `investigate_entity` drain (9,049 pending at
+~57h), links per read (1.27 player links/read) and the `irrelevant` rate (15.4%).
+
+*(The original framing and the measurement that sized it follow.)*
+
+#### The ask, and the numbers that sized it
 
 **Scott's words:** *"I think we should limit the reader to 5 articles per entity. That will free up
 enough headroom for the Investigator to get meaningful work in, and the graph work as well."*
@@ -602,7 +636,7 @@ ingest day) over the last 7 days:
 ~800.** The whole cap ladder, 7-day window: cap 3 → 94.0% cut · **cap 5 → 90.4%** · cap 8 → 85.3% ·
 cap 10 → 82.2% · cap 15 → 75.2%. *Even a cap of 15 cuts three quarters.*
 
-**That may be exactly right** — §0a says the Editor runs at parity with ingest and starves everything
+**Scott chose 10/day (~82% cut) on these numbers.** §0a says the Editor runs at parity with ingest and starves everything
 behind it (`investigate_entity` **9,049 pending**, `narratives` 2,909, `vibe` 2,595), and a 90% cut
 is decisive headroom, which is what "so we can start building up downstream examples" asks for.
 **But it is a 10× reduction of the reading corpus, not a trim**, and it changes the product: fewer
@@ -681,6 +715,10 @@ So the Insider's heat is being computed from a column that is NULL for everythin
 layer down: the code was cleaned, the SQL was not. **Verdict: NARROW — strip the `bucket` branch from
 all three functions FIRST (behaviour change, own measurement, its own rehearsal), and only then drop
 the column.** Do not drop it first; the functions would break.
+**SCOTT'S CALL 2026-08-06: LEAVE IT FOR NOW, and change the SQL once when the audit is complete
+rather than piecemeal.** The dead branch keeps running in the meantime — it is inert, not harmful
+(it reads NULL and contributes nothing), and the cost of touching three live functions twice is
+higher than the cost of leaving an inert condition in place for one more session.
 
 **A trap worth writing down, because it cost a wrong conclusion before it was checked.**
 `enqueue_voices_on_packet` — the LIVE trigger on `packets` — also names `routing_tags`, which reads

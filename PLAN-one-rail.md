@@ -23,7 +23,13 @@ run them at 4096"* + *"I'm fine with an imperfect output run over the next few d
 7.12's `VOICE_NUM_CTX` dial, and every reservation/cap now keying on the WINDOW rather than the
 rail. **PHASE 8 PRECONDITION, do not lose it: seed `stage_routing_subscriptions` IN THE SAME ACT
 as the flip — under `RAIL=packet` the Influencer has no waker until those rows exist.**
-STILL OPEN IN PHASE 7: **7.7** (the Scout's personnel-changes block — plumbing, genuinely owed),
+**LOOSE ENDS BEFORE PHASE 8 — their own handoff block sits above the phase 7→8 one, and item 1
+is a CUTOVER BLOCKER:** (1) the Editor is dead-lettering ~1 article/day on a NUL byte reaching
+`full_text` (`invalid byte sequence for encoding "UTF8": 0x0`; 3 rows at attempts≥5) — §2
+clause 4 requires 0, so the 7-day window can never go green until it is stripped; (2) **7.7**
+(the Scout's personnel-changes block — plumbing, genuinely owed); (3) 6.7's reading expires
+Aug 8; (4) the packet branches have NEVER executed (packets=0), and D-T14 still blocks the
+obvious shadow test. STILL OPEN IN PHASE 7: 7.7 above,
 7.11 + 7.15 (the junction pass). OPEN ITEMS OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
 /mnt/data/scratch grant pending on archbox (low priority). **The Mac voice pause is LIFTED** by
 ruling (3). Last plan commit: (this one). Updated 2026-08-05 ~23:45 EDT (phase 7 deployed @ `ac131ca`).**
@@ -2697,6 +2703,66 @@ Fixed, and it is green with it now.
 
 **Still not started: 7.7 (Scout's personnel block), 7.11 (the diet), 7.15 (the dry-run).** 7.7 is
 plumbing and is genuinely owed; 7.11/7.15 are the junction pass Scott scheduled for the weekend.
+
+### Handoff (loose ends → Phase 8) — run this BEFORE the cutover session
+
+*(Written 2026-08-05 23:50 EDT with the rail live. Everything here is either a cutover blocker
+found by measurement, a Phase 7 step still owed, or a reading that expires if nobody takes it.)*
+
+```
+Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail) — the LOOSE ENDS session,
+before Phase 8. The rail is DEPLOYED and running: ac131ca on archbox, RAIL=legacy,
+VOICE_NUM_CTX=4096, 11 stages live, six voices on ministral-3:14b at the Mac (context_length
+4096, 3 concurrent). Storylines assemble organically (6,382 and growing); packets are still 0
+by design. Read §0, the STATE line, §2 (you are protecting its clauses), then the Phase 7 Log.
+
+Do these in order — 1 is a CUTOVER BLOCKER, 2 is owed plumbing, 3 expires:
+
+1. THE EDITOR IS DEAD-LETTERING ON NUL BYTES (blocks §2 clause 4, which requires 0).
+   3 rows at attempts>=5, one per day, all the same cause:
+     persist article full_text <id>: invalid byte sequence for encoding "UTF8": 0x0
+   (articles 266182 Aug 3, 273432 Aug 4, 278578 Aug 5 — plus 2 legacy article_read
+   dead-letters from Jul 26 that die with the stage at cutover, ignore those.)
+   A 0x00 in scraped body text reaches the INSERT unstripped. Fix it in the editor's
+   full_text write path (strip/replace NUL before persist — it is not valid in a Postgres
+   text column at all, so this is sanitisation, not policy), pin it with a test on a body
+   carrying 0x00, then requeue the 3 dead rows and confirm they land. Measure the class
+   first: `select count(*) from pipeline_work where stage='editor' and attempts>=5`.
+   Without this the 7-day cutover window can never go green — one arrival per day resets it.
+
+2. 7.7 — THE SCOUT'S PERSONNEL BLOCK (the last Phase 7 plumbing step, never started).
+   NO packet subscription for the Scout (T4 — there is no Voice::Scout variant, keep it that
+   way). Two confirmed-fact roads only: the stats platform, and a compact "personnel changes
+   since last read" block built from transfer_identity_applications applied/adjudicated rows
+   (facts with dates, no prose) added to the PEAK context. Injury/suspension gates stay
+   DEFERRED to Appendix B D-5 — do not improvise them.
+
+3. 6.7 — CLOSE PHASE 6. The 72h window closes ~Aug 8 22:10 EDT and the reading expires if it
+   is not taken: storylines/day/sport, articles-per-storyline, % attached, then hand-inspect
+   the 3 biggest for wrong merges and one preserved contradiction. The Phase 6 Log's backfill
+   numbers are the PRE-DEPLOY baseline; the +4-min checkpoint is not a reading.
+
+4. THE PACKET BRANCHES HAVE NEVER EXECUTED. packets = 0, COGNITION_PACKET_COMPILE=false, so
+   7.5/7.6/7.8's packet paths are tested but never run against real data — that is the
+   biggest unmeasured risk the flip carries. It CANNOT be de-risked by simply flipping the
+   compile flag: D-T14 still stands (mig 206 arm 2 fans narratives unconditionally, so a
+   compiled packet alternates input_version with the legacy article_read writer on one
+   pipeline_work row — the mig-197 churn loop). The clean de-risk is D-T14 resolution (b):
+   a migration making arm 2 subscription-gated like arm 1, THEN compile in shadow with
+   nothing subscribed, and read a real rendered packet before the flip. Scott's call.
+
+RECORD, DO NOT FIX (they are the weekend junction pass, PLAN-character-tuning.md):
+ * The Analyst answered 2 items with "VIBE:"/"Vibe:" instead of "READ:" (players 219665,
+   33934017; attempts=1, not dead-lettered) — a contract-label miss, momentum-s13.
+ * The first sigil at 4096 named TWO peers and used "z-scores"/"percentile" in served prose
+   — both are or8's own documented defects, now reproducing live at the smaller window.
+ * D-T16: the new storyline memory lens renders passing_mention edges (same root as D-T13).
+
+LAWS THAT DID NOT CHANGE: no prose reaches the Scout (T4); memory is characters-only and
+stays out of input_hash; voice routing is data, never asked of a model; nothing user-visible
+changes until Phase 8 flips RAIL. Prompts and contracts are the junction pass, not this
+session (Scott, 2026-08-05) — item 1 is sanitisation, not voice work.
+```
 
 ### Handoff (phase 7 → 8)
 ```

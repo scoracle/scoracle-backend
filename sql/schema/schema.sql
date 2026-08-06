@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict u9L1YFjYjYIZvE6pIgWSahc3xuHcOxIb0FZ6rnQgjujdmYW5bNs1pUwfkfJlWoG
+\restrict HB4QFvnV4E3pcUeHSDmkzzHDGrK7cFdDPoYbhdbtv5IEV6CfN01Uw2gCCXGsPv1
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -1895,14 +1895,12 @@ BEGIN
                    a.source AS src, a.published_at AS ts
             FROM news_articles a
             JOIN news_article_entities e1 ON e1.article_id = a.id
-                 AND e1.sport = p_sport AND e1.vetted IS TRUE
+                 AND e1.sport = p_sport
             JOIN news_article_entities e2 ON e2.article_id = a.id
-                 AND e2.sport = p_sport AND e2.vetted IS TRUE
+                 AND e2.sport = p_sport
             WHERE a.published_at > v_d - interval '90 days'
               AND a.published_at <= v_d
               AND (e1.entity_type, e1.entity_id) < (e2.entity_type, e2.entity_id)
-              AND (e1.title_pos IS NULL OR e2.title_pos IS NULL
-                   OR abs(e1.title_pos - e2.title_pos) <= 50)
         ),
         agg AS (
             SELECT c.subject_type, c.subject_id, c.object_type, c.object_id,
@@ -1941,14 +1939,12 @@ BEGIN
                    count(*) AS arts, count(DISTINCT a.source) AS srcs
             FROM news_articles a
             JOIN news_article_entities e1 ON e1.article_id = a.id
-                 AND e1.sport = p_sport AND e1.vetted IS TRUE
+                 AND e1.sport = p_sport
                  AND e1.entity_type = pk.subject_type AND e1.entity_id = pk.subject_id
             JOIN news_article_entities e2 ON e2.article_id = a.id
-                 AND e2.sport = p_sport AND e2.vetted IS TRUE
+                 AND e2.sport = p_sport
                  AND e2.entity_type = pk.object_type AND e2.entity_id = pk.object_id
             WHERE a.published_at <= p_end::timestamptz
-              AND (e1.title_pos IS NULL OR e2.title_pos IS NULL
-                   OR abs(e1.title_pos - e2.title_pos) <= 50)
         ) sp
         WHERE pk.peak_strength >= p_open_threshold
     )
@@ -2069,7 +2065,7 @@ BEGIN
                unaccent(lower(regexp_replace(
                    regexp_replace(a.title, '[^a-zA-Z0-9 ]', '', 'g'), ' +', ' ', 'g'))) AS norm,
                EXISTS (SELECT 1 FROM public.news_article_entities e
-                        WHERE e.article_id = a.id AND e.vetted IS TRUE) AS corpus_visible,
+                        WHERE e.article_id = a.id) AS corpus_visible,
                EXISTS (SELECT 1 FROM public.news_article_readings r
                         WHERE r.article_id = a.id) AS already_read
           FROM public.news_articles a
@@ -2484,10 +2480,6 @@ CREATE FUNCTION public.compute_transfer_heat(p_team_id integer, p_player_id inte
              AND pe.entity_id = p_player_id AND pe.sport = p_sport
         WHERE a.bucket IS DISTINCT FROM 'non_transfer'
           AND a.published_at > NOW() - INTERVAL '14 days'
-          AND te.vetted IS TRUE
-          AND pe.vetted IS TRUE
-          AND (te.title_pos IS NULL OR pe.title_pos IS NULL
-               OR abs(te.title_pos - pe.title_pos) <= 50)
     ),
     agg AS (
         SELECT
@@ -2644,50 +2636,6 @@ COMMENT ON FUNCTION public.detect_team_change() IS 'Trigger function that detect
 
 
 --
--- Name: enqueue_derive_on_vetted(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_derive_on_vetted() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_vetted_count integer;
-BEGIN
-    SELECT count(*) INTO v_vetted_count
-      FROM public.news_article_entities
-     WHERE article_id = NEW.article_id AND vetted IS TRUE;
-
-    -- Article Reader is now the ONLY stage enqueued on a vetted write. It fetches the body,
-    -- summarizes, validates co-mentions, and may reject the article outright; whatever survives
-    -- that, it enqueues onward itself. `graph` is deliberately absent here — see the header.
-    INSERT INTO public.pipeline_work
-        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    VALUES ('article_read', 'article', NEW.article_id::integer, NEW.sport, 'pending',
-            'ar:' || v_vetted_count, NOW(), NOW())
-    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
-        status        = 'pending',
-        attempts      = 0,
-        available_at  = NOW(),
-        updated_at    = NOW(),
-        last_error    = NULL,
-        input_version = EXCLUDED.input_version
-    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-       OR public.pipeline_work.status = 'failed';
-
-    PERFORM pg_notify('pipeline_work_ready', '');
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: FUNCTION enqueue_derive_on_vetted(); Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON FUNCTION public.enqueue_derive_on_vetted() IS 'Enqueues article_read on a vetted news link. graph is NOT enqueued here — it is enqueued by the Rust ArticleReadHandler on its success path (mig 193) so it reads the summary rather than racing the reader for the headline.';
-
-
---
 -- Name: enqueue_fixture_boxscore(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2809,57 +2757,6 @@ $$;
 
 
 --
--- Name: enqueue_transfers_if_transfer_related(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_transfers_if_transfer_related() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    -- One transfers item per vetted TEAM entity of the newly-transfer-bucketed article. The
-    -- input_version is the team's CANONICAL transfer-corpus fingerprint — vetted, duplicate_of IS
-    -- NULL, transfer bucket (`IS DISTINCT FROM 'non_transfer'`, matching the transfers handler),
-    -- inside the handler's 14-day link window — so ON CONFLICT reopens the item exactly when that
-    -- corpus moved and debounces an unchanged one. COALESCE(...,'0') keeps the key non-null when a
-    -- team's set is momentarily empty (defensive; the driving article normally makes it non-empty).
-    INSERT INTO public.pipeline_work
-        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    SELECT 'transfers', 'team', te.entity_id, te.sport, 'pending',
-           't:' || (
-               SELECT count(*) || ':' ||
-                      COALESCE(md5(string_agg(x.article_id::text, ',' ORDER BY x.article_id)), '0')
-                 FROM public.news_article_entities x
-                 JOIN public.news_articles xa ON xa.id = x.article_id
-                WHERE x.entity_type = 'team'
-                  AND x.entity_id   = te.entity_id
-                  AND x.sport       = te.sport
-                  AND x.vetted IS TRUE
-                  AND xa.duplicate_of IS NULL
-                  AND xa.bucket IS DISTINCT FROM 'non_transfer'
-                  AND x.created_at > NOW() - INTERVAL '14 days'
-           ),
-           NOW(), NOW()
-      FROM public.news_article_entities te
-     WHERE te.article_id   = NEW.id
-       AND te.entity_type   = 'team'
-       AND te.vetted IS TRUE
-    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
-        status        = 'pending',
-        attempts      = 0,
-        available_at  = NOW(),
-        updated_at    = NOW(),
-        last_error    = NULL,
-        input_version = EXCLUDED.input_version
-    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-       OR public.pipeline_work.status = 'failed';
-
-    -- Statement-level mig-133 notify trigger on pipeline_work covers the wake-up; no PERFORM here.
-    RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: enqueue_voices_on_packet(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2934,62 +2831,6 @@ $$;
 --
 
 COMMENT ON FUNCTION public.enqueue_voices_on_packet() IS 'AFTER INSERT ON packets: fan work to the voices (PLAN-one-rail 1.7, mig 206). Arm 1 = tag-subscribed stages via stage_routing_subscriptions joined on tag, at that stage''s grain. Arm 2 = the Journalist''s narratives fan-out over every active player/team participant, tag-independent, gated since mig 212 (D-T14 resolution (b)) on the EXISTENCE of a stage_routing_subscriptions row with stage=''narratives'' at that entity_type — an existence gate, NOT a tag join, and NOT a wildcard (contrast D-T15''s ''*'' trap). Both arms carry input_version ''pk:'' || the packet''s slice fingerprint for that stage, falling back to the packet id (fail-open: re-read, never starve). With the subscription table empty the whole trigger is inert, which is what lets packets compile in shadow under RAIL=legacy without fighting the legacy article_read enqueue over one pipeline_work row.';
-
-
---
--- Name: enqueue_voices_on_routing_tags(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.enqueue_voices_on_routing_tags() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    -- One work item per (subscribing stage, entity of the matching grain), for tags that were
-    -- ADDED by this update. `input_version` is that entity's fingerprint over its canonical,
-    -- vetted, in-window articles CARRYING THE SAME TAG -- the direct generalization of mig 175's
-    -- transfer-corpus fingerprint. ON CONFLICT therefore reopens an item exactly when that voice's
-    -- slice moved and debounces one that did not.
-    INSERT INTO public.pipeline_work
-        (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
-    SELECT s.stage, s.entity_type, te.entity_id, te.sport, 'pending',
-           's:' || t.tag || ':' || (
-               SELECT count(*) || ':' ||
-                      COALESCE(md5(string_agg(x.article_id::text, ',' ORDER BY x.article_id)), '0')
-                 FROM public.news_article_entities x
-                 JOIN public.news_articles xa ON xa.id = x.article_id
-                WHERE x.entity_type = s.entity_type
-                  AND x.entity_id   = te.entity_id
-                  AND x.sport       = te.sport
-                  AND x.vetted IS TRUE
-                  AND xa.duplicate_of IS NULL
-                  AND xa.routing_tags @> ARRAY[t.tag]
-                  AND x.created_at > NOW() - INTERVAL '14 days'
-           ),
-           NOW(), NOW()
-      FROM (
-            SELECT unnest(NEW.routing_tags)
-            EXCEPT
-            SELECT unnest(COALESCE(OLD.routing_tags, '{}'))
-           ) AS t(tag)
-      JOIN public.stage_routing_subscriptions s ON s.tag = t.tag
-      JOIN public.news_article_entities te
-        ON te.article_id  = NEW.id
-       AND te.entity_type = s.entity_type
-       AND te.vetted IS TRUE
-    ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
-        status        = 'pending',
-        attempts      = 0,
-        available_at  = NOW(),
-        updated_at    = NOW(),
-        last_error    = NULL,
-        input_version = EXCLUDED.input_version
-    WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
-       OR public.pipeline_work.status = 'failed';
-
-    -- Statement-level mig-133 notify trigger on pipeline_work covers the wake-up; no PERFORM here.
-    RETURN NEW;
-END;
-$$;
 
 
 --
@@ -5114,13 +4955,11 @@ BEGIN
                a.source AS src, a.published_at AS ts
         FROM news_articles a
         JOIN news_article_entities e1 ON e1.article_id = a.id
-             AND e1.sport = p_sport AND e1.vetted IS TRUE
+             AND e1.sport = p_sport
         JOIN news_article_entities e2 ON e2.article_id = a.id
-             AND e2.sport = p_sport AND e2.vetted IS TRUE
+             AND e2.sport = p_sport
         WHERE a.published_at > now() - make_interval(days => p_window_days)
           AND (e1.entity_type, e1.entity_id) < (e2.entity_type, e2.entity_id)
-          AND (e1.title_pos IS NULL OR e2.title_pos IS NULL
-               OR abs(e1.title_pos - e2.title_pos) <= 50)
     ),
     agg AS (
         SELECT c.subject_type, c.subject_id, c.object_type, c.object_id,
@@ -9493,34 +9332,16 @@ CREATE TABLE public.news_article_entities (
     entity_type text NOT NULL,
     entity_id integer NOT NULL,
     sport text NOT NULL,
-    match_confidence numeric(4,3),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    title_pos smallint,
-    vetted boolean,
-    scrubbed_at timestamp with time zone,
     CONSTRAINT news_article_entities_entity_type_check CHECK ((entity_type = ANY (ARRAY['player'::text, 'team'::text, 'person'::text])))
 );
 
 
 --
--- Name: COLUMN news_article_entities.title_pos; Type: COMMENT; Schema: public; Owner: -
+-- Name: TABLE news_article_entities; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.news_article_entities.title_pos IS 'Character offset of this entity in the article title (thirdparty.FirstMatchPos); NULL = unknown. Powers the co-mention proximity gate (migration 033).';
-
-
---
--- Name: COLUMN news_article_entities.vetted; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_article_entities.vetted IS 'Model scrub verdict: TRUE genuinely the subject, FALSE fuzzy false positive, NULL not yet scrubbed. See the cognition scrub stage.';
-
-
---
--- Name: COLUMN news_article_entities.scrubbed_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.news_article_entities.scrubbed_at IS 'When the model scrub last judged this link (NULL = unscrubbed). Drives the async scrub worker backlog query.';
+COMMENT ON TABLE public.news_article_entities IS 'Which entities an article is about. WRITTEN ONLY by the Editor (editor::write_links), which clears an article''s rows and rewrites them from what it resolved after reading the body. A row''s EXISTENCE is the verdict -- there is no vetted/confidence column, and absence is a denial. Ingest writes nothing here; which entity''s sweep surfaced an article is recorded on news_articles.raw (query_team_id). PLAN-one-rail 8.11.';
 
 
 --
@@ -12847,13 +12668,6 @@ CREATE INDEX idx_momentum_summaries_input_hash ON public.momentum_summaries USIN
 
 
 --
--- Name: idx_nae_vetted_lookup; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_nae_vetted_lookup ON public.news_article_entities USING btree (entity_type, entity_id, sport) WHERE (vetted IS TRUE);
-
-
---
 -- Name: idx_narrative_episodes_object; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13082,13 +12896,6 @@ CREATE INDEX idx_news_entities_by_article ON public.news_article_entities USING 
 --
 
 CREATE INDEX idx_news_entities_lookup_created ON public.news_article_entities USING btree (entity_type, entity_id, sport, created_at);
-
-
---
--- Name: idx_news_entities_unscrubbed; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_news_entities_unscrubbed ON public.news_article_entities USING btree (article_id) WHERE (scrubbed_at IS NULL);
 
 
 --
@@ -14593,5 +14400,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict u9L1YFjYjYIZvE6pIgWSahc3xuHcOxIb0FZ6rnQgjujdmYW5bNs1pUwfkfJlWoG
+\unrestrict HB4QFvnV4E3pcUeHSDmkzzHDGrK7cFdDPoYbhdbtv5IEV6CfN01Uw2gCCXGsPv1
 

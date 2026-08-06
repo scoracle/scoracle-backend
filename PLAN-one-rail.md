@@ -1,5 +1,34 @@
 # PLAN — One Rail
 
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. Phase 7 complete on its plumbing (junction
+pass 7.11 + 7.15 outstanding). **THE FLIP IS DONE — `RAIL=packet` IS LIVE AND THE LEGACY RAIL IS
+OFF (2026-08-06 10:55 EDT, @ `68619d2`).** 9 stages (`article_read` and `scrub` gone), six voices
+on ministral-3:14b at the Mac (4096, 3 concurrent), `COGNITION_PACKET_COMPILE=true`, 7,600+ packets
+compiled. **Scott's shape, held exactly: the old rail is OFF and costs ZERO compute, and is NOT
+deleted** — 0 legacy triggers, 0 scrub rows, 30,224 `article_read` rows PARKED and untouched (no
+worker claims that stage; they are the rollback surface for §2's 7 days and die in Phase 9).
+**Verified live in the first hour:** the packet trigger fired for the first time ever (0 →
+**1,351** work rows), the Influencer got a waker (`vibe` pending 2 → 120), the Insider woke
+(`transfers` 12), all four arms of 8.5's `write_links` fired on real data (8 hypotheses confirmed
+at 0.95, **5 new links inserted at 0.90**, 3 legacy links confirmed, 1 DENIED), and the archivist
+is fed BETTER by the new seam than the old one (**15 `narrative_events` in 20 min** vs 50 in the
+prior 24h). **Clause 2 went PASS at the flip: 197/197 entity-days, 0 missing.** Dead-letters 0.
+**REMAINING IN PHASE 8: 8.2 (the 7-day window — Scott flipped ahead of it deliberately, rollback
+stays available) and 8.7 (the 48h watch).** Pre-flip 24h baseline for 8.7's T7 comparison, NOT
+comparable after the flip: news_summaries 522, vibe 225, momentum 236, sigil 212, transfers 68.
+**OPEN AND HONEST: clause 3's link sample is emitted and UNSCORED; clause 4b (editor fixtures) is
+FAIL at 43–47/53 and Scott WAIVED IT EXPLICITLY for the flip — logged as D-T19 so the waiver is
+auditable.** Read clause 1 only on a COMPLETE day (41.2% at flip time is a young day, not a
+regression; 97.3% on the last full one). **WEEKEND TUNING IS THE NEXT SESSION** — `PLAN-character-
+tuning.md` §6 carries D-T19 (start here: the gate is not deterministic, 47/53 then 43/53 on
+identical runs, so stabilize the instrument before scoring any knob) and D-T18 (syndication doubles
+facts in a packet; never dedupe across different sources — that is the T3 line). **PHASE 6 STAYS
+OPEN on 6.7 alone:** window closes ~**Aug 8 22:08 EDT**, `scripts/rail-6.7-bands.sh` prints INTERIM
+until then. OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo /mnt/data/scratch grant pending.
+Last plan commit: (this one). Updated 2026-08-06 ~11:15 EDT (the rail is one rail).**
+
+*(Superseded STATE of 2026-08-06 ~09:20 EDT — phase 8 armed, not yet flipped — kept verbatim below.)*
+
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged). Phase 7 complete on its
 plumbing (junction pass 7.11 + 7.15 outstanding). **PHASE 8 IS BUILT AND ARMED: 8.1, 8.3, 8.4 and
 8.5 are DONE; only 8.6 (the flip), 8.2 (the 7-day window) and 8.7 (the 48h watch) remain.**

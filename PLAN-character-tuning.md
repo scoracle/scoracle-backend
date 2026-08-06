@@ -124,3 +124,64 @@ on this loop.
   the knob only clips the tail.
 - **D-T5** descriptor leakage ("team 277" — an internal id in a text-copy field). Count
   instances before caring.
+
+---
+
+## 6 · Found during the Phase 8 build (2026-08-06; the first shadow compile + the first §2 reading)
+
+Both are RECORDED, NOT FIXED, per Scott's ruling that session ("no tuning as we go — we'll tune
+the weekend"). Both have D-numbers in Appendix D; the diagnosis is here.
+
+### 6a · D-T19 — the editor fixture gate: 43–47/53, and NOT DETERMINISTIC
+
+**This one is first in the queue, because §2 clause 4 depends on it.** The cutover condition asks
+`eval --task editor --fixtures` for **100%**, and the gate has never delivered it. Scott waived it
+for the flip (2026-08-06) on the standing rule that model quality never halts plumbing — the waiver
+is explicit and logged, not silent, and it expires the moment this is tunable.
+
+**Measured:** two consecutive runs, same binary, same fixtures, same `gemma3:4b`, `temp=0` →
+**47/53 then 43/53**. Start here: *a gate that moves 4 points between identical runs cannot score
+any knob you turn next.* Until it is stable, every other editor measurement in this file is being
+read through a ±4 instrument. Candidate causes: Ollama `NUM_PARALLEL=4` batching affecting sampling,
+KV-cache reuse across fixture cases, or temp=0 not being greedy in this runner. One measurement
+settles it — run the same fixture 10× and plot the spread — and it costs nothing but time.
+
+**The failure shapes**, once the instrument is trustworthy:
+
+1. **`names[]` drops the coach/manager class.** Kyle Shanahan (`coach-discovery-kyle-shanahan` —
+   all four of its checks fail together: name absent, so kind, descriptor and the resolver's
+   unresolved-record all fall with it), Moyes (`fan-protest-register-outrage`), Arteta
+   (`injury-report-accept-no-invention`), Bellingham (`result-line-verbatim-score`), Rangers as a
+   club (`opponent-only-mention`). This is **D-T1's under-fill with a specific shape**: the model
+   lists the CLUBS and drops the PEOPLE attached to them. That is exactly the channel §1a leans on
+   for discovery — `names[]` is how the Investigator learns a person exists — so the miss costs the
+   living database, not just the fixture. Knob: the ep1 prompt's names[] ask, which currently
+   treats people and clubs as one list; consider naming the coach/manager role explicitly in the
+   ask. Measure against D-T1's 16.7% baseline and D-T11's truncation fix together — all three are
+   the same class seen from different angles.
+2. **`register[outrage]` reads `neutral`** on the fan-protest fixture. This is **D-T2 reproducing**
+   under the phrase-before-label order, which was supposed to help. D-T2 says it needs a fixture
+   set before revisiting; it now HAS one. Fold them.
+
+### 6b · D-T18 — syndication doubles facts inside one packet
+
+**Finding:** packet 2 (storyline 7471, the first shadow compile) carries 15 claims that are closer
+to 8 facts — "Celtic have wrapped up an 11 million pound deal for Kasper Hoog" beside "Celtic have
+signed Kasper Hoog"; "Bayern Munich's sporting director denied rumours linking Michael Olise with a
+move to Real Madrid" beside "Bayern Munich denies Michael Olise will be leaving".
+
+**The compiler is not at fault, and this is the important part.** The two members are articles
+186800 and 186793 — both Goal.com transfer roundups from the same hour, correctly clustered by the
+Desk. The packet faithfully carries both, which is the right default: T3 says two outlets asserting
+a thing is evidence, and silently suppressing a restatement is precisely how a preserved
+contradiction gets dropped. But **two lanes of ONE outlet is syndication, not corroboration**, and
+it spends the 2,000-token render budget twice on one fact.
+
+**Do not tune this before measuring what it costs.** On a 3-member packet it is noise. The exact-
+title dedup sweep already catches the byte-identical case, so what is left is near-duplicates from
+one source. The measurement: over a day of packets, what fraction of render budget goes to claims
+sharing a source AND high text similarity? Knobs, in increasing order of how much they can break:
+(a) collapse same-source near-duplicate claims at compile, keeping the longer; (b) prefer one member
+per (source, hour) at assembly — cheaper, but it discards an article, so it owes an A5 exclusion
+line naming what it dropped. **Never dedupe across DIFFERENT sources** — that is the T3 line, and
+crossing it turns the contradiction-preserving property of a packet into a summarizer.

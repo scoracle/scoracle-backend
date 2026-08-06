@@ -608,8 +608,26 @@ async fn write_links(
             r#"
             INSERT INTO public.news_article_entities
                 (article_id, entity_type, entity_id, sport, match_confidence, vetted, scrubbed_at)
-            SELECT $1, t.entity_type, t.entity_id, $2, $5, TRUE, NOW()
+            -- DISTINCT ON: the model names whoever the article names, so ONE entity can arrive
+            -- twice under two surfaces ("Spurs" and "Tottenham Hotspur" share a norm), and
+            -- Postgres refuses an ON CONFLICT ... DO UPDATE that would touch a row twice in one
+            -- statement. Without this the whole statement errors and the article loses its ENTIRE
+            -- link set while the read persists and looks successful — measured live, 5 articles in
+            -- 2 days. The same guard, with the same reasoning, is on the sibling write in
+            -- storyline.rs; this one was written without it.
+            --
+            -- Collapsing here is not discarding what the model said: `resolved.links` is persisted
+            -- verbatim on `editor_reads` at MENTION grain, so both surfaces keep their provenance.
+            -- The model describes; code derives one link per entity (T2).
+            --
+            -- Keyed rather than a plain DISTINCT deliberately: the projected columns happen to be
+            -- identical per entity today, so DISTINCT would work and would silently stop working
+            -- the moment anyone projects a per-mention column (`via_surface` is right there on the
+            -- struct). DISTINCT ON collapses by the conflict key, which is the actual invariant.
+            SELECT DISTINCT ON (t.entity_type, t.entity_id)
+                   $1, t.entity_type, t.entity_id, $2, $5, TRUE, NOW()
               FROM unnest($3::text[], $4::int[]) AS t(entity_type, entity_id)
+             ORDER BY t.entity_type, t.entity_id
             ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
                 vetted      = TRUE,
                 scrubbed_at = NOW()

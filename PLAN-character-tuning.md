@@ -23,6 +23,96 @@ rename.
 
 ---
 
+## Handoff — D-T19, the instrument (fresh context window; Scott's request 2026-08-06)
+
+*Everything in the fence is measured. Facts gathered 2026-08-06 ~16:30 EDT while writing it — the
+next session should verify, not re-derive.*
+
+```
+Work D-T19 in scoracle-backend: MAKE THE EDITOR FIXTURE GATE DETERMINISTIC. Nothing else.
+
+This is an INSTRUMENT session, not a tuning session. The gate scored 47/53 then 43/53 on two
+consecutive runs — same binary, same fixtures, same gemma3:4b. Until that spread is gone, every
+editor number in PLAN-character-tuning.md is being read through a ±4 instrument and no knob you
+turn afterwards can be scored. Fix the gauge. Do NOT fix a prompt in the same session.
+
+READ FIRST: PLAN-character-tuning.md §0 (the register — start at §0c), then §6a (D-T19 itself),
+then §1/§2 (D-T11/D-T12, the Editor findings the gate exists to score). Do not read the whole
+repo. PLAN-one-rail.md is DONE for your purposes except its §0 working rules, which still bind.
+
+STATE. RAIL=packet is live and the rail is clean. 2026-08-06 shipped four deletions in one day:
+8.8 (the relevance regex — the entire Go tree now has three regexes, all RSS parsers), 8.9 (the
+query builder — one Google query per name we know an entity by, no scoring/allowlists), 8.10 +
+8.11 (news_article_entities went from 9 columns and two writers to 5 columns and ONE writer, the
+Editor; `vetted`/`match_confidence`/`scrubbed_at`/`title_pos` dropped in mig 214). Deployed
+@ 6fbf798, schema snapshot 9986cab. 9 stages, six voices on ministral-3:14b at the Mac (4096, 3
+concurrent); the EDITOR runs gemma3:4b on ARCHBOX's own Ollama (localhost:11434, max_concurrent 4).
+
+WHAT IS ALREADY MEASURED — do not spend the session re-deriving it:
+  * The gate is `cargo run --bin eval -- --task editor --fixtures` on archbox. It is NOT in
+    rust/bin; build to target/debug (§0 rule 6 — placing binaries in rust/bin or go/bin trips the
+    .path watchers and restarts live services).
+  * 12 fixtures in rust/fixtures/editor/. EVERY ONE pins "temperature": 0.0. So the eval is
+    already greedy, and "it isn't really temp 0" is a DEAD lead — check it once and move on.
+    (Production is temperature 0.2 via editor_opts(), editor/mod.rs:52. That asymmetry is
+    deliberate and documented there; it is not the bug.)
+  * The fixture loop is SEQUENTIAL (eval.rs:332, `for case in cases`). Nothing inside the eval
+    runs concurrently, so intra-eval batching is also a dead lead.
+  * GenerateOptions (ollama.rs, ~:41) has NO seed field. Nothing pins sampling on any call in
+    this codebase. Adding one is a candidate fix, not a diagnosis.
+  * The 12 fixture files declare 60 expect-keys between them, but the gate reports out of 53.
+    RECONCILE THAT. A denominator you cannot derive from the files is its own instrument problem
+    and may be hiding skipped checks.
+
+THE LEADING HYPOTHESIS, and it is cheap to settle first: THE COGNITION DAEMON IS RUNNING WHILE YOU
+EVAL. scoracle-cognition drains the editor stage against the SAME archbox Ollama at
+max_concurrent 4, so an eval's requests are batched alongside live traffic, and batched inference
+changes floating-point reduction order — which moves greedy output. Nothing in the eval is
+concurrent, but the SERVER is.
+  EXPERIMENT 1 (do this before any code change):
+    systemctl --user stop scoracle-cognition
+    run the gate 5x, record all five scores
+    systemctl --user start scoracle-cognition
+    run the gate 5x again, record all five
+  If the quiet runs collapse to one number and the noisy ones spread, the instrument is
+  contention and the FIX IS A METHOD RULE, not code: the gate is only valid with the daemon
+  stopped. Write that into §6a and the gate's own doc comment so nobody scores a knob against a
+  busy GPU again. If BOTH sets still spread, add `seed` to GenerateOptions, thread it through
+  editor_opts, and repeat — one change, one measurement (§0 rule 4).
+
+WHEN THE GATE HOLDS STILL — and only then — the two failure shapes are in §6a and are NOT this
+session's to fix: names[] drops the coach/manager class (Shanahan, Moyes, Arteta, Bellingham,
+Rangers-as-club), and register[outrage] reads neutral on the fan-protest fixture. Record the
+STABLE baseline score, then stop. Both fixes are prompt changes and prompt changes belong in
+PLAN-one-rail 7.11, which is deliberately ONE re-earn event: a *_PROMPT_VERSION bump is a cache
+key and reopens ALL that stage's work fleet-wide. Same reason `momentum`'s markdown-instead-of-
+contract failures (§0b) ride 7.11 rather than getting their own bump.
+
+LAWS THAT STILL BIND: describe-then-derive (T2) — a model never renders a verdict as a bare
+field; one change, one measurement; contradictions are preserved, never summarized away (T3);
+stage wire names never rename; DB access is from archbox, not the Mac (§0 rule 8).
+
+DO NOT TOUCH THIS SESSION: any prompt or *_PROMPT_VERSION (that is 7.11). Phase 9 (the Rust
+demolition — article_reader/, scrub.rs, Role::ArticleReader, the embedder) and the 30,224 parked
+article_read rows. PHASE 6 IS STILL OPEN on 6.7 alone — its window closes ~Aug 8 22:08 EDT; run
+scripts/rail-6.7-bands.sh only after that, and never close phase 6 on an INTERIM banner. The
+ingest path shipped today is settled: Google does the relevancy, the Editor is the valve — do not
+re-open it.
+
+TWO LESSONS FROM 2026-08-06 THAT APPLY DIRECTLY TO THIS WORK:
+  1. A WARN that says "continuing" hides its own frequency. journalctl retention said 5 articles;
+     the DATA said 9. Measure blast radius from the data, never from the log.
+  2. SQL functions are code. compute_transfer_heat is LIVE and still carried a proximity gate for
+     six hours after we recorded it as deleted from Rust. When you check whether something is
+     gone, check pg_get_functiondef too.
+
+FINISH RITUAL: update §6a with the spread you measured and what settled it, close or re-scope
+D-T19 in Appendix D of PLAN-one-rail.md, commit as `tuning: D-T19 — <what made the gate hold
+still>`, and print the next session's handoff (7.11, the voice diet) as the last thing you say.
+```
+
+---
+
 ## 0 · THE REGISTER — every friction point, roadblock and concern going into the session
 
 *Assembled 2026-08-06 ~13:15 EDT, after 8.8, on Scott's instruction: "I want all the friction

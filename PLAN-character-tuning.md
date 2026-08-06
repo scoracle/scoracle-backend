@@ -23,6 +23,144 @@ rename.
 
 ---
 
+## 0 · THE REGISTER — every friction point, roadblock and concern going into the session
+
+*Assembled 2026-08-06 ~13:15 EDT, after 8.8, on Scott's instruction: "I want all the friction
+points, the roadblocks, the concerns listed." Everything here is MEASURED on live post-flip
+production, not inferred. Sections below carry the detail; this is the one place that lists all of
+it. **Ordered by what would hurt most if ignored, not by how easy it is to fix.***
+
+### 0a · The one that governs everything else: the model layer is the throughput ceiling
+
+**Measured today.** The Editor sustains **430–490 reads/hour while the daemon is up**, and the
+daemon is deliberately down **8 hours a day** (harness rest windows at 00/03/06/09/12/15/18/21:00,
++1h each — §0 rule 6 of `PLAN-one-rail.md`; the 12:00 window is visible in the journal as a clean
+stop at 12:02 and restart at 13:00). That works out to:
+
+| | |
+|---|---|
+| Editor reads/day, actual | Aug 3 **7,041** · Aug 4 **7,560** · Aug 5 **8,063** |
+| Articles arriving/day | Aug 3 **6,960** · Aug 4 **8,027** · Aug 5 **8,401** |
+| Editor backlog right now | **4,682 pending**, oldest stamped **Aug 5 02:01** (~35h latency) |
+
+**The Editor runs at parity with ingest — about 96% — which means it never catches up.** It is not
+falling behind, but it has no headroom to burn down a backlog, absorb a re-read, or take a prompt
+that costs 20% more. Every knob in this file that makes a model call longer spends from this
+budget. **This is the number to protect.** Coverage reads 97.3% on a complete day precisely
+*because* throughput ≈ inflow; those are the same fact seen twice.
+
+**And the Editor is not the deepest queue.** Full pending state at 13:07 EDT:
+
+| stage | pending | oldest pending | note |
+|---|---|---|---|
+| `investigate_entity` | **8,624** | Aug 4 04:07 (**~57h**) | the deepest starvation on the rail; D-T10 |
+| `editor` | 4,682 | Aug 5 02:01 (~35h) | at parity, permanent backlog |
+| `narratives` | 2,059 | **Aug 6 10:55:52** | the flip's trigger burst, undrained 2h later |
+| `vibe` | 1,912 | **Aug 6 10:55:52** | same burst, same story |
+| `momentum` | 1,269 | Aug 2 04:38 | includes the failures in 0c |
+| `sigil` | 474 | Aug 3 10:43 | |
+| `peak` | 237 | Aug 4 03:00 | |
+| `transfers` | 136 | Aug 6 11:23 | the Insider, post-gate-removal |
+| `fixture_boxscore` | 72 | Aug 4 04:02 | Phase 4 is parked |
+| `article_read` | 30,222 | Aug 3 02:01 | **PARKED BY DESIGN** — rollback surface, 0 compute, dies in Phase 9 |
+
+**The structural tension to name out loud, because it is the thing tuning must actually resolve:**
+six AI layers enriching every article is the product, and it is also the cost. The Mac holds
+**3 concurrent permits for 6 voices on one GPU**. Adding quality by adding a layer, a re-read, or a
+longer prompt is not free here — it comes directly out of coverage. **"Empower the models" and
+"read everything" are in tension, and the session should decide which one wins where, per junction,
+rather than letting the queue decide by starving whichever stage sorts last.**
+
+### 0b · Defects — fix these, do not tune them
+
+- **`editor::write_links` loses an article's ENTIRE link set on a duplicate resolve.**
+  `ON CONFLICT DO UPDATE command cannot affect row a second time` — measured **5 articles in 2
+  days out of 6,399 reads (0.08%)**. When one article's `names[]` resolves two different surfaces
+  to the SAME entity, the write builds two rows with one conflict key and Postgres rejects the
+  whole statement. The read persists, so it looks successful; the links vanish silently and the
+  WARN is the only trace. **Fix: dedupe the resolved link set by (entity_type, entity_id) before
+  the INSERT.** This is 8.5 code, untouched by 8.8, and it is a bug not a knob.
+- **`momentum` answers in markdown instead of its contract.** 11 pending failures + 7
+  dead-lettered, `momentum: invalid response (raw="**Momentum Read: …")`, spanning **Aug 2 →
+  Aug 6 11:38**. The voice is writing a beautiful essay into a field that wants a structure. First
+  candidate: it is the contract prompt, not the model, since the same model answers five other
+  voices correctly.
+
+### 0c · Instrument problems — you cannot tune against a gauge that moves
+
+- **D-T19 (§6a): the editor fixture gate is not deterministic** — 47/53 then 43/53 on identical
+  runs at temp=0. **Nothing in this file can be scored until this is fixed. Start here.** Scoring a
+  knob against a ±4 gauge produces confident nonsense.
+- **§2's clause 3 link sample is emitted and UNSCORED.** Precision on the rail's links has never
+  actually been measured — only sampled. The 0.90 Editor links are now the majority producer
+  (0b, 0e), so this is scoring the new rail, not the old one.
+- **Clause 4b is FAIL (43–47/53) and Scott waived it explicitly** for the flip (D-T19). The waiver
+  is logged so it is auditable; it has not been retired.
+
+### 0d · Architecture concerns — the hand-rolled complexity that SURVIVED 8.8
+
+**This is the honest answer to "did we just take the fastest path and port a bunch of old Go?"**
+The relevance regex is gone (0e). What remains, and it is the largest hand-rolled judgment left
+anywhere on the rail:
+
+- **~350 lines in `news.go` decide WHAT WE ASK GOOGLE**, and every line of it predates the AI
+  layers: `safeTeamRSSAliasQuery` scores alias lanes with hand-tuned integers (base 60, +20 for
+  two tokens, +25 for a shared token, +10 for a club designator); `riskyFootballSoloQueryKey` is a
+  hardcoded list of 18 words (`athletic, celtic, city, club, como, dynamo, inter, lens, nice,
+  racing, rangers, real, rovers, sporting, united, union, …`); `trustedFootballAliasQuery` is
+  four literals (`barca, barça, spurs, juve`); `trustedShortTeamAliases` is a hand-maintained map.
+  **8.8 was right to leave it — it is query formulation, not relevance filtering** — but it bounds
+  what Google can ever return, so *"let Google handle the relevancy" is only as good as this
+  hand-written list of what to ask for.* A club whose alias lane is scored out never reaches the
+  Editor at all, and no downstream model layer can recover it. **This is the strongest remaining
+  candidate for "delete the heuristic, let a layer own it," and it is NOT scheduled anywhere.**
+- **`fetch.rs::clean_html` is a naive strip-all-tags** (§1, D-T11) — nav menus and footers reach
+  the prompt, and **34.3% of editor prompts hit the 9,000-char truncation cap.** Hand-rolled
+  extraction is spending the model's window on page furniture.
+- **`title_pos`'s only remaining readers are SQL functions** (`refresh_co_mention_links` and
+  friends). Phase 9 owns them; noted here so nobody re-adds a writer.
+
+### 0e · What is genuinely settled — do NOT re-litigate these in the session
+
+Verified 2026-08-06 after 8.8, with numbers, so the session starts from fact rather than memory:
+
+- **The relevance regex is gone.** The entire Go tree contains three `MustCompile` calls, all three
+  RSS *parsers* (`<[^>]+>`, the entity decoder, whitespace). **The Rust tree contains no regex at
+  all — the `regex` crate is not even a dependency.**
+- **Google is the relevance source.** The primary link is the query hypothesis at 0.95; ingest
+  applies no relevance filter; the funnel's only drops are window, dedup and limit, and it
+  balances (residual 0 on a live sweep).
+- **The Editor is the safety valve, and it fires.** **78 of 507 reads since the flip returned
+  `irrelevant` (15.4%)**, and an irrelevant read retracts every vetted row for that article.
+- **The Editor replaced the regex as a link GENERATOR and beat it.** Since the flip: **645 player
+  links + 87 team + 5 person at 0.90, from 507 reads = 1.27 player links per read**, against the
+  deleted regex loop's 3,589 player links per ~8,400 articles = **0.43 per article**. Reading the
+  body finds roughly **3× the players** that substring-matching a headline did.
+- **The resolver is not fuzzy matching wearing a new coat.** `editor::derive::resolve_names` is an
+  EXACT match on `public.nrm()`-normalized surfaces in `entity_name_surfaces`, sport-scoped,
+  kind-gated by the model's own `kind_hint` + `descriptor`; two candidates **refuse** rather than
+  coin-flip; zero candidates go to the Investigator as discovery. That is describe-then-derive (T2)
+  working as designed, and it is why deleting the regex cost nothing.
+
+### 0f · Open decisions the session inherits (detail in the numbered sections)
+
+| id | question | where |
+|---|---|---|
+| D-T19 | stabilize the fixture gate before scoring anything | §6a |
+| D-T20 | knob (a) DONE (proximity clause deleted @ `28fcf45`); does `entity_roles` replace it? | §7a |
+| D-T18 | syndication doubles facts in a packet — never dedupe across sources (T3) | §6b |
+| D-T11/12 | Editor input hygiene + output dominance | §1, §2 |
+| D-T10 | the Investigator's starvation — now 8,624 deep | §3 |
+| D-T6/7/8 | Investigator evidence-class gaps | §4 |
+| D-T9 | parked ops — **ONLY on Scott's go** | §4 |
+| 7.11/7.15 | the voice diet + its eval dry-run — one re-earn event, one fleet-wide regen | §7b |
+
+**Watch while tuning:** `transfer_rumors` **70/24h** against a **68/24h** pre-flip baseline (the
+proximity gate came out at 11:38 today — if pair volume climbs, that is the Insider eating the
+Mac's permits and D-T20 knob (b) is the answer).
+
+---
+
 ## 1 · The Editor — input hygiene (D-T11; measured 2026-08-04/05, 4,774 ledgered calls)
 
 **Finding:** `fetch.rs::clean_html` (fetch.rs:261) is a naive strip-all-tags — it keeps every

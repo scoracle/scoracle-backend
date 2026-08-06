@@ -228,6 +228,21 @@ Knob (b) is the describe-then-derive version and is the one to reach for if (a) 
 Tied to **8.8** in `PLAN-one-rail.md` (the regex excision session), which lists this as its one
 judgment call among otherwise straightforward deletions.
 
+**UPDATE 2026-08-06 ~11:50 EDT — knob (a) IS DONE. 8.8 removed the clause, deliberately and with
+the decision logged.** Both sites (`load_candidates` and `load_stale_pair_news_ids`) and
+`COMENTION_PROXIMITY_CHARS` are gone as of `28fcf45`; `HAVING count(DISTINCT te.article_id) >= $3`
+is now the only thinning, exactly as (a) describes. Re-measured before the cut: **0 of the 271 rows
+created since the flip carried a `title_pos`** (170/0 four hours earlier — the finding held as the
+sample grew), so it is a no-op for new data and a real change only for the pre-flip tail
+(310,705 rows carry a position).
+
+**What is left for this session is knob (b) and the measurement that decides it.** Baseline to beat:
+`transfer_rumors` was **68/24h pre-flip** and read **70/24h** just before the cut — no explosion in
+the first hour, but one hour is not a reading. If pair volume climbs and the Insider starts eating
+the Mac's single permit, (b) is the answer: replace proximity with the Editor's `entity_roles`
+(`passing_mention` is exactly what the gate was reaching for), which is the describe-then-derive
+version and needs no character offsets at all.
+
 ### 7b · Prompt fat is the weekend's main event — the inventory is already written
 
 Scott, at the flip: *"We're going to be able to trim a LOT of fat from the legacy prompts that we

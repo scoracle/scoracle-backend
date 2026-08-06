@@ -1,5 +1,37 @@
 # PLAN — One Rail
 
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. Phase 7 complete on its plumbing (7.11 +
+7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND AS OF 8.8 THE RELEVANCE
+REGEX IS DELETED.** Deployed on archbox @ `28fcf45` (2026-08-06 11:38 EDT), 9 stages, six voices on
+ministral-3:14b at the Mac (4096, 3 concurrent). **8.8 done: 1,435 lines out, 79 in** — `match.go`
+entire, the secondary-link loop + entity pool, `FirstMatchPos` on the primary link, the
+`title_pos` writers (`posOrNil`, `BackfillTitlePositions`, `cmd/comention-backfill`), `funnel.go`'s
+`MatchRejected`, `maintenance.go`'s `scrubNewsLinks` + ticker + `NEWS_SCRUB_ENABLED`, Go's ingest
+`scrub` enqueue, and BOTH copies of `railIsPacket()` (no callers left). **The only regex left in the
+Go tree is the three RSS parsers — parsing, kept on purpose.** `isTeamEntity` moved into `news.go`;
+`sportTerms` stays. **The Insider's title-proximity clause was REMOVED at both sites — a decision,
+logged: 0 of 271 post-flip rows carried a `title_pos`, so it was inert for new data and this is a
+behaviour change for the pre-flip tail only.** `title_pos` and `news_articles.bucket` the COLUMNS
+stay (310,705 rows of archive). **Verified on a live hand-run sweep:** residual 0 without
+`MatchRejected`, +75 articles, +70 editor enqueues, `editor_reads` climbing, **scrub rows 0**, 0 new
+`title_pos`, 0 new 0.8 links, 0 Editor/Investigator dead-letters. 13 tests deleted WITH their
+subjects (named in the Log); every surviving Go test and all 412 Rust tests pass. **Appendix A's Go
+block is now fully executed — Phase 9 skips it and starts at the Rust demolition.** **REMAINING IN
+PHASE 8: 8.2 (the 7-day window — Scott flipped ahead of it deliberately) and 8.7 (the 48h watch,
+clock started 10:55 today).** **NOTE FOR THE WEEKEND, not a rail failure: 7 `momentum` dead-letters
+(`invalid response` — the voice answering in markdown) from 2026-08-02 to 11:38:23 today, none
+since the deploy.** Open and honest, unchanged: clause 3's link sample is UNSCORED; clause 4b is
+FAIL at 43–47/53 and Scott WAIVED IT (D-T19). **WEEKEND TUNING IS THE NEXT SESSION** —
+`PLAN-character-tuning.md` §6 (D-T19 first: stabilize the instrument), §7a (D-T20 — the proximity
+gate is now gone, so what remains is whether `entity_roles` should replace it; `transfer_rumors`
+reads 70/24h against a 68/24h pre-flip baseline). **PHASE 6 STAYS OPEN on 6.7 alone:** window
+closes ~**Aug 8 22:08 EDT**. OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
+/mnt/data/scratch grant pending. Last plan commit: (this one). Updated 2026-08-06 ~12:00 EDT (the
+regex is gone).**
+
+*(Superseded STATE of 2026-08-06 ~11:15 EDT — the rail is one rail, regex still running — kept
+verbatim below.)*
+
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. Phase 7 complete on its plumbing (junction
 pass 7.11 + 7.15 outstanding). **THE FLIP IS DONE — `RAIL=packet` IS LIVE AND THE LEGACY RAIL IS
 OFF (2026-08-06 10:55 EDT, @ `68619d2`).** 9 stages (`article_read` and `scrub` gone), six voices
@@ -3392,6 +3424,33 @@ explicitly, so this is the shape he asked for, not drift.
 **Not touched, deliberately:** Phase 9 proper (`article_reader/`, `scrub.rs`, `Role::ArticleReader`,
 the embedder), the parked `article_read` rows, `work.StageScrub` (Rust still names the stage; it
 dies with the Rust half), every prompt and `*_PROMPT_VERSION`, and 6.7's window.
+
+**[DEPLOY] 2026-08-06 11:38 EDT @ `28fcf45` — released and verified on live ingest.** Go
+`build`/`vet`/`test` and `cargo check`/`cargo test` (**412 passed, 0 failed**) all green on archbox
+BEFORE any binary was placed. Boot line unchanged and correct: `RAIL: the voices read packet`, 9
+stages, both units active.
+
+**Verified against a real sweep, not a rehearsal.** The 02:00 cron was ~14h away, so an ingest was
+run by hand (`cron-pipeline.sh -mode ingest -sport NBA -rss-limit 5`, 30 teams, 26s):
+
+| what the excision had to not break | reading |
+|---|---|
+| RSS fetch + parse (TRAP 1's regex) | 2,685 items parsed from 60 calls, **0 rss_errors**, 0 teams zero-admitted |
+| **the funnel invariant without `MatchRejected`** | **residual = 0** (window 0 / dedup 664 / truncated 1,871 / matched 150) |
+| articles still arrive | `news_articles` **225,060 → 225,135** (+75, exactly `fresh_articles`) |
+| the Editor still gets enqueued | `editor` pending **4,821 → 4,891** (+70) |
+| `editor_reads` still land | **26,905 → 26,910**, climbing during the sweep |
+| **`scrub` work rows** | **0**, before and after — the enqueue is deleted, not merely skipped |
+| new links carrying `title_pos` | **0 of 166** rows created in the sweep window |
+| new 0.8 regex secondary links | **0** |
+| Editor / Investigator dead-letters | **0** (all-time on those two stages) |
+
+**One thing found while reading dead-letters that is NOT this session's and is not caused by it:
+7 `momentum` failures, `momentum: invalid response`, spanning 2026-08-02 → 2026-08-06 11:38:23 —
+the last one landing 3 seconds BEFORE this deploy restarted the daemon, and none since.** The voice
+is answering in markdown prose instead of its contract ("**Momentum Read: …**"). Pre-existing by
+four days, a model-quality number by the standing rule, and therefore **handed to the weekend as a
+tuning item, not treated as a rail failure.**
 
 ### Handoff (phase 8 → 9)
 ```

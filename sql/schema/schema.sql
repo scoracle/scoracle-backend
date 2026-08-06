@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict meqXgBcEoovRkn7sYuZuG0cQLRyTyYtecgI7CKss4FauwfcGmfgIHltQucj8o2Q
+\restrict spjLPkbEeXfGVrpMGgbbf8jrOJ4t7fXFHxPYRBy3oIg8sQiFdcqpCaseJCRxIT0
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -3527,6 +3527,45 @@ figures AS (
 -- OUR OWN SELF-HISTORY (outputs-as-memories, mig 168 + Phase 6): five lenses, all
 -- provenance-labeled continuity, NEVER corroboration. Source-tagged where the lens banks it.
 -- ------------------------------------------------------------------------------
+own_storyline AS (
+    -- (mig 211, PLAN-one-rail 7.10) THE STORYLINE LENS — the successor to the thread block
+    -- above it. Phase 9 retires thread clustering; the Desk's storylines (§1b, assembled in
+    -- code, never matched by a model) are what a character's "life of stories" becomes, and
+    -- this line is how that memory survives the retirement. One line per OPEN storyline this
+    -- entity is an ACTIVE participant in (left_at IS NULL — D5: a part has its own lifespan,
+    -- and an entity written out of a story stops remembering it).
+    --
+    -- The headline is the LATEST packet's, falling back to the storyline's display title:
+    -- packets are append-only snapshots, so the newest is the current state of the story and
+    -- the older ones are archive. Report count is membership, not measurement — the same
+    -- discipline as the ESTABLISHED line (breadth and tenure, never impact or likelihood).
+    -- Provenance-labeled continuity, NOT corroboration: it tells a voice which stories it is
+    -- already inside, never that a claim is true.
+    SELECT format('Our storyline so far ("%s", opened %s, %s report%s%s).',
+               COALESCE(NULLIF(p.headline, ''), NULLIF(s.title, ''), 'untitled'),
+               to_char(se.joined_at, 'Mon DD'),
+               m.n, CASE WHEN m.n = 1 THEN '' ELSE 's' END,
+               CASE WHEN COALESCE(se.role, '') <> ''
+                    THEN format(', this entity''s part: %s', se.role) ELSE '' END) AS line,
+           s.last_seen_at AS ord
+    FROM storyline_entities se
+    JOIN storylines s ON s.id = se.storyline_id
+    LEFT JOIN LATERAL (
+        SELECT pk.headline
+        FROM packets pk
+        WHERE pk.storyline_id = s.id
+        ORDER BY pk.compiled_at DESC, pk.id DESC
+        LIMIT 1
+    ) p ON true
+    CROSS JOIN LATERAL (
+        SELECT count(*) AS n FROM storyline_articles sa WHERE sa.storyline_id = s.id
+    ) m
+    WHERE se.sport = p_sport AND se.entity_type = p_entity_type AND se.entity_id = p_entity_id
+      AND se.left_at IS NULL
+      AND s.status = 'open'
+    ORDER BY s.last_seen_at DESC
+    LIMIT 3
+),
 own_narrative AS (
     -- (mig 182, Phase C) The Journalist's storylines as PROGRESSING THREADS (mig 181): per
     -- open thread a header — current canonical title, opened date, totals — plus the last
@@ -3631,6 +3670,7 @@ SELECT NULLIF(concat_ws(E'\n',
     (SELECT string_agg(line, E'\n' ORDER BY applied_at DESC) FROM moves),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM established),
     (SELECT string_agg(line, E'\n' ORDER BY mention_count DESC) FROM figures),
+    (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_storyline),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_narrative),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_transfer),
     (SELECT string_agg(line, E'\n' ORDER BY ord DESC) FROM own_vibe),
@@ -3643,7 +3683,7 @@ $$;
 -- Name: FUNCTION narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer); Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, ESTABLISHED stories (mig 183, Phase D: threads past the authority gate render as one-line background facts — "Established story (our archive, N sources, since <date>)" — between Ground truth and the self-history reads; never numeric evidence), active news-derived team figures (mig 166), and our own five-lens source-tagged self-history (mig 179). The narrative lens (mig 182, Phase C) renders THREAD PROGRESSION for CONTINUITY threads: per open narrative_threads row (mig 181) a header plus its last 3 chapters as "Our story so far (...)" with per-step cited source counts. The other lenses stay flat "Our prior read (<lens>, <date>[, N sources]): ..." lines — transfer (transfer_rumors, players), vibe (vibe_scores), momentum (momentum_summaries), PEAK (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: narratives n10, vibe v13, momentum s6, sigil or4. Model-facing only.';
+COMMENT ON FUNCTION public.narrative_context_for_entity(p_sport text, p_entity_type text, p_entity_id integer) IS 'Per-entity memory card for junction prompts: sealed stories (both edge slots, outcome-labeled), open stories with likelihood (own-club employment excluded for players), recent ground-truth moves, ESTABLISHED stories (mig 183, Phase D: threads past the authority gate render as one-line background facts), active news-derived team figures (mig 166), the STORYLINE lens (mig 211, PLAN-one-rail 7.10: one "Our storyline so far (...)" line per open storyline the entity actively participates in — latest packet headline, join date, report count, role; the successor to thread clustering, which Phase 9 retires), and our own five-lens source-tagged self-history (mig 179). The narrative lens (mig 182, Phase C) renders THREAD PROGRESSION for CONTINUITY threads: per open narrative_threads row (mig 181) a header plus its last 3 chapters as "Our story so far (...)" with per-step cited source counts. The other lenses stay flat "Our prior read (<lens>, <date>[, N sources]): ..." lines — transfer (transfer_rumors, players), vibe (vibe_scores), momentum (momentum_summaries), PEAK (stat_summaries). Provenance-labeled — continuity, NOT corroboration; measurement (heat/likelihood/confirm/fizzle) stays raw/graph-anchored. NULL = no memory. Consumers: every voice, on both rails — memory is rail-independent. Model-facing only.';
 
 
 --
@@ -14559,5 +14599,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict meqXgBcEoovRkn7sYuZuG0cQLRyTyYtecgI7CKss4FauwfcGmfgIHltQucj8o2Q
+\unrestrict spjLPkbEeXfGVrpMGgbbf8jrOJ4t7fXFHxPYRBy3oIg8sQiFdcqpCaseJCRxIT0
 

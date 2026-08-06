@@ -41,7 +41,9 @@ use tracing::debug;
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT, build_stat_prompt};
+pub use prompt::{
+    RATING_PROMPT_VERSION, RATING_SYSTEM_PROMPT, build_stat_prompt, render_personnel_block,
+};
 
 /// Output contract captured separately in the Phase 2 diagnostic ledger.
 pub const RATING_OUTPUT_CONTRACT_VERSION: &str = "peak-commentary-v2";
@@ -735,6 +737,157 @@ pub async fn load_stat_memory(
     Ok(row.0)
 }
 
+/// One adjudicated personnel change, as the DB describes it — dates already labeled by
+/// `to_char` (the `Mon DD` convention the memory card and 7.10's storyline lens use), names
+/// resolved, nothing rendered. The sentence is built in code (T2: describe, then derive).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PersonnelChange {
+    /// `applied` — the move is in force; `reverted` — an earlier applied move was undone.
+    pub kind: String,
+    pub date_label: String,
+    /// The adjudicated event label (`transfer`, `rumor`, …). Never model prose — it is the
+    /// Insider's structured `event_type` column.
+    pub event_type: Option<String>,
+    pub player_name: String,
+    pub old_team: Option<String>,
+    pub new_team: Option<String>,
+    /// Carried so a TEAM read can tell an arrival from a departure by id rather than by
+    /// comparing rendered names, which collide across leagues.
+    pub old_team_id: Option<i32>,
+    pub new_team_id: Option<i32>,
+}
+
+/// How many personnel lines the block renders before it starts naming drops instead. Six is
+/// ~140 tokens — a deadline-day squad churn cannot crowd out the datapoints inside 4,096.
+const MAX_PERSONNEL_LINES: usize = 6;
+/// The lookback when this entity has never been read: a first brief still deserves recent
+/// personnel facts, but not a year of them.
+const PERSONNEL_FIRST_READ_DAYS: i32 = 30;
+/// The hard ceiling on the lookback however stale the last read is — an entity nobody has
+/// scouted since preseason gets the recent moves, not its whole transfer history.
+const PERSONNEL_MAX_DAYS: i32 = 180;
+
+/// load_personnel_changes reads the adjudicated personnel record (7.7) — `applied` and
+/// `reverted` rows of `transfer_identity_applications`, the SAME chain the Insider's
+/// adjudication writes and the `transfer_ground_truth` view is built over — for everything that
+/// moved since this entity was last read.
+///
+/// **Why a second road at all, when the memory card already carries "confirmed moves":** that
+/// card reads `transfer_ground_truth`, which is `DISTINCT ON (sport, player_id, team_id)` over
+/// non-reverted applications on a fixed 180-day window, LIMIT 3. Four facts an opposing scout
+/// needs never survive it — (1) a TEAM's departures (the view's team branch matches
+/// `new_team_id` only, so a club losing a player sees nothing), (2) the club a player came
+/// FROM, (3) a REVERT (the view filters `reverted_at IS NULL`, so a correction to a move the
+/// last brief was written around is invisible), and (4) the since-last-read framing that makes
+/// any of it new information. The memory card keeps its slow cross-season arc lines; this block
+/// is the delta.
+///
+/// **T4 holds by construction:** no prose reaches the Scout. Every field here is a date, an id
+/// resolved to a name, or the adjudicated `event_type` enum — the `reason`, `evidence` and
+/// `adjudication_raw` columns of that table are deliberately never selected.
+///
+/// Returns the changes newest-first plus the TOTAL that qualified, so the renderer can name
+/// what the cap dropped (the A5 rule) instead of silently truncating.
+pub async fn load_personnel_changes(
+    pool: &PgPool,
+    sport: &str,
+    entity_type: &str,
+    entity_id: i32,
+) -> Result<(Vec<PersonnelChange>, usize)> {
+    if entity_type != "player" && entity_type != "team" {
+        return Ok((Vec::new(), 0));
+    }
+    #[allow(clippy::type_complexity)]
+    let rows: Vec<(
+        String,
+        String,
+        Option<String>,
+        String,
+        Option<String>,
+        Option<String>,
+        Option<i32>,
+        Option<i32>,
+    )> = sqlx::query_as(
+            r#"
+        WITH since AS (
+            SELECT greatest(
+                       COALESCE(
+                           (SELECT max(s.generated_at) FROM public.stat_summaries s
+                             WHERE s.entity_type = $2 AND s.entity_id = $3 AND s.sport = $1
+                               AND s.body IS NOT NULL),
+                           now() - make_interval(days => $4)),
+                       now() - make_interval(days => $5)) AS at
+        ),
+        changes AS (
+            SELECT 'applied'::text AS kind, a.applied_at AS at, a.event_type,
+                   a.player_id, a.old_team_id, a.new_team_id
+              FROM public.transfer_identity_applications a
+             WHERE a.sport = $1 AND a.status = 'applied' AND a.reverted_at IS NULL
+               AND a.applied_at IS NOT NULL AND a.applied_at > (SELECT at FROM since)
+            UNION ALL
+            -- A revert is dated by WHEN IT WAS UNDONE: that is the fact that is new since the
+            -- last read, whatever the original move's date was.
+            SELECT 'reverted'::text, a.reverted_at, a.event_type,
+                   a.player_id, a.old_team_id, a.new_team_id
+              FROM public.transfer_identity_applications a
+             WHERE a.sport = $1 AND a.reverted_at IS NOT NULL
+               AND a.reverted_at > (SELECT at FROM since)
+        )
+        SELECT c.kind,
+               to_char(c.at, 'Mon DD') AS date_label,
+               c.event_type,
+               COALESCE(pl.name, 'a player') AS player_name,
+               told.name AS old_team,
+               tnew.name AS new_team,
+               c.old_team_id,
+               c.new_team_id
+          FROM changes c
+          JOIN public.players pl ON pl.id = c.player_id AND pl.sport = $1
+          LEFT JOIN public.teams told ON told.id = c.old_team_id AND told.sport = $1
+          LEFT JOIN public.teams tnew ON tnew.id = c.new_team_id AND tnew.sport = $1
+         WHERE ($2 = 'player' AND c.player_id = $3)
+            OR ($2 = 'team' AND ($3 = c.new_team_id OR $3 = c.old_team_id))
+         ORDER BY c.at DESC
+        "#,
+        )
+        .bind(sport)
+        .bind(entity_type)
+        .bind(entity_id)
+        .bind(PERSONNEL_FIRST_READ_DAYS)
+        .bind(PERSONNEL_MAX_DAYS)
+        .fetch_all(pool)
+        .await
+        .with_context(|| format!("load personnel changes {entity_type}/{entity_id}"))?;
+
+    let total = rows.len();
+    let changes = rows
+        .into_iter()
+        .take(MAX_PERSONNEL_LINES)
+        .map(
+            |(
+                kind,
+                date_label,
+                event_type,
+                player_name,
+                old_team,
+                new_team,
+                old_team_id,
+                new_team_id,
+            )| PersonnelChange {
+                kind,
+                date_label,
+                event_type,
+                player_name,
+                old_team,
+                new_team,
+                old_team_id,
+                new_team_id,
+            },
+        )
+        .collect();
+    Ok((changes, total))
+}
+
 // ---------------------------------------------------------------------------
 // Input components + hash — the debounce key (Provenance.input_hash), the 5th parity axis.
 //
@@ -1138,15 +1291,17 @@ pub struct RatingReady {
 /// build_rating_request runs the deterministic prefix: load the profile, then (if usable) the
 /// canonical input-components + hash, the notability, `build_stat_prompt`, the s9 options, and the
 /// exact wire body. NO model call — these are the parity axes (the L2 finding). The role is
-/// [`Role::StatsLogic`] (rating is its first consumer). `with_memory` loads the s12 cross-season
-/// memory card into the prompt (production); parity/eval/input-version callers pass `false` to
-/// pin the memory-free byte shape. The card needs `profile.season`, which is only known here —
-/// hence a flag rather than the other junctions' pre-loaded `Option<&str>`.
+/// [`Role::StatsLogic`] (rating is its first consumer). `with_enrichment` loads BOTH model-facing
+/// side blocks into the prompt (production): the s12 cross-season memory card and 7.7's
+/// personnel-change block. Parity/eval/input-version callers pass `false` to pin the bare byte
+/// shape — neither block is in `input_components`, so the hash those callers mint is identical
+/// either way. The card needs `profile.season`, which is only known here — hence a flag rather
+/// than the other junctions' pre-loaded `Option<&str>`.
 pub async fn build_rating_request(
     hx: &Harness,
     req: &RatingReq,
     temperature: f64,
-    with_memory: bool,
+    with_enrichment: bool,
 ) -> Result<RatingBuild> {
     let Some(mut profile) = load_rating_profile(
         &hx.pool,
@@ -1196,7 +1351,7 @@ pub async fn build_rating_request(
     .await?;
     // Memory-load failure degrades to an unenriched prompt (the n8/v12 discipline): the
     // rating profile is the primary signal, memory is enrichment.
-    let memory = if with_memory {
+    let memory = if with_enrichment {
         match load_stat_memory(
             &hx.pool,
             &req.sport,
@@ -1221,7 +1376,41 @@ pub async fn build_rating_request(
     } else {
         None
     };
-    let built_prompt = build_stat_prompt(req, &profile, notability, memory.as_deref());
+    // 7.7's personnel block travels with the memory card on the same flag and the same
+    // discipline: enrichment, best-effort, never a reason to fail the item. It is deliberately
+    // NOT in `input_components`/`input_hash` — the stats rail's trigger stays the rating
+    // snapshot (the Analyst's storyline render, 7.8, is out of its hash for exactly this
+    // reason). A transfer alone does not re-run the Scout; the next stats-driven regen carries
+    // the news.
+    let personnel = if with_enrichment {
+        match load_personnel_changes(&hx.pool, &req.sport, &req.entity_type, req.entity_id).await {
+            Ok((changes, total)) => prompt::render_personnel_block(
+                &req.entity_type,
+                req.entity_id,
+                &changes,
+                total,
+            ),
+            Err(e) => {
+                tracing::warn!(
+                    entity_type = %req.entity_type,
+                    entity_id = req.entity_id,
+                    sport = %req.sport,
+                    error = %e,
+                    "rating: personnel-change load failed (continuing without the block)"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let built_prompt = build_stat_prompt(
+        req,
+        &profile,
+        notability,
+        memory.as_deref(),
+        personnel.as_deref(),
+    );
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1311,9 +1500,9 @@ pub async fn generate_rating(
     req: &RatingReq,
     temperature: f64,
     skip_unchanged: bool,
-    with_memory: bool,
+    with_enrichment: bool,
 ) -> Result<RatingOutput> {
-    let ready = match build_rating_request(hx, req, temperature, with_memory).await? {
+    let ready = match build_rating_request(hx, req, temperature, with_enrichment).await? {
         RatingBuild::NoStats { season } => {
             // The NULL-body marker. Go sets Model = ollama.Model() even here (so the read path sees
             // "no profile" with provenance), unlike vibe/transfer markers.

@@ -226,7 +226,7 @@ fn main() -> anyhow::Result<()> {
         // reads matches what production would say about this exact profile.
         let (notability, _) = compute_notability(&profile);
         // Fixtures pin the memory-free shape (the s12/n8 eval discipline).
-        let prompt = build_stat_prompt(&req, &profile, notability, None);
+        let prompt = build_stat_prompt(&req, &profile, notability, None, None);
         let v = json!({
             "name": s.name,
             "task": "rating",

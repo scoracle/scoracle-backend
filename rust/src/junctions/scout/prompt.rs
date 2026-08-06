@@ -39,6 +39,7 @@
 //! `Ok(None)`.
 
 use super::{
+    PersonnelChange,
     RatingProfile,
     RatingReq,
     build_scouting_decision,
@@ -98,14 +99,94 @@ Scouting-report rules:
 /// Prompt version for the PEAK scouting-report contract.
 pub const RATING_PROMPT_VERSION: &str = "s16"; // s9/or7/v16/n15/s16/is3 — the ALLOWANCE pass: the ceiling goes to eight sentences and is reframed as a platform allowance rather than a target. Measured cause: at a 5-6 floor the model reached for length, and the manufactured closing hedges then dragged the verdict (momentum scored -1 on a RISING entity off 'for now, this isn't a surge'). Brevity is now explicitly blessed — two sentences is a complete read. s15: the peer-length pass — the Summary verdict grows from one sentence to 5-6, and the two rationing rules ("one line per section", "keep it tight") are retired. Those were a 1070 Ti budget; the clipped film-room REGISTER is the Scout's voice and is deliberately kept — short sentences, just more of them. s12: cross-season memory card (mig 164); s13: three-section contract (Strengths to respect / Exploitation opportunities / Summary); s14: The Scout voice pass (Characters Phase B) — persona-first coaching-staff brief, clipped game-plan imperatives, prompt_version folded into the debounce pre-image
 
+/// render_personnel_block turns the adjudicated personnel record (7.7) into the PEAK context's
+/// "since our last read" block: one dated fact per line, built in code from the columns
+/// `load_personnel_changes` described. `None` when nothing moved — an empty section is worse
+/// than no section, because a heading with nothing under it reads as an assertion that nothing
+/// happened when it may only mean nobody has adjudicated it yet.
+///
+/// `total` is how many changes qualified before the cap; anything the cap dropped is NAMED on a
+/// final line rather than silently vanishing (the A5 rule).
+pub fn render_personnel_block(
+    entity_type: &str,
+    entity_id: i32,
+    changes: &[PersonnelChange],
+    total: usize,
+) -> Option<String> {
+    if changes.is_empty() {
+        return None;
+    }
+    let mut b = String::new();
+    for c in changes {
+        let event = c
+            .event_type
+            .as_deref()
+            .map(|e| format!(" ({e})"))
+            .unwrap_or_default();
+        let line = match (entity_type, c.kind.as_str()) {
+            // A revert is stated as a correction and never as a move: the brief written before
+            // it may have been built around the move that has just been undone.
+            ("player", "reverted") => format!(
+                "{}: earlier move to {} REVERTED — that move is not in force{event}.",
+                c.date_label,
+                c.new_team.as_deref().unwrap_or("another club")
+            ),
+            ("player", _) => match c.old_team.as_deref() {
+                Some(old) => format!(
+                    "{}: joined {} from {old}{event}.",
+                    c.date_label,
+                    c.new_team.as_deref().unwrap_or("a new club")
+                ),
+                None => format!(
+                    "{}: joined {}{event}.",
+                    c.date_label,
+                    c.new_team.as_deref().unwrap_or("a new club")
+                ),
+            },
+            ("team", "reverted") => format!(
+                "{}: {}'s move REVERTED — that move is not in force{event}.",
+                c.date_label, c.player_name
+            ),
+            // Which side of the move this club is on is decided by id, not by name.
+            ("team", _) if c.new_team_id == Some(entity_id) => match c.old_team.as_deref() {
+                Some(old) => format!(
+                    "{}: signed {} from {old}{event}.",
+                    c.date_label, c.player_name
+                ),
+                None => format!("{}: signed {}{event}.", c.date_label, c.player_name),
+            },
+            ("team", _) => match c.new_team.as_deref() {
+                Some(new) => format!("{}: lost {} to {new}{event}.", c.date_label, c.player_name),
+                None => format!("{}: lost {}{event}.", c.date_label, c.player_name),
+            },
+            _ => continue,
+        };
+        b.push_str("- ");
+        b.push_str(&line);
+        b.push('\n');
+    }
+    if b.is_empty() {
+        return None;
+    }
+    if total > changes.len() {
+        b.push_str(&format!(
+            "- (+{} older personnel changes in this window, not shown)\n",
+            total - changes.len()
+        ));
+    }
+    Some(b)
+}
+
 /// build_stat_prompt assembles the user prompt. `memory` is the cross-season memory card
 /// (s12, mig 164) — `None` when the graph holds none, and for the parity/eval paths
-/// (which pin the memory-free shape).
+/// (which pin the memory-free shape). `personnel` is 7.7's adjudicated personnel block, already
+/// rendered by `render_personnel_block` and `None` on the same paths.
 pub fn build_stat_prompt(
     req: &RatingReq,
     p: &RatingProfile,
     notability: i32,
     memory: Option<&str>,
+    personnel: Option<&str>,
 ) -> String {
     let mut b = String::new();
 
@@ -147,6 +228,17 @@ pub fn build_stat_prompt(
                 r.pct
             ));
         }
+    }
+
+    // Personnel changes since our last read (7.7) — the Scout's SECOND confirmed-fact road,
+    // beside the stats platform. Adjudicated `transfer_identity_applications` rows only: dates,
+    // names, and the structured event label, never a word of news prose (T4). It sits above the
+    // memory card because it is THIS squad's composition now, not cross-season arc — and below
+    // the datapoints, because a tier is still the truth about the player who holds it.
+    // Injury/suspension confirmation gates are deliberately absent: Appendix B D-5 owns them.
+    if let Some(pc) = personnel.filter(|p| !p.trim().is_empty()) {
+        b.push_str("\nPersonnel changes since our last read (confirmed roster facts from the adjudicated transfer record — dates are when the change took force; these do NOT alter any tier or number above, which are this season's measured truth, but they tell you WHO your staff will actually face):\n");
+        b.push_str(pc);
     }
 
     // Cross-season memory card (s12, mig 164): prior-season PEAK read (banked junction

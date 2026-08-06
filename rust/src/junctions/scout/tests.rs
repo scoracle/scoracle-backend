@@ -211,7 +211,7 @@ fn retired_metric_never_reaches_prompt_preimage_or_crown() {
     let decision = build_scouting_decision(&p);
     assert_eq!(decision.required_peak_line, "PEAK: Interceptions");
 
-    let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60, None);
+    let prompt = build_stat_prompt(&req("FOOTBALL", "player", "Test Defender"), &p, 60, None, None);
     for retired in ["Clearances", "Duels"] {
         assert!(
             !prompt.contains(retired),
@@ -302,7 +302,7 @@ fn scouting_decision_weakness_is_positional_after_filter() {
 #[test]
 fn prompt_player_composite_datapoints_and_scoped_position() {
     let p = profile_player();
-    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None);
+    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, None);
     assert_eq!(
         prompt,
         "Entity: Test Player (NBA player, Guard)\n\
@@ -335,7 +335,7 @@ fn prompt_team_no_composite_no_position() {
         scoped_ranks: HashMap::new(),
         rate_modes: HashMap::new(),
     };
-    let prompt = build_stat_prompt(&req("FOOTBALL", "team", "Test FC"), &p, 55, None);
+    let prompt = build_stat_prompt(&req("FOOTBALL", "team", "Test FC"), &p, 55, None, None);
     assert_eq!(
         prompt,
         "Entity: Test FC (FOOTBALL team)\n\
@@ -359,7 +359,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
     // above). Blank memory ⇒ no section.
     let p = profile_player();
     let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).\nMatchup memory: pts vs Test Rivals — 22.8/game vs a 16.0 baseline (adjusted +4.7), n=13 games, reliability 44/100.";
-    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(mem));
+    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(mem), None);
     assert!(prompt.contains("\nCross-season memory (computed history — arc context only"));
     assert!(prompt.contains("- Our prior read: season 2025 PEAK was \"Shooting\""));
     assert!(prompt.contains("- Matchup memory: pts vs Test Rivals"));
@@ -367,7 +367,7 @@ fn cross_season_memory_renders_before_the_write_cue() {
     let cue_pos = prompt.find("Write the scouting report now").unwrap();
     let dp_pos = prompt.find("Datapoints — value").unwrap();
     assert!(dp_pos < mem_pos && mem_pos < cue_pos);
-    let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(" \n "));
+    let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, Some(" \n "), None);
     assert!(!blank.contains("Cross-season memory"));
 }
 
@@ -611,4 +611,162 @@ fn rating_parser_never_fails_closed() {
     assert_eq!(reply.divined_peak, "X");
     assert_eq!(reply.body, "body");
     assert!(RatingParser.parse("").unwrap().is_some());
+}
+
+// --- 7.7 the personnel block: the Scout's second confirmed-fact road ------------------
+// T4 holds by construction here — every field the renderer reads is a date, a resolved name, or
+// the adjudicated `event_type` enum. There is no path by which news prose reaches this seat.
+
+fn change(kind: &str, date: &str, player: &str, old: Option<&str>, new: Option<&str>) -> PersonnelChange {
+    PersonnelChange {
+        kind: kind.to_string(),
+        date_label: date.to_string(),
+        event_type: Some("transfer".to_string()),
+        player_name: player.to_string(),
+        old_team: old.map(|s| s.to_string()),
+        new_team: new.map(|s| s.to_string()),
+        old_team_id: old.map(|_| 277),
+        new_team_id: new.map(|_| 3468),
+    }
+}
+
+#[test]
+fn a_player_move_names_both_clubs_and_the_date() {
+    let out = render_personnel_block(
+        "player",
+        37922937,
+        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .expect("a move renders");
+    assert_eq!(out, "- Jul 29: joined New FC from Old FC (transfer).\n");
+}
+
+/// The club a player came FROM is exactly what `transfer_ground_truth` drops (it selects
+/// `new_team_id` only), so a missing old club must still render a clean fact, never "from None".
+#[test]
+fn a_player_move_without_a_known_old_club_still_renders() {
+    let out = render_personnel_block(
+        "player",
+        1,
+        &[change("applied", "Jul 16", "Test Player", None, Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    assert_eq!(out, "- Jul 16: joined New FC (transfer).\n");
+}
+
+/// A team read must see BOTH directions. The ground-truth view matches `new_team_id` only, so a
+/// club losing a player sees nothing there — this is the half 7.7 exists to add. The side is
+/// decided by id, never by comparing club names.
+#[test]
+fn a_team_sees_arrivals_and_departures_decided_by_id() {
+    let arrival = render_personnel_block(
+        "team",
+        3468,
+        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    assert_eq!(arrival, "- Jul 29: signed Test Player from Old FC (transfer).\n");
+
+    // Same row, read by the OTHER club: a departure.
+    let departure = render_personnel_block(
+        "team",
+        277,
+        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    assert_eq!(departure, "- Jul 29: lost Test Player to New FC (transfer).\n");
+}
+
+/// A revert is the fact the ground-truth view can never carry (it filters `reverted_at IS NULL`),
+/// and it is the one the Scout most needs: the last brief may have been written around a move
+/// that has since been undone. It must never render as a move.
+#[test]
+fn a_revert_renders_as_a_correction_not_a_move() {
+    let player = render_personnel_block(
+        "player",
+        1,
+        &[change("reverted", "Aug 02", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    assert_eq!(
+        player,
+        "- Aug 02: earlier move to New FC REVERTED — that move is not in force (transfer).\n"
+    );
+    assert!(!player.contains("joined"));
+
+    let team = render_personnel_block(
+        "team",
+        3468,
+        &[change("reverted", "Aug 02", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    assert!(team.contains("Test Player's move REVERTED"));
+    assert!(!team.contains("signed") && !team.contains("lost"));
+}
+
+/// The A5 rule: what the cap drops is NAMED. A deadline-day squad churn must not crowd out the
+/// datapoints inside a 4,096 window, and it must not silently pretend six changes were all of them.
+#[test]
+fn the_cap_names_what_it_dropped() {
+    let rows: Vec<PersonnelChange> = (0..MAX_PERSONNEL_LINES)
+        .map(|i| change("applied", "Jul 29", &format!("Player {i}"), Some("Old FC"), Some("New FC")))
+        .collect();
+    let out = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES + 4).unwrap();
+    assert_eq!(out.lines().count(), MAX_PERSONNEL_LINES + 1);
+    assert!(out.ends_with("- (+4 older personnel changes in this window, not shown)\n"));
+
+    // Nothing dropped ⇒ no drop line at all.
+    let exact = render_personnel_block("team", 3468, &rows, MAX_PERSONNEL_LINES).unwrap();
+    assert_eq!(exact.lines().count(), MAX_PERSONNEL_LINES);
+    assert!(!exact.contains("not shown"));
+}
+
+/// No changes ⇒ no section. A heading with nothing under it asserts "nothing moved", which is a
+/// claim the adjudication chain has not made — it may only mean nothing has been adjudicated yet.
+#[test]
+fn nothing_moved_renders_no_section_at_all() {
+    assert!(render_personnel_block("player", 1, &[], 0).is_none());
+    let p = profile_player();
+    let prompt = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, None);
+    assert!(!prompt.contains("Personnel changes"));
+}
+
+/// Placement: below the datapoints (a tier is still the truth about the player who holds it),
+/// above the cross-season memory card (this is the squad now, not the arc), above the write cue.
+#[test]
+fn the_personnel_block_sits_between_the_datapoints_and_the_memory_card() {
+    let p = profile_player();
+    let personnel = render_personnel_block(
+        "player",
+        1,
+        &[change("applied", "Jul 29", "Test Player", Some("Old FC"), Some("New FC"))],
+        1,
+    )
+    .unwrap();
+    let mem = "Our prior read: season 2025 PEAK was \"Shooting\" (notability 98/100).";
+    let prompt = build_stat_prompt(
+        &req("NBA", "player", "Test Player"),
+        &p,
+        70,
+        Some(mem),
+        Some(&personnel),
+    );
+    let dp = prompt.find("Datapoints — value").unwrap();
+    let pers = prompt.find("Personnel changes since our last read").unwrap();
+    let memp = prompt.find("Cross-season memory").unwrap();
+    let cue = prompt.find("Write the scouting report now").unwrap();
+    assert!(dp < pers && pers < memp && memp < cue);
+    assert!(prompt.contains("- Jul 29: joined New FC from Old FC (transfer).\n"));
+    // The tier-truth invariant travels with the block.
+    assert!(prompt.contains("these do NOT alter any tier or number above"));
+
+    // Blank personnel ⇒ no section, same as blank memory.
+    let blank = build_stat_prompt(&req("NBA", "player", "Test Player"), &p, 70, None, Some(" \n "));
+    assert!(!blank.contains("Personnel changes"));
 }

@@ -141,11 +141,30 @@ pub async fn load_graph_article_context(
     // graph being enqueued for suppressed articles at the source; this makes a stale queue row or a
     // hand-enqueued repair fall through the same `Ok(None)` path as a missing article rather than
     // spending a model call on something scrub already threw away.
+    // The G1 seam (7.13): the article's context text prefers the EDITOR's evidence blurb, falls
+    // back to the legacy reading's, and only then to the RSS description.
+    //
+    // Safe on both rails and deployable before the flip, which is the point: graph rides
+    // `article_read` via mig 193 today and will ride the Editor after it, and this COALESCE means
+    // the extraction reads the same KIND of text either way. Ordering it Editor-first also means
+    // the quality improves the moment an article has an Editor read, without waiting for a rail.
+    // The RSS description stays last because it is 99.7% the title repeated (the measured
+    // duplication behind the retired embedder's double-counted headlines).
     let row = sqlx::query(
         r#"
         SELECT COALESCE(a.source, 'unknown'), a.published_at::date::text, a.title,
-               COALESCE(a.description, '')
-        FROM news_articles a WHERE a.id = $1 AND a.duplicate_of IS NULL
+               COALESCE(
+                   NULLIF(TRIM(er.read ->> 'evidence_blurb'), ''),
+                   NULLIF(TRIM(r.evidence_blurb), ''),
+                   a.description,
+                   ''
+               )
+        FROM news_articles a
+        LEFT JOIN editor_reads er
+               ON er.article_id = a.id AND er.status = 'success'
+        LEFT JOIN news_article_readings r
+               ON r.article_id = a.id AND r.status = 'success'
+        WHERE a.id = $1 AND a.duplicate_of IS NULL
         "#,
     )
     .bind(article_id)

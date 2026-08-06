@@ -589,3 +589,33 @@ fn decode_budget_is_rail_scoped() {
     assert!(predict <= 800);
     assert!(ctx - predict >= 3_300, "no room for the p99 prompt envelope");
 }
+
+/// 7.9: the packet render replaces the CORPUS, never the memory. A packet-rail prompt still
+/// carries the relational memory card and the prior-card-reads block, with their provenance
+/// labels intact — and the memory still contributes nothing to the debounce hash, because
+/// `build_narratives_input_components` takes only the corpus and the heat.
+#[test]
+fn the_packet_rail_keeps_the_memory_block() {
+    let news = vec![item(10, "ESPN", "Arsenal agreed personal terms", "", None)];
+    let entity = req("Vinicius Junior", "FOOTBALL", "player");
+    let memory = "Prior story: Arsenal — fizzled (Jun 2026, peak coverage 82/100).";
+    let framing = "STORY: Vinicius Junior and Arsenal\nENTITY: Vinicius Junior (subject)";
+    let p = build_narratives_prompt(
+        &entity,
+        &news,
+        &[],
+        Some(memory),
+        Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup"),
+        Some(framing),
+    );
+    assert!(p.contains("Relational memory (computed history"), "memory label intact");
+    assert!(p.contains("- Prior story: Arsenal — fizzled"));
+    assert!(p.contains("SIGNALS (deterministic tally"));
+    assert!(p.contains("The story so far"));
+
+    // The debounce hash is blind to memory and to the framing by construction — it is computed
+    // from the material fact (what evidence exists) alone, on both rails.
+    let with = build_narratives_input_components(&news, &[]);
+    assert!(!with.contains("Prior story"));
+    assert!(!with.contains("STORY:"));
+}

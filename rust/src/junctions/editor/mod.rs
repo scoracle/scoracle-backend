@@ -501,8 +501,61 @@ impl StageHandler for EditorHandler {
             &resolved,
         )
         .await;
+        // The G1 seam (7.13): on the packet rail the Editor hands graph its article, because the
+        // legacy `article_read` seat that enqueues it today (mig 193) is what Phase 8 turns off.
+        // Gated, so until the flip graph keeps riding article_read and this is dead code with a
+        // live test — the alternative, wiring it at flip time, is a seam nobody has ever run.
+        //
+        // AFTER the link writes on purpose: graph's candidate list is
+        // `news_article_entities WHERE vetted`, so an enqueue that beat the links would extract
+        // against an empty candidate set and fail closed for a reason that has nothing to do with
+        // the article.
+        if hx.rail.is_packet() {
+            if let Err(e) = enqueue_graph_for_article(&hx.pool, article_id, &item.sport).await {
+                tracing::warn!(
+                    article_id,
+                    error = %format!("{e:#}"),
+                    "graph enqueue failed (read already persisted; continuing)"
+                );
+            }
+        }
         Ok(())
     }
+}
+
+/// enqueue_graph_for_article is the Editor's copy of the legacy seat's graph hand-off
+/// (`article_reader::enqueue_graph_for_article`), keyed on the EDITOR's read instead of
+/// `news_article_readings`: the input_version is `g:` || the editor read's content hash, so graph
+/// re-runs when the article's TEXT changed and debounces when it did not — the same contract, off
+/// the table that survives the cutover.
+async fn enqueue_graph_for_article(pool: &sqlx::PgPool, article_id: i64, sport: &str) -> Result<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO public.pipeline_work
+            (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
+        SELECT 'graph', 'article', $1::integer, $2, 'pending',
+               'g:' || er.content_hash, NOW(), NOW()
+          FROM public.editor_reads er
+         WHERE er.article_id = $1
+           AND er.status = 'success'
+           AND er.content_hash IS NOT NULL
+        ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
+            status        = 'pending',
+            attempts      = 0,
+            available_at  = NOW(),
+            updated_at    = NOW(),
+            last_error    = NULL,
+            input_version = EXCLUDED.input_version
+        WHERE public.pipeline_work.input_version IS DISTINCT FROM EXCLUDED.input_version
+           OR public.pipeline_work.status = 'failed'
+        "#,
+    )
+    .bind(article_id)
+    .bind(sport)
+    .execute(pool)
+    .await
+    .with_context(|| format!("enqueue graph for article {article_id}"))?;
+    Ok(())
 }
 
 /// build_editor_prompt_for_eval assembles the EXACT production user prompt for one article —

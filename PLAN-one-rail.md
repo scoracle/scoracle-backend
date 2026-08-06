@@ -3196,6 +3196,23 @@ block with BLOCKED.
       settled by live measurement rather than a vote — see the Log. **Verify:** live sweeps both
       sports, funnel balances, zero-admitted teams 0. **Commit:** `rail: 8.9 — the query builder`.
 
+- [x] **8.10** **`write_links` LOSES AN ARTICLE'S WHOLE LINK SET ON A DUPLICATE RESOLVE — fixed
+      and the damage repaired.** Found live while auditing 8.8; first item of the three the
+      register (`PLAN-character-tuning.md` §0b) said to fix rather than tune, and the only one with
+      no dependency on the fixture gate. The model names whoever the article names, so one entity
+      can arrive twice under two surfaces ("Spurs" / "Tottenham Hotspur" share a `nrm()` norm);
+      both resolve, both reach the `unnest` arrays, and Postgres refuses an `ON CONFLICT … DO
+      UPDATE` that would touch a row twice in one statement. The statement errors, the caller logs
+      a WARN and continues *because the read is already persisted* — so the article keeps its read,
+      looks successful, and silently loses **every** link. **Fix: `DISTINCT ON (entity_type,
+      entity_id)`, the idiom `storyline.rs`'s sibling write already carries with a comment
+      describing this exact failure.** Rehearsed against live prod in a rolled-back transaction
+      (old form fails with the production error verbatim, new form affects 1 row); 412 Rust tests
+      green; deployed @ `6c67a68`. **Damage measured from data, not the 2-day journal: 9 of 754
+      post-flip reads (1.2%), 47 links, repaired from `editor_reads.resolved` in a rehearsed
+      transaction with the assertion inside it.** **Commit:** `editor: write_links loses an
+      article's whole link set on a duplicate resolve`.
+
 **Verify:** 48h stable on the new rail. **Commit:** `rail: phase 8 — cutover; the old rail is
 off`.
 
@@ -3552,6 +3569,64 @@ the deleted cap. **4 written to replace them**, pinning the new contract: every 
 short and risky aliases are kept, not suppressed · equivalent names dedupe · the sport term is
 uniform. `go build` / `vet` / `test` green; `gofmt -l` now returns two files instead of three
 (`news_test.go` came out clean; `news.go` and `work.go` keep their pre-existing dirt untouched).
+
+**2026-08-06 ~14:00–15:05 EDT — 8.10, THE FIRST OF THE THREE FIXES.** Scott: *"start with
+write_links. We want the simplest, most durable fix that aligns with our goals of empowering the
+LLMs to be the curators of the data."*
+
+**The fix was already written — three functions away.** `storyline.rs`'s participant upsert carries
+`SELECT DISTINCT ON (m.entity_type, m.entity_id)` with a comment naming this exact failure mode
+("two emitted names can resolve to ONE entity … Postgres refuses an ON CONFLICT that would touch a
+row twice"). `write_links`, written in the same phase against the same shape, was written without
+it. So the durable fix is the house idiom, not a new invention, and a future reader now finds the
+same pattern in both places.
+
+**Keyed, not plain `DISTINCT`, deliberately.** The projected columns happen to be identical per
+entity today, so a plain `DISTINCT` would work — and would silently stop working the moment anyone
+projects a per-mention column. `via_surface` is right there on `ResolvedLink`. `DISTINCT ON`
+collapses by the conflict key, which is the actual invariant.
+
+**Why this is the "LLM as curator" answer rather than a workaround.** Collapsing here discards
+nothing the model said: `resolved.links` is persisted verbatim on `editor_reads` at MENTION grain,
+both surfaces keeping their provenance. The model describes who the article names; code derives one
+link per entity. That is T2, and the bug was code failing to do its half.
+
+**Rehearsed before deploying** (§0 rule 7), against live prod in a rolled-back transaction feeding
+the same entity twice:
+
+```
+OLD FORM failed as expected: ON CONFLICT DO UPDATE command cannot affect row a second time
+NEW FORM ok: 1 row(s) affected
+```
+
+**The blast radius was 18× what the journal showed.** The WARN appeared 5 times in the 2 days
+`journalctl` retains; the DATA says **9 articles of 754 post-flip successful reads (1.2%),
+47 links lost** — an average of 5.2 links per hit. Two lost every vetted row; **seven were worse
+in a quieter way: they kept stale PRE-FLIP legacy 0.8 rows, so they looked adjudicated while the
+Editor's own verdict had vanished.** Pre-flip reads cannot be affected — `write_links` is never
+called under `RAIL=legacy`.
+
+**Repaired from data we already held, not by re-reading.** Deliberate: `editor_reads` is keyed by
+`article_id`, so re-enqueueing the Editor would risk a re-fetch coming back paywalled or 404 and
+OVERWRITING the very read whose links the repair exists to recover — a repair must not be able to
+destroy its own input. The replay mirrors `write_links` exactly (confirm arm `DISTINCT ON`, vetted
+TRUE, 0.90 on INSERT only so an existing 0.95 hypothesis keeps its provenance; then the deny arm),
+with the assertion INSIDE the transaction. Rehearsed → 9 articles / 47 links / assertion passed /
+ROLLBACK; then applied → same numbers, COMMIT. **Post-repair: 9 duplicate-resolve articles, 0 still
+missing links.**
+
+**Verified after deploy.** Binary stamped `6c67a68e3ba4`, boot 18:58:51Z, and `strings` on the
+placed binary confirms the new SQL is in it. **0 link-write failures since**; the 10 reads that
+have completed each wrote exactly as many vetted rows as they had distinct entities. **Stated
+honestly: no duplicate has occurred yet under the fixed binary** — at the measured 1.2% base rate
+one is expected in ~80 reads, so the live proof is the rehearsal plus the absence of failures, not
+a caught case. Two WARNs at 14:20/14:35 EDT are the OLD binary (the release finished at 14:57);
+they are on the record so nobody reads them as the fix leaking.
+
+**Still open from §0b, in the order the register set:** D-T19 (the fixture gate's
+non-determinism — the instrument, and nothing else can be scored until it holds still), then
+`momentum`'s markdown answers, which should ride 7.11's single re-earn rather than spend a
+fleet-wide regen of its own.
 
 ### Handoff (phase 8 → 9)
 ```

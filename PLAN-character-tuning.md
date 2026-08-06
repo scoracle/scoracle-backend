@@ -73,13 +73,15 @@ rather than letting the queue decide by starving whichever stage sorts last.**
 
 ### 0b · Defects — fix these, do not tune them
 
-- **`editor::write_links` loses an article's ENTIRE link set on a duplicate resolve.**
-  `ON CONFLICT DO UPDATE command cannot affect row a second time` — measured **5 articles in 2
-  days out of 6,399 reads (0.08%)**. When one article's `names[]` resolves two different surfaces
-  to the SAME entity, the write builds two rows with one conflict key and Postgres rejects the
-  whole statement. The read persists, so it looks successful; the links vanish silently and the
-  WARN is the only trace. **Fix: dedupe the resolved link set by (entity_type, entity_id) before
-  the INSERT.** This is 8.5 code, untouched by 8.8, and it is a bug not a knob.
+- ~~**`editor::write_links` loses an article's ENTIRE link set on a duplicate resolve.**~~
+  **FIXED AND REPAIRED 2026-08-06 @ `6c67a68` — PLAN-one-rail 8.10.** `DISTINCT ON (entity_type,
+  entity_id)`, the idiom `storyline.rs`'s sibling write already carried. **The real blast radius
+  was 18× the journal's 5:** the DATA said **9 of 754 post-flip reads (1.2%), 47 links** — 2 lost
+  every vetted row and 7 kept stale pre-flip legacy rows, so they looked adjudicated while the
+  Editor's verdict was gone. All 9 repaired from `editor_reads.resolved` (never by re-reading —
+  a re-fetch could overwrite the very read being recovered). **Lesson worth carrying into the
+  session: a WARN that says "continuing" hides its own frequency, and `journalctl` retention set
+  the number everyone believed. Measure blast radius from the data.**
 - **`momentum` answers in markdown instead of its contract.** 11 pending failures + 7
   dead-lettered, `momentum: invalid response (raw="**Momentum Read: …")`, spanning **Aug 2 →
   Aug 6 11:38**. The voice is writing a beautiful essay into a field that wants a structure. First

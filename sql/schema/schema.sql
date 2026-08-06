@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict spjLPkbEeXfGVrpMGgbbf8jrOJ4t7fXFHxPYRBy3oIg8sQiFdcqpCaseJCRxIT0
+\restrict pgTVZVqUrNqy43LUqBugKV3PFq075jcj0PkRwSqaYi7mBcTFyiTqBmZ6aufEhNT
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2892,7 +2892,10 @@ BEGIN
        OR public.pipeline_work.status = 'failed';
 
     -- Arm 2: the Journalist reads everything (§1c — an unconditional narratives fan-out per
-    -- active participant, at the player/team grain the voices are keyed on).
+    -- active participant, at the player/team grain the voices are keyed on) — but only once a
+    -- narratives subscription exists at that grain (mig 212, D-T14 (b)). The tag column is NOT
+    -- read here: this is an existence gate, not a tag join. Empty table = inert trigger =
+    -- packets compile in shadow without touching pipeline_work.
     INSERT INTO public.pipeline_work
         (stage, entity_type, entity_id, sport, status, input_version, available_at, updated_at)
     SELECT 'narratives', se.entity_type, se.entity_id, se.sport, 'pending',
@@ -2902,6 +2905,11 @@ BEGIN
      WHERE se.storyline_id = NEW.storyline_id
        AND se.left_at IS NULL
        AND se.entity_type IN ('player','team')
+       AND EXISTS (
+           SELECT 1
+             FROM public.stage_routing_subscriptions s
+            WHERE s.stage       = 'narratives'
+              AND s.entity_type = se.entity_type)
     ON CONFLICT (stage, entity_type, entity_id, sport) DO UPDATE SET
         status        = 'pending',
         attempts      = 0,
@@ -2919,6 +2927,13 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+
+--
+-- Name: FUNCTION enqueue_voices_on_packet(); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.enqueue_voices_on_packet() IS 'AFTER INSERT ON packets: fan work to the voices (PLAN-one-rail 1.7, mig 206). Arm 1 = tag-subscribed stages via stage_routing_subscriptions joined on tag, at that stage''s grain. Arm 2 = the Journalist''s narratives fan-out over every active player/team participant, tag-independent, gated since mig 212 (D-T14 resolution (b)) on the EXISTENCE of a stage_routing_subscriptions row with stage=''narratives'' at that entity_type — an existence gate, NOT a tag join, and NOT a wildcard (contrast D-T15''s ''*'' trap). Both arms carry input_version ''pk:'' || the packet''s slice fingerprint for that stage, falling back to the packet id (fail-open: re-read, never starve). With the subscription table empty the whole trigger is inert, which is what lets packets compile in shadow under RAIL=legacy without fighting the legacy article_read enqueue over one pipeline_work row.';
 
 
 --
@@ -14599,5 +14614,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict spjLPkbEeXfGVrpMGgbbf8jrOJ4t7fXFHxPYRBy3oIg8sQiFdcqpCaseJCRxIT0
+\unrestrict pgTVZVqUrNqy43LUqBugKV3PFq075jcj0PkRwSqaYi7mBcTFyiTqBmZ6aufEhNT
 

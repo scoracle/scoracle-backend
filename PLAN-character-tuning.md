@@ -113,6 +113,185 @@ still>`, and print the next session's handoff (7.11, the voice diet) as the last
 
 ---
 
+## Handoff — D-T22, the schema audit (fresh context window; Scott's request 2026-08-06)
+
+*Everything in the fence is MEASURED on live prod 2026-08-06 16:40–18:00 EDT. The next session
+should verify what it acts on, but should not re-derive it from scratch — the sweep is done.*
+
+```
+Work D-T22 in scoracle-backend: FINISH THE SCHEMA AUDIT, AND SETTLE THE STALLED METADATA FEATURE.
+
+Scott's framing, verbatim, because it is the whole brief: "We're running into issues where the
+pipeline is clean, but we're attempting to force it to work with an outdated schema. We want both
+to be optimized for the new approach of Google doing the relevancy work, and then empowering our
+models for everything downstream. No most restrictive regex or fancy workarounds. Simple and
+durable beats clever and fragile. We had to be clever before because we had no AIs working in our
+stream. Now, we empower them to do the work and then update the SQL."
+
+READ FIRST: PLAN-character-tuning.md 8b (both passes — the findings below are its summary), then
+PLAN-one-rail.md 0 working rules, which still bind. Do NOT read the whole repo. The sweep is
+already done; your job is the verdicts, the migrations, and the metadata decision.
+
+STATE. RAIL=packet is live. D-T19 is CLOSED (the editor gate is deterministic with the cognition
+daemon stopped; baseline 47/53). D-T21 IS LIVE AND ARMED as of 2026-08-06 17:39 —
+EDITOR_MAX_READS_PER_ENTITY_DAY=10 in archbox .env.local, first real bite at the 02:00 cron. That
+matters to you for ONE reason: read volumes changed on 2026-08-07, so do not read a drop in any
+news/editor table as schema rot. It is the cap.
+82 tables, 116 functions. DB is on archbox; access from archbox, never the Mac:
+  ssh archbox 'cd ~/scoracle/scoracle-backend && set -a; . ./.env.local; set +a; \
+    psql "${DATABASE_PRIVATE_URL:-$DATABASE_URL}" -c "select 1"'
+
+=====================================================================================
+THE METHOD. Four legs. Use all four or you will delete something load-bearing.
+=====================================================================================
+ 1. Is the column/table still WRITTEN?  Split the count pre/post-flip (2026-08-06 10:55 EDT).
+    A column written 19,862 times last week and 0 times since the flip is the whole finding.
+ 2. pg_get_functiondef across ALL 116 functions for the name, plus pg_get_viewdef across views.
+    SQL FUNCTIONS ARE CODE. This is how compute_transfer_heat kept a deleted gate alive for six
+    hours after we recorded it gone.
+ 3. Which of those functions has a live Rust/Go caller? A function nothing calls is not evidence.
+ 4. SHELL SCRIPTS THAT CALL SQL FUNCTIONS FROM A psql HEREDOC. This is the leg that was missing
+    and it is the one that matters most here: scripts/hosting/recompute-tiers.sh (cron, Mondays
+    02:00) runs `SELECT recompute_entity_tiers(...)` directly. That path is invisible to a Rust
+    grep, a Go grep, AND a repo grep for the table name. Three of four legs miss it.
+
+FOUR CONTAMINATIONS. Every one of these produced a wrong answer before it was corrected.
+ A. THE 04:00 pg_dump SEQ-SCANS EVERY TABLE. Postgres 18 gives last_seq_scan/last_idx_scan, which
+    is the best liveness signal available — but uncorrected, all 82 tables report "last read today
+    04:02:37" and everything looks live. The discriminator is a read AFTER 04:02:38.
+ B. WEEKLY CRONS. recompute-tiers.sh and football-meta run Mondays. On a Thursday, "not read in
+    13 hours" is the EXPECTED state for their tables, not death.
+ C. THE AUDIT CONTAMINATES ITSELF. topic_heat_embeddings reported a read at 16:35:30 — that was
+    the audit's own SELECT. Snapshot pg_stat_user_tables BEFORE you query the candidates.
+ D. TWO TABLES CAN SHARE A COLUMN NAME. enqueue_voices_on_packet (the live trigger on packets)
+    names routing_tags and looks like the legacy column surviving in the hottest path. It is
+    packets.routing_tags, doing real work. CONFIRM THE OWNER, NOT THE NAME.
+
+=====================================================================================
+FINDING 1 — THE STALLED METADATA FEATURE. Do this one FIRST; it needs a product decision.
+=====================================================================================
+It is NOT stale rot. It is DORMANT AND ARMED, and it will resume filling when the season starts.
+
+  metadata_refresh_queue    42,782 rows   0 processed, EVER   last write 2026-06-17
+  player_team_history       42,782 rows   (same count — populated by the same trigger)
+  metadata_sync_log              0 rows   never written — the completion log of a job that
+                                          has never once run
+  event_box_scores       1,025,731 rows   last insert 2026-06-17 (FOOTBALL; NBA/NFL 2026-05-30)
+
+The chain, measured: trg_detect_team_change is a LIVE, ENABLED trigger on event_box_scores
+(tgenabled='O'). On each box-score insert detect_team_change maintains player_team_history and
+enqueues into metadata_refresh_queue. The consumer side EXISTS as SQL — get_metadata_queue_batch,
+get_metadata_queue_status, mark_metadata_processed — and NOTHING in Rust or Go calls any of them.
+So the producer is live, the consumer was never built or was removed, and processed_at is NULL on
+all 42,782 rows.
+
+The queue stopped growing on 2026-06-17 for one reason only: that is the day box scores stopped
+arriving (off-season). PHASE 4 IS PARKED WAITING FOR EXACTLY THAT SEASON. So when fixtures resume,
+this trigger resumes writing into a queue with no drain.
+
+SCOTT'S DECISION, and the audit cannot make it: is player metadata refresh a feature we want?
+  (a) WANT IT  -> build the consumer (the SQL side is already there) and drain the 42,782.
+                  Check first whether the backlog is still meaningful or should be truncated —
+                  it was queued before the season ended and may be answering a stale question.
+  (b) DON'T    -> drop the trigger FIRST, then the three tables. Dropping tables while an ENABLED
+                  trigger writes to them breaks event_box_scores inserts at season start, which
+                  is the worst possible time to find out.
+Either way the trigger and the tables move TOGETHER, and the window is BEFORE the season starts.
+
+=====================================================================================
+FINDING 2 — THE SQL-ONLY CLASS. Eight live tables invisible to every code search we own.
+=====================================================================================
+This is compute_transfer_heat's category generalised, and it is the audit's most useful result.
+Not one is a deletion candidate. Every one is a place where the next person greps, finds nothing,
+and concludes the table is dead.
+
+  metadata_refresh_queue  <- detect_team_change, get_metadata_queue_batch,
+                             get_metadata_queue_status, mark_metadata_processed
+  player_team_history     <- detect_team_change
+  provider_seasons        <- resolve_provider_season_id
+  rating_thresholds       <- _compute_rating_bundle
+  source_tiers            <- backfill_narrative_episodes
+  news_article_readings   <- collapse_exact_title_duplicates  (LIVE — runs during every ingest)
+  entity_aliases          <- entity_aliases_no_update  (a trigger guard)
+  source_performance      <- source_reliability_for_pair (2 Rust callers) /
+                             refresh_source_performance (NO Rust or Go caller, yet the table was
+                             written 2026-08-06 12:45 — find and name what drives it)
+
+VERDICT: KEEP, and write the driver into each table's COMMENT ON TABLE. The fix is a comment, not
+a migration. Do that before anything else in this session — it is cheap and it is the thing that
+stops this whole class of mistake recurring.
+
+=====================================================================================
+FINDING 3 — TRUE ORPHANS. No Rust, no Go, no function, no view.
+=====================================================================================
+  metadata_sync_log         0 rows      never written    -> DROP (but see Finding 1: it is part
+                                                            of the metadata cluster; move it with
+                                                            that decision, not separately)
+  season_recompute_needed   0 rows      never written    -> DROP, unambiguous
+  provider_entity_map       26,210 rows last 2026-08-01  -> INVESTIGATE BEFORE DROPPING. 436,729
+                                                            lifetime updates and nothing names it
+                                                            now. Something stopped on Aug 1 —
+                                                            find out what before deleting 26k rows.
+  topic_heat_embeddings     8,924 rows  last 2026-07-25  -> DROP WITH PHASE 9 (the embedder's
+                                        (15 MB)             table; Phase 9 already owns it — do
+                                                            not front-run the demolition)
+
+=====================================================================================
+FINDING 4 — news_articles COLUMNS. The flip left live SQL reading dead columns.
+=====================================================================================
+Post-flip = the 448 articles ingested after 2026-08-06 10:55; pre-flip = the prior 7 days (56,439).
+
+  bucket         0 of 448 post-flip  (19,862 pre-flip)  READ BY 3 LIVE FUNCTIONS:
+                                                        compute_transfer_heat (3 Rust callers —
+                                                        the Insider calls it PER PAIR),
+                                                        refresh_typed_links (1), and
+                                                        seal_narrative_threads (1).
+                 Even pre-flip only 1 of 24,673 recent articles was bucket='transfer'. So three
+                 live functions branch on a column that was already 99.996% NULL and is now 100%.
+                 VERDICT NARROW: strip the bucket branch from all three functions FIRST, deploy,
+                 measure; drop the column SECOND. NEVER the reverse — dropping first breaks all
+                 three. SCOTT'S CALL 2026-08-06: batch this with the rest of the audit's SQL
+                 changes rather than doing it piecemeal. That is THIS session.
+  routing_tags   0 of 448 post-flip  (19,862 pre-flip)  Nothing reads news_articles.routing_tags.
+                 See contamination D — packets.routing_tags is a DIFFERENT, live column.
+  topic_heat     0 in the entire 7-day window (12,317 all-time)  -> dead
+  duplicate_of   31 of 448 post-flip   read by collapse_exact_title_duplicates -> live, KEEP
+  feed_rank      all rows              read by collapse_exact_title_duplicates -> live, KEEP
+  full_text      364 of 448 post-flip  -> LIVE, KEEP
+
+=====================================================================================
+WHAT THE SWEEP DID NOT COVER. Not a clean bill of health.
+=====================================================================================
+ * EVERY INDEX. None were examined. Unused indexes on momentum_scores (12.7M rows) are very
+   likely the single biggest storage win available and nobody has looked.
+ * 106 of the 116 functions were never read individually — only grepped for table names.
+ * The sweep answered "IS THIS TABLE USED". It did NOT answer "IS THIS TABLE THE RIGHT SHAPE",
+   which is the other half of what Scott actually asked for. The right-shape question is where
+   "the schema should support empowering the models" actually lives, and it is still open.
+
+=====================================================================================
+DELIVERABLE
+=====================================================================================
+ 1. COMMENT ON TABLE for all 8 SQL-only tables naming their driver. Do this first.
+ 2. Scott's answer on the metadata feature, then execute (a) or (b) — trigger and tables together.
+ 3. ONE migration (number from 215; template sql/migration_template.sql; apply with sql/migrate.sh;
+    then scripts/hosting/snapshot-schema.sh and COMMIT THE MIGRATION AND SNAPSHOT TOGETHER)
+    carrying the settled DROPs and the bucket-branch NARROW.
+ 4. For each DROP, the query that proves nothing reads it, pasted into the plan Log.
+ 5. Then start the index pass and the right-shape question.
+
+LAWS: describe-then-derive (T2); ONE CHANGE, ONE MEASUREMENT; contradictions preserved (T3); stage
+wire names never rename; data writes rehearsed in a ROLLED-BACK transaction with the invariant
+asserted inside it; deploys are explicit, and note that go/bin and rust/bin .path watchers are
+DIRECTORY-scoped, so building any one binary there restarts that service.
+
+DO NOT TOUCH: any prompt or *_PROMPT_VERSION (that is 7.11). Phase 9's demolition set
+(article_reader/, scrub.rs, Role::ArticleReader, the embedder) and the 30,224 parked article_read
+rows. The ingest path: Google does the relevancy, the Editor is the valve.
+```
+
+---
+
 ## 0 · THE REGISTER — every friction point, roadblock and concern going into the session
 
 *Assembled 2026-08-06 ~13:15 EDT, after 8.8, on Scott's instruction: "I want all the friction

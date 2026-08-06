@@ -1084,7 +1084,7 @@ pub async fn build_pair_request(
         system: Some(transfer_system_prompt(sport)),
         temperature: Some(temperature),
         num_predict: TRANSFER_NUM_PREDICT,
-        num_ctx: crate::route::voice_num_ctx(hx.rail),
+        num_ctx: hx.voice_num_ctx,
         json_mode: true,
         format_schema: None,
         format_schema_raw: None,
@@ -2156,8 +2156,12 @@ async fn score_insider_entity(
     let opts = GenerateOptions {
         system: Some(INSIDER_SCORE_SYSTEM_PROMPT.to_string()),
         temperature: Some(INSIDER_SCORE_TEMPERATURE),
-        num_predict: INSIDER_SCORE_NUM_PREDICT,
-        num_ctx: crate::route::voice_num_ctx(hx.rail),
+        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+            crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
+        } else {
+            INSIDER_SCORE_NUM_PREDICT
+        },
+        num_ctx: hx.voice_num_ctx,
         json_mode: false,
         format_schema: Some(insider_score_format_schema()),
         format_schema_raw: None,

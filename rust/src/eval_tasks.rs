@@ -854,7 +854,7 @@ impl LensTask for NarrativeTask {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
         // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
         let sport = e.sport.to_uppercase();
-        let corpus = load_vetted_corpus(&hx.pool, &e.entity_type, e.entity_id, &sport).await?;
+        let corpus = load_vetted_corpus(&hx.pool, hx.voice_num_ctx, &e.entity_type, e.entity_id, &sport).await?;
         // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
         if corpus.is_empty() {
             return Ok(None);

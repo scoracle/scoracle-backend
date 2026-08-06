@@ -93,6 +93,34 @@ pub fn voice_num_ctx(rail: Rail) -> i32 {
     }
 }
 
+/// Whether an effective voice window is a SMALL one — the 4096 envelope rather than the 16384 the
+/// legacy corpus was sized for.
+///
+/// Every output reservation and every context cap in the six voices keys on THIS, not on the rail
+/// (Scott, 2026-08-06: "run them, but run them at 4096"). The rail decides what a voice READS; the
+/// window decides how much room it has to read it in, and those became separable the moment
+/// `VOICE_NUM_CTX` gained an env override. The reason they must move together at all is pure
+/// arithmetic: a `num_predict` larger than the window is the silent system-prompt eviction that
+/// `NARRATIVES_NUM_CTX` has documented since it was written, and it does not care which rail
+/// produced the prompt.
+pub fn small_voice_window(num_ctx: i32) -> bool {
+    num_ctx <= VOICE_NUM_CTX_PACKET
+}
+
+/// The effective voice window: the `VOICE_NUM_CTX` env override when set, else the rail's size.
+///
+/// The override exists because the two facts it reconciles are genuinely independent — the Mac
+/// runs one runner and wants ONE window (uniformity is what keeps it loaded, §3), while the rail
+/// is a statement about which corpus the voices read. Pinning 4096 while `RAIL=legacy` is a
+/// deliberate, supported configuration: the voices read articles, in the window the packet rail
+/// was sized for. An unparseable or absurd value resolves to the rail's default rather than
+/// failing a boot — the same total-parse discipline as `RAIL` itself.
+pub fn resolve_voice_num_ctx(rail: Rail, raw: Option<&str>) -> i32 {
+    raw.and_then(|v| v.trim().parse::<i32>().ok())
+        .filter(|n| *n >= 512)
+        .unwrap_or_else(|| voice_num_ctx(rail))
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {
     StatsLogic,
@@ -402,6 +430,41 @@ fn build_backend(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The window resolves from the env override when it is sane, and from the rail otherwise —
+    /// including for junk, which must never fail a boot (the `RAIL` total-parse discipline).
+    #[test]
+    fn voice_window_override_beats_the_rail_and_junk_falls_back() {
+        assert_eq!(resolve_voice_num_ctx(Rail::Legacy, None), VOICE_NUM_CTX);
+        assert_eq!(
+            resolve_voice_num_ctx(Rail::Packet, None),
+            VOICE_NUM_CTX_PACKET
+        );
+        // Scott's 2026-08-06 configuration: the legacy corpus, in the packet rail's window.
+        assert_eq!(resolve_voice_num_ctx(Rail::Legacy, Some("4096")), 4096);
+        assert_eq!(resolve_voice_num_ctx(Rail::Legacy, Some(" 8192 ")), 8192);
+        for junk in ["", "big", "-1", "0", "511"] {
+            assert_eq!(
+                resolve_voice_num_ctx(Rail::Legacy, Some(junk)),
+                VOICE_NUM_CTX,
+                "{junk:?} must fall back, never fail a boot"
+            );
+        }
+    }
+
+    /// Everything that has to fit inside the window keys on the WINDOW. The pin that matters:
+    /// 4096 is a small window whichever rail asked for it, so a legacy-corpus host pinned to
+    /// 4096 gets the small reservations rather than a 4,000-token reservation it cannot hold.
+    #[test]
+    fn small_window_is_a_property_of_the_window_not_the_rail() {
+        assert!(small_voice_window(VOICE_NUM_CTX_PACKET));
+        assert!(small_voice_window(2048));
+        assert!(!small_voice_window(VOICE_NUM_CTX));
+        assert!(small_voice_window(resolve_voice_num_ctx(
+            Rail::Legacy,
+            Some("4096")
+        )));
+    }
 
     fn spec(model: &str) -> ModelSpec {
         ModelSpec {

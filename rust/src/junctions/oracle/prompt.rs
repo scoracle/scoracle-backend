@@ -117,13 +117,20 @@ pub fn oracle_format_schema() -> serde_json::Value {
     })
 }
 
-/// The per-card body budget on the packet rail (7.8, the §7 4096 envelope): ~350 tokens at the
-/// renderer's deliberately pessimistic 3.6 chars/token. The crown reads FIVE cards plus its own
+/// The per-card body budget in a SMALL voice window (7.8). The crown reads FIVE cards plus its own
 /// prior read plus the memory card, and until now it truncated none of them — which was survivable
 /// only inside a 16,384-token window. At 4096 an unbounded Journalist card silently evicts the
 /// system prompt, and a system prompt evicted mid-generation is the failure mode this seat has the
 /// longest history with.
-pub const CROWN_CARD_BODY_CAP: usize = 1_260;
+///
+/// **700 bytes (~195 tok), not §7's ~350 — and the difference IS the diet.** §7 sized its envelope
+/// against a post-7.11 system prompt of ~550 tokens. `or8` is ~1,806 tokens today, so at 4096 the
+/// arithmetic reads: 1,806 (system) + 700 (reservation) + ~700 (memory) leaves ~890 tokens for
+/// four capped bodies, the omen and the prior read. ~195 tok/card fits inside that; ~350 does not.
+/// When the diet lands and the system prompt gives back ~1,250 tokens, this returns to §7's
+/// number. The constant moves with the prompt it shares a window with — output quality is the
+/// tuning session's subject, but a surviving system prompt is not negotiable at any size.
+pub const CROWN_CARD_BODY_CAP: usize = 700;
 
 /// Narratives rendered onto the Journalist's card when the cap is in force. The card is ONE card:
 /// three storylines share the budget rather than each claiming it.

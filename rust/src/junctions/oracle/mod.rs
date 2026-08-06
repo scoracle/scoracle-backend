@@ -55,6 +55,12 @@ pub const ORACLE_TEMPERATURE: f64 = 0.6;
 /// tokens; generous headroom, still tight enough that a thinking route would burn it).
 pub const ORACLE_NUM_PREDICT: i32 = 1100;
 
+/// The reservation inside a SMALL voice window (§7's ≤800 share). Every voice that reserves more
+/// than this drops to it at 4096, for the arithmetic reason `NARRATIVES_NUM_CTX` has documented
+/// since it was written: a reservation the window cannot hold evicts the system prompt silently,
+/// mid-generation, and the failure looks like a model that stopped obeying its rules.
+pub const SMALL_WINDOW_NUM_PREDICT: i32 = 700;
+
 // ---------------------------------------------------------------------------
 // Pillar value types — mirror the Go synth* structs.
 // ---------------------------------------------------------------------------
@@ -1332,12 +1338,14 @@ impl StageHandler for SigilHandler {
             }
         };
 
-        // The 4096 envelope (7.8): on the packet rail every pillar body is capped, because the
-        // crown is the ONE seat that reads five cards at once and, until now, truncated none of
-        // them. The Oracle itself reads no packet — §4 keeps it blind to evidence: five cards and
-        // its own verdict trail, nothing else. What the packet rail changes here is only how much
-        // of each peer's card fits in the window.
-        let body_cap = hx.rail.is_packet().then_some(prompt::CROWN_CARD_BODY_CAP);
+        // The 4096 envelope (7.8): in a SMALL window every pillar body is capped and the
+        // reservation shrinks, because the crown is the ONE seat that reads five cards at once
+        // and, until now, truncated none of them. Keyed on the window rather than the rail
+        // (Scott, 2026-08-06): the cards are the same size whichever corpus produced them, so it
+        // is the room they have to fit in that decides. The Oracle itself reads no packet — §4
+        // keeps it blind to evidence: five cards and its own verdict trail, nothing else.
+        let small = crate::route::small_voice_window(hx.voice_num_ctx);
+        let body_cap = small.then_some(prompt::CROWN_CARD_BODY_CAP);
 
         // The one crown call (OracleLogic): read the cards + the omen + our prior reads, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
@@ -1359,8 +1367,8 @@ impl StageHandler for SigilHandler {
         let opts = GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
             temperature: Some(ORACLE_TEMPERATURE),
-            num_predict: ORACLE_NUM_PREDICT,
-            num_ctx: crate::route::voice_num_ctx(hx.rail),
+            num_predict: if small { SMALL_WINDOW_NUM_PREDICT } else { ORACLE_NUM_PREDICT },
+            num_ctx: hx.voice_num_ctx,
             json_mode: false,
             format_schema: Some(oracle_format_schema()),
             format_schema_raw: None,

@@ -704,8 +704,12 @@ async fn generate_vibe_from_context(
     let opts = GenerateOptions {
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
-        num_predict: VIBE_NUM_PREDICT,
-        num_ctx: crate::route::voice_num_ctx(hx.rail),
+        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+            crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
+        } else {
+            VIBE_NUM_PREDICT
+        },
+        num_ctx: hx.voice_num_ctx,
         json_mode: false,
         format_schema: None,
         format_schema_raw: None,

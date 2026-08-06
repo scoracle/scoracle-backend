@@ -71,6 +71,7 @@ async fn main() -> Result<()> {
         // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
         handler_budget: Duration::ZERO,
         rail: scoracle_cognition::config::Rail::Legacy,
+        voice_num_ctx: scoracle_cognition::route::VOICE_NUM_CTX,
     };
 
     match args.mode.as_str() {

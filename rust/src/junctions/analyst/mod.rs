@@ -541,8 +541,12 @@ impl StageHandler for MomentumHandler {
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(MOMENTUM_TEMPERATURE),
-            num_predict: MOMENTUM_NUM_PREDICT,
-            num_ctx: crate::route::voice_num_ctx(hx.rail),
+            num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+                crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
+            } else {
+                MOMENTUM_NUM_PREDICT
+            },
+            num_ctx: hx.voice_num_ctx,
             json_mode: false,
             format_schema: None,
             format_schema_raw: None,

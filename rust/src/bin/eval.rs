@@ -831,6 +831,7 @@ async fn build_harness(cfg: &Config) -> Result<Harness> {
         // worker timeout, and a truncated eval would be a worse artifact than a slow one.
         handler_budget: Duration::ZERO,
         rail: scoracle_cognition::config::Rail::Legacy,
+        voice_num_ctx: scoracle_cognition::route::VOICE_NUM_CTX,
     })
 }
 

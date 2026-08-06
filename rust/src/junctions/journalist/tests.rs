@@ -573,19 +573,19 @@ fn packet_framing_precedes_the_numbered_evidence() {
     assert!(p.contains("1. [Football365] Arsenal agreed personal terms"));
 }
 
-/// The rail decides the window AND the reservation together, and the legacy pair is the one that
-/// ships until Phase 8 (§7's envelope: 4096 with a 700 reservation on the packet rail).
+/// The WINDOW decides the reservation (not the rail): a 4,000-token reservation inside a 4,096
+/// window leaves nothing for the prompt, whichever corpus produced it. §7's envelope is 4096 with
+/// a 700 reservation, and pinning `VOICE_NUM_CTX=4096` under `RAIL=legacy` must land there too.
 #[test]
-fn decode_budget_is_rail_scoped() {
-    use crate::config::Rail;
+fn decode_budget_follows_the_window_not_the_rail() {
     assert_eq!(
-        narratives_decode_budget(Rail::Legacy),
+        narratives_decode_budget(crate::route::VOICE_NUM_CTX),
         (NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT)
     );
-    assert_eq!(narratives_decode_budget(Rail::Packet), (4096, 700));
+    assert_eq!(narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET), (4096, 700));
     // The packet reservation must fit §7's ≤800 share, and the prompt budget must leave room for
     // it: a window that cannot hold its own reservation is the silent-eviction bug.
-    let (ctx, predict) = narratives_decode_budget(Rail::Packet);
+    let (ctx, predict) = narratives_decode_budget(crate::route::VOICE_NUM_CTX_PACKET);
     assert!(predict <= 800);
     assert!(ctx - predict >= 3_300, "no room for the p99 prompt envelope");
 }

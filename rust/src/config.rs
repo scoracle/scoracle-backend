@@ -77,6 +77,10 @@ pub struct Config {
     /// green. Read ONCE at boot and logged loudly — never re-read per item, so a rail cannot
     /// change under a running drain.
     pub rail: Rail,
+    /// The context window EVERY voice on this host requests (`VOICE_NUM_CTX`, else the rail's
+    /// size). Resolved once at boot beside the rail, for the same reason: two items in one drain
+    /// must not disagree about the window, or the shared runner reloads between them.
+    pub voice_num_ctx: i32,
 }
 
 /// The rail a voice reads from. Deliberately two-valued and total (an unparseable value resolves
@@ -131,6 +135,16 @@ impl Config {
         // ≥1: a 0-permit semaphore would block every model call forever.
         let ollama_max_concurrent = env_usize("OLLAMA_MAX_CONCURRENT", 1)?.max(1);
 
+        // The rail and the voice window are resolved together and ONCE, here: the window
+        // defaults to the rail's size, and `VOICE_NUM_CTX` may pin it independently (§3 wants
+        // one window per host; the rail is a statement about the corpus). Both are then carried
+        // on the Harness so no handler re-reads the environment mid-drain.
+        let rail = env_opt("RAIL")
+            .and_then(|raw| Rail::parse(&raw))
+            .unwrap_or_default();
+        let voice_num_ctx =
+            crate::route::resolve_voice_num_ctx(rail, env_opt("VOICE_NUM_CTX").as_deref());
+
         Ok(Self {
             database_url,
             // 25, raised from 5 when the drain went concurrent (2026-07-26). 5 was sized for a
@@ -172,9 +186,8 @@ impl Config {
                 None => None,
             },
             packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
-            rail: env_opt("RAIL")
-                .and_then(|raw| Rail::parse(&raw))
-                .unwrap_or_default(),
+            rail,
+            voice_num_ctx,
         })
     }
 }

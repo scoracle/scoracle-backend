@@ -92,13 +92,15 @@ pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 700;
 /// The narratives call's window and output reservation on this rail. Both move together, because
 /// the reservation is part of what has to fit inside the window — the failure this pair exists to
 /// prevent is a prompt plus a reservation that overflow and silently evict the system prompt.
-pub fn narratives_decode_budget(rail: crate::config::Rail) -> (i32, i32) {
-    match rail {
-        crate::config::Rail::Legacy => (NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT),
-        crate::config::Rail::Packet => (
-            crate::route::VOICE_NUM_CTX_PACKET,
-            NARRATIVES_NUM_PREDICT_PACKET,
-        ),
+/// It keys on the WINDOW, not on the rail (Scott, 2026-08-06 — "run them, but run them at 4096").
+/// The rail says which corpus the Journalist reads; the window says how much room he has, and a
+/// 4,000-token reservation inside a 4,096-token window leaves nothing for the prompt at all. The
+/// pairing is arithmetic, so it must follow the number the arithmetic is about.
+pub fn narratives_decode_budget(num_ctx: i32) -> (i32, i32) {
+    if crate::route::small_voice_window(num_ctx) {
+        (num_ctx, NARRATIVES_NUM_PREDICT_PACKET)
+    } else {
+        (num_ctx, NARRATIVES_NUM_PREDICT)
     }
 }
 
@@ -122,12 +124,23 @@ const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
 /// session can move it without a rebuild.
 const DEFAULT_CORPUS_LIMIT: i64 = 40;
 
-fn corpus_limit() -> i64 {
+/// The same ceiling inside a SMALL window (4096). Forty articles at up to 900 characters of
+/// Editor card each is ~11 KB — around 3,000 tokens, which fits a 16,384 window with room to
+/// spare and does not fit a 4,096 one beside a system prompt, a memory block and a reservation.
+/// Eight is what the arithmetic leaves, and the excluded articles are still NAMED (A5) through
+/// the same `budget_truncated_ids` band the forty-article cut uses.
+const SMALL_WINDOW_CORPUS_LIMIT: i64 = 8;
+
+fn corpus_limit(num_ctx: i32) -> i64 {
     std::env::var("COGNITION_JOURNALIST_CORPUS_LIMIT")
         .ok()
         .and_then(|v| v.trim().parse::<i64>().ok())
         .filter(|n| *n > 0)
-        .unwrap_or(DEFAULT_CORPUS_LIMIT)
+        .unwrap_or(if crate::route::small_voice_window(num_ctx) {
+            SMALL_WINDOW_CORPUS_LIMIT
+        } else {
+            DEFAULT_CORPUS_LIMIT
+        })
 }
 
 /// The vetted-news lookback window — Go's `NewsLookback = 72 * time.Hour`, in seconds. A fresh
@@ -281,6 +294,7 @@ impl Parser<ParsedNarratives> for NarrativesParser {
 /// lookback is `make_interval(secs => $4)`. `sport` is the UPPER-cased value.
 pub async fn load_vetted_corpus(
     pool: &PgPool,
+    num_ctx: i32,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -336,7 +350,7 @@ pub async fn load_vetted_corpus(
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
-    .bind(corpus_limit())
+    .bind(corpus_limit(num_ctx))
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus {entity_type}/{entity_id}"))?;
@@ -400,6 +414,7 @@ pub async fn load_vetted_corpus(
 /// usefulness.
 async fn load_vetted_corpus_with_exclusions(
     pool: &PgPool,
+    num_ctx: i32,
     entity_type: &str,
     entity_id: i32,
     sport: &str,
@@ -487,7 +502,7 @@ async fn load_vetted_corpus_with_exclusions(
     .bind(entity_id)
     .bind(sport)
     .bind(NEWS_LOOKBACK_SECS)
-    .bind(corpus_limit())
+    .bind(corpus_limit(num_ctx))
     .fetch_all(pool)
     .await
     .with_context(|| format!("load vetted corpus + exclusions {entity_type}/{entity_id}"))?;
@@ -1244,6 +1259,7 @@ pub async fn load_narratives_material(
             } else {
                 let (c, e) = load_vetted_corpus_with_exclusions(
                     &hx.pool,
+                    hx.voice_num_ctx,
                     &req.entity_type,
                     req.entity_id,
                     &sport_up,
@@ -1360,7 +1376,7 @@ pub async fn finish_narratives_build(
         Some(&score_context),
         packet_framing.as_deref(),
     );
-    let (num_ctx, num_predict) = narratives_decode_budget(hx.rail);
+    let (num_ctx, num_predict) = narratives_decode_budget(hx.voice_num_ctx);
     let opts = GenerateOptions {
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
@@ -1560,6 +1576,15 @@ fn narratives_included_evidence(out: &NarrativesOutput) -> serde_json::Value {
 }
 
 fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
+    // The cap that actually applied, read off the EXACT wire body — the same discipline as
+    // `context_budget` below. The limit is window-derived now, so restating a constant here
+    // would misreport the drop on any host that pinned `VOICE_NUM_CTX`.
+    let num_ctx = out
+        .request_body
+        .as_ref()
+        .and_then(|b| b.pointer("/options/num_ctx"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(crate::route::VOICE_NUM_CTX as i64) as i32;
     let mut excluded = Vec::new();
     if !out.stale_news_ids.is_empty() {
         excluded.push(json!({
@@ -1574,7 +1599,7 @@ fn narratives_excluded_evidence(out: &NarrativesOutput) -> serde_json::Value {
             "reason": "budget_truncated",
             "dropped_count": out.budget_truncated_ids.len(),
             "dropped_news_ids": &out.budget_truncated_ids,
-            "corpus_limit": corpus_limit(),
+            "corpus_limit": corpus_limit(num_ctx),
         }));
     }
     json!(excluded)

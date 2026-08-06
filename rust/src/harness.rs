@@ -61,6 +61,11 @@ pub struct Harness {
     /// which corpus they are reading. Eval and one-shot binaries construct `Rail::Legacy` unless
     /// they are explicitly exercising the packet path.
     pub rail: Rail,
+    /// The context window every voice on this host requests (`VOICE_NUM_CTX`, else the rail's
+    /// size — [`crate::route::resolve_voice_num_ctx`]). Carried beside the rail so the two can
+    /// never disagree inside one drain, and so every output reservation and context cap can key
+    /// on the WINDOW (the arithmetic that must hold) rather than on the rail (the corpus choice).
+    pub voice_num_ctx: i32,
 }
 
 // ===========================================================================

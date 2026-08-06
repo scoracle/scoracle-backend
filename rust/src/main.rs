@@ -124,6 +124,7 @@ async fn main() -> Result<()> {
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
         rail: cfg.rail,
+        voice_num_ctx: cfg.voice_num_ctx,
     };
 
     // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
@@ -205,6 +206,21 @@ async fn main() -> Result<()> {
         },
         "RAIL: the voices read {}",
         cfg.rail.as_str()
+    );
+    // The window, logged separately from the rail because they are now separable: `VOICE_NUM_CTX`
+    // may pin 4096 while the rail stays legacy (Scott, 2026-08-06). Every reservation and context
+    // cap in the six voices follows THIS number, so a boot that does not state it leaves the
+    // budgets unexplainable from the journal.
+    info!(
+        voice_num_ctx = cfg.voice_num_ctx,
+        pinned = std::env::var("VOICE_NUM_CTX").is_ok(),
+        envelope = if scoracle_cognition::route::small_voice_window(cfg.voice_num_ctx) {
+            "small: reservations ≤700, crown cards capped, journalist corpus 8"
+        } else {
+            "wide: legacy reservations, no card caps, journalist corpus 40"
+        },
+        "VOICE WINDOW: every voice on this host requests num_ctx {}",
+        cfg.voice_num_ctx
     );
 
     let worker = worker::Worker::new(

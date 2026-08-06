@@ -752,6 +752,7 @@ impl LensTask for OracleTask {
             &omen_reason,
             None,
             None,
+            None,
         )))
     }
     fn evaluate(&self, raw: &str, label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {
@@ -1355,6 +1356,7 @@ impl LensTask for MomentumTask {
             vibe.as_ref(),
             &momentum,
             None,
+            &[],
         )))
     }
     fn evaluate(&self, raw: &str, _label: Option<f64>, expect: Option<&Expect>) -> CaseVerdict {

@@ -113,7 +113,7 @@ fn prompt_carries_the_decided_direction_line() {
         ..SynthMomentum::default()
     };
     let prompt =
-        build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None);
+        build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None, &[]);
     assert!(prompt.contains(
         "Direction (decided upstream, final): rising (momentum score +50.7, steady band ±10)"
     ));
@@ -128,10 +128,46 @@ fn prompt_carries_the_decided_direction_line() {
         None,
         &SynthMomentum::default(),
         None,
+        &[],
     );
     assert!(empty.contains(
         "Direction (decided upstream, final): steady (no durable momentum snapshot)"
     ));
+}
+
+/// 7.8: the compiled storylines render as CONTEXT — after the memory card, before the decided
+/// direction, which stays adjacent to the reply cue and stays final. Absent on the legacy rail,
+/// where the caller passes no packets at all.
+#[test]
+fn packet_context_renders_before_the_decided_direction_and_never_on_legacy() {
+    let mom = SynthMomentum {
+        momentum_score: Some(-22.4),
+        ..SynthMomentum::default()
+    };
+    let legacy =
+        build_momentum_prompt("player", "Test Player", "FOOTBALL", None, None, &mom, None, &[]);
+    assert!(!legacy.contains("THE STORIES BEHIND THE MOVE"));
+
+    let block = "STORY: The winger's future at Real Madrid\nENTITY: Test Player (subject) — in this story 2026-08-02 → 2026-08-05\nREPORTED (newest first):\n- ESPN: he is set to stay\n";
+    let packet = build_momentum_prompt(
+        "player",
+        "Test Player",
+        "FOOTBALL",
+        None,
+        None,
+        &mom,
+        None,
+        &[block],
+    );
+    let story = packet
+        .find("=== THE STORIES BEHIND THE MOVE (assembled from the reads) ===")
+        .expect("packet section");
+    let dir = packet.find("Direction (decided upstream, final)").unwrap();
+    let cue = packet.find("Write the Momentum read now").unwrap();
+    assert!(story < dir && dir < cue, "the decided fact stays last and final");
+    assert!(packet.contains("STORY: The winger's future at Real Madrid"));
+    // The Influencer's register is hers alone — the Analyst's render must not carry it.
+    assert!(!packet.contains("MOOD:"));
 }
 
 #[test]
@@ -151,6 +187,7 @@ fn relational_memory_renders_before_the_decided_direction() {
         None,
         &mom,
         Some(mem),
+        &[],
     );
     assert!(
         p.contains("=== RELATIONAL MEMORY (computed history) ===\nArc context for the READ")
@@ -169,6 +206,7 @@ fn relational_memory_renders_before_the_decided_direction() {
         None,
         &mom,
         Some(" \n  "),
+        &[],
     );
     assert!(!blank.contains("RELATIONAL MEMORY"));
 }

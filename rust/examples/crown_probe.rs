@@ -138,6 +138,7 @@ async fn main() -> Result<()> {
             &omen_reason,
             prior_read.as_deref(),
             memory.as_deref(),
+            None,
         );
         // Probe knob: CROWN_PROBE_NUM_CTX lets us test the context-window hypothesis. 0 keeps the
         // current (broken) behavior — Ollama's 2048 default truncates the system prompt.

@@ -565,6 +565,48 @@ pub async fn load_packets_for_entity(
     Ok(out)
 }
 
+/// render_packets_for_entity is [`load_packets_for_entity`] plus the render (7.6/7.8): the
+/// entity's live storylines, written down for ONE voice, newest-compiled first.
+///
+/// Every voice that reads the packet as a BLOCK goes through here, so the voice rule
+/// ([`super::render::Voice`]) is applied in one place — the Influencer gets the register and its
+/// phrase, nobody else does, and the Scout cannot be passed at all. Voices whose contract needs
+/// the claims as data instead (the Journalist's numbered evidence, the Insider's per-article
+/// overlay) compose the loader and the renderer themselves.
+///
+/// A render with nothing in it is dropped rather than returned empty: an empty block is not
+/// material, and a caller counting blocks must not be told a story exists when none does.
+pub async fn render_packets_for_entity(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+    voice: super::render::Voice,
+    limit: i64,
+) -> Result<Vec<(i64, String)>> {
+    let loaded = load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        limit,
+    )
+    .await?;
+
+    Ok(loaded
+        .into_iter()
+        .filter_map(|(view, mut part)| {
+            // The loader knows the id; the caller knows the name.
+            part.name = entity_name.to_string();
+            let packet_id = view.packet_id;
+            let rendered = super::render::render(&view, Some(&part), voice);
+            (!rendered.text.trim().is_empty()).then_some((packet_id, rendered.text))
+        })
+        .collect())
+}
+
 /// Parse `packets.claims` into the renderer's shape. A claim that does not carry the four
 /// required fields is skipped rather than failing the read — the packet is archive, and one
 /// malformed element must not cost a voice its whole context.

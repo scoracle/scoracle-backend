@@ -165,6 +165,7 @@ fn main() -> anyhow::Result<()> {
             &s.momentum,
             // Fixtures pin the memory-free shape (the s5 eval discipline).
             None,
+            &[],
         );
         let v = json!({
             "name": s.name,

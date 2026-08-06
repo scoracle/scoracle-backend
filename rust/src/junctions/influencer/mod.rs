@@ -394,32 +394,21 @@ async fn load_vibe_packets(
     entity_name: &str,
     sport: &str,
 ) -> Result<Vec<PacketBlock>> {
-    use crate::junctions::editor::render;
+    use crate::junctions::editor::render::Voice;
 
-    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+    Ok(crate::junctions::editor::packet::render_packets_for_entity(
         pool,
         entity_type,
         entity_id,
+        entity_name,
         sport,
-        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        Voice::Influencer,
         MAX_VIBE_PACKETS,
     )
-    .await?;
-
-    Ok(loaded
-        .into_iter()
-        .filter_map(|(view, mut part)| {
-            part.name = entity_name.to_string();
-            let packet_id = view.packet_id;
-            let rendered = render::render(&view, Some(&part), render::Voice::Influencer);
-            // A render with nothing in it is not material: an empty block would still tick the
-            // debounce pre-image below and wake her for a story that says nothing.
-            (!rendered.text.trim().is_empty()).then_some(PacketBlock {
-                packet_id,
-                text: rendered.text,
-            })
-        })
-        .collect())
+    .await?
+    .into_iter()
+    .map(|(packet_id, text)| PacketBlock { packet_id, text })
+    .collect())
 }
 
 /// VIBE_WORK_PREFIX namespaces the vibe queue row's `input_version` (mirrors momentum's

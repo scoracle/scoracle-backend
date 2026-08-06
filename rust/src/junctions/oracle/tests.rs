@@ -385,6 +385,7 @@ fn crown_prompt_renders_cards_and_omen() {
         "the arc holds its line",
         None,
         None,
+        None,
     );
     assert!(p.starts_with("Entity: Test Player (NBA player)\n"));
     assert!(!p.contains("YOUR PRIOR READ"));
@@ -401,6 +402,77 @@ fn crown_prompt_renders_cards_and_omen() {
     );
     assert!(p.contains("=== THE OMEN (computed) ===\nOmen: steady — the arc holds its line\n"));
     assert!(p.ends_with("\nYour peers have spoken; the table is yours. Read their cards, then render the score."));
+}
+
+/// 7.8, the 4096 envelope: on the packet rail every pillar body is capped and the Journalist's
+/// card is capped as ONE card — at most three storylines, sharing the budget, with the remainder
+/// NAMED (A5). On the legacy rail nothing truncates, which is why the two prompts below differ
+/// only where the cap bites.
+#[test]
+fn packet_rail_caps_every_pillar_body_and_names_what_it_dropped() {
+    let long = "word ".repeat(2_000);
+    let narratives: Vec<SynthNarrative> = (0..5)
+        .map(|i| SynthNarrative {
+            title: format!("Storyline {i}"),
+            body: long.clone(),
+            impact: 7.0,
+            trajectory: "heating_up".into(),
+            source_count: 3,
+            source_age_days: Some(1),
+        })
+        .collect();
+    let rating = SynthRating {
+        body: long.clone(),
+        divined_peak: "Ascendant".into(),
+        notability: 71,
+        peak_trajectory: "rising".into(),
+        peak_trajectory_label: "Composite trending up over recent games".into(),
+    };
+    let vibe = SynthVibe {
+        sentiment: 62,
+        prompt: long.clone(),
+    };
+    let mom = SynthMomentum {
+        blurb: Some(long.clone()),
+        direction: Some("rising".into()),
+        momentum_score: Some(30.0),
+        ..SynthMomentum::default()
+    };
+
+    let uncapped = build_crown_prompt(
+        "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
+        "ascendant", "the arc climbs", None, None, None,
+    );
+    let capped = build_crown_prompt(
+        "player", "Test Player", "NBA", &narratives, Some(&rating), Some(&vibe), &mom, &[],
+        "ascendant", "the arc climbs", None, None, Some(CROWN_CARD_BODY_CAP),
+    );
+
+    // Legacy truncates nothing — that is the behaviour a 16,384-token window allowed, and it is
+    // what the legacy rail keeps sending.
+    assert!(uncapped.len() > 5 * long.len());
+    assert!(!uncapped.contains("not shown — budget"));
+    // The packet rail's whole crown prompt is now smaller than ONE uncapped card.
+    assert!(
+        capped.len() < long.len(),
+        "capped crown prompt is {} bytes",
+        capped.len()
+    );
+    assert!(capped.contains("(+2 more storyline(s) not shown — budget)"));
+    assert!(capped.contains("Storyline 0"));
+    assert!(!capped.contains("Storyline 3"), "the card is capped as ONE card");
+    // Every card still SPEAKS — a cap that silences a pillar would change the verdict, not the
+    // window. All five headers stand, and the omen still closes.
+    for header in [
+        "THE JOURNALIST'S CARD",
+        "THE SCOUT'S CARD",
+        "THE INFLUENCER'S CARD",
+        "THE ANALYST'S CARD",
+        "THE INSIDER'S CARD",
+        "THE OMEN (computed)",
+    ] {
+        assert!(capped.contains(header), "{header} lost to the cap");
+    }
 }
 
 #[test]
@@ -481,6 +553,7 @@ fn crown_prompt_no_momentum_data_line() {
         "r",
         None,
         None,
+        None,
     );
     assert!(
         p.contains("=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)")
@@ -516,6 +589,7 @@ fn crown_prompt_transfer_heat_renders() {
         "r",
         None,
         None,
+        None,
     );
     assert!(p.contains("=== THE INSIDER'S CARD (transfer wire) ===\n- Liverpool — heat 66, incoming, advanced_talks\n"));
 }
@@ -537,6 +611,7 @@ fn crown_prompt_prior_read_renders_as_continuity_lead_in() {
         "steady",
         "r",
         Some(prior),
+        None,
         None,
     );
     assert!(p.starts_with(
@@ -562,6 +637,7 @@ fn crown_prompt_relational_memory_renders_before_omen() {
         "the arc holds its line",
         None,
         Some(mem),
+        None,
     );
     assert!(p.contains(
         "=== RELATIONAL MEMORY (computed history) ===\nUse for arc and continuity: what fizzled before, what is live now, what actually happened. Do NOT treat a prior story as evidence for a new claim.\n- Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\n- Ground truth: completed a confirmed move to Arsenal on Jul 01 2026.\n\n=== THE OMEN (computed) ==="
@@ -579,6 +655,7 @@ fn crown_prompt_relational_memory_renders_before_omen() {
         "r",
         None,
         Some("  \n "),
+        None,
     );
     assert!(!blank.contains("RELATIONAL MEMORY"));
 }

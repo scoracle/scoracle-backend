@@ -43,6 +43,11 @@ pub const MOMENTUM_STEADY_BAND: f64 = 10.0;
 
 const MOMENTUM_WORK_PREFIX: &str = "momentum:s";
 
+/// Storylines rendered into one momentum prompt (7.8). The READ is about a direction, not about
+/// the news — two live stories are ample grounding for "what is actually moving", and the 4096
+/// window has five other sections to hold.
+const MAX_MOMENTUM_PACKETS: i64 = 2;
+
 #[derive(Clone, Debug)]
 pub struct MomentumContext {
     pub season: i32,
@@ -488,6 +493,41 @@ impl StageHandler for MomentumHandler {
             }
         };
 
+        // The compiled storylines behind the move (7.8, packet rail only). Loaded HERE rather
+        // than in `load_momentum_context` on purpose: the Analyst's trigger is the pillar
+        // cascade — PEAK moved, or the vibe did — and that must not change. The packet is
+        // context for WHY the numbers moved, exactly like the scouting paragraph and the memory
+        // card above it: rendered into the prompt, kept out of the `input_hash`, and degrading
+        // to an unenriched prompt on failure rather than failing the item.
+        let packets = if hx.rail.is_packet() {
+            match crate::junctions::editor::packet::render_packets_for_entity(
+                &hx.pool,
+                &item.entity_type,
+                entity_id,
+                &name,
+                &sport,
+                crate::junctions::editor::render::Voice::Analyst,
+                MAX_MOMENTUM_PACKETS,
+            )
+            .await
+            {
+                Ok(p) => p,
+                Err(e) => {
+                    warn!(
+                        entity_type = %item.entity_type,
+                        entity_id,
+                        sport = %sport,
+                        error = %e,
+                        "momentum: packet load failed (continuing without the story context)"
+                    );
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
+        let packet_blocks: Vec<&str> = packets.iter().map(|(_, t)| t.as_str()).collect();
+
         let prompt = build_momentum_prompt(
             &item.entity_type,
             &name,
@@ -496,6 +536,7 @@ impl StageHandler for MomentumHandler {
             ctx.vibe.as_ref(),
             &ctx.snapshot,
             memory.as_deref(),
+            &packet_blocks,
         );
         let opts = GenerateOptions {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),

@@ -117,6 +117,27 @@ pub fn oracle_format_schema() -> serde_json::Value {
     })
 }
 
+/// The per-card body budget on the packet rail (7.8, the §7 4096 envelope): ~350 tokens at the
+/// renderer's deliberately pessimistic 3.6 chars/token. The crown reads FIVE cards plus its own
+/// prior read plus the memory card, and until now it truncated none of them — which was survivable
+/// only inside a 16,384-token window. At 4096 an unbounded Journalist card silently evicts the
+/// system prompt, and a system prompt evicted mid-generation is the failure mode this seat has the
+/// longest history with.
+pub const CROWN_CARD_BODY_CAP: usize = 1_260;
+
+/// Narratives rendered onto the Journalist's card when the cap is in force. The card is ONE card:
+/// three storylines share the budget rather than each claiming it.
+const CROWN_MAX_NARRATIVES: usize = 3;
+
+/// Apply an optional body cap. `None` — the legacy rail — returns the body untouched, which is
+/// what keeps the legacy crown prompt byte-identical.
+fn capped(s: &str, budget: Option<usize>) -> String {
+    match budget {
+        Some(max) => crate::util::truncate_bytes(s, max),
+        None => s.to_string(),
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn build_crown_prompt(
     entity_type: &str,
@@ -131,6 +152,8 @@ pub fn build_crown_prompt(
     omen_reason: &str,
     prior_read: Option<&str>,
     memory: Option<&str>,
+    // Per-card body cap in bytes ([`CROWN_CARD_BODY_CAP`] on the packet rail, `None` on legacy).
+    body_cap: Option<usize>,
 ) -> String {
     let mut b = String::new();
 
@@ -153,10 +176,18 @@ pub fn build_crown_prompt(
         }
     }
 
-    // P1 — News narrative
+    // P1 — News narrative. On the packet rail the card is capped as ONE card: at most
+    // CROWN_MAX_NARRATIVES storylines, sharing the body budget between them.
     if !narratives.is_empty() {
         b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n");
-        for n in narratives {
+        let (shown, per_body) = match body_cap {
+            Some(cap) => {
+                let n = narratives.len().min(CROWN_MAX_NARRATIVES);
+                (&narratives[..n], Some(cap / n.max(1)))
+            }
+            None => (narratives, None),
+        };
+        for n in shown {
             let mut tags = format!(
                 "impact {:.0}, {}",
                 n.impact,
@@ -170,7 +201,19 @@ pub fn build_crown_prompt(
             if let Some(d) = n.source_age_days {
                 tags.push_str(&format!(", latest {d}d ago"));
             }
-            b.push_str(&format!("[{tags}] {}\n{}\n\n", n.title, n.body));
+            b.push_str(&format!(
+                "[{tags}] {}\n{}\n\n",
+                n.title,
+                capped(&n.body, per_body)
+            ));
+        }
+        // A5, applied to the crown: a card the budget shortened says so, rather than quietly
+        // presenting three storylines as the whole of the news.
+        if narratives.len() > shown.len() {
+            b.push_str(&format!(
+                "(+{} more storyline(s) not shown — budget)\n\n",
+                narratives.len() - shown.len()
+            ));
         }
     } else {
         b.push_str("\n=== THE JOURNALIST'S CARD (news storylines) ===\n(no recent narratives)\n");
@@ -191,7 +234,7 @@ pub fn build_crown_prompt(
             b.push_str(&format!("Peak trajectory: {}\n", r.peak_trajectory_label));
         }
         if !r.body.is_empty() {
-            b.push_str(&r.body);
+            b.push_str(&capped(&r.body, body_cap));
             b.push('\n');
         }
     } else {
@@ -206,7 +249,7 @@ pub fn build_crown_prompt(
         // rule lost to the card's own vocabulary — the Scout-pass lesson again).
         b.push_str(&format!("Mood: {}/100\n", v.sentiment));
         if !v.prompt.is_empty() {
-            b.push_str(&v.prompt);
+            b.push_str(&capped(&v.prompt, body_cap));
             b.push('\n');
         }
     } else {
@@ -223,7 +266,7 @@ pub fn build_crown_prompt(
             b.push_str(&format!("Momentum: {direction}\n"));
         }
         if let Some(blurb) = &mom.blurb {
-            b.push_str(blurb);
+            b.push_str(&capped(blurb, body_cap));
             b.push('\n');
         }
     } else if let Some(score) = momentum_score(mom) {

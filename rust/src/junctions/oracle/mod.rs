@@ -41,7 +41,7 @@ use tracing::debug;
 // builder — lives in `prompt.rs`, so a change to what this character is asked is a one-file
 // diff. Re-exported here so call sites and the ledger keep reading it from the stage module.
 pub mod prompt;
-pub use prompt::{ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, build_crown_prompt, oracle_format_schema};
+pub use prompt::{CROWN_CARD_BODY_CAP, ORACLE_PROMPT_VERSION, ORACLE_SYSTEM_PROMPT, build_crown_prompt, oracle_format_schema};
 
 /// Output contract captured in the diagnostic ledger, distinct from prompt_version. v1 was the
 /// reading-only reply; v2 adds the emitted `score` (the crown fold).
@@ -1332,6 +1332,13 @@ impl StageHandler for SigilHandler {
             }
         };
 
+        // The 4096 envelope (7.8): on the packet rail every pillar body is capped, because the
+        // crown is the ONE seat that reads five cards at once and, until now, truncated none of
+        // them. The Oracle itself reads no packet — §4 keeps it blind to evidence: five cards and
+        // its own verdict trail, nothing else. What the packet rail changes here is only how much
+        // of each peer's card fits in the window.
+        let body_cap = hx.rail.is_packet().then_some(prompt::CROWN_CARD_BODY_CAP);
+
         // The one crown call (OracleLogic): read the cards + the omen + our prior reads, then emit
         // {reading, score}. Fail-closed lives in CrownParser (unparseable → Err → the item backs off).
         let prompt = build_crown_prompt(
@@ -1347,6 +1354,7 @@ impl StageHandler for SigilHandler {
             &omen_reason,
             prior_read.as_deref(),
             memory.as_deref(),
+            body_cap,
         );
         let opts = GenerateOptions {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),

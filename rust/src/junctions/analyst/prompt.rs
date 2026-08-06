@@ -100,6 +100,7 @@ pub const MOMENTUM_PROMPT_VERSION: &str = "momentum-s13"; // s13: WITHDRAWS the 
 /// memory card (s5, mig 163) — `None` when the graph holds none, and for the eval/fixture
 /// paths (which pin the memory-free shape). Rendered BEFORE the decided-direction line so
 /// the decided fact stays adjacent to the reply cue.
+#[allow(clippy::too_many_arguments)]
 pub fn build_momentum_prompt(
     entity_type: &str,
     entity_name: &str,
@@ -108,6 +109,7 @@ pub fn build_momentum_prompt(
     vibe: Option<&SynthVibe>,
     mom: &SynthMomentum,
     memory: Option<&str>,
+    packets: &[&str],
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
@@ -187,6 +189,20 @@ pub fn build_momentum_prompt(
             b.push('\n');
         }
     }
+    // The compiled storylines behind the move (7.8, packet rail only — empty under legacy, so
+    // this section is absent and the legacy prompt stays byte-identical). It answers "what is
+    // actually moving" with the stories themselves rather than with a peer's summary of them.
+    // Like the memory card, it is context and NEVER a licence to re-litigate the direction: the
+    // decided fact is stated below it, last, and it is final.
+    if !packets.is_empty() {
+        b.push_str("\n=== THE STORIES BEHIND THE MOVE (assembled from the reads) ===\n");
+        b.push_str("Context for WHAT is moving. Never evidence for a new claim, never a reason to contradict the decided direction.\n");
+        for p in packets {
+            b.push_str(p.trim_end());
+            b.push('\n');
+        }
+    }
+
     // The decided fact the model narrates (never decides) — the omen pattern. The band
     // rationale is spelled out so the READ can ground "how hard is it moving" in the
     // same scale the decision used.

@@ -6,6 +6,7 @@ package maintenance
 import (
 	"context"
 	"log/slog"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -542,11 +543,32 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 //     The Rust ScrubHandler drains it, runs the asymmetric gate, and writes
 //     vetted (firing the mig-103 trigger).
 //
+// railIsPacket reports whether this process is running on the packet rail (PLAN-one-rail §2).
+// Mirrors thirdparty.railIsPacket — same default-legacy contract: anything other than exactly
+// "packet" leaves the legacy maintenance sweeps behaving as they always have.
+func railIsPacket() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("RAIL")), "packet")
+}
+
 // Newest-first so the recent window the consumers read stays scrubbed; the
 // ancient tail is harmless (consumers filter by recency).
 func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
 	batch := cfg.NewsScrubBatch
 	if batch <= 0 {
+		return
+	}
+
+	// PLAN-one-rail 8.4: the whole sweep is legacy-rail machinery. `scrub` is one of the two
+	// stages the cutover retires, so on the packet rail phase 2 below would enqueue work no
+	// worker claims — a queue that only ever grows, which is indistinguishable from a wedged one
+	// the next time somebody goes looking for a real problem. Phase 1's auto-vet is retired for a
+	// second reason: on the packet rail the Editor is what decides `vetted` (8.5), having actually
+	// read the article, and a blind confidence-1.0 auto-vet racing it would stamp rows nothing
+	// read. The Editor's own backstop is Go enqueueing `editor` at ingest (3.5).
+	//
+	// Deletion is Phase 9 — this is the "off, not gone" state Scott asked for, so the legacy rail
+	// costs zero compute while it stays available to switch back on.
+	if railIsPacket() {
 		return
 	}
 

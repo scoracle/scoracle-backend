@@ -26,7 +26,7 @@ as the flip — under `RAIL=packet` the Influencer has no waker until those rows
 STILL OPEN IN PHASE 7: **7.7** (the Scout's personnel-changes block — plumbing, genuinely owed),
 7.11 + 7.15 (the junction pass). OPEN ITEMS OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
 /mnt/data/scratch grant pending on archbox (low priority). **The Mac voice pause is LIFTED** by
-ruling (3). Last plan commit: (this one). Updated 2026-08-05 ~23:40 EDT (phase 7 deployed).**
+ruling (3). Last plan commit: (this one). Updated 2026-08-05 ~23:45 EDT (phase 7 deployed @ `ac131ca`).**
 
 *(Superseded STATE of 2026-08-05 ~23:10 EDT — phase 7 started, 7.4 blocked — kept verbatim below.)*
 
@@ -2597,7 +2597,7 @@ session's). 7.5/7.6 are buildable now and only their WAKE-UP depends on D-T15.
 
 **2026-08-05 ~23:05–23:35 EDT — the brain is wired, the window is pinned, and the voices are back
 on.** Commits `2f1a5cd` (7.5/7.6) → `a3f7cd0` (7.8) → `d1edce1` (7.10, mig 211) → `f256abb`
-(7.12/7.14). **DEPLOYED 23:28 EDT @ `f256abb`** — 391 tests green, clippy clean on every touched
+(7.12/7.14). **DEPLOYED 23:28 EDT @ `f256abb`, corrected 23:42 @ `ac131ca`** — 391 tests green, clippy clean on every touched
 file.
 
 **SCOTT'S TWO RULINGS THIS SESSION, and they redirected the work:**
@@ -2701,12 +2701,20 @@ plumbing and is genuinely owed; 7.11/7.15 are the junction pass Scott scheduled 
 ### Handoff (phase 7 → 8)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
-Phases 0–7 committed: the whole new rail runs in shadow; voices are wired for packets +
-memories behind RAIL=legacy (diet prompts RAIL-scoped — legacy is bit-identical); Mac serves
-the six voices at uniform 4096. Read §0 and ALL of §2 (the cutover condition — you are
-measuring it), then execute Phase 8. Phase 8 does NOT flip anything until the 7-day condition
-is green and Scott has said "flip" — the flip is his act, prepared by you. If any clause fails,
-STOP, log the numbers, emit the block with BLOCKED.
+Phase 7 is DEPLOYED @ ac131ca (RAIL=legacy, VOICE_NUM_CTX=4096, all 11 stages live, the six
+voices back on ministral at 4096). The whole packet brain is wired and dormant. Read §0, the
+STATE line, and ALL of §2 (the cutover condition — you are measuring it), then execute Phase 8.
+THREE THINGS PHASE 8 MUST NOT LOSE:
+ 1. The 7.4 seed of stage_routing_subscriptions is now PART OF THE FLIP, not a prior step
+    (Scott: "we don't need to seed anything until the cutover"). Under RAIL=packet the
+    Influencer has NO waker until those rows exist — 7.6 gated the Journalist-side enqueue to
+    legacy. Seed, drop mig 175's trigger, and flip in ONE act.
+ 2. Still open in Phase 7: 7.7 (the Scout's personnel-changes block — plumbing, owed) and
+    7.11/7.15 (the junction pass Scott scheduled for the weekend of Aug 8).
+ 3. 6.7's 72h bands close ~Aug 8 22:10 EDT — read them and close Phase 6.
+Phase 8 does NOT flip anything until the 7-day condition is green and Scott has said "flip" —
+the flip is his act, prepared by you. If any clause fails, STOP, log the numbers, emit the
+block with BLOCKED.
 ```
 
 ---

@@ -185,6 +185,13 @@ async fn main() -> Result<()> {
         handlers.push(Box::new(oracle::SigilHandler::new()));
     }
     info!(stages = ?enabled, handlers = handlers.len(), "registered stage handlers");
+    // The Desk's switch is logged loudly, like every other thing that changes what a deploy
+    // writes: storylines always assemble (greenfield tables only), packets compile only when
+    // this says so (PLAN-one-rail 6.3 — mig 206's Journalist arm fans unconditionally).
+    info!(
+        packet_compile = cfg.packet_compile,
+        "desk: storyline assembly always on; packet compile gated by COGNITION_PACKET_COMPILE"
+    );
 
     let worker = worker::Worker::new(
         harness,
@@ -194,6 +201,7 @@ async fn main() -> Result<()> {
         cfg.handler_timeout,
         cfg.watchdog,
         cfg.drain_concurrency,
+        cfg.packet_compile,
     );
     worker.run().await
 }

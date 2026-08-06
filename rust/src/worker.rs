@@ -34,8 +34,9 @@
 //! you review the foundation.
 
 use crate::harness::Harness;
+use crate::junctions::editor;
 use crate::stage::StageHandler;
-use crate::work::{self, retry_backoff, MAX_ATTEMPTS};
+use crate::work::{self, retry_backoff, Stage, MAX_ATTEMPTS};
 use anyhow::{anyhow, Result};
 use futures::stream::{FuturesUnordered, StreamExt};
 use sqlx::postgres::PgListener;
@@ -291,9 +292,18 @@ pub struct Worker {
     /// membership are invisible to each other in `novelty::gate`), so it only has work to do
     /// after a scrub batch has settled. Running it every tick would be pure write amplification.
     last_dedup_sweep: Arc<AtomicI64>,
+    /// Unix seconds of the last Desk sweep (PLAN-one-rail 6.4), 0 until the first runs. Hourly
+    /// for the same reason as the dedup sweep: dormancy is a 14-day fact, so a per-tick pass
+    /// would be a full-table UPDATE scan that finds nothing 3,600 times an hour.
+    last_desk_sweep: Arc<AtomicI64>,
+    /// Whether the Desk compiles packets (`COGNITION_PACKET_COMPILE`, default off — see
+    /// `config::Config::packet_compile` and `editor::packet`'s fan-out note). Storyline
+    /// assembly runs regardless; it happens inside the Editor's handle, not here.
+    packet_compile: bool,
 }
 
 impl Worker {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         harness: Harness,
         handlers: Vec<Box<dyn StageHandler>>,
@@ -302,6 +312,7 @@ impl Worker {
         handler_timeout: Duration,
         watchdog: Duration,
         drain_concurrency: Option<usize>,
+        packet_compile: bool,
     ) -> Self {
         let pool = harness.pool.clone();
         // Unset means "let the per-stage caps govern": the sum of every stage's `max_in_flight`
@@ -324,6 +335,8 @@ impl Worker {
             shutdown: Arc::new(AtomicBool::new(false)),
             cause: Arc::new(StdMutex::new("startup")),
             last_dedup_sweep: Arc::new(AtomicI64::new(0)),
+            last_desk_sweep: Arc::new(AtomicI64::new(0)),
+            packet_compile,
         }
     }
 
@@ -432,6 +445,57 @@ impl Worker {
         }
     }
 
+    /// The Desk's periodic work (PLAN-one-rail 6.3/6.4) — deterministic code, zero model calls,
+    /// run only on the machine that seats the Editor (the Mac's voices have no Desk).
+    ///
+    /// Two cadences in one pass:
+    ///   * **hourly** — the storyline lifecycle sweep: an open storyline nobody has added to for
+    ///     14 days goes dormant, which is what keeps the attachment rule's candidate set honest.
+    ///   * **every tick** — packet compilation, which carries its own 15-minute quiet debounce in
+    ///     SQL (`packet::compile_dirty`), so a story arriving as a burst compiles once. OFF unless
+    ///     `COGNITION_PACKET_COMPILE` says otherwise: `INSERT ON packets` fires mig 206's
+    ///     unconditional Journalist fan-out, which under `RAIL=legacy` would fight the legacy
+    ///     `article_read` enqueue over the same `pipeline_work` row (the mig-197 churn loop).
+    ///
+    /// Failure is logged and swallowed, like the dedup sweep: the Desk is downstream of reads
+    /// that are already persisted, and it must never block a drain.
+    async fn desk_sweep(&self, cause: &str, pulse: &Pulse) {
+        const DORMANCY_SWEEP_INTERVAL_SECS: i64 = 3_600;
+        /// Storylines compiled per tick. A ceiling, not a target: the backfill's first quiet
+        /// window has thousands of dirty storylines, and a drain tick is not the place to
+        /// compile all of them at once.
+        const COMPILE_BATCH: i64 = 200;
+
+        if !self.handlers.iter().any(|h| h.stage() == Stage::Editor) {
+            return;
+        }
+
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        let last = self.last_desk_sweep.load(Ordering::Acquire);
+        if last == 0 || now.saturating_sub(last) >= DORMANCY_SWEEP_INTERVAL_SECS {
+            self.last_desk_sweep.store(now, Ordering::Release);
+            pulse.begin("storyline-dormancy");
+            match editor::storyline::mark_dormant(&self.pool).await {
+                Ok(n) if n > 0 => info!(dormant = n, cause, "storylines went dormant"),
+                Ok(_) => debug!(cause, "dormancy sweep: nothing quiet enough"),
+                Err(e) => error!(error = %format!("{e:#}"), cause, "dormancy sweep failed"),
+            }
+        }
+
+        if !self.packet_compile {
+            return;
+        }
+        pulse.begin("packet-compile");
+        match editor::packet::compile_dirty(&self.pool, COMPILE_BATCH).await {
+            Ok(n) if n > 0 => info!(packets = n, cause, "packets compiled"),
+            Ok(_) => debug!(cause, "packet compile: nothing dirty and quiet"),
+            Err(e) => error!(error = %format!("{e:#}"), cause, "packet compile failed"),
+        }
+    }
+
     /// One recover-then-drain cycle. No-op when no handlers are registered, so
     /// the scaffold never mutates the queue.
     async fn tick(&self, cause: &str, pulse: &Pulse) {
@@ -447,6 +511,8 @@ impl Worker {
         }
         self.sweep_exact_title_duplicates(cause, pulse).await;
         self.drain_all(cause, pulse).await;
+        // After the drain, not before: the Desk compiles what this tick's reads just attached.
+        self.desk_sweep(cause, pulse).await;
         pulse.idle();
     }
 

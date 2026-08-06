@@ -41,6 +41,13 @@ path = "src/bin/bucketlabel.rs"
 name = "remap"
 path = "src/bin/remap.rs"
 
+# One-shot storyline backfill over the shadow period's editor_reads (PLAN-one-rail 6.2). Pure
+# code — zero model calls, zero packets, so mig 206's fan-out cannot fire from it. Dry-run
+# (rehearse-and-rollback) by default; -apply commits in batches.
+[[bin]]
+name = "storylinefill"
+path = "src/bin/storylinefill.rs"
+
 [dependencies]
 # Async runtime.
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "time"] }

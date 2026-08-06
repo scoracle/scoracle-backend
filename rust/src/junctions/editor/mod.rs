@@ -27,7 +27,9 @@ use tracing::warn;
 pub mod candidates;
 pub mod derive;
 pub mod nominate;
+pub mod packet;
 pub mod prompt;
+pub mod storyline;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
 
 const EDITOR_NUM_PREDICT: i32 = 900;
@@ -485,6 +487,19 @@ impl StageHandler for EditorHandler {
                 "nomination sweep failed (read already persisted; continuing)"
             );
         }
+        // The Desk (Phase 6.1): the read joins a story. Last in the handle, after the read is
+        // persisted and after the nomination sweep, because the attachment scores the resolver's
+        // links — which only exist once the read committed. Irrelevant reads carry an empty
+        // `Resolved` and attach to nothing by construction.
+        storyline::attach_best_effort(
+            &hx.pool,
+            &item.sport,
+            article_id,
+            &article.title,
+            &read,
+            &resolved,
+        )
+        .await;
         Ok(())
     }
 }

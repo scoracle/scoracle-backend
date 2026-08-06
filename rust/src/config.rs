@@ -58,6 +58,16 @@ pub struct Config {
     /// only thing deciding how many model calls actually run on a machine. Set it only to
     /// throttle: `1` restores the old strictly-sequential drain.
     pub drain_concurrency: Option<usize>,
+    /// Whether the Desk compiles packets in the drain loop (`COGNITION_PACKET_COMPILE`, default
+    /// OFF — PLAN-one-rail Phase 6.3).
+    ///
+    /// Storyline assembly (6.1) is always on: it writes only greenfield tables nothing else
+    /// reads. Packet compilation is not, because `INSERT ON packets` fires mig 206's fan-out,
+    /// whose Journalist arm is unconditional by design — under `RAIL=legacy` that arm and the
+    /// legacy `article_read` seat would alternate one `pipeline_work` row's `input_version`
+    /// forever (the mig-197 churn loop). This switch holds that door until the seam is ruled on;
+    /// Phase 7.1's `RAIL` is what finally owns it.
+    pub packet_compile: bool,
 }
 
 impl Config {
@@ -116,6 +126,7 @@ impl Config {
                 })?),
                 None => None,
             },
+            packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
         })
     }
 }
@@ -354,6 +365,19 @@ fn env_opt(key: &str) -> Option<String> {
 
 fn env_or(key: &str, default: &str) -> String {
     env_opt(key).unwrap_or_else(|| default.to_string())
+}
+
+/// A switch, not a number: anything but the affirmative set is off, and an unset key is the
+/// default. Deliberately total — a typo in a deploy env must not fail a boot, it must leave the
+/// switch where the default put it (and the boot line logs the resolved value).
+fn env_bool(key: &str, default: bool) -> bool {
+    match env_opt(key) {
+        Some(raw) => matches!(
+            raw.trim().to_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        None => default,
+    }
 }
 
 fn env_u32(key: &str, default: u32) -> Result<u32> {

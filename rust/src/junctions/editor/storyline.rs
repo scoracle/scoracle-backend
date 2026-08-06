@@ -67,6 +67,8 @@ impl AttachMethod {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Candidate {
     pub storyline_id: i64,
+    /// How many participants the storyline was born with — the size of its join key.
+    pub seed_size: i32,
     /// DISTINCT active `player`/`person` participants shared with this read's resolved links.
     pub person_overlap: i32,
     /// DISTINCT active `team` participants shared with this read's resolved links.
@@ -98,12 +100,30 @@ pub fn score(candidate: &Candidate, story_type: &str) -> i32 {
         + i32::from(recent)
 }
 
+/// covers_seed is the gate the score alone cannot express: **the join must cover half the
+/// story's original cast.**
+///
+/// Measured, like everything else here. After the seed freeze, the 12,571-read backfill still
+/// produced a 304-article NBA "story" — seeded by a conference listicle that named six stars
+/// and five clubs at once. An 11-entity key is a magnet: any article naming one of those stars
+/// scored 2 + 1 (type) + 1 (recency) = 4 and joined. Sharing one name out of eleven is not the
+/// same story; sharing one name out of two is.
+///
+/// Half, not all, because a story legitimately gains and loses names as it runs — and because
+/// the common seed is two entities (a player and a club), where half means "the player" or
+/// "the club", and the score still decides which of those is enough.
+pub fn covers_seed(candidate: &Candidate) -> bool {
+    let shared = candidate.person_overlap + candidate.team_overlap;
+    shared * 2 >= candidate.seed_size
+}
+
 /// pick returns the winning (storyline_id, score) above the threshold, or None to open a new
 /// storyline. Ties break toward the FRESHEST candidate, then the lowest id (the established
 /// storyline) — deterministic, so a replay of the same corpus assembles the same storylines.
 pub fn pick(candidates: &[Candidate], story_type: &str) -> Option<(i64, i32)> {
     candidates
         .iter()
+        .filter(|c| covers_seed(c))
         .map(|c| (c, score(c, story_type)))
         .filter(|(_, s)| *s > ATTACH_THRESHOLD)
         .max_by(|(a, sa), (b, sb)| {
@@ -425,6 +445,12 @@ async fn candidates(
              GROUP BY s.id, s.last_seen_at, c.as_of
         )
         SELECT cand.id, cand.person_overlap, cand.team_overlap, cand.age_secs,
+               (SELECT count(*)::int
+                  FROM public.storyline_entities se3
+                 WHERE se3.storyline_id = cand.id
+                   AND se3.joined_at = (SELECT min(se4.joined_at)
+                                          FROM public.storyline_entities se4
+                                         WHERE se4.storyline_id = cand.id)) AS seed_size,
                (SELECT er.read ->> 'story_type'
                   FROM public.storyline_articles sa
                   JOIN public.editor_reads er ON er.article_id = sa.article_id
@@ -450,6 +476,7 @@ async fn candidates(
         .into_iter()
         .map(|r| Candidate {
             storyline_id: r.get("id"),
+            seed_size: r.get("seed_size"),
             person_overlap: r.get("person_overlap"),
             team_overlap: r.get("team_overlap"),
             dominant_type: r.get("dominant_type"),
@@ -656,6 +683,7 @@ mod tests {
                     let shared: Vec<&(String, i32)> = s.seed.intersection(&mine).collect();
                     Candidate {
                         storyline_id: s.id,
+                        seed_size: s.seed.len() as i32,
                         person_overlap: shared.iter().filter(|(t, _)| t != "team").count() as i32,
                         team_overlap: shared.iter().filter(|(t, _)| t == "team").count() as i32,
                         dominant_type: dominant(&s.types),
@@ -807,6 +835,64 @@ mod tests {
         assert!(!stories[0].seed.contains(&("player".to_string(), 9)));
     }
 
+    /// The listicle magnet the 12,571-read backfill measured: one NBA conference preview named
+    /// six stars and five clubs, and every later article about any one of them joined it.
+    #[test]
+    fn a_wide_cast_seed_does_not_swallow_the_conference() {
+        let listicle: Vec<(&'static str, i32)> = vec![
+            ("team", 20),
+            ("team", 23),
+            ("team", 27),
+            ("team", 6),
+            ("player", 73),
+            ("player", 145),
+            ("player", 237),
+            ("player", 447),
+            ("player", 70),
+            ("player", 265),
+            ("player", 3547254),
+        ];
+        let mut reads = vec![read(&listicle, "performance", 0)];
+        // Nine ordinary stories, each about one of the listicle's stars and its club.
+        for (i, (t, id)) in listicle.iter().skip(2).enumerate() {
+            reads.push(read(&[(*t, *id), ("team", 20)], "performance", i as i64 + 1));
+        }
+        let stories = replay(&reads);
+        assert!(
+            stories[0].members <= 2,
+            "the listicle must not become the conference's storyline: {} members",
+            stories[0].members
+        );
+        assert!(
+            stories.len() >= 8,
+            "the individual stories stay their own: {stories:#?}"
+        );
+    }
+
+    #[test]
+    fn covering_half_the_seed_is_what_the_gate_asks() {
+        let narrow = Candidate {
+            storyline_id: 1,
+            seed_size: 2,
+            person_overlap: 1,
+            team_overlap: 0,
+            dominant_type: Some("transfer".into()),
+            age_secs: HOUR,
+        };
+        assert!(covers_seed(&narrow), "1 of 2 is half");
+        let wide = Candidate {
+            seed_size: 11,
+            ..narrow.clone()
+        };
+        assert!(!covers_seed(&wide), "1 of 11 is not the same story");
+        let wide_but_shared = Candidate {
+            person_overlap: 4,
+            team_overlap: 2,
+            ..wide
+        };
+        assert!(covers_seed(&wide_but_shared), "6 of 11 is");
+    }
+
     #[test]
     fn a_cold_storyline_falls_out_of_the_candidate_window() {
         let stories = replay(&[
@@ -823,6 +909,8 @@ mod tests {
     fn candidate(person: i32, team: i32, dominant: Option<&str>, age_secs: i64) -> Candidate {
         Candidate {
             storyline_id: 1,
+            // The narrow seed the score tests are about: a player and a club.
+            seed_size: 2,
             person_overlap: person,
             team_overlap: team,
             dominant_type: dominant.map(str::to_string),
@@ -860,6 +948,7 @@ mod tests {
     fn ties_break_to_the_freshest_then_the_newest_storyline() {
         let older = Candidate {
             storyline_id: 7,
+            seed_size: 2,
             person_overlap: 1,
             team_overlap: 1,
             dominant_type: Some("transfer".into()),

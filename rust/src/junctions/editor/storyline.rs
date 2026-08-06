@@ -230,9 +230,16 @@ pub async fn attach_read(
         r#"
         INSERT INTO public.storyline_entities
             (storyline_id, entity_type, entity_id, sport, role, joined_at, last_seen_at)
-        SELECT $1, m.entity_type, m.entity_id, $2, NULLIF(m.role, ''),
+        -- DISTINCT ON: two emitted names can resolve to ONE entity (a name and an alias on the
+        -- same norm), and Postgres refuses an ON CONFLICT that would touch a row twice in one
+        -- statement. The strongest role among the duplicates is the one that survives.
+        SELECT DISTINCT ON (m.entity_type, m.entity_id)
+               $1, m.entity_type, m.entity_id, $2, NULLIF(m.role, ''),
                COALESCE(to_timestamp($6), NOW()), COALESCE(to_timestamp($6), NOW())
           FROM unnest($3::text[], $4::int[], $5::text[]) AS m(entity_type, entity_id, role)
+         ORDER BY m.entity_type, m.entity_id,
+                  CASE m.role WHEN 'subject' THEN 0 WHEN 'opponent' THEN 1
+                              WHEN 'passing_mention' THEN 2 ELSE 3 END
         ON CONFLICT (storyline_id, entity_type, entity_id, sport) DO UPDATE SET
             last_seen_at = GREATEST(public.storyline_entities.last_seen_at,
                                     EXCLUDED.last_seen_at),

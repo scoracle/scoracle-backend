@@ -481,3 +481,43 @@ fn graph_enqueue_is_gated_on_the_packet_rail() {
     assert!(!Rail::Legacy.is_packet(), "legacy must not enqueue graph from the Editor");
     assert!(Rail::Packet.is_packet());
 }
+
+/// The cutover blocker measured 2026-08-06: three Editor rows at attempts≥5, one per day, all
+/// `persist article full_text <id>: invalid byte sequence for encoding "UTF8": 0x00`. A NUL in a
+/// scraped body is not storable in a Postgres text column at all, so the write can only ever
+/// fail — and §2 clause 4 needs the dead-letter count at 0 for seven consecutive days, which one
+/// arrival per day resets forever. The body is sanitised where it enters the Editor, so the same
+/// clean text is what gets hashed, prompted, sliced for candidate evidence, and persisted.
+#[test]
+fn a_body_carrying_nul_is_sanitised_before_it_can_reach_a_text_column() {
+    let fetched = FetchedArticle {
+        final_url: "https://example.com/a".to_string(),
+        final_domain: Some("example.com".to_string()),
+        text: "Vinicius \u{0}Junior is \u{0}staying at Real Madrid.\u{0}".to_string(),
+    };
+    assert!(fetched.text.contains('\0'), "the fixture must carry the byte under test");
+
+    let clean = sanitize_fetched(fetched);
+    assert!(!clean.text.contains('\0'), "no NUL may survive into full_text");
+    assert_eq!(clean.text, "Vinicius Junior is staying at Real Madrid.");
+    // The derivations that ride the same body must be computable on it.
+    assert_eq!(count_words(&clean.text), 7);
+    assert!(!content_hash(&clean.text).is_empty());
+    // The URL columns are bound from the same struct and must survive untouched.
+    assert_eq!(clean.final_url, "https://example.com/a");
+    assert_eq!(clean.final_domain.as_deref(), Some("example.com"));
+}
+
+/// Sanitisation must be invisible to the 99.99% of bodies that carry no NUL: same bytes in, same
+/// bytes out, so no prompt and no `content_hash` moves for an ordinary article.
+#[test]
+fn a_body_without_nul_passes_through_byte_identical() {
+    let body = "Arsenal have agreed a fee.\n\nThe deal is not done.\t— sources";
+    let clean = sanitize_fetched(FetchedArticle {
+        final_url: "https://example.com/b".to_string(),
+        final_domain: None,
+        text: body.to_string(),
+    });
+    assert_eq!(clean.text, body);
+    assert_eq!(content_hash(&clean.text), content_hash(body));
+}

@@ -353,7 +353,7 @@ impl StageHandler for EditorHandler {
         }
 
         let fetched = match fetch_article(&article.url).await {
-            Ok(f) => f,
+            Ok(f) => sanitize_fetched(f),
             Err(e) => {
                 let msg = format!("{e:#}");
                 // fetch.rs surfaces auth walls as "article HTTP 401/403"; those are the
@@ -578,7 +578,7 @@ pub async fn build_editor_prompt_for_eval(
     if article.duplicate_of.is_some() {
         return Ok(None);
     }
-    let fetched = fetch_article(&article.url).await?;
+    let fetched = sanitize_fetched(fetch_article(&article.url).await?);
     if count_words(&fetched.text) < ARTICLE_MIN_WORDS {
         return Ok(None);
     }
@@ -915,6 +915,24 @@ async fn ledger_model_call(
         },
     )
     .await;
+}
+
+/// A scraped body occasionally carries a NUL byte (a stray control char surviving `clean_html`),
+/// and Postgres cannot store one in a `text` column at ALL — the write dies with
+/// `invalid byte sequence for encoding "UTF8": 0x00`. Before this, ~1 article/day dead-lettered
+/// the Editor on the `news_articles.full_text` write, which §2 clause 4 (dead-letters = 0 over
+/// the 7-day window) can never tolerate.
+///
+/// This is sanitisation, not policy: NUL carries no meaning in article prose, so it is dropped
+/// the moment the body enters the Editor — before it is hashed, prompted, sliced for candidate
+/// evidence, or persisted. Every one of those is a text column or a model input, and every one
+/// of them wants the same body. Nothing else about the body is touched.
+fn sanitize_fetched(mut fetched: FetchedArticle) -> FetchedArticle {
+    // The common case allocates nothing: bodies with no NUL pass through untouched, byte-identical.
+    if fetched.text.contains('\0') {
+        fetched.text = fetched.text.replace('\0', "");
+    }
+    fetched
 }
 
 fn normalize_language_code(raw: &str) -> String {

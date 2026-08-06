@@ -70,6 +70,7 @@ async fn main() -> Result<()> {
         scrub: cfg.scrub.clone(),
         // Unbounded: a backfill is not a queue item and has no worker timeout to land inside.
         handler_budget: Duration::ZERO,
+        rail: scoracle_cognition::config::Rail::Legacy,
     };
 
     match args.mode.as_str() {

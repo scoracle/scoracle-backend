@@ -501,7 +501,7 @@ impl StageHandler for MomentumHandler {
             system: Some(MOMENTUM_SYSTEM_PROMPT.to_string()),
             temperature: Some(MOMENTUM_TEMPERATURE),
             num_predict: MOMENTUM_NUM_PREDICT,
-            num_ctx: crate::route::VOICE_NUM_CTX,
+            num_ctx: crate::route::voice_num_ctx(hx.rail),
             json_mode: false,
             format_schema: None,
             format_schema_raw: None,

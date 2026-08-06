@@ -52,6 +52,7 @@ fn prompt_numbered_news_no_heat() {
         &[],
         None,
         None,
+        None,
     );
     assert!(
         !p.contains("Relational memory"),
@@ -62,6 +63,7 @@ fn prompt_numbered_news_no_heat() {
         &news,
         &[],
         Some("Prior story: Real Madrid — fizzled (Jun 2026, peak coverage 82/100).\nGround truth: Bukayo Saka completed a confirmed move to Arsenal on Jul 01 2026."),
+        None,
         None,
     );
     assert!(with_mem.contains("Relational memory (computed history"));
@@ -98,7 +100,7 @@ fn prompt_with_heat_section() {
             confidence: None,
         },
     ];
-    let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None, None);
+    let p = build_narratives_prompt(&req("Some Team", "NBA", "team"), &news, &heat, None, None, None);
     assert_eq!(
         p,
         "Entity: Some Team (NBA team)\n\
@@ -203,6 +205,7 @@ fn article_context_prefers_article_read_then_body_then_description() {
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &[read],
         &[],
+        None,
         None,
         None,
     );
@@ -348,6 +351,7 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         &[],
         None,
         Some("SIGNALS (deterministic tally for your card score): 1 article(s) after dedup · 1 distinct source(s)\nYOUR PRIOR CARD READS (memory — your own previous card scores; continuity, not new evidence):\nCard scores (newest first): 58 (Jul 18) · 55 (Jul 12)"),
+        None,
     );
     let signals = p.find("SIGNALS (deterministic").unwrap();
     let reply = p.find("\nReturn the JSON object now.").unwrap();
@@ -361,6 +365,7 @@ fn prompt_score_context_renders_last_before_reply_instruction() {
         &req("Bukayo Saka", "FOOTBALL", "player"),
         &news,
         &[],
+        None,
         None,
         None,
     );
@@ -523,4 +528,64 @@ fn impact_recency_buckets() {
     // 3 days old → no bucket → 0.
     let (_, comp3) = compute_news_impact(&news, 3 * day);
     assert_eq!(comp3["recency"], json!(0.0));
+}
+
+// --- 7.3: the packet rail's prompt seam ---------------------------------------------------------
+
+/// The law the whole phase rests on: under `RAIL=legacy` nothing about the prompt changes. The
+/// packet framing is the ONLY new byte, and `None` means it contributes none of them — so a
+/// legacy-rail deploy carrying all of Phase 7 sends exactly what the Phase 6 binary sent.
+#[test]
+fn legacy_rail_prompt_is_byte_identical_to_the_no_framing_prompt() {
+    let news = vec![item(10, "BBC", "Saka shines again", "A strong display.", None)];
+    let entity = req("Bukayo Saka", "FOOTBALL", "player");
+    let legacy = build_narratives_prompt(&entity, &news, &[], None, None, None);
+    // An empty or whitespace framing must be indistinguishable from no framing: a packet with
+    // nothing to frame must not leave a dangling header in the prompt.
+    for empty in ["", "   ", "\n"] {
+        assert_eq!(
+            legacy,
+            build_narratives_prompt(&entity, &news, &[], None, None, Some(empty)),
+            "an empty framing block changed the prompt"
+        );
+    }
+    assert!(!legacy.contains("The story so far"));
+}
+
+/// On the packet rail the framing lands ABOVE the numbered evidence — the story first, then what
+/// each source said about it — and the numbered list is untouched, because grounding still maps
+/// those numbers to real article ids.
+#[test]
+fn packet_framing_precedes_the_numbered_evidence() {
+    let news = vec![item(10, "Football365", "Arsenal agreed personal terms", "", None)];
+    let p = build_narratives_prompt(
+        &req("Vinicius Junior", "FOOTBALL", "player"),
+        &news,
+        &[],
+        None,
+        None,
+        Some("STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Vinicius Junior (subject) — in this story 2026-08-02 → 2026-08-05\nPREVIOUSLY: Arsenal open talks for Vinicius"),
+    );
+    let framing = p.find("The story so far").expect("framing block present");
+    let news_block = p.find("Recent news (numbered):").expect("evidence present");
+    assert!(framing < news_block, "the story frames the evidence, not the reverse");
+    assert!(p.contains("PREVIOUSLY: Arsenal open talks"));
+    assert!(p.contains("1. [Football365] Arsenal agreed personal terms"));
+}
+
+/// The rail decides the window AND the reservation together, and the legacy pair is the one that
+/// ships until Phase 8 (§7's envelope: 4096 with a 700 reservation on the packet rail).
+#[test]
+fn decode_budget_is_rail_scoped() {
+    use crate::config::Rail;
+    assert_eq!(
+        narratives_decode_budget(Rail::Legacy),
+        (NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT)
+    );
+    assert_eq!(narratives_decode_budget(Rail::Packet), (4096, 700));
+    // The packet reservation must fit §7's ≤800 share, and the prompt budget must leave room for
+    // it: a window that cannot hold its own reservation is the silent-eviction bug.
+    let (ctx, predict) = narratives_decode_budget(Rail::Packet);
+    assert!(predict <= 800);
+    assert!(ctx - predict >= 3_300, "no room for the p99 prompt envelope");
 }

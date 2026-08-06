@@ -20,7 +20,7 @@
 //! speculation. The trait's three methods are exactly the inherent methods `OllamaClient`
 //! already exposes, so the impl is a thin delegation and the wire body stays single-sourced.
 
-use crate::config::{Backend, ModelSpec, RouteConfig};
+use crate::config::{Backend, ModelSpec, Rail, RouteConfig};
 use crate::ollama::{GenerateOptions, GenerateResult, OllamaClient};
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -74,6 +74,24 @@ use tokio::sync::Semaphore;
 /// agreed size is [`crate::junctions::article_reader::ARTICLE_NUM_CTX`]. Sending this value there would put
 /// a 16384 KV allocation on an 8 GB card and reintroduce exactly the thrash described above.
 pub const VOICE_NUM_CTX: i32 = 16384;
+
+/// The packet rail's window (§7's envelope): prompt + memory + packet render + reservation, all
+/// inside 4096. This is the number the whole diet is sized against — a voice that still needed
+/// 16384 on the packet rail would mean the render or the memory block had quietly grown back.
+pub const VOICE_NUM_CTX_PACKET: i32 = 4096;
+
+/// The context window a voice requests on this rail.
+///
+/// **Uniform per host, always.** The reload-thrash diagnosis above is about DISAGREEMENT between
+/// roles sharing a runner, not about any particular size — so this is a function of the rail and
+/// nothing else. Every voice on a box moves together when the rail flips, which is exactly what
+/// keeps the runner loaded once.
+pub fn voice_num_ctx(rail: Rail) -> i32 {
+    match rail {
+        Rail::Legacy => VOICE_NUM_CTX,
+        Rail::Packet => VOICE_NUM_CTX_PACKET,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Role {

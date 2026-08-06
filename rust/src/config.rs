@@ -68,6 +68,51 @@ pub struct Config {
     /// forever (the mig-197 churn loop). This switch holds that door until the seam is ruled on;
     /// Phase 7.1's `RAIL` is what finally owns it.
     pub packet_compile: bool,
+    /// Which rail the VOICES read (`RAIL`, default `legacy`) — PLAN-one-rail Phase 7.1.
+    ///
+    /// This is the cutover switch, landed a phase before it is thrown: under `legacy` every voice
+    /// loads the corpus it has always loaded and every prompt const is byte-identical to HEAD~1
+    /// (7.11's diet is packet-scoped), so a deploy carrying the whole packet brain changes
+    /// nothing user-visible. Phase 8 flips it, on Scott's word, after §2's 7-day condition is
+    /// green. Read ONCE at boot and logged loudly — never re-read per item, so a rail cannot
+    /// change under a running drain.
+    pub rail: Rail,
+}
+
+/// The rail a voice reads from. Deliberately two-valued and total (an unparseable value resolves
+/// to `Legacy` rather than failing the boot — same reasoning as `env_bool`: a typo in a deploy env
+/// must leave the switch where the default put it, and the boot line states the resolved value).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Rail {
+    /// The voices read `load_vetted_corpus_with_exclusions` and its siblings — today's behavior.
+    #[default]
+    Legacy,
+    /// The voices read compiled packets (§1c) through `editor::render`.
+    Packet,
+}
+
+impl Rail {
+    /// The string that appears in boot logs and telemetry.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Rail::Legacy => "legacy",
+            Rail::Packet => "packet",
+        }
+    }
+
+    /// True when the voices should read packets. Reads at call sites as the question being asked
+    /// (`if cfg.rail.is_packet()`), which keeps the enum from leaking into every branch.
+    pub fn is_packet(self) -> bool {
+        matches!(self, Rail::Packet)
+    }
+
+    fn parse(raw: &str) -> Option<Self> {
+        match raw.trim().to_lowercase().as_str() {
+            "legacy" => Some(Rail::Legacy),
+            "packet" => Some(Rail::Packet),
+            _ => None,
+        }
+    }
 }
 
 impl Config {
@@ -127,6 +172,9 @@ impl Config {
                 None => None,
             },
             packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
+            rail: env_opt("RAIL")
+                .and_then(|raw| Rail::parse(&raw))
+                .unwrap_or_default(),
         })
     }
 }
@@ -446,6 +494,28 @@ mod tests {
         let err = env_f32(key, 0.5).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
+    }
+
+    // --- the rail switch (7.1) ---
+
+    #[test]
+    fn rail_parses_both_values_case_insensitively() {
+        assert_eq!(Rail::parse("packet"), Some(Rail::Packet));
+        assert_eq!(Rail::parse("  PACKET "), Some(Rail::Packet));
+        assert_eq!(Rail::parse("legacy"), Some(Rail::Legacy));
+        assert_eq!(Rail::parse("Legacy"), Some(Rail::Legacy));
+    }
+
+    /// A typo must not silently put a box on the packet rail, and must not fail its boot: it
+    /// resolves to the default, which the boot line then states.
+    #[test]
+    fn rail_falls_back_to_legacy_on_anything_else() {
+        assert_eq!(Rail::parse("pakcet"), None);
+        assert_eq!(Rail::parse(""), None);
+        assert_eq!(Rail::default(), Rail::Legacy);
+        assert!(!Rail::default().is_packet());
+        assert_eq!(Rail::Legacy.as_str(), "legacy");
+        assert_eq!(Rail::Packet.as_str(), "packet");
     }
 
     // --- the topology split: per-host concurrency budgets ---

@@ -158,6 +158,8 @@ pub fn narratives_format_schema() -> serde_json::Value {
 /// `buildNarrativesPrompt` while `full_text` is NULL (the current state) and no `score_context`
 /// is given. The `—` (U+2014) bytes are significant. The heat section is OMITTED entirely when
 /// there is no transfer heat (unlike vibe's "(none)" line), matching Go's `if len(heat) > 0`.
+/// `packet_framing` (7.3) is the storyline block on the packet rail and `None` on the legacy rail,
+/// where this function stays byte-identical to what it emitted before Phase 7.
 /// `score_context` (n12) is the pre-rendered SIGNALS line + prior-card-reads memory block that
 /// grounds the card score — rendered last, just before the reply instruction, so the verdict
 /// lands after the signs are read. Like the relational memory it is prompt-only: deliberately
@@ -168,12 +170,21 @@ pub fn build_narratives_prompt(
     heat: &[HeatItem],
     memory: Option<&str>,
     score_context: Option<&str>,
+    packet_framing: Option<&str>,
 ) -> String {
     let mut b = String::new();
     b.push_str(&format!(
         "Entity: {} ({} {})\n",
         req.entity_name, req.sport, req.entity_type
     ));
+    // The storyline framing (packet rail only, 7.3) — what story this is, this entity's part in
+    // it, and one line of what the prior packet said. `None` under RAIL=legacy, so the legacy
+    // prompt is byte-identical to the pre-Phase-7 binary.
+    if let Some(f) = packet_framing.filter(|f| !f.trim().is_empty()) {
+        b.push_str("\nThe story so far (assembled by the desk from every source below):\n");
+        b.push_str(f.trim_end());
+        b.push('\n');
+    }
     b.push_str("\nRecent news (numbered):\n");
     for (i, n) in news.iter().enumerate() {
         b.push_str(&format!("{}. ", i + 1));

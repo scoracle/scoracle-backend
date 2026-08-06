@@ -123,6 +123,7 @@ async fn main() -> Result<()> {
         // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
+        rail: cfg.rail,
     };
 
     // Each handler owns exactly one queue stage. Post Step-3 the daemon owns the live set; the
@@ -191,6 +192,19 @@ async fn main() -> Result<()> {
     info!(
         packet_compile = cfg.packet_compile,
         "desk: storyline assembly always on; packet compile gated by COGNITION_PACKET_COMPILE"
+    );
+    // The rail the voices read (7.1). Louder than the Desk switch, because this one decides what
+    // every voice's prompt is made of: under `legacy` the corpora and the prompt consts are
+    // byte-identical to the pre-Phase-7 binary. Phase 8 flips it.
+    info!(
+        rail = cfg.rail.as_str(),
+        voices = if cfg.rail.is_packet() {
+            "packets (§1c) via editor::render"
+        } else {
+            "legacy corpora (vetted article windows)"
+        },
+        "RAIL: the voices read {}",
+        cfg.rail.as_str()
     );
 
     let worker = worker::Worker::new(

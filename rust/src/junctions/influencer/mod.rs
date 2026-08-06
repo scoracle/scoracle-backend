@@ -624,7 +624,7 @@ async fn generate_vibe_from_context(
         system: Some(VIBE_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
         num_predict: VIBE_NUM_PREDICT,
-        num_ctx: crate::route::VOICE_NUM_CTX,
+        num_ctx: crate::route::voice_num_ctx(hx.rail),
         json_mode: false,
         format_schema: None,
         format_schema_raw: None,

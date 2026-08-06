@@ -74,8 +74,15 @@ pub struct PacketEntity {
     pub name: String,
 }
 
-/// One attributed claim. The persisted shape is exactly §1c's four fields; `story_type` rides
-/// along in memory so the transfers slice can be fingerprinted without re-reading members.
+/// One attributed claim: §1c's four fields plus the `story_type` that produced it.
+///
+/// `story_type` was in-memory-only through 6.3 (the persisted shape was exactly the four). 7.2
+/// persists it, because the Insider's packet slice IS the transfer-typed claims (7.5) and its
+/// `slice_fingerprints.transfers` hashes exactly that subset: a renderer that cannot see the type
+/// would render a different slice than the fingerprint promises, and E2's "re-read only when YOUR
+/// slice moved" would be a lie in both directions (silent staleness, or a re-fan that changes
+/// nothing). Free to add here: zero packets have ever been compiled, so no row carries the old
+/// shape, and readers key on the four fields they already knew.
 #[derive(Clone, Debug)]
 struct Claim {
     article_id: i64,
@@ -92,6 +99,7 @@ impl Claim {
             "source": self.source,
             "fact": self.fact,
             "published_at": self.published_at,
+            "story_type": self.story_type,
         })
     }
 }
@@ -447,6 +455,142 @@ pub async fn compile_storyline(
     let draft = compile(&members, &entities);
     let packet_id = insert_packet(pool, storyline_id, sport, &draft).await?;
     Ok(Some(packet_id))
+}
+
+/// A compiled packet as a READER sees it (7.2/7.3) — the row, plus the one continuity line from
+/// the packet it supersedes. The writer's shape is [`PacketDraft`]; this is deliberately separate,
+/// because a reader must never be able to hand a draft to the renderer and skip the archive.
+#[derive(Clone, Debug)]
+pub struct PacketView {
+    pub packet_id: i64,
+    pub storyline_id: i64,
+    pub sport: String,
+    pub headline: Option<String>,
+    pub story_types: Vec<String>,
+    pub register: Option<String>,
+    pub register_phrase: Option<String>,
+    /// `facts.result_line` — verbatim from the text, when the story has a completed result.
+    pub result_line: Option<String>,
+    /// The headline of the packet this one supersedes; the render's one `PREVIOUSLY:` line.
+    pub prior_headline: Option<String>,
+    pub claims: Vec<super::render::RenderClaim>,
+    pub facts: Value,
+}
+
+/// Load the entity's CURRENT packets — the newest packet of each storyline it is an active
+/// participant in, compiled within `hours` — newest first, with its part in each.
+///
+/// One packet per storyline, always the latest: packets are append-only snapshots, so the older
+/// ones are archive (the moat), never context. `left_at IS NULL` honours D5 — an entity written
+/// out of a story stops reading it.
+pub async fn load_packets_for_entity(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    hours: i64,
+    limit: i64,
+) -> Result<Vec<(PacketView, super::render::Participation)>> {
+    let rows = sqlx::query(
+        r#"
+        WITH mine AS (
+            SELECT se.storyline_id, se.role, se.joined_at, se.last_seen_at
+              FROM public.storyline_entities se
+             WHERE se.entity_type = $1
+               AND se.entity_id = $2
+               AND se.sport = $3
+               AND se.left_at IS NULL
+        ),
+        latest AS (
+            SELECT DISTINCT ON (p.storyline_id)
+                   p.id, p.storyline_id, p.sport, p.headline, p.story_types, p.register,
+                   p.register_phrase, p.claims, p.facts,
+                   EXTRACT(EPOCH FROM p.compiled_at)::bigint AS compiled_epoch,
+                   prior.headline AS prior_headline,
+                   mine.role,
+                   to_char(mine.joined_at, 'YYYY-MM-DD') AS joined_on,
+                   to_char(mine.last_seen_at, 'YYYY-MM-DD') AS last_seen_on
+              FROM public.packets p
+              JOIN mine ON mine.storyline_id = p.storyline_id
+              LEFT JOIN public.packets prior ON prior.id = p.supersedes_packet_id
+             WHERE p.compiled_at >= NOW() - make_interval(hours => $4::int)
+             ORDER BY p.storyline_id, p.compiled_at DESC, p.id DESC
+        )
+        SELECT * FROM latest
+         ORDER BY compiled_epoch DESC, id DESC
+         LIMIT $5
+        "#,
+    )
+    .bind(entity_type)
+    .bind(entity_id)
+    .bind(sport.to_uppercase())
+    .bind(hours as i32)
+    .bind(limit.max(1))
+    .fetch_all(pool)
+    .await
+    .with_context(|| format!("load packets for {entity_type} {entity_id}"))?;
+
+    // `latest` already fixed the per-storyline winner and ordered them newest-compiled first.
+    let mut out: Vec<(PacketView, super::render::Participation)> = Vec::new();
+    for r in rows {
+        let claims_json: Value = r.get("claims");
+        let facts: Value = r.get("facts");
+        let claims = parse_claims(&claims_json);
+        let name = String::new(); // filled by the caller, which already knows the entity's name
+        out.push((
+            PacketView {
+                packet_id: r.get("id"),
+                storyline_id: r.get("storyline_id"),
+                sport: r.get("sport"),
+                headline: r.get("headline"),
+                story_types: r.get("story_types"),
+                register: r.get("register"),
+                register_phrase: r.get("register_phrase"),
+                result_line: facts
+                    .get("result_line")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string),
+                prior_headline: r.get("prior_headline"),
+                claims,
+                facts,
+            },
+            super::render::Participation {
+                name,
+                role: r.get("role"),
+                joined_on: r.get("joined_on"),
+                last_seen_on: r.get("last_seen_on"),
+            },
+        ));
+    }
+    Ok(out)
+}
+
+/// Parse `packets.claims` into the renderer's shape. A claim that does not carry the four
+/// required fields is skipped rather than failing the read — the packet is archive, and one
+/// malformed element must not cost a voice its whole context.
+fn parse_claims(claims: &Value) -> Vec<super::render::RenderClaim> {
+    claims
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|c| {
+                    Some(super::render::RenderClaim {
+                        article_id: c.get("article_id")?.as_i64()?,
+                        source: c.get("source")?.as_str()?.to_string(),
+                        fact: c.get("fact")?.as_str()?.to_string(),
+                        published_at: c.get("published_at").and_then(|v| v.as_i64()),
+                        // Packets compiled before 7.2 carry no type; an untyped claim is not in
+                        // any voice's narrowed slice, which is the safe side of that fence.
+                        story_type: c
+                            .get("story_type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 async fn load_members(pool: &PgPool, storyline_id: i64) -> Result<Vec<Member>> {

@@ -28,6 +28,7 @@ pub mod candidates;
 pub mod derive;
 pub mod nominate;
 pub mod packet;
+pub mod render;
 pub mod prompt;
 pub mod storyline;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};

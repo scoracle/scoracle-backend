@@ -1352,7 +1352,7 @@ impl StageHandler for SigilHandler {
             system: Some(ORACLE_SYSTEM_PROMPT.to_string()),
             temperature: Some(ORACLE_TEMPERATURE),
             num_predict: ORACLE_NUM_PREDICT,
-            num_ctx: crate::route::VOICE_NUM_CTX,
+            num_ctx: crate::route::voice_num_ctx(hx.rail),
             json_mode: false,
             format_schema: Some(oracle_format_schema()),
             format_schema_raw: None,

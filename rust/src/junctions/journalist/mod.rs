@@ -81,6 +81,27 @@ pub const NARRATIVES_NUM_PREDICT: i32 = 4000;
 /// more correct one, and narratives no longer sets its own.
 pub const NARRATIVES_NUM_CTX: i32 = crate::route::VOICE_NUM_CTX;
 
+/// The Journalist's output reservation on the packet rail (§7's envelope: ≤800, his share 700).
+///
+/// 4000 was sized for a corpus of twenty article bodies and a narrator asked to cover all of it.
+/// The packet rail hands him ONE storyline, already assembled, so the job is to narrate a story
+/// rather than to survey a feed — and 700 tokens is a card, not a truncation. The legacy value is
+/// untouched beside it: under `RAIL=legacy` this constant is not read at all.
+pub const NARRATIVES_NUM_PREDICT_PACKET: i32 = 700;
+
+/// The narratives call's window and output reservation on this rail. Both move together, because
+/// the reservation is part of what has to fit inside the window — the failure this pair exists to
+/// prevent is a prompt plus a reservation that overflow and silently evict the system prompt.
+pub fn narratives_decode_budget(rail: crate::config::Rail) -> (i32, i32) {
+    match rail {
+        crate::config::Rail::Legacy => (NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT),
+        crate::config::Rail::Packet => (
+            crate::route::VOICE_NUM_CTX_PACKET,
+            NARRATIVES_NUM_PREDICT_PACKET,
+        ),
+    }
+}
+
 /// Per-article description cap rendered into the prompt (Go's `truncate(desc, 200)`).
 const DESC_TRUNCATE: usize = 200;
 const ARTICLE_READ_BLURB_TRUNCATE: usize = 900;
@@ -512,6 +533,133 @@ async fn load_vetted_corpus_with_exclusions(
     exclusions.stale_news_ids.sort_unstable();
     exclusions.budget_truncated_ids.sort_unstable();
     Ok((corpus, exclusions))
+}
+
+/// How far back the packet rail looks. 72h matches the legacy narratives news lookback, so the
+/// cutover changes WHAT the corpus is made of, not WHEN it starts.
+pub const PACKET_LOOKBACK_HOURS: i64 = 72;
+/// Packets read per entity per run. An entity in more than this many live storylines at once is
+/// having an extraordinary week; the newest-compiled win and the rest are named as exclusions.
+pub const MAX_PACKETS_PER_ENTITY: usize = 5;
+
+/// load_packet_corpus is `load_vetted_corpus_with_exclusions`'s successor (7.3): the entity's
+/// storylines, compiled, instead of its articles, raw.
+///
+/// **The shape is deliberately unchanged.** It returns the same `Vec<CorpusItem>` — one item per
+/// MEMBER ARTICLE, carrying that article's claims as its text — plus the same `CorpusExclusions`.
+/// Everything downstream (the debounce hash, the SIGNALS line, citation grounding, impact scoring,
+/// the marker path) therefore works on the packet rail with no change at all, and the model still
+/// cites real `news_articles.id`s it can be grounded against. What changes is the material: read
+/// FACTS, attributed and contested-marked, in place of headlines and body excerpts.
+///
+/// The storyline framing (the story, this entity's part in it, what the prior packet said) rides
+/// separately, as the returned string — `build_narratives_prompt` renders it above the numbered
+/// evidence.
+async fn load_packet_corpus(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    sport: &str,
+    entity_name: &str,
+) -> Result<(Vec<CorpusItem>, CorpusExclusions, String)> {
+    use crate::junctions::editor::render;
+
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        PACKET_LOOKBACK_HOURS,
+        // One over the cap, so "there were more" is a fact this function KNOWS rather than
+        // infers — the extra packet is never rendered, only counted and named.
+        MAX_PACKETS_PER_ENTITY as i64 + 1,
+    )
+    .await?;
+
+    let mut exclusions = CorpusExclusions::default();
+    let mut framing = String::new();
+    // Article id → its claims, in the order the packets presented them (newest packet first,
+    // newest claim first). One entity can appear in several storylines and one article can be a
+    // member of only one, so collisions here are rare — but the map keeps the item list unique by
+    // article id either way, which is what grounding requires.
+    let mut by_article: Vec<(i64, PacketArticle)> = Vec::new();
+
+    for (i, (view, mut part)) in loaded.into_iter().enumerate() {
+        if i >= MAX_PACKETS_PER_ENTITY {
+            // A5: the packet we did not read is NAMED. Its members are the evidence being
+            // excluded, and the exclusions band is where an ungrounded story gets explained.
+            exclusions
+                .budget_truncated_ids
+                .extend(view.claims.iter().map(|c| c.article_id));
+            continue;
+        }
+        // The loader leaves the name blank — it knows the id, the caller knows the name.
+        part.name = entity_name.to_string();
+
+        if !framing.is_empty() {
+            framing.push('\n');
+        }
+        framing.push_str(&render::framing(&view, Some(&part), render::Voice::Journalist));
+
+        for marked in render::mark_contested(&view.claims) {
+            let fact = if marked.marked {
+                // The contradiction survives INTO the prompt, marked, so the Journalist can write
+                // "reports differ" instead of picking a side by accident (T3/D6).
+                format!("⇄ {}", marked.claim.fact)
+            } else {
+                marked.claim.fact.clone()
+            };
+            match by_article.iter_mut().find(|(id, _)| *id == marked.claim.article_id) {
+                Some((_, art)) => art.facts.push(fact),
+                None => by_article.push((
+                    marked.claim.article_id,
+                    PacketArticle {
+                        source: marked.claim.source.clone(),
+                        published_at_epoch: marked.claim.published_at,
+                        facts: vec![fact],
+                    },
+                )),
+            }
+        }
+    }
+
+    let corpus: Vec<CorpusItem> = by_article
+        .into_iter()
+        .map(|(id, art)| {
+            // The first fact is the headline slot and the rest are the body: the same two-part
+            // shape `article_context` already renders, so the prompt's news block is byte-shaped
+            // exactly as it is on the legacy rail.
+            let mut facts = art.facts.into_iter();
+            let title = facts.next().unwrap_or_default();
+            CorpusItem {
+                id,
+                title,
+                description: facts.collect::<Vec<_>>().join(" · "),
+                source: art.source,
+                url: String::new(),
+                published_at_epoch: art.published_at_epoch,
+                fetched_at_epoch: None,
+                // The packet rail carries NO bodies. That is the diet: the Editor already read the
+                // article, and re-sending its prose is the redundancy this whole rail removes.
+                full_text: None,
+                article_read_blurb: None,
+                article_read_status: None,
+                article_read_content_hash: None,
+                article_read_updated_epoch: None,
+            }
+        })
+        .collect();
+
+    exclusions.budget_truncated_ids.sort_unstable();
+    exclusions.budget_truncated_ids.dedup();
+    Ok((corpus, exclusions, framing))
+}
+
+/// One member article's claims, while `load_packet_corpus` groups them.
+struct PacketArticle {
+    source: String,
+    published_at_epoch: Option<i64>,
+    facts: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1060,6 +1208,9 @@ pub struct NarrativesMaterial {
     pub heat: Vec<HeatItem>,
     /// SHA over [`build_narratives_input_components`] — the debounce key.
     pub input_hash: String,
+    /// The storyline framing block, on the packet rail only (7.3). `None` under `RAIL=legacy`,
+    /// which is what keeps the legacy prompt byte-identical.
+    pub packet_framing: Option<String>,
 }
 
 /// load_narratives_material runs the loads and hashes the material inputs. No embed, no prompt.
@@ -1074,8 +1225,33 @@ pub async fn load_narratives_material(
     // must NEVER block the narrative (the corpus is the primary signal)" survives; a corpus error
     // still aborts the join. Note: heat now runs on the no-corpus path too (the early return moved
     // below the join) — no output change, just an extra read on that branch.
-    let ((corpus, corpus_exclusions), heat) = tokio::try_join!(
-        load_vetted_corpus_with_exclusions(&hx.pool, &req.entity_type, req.entity_id, &sport_up),
+    // The rail decides WHAT the corpus is (7.1/7.3) — resolved once at boot, carried on the
+    // harness, never re-read here. Legacy loads vetted articles; packet loads compiled
+    // storylines. Both return the same `(Vec<CorpusItem>, CorpusExclusions)`, so everything from
+    // the debounce hash down is shared code and the cutover is one branch wide.
+    let ((corpus, corpus_exclusions, packet_framing), heat) = tokio::try_join!(
+        async {
+            if hx.rail.is_packet() {
+                let (c, e, f) = load_packet_corpus(
+                    &hx.pool,
+                    &req.entity_type,
+                    req.entity_id,
+                    &sport_up,
+                    &req.entity_name,
+                )
+                .await?;
+                Ok::<_, anyhow::Error>((c, e, Some(f)))
+            } else {
+                let (c, e) = load_vetted_corpus_with_exclusions(
+                    &hx.pool,
+                    &req.entity_type,
+                    req.entity_id,
+                    &sport_up,
+                )
+                .await?;
+                Ok((c, e, None))
+            }
+        },
         async {
             Ok::<Vec<HeatItem>, anyhow::Error>(
                 match load_transfer_heat(&hx.pool, &req.entity_type, req.entity_id, &sport_up).await
@@ -1107,6 +1283,7 @@ pub async fn load_narratives_material(
         corpus_exclusions,
         heat,
         input_hash,
+        packet_framing,
     })
 }
 
@@ -1125,6 +1302,7 @@ pub async fn finish_narratives_build(
         corpus_exclusions,
         heat,
         input_hash,
+        packet_framing,
     } = material;
 
     // No corpus → the NULL-narrative marker path (no model call).
@@ -1174,13 +1352,20 @@ pub async fn finish_narratives_build(
         score_context.push('\n');
         score_context.push_str(&p.card);
     }
-    let built_prompt =
-        build_narratives_prompt(req, &corpus, &heat, memory.as_deref(), Some(&score_context));
+    let built_prompt = build_narratives_prompt(
+        req,
+        &corpus,
+        &heat,
+        memory.as_deref(),
+        Some(&score_context),
+        packet_framing.as_deref(),
+    );
+    let (num_ctx, num_predict) = narratives_decode_budget(hx.rail);
     let opts = GenerateOptions {
         system: Some(NARRATIVES_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
-        num_predict: NARRATIVES_NUM_PREDICT,
-        num_ctx: NARRATIVES_NUM_CTX,
+        num_predict,
+        num_ctx,
         json_mode: false,
         // Phase 5: grammar-constrained decoding replaces "hopefully JSON" (the failure class
         // the balanced-brace salvager was built for). The Go-parity free-text contract is
@@ -1650,9 +1835,15 @@ pub async fn persist_narratives(
             built_prompt: out.built_prompt.clone(),
             included_evidence: narratives_included_evidence(out),
             excluded_evidence: narratives_excluded_evidence(out),
+            // Read off the EXACT wire body rather than restated from constants: the decode
+            // budget is rail-scoped now (`narratives_decode_budget`), and a ledger that reported
+            // the legacy numbers for a packet-rail call would be the one place the flip was
+            // invisible. Falls back to the legacy constants if the body ever lacks options.
             context_budget: json!({
-                "num_predict": NARRATIVES_NUM_PREDICT,
-                "num_ctx": NARRATIVES_NUM_CTX,
+                "num_predict": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_predict"))
+                    .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_PREDICT as i64),
+                "num_ctx": out.request_body.as_ref().and_then(|b| b.pointer("/options/num_ctx"))
+                    .and_then(|v| v.as_i64()).unwrap_or(NARRATIVES_NUM_CTX as i64),
                 "eval_count": out.eval_count,
                 "wall_ms": out.wall_ms,
             }),

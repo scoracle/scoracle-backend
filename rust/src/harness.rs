@@ -16,7 +16,7 @@
 //! real signatures + types), so the floor is drawn for the HORIZON stages without building
 //! infrastructure on speculation. See Plan §1.
 
-use crate::config::ScrubConfig;
+use crate::config::{Rail, ScrubConfig};
 use crate::embed::{cosine_similarity, Embedder};
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
@@ -56,6 +56,11 @@ pub struct Harness {
     /// target, so its wall clock is a queue depth — it hit 1200s on 18 teams on 2026-07-27, and
     /// the half it lost was always the wrap, which runs last.
     pub handler_budget: Duration,
+    /// Which rail the voices read (`RAIL`, 7.1) — resolved ONCE at boot and carried here, so no
+    /// handler re-reads the environment mid-drain and no two items in one pass can disagree about
+    /// which corpus they are reading. Eval and one-shot binaries construct `Rail::Legacy` unless
+    /// they are explicitly exercising the packet path.
+    pub rail: Rail,
 }
 
 // ===========================================================================

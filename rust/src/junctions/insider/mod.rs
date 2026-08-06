@@ -68,9 +68,6 @@ const TRANSFER_MAX_CORPUS_NEWS: i64 = 12;
 /// Default candidate pre-filter (min co-mention articles / 14d).
 pub const TRANSFER_DEFAULT_MIN_ARTICLES: i32 = 2;
 const TRANSFER_MAX_CANDIDATES: i32 = 40;
-/// How far apart (title chars) a team and player may be mentioned and still count as a genuine
-/// co-mention.
-const COMENTION_PROXIMITY_CHARS: i32 = 50;
 
 // --- Self-pacing against the worker's per-item ceiling -----------------------------------------
 //
@@ -314,7 +311,17 @@ pub struct TransferPairOutput {
 
 /// load_candidates returns the team's co-mention candidate players with identity cards — the Rust
 /// port of `transfer.go::loadCandidates` (current club from `player_current_identity`; both vetted
-/// links required; co-mention proximity gate).
+/// links required).
+///
+/// The mig-033 title-proximity gate is GONE (PLAN-one-rail 8.8). It required the team and the
+/// player to appear within 50 title characters of each other, and it was a crutch for a regex that
+/// scanned headlines: on the packet rail both links come from the Editor having READ the article,
+/// and the Editor writes no `title_pos`, so every post-flip pair passed the gate anyway (NULL was
+/// the lenient sentinel). Removing it is a no-op for new rows and drops the thinning for the
+/// pre-flip tail that still carries positions. What thins the set now is
+/// `HAVING count(DISTINCT te.article_id) >= $3` — corroboration across articles, which is the
+/// better filter. Replacing proximity with the Editor's `entity_roles` is D-T20
+/// (PLAN-character-tuning.md §7a), NOT settled here.
 pub async fn load_candidates(
     pool: &PgPool,
     team_id: i32,
@@ -339,8 +346,6 @@ pub async fn load_candidates(
           AND te.created_at > NOW() - INTERVAL '14 days'
           AND te.vetted IS TRUE
           AND pe.vetted IS TRUE
-          AND (te.title_pos IS NULL OR pe.title_pos IS NULL
-               OR abs(te.title_pos - pe.title_pos) <= $5)
         GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
         HAVING count(DISTINCT te.article_id) >= $3
         ORDER BY max(a.topic_heat) DESC NULLS LAST, count(DISTINCT te.article_id) DESC
@@ -351,7 +356,6 @@ pub async fn load_candidates(
     .bind(sport)
     .bind(min_articles)
     .bind(TRANSFER_MAX_CANDIDATES)
-    .bind(COMENTION_PROXIMITY_CHARS)
     .fetch_all(pool)
     .await
     .context("load candidates")?;
@@ -526,15 +530,12 @@ async fn load_stale_pair_news_ids(
           AND a.published_at <= NOW() - INTERVAL '14 days'
           AND te.vetted IS TRUE
           AND pe.vetted IS TRUE
-          AND (te.title_pos IS NULL OR pe.title_pos IS NULL
-               OR abs(te.title_pos - pe.title_pos) <= $4)
         ORDER BY a.id
         "#,
     )
     .bind(team_id)
     .bind(player_id)
     .bind(sport)
-    .bind(COMENTION_PROXIMITY_CHARS)
     .fetch_all(pool)
     .await
     .context("load stale pair news ids")?;

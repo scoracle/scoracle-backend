@@ -6,14 +6,11 @@ package maintenance
 import (
 	"context"
 	"log/slog"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/albapepper/scoracle-data/internal/work"
 )
 
 // Config controls maintenance task intervals. Zero duration disables a task.
@@ -21,8 +18,6 @@ type Config struct {
 	CleanupInterval          time.Duration // Expired notifications + stale cache rows
 	CatchUpInterval          time.Duration // Sweep for missed NOTIFY events
 	AlltimeRankInterval      time.Duration // season_composite_rank_alltime recompute cadence
-	NewsScrubInterval        time.Duration // news-link scrub sweep cadence (SQL auto-vet + enqueue to Rust)
-	NewsScrubBatch           int           // max candidate-rich articles enqueued per tick
 	BoxscoreBackfillInterval time.Duration // recent final fixture_boxscore enqueue repair cadence
 	BoxscoreBackfillBatch    int           // max recent final fixtures enqueued per tick
 	StatsInterval            time.Duration // pipeline_stats daily corpus snapshot cadence
@@ -35,24 +30,12 @@ func DefaultConfig() Config {
 		CleanupInterval:          30 * time.Minute,
 		CatchUpInterval:          15 * time.Minute,
 		AlltimeRankInterval:      24 * time.Hour,
-		NewsScrubInterval:        30 * time.Minute,
-		NewsScrubBatch:           15,
 		BoxscoreBackfillInterval: 6 * time.Hour,
 		BoxscoreBackfillBatch:    100,
 		StatsInterval:            24 * time.Hour,
 		PeerCohortInterval:       24 * time.Hour,
 	}
 }
-
-// newsScrubPrimaryBatch bounds the cheap per-tick auto-vet of primary links
-// (match_confidence >= 1.0 — deterministically relevant). Generous
-// because it's a single-column SQL UPDATE on uncontended rows; drains the
-// backlog over a few ticks without ever holding a large lock.
-const newsScrubPrimaryBatch = 20000
-
-// newsScrubLookbackSQL mirrors the RSS ingest window plus its boundary slack.
-// The maintenance sweep is a repair path, not a second historical inflow.
-const newsScrubLookbackSQL = "12 hours 15 minutes"
 
 // alltimeRankSports are the sports whose season_composite_rank_alltime is
 // recomputed on the AlltimeRankInterval cadence.
@@ -64,7 +47,6 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 	logger.Info("Maintenance tickers started",
 		"cleanup", cfg.CleanupInterval,
 		"catchup", cfg.CatchUpInterval,
-		"news_scrub", cfg.NewsScrubInterval,
 		"boxscore_backfill", cfg.BoxscoreBackfillInterval,
 		"pipeline_stats", cfg.StatsInterval,
 		"peer_cohort", cfg.PeerCohortInterval)
@@ -103,18 +85,6 @@ func Start(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Log
 		t := time.NewTicker(cfg.AlltimeRankInterval)
 		tickers = append(tickers, t)
 		go runLoop(ctx, t.C, "alltime_rank", func() { recalcAlltimeRanks(ctx, pool, logger) })
-	}
-
-	// News scrub: backstop only — ingest (persistArticles) vets and enqueues at
-	// the source. This mops up the older unscrubbed tail and repairs links whose
-	// scrub failed or was lost. SQL-only here: auto-vet primaries and enqueue
-	// candidate-rich secondaries to pipeline_work for Rust to disambiguate.
-	if cfg.NewsScrubInterval > 0 {
-		t := time.NewTicker(cfg.NewsScrubInterval)
-		tickers = append(tickers, t)
-		go runLoop(ctx, t.C, "news_scrub", func() {
-			scrubNewsLinks(ctx, pool, cfg, logger)
-		})
 	}
 
 	// Fixture box score fetch backfill: SQL-only enqueue repair for recent final
@@ -522,139 +492,6 @@ func drainMomentumRefreshNeeded(ctx context.Context, pool *pgxpool.Pool, logger 
 		}
 		logger.Info("Momentum scores refreshed", "sport", item.sport, "snapshots", *n)
 	}
-}
-
-// scrubNewsLinks is the news-link scrub sweep — the BACKSTOP behind the ingest
-// path. persistArticles vets primaries and enqueues secondary scrub work in its
-// own transaction at ingest, so in steady state this sweep finds nothing; it
-// exists for the pre-change backlog, links whose ingest-time enqueue was lost,
-// and failed/dead-lettered scrub items (re-enqueueing a 'failed' row resets its
-// attempts — the repair path). SQL-only: two bounded, non-destructive phases per
-// tick:
-//
-//  1. Auto-vet primaries (cheap SQL, no model): links at match_confidence >= 1.0
-//     are the entity the article was fetched for — deterministically relevant, no
-//     disambiguation needed. Stamp them vetted=true in one bounded UPDATE.
-//  2. Enqueue candidate-rich secondaries: take the newest `batch` articles with
-//     an unscrubbed SECONDARY link (conf < 1.0 — the ones that actually need
-//     disambiguation) and enqueue each as a `scrub` pipeline_work item. Articles
-//     with a scrub item already pending/running are skipped so in-flight work
-//     doesn't eat the batch budget; 'failed' rows stay selectable on purpose.
-//     The Rust ScrubHandler drains it, runs the asymmetric gate, and writes
-//     vetted (firing the mig-103 trigger).
-//
-// railIsPacket reports whether this process is running on the packet rail (PLAN-one-rail §2).
-// Mirrors thirdparty.railIsPacket — same default-legacy contract: anything other than exactly
-// "packet" leaves the legacy maintenance sweeps behaving as they always have.
-func railIsPacket() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("RAIL")), "packet")
-}
-
-// Newest-first so the recent window the consumers read stays scrubbed; the
-// ancient tail is harmless (consumers filter by recency).
-func scrubNewsLinks(ctx context.Context, pool *pgxpool.Pool, cfg Config, logger *slog.Logger) {
-	batch := cfg.NewsScrubBatch
-	if batch <= 0 {
-		return
-	}
-
-	// PLAN-one-rail 8.4: the whole sweep is legacy-rail machinery. `scrub` is one of the two
-	// stages the cutover retires, so on the packet rail phase 2 below would enqueue work no
-	// worker claims — a queue that only ever grows, which is indistinguishable from a wedged one
-	// the next time somebody goes looking for a real problem. Phase 1's auto-vet is retired for a
-	// second reason: on the packet rail the Editor is what decides `vetted` (8.5), having actually
-	// read the article, and a blind confidence-1.0 auto-vet racing it would stamp rows nothing
-	// read. The Editor's own backstop is Go enqueueing `editor` at ingest (3.5).
-	//
-	// Deletion is Phase 9 — this is the "off, not gone" state Scott asked for, so the legacy rail
-	// costs zero compute while it stays available to switch back on.
-	if railIsPacket() {
-		return
-	}
-
-	// Phase 1 — auto-vet unscrubbed primaries (bounded, no model).
-	if tag, err := pool.Exec(ctx, `
-		WITH b AS (
-			SELECT nae.ctid
-			  FROM news_article_entities nae
-			  JOIN news_articles a ON a.id = nae.article_id
-			 WHERE nae.scrubbed_at IS NULL AND nae.match_confidence >= 1.0
-			   AND (a.published_at IS NULL OR a.published_at > NOW() - $2::interval)
-			 LIMIT $1
-		)
-		UPDATE news_article_entities n
-		   SET vetted = TRUE, scrubbed_at = NOW()
-		  FROM b WHERE n.ctid = b.ctid`, newsScrubPrimaryBatch, newsScrubLookbackSQL); err != nil {
-		logger.Warn("News scrub: auto-vet primaries failed", "error", err)
-	} else if tag.RowsAffected() > 0 {
-		logger.Info("News scrub: auto-vetted primary links", "count", tag.RowsAffected())
-	}
-
-	// Phase 2 — collect the newest candidate-rich articles (one row per article;
-	// drained into a slice before the enqueue loop so we don't hold a cursor).
-	type job struct {
-		id    int64
-		sport string
-	}
-	var jobs []job
-	rows, err := pool.Query(ctx, `
-		SELECT nae.article_id, nae.sport
-		FROM news_article_entities nae
-		JOIN news_articles a ON a.id = nae.article_id
-		WHERE nae.scrubbed_at IS NULL AND nae.match_confidence < 1.0
-		  AND (a.published_at IS NULL OR a.published_at > NOW() - $2::interval)
-		  AND NOT EXISTS (
-		      SELECT 1 FROM pipeline_work pw
-		      WHERE pw.stage = 'scrub' AND pw.entity_type = 'article'
-		        AND pw.entity_id = nae.article_id AND pw.sport = nae.sport
-		        AND pw.status IN ('pending', 'running')
-		  )
-		GROUP BY nae.article_id, nae.sport, a.published_at
-		ORDER BY a.published_at DESC NULLS LAST
-		LIMIT $1`, batch, newsScrubLookbackSQL)
-	if err != nil {
-		logger.Warn("News scrub: candidate query failed", "error", err)
-		return
-	}
-	for rows.Next() {
-		var j job
-		if err := rows.Scan(&j.id, &j.sport); err != nil {
-			rows.Close()
-			logger.Warn("News scrub: scan failed", "error", err)
-			return
-		}
-		jobs = append(jobs, j)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		logger.Warn("News scrub: candidate rows error", "error", err)
-		return
-	}
-	if len(jobs) == 0 {
-		return
-	}
-
-	// Enqueue each candidate-rich article as a `scrub` pipeline_work item
-	// (article-keyed). The Rust ScrubHandler drains it, runs the asymmetric gate,
-	// and writes vetted (firing the mig-103 trigger).
-	var enq, failed int
-	for _, j := range jobs {
-		if ctx.Err() != nil {
-			break
-		}
-		if err := work.Enqueue(ctx, pool, work.Item{
-			Stage:      work.StageScrub,
-			EntityType: "article",
-			EntityID:   int(j.id),
-			Sport:      j.sport,
-		}); err != nil {
-			failed++
-			logger.Warn("News scrub: enqueue failed", "article_id", j.id, "sport", j.sport, "error", err)
-			continue
-		}
-		enq++
-	}
-	logger.Info("News scrub: enqueued to Rust scrub stage", "enqueued", enq, "failed", failed, "batch", batch)
 }
 
 // pipelineStatsSports are the sports a daily pipeline_stats snapshot is written for.

@@ -254,8 +254,9 @@ sweep ingest -> enqueue/notify -> scrub -> transfers -> narratives -> vibe -> si
 4. **Reveal:** the precomputed products (`news_summaries`, `transfer_rumors`, `vibe_scores`,
    `sigil_synthesis`, `stat_summaries`) are what the per-product serving endpoints read.
 
-The async maintenance **news-scrub ticker** (`NEWS_SCRUB_ENABLED`) is backlog/repair only — SQL
-auto-vet + enqueue for Rust scrub handling.
+The news-scrub ticker (`NEWS_SCRUB_ENABLED`) is GONE (PLAN-one-rail 8.8) along with the `scrub`
+stage it fed. `vetted` is the Editor's fact now: it reads the article and confirms or denies the
+links (8.5).
 
 **Live table → product names:** `vibe_scores` = Vibe · `sigil_synthesis` = Sigil crown ·
 `news_summaries` = narratives · `stat_summaries` (`divined_peak`, `peak_trajectory`) = stat commentary ·

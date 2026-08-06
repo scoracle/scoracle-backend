@@ -131,9 +131,9 @@ func logSportFunnel(logger *slog.Logger, sport string, teamsTotal, teamsDone int
 			"sport", sport,
 			"teams", teamsTotal,
 			"teams_done", teamsDone,
-			// A team that fetched items and admitted none is what a broken
-			// MatchesEntity looks like from here. One or two is normal; a whole
-			// sport going quiet is the regression this counter exists to catch.
+			// A team that fetched items and admitted none is what a broken query
+			// plan looks like from here. One or two is normal; a whole sport going
+			// quiet is the regression this counter exists to catch.
 			"teams_zero_admitted", len(zeroAdmitted),
 			"zero_admitted_sample", strings.Join(sample, "; "),
 			"teams_edition_capped", editionCapped,

@@ -37,11 +37,6 @@ type Config struct {
 	// Cloudflare Worker's SSR fetches) from the IP rate limit. Empty = no bypass.
 	RateLimitInternalKey string
 
-	// News scrub sweep master switch. When disabled the maintenance ticker's
-	// cadence is zeroed. The SQL auto-vet of primaries + enqueue to pipeline_work
-	// runs at maintenance.DefaultConfig's cadence (30 min, batch 15).
-	NewsScrubEnabled bool // master switch (default true)
-
 	// Pipeline stats: the daily pipeline_stats corpus snapshot (pure SQL). 0 disables.
 	PipelineStatsInterval time.Duration
 
@@ -101,8 +96,6 @@ func Load() (*Config, error) {
 		RateLimitRequests:    envInt("RATE_LIMIT_REQUESTS", 100),
 		RateLimitWindow:      time.Duration(envInt("RATE_LIMIT_WINDOW", 60)) * time.Second,
 		RateLimitInternalKey: envOr("RATE_LIMIT_INTERNAL_KEY", ""),
-
-		NewsScrubEnabled: envBool("NEWS_SCRUB_ENABLED", true),
 
 		PipelineStatsInterval: time.Duration(envInt("PIPELINE_STATS_INTERVAL_MINUTES", 1440)) * time.Minute,
 

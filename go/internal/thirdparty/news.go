@@ -12,11 +12,9 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 	"unicode"
 
@@ -159,25 +157,6 @@ type Article struct {
 // NewsService — Google News RSS client
 // ---------------------------------------------------------------------------
 
-// entityPoolTTL controls how often the cross-entity match pool is refreshed
-// from the DB. The pool is populated by player/team upserts via the seeder,
-// so staleness of up to an hour is harmless.
-const entityPoolTTL = 1 * time.Hour
-
-// cachedEntity is one row in the in-memory entity pool used for cross-entity
-// matching at write-through time. Built from teams + players rows.
-type cachedEntity struct {
-	entityType string // 'player' | 'team'
-	entityID   int
-	sport      string
-	match      EntityMatchInput
-}
-
-type entityPool struct {
-	entities  []cachedEntity
-	refreshed time.Time
-}
-
 // defaultRSSBaseURL is the Google News RSS search endpoint. Held in a field
 // rather than inlined so the funnel accounting can be exercised against a local
 // test server instead of the live endpoint.
@@ -193,9 +172,6 @@ type NewsService struct {
 	rssBaseURL string
 	pool       *pgxpool.Pool
 	logger     *slog.Logger
-
-	entityMu    sync.RWMutex
-	entityPools map[string]*entityPool // keyed by sport, lowercased
 }
 
 // NewNewsService creates a news service. If pool is non-nil, fetched
@@ -209,10 +185,9 @@ func NewNewsService(pool *pgxpool.Pool, logger *slog.Logger) *NewsService {
 		httpClient: &http.Client{
 			Timeout: newsRSSTimeout,
 		},
-		rssBaseURL:  defaultRSSBaseURL,
-		pool:        pool,
-		logger:      logger,
-		entityPools: make(map[string]*entityPool),
+		rssBaseURL: defaultRSSBaseURL,
+		pool:       pool,
+		logger:     logger,
 	}
 }
 
@@ -224,17 +199,11 @@ func (s *NewsService) Status() map[string]interface{} {
 	}
 }
 
-// railIsPacket reports whether this process is running on the packet rail (PLAN-one-rail §2).
-//
-// Read per call rather than cached at boot, deliberately: Go's half of the flip is two skipped
-// writes, and the cost of a getenv is nothing next to an RSS fetch. The Rust side parses RAIL once
-// at boot and logs it — there the value rides the Harness through a whole drain, so a mid-drain
-// change would be genuinely incoherent. Here it cannot be.
-//
-// Default legacy: anything other than exactly "packet" (case-insensitive, trimmed) leaves ingest
-// behaving as it always has. An unset or misspelled RAIL never silently retires the old rail.
-func railIsPacket() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("RAIL")), "packet")
+// isTeamEntity reports whether entityType is the team grain. Moved here from the deleted
+// match.go (PLAN-one-rail 8.8) — it is not relevance machinery, it is a grain test, and every
+// remaining caller is in this file: query building, provenance, and the edition/lane plan.
+func isTeamEntity(entityType string) bool {
+	return strings.EqualFold(strings.TrimSpace(entityType), "team")
 }
 
 // GetEntityNews fetches news for an entity via Google News RSS.
@@ -243,9 +212,9 @@ func railIsPacket() bool {
 // news_article_entities. Pass entityType="" / entityID=0 to skip write-through.
 //
 // The second return is the article IDs that gained a fresh link on this call.
-// It is informational — persistArticles already vets primaries and enqueues
-// scrub work in its own transaction. It is nil when write-through is skipped
-// or the persist failed.
+// It is informational — persistArticles already enqueues the Editor's read in
+// its own transaction. It is nil when write-through is skipped or the persist
+// failed.
 //
 // The third return is the fetch funnel for this entity: how much of the query
 // grid ran and what each filter stage discarded. It is returned even on error,
@@ -265,7 +234,7 @@ func (s *NewsService) GetEntityNews(
 	}
 
 	// Write-through: persist the matched articles and link them to this entity
-	// (persistArticles also vets primaries and enqueues scrub work in-txn).
+	// (persistArticles also enqueues the Editor's read in-txn).
 	// Non-fatal — a failed persist shouldn't break the response. affected is the
 	// set of articles that gained a NEW link this call; it stays nil on the
 	// serving path / on persist failure.
@@ -283,21 +252,24 @@ func (s *NewsService) GetEntityNews(
 }
 
 // persistArticles upserts articles by URL hash and links them to the primary
-// requested entity plus any other teams/players mentioned in the title (cross-
-// entity linking). The secondary pass catches relational patterns such as
-// "Warriors trade talks for Durant", linking both Warriors and Durant even if
-// only Durant was the queried entity.
+// requested entity — the one we asked Google about. That link IS the query
+// hypothesis (broadTeamPrimaryConfidence), and the Editor confirms or denies it
+// downstream having read the body (PLAN-one-rail 8.5).
 //
-// Runs in a single transaction, and the transaction also opens the pipe ends:
-// fresh primary links are auto-vetted (firing the derive-enqueue trigger) and
-// articles with fresh secondary links are enqueued for the Rust scrub stage, so
-// new material flows on commit rather than on the maintenance sweep's cadence.
+// Runs in a single transaction, and the transaction also opens the pipe end: the
+// article is enqueued for the Editor on first sighting, so new material flows on
+// commit rather than on a sweep's cadence.
+//
+// The cross-entity secondary pass that used to run here is gone (8.8). It scanned
+// a cached pool of every team and player in the sport against the title with a
+// regex matcher and wrote a 0.8 link on any hit — guessing relevance beside the
+// thing that now decides it by reading. Google's ranking picks the articles; the
+// Editor picks the links.
 //
 // Errors are returned to the caller but don't break the response path — the
 // caller logs and moves on. The returned slice is the article IDs that gained a
-// NEW entity link (a fresh primary or secondary link, RowsAffected>0); it is
-// informational — scrub queueing is handled here. An article re-seen with only
-// pre-existing links is omitted.
+// NEW entity link (RowsAffected>0); it is informational. An article re-seen with
+// only pre-existing links is omitted.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
@@ -311,28 +283,9 @@ func (s *NewsService) persistArticles(
 	defer tx.Rollback(ctx)
 
 	sportUpper := strings.ToUpper(sport)
-	pool, err := s.getEntityPool(ctx, sportUpper)
-	if err != nil {
-		s.logger.Warn("entity pool load failed", "sport", sportUpper, "error", err)
-		pool = nil
-	}
 
-	affected := make(map[int64]bool) // fresh primary OR secondary link — the informational return
-	needScrub := make(map[int64]bool) // fresh secondary link → needs the model's verdict
+	affected := make(map[int64]bool)   // fresh primary link — the informational return
 	needEditor := make(map[int64]bool) // fresh ARTICLE ROW → the greenfield Editor reads it once
-
-	// The primary entity's own match input — needed to record its title position
-	// for the co-mention proximity gate. Broader team RSS now lets Google cast
-	// the net while Rust scrub decides relevance, so some primary links will not
-	// have an exact title position.
-	var primaryMatch *EntityMatchInput
-	for i := range pool {
-		if pool[i].entityType == primaryEntityType && pool[i].entityID == primaryEntityID {
-			m := pool[i].match
-			primaryMatch = &m
-			break
-		}
-	}
 
 	for _, a := range articles {
 		if a.URL == "" || a.Title == "" {
@@ -390,117 +343,31 @@ func (s *NewsService) persistArticles(
 			needEditor[articleID] = true
 		}
 
-		// Primary link — the entity that was queried. EVERY RSS search is a broad
-		// candidate generator now, players included, so every primary link lands
-		// below confidence 1.0 and is proposed to the scrub gate rather than
-		// asserted here.
-		//
-		// Players used to auto-vet at 1.0 on the grounds that they were "exact
-		// matches" — true only because filterRSSArticles had already guaranteed the
-		// name appeared in the text. That filter is gone, so the premise is gone
-		// with it: auto-vetting now would stamp vetted=TRUE on whatever Google
-		// happened to return, with nothing having read it. One path for both entity
-		// kinds, and the judge is downstream.
-		primaryPos := -1
-		if primaryMatch != nil {
-			primaryPos = FirstMatchPos(a.Title, *primaryMatch)
-		}
+		// Primary link — the entity that was queried, and the ONE link ingest writes.
+		// It lands at broadTeamPrimaryConfidence rather than 1.0 because it is a
+		// hypothesis, not a finding: we asked Google about this entity, so the article
+		// is *probably* about it. Nothing here has read the body, so nothing here
+		// vets. `title_pos` is not written any more — it was computed by a regex to
+		// feed a proximity gate no consumer on this rail reads (8.8).
 		primaryConfidence := broadTeamPrimaryConfidence
 		ct, err := tx.Exec(ctx, `
-			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
+			VALUES ($1, $2, $3, $4, $5)
 			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, primaryConfidence, posOrNil(primaryPos))
+		`, articleID, primaryEntityType, primaryEntityID, sportUpper, primaryConfidence)
 		if err != nil {
 			return nil, fmt.Errorf("link primary entity: %w", err)
 		}
 		if ct.RowsAffected() > 0 {
 			affected[articleID] = true
-			needScrub[articleID] = true
-		}
-
-		// Secondary links — scan title + description against the cached entity pool
-		// to pick up co-mentioned teams/players, recording WHERE each matched
-		// in the title when available so the proximity gate can drop far-apart
-		// co-mentions (roundup artifacts). Description-only matches get NULL
-		// title_pos and are routed through scrub.
-		// ON CONFLICT DO NOTHING means re-matching the primary entity is a cheap no-op.
-		//
-		// PLAN-one-rail 8.4: this whole loop is the regex link guesser the packet rail
-		// replaces. Under RAIL=packet the Editor reads the article and writes the links it
-		// actually resolved (8.5), so guessing from a substring match would bury those real
-		// links under noise nothing adjudicates any more — scrub, the gate that used to judge
-		// them, is off. Deletion is Phase 9; skipping is enough for flip day.
-		matchText := articleMatchText(a)
-		secondaryPool := pool
-		if railIsPacket() {
-			secondaryPool = nil
-		}
-		for i := range secondaryPool {
-			e := &pool[i]
-			// Skip the primary — we already linked it above.
-			if e.entityType == primaryEntityType && e.entityID == primaryEntityID {
-				continue
-			}
-			pos := FirstMatchPos(a.Title, e.match)
-			if pos < 0 && !MatchesEntity(matchText, e.match) {
-				continue
-			}
-			ct, err := tx.Exec(ctx, `
-				INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence, title_pos)
-				VALUES ($1, $2, $3, $4, $5, $6)
-				ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-			`, articleID, e.entityType, e.entityID, sportUpper, 0.8, posOrNil(pos))
-			if err != nil {
-				return nil, fmt.Errorf("link secondary entity: %w", err)
-			}
-			if ct.RowsAffected() > 0 {
-				affected[articleID] = true
-				needScrub[articleID] = true
-			}
 		}
 	}
 
-	// Open the pipe ends: vet and enqueue at ingest, inside this transaction, so
-	// a new article reaches the cognition stages on commit (mig-150 NOTIFY)
-	// instead of waiting for the maintenance sweep's next tick. The sweep stays
-	// on as the backstop for rows this path misses (pre-change backlog, repair).
-	//
-	// The auto-vet pass that used to live here is gone. It stamped vetted=TRUE on
-	// confidence-1.0 player links without a model ever seeing them, which was only
-	// defensible while filterRSSArticles guaranteed the entity was named in the text.
-	// Nothing is vetted at ingest now; every link is proposed and scrub decides.
-	//
-	// Worth knowing if vetting is ever reinstated here: the mig-103
-	// enqueue_derive_on_vetted trigger watches UPDATE OF vetted, so it must be an
-	// UPDATE and never vetted=TRUE on the INSERT, or the derive never fires.
-
-	// Every link needs the Rust ScrubHandler's verdict —
-	// enqueue one article-keyed scrub item each. Duplicate enqueues collapse on
-	// the pipeline_work PK without yanking a live lease.
-	//
-	// PLAN-one-rail 8.4: not on the packet rail. `scrub` is one of the two stages the flip
-	// deletes (§2), and enqueueing work for a stage no worker claims would pile up pending rows
-	// forever — a queue that only grows is indistinguishable from a wedged one when you go
-	// looking for the next real problem.
-	if railIsPacket() {
-		needScrub = nil
-	}
-	for id := range needScrub {
-		if err := work.Enqueue(ctx, tx, work.Item{
-			Stage:      work.StageScrub,
-			EntityType: "article",
-			EntityID:   int(id),
-			Sport:      sportUpper,
-		}); err != nil {
-			return nil, err
-		}
-	}
-
-	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx,
-	// same ON CONFLICT discipline as scrub above. Keyed on fresh INSERTs rather than fresh
-	// links: the Editor's unit is the article, and a re-seen URL keeps its read. The stage
-	// drains only where COGNITION_STAGES includes 'editor' (archbox).
+	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so
+	// new material reaches cognition on commit (mig-150 NOTIFY). Keyed on fresh INSERTs
+	// rather than fresh links: the Editor's unit is the article, and a re-seen URL keeps its
+	// read. Duplicate enqueues collapse on the pipeline_work PK without yanking a live lease.
+	// The stage drains only where COGNITION_STAGES includes 'editor' (archbox).
 	for id := range needEditor {
 		if err := work.Enqueue(ctx, tx, work.Item{
 			Stage:      work.StageEditor,
@@ -523,106 +390,6 @@ func (s *NewsService) persistArticles(
 	return ids, nil
 }
 
-// getEntityPool returns (and refreshes on staleness) the cached list of
-// players + teams for a sport. The pool is small enough (<3.5k per sport
-// post-purge) that scanning the whole list per article is fine.
-func (s *NewsService) getEntityPool(ctx context.Context, sport string) ([]cachedEntity, error) {
-	s.entityMu.RLock()
-	p, ok := s.entityPools[sport]
-	s.entityMu.RUnlock()
-
-	if ok && time.Since(p.refreshed) < entityPoolTTL {
-		return p.entities, nil
-	}
-
-	entities, err := s.loadEntityPool(ctx, sport)
-	if err != nil {
-		// If we have a stale cache, keep using it rather than failing.
-		if ok {
-			return p.entities, nil
-		}
-		return nil, err
-	}
-
-	s.entityMu.Lock()
-	s.entityPools[sport] = &entityPool{entities: entities, refreshed: time.Now()}
-	s.entityMu.Unlock()
-	return entities, nil
-}
-
-func (s *NewsService) loadEntityPool(ctx context.Context, sport string) ([]cachedEntity, error) {
-	// Teams
-	teamRows, err := s.pool.Query(ctx, `
-		SELECT id, name, COALESCE(short_code, ''), COALESCE(search_aliases, ARRAY[]::text[])
-		FROM teams WHERE sport = $1
-	`, sport)
-	if err != nil {
-		return nil, fmt.Errorf("load teams: %w", err)
-	}
-	var out []cachedEntity
-	for teamRows.Next() {
-		var id int
-		var name, shortCode string
-		var aliases []string
-		if err := teamRows.Scan(&id, &name, &shortCode, &aliases); err != nil {
-			teamRows.Close()
-			return nil, err
-		}
-		al := aliases
-		if shortCode != "" {
-			al = append(al, shortCode)
-		}
-		out = append(out, cachedEntity{
-			entityType: "team",
-			entityID:   id,
-			sport:      sport,
-			match: EntityMatchInput{
-				EntityType: "team",
-				Name:       name,
-				Aliases:    al,
-				Sport:      sport,
-			},
-		})
-	}
-	teamRows.Close()
-
-	// Players
-	playerRows, err := s.pool.Query(ctx, `
-		SELECT id, name, COALESCE(first_name, ''), COALESCE(last_name, ''),
-		       COALESCE(search_aliases, ARRAY[]::text[])
-		FROM players WHERE sport = $1
-	`, sport)
-	if err != nil {
-		return nil, fmt.Errorf("load players: %w", err)
-	}
-	for playerRows.Next() {
-		var id int
-		var name, first, last string
-		var aliases []string
-		if err := playerRows.Scan(&id, &name, &first, &last, &aliases); err != nil {
-			playerRows.Close()
-			return nil, err
-		}
-		out = append(out, cachedEntity{
-			entityType: "player",
-			entityID:   id,
-			sport:      sport,
-			match: EntityMatchInput{
-				EntityType: "player",
-				Name:       name,
-				FirstName:  first,
-				LastName:   last,
-				Aliases:    aliases,
-				Sport:      sport,
-			},
-		})
-	}
-	playerRows.Close()
-
-	s.logger.Info("loaded entity pool", "sport", sport, "count", len(out))
-	return out, nil
-}
-
 func sha256Hex(s string) string {
 	h := sha256.Sum256([]byte(s))
 	return hex.EncodeToString(h[:])
@@ -633,97 +400,6 @@ func nullIfEmpty(s string) interface{} {
 		return nil
 	}
 	return s
-}
-
-// posOrNil maps a title-match index to a SMALLINT value or NULL (no match / out
-// of range). NULL is the "unknown" sentinel the proximity gate treats as lenient.
-func posOrNil(p int) interface{} {
-	if p < 0 {
-		return nil
-	}
-	if p > 32767 {
-		return int16(32767)
-	}
-	return int16(p)
-}
-
-// BackfillTitlePositions recomputes news_article_entities.title_pos for existing
-// rows of a sport from the stored article title, using the same matcher as the
-// write path. One-shot maintenance for the co-mention proximity gate (migration
-// 033); idempotent. Rows whose entity is no longer in the pool (purged) keep a
-// NULL title_pos, which the gate treats leniently. Returns rows updated.
-func (s *NewsService) BackfillTitlePositions(ctx context.Context, sport string) (int, error) {
-	sportUpper := strings.ToUpper(sport)
-	pool, err := s.getEntityPool(ctx, sportUpper)
-	if err != nil {
-		return 0, err
-	}
-	type poolKey struct {
-		etype string
-		id    int
-	}
-	idx := make(map[poolKey]EntityMatchInput, len(pool))
-	for i := range pool {
-		idx[poolKey{pool[i].entityType, pool[i].entityID}] = pool[i].match
-	}
-
-	rows, err := s.pool.Query(ctx, `
-		SELECT nae.article_id, nae.entity_type, nae.entity_id, a.title
-		FROM news_article_entities nae
-		JOIN news_articles a ON a.id = nae.article_id
-		WHERE nae.sport = $1
-	`, sportUpper)
-	if err != nil {
-		return 0, err
-	}
-	type update struct {
-		articleID int64
-		etype     string
-		eid       int
-		pos       interface{}
-	}
-	var batch []update
-	for rows.Next() {
-		var articleID int64
-		var etype, title string
-		var eid int
-		if err := rows.Scan(&articleID, &etype, &eid, &title); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		mi, ok := idx[poolKey{etype, eid}]
-		if !ok {
-			continue
-		}
-		batch = append(batch, update{articleID, etype, eid, posOrNil(FirstMatchPos(title, mi))})
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-
-	// One transaction per sport — far faster than autocommit for ~tens of
-	// thousands of single-row updates.
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback(ctx)
-	updated := 0
-	for _, u := range batch {
-		ct, err := tx.Exec(ctx, `
-			UPDATE news_article_entities SET title_pos = $1
-			WHERE article_id = $2 AND entity_type = $3 AND entity_id = $4 AND sport = $5
-		`, u.pos, u.articleID, u.etype, u.eid, sportUpper)
-		if err != nil {
-			return updated, err
-		}
-		updated += int(ct.RowsAffected())
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return updated, err
-	}
-	return updated, nil
 }
 
 func parseArticleDate(s string) time.Time {
@@ -902,18 +578,18 @@ func (s *NewsService) fetchFromRSS(
 					articles[i].queryWindow = rssWhenToken(hours)
 				}
 
-				// No relevance filter here any more. This used to run MatchesEntity over
+				// No relevance filter here. This used to run an entity matcher over
 				// title+description and drop whatever did not name the entity — 4,859 of
 				// 9,694 articles on the 2026-07-26 sweep, half of everything Google
 				// returned, and fifteen clubs (Nice, Spezia, Leganés, Huesca …) admitted
 				// nothing at all because their names are short or ambiguous.
 				//
 				// It was re-deriving something the query already established: we asked
-				// Google for this entity, so the link IS the query. Relevance is now
-				// decided once, downstream, by something that reads the body instead of
-				// pattern-matching a headline. MatchRejected stays in the funnel and
-				// stays at zero -- the invariant still has to balance, and a filter
-				// returning here would need somewhere to report itself.
+				// Google for this entity, so the link IS the query. Relevance is decided
+				// once, downstream, by something that reads the body instead of
+				// pattern-matching a headline. The matcher itself is gone as of 8.8, and
+				// with it the funnel's MatchRejected counter — a filter returning here
+				// would owe the Residual invariant a counter of its own.
 				beforeDedup := len(allArticles) + len(articles)
 				allArticles = deduplicateArticles(append(allArticles, articles...))
 				f.DedupCollapsed += beforeDedup - len(allArticles)
@@ -1321,13 +997,6 @@ func cleanRSSDescription(raw string) string {
 		}
 	})
 	return strings.TrimSpace(rssWhitespaceRe.ReplaceAllString(s, " "))
-}
-
-func articleMatchText(a Article) string {
-	if a.Description == "" {
-		return a.Title
-	}
-	return a.Title + " " + a.Description
 }
 
 func limitRSSArticles(articles []Article, limit int) (int, []Article) {

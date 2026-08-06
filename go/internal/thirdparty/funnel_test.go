@@ -111,11 +111,6 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	if f.WindowDropped != f.RSSCalls {
 		t.Errorf("WindowDropped = %d, want 1 per call (%d)", f.WindowDropped, f.RSSCalls)
 	}
-	// Structurally zero: ingest has no relevance filter. The counter stays so the
-	// Residual invariant still balances and a future filter has somewhere to report.
-	if f.MatchRejected != 0 {
-		t.Errorf("MatchRejected = %d, want 0 now that the Reader owns relevance", f.MatchRejected)
-	}
 	// 5 survive the window per call, of which one is a title+source duplicate; every
 	// call after the first re-delivers the same four survivors.
 	if f.Matched != 4 {
@@ -219,7 +214,7 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 }
 
 func TestFunnelAddRollsUpEveryField(t *testing.T) {
-	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}
+	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
 	var got Funnel
 	got.Add(a)
 	got.Add(a)
@@ -227,7 +222,7 @@ func TestFunnelAddRollsUpEveryField(t *testing.T) {
 	// Compare against a doubled literal rather than field by field, so a Funnel
 	// that grows a counter without a matching line in Add fails to compile here
 	// instead of silently under-reporting in the rolled-up sweep totals.
-	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34}
+	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32}
 	if got != want {
 		t.Errorf("Add rolled up to %+v, want %+v", got, want)
 	}

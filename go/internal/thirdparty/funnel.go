@@ -3,16 +3,15 @@ package thirdparty
 // Funnel counts what one RSS ingest sweep admitted and, more importantly, what
 // it discarded. Every stage below can silently drop an article, and none of
 // those losses are recoverable from the database afterwards: only admitted
-// articles are ever persisted. So a regex regression in MatchesEntity, a
-// timezone slip in the lookback window, or an -rss-limit that stops the sweep
-// before the localized editions run all look identical from SQL — fewer rows.
-// This type is the difference between "ingestion dropped" and "ingestion
-// dropped HERE".
+// articles are ever persisted. So a timezone slip in the lookback window or an
+// -rss-limit that stops the sweep before the localized editions run both look
+// identical from SQL — fewer rows. This type is the difference between
+// "ingestion dropped" and "ingestion dropped HERE".
 //
 // The counters obey one invariant, checked by Residual and asserted both in
 // tests and at the end of every sweep:
 //
-//	RSSItems - WindowDropped - MatchRejected - DedupCollapsed - LimitTruncated == Matched
+//	RSSItems - WindowDropped - DedupCollapsed - LimitTruncated == Matched
 //
 // Add a drop to the fetch path without a counter and Residual goes non-zero,
 // which is the alarm that keeps this type honest as the path changes.
@@ -38,9 +37,11 @@ type Funnel struct {
 	RSSErrors int
 	RSSItems  int // items parsed out of the RSS payloads, before any filtering
 
-	// Drops, in the order the fetch path applies them.
+	// Drops, in the order the fetch path applies them. Relevance is NOT one of
+	// them: ingest admits everything Google ranked and the Editor decides, having
+	// read the body (PLAN-one-rail 8.8 deleted the MatchRejected counter with the
+	// matcher it counted).
 	WindowDropped  int // published before the lookback cutoff
-	MatchRejected  int // MatchesEntity says the text does not mention the entity
 	DedupCollapsed int // already seen this sweep, by URL or by title+source
 	LimitTruncated int // beyond -rss-limit after the date sort
 
@@ -72,7 +73,6 @@ func (f *Funnel) Add(o Funnel) {
 	f.RSSErrors += o.RSSErrors
 	f.RSSItems += o.RSSItems
 	f.WindowDropped += o.WindowDropped
-	f.MatchRejected += o.MatchRejected
 	f.DedupCollapsed += o.DedupCollapsed
 	f.LimitTruncated += o.LimitTruncated
 	f.Matched += o.Matched
@@ -84,7 +84,7 @@ func (f *Funnel) Add(o Funnel) {
 // It must be zero. A non-zero value means a drop was added to the fetch path
 // without a counter — exactly the blindness this type exists to prevent.
 func (f Funnel) Residual() int {
-	return f.RSSItems - f.WindowDropped - f.MatchRejected - f.DedupCollapsed - f.LimitTruncated - f.Matched
+	return f.RSSItems - f.WindowDropped - f.DedupCollapsed - f.LimitTruncated - f.Matched
 }
 
 // LogAttrs renders the funnel as slog key/value pairs so every emitter — per
@@ -103,7 +103,6 @@ func (f Funnel) LogAttrs() []any {
 		"rss_errors", f.RSSErrors,
 		"rss_items", f.RSSItems,
 		"window_dropped", f.WindowDropped,
-		"match_rejected", f.MatchRejected,
 		"dedup_collapsed", f.DedupCollapsed,
 		"limit_truncated", f.LimitTruncated,
 		"matched", f.Matched,

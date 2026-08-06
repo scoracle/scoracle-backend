@@ -339,7 +339,7 @@ Common optional (full list + defaults in `config.go`):
 - `DB_POOL_MAX_CONNS` (default `25`), `DB_POOL_MIN_CONNS`, `DB_POOL_MAX_LIFE_MINUTES`
 - `CORS_ALLOW_ORIGINS`, `CORS_PRODUCTION_ORIGINS`
 - Rust cognition (read by Rust config, not Go): `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (default `mistral:7b`), `OLLAMA_TIMEOUT_SECONDS`, `OLLAMA_MAX_CONCURRENT`
-- Go workers: `NEWS_SCRUB_ENABLED`, `PIPELINE_STATS_INTERVAL_MINUTES`
+- Go workers: `PIPELINE_STATS_INTERVAL_MINUTES`
 - Mobile auth: `JWT_SECRET` (unset ⇒ `/auth/*` returns 503), `JWT_ACCESS_TTL_MINUTES`, `JWT_REFRESH_TTL_DAYS`
 - `FIREBASE_CREDENTIALS_FILE`; seeder third key `API_SPORTS_KEY`
 

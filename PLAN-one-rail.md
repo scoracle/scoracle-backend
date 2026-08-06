@@ -3103,7 +3103,17 @@ block with BLOCKED.
       pre-flip baseline), Mac throughput. Rollback trigger: any voice starving >6h or Editor
       coverage <80% → RAIL=legacy (env flip + Appendix A trigger revert), diagnose cold.
 
-- [ ] **8.8** **THE REGEX EXCISION (Scott, 2026-08-06, post-flip): "remove all regex and have
+- [x] **8.8** *(DONE 2026-08-06 — **1,435 lines deleted, 79 added; the last relevance regex is
+      gone from the hot ingest path.** `match.go` (358 lines) deleted entire, `isTeamEntity` moved
+      into `news.go`; the secondary-link loop, the entity pool and its per-sport DB query,
+      `posOrNil`, `articleMatchText`, `BackfillTitlePositions`, `cmd/comention-backfill/`,
+      `funnel.go`'s `MatchRejected`, `maintenance.go`'s whole `scrubNewsLinks` sweep + its config
+      + ticker + `NEWS_SCRUB_ENABLED`, and Go's ingest-time `scrub` enqueue (Appendix A's "scrub
+      enqueue block") — all gone. `railIsPacket()` went with them: BOTH copies had no callers
+      left. The Insider's proximity clause was removed at both sites, deliberately — see the Log.
+      **The only regex left in the entire Go tree is the three RSS parsers** (TRAP 1, kept).
+      13 tests deleted with their subjects, each named in the Log; every surviving test passes
+      unchanged.)* **THE REGEX EXCISION (Scott, 2026-08-06, post-flip): "remove all regex and have
       Google's search handle the relevancy, then let our Editor layer handle the next layer."**
       Its own session — see the prompt in the Handoff below. Pulled FORWARD out of Appendix A's
       Go block because the regex is not merely dead, it is actively running: `news.go`'s primary
@@ -3297,6 +3307,92 @@ Grep by symbol, never by line.
 entities out of the RSS payload. They are parsing, not relevance. "Remove all regex" means the
 relevance-guessing regex; a literal reading takes the fetcher down.
 
+**2026-08-06 ~11:45–12:30 EDT — 8.8, THE REGEX EXCISION. Deletion only; no new behaviour, no
+prompt touched, no version bumped.** Scott's words are the spec: *"remove all regex and have
+Google's search handle the relevancy and then let our Editor layer handle the next layer of
+summarizing and ensuring the relevancy."* The architecture he describes already ran — this session
+removed the machinery that used to GUESS relevance, still executing beside the thing that replaced
+it.
+
+**The size of it: 1,435 lines deleted, 79 added, across 14 files.**
+
+| deleted | where | what it was |
+|---|---|---|
+| `FirstMatchPos` on the primary link | `news.go` | the last LIVE regex in the hot ingest path — ran on every article to write a `title_pos` no consumer read |
+| `match.go` ENTIRE (358 lines) | `internal/thirdparty` | `MatchesEntity`, `nameInText`, `firstMatchPos`, `SportContextTerms`, the word-boundary compiles, `trustedShortTeamAliasPos` |
+| `isTeamEntity` | → moved into `news.go` | the one survivor; it is a grain test, not relevance machinery, and all 4 callers are in `news.go` |
+| secondary-link loop + `articleMatchText` | `news.go` | scanned every team+player in the sport against each title and wrote 0.8 links (skipped since the flip) |
+| entity pool: `getEntityPool`, `loadEntityPool`, `cachedEntity`, `entityPool`, `entityPoolTTL`, `entityMu`/`entityPools` | `news.go` | a per-sport teams+players query on a 1h cache, existing only to feed that loop |
+| `posOrNil`, `BackfillTitlePositions`, `cmd/comention-backfill/` | Go | writers and entrypoints for a column with no live reader |
+| `MatchRejected` | `funnel.go` | permanently zero since the RSS relevance filter went; the Residual invariant is now `RSSItems - WindowDropped - DedupCollapsed - LimitTruncated == Matched` and still balances |
+| `scrubNewsLinks` + `NewsScrubInterval`/`NewsScrubBatch`/ticker/`newsScrubPrimaryBatch`/`newsScrubLookbackSQL`, `NewsScrubEnabled`/`NEWS_SCRUB_ENABLED` | `maintenance.go`, `config.go`, `cmd/api/main.go` | the legacy sweep gated at the flip; blind conf-1.0 auto-vet + enqueue to a stage nobody claims |
+| ingest-time `scrub` enqueue + `needScrub` | `news.go` | Appendix A's "scrub enqueue block" — inert under `RAIL=packet` since the flip |
+| `railIsPacket()` — **both copies** | `news.go`, `maintenance.go` | after the above, neither had a caller left. The flip's two skipped writes were the only readers, and both writes are now gone rather than skipped |
+
+**The measurement that says it worked: the ONLY regex left in the entire Go tree is `rssHTMLTagRe`,
+`rssEntityRe`, `rssWhitespaceRe`** — TRAP 1's three RSS *parsers*, kept deliberately. `grep -rn
+regexp go/ --include=*.go` returns one import and those three `MustCompile` lines and nothing else.
+The relevance regex is gone; the parsing regex is untouched, because deleting it is how a literal
+reading of "remove all regex" takes the fetcher down.
+
+**13 tests deleted, every one WITH its subject** (§0's deletion test: if removing something changes
+a passing test's behaviour, that thing was not a corpse — none did). From `news_test.go`:
+`TestNameInText_ExactMatch`, `_CaseInsensitive`, `_AliasMatch`, `_ShortAliasRequiresSportContext`,
+`_NoFalsePositive`, `_UsesEntityTermBoundaries`, `_AmbiguousFootballTeamNeedsContext`,
+`_PlayerWithParts`, `_PlayerPartWithTeam`, `TestMatchesEntity_TrustedShortTeamAlias`,
+`TestFirstMatchPos_BasicAndAbsent`, `_ProximityGate`, `_AgreesWithMatchesEntity` (+ the local `abs`
+helper, used by nothing else). `news_live_test.go` deleted whole — its core assertion was "the
+primary link was scrubbed or queued for scrub", which is the deleted rail. Two edits to
+`funnel_test.go` that are arity, not behaviour: the `MatchRejected != 0` assertion goes with the
+field, and `TestFunnelAddRollsUpEveryField`'s positional literals drop 17 fields to 16 — that test
+exists to fail to compile when `Funnel` changes shape, and it did its job.
+
+**Everything else passes untouched:** `go build ./...`, `go vet ./...`, `go test ./...` all green on
+archbox. **`gofmt -l` returns the SAME three files before and after** (`news.go`, `news_test.go`,
+`work.go` — pre-existing, verified against `44008e6`): no formatting was "fixed" into this commit,
+which would have buried a 1,435-line deletion in whitespace.
+
+**TRAP 2 — the Insider's proximity clause, REMOVED, and this was a decision.** Both sites
+(`insider::load_candidates` and `load_stale_pair_news_ids`) dropped
+`(te.title_pos IS NULL OR pe.title_pos IS NULL OR abs(te.title_pos - pe.title_pos) <= $n)` along
+with `COMENTION_PROXIMITY_CHARS`. **Re-measured on live data before touching it: of the 271
+`news_article_entities` rows created since the flip, 0 carry a `title_pos`** (it was 170/0 at
+scoping four hours ago — the finding held as the sample grew). So the clause has been a no-op for
+every new row since 10:55 today, and removing it changes nothing going forward. It IS a behaviour
+change for the pre-flip tail: 310,705 of 402,596 rows carry a position, and those pairs are no
+longer thinned by headline adjacency. That is defensible — proximity was a crutch for regex noise
+that no longer exists, and the Editor's links are real reads — but it is now DECIDED rather than
+inherited. What thins the candidate set now is `HAVING count(DISTINCT te.article_id) >= $3`,
+untouched. **The follow-up is NOT done here and was not attempted: D-T20 (PLAN-character-tuning.md
+§7a) still owns whether `entity_roles` replaces proximity and what the real filter should be.
+`transfer_rumors` read 70 in the last 24h against a 68/24h pre-flip baseline — watch it.**
+
+**TRAP 3 confirmed the hard way and worth restating: every symbol was found by grep, none by line
+number.** Appendix A's offsets are from the 2026-07-28 recon and are all wrong by 40–90 lines; its
+SYMBOLS were all correct and all still existed.
+
+**TRAP 4 held: `title_pos` the column stays**, and so does `news_articles.bucket`. This session
+removed the last WRITER and the last live READER clause; the 310,705 rows that carry a position are
+archive and are commented retired in Phase 9. Nothing was dropped.
+
+**Two things deleted that the (a)–(f) scope list did not spell out, both from Appendix A's Go block,
+named here so they are not a surprise:** the ingest-time `scrub` enqueue, and `railIsPacket()`
+itself. **The consequence, stated plainly: Go's half of a `RAIL=legacy` rollback is now gone.** The
+env flip would still work and the Editor path would still run, but ingest would no longer write 0.8
+secondary links or enqueue `scrub`. The rollback surface §2 actually protects is untouched — the
+30,224 parked `article_read` rows, the Appendix A trigger revert, and the Rust handlers, none of
+which this session touched. Scott's scope named the secondary loop and the sweep for deletion
+explicitly, so this is the shape he asked for, not drift.
+
+**Docs corrected in the same act** (a knob that no longer exists is worse than no doc):
+`RUNBOOK.md`'s news-scrub-ticker paragraph, `README.md`'s Go-worker env list, and
+`corpus.go`'s funnel comment that explained a zero-admit team as "a broken `MatchesEntity`".
+`NEWS_SCRUB_ENABLED` was not set in any env or unit file on archbox — nothing to clean up there.
+
+**Not touched, deliberately:** Phase 9 proper (`article_reader/`, `scrub.rs`, `Role::ArticleReader`,
+the embedder), the parked `article_read` rows, `work.StageScrub` (Rust still names the stage; it
+dies with the Rust half), every prompt and `*_PROMPT_VERSION`, and 6.7's window.
+
 ### Handoff (phase 8 → 9)
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
@@ -3352,17 +3448,21 @@ episodes/seal rollups STAY — they feed every memory card).
 
 ## Appendix A — Demolition inventory (execute in Phase 9; prepared by recon 2026-07-28)
 
-**Go** (the judging tier; keep the clerk):
-- `go/internal/thirdparty/match.go` — delete all EXCEPT `isTeamEntity` (move it beside its
-  callers in `news.go`). `SportContextTerms` goes; the `sportTerms` map in `news.go:55` STAYS
-  (query builder needs it).
-- `news.go`: secondary-link loop `:363-392` (+ its `LEGACY_LINKS` switch from 8.4),
-  `articleMatchText :1213`, `posOrNil :548`, entity pool `:149-163, :181-182, :285-305,
-  :437-532`, `BackfillTitlePositions :563-635`. Scrub enqueue block (already off since flip).
-- `go/cmd/comention-backfill/` — whole directory.
-- `funnel.go` MatchRejected counter + tests touching it; `maintenance.go:554-569` dead auto-vet;
-  `maintenance.go` scrub backstop sweep + `NEWS_SCRUB_ENABLED` config.
-- Tests: `news_test.go` regex cases, `news_live_test.go`.
+**Go — ✅ DONE 2026-08-06 in step 8.8 (pulled forward; see the Phase 8 Log). Nothing left in this
+block; Phase 9 skips it.** For the record, what it said and what happened:
+- ~~`go/internal/thirdparty/match.go` — delete all EXCEPT `isTeamEntity`~~ — file deleted;
+  `isTeamEntity` now lives in `news.go`. `SportContextTerms` gone; the `sportTerms` map STAYS
+  (query builder needs it) and does.
+- ~~`news.go`: secondary-link loop, `articleMatchText`, `posOrNil`, entity pool,
+  `BackfillTitlePositions`, scrub enqueue block~~ — all deleted, plus `FirstMatchPos` on the
+  primary link and `railIsPacket()` (no callers left once the two skipped writes became two
+  deleted writes). **The line numbers in this block were STALE by 40–90 lines — grep by symbol.**
+- ~~`go/cmd/comention-backfill/`~~ — directory deleted.
+- ~~`funnel.go` MatchRejected; `maintenance.go` dead auto-vet + scrub backstop sweep +
+  `NEWS_SCRUB_ENABLED`~~ — all deleted, including the ticker, both batch consts, and the
+  `maintenance.railIsPacket` mirror.
+- ~~Tests: `news_test.go` regex cases, `news_live_test.go`~~ — 13 tests deleted with their
+  subjects, named individually in the Phase 8 Log.
 
 **Rust:**
 - Stage `article_read`: the whole `junctions/article_reader/` module (renamed from
@@ -3386,7 +3486,9 @@ episodes/seal rollups STAY — they feed every memory card).
   `enqueue_transfers_if_transfer_related()` (triggers already dropped at 8.3).
 - `news_articles.bucket` — stop-write already happened (the greenfield Editor never wrote it);
   column stays, commented retired (archive).
-- `news_article_entities.title_pos` — stays as historical data, commented retired.
+- `news_article_entities.title_pos` — stays as historical data, commented retired. (8.8 removed
+  the last writer and the Insider's reader clause; 310,705 rows keep theirs as archive. The
+  remaining readers are all SQL functions in this block — `refresh_co_mention_links` and friends.)
 - Recorded revert for the 8.3 trigger drops (rollback window only — delete this block in 9.1):
   re-CREATE `enqueue_derive_on_vetted` + `enqueue_transfers_if_transfer_related` from
   `sql/schema/schema.sql` @ the pre-flip snapshot commit.

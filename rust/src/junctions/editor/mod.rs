@@ -511,6 +511,17 @@ impl StageHandler for EditorHandler {
         // against an empty candidate set and fail closed for a reason that has nothing to do with
         // the article.
         if hx.rail.is_packet() {
+            // 8.5, and it must come FIRST: the link writes are what `enqueue_graph_for_article`
+            // below reads as its candidate set.
+            if let Err(e) =
+                write_links(&hx.pool, article_id, &item.sport, read.relevant, &resolved).await
+            {
+                tracing::warn!(
+                    article_id,
+                    error = %format!("{e:#}"),
+                    "editor link write failed (read already persisted; continuing)"
+                );
+            }
             if let Err(e) = enqueue_graph_for_article(&hx.pool, article_id, &item.sport).await {
                 tracing::warn!(
                     article_id,
@@ -521,6 +532,116 @@ impl StageHandler for EditorHandler {
         }
         Ok(())
     }
+}
+
+/// The Editor's sentinel `match_confidence` for a link IT discovered (8.5). Deliberately distinct
+/// from Go's 0.95 query-hypothesis and 0.8 regex secondary so Editor-era links stay greppable
+/// forever — `WHERE match_confidence = 0.90` is the whole new rail's link inventory.
+const EDITOR_LINK_CONFIDENCE: f64 = 0.90;
+
+/// write_links is the Editor taking over `news_article_entities` on the packet rail (8.5) — the
+/// job the legacy `scrub` seat does today via co-mention verdicts.
+///
+/// The resolver already decided (T2: the model described names, code matched surfaces), so this
+/// writes that decision down and nothing more. Three moves, one transaction so an article is never
+/// half-vetted:
+///
+///   1. **Irrelevant read → clear.** Every vetted row for this article is retracted, mirroring
+///      the legacy `clear_vetted_entities_for_article`. Nothing else runs.
+///   2. **Confirm.** Every `resolved.links` entry is upserted `vetted = TRUE`. A row that already
+///      exists — Go's 0.95 query hypothesis — keeps its 0.95: it WAS the hypothesis and is now
+///      confirmed, and overwriting that to the sentinel would erase how the article was found.
+///      Only rows the Editor INSERTS carry [`EDITOR_LINK_CONFIDENCE`].
+///   3. **Deny.** Any other not-yet-adjudicated row on this article (`vetted IS NULL`) is set
+///      FALSE. This is the "confirming/denying the 0.95 hypothesis link" half: the hypothesis is
+///      confirmed exactly when the Editor's resolver reached it too, and an unreached hypothesis
+///      is a denial with a reason (the resolver saw the text and did not link it), not a drop.
+///      Already-adjudicated rows are left alone — a re-read never silently reverses a verdict.
+///
+/// Writing `vetted` fires mig 179's `enqueue_derive_on_vetted` (T10). That trigger is dropped in
+/// the flip act BEFORE `RAIL=packet` reaches this code (8.6 ordering), so on the packet rail there
+/// is nothing to suppress. Under `RAIL=legacy` this function is never called at all.
+async fn write_links(
+    pool: &sqlx::PgPool,
+    article_id: i64,
+    sport: &str,
+    relevant: bool,
+    resolved: &derive::Resolved,
+) -> Result<()> {
+    let sport = sport.to_uppercase();
+    let mut tx = pool.begin().await.context("begin editor link write")?;
+
+    if !relevant {
+        sqlx::query(
+            r#"
+            UPDATE public.news_article_entities
+               SET vetted = FALSE, scrubbed_at = COALESCE(scrubbed_at, NOW())
+             WHERE article_id = $1 AND sport = $2 AND vetted IS TRUE
+            "#,
+        )
+        .bind(article_id)
+        .bind(&sport)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("clear vetted entities for irrelevant article {article_id}"))?;
+        tx.commit().await.context("commit editor link write")?;
+        return Ok(());
+    }
+
+    // The resolver's links are per-sport; an article carries one sport, but a link's own sport is
+    // what the surface matched, so filter rather than assume.
+    let types: Vec<String> = resolved
+        .links
+        .iter()
+        .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
+        .map(|l| l.entity_type.clone())
+        .collect();
+    let ids: Vec<i32> = resolved
+        .links
+        .iter()
+        .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
+        .map(|l| l.entity_id)
+        .collect();
+
+    if !types.is_empty() {
+        sqlx::query(
+            r#"
+            INSERT INTO public.news_article_entities
+                (article_id, entity_type, entity_id, sport, match_confidence, vetted, scrubbed_at)
+            SELECT $1, t.entity_type, t.entity_id, $2, $5, TRUE, NOW()
+              FROM unnest($3::text[], $4::int[]) AS t(entity_type, entity_id)
+            ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
+                vetted      = TRUE,
+                scrubbed_at = NOW()
+            "#,
+        )
+        .bind(article_id)
+        .bind(&sport)
+        .bind(&types)
+        .bind(&ids)
+        .bind(EDITOR_LINK_CONFIDENCE)
+        .execute(&mut *tx)
+        .await
+        .with_context(|| format!("confirm editor links for article {article_id}"))?;
+    }
+
+    sqlx::query(
+        r#"
+        UPDATE public.news_article_entities
+           SET vetted = FALSE, scrubbed_at = NOW()
+         WHERE article_id = $1
+           AND sport = $2
+           AND vetted IS NULL
+        "#,
+    )
+    .bind(article_id)
+    .bind(&sport)
+    .execute(&mut *tx)
+    .await
+    .with_context(|| format!("deny unreached hypotheses for article {article_id}"))?;
+
+    tx.commit().await.context("commit editor link write")?;
+    Ok(())
 }
 
 /// enqueue_graph_for_article is the Editor's copy of the legacy seat's graph hand-off

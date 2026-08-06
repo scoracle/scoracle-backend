@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -223,6 +224,19 @@ func (s *NewsService) Status() map[string]interface{} {
 	}
 }
 
+// railIsPacket reports whether this process is running on the packet rail (PLAN-one-rail §2).
+//
+// Read per call rather than cached at boot, deliberately: Go's half of the flip is two skipped
+// writes, and the cost of a getenv is nothing next to an RSS fetch. The Rust side parses RAIL once
+// at boot and logs it — there the value rides the Harness through a whole drain, so a mid-drain
+// change would be genuinely incoherent. Here it cannot be.
+//
+// Default legacy: anything other than exactly "packet" (case-insensitive, trimmed) leaves ingest
+// behaving as it always has. An unset or misspelled RAIL never silently retires the old rail.
+func railIsPacket() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("RAIL")), "packet")
+}
+
 // GetEntityNews fetches news for an entity via Google News RSS.
 // entityType ("player"|"team") and entityID drive the write-through —
 // matched articles are linked back to the requested entity in
@@ -411,8 +425,18 @@ func (s *NewsService) persistArticles(
 		// co-mentions (roundup artifacts). Description-only matches get NULL
 		// title_pos and are routed through scrub.
 		// ON CONFLICT DO NOTHING means re-matching the primary entity is a cheap no-op.
+		//
+		// PLAN-one-rail 8.4: this whole loop is the regex link guesser the packet rail
+		// replaces. Under RAIL=packet the Editor reads the article and writes the links it
+		// actually resolved (8.5), so guessing from a substring match would bury those real
+		// links under noise nothing adjudicates any more — scrub, the gate that used to judge
+		// them, is off. Deletion is Phase 9; skipping is enough for flip day.
 		matchText := articleMatchText(a)
-		for i := range pool {
+		secondaryPool := pool
+		if railIsPacket() {
+			secondaryPool = nil
+		}
+		for i := range secondaryPool {
 			e := &pool[i]
 			// Skip the primary — we already linked it above.
 			if e.entityType == primaryEntityType && e.entityID == primaryEntityID {
@@ -454,6 +478,14 @@ func (s *NewsService) persistArticles(
 	// Every link needs the Rust ScrubHandler's verdict —
 	// enqueue one article-keyed scrub item each. Duplicate enqueues collapse on
 	// the pipeline_work PK without yanking a live lease.
+	//
+	// PLAN-one-rail 8.4: not on the packet rail. `scrub` is one of the two stages the flip
+	// deletes (§2), and enqueueing work for a stage no worker claims would pile up pending rows
+	// forever — a queue that only grows is indistinguishable from a wedged one when you go
+	// looking for the next real problem.
+	if railIsPacket() {
+		needScrub = nil
+	}
 	for id := range needScrub {
 		if err := work.Enqueue(ctx, tx, work.Item{
 			Stage:      work.StageScrub,

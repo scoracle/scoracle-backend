@@ -1,6 +1,33 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (4.1–4.4 done; box-score target
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
+for a season). PHASE 6 OPEN: 6.1–6.5 DONE, 6.6/6.7 BLOCKED ON A SCOTT RULING. The Desk is built
+(storyline.rs + packet.rs + bin/storylinefill + the worker's Desk pass; 363 tests green) and the
+shadow corpus is assembled — 12,571 reads → 6,164 storylines, 25,759 participant edges, 51.0%
+attached / 49.0% opened new, ZERO packets. §1b's rule needed TWO measured corrections, both
+pinned by fixtures (Log): (1) a storyline's identity is fixed at its SEED cast — with the whole
+cast matching, one storyline swallowed 569 of 2,000 reads; (2) `covers_seed()` — the join must
+cover half the seed — after a conference listicle's 11-entity key gathered 304 articles. Top
+cluster now 109 over 4 days, hand-inspected as ONE saga (Vinicius→Arsenal) with the T3
+contradiction intact (ESPN "set to stay" beside Football365 "agreement in principle" beside six
+"deal not agreed"), not a merge; the residual saga-bleed is logged as D-T13.
+**THE BLOCKER: mig 206's arm 2 (the Journalist's `narratives` fan-out) is UNCONDITIONAL by
+design, so 6.3's "packets INSERT fires an inert trigger" is false — under RAIL=legacy it would
+alternate `input_version` with the legacy `article_read` enqueue on the same `pipeline_work`
+row (the mig-197 churn loop, arriving a phase early).** Contained, not fixed: the compile sweep
+sits behind `COGNITION_PACKET_COMPILE` (default OFF, logged at boot); no packet has ever been
+compiled. Scott picks: (a) leave it dark until Phase 7 lands RAIL + subscriptions (recommended);
+(b) mig 211 makes arm 2 subscription-gated and 7.4 seeds `narratives`; (c) compile under legacy
+and accept the churn. NEXT SESSION: (1) that ruling; (2) 6.6 [DEPLOY] in the 04:00–06:00 clean
+window — safe today ONLY with the flag unset, and it carries storyline attach + the hourly
+dormancy sweep alone; (3) 6.7's live 72h bands. OPEN ITEMS OUTSIDE PHASES unchanged: D-T9 ops
+ONLY ON SCOTT'S GO; Mac voice work PAUSED (do not resume without his word); sudo
+/mnt/data/scratch grant pending on archbox (low priority). Last plan commit: (this one).
+Updated 2026-08-05 ~23:10 EDT (phase 6 code in, deploy blocked).**
+
+*(Superseded STATE of 2026-08-05 ~21:40 EDT — phase 5 closed — kept verbatim below.)*
+
+**Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (4.1–4.4 done; box-score target
 URLs wait for a season — top-5 leagues restart ~Aug 14–15; the pulselive_pl seed
 one-liner still awaits Scott). NEXT: Phase 6 (storylines + packets — deterministic code,
 zero model calls). PHASE 5 CLOSED 2026-08-05 ~21:40 EDT on Scott's tuning ruling — 5.10
@@ -2080,30 +2107,35 @@ The desk work: everything in this phase is deterministic code — zero model tok
 Editor's reads become storylines; storylines become packets; packets carry the tags that
 will route the characters (still inert — subscriptions stay empty until Phase 7).
 
-- [ ] **6.1** `editor/storyline.rs`: the §1b attachment rule, invoked at the end of every Editor
+- [x] **6.1** `editor/storyline.rs`: the §1b attachment rule, invoked at the end of every Editor
       handle (after `editor_reads` persists, after the 5.1 nomination sweep): compute candidates
       → attach or open → write `storyline_articles`, upsert `storyline_entities`
       (join/`last_seen_at`), set `editor_reads.storyline_id`. Log every decision (storyline_id,
-      score, candidate count) at debug level.
-- [ ] **6.2** Backfill pass (one-shot bin, rehearsed rolled-back first): attach the shadow
+      score, candidate count) at debug level. *(Done with TWO measured corrections to the
+      scoring rule — Log; both pinned by fixtures.)*
+- [x] **6.2** Backfill pass (one-shot bin, rehearsed rolled-back first): attach the shadow
       period's existing `editor_reads` (`attach_method='backfill'`, oldest first so storylines
       form in arrival order). The shadow corpus now spans Phases 3–5 — weeks of reads, not
-      48h; batch it and let it run.
-- [ ] **6.3** `editor/packet.rs` — compile on storyline-dirty with a 15-minute quiet debounce
+      48h; batch it and let it run. *(`bin/storylinefill`; rehearsed, applied, reset, re-applied
+      under the corrected rule — Log.)*
+- [x] **6.3** `editor/packet.rs` — compile on storyline-dirty with a 15-minute quiet debounce
       (drain-loop tick checks `storylines.last_seen_at`): assemble §1c from member
       `editor_reads` (claims from `key_facts` with article/source/published_at attribution —
       NO dedup across sources beyond byte-identical facts; register = strongest non-neutral;
       quotes code-sliced from `full_text`; slice fingerprints per voice: journalist = hash of
       claims+headline, vibe = hash of register+phrase+claims, transfers = hash of
       transfer-typed claims), insert packet (supersedes prior), mark storyline clean. Packets
-      INSERT will fire mig 206's trigger — still inert (0 subscriptions).
-- [ ] **6.4** Storyline lifecycle sweep (hourly, code): `open → dormant` after 14 quiet days;
+      INSERT will fire mig 206's trigger — still inert (0 subscriptions). *(Code + wiring done
+      and unit-tested; the drain-loop sweep is GATED OFF behind `COGNITION_PACKET_COMPILE` —
+      the trigger's Journalist arm is NOT inert, see the Log's BLOCKER.)*
+- [x] **6.4** Storyline lifecycle sweep (hourly, code): `open → dormant` after 14 quiet days;
       resolution stays manual/downstream for now (D5's close-in-one-stroke is wired but only
       invoked when a resolution is recorded — the transfer chain is the first writer, Phase 7).
-- [ ] **6.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
+- [x] **6.5** Fixtures: storyline unit tests over canned editor_reads (the Real-Madrid-day
       shape: Diomande/Vinicius/Rodri/Lee Kang-in/Álvarez clusters — assert Lee Kang-in lands in
       its own storyline, NOT Real Madrid's, per the hand count).
-- [ ] **6.6** **[DEPLOY]** rust to archbox.
+- [ ] **6.6** **[DEPLOY]** rust to archbox. *(BLOCKED-ish: safe TODAY only with
+      `COGNITION_PACKET_COMPILE` unset — see the Log. Deferred to a clean window regardless.)*
 - [ ] **6.7** Measure over 72h, in the Log: storylines/day/sport; articles-per-storyline
       distribution (the top cluster should land ~15–25:1 against the 20:1 hand count — outside
       that band, STOP and inspect attach scores); % of reads attached vs opened-new; hand-inspect
@@ -2114,7 +2146,93 @@ will route the characters (still inert — subscriptions stay empty until Phase 
 **Commit:** `rail: phase 6 — storylines assemble, packets compile`.
 
 ### Log (phase 6)
-*(executor fills)*
+
+**2026-08-05 ~23:10 EDT — the Desk is built and the shadow corpus is assembled; the packet arm
+is held at the door.** Commits `22cc18c` (code) → `bf70bc9` (rehearsal fix) → `6.1 correction 1`
+→ `6.1 correction 2`. Tests 363 green, clippy clean on the new files. Nothing deployed: the
+running service on archbox is still the Phase 5 binary, so every storyline below was written by
+`bin/storylinefill` (built to `target/debug/`, never `rust/bin/`).
+
+**BLOCKER (6.6/6.7) — mig 206's Journalist arm is not inert, and the Verify line assumes it is.**
+The phase's Verify says "packet trigger fired 0 work rows (subscriptions still empty)". That
+holds for arm 1 only. Arm 2 — `enqueue_voices_on_packet`'s unconditional `narratives` fan-out —
+needs no subscription by design (7.4 says so explicitly), so every packet INSERT enqueues
+`narratives` work for each active player/team participant with `input_version` `pk:<fingerprint>`,
+while the legacy `article_read` seat is still enqueueing the SAME `(stage, entity_type, entity_id,
+sport)` rows with its own `n:<hash>` (`article_reader/mod.rs:1319`). `work::enqueue`'s ON CONFLICT
+reopens on any `input_version` change, so the two writers would alternate one row forever — the
+mig-197 churn loop 7.4 warns about, arriving a phase early. Damage under today's config is
+bounded (the Mac's voices are paused, so nothing claims the rows; the Journalist debounces on its
+own material `input_hash`, so a claimed row costs a corpus read, not a generation) — but it is
+queue churn nobody asked for, and this session will not improvise a seam Phase 7/8 owns.
+Containment, not a fix: the compile sweep is behind `COGNITION_PACKET_COMPILE` (default OFF,
+logged at boot); zero packets exist; the trigger has never fired. **Scott's ruling wanted on one
+of:** (a) leave it dark until Phase 7 lands `RAIL` and seeds subscriptions (recommended — the
+storyline half is already measurable without it); (b) a mig 211 that makes arm 2 subscription-gated
+too, and 7.4 seeds `narratives`; (c) compile under legacy and accept the churn.
+
+**6.1, and the two corrections the measurements forced.** §1b as written (entity overlap + type
+match + recency, attach above 2) does not survive contact with this corpus. Rehearsal 1 over
+2,000 reads: **569 articles in one storyline** — 28% of the corpus in a single "story". Cause:
+every attach added the read's whole cast to the storyline's matching key, so a passing mention
+pulled the next story in, which pulled its own cast — rich-get-richer until any transfer piece
+naming two of the blob's clubs joined it. **Correction 1: a storyline's identity is fixed at its
+seed cast** (the participants carrying the earliest `joined_at`); later members still join
+`storyline_entities` — the fan-out and the packet want them — but do not extend the join key.
+Top cluster 569 → **56** on the same 2,000 reads. The full 12,571-read apply then showed the
+second mechanism: **304 articles** in an NBA storyline seeded by a conference listicle that named
+six stars and five clubs at once; one shared star scored 2+1+1 = 4 against an 11-entity key.
+**Correction 2: `covers_seed()` — the join must cover at least half the seed cast.** Sharing one
+name out of eleven is not the same story; one out of two is. That backfill was reset (all 12,571
+edges were ours; 0 packets existed) and re-applied under the corrected rule. Also fixed in the
+rehearsal: two emitted names resolving to ONE entity crashed the participant upsert ("ON CONFLICT
+DO UPDATE cannot affect row a second time") — `DISTINCT ON`, strongest role winning.
+Weights, now pinned by fixtures: person 2, team 1, +1 type match, +1 recency (≤48h), attach above
+3. People are the join; a club alone is a coincidence — Go queries one ranked feed PER TEAM, so
+the club is on the hypothesis list of every article of its day.
+
+**6.2 — the backfill, applied.** 12,571 unattached successful reads (every `success` read with
+≥1 resolved link; 238 linkless reads deliberately left unattached — no entity is no join key) →
+**6,164 storylines, 12,571 membership edges, 25,759 participant edges, 51.0% attached vs 49.0%
+opened new**, 2.04 articles/storyline. Rehearsal invariants asserted inside the rolled-back
+transaction and all clean: 0 unstamped reads, 0 participant-less storylines, 0 non-backfill edges.
+Per sport: FOOTBALL 3,648 storylines (avg 1.79, top 109), NFL 1,818 (2.37, top 69), NBA 698
+(2.50, top 84). Storylines/day: FOOTBALL 1,058–1,320, NFL 433–693, NBA 215–241 (Aug 2–4 full
+days; the corpus is 4 days old, not weeks — the Editor deployed at 3.8).
+Articles-per-storyline: 1 → 5,075 · 2–3 → 521 · 4–9 → 382 · 10–24 → 136 · 25+ → 50.
+
+**6.7's bands, read early off the backfill (the live 72h reading still owed after 6.6).**
+Articles-per-storyline top cluster = **109 over ~4 days (~27/day)**, above the stated 15–25:1
+band as written. Hand-inspected, per 6.7's instruction, and the top cluster is NOT a wrong merge:
+storyline #7474 is the Vinicius→Arsenal saga end to end (Goal, ESPN, Marca, The Mirror,
+Football365, The Athletic via aggregators…). **T3 spot-check PASSES on it** — the same storyline
+holds ESPN's "Vinícius Júnior is set to stay at Real Madrid despite Arsenal interest",
+Goal's "Vinicius Junior is determined to stay at Real Madrid", Football365's "Arsenal have
+reached an agreement in principle on personal terms with Vinicius Junior" and six members'
+"The Athletic: deal not agreed", each attributed to its source. The disagreement survived
+assembly; the packet compiler's byte-identical-only dedup is unit-tested to carry it through.
+#3 (NBA, 84) is one Durant/76ers thread. **#2 (109, the Diomande transfer) IS carrying ~10
+Vinicius/Arsenal articles** — its seed article named Vinicius in passing, so the two Real Madrid
+sagas share a 2-entity slice of a 4-entity key. That residue is one class, it is diagnosed, and
+it is a tuning item, not a mechanism failure → **D-T13**. No further tuning this session (§4: the
+rail stands first).
+
+**6.3/6.4/6.5 — what is built but not running.** `packet.rs` compiles §1c in a pure function
+(members + participants → draft) with the loader and the append around it: headline by lowest
+`feed_rank`, claims attributed and deduped ONLY byte-identically (first filer keeps the credit),
+register = the one the members most agree on with its newest phrase (no invented intensity
+ladder — the Influencer owns the score), quotes code-sliced ±160 chars from stored bodies,
+`facts` thin and structured, the unresolved census rolled up, claims capped at 200 with the
+dropped articles NAMED (the A5 rule), and STAGE-keyed slice fingerprints — a test pins the keys
+`narratives`/`transfers`/`vibe` because a character-named key would fail open on every packet
+forever. `worker.rs` gained one Desk pass after each drain: the hourly dormancy sweep (open →
+dormant at 14 quiet days) always, the packet compile only behind the flag; both run only where
+the Editor is seated, so the Mac never sweeps. D5's `resolve_storyline` (close every other edge
+`not_the_outcome` in one stroke) is wired and uncalled — Phase 7's transfer chain is its first
+writer. Fixtures: the Real-Madrid-day replay asserts Lee Kang-in opens his own storyline rather
+than joining Real Madrid's on a shared club link, the 20-article saga stays one cluster, the
+listicle does not swallow the conference, a passing mention does not extend the key, and a
+contradiction attaches rather than forking.
 
 ### Handoff (phase 6 → 7)
 ```
@@ -2589,3 +2707,15 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   to ~8,000–8,400/day; concurrency verified real (4×4, 100% GPU, 77% slot utilization);
   within-24h coverage still 100.0% — zero headroom for growth. Rest-window and
   model-swap knobs are Scott's calls. Diagnosis in PLAN-character-tuning.md §2.
+- **D-T13 · adjacent sagas bleed through a shared seed slice (measured 2026-08-05, the 6.2
+  backfill).** After the two 6.1 corrections the assembly is sound — the top cluster is one
+  real saga with its contradictions intact — but storyline #7477 (Diomande → Real Madrid,
+  109 members) carries ~10 Vinicius→Arsenal articles: its seed article named Vinicius in
+  passing, so two distinct Real Madrid sagas share a 2-of-4 slice of the seed key, which
+  clears both `covers_seed()` and the score. Class size unmeasured beyond this hand
+  inspection. Candidate knobs, none touched: (a) seed the key from ep1 `entity_roles`
+  (subject/opponent only) once role coverage is real — today roles exist only for
+  hypothesis entities; (b) weight a seed entity by whether later members keep naming it (a
+  principal recurs, a passing mention does not); (c) require the shared slice to include
+  the storyline's dominant PERSON. Measure the bleed rate over a live 72h window (6.7)
+  before choosing.

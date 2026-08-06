@@ -36,13 +36,25 @@ PHASE 8: 8.2 (the 7-day window — Scott flipped ahead of it deliberately) and 8
 clock started 10:55 today).** **NOTE FOR THE WEEKEND, not a rail failure: 7 `momentum` dead-letters
 (`invalid response` — the voice answering in markdown) from 2026-08-02 to 11:38:23 today, none
 since the deploy.** Open and honest, unchanged: clause 3's link sample is UNSCORED; clause 4b is
-FAIL at 43–47/53 and Scott WAIVED IT (D-T19). **WEEKEND TUNING IS THE NEXT SESSION** —
-`PLAN-character-tuning.md` §6 (D-T19 first: stabilize the instrument), §7a (D-T20 — the proximity
-gate is now gone, so what remains is whether `entity_roles` should replace it; `transfer_rumors`
-reads 70/24h against a 68/24h pre-flip baseline). **PHASE 6 STAYS OPEN on 6.7 alone:** window
+FAIL and Scott WAIVED IT (D-T19). **D-T19 IS CLOSED AS AN INSTRUMENT ITEM (2026-08-06 ~16:30 EDT,
+the tuning session): the gate was never unstable — the GPU was busy.** With `scoracle-cognition`
+stopped the editor gate returns **47/53 five times out of five with a byte-identical model-output
+hash**; with it running, five runs gave five different outputs (47,47,47,47,48). Greedy decode is
+not deterministic under batching, so **the gate is valid only with the daemon stopped** — the rule
+is in `run_fixtures`' doc comment and printed on every run. **THE BASELINE EVERY EDITOR KNOB IS NOW
+SCORED AGAINST: 47/53, REQUIRED 32/33.** Clause 4b stays FAIL and stays waived, but against a
+number that holds still. **WEEKEND TUNING CONTINUES** — `PLAN-character-tuning.md` §6a (the two
+remaining shapes are MODEL QUALITY and ride **7.11**: the `names[]` coach/manager class and
+`register[outrage]`), §7a (D-T20 — the proximity gate is now gone, so what remains is whether
+`entity_roles` should replace it; `transfer_rumors` reads 70/24h against a 68/24h pre-flip
+baseline). **NEW FROM SCOTT 2026-08-06 (both OPEN, neither started): cap the reader at 5 articles
+per entity** to buy headroom for the Investigator and the graph, and **a SCHEMA AUDIT** — the
+pipeline is clean but is being forced to work against a schema built for the pre-Google, pre-AI
+pipeline; simple and durable beats clever and fragile, and the SQL must be updated to match the new
+approach rather than the code contorted around it. **PHASE 6 STAYS OPEN on 6.7 alone:** window
 closes ~**Aug 8 22:08 EDT**. OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
-/mnt/data/scratch grant pending. Last plan commit: (this one). Updated 2026-08-06 ~12:00 EDT (the
-regex is gone).**
+/mnt/data/scratch grant pending. Last plan commit: (this one). Updated 2026-08-06 ~16:30 EDT
+(the instrument holds still).**
 
 *(Superseded STATE of 2026-08-06 ~11:15 EDT — the rail is one rail, regex still running — kept
 verbatim below.)*
@@ -4091,15 +4103,27 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   the longer; or prefer one member per (source, hour) at assembly. **Measure how much of the render
   budget it actually costs before spending anything** — on a packet with 3 members it is noise, and
   the exact-title dedup sweep already catches the byte-identical case.
-- **D-T19 · the editor fixture gate is not stable, and §2 asks it for 100% (measured 2026-08-06).**
-  Two consecutive `eval --task editor --fixtures` runs at temp=0 scored 47/53 and 43/53 — same
-  binary, same fixtures, same model. Every miss is one of two shapes: `names[]` omitting a person
-  the fixture asserts (Kyle Shanahan, Moyes, Arteta, Bellingham — the coach/manager class above
-  all), or `register` reading `neutral` where the fixture says `outrage`. The names misses are the
-  documented honesty gap on `target` fixtures, not a harness fault. The live consequence is §2
-  clause 4, which asks this gate for 100% and has never had it. **Recorded as a tuning item, NOT a
-  phase gate** (the standing rule: plumbing gates phases, model quality goes here) — but §2's text
-  says otherwise, so the cutover session must either score it green, or Scott waives clause 4b
-  explicitly. Do not let it be waived silently. Candidate knobs: the ep1 prompt's names[] ask is
-  where the coach class is being lost; and temp=0 not being deterministic is itself worth one
-  measurement before tuning anything on top of it.
+- ~~**D-T19 · the editor fixture gate is not stable**~~ — **CLOSED AS AN INSTRUMENT ITEM
+  2026-08-06. THE GAUGE WAS CONTENTION; THE FIX IS A METHOD RULE, NOT CODE.** Ten runs on archbox,
+  same binary, same fixtures, same `gemma3:4b`, every fixture pinned `temperature: 0.0`: with
+  `scoracle-cognition` **STOPPED → 47/53 five times with a single identical model-output hash**
+  (96s/run); with it **RUNNING → 47,47,47,47,48 and five different hashes** (~290s/run, live load
+  5–12 editor reads/min counted in `editor_reads`, not the journal). Nothing in the eval is
+  concurrent — but the SERVER is, at `OLLAMA_NUM_PARALLEL=4`, and batching moves the floating-point
+  reduction order, which moves the argmax on near-ties. **Greedy decode is not deterministic on a
+  busy GPU.** A `seed` was considered and REJECTED on the mechanism: at temp 0 the sampler never
+  consults the RNG, so it would have pinned nothing while looking like a fix. **The rule — the gate
+  is valid only with the daemon stopped — is now in `run_fixtures`' doc comment AND printed on every
+  run**, and in `PLAN-character-tuning.md` §6a with the full table.
+  **Two traps found on the way, both now guarded:** (1) the summary line hides its own movement —
+  under load the tally sat at 47/53 four times while `name_found[Moyes]` and `name_absent[Gwladys]`
+  flipped in opposite directions on one fixture, so **diff the per-check table, never the score**;
+  (2) `expected_property_count` knew every voice axis and none of the Editor's, so an UNPARSEABLE
+  editor fixture scored `0/0` and vanished from the tally instead of `0/N` — the denominator could
+  shrink silently. Fixed, plus a unit test that derives 12 fixtures / 53 checks from the files.
+  **THE BASELINE, for every editor knob from here on: 47/53 — REQUIRED 32/33, WAIVED 15/20**, the
+  single required red being `name_absent[Gwladys]`.
+  **WHAT REMAINS IS MODEL QUALITY AND IT BELONGS TO 7.11**, not to this ledger entry: the `names[]`
+  coach/manager class (Shanahan, Moyes, Arteta, Bellingham, Rangers-as-club) and `register[outrage]`
+  reading neutral. **§2 clause 4b therefore stays FAIL and stays waived** — but it is now waived
+  against a number that holds still, which is what the waiver was always owed.

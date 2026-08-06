@@ -180,9 +180,15 @@ rather than letting the queue decide by starving whichever stage sorts last.**
 
 ### 0c · Instrument problems — you cannot tune against a gauge that moves
 
-- **D-T19 (§6a): the editor fixture gate is not deterministic** — 47/53 then 43/53 on identical
-  runs at temp=0. **Nothing in this file can be scored until this is fixed. Start here.** Scoring a
-  knob against a ±4 gauge produces confident nonsense.
+- ~~**D-T19 (§6a): the editor fixture gate is not deterministic**~~ — **SETTLED 2026-08-06. The
+  instrument was GPU CONTENTION, and the fix is a method rule, not code: the gate is valid only
+  with `scoracle-cognition` STOPPED.** Ten runs: daemon stopped → **47/53 ×5 with a single
+  identical output hash**; daemon running → 47,47,47,47,48 and **five different hashes**. Greedy
+  decode is not deterministic on a busy GPU (batching moves the floating-point reduction order),
+  and a `seed` would not have helped — at temp 0 the RNG is never consulted. **The stable baseline
+  is 47/53, REQUIRED 32/33.** Two further traps recorded in §6a and now guarded: the summary line
+  can hold still while checks flip underneath it (diff the per-check table, never the score), and
+  an unparseable fixture used to shrink the denominator silently (fixed + unit-tested).
 - **§2's clause 3 link sample is emitted and UNSCORED.** Precision on the rail's links has never
   actually been measured — only sampled. The 0.90 Editor links are now the majority producer
   (0b, 0e), so this is scoring the new rail, not the old one.
@@ -243,7 +249,7 @@ Verified 2026-08-06 after 8.8, with numbers, so the session starts from fact rat
 
 | id | question | where |
 |---|---|---|
-| D-T19 | stabilize the fixture gate before scoring anything | §6a |
+| ~~D-T19~~ | ~~stabilize the fixture gate before scoring anything~~ — **CLOSED 2026-08-06: stop the daemon; baseline 47/53** | §6a |
 | D-T20 | knob (a) DONE (proximity clause deleted @ `28fcf45`); does `entity_roles` replace it? | §7a |
 | D-T18 | syndication doubles facts in a packet — never dedupe across sources (T3) | §6b |
 | D-T11/12 | Editor input hygiene + output dominance | §1, §2 |
@@ -251,6 +257,8 @@ Verified 2026-08-06 after 8.8, with numbers, so the session starts from fact rat
 | D-T6/7/8 | Investigator evidence-class gaps | §4 |
 | D-T9 | parked ops — **ONLY on Scott's go** | §4 |
 | 7.11/7.15 | the voice diet + its eval dry-run — one re-earn event, one fleet-wide regen | §7b |
+| **D-T21** | **cap the reader at 5 articles per entity** — Scott, 2026-08-06: buy the Investigator and the graph real headroom out of the Editor's parity budget (§0a) | §8 |
+| **D-T22** | **the schema audit** — Scott, 2026-08-06: the code is being contorted to fit a schema built for the pre-Google, pre-AI pipeline; update the SQL to the new approach instead | §8 |
 
 **Watch while tuning:** `transfer_rumors` **70/24h** against a **68/24h** pre-flip baseline (the
 proximity gate came out at 11:38 today — if pair volume climbs, that is the Insider eating the
@@ -367,21 +375,83 @@ on this loop.
 Both are RECORDED, NOT FIXED, per Scott's ruling that session ("no tuning as we go — we'll tune
 the weekend"). Both have D-numbers in Appendix D; the diagnosis is here.
 
-### 6a · D-T19 — the editor fixture gate: 43–47/53, and NOT DETERMINISTIC
+### 6a · D-T19 — the editor fixture gate — **SETTLED 2026-08-06. THE INSTRUMENT WAS CONTENTION.**
 
-**This one is first in the queue, because §2 clause 4 depends on it.** The cutover condition asks
-`eval --task editor --fixtures` for **100%**, and the gate has never delivered it. Scott waived it
-for the flip (2026-08-06) on the standing rule that model quality never halts plumbing — the waiver
-is explicit and logged, not silent, and it expires the moment this is tunable.
+**RESOLVED. The gate is deterministic with the cognition daemon stopped, and only then. No model-
+path code changed; the fix is a METHOD RULE.** The rule, which is now also printed by the gate on
+every run and carried in `run_fixtures`' doc comment:
 
-**Measured:** two consecutive runs, same binary, same fixtures, same `gemma3:4b`, `temp=0` →
-**47/53 then 43/53**. Start here: *a gate that moves 4 points between identical runs cannot score
-any knob you turn next.* Until it is stable, every other editor measurement in this file is being
-read through a ±4 instrument. Candidate causes: Ollama `NUM_PARALLEL=4` batching affecting sampling,
-KV-cache reuse across fixture cases, or temp=0 not being greedy in this runner. One measurement
-settles it — run the same fixture 10× and plot the spread — and it costs nothing but time.
+```
+systemctl --user stop scoracle-cognition
+cd rust && cargo build --bin eval && ./target/debug/eval --task editor --fixtures
+systemctl --user start scoracle-cognition
+```
 
-**The failure shapes**, once the instrument is trustworthy:
+**The experiment (archbox, 2026-08-06, ten runs — same binary, same fixtures, same `gemma3:4b`,
+every fixture pinned `"temperature": 0.0`):**
+
+| daemon | scores | model output over the 5 runs | wall/run |
+|---|---|---|---|
+| **STOPPED** | **47/53 ×5** | **ONE hash — all 53 checks identical, every run** | **96s** |
+| running | 47, 47, 47, 47, 48 | **FIVE hashes — every run differed** | ~290s |
+
+**Why.** Nothing inside the eval is concurrent — the fixture loop is sequential (`eval.rs:332`) and
+the Router is built with one permit — but **the SERVER is**. `scoracle-cognition` drains the editor
+stage against the same archbox Ollama at `OLLAMA_NUM_PARALLEL=4`, so the gate's calls are batched
+alongside live traffic; batching changes the floating-point reduction order, and a changed reduction
+order moves the argmax on near-ties. **Greedy decode is not deterministic on a busy GPU.** Under
+load the `fan-protest-register-outrage` fixture emitted **2 names on one run and 5 on the next** off
+a byte-identical prompt. Load was measured **from the data, not the journal** (0b's lesson): the
+live Editor completed **5–12 reads per minute** in `editor_reads` throughout every noisy run.
+
+**Both listed dead leads are dead, as briefed, and one candidate fix was rejected on the mechanism:**
+temp=0 is genuinely pinned in all 12 fixtures; the loop is genuinely sequential; and **a `seed` was
+NOT added to `GenerateOptions`.** At temperature 0 the sampler is greedy and never consults the RNG
+— the divergence is upstream of sampling, in the kernels — so a seed would have pinned nothing while
+looking like a fix. The only lever that pins this is an idle server.
+
+**The trap this leaves behind, and the reason the rule is worth its own paragraph: the summary line
+hides its own movement.** Under load the tally read 47/53 four times running while two checks on ONE
+fixture flipped in OPPOSITE directions and cancelled — `name_found[Moyes]` and `name_absent[Gwladys]`
+are the same coin, because a longer `names[]` catches the manager and the stand together. **A stable
+total is not a stable gate. When comparing two runs, diff the per-check table, never the score.**
+
+**The denominator, reconciled (it was asked for, and it was hiding something).** The 12 files declare
+**60** expect-keys; the gate scores **53**. The gap is exactly the keys that are prompt/resolver
+INPUTS rather than assertions — 12 × `reader_vetted` and 6 × `resolver_surfaces` — after which the
+remaining 42 keys expand list-wise to 53 checks. **But `expected_property_count` (the count used when
+a reply is UNPARSEABLE) knew every voice axis and NOT ONE of the Editor's**, so an unparseable editor
+fixture contributed `0/0` and *vanished from the tally* instead of scoring `0/N`. The gate would have
+printed a quietly smaller denominator with no warning — `47/53` and `47/46` read as the same kind of
+success, and the second is a fixture that died. **Fixed**, with the editor, graph and three stray
+voice axes added, and a unit test (`editor_fixture_denominator_is_derivable_from_the_files`) that
+walks the real fixture dir and pins 12 fixtures / 53 checks. The denominator now moves when the FILES
+move and never when a reply does. *(It never fired in the ten runs above — both observed scores were
+out of a true 53 — so it explains none of the historical spread. It was a loaded gun, not the shot.)*
+
+**THE STABLE BASELINE, and it is the number every editor knob is scored against from now on:**
+
+> **47/53 — REQUIRED 32/33, WAIVED 15/20** (the 3.7 re-scoped bar, PLAN-one-rail §Phase 3 Log).
+> Six reds, identical in all five quiet runs:
+> `name_absent[Gwladys]` **(the only RED on a REQUIRED axis)**, `register[outrage]`,
+> `name_found[Arteta]`, `name_found[Rangers]`, `name_kind[Rangers=club]`, `name_found[Bellingham]`.
+
+**Do not read 47 as a regression from iteration 13's `48/53 ×2, 33/33 required` (2026-08-01).** That
+reading's daemon state was never recorded, and this fixture is precisely the one that flaps, so the
+two are not comparable — 48/53 (Moyes ✓ *and* Gwladys ✓) is simply the third face of the same coin.
+**47/53 quiet is the first baseline taken on a still instrument; it is the reference, and the earlier
+numbers in this file are superseded rather than contradicted.**
+
+**One observation for 7.11, recorded and deliberately NOT acted on here.** The Gwladys red is the
+model emitting `Gwladys Street<other "Goodison Park stand">` — kind_hint `other`, descriptor
+"Goodison Park stand" — while the frozen prompt already carries iteration 13's exclusion ("never
+stadiums, stands, streets"). **So the model DESCRIBED the stand correctly and the check scores the
+raw `names[]` list regardless of kind.** Under T2 that is arguably the check being stricter than the
+contract: the resolver is kind-gated, so an `other` carrying the descriptor "stand" cannot link to a
+club, and this is not the same defect as inventing one. **Whether the fix is the prompt or the check
+is 7.11's call, not the instrument session's.**
+
+**The failure shapes**, now that the instrument is trustworthy:
 
 1. **`names[]` drops the coach/manager class.** Kyle Shanahan (`coach-discovery-kyle-shanahan` —
    all four of its checks fail together: name absent, so kind, descriptor and the resolver's
@@ -491,3 +561,70 @@ be re-derived:
 - **7.11 is the step that owns the RAIL-scoped diet prompts** and is still open — it is where the
   trimmed versions land, and its `s17` bump spends one fleet-wide regen, so batch every prompt
   change into it rather than bumping twice.
+
+---
+
+## 8 · Carried in from Scott mid-session (2026-08-06, during the D-T19 instrument run)
+
+**Recorded here the moment they were said, NOT started.** The instrument session's charter was
+D-T19 and nothing else, and both of these are behaviour changes that deserve their own measurement
+(§0 rule 4). They are the next session's material, in this order.
+
+### 8a · D-T21 — cap the reader at 5 articles per entity
+
+**Scott's words:** *"I think we should limit the reader to 5 articles per entity. That will free up
+enough headroom for the Investigator to get meaningful work in, and the graph work as well."*
+
+**Why it lands where §0a says the pain is.** The Editor runs at ~96% of ingest — parity, permanently
+— so it has no headroom to burn down a backlog, and everything downstream is queued behind it:
+`investigate_entity` **8,624 pending at ~57h**, `narratives`/`vibe` undrained bursts, `momentum`
+1,269. A per-entity cap is the first knob in this file that BUYS capacity rather than spending it,
+which is why it is worth doing before any prompt work: 7.11 makes calls better, this makes room for
+them. **The cap is a VOLUME decision and it does not re-open the relevance decision** — Google still
+does the relevancy and the Editor is still the valve (§0e); we are choosing how many of one entity's
+arrivals are worth a read, not re-introducing a filter over which ones qualify.
+
+**Before implementing, the questions that decide the shape** — answer them from data, not intuition:
+- **Cap per entity per WHAT?** Per day is the obvious reading (arrivals are one 02:00 batch); per
+  sweep and per rolling-24h are different knobs with different tails. State the window explicitly.
+- **Which 5?** The Editor reads what ingest enqueues; picking 5 requires an ORDER. Newest-first is
+  the honest default. Anything cleverer is a ranking heuristic and this rail just deleted 393 lines
+  of those (§0d) — **simple and durable beats clever and fragile.**
+- **What happens to number 6?** Dropped, deferred, or enqueued-but-deprioritised. Deferred is not
+  free: it grows a queue that nothing drains. Dropping is honest but must be COUNTED, not logged
+  (0b's lesson — a WARN that says "continuing" hides its own frequency).
+- **Measure the class first:** what fraction of entity-days actually exceed 5 arrivals, and what
+  share of total reads sits above the cap? That number IS the headroom this buys, and it should be
+  quoted before the change ships, not after.
+- **Watch the cost:** an entity's 6th article is sometimes the one carrying the story. Pair the
+  cap with a before/after on links-per-read and on `irrelevant` rate (15.4% baseline, §0e).
+
+### 8b · D-T22 — the schema audit
+
+**Scott's words:** *"we need to include a schema audit. We're running into issues where the pipeline
+is clean, but we're attempting to force it to work with an outdated schema. We want both to be
+optimized for the new approach of Google doing the relevancy work, and then empowering our models
+for everything downstream. No most restrictive regex or fancy workarounds. Simple and durable beats
+clever and fragile. We had to be clever before because we had no AIs working in our stream. Now, we
+empower them to do the work and then update the SQL. The schema should support this as well as the
+code and right now we're attempting to force the code to do that while also working with a schema
+built for a very different pipeline."*
+
+**This is the same rip 8.10/8.11 performed on `news_article_entities` (9 columns and two writers →
+5 columns and ONE writer), applied to the rest of the schema.** The audit's question, per table:
+*was this shaped for a pipeline where code guessed relevance, and does anything still read it?*
+
+**The two rules the audit must carry, both earned this week:**
+1. **SQL functions are code.** `compute_transfer_heat` was LIVE and still enforcing the mig-033
+   proximity gate for six hours after we had recorded that gate as deleted from Rust (§0d). **Check
+   `pg_get_functiondef` on every candidate, not just the Rust and Go call sites.**
+2. **Measure blast radius from the DATA, never from the log** (§0b): journal retention said 5
+   damaged articles; the data said 9.
+
+**Known starting points already named in this file** — the audit should confirm each is dead before
+proposing a drop, and should not stop at them: `title_pos` and `news_articles.bucket` (kept as
+310,705 rows of archive; the SQL readers `refresh_co_mention_links` and friends are Phase 9's, and
+§0d already warns nobody may re-add a writer), the 30,224 parked `article_read` rows (Phase 9's
+rollback surface, 0 compute), and whatever in the storyline/packet tables still carries a column the
+compiler no longer writes. **Deliverable: one table-by-table inventory with a verdict — KEEP,
+NARROW, or DROP — and for each DROP the query that proves nothing reads it.**

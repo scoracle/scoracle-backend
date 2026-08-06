@@ -391,6 +391,41 @@ async fn score_backend(
 // FIXTURE mode — the reproducible regression gate (DB-free, Router-only)
 // ---------------------------------------------------------------------------
 
+/// **THE GATE IS ONLY VALID WITH THE COGNITION DAEMON STOPPED. STOP IT FIRST:**
+///
+/// ```text
+/// systemctl --user stop scoracle-cognition
+/// cargo build --bin eval && ./target/debug/eval --task editor --fixtures
+/// systemctl --user start scoracle-cognition
+/// ```
+///
+/// This is not hygiene, it is the difference between a gauge and a rumour. **Measured on archbox,
+/// 2026-08-06 (D-T19), ten runs of the editor set, same binary, same fixtures, same `gemma3:4b`,
+/// every fixture pinned at `temperature: 0.0`:**
+///
+/// | daemon | scores | model output across the 5 runs | wall |
+/// |---|---|---|---|
+/// | **stopped** | **47/53 ×5** | ONE hash — all 53 checks identical every run | **96s** |
+/// | running | 47,47,47,47,48 | FIVE hashes — all five runs differed | ~290s |
+///
+/// Nothing inside this eval is concurrent — the fixture loop is sequential and the Router is
+/// built with one permit — but the SERVER is. `scoracle-cognition` drains the editor stage
+/// against the same Ollama at `OLLAMA_NUM_PARALLEL=4` (5–12 live reads/minute, counted in
+/// `editor_reads`, not in the journal), so the gate's requests get batched alongside live
+/// traffic. Batched inference changes the floating-point reduction order, and a changed reduction
+/// order moves the argmax on near-ties — which is why GREEDY DECODE IS NOT DETERMINISTIC ON A
+/// BUSY GPU. Under load the `fan-protest-register-outrage` fixture emitted 2 names on one run and
+/// 5 on the next, off a byte-identical prompt.
+///
+/// **A `seed` would not have fixed this and was not added.** At `temperature: 0.0` the sampler is
+/// greedy and never consults the RNG; the divergence is upstream of sampling, in the kernels. The
+/// only lever that pins it is an idle server.
+///
+/// **Read the summary line with suspicion — it hides its own movement.** Under load the tally sat
+/// at 47/53 four times running while two checks on ONE fixture flipped in OPPOSITE directions
+/// (`name_found[Moyes]` and `name_absent[Gwladys]` are the same coin: a longer `names[]` catches
+/// the manager and the stand together). A stable total is not a stable gate. When comparing runs,
+/// diff the per-check table, never the score.
 async fn run_fixtures(
     cfg: &Config,
     task: &dyn LensTask,
@@ -428,6 +463,13 @@ async fn run_fixtures(
         task.parameters().operator,
         task.parameters().mandate,
         task.parameters().credibility_guard
+    );
+    // D-T19: the one condition that decides whether this run is a measurement or a rumour.
+    // Stated on every run because a doc comment cannot be read by someone who never opens the file.
+    println!(
+        "VALID ONLY WITH THE DAEMON STOPPED — `systemctl --user stop scoracle-cognition` first, or\n\
+         these numbers are a busy GPU's, not the model's (greedy decode is not deterministic under\n\
+         batching). Comparing two runs? Diff the per-check table, never the score."
     );
 
     let mut inc_pass = 0usize;
@@ -601,6 +643,20 @@ impl JudgeAgg {
 
 /// expected_property_count mirrors the fixture schema: if a reply is unparseable, every authored
 /// expectation should count as failed rather than disappearing from the denominator.
+///
+/// **It must stay in step with every `evaluate` in `eval_tasks.rs`, one arm per pushed check.**
+/// It did not, and that was an instrument defect in its own right (D-T19, 2026-08-06): the
+/// function knew the voice axes and NONE of the Editor's, so an unparseable editor fixture
+/// contributed `0/0` instead of `0/N` and simply vanished from the tally. The gate would then
+/// report a smaller denominator with no warning — `47/53` and `47/46` print the same shape of
+/// success, and the second one is a fixture that died. A denominator that moves with the model's
+/// output is not a denominator.
+///
+/// Three fields are deliberately NOT counted, because they are prompt/resolver INPUTS a fixture
+/// declares rather than assertions it makes: `reader_vetted` (the hypothesis list handed to the
+/// parser), `resolver_surfaces` (the surface table `group_hits` runs against) and
+/// `graph_candidate_types` (the numbered candidate list). That is the whole of the gap between
+/// the editor set's 60 authored expect-keys and the 53 checks it scores.
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
@@ -640,6 +696,33 @@ fn expected_property_count(x: &Expect) -> usize {
     n += x.reading_excludes.as_ref().map_or(0, Vec::len);
     n += x.reading_min_sentences.is_some() as usize;
     n += x.reading_max_sentences.is_some() as usize;
+    n += x.reading_max_peers.is_some() as usize;
+    // `hook_nonempty` mirrors its evaluator exactly: only `Some(true)` pushes a check.
+    n += (x.hook_nonempty == Some(true)) as usize;
+    // One check for the whole synonym set, not one per word.
+    n += x.body_includes_any.is_some() as usize;
+    // The graph axes.
+    n += x.relations_include.as_ref().map_or(0, Vec::len);
+    n += x.relations_exclude.as_ref().map_or(0, Vec::len);
+    n += x.relations_max.is_some() as usize;
+    n += x.persons_include.as_ref().map_or(0, Vec::len);
+    n += x.persons_exclude.as_ref().map_or(0, Vec::len);
+    // The Editor / ArticleReader axes (ep1 + ar6).
+    n += x.article_relevant.is_some() as usize;
+    n += x.key_facts_include.as_ref().map_or(0, Vec::len);
+    n += x.key_facts_exclude.as_ref().map_or(0, Vec::len);
+    n += x.names_include.as_ref().map_or(0, Vec::len);
+    n += x.names_exclude.as_ref().map_or(0, Vec::len);
+    n += x.register_is.is_some() as usize;
+    n += x.story_type_is.is_some() as usize;
+    n += x.name_kind_is.as_ref().map_or(0, |m| m.len());
+    n += x.name_descriptor_nonempty.as_ref().map_or(0, Vec::len);
+    n += x.result_line_includes.as_ref().map_or(0, Vec::len);
+    n += x.result_line_parses.is_some() as usize;
+    n += x.resolver_links_include.as_ref().map_or(0, Vec::len);
+    n += x.resolver_links_exclude.as_ref().map_or(0, Vec::len);
+    n += x.resolver_unresolved_include.as_ref().map_or(0, Vec::len);
+    n += x.resolver_refused_include.as_ref().map_or(0, Vec::len);
     n
 }
 
@@ -1130,5 +1213,25 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(expected_property_count(&x), 3);
+    }
+
+    /// The editor gate's denominator must be DERIVABLE FROM THE FIXTURE FILES, and it must not
+    /// depend on what the model happened to say (D-T19). This walks the real fixture dir and
+    /// asserts the authored total is the 53 the gate reports — so a fixture that fails to parse
+    /// now scores `0/N` and the denominator holds at 53 instead of silently shrinking.
+    ///
+    /// If you add an editor fixture or an expect-key, this number moves ON PURPOSE and you
+    /// update it here. That is the point: the denominator changes when the FILES change, never
+    /// when a reply does.
+    #[test]
+    fn editor_fixture_denominator_is_derivable_from_the_files() {
+        let dir = fixtures_dir("editor");
+        let fixtures = load_fixtures(&dir, None).expect("load editor fixtures");
+        assert_eq!(fixtures.len(), 12, "editor fixture count");
+        let total: usize = fixtures
+            .iter()
+            .map(|f| expected_property_count(&f.expect))
+            .sum();
+        assert_eq!(total, 53, "authored editor property checks");
     }
 }

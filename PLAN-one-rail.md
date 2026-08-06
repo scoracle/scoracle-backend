@@ -1,5 +1,36 @@
 # PLAN — One Rail
 
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged). **PHASE 7 IS COMPLETE ON ITS
+PLUMBING — 7.7 landed 2026-08-06 and only the junction pass (7.11 + 7.15) is left in it.**
+DEPLOYED @ `2c6b038` (2026-08-06 08:23 EDT) on archbox: `RAIL=legacy`, `VOICE_NUM_CTX=4096`,
+11 stages, six voices on ministral-3:14b at the Mac (4096, 3 concurrent). The Mac runs NO worker —
+it is the model host; one archbox release is the whole deploy. 400 tests green, clippy clean.
+**THE CUTOVER BLOCKER IS DEAD:** the Editor was dead-lettering ~1 article/day on a NUL byte
+reaching `news_articles.full_text`; the body is now sanitised where it ENTERS the Editor (upstream
+of the hash, the prompt and the candidate-evidence slice, not just the bind), the 3 dead rows were
+requeued and all three landed, and **§2 clause 4's editor dead-letter count is 3 → 0**. **7.7 IS
+IN AND DEPLOYED:** the Scout's personnel block — still no packet subscription, still no
+`Voice::Scout` — carrying the four facts the memory card structurally cannot (team DEPARTURES, the
+club a player came FROM, REVERTS, and the since-last-read anchor), proven live on both clubs of
+one transfer before it shipped. It is out of `input_hash` (the 7.8 ruling) and `s16` is NOT bumped
+(s17 is 7.11's, and its bump spends a fleet-wide regen). **PHASE 6 STAYS OPEN on 6.7 alone:** the
+72h window closes ~**Aug 8 22:08 EDT** and the Aug-6 session was 62 hours early, so the reading
+was NOT taken. `scripts/rail-6.7-bands.sh` now emits all four bands + the Verify clause and prints
+`INTERIM` vs `READING` in its own header — run it after the close. Interim at +10.3h, NOT the
+reading: top cluster **19 (in band 15–25:1)**, **98.6% attached**, packets/subscriptions/`pk:`
+rows all 0, and a clean T3 preserved contradiction on storyline 7477. **STILL SCOTT'S CALL, NOT
+ACTED ON:** the packet branches have never executed (packets 0) — the clean de-risk is D-T14
+resolution (b), a migration gating mig 206's arm 2 on subscriptions, THEN shadow compile with
+nothing subscribed, THEN read one real rendered packet before the flip. **PHASE 8 PRECONDITION,
+do not lose it: seed `stage_routing_subscriptions` IN THE SAME ACT as the flip** — under
+`RAIL=packet` the Influencer has no waker until those rows exist. New this session: **D-T17** (a
+gzip body reached the model and the column; 1 of 19,140 — the source of 266182's NUL). OPEN
+OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo /mnt/data/scratch grant pending on archbox (low
+priority). Last plan commit: (this one). Updated 2026-08-06 ~08:40 EDT (loose ends: blocker dead,
+7.7 in, 6.7 still running).**
+
+*(Superseded STATE of 2026-08-05 ~23:45 EDT — phase 7 deployed, loose ends open — kept verbatim below.)*
+
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
 for a season). PHASE 6 OPEN on 6.7 alone: its 72h window closes ~Aug 8 22:10 EDT — read the bands
 then and close the phase (the Log's backfill numbers are the pre-deploy baseline; the +4-min
@@ -2424,7 +2455,11 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       (`charged` tag), first-voice-capable: fix `enqueue_vibe_if_needed`'s empty-context no-op
       for packet work, update her contract text (she may file first; register_phrase is her
       material). The Journalist-side enqueue remains for legacy mode only.
-- [ ] **7.7** Scout (`peak`): NO packet subscription (T4, §4 stats-before-Scout). Two
+- [x] **7.7** *(Done 2026-08-06 — DEPLOYED @ `2c6b038`. Still no packet subscription and still
+      no `Voice::Scout`. The block is the personnel DELTA the memory card structurally cannot
+      carry: team departures, the club a player came FROM, reverts, and the since-last-read
+      anchor. Out of `input_hash` (the 7.8 ruling); `s16` NOT bumped — s17 belongs to the diet.
+      Log.)* Scout (`peak`): NO packet subscription (T4, §4 stats-before-Scout). Two
       confirmed-fact roads only: (a) the stats platform (Investigator-fed since Phase 4);
       (b) `transfer_identity_applications` applied/adjudicated rows — add a compact "personnel
       changes since last read" block to the PEAK context from that table (facts with dates, no
@@ -2704,10 +2739,152 @@ Fixed, and it is green with it now.
 **Still not started: 7.7 (Scout's personnel block), 7.11 (the diet), 7.15 (the dry-run).** 7.7 is
 plumbing and is genuinely owed; 7.11/7.15 are the junction pass Scott scheduled for the weekend.
 
+**2026-08-06 08:00–08:40 EDT — THE LOOSE-ENDS SESSION: the cutover blocker is dead, 7.7 is in,
+6.7 could not be read.** Commits `df7199c` (the NUL fix, deployed 08:10) → `2c6b038` (7.7,
+deployed 08:23). 400 tests green (391 → 393 → 400), clippy adds no warning. `RAIL=legacy`,
+`VOICE_NUM_CTX=4096`, 11 stages, unchanged across both restarts.
+
+**Item 1 — the Editor's NUL dead-letters, FIXED and CONFIRMED (§2 clause 4 can now go green).**
+Measured first, as instructed: `editor` attempts≥5 = **3** (266182 Aug 3, 273432 Aug 4, 278578
+Aug 5), `article_read` = 2 (the Jul-26 parse failures that die with the stage). A 0x00 survives
+`clean_html` because NUL is not whitespace, so `normalize_space` keeps it, and Postgres cannot
+store one in a `text` column at all. **The fix went in one step upstream of the bind** — the body
+is sanitised where it ENTERS the Editor, not at `persist_read` — because the same body is also
+hashed, prompted, and sliced for candidate evidence (`sweep_candidates`), and that last path
+writes text columns too on a best-effort call that would have failed silently. Bodies without a
+NUL allocate nothing and pass through byte-identical, so no ordinary prompt or `content_hash`
+moved; `fetch.rs` is untouched, so the legacy seat is unchanged. Requeue rehearsed in a
+rolled-back transaction (3 rows, class→0 asserted inside), then applied: **all three cleared the
+queue and wrote `editor_reads` rows** — 266182/273432/278578, `parser_outcome=parsed`,
+1328/1472/1402 words, all three `irrelevant` (the sources are Football Lowdown, Bleeding Cool
+News and Publishers Weekly — genuine reads of pages that are not about our entities). **Editor
+dead-letters: 3 → 0.** `select count(*) … attempts>=5` is the clause-4 query and it now returns 0.
+*Two notes for whoever reads this next:* `chr(0)` cannot even be written into a Postgres query —
+`ERROR: null character not permitted` — which is the proposition itself, so verify the fix by
+length/prefix, not by searching for the byte. And the fetched page carries no NUL today: `grep -c
+$'\x00'` in zsh collapses to an EMPTY pattern and matches every line, which is a measurement trap
+worth remembering (`python3 -c "…count(b'\x00')"` is the honest count).
+
+**Item 2 — 7.7, the Scout's personnel block (the last Phase 7 plumbing step).** T4 is untouched:
+no packet subscription, no `Voice::Scout`, and every column read is a date, an id resolved to a
+name, or the adjudicated `event_type` enum — `reason`, `evidence` and `adjudication_raw` are
+never selected, so no prose can reach the seat. Injury/suspension gates stay deferred to D-5.
+**The step's premise needed a correction, and the correction is the whole value of the step:** the
+memory card ALREADY carries "confirmed moves", and its source `transfer_ground_truth` turns out to
+be a view over `transfer_identity_applications` itself — `DISTINCT ON (sport, player_id, team_id)`,
+non-reverted only, 180 days, LIMIT 3. So a naive block would have been a duplicate. Four facts
+never survive that view, and 7.7 is exactly those: (1) **a team's DEPARTURES** — the view's team
+branch matches `new_team_id` alone; (2) the club a player came FROM; (3) a **REVERT** (filtered out
+by `reverted_at IS NULL`), which is the correction to the very move the last brief was built
+around; (4) the since-last-read anchor that makes any of it new. Proven live on application 34
+before it shipped: **the same row reads "signed Yan Diomande from RB Leipzig" to Real Madrid (3468)
+and "lost Yan Diomande to Real Madrid" to RB Leipzig (277)** — the second half is invisible to the
+memory card. Describe in SQL, derive in code (T2): the query returns columns, `render_personnel_block`
+builds the sentences and is unit-tested without a database (7 new tests). Capped at 6 lines with
+the overflow NAMED (A5). **Deliberately out of `input_components`/`input_hash`** — the stats rail's
+trigger stays the rating snapshot, the identical ruling 7.8 made for the Analyst's storyline
+render — and **`RATING_PROMPT_VERSION` stays `s16`**: the system prompt and output contract are
+untouched, and s17 is 7.11's, whose bump spends one fleet-wide regen. Bumping here would spend it
+on a block most entities do not have. `with_memory` became `with_enrichment` (it gates both side
+blocks); eval and the input-version builder still pass `false` and still mint an identical hash,
+because neither block is in it.
+
+**Item 3 — 6.7 COULD NOT BE READ: the window was still open.** It closes ~Aug 8 22:08 EDT and
+this session ran Aug 6 08:00 — **62 hours early**. The plan's own rule ("the +4-min checkpoint is
+not a reading") applies with equal force at +10h, so Phase 6 STAYS OPEN. What this session left
+instead is the mechanics: **`scripts/rail-6.7-bands.sh`** (read-only, safe to run any time) emits
+all four of 6.7's bands plus the Phase 6 Verify clause, and **prints `INTERIM` vs `READING` in its
+own header** by comparing `now()` to the window close, so the Aug-8 session cannot mistake a
+health check for the reading. Every count is restricted to `attach_method='auto'`, which is the
+clean discriminator against the pre-deploy backfill baseline. **Interim numbers at +10.3h — a
+health check, NOT the reading:** storylines opened 926 (FOOTBALL 623 / NFL 300 / NBA 83);
+organic attaches 2,251 across 1,467 storylines, mean 1.53, p50 1 / p90 3 / p99 8, **top cluster
+19 — IN BAND (15–25:1)**; **98.6% of successful reads attached** (2,251 of 2,282, 31 unattached);
+55.3% joined an existing storyline vs 44.7% opened a new one. Packets 0, subscriptions 0,
+`pk:` work rows 0 — Phase 6's Verify clause holds. The T3 spot-check fires on its own: storyline
+**7477** holds "Leipzig deny agreement" (beIN, OneFootball, Goal, Bavarian Football Works) beside
+ESPN's "Real Madrid set to sign Yan Diomande in €135M deal" and "hours away from signing
+officially" — **a preserved contradiction, both sides standing**, which is the T3 pass. 7474
+(Vinicius→Arsenal, 15) reads as one saga with two headlines that look like D-T13 bleed
+(a Brahim Díaz squad-role piece, a generic "Arsenal eyeing a winger"). None of this closes 6.7.
+
+**Item 4 — NOT ACTED ON, it is Scott's call.** The packet branches still have never executed
+(packets 0), and the clean de-risk is still D-T14 resolution (b) — a migration making mig 206's
+arm 2 subscription-gated like arm 1, THEN compile in shadow with nothing subscribed, and read one
+real rendered packet before the flip. This session did not write that migration and did not touch
+the compile flag. It remains the biggest unmeasured risk the flip carries.
+
+**Found while verifying item 1, recorded not fixed → D-T17:** article 266182's stored `full_text`
+is 42 KB of binary whose first bytes are `1F 8B 08` — the **gzip magic number**. An undecompressed
+response was lossily decoded into "text", cleared `ARTICLE_MIN_WORDS` at 1,328 "words", and burned
+a model call. That is where its NUL came from. Class size measured immediately: **1 of 19,140
+stored bodies**, so it is a genuine one-off and not a fix this session should improvise.
+
 ### Handoff (loose ends → Phase 8) — run this BEFORE the cutover session
 
 *(Written 2026-08-05 23:50 EDT with the rail live. Everything here is either a cutover blocker
 found by measurement, a Phase 7 step still owed, or a reading that expires if nobody takes it.)*
+
+**WORKED 2026-08-06 08:00–08:40 EDT — items 1 and 2 are CLOSED, item 3 was 62h early, item 4 is
+untouched and still Scott's. The live block to run next is the one below this one.** ITEM 1: the
+NUL sanitiser shipped @ `df7199c`, the 3 rows were requeued and landed, editor dead-letters 3 → 0.
+ITEM 2: 7.7 shipped @ `2c6b038` — and its premise needed correcting, because the memory card's
+"confirmed moves" already reads `transfer_ground_truth`, itself a view over
+`transfer_identity_applications`; the block earns its place on the four facts that view drops
+(team departures, the FROM club, reverts, the since-last-read anchor). ITEM 3: NOT TAKEN — the
+window closes ~Aug 8 22:08 EDT; `scripts/rail-6.7-bands.sh` is the reading, and it labels itself
+INTERIM until then. ITEM 4: NOT ACTED ON — no migration written, compile flag untouched.
+
+**Resume block for the NEXT session (6.7's close + the D-T14 decision):**
+
+```
+Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail). The rail is DEPLOYED
+and healthy: 2c6b038 on archbox, RAIL=legacy, VOICE_NUM_CTX=4096, 11 stages, six voices on
+ministral-3:14b at the Mac (4096, 3 concurrent). The Mac runs NO worker — it is the model
+host; one archbox release.sh is the whole deploy. Read §0, the STATE line, §2, then the
+Phase 7 Log's 2026-08-06 entry. Phase 7's PLUMBING IS DONE (7.7 landed); 7.11 + 7.15 are the
+junction pass and are NOT this session.
+
+1. CLOSE PHASE 6 — 6.7, and ONLY after ~Aug 8 22:08 EDT. Run scripts/rail-6.7-bands.sh; it
+   prints INTERIM vs READING in its own header by comparing now() to the window close. If it
+   says INTERIM you are early — do not close the phase, whatever the numbers look like. It
+   emits all four bands (storylines/day/sport, articles-per-storyline with the 15-25:1 band
+   verdict, % attached, the 3 biggest with their member headlines) plus Phase 6's Verify
+   clause. The hand-inspection is YOURS, not the script's: read the headlines it prints and
+   decide whether the top 3 are one saga or a wrong merge, and name the preserved
+   contradiction. Interim at +10.3h (a health check, not the reading): top cluster 19 IN BAND,
+   98.6% attached, and storyline 7477 already shows a clean T3 contradiction — Leipzig's
+   denials standing beside ESPN's "set to sign in €135M deal".
+
+2. THE PACKET BRANCHES HAVE STILL NEVER EXECUTED (packets = 0) — SCOTT'S CALL, ask before
+   building. This is the biggest unmeasured risk the flip carries and it CANNOT be de-risked
+   by flipping COGNITION_PACKET_COMPILE: D-T14 stands (mig 206 arm 2 fans narratives
+   unconditionally, so a compiled packet alternates input_version with the legacy
+   article_read writer on one pipeline_work row — the mig-197 churn loop). The clean path is
+   D-T14 resolution (b): a migration making arm 2 subscription-gated like arm 1, THEN compile
+   in shadow with nothing subscribed, THEN read one real rendered packet before the flip.
+
+3. THEN Phase 8, and only with the 7-day §2 window green and Scott's word. Clause 4's editor
+   dead-letter count is 0 as of Aug 6 08:30 — the 7-day clock starts from a clean floor for
+   the first time. Watch it: `select count(*) from pipeline_work where stage='editor' and
+   attempts>=5`. One arrival resets the window.
+
+PHASE 8 PRECONDITION, DO NOT LOSE IT: seed stage_routing_subscriptions IN THE SAME ACT as the
+flip. Under RAIL=packet the Influencer has NO waker until those rows exist (7.6 gated the
+Journalist-side vibe enqueue to legacy). Seed, drop mig 175's trigger, flip — one act.
+
+RECORD, DO NOT FIX (the weekend junction pass, PLAN-character-tuning.md): the Analyst's
+"VIBE:"/"Vibe:" contract-label miss (players 219665, 33934017); the first sigil at 4096 naming
+TWO peers and using "z-scores"/"percentile" in served prose (both or8's own documented
+defects, reproducing at the smaller window); D-T16 (the storyline memory lens renders
+passing_mention edges); D-T17 (a gzip body reached the model and the column — 1 of 19,140).
+
+LAWS THAT DID NOT CHANGE: no prose reaches the Scout (T4); memory is characters-only and stays
+out of input_hash; voice routing is data, never asked of a model; nothing user-visible changes
+until Phase 8 flips RAIL.
+```
+
+*(The original 2026-08-05 block, worked above, kept verbatim:)*
 
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail) — the LOOSE ENDS session,
@@ -2775,8 +2952,8 @@ THREE THINGS PHASE 8 MUST NOT LOSE:
     (Scott: "we don't need to seed anything until the cutover"). Under RAIL=packet the
     Influencer has NO waker until those rows exist — 7.6 gated the Journalist-side enqueue to
     legacy. Seed, drop mig 175's trigger, and flip in ONE act.
- 2. Still open in Phase 7: 7.7 (the Scout's personnel-changes block — plumbing, owed) and
-    7.11/7.15 (the junction pass Scott scheduled for the weekend of Aug 8).
+ 2. Still open in Phase 7: 7.11/7.15 ONLY (the junction pass Scott scheduled for the weekend
+    of Aug 8). 7.7 is DONE and deployed @ 2c6b038 (2026-08-06) — the plumbing is complete.
  3. 6.7's 72h bands close ~Aug 8 22:10 EDT — read them and close Phase 6.
 Phase 8 does NOT flip anything until the 7-day condition is green and Scott has said "flip" —
 the flip is his act, prepared by you. If any clause fails, STOP, log the numbers, emit the
@@ -3181,3 +3358,13 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   memory card. Class size unmeasured. Candidate knobs: restrict the lens to subject/opponent
   roles once ep1 role coverage is real (D-T13's knob (a) fixes both at once); or rank by
   report count and keep the top 1–2. Measure alongside D-T13's bleed rate, not before.
+- **D-T17 · a gzip body reached the model and the column (found 2026-08-06, measured 1/19,140).**
+  Article 266182's stored `full_text` is 42 KB whose first bytes are `1F 8B 08` — a gzip stream
+  that reqwest's `resp.text()` decoded lossily instead of decompressing. It cleared
+  `ARTICLE_MIN_WORDS` at 1,328 "words", spent an editor call, and carried the 0x00 that
+  dead-lettered the row until the NUL sanitiser landed. **Class size: 1 of 19,140 stored bodies**
+  (`left(full_text,1) = chr(31)`), so this is a one-off, not a pattern — recorded because the
+  next NUL report will look identical and this is where it comes from. Candidate knobs: ask for
+  identity encoding / honour `Content-Encoding` in `fetch.rs`; or a cheap pre-model sanity gate
+  (a body whose decode produced a high replacement-char ratio is not prose). Measure the class
+  again before spending anything on it — at 1 in 19,140 the gate may cost more than the miss.

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict pgTVZVqUrNqy43LUqBugKV3PFq075jcj0PkRwSqaYi7mBcTFyiTqBmZ6aufEhNT
+\restrict u9L1YFjYjYIZvE6pIgWSahc3xuHcOxIb0FZ6rnQgjujdmYW5bNs1pUwfkfJlWoG
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -13659,31 +13659,10 @@ CREATE INDEX insider_scores_entity_latest ON public.insider_scores USING btree (
 
 
 --
--- Name: news_article_entities enqueue_derive_on_vetted; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_derive_on_vetted AFTER UPDATE OF vetted ON public.news_article_entities FOR EACH ROW WHEN (((new.vetted IS TRUE) AND (old.vetted IS DISTINCT FROM new.vetted))) EXECUTE FUNCTION public.enqueue_derive_on_vetted();
-
-
---
--- Name: news_articles enqueue_transfers_if_transfer_related; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_transfers_if_transfer_related AFTER UPDATE OF bucket ON public.news_articles FOR EACH ROW WHEN (((new.bucket = 'transfer'::text) AND (new.bucket IS DISTINCT FROM old.bucket))) EXECUTE FUNCTION public.enqueue_transfers_if_transfer_related();
-
-
---
 -- Name: packets enqueue_voices_on_packet; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER enqueue_voices_on_packet AFTER INSERT ON public.packets FOR EACH ROW EXECUTE FUNCTION public.enqueue_voices_on_packet();
-
-
---
--- Name: news_articles enqueue_voices_on_routing_tags; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER enqueue_voices_on_routing_tags AFTER UPDATE OF routing_tags ON public.news_articles FOR EACH ROW WHEN ((new.routing_tags IS DISTINCT FROM old.routing_tags)) EXECUTE FUNCTION public.enqueue_voices_on_routing_tags();
 
 
 --
@@ -14614,5 +14593,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict pgTVZVqUrNqy43LUqBugKV3PFq075jcj0PkRwSqaYi7mBcTFyiTqBmZ6aufEhNT
+\unrestrict u9L1YFjYjYIZvE6pIgWSahc3xuHcOxIb0FZ6rnQgjujdmYW5bNs1pUwfkfJlWoG
 

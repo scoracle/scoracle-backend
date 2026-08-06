@@ -627,13 +627,16 @@ impl LensTask for VibeTask {
             return Ok(None);
         }
         // Eval pins the continuity-free, memory-free prompt shape (the n8 precedent):
-        // fixtures measure the fresh-signal contract, not the v12 enrichment riders.
+        // fixtures measure the fresh-signal contract, not the v12 enrichment riders — and,
+        // since 7.6, not the packet block either: these fixtures are the LEGACY gate, and they
+        // must keep measuring the shape the legacy rail sends.
         Ok(Some(build_sentiment_prompt(
             &e.entity_type,
             &name,
             &e.sport,
             &narratives,
             &heat,
+            &[],
             None,
             None,
         )))

@@ -93,6 +93,8 @@ fn fixture(
             sport,
             narratives,
             heat_items,
+            // Fixtures pin the LEGACY prompt shape: no packet block (7.6).
+            &[],
             previous,
             memory,
         ),

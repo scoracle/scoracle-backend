@@ -68,7 +68,7 @@ fn errors_without_digits() {
 #[test]
 fn builds_prompt_with_empty_sections() {
     // No previous, no memory ⇒ neither section renders (v11 byte-shape preserved).
-    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], None, None);
+    let p = build_sentiment_prompt("player", "Test Player", "NBA", &[], &[], &[], None, None);
     assert_eq!(
         p,
         "Entity: Player Test Player (NBA)\n\nNarratives forming around them (ordered by relevance/topic heat; impact in brackets):\n- (none this cycle)\n\nCurrent transfer/trade activity (heat 0-100):\n- (none)\n\nRespond now (SCORE line, then HOOK line, then VIBE line)."
@@ -90,6 +90,7 @@ fn previous_vibe_renders_as_continuity_lead_in() {
         "NBA",
         &[],
         &[],
+        &[],
         Some(&previous),
         None,
     );
@@ -104,7 +105,7 @@ fn previous_vibe_empty_read_renders_score_only() {
         sentiment: 55,
         vibe_prompt: String::new(),
     };
-    let p = build_sentiment_prompt("team", "Test Team", "NFL", &[], &[], Some(&previous), None);
+    let p = build_sentiment_prompt("team", "Test Team", "NFL", &[], &[], &[], Some(&previous), None);
     assert!(p.contains("=== PREVIOUS VIBE ===\nScore: 55/100\n\nNarratives forming"));
 }
 
@@ -115,6 +116,7 @@ fn memory_card_renders_between_heat_and_reply_cue() {
         "player",
         "Test Player",
         "FOOTBALL",
+        &[],
         &[],
         &[],
         None,
@@ -135,6 +137,7 @@ fn blank_memory_renders_no_section() {
         "player",
         "Test Player",
         "NBA",
+        &[],
         &[],
         &[],
         None,
@@ -210,7 +213,7 @@ fn input_components_are_material_only_and_sorted() {
     // prompt_version leads the pre-image (single-sourced from the const, so a bump can't
     // silently rot this pin) — a v-bump changes every entity's hash once, forcing the regen.
     assert_eq!(
-        build_vibe_input_components(&narratives, &heat),
+        build_vibe_input_components(&narratives, &heat, &[]),
         format!(
             r#"{{"prompt_version":"{VIBE_PROMPT_VERSION}","narrative_impacts":["Alpha story:3","Trade buzz:7"],"narrative_titles":["Alpha story","Trade buzz"],"narrative_trajectories":["Alpha story:developing_story","Trade buzz:heating_up"],"transfer_heat":["Arsenal:40:incoming:speculation"]}}"#
         )
@@ -222,11 +225,95 @@ fn input_components_empty_material_is_stable() {
     // The no-corpus marker pre-image: narrative keys always present as [], NO
     // transfer_heat key (sigil convention) — so quiet entities debounce on a stable hash.
     assert_eq!(
-        build_vibe_input_components(&[], &[]),
+        build_vibe_input_components(&[], &[], &[]),
         format!(
             r#"{{"prompt_version":"{VIBE_PROMPT_VERSION}","narrative_impacts":[],"narrative_titles":[],"narrative_trajectories":[]}}"#
         )
     );
+}
+
+// --- 7.6 / E3: the packet is her material, and she may file first ------------------------------
+
+fn packet_block(id: i64) -> PacketBlock {
+    PacketBlock {
+        packet_id: id,
+        text: "STORY: Arsenal close on Vinicius Junior\nMOOD: anticipation — \"the whole of north London is holding its breath\"\nREPORTED (newest first):\n- Football365: Arsenal have reached an agreement in principle\n".into(),
+    }
+}
+
+/// The legacy pre-image is byte-identical to what shipped before Phase 7: no packets exist on
+/// that rail, so the `packets` key is absent exactly the way `transfer_heat` is when the wire is
+/// quiet. Every legacy `input_hash` therefore keeps serving its existing row.
+#[test]
+fn legacy_pre_image_carries_no_packets_key() {
+    let out = build_vibe_input_components(&[], &[], &[]);
+    assert!(!out.contains("packets"));
+    assert_eq!(
+        out,
+        format!(
+            r#"{{"prompt_version":"{VIBE_PROMPT_VERSION}","narrative_impacts":[],"narrative_titles":[],"narrative_trajectories":[]}}"#
+        )
+    );
+}
+
+/// On the packet rail the ids ARE the material key: packets are append-only snapshots, so a
+/// recompiled storyline is a new id and an unmoved one keeps its own. Sorted, like every other
+/// line in this pre-image, so load order cannot perturb the hash.
+#[test]
+fn packet_ids_enter_the_pre_image_sorted() {
+    let out = build_vibe_input_components(&[], &[], &[packet_block(22), packet_block(9)]);
+    assert!(out.ends_with(r#","packets":["22","9"]}"#), "{out}");
+    let reversed = build_vibe_input_components(&[], &[], &[packet_block(9), packet_block(22)]);
+    assert_eq!(hash_components(&out), hash_components(&reversed));
+}
+
+/// E3, the first-voice fix. Before 7.6 a packet-woken entity with no narratives and no heat
+/// looked EMPTY, and `enqueue_vibe_if_needed` returned `Ok(false)` — the Influencer could not
+/// speak until The Journalist had spoken for her. A packet now counts as material.
+#[test]
+fn a_packet_alone_is_material_enough_to_wake_her() {
+    let with_packet = VibeContext {
+        narratives: Vec::new(),
+        heat: Vec::new(),
+        news_ids: Vec::new(),
+        packets: vec![packet_block(1)],
+        input_components_json: String::new(),
+        input_hash: String::new(),
+    };
+    assert!(
+        !with_packet.empty(),
+        "a charged packet is her material — she files first"
+    );
+    let nothing = VibeContext {
+        packets: Vec::new(),
+        ..with_packet
+    };
+    assert!(nothing.empty(), "no narratives, no heat, no packet ⇒ marker path");
+}
+
+/// Her prompt carries the packet ABOVE the narratives (on this rail his card may not exist yet),
+/// and the legacy prompt is untouched by the arm entirely.
+#[test]
+fn packet_block_renders_above_the_narratives_and_never_on_legacy() {
+    let legacy = build_sentiment_prompt("team", "Arsenal", "FOOTBALL", &[], &[], &[], None, None);
+    assert!(!legacy.contains("The stories running around them"));
+
+    let packet = build_sentiment_prompt(
+        "team",
+        "Arsenal",
+        "FOOTBALL",
+        &[],
+        &[],
+        &[packet_block(1)],
+        None,
+        None,
+    );
+    let story = packet.find("The stories running around them").expect("packet section");
+    let narr = packet.find("Narratives forming around them").unwrap();
+    assert!(story < narr, "the story she reads comes before his write-up of it");
+    // The register and its phrase are hers, and they arrive by the renderer's voice rule.
+    assert!(packet.contains("MOOD: anticipation"));
+    assert!(packet.contains("holding its breath"));
 }
 
 #[test]
@@ -235,7 +322,7 @@ fn input_hash_ignores_narrative_ordering() {
     // debounce key must not care.
     let a = test_narrative("Alpha story", 3, "developing_story");
     let b = test_narrative("Trade buzz", 7, "heating_up");
-    let forward = build_vibe_input_components(&[a.clone(), b.clone()], &[]);
-    let reversed = build_vibe_input_components(&[b, a], &[]);
+    let forward = build_vibe_input_components(&[a.clone(), b.clone()], &[], &[]);
+    let reversed = build_vibe_input_components(&[b, a], &[], &[]);
     assert_eq!(hash_components(&forward), hash_components(&reversed));
 }

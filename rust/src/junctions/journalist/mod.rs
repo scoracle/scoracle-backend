@@ -1950,7 +1950,21 @@ impl StageHandler for NarrativesHandler {
         // generation's storylines + the transfer heat, so enqueue it once that material has moved.
         // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Any transfers routing
         // rides the news_articles.bucket write in persist_narratives (mig 175 trigger).
-        if !crate::junctions::influencer::enqueue_vibe_if_needed(
+        //
+        // **LEGACY ONLY (7.6/E3).** On the packet rail the Influencer is woken by the packet's
+        // `charged` tag through mig 206's subscription fan-out, and she may file BEFORE this
+        // handler ever runs. Leaving this call armed on that rail would put two writers on one
+        // `pipeline_work` row with different `input_version` prefixes (`vibe:` here, `pk:` from
+        // the trigger), and `work::enqueue` reopens on any version change — the mig-197 churn
+        // loop, arriving through a third door. One rail, one waker.
+        if hx.rail.is_packet() {
+            debug!(
+                entity_type = %item.entity_type,
+                entity_id,
+                sport = %sport_up,
+                "narratives: vibe enqueue skipped — the packet trigger owns her wake-up on this rail"
+            );
+        } else if !crate::junctions::influencer::enqueue_vibe_if_needed(
             hx,
             &item.entity_type,
             entity_id,

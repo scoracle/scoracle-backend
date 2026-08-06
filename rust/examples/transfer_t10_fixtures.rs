@@ -83,6 +83,8 @@ fn fixture(
             &evidence,
             Some(reliability),
             Some(memory),
+            // Fixtures pin the LEGACY prompt shape: no packet framing (7.5).
+            None,
         ),
         temperature: 0.0,
         expect,

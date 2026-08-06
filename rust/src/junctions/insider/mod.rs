@@ -424,6 +424,90 @@ pub async fn load_pair_news(pool: &PgPool, ids: &[i64]) -> Result<Vec<NewsItem>>
         .collect())
 }
 
+/// How many of the team's live packets may contribute material to one pair's prompt. A pair's
+/// articles rarely span more than one storyline; the cap is a ceiling on a pathological team, not
+/// a tuning knob.
+const PAIR_PACKET_LIMIT: i64 = 5;
+
+/// The packet material for one pair (7.5), keyed by article id: this article's transfer-typed
+/// claims, in the packet's order (newest first), contested ones already marked.
+type PairPacketFacts = HashMap<i64, Vec<String>>;
+
+/// load_pair_packet_material is the Insider's half of the cutover (7.5): the same pair, read off
+/// the compiled storyline instead of the raw article window.
+///
+/// **What the packet replaces, and what it does NOT.** The pair's IDENTITY stays Postgres's:
+/// `compute_transfer_heat` decides the heat, the corpus ids, and therefore the F3 fingerprint —
+/// the number is never the model's and never the packet's (§4). What the packet replaces is the
+/// MATERIAL: for every article already in the pair's corpus, the Editor's extracted transfer
+/// claims stand in for the RSS headline and description. Same articles, same order, same
+/// grounding — better evidence. That is the same shape 7.3 gave the Journalist, and it is why the
+/// whole adjudication chain below this function is untouched.
+///
+/// The Insider's slice is the transfer-typed claims — exactly the subset
+/// `slice_fingerprints ->> 'transfers'` hashes (E2), so a re-fan and a re-read agree about what
+/// moved. Articles the Desk has not assembled (or whose claims are another type) simply carry no
+/// overlay and travel on their headline, which is what a headline is for.
+///
+/// Returns the per-article facts plus the storyline framing of the packets that actually
+/// contributed — a packet whose claims all missed this pair frames nothing.
+async fn load_pair_packet_material(
+    pool: &PgPool,
+    team_id: i32,
+    team_name: &str,
+    sport: &str,
+    news_ids: &[i64],
+) -> Result<(PairPacketFacts, String)> {
+    use crate::junctions::editor::render;
+
+    let mut facts: PairPacketFacts = HashMap::new();
+    let mut framing = String::new();
+    if news_ids.is_empty() {
+        return Ok((facts, framing));
+    }
+    let wanted: std::collections::HashSet<i64> = news_ids.iter().copied().collect();
+
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        "team",
+        team_id,
+        sport,
+        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        PAIR_PACKET_LIMIT,
+    )
+    .await?;
+
+    for (view, mut part) in loaded {
+        part.name = team_name.to_string();
+        let slice = render::slice_claims(&view.claims, render::Voice::Insider);
+        let marked = render::mark_contested(&slice);
+        let mut contributed = false;
+        for m in marked {
+            if !wanted.contains(&m.claim.article_id) {
+                continue;
+            }
+            contributed = true;
+            let fact = if m.marked {
+                // The contradiction survives into the wire's own prompt (T3/D6). The Insider is
+                // the one voice whose whole job is staging a contested claim, so the marker
+                // matters most here: "agreement in principle" beside "deal not agreed" is a
+                // reason to hold the stage down, not noise to resolve away.
+                format!("⇄ {}", m.claim.fact)
+            } else {
+                m.claim.fact.clone()
+            };
+            facts.entry(m.claim.article_id).or_default().push(fact);
+        }
+        if contributed {
+            if !framing.is_empty() {
+                framing.push('\n');
+            }
+            framing.push_str(&render::framing(&view, Some(&part), render::Voice::Insider));
+        }
+    }
+    Ok((facts, framing))
+}
+
 async fn load_stale_pair_news_ids(
     pool: &PgPool,
     team_id: i32,
@@ -944,7 +1028,30 @@ pub async fn build_pair_request(
         });
     };
 
-    let news = load_pair_news(&hx.pool, &news_ids).await?;
+    let mut news = load_pair_news(&hx.pool, &news_ids).await?;
+    // 7.5 — the rail decides what these articles SAY, never which articles they are. Under
+    // legacy the items keep the headline+description the window query returned; under packet
+    // the Editor's transfer claims overlay them, article by article. `prompted_news_ids`,
+    // `news_ids`, the attribution and the fingerprint are computed from the same list either
+    // way, so the debounce, the evidence card and the identity chain cannot tell the rails
+    // apart — which is exactly the property that lets the flip be one env var.
+    let packet_framing = if hx.rail.is_packet() {
+        let (facts, framing) =
+            load_pair_packet_material(&hx.pool, team_id, team_name, sport, &news_ids).await?;
+        for n in news.iter_mut() {
+            let Some(article_facts) = facts.get(&n.id) else {
+                continue; // not assembled, or nothing transfer-typed in it — it keeps its headline
+            };
+            let mut it = article_facts.iter();
+            if let Some(first) = it.next() {
+                n.title = first.clone();
+                n.description = it.cloned().collect::<Vec<_>>().join(" · ");
+            }
+        }
+        Some(framing).filter(|f| !f.trim().is_empty())
+    } else {
+        None
+    };
     let prompted_news_ids = news.iter().map(|n| n.id).collect();
     let attribution = primary_source(&news);
 
@@ -971,6 +1078,7 @@ pub async fn build_pair_request(
         &evidence,
         source_reliability.as_deref(),
         memory.as_deref(),
+        packet_framing.as_deref(),
     );
     let opts = GenerateOptions {
         system: Some(transfer_system_prompt(sport)),

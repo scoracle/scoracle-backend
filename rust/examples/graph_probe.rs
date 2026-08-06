@@ -40,6 +40,7 @@ async fn main() -> Result<()> {
         scrub: cfg.scrub.clone(),
         // Unbounded: a probe is not a queue item and has no worker timeout to land inside.
         handler_budget: std::time::Duration::ZERO,
+        rail: cfg.rail,
     };
 
     let n_articles: i64 = std::env::var("GRAPH_PROBE_ARTICLES")

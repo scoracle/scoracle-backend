@@ -125,6 +125,7 @@ pub fn build_transfer_prompt(
     evidence: &TransferEvidence,
     source_reliability: Option<&str>,
     memory: Option<&str>,
+    packet_framing: Option<&str>,
 ) -> String {
     let player_name = &c.player_name;
     let mut b = String::new();
@@ -212,7 +213,26 @@ pub fn build_transfer_prompt(
         }
     }
 
-    b.push_str("\nNews headlines:\n");
+    // The compiled storyline this pair sits in (7.5, packet rail only). It is FRAMING, not
+    // evidence: the claims below are still the only thing a stage may be read off. Absent under
+    // `RAIL=legacy`, which is what keeps the legacy prompt byte-identical — and an EMPTY framing
+    // is resolved to absent HERE, once, so every branch below agrees about which rail this is.
+    let packet_framing = packet_framing.filter(|f| !f.trim().is_empty());
+    if let Some(f) = packet_framing {
+        b.push_str("\nThe story these reports belong to (assembled from the reads — framing, not evidence):\n");
+        b.push_str(f);
+        if !f.ends_with('\n') {
+            b.push('\n');
+        }
+    }
+
+    b.push_str(if packet_framing.is_some() {
+        // On this rail each line is the Editor's extracted claim for that article rather than
+        // its headline, and `⇄` marks a claim another report contradicts — both stand (T3/D6).
+        "\nWhat the reports claim (⇄ = contradicted by another report below; both stand):\n"
+    } else {
+        "\nNews headlines:\n"
+    });
     if news.is_empty() {
         b.push_str("- (none)\n");
     } else {

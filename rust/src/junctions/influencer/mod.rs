@@ -223,7 +223,20 @@ fn order_narratives(narratives: &mut [Narrative]) {
 /// summary/confidence (derived commentary, the narratives precedent). The three narrative
 /// keys are ALWAYS present (even `[]`) so the no-corpus marker has a stable pre-image;
 /// `transfer_heat` is conditional, matching the sigil/narratives convention.
-pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) -> String {
+///
+/// `packets` (7.6) is CONDITIONAL in exactly the way `transfer_heat` is: it is empty on the legacy
+/// rail by construction, so the legacy pre-image — and therefore every legacy `input_hash` — is
+/// byte-identical to what shipped before Phase 7. On the packet rail it carries the packet IDs,
+/// which is the whole of what "her material moved" means: packets are append-only snapshots, so a
+/// recompiled storyline is a NEW id and a story that has not moved keeps its own. Hashing the ids
+/// rather than the rendered prose also keeps the register's phrasing out of the key — the phrase
+/// is the Editor's copy of the article's words, and re-reading the same story because a synonym
+/// changed is the churn this discipline exists to prevent.
+pub fn build_vibe_input_components(
+    narratives: &[Narrative],
+    heat: &[HeatItem],
+    packets: &[PacketBlock],
+) -> String {
     fn push_sorted_lines(out: &mut String, mut lines: Vec<String>) {
         lines.sort();
         for (i, line) in lines.iter().enumerate() {
@@ -269,6 +282,14 @@ pub fn build_vibe_input_components(narratives: &[Narrative], heat: &[HeatItem]) 
         );
         out.push(']');
     }
+    if !packets.is_empty() {
+        out.push_str(",\"packets\":[");
+        push_sorted_lines(
+            &mut out,
+            packets.iter().map(|p| p.packet_id.to_string()).collect(),
+        );
+        out.push(']');
+    }
     out.push('}');
     out
 }
@@ -282,14 +303,31 @@ pub struct VibeContext {
     pub heat: Vec<HeatItem>,
     /// Deduped union of the narratives' source article ids (provenance).
     pub news_ids: Vec<i64>,
+    /// The entity's live packets, rendered for HER (7.6) — empty on the legacy rail, always.
+    pub packets: Vec<PacketBlock>,
     pub input_components_json: String,
     pub input_hash: String,
 }
 
+/// One rendered packet as the Influencer reads it: the block, and the packet id that identifies
+/// the snapshot it was rendered from.
+#[derive(Clone, Debug)]
+pub struct PacketBlock {
+    pub packet_id: i64,
+    pub text: String,
+}
+
 impl VibeContext {
     /// No derived signal at all → the no-corpus marker path (no model call).
+    ///
+    /// **E3, the first-voice fix (7.6).** Until the packet rail, "empty" meant no NARRATIVES and
+    /// no heat — which made the Influencer structurally incapable of speaking before The
+    /// Journalist, because her only material was his output. On the packet rail she is woken by
+    /// the packet's `charged` tag and the packet is material in its own right: the register and
+    /// its phrase are HERS (§1c), and nobody else is shown them. A packet therefore counts, and
+    /// she can file first.
     pub fn empty(&self) -> bool {
-        self.narratives.is_empty() && self.heat.is_empty()
+        self.narratives.is_empty() && self.heat.is_empty() && self.packets.is_empty()
     }
 }
 
@@ -309,26 +347,79 @@ pub async fn load_vibe_context(
     // Reads use the upper-cased sport; the prompt uses the original-case value (req.Sport).
     let sport = sport_raw.to_uppercase();
 
-    // Independent reads (news_summaries vs transfer_rumors, no data dependency) — run them
-    // concurrently (plan A3).
-    let ((mut narratives, news_ids), heat) = tokio::try_join!(
+    // Independent reads (news_summaries vs transfer_rumors vs packets, no data dependency) —
+    // run them concurrently (plan A3).
+    let ((mut narratives, news_ids), heat, packets) = tokio::try_join!(
         load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
         load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
+        async {
+            if hx.rail.is_packet() {
+                load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport).await
+            } else {
+                Ok(Vec::new())
+            }
+        },
     )?;
     order_narratives(&mut narratives);
 
     // Hash BEFORE any model involvement: the pre-image is order-insensitive (sorted lines),
     // so the weighting above cannot perturb it.
-    let input_components_json = build_vibe_input_components(&narratives, &heat);
+    let input_components_json = build_vibe_input_components(&narratives, &heat, &packets);
     let input_hash = hash_components(&input_components_json);
 
     Ok(VibeContext {
         narratives,
         heat,
         news_ids,
+        packets,
         input_components_json,
         input_hash,
     })
+}
+
+/// Packets read per entity per vibe run. The felt read is about the entity's MOMENT, so a
+/// handful of live storylines is the whole of it; the rest are archive.
+const MAX_VIBE_PACKETS: i64 = 4;
+
+/// load_vibe_packets renders the entity's live packets for the Influencer (7.6).
+///
+/// Hers is the only render that carries `MOOD:` — the register and its phrase (§1c, and pinned by
+/// a test in `render.rs`). Handing the same charged phrase to The Journalist would leak her
+/// judgment into his copy, which is why the renderer keys it on the voice rather than on a flag
+/// the caller could get wrong.
+async fn load_vibe_packets(
+    pool: &PgPool,
+    entity_type: &str,
+    entity_id: i32,
+    entity_name: &str,
+    sport: &str,
+) -> Result<Vec<PacketBlock>> {
+    use crate::junctions::editor::render;
+
+    let loaded = crate::junctions::editor::packet::load_packets_for_entity(
+        pool,
+        entity_type,
+        entity_id,
+        sport,
+        crate::junctions::journalist::PACKET_LOOKBACK_HOURS,
+        MAX_VIBE_PACKETS,
+    )
+    .await?;
+
+    Ok(loaded
+        .into_iter()
+        .filter_map(|(view, mut part)| {
+            part.name = entity_name.to_string();
+            let packet_id = view.packet_id;
+            let rendered = render::render(&view, Some(&part), render::Voice::Influencer);
+            // A render with nothing in it is not material: an empty block would still tick the
+            // debounce pre-image below and wake her for a story that says nothing.
+            (!rendered.text.trim().is_empty()).then_some(PacketBlock {
+                packet_id,
+                text: rendered.text,
+            })
+        })
+        .collect())
 }
 
 /// VIBE_WORK_PREFIX namespaces the vibe queue row's `input_version` (mirrors momentum's
@@ -617,6 +708,7 @@ async fn generate_vibe_from_context(
         sport_raw,
         &ctx.narratives,
         &ctx.heat,
+        &ctx.packets,
         previous,
         memory,
     );

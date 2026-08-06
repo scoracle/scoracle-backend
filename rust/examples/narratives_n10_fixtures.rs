@@ -101,7 +101,7 @@ fn fixture(
         system: NARRATIVES_SYSTEM_PROMPT.to_string(),
         // Fixtures pin the score-context-free prompt shape (the n12 SIGNALS/prior-reads block
         // is live-path enrichment, same rule as the eval task).
-        user_prompt: build_narratives_prompt(req, corpus, heat, Some(memory), None),
+        user_prompt: build_narratives_prompt(req, corpus, heat, Some(memory), None, None),
         temperature: 0.0,
         expect,
     }

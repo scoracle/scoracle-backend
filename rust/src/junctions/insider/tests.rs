@@ -145,7 +145,7 @@ fn prompt_current_with_full_identity_and_news() {
     }];
     let evidence = TransferEvidence::from_news(&news, 1, "BBC");
     let p = build_transfer_prompt(
-        "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None,
+        "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None, None,
     );
     assert_eq!(
         p,
@@ -173,6 +173,7 @@ fn prompt_former_sparse_identity_no_news() {
         &evidence,
         None,
         None,
+        None,
     );
     assert_eq!(
         p,
@@ -197,7 +198,7 @@ fn prompt_none_sourceless_headline() {
         source: String::new(),
     }];
     let evidence = TransferEvidence::from_news(&news, 1, "");
-    let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None, None);
+    let p = build_transfer_prompt("Lakers", &c, "NBA", "none", &news, &evidence, None, None, None);
     assert!(
         !p.contains("Relational memory"),
         "no memory ⇒ no section (t7 byte-shape preserved)"
@@ -215,6 +216,7 @@ fn prompt_none_sourceless_headline() {
         &evidence,
         None,
         Some("Prior flirtation fizzled: Jun 2026, peak coverage 55/100.\nCurrent story: tracked since Jul 05, peak coverage 80/100, computed likelihood 62/100 (heating up)."),
+        None,
     );
     assert!(with_mem.contains("Relational memory (computed history"));
     assert!(with_mem.contains("- Prior flirtation fizzled: Jun 2026, peak coverage 55/100."));
@@ -254,6 +256,7 @@ fn prompt_renders_source_reliability_card_before_memory() {
         &evidence,
         Some(reliability),
         Some(memory),
+        None,
     );
     assert!(p.contains("\nSource track record (measured"));
     assert!(p.contains(
@@ -279,8 +282,119 @@ fn prompt_renders_source_reliability_card_before_memory() {
         &evidence,
         Some("  "),
         None,
+        None,
     );
     assert!(!none.contains("Source track record"));
+}
+
+// --- 7.5: the packet rail's material, and the legacy rail's silence -----------------------------
+
+/// Under `RAIL=legacy` the packet arm contributes NOTHING — no framing, no relabelled header —
+/// so a binary carrying all of Phase 7 sends the pair prompt Phase 6 sent, byte for byte. This is
+/// the property that makes the deploy safe before the flip.
+#[test]
+fn legacy_pair_prompt_is_byte_identical_to_the_no_packet_prompt() {
+    let c = cand("Bukayo Saka", "English", "Arsenal", "winger");
+    let news = vec![NewsItem {
+        id: 1,
+        title: "Saka linked with move".to_string(),
+        description: "Reports suggest interest.".to_string(),
+        source: "BBC".to_string(),
+    }];
+    let evidence = TransferEvidence::from_news(&news, 1, "BBC");
+    let legacy = build_transfer_prompt(
+        "Arsenal", &c, "FOOTBALL", "current", &news, &evidence, None, None, None,
+    );
+    // An EMPTY framing is indistinguishable from no framing: a packet that contributed no claim
+    // to this pair must not leave a fingerprint on the prompt either.
+    let empty_framing = build_transfer_prompt(
+        "Arsenal",
+        &c,
+        "FOOTBALL",
+        "current",
+        &news,
+        &evidence,
+        None,
+        None,
+        Some("   \n"),
+    );
+    assert!(legacy.contains("\nNews headlines:\n"));
+    assert!(!legacy.contains("The story these reports belong to"));
+    assert_eq!(legacy, empty_framing);
+}
+
+/// The packet rail hands the Insider the storyline as FRAMING and the Editor's claims as the
+/// evidence lines — and says so in the header, because on this rail a line is a claim, not a
+/// headline.
+#[test]
+fn packet_pair_prompt_carries_the_storyline_framing_above_the_claims() {
+    let c = cand("Vinicius Junior", "Brazilian", "Real Madrid", "winger");
+    let news = vec![
+        NewsItem {
+            id: 3,
+            title: "⇄ Arsenal have reached an agreement in principle on personal terms".to_string(),
+            description: String::new(),
+            source: "Football365".to_string(),
+        },
+        NewsItem {
+            id: 2,
+            title: "⇄ deal not agreed".to_string(),
+            description: String::new(),
+            source: "The Athletic".to_string(),
+        },
+    ];
+    let evidence = TransferEvidence::from_news(&news, 2, "Football365");
+    let framing = "STORY: Vinicius Junior and Arsenal: where the deal stands\nENTITY: Arsenal (opponent) — in this story 2026-08-02 → 2026-08-05\nTYPE: transfer\n";
+    let p = build_transfer_prompt(
+        "Arsenal",
+        &c,
+        "FOOTBALL",
+        "none",
+        &news,
+        &evidence,
+        None,
+        None,
+        Some(framing),
+    );
+    assert!(p.contains("The story these reports belong to"));
+    assert!(p.contains("STORY: Vinicius Junior and Arsenal: where the deal stands"));
+    assert!(p.contains("What the reports claim (⇄"));
+    assert!(!p.contains("\nNews headlines:\n"), "the header names the material");
+    // Both sides of the contradiction stand, attributed (T3/D6) — the Insider is the one voice
+    // whose job is to stage a contested claim, so neither may be collapsed on the way in.
+    assert!(p.contains("[Football365] ⇄ Arsenal have reached an agreement in principle"));
+    assert!(p.contains("[The Athletic] ⇄ deal not agreed"));
+    // Framing sits ABOVE the claims: the story, then what is claimed about it.
+    let story = p.find("The story these reports belong to").unwrap();
+    let claims = p.find("What the reports claim").unwrap();
+    assert!(story < claims);
+}
+
+/// E1/7.5: the Insider's slice is the transfer-typed claims — the same subset
+/// `slice_fingerprints ->> 'transfers'` hashes, so a re-fan and a re-read cannot disagree about
+/// what moved.
+#[test]
+fn insider_slice_is_the_transfer_typed_claims() {
+    use crate::junctions::editor::render::{slice_claims, RenderClaim, Voice};
+    let claims = vec![
+        RenderClaim {
+            article_id: 3,
+            source: "ESPN".into(),
+            fact: "Arsenal agreed personal terms".into(),
+            published_at: Some(1_754_000_003),
+            story_type: "transfer".into(),
+        },
+        RenderClaim {
+            article_id: 2,
+            source: "BBC".into(),
+            fact: "He trained fully on Monday after a knock".into(),
+            published_at: Some(1_754_000_002),
+            story_type: "injury".into(),
+        },
+    ];
+    let slice = slice_claims(&claims, Voice::Insider);
+    assert_eq!(slice.len(), 1);
+    assert_eq!(slice[0].article_id, 3);
 }
 
 // --- TransferParser fail-closed contract (mirrors Go TestParseTransferVerdictFailClosed) ------

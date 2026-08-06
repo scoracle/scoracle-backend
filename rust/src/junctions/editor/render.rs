@@ -52,7 +52,11 @@ pub enum Voice {
     Influencer,
     /// `momentum` — reads the packet as peer context (7.8).
     Analyst,
-    /// `sigil` — reads the packet under the crown prompt's per-card cap (7.8).
+    /// `sigil` — **never handed a packet in production** (§4: "the Oracle is blind to evidence:
+    /// five cards + its own verdict trail, nothing else"). 7.2 sketched a crown-side render; 7.8
+    /// did not build it, because reading the packet directly would make the Oracle a seventh
+    /// reporter instead of the reader of six cards. The variant survives so the register test can
+    /// prove even the terminal voice cannot see the Influencer's phrase.
     Oracle,
 }
 
@@ -328,6 +332,15 @@ pub struct MarkedClaim {
 }
 
 /// Pull this voice's slice out of the packet's claims, newest first (the stored order).
+///
+/// Public because the voices whose contracts want the claims as DATA rather than as a rendered
+/// block — the Insider's per-article overlay (7.5), the Journalist's numbered evidence (7.3) —
+/// must select the same subset the block form would, and the same subset
+/// `slice_fingerprints ->> stage` hashes. One definition of "your slice", three readers.
+pub fn slice_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
+    select_claims(claims, voice)
+}
+
 fn select_claims(claims: &[RenderClaim], voice: Voice) -> Vec<RenderClaim> {
     match voice.slice() {
         None => claims.to_vec(),

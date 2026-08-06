@@ -34,7 +34,7 @@
 //! hand-off self-heals without spending a model call.
 
 use crate::trajectory::trajectory_label;
-use super::{BODY_TRUNCATE, Narrative, PrevVibe, title_first};
+use super::{BODY_TRUNCATE, Narrative, PacketBlock, PrevVibe, title_first};
 use crate::corpus::{HeatItem, write_heat_lines};
 use crate::util::truncate_bytes;
 
@@ -89,12 +89,14 @@ pub const VIBE_PROMPT_VERSION: &str = "v16"; // v16, the ALLOWANCE pass — ceil
 /// continuity (v12) — rendered as a lead-in anchor, `None` for the parity/eval paths and an
 /// entity's first read. `memory` is the per-entity relational memory card (mig 163) — `None`
 /// when the graph holds none.
+#[allow(clippy::too_many_arguments)]
 pub fn build_sentiment_prompt(
     entity_type: &str,
     entity_name: &str,
     sport: &str,
     narratives: &[Narrative],
     heat: &[HeatItem],
+    packets: &[PacketBlock],
     previous: Option<&PrevVibe>,
     memory: Option<&str>,
 ) -> String {
@@ -116,6 +118,19 @@ pub fn build_sentiment_prompt(
         b.push_str(&format!("Score: {}/100\n", p.sentiment));
         if !p.vibe_prompt.is_empty() {
             b.push_str(&p.vibe_prompt);
+            b.push('\n');
+        }
+    }
+
+    // The live storylines, rendered for HER (7.6, packet rail only — empty under legacy, so this
+    // whole section is absent and the legacy prompt stays byte-identical). Placed ABOVE the
+    // narratives because on the packet rail this is her primary material and The Journalist's
+    // card may not exist yet: E3 makes her first-voice-capable, and a first voice reads the story
+    // itself, not someone else's write-up of it. `MOOD:` appears only here, and only for her.
+    if !packets.is_empty() {
+        b.push_str("\nThe stories running around them right now (assembled from the reads — MOOD is the charge the reporting itself carries; the phrase is the room's own words):\n");
+        for p in packets {
+            b.push_str(p.text.trim_end());
             b.push('\n');
         }
     }

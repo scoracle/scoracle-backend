@@ -748,3 +748,68 @@ NARROW, or DROP — and for each DROP the query that proves nothing reads it.** 
 here, in order: (1) does the column still get WRITTEN, split pre/post-flip; (2) `pg_get_functiondef`
 across all functions for the name; (3) which of those functions has a live Rust/Go caller; (4) only
 then propose. Steps 1 and 3 are the ones that keep being skipped.
+
+---
+
+#### PASS 2 — all 82 tables swept (2026-08-06 ~17:45 EDT), on Scott's go
+
+**THE METHOD GREW A FOURTH LEG, and it is the one that matters most here: a table's driver can be a
+SQL function called from a SHELL SCRIPT.** `recompute-tiers.sh` (cron, Mondays 02:00) runs
+`SELECT recompute_entity_tiers(...)` straight from `psql`. That path is invisible to a Rust grep, a
+Go grep, AND a repo grep for the table name — three of the four legs miss it. **Any table whose only
+caller is a cron'd `psql` heredoc will read as dead to every search we were running.**
+
+**Postgres 18's `last_seq_scan`/`last_idx_scan` make "does anything actually read this" a
+MEASUREMENT rather than a guess — but only after three contaminations are removed:**
+
+1. **The 04:00 `pg_dump` seq-scans every table.** Uncorrected, all 82 report "last read today
+   04:02:37" and everything looks live. **The discriminator is a read AFTER 04:02:38.**
+2. **Weekly crons.** `recompute-tiers.sh` and `football-meta` run Mondays. On a Thursday, "not read
+   in 13 hours" is the expected state for their tables, not evidence of death.
+3. **THE AUDIT CONTAMINATES ITSELF.** `topic_heat_embeddings` reported a read at 16:35:30 — that was
+   *this audit's own `SELECT`*. An auditor's queries are indistinguishable from live traffic in
+   `pg_stat_user_tables`. Take the read timestamps BEFORE you start querying the candidates, or
+   discount your own.
+
+**Result: 59 of 82 tables were read by something other than the backup today.** The other 23 split
+into two groups, and the second is the interesting one.
+
+**GROUP 1 — TRUE ORPHANS: named by no Rust, no Go, no SQL function and no view.** These are the
+DROP candidates, and the two empty ones are unambiguous:
+
+| table | rows | last write | verdict |
+|---|---|---|---|
+| `metadata_sync_log` | **0** | never | **DROP** |
+| `season_recompute_needed` | **0** | never | **DROP** |
+| `provider_entity_map` | 26,210 | 2026-08-01 | **INVESTIGATE FIRST** — 436k lifetime updates and nothing names it now; find what stopped |
+| `topic_heat_embeddings` | 8,924 (15 MB) | 2026-07-25 | **DROP WITH PHASE 9** — the embedder's table, already Phase 9's |
+
+**GROUP 2 — SQL-ONLY: live, and invisible to every code search we own.** This is
+`compute_transfer_heat`'s category generalised, and it is the audit's real finding — **eight tables
+whose entire read/write lifecycle happens inside the database**:
+
+| table | its only driver |
+|---|---|
+| `metadata_refresh_queue` | `detect_team_change`, `get_metadata_queue_batch`, `get_metadata_queue_status`, `mark_metadata_processed` |
+| `player_team_history` | `detect_team_change` |
+| `provider_seasons` | `resolve_provider_season_id` |
+| `rating_thresholds` | `_compute_rating_bundle` |
+| `source_tiers` | `backfill_narrative_episodes` |
+| `news_article_readings` | `collapse_exact_title_duplicates` — **genuinely live, runs during every ingest** |
+| `entity_aliases` | `entity_aliases_no_update` (a trigger guard) |
+| `source_performance` | `source_reliability_for_pair` / `refresh_source_performance` (pass 1) |
+
+**Verdict for Group 2: KEEP, and DOCUMENT the driver in the table's own COMMENT.** Not one of these
+is a deletion candidate; every one of them is a place where the next person greps the codebase,
+finds nothing, and concludes the table is dead. **The fix is a comment, not a migration.**
+
+**ONE FINDING THAT IS NEITHER — and it wants Scott's eye.** `metadata_refresh_queue` holds **42,782
+rows, last written 2026-06-17 — seven weeks stale** — while four live functions stand ready to serve
+it and nothing has drained it. That is not schema rot, it is **a stalled feature**: either 42,782
+units of work nobody will ever do (drop the rows) or a pipeline that silently stopped (fix it). It
+cannot be settled from the schema; it needs the product answer first.
+
+**STILL NOT COVERED, said plainly:** every INDEX (none were examined, and unused indexes on
+`momentum_scores` at 12.7M rows would be the biggest storage win available), and the 106 functions
+not individually read. The sweep answered "is this table used"; it did not answer "is this table the
+right shape", which is the other half of what Scott asked for.

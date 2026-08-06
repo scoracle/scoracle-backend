@@ -3456,12 +3456,19 @@ tuning item, not treated as a rail failure.**
 ```
 Resume PLAN-one-rail.md in scoracle-backend (Scoracle greenfield rail).
 Phases 0–8 committed: RAIL=packet is live; the legacy rail is OFF (triggers dropped, scrub +
-article_read unscheduled, regex links disabled). 48h stability is in the Phase 8 Log.
-Read §0 and Appendix A (the demolition inventory), then execute Phase 9: delete the corpses,
-rebaseline what T7 says moved, update the wiki, write the closing handoff. Deletion only —
+article_read unscheduled) and **the relevance regex is DELETED — 8.8 executed Appendix A's
+whole GO block, so Phase 9 is the RUST/SQL/cron half only.** 48h stability is in the Phase 8 Log.
+Read §0 and Appendix A (the demolition inventory — its Go block is ticked ✅, skip it; the Rust,
+SQL, cron/env blocks are the work), then execute Phase 9: delete the corpses, rebaseline what T7
+says moved, update the wiki, write the closing handoff. Deletion only —
 if removing something changes a passing test's behavior, STOP: that thing was not a corpse.
+GREP BY SYMBOL, NEVER BY LINE: Appendix A's offsets are from the 2026-07-28 recon and 8.8 found
+every one of them stale by 40–90 lines while every symbol was still correct.
 CAREFUL: 9.5 SPLITS cron-narrative-links.sh (co-mention refresh out; the typed-links/
 episodes/seal rollups STAY — they feed every memory card).
+NOTE: `refresh_co_mention_links` and the other SQL functions are now the ONLY readers left of
+`news_article_entities.title_pos`; the column itself STAYS (310,705 rows of archive, comment it
+retired, never drop it).
 ```
 
 ---

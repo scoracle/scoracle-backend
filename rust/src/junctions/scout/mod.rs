@@ -1225,7 +1225,16 @@ pub async fn build_rating_request(
     let opts = GenerateOptions {
         system: Some(RATING_SYSTEM_PROMPT.to_string()),
         temperature: Some(temperature),
-        num_predict: RATING_NUM_PREDICT,
+        // The Scout's reservation follows the window like every other voice (7.12): 2,000
+        // inside a 4,096 window leaves ~2,000 for a ~1,370-token system prompt plus the stats
+        // context plus the memory card, which is the silent system-prompt eviction this rule
+        // exists to prevent. Its report gets shorter at 4096; that is the honest trade, and the
+        // diet is what buys the length back.
+        num_predict: if crate::route::small_voice_window(hx.voice_num_ctx) {
+            crate::junctions::oracle::SMALL_WINDOW_NUM_PREDICT
+        } else {
+            RATING_NUM_PREDICT
+        },
         num_ctx: hx.voice_num_ctx,
         json_mode: false,
         format_schema: None,
@@ -1549,7 +1558,13 @@ pub async fn persist_stat_summary(
             included_evidence: rating_included_evidence(out),
             excluded_evidence: rating_excluded_evidence(out),
             context_budget: serde_json::json!({
-                "num_predict": RATING_NUM_PREDICT,
+                // Read off the EXACT wire body, not restated from the constant: the reservation
+                // is window-derived now (7.12), so a ledger quoting 2,000 on a 4096 host would
+                // misreport the budget the call actually ran under.
+                "num_predict": out.request_body.as_ref()
+                    .and_then(|b| b.pointer("/options/num_predict"))
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or(RATING_NUM_PREDICT as i64),
                 "eval_count": out.eval_count,
                 "wall_ms": out.wall_ms,
             }),

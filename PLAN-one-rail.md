@@ -1,6 +1,36 @@
 # PLAN — One Rail
 
 **STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
+for a season). PHASE 6 OPEN on 6.7 alone: its 72h window closes ~Aug 8 22:10 EDT — read the bands
+then and close the phase (the Log's backfill numbers are the pre-deploy baseline; the +4-min
+checkpoint is not a reading). **PHASE 7 IS ESSENTIALLY DONE AND DEPLOYED @ `f256abb`, 2026-08-05
+23:28 EDT.** Live: the six voices are BACK ON after the Aug-3 pause, at `RAIL=legacy` with
+**`VOICE_NUM_CTX=4096`** — ministral-3:14b is resident on the Mac at `context_length 4096`, three
+concurrent. DONE: 7.1 `RAIL` · 7.2 renderer · 7.3 Journalist packet corpus · **7.5 Insider** (the
+pair's identity stays Postgres's, the packet replaces its material) · **7.6 Influencer + E3** (a
+charged packet is material, so she can file first; the Journalist-side vibe enqueue is now
+legacy-only) · **7.8 Analyst + the crown's per-card cap** · 7.9 memory continuity · **7.10 the
+storyline memory lens, mig 211 APPLIED** (inert for storyline-free entities, measured 40/40) ·
+**7.12 the voice window as its own dial** · 7.13 graph continuity · **7.14 [DEPLOY]**.
+391 tests green, clippy clean with `--all-targets` (which had been broken since 7.1 and is fixed).
+**SCOTT'S RULINGS, 2026-08-05 — they shaped everything above:** (1) *"I don't want to focus on the
+prompts… get the whole rail in operation and then spend the time going through all the junctions
+this weekend"* — so this session moved MATERIAL only; **E5's `DISAGREEMENT` field (7.8), the
+Influencer's first-voice contract text (7.6) and the diet (7.11) are DEFERRED to the junction
+pass**, no prompt versions bumped. (2) *"We don't need to seed anything until the cutover"* —
+**D-T15 is CLOSED by doing nothing**; 7.4's seed moves into Phase 8's one act. (3) *"Run them, but
+run them at 4096"* + *"I'm fine with an imperfect output run over the next few days"* — hence
+7.12's `VOICE_NUM_CTX` dial, and every reservation/cap now keying on the WINDOW rather than the
+rail. **PHASE 8 PRECONDITION, do not lose it: seed `stage_routing_subscriptions` IN THE SAME ACT
+as the flip — under `RAIL=packet` the Influencer has no waker until those rows exist.**
+STILL OPEN IN PHASE 7: **7.7** (the Scout's personnel-changes block — plumbing, genuinely owed),
+7.11 + 7.15 (the junction pass). OPEN ITEMS OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
+/mnt/data/scratch grant pending on archbox (low priority). **The Mac voice pause is LIFTED** by
+ruling (3). Last plan commit: (this one). Updated 2026-08-05 ~23:40 EDT (phase 7 deployed).**
+
+*(Superseded STATE of 2026-08-05 ~23:10 EDT — phase 7 started, 7.4 blocked — kept verbatim below.)*
+
+**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED (unchanged — box-score target URLs wait
 for a season). PHASE 6 OPEN: 6.1–6.6 DONE and deployed @ `a6c467b`; **6.7's 72h window is
 RUNNING and closes ~Aug 8 22:10 EDT** — it could NOT be read this session (the session opened at
 22:12, four minutes after the deploy; a distribution over four minutes is noise). The +4-min
@@ -2366,7 +2396,13 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       budget is named — the A5 rule). *(Done — it returns the SAME `(Vec<CorpusItem>,
       CorpusExclusions)` so grounding/impact/hash/marker are shared code; window+reservation are
       rail-scoped together and `voice_num_ctx(rail)` moves all six voices at once. Log.)*
-- [ ] **7.4** ⛔ **BLOCKED — D-T15** (seeding arms mig 197's LIVE article-grain trigger too; `'*'`
+- [ ] **7.4** ⏸ **DEFERRED TO PHASE 8 by Scott's ruling (2026-08-05): "we don't need to seed
+      anything until the cutover."** That closes D-T15 without a migration: nothing is seeded, so
+      mig 197's live article-grain trigger is never armed and the churn loop cannot start. The
+      seed moves INTO the cutover act (§2's "one act"), where mig 175 is dropped in the same
+      session and there is only ever one writer. **Phase 8 precondition, do not lose it:** 7.6
+      gated the Journalist-side vibe enqueue to legacy, so under `RAIL=packet` the Influencer
+      has NO waker until these rows exist. Seed and flip together. Original blocker — (seeding arms mig 197's LIVE article-grain trigger too; `'*'`
       is not a wildcard). Prepared and unapplied at `sql/prepared/7.4_seed_packet_subscriptions.sql`.
       Seed `stage_routing_subscriptions` (the E1 INSERT, packet-grain):
       `('transfer','transfers','team')`, `('charged','vibe','*')`. The Journalist needs no row
@@ -2374,11 +2410,11 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       transfers trigger pointing at the same stage post-flip — Phase 8 drops it; until then the
       RAIL gate in the transfers handler ignores packet-work rows under legacy (input_version
       prefix `pk:` is the discriminator).
-- [ ] **7.5** Insider (`transfers` handler): RAIL=packet path reads the packet render (its
+- [x] **7.5** *(Done — the pair's IDENTITY stays Postgres's, the packet replaces its MATERIAL; Log.)* Insider (`transfers` handler): RAIL=packet path reads the packet render (its
       slice = transfer-typed claims) instead of the article-window query; the
       `transfer_identity_applications` adjudication chain downstream is UNTOUCHED (it is kept
       substrate, news-derived, and the Scout's road).
-- [ ] **7.6** Influencer (`vibe`): E3 — under packet RAIL she wakes from the packet trigger
+- [x] **7.6** *(Done — packet material + E3's first-voice fix + the wake-up handover; her CONTRACT TEXT deferred to the junction pass, Scott 2026-08-05. Log.)* Influencer (`vibe`): E3 — under packet RAIL she wakes from the packet trigger
       (`charged` tag), first-voice-capable: fix `enqueue_vibe_if_needed`'s empty-context no-op
       for packet work, update her contract text (she may file first; register_phrase is her
       material). The Journalist-side enqueue remains for legacy mode only.
@@ -2388,7 +2424,7 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       changes since last read" block to the PEAK context from that table (facts with dates, no
       prose). Injury/suspension confirmation gates (the F4 pattern: claims → threshold →
       confirmed) are **deferred** to post-cutover (Appendix B D-5) — do not improvise them here.
-- [ ] **7.8** Analyst + Oracle: Analyst's context assembly gains the packet render under RAIL
+- [x] **7.8** *(Done except E5, deferred to the junction pass by Scott's 2026-08-05 prompt ruling — the DISAGREEMENT field is an output-contract change, i.e. voice work. The window half IS done: the crown's pillar bodies are capped. Log.)* Analyst + Oracle: Analyst's context assembly gains the packet render under RAIL
       (peer-aware inputs unchanged). Oracle mechanics untouched — but implement E5 while we are
       here: when deterministic `pillar_convergence` < 40, the prompt hands the divergence as a
       decided fact and `DISAGREEMENT:` becomes a REQUIRED field (grammar-enforced), narrating
@@ -2405,7 +2441,7 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       insider :1924, oracle :931, influencer :408). Confirm each loader is called on the packet
       path, provenance labels intact, memory still excluded from `input_hash`, memory-load
       errors still degrade to unenriched prompts (never fail the item).
-- [ ] **7.10** Storyline memory lens (mig 2xx): extend `narrative_context_for_entity` with a
+- [x] **7.10** *(Done — mig 211 APPLIED + snapshotted; inert for storyline-free entities, measured 40/40. Log.)* Storyline memory lens (mig 2xx): extend `narrative_context_for_entity` with a
       storylines section — open storylines via `storyline_entities` (role, joined_at, latest
       packet headline, `Prior story:` provenance label) — so the Journalist's "life of stories"
       memory survives thread retirement (Phase 9 kills thread clustering; the thread-fed lenses
@@ -2421,7 +2457,7 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       step (a model change re-earns its seat on the voice fixtures — D-1; one gate, not two),
       judged with judge-v2's voice-fidelity axis. Gates green on BOTH rails (legacy fixtures
       still pass against the untouched legacy prompts).
-- [ ] **7.12** Mac routing config (values measured in Phase 0 Log 0.11): for the six voice
+- [x] **7.12** *(Done — the routes were already live; what this step actually added was `VOICE_NUM_CTX` as a dial independent of the rail, because Scott chose 4096 NOW. Log.)* Mac routing config (values measured in Phase 0 Log 0.11): for the six voice
       roles, `COGNITION_ROUTE_<ROLE>_BASE_URL=http://192.168.1.77:11434` and
       `COGNITION_ROUTE_<ROLE>=ministral-3:14b` (Appendix B D-1, closed — **not** Nemo; Gemma stays
       pinned on archbox for editor/investigate_entity/graph and is never routed here),
@@ -2436,7 +2472,7 @@ is a compile-time 16384 (`route.rs:76`), and 7.2% of historical prompts would tr
       rails, deployable now); add the RAIL=packet-gated `enqueue_graph_for_article` call to the
       new Editor handle AFTER its link writes (activates at flip — until then graph keeps
       riding article_read via mig 193). Graph keeps `ARCHBOX_GEMMA_SLOTS` + num_ctx 8192.
-- [ ] **7.14** Tests, clippy, **[DEPLOY]** rust to archbox AND the Mac worker, RAIL=legacy
+- [x] **7.14** *(Done — DEPLOYED 2026-08-05 23:28 EDT @ `f256abb`; all 11 stages registered, the voices are back on and ministral is loaded on the Mac at context_length 4096. Log.)* Tests, clippy, **[DEPLOY]** rust to archbox AND the Mac worker, RAIL=legacy
       everywhere. Verify boot logs on both machines print rail + routes + backend budgets, and
       diff the legacy prompt consts against HEAD~1 — byte-identical (the diet is packet-only).
 - [ ] **7.15** Dry-run under eval (not production): run each voice's packet path against 5
@@ -2552,10 +2588,115 @@ The seed is written, corrected to two rows (player + team), and **deliberately u
 improvised around; the cheap partial (seed only `charged`/`vibe`, hold the transfers row until
 Phase 8 drops mig 175) is offered there and is what 7.6 actually needs.
 
-**Not started: 7.5, 7.6, 7.7, 7.8, 7.10, 7.11, 7.12, 7.14, 7.15.** 7.11 and 7.15 are model work
-Scott's 2026-08-05 ruling parks until the rail is complete (the diet's prompt CODE is buildable;
-its `eval --capture-ledger` re-earn against ministral-3:14b is the tuning session's). 7.5/7.6
-are buildable now and only their WAKE-UP depends on D-T15.
+**Not started (as of that entry): 7.5, 7.6, 7.7, 7.8, 7.10, 7.11, 7.12, 7.14, 7.15.** 7.11 and
+7.15 are model work Scott's 2026-08-05 ruling parks until the rail is complete (the diet's prompt
+CODE is buildable; its `eval --capture-ledger` re-earn against ministral-3:14b is the tuning
+session's). 7.5/7.6 are buildable now and only their WAKE-UP depends on D-T15.
+
+---
+
+**2026-08-05 ~23:05–23:35 EDT — the brain is wired, the window is pinned, and the voices are back
+on.** Commits `2f1a5cd` (7.5/7.6) → `a3f7cd0` (7.8) → `d1edce1` (7.10, mig 211) → `f256abb`
+(7.12/7.14). **DEPLOYED 23:28 EDT @ `f256abb`** — 391 tests green, clippy clean on every touched
+file.
+
+**SCOTT'S TWO RULINGS THIS SESSION, and they redirected the work:**
+1. **"I don't want to focus on the prompts for the models at this point. I want to get the rail
+   built and start having the data trickle through… I'd rather get the whole rail in operation
+   and then spend the time going through all the junctions this weekend."** So every step below
+   moves MATERIAL and leaves VOICE alone. Deliberately NOT built, and listed here so the junction
+   pass finds them: the Influencer's first-voice contract text (7.6), **E5's grammar-enforced
+   `DISAGREEMENT` field (7.8)** — it changes the Oracle's output contract and its `format_schema`,
+   which is voice work by any reading — and the diet itself (7.11). No prompt VERSION was bumped:
+   the contracts did not change, only what fills them, and the packet rail's `input_hash` moves on
+   its own material anyway.
+2. **"We don't need to seed anything until the cutover. Which will be soon."** D-T15 closes
+   without a migration (7.4 above). Nothing is armed; the seed becomes part of Phase 8's one act.
+3. **"Run them, but run them at 4096."** → the whole of 7.12 below.
+
+**7.5 — the Insider.** The pair's IDENTITY stays Postgres's: `compute_transfer_heat` still decides
+the heat, the corpus ids and therefore the F3 fingerprint (§4 — the number is never the model's,
+and it is not the packet's either). The packet replaces the pair's MATERIAL: for every article
+already in the pair's corpus, the Editor's **transfer-typed** claims (the exact subset
+`slice_fingerprints ->> 'transfers'` hashes) overlay the RSS headline and description, contested
+ones marked `⇄`, with the storyline framing above them. Articles the Desk has not assembled keep
+their headline — the same passthrough principle the Journalist's `article_context` already
+documents. Because the article LIST is untouched, `prompted_news_ids`, the evidence card, the
+`transfer_identity_applications` chain and the debounce cannot tell the rails apart, which is the
+property that lets the flip be one env var.
+
+**7.6 — the Influencer, and E3.** Her context gains her own render — `MOOD:` and the register
+phrase reach HER and no one else, enforced by the renderer's voice rule, not by a caller's flag.
+The first-voice fix is one line of meaning: `VibeContext::empty()` now counts packets, so a
+packet-woken entity with no narratives and no heat is no longer "empty" and
+`enqueue_vibe_if_needed` no longer no-ops. Until this, she was structurally incapable of speaking
+before The Journalist, because her only material was his output. Packet ids enter the debounce
+pre-image (append-only ⇒ a recompile is a new id, an unmoved story keeps its own) and ONLY on the
+packet rail, so every legacy `input_hash` is unchanged — pinned by a golden.
+**The Journalist-side vibe enqueue is now legacy-only**, and this is not tidiness: on the packet
+rail the trigger owns her wake-up, and leaving the handler's enqueue armed would put two writers
+on one `pipeline_work` row with different `input_version` prefixes (`vibe:` vs `pk:`) — the
+mig-197 churn loop arriving through a third door. One rail, one waker. **Consequence carried to
+Phase 8: the 7.4 seed and the flip must land together, or she never wakes.**
+
+**7.8 — the Analyst, and the crown's window.** The Analyst's storylines render between the memory
+card and the decided direction — context for WHAT is moving, never a licence to re-litigate a
+direction computed upstream; loaded in the handler, so its TRIGGER stays the pillar cascade and
+the packet stays out of the `input_hash`, exactly like the scouting paragraph beside it. **The
+Oracle reads no packet at all** — §4 keeps it blind to evidence (five cards + its own trail), so
+7.2's sketched crown render was deliberately not built and `render.rs` now says so on the
+`Voice::Oracle` variant. What the Oracle got instead is the cap: it is the one seat that reads
+five cards at once and until now truncated NONE of them, which was survivable only inside 16,384
+tokens.
+
+**7.10 — the storyline memory lens (mig 211, APPLIED + snapshotted).** One
+`Our storyline so far ("…", opened Mon DD, N reports, this entity's part: role)` line per open
+storyline the entity actively participates in, rendered where the thread block renders. Phase 9
+retires thread clustering; this moves the "life of stories" memory onto the Desk's storylines
+BEFORE the structure under it is removed. Membership counts only — no impact, no likelihood, no
+heat (the mig 179/183 discipline: measurement stays graph-anchored). **Measured at apply time
+against cards captured before the function changed: 40 of 40 storyline-free entities
+byte-identical (7.10's own verify), 40 of 40 participants gained the line, 0 cards lost content.**
+*Process note, recorded because the next function rebuild will hit it:* the rehearsal wrapper did
+NOT roll back — the migration file carries its own `BEGIN/COMMIT`, so `\i` committed inside the
+rehearsal transaction. The assertions still ran against the pre-captured baselines, so the
+verification is the intended one; only its order changed. **Strip a migration's own transaction
+control before `\i`-ing it into a rehearsal.**
+
+**7.12 — the voice window becomes its own dial (Scott: "run them at 4096").** The window and the
+rail were one knob; they are two now. `VOICE_NUM_CTX` pins what every voice on a host requests and
+falls back to the rail's size when unset (total parse like `RAIL` — junk resolves to the default
+rather than failing a boot), resolved once at boot, carried on the `Harness`, logged as its own
+line. **Every reservation and every context cap now keys on the WINDOW, not the rail**, because
+what they prevent is arithmetic: a `num_predict` larger than the window evicts the system prompt
+mid-generation, whichever corpus produced the prompt. In a small window (≤4096): narratives
+reserves 700 not 4,000; vibe/momentum/sigil/the wire wrap reserve 700 not 1,100–1,200; the
+Journalist's corpus defaults to 8 articles not 40 (the dropped ones still NAMED through the same
+A5 band); the crown's pillar bodies are capped and its card is capped as ONE card, three
+storylines sharing the budget with the remainder named.
+*The crown cap ships at 700 bytes (~195 tok/card), not §7's ~350 — and the gap IS the diet.* §7
+sized that number against a post-7.11 system prompt of ~550 tokens; `or8` is ~1,806 today, so 4096
+leaves ~890 tokens for four bodies plus the omen and the prior read. Measured system prompts, for
+7.11 to aim at: **or8 1,806 · s13 1,244 · t11 1,238 · Scout 1,370 · n16 1,175 · v16 1,010 tok.**
+Output at 4096 will be shorter and blunter than at 16,384. That is understood and accepted —
+Scott: *"I'm fine with an imperfect output run over the next few days. We are mostly looking to
+get some practice in so we have the context for the voice session."*
+
+**7.14 — DEPLOYED, and the voices are back.** `f256abb` live at 23:28:14 EDT. Boot lines:
+`RAIL: the voices read legacy` · `VOICE WINDOW: … num_ctx 4096 pinned=true envelope="small:
+reservations ≤700, crown cards capped, journalist corpus 8"` · 11 stages registered (the six voice
+stages restored to `COGNITION_STAGES` after the Aug-3 pause) · both Ollama hosts reachable, the
+Mac at `max_concurrent=3` (7.12's number, up from 2). **The end-to-end proof: `/api/ps` on the Mac
+shows `ministral-3:14b` resident at `context_length 4096`** — the pin travelled from an env var on
+archbox to the runner's KV allocation on another machine. Env backed up first to
+`/tmp/env.local.bak-7.14-<epoch>` on archbox.
+
+**Also repaired, unrelated but found here:** `examples/` had not compiled since 7.1 added
+`Harness.rail` — `cargo clippy --all-targets` was green only because nobody ran it with the flag.
+Fixed, and it is green with it now.
+
+**Still not started: 7.7 (Scout's personnel block), 7.11 (the diet), 7.15 (the dry-run).** 7.7 is
+plumbing and is genuinely owed; 7.11/7.15 are the junction pass Scott scheduled for the weekend.
 
 ### Handoff (phase 7 → 8)
 ```
@@ -2950,3 +3091,19 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   (c) **the cheap partial — seed only the two `charged`/`vibe` rows now** and hold the
   transfers row until (a); `vibe` has no competing article-grain enqueue, so it carries no
   churn risk, and it is what 7.6 actually needs.
+  **CLOSED 2026-08-05 by Scott: "we don't need to seed anything until the cutover. Which
+  will be soon."** No rows are seeded, so mig 197 is never armed and neither churn loop can
+  start — the resolution is (d), do nothing, which none of the three offered options was.
+  The seed moves into Phase 8's single act, where mig 175 is dropped in the same session and
+  there is only ever one writer. Carried forward as a PHASE 8 PRECONDITION: 7.6 gated the
+  Journalist-side vibe enqueue to the legacy rail, so under `RAIL=packet` the Influencer has
+  no waker at all until these rows exist. Seed and flip together.
+- **D-T16 · the storyline memory lens renders passing mentions (observed 2026-08-05, mig 211
+  rehearsal).** The first cards read back carry lines like `this entity's part:
+  passing_mention` on storylines the entity is barely in — one sampled person sat in a
+  Dodgers/Skubal trade saga on a single passing mention. It is the same root as D-T13 (a seed
+  slice shared by adjacent sagas), now visible in MEMORY rather than in assembly, which makes
+  it worse: a weak edge that only cost a packet slot before now also occupies a voice's
+  memory card. Class size unmeasured. Candidate knobs: restrict the lens to subject/opponent
+  roles once ep1 role coverage is real (D-T13's knob (a) fixes both at once); or rank by
+  report count and keep the top 1–2. Measure alongside D-T13's bleed rate, not before.

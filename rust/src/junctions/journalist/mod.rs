@@ -330,7 +330,6 @@ pub async fn load_vetted_corpus(
             JOIN news_articles a ON a.id = nae.article_id
             LEFT JOIN news_article_readings r ON r.article_id = a.id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-              AND nae.vetted IS TRUE
               AND a.duplicate_of IS NULL
               AND (
                   a.published_at IS NULL
@@ -455,7 +454,6 @@ async fn load_vetted_corpus_with_exclusions(
             JOIN news_articles a ON a.id = nae.article_id
             LEFT JOIN news_article_readings r ON r.article_id = a.id
             WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-              AND nae.vetted IS TRUE
               AND a.duplicate_of IS NULL
         ),
         -- WHICH articles survive the budget: Google's ranking, the same signal the read budget

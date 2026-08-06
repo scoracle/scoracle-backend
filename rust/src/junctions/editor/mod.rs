@@ -534,33 +534,38 @@ impl StageHandler for EditorHandler {
     }
 }
 
-/// The Editor's sentinel `match_confidence` for a link IT discovered (8.5). Deliberately distinct
-/// from Go's 0.95 query-hypothesis and 0.8 regex secondary so Editor-era links stay greppable
-/// forever — `WHERE match_confidence = 0.90` is the whole new rail's link inventory.
-const EDITOR_LINK_CONFIDENCE: f64 = 0.90;
 
-/// write_links is the Editor taking over `news_article_entities` on the packet rail (8.5) — the
-/// job the legacy `scrub` seat does today via co-mention verdicts.
+/// write_links records which entities an article is about. The Editor is the only writer.
 ///
-/// The resolver already decided (T2: the model described names, code matched surfaces), so this
-/// writes that decision down and nothing more. Three moves, one transaction so an article is never
-/// half-vetted:
+/// **The whole function is: clear this article's links, write the ones the model resolved.** Two
+/// statements, one transaction. That is the entire contract.
 ///
-///   1. **Irrelevant read → clear.** Every vetted row for this article is retracted, mirroring
-///      the legacy `clear_vetted_entities_for_article`. Nothing else runs.
-///   2. **Confirm.** Every `resolved.links` entry is upserted `vetted = TRUE`. A row that already
-///      exists — Go's 0.95 query hypothesis — keeps its 0.95: it WAS the hypothesis and is now
-///      confirmed, and overwriting that to the sentinel would erase how the article was found.
-///      Only rows the Editor INSERTS carry [`EDITOR_LINK_CONFIDENCE`].
-///   3. **Deny.** Any other not-yet-adjudicated row on this article (`vetted IS NULL`) is set
-///      FALSE. This is the "confirming/denying the 0.95 hypothesis link" half: the hypothesis is
-///      confirmed exactly when the Editor's resolver reached it too, and an unreached hypothesis
-///      is a denial with a reason (the resolver saw the text and did not link it), not a drop.
-///      Already-adjudicated rows are left alone — a re-read never silently reverses a verdict.
+/// It used to be three reconciliation arms — confirm / deny / retract — juggling a tri-state
+/// `vetted` column, a `match_confidence` sentinel, and `scrubbed_at`, because TWO writers shared
+/// this table: Go wrote a 0.95 "query hypothesis" row at ingest and the Editor wrote a verdict
+/// later. Every one of those arms existed to keep two writers coherent in one table, and that
+/// shape is what left room for a bug that silently dropped an article's entire link set
+/// (8.10). Go no longer writes links at all, so there is nothing to reconcile with:
 ///
-/// Writing `vetted` fires mig 179's `enqueue_derive_on_vetted` (T10). That trigger is dropped in
-/// the flip act BEFORE `RAIL=packet` reaches this code (8.6 ordering), so on the packet rail there
-/// is nothing to suppress. Under `RAIL=legacy` this function is never called at all.
+///   * **A row exists ⟺ the Editor read the article and resolved that entity in it.** No column
+///     encodes the verdict any more; presence IS the verdict, absence IS the denial. Nothing
+///     downstream filters on `vetted` because there is nothing to filter — every row is a link a
+///     model established by reading the body.
+///   * **An irrelevant read is the DELETE alone.** No second statement, no retraction pass.
+///   * **A re-read replaces the set.** Delete-then-insert is idempotent by construction, which is
+///     why no `ON CONFLICT` clause appears here at all.
+///
+/// `SELECT DISTINCT` is still required and is not ceremony: the model names whoever the article
+/// names, so one entity can arrive twice under two surfaces ("Spurs" and "Tottenham Hotspur" share
+/// a `nrm()` norm), and two identical rows in one INSERT violate the primary key whether or not the
+/// table was just cleared. The projection here is exactly the key columns, so a plain DISTINCT is a
+/// distinct-on-the-key. Collapsing costs nothing: `editor_reads.resolved` keeps every mention with
+/// its `via_surface`, so the model's full account survives at mention grain. The model describes,
+/// code derives one link per entity (T2).
+///
+/// One consequence worth knowing: `created_at` is the moment the link was established, so a re-read
+/// restamps it. Re-reads are rare (a re-enqueue), and the alternative — preserving a timestamp for a
+/// link the current read may not even agree with — is worse.
 async fn write_links(
     pool: &sqlx::PgPool,
     article_id: i64,
@@ -571,92 +576,46 @@ async fn write_links(
     let sport = sport.to_uppercase();
     let mut tx = pool.begin().await.context("begin editor link write")?;
 
-    if !relevant {
-        sqlx::query(
-            r#"
-            UPDATE public.news_article_entities
-               SET vetted = FALSE, scrubbed_at = COALESCE(scrubbed_at, NOW())
-             WHERE article_id = $1 AND sport = $2 AND vetted IS TRUE
-            "#,
-        )
+    sqlx::query("DELETE FROM public.news_article_entities WHERE article_id = $1 AND sport = $2")
         .bind(article_id)
         .bind(&sport)
         .execute(&mut *tx)
         .await
-        .with_context(|| format!("clear vetted entities for irrelevant article {article_id}"))?;
-        tx.commit().await.context("commit editor link write")?;
-        return Ok(());
+        .with_context(|| format!("clear links for article {article_id}"))?;
+
+    if relevant {
+        // The resolver's links carry their own sport (the surface that matched decides it), so
+        // filter rather than assume the article's.
+        let types: Vec<String> = resolved
+            .links
+            .iter()
+            .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
+            .map(|l| l.entity_type.clone())
+            .collect();
+        let ids: Vec<i32> = resolved
+            .links
+            .iter()
+            .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
+            .map(|l| l.entity_id)
+            .collect();
+
+        if !types.is_empty() {
+            sqlx::query(
+                r#"
+                INSERT INTO public.news_article_entities (article_id, entity_type, entity_id, sport)
+                SELECT DISTINCT $1, t.entity_type, t.entity_id, $2
+                  FROM unnest($3::text[], $4::int[]) AS t(entity_type, entity_id)
+                "#,
+            )
+            .bind(article_id)
+            .bind(&sport)
+            .bind(&types)
+            .bind(&ids)
+            .execute(&mut *tx)
+            .await
+            .with_context(|| format!("write editor links for article {article_id}"))?;
+        }
     }
-
-    // The resolver's links are per-sport; an article carries one sport, but a link's own sport is
-    // what the surface matched, so filter rather than assume.
-    let types: Vec<String> = resolved
-        .links
-        .iter()
-        .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
-        .map(|l| l.entity_type.clone())
-        .collect();
-    let ids: Vec<i32> = resolved
-        .links
-        .iter()
-        .filter(|l| l.sport.eq_ignore_ascii_case(&sport))
-        .map(|l| l.entity_id)
-        .collect();
-
-    if !types.is_empty() {
-        sqlx::query(
-            r#"
-            INSERT INTO public.news_article_entities
-                (article_id, entity_type, entity_id, sport, match_confidence, vetted, scrubbed_at)
-            -- DISTINCT ON: the model names whoever the article names, so ONE entity can arrive
-            -- twice under two surfaces ("Spurs" and "Tottenham Hotspur" share a norm), and
-            -- Postgres refuses an ON CONFLICT ... DO UPDATE that would touch a row twice in one
-            -- statement. Without this the whole statement errors and the article loses its ENTIRE
-            -- link set while the read persists and looks successful — measured live, 5 articles in
-            -- 2 days. The same guard, with the same reasoning, is on the sibling write in
-            -- storyline.rs; this one was written without it.
-            --
-            -- Collapsing here is not discarding what the model said: `resolved.links` is persisted
-            -- verbatim on `editor_reads` at MENTION grain, so both surfaces keep their provenance.
-            -- The model describes; code derives one link per entity (T2).
-            --
-            -- Keyed rather than a plain DISTINCT deliberately: the projected columns happen to be
-            -- identical per entity today, so DISTINCT would work and would silently stop working
-            -- the moment anyone projects a per-mention column (`via_surface` is right there on the
-            -- struct). DISTINCT ON collapses by the conflict key, which is the actual invariant.
-            SELECT DISTINCT ON (t.entity_type, t.entity_id)
-                   $1, t.entity_type, t.entity_id, $2, $5, TRUE, NOW()
-              FROM unnest($3::text[], $4::int[]) AS t(entity_type, entity_id)
-             ORDER BY t.entity_type, t.entity_id
-            ON CONFLICT (article_id, entity_type, entity_id, sport) DO UPDATE SET
-                vetted      = TRUE,
-                scrubbed_at = NOW()
-            "#,
-        )
-        .bind(article_id)
-        .bind(&sport)
-        .bind(&types)
-        .bind(&ids)
-        .bind(EDITOR_LINK_CONFIDENCE)
-        .execute(&mut *tx)
-        .await
-        .with_context(|| format!("confirm editor links for article {article_id}"))?;
-    }
-
-    sqlx::query(
-        r#"
-        UPDATE public.news_article_entities
-           SET vetted = FALSE, scrubbed_at = NOW()
-         WHERE article_id = $1
-           AND sport = $2
-           AND vetted IS NULL
-        "#,
-    )
-    .bind(article_id)
-    .bind(&sport)
-    .execute(&mut *tx)
-    .await
-    .with_context(|| format!("deny unreached hypotheses for article {article_id}"))?;
 
     tx.commit().await.context("commit editor link write")?;
     Ok(())
@@ -754,10 +713,19 @@ async fn load_article(pool: &sqlx::PgPool, article_id: i64) -> Result<Option<Edi
     }))
 }
 
-/// The hypothesis list (§1a): the query entity plus any pre-linked entities — Go's 0.95 primary
-/// link IS the recorded hypothesis, and vetted links are the legacy rail's confirmations. Read
-/// from `news_article_entities` (reading legacy tables is fine; WRITING them is not). Decorated
-/// `Name (team 42)`, the shape `entity_matches` strips.
+/// The hypothesis list (§1a): who we ASKED Google about — decorated `Name (team 42)`, the shape
+/// `entity_matches` strips.
+///
+/// Sourced from the article's own query provenance (`news_articles.raw`, written on INSERT by the
+/// ingest sweep) rather than from a links table. That is what the hypothesis always literally was:
+/// Go used to record it as a 0.95 row in `news_article_entities` and this function read it back
+/// out, so the link table was being used as a message queue between two processes that already
+/// share the article row. Go writes no links at all now (8.11), and the question "which entity's
+/// sweep surfaced this article?" is answered by the sweep that surfaced it.
+///
+/// Deliberately only the query entity. It does NOT read back the Editor's own resolved links: on a
+/// re-read that would feed the model its previous answer as a premise, which is how a wrong link
+/// becomes permanent.
 async fn load_hypothesis_entities(
     pool: &sqlx::PgPool,
     article_id: i64,
@@ -765,15 +733,11 @@ async fn load_hypothesis_entities(
 ) -> Result<Vec<String>> {
     let rows: Vec<(String, i32, String)> = sqlx::query_as(
         r#"
-        SELECT DISTINCT nae.entity_type, nae.entity_id, COALESCE(p.name, t.name, '') AS name
-        FROM public.news_article_entities nae
-        LEFT JOIN public.players p
-          ON nae.entity_type = 'player' AND p.id = nae.entity_id AND p.sport = nae.sport
-        LEFT JOIN public.teams t
-          ON nae.entity_type = 'team' AND t.id = nae.entity_id AND t.sport = nae.sport
-        WHERE nae.article_id = $1 AND nae.sport = $2
-          AND (nae.vetted IS TRUE OR nae.match_confidence >= 0.95)
-        ORDER BY nae.entity_type, nae.entity_id
+        SELECT 'team', t.id, t.name
+          FROM public.news_articles a
+          JOIN public.teams t
+            ON t.id = (a.raw->>'query_team_id')::int AND t.sport = $2
+         WHERE a.id = $1 AND a.raw ? 'query_team_id'
         "#,
     )
     .bind(article_id)

@@ -229,25 +229,26 @@ func (s *NewsService) GetEntityNews(
 	return result, affected, funnel, nil
 }
 
-// persistArticles upserts articles by URL hash and links them to the primary
-// requested entity — the one we asked Google about. That link IS the query
-// hypothesis (broadTeamPrimaryConfidence), and the Editor confirms or denies it
-// downstream having read the body (PLAN-one-rail 8.5).
+// persistArticles writes the articles this sweep found, and nothing else.
 //
-// Runs in a single transaction, and the transaction also opens the pipe end: the
-// article is enqueued for the Editor on first sighting, so new material flows on
-// commit rather than on a sweep's cadence.
+// PLAN-one-rail 8.11: Go does not write `news_article_entities` at all any more. It used to insert
+// a "query hypothesis" link at confidence 0.95 for the entity whose sweep found the article —
+// which read as the corpus being populated at ingest, but no consumer on the packet rail ever saw
+// those rows: every one of them (the Journalist's corpus, the Insider's pairs, the graph, the SQL
+// rollups) filtered on `vetted IS TRUE`, and only the Editor sets that. The rows were write
+// amplification with a side effect — they gave the Editor's link write a second author to
+// reconcile with, which is the shape that silently lost articles' whole link sets (8.10).
 //
-// The cross-entity secondary pass that used to run here is gone (8.8). It scanned
-// a cached pool of every team and player in the sport against the title with a
-// regex matcher and wrote a 0.8 link on any hit — guessing relevance beside the
-// thing that now decides it by reading. Google's ranking picks the articles; the
-// Editor picks the links.
+// The hypothesis is not lost, because it was never really a link: which entity's sweep surfaced an
+// article is recorded in `news_articles.raw` (`q`, `lane`, `edition`, `window`, `query_team_id`) on
+// INSERT, and the Editor reads it from there. One writer per fact.
 //
-// Errors are returned to the caller but don't break the response path — the
-// caller logs and moves on. The returned slice is the article IDs that gained a
-// NEW entity link (RowsAffected>0); it is informational. An article re-seen with
-// only pre-existing links is omitted.
+// So ingest's job is now exactly: write the article, enqueue the read. Google ranked it, the Editor
+// decides what it is about.
+//
+// Errors are returned to the caller but don't break the response path — the caller logs and moves
+// on. The returned slice is the article IDs that were FRESHLY INSERTED this call (a re-seen URL is
+// omitted), which is the same set handed to the Editor.
 func (s *NewsService) persistArticles(
 	ctx context.Context,
 	sport, primaryEntityType string,
@@ -262,7 +263,6 @@ func (s *NewsService) persistArticles(
 
 	sportUpper := strings.ToUpper(sport)
 
-	affected := make(map[int64]bool)   // fresh primary link — the informational return
 	needEditor := make(map[int64]bool) // fresh ARTICLE ROW → the greenfield Editor reads it once
 
 	for _, a := range articles {
@@ -320,25 +320,6 @@ func (s *NewsService) persistArticles(
 		if inserted {
 			needEditor[articleID] = true
 		}
-
-		// Primary link — the entity that was queried, and the ONE link ingest writes.
-		// It lands at broadTeamPrimaryConfidence rather than 1.0 because it is a
-		// hypothesis, not a finding: we asked Google about this entity, so the article
-		// is *probably* about it. Nothing here has read the body, so nothing here
-		// vets. `title_pos` is not written any more — it was computed by a regex to
-		// feed a proximity gate no consumer on this rail reads (8.8).
-		primaryConfidence := broadTeamPrimaryConfidence
-		ct, err := tx.Exec(ctx, `
-			INSERT INTO news_article_entities (article_id, entity_type, entity_id, sport, match_confidence)
-			VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (article_id, entity_type, entity_id, sport) DO NOTHING
-		`, articleID, primaryEntityType, primaryEntityID, sportUpper, primaryConfidence)
-		if err != nil {
-			return nil, fmt.Errorf("link primary entity: %w", err)
-		}
-		if ct.RowsAffected() > 0 {
-			affected[articleID] = true
-		}
 	}
 
 	// The greenfield Editor reads EVERY new article once (PLAN-one-rail 3.5) — same tx, so
@@ -361,8 +342,8 @@ func (s *NewsService) persistArticles(
 		return nil, err
 	}
 
-	ids := make([]int64, 0, len(affected))
-	for id := range affected {
+	ids := make([]int64, 0, len(needEditor))
+	for id := range needEditor {
 		ids = append(ids, id)
 	}
 	return ids, nil

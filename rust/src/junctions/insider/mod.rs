@@ -344,8 +344,6 @@ pub async fn load_candidates(
         WHERE te.entity_type = 'team' AND te.entity_id = $1 AND te.sport = $2
           AND a.bucket IS DISTINCT FROM 'non_transfer'
           AND te.created_at > NOW() - INTERVAL '14 days'
-          AND te.vetted IS TRUE
-          AND pe.vetted IS TRUE
         GROUP BY pe.entity_id, p.name, p.nationality, ct.name, pci.position
         HAVING count(DISTINCT te.article_id) >= $3
         ORDER BY max(a.topic_heat) DESC NULLS LAST, count(DISTINCT te.article_id) DESC
@@ -528,8 +526,6 @@ async fn load_stale_pair_news_ids(
              AND pe.entity_id = $2 AND pe.sport = $3
         WHERE a.bucket IS DISTINCT FROM 'non_transfer'
           AND a.published_at <= NOW() - INTERVAL '14 days'
-          AND te.vetted IS TRUE
-          AND pe.vetted IS TRUE
         ORDER BY a.id
         "#,
     )

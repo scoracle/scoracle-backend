@@ -190,7 +190,7 @@ pub async fn load_graph_article_context(
         LEFT JOIN player_current_identity pci
                ON e.entity_type='player' AND pci.player_id=e.entity_id AND pci.sport=e.sport
         LEFT JOIN teams ct ON ct.id=pci.team_id AND ct.sport=e.sport
-        WHERE e.article_id=$1 AND e.sport=$2 AND e.vetted IS TRUE
+        WHERE e.article_id=$1 AND e.sport=$2
         ORDER BY e.entity_type, e.entity_id
         "#,
     )

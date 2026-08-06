@@ -3165,6 +3165,22 @@ block with BLOCKED.
       are RSS *parsing*, not relevancy — "remove all regex" means the relevance-guessing regex.
       Deleting the parser is how this session breaks ingest.
 
+- [x] **8.9** **THE QUERY BUILDER (Scott, 2026-08-06, after reading the 8.8 audit): "fix the
+      news.go unnecessary complexity. Get the handwritten work that was necessary before AI out of
+      the equation… I want a clean system where Google does the relevancy work and the Editor is
+      the valve."** 8.8 deleted the regex that judged articles AFTER the fetch; this deletes the
+      hand-rolled judgment that decided WHAT WE ASK GOOGLE — the half the audit flagged as
+      unscheduled (§0d of `PLAN-character-tuning.md`). Gone: the alias lane SCORING (base 60, +20
+      two tokens, +25 shared token, +10 club designator) and its rank-then-cap; the 18-word
+      `riskyFootballSoloQueryKey` list; `trustedFootballAliasQuery`'s four literals; the
+      `trustedShortTeamAliases` allowlist; `teamRSSPrimaryQueryTerm`'s primary substitution; the
+      per-term suffix branching (`teamRSSSportSuffix` / `teamRSSSuffixForTerm`); `bestAliasQuery`;
+      and `runRSSQueryPastLimit`, the exemption that existed only to protect ranked lanes from the
+      `-rss-limit` cap. **What replaced ~350 lines: one query per name we know the entity by,
+      deduped, sport term on every lane, every lane runs, cap applied to RESULTS.** Two decisions
+      settled by live measurement rather than a vote — see the Log. **Verify:** live sweeps both
+      sports, funnel balances, zero-admitted teams 0. **Commit:** `rail: 8.9 — the query builder`.
+
 **Verify:** 48h stable on the new rail. **Commit:** `rail: phase 8 — cutover; the old rail is
 off`.
 
@@ -3451,6 +3467,76 @@ the last one landing 3 seconds BEFORE this deploy restarted the daemon, and none
 is answering in markdown prose instead of its contract ("**Momentum Read: …**"). Pre-existing by
 four days, a model-quality number by the standing rule, and therefore **handed to the weekend as a
 tuning item, not treated as a rail failure.**
+
+**2026-08-06 ~13:20–13:50 EDT — 8.9, THE QUERY BUILDER. The other half of the excision.**
+Scott, after reading the 8.8 audit: *"Get the handwritten work that was necessary before AI out of
+the equation… a clean system where Google does the relevancy work and the Editor is the valve."*
+8.8 removed the judgment applied AFTER the fetch. This removes the judgment applied BEFORE it —
+**393 net lines out (501 deleted, 108 added); `news.go` 1,126 → 753 lines.**
+
+**Two things were decided by measuring live Google rather than by argument.** Both could have gone
+the other way on principle, and the measurement contradicted the tidier answer in one case:
+
+**(1) The sport suffix STAYS, and is now uniform.** The tidy reading of "let Google handle
+relevancy" is to send the bare entity name. Measured on live Google News, bare **"Nice"** returns:
+NICE the UK health institute (three separate pharma/NHS pieces), "a few goals would be nice",
+Formula 1, and a far-right politics feature — roughly **1 football item in 12**. **"Nice soccer
+football"** returns OGC Nice transfer coverage. The suffix is not scar tissue; it is the context
+Google needs to rank the right entity, which is the job being handed to it. So it is applied
+UNIFORMLY now — every sport, every entity kind, every lane — replacing the old per-term branching
+where football teams got NO suffix except for 18 hardcoded "risky" words.
+
+**(2) Alias lanes STAY, unranked and uncapped.** The tidy reading is one query per entity. Sampled
+live, an alias lane returns links the canonical-name lane never saw: **Spurs 18 unique of 47,
+Barça 29 of 102, PSG 16 of 47** — 20–30% marginal recall, thrown away by collapsing to one lane.
+So every alias gets a lane. The cap that used to bound them (`newsMaxTeamAliasRSSQueries = 2`,
+which is why the ranking existed) is unnecessary: teams average **1.8–2.0 aliases** (FOOTBALL max
+7), so the whole plan is small.
+
+**Deleted (all of it hand-rolled pre-AI judgment):** `safeTeamRSSAliasQuery` and its scores ·
+`teamRSSAliasQueryTerms` (rank + cap) · `teamRSSPrimaryQueryTerm` · `buildTeamRSSSearchQueries` ·
+`riskyFootballSoloQueryTerm/Key` (18 words) · `trustedFootballAliasQuery` (4 literals) ·
+`trustedShortTeamAliases` + its lookup (13 entries) · `teamRSSSportSuffix` ·
+`teamRSSSuffixForTerm` · `shortRSSAlias` · `entityTermTokens` · `sharesMeaningfulEntityToken` ·
+`meaningfulEntityToken` · `containsClubDesignator` · `normalizedAliasKey` · `bestAliasQuery` ·
+`runRSSQueryPastLimit` · consts `newsMaxTeamAliasRSSQueries` / `newsMinTeamRSSQueriesBeforeLimit`.
+
+**The funnel lost two counters with the mechanism that fed them** (the same rule 8.8 applied to
+`MatchRejected`): `EditionsSkipped` and `QueriesSkipped` are structurally impossible now that the
+`-rss-limit` early break is gone, so they went, and `corpus.go`'s `teams_edition_capped` line with
+them. `Residual` is untouched and still balances.
+
+**Measured live, both sports, against the real 02:00 cron baselines:**
+
+| | Aug 6 02:30 cron (old) | 8.9, hand-run |
+|---|---|---|
+| NBA · lanes planned / run | 90 / 60 (30 skipped) | **90 / 90** |
+| NBA · rss_items | 2,685 | **3,061** (+14%) |
+| FOOTBALL · lanes planned / run | — | **393 / 393** (2.77 per team) |
+| FOOTBALL · rss_errors · zero-admitted teams | — | **0 · 0** |
+| FOOTBALL · fresh articles / elapsed | — | **359 / 2m18s** |
+| funnel residual | 0 | **0** |
+| whole-sweep lanes (204 entities) | 426 planned / **402 run** | **~579, all run** |
+
+**The cost, stated plainly: ~44% more Google calls on the daily sweep** (402 → ~579), because
+every lane now runs instead of being cut by the cap. The 02:00 cron has all night; the NBA sweep
+went 26s → 35s and football ran 142 teams in 2m18s.
+
+**Spot-checked what the risky names actually return now** (the whole point): "Como soccer football"
+→ *Atalanta interested in summer transfer for Como's Diao*; "Inter soccer football" → *Are Inter
+the only Serie A title contenders?*; Real Madrid, Athletic Club, Nice all football. **Zero
+teams admitted nothing.** Some articles are football-but-not-about-this-team — which is the
+design working, not failing: Google supplies sport-relevant candidates and the Editor rejects
+entity-irrelevant ones after reading the body.
+
+**8 tests deleted with their subjects** (`TestBestAliasQuery`, `TestBuildRSSSearchQueries_`
+`TeamUsesAliasLanes` / `TeamAllowsTrustedShortAlias` / `TeamCapsSafeAliasLanes` /
+`TeamAvoidsAliasBags` / `NonFootballTeamKeepsSportContext` / `RiskyFootballPrimaryUsesSaferAlias` /
+`PlayerKeepsConservativeFallback`), plus `TestFunnelCountsQueriesSkippedByLimit` whose subject was
+the deleted cap. **4 written to replace them**, pinning the new contract: every name gets a lane ·
+short and risky aliases are kept, not suppressed · equivalent names dedupe · the sport term is
+uniform. `go build` / `vet` / `test` green; `gofmt -l` now returns two files instead of three
+(`news_test.go` came out clean; `news.go` and `work.go` keep their pre-existing dirt untouched).
 
 ### Handoff (phase 8 → 9)
 ```

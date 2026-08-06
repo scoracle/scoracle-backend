@@ -103,17 +103,15 @@ rather than letting the queue decide by starving whichever stage sorts last.**
 The relevance regex is gone (0e). What remains, and it is the largest hand-rolled judgment left
 anywhere on the rail:
 
-- **~350 lines in `news.go` decide WHAT WE ASK GOOGLE**, and every line of it predates the AI
-  layers: `safeTeamRSSAliasQuery` scores alias lanes with hand-tuned integers (base 60, +20 for
-  two tokens, +25 for a shared token, +10 for a club designator); `riskyFootballSoloQueryKey` is a
-  hardcoded list of 18 words (`athletic, celtic, city, club, como, dynamo, inter, lens, nice,
-  racing, rangers, real, rovers, sporting, united, union, …`); `trustedFootballAliasQuery` is
-  four literals (`barca, barça, spurs, juve`); `trustedShortTeamAliases` is a hand-maintained map.
-  **8.8 was right to leave it — it is query formulation, not relevance filtering** — but it bounds
-  what Google can ever return, so *"let Google handle the relevancy" is only as good as this
-  hand-written list of what to ask for.* A club whose alias lane is scored out never reaches the
-  Editor at all, and no downstream model layer can recover it. **This is the strongest remaining
-  candidate for "delete the heuristic, let a layer own it," and it is NOT scheduled anywhere.**
+- ~~**~350 lines in `news.go` decide WHAT WE ASK GOOGLE**~~ — **CLOSED 2026-08-06 by
+  PLAN-one-rail step 8.9, on Scott's call, hours after this register was written.** The alias
+  scoring, the 18-word risky-club list, the four trusted literals, the short-alias allowlist, the
+  per-term suffix branching and the lane cap are all deleted (393 net lines). What runs now: one
+  query per name we know the entity by, sport term on every lane, every lane runs, cap on results.
+  **Two things survived deletion because measurement said to keep them, and the session should not
+  re-open either without new numbers:** the sport suffix (bare "Nice" returns the NHS institute and
+  Formula 1; "Nice soccer football" returns the club) and alias lanes (20–30% marginal unique
+  recall — Spurs 18/47, Barça 29/102, PSG 16/47). Cost: ~44% more Google calls per sweep.
 - **`fetch.rs::clean_html` is a naive strip-all-tags** (§1, D-T11) — nav menus and footers reach
   the prompt, and **34.3% of editor prompts hit the 9,000-char truncation cap.** Hand-rolled
   extraction is spending the model's window on page furniture.

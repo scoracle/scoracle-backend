@@ -20,17 +20,14 @@ type Funnel struct {
 	// call, so a rolled-up Funnel says how many teams it covers.
 	Entities int
 
-	// Query plan — how much of the configured edition x query grid actually ran.
-	// EditionsSkipped > 0 means the -rss-limit cap ended the sweep before the
-	// localized editions were reached: runRSSQueryPastLimit only exempts edition
-	// 0, so a team that fills its limit from en-US never sees en-gb/es-es/fr-fr/
-	// de-de/it-it/pt-pt/nl-nl. That is invisible in every other signal we have.
+	// Query plan — the edition x query grid. Planned == Queried/Run now: 8.9 deleted the
+	// -rss-limit early break, so every name lane runs for every entity every sweep and the
+	// cap applies to RESULTS instead. The Skipped counters went with the break that fed them;
+	// re-add them with the mechanism if a cap ever returns to the plan.
 	EditionsPlanned int
 	EditionsQueried int
-	EditionsSkipped int
 	QueriesPlanned  int
 	QueriesRun      int
-	QueriesSkipped  int
 
 	// Fetch.
 	RSSCalls  int
@@ -65,10 +62,8 @@ func (f *Funnel) Add(o Funnel) {
 	f.Entities += o.Entities
 	f.EditionsPlanned += o.EditionsPlanned
 	f.EditionsQueried += o.EditionsQueried
-	f.EditionsSkipped += o.EditionsSkipped
 	f.QueriesPlanned += o.QueriesPlanned
 	f.QueriesRun += o.QueriesRun
-	f.QueriesSkipped += o.QueriesSkipped
 	f.RSSCalls += o.RSSCalls
 	f.RSSErrors += o.RSSErrors
 	f.RSSItems += o.RSSItems
@@ -95,10 +90,8 @@ func (f Funnel) LogAttrs() []any {
 		"entities", f.Entities,
 		"editions_planned", f.EditionsPlanned,
 		"editions_queried", f.EditionsQueried,
-		"editions_skipped", f.EditionsSkipped,
 		"queries_planned", f.QueriesPlanned,
 		"queries_run", f.QueriesRun,
-		"queries_skipped", f.QueriesSkipped,
 		"rss_calls", f.RSSCalls,
 		"rss_errors", f.RSSErrors,
 		"rss_items", f.RSSItems,

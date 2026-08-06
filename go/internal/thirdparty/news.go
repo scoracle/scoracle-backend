@@ -16,7 +16,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -33,11 +32,6 @@ const (
 	// Allow a small overlap around the cron boundary so a slightly late run does
 	// not miss items published just before the lookback boundary.
 	newsLookbackSlack = 15 * time.Minute
-
-	// Keep Google from being handed broad team alias bags. The primary query is
-	// always searched; only the safest aliases get their own explicit lanes.
-	newsMaxTeamAliasRSSQueries       = 2
-	newsMinTeamRSSQueriesBeforeLimit = 2
 )
 
 // RSS query lookback windows (hours). This MUST cover the ingest cron's period or
@@ -95,22 +89,6 @@ var defaultRSSEditions = []rssEdition{
 // trade while the pipeline is GPU-bound.
 var footballTeamRSSEditions = []rssEdition{
 	{name: "en-gb", hl: "en-GB", gl: "GB", ceid: "GB:en"},
-}
-
-var trustedShortTeamAliases = map[string]bool{
-	"ASM":  true,
-	"ASSE": true,
-	"B04":  true,
-	"BMG":  true,
-	"BVB":  true,
-	"HSV":  true,
-	"LOSC": true,
-	"OL":   true,
-	"OM":   true,
-	"PSG":  true,
-	"RBL":  true,
-	"S04":  true,
-	"SGE":  true,
 }
 
 const broadTeamPrimaryConfidence = 0.95
@@ -526,7 +504,7 @@ func (s *NewsService) fetchFromRSS(
 	aliases []string,
 ) (map[string]interface{}, []Article, Funnel, error) {
 	searchName := buildSearchName(entityName, firstName, lastName)
-	searchQueries := buildRSSSearchQueries(entityType, searchName, sport, aliases)
+	searchQueries := buildRSSSearchQueries(searchName, sport, aliases)
 	editions := rssEditionsForEntity(entityType, sport)
 
 	var allArticles []Article
@@ -536,21 +514,16 @@ func (s *NewsService) fetchFromRSS(
 		QueriesPlanned:  len(editions) * len(searchQueries),
 	}
 
-	for editionIdx, edition := range editions {
-		if limit > 0 && len(allArticles) >= limit && !runRSSQueryPastLimit(entityType, editionIdx, 0) {
-			// The limit ended the sweep here: this edition and every one after it
-			// go unqueried. Count the whole remaining grid so the cost of the cap
-			// is legible instead of showing up only as missing coverage.
-			f.EditionsSkipped += len(editions) - editionIdx
-			f.QueriesSkipped += (len(editions) - editionIdx) * len(searchQueries)
-			break
-		}
+	// EVERY lane runs, every time. The `-rss-limit` cap used to end the query plan early, and a
+	// hand-rolled exemption (`runRSSQueryPastLimit`) existed on top of it to guarantee team lanes
+	// survived the cap — an exemption that only made sense while alias lanes were RANKED and the
+	// good ones needed protecting. With every name asked equally there is nothing to protect and
+	// nothing to rank: the plan is small (1.8–2.0 aliases per team on average, 7 at the outlier)
+	// and the cap belongs on the RESULTS, where `limitRSSArticles` applies it after Google's own
+	// feed rank has decided which articles are the best ones to keep (PLAN-one-rail 8.9).
+	for _, edition := range editions {
 		f.EditionsQueried++
 		for queryIdx, query := range searchQueries {
-			if limit > 0 && len(allArticles) >= limit && !runRSSQueryPastLimit(entityType, editionIdx, queryIdx) {
-				f.QueriesSkipped += len(searchQueries) - queryIdx
-				break
-			}
 			f.QueriesRun++
 			for _, hours := range timeWindows {
 				if err := ctx.Err(); err != nil {
@@ -643,34 +616,52 @@ func (s *NewsService) fetchFromRSS(
 	}, allArticles, f, nil
 }
 
-func buildRSSSearchQueries(entityType, primarySearch, sport string, aliases []string) []string {
-	if isTeamEntity(entityType) {
-		return buildTeamRSSSearchQueries(primarySearch, sport, aliases)
+// buildRSSSearchQueries returns ONE Google query per name we know this entity by: the canonical
+// search name first, then every alias, each carrying the sport term.
+//
+// PLAN-one-rail 8.9. What used to live here was ~350 lines of pre-AI judgment deciding which
+// alias was "safe" enough to ask about — hand-tuned lane scores (base 60, +20 for two tokens,
+// +25 for a shared token, +10 for a club designator), an 18-word hardcoded list of risky solo
+// club words (athletic, celtic, city, inter, nice, real, united …), four trusted literals
+// (barca, barça, spurs, juve), and a hand-maintained short-alias allowlist. Every line of it
+// existed to protect a downstream regex from whatever came back. Nothing downstream guesses any
+// more: Google ranks, and the Editor reads the body and decides. So we ask about every name we
+// have and let the two things that are genuinely good at this do the work.
+//
+// Aliases earn their lane on measurement, not on principle — sampled live 2026-08-06, an alias
+// lane returns 16–29 links the canonical-name lane never saw (Spurs 18/47, Barça 29/102, PSG
+// 16/47). Dropping to one query per entity would have thrown that away.
+//
+// The sport term is applied UNIFORMLY — every sport, every entity kind, every lane. That one
+// rule replaced the per-term suffix branching, and it is not scar tissue: measured the same day,
+// bare "Nice" returns the NHS institute (NICE), pharma press releases and Formula 1, while
+// "Nice soccer football" returns OGC Nice. The suffix is the context Google needs to rank the
+// right entity, which is precisely the job being handed to it.
+func buildRSSSearchQueries(primarySearch, sport string, aliases []string) []string {
+	suffix := rssSportSuffix(sport)
+	seen := make(map[string]bool, len(aliases)+1)
+	out := make([]string, 0, len(aliases)+1)
+
+	// Deduping on a normalized key is plumbing, not judgment: asking Google the identical
+	// question twice spends a call to be handed the same page.
+	add := func(term string) {
+		term = strings.TrimSpace(term)
+		if term == "" {
+			return
+		}
+		key := strings.ToLower(strings.Join(strings.Fields(term), " "))
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		out = append(out, formatRSSQueryTerm(term)+suffix)
 	}
 
-	sportSuffix := rssSportSuffix(sport)
-	searchQueries := []string{primarySearch + sportSuffix}
-	if best := bestAliasQuery(primarySearch, aliases); best != "" {
-		searchQueries = append(searchQueries, best+sportSuffix)
+	add(primarySearch)
+	for _, alias := range aliases {
+		add(alias)
 	}
-	return searchQueries
-}
-
-
-func buildTeamRSSSearchQueries(primarySearch, sport string, aliases []string) []string {
-	primaryTerm := teamRSSPrimaryQueryTerm(primarySearch, sport, aliases)
-	if strings.TrimSpace(primaryTerm) == "" {
-		return nil
-	}
-	queries := []string{formatRSSQueryTerm(primaryTerm) + teamRSSSuffixForTerm(sport, primaryTerm)}
-	for _, alias := range teamRSSAliasQueryTerms(primarySearch, primaryTerm, sport, aliases) {
-		queries = append(queries, formatRSSQueryTerm(alias)+teamRSSSuffixForTerm(sport, alias))
-	}
-	return queries
-}
-
-func runRSSQueryPastLimit(entityType string, editionIdx, queryIdx int) bool {
-	return isTeamEntity(entityType) && editionIdx == 0 && queryIdx < newsMinTeamRSSQueriesBeforeLimit
+	return out
 }
 
 func rssSportSuffix(sport string) string {
@@ -683,206 +674,11 @@ func rssSportSuffix(sport string) string {
 	return ""
 }
 
-func teamRSSSportSuffix(sport string) string {
-	// Football team queries carry no sport suffix. NOTE the original reason for this is now
-	// GONE: the suffix was dropped because it suppressed non-English sources across the
-	// localized editions, and those editions were retired (see footballTeamRSSEditions).
-	// Left as-is deliberately rather than silently restored — " soccer football" is two extra
-	// required terms on every query, so re-adding it trades noise for recall, and that trade
-	// needs the A4 funnel to measure it rather than a guess. Risky solo terms (nice, inter,
-	// como, …) already get the suffix via teamRSSSuffixForTerm regardless.
-	// Keep sport suffixes for NBA/NFL teams, where many team names are common English words.
-	if strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" {
-		return ""
-	}
-	return rssSportSuffix(sport)
-}
-
-func teamRSSSuffixForTerm(sport, term string) string {
-	if strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" && riskyFootballSoloQueryTerm(term) {
-		return rssSportSuffix(sport)
-	}
-	return teamRSSSportSuffix(sport)
-}
-
 func rssEditionsForEntity(entityType, sport string) []rssEdition {
 	if isTeamEntity(entityType) && strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL" {
 		return footballTeamRSSEditions
 	}
 	return defaultRSSEditions
-}
-
-type teamRSSAliasCandidate struct {
-	term  string
-	score int
-	order int
-}
-
-func teamRSSPrimaryQueryTerm(primarySearch, sport string, aliases []string) string {
-	primary := strings.TrimSpace(primarySearch)
-	if primary == "" || strings.ToUpper(strings.TrimSpace(sport)) != "FOOTBALL" || !riskyFootballSoloQueryTerm(primary) {
-		return primary
-	}
-
-	for _, alias := range aliases {
-		alias = strings.TrimSpace(alias)
-		if alias == "" || normalizedAliasKey(alias) == normalizedAliasKey(primary) {
-			continue
-		}
-		if ok, _ := safeTeamRSSAliasQuery(primary, alias, true); ok && len(entityTermTokens(alias)) >= 2 {
-			return alias
-		}
-	}
-
-	return primary
-}
-
-func teamRSSAliasQueryTerms(primarySearch, primaryQueryTerm, sport string, aliases []string) []string {
-	football := strings.ToUpper(strings.TrimSpace(sport)) == "FOOTBALL"
-	seen := map[string]bool{
-		normalizedAliasKey(primarySearch):    true,
-		normalizedAliasKey(primaryQueryTerm): true,
-	}
-	candidates := make([]teamRSSAliasCandidate, 0, len(aliases))
-
-	for i, alias := range aliases {
-		alias = strings.TrimSpace(alias)
-		if alias == "" {
-			continue
-		}
-		key := normalizedAliasKey(alias)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		ok, score := safeTeamRSSAliasQuery(primarySearch, alias, football)
-		if !ok {
-			continue
-		}
-		candidates = append(candidates, teamRSSAliasCandidate{term: alias, score: score, order: i})
-	}
-
-	sort.SliceStable(candidates, func(i, j int) bool {
-		if candidates[i].score != candidates[j].score {
-			return candidates[i].score > candidates[j].score
-		}
-		return candidates[i].order < candidates[j].order
-	})
-
-	limit := newsMaxTeamAliasRSSQueries
-	if len(candidates) < limit {
-		limit = len(candidates)
-	}
-	terms := make([]string, 0, limit)
-	for i := 0; i < limit; i++ {
-		terms = append(terms, candidates[i].term)
-	}
-	return terms
-}
-
-func safeTeamRSSAliasQuery(primarySearch, alias string, football bool) (bool, int) {
-	alias = strings.TrimSpace(alias)
-	if alias == "" {
-		return false, 0
-	}
-	key := normalizedAliasKey(alias)
-
-	if !football {
-		if shortRSSAlias(alias) {
-			return true, 70
-		}
-		return true, 80
-	}
-
-	if riskyFootballSoloQueryKey(key) {
-		return false, 0
-	}
-	if strings.HasPrefix(key, "the ") {
-		return false, 0
-	}
-	if shortRSSAlias(alias) {
-		if trustedShortTeamAlias(alias) {
-			return true, 120
-		}
-		return false, 0
-	}
-	if trustedFootballAliasQuery(key) {
-		return true, 110
-	}
-
-	tokens := entityTermTokens(alias)
-	if len(tokens) < 2 && !sharesMeaningfulEntityToken(primarySearch, alias) {
-		return false, 0
-	}
-
-	score := 60
-	if len(tokens) >= 2 {
-		score += 20
-	}
-	if sharesMeaningfulEntityToken(primarySearch, alias) {
-		score += 25
-	}
-	if containsClubDesignator(tokens) {
-		score += 10
-	}
-	return true, score
-}
-
-func trustedShortTeamAlias(alias string) bool {
-	return trustedShortTeamAliases[strings.ToUpper(strings.TrimSpace(alias))]
-}
-
-func trustedFootballAliasQuery(key string) bool {
-	switch key {
-	case "barca", "barça", "spurs", "juve":
-		return true
-	default:
-		return false
-	}
-}
-
-func riskyFootballSoloQueryTerm(term string) bool {
-	return riskyFootballSoloQueryKey(normalizedAliasKey(term))
-}
-
-func riskyFootballSoloQueryKey(key string) bool {
-	switch key {
-	case "athletic",
-		"celtic",
-		"city",
-		"club",
-		"como",
-		"dynamo",
-		"inter",
-		"lens",
-		"nice",
-		"racing",
-		"rangers",
-		"real",
-		"rovers",
-		"sporting",
-		"united",
-		"union",
-		"victory",
-		"wanderers":
-		return true
-	default:
-		return false
-	}
-}
-
-func normalizedAliasKey(s string) string {
-	return strings.ToLower(strings.Join(strings.Fields(s), " "))
-}
-
-func shortRSSAlias(s string) bool {
-	n := 0
-	for _, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
-			n++
-		}
-	}
-	return n > 0 && n < 4
 }
 
 func formatRSSQueryTerm(term string) string {
@@ -891,46 +687,6 @@ func formatRSSQueryTerm(term string) string {
 		return `"` + term + `"`
 	}
 	return term
-}
-
-func entityTermTokens(s string) []string {
-	return strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
-		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
-	})
-}
-
-func sharesMeaningfulEntityToken(a, b string) bool {
-	aTokens := make(map[string]bool)
-	for _, tok := range entityTermTokens(a) {
-		if meaningfulEntityToken(tok) {
-			aTokens[tok] = true
-		}
-	}
-	for _, tok := range entityTermTokens(b) {
-		if meaningfulEntityToken(tok) && aTokens[tok] {
-			return true
-		}
-	}
-	return false
-}
-
-func meaningfulEntityToken(tok string) bool {
-	switch tok {
-	case "", "a", "ac", "afc", "as", "at", "ca", "cd", "cf", "club", "de", "el", "fc", "la", "los", "of", "rc", "sc", "the", "u":
-		return false
-	default:
-		return len(tok) >= 4
-	}
-}
-
-func containsClubDesignator(tokens []string) bool {
-	for _, tok := range tokens {
-		switch tok {
-		case "ac", "afc", "as", "ca", "cd", "cf", "fc", "rc", "sc", "utd":
-			return true
-		}
-	}
-	return false
 }
 
 func rssWhenToken(hoursBack int) string {
@@ -1018,31 +774,6 @@ func sleepContext(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// bestAliasQuery returns the best alias to use as a fallback search query.
-// Prefers the longest alias that differs from the primary search name.
-func bestAliasQuery(primarySearch string, aliases []string) string {
-	primaryLower := strings.ToLower(primarySearch)
-	best := ""
-	for _, a := range aliases {
-		// Skip short aliases (abbreviations) — they're too broad for search queries.
-		if len(a) < 4 {
-			continue
-		}
-		if strings.ToLower(a) == primaryLower {
-			continue
-		}
-		if len(a) > len(best) {
-			best = a
-		}
-	}
-	return best
-}
-
-// ---------------------------------------------------------------------------
-// Helpers — name matching, dedup, sort (ported from Python)
-// ---------------------------------------------------------------------------
-
-// buildSearchName shortens very long names (e.g. Brazilian players).
 func buildSearchName(fullName, firstName, lastName string) string {
 	parts := strings.Fields(fullName)
 

@@ -58,12 +58,11 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 		logger.Info("corpus: rss sweep starting", "sport", sport, "teams", len(teams))
 
 		var sportFunnel thirdparty.Funnel
-		var zeroAdmitted []string // teams RSS returned items for and the matcher kept none of
-		editionCapped := 0        // teams whose localized editions never ran
+		var zeroAdmitted []string // teams RSS returned items for and the sweep kept none of
 
 		for i, t := range teams {
 			if ctx.Err() != nil {
-				logSportFunnel(logger, sport, len(teams), i, sportFunnel, zeroAdmitted, editionCapped)
+				logSportFunnel(logger, sport, len(teams), i, sportFunnel, zeroAdmitted)
 				runFunnel.Add(sportFunnel)
 				logRunFunnel(logger, runFunnel)
 				return runStart, affected, ok, fail
@@ -78,10 +77,6 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 			if funnel.RSSItems > 0 && funnel.Matched == 0 {
 				zeroAdmitted = append(zeroAdmitted, t.Name)
 			}
-			if funnel.EditionsSkipped > 0 {
-				editionCapped++
-			}
-
 			if err != nil {
 				fail++
 				logger.Warn("corpus: rss fetch failed", "sport", sport, "team", t.Name, "id", t.ID, "error", err)
@@ -100,7 +95,7 @@ func Sweep(ctx context.Context, pool *pgxpool.Pool, sports []string, rssLimit, r
 			}
 		}
 
-		logSportFunnel(logger, sport, len(teams), len(teams), sportFunnel, zeroAdmitted, editionCapped)
+		logSportFunnel(logger, sport, len(teams), len(teams), sportFunnel, zeroAdmitted)
 		runFunnel.Add(sportFunnel)
 	}
 
@@ -121,7 +116,7 @@ const zeroAdmittedSample = 10
 
 // logSportFunnel emits one sport's rolled-up funnel. teamsDone is separate from
 // teamsTotal so a cancelled sweep reports honestly on what it actually covered.
-func logSportFunnel(logger *slog.Logger, sport string, teamsTotal, teamsDone int, f thirdparty.Funnel, zeroAdmitted []string, editionCapped int) {
+func logSportFunnel(logger *slog.Logger, sport string, teamsTotal, teamsDone int, f thirdparty.Funnel, zeroAdmitted []string) {
 	sample := zeroAdmitted
 	if len(sample) > zeroAdmittedSample {
 		sample = sample[:zeroAdmittedSample]
@@ -136,7 +131,6 @@ func logSportFunnel(logger *slog.Logger, sport string, teamsTotal, teamsDone int
 			// quiet is the regression this counter exists to catch.
 			"teams_zero_admitted", len(zeroAdmitted),
 			"zero_admitted_sample", strings.Join(sample, "; "),
-			"teams_edition_capped", editionCapped,
 		}, f.LogAttrs()...)...)
 }
 

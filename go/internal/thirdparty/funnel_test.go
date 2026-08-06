@@ -96,9 +96,8 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 		t.Errorf("editions planned/queried = %d/%d, want %d/%d",
 			f.EditionsPlanned, f.EditionsQueried, len(footballTeamRSSEditions), len(footballTeamRSSEditions))
 	}
-	if f.EditionsSkipped != 0 || f.QueriesSkipped != 0 {
-		t.Errorf("uncapped sweep skipped work: editions %d queries %d", f.EditionsSkipped, f.QueriesSkipped)
-	}
+	// 8.9: every lane runs every sweep, so the plan and the run are the same number by
+	// construction. A future cap that breaks the plan early owes this a counter again.
 	if f.QueriesPlanned != f.QueriesRun {
 		t.Errorf("queries planned %d != run %d", f.QueriesPlanned, f.QueriesRun)
 	}
@@ -130,66 +129,6 @@ func TestFunnelAccountsForEveryDrop(t *testing.T) {
 	}
 }
 
-// TestFunnelCountsQueriesSkippedByLimit pins what the -rss-limit cap can and cannot cost now that
-// football runs a SINGLE edition (en-GB). The edition-skipping failure this test was written for —
-// a team filling its limit from en-US and never reaching the seven localized editions — is
-// structurally gone: there are no other editions to lose. What remains is the query-level break,
-// which still stops alias lanes past the first two. The counters must show that distinction, so a
-// future edition addition makes editions_skipped meaningful again rather than silently.
-func TestFunnelCountsQueriesSkippedByLimit(t *testing.T) {
-	now := time.Now().Add(-1 * time.Hour)
-	items := make([]rssFixtureItem, 0, 12)
-	for i := 0; i < 12; i++ {
-		items = append(items, rssFixtureItem{
-			title:       fmt.Sprintf("Paris Saint Germain story %d", i),
-			source:      fmt.Sprintf("Outlet %d", i),
-			link:        fmt.Sprintf("https://ex.test/%d", i),
-			published:   now,
-			description: "Match report.",
-		})
-	}
-	body := rssFixture(items...)
-
-	editionsSeen := map[string]bool{}
-	s := newFixtureService(t, func(w http.ResponseWriter, r *http.Request) {
-		editionsSeen[r.URL.Query().Get("ceid")] = true
-		w.Header().Set("Content-Type", "application/xml")
-		_, _ = io.WriteString(w, body)
-	})
-
-	_, _, f, err := s.GetEntityNews(context.Background(), "team", 1,
-		"Paris Saint Germain", "FOOTBALL", "", 12, "", "", []string{"PSG", "Paris Saint-Germain"})
-	if err != nil {
-		t.Fatalf("GetEntityNews: %v", err)
-	}
-
-	if f.EditionsQueried != len(footballTeamRSSEditions) {
-		t.Fatalf("EditionsQueried = %d, want all %d", f.EditionsQueried, len(footballTeamRSSEditions))
-	}
-	if f.EditionsSkipped != 0 {
-		t.Errorf("EditionsSkipped = %d, want 0 — a single edition cannot be skipped", f.EditionsSkipped)
-	}
-	if len(editionsSeen) != 1 || !editionsSeen["GB:en"] {
-		t.Errorf("editions actually fetched = %v, want only GB:en", editionsSeen)
-	}
-	// PSG yields three safe lanes (primary + PSG + Paris Saint-Germain). runRSSQueryPastLimit
-	// exempts only the first two, so exactly one lane is cut once the limit fills.
-	if f.QueriesSkipped != 1 {
-		t.Errorf("QueriesSkipped = %d, want 1 alias lane cut by the limit", f.QueriesSkipped)
-	}
-	if f.QueriesPlanned != f.QueriesRun+f.QueriesSkipped {
-		t.Errorf("query plan does not balance: planned %d, run %d, skipped %d",
-			f.QueriesPlanned, f.QueriesRun, f.QueriesSkipped)
-	}
-	if f.EditionsPlanned != f.EditionsQueried+f.EditionsSkipped {
-		t.Errorf("edition plan does not balance: planned %d, queried %d, skipped %d",
-			f.EditionsPlanned, f.EditionsQueried, f.EditionsSkipped)
-	}
-	if r := f.Residual(); r != 0 {
-		t.Errorf("funnel does not balance: residual %d (%v)", r, f.LogAttrs())
-	}
-}
-
 // TestFunnelSurvivesFetchErrors — an edition that errors must still be counted as
 // attempted. Otherwise a systematically failing locale reads as "no news there".
 func TestFunnelSurvivesFetchErrors(t *testing.T) {
@@ -214,7 +153,7 @@ func TestFunnelSurvivesFetchErrors(t *testing.T) {
 }
 
 func TestFunnelAddRollsUpEveryField(t *testing.T) {
-	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+	a := Funnel{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}
 	var got Funnel
 	got.Add(a)
 	got.Add(a)
@@ -222,7 +161,7 @@ func TestFunnelAddRollsUpEveryField(t *testing.T) {
 	// Compare against a doubled literal rather than field by field, so a Funnel
 	// that grows a counter without a matching line in Add fails to compile here
 	// instead of silently under-reporting in the rolled-up sweep totals.
-	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32}
+	want := Funnel{2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28}
 	if got != want {
 		t.Errorf("Add rolled up to %+v, want %+v", got, want)
 	}

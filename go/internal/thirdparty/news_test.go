@@ -43,114 +43,64 @@ func TestRSSWhenTokenSpansSubDayAndDayWindows(t *testing.T) {
 	}
 }
 
-func TestBestAliasQuery(t *testing.T) {
-	tests := []struct {
-		primary string
-		aliases []string
-		want    string
-	}{
-		{"FC Bayern Munchen", []string{"Bayern Munich", "FC Bayern", "BAY"}, "Bayern Munich"},
-		{"FC Bayern Munchen", []string{"FCB"}, ""},       // too short
-		{"Bayern Munich", []string{"bayern munich"}, ""}, // same as primary
-		{"Arsenal", nil, ""}, // no aliases
-		{"Arsenal", []string{"Arsenal FC", "The Gunners"}, "The Gunners"}, // longest wins
-	}
-
-	for _, tt := range tests {
-		got := bestAliasQuery(tt.primary, tt.aliases)
-		if got != tt.want {
-			t.Errorf("bestAliasQuery(%q, %v) = %q, want %q", tt.primary, tt.aliases, got, tt.want)
-		}
-	}
-}
-
-func TestBuildRSSSearchQueries_TeamUsesAliasLanes(t *testing.T) {
-	got := buildRSSSearchQueries(
-		"team",
-		"Manchester United",
-		"FOOTBALL",
-		[]string{"MUN", "Man UTD", "Man United", "MUFC"},
-	)
-	want := []string{`"Manchester United"`, `"Man United"`, `"Man UTD"`}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Fatalf("buildRSSSearchQueries team = %#v, want %#v", got, want)
-	}
-}
-
-func TestBuildRSSSearchQueries_TeamAllowsTrustedShortAlias(t *testing.T) {
-	got := buildRSSSearchQueries("team", "Paris Saint Germain", "FOOTBALL", []string{"PSG", "Paris Saint-Germain"})
-	want := []string{`"Paris Saint Germain"`, `PSG`, `"Paris Saint-Germain"`}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Fatalf("buildRSSSearchQueries PSG = %#v, want %#v", got, want)
-	}
-}
-
-func TestBuildRSSSearchQueries_TeamCapsSafeAliasLanes(t *testing.T) {
-	got := buildRSSSearchQueries("team", "FC Bayern München", "FOOTBALL", []string{
-		"Bayern Munich",
-		"Bayern Munchen",
-		"Bayern München",
-		"Bayern",
-		"FC Bayern",
-		"FCB",
-		"Bayern Monaco",
-	})
-	want := []string{`"FC Bayern München"`, `"FC Bayern"`, `"Bayern Munich"`}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Fatalf("buildRSSSearchQueries Bayern = %#v, want %#v", got, want)
-	}
-}
-
-func TestBuildRSSSearchQueries_TeamAvoidsAliasBags(t *testing.T) {
-	got := buildRSSSearchQueries("team", "Ajax", "FOOTBALL", []string{
-		"Ajax Alt 01", "Ajax Alt 02", "Ajax Alt 03", "Ajax Alt 04", "Ajax Alt 05", "Ajax Alt 06",
-		"Ajax Alt 07", "Ajax Alt 08", "Ajax Alt 09", "Ajax Alt 10", "Ajax Alt 11", "Ajax Alt 12",
-	})
+// buildRSSSearchQueries is now one lane per name we know the entity by — canonical name first,
+// then every alias in DB order, each with the sport term, deduped on a normalized key. Nothing
+// is scored, capped, or allow-listed (PLAN-one-rail 8.9). This test pins that contract; the
+// eight tests it replaces asserted the alias SCORING that 8.9 deleted.
+func TestBuildRSSSearchQueries_EveryNameGetsALane(t *testing.T) {
+	got := buildRSSSearchQueries("Manchester United", "FOOTBALL",
+		[]string{"MUN", "Man UTD", "Man United", "MUFC"})
 	want := []string{
-		`Ajax`,
-		`"Ajax Alt 01"`,
-		`"Ajax Alt 02"`,
+		`"Manchester United" soccer football`,
+		`MUN soccer football`,
+		`"Man UTD" soccer football`,
+		`"Man United" soccer football`,
+		`MUFC soccer football`,
 	}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] {
-		t.Fatalf("buildRSSSearchQueries alias lanes = %#v, want %#v", got, want)
+	if len(got) != len(want) {
+		t.Fatalf("buildRSSSearchQueries = %#v, want %#v", got, want)
 	}
-	for _, q := range got {
-		if strings.Contains(q, " OR ") {
-			t.Fatalf("team RSS query should not contain OR alias bags: %#v", got)
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("lane %d = %q, want %q", i, got[i], want[i])
 		}
 	}
 }
 
-func TestBuildRSSSearchQueries_NonFootballTeamKeepsSportContext(t *testing.T) {
-	got := buildRSSSearchQueries("team", "Giants", "NFL", []string{"NYG"})
-	want := []string{`Giants NFL football`, `NYG NFL football`}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("buildRSSSearchQueries NFL team = %#v, want %#v", got, want)
+// The short, ambiguous aliases the old allow-list existed to suppress now get a lane like any
+// other name. That is the point: the sport term is what disambiguates them for Google, and the
+// Editor rejects whatever still slips through.
+func TestBuildRSSSearchQueries_KeepsShortAndRiskyAliases(t *testing.T) {
+	got := buildRSSSearchQueries("OGC Nice", "FOOTBALL", []string{"Nice", "OGCN"})
+	want := []string{`"OGC Nice" soccer football`, `Nice soccer football`, `OGCN soccer football`}
+	for i := range want {
+		if i >= len(got) || got[i] != want[i] {
+			t.Fatalf("buildRSSSearchQueries = %#v, want %#v", got, want)
+		}
 	}
 }
 
-func TestBuildRSSSearchQueries_RiskyFootballPrimaryUsesSaferAlias(t *testing.T) {
-	got := buildRSSSearchQueries("team", "Inter", "FOOTBALL", []string{"Inter Milan", "Nerazzurri"})
-	want := []string{`"Inter Milan"`}
-	if len(got) != len(want) || got[0] != want[0] {
-		t.Fatalf("buildRSSSearchQueries Inter = %#v, want %#v", got, want)
-	}
-
-	nice := buildRSSSearchQueries("team", "Nice", "FOOTBALL", []string{"OGC Nice", "Nice FC"})
-	niceWant := []string{`"OGC Nice"`, `"Nice FC"`}
-	if len(nice) != len(niceWant) || nice[0] != niceWant[0] || nice[1] != niceWant[1] {
-		t.Fatalf("buildRSSSearchQueries Nice = %#v, want %#v", nice, niceWant)
+// Asking Google the same question twice buys the same page twice. Case and spacing differences
+// are the same question.
+func TestBuildRSSSearchQueries_DedupesEquivalentNames(t *testing.T) {
+	got := buildRSSSearchQueries("Arsenal", "FOOTBALL", []string{"arsenal", "  Arsenal  ", ""})
+	if len(got) != 1 || got[0] != "Arsenal soccer football" {
+		t.Fatalf("buildRSSSearchQueries = %#v, want exactly one Arsenal lane", got)
 	}
 }
 
-func TestBuildRSSSearchQueries_PlayerKeepsConservativeFallback(t *testing.T) {
-	got := buildRSSSearchQueries("player", "FC Bayern Munchen", "FOOTBALL", []string{"Bayern Munich", "FC Bayern", "BAY"})
-	want := []string{"FC Bayern Munchen soccer football", "Bayern Munich soccer football"}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
-		t.Fatalf("buildRSSSearchQueries player = %#v, want %#v", got, want)
+// The sport term is uniform now — NBA and NFL teams kept it all along; football teams did not,
+// and that asymmetry was the per-term suffix branching 8.9 removed.
+func TestBuildRSSSearchQueries_SportTermIsUniform(t *testing.T) {
+	nba := buildRSSSearchQueries("Chicago Bulls", "NBA", nil)
+	if len(nba) != 1 || nba[0] != `"Chicago Bulls" NBA basketball` {
+		t.Fatalf("NBA lanes = %#v", nba)
+	}
+	football := buildRSSSearchQueries("Inter", "FOOTBALL", nil)
+	if len(football) != 1 || football[0] != "Inter soccer football" {
+		t.Fatalf("FOOTBALL lanes = %#v", football)
 	}
 }
-
 
 func TestLimitRSSArticles_ZeroMeansUncapped(t *testing.T) {
 	articles := []Article{{Title: "one"}, {Title: "two"}, {Title: "three"}}

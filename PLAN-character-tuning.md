@@ -584,6 +584,36 @@ them. **The cap is a VOLUME decision and it does not re-open the relevance decis
 does the relevancy and the Editor is still the valve (§0e); we are choosing how many of one entity's
 arrivals are worth a read, not re-introducing a filter over which ones qualify.
 
+**MEASURED FIRST, 2026-08-06 (~16:35 EDT), before touching anything — and the number is much bigger
+than "5 per entity" sounds. THIS NEEDS SCOTT'S CONFIRMATION BEFORE IT SHIPS.**
+
+An entity-day currently averages **~50 articles**, not a handful. Articles per (`query_team_id`,
+ingest day) over the last 7 days:
+
+| day | entity-days | articles | avg/entity-day | worst | entity-days over 5 | articles above a cap of 5 |
+|---|---|---|---|---|---|---|
+| Aug 2 | 154 | 7,191 | 46.7 | 232 | 89.6% | 89.7% |
+| Aug 3 | 156 | 6,905 | 44.3 | 222 | 83.3% | 89.6% |
+| Aug 4 | 151 | 7,985 | 52.9 | 259 | 90.7% | 90.9% |
+| Aug 5 | 155 | 8,358 | 53.9 | 240 | 88.4% | 91.1% |
+| Aug 6 | 156 | 8,778 | 56.3 | 259 | 89.1% | **91.4%** |
+
+**A cap of 5 per entity per day cuts ~90% of the read stream — roughly 8,000 reads/day down to
+~800.** The whole cap ladder, 7-day window: cap 3 → 94.0% cut · **cap 5 → 90.4%** · cap 8 → 85.3% ·
+cap 10 → 82.2% · cap 15 → 75.2%. *Even a cap of 15 cuts three quarters.*
+
+**That may be exactly right** — §0a says the Editor runs at parity with ingest and starves everything
+behind it (`investigate_entity` **9,049 pending**, `narratives` 2,909, `vibe` 2,595), and a 90% cut
+is decisive headroom, which is what "so we can start building up downstream examples" asks for.
+**But it is a 10× reduction of the reading corpus, not a trim**, and it changes the product: fewer
+facts, fewer links (1.27 player links per read today), fewer storyline members, thinner packets. The
+size of the cut is Scott's call, not the implementer's.
+
+**One scope fact that must be settled in the same breath: 31% of arrivals are out of the cap's
+reach.** Only **39,312 of 56,887** articles in the 7-day window carry `raw->>'query_team_id'` at all
+(69.1%) — the cap as described keys on the entity whose sweep landed the article, so the other 17,575
+would be uncapped unless the rule says otherwise.
+
 **Before implementing, the questions that decide the shape** — answer them from data, not intuition:
 - **Cap per entity per WHAT?** Per day is the obvious reading (arrivals are one 02:00 batch); per
   sweep and per rolling-24h are different knobs with different tails. State the window explicitly.
@@ -593,9 +623,15 @@ arrivals are worth a read, not re-introducing a filter over which ones qualify.
 - **What happens to number 6?** Dropped, deferred, or enqueued-but-deprioritised. Deferred is not
   free: it grows a queue that nothing drains. Dropping is honest but must be COUNTED, not logged
   (0b's lesson — a WARN that says "continuing" hides its own frequency).
-- **Measure the class first:** what fraction of entity-days actually exceed 5 arrivals, and what
-  share of total reads sits above the cap? That number IS the headroom this buys, and it should be
-  quoted before the change ships, not after.
+- ~~**Measure the class first**~~ — **DONE, above: 90.4% at a cap of 5.** The remaining question is
+  not what the cap buys but whether that is the intended size.
+- **Where it goes, when the size is settled:** `persistArticles` in `go/internal/thirdparty/news.go`
+  (~:253). It already collects `needEditor` — the freshly-INSERTED article ids for ONE primary
+  entity — and enqueues one editor item each, in the same transaction. The cap is a bound on that
+  set. **Note what capping there does and does not do: the article row is still INSERTED and keeps
+  its provenance; only the READ is withheld.** That is the honest shape — nothing is lost, the
+  corpus stays, and a later backfill can enqueue the remainder — but it means "dropped" articles are
+  invisible unless the skip is COUNTED (0b: a WARN that says "continuing" hides its own frequency).
 - **Watch the cost:** an entity's 6th article is sometimes the one carrying the story. Pair the
   cap with a before/after on links-per-read and on `irrelevant` rate (15.4% baseline, §0e).
 
@@ -621,10 +657,56 @@ built for a very different pipeline."*
 2. **Measure blast radius from the DATA, never from the log** (§0b): journal retention said 5
    damaged articles; the data said 9.
 
-**Known starting points already named in this file** — the audit should confirm each is dead before
-proposing a drop, and should not stop at them: `title_pos` and `news_articles.bucket` (kept as
-310,705 rows of archive; the SQL readers `refresh_co_mention_links` and friends are Phase 9's, and
-§0d already warns nobody may re-add a writer), the 30,224 parked `article_read` rows (Phase 9's
-rollback surface, 0 compute), and whatever in the storyline/packet tables still carries a column the
-compiler no longer writes. **Deliverable: one table-by-table inventory with a verdict — KEEP,
-NARROW, or DROP — and for each DROP the query that proves nothing reads it.**
+**FIRST PASS RUN 2026-08-06 (~16:40 EDT), read-only, on live prod.** 82 tables, 116 functions. This
+is the ingest/editor/packet path only — the rest of the schema is unaudited and the next session
+should widen it. **Nothing was changed; every row below is a proposal with the evidence attached.**
+
+**The headline, and it is exactly the shape Scott described.** `news_articles.bucket` and
+`news_articles.routing_tags` **stopped being written at the flip** — 0 of the 448 post-flip articles
+carry either, against 19,862 of 56,439 in the pre-flip week — **and `bucket` is still read by three
+LIVE SQL functions**, one of which the Insider calls per pair:
+
+| surface | written post-flip? | live SQL reading it | Rust callers of that SQL |
+|---|---|---|---|
+| `news_articles.bucket` | **0 of 448** | `compute_transfer_heat`, `refresh_typed_links`, `seal_narrative_threads` | 3 / 1 / 1 — **all live** |
+| `news_articles.routing_tags` | **0 of 448** | *(none — see the trap below)* | — |
+| `news_articles.topic_heat` | 0, and 0 in the whole 7-day window | — | — |
+| `news_articles.full_text` | 364 of 448 | — | **LIVE, keep** |
+| `news_articles.feed_rank` | all | `collapse_exact_title_duplicates` | 1 — live |
+
+So the Insider's heat is being computed from a column that is NULL for everything ingested since
+10:55 today. **The practical effect is small — even pre-flip only 1 of 24,673 recent articles carried
+`bucket='transfer'` — and that is the point: three live functions branch on a column that was already
+99.996% NULL and is now 100% NULL.** This is `compute_transfer_heat`'s proximity gate again, one
+layer down: the code was cleaned, the SQL was not. **Verdict: NARROW — strip the `bucket` branch from
+all three functions FIRST (behaviour change, own measurement, its own rehearsal), and only then drop
+the column.** Do not drop it first; the functions would break.
+
+**A trap worth writing down, because it cost a wrong conclusion before it was checked.**
+`enqueue_voices_on_packet` — the LIVE trigger on `packets` — also names `routing_tags`, which reads
+like the legacy column surviving in the hottest path on the rail. **It is not the same column.** It
+is `packets.routing_tags`, the packet rail's own §1c tag join, and it is working (the tag-subscribed
+voices all have pending work). **Two tables carrying one column name is how a grep produces a
+confident false positive. Confirm the OWNER, not the name.**
+
+**Dead, and Phase 9 already owns them** — recorded so the audit and the demolition agree:
+`topic_heat_embeddings` (8,924 rows, **last write 2026-07-25** — the embedder), and
+`news_article_readings` (63,798 rows, **last write 2026-08-05 02:00**, stopped at the flip; the
+legacy `article_read` output, still the rollback surface for the 30,224 parked rows).
+
+**One live table that no application code names at all:** `source_performance` (1,747 rows). No Rust
+or Go file mentions any of its columns; it is read only through `source_reliability_for_pair` (2 Rust
+callers, live) and refreshed only by `refresh_source_performance`, which **has no Rust or Go caller**
+— yet the table was written today at 12:45, so the refresh is being driven from inside SQL. **Verdict:
+KEEP but DOCUMENT** — a live table whose entire read and write path is invisible to a code search is
+the next `compute_transfer_heat` waiting to happen. Find and name its driver.
+
+**What this pass did NOT cover, stated so it is not mistaken for a clean bill:** the other 67 tables
+(stats, fixtures, momentum, narrative_*, transfer_*), all 116 functions beyond the ten checked, and
+every index. `momentum_scores` alone is 12.7M rows and was not looked at.
+
+**Deliverable for the next session: finish the inventory table-by-table with a verdict — KEEP,
+NARROW, or DROP — and for each DROP the query that proves nothing reads it.** The method that worked
+here, in order: (1) does the column still get WRITTEN, split pre/post-flip; (2) `pg_get_functiondef`
+across all functions for the name; (3) which of those functions has a live Rust/Go caller; (4) only
+then propose. Steps 1 and 3 are the ones that keep being skipped.

@@ -3053,7 +3053,14 @@ block with BLOCKED.
       enqueue (7.13) activates with RAIL=packet in the same deploy — within the first hour,
       verify graph work rows are arriving from the Editor path (the archivist must not starve
       when article_read stops claiming).
-- [ ] **8.6** **FLIP (Scott's act, one sitting):** apply 8.3 migration → [DEPLOY] Go (8.4) →
+- [x] **8.6** *(DONE 2026-08-06 10:55 EDT — **THE OLD RAIL IS OFF.** Mig 213 applied (3 triggers
+      dropped, 5 subscriptions seeded, assertions passed), `RAIL=packet` + `COGNITION_STAGES` down
+      to 9 stages, released @ `dc3eb3c`. Boot line: `RAIL: the voices read packet
+      voices="packets (§1c) via editor::render"`. Verified live within the first hour — see the
+      Log. One thing the step did not anticipate and the flip surfaced: Go's `news_scrub`
+      MAINTENANCE ticker is legacy machinery too and kept running, so it was gated on RAIL in the
+      same act (@ `68619d2` — it would have enqueued `scrub` work no worker claims, and its blind
+      confidence-1.0 auto-vet would have raced the Editor's 8.5 verdict).)* **FLIP (Scott's act, one sitting):** apply 8.3 migration → [DEPLOY] Go (8.4) →
       [DEPLOY] rust with RAIL=packet on archbox + Mac, `COGNITION_STAGES` drops
       `article_read` + `scrub` on archbox, voice num_ctx 4096 on Mac → run
       `rail-cutover-check.sh` once more against the live flip → snapshot-schema; commit.
@@ -3139,6 +3146,67 @@ transaction — 3 dropped, 5 seeded, assertions passed, prod verified unchanged 
 8.4 and 8.5 are DEPLOYED and inert behind `RAIL`, deliberately: prepared-and-held code meets
 production for the first time during the flip, which is the worst moment to discover it does not
 compile. Verified inert — 0 rows at `match_confidence = 0.90` under `RAIL=legacy`.
+
+**2026-08-06 10:55 EDT — THE FLIP. The legacy rail is OFF.** Scott's word: *"compile the backlog
+and then flip"*, with the shape stated explicitly — *"the goal is to turn off the legacy rail. Don't
+delete it yet until we have finished tuning the new one. But it should be draining zero of our
+compute resources."* Deployed @ `dc3eb3c`, then `68619d2` for the maintenance-sweep gate found
+minutes later.
+
+**Order actually executed.** Backlog compiled out first (**7,571 packets**, `pk:` rows 0 throughout
+— the shadow compile finished before anything flipped). Pre-flip baseline recorded below. Then:
+mig 213 applied → `RAIL=packet` + `COGNITION_STAGES` 11 → 9 stages → `release.sh`. The migration's
+assertion block passed inside its own transaction: legacy triggers remaining **0**, subscriptions
+**5**, packet trigger present **1**.
+
+**The new rail, verified live inside the first hour (8.5's "verify within the first hour"):**
+
+| seam | before the flip | after |
+|---|---|---|
+| `pk:` work rows — the packet trigger, which had NEVER fired | 0 (ever) | **1,351** |
+| `vibe` pending — the Influencer, who had no waker at all | 2 | **120** |
+| `transfers` pending — the Insider's packet slice | 0 | **12** |
+| `news_article_entities` adjudicated by the Editor | 0 | **64** |
+| `narrative_events` — the archivist, which must not starve | 50 / 24h | **15 in 20 min** |
+| Editor/Investigator dead-letters | 0 | **0** |
+
+**All four arms of 8.5's `write_links` fired on real data** in the first minutes, which is the
+proof the design was right and not merely compiling: **8 rows confirmed at 0.95** (the query
+hypothesis, confirmed because the resolver reached it too — keeping its 0.95, not overwritten),
+**5 rows INSERTED at 0.90** (links the Editor discovered on its own — the new rail's greppable
+inventory), **3 legacy 0.8 regex links confirmed**, **1 denied**. The deny arm working matters
+most: it is the half that had no test but the fixture.
+
+**Clause 2 went PASS at the flip: 197/197 entity-days covered, 0 missing.** Every entity the legacy
+rail would have built a narratives corpus for that day appears in a packet. It read 181/197 four
+hours earlier — the difference is simply the compile backlog draining, exactly as predicted.
+
+**The legacy rail is OFF and costs nothing, and is NOT deleted** (Scott's shape): 0 legacy
+triggers; `scrub` work rows **0** and the sweep that would create them now gated; **30,224
+`article_read` rows PARKED with 0 touched since the flip** — no worker claims that stage, so they
+sit at zero cost, remain the rollback surface for §2's 7 days, and die in Phase 9. Nothing was
+dropped that a rollback would need.
+
+**Found and closed during the flip, not before it — the maintenance sweep.** Go's `news_scrub`
+ticker (`maintenance.go`, 30-minute cadence) is legacy machinery on BOTH halves and the flip left
+it running. Phase 2 enqueues `scrub`, a stage no worker claims any more — a queue that only grows,
+which is what a wedged stage looks like the next time someone investigates a real problem. Phase 1
+blind-auto-vets `match_confidence >= 1.0` links, which on the packet rail races the Editor's 8.5
+verdict and stamps `vetted` on rows nothing read. Gated on `railIsPacket()`, deployed, verified:
+scrub rows still 0. **8.4's text named `persistArticles` and the regex loop and did not know about
+this third caller** — worth remembering that "the Go change" was two files, not one.
+
+**Pre-flip baseline for 8.7's T7 comparison (24h, the LEGACY numbers — deliberately NOT comparable
+after the flip; packets collapse coverage-volume into story-volume):** `news_summaries` 522,
+`vibe_scores` 225, `momentum_summaries` 236, `sigil_synthesis` 212, `transfer_rumors` 68.
+First 20 minutes on the packet rail: 4 / 1 / 1 / 2 / 0 — too short a window to read as a rate, and
+recorded only so the next session knows the clock started here.
+
+**Still open and honest about it:** clause 3's link sample is emitted and UNSCORED; clause 4b (the
+editor fixture gate) is FAIL at 43–47/53 and **Scott waived it explicitly for the flip** — logged
+as D-T19 with the waiver named, because §2's text asks for 100% and a waiver that lives only in a
+chat log is a waiver nobody can audit. Clause 1 reads low on a partial day by construction (41.2%
+at flip time, 97.3% on the last complete day) — do not read it before a day closes.
 
 ### Handoff (phase 8 → 9)
 ```

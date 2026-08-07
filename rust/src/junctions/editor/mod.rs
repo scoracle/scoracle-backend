@@ -38,7 +38,10 @@ const EDITOR_NUM_PREDICT: i32 = 900;
 /// seat's (`article_reader::ARTICLE_NUM_CTX`) and graph's for as long as those stages live —
 /// ollama reloads the runner whenever a request asks for a different `num_ctx`, and all three
 /// share one card. A unit test pins the agreement.
-pub(crate) const EDITOR_NUM_CTX: i32 = 8192;
+/// 4096 since 2026-08-07 — moved WITH `ARTICLE_NUM_CTX`, which carries the sizing arithmetic.
+/// Measured worst case here: largest 24h prompt 9,731 chars = **2,049 tokens** through gemma3's
+/// tokenizer, + `EDITOR_NUM_PREDICT` 900 = 2,949, leaving 1,147 tokens of headroom.
+pub(crate) const EDITOR_NUM_CTX: i32 = 4096;
 
 /// The model budget for one editor read — one definition for the stage and `bin/eval`, so a
 /// fixture can never be scored under options production does not send. Temperature 0.2 live;

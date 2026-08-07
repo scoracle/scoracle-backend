@@ -44,7 +44,31 @@ const ARTICLE_NUM_PREDICT: i32 = 900;
 /// same value (see `junctions/graph/mod.rs`): both stages share one local runner, and ollama
 /// reloads the runner whenever a request asks for a different `num_ctx`. Two sizes here cost a
 /// pair of reloads every rotation. Change both or neither.
-pub(crate) const ARTICLE_NUM_CTX: i32 = 8192;
+///
+/// **4096 since 2026-08-07 (Scott: "move to 4096 ctx for both the 1070 characters").** This is
+/// ONE constant for every local role on purpose — Editor, `graph`, the Investigator and the
+/// Insider's identity adjudication (`junctions/insider/mod.rs`) all read it, so the whole 8 GB
+/// card moves together and the runner never reloads. **That is the rule: uniform per host.**
+///
+/// **Sized on measurement, not on hope** (72h of `cognition_ledger`, tokens counted through
+/// gemma3's own tokenizer at 4.75 chars/token, not estimated):
+///
+/// | local stage | max prompt | + num_predict | worst case | headroom in 4096 |
+/// |---|---|---|---|---|
+/// | `editor` | 10,185 chars ≈ 2,144 tok | 900 | **3,044** | 1,052 (26%) |
+/// | `graph`  |  3,441 chars ≈   724 tok | 768 | **1,492** | 2,604 (64%) |
+///
+/// The Editor's true worst case was measured directly, not inferred: its single largest prompt in
+/// 24h (9,731 chars) tokenized to **2,049** tokens. `ARTICLE_MAX_MODEL_CHARS = 9_000` caps the body
+/// slice, so the prompt cannot grow without that constant moving first — **if you raise it, redo
+/// this arithmetic.** A `num_predict` that does not fit alongside the prompt is the silent
+/// system-prompt eviction documented on `route::VOICE_NUM_CTX`, and it fails invisibly.
+///
+/// Why it is a speedup on THIS card: a 1070 Ti is Pascal (compute 6.1, no tensor cores) and
+/// bandwidth-bound at 256 GB/s. Halving the window halves the KV cache the runner allocates and
+/// the bytes attention sweeps per token — measured at load: gemma3:4b sat at **5.3 GB of 8 GB**
+/// with an 8192 window, on a card that had only ~2.9 GB free.
+pub(crate) const ARTICLE_NUM_CTX: i32 = 4096;
 
 pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: decide whether one fetched sports article is genuinely about the known vetted entities, then compress what it says for The Journalist.
 

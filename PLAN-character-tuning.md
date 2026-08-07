@@ -1481,6 +1481,68 @@ being patched in the parser.
 
 ---
 
+### D-T29 — **TARGET: EVERY JUNCTION RUNS AT A 4096 CONTEXT WINDOW** (Scott, 2026-08-07)
+
+**Scott's instruction:** *"we can move to 4096 ctx for both the 1070 characters (Editor +
+Investigator) … the target is for all junctions to be working with a 4096 ctx window. That will
+improve speed."*
+
+**DONE — the 1070 Ti half.** `ARTICLE_NUM_CTX` and `EDITOR_NUM_CTX` both 8192 → **4096**. One
+constant per host is deliberate: Editor, `graph`, the Investigator and the Insider's identity
+adjudication all read it, so the whole card moves together and ollama never reloads the runner. A
+unit test (`editor_num_ctx_matches_the_shared_runner`) pins that agreement and **caught the change
+when only one of the two constants had moved** — the guard works.
+
+**Sized on measurement.** Tokens counted through gemma3's own tokenizer (the Editor's largest 24h
+prompt, 9,731 chars, tokenized to **2,049** — i.e. 4.75 chars/token, not the ~3–4 I first guessed):
+
+| local stage | max prompt (72h) | + num_predict | worst case | headroom in 4096 |
+|---|---|---|---|---|
+| `editor` | 10,185 chars ≈ 2,144 tok | 900 | **3,044** | 1,052 (26%) |
+| `graph` | 3,441 chars ≈ 724 tok | 768 | **1,492** | 2,604 (64%) |
+
+Why it is a real speedup on this card and not just tidiness: the 1070 Ti is Pascal (compute 6.1,
+**no tensor cores**) and bandwidth-bound at 256 GB/s. At an 8192 window gemma3:4b was resident at
+**5.3 GB of 8 GB with only ~2.9 GB free**. Halving the window halves the KV allocation and the
+bytes attention sweeps per token — which is the axis this card is actually limited on.
+
+---
+
+##### THE OTHER HALF OF THE TARGET IS **NOT** MET, AND THE MEASUREMENT SAYS SO
+
+The voices on the Mac are **already** nominally at 4096 on the packet rail
+(`route::VOICE_NUM_CTX_PACKET`). Their prompts are not:
+
+| voice stage | max prompt (72h) | ≈ tokens | vs 4096 |
+|---|---|---|---|
+| `narratives` | 35,975 chars | **≈ 7,574** | **~1.8× OVER** |
+| `vibe` | 30,576 chars | **≈ 6,437** | **~1.6× OVER** |
+| `momentum` | 12,040 chars | ≈ 2,535 | fits |
+| `sigil` | 9,010 chars | ≈ 1,897 | fits |
+| `transfers` | 5,314 chars | ≈ 1,119 | fits |
+| `rating` | 3,433 chars | ≈ 723 | fits |
+
+**`route::VOICE_NUM_CTX`'s own doc predicted this exact diagnostic:** *"a voice that still needed
+16384 on the packet rail would mean the render or the memory block had quietly grown back."*
+**It has — for `narratives` and `vibe`.** And the failure mode is the silent one that constant
+documents: when prompt + `num_predict` exceeds the window, **the system prompt is evicted
+mid-generation**, with no error and no dead-letter. It degrades quality invisibly.
+
+**So D-T29's remaining work is NOT a config change — it is a DIET.** `narratives` and `vibe` need
+their packet render / memory block measured and cut until they fit 4096. Raising the window instead
+would abandon the §7 envelope and put the thrash back.
+
+*(Token counts for the Mac voices are scaled from the gemma3 ratio and are indicative, not
+tokenizer-exact — ministral tokenizes differently. The conclusion survives a wide margin: even at
+5.0 chars/token `narratives` is ≈7,195 tokens, still ~1.75× over. **Confirm exactly with
+ministral's tokenizer before sizing the cut.**)*
+
+**One thing this measurement also RULES OUT:** `sigil`'s prompts max at ≈1,897 tokens, less than
+half the window. **So D-T28(b)'s NBA-team crown failures are NOT context overflow** — that
+hypothesis is dead, and the sigil cause is still open. Recorded so it is not re-walked.
+
+---
+
 # APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
 
 **Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**

@@ -1107,14 +1107,92 @@ arm quietly drifts toward zero. **Two live functions change behaviour on a date,
 ageing out, with nobody watching.** That is a far worse failure mode than a dead branch, and it is
 what the "inert" reading would have hidden.
 
-**THE RIGHT-SHAPE QUESTION, now sharply posed** (this is the half Scott actually asked for):
-`bucket` was the *old* pipeline's guessed relevance — code deciding transfer-vs-not by heuristic.
-Under the new architecture Google does relevancy and the models do everything downstream. But both
-functions still need a transfer-vs-not signal, and **nothing in the packet rail currently supplies
-one.** So the decision is not "drop the column" — it is: **what replaces the transfer/non_transfer
-distinction now that the models own it?** Until that is answered, dropping `bucket` removes a
-signal with no successor. **Open, and it belongs to Scott.** *(Deadline is not arbitrary: it wants
-answering before 2026-08-20, when the heat function goes bucket-blind on its own.)*
+**THE RIGHT-SHAPE QUESTION — ANSWERED BY SCOTT, 2026-08-06, and the answer retires the question
+rather than solving it.**
+
+**Correction to this section's own first draft, which said "nothing in the packet rail currently
+supplies" a transfer-vs-not signal. That was wrong, and it was wrong the same way the rest of
+D-T22 was wrong — by grepping instead of reading.** The successor is not only built, it is live and
+documented as the successor in `rust/src/bucket.rs`:
+
+* `routing_tags_from_story_type` (bucket.rs) — the **multi-valued** projection of the Editor's
+  `story_type`, described in its own doc comment as *"the multi-valued successor to
+  `ArticleBucket::from_story_type`"*. Its stated reason for existing is exactly the bucket defect:
+  *"`bucket` can say 'transfer' OR 'injury' and never both, so a story could only ever reach one
+  voice."*
+* `editor::derive::routing_tags(story_type, register)` — the LIVE path, which adds `charged` when
+  the register is non-neutral. `routing_tags("transfer","outrage") == ["transfer","charged"]`.
+* `stage_routing_subscriptions` — which voice wakes on which tag, **as DATA**. Live rows:
+  `transfer`→`transfers` (Insider, team), `charged`→`vibe` (Influencer, player+team),
+  `narratives`→`narratives` (Journalist). *"That keeps the routing decision an INSERT rather than a
+  code change, and it means this function never has to know the cast."*
+* And it is **working**: 2,788 of 9,462 packets carry ≥2 tags — `{charged,fixture,transfer}` 211,
+  `{fixture,transfer}` 134, `{charged,transfer}` 117. A charged transfer story already wakes the
+  Insider AND the Influencer, neither waiting on the other.
+
+**SCOTT'S RULING, verbatim, 2026-08-06:** *"The bucket system is a legacy one before the tag system.
+It was deterministic, versus empowering. The tag system allows the character to be the one with the
+authority to interpret something that the Editor has tagged could be relevant to that character.
+The bucket system limits the voices."* And on the heat function specifically: *"The heat index thing
+for transfers is legacy nonsense. In the tuning session we have planned for the future, we're going
+to have the character determine the heat, not the Editor. Let the expert be the expert."*
+
+**So the bucket NARROW is CANCELLED, not deferred, and it was never rewired to the Editor's tags.**
+Rewiring `compute_transfer_heat`'s corpus to `story_type` would have been polishing a function
+that is itself slated for removal — the Editor would still have been deciding the Insider's heat,
+which is the exact inversion of authority Scott is removing. **The measurement that would have
+justified the rewire was taken and is recorded below for the tuning session, then not acted on.**
+
+*(Measured 2026-08-06 on the 200 hottest real pairs, for D-T24's benefit: swapping
+`bucket IS DISTINCT FROM 'non_transfer'` for the Editor's transfer tag takes the pair corpus from
+3,321 articles to 344 and drops 111 of 198 pairs to no heat at all. The decomposition is the
+useful part — of 2,119 articles the OLD rule admits, **1,455 were never read by the Editor** (a
+transition artifact that closes as post-flip articles fill the 14-day window) and **522 were read
+and called something else, 344 of them `fixture`**. The old "transfer heat" was counting more match
+reports than transfer stories. That is the number that says the heat index is legacy nonsense, and
+it agrees with Scott.)*
+
+**`news_articles.bucket` therefore has no successor to wait for and no reason to be rewired.** It
+is dead legacy with two live readers, both of which are themselves legacy. It comes out with D-T24,
+not before — dropping it while `compute_transfer_heat` and `seal_narrative_threads` still branch on
+it would break both.
+
+---
+
+##### NEW LEDGER ITEMS OUT OF D-T22 — all three are Scott's, all three are for the tuning session
+
+**D-T23 — ONE ARTICLE, MANY TAGS. Scott: *"a single article will need multiple tags, when
+applicable. That's a no brainer."*** The tag SET is multi-valued and the packet rail unions tags
+across a storyline's articles — but the per-article projection is still **single-valued at the
+source**: ep1 emits one `story_type` (an enum, not an array), so one article yields exactly one
+topic tag plus an optional `charged`. A piece that is genuinely a transfer AND an injury story
+picks one and loses the other voice. Today that is masked at packet grain (a storyline containing a
+transfer article and an injury article gets both tags), which is why it has not bitten visibly.
+
+*Scope, so it is not underestimated:* this is an **ep1 contract change** — `story_type` → a
+multi-valued field — and the ep1 contract is constrained-decoded with **property order as the
+contract**, so it is a version bump (`ep1`→`ep2`, and `contract_version` is a cache key, T1), the
+Editor's schema and prompt, `routing_tags_from_story_type`, `derive::routing_tags`, and the packet
+compiler's rollup. **NOT DONE THIS SESSION: the standing rule is that no prompt or
+`*_PROMPT_VERSION` is touched outside 7.11.** Flagged, scoped, not started.
+
+**D-T24 — THE HEAT INDEX MOVES TO THE CHARACTER.** Scott: *"we're going to have the character
+determine the heat, not the Editor. Let the expert be the expert."* `compute_transfer_heat`
+(mig 032, SQL, called per pair by the Insider at `rust/src/junctions/insider/mod.rs:385`) is the
+legacy deterministic scorer. When it goes, so do its dependents: the `bucket` branch inside it,
+`news_articles.bucket` itself, `idx_news_articles_bucket`, and the `bucket` branch in
+`seal_narrative_threads`. **Do these as ONE migration when the replacement lands** — the audit's
+standing finding is that dropping the column before the readers breaks both functions.
+
+**D-T25 — THE SCOUT IS NOT LISTENING, AND THE INJURY TAG GOES NOWHERE.** Scott, told of it: *"That's
+fine if the injury reports aren't being read yet. That's part of the tuning session. Make sure it's
+noted in the plan."* **Noted, with the measurement:** the Editor is producing `injury` tags —
+**349 packets carry one** — and `stage_routing_subscriptions` has **no `injury` row for any stage**,
+so nothing wakes on them. The tag is written and dropped on the floor. Further, the Scout is
+presently `Role::StatsLogic` (ratings/PEAK, per `rust/src/eval_tasks.rs`), a **stats** junction that
+does not consume packets at all — so this is **not** a one-row INSERT into
+`stage_routing_subscriptions`. Making the Scout a packet reader is the actual work; the
+subscription row is the last line of it, not the first.
 
 ---
 
@@ -1149,13 +1227,30 @@ maintained on every article INSERT:**
 **~21 MB — the value is not storage, it is write amplification: every ingest maintains two GIN
 indexes and three btrees that nothing has read in eleven days, on the busiest table in the pipeline.**
 
-**Deliberately NOT shipped this session.** Three of these five index the exact columns whose fate is
-still open above. Dropping the index now and the column later is two changes where one will do, and
-this session had already shipped its one behaviour change. **They should go WITH the column
-decision, in the same migration.** The remaining two (`feed_rank`, `editor_reads_resolved`) are
-independently droppable — but `feed_rank` at 0 scans while
-`collapse_exact_title_duplicates` reads that column every ingest means the planner is seq-scanning
-instead, which is a question about that function, not a licence to drop the index.
+**Deliberately NOT shipped this session.** Three of these five index the exact columns that now come
+out with **D-T24** (`bucket`, `topic_heat`, `routing_tags`). Dropping the index now and the column
+later is two changes where one will do. **They go WITH D-T24, in the same migration.** The remaining
+two (`feed_rank`, `editor_reads_resolved`) are independently droppable — but `feed_rank` at 0 scans
+while `collapse_exact_title_duplicates` reads that column every ingest means the planner is
+seq-scanning instead, which is a question about that function, not a licence to drop the index.
+
+**A TRAP FOR D-T24, found while checking F-022 deploy order:** `news_articles.topic_heat` reads like
+a free drop — 0 writes in the entire window, 0 index scans — **but the LIVE Influencer selects it**
+(`rust/src/junctions/influencer/mod.rs:148`, `SELECT max(a.topic_heat)`, into a struct field, with
+`COALESCE(...,1)` so an all-NULL column silently yields the constant 1). Dropping the column ahead
+of a Rust change fails the API at boot (`db.New` prepares every statement and fail-fasts on drift).
+**Column DROP inverts deploy order (F-022): ship the backward-compatible binary FIRST, then
+migrate.** `news_articles.routing_tags` has the same shape — its only writer is
+`article_reader/mod.rs:1073`, which is Phase 9's demolition set, so it must go WITH Phase 9 and not
+before it.
+
+**ACCEPTED DRIFT, not an open worry:** the 2026-08-20 15:33 boundary above still stands —
+`compute_transfer_heat`'s corpus widens ~33% on its own when the last bucketed article ages out of
+its 14-day window. With the heat index now slated for replacement under D-T24, that drift is
+**accepted and recorded rather than defended**. It is only a hazard if D-T24 slips well past it, in
+which case the Insider is scoring pairs off a corpus that quietly changed shape. Worth one line in
+the D-T24 opening: check whether the drift has already happened before trusting any pre-existing
+heat baseline.
 
 **STILL NOT COVERED, and still not a clean bill:** the 106 functions never individually read (this
 pass read 5 of them properly, and 1 of those 5 — `refresh_typed_links` — turned out to be a grep

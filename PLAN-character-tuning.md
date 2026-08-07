@@ -1430,6 +1430,57 @@ answered for the `news_articles` column family and posed for none of the other 8
 ---
 ---
 
+### D-T28 — TWO LIVE DEAD-LETTER STREAMS (found 2026-08-06 ~22:50 EDT taking an 8.7 reading)
+
+Neither halts a phase (§0 law). Both burn voice capacity every hour and both sit inside 8.7's
+window. **Recorded, NOT fixed — the cause of the second is not proven and I will not ship a theory.**
+
+**(a) `momentum` — 77 failed, 76 of them TODAY.** Resumed at **11:00** (the flip was 10:55) and ran
+**8–12/hour every hour through 22:00**. One cause, unchanged and already known:
+*the voice answers in markdown* — `invalid response (raw="**Momentum Read: …`. **The one-rail STATE
+said these stopped at the deploy. That was true when written and is now false.** This is the same
+contract-label class as the Analyst's `VIBE:`/`READ:` miss (momentum-s13) and belongs to **7.11**.
+
+**(b) `sigil` — 14 failed, ALL today, first 16:52, 12 in the 22:00 hour alone. NEW, and
+ENTITY-SHAPED.** The failure is `crown: could not parse reading+score` — the model returns
+well-formed-looking JSON opening `{"reading": "…` and the parser cannot pull `reading`+`score`.
+
+**The shape is the finding.** Failures: **12 NBA `team`** + 1 player each in NBA/NFL/FOOTBALL.
+Successes in the same 36h: 298 NFL player, 46 NBA player, 20 FOOTBALL player — and **only 2 NBA
+team**. So **NBA team crowns are failing ~86% of attempts while player crowns succeed ~99%.**
+It is not entity rot: every failing entity has **28–142 prior successes**.
+
+**What was RULED OUT, so the next session does not re-walk it:**
+* **Not a timeout.** `OLLAMA_TIMEOUT_SECONDS=600`, `COGNITION_HANDLER_TIMEOUT_SECONDS=1200`; the
+  slowest *successful* call is 156 s. *(I proposed the timeout theory and it did not survive
+  contact — noted so it is not proposed again.)*
+* **Not obviously the output budget.** `ORACLE_NUM_PREDICT=1100` against successful `eval_count`
+  of **171–345**. Nothing near the ceiling.
+* **Prompt size is suggestive but NOT proof.** Team prompts average **7,669 chars** vs player
+  **4,852** — but player prompts reach **9,010** and still parse. So "team prompts are bigger" does
+  not by itself explain an 86% failure rate at `VOICE_NUM_CTX=4096`.
+
+**WHY IT CANNOT BE SETTLED RIGHT NOW, which is itself the actionable finding:** the error truncates
+the response at **200 characters** (`util.rs::truncate`), and **failures never reach
+`cognition_ledger` at all** — the ledger holds 26,007 `parsed` rows and no failure outcome, because
+the parser bails before the ledger write. **So the single most useful next step is not a fix, it is
+raising the diagnostic capture on the error path** (and/or ledgering the failure) so the next
+occurrence is diagnosable. That is a small change but it needs a **deploy**, which restarts
+`scoracle-cognition` inside 8.7's watch — Scott's call, not a silent one.
+
+**Correction, logged because it was said out loud:** this was first described as *"looks like a
+parser bug, the cheapest of the two fixes."* **That was wrong.** The parser is behaving correctly on
+a malformed input; the defect is upstream, it is entity-shaped, and its cause is still open.
+
+**Known-adjacent, already in the record:** Phase 7's Log flagged *"the first sigil at 4096 named TWO
+peers and used z-scores/percentile in served prose — or8's own documented defects, now reproducing
+live at the smaller window."* **Sigil was already known to degrade at `VOICE_NUM_CTX=4096`.** This
+may be the same window pressure escalating from a quality defect to a hard parse failure on the
+largest prompts. Suggestive, unproven, and the reason (b) rides **7.11 / window sizing** rather than
+being patched in the parser.
+
+---
+
 # APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
 
 **Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**

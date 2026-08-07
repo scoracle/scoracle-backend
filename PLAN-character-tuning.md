@@ -784,6 +784,58 @@ failure count.
 
 ---
 
+##### ⚠ MEASURED 2026-08-07 — **THE PROMPT IS NOT WHERE THE TIME GOES. THE OUTPUT IS.**
+
+Recorded because it inverts the intuition this section was built on, and it should change what the
+diet optimises for. Measured directly against the live gemma3:4b on the 1070 Ti (the Editor's own
+largest prompt, replayed through ollama's `/api/generate`, reading `prompt_eval_duration` and
+`eval_duration` rather than inferring from wall clock):
+
+| phase | measured | rate |
+|---|---|---|
+| **prefill** (reading the prompt) | 2,049 tok in **1.70 s** | **~1,205 tok/s** |
+| **decode** (writing the answer) | 400 tok in **7.62 s** | **~52.5 tok/s** |
+
+**Prefill is ~23× cheaper per token than decode.** Decomposing a typical Editor call
+(1,476 prompt in, 419 out): **≈1.2 s reading, ≈8.0 s writing — 87% of model time is OUTPUT.**
+
+**Consequences, in the order that matters:**
+
+1. **Trimming the Editor's PROMPT saves ~6%** (≈0.6 s of a ≈9.2 s call). Worth doing — but for
+   VRAM and slot count, **not for wall-clock**. Do not expect speed from it.
+2. **Trimming the OUTPUT is the speed lever.** The Editor averages **419 output tokens against a
+   900 reserve**. Moving the ep1 envelope toward ~200 tokens takes ~4 s off a ~9 s call — **~40%,
+   against prompt-trimming's 6%.** `eval_count` telemetry (already named above) is the instrument.
+3. **Observed latency is mostly QUEUE, not compute.** `wall_ms` averages **33.6 s** while real model
+   time is **≈9.2 s**. The card does **≈12 GPU-hours of work in a 24 h day (~50% utilised)** — so
+   the strain Scott wants removed is not silicon saturation, it is scheduling.
+4. **Concurrency is free headroom and is NOT being used.** The local backend is configured for 4
+   in-flight calls (`COGNITION_BACKEND_CONCURRENCY=localhost=4`) and does not saturate them between
+   the 02:00 bursts. **KV scales as `num_ctx × slots`, so D-T29's 8192→4096 buys the same memory at
+   twice the slots** — the ceiling doubles even if today's load does not need it.
+
+**THE THREE LEVERS, RANKED BY MEASURED EFFECT — deliberately the opposite of the intuitive order:**
+**(1) output tokens · (2) concurrency · (3) prompt length.**
+
+**None of this weakens the prompt diet — it re-aims it.** The two jobs stay, for two DIFFERENT
+reasons, and they must not be conflated:
+* **`narratives` and `vibe` (≈7,574 / ≈6,437 tok) must shrink for CORRECTNESS**, not speed. They
+  exceed the 4096 window, and the failure is the silent system-prompt eviction above. That is
+  mandatory regardless of what it does to the clock.
+* **The Editor's prompt (max 2,048 tok) is already inside its window.** Its diet is optional and
+  buys slots. If the target is a **2048** window, note the arithmetic is prompt + `num_predict`:
+  at the current 900 reserve the prompt must land **≤1,148 tokens**, so the output contract has to
+  move first — which is lever 1 again.
+
+**Caveat on the rate, stated so it is not over-read:** 52.5 tok/s was measured on an otherwise idle
+card. Under 4-way contention each stream is slower while aggregate throughput rises. Treat it as the
+**per-stream ceiling, not the production rate.**
+
+**And there is no coverage left to win by any of this:** a settled day reads 6,038 articles against
+6,036 ingested with **0 backlog**. These levers buy drain SPEED and future headroom, not coverage.
+
+---
+
 ## 8 · Carried in from Scott mid-session (2026-08-06, during the D-T19 instrument run)
 
 **Recorded here the moment they were said, NOT started.** The instrument session's charter was

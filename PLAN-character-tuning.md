@@ -1687,6 +1687,45 @@ that already carries three. **After Saturday:** raise to **2 first**, measure, t
 
 ---
 
+##### HOW FAR CAN IT GO? **4 SLOTS ALREADY FIT — THE KV UNLOCK IS ALREADY INSTALLED**
+
+Scott asked what it would take to reach 4 concurrent. **Nothing new: `OLLAMA_FLASH_ATTENTION=1` and
+`OLLAMA_KV_CACHE_TYPE=q8_0` are ALREADY set on the Mac** — that is exactly the lever that would
+otherwise have been needed, and it is on.
+
+Computed from the model's own architecture (`/api/show`: `block_count=40`,
+`head_count_kv=8`, `key_length=value_length=128`, 13.9B @ Q4_K_M), not estimated:
+
+**KV per token = 2 × 40 × 8 × 128 × bytes** → **160 KB/token at f16, 80 KB at q8_0** →
+**0.312 GB per 4096-token slot** with q8_0 active.
+
+| slots | KV | total resident | vs ~10.7 GB budget |
+|---|---|---|---|
+| **1 (today)** | 0.31 GB | **8.80 GB** | matches the observed figure — the model is validated |
+| 2 | 0.62 GB | 9.11 GB | fits |
+| 3 | 0.94 GB | 9.43 GB | fits |
+| **4** | 1.25 GB | **9.74 GB** | **fits, ~0.9 GB spare** |
+
+*(Weights + buffers back-solved at 8.49 GB from the observed 8.8 GB at 1 slot, so the table is
+anchored to a measurement rather than to a spec sheet. macOS budget is the default —
+`iogpu.wired_limit_mb = 0`, untouched — which on a 16 GB machine is ~10.7 GB.)*
+
+**So the only thing between the rail and 4 concurrent voices is `OLLAMA_NUM_PARALLEL=1`.** No
+quantization change, no `sysctl`, no hardware.
+
+**Three caveats, all of which argue for stepping rather than jumping:**
+1. **4 slots is NOT 4× output.** One GPU, and a 14B on Apple Silicon is memory-bandwidth-bound —
+   batching raises AGGREGATE throughput while each stream slows. **Budget 2–2.5× realistic.**
+   Measure at 2 before going further.
+2. **This is Scott's working Mac, not a server.** 9.74 GB wired on a 16 GB machine leaves the OS and
+   his applications to share the rest. Sluggishness is the trade, and it is a second reason to walk
+   1 → 2 → 4.
+3. **It hard-couples to the 4096 window.** KV is `num_ctx × slots`, so at 4 slots a window increase
+   costs FOUR times as much: `num_ctx` 8192 at 4 slots ≈ **11.0 GB — over budget.** This is the
+   sharpest form of the D-T30 rule: **trim the prompts, never raise the window.**
+
+---
+
 # APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
 
 **Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**

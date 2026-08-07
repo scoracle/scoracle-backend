@@ -47,14 +47,45 @@ number that holds still. **WEEKEND TUNING CONTINUES** — `PLAN-character-tuning
 remaining shapes are MODEL QUALITY and ride **7.11**: the `names[]` coach/manager class and
 `register[outrage]`), §7a (D-T20 — the proximity gate is now gone, so what remains is whether
 `entity_roles` should replace it; `transfer_rumors` reads 70/24h against a 68/24h pre-flip
-baseline). **NEW FROM SCOTT 2026-08-06 (both OPEN, neither started): cap the reader at 5 articles
-per entity** to buy headroom for the Investigator and the graph, and **a SCHEMA AUDIT** — the
-pipeline is clean but is being forced to work against a schema built for the pre-Google, pre-AI
-pipeline; simple and durable beats clever and fragile, and the SQL must be updated to match the new
-approach rather than the code contorted around it. **PHASE 6 STAYS OPEN on 6.7 alone:** window
-closes ~**Aug 8 22:08 EDT**. OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo
-/mnt/data/scratch grant pending. Last plan commit: (this one). Updated 2026-08-06 ~16:30 EDT
-(the instrument holds still).**
+baseline). **BOTH OF SCOTT'S 2026-08-06 ITEMS ARE NOW CLOSED: D-T21** (the reader cap — Scott chose
+**10/day**, not 5; `EDITOR_MAX_READS_PER_ENTITY_DAY=10` live in archbox `.env.local` since 17:39,
+first bite at the 02:00 cron) **and D-T22** (the schema audit — migrations **215/216** applied,
+the stalled metadata queue deleted, 9 tables now name their driver; the `bucket` narrow was
+**CANCELLED** on measurement, not deferred. Full record + Appendix S in `PLAN-character-tuning.md`).
+
+**⚠ TWO LIVE DEAD-LETTER STREAMS, FOUND 2026-08-06 22:50 EDT TAKING AN 8.7 READING — the STATE
+above says "none since the deploy" and that is NO LONGER TRUE:**
+* **`momentum`: 77 failed, 76 of them TODAY**, resuming at 11:00 (the flip was 10:55) and running
+  **8–12/hour every hour through 22:00**. One cause, unchanged: *the voice answers in markdown* —
+  `invalid response (raw="**Momentum Read: …`. It did not stop at the deploy; it restarted at the
+  flip.
+* **`sigil`: 14 failed, ALL today**, first 16:52, 12 in the 22:00 hour alone. **Different failure:**
+  `crown: could not parse reading+score from response (raw="{\"reading\": …` — the voice IS
+  returning JSON and the parser cannot pull `reading`+`score` out of it.
+Neither is a rail-plumbing failure and neither should halt a phase (§0 law), but both are burning
+voice capacity every hour and both are inside 8.7's watch window.
+
+**NOT a stall, checked before reporting:** the Editor is draining at **~400–470 reads/hour**, steady
+all day. A naive "editor coverage" ratio reads 34.5% only because the editor works a FIFO backlog
+(1,846 pending, oldest 08-05) — **do not trip 8.7's `<80%` rollback trigger on that ratio without
+defining coverage against the queue.** Voice volumes are healthy over 24h: news_summaries 915,
+vibe 371, momentum_summaries 302, transfer_rumors 211. No voice is starving; every stage's
+`last_touch` is within minutes.
+
+**⚠ 8.7 IS CONFOUNDED AND MUST BE READ ACCORDINGLY.** D-T21's cap arms at the **02:00 cron on
+Aug 7**, inside 8.7's 48h window (10:55 Aug 6 → 10:55 Aug 8). So ~2 of those 48 hours are pre-cap
+and ~46 are post-cap, and **Editor coverage — one of 8.7's own metrics, with a rollback trigger
+attached — is exactly what the cap is designed to reduce.** A coverage drop after 02:00 Aug 7 is
+the CAP, not the flip. Do not roll back the rail for it.
+
+**PHASE 6 STAYS OPEN on 6.7 alone:** window closes ~**Aug 8 22:10 EDT**; run
+`scripts/rail-6.7-bands.sh` after that and only trust a non-INTERIM banner.
+**8.2 HAS NOT STARTED: it needs the 8.1 suite run daily for 7 CONSECUTIVE days with each day's
+output pasted into the Log, and no day has been logged yet** — the clock starts on the first run,
+so every day it is not run is a day Phase 8 cannot close.
+OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo /mnt/data/scratch grant pending.
+Last plan commit: (this one). Updated 2026-08-06 ~22:55 EDT (D-T21 + D-T22 closed; two dead-letter
+streams found live).**
 
 *(Superseded STATE of 2026-08-06 ~11:15 EDT — the rail is one rail, regex still running — kept
 verbatim below.)*

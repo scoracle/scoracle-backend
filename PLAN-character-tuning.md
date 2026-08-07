@@ -1637,6 +1637,56 @@ hypothesis is dead, and the sigil cause is still open. Recorded so it is not re-
 
 ---
 
+### D-T30 — **MAC CONCURRENCY IS SET TO 1 AND THE CLIENT ALREADY SENDS 3** (measured 2026-08-07)
+
+**Scott's observation:** *"only two of our characters use more than 4096 tokens. Once we tune the
+ctx window to keep everything under 4096, we should be able to unlock concurrency on Mac. That
+should dramatically speed up our output on those."*
+
+**The conclusion is right and the payoff is real. The MECHANISM is not the prompt diet** — and the
+difference matters, because the actual blocker is available to fix right now and the diet would
+never have reached it.
+
+**Measured on the voice host itself (192.168.1.77, confirmed by `ipconfig`):**
+
+| | |
+|---|---|
+| unified memory | **16 GB** |
+| `ministral-3:14b` resident | **8.8 GB, 100% GPU, CONTEXT 4096** |
+| `OLLAMA_NUM_PARALLEL` | **1** ← the constraint |
+| `OLLAMA_MAX_LOADED_MODELS` | 1 |
+| client setting | `COGNITION_BACKEND_CONCURRENCY=…192.168.1.77=3` |
+| decode rate | **12.3 tok/s** (vs 52.5 tok/s for gemma3:4b on the 1070 Ti) |
+
+**The client sends up to 3 concurrent calls to a server configured to run ONE at a time.** The other
+two queue at ollama. That is the unlock Scott is reaching for, and it is an env change on the Mac —
+**not a prompt change, and not a deploy** (it does not touch `rust/bin/`, so no `.path` watcher).
+
+**Why the diet does NOT unlock it.** `num_ctx` on the Mac is ALREADY 4096. KV is allocated from the
+WINDOW, not from the prompt — so a 7,574-token `narratives` prompt and a 2,000-token one cost the
+same memory. The oversized prompt is a **correctness** problem (silent system-prompt eviction) and
+a small wasted-prefill problem. It is not a memory problem, so trimming it frees nothing.
+
+**But Scott's instinct is right in a subtler way, and this is the part worth keeping.** Raising
+parallelism multiplies KV: ollama allocates `num_ctx × slots`, so 3 slots at 4096 ≈ **12,288 tokens
+of KV**. On 16 GB unified (macOS makes ~12 GB available to Metal by default) against 8.8 GB of
+resident weights, that is affordable — **but only while the window stays at 4096.** If anyone
+"fixed" `narratives`/`vibe` by RAISING the window instead of trimming them, they would spend exactly
+the memory the extra slots need. **So the diet does not create the concurrency headroom — it
+PROTECTS it.** Trim the prompts; never raise the window.
+
+**Expected payoff, and why it is the biggest one on the board:** the voice tier decodes at
+**12.3 tok/s, ~4× slower per token than the Editor's model**, and 87% of model time is decode
+(§7b). Six voices serialised through one slot is the deepest queue in the system. Going 1 → 2 slots
+is the single largest available throughput change, and it costs one environment variable.
+
+**NOT DONE — same hold as D-T29.** Voice throughput is one of 8.7's watched metrics, and its window
+closes **Sat 2026-08-08 10:55 EDT**. Changing parallelism now adds a fourth confound to a reading
+that already carries three. **After Saturday:** raise to **2 first**, measure, then consider 3 —
+`OLLAMA_MAX_LOADED_MODELS=1` must stay 1 (a second resident model would evict the 8.8 GB incumbent).
+
+---
+
 # APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
 
 **Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**

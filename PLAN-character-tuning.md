@@ -752,6 +752,36 @@ be re-derived:
   trimmed versions land, and its `s17` bump spends one fleet-wide regen, so batch every prompt
   change into it rather than bumping twice.
 
+**SCOTT, 2026-08-07 — THIS IS PROMOTED TO A HEADLINE WORKSTREAM OF THE TUNING SESSION:** *"A big
+part of the tuning session will be trimming the prompts. They're messy now, and we'll be able to
+get everything under the 4096 window size, I'm sure of it."*
+
+**The gap is now MEASURED against 7.2's budget rather than asserted** (D-T29, 72h of
+`cognition_ledger`). 7.2 sets **prompt p99 ≤ 3,300 tokens**. Four of six voices already clear it.
+Two do not, and they are not close:
+
+| voice | max prompt | ≈ tokens | vs the 3,300 budget |
+|---|---|---|---|
+| `narratives` | 35,975 chars | **≈ 7,574** | **~2.3× over** |
+| `vibe` | 30,576 chars | **≈ 6,437** | **~1.9× over** |
+| `momentum` | 12,040 chars | ≈ 2,535 | within |
+| `sigil` | 9,010 chars | ≈ 1,897 | within |
+| `transfers` | 5,314 chars | ≈ 1,119 | within |
+| `rating` | 3,433 chars | ≈ 723 | within |
+
+**So the diet is not six jobs — it is two, and they are large.** Scott's confidence looks well
+placed: the four already inside the envelope prove the budget is achievable on this rail, so the
+question for `narratives` and `vibe` is *which block grew*, not whether 4096 is realistic.
+7.2 already decomposes the envelope (system ≤550 · memory ≤700 · packet render ≤2,000 ·
+`num_predict` ≤800), so **the first move is to attribute each voice's tokens to those four buckets
+and find the one that is over — do not trim by eye.**
+
+**Why it is worth doing beyond speed:** over-budget prompts fail SILENTLY. When prompt +
+`num_predict` exceeds the window the system prompt is evicted mid-generation — no error, no
+dead-letter, just a voice quietly operating without its instructions. That is very likely a
+contributor to the `momentum` markdown dead-letters (D-T28a), and it would never show up in a
+failure count.
+
 ---
 
 ## 8 · Carried in from Scott mid-session (2026-08-06, during the D-T19 instrument run)
@@ -1482,6 +1512,18 @@ being patched in the parser.
 ---
 
 ### D-T29 — **TARGET: EVERY JUNCTION RUNS AT A 4096 CONTEXT WINDOW** (Scott, 2026-08-07)
+
+> ## ⛔ STAGED, COMMITTED, **NOT DEPLOYED** — DO NOT BUILD INTO `rust/bin/` BEFORE SAT 2026-08-08 10:55 EDT
+>
+> **Scott's ruling, 2026-08-07: "Don't deploy until after Saturday."** The 4096 change is in the
+> tree and passing tests, but placing a binary in `rust/bin/` trips the `.path` watcher and
+> restarts `scoracle-cognition` — **inside 8.7's 48h watch window**, which already carries two
+> confounds (the flip, and D-T21's cap arming at 02:00 Aug 7). A third would make Saturday's
+> reading uninterpretable.
+>
+> **Safe until then:** `cargo build --lib` / `cargo test --lib` / `--target-dir target/debug`.
+> **After 8.7 closes:** deploy, then re-measure the Editor's wall-clock and VRAM against the
+> pre-change baseline (gemma3:4b resident at **5.3 GB of 8 GB** with an 8192 window).
 
 **Scott's instruction:** *"we can move to 4096 ctx for both the 1070 characters (Editor +
 Investigator) … the target is for all junctions to be working with a 4096 ctx window. That will

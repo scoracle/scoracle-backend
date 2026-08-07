@@ -78,6 +78,15 @@ and ~46 are post-cap, and **Editor coverage — one of 8.7's own metrics, with a
 attached — is exactly what the cap is designed to reduce.** A coverage drop after 02:00 Aug 7 is
 the CAP, not the flip. Do not roll back the rail for it.
 
+**⛔ STAGED BUT NOT DEPLOYED — DO NOT BUILD INTO `rust/bin/` BEFORE SAT AUG 8 10:55 EDT.**
+`ARTICLE_NUM_CTX` and `EDITOR_NUM_CTX` are **8192 → 4096** in the tree (D-T29, 400 lib tests pass),
+sized on a measured 2,049-token worst-case Editor prompt + 900 `num_predict` = 2,949 in a 4096
+window. **Scott, 2026-08-07: "Don't deploy until after Saturday."** Placing a binary in `rust/bin/`
+trips the `.path` watcher and restarts `scoracle-cognition` inside 8.7's watch, which already
+carries two confounds (the flip; D-T21's cap arming at 02:00 Aug 7). `cargo build --lib` and
+`target/debug` are safe. Deploy AFTER 8.7 closes, then re-measure wall-clock and VRAM against the
+pre-change baseline (gemma3:4b resident at 5.3 GB of 8 GB at the 8192 window).
+
 **PHASE 6 STAYS OPEN on 6.7 alone:** window closes ~**Aug 8 22:10 EDT**; run
 `scripts/rail-6.7-bands.sh` after that and only trust a non-INTERIM banner.
 **8.2 HAS NOT STARTED: it needs the 8.1 suite run daily for 7 CONSECUTIVE days with each day's

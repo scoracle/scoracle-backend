@@ -3280,6 +3280,32 @@ off`.
 
 ### Log (phase 8)
 
+**2026-08-06 23:13 EDT — PRE-CAP BASELINE, captured deliberately before D-T21 bites at the 02:00
+cron. This is the only measurement of "flip WITHOUT cap" that will ever exist; after 02:00 the two
+changes are permanently confounded and Saturday's 8.7 reading has nothing to subtract.**
+
+**The grain the cap acts on (reads per entity per day, today so far):**
+`p50 = 2` · `p90 = 15` · `max = 135` · **255 entities are already OVER the 10/day cap.**
+
+**So the cap's predicted bite is a TAIL trim, not a broad cut** — the median entity reads 2 and is
+untouched. **The falsifiable prediction for Saturday: `p50` stays ≈2, `max` clamps to 10, the 255
+over-cap entities lose their excess, and total `editor_reads/24h` falls by roughly that tail. If
+`p50` moves, or if volumes below fall, the cap is over-reaching and that is a finding.**
+
+**Volumes the cap should NOT move (24h to 23:13):**
+
+| | | | |
+|---|---|---|---|
+| articles ingested | 9,628 | packets | 9,720 |
+| editor_reads | 8,200 | storylines opened | 2,130 |
+| news_summaries | 929 | vibe_scores | 377 |
+| transfer_rumors | 220 | momentum_summaries | 303 |
+| editor pending (backlog) | 1,687 | investigate_entity pending | 9,770 |
+
+**Read this table beside Saturday's before concluding anything about the flip.** Clause 1 was 75.1%
+tonight with NO cap in force — so a lower number on Saturday is not evidence the flip failed, and
+per the STATE warning it must not trip 8.7's `<80%` rollback.
+
 **2026-08-06 ~23:15 EDT — the first 8.1 run since the flip. It found two SCRIPTS broken against
 the new schema, and 8.2 still cannot start. Both scripts are now FIXED (shell only — no deploy,
 no service restart).**

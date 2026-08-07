@@ -64,10 +64,21 @@ const ARTICLE_NUM_PREDICT: i32 = 900;
 /// this arithmetic.** A `num_predict` that does not fit alongside the prompt is the silent
 /// system-prompt eviction documented on `route::VOICE_NUM_CTX`, and it fails invisibly.
 ///
-/// Why it is a speedup on THIS card: a 1070 Ti is Pascal (compute 6.1, no tensor cores) and
-/// bandwidth-bound at 256 GB/s. Halving the window halves the KV cache the runner allocates and
-/// the bytes attention sweeps per token — measured at load: gemma3:4b sat at **5.3 GB of 8 GB**
-/// with an 8192 window, on a card that had only ~2.9 GB free.
+/// **What halving the window actually buys — corrected 2026-08-07, because the first version of
+/// this comment overstated it.** `num_ctx` governs MEMORY, not per-token compute: attention cost
+/// scales with the ACTUAL sequence length, so a 2,049-token prompt costs the same to process at
+/// 8192 as at 4096. It does NOT make a call faster.
+///
+/// What it buys is VRAM: gemma3:4b sat at **5.3 GB of 8 GB** with an 8192 window on a card with
+/// only ~2.9 GB free. Halving the KV allocation frees ~1 GB, and that headroom is what would let
+/// local concurrency rise past its current ceiling later.
+///
+/// **It is not a throughput lever today** (measured 2026-08-07): the Editor averages 33.6 s/call
+/// and did 44.5 GPU-hours of work in a 24 h day — **effective parallelism ~1.85×** against a
+/// configured limit of 4 (`COGNITION_BACKEND_CONCURRENCY=localhost=4`). It is not saturating the
+/// slots it already has, because the queue empties between the 02:00 ingest bursts rather than
+/// staying full. Coverage across a settled day is ~100% (6,038 reads / 6,036 articles, backlog 0);
+/// a low clause-1 reading means the sample was taken mid-drain, not that the Editor is starved.
 pub(crate) const ARTICLE_NUM_CTX: i32 = 4096;
 
 pub const ARTICLE_READ_SYSTEM_PROMPT: &str = r#"Task: decide whether one fetched sports article is genuinely about the known vetted entities, then compress what it says for The Journalist.

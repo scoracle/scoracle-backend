@@ -992,3 +992,173 @@ cannot be settled from the schema; it needs the product answer first.
 `momentum_scores` at 12.7M rows would be the biggest storage win available), and the 106 functions
 not individually read. The sweep answered "is this table used"; it did not answer "is this table the
 right shape", which is the other half of what Scott asked for.
+
+---
+
+#### PASS 3 — EXECUTED (2026-08-06 ~18:45–19:30 EDT). Migrations 215 + 216 applied.
+
+**Shipped:** migration **215** (metadata cluster settled + 9 driver COMMENTs) and **216** (the
+orphan 215 left behind). Snapshot taken and committed with them. Method note: the
+`pg_stat_user_tables` snapshot was taken at 18:43 **before** any candidate query, so contamination
+C did not recur — and it showed up anyway (`metadata_refresh_queue.idx_scan` ticked to 1 at
+18:44:08, which was this audit's own proof query, correctly discounted).
+
+**THE METHOD NEEDED A FIFTH LEG, and it invalidated two of pass 2's four "true orphans."**
+The four legs were Rust, Go, SQL functions/views, and cron'd shell heredocs. **The missing leg is
+PYTHON — the `seed/` layer, driven by `cron-live-fixtures.sh`.**
+
+| pass 2 said | pass 3 measured | corrected verdict |
+|---|---|---|
+| `season_recompute_needed` — TRUE ORPHAN, "DROP, unambiguous" | written by `seed/shared/upsert.py` (`mark_season_recompute_needed` / `clear_…`); **0 rows is the HEALTHY state** — it is a durable safety queue for a failure that has not yet occurred | **KEEP.** Dropping it breaks `upsert.py` exactly when a recompute fails. Retire with the Python prune. |
+| `provider_entity_map` — TRUE ORPHAN, "investigate before dropping" | written by `seed/shared/upsert.py:upsert_provider_entity_map` from `seed/services/{roster,meta}/cli.py`; 436,729 lifetime updates; last write 2026-08-01 because the **provider feeds are disconnected**, not because the writer died | **KEEP.** Retire with the Python prune. |
+
+**Scott, 2026-08-06, mid-session:** *"Python was the old seeding layer. We cut the cord with our api
+providers since the Investigator will be doing this role of fetching data. We're going to prune
+Python in the future."* So these two, plus **`provider_seasons`** (driven by
+`resolve_provider_season_id` ← `seed/shared/db.py`), are not orphans and not keepers — they are the
+**PYTHON PRUNE SET**, the exact analogue of Phase 9's demolition set. *Do not front-run that prune;
+the seed crons are still live in `crontab`.* The `SPORTMONKS_API_TOKEN is required` errors in
+`logs/cron-football.log` (weekly `football-meta`, `football-refresh`) are that cut cord, not breakage.
+
+**FINDING 1 — SETTLED. The metadata feature: Scott chose KEEP THE HISTORY, DROP THE QUEUE.**
+Migration 215 **narrowed `detect_team_change`** (it still maintains `player_team_history`; the
+`metadata_refresh_queue` enqueue block is gone) **in the same transaction** that dropped the queue,
+so the trigger was never left pointing at a missing table. Dropped: `metadata_refresh_queue`
+(42,782 rows, 0 ever processed), `metadata_sync_log` (0 rows, never once written), the view
+**`metadata_queue_status`** (which pass 2 never found — leg 2's view half caught it, and it would
+have blocked the drop), and `get_metadata_queue_batch` / `get_metadata_queue_status` /
+`mark_metadata_processed`. Kept: `player_team_history`, 42,782 rows, 14,215 distinct players.
+Migration **216** dropped `update_sync_log_timestamp()`, orphaned when `metadata_sync_log` went.
+
+**Rehearsed before applying**, per §0 rule 7, in a ROLLED-BACK transaction with the invariant
+asserted inside it — the invariant being the one that actually matters: *an `event_box_scores`
+INSERT must still succeed and still write history with the queue gone.* Result inside the
+transaction: `PASS: box-score INSERT succeeded; player_team_history 42782 -> 42783; queue objects
+gone`, then ROLLBACK. Post-apply verification: queue/synclog/view all `GONE`, history 42,782,
+`trg_detect_team_change` still `tgenabled='O'`, 0 leftover consumer functions.
+
+**FINDING 2 — DONE, with corrections.** All 9 driver COMMENTs are on. Three of pass 2's "eight
+SQL-only tables" were not SQL-only: `entity_aliases` also has the view `investigator_review_accepted`
+and `rust/src/junctions/investigator/entity.rs`; `news_article_readings`' driver
+`collapse_exact_title_duplicates` is called from `rust/src/worker.rs`; `provider_seasons` is Python.
+`source_performance`'s pass-1 open question is **CLOSED** — its driver is
+`scripts/hosting/cron-narrative-links.sh` (cron `45 */6 * * *`), a psql heredoc calling
+`refresh_source_performance('FOOTBALL'/'NBA'/'NFL')`. Its DELETE-then-INSERT-per-sport refresh is why
+`n_tup_del` is huge; that is churn, not data loss.
+
+**Also fixed:** `sql/metadata_system.sql` — a 306-line base file describing the dropped queue system,
+applied by *nothing* (`build.sh` clones prod via `pg_dump`; `migrate.sh` only globs
+`sql/migrations/*.sql`). It is now reduced to the surviving half and carries a header saying so. It
+was itself an instance of the thing Scott is complaining about: an outdated schema artifact left
+lying where the next person would trust it.
+
+---
+
+##### FINDING 4 IS WRONG, AND THIS IS THE SESSION'S MOST IMPORTANT RESULT. The bucket NARROW did **NOT** ship.
+
+Pass 2 justified stripping the `bucket` branch from three live functions on the premise that the
+column was *"already 99.996% NULL and is now 100% NULL"*, so the branches were **inert**. **Measured
+against the window those functions actually read, the premise is false.**
+
+**Correct on the write question** (and this pass confirms it, measured on `fetched_at`, the ingest
+clock, not `published_at`): in the last 14 days, pre-flip 129,416 articles / 54,541 bucketed;
+**post-flip 1,298 articles / 0 bucketed.** Last bucketed article by ingest: **2026-08-04 02:05** —
+the write actually died two days *before* the flip. `topic_heat`: 0 written in either era.
+
+**Wrong on the read question, which is the one that licenses the change.** `compute_transfer_heat`
+filters `published_at > NOW() - INTERVAL '14 days'`, and that window is still full of *historical*
+bucketed rows:
+
+| bucket | rows in the live 14-day window |
+|---|---|
+| NULL | 74,364 |
+| `non_transfer` | **42,388** |
+| `transfer` | **10,572** |
+
+So the three functions are **not** branching on nothing, and the three do **not** share a verdict:
+
+* **`compute_transfer_heat`** — `WHERE a.bucket IS DISTINCT FROM 'non_transfer'`. A *negative*
+  filter. It is **excluding 42,319 articles from the Insider's corpus right now.** Stripping it
+  today widens the corpus by a third and moves every heat score the Insider computes per pair.
+  **Not a no-op. Not inert.**
+* **`seal_narrative_threads`** — `JOIN … AND na.bucket = 'transfer'`. A *positive* filter, and the
+  opposite hazard. It currently reaches **1,731** open transfer-flavored threads; without the
+  predicate the resolved arm reaches **6,080** — a 3.5× expansion into precisely the false sealing
+  the function's own comment warns against (*"a player's injury saga must not seal because an
+  unrelated move confirmed"*). Stripping it doesn't remove a dead branch, it **turns a safety gate
+  off.**
+* **`refresh_typed_links`** — **A FALSE POSITIVE.** Its only "bucket" is line 96, a *comment* about
+  the ±10-**bucket** trajectory vocabulary. It never references `news_articles` at all. **This is
+  contamination D one level deeper: not two tables sharing a column name, but one English word
+  meaning two things — and a grep cannot tell prose from code.**
+
+**So: stripping these branches was never a cleanup. It is a behaviour change to the Insider's heat
+and to thread sealing, and shipping it blind would have violated ONE CHANGE, ONE MEASUREMENT.**
+Scott's "batch it with the audit's SQL changes" instruction was given on the stated premise that the
+branches were inert; the premise did not survive measurement, so the instruction was not executed.
+**Nothing about `bucket`, `topic_heat` or `routing_tags` was touched.**
+
+**THERE IS A DATED, SILENT DEGRADATION AND IT IS THE REAL FINDING.** The last bucketed article by
+publish time is **2026-08-06 15:33**. On **2026-08-20 15:33** `compute_transfer_heat`'s 14-day
+window ages past it, its predicate becomes a true no-op, and **the Insider's corpus silently widens
+by ~33% with no deploy, no log line and no alarm.** `seal_narrative_threads` decays on a different
+clock (no time window; its 1,731 threads bleed out as they seal or fade at 21 days), so its resolved
+arm quietly drifts toward zero. **Two live functions change behaviour on a date, driven by data
+ageing out, with nobody watching.** That is a far worse failure mode than a dead branch, and it is
+what the "inert" reading would have hidden.
+
+**THE RIGHT-SHAPE QUESTION, now sharply posed** (this is the half Scott actually asked for):
+`bucket` was the *old* pipeline's guessed relevance — code deciding transfer-vs-not by heuristic.
+Under the new architecture Google does relevancy and the models do everything downstream. But both
+functions still need a transfer-vs-not signal, and **nothing in the packet rail currently supplies
+one.** So the decision is not "drop the column" — it is: **what replaces the transfer/non_transfer
+distinction now that the models own it?** Until that is answered, dropping `bucket` removes a
+signal with no successor. **Open, and it belongs to Scott.** *(Deadline is not arbitrary: it wants
+answering before 2026-08-20, when the heat function goes bucket-blind on its own.)*
+
+---
+
+##### THE INDEX PASS — started, measured, nothing shipped
+
+Stats window is genuine: `pg_stat_database.stats_reset` is NULL (never reset) and the postmaster has
+been up since **2026-07-26**, so idx_scan counters cover **11 days** of real traffic.
+
+**249 indexes, 2,695 MB total, 394 MB never scanned (78 indexes).**
+
+**`momentum_scores` was pass 2's predicted "biggest storage win available." It is not.** Its 1,360 MB
+of indexes on a 1,939 MB heap look damning until you read the usage: the 1,066 MB
+`idx_momentum_scores_read` has **2,762,239 scans** — it is one of the hottest indexes in the
+database. The only unused thing there is `momentum_scores_pkey` (294 MB, 0 scans), and that is a
+uniqueness guarantee on a 12.7M-row table, not a performance index. **No win here. The guess was
+wrong.**
+
+**`news_article_entities` at 140% index-to-heap also survives scrutiny** — all three of its indexes
+are heavily used (5.1M / 4.1M / 280k scans). The ratio is a small heap and a wide PK, not bloat.
+
+**The real finding is small in bytes and lives on the hot path — dead-column indexes still being
+maintained on every article INSERT:**
+
+| index | size | scans (11 days) | why |
+|---|---|---|---|
+| `idx_news_articles_feed_rank` | 10 MB | **0** | partial btree, `WHERE duplicate_of IS NULL` |
+| `idx_editor_reads_resolved` | 7,216 kB | **0** | GIN |
+| `idx_news_articles_topic_heat` | 2,608 kB | **0** | on a column with **0 writes all window** |
+| `idx_news_articles_routing_tags` | 936 kB | **0** | GIN, on the **dead** `news_articles.routing_tags` |
+| `idx_news_articles_bucket` | 888 kB | 2 | on the frozen `bucket` |
+
+**~21 MB — the value is not storage, it is write amplification: every ingest maintains two GIN
+indexes and three btrees that nothing has read in eleven days, on the busiest table in the pipeline.**
+
+**Deliberately NOT shipped this session.** Three of these five index the exact columns whose fate is
+still open above. Dropping the index now and the column later is two changes where one will do, and
+this session had already shipped its one behaviour change. **They should go WITH the column
+decision, in the same migration.** The remaining two (`feed_rank`, `editor_reads_resolved`) are
+independently droppable — but `feed_rank` at 0 scans while
+`collapse_exact_title_duplicates` reads that column every ingest means the planner is seq-scanning
+instead, which is a question about that function, not a licence to drop the index.
+
+**STILL NOT COVERED, and still not a clean bill:** the 106 functions never individually read (this
+pass read 5 of them properly, and 1 of those 5 — `refresh_typed_links` — turned out to be a grep
+artefact, which is not a reassuring hit rate for the other 106). Every index on the stats/fixtures
+side. And the right-shape question is now *posed* rather than *answered* for exactly one column
+family; the other 81 tables have not been asked it at all.

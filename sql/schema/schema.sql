@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict HB4QFvnV4E3pcUeHSDmkzzHDGrK7cFdDPoYbhdbtv5IEV6CfN01Uw2gCCXGsPv1
+\restrict DfSp3a1Gb7jl5sv5voTdq1gXzrSgJJgFjV6OZTzfcH5Q8Zi3rsiPeLlZvNreeVf
 
 -- Dumped from database version 18.4
 -- Dumped by pg_dump version 18.4
@@ -2554,14 +2554,12 @@ CREATE FUNCTION public.detect_team_change() RETURNS trigger
     AS $$
 DECLARE
     current_team_id INTEGER;
-    history_record_id INTEGER;
-    queue_id INTEGER;
 BEGIN
     -- Skip if player_id is NULL (team stats rows)
     IF NEW.player_id IS NULL THEN
         RETURN NEW;
     END IF;
-    
+
     -- Get the player's current team from history
     SELECT team_id INTO current_team_id
     FROM player_team_history
@@ -2570,59 +2568,39 @@ BEGIN
       AND is_current = TRUE
     ORDER BY valid_from DESC
     LIMIT 1;
-    
+
     -- If no history exists (new player) OR team changed
     IF current_team_id IS NULL OR current_team_id != NEW.team_id THEN
-        
+
         -- Mark old history as not current (if exists)
         UPDATE player_team_history
-        SET is_current = FALSE, 
+        SET is_current = FALSE,
             valid_until = NOW()
         WHERE player_id = NEW.player_id
           AND sport = NEW.sport
           AND is_current = TRUE;
-        
+
         -- Insert new team history
         INSERT INTO player_team_history (
-            player_id, 
-            sport, 
-            team_id, 
+            player_id,
+            sport,
+            team_id,
             season
         ) VALUES (
-            NEW.player_id, 
-            NEW.sport, 
-            NEW.team_id, 
+            NEW.player_id,
+            NEW.sport,
+            NEW.team_id,
             NEW.season
         );
-        
-        -- Queue metadata refresh (high priority for team change)
-        -- Use ON CONFLICT to avoid duplicates
-        INSERT INTO metadata_refresh_queue (
-            player_id, 
-            sport, 
-            season, 
-            reason, 
-            priority
-        ) VALUES (
-            NEW.player_id, 
-            NEW.sport, 
-            NEW.season, 
-            'team_change', 
-            1
-        )
-        ON CONFLICT (player_id, sport, processed_at) 
-        DO UPDATE SET 
-            priority = EXCLUDED.priority,
-            requested_at = NOW(),
-            retry_count = 0,
-            error_message = NULL
-        WHERE metadata_refresh_queue.processed_at IS NULL;
-        
-        -- Log the detection
+
+        -- mig 215: the metadata_refresh_queue enqueue was removed here. The queue had a
+        -- producer but never had a consumer (0 of 42,782 rows processed in four months).
+        -- This trigger now maintains history ONLY.
+
         RAISE DEBUG 'Team change detected: player_id=%, old_team=%, new_team=%',
             NEW.player_id, current_team_id, NEW.team_id;
     END IF;
-    
+
     RETURN NEW;
 END;
 $$;
@@ -3110,52 +3088,6 @@ $$;
 
 
 --
--- Name: get_metadata_queue_batch(integer, text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.get_metadata_queue_batch(batch_size integer DEFAULT 10, p_sport text DEFAULT NULL::text) RETURNS TABLE(id integer, player_id integer, sport text, season integer, reason text, priority integer)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        q.id,
-        q.player_id,
-        q.sport,
-        q.season,
-        q.reason,
-        q.priority
-    FROM metadata_refresh_queue q
-    WHERE q.processed_at IS NULL
-      AND (p_sport IS NULL OR q.sport = p_sport)
-    ORDER BY q.priority ASC, q.requested_at ASC
-    LIMIT batch_size;
-END;
-$$;
-
-
---
--- Name: get_metadata_queue_status(text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.get_metadata_queue_status(p_sport text DEFAULT NULL::text) RETURNS TABLE(total_pending bigint, high_priority bigint, normal_priority bigint, failed_items bigint, oldest_request timestamp with time zone)
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        COUNT(*) FILTER (WHERE processed_at IS NULL)::BIGINT as total_pending,
-        COUNT(*) FILTER (WHERE processed_at IS NULL AND priority = 1)::BIGINT as high_priority,
-        COUNT(*) FILTER (WHERE processed_at IS NULL AND priority = 2)::BIGINT as normal_priority,
-        COUNT(*) FILTER (WHERE processed_at IS NOT NULL AND error_message IS NOT NULL)::BIGINT as failed_items,
-        MIN(requested_at) FILTER (WHERE processed_at IS NULL) as oldest_request
-    FROM metadata_refresh_queue
-    WHERE (p_sport IS NULL OR sport = p_sport);
-END;
-$$;
-
-
---
 -- Name: get_pending_fixtures(text, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3191,24 +3123,6 @@ BEGIN
         last_incomplete_reason = NULL,
         updated_at = NOW()
     WHERE id = p_fixture_id;
-END;
-$$;
-
-
---
--- Name: mark_metadata_processed(integer, boolean, text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.mark_metadata_processed(p_queue_id integer, p_success boolean DEFAULT true, p_error_message text DEFAULT NULL::text) RETURNS void
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    UPDATE metadata_refresh_queue
-    SET 
-        processed_at = NOW(),
-        error_message = CASE WHEN p_success THEN NULL ELSE p_error_message END,
-        retry_count = CASE WHEN p_success THEN retry_count ELSE retry_count + 1 END
-    WHERE id = p_queue_id;
 END;
 $$;
 
@@ -6628,20 +6542,6 @@ $$;
 
 
 --
--- Name: update_sync_log_timestamp(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.update_sync_log_timestamp() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: upsert_fixture(integer, text, integer, integer, integer, integer, timestamp with time zone, text, text, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7990,7 +7890,7 @@ CREATE TABLE public.entity_aliases (
 -- Name: TABLE entity_aliases; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.entity_aliases IS 'APPEND-ONLY (enforced by trigger): a superseding decision is a new row, never an UPDATE. The provenance ledger behind operational alias copies (persons.search_aliases et al.), which mirror into entity_name_surfaces via refresh_entity_name_surfaces().';
+COMMENT ON TABLE public.entity_aliases IS 'DRIVERS: entity_aliases_no_update() (a trigger guard that blocks UPDATEs), the view investigator_review_accepted, and rust/src/junctions/investigator/entity.rs. Partly SQL-only: the write guard is invisible to a code search.';
 
 
 --
@@ -8744,111 +8644,6 @@ CREATE TABLE public.meta (
 
 
 --
--- Name: metadata_refresh_queue; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.metadata_refresh_queue (
-    id integer NOT NULL,
-    player_id integer NOT NULL,
-    sport text NOT NULL,
-    season integer,
-    reason text,
-    priority integer DEFAULT 1,
-    requested_at timestamp with time zone DEFAULT now(),
-    processed_at timestamp with time zone,
-    retry_count integer DEFAULT 0,
-    error_message text
-);
-
-
---
--- Name: TABLE metadata_refresh_queue; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.metadata_refresh_queue IS 'Queue for player metadata refresh requests. Populated by trigger on event_box_scores.';
-
-
---
--- Name: metadata_queue_status; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.metadata_queue_status AS
- SELECT sport,
-    count(*) FILTER (WHERE (processed_at IS NULL)) AS pending,
-    count(*) FILTER (WHERE ((processed_at IS NULL) AND (priority = 1))) AS high_priority,
-    count(*) FILTER (WHERE ((processed_at IS NULL) AND (priority = 2))) AS normal_priority,
-    count(*) FILTER (WHERE ((processed_at IS NOT NULL) AND (error_message IS NOT NULL))) AS failed,
-    count(*) FILTER (WHERE ((processed_at IS NOT NULL) AND (error_message IS NULL))) AS successful,
-    min(requested_at) FILTER (WHERE (processed_at IS NULL)) AS oldest_pending,
-    max(processed_at) FILTER (WHERE (processed_at IS NOT NULL)) AS last_processed
-   FROM public.metadata_refresh_queue
-  GROUP BY sport;
-
-
---
--- Name: metadata_refresh_queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.metadata_refresh_queue_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: metadata_refresh_queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.metadata_refresh_queue_id_seq OWNED BY public.metadata_refresh_queue.id;
-
-
---
--- Name: metadata_sync_log; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.metadata_sync_log (
-    id integer NOT NULL,
-    player_id integer NOT NULL,
-    sport text NOT NULL,
-    last_sync_at timestamp with time zone,
-    metadata_version integer DEFAULT 1,
-    sync_source text,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: TABLE metadata_sync_log; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.metadata_sync_log IS 'Records when player metadata was last synchronized from APIs.';
-
-
---
--- Name: metadata_sync_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.metadata_sync_log_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: metadata_sync_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.metadata_sync_log_id_seq OWNED BY public.metadata_sync_log.id;
-
-
---
 -- Name: momentum_refresh_needed; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -9372,7 +9167,7 @@ CREATE TABLE public.news_article_readings (
 -- Name: TABLE news_article_readings; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.news_article_readings IS 'Article Reader v1: one current evidence card per news article, written by the Rust article_read stage after Candle scrub proves relevance. Stores compact model evidence and fetch provenance, not a raw article-body archive.';
+COMMENT ON TABLE public.news_article_readings IS 'DRIVER: collapse_exact_title_duplicates(), called from rust/src/worker.rs — LIVE during every ingest. Also the legacy article_read output and the rollback surface for the 30,224 parked article_read rows. PHASE 9 OWNS THIS TABLE — do not drop it ahead of that demolition.';
 
 
 --
@@ -10121,7 +9916,7 @@ CREATE TABLE public.player_team_history (
 -- Name: TABLE player_team_history; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.player_team_history IS 'Tracks player team movement over time. Used to detect transfers/trades.';
+COMMENT ON TABLE public.player_team_history IS 'DRIVER: trg_detect_team_change -> detect_team_change() (trigger, AFTER INSERT on event_box_scores). SQL-only: no Rust, Go, Python or shell caller. Player->team record with valid_from/valid_until/is_current. Fills only while box scores arrive, so it is FLAT in the off-season by design (last write 2026-06-17) — that is dormancy, not rot. mig 215 kept this and dropped the metadata_refresh_queue it used to feed.';
 
 
 --
@@ -10162,6 +9957,13 @@ CREATE TABLE public.provider_entity_map (
 
 
 --
+-- Name: TABLE provider_entity_map; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.provider_entity_map IS 'DRIVER: seed/shared/upsert.py:upsert_provider_entity_map(), called from seed/services/{roster,meta}/cli.py via cron-live-fixtures.sh. NO Rust, Go, SQL function or view names it — D-T22 pass 2 listed it as a TRUE ORPHAN and it is NOT one; Python was the missing leg. 436,729 lifetime updates. Last write 2026-08-01 because the provider feeds are off-season/disconnected, not because the writer died. PYTHON PRUNE SET: retire WITH the seed layer, not before.';
+
+
+--
 -- Name: provider_fixture_map; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10187,6 +9989,13 @@ CREATE TABLE public.provider_seasons (
     provider text DEFAULT 'sportmonks'::text NOT NULL,
     provider_season_id integer NOT NULL
 );
+
+
+--
+-- Name: TABLE provider_seasons; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.provider_seasons IS 'DRIVER: resolve_provider_season_id(), called from the Python seed layer (seed/shared/db.py, seed/services/{roster,meta,event}/cli.py) via the cron-live-fixtures.sh jobs. NO Rust or Go caller. PYTHON PRUNE SET: the seed layer is the old ingestion path and is scheduled for removal now that the Investigator fetches data — retire this WITH that prune, not before.';
 
 
 --
@@ -10300,7 +10109,7 @@ CREATE TABLE public.rating_thresholds (
 -- Name: TABLE rating_thresholds; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.rating_thresholds IS 'Rating eligibility gates: a player enters _compute_rating_bundle only when EVERY row for their sport passes (COALESCE(stats->>stat_key, 0) >= min_value). A sport with no rows rates nobody.';
+COMMENT ON TABLE public.rating_thresholds IS 'DRIVER: _compute_rating_bundle() only. SQL-only — NO application caller in any language. A grep of the Rust and Go will find nothing; the table is still live.';
 
 
 --
@@ -10337,7 +10146,7 @@ CREATE TABLE public.season_recompute_needed (
 -- Name: TABLE season_recompute_needed; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.season_recompute_needed IS 'Durable dirty-season queue for deferred backfill (FIRST-GPT-AUDIT Session 6). A row means (sport, season) had >=1 fixture finalized with recompute=FALSE and still needs recompute_season + snapshot_rating_history. Upserted inside the finalize transaction; deleted only after a successful recompute + snapshot (end-of-run drain, `event recompute-drain`, or `event recompute --sport --season`).';
+COMMENT ON TABLE public.season_recompute_needed IS 'DRIVER: seed/shared/upsert.py — mark_season_recompute_needed() / clear_season_recompute_needed(). NO Rust, Go, SQL function or view names it — D-T22 pass 2 listed it as a TRUE ORPHAN and it is NOT one; Python was the missing leg. It is EMPTY and has never been written because it is a durable safety queue for a failure that has not yet occurred — 0 rows is the healthy state, not evidence of death. Dropping it would break upsert.py exactly when a recompute fails. PYTHON PRUNE SET: retire WITH the seed layer, not before.';
 
 
 --
@@ -10460,7 +10269,7 @@ CREATE TABLE public.source_performance (
 -- Name: TABLE source_performance; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.source_performance IS 'Per-source measured transfer-prediction record: of the (player, team) pairs a source was attributed on (transfer_rumors.source_names), how many became applied moves, how many did the source report EARLY (before the pair ever reached advanced_talks), and with what lead time. The earned overlay to the assigned source_tiers prior. Presented, not gatekept: reliability is n-based belief in the track record itself — serve it with the score, do not filter by it. Feeding these weights back into scrub/heat/vibe is a separate, eval-gated step.';
+COMMENT ON TABLE public.source_performance IS 'DRIVER (write): refresh_source_performance(), which has NO Rust or Go caller — it is invoked from a psql heredoc in scripts/hosting/cron-narrative-links.sh, cron 45 */6 * * *. That path is invisible to a Rust grep, a Go grep AND a repo grep for the table name. DRIVER (read): source_reliability_for_pair(), called per pair by the Insider (rust/src/junctions/insider/mod.rs). Refresh is DELETE-then-INSERT per sport, so high n_tup_del is normal churn, not deletion of live data.';
 
 
 --
@@ -10476,6 +10285,13 @@ CREATE TABLE public.source_tiers (
     CONSTRAINT source_tiers_kind_check CHECK ((kind = 'news'::text)),
     CONSTRAINT source_tiers_tier_check CHECK (((tier >= 1) AND (tier <= 3)))
 );
+
+
+--
+-- Name: TABLE source_tiers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.source_tiers IS 'DRIVER: backfill_narrative_episodes() only. SQL-only — NO application caller in any language. A grep of the Rust and Go will find nothing; the table is still live.';
 
 
 --
@@ -11360,20 +11176,6 @@ ALTER TABLE ONLY public.insider_scores ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
--- Name: metadata_refresh_queue id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_refresh_queue ALTER COLUMN id SET DEFAULT nextval('public.metadata_refresh_queue_id_seq'::regclass);
-
-
---
--- Name: metadata_sync_log id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_sync_log ALTER COLUMN id SET DEFAULT nextval('public.metadata_sync_log_id_seq'::regclass);
-
-
---
 -- Name: momentum_scores id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -11790,22 +11592,6 @@ ALTER TABLE ONLY public.leagues
 
 ALTER TABLE ONLY public.meta
     ADD CONSTRAINT meta_pkey PRIMARY KEY (key);
-
-
---
--- Name: metadata_refresh_queue metadata_refresh_queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_refresh_queue
-    ADD CONSTRAINT metadata_refresh_queue_pkey PRIMARY KEY (id);
-
-
---
--- Name: metadata_sync_log metadata_sync_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_sync_log
-    ADD CONSTRAINT metadata_sync_log_pkey PRIMARY KEY (id);
 
 
 --
@@ -12289,22 +12075,6 @@ ALTER TABLE ONLY public.transfer_rumors
 
 
 --
--- Name: metadata_refresh_queue unique_pending_request; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_refresh_queue
-    ADD CONSTRAINT unique_pending_request UNIQUE (player_id, sport, processed_at);
-
-
---
--- Name: metadata_sync_log unique_player_sync; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.metadata_sync_log
-    ADD CONSTRAINT unique_player_sync UNIQUE (player_id, sport);
-
-
---
 -- Name: user_devices user_devices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -12630,20 +12400,6 @@ CREATE INDEX idx_latest_momentum_scores_per_entity_vibe ON public.latest_momentu
 --
 
 CREATE INDEX idx_leagues_sport ON public.leagues USING btree (sport);
-
-
---
--- Name: idx_metadata_queue_pending; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_metadata_queue_pending ON public.metadata_refresh_queue USING btree (processed_at, priority, requested_at) WHERE (processed_at IS NULL);
-
-
---
--- Name: idx_metadata_queue_player; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_metadata_queue_player ON public.metadata_refresh_queue USING btree (player_id, sport);
 
 
 --
@@ -13235,13 +12991,6 @@ CREATE INDEX idx_storylines_sport_status ON public.storylines USING btree (sport
 
 
 --
--- Name: idx_sync_log_player; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_sync_log_player ON public.metadata_sync_log USING btree (player_id, sport);
-
-
---
 -- Name: idx_team_history_current; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13596,13 +13345,6 @@ CREATE TRIGGER trg_percentile_changed_player_stats AFTER UPDATE OF percentiles O
 --
 
 CREATE TRIGGER trg_percentile_changed_team_stats AFTER UPDATE OF percentiles ON public.team_stats FOR EACH ROW WHEN (((new.percentiles IS NOT NULL) AND (new.percentiles <> '{}'::jsonb))) EXECUTE FUNCTION public.notify_percentile_changed();
-
-
---
--- Name: metadata_sync_log trg_sync_log_timestamp; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER trg_sync_log_timestamp BEFORE UPDATE ON public.metadata_sync_log FOR EACH ROW EXECUTE FUNCTION public.update_sync_log_timestamp();
 
 
 --
@@ -14400,5 +14142,5 @@ CREATE POLICY user_follows_own ON public.user_follows TO web_user USING (((user_
 -- PostgreSQL database dump complete
 --
 
-\unrestrict HB4QFvnV4E3pcUeHSDmkzzHDGrK7cFdDPoYbhdbtv5IEV6CfN01Uw2gCCXGsPv1
+\unrestrict DfSp3a1Gb7jl5sv5voTdq1gXzrSgJJgFjV6OZTzfcH5Q8Zi3rsiPeLlZvNreeVf
 

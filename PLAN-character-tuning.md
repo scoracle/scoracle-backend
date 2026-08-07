@@ -1801,6 +1801,41 @@ before-picture is already banked (D-T22 pass 3): packets carry `fixture` 4,693 �
 move in that mix after adoption is a finding, not noise — and `injury` is the one to watch hardest,
 since **nothing subscribes to it yet (D-T25)** and a change there would be silent.
 
+##### ⚠ THE TOKENIZER IS DENSER — MEASURED 2026-08-07, AND IT CUTS BOTH WAYS
+
+Scott expected more token speed from the swap. **Half right, and the other half tightens D-T29.**
+Identical prompt, identical `num_ctx`/`num_predict`, same card, back to back:
+
+| model | prefill | decode |
+|---|---|---|
+| `ministral-3:3b` | **2,705 tok** in 2.92 s (926 tok/s) | **59.2 tok/s** |
+| `gemma3:4b` | **2,049 tok** in 1.68 s (1,221 tok/s) | 52.5 tok/s |
+
+1. **Decode IS faster: 59.2 vs 52.5 tok/s, +13%.** Scott's instinct confirmed on the axis that
+   carries 87% of model time (§7b).
+2. **But ministral tokenizes the SAME TEXT into 32% MORE TOKENS** (2,705 vs 2,049). That is a
+   tokenizer property, not a prompt change — the input was byte-identical. It shows up immediately
+   as a **74% slower prefill on this prompt** (2.92 s vs 1.68 s), and it almost certainly costs
+   extra OUTPUT tokens to express the same ep1 JSON.
+
+**So the net wall-clock is NOT a clear win and may be a wash.** Rough arithmetic on a typical call
+(1,476 gemma-tokens of prompt, 419 out): gemma ≈9.7 s; ministral ≈10.0 s once the denser tokenizer
+is applied to both ends. **Do not promise a speed improvement from this swap.** The measured,
+defensible reason to adopt is **QUALITY (52/53 vs 47/53) and the `names[]` discovery win** — the
+speed question stays open until real Editor `eval_count` is observed under ministral in production.
+
+**AND IT TIGHTENS THE 4096 WINDOW — D-T29's arithmetic was computed on gemma's tokenizer:**
+
+| model | max observed prompt | + `num_predict` 900 | headroom in 4096 |
+|---|---|---|---|
+| `gemma3:4b` | 2,049 tok | 2,949 | 1,147 (**28%**) |
+| **`ministral-3:3b`** | **2,705 tok** | **3,605** | **491 (12%)** |
+
+**It still fits — but on 12% margin, not 28%.** `ARTICLE_MAX_MODEL_CHARS = 9_000` is what holds the
+prompt down, so that constant is now load-bearing for the window and **must not be raised without
+redoing this table on ministral's tokenizer.** A 2048 window is now firmly out of reach: the max
+prompt alone (2,705) exceeds it.
+
 ##### CHEAP FOLLOW-UP SPOTTED WHILE MEASURING
 
 **Archbox does NOT set `OLLAMA_KV_CACHE_TYPE=q8_0` or `OLLAMA_FLASH_ATTENTION=1` — the Mac DOES.**

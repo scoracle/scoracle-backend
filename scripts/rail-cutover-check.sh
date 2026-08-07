@@ -57,13 +57,15 @@ SELECT count(*)                                                        AS articl
 
 \echo ''
 \echo '=== CLAUSE 2 — Packet presence: every legacy narratives corpus (entity,day) appears in a packet ==='
-\echo '    (legacy corpus = an entity with >=3 vetted articles that day; the bar the old rail used)'
+\echo '    (legacy corpus = an entity with >=3 linked articles that day; the bar the old rail used)'
+\echo '    NOTE 2026-08-06: news_article_entities.vetted was DROPPED in the 8.10/8.11 rip. Every'
+\echo '    surviving link IS Editor-vetted by construction (Phase 2 retired auto-vetting), so the'
+\echo '    predicate was removed, not weakened -- the bar is unchanged.'
 WITH legacy AS (
-    SELECT nae.entity_type, nae.entity_id, nae.sport, count(*) AS vetted_articles
+    SELECT nae.entity_type, nae.entity_id, nae.sport, count(*) AS linked_articles
       FROM public.news_article_entities nae
       JOIN public.news_articles na ON na.id = nae.article_id
-     WHERE nae.vetted
-       AND na.fetched_at >= :'day'::date
+     WHERE na.fetched_at >= :'day'::date
        AND na.fetched_at <  :'day'::date + 1
        AND nae.entity_type IN ('player','team')
      GROUP BY 1,2,3
@@ -90,11 +92,10 @@ SELECT count(*)                                                          AS lega
 \echo ''
 \echo '--- clause 2 detail: the missing entity-days (empty = PASS) ---'
 WITH legacy AS (
-    SELECT nae.entity_type, nae.entity_id, nae.sport, count(*) AS vetted_articles
+    SELECT nae.entity_type, nae.entity_id, nae.sport, count(*) AS linked_articles
       FROM public.news_article_entities nae
       JOIN public.news_articles na ON na.id = nae.article_id
-     WHERE nae.vetted
-       AND na.fetched_at >= :'day'::date
+     WHERE na.fetched_at >= :'day'::date
        AND na.fetched_at <  :'day'::date + 1
        AND nae.entity_type IN ('player','team')
      GROUP BY 1,2,3
@@ -108,12 +109,12 @@ packeted AS (
        AND p.compiled_at >= :'day'::date
        AND p.compiled_at <  :'day'::date + 1
 )
-SELECT l.entity_type, l.entity_id, l.sport, l.vetted_articles
+SELECT l.entity_type, l.entity_id, l.sport, l.linked_articles
   FROM legacy l
   LEFT JOIN packeted pk
     ON pk.entity_type = l.entity_type AND pk.entity_id = l.entity_id AND pk.sport = l.sport
  WHERE pk.entity_id IS NULL
- ORDER BY l.vetted_articles DESC
+ ORDER BY l.linked_articles DESC
  LIMIT 20;
 
 \echo ''

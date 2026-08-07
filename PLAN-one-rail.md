@@ -3279,6 +3279,53 @@ block with BLOCKED.
 off`.
 
 ### Log (phase 8)
+
+**2026-08-06 ~23:15 EDT — the first 8.1 run since the flip. It found two SCRIPTS broken against
+the new schema, and 8.2 still cannot start. Both scripts are now FIXED (shell only — no deploy,
+no service restart).**
+
+**Why this run was INTERIM, not 8.2 day 1.** `rail-cutover-check.sh` defaults to *yesterday*, and
+yesterday (Aug 5) is pre-flip. Run against today it penalises the tail — articles ingested at 17:39
+have had ~5h of the 24h clause 1 allows. **8.2's first honest day is Aug 7, readable Aug 8** — so
+Phase 8 cannot close before ~Aug 14, and the count has not begun.
+
+**BREAKAGE 1 — clause 2 could not execute at all:** `ERROR: column nae.vetted does not exist`. The
+8.10/8.11 rip dropped `news_article_entities.vetted` (9 columns → 5) and the check script was never
+updated. **The verify suite for the cutover was broken by the cutover's own cleanup.** Fixed by
+DELETING the predicate, not weakening it: auto-vetting was retired in Phase 2, so a surviving link
+IS Editor-vetted by construction and the bar is unchanged. The script now says so in its own output.
+Clause 2 then ran and **PASSED 792/792**.
+
+**BREAKAGE 2 — `scripts/hosting/restore-drill.sh`, the BACKUP RESTORE VERIFICATION, asserts objects
+that no longer exist.** It requires `enqueue_derive_on_vetted` as both a function and a trigger on
+`news_article_entities`; both were retired with the column. **Verified in prod: both GONE.** So a
+restore drill would have FAILED because the schema is CORRECT — the worst kind of broken check,
+because it fires during a recovery. Replaced with live equivalents rather than deleted:
+`enqueue_voices_on_packet` on `packets` (the whole voice fan-out hangs off it) and
+`trg_detect_team_change` on `event_box_scores` (the trigger mig 215 narrowed).
+
+**Today's reading (2026-08-06, INTERIM, partial day):**
+
+| clause | result |
+|---|---|
+| 1 — coverage ≥95% | **FAIL 75.1%** (9,628 articles, 7,228 read within 24h) — but the day is incomplete |
+| 2 — packet presence | **PASS** 792/792, 0 missing |
+| 3 — link precision | SAMPLE only, 5 links emitted, not hand-scored |
+| 4a — dead-letters (attempts ≥5) | **PASS** 0 |
+| 4b — editor fixture gate | **could not run** — `rust/bin/eval` not present |
+| 5 — claim accounting | **PASS** 173,255 claims, 0 orphans |
+
+Context: 9,666 packets compiled, 7,724 editor_reads, 1,996 storylines opened.
+
+**⚠ THE ONE THAT NEEDS SCOTT: CLAUSE 1 AND D-T21 MAY BE MUTUALLY EXCLUSIVE.** §2 clause 1 requires
+**≥95% of a day's articles to have an editor_reads row within 24h.** D-T21 caps the Editor at
+**10 reads per entity per day** and arms at the 02:00 cron on Aug 7. An article beyond its entity's
+daily cap is never read, so it can never carry an `editor_reads` row — **the cap removes coverage
+by design, and clause 1 measures exactly that.** With the cap live, clause 1 may be structurally
+unreachable, and §2's 7-day window would never close no matter how healthy the rail is. **This is a
+definition conflict, not a rail failure, and it wants a decision before the count starts:** either
+clause 1's denominator excludes cap-suppressed articles, or the cutover condition is restated.
+Recorded, not resolved — nothing was changed to make a number go green.
 *(executor fills — including all 7 daily condition outputs and the flip-day timeline)*
 
 **2026-08-06 08:45–09:15 EDT — THE PACKET BRANCHES EXECUTED. Scott's direction: "I want to get

@@ -143,13 +143,21 @@ echo
 echo "-> [3] stable structural objects present in restore"
 # All object lookups go through to_regclass so a missing relation yields a clean
 # count of 0 (and a note_fail) instead of a raw '::regclass does not exist' error.
-for fn in finalize_fixture enqueue_derive_on_vetted; do
+# 2026-08-06: `enqueue_derive_on_vetted` (function AND trigger) was retired with
+# news_article_entities.vetted in the 8.10/8.11 rip — this drill was still asserting both, so a
+# restore drill would have FAILED on the schema being CORRECT. Replaced with the packet rail's
+# live equivalents: enqueue_voices_on_packet is the trigger the whole voice fan-out hangs off,
+# and detect_team_change is the box-score trigger migration 215 narrowed.
+for fn in finalize_fixture enqueue_voices_on_packet detect_team_change; do
     if [ "$(rq "SELECT count(*) FROM pg_proc WHERE proname='$fn'")" -lt 1 ]; then
         note_fail "function missing from restore: $fn()"
     fi
 done
-if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.news_article_entities') AND tgname='enqueue_derive_on_vetted' AND NOT tgisinternal")" -lt 1 ]; then
-    note_fail "trigger missing from restore: enqueue_derive_on_vetted on news_article_entities"
+if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.packets') AND tgname='enqueue_voices_on_packet' AND NOT tgisinternal")" -lt 1 ]; then
+    note_fail "trigger missing from restore: enqueue_voices_on_packet on packets"
+fi
+if [ "$(rq "SELECT count(*) FROM pg_trigger WHERE tgrelid=to_regclass('public.event_box_scores') AND tgname='trg_detect_team_change' AND NOT tgisinternal")" -lt 1 ]; then
+    note_fail "trigger missing from restore: trg_detect_team_change on event_box_scores"
 fi
 if [ "$(rq "SELECT count(*) FROM pg_constraint WHERE conname='vibe_scores_trigger_type_check'")" -lt 1 ]; then
     note_fail "constraint missing from restore: vibe_scores_trigger_type_check"

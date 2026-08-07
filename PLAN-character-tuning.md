@@ -21,6 +21,17 @@ The laws still bind during tuning: describe-then-derive (T2); exact+discriminato
 a contract_version is a cache key — bumping one reopens ALL its work; stage wire names never
 rename.
 
+**SESSION ORDER (Scott, 2026-08-06): the VOICE session runs next — D-T23 (one article, many
+tags) → D-T24 (the heat index moves to the character) → D-T25 (the Scout listens). A dedicated
+SCHEMA session follows it, and works APPENDIX S at the end of this file.**
+
+**→ WHILE DOING VOICE WORK, LOG EVERY SCHEMA OBSERVATION TO APPENDIX S §S2. Do not act on it
+unless it is COUPLED** — the test is *does the voice change make this safe, or is it merely near
+it?* Only coupled changes ride inside a voice migration; everything else is logged and handed on.
+The order is a dependency, not a preference: most of the schema debt is only droppable *because*
+of something the voice work does, and D-T22 spent a whole session proving what happens when you
+delete ahead of the code.
+
 ---
 
 ## Handoff — D-T19, the instrument (fresh context window; Scott's request 2026-08-06)
@@ -1349,11 +1360,28 @@ was made. Neither is urgent; both belong to whichever migration next touches the
 #### (B) HOW THE SCHEMA WORK RIDES ALONG WITH THE VOICE WORK — Scott, 2026-08-06
 
 *"We'll need to find a way to include the schema work as part of the voice work, and include our
-findings."* **The rule, and it is the one this whole audit keeps proving: a schema change ships in
-the same migration as the voice change that makes it safe — never as its own sweep.** Every
-deletion this session nearly got wrong was a table or column whose safety depended on a code change
-that had not happened yet. So each voice item below now CARRIES its schema payload, ordered, with
-the ordering constraint stated.
+findings."* Then, refining it: *"there should be a dedicated schema session after the voice one …
+we should be noting schema edits as we move through the voice work."*
+
+**So the rule is a SPLIT, not "everything rides along" — and the split is by COUPLING:**
+
+* **COUPLED → ships inside the voice migration.** Any schema change whose safety depends on the
+  voice change, or whose absence breaks something the voice change lands. Dropping
+  `compute_transfer_heat` when its replacement arrives; rewiring `source_reliability_for_pair`;
+  dropping `topic_heat` after the Influencer binary. These CANNOT wait for a schema session —
+  deferring them leaves a half-migrated rail, which is the exact state D-T22 was called to clean up.
+* **UNCOUPLED → logged, not done, and handed to the schema session.** Pure cleanup with no
+  dependency on any voice change: unused indexes, missing COMMENTs, `apply_rate_siblings`,
+  `source_tiers`, the unexamined stats/fixtures indexes, the other 81 tables' right-shape question.
+  Doing these mid-voice-work bundles unrelated behaviour changes into a tuning measurement and
+  violates ONE CHANGE, ONE MEASUREMENT.
+
+**The test is one question: *does the voice change make this safe, or is it merely near it?*** Only
+the first rides along. Everything else goes to **Appendix S** at the end of this document, which is
+the schema session's inbox.
+
+Each voice item below therefore carries only its COUPLED payload, ordered, with the constraint
+stated.
 
 **D-T23 — one article, many tags. Schema payload: almost none, and that is the point.**
 `packets.story_types` is already `text[]`; `packets.routing_tags` is already `text[]`;
@@ -1398,3 +1426,118 @@ prune set; `box_score_coverage_report` stays as a tool.
 carries 820 MB of indexes on a 4.1 GB heap and none were examined). The right-shape question is now
 answered for the `news_articles` column family and posed for none of the other 81 tables. And the
 `nba.*` / `nfl.*` / `football.*` schemas were never in scope — only `public`.
+
+---
+---
+
+# APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
+
+**Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**
+
+**Scott, 2026-08-06:** *"It seems like there should be a dedicated schema session after the voice
+one. I think we should start adding our findings to the end of the voice session document, and note
+that a schema session is next so we should be noting schema edits as we move through the voice
+work."*
+
+**Session order, settled:** the **VOICE** session (D-T23 multi-tag → D-T24 heat moves to the
+character → D-T25 the Scout listens) runs FIRST. The **SCHEMA** session runs after it, and works
+this appendix. That order is not a preference, it is a dependency: most of the schema debt below is
+only droppable *because* of something the voice work does, and D-T22 spent this entire session
+proving what happens when you delete ahead of the code.
+
+### THE WORKING RULE WHILE DOING VOICE WORK
+
+**Log every schema observation here as you hit it. Do not act on it unless it is COUPLED** (§B's
+test: *does the voice change make this safe, or is it merely near it?*). One line is enough:
+
+```
+- [ ] <object> — <what you noticed> — <why it is not being done now> — <date, where you were>
+```
+
+Two failure modes this is designed to prevent, both already demonstrated this week:
+1. **Acting on an uncoupled finding mid-tuning** bundles a second behaviour change into a
+   measurement. (D-T22 nearly did this to three live functions on a premise that was false.)
+2. **Not writing it down** means the next session re-derives it from scratch — or worse, re-derives
+   it *wrong*, which is how `season_recompute_needed` and `provider_entity_map` came within one
+   migration of being dropped while live.
+
+### WHY THE TAG SYSTEM IS THE REFERENCE SHAPE
+
+**Scott, 2026-08-06:** *"The tag system is pretty dramatically better than our old one. Much more
+organized."* Recorded here because it is the standard the schema session should measure everything
+else against. Concretely, what makes it better is copyable:
+
+| the old `bucket` shape | the tag shape |
+|---|---|
+| ONE value per article (`transfer` XOR `injury`) — a story could only ever reach one voice | a SET, so one story reaches the Insider and the Influencer at once |
+| the routing decision was **code** (a match arm) | the routing decision is **data** (`stage_routing_subscriptions`) — a new voice is an INSERT |
+| the classifier decided **relevance** deterministically | the Editor **describes**; the character decides validity (T2, describe-then-derive) |
+| adding a voice meant a deploy | adding a voice means a row |
+
+**The schema session's real question is therefore not "what can I delete" — it is "where else is a
+routing or judgment decision frozen into a column or a match arm that should be a row?"** That is
+the right-shape question with a worked example attached.
+
+---
+
+## S1 · CARRIED FROM D-T22 — found, measured, deliberately NOT done
+
+### S1.a Indexes — ~21 MB, never scanned in an 11-day window
+*(Stats window is genuine: `stats_reset` is NULL, postmaster up since 2026-07-26.)*
+
+- [ ] `idx_news_articles_feed_rank` — 10 MB, **0 scans**, partial btree. **Open question attached:**
+      `collapse_exact_title_duplicates` reads `feed_rank` on every ingest, so 0 scans means the
+      planner is seq-scanning instead. **Answer that before dropping** — it may be an index that
+      should be *used*, not removed.
+- [ ] `idx_editor_reads_resolved` — 7,216 kB, **0 scans**, GIN. Uncoupled; droppable on its own.
+- [ ] `idx_news_articles_topic_heat` / `idx_news_articles_bucket` — **COUPLED to D-T24**, go with
+      their columns. Listed here only so the count reconciles.
+- [ ] `idx_news_articles_routing_tags` — GIN, 936 kB, 0 scans. **COUPLED to Phase 9** (its writer is
+      `article_reader/mod.rs:1073`).
+- [ ] **NEVER EXAMINED:** every index on the stats/fixtures side. `event_box_scores` carries
+      **820 MB of indexes on a 4.1 GB heap** and nobody has looked. This is the largest unexamined
+      surface in the database and it is where the real storage answer probably is —
+      `momentum_scores` was the predicted win and turned out to be a false lead (its 1 GB index is
+      its hottest, 2.7 M scans).
+
+### S1.b Functions — from the pass-4 read of all 77
+- [ ] **`assert_provenance_firewall` — WIRE IT (this is D-T26, and it is the cheapest item here).**
+      A safety guard with no caller. Firewall verified intact today; the guard is what would tell us
+      if it ever stopped being. One line in `cron-narrative-links.sh`.
+- [ ] `refresh_entity_name_surfaces` — **COMMENT ON FUNCTION**, marking it as a rebuild that
+      DELETEs and does not read `entity_aliases`. Latent, not live (0 surfaces lost today).
+- [ ] `backfill_narrative_episodes` — one-shot tool, no caller; also the only reader of
+      `source_tiers`. Decide: keep as a labelled tool, or retire with `source_tiers`.
+- [ ] `source_tiers` — 13 rows, reader exists but is never invoked. **Correct migration 215's
+      COMMENT**, which names the driver without saying the driver never runs.
+- [ ] `apply_rate_siblings` — superseded by `rating_datapoints`' inline rate handling. DROP.
+- [ ] `box_score_coverage_report` — diagnostic tool, harmless. Label and keep.
+- [ ] `_compute_rating_bundle` — dead `comp_facet` CTE, referenced by nothing. Clarity only;
+      **Postgres does not execute an unreferenced CTE, so this is NOT a measured performance win.**
+- [ ] `compute_event_starline` — `v_balanced` is declared FALSE and never assigned; its facet arm is
+      unreachable. An abandoned A/B left switched off in the code path.
+
+### S1.c Demolition sets — do NOT front-run these
+- [ ] **PYTHON PRUNE SET** — `provider_entity_map`, `season_recompute_needed`, `provider_seasons`,
+      `resolve_provider_fixture_id`, `resolve_provider_season_id`. All live via `seed/` Python,
+      still on cron. Scott: *"Python was the old seeding layer… We're going to prune Python in the
+      future."* **These read as orphans to every Rust/Go search and are NOT.**
+      `season_recompute_needed` being EMPTY is its healthy state — a safety queue for a failure that
+      has not happened. Retire WITH the prune.
+- [ ] **PHASE 9 SET** — `topic_heat_embeddings` (8,924 rows / 15 MB), `news_article_readings`
+      (63,798 rows), `news_articles.routing_tags` + GIN index, and the 30,224 parked `article_read`
+      rows. Phase 9 owns the ordering.
+
+### S1.d The right-shape question — 1 of 82 tables answered
+- [ ] Asked and answered for the `news_articles` column family only. **Not asked of the other 81.**
+      Use the tag-system table above as the template: hunt for routing/judgment decisions frozen
+      into columns or match arms that should be rows.
+- [ ] **`nba.*` / `nfl.*` / `football.*` schemas were never in scope** — the entire audit covered
+      `public` only. Unknown surface, not a clean one.
+
+---
+
+## S2 · LOGGED DURING THE VOICE SESSION
+
+*(Append below as you go. Nothing here yet — the voice session has not started.)*
+

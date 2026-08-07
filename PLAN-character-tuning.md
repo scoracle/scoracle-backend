@@ -1726,6 +1726,90 @@ quantization change, no `sysctl`, no hardware.
 
 ---
 
+### D-T31 — **THE EDITOR MOVES TO `ministral-3:3b`. SCOTT'S DECISION, 2026-08-07, ON A MEASURED WIN.**
+
+**Scott:** *"we're going to be switching to Mistral 3b. Massive wins in a system already designed
+for Gemma."* **The adoption is a human editing `COGNITION_ROUTE_EDITOR`, exactly as the router's
+eval discipline requires — never an auto-promote.**
+
+**THE MEASUREMENT (2026-08-07 ~18:55 EDT, `eval --task editor --fixtures`, temp 0, 12 fixtures /
+53 property checks, `scoracle-cognition` STOPPED per the D-T19 determinism rule):**
+
+| model | property checks passed |
+|---|---|
+| `gemma3:4b` (incumbent) | **47/53** |
+| **`ministral-3:3b` (candidate)** | **52/53** |
+
+**The incumbent reproduced its documented 47/53 baseline EXACTLY.** That is the result that makes
+the other one trustworthy — it independently re-validates both the fixture harness and D-T19's
+"daemon stopped or the gate is invalid" finding, on a different day and a different session.
+
+**Where the win actually is — the `names[]` discovery channel.** On `result-line-verbatim-score`:
+* `gemma3:4b` emitted `names=[Real Madrid]` and **FAILED** `name_found[Bellingham]`.
+* `ministral-3:3b` emitted `[Real Madrid, Arsenal, Jude Bellingham, Bukayo Saka, Vinicius Junior,
+  Mikel Arteta]` and passed.
+
+`names[]` is the Investigator's nomination source (§1a: *"the discovery channel"*), so this is not a
+cosmetic scoring difference — it is directly the **§6a `names[] coach/manager class`** defect that
+has been carried as an open model-quality item. A richer `names[]` feeds entity discovery downstream.
+
+Model facts, read from `/api/show` rather than the tag: **3.8B params** (the `:3b` tag understates
+it), 26 layers, 8 KV heads, Q4_K_M, Apache-2.0, multimodal — and the **same Ministral 3 family the
+six voices already run at `:14b`**, which is an argument on its own for prompt-formatting
+consistency across the rail.
+
+---
+
+##### ⛔ ORDERING CONSTRAINT — **THE 4096 BINARY MUST DEPLOY BEFORE THE MODEL SWITCH. NOT WITH IT. BEFORE IT.**
+
+**This is the one that breaks production if it is missed.** `EDITOR_NUM_CTX` in the **currently
+deployed** binary is still **8192**. Archbox runs `OLLAMA_NUM_PARALLEL=4` and has **no**
+`OLLAMA_KV_CACHE_TYPE` set, so its KV is **f16**. Computed from `ministral-3:3b`'s own architecture:
+
+| window | KV (f16, ×4 slots) | est. total resident | on an 8 GB card |
+|---|---|---|---|
+| **4096** | 1.62 GB | **~6.0 GB** *(observed live — matches)* | comfortable |
+| 8192 | 3.25 GB | **~7.65 GB** | **~0.35 GB margin — spills** |
+
+**So flipping `COGNITION_ROUTE_EDITOR=ministral-3:3b` while the deployed binary still asks for 8192
+would put the model at the edge of the card and spill it to CPU — which is not a small regression,
+it is an order-of-magnitude one.** The correct order, after 8.7 closes:
+1. **Deploy the D-T29 4096 binary FIRST.** Confirm `ollama ps` shows the Editor's model at
+   `CONTEXT 4096`.
+2. **THEN** edit `COGNITION_ROUTE_EDITOR=ministral-3:3b` in archbox `.env.local` and restart.
+3. Confirm resident size ≈6.0 GB and that gemma3:4b has been evicted (`MAX_LOADED_MODELS=1`).
+
+---
+
+##### FLAGGED BEFORE THE DECISION, AND SCOTT DECIDED ANYWAY — SO IT IS A WATCH ITEM, NOT A BLOCKER
+
+**The two models disagree on the taxonomy fields, and the fixture gate does not pin them:**
+
+| fixture | `gemma3:4b` | `ministral-3:3b` |
+|---|---|---|
+| `result-line-verbatim-score` | `story_type=fixture`, `register=anticipation` | `story_type=performance`, `register=neutral` |
+| `place-collision-paris` | `page_kind=article`, `story_type=fixture` | `page_kind=roundup`, `story_type=general` |
+
+Both PASSED their checks — the fixtures assert relevance and names, not topic. But **`story_type`
+and `register` are exactly what `routing_tags` derives from** (`bucket::routing_tags_from_story_type`
++ `derive::routing_tags`), and routing tags decide **which voices wake**. So this swap can shift the
+tag distribution across the whole rail **without the gate registering anything**.
+
+**Therefore, after the switch, MEASURE THE TAG DISTRIBUTION, not just the score.** The
+before-picture is already banked (D-T22 pass 3): packets carry `fixture` 4,693 · `charged` 2,237 ·
+`roster` 2,203 · `transfer` 1,831 · `performance` 1,737 · `general` 1,655 · `injury` 349. A large
+move in that mix after adoption is a finding, not noise — and `injury` is the one to watch hardest,
+since **nothing subscribes to it yet (D-T25)** and a change there would be silent.
+
+##### CHEAP FOLLOW-UP SPOTTED WHILE MEASURING
+
+**Archbox does NOT set `OLLAMA_KV_CACHE_TYPE=q8_0` or `OLLAMA_FLASH_ATTENTION=1` — the Mac DOES.**
+Mirroring the Mac's config on archbox would halve local KV (1.62 GB → 0.81 GB at 4096×4), buying
+back most of what the model swap costs. Untested on this card; Pascal's flash-attention support is
+the thing to verify first. **Not done, not assumed to work — logged as a candidate.**
+
+---
+
 # APPENDIX S — THE SCHEMA LEDGER (the next session after the voice work)
 
 **Status: OPEN and ACCUMULATING. This is an inbox, not a plan.**

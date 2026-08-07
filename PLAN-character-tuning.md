@@ -1257,3 +1257,144 @@ pass read 5 of them properly, and 1 of those 5 — `refresh_typed_links` — tur
 artefact, which is not a reassuring hit rate for the other 106). Every index on the stats/fixtures
 side. And the right-shape question is now *posed* rather than *answered* for exactly one column
 family; the other 81 tables have not been asked it at all.
+
+---
+
+#### PASS 4 — THE FUNCTION READ (2026-08-06, Scott: *"read the rest of the functions"*)
+
+**Corrected inventory: there are 77 functions, not 116.** The 116 count included 35 `C`-language
+extension functions (pg_trgm, unaccent, vector) that are not ours and 4 aggregates.
+**All 77 have now been read individually — 4,620 lines.** Method: a seven-leg caller map built in
+SQL (trigger / other function / view) joined to a repo grep on five languages (Rust / Go / Python /
+shell / SQL), then every body read.
+
+*(Process note worth keeping: the first caller-grep pass reported 38 functions with no caller,
+including `collapse_exact_title_duplicates` and `recompute_entity_tiers`, both of which are
+provably live. The loop had been run from the scratchpad directory, so every relative path missed.
+**A grep that returns "no callers" for a function you already know is live is the only reason that
+error was caught** — if it had listed only unfamiliar names it would have become the finding.)*
+
+**Only 6 of 77 have no caller on any leg** — a far better result than the table sweep, and the two
+that matter are not deletion candidates:
+
+| function | lines | what it actually is | verdict |
+|---|---|---|---|
+| `assert_provenance_firewall` | 50 | **a safety guard that nothing ever runs** — see below | **WIRE IT** |
+| `refresh_entity_name_surfaces` | 53 | full rebuild of the T9 resolution surface | **LABEL IT** — latent hazard, below |
+| `backfill_narrative_episodes` | 117 | one-shot historical backfill; the ONLY reader of `source_tiers` | tool — keep or retire deliberately |
+| `box_score_coverage_report` | 48 | diagnostic report | harmless tool |
+| `apply_rate_siblings` | 42 | rate-sibling expansion, superseded by `rating_datapoints`' inline rate handling | DROP candidate |
+| `resolve_provider_fixture_id` | 13 | provider→fixture lookup | **PYTHON PRUNE SET** (sibling of `resolve_provider_season_id`) |
+
+##### THE FINDING: `assert_provenance_firewall` IS A GUARD AGAINST EXACTLY THIS AUDIT'S FAILURE MODE, AND NOTHING CALLS IT
+
+It asserts that `refresh_typed_links` and `score_transfer_likelihood` — the two measurement-side
+readers of `narrative_events` — still filter `origin = 'extraction'`, so that junction-authored
+events (mig 170) can never re-enter the numeric feedback loop. It raises with a written HINT
+telling you how to fix the breach. **It has no caller: no cron, no shell heredoc, no Rust, no Go,
+no trigger, no view, no other function.** A tripwire with nothing attached to it.
+
+**Verified rather than assumed, because that is the whole lesson of this audit: the firewall
+currently HOLDS.** Both consumers still carry `origin = 'extraction'`
+(`refresh_typed_links` and `score_transfer_likelihood`, checked by regex against
+`pg_get_functiondef`, both `true`). So the finding is **"the guard is unwired," not "the firewall
+is breached."** But the guard is the only thing that would ever tell us — and `compute_transfer_heat`
+is the standing proof that a filter can survive in SQL long after everyone believes it is gone. It
+costs one line in `cron-narrative-links.sh`, which already runs both consumers every 6 hours.
+
+##### THE LOADED GUN: `refresh_entity_name_surfaces` — safe today, destructive later
+
+It does `DELETE FROM entity_name_surfaces` and rebuilds from `teams`/`players`/`persons`
+`.name` + `.search_aliases` only. But the table is maintained INCREMENTALLY by Rust — the
+Investigator mirrors a surface for every proven alias at `investigator/entity.rs:501`, sourced from
+`entity_aliases`, **which the rebuild does not read.** Anything the Investigator has learned that
+is not also in `search_aliases` is destroyed by a function whose name reads like a harmless refresh.
+
+**Measured before claiming it: 0 surfaces would be lost today** — every one of the 16,712 current
+rows is reproducible from names + search_aliases, and no entity is missing a surface (player 0,
+team 0, person 0). **So this is LATENT, not live.** It becomes real the first time the Investigator
+proves an alias that never lands in `search_aliases`. The fix is a `COMMENT ON FUNCTION` saying so —
+the same cheap fix as the table drivers, for the same reason.
+
+##### TWO DEPENDENCIES D-T24 DID NOT KNOW ABOUT — both found only by reading
+
+1. **`source_reliability_for_pair` CALLS `compute_transfer_heat`.** Not "reads the same table" —
+   literally `FROM public.compute_transfer_heat(p_team_id, p_player_id, p_sport) h`, unnesting its
+   `news_ids` to find the corpus's sources. Its own comment says why: *"Reuse compute_transfer_heat's
+   news_ids so 'the corpus' has ONE definition and this card can never drift from what the prompt
+   shows."* **`source_reliability_for_pair` has 3 live Rust callers in the Insider.** So retiring the
+   heat function silently breaks the Insider's source-reliability card too — and if it is instead
+   left pointing at a stale corpus definition, the card drifts from the prompt, which is the exact
+   failure its comment was written to prevent. **D-T24's blast radius is one function wider than
+   recorded.**
+2. **`source_tiers` is inert.** Its only reader is `backfill_narrative_episodes`, and that has no
+   caller. 13 rows of tier weights that nothing consumes. **This corrects migration 215's own
+   COMMENT**, which names the driver truthfully but omits that the driver never runs. Not urgent —
+   13 rows — but the comment should say "reader exists, is never invoked."
+
+##### DEAD BRANCHES INSIDE LIVE FUNCTIONS (clarity, not measured performance)
+
+* `_compute_rating_bundle` builds a `comp_facet` CTE that **nothing references** — `comp` selects
+  only from `comp_flat`. Postgres does not execute an unreferenced CTE, so this is dead code, **not
+  a measured cost**; stated that way deliberately rather than sold as a win.
+* `compute_event_starline` declares `v_balanced BOOLEAN := FALSE`, never assigns it, then unions
+  `comp_flat WHERE NOT v_balanced` with `comp_facet WHERE v_balanced`. The facet arm is permanently
+  unreachable. Same class: an abandoned A/B left switched off in the code path rather than removed.
+
+Both are the shape Scott named — *clever and fragile* left standing after the decision it served
+was made. Neither is urgent; both belong to whichever migration next touches the rating path.
+
+---
+
+#### (B) HOW THE SCHEMA WORK RIDES ALONG WITH THE VOICE WORK — Scott, 2026-08-06
+
+*"We'll need to find a way to include the schema work as part of the voice work, and include our
+findings."* **The rule, and it is the one this whole audit keeps proving: a schema change ships in
+the same migration as the voice change that makes it safe — never as its own sweep.** Every
+deletion this session nearly got wrong was a table or column whose safety depended on a code change
+that had not happened yet. So each voice item below now CARRIES its schema payload, ordered, with
+the ordering constraint stated.
+
+**D-T23 — one article, many tags. Schema payload: almost none, and that is the point.**
+`packets.story_types` is already `text[]`; `packets.routing_tags` is already `text[]`;
+`editor_reads.read` is jsonb. The multi-tag change is a **contract** change (`ep1`→`ep2`,
+`contract_version` is a cache key, T1) plus Rust — `routing_tags_from_story_type`,
+`derive::routing_tags`, the packet compiler's rollup. **No DDL is expected.** If that holds it is
+the cleanest possible confirmation that the packet rail was shaped right; if a column IS needed,
+that is a signal worth stopping on.
+
+**D-T24 — the heat index moves to the character. This is where the schema debt actually lives.**
+ONE migration, in this order, and the order is not negotiable:
+  1. **[DEPLOY FIRST]** the Influencer binary that stops selecting `news_articles.topic_heat`
+     (`influencer/mod.rs:148`). F-022: a column DROP inverts deploy order.
+  2. Land the character-authored heat replacement; **rewire or retire `source_reliability_for_pair`
+     in the same breath** (finding above) so the Insider's source card and its corpus keep ONE
+     definition.
+  3. Then, in one migration: `DROP FUNCTION compute_transfer_heat`; strip the `bucket` branch from
+     `seal_narrative_threads`; `DROP COLUMN news_articles.bucket` (+ `idx_news_articles_bucket`,
+     888 kB); `DROP COLUMN news_articles.topic_heat` (+ `idx_news_articles_topic_heat`, 2,608 kB);
+     drop `idx_editor_reads_resolved` (7,216 kB, 0 scans) and `idx_news_articles_feed_rank` (10 MB,
+     0 scans).
+  4. **NOT in this migration:** `news_articles.routing_tags` + its GIN index. Its only writer is
+     `article_reader/mod.rs:1073` — **Phase 9's demolition set owns it.**
+
+**D-T25 — the Scout listens. Schema payload: one INSERT, and it is the LAST step, not the first.**
+`INSERT INTO stage_routing_subscriptions (tag,stage,entity_type) VALUES ('injury', <scout stage>,
+'player'|'team')` — two rows, because neither trigger reads `'*'` as a wildcard (D-T15). But the
+Scout is `Role::StatsLogic` today and does not consume packets at all, so the row is the last line
+of the work. **Inserting it early does not "enable" anything — it enqueues `pipeline_work` for a
+stage with no consumer, which is precisely the stalled-producer shape migration 215 just deleted.**
+
+**D-T26 (new) — wire `assert_provenance_firewall`.** One line in `cron-narrative-links.sh`, which
+already runs both consumers every 6 hours. No schema change. Cheapest item in the ledger and it
+guards the failure mode that cost this audit the most.
+
+**D-T27 (new) — settle the 6 caller-less functions**, per the table above: `COMMENT ON FUNCTION` for
+`refresh_entity_name_surfaces` (the loaded gun) and `backfill_narrative_episodes` (+ correct
+`source_tiers`' comment); DROP `apply_rate_siblings`; `resolve_provider_fixture_id` joins the Python
+prune set; `box_score_coverage_report` stays as a tool.
+
+**STILL NOT COVERED after pass 4:** every index on the stats/fixtures side (`event_box_scores`
+carries 820 MB of indexes on a 4.1 GB heap and none were examined). The right-shape question is now
+answered for the `news_articles` column family and posed for none of the other 81 tables. And the
+`nba.*` / `nfl.*` / `football.*` schemas were never in scope — only `public`.

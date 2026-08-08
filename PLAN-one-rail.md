@@ -13,31 +13,50 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-08 ~01:30 EDT — supersedes the 8.9 block below, which stays for its detail).**
+**STATE (2026-08-08 ~16:10 EDT — the Saturday deploy session; supersedes the 01:30 block and the 8.9
+block below, both of which stay for their detail).**
 Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. **PHASE 6 IS STILL OPEN ON 6.7 ALONE** — its window
-closes ~Aug 8 22:08 EDT; run `scripts/rail-6.7-bands.sh` only after that, and **never close phase 6
-on an INTERIM banner.** Phase 7 complete on its plumbing (7.11 + 7.15 outstanding). Phase 9 (the
-Rust demolition + the 30,224 parked `article_read` rows) untouched. `RAIL=packet` live.
+closes ~Aug 8 22:08 EDT; **`scripts/rail-6.7-bands.sh` HAS NOT BEEN RUN — it was still ~6 h out when
+this session worked.** Run it after 22:10 and **never close phase 6 on an INTERIM banner.** Phase 7
+complete on its plumbing (7.11 + 7.15 outstanding). Phase 9 (the Rust demolition + the 30,222 parked
+`article_read` rows) untouched. `RAIL=packet` live.
 
-**DEPLOYED: `6fbf798`, built 2026-08-06 19:32Z** (8.10 + 8.11 — `news_article_entities` 9 columns
-and two writers → 5 columns and ONE writer, the Editor; mig 214; schema snapshot `9986cab`).
-The 8.9 block below reads `9e4a12e`; that is superseded.
+**✅ DEPLOYED THIS SESSION: `39db36ee9d45`, built `2026-08-08T20:01:56Z`, live 16:03:03 → boot
+16:04:18 EDT.** This is **D-T29** — `ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096. Verified the only
+way that works, the journal boot stamp:
+`scoracle-cognition starting model=gemma3:4b commit="39db36ee9d45" built="2026-08-08T20:01:56Z"`.
+Deployed **narrowly** (`cargo build --bin scoracle-cognition` + atomic rename into `rust/bin/`, the
+`.path` convention) rather than via `release.sh`, so **no Go binary and no API restart rode along** —
+the Rust delta over `6fbf798` is the two `num_ctx` constants and doc comments, nothing else.
+*(`cp` onto the running binary fails `ETXTBSY`; stage outside `rust/bin/` and `mv` in, as release.sh does.)*
 
-**⛔ TWO CHANGES ARE COMMITTED AND NOT DEPLOYED, AND THEIR ORDER IS NOT OPTIONAL:**
-1. **D-T29** — `ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 @ `d4c80a0`, 400 lib tests pass.
-2. **D-T31** — Editor → `ministral-3:3b` (52/53 vs 47/53). Model already pulled on archbox.
+**⛔ D-T31 IS HELD — NOT DEPLOYED, BY DECISION, NOT BY OVERSIGHT.** The Editor stays on `gemma3:4b`.
+Scott's ruling 2026-08-08: the swap's headline measurement is the **tag distribution**, its
+before-picture was banked **pre-cap**, and D-T21 now withholds 81% of arrivals — so an after-picture
+taken today is unattributable between the cap and ministral. **Re-bank the before-picture post-cap
+first.** The ordering constraint still stands for whenever it runs: **4096 binary first** — and that
+binary is now deployed, so the hazard is closed.
 
-**Deploy the 4096 binary FIRST, then flip `COGNITION_ROUTE_EDITOR`** — ministral at 8192 is ~7.65 GB
-on an 8 GB card and spills. Both were held for **8.7's watch window, which closes Sat 2026-08-08
-10:55 EDT** (it already carried three confounds: the flip, D-T21's cap arming, and the deploy
-itself). **SATURDAY'S ORDER:** 8.7 closes ~10:55 → `rail-cutover-check.sh` (no `DAY` override) =
-**8.2 day 1** → deploy D-T29 → flip D-T31 → `rail-6.7-bands.sh` after 22:10.
+**⛔ 8.2 DAY 1 IS A FAIL, AND IT IS STRUCTURAL — see D-T32.** `rail-cutover-check.sh` (no `DAY`
+override) returned **clause 1 = 921/4,813 = 19.1%**, against a ≥95% bar. Clauses 2, 4a, 5 PASS;
+clause 3 emitted its 50-link sample **UNSCORED**; 4b did not run (`rust/bin/eval` absent). **The
+Editor is not starved — it read 921 of the 921 it was asked for, 100%.** D-T21's cap withheld the
+other 3,892 at enqueue, and `read + withheld = arrivals` **exactly**, two days running. **While the
+cap is armed at 10/day, clause 1 is unreachable and 8.2's 7-day window can never start.** Scott:
+leave the cap, decide separately. **Do not roll the rail back for this number.**
 
-**Known before the measurement (D-T31 readiness, 2026-08-08 @ `6f306f9`): the Editor is ALREADY
-running at 4096 by accident** — `OLLAMA_KEEP_ALIVE=-1` on archbox pinned the 4096 runner that the
-Aug 7 eval loaded from `target/debug`. **So the D-T29 deploy will show NO speedup — flat is the
-expected result, not a failure — and `ollama ps` cannot verify the deploy landed** (it reads 4096
-either side). Verify from the journal's `built=` stamp instead.
+**Two corrections this session retired, both from reading a label instead of an observation:**
+1. **The "already at 4096 by accident" premise EXPIRED before the deploy.** `ollama ps` at deploy
+   time read **8192 / 5.3 GB**, not 4096 / 4.99 GB — the 02:00 Aug 8 ingest burst, run under the old
+   8192-requesting binary, reloaded the pinned runner ~13 h earlier. **The reload the plan warned
+   about actually happened, which makes the deploy-first ordering proven rather than argued.**
+   `ollama ps` is a usable check again. The 4096 window lands on the next local call = **the 02:00
+   drain**; observe 5.3 GB → ~4.99 GB there. Flat wall-clock is still expected (`num_ctx` is memory,
+   not per-token compute).
+2. **There is NO archbox mirror of D-T30.** The daemon's boot line reads `localhost … max_concurrent=4`
+   against a server at `OLLAMA_NUM_PARALLEL=4` — client and server agree. The client reads
+   `COGNITION_BACKEND_CONCURRENCY`, **not** the inert `OLLAMA_MAX_CONCURRENT=1` that the earlier note
+   grepped. **D-T19's handoff was right; that queue item is struck.** D-T30 on the Mac is unaffected.
 
 *(8.9 STATE, superseded 2026-08-08.)* **Phase 7 complete on its plumbing (7.11 +
 7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND THE HAND-ROLLED RELEVANCE
@@ -117,20 +136,21 @@ and ~46 are post-cap, and **Editor coverage — one of 8.7's own metrics, with a
 attached — is exactly what the cap is designed to reduce.** A coverage drop after 02:00 Aug 7 is
 the CAP, not the flip. Do not roll back the rail for it.
 
-**⛔ STAGED BUT NOT DEPLOYED — DO NOT BUILD INTO `rust/bin/` BEFORE SAT AUG 8 10:55 EDT.**
-`ARTICLE_NUM_CTX` and `EDITOR_NUM_CTX` are **8192 → 4096** in the tree (D-T29, 400 lib tests pass),
-sized on a measured 2,049-token worst-case Editor prompt + 900 `num_predict` = 2,949 in a 4096
-window. **Scott, 2026-08-07: "Don't deploy until after Saturday."** Placing a binary in `rust/bin/`
-trips the `.path` watcher and restarts `scoracle-cognition` inside 8.7's watch, which already
-carries two confounds (the flip; D-T21's cap arming at 02:00 Aug 7). `cargo build --lib` and
-`target/debug` are safe. Deploy AFTER 8.7 closes, then re-measure wall-clock and VRAM against the
-pre-change baseline (gemma3:4b resident at 5.3 GB of 8 GB at the 8192 window).
+*(**RESOLVED 2026-08-08 16:03 EDT — this hold is DISCHARGED and the banner is kept only for its
+history.** It read: "STAGED BUT NOT DEPLOYED — DO NOT BUILD INTO `rust/bin/` BEFORE SAT AUG 8 10:55
+EDT", per Scott 2026-08-07 *"Don't deploy until after Saturday"*, because tripping the `.path`
+watcher would restart `scoracle-cognition` inside 8.7's watch. **8.7's window closed at 10:55 that
+day and `ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 shipped at 16:03** @ `39db36ee9d45`. The
+pre-change baseline it names — **gemma3:4b resident at 5.3 GB of 8 GB at the 8192 window** — was
+confirmed live at deploy time and is the number the 02:00 drain measures against.)*
 
 **PHASE 6 STAYS OPEN on 6.7 alone:** window closes ~**Aug 8 22:10 EDT**; run
 `scripts/rail-6.7-bands.sh` after that and only trust a non-INTERIM banner.
-**8.2 HAS NOT STARTED: it needs the 8.1 suite run daily for 7 CONSECUTIVE days with each day's
-output pasted into the Log, and no day has been logged yet** — the clock starts on the first run,
-so every day it is not run is a day Phase 8 cannot close.
+**8.2 HAS NOW BEEN RUN ONCE AND STILL STANDS AT ZERO: day 1 (Aug 7, read 2026-08-08) FAILED clause 1
+at 19.1%, and one FAIL resets the window** — logged in full at "8.2 DAY 1" in the phase 8 Log.
+**The blocker is no longer "nobody ran it": while D-T21's cap is armed at 10/day clause 1 is
+STRUCTURALLY unreachable (D-T32), so running it daily cannot start the clock until that is ruled
+on.** Running it daily is still right — it is the only thing scoring clauses 2/4a/5.
 OPEN OUTSIDE PHASES: D-T9 ops ONLY ON SCOTT'S GO; sudo /mnt/data/scratch grant pending.
 Last plan commit: (this one). Updated 2026-08-06 ~22:55 EDT (D-T21 + D-T22 closed; two dead-letter
 streams found live).**
@@ -3952,6 +3972,57 @@ retired, never drop it).
 
 ---
 
+### 8.2 DAY 1 — **2026-08-08 15:50 EDT, the first honest day. CLAUSE 1 FAILS AND THE WINDOW DOES NOT START.**
+
+**Run:** `scripts/rail-cutover-check.sh`, **no `DAY` override** → day **2026-08-07**, sample 50. This
+is the run the 2026-08-06 entry above was waiting for (*"8.2's first honest day is Aug 7, readable
+Aug 8"*).
+
+| clause | reading | verdict |
+|---|---|---|
+| 1 · coverage ≥95% | **921 / 4,813 = 19.1%** | **FAIL** |
+| 2 · packet presence | 206 legacy entity-days, 206 covered, **0 missing** | PASS |
+| 3 · precision | 50-link sample emitted | **UNSCORED — needs a human** |
+| 4a · dead-letters (attempts ≥5) | **0** | PASS |
+| 4b · fixture gate | `rust/bin/eval` not present | **NOT RUN** |
+| 5 · accounting | 57,557 claims, **0 orphans** | PASS |
+
+*Day at a glance: packets compiled 1,238 · editor_reads 2,257 · storylines opened 543.*
+
+**ONE FAIL RESETS THE WINDOW, so 8.2's count is still at ZERO and Phase 8 cannot close.** The cause
+is **D-T32**: D-T21's cap withheld 3,892 of the day's articles at enqueue, and `read + withheld =
+arrivals` **exactly** (921 + 3,892 = 4,813; Aug 8 repeats it, 1,085 + 4,493 = 5,578). **Measured
+against what it was asked for, the Editor read 921/921 = 100%.** `pipeline_work` holds **zero**
+`editor` rows. **This is not a rollback trigger — do not roll the rail back for it** (the STATE
+warning above, now with the arithmetic behind it).
+
+##### THE PRE-CAP BASELINE'S FALSIFIABLE PREDICTION — SCORED, AND IT FAILED ON ITS OWN CRITERION
+
+The 2026-08-06 23:13 entry predicted the cap would be *"a TAIL trim, not a broad cut"* and named the
+falsifier: *"If `p50` moves, or if volumes below fall, the cap is over-reaching and that is a
+finding."* Scored on the same grain (reads per entity per day):
+
+| day | entities | p50 | p90 | max | entities >10 | total entity-reads |
+|---|---|---|---|---|---|---|
+| Aug 6 (pre-cap) | 2,200 | 2 | 14 | 150 | 272 | **16,077** |
+| Aug 7 (post-cap) | 1,472 | 2 | 8 | 101 | 111 | **5,966** |
+| Aug 8 (post-cap) | 823 | 1 | 6 | 22 | 24 | **2,039** |
+
+* **`p50` held at 2 on Aug 7** (drifting to 1 by Aug 8) — that half of the prediction was right, and
+  the tail did trim as intended (272 → 111 → 24 entities over 10).
+* **The volumes DID fall — 16,077 → 5,966 → 2,039, and `editor_reads` 8,163 → 2,257.** By the
+  baseline's own stated criterion, **the cap is over-reaching, and that is the finding.**
+* **`max` did NOT clamp to 10 (101 on Aug 7)** — because the prediction assumed the metric and the
+  knob were the same quantity and they are not. **The cap bounds ENQUEUES per entity; this metric
+  counts a read once per LINKED entity**, so one enqueued article credits every entity it links to.
+  An entity therefore accrues reads from other entities' enqueues and can exceed its own cap.
+  *(Recorded so the next reader does not score `max` against 10 and conclude the cap is broken.)*
+
+*(The Aug 5 row of that grain reads anomalously — 204 entities at p50 42 — and is NOT explained
+here; it is not load-bearing for anything above, and no theory is offered for it.)*
+
+---
+
 ## Phase 9 — Demolition, rebaseline, and the record
 
 - [ ] **9.1** Execute Appendix A top to bottom (Go, Rust, SQL, cron, env). Each bullet is its
@@ -4344,7 +4415,7 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
 
 ---
 
-### D-T20 → D-T31 · the index (backfilled 2026-08-08 ~01:30 EDT)
+### D-T20 → D-T32 · the index (backfilled 2026-08-08 ~01:30 EDT; D-T32 added 16:10 the same day)
 
 **These twelve accumulated in `PLAN-character-tuning.md` across the 2026-08-06/07 sessions and were
 never indexed here, which broke the ledger convention above.** Backfilled as one-liners; the
@@ -4380,11 +4451,14 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   the model — the same model answers five other voices correctly, so it rides **7.11**.
   **(b) `sigil` NBA-team crowns failing ~86% — UNDIAGNOSED.** Context overflow is RULED OUT (D-T29:
   sigil maxes at ≈1,897 tok, under half the 4096 window). → *tuning §D-T28*
-- **D-T29 · every junction runs at a 4096 context window.** 1070 Ti half **DONE in the tree**
-  (`ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 @ `d4c80a0`, 400 lib tests pass) — **committed, NOT
-  deployed.** Mac half **NOT met and it is a DIET, not a config change**: `narratives` ≈7,574 tok and
-  `vibe` ≈6,437 tok are ~1.8×/1.6× over 4096, and the failure mode is silent system-prompt eviction.
-  **Trim the prompts; never raise the window.** → *tuning §D-T29*
+- **D-T29 · every junction runs at a 4096 context window.** 1070 Ti half **DONE AND DEPLOYED
+  2026-08-08 16:03 EDT** @ `39db36ee9d45` (`ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 @ `d4c80a0`,
+  400 lib tests pass; verified by the journal `built=` stamp). **The runner was at 8192/5.3 GB when
+  it landed — the "already 4096 by accident" premise had expired ~13 h earlier — so the VRAM
+  before/after (→ ~4.99 GB) is real and observable at the 02:00 drain.** Mac half **NOT met and it is
+  a DIET, not a config change**: `narratives` ≈7,574 tok and `vibe` ≈6,437 tok are ~1.8×/1.6× over
+  4096, and the failure mode is silent system-prompt eviction. **Trim the prompts; never raise the
+  window.** → *tuning §D-T29*
 - **D-T30 · the Mac serves ONE call at a time while the client sends three.**
   `OLLAMA_NUM_PARALLEL=1` against `COGNITION_BACKEND_CONCURRENCY=…1.77=3`. **4 slots already fit**
   (9.74 GB of a ~10.7 GB budget; `FLASH_ATTENTION`+`q8_0` already on), so the only thing in the way
@@ -4397,4 +4471,16 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   `ARTICLE_MAX_MODEL_CHARS = 9_000` is now load-bearing). **ORDERING IS NOT OPTIONAL: deploy the
   D-T29 4096 binary FIRST, then flip `COGNITION_ROUTE_EDITOR`** — ministral at 8192 is ~7.65 GB on an
   8 GB card and spills. **Watch the TAG DISTRIBUTION, not the gate score:** `story_type`/`register`
-  drift past the fixtures and decide which voices wake. → *tuning §D-T31*
+  drift past the fixtures and decide which voices wake. **HELD 2026-08-08 — not flipped.** The 4096
+  binary is deployed so the ordering hazard is closed, but the tag before-picture is **pre-cap** and
+  D-T32 withholds 81% of arrivals, so the after-picture would be unattributable. **Re-bank the
+  before-picture post-cap, then flip.** → *tuning §D-T31*
+- **D-T32 · D-T21's cap and §2 clause 1 cannot both hold.** 8.2 day 1 came back **clause 1 =
+  921/4,813 = 19.1%** against a ≥95% bar — but the Editor read **921 of the 921 it was asked for
+  (100%)**, and `read + withheld = arrivals` **exactly** on both Aug 7 (921+3,892=4,813) and Aug 8
+  (1,085+4,493=5,578). **The cap explains 100% of the miss with no residual**; `pipeline_work` holds
+  zero `editor` rows and there are no dead-letters. Clause 1 counts arrivals, the cap withholds at
+  enqueue, **so while it is armed at 10/day clause 1 is unreachable and 8.2's 7-day window can never
+  start.** Scott: leave the cap, decide separately. Candidates: redefine clause 1 against the QUEUE
+  (the 8.9 STATE already pointed here), reshape the cap, or accept the coverage as a product
+  decision. → *tuning §D-T32*

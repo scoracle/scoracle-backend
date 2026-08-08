@@ -440,6 +440,16 @@ deploy the 4096 binary FIRST, then switch the model** — ministral-3:3b at 8192
 
 ## Handoff — D-T29 + D-T31, THE SATURDAY DEPLOY (fresh context window; written 2026-08-08 ~01:30 EDT)
 
+> ## ⛔ EXECUTED AND CLOSED 2026-08-08 16:10 EDT. **DO NOT RUN THIS FENCE.** The current handoff is
+> **"THE 22:10 BANDS + THE CAP RULING"**, immediately below it.
+>
+> **Steps 1, 2 done. Step 3 HELD by Scott. Step 4 partial. Step 5 NOT run — still ~6 h out.**
+> Two of its premises were measured FALSE during execution and are corrected in §D-T29 and §D-T30:
+> the Editor was **not** already at 4096 (the runner had reloaded to 8192/5.3 GB ~13 h earlier, so
+> `ollama ps` CAN verify and the deploy was a real window change), and there is **no archbox mirror**
+> of D-T30 (the client sends 4 locally; `OLLAMA_MAX_CONCURRENT` is inert). Its step 1 returned a
+> structural FAIL — **D-T32**.
+
 *This is the CURRENT handoff. The TurboFieldfare fence above it is CLOSED and must not be executed.*
 
 ```
@@ -502,6 +512,77 @@ NEXT AFTER THIS, ALREADY QUEUED (do not start them here):
 LAWS: describe-then-derive (T2 — the axis is OBSERVATION vs JUDGMENT, see PLAN-one-rail §0);
 ONE CHANGE, ONE MEASUREMENT; STOP on surprise and write it down rather than improvising; build to
 target/debug for tests, never rust/bin (except step 2); DB access from archbox, not the Mac.
+
+FINISH RITUAL: fill in the measured numbers, update BOTH files in the same commit (one line in
+PLAN-one-rail Appendix D, the detail in PLAN-character-tuning), update the STATE block, commit, and
+print the next handoff last.
+```
+
+---
+
+## Handoff — THE 22:10 BANDS + THE CAP RULING (fresh context window; written 2026-08-08 ~16:10 EDT)
+
+*This is the CURRENT handoff. Both fences above are CLOSED and must not be executed.*
+
+```
+Work scoracle-backend (Scoracle, /Users/scotty/scoracle/scoracle-backend). Saturday's deploy is
+DONE; what is left is one gated measurement and one ruling. Nothing else.
+
+READ FIRST: PLAN-one-rail.md STATE block (top) + §0 working rules, then PLAN-character-tuning.md
+§D-T32. Do NOT read the rest of the repo. Both older handoff fences are CLOSED — skip them.
+
+CHECK THE CLOCK FIRST. This block was written 16:10 EDT Sat 2026-08-08 and its one timed item is
+22:10 THAT NIGHT. If you are reading this on a later date, that window has PASSED: run the bands
+for the CURRENT day and say so, do not pretend to close a window you were not present for.
+
+STATE. RAIL=packet live. DEPLOYED 39db36ee9d45 (built 2026-08-08T20:01:56Z, live 16:04:18 EDT) =
+D-T29's 4096 binary. Tree clean, both plan files committed together. D-T31 is HELD, NOT flipped —
+the Editor is still gemma3:4b. D-T21's cap stays ARMED at 10/day by Scott's ruling.
+
+DO THIS:
+  1. AFTER 22:10 EDT ONLY: scripts/rail-6.7-bands.sh. Never close phase 6 on an INTERIM banner.
+     This is the last thing phase 6 is waiting on.
+  2. At/after the 02:00 drain: confirm the 4096 window actually landed. `ollama ps` should read
+     gemma3:4b CONTEXT 4096 at ~4.99 GB, DOWN from the 5.3 GB @ 8192 measured at deploy time.
+     `ollama ps` IS trustworthy again (the old "blind verify" note died with the accident).
+     Wall-clock is expected FLAT — num_ctx is memory, not per-token compute. Do not hunt a knob.
+  3. Re-run scripts/rail-cutover-check.sh for 8.2 day 2 and expect clause 1 to FAIL again at ~19%.
+     That is D-T32 and it is EXPECTED. Do not roll the rail back for it.
+
+THE ONE THING THAT NEEDS A DECISION (D-T32) — do not improvise it, it is Scott's:
+  D-T21's cap withholds at ENQUEUE; §2 clause 1 counts ARRIVALS. While the cap is 10/day, clause 1
+  is unreachable and 8.2's 7-day window can NEVER start. The Editor is not broken — it read 921 of
+  the 921 it was asked for (100%), and read+withheld=arrivals EXACTLY on two separate days. Three
+  candidates, none chosen: redefine clause 1 against the QUEUE / reshape the cap / accept the
+  coverage as a product decision. Bring Scott the choice, not a fix.
+
+BEFORE D-T31 CAN EVER BE FLIPPED: re-bank the tag before-picture POST-CAP. The banked one (fixture
+4,693 / charged 2,237 / roster 2,203 / transfer 1,831 / performance 1,737 / general 1,655 / injury
+349) is PRE-CAP and the sample is now 81% smaller, so a swap measured against it proves nothing.
+WATCH injury HARDEST — nothing subscribes to it (D-T25), so a change there is silent.
+
+DO NOT:
+  * Do not run rail-6.7-bands.sh before 22:10.
+  * Do not flip COGNITION_ROUTE_EDITOR. It is HELD by decision, not by oversight.
+  * Do not change the cap, or any second knob, without Scott — one change, one measurement.
+  * Do not touch any prompt or *_PROMPT_VERSION (that is 7.11 — a bump is a cache key and reopens
+    ALL that stage's work fleet-wide).
+  * Do not raise ARTICLE_MAX_MODEL_CHARS (9_000) — load-bearing for the 4096 window.
+  * Do not chase "the archbox mirror of D-T30". It was measured FALSE and struck; the client
+    already sends 4 locally. OLLAMA_MAX_CONCURRENT is inert for this client.
+
+STILL QUEUED (do not start them here):
+  * D-T30 — Mac OLLAMA_NUM_PARALLEL 1 -> 2, measure, then consider 4. Largest throughput change
+    available; 4 slots already fit at 9.74 GB. Unaffected by tonight.
+  * The VOICE session proper: D-T23 -> D-T24 -> D-T25, logging schema observations to Appendix S.
+  * Two live dead-letter streams still burning voice capacity hourly (D-T28: momentum answers in
+    markdown; sigil crown parse). narratives now shows the same markdown failure — worth a look.
+
+LAWS: describe-then-derive (T2 — the axis is OBSERVATION vs JUDGMENT, see PLAN-one-rail §0);
+ONE CHANGE, ONE MEASUREMENT; STOP on surprise and write it down rather than improvising; build to
+target/debug, never rust/bin (no deploy is authorised in this block); DB access from archbox, not
+the Mac. DEPLOY NOTE if one is ever authorised: a plain `cp` over the running binary fails ETXTBSY —
+stage outside rust/bin/ and `mv` in, which is also what keeps the .path watcher to one trigger.
 
 FINISH RITUAL: fill in the measured numbers, update BOTH files in the same commit (one line in
 PLAN-one-rail Appendix D, the detail in PLAN-character-tuning), update the STATE block, commit, and
@@ -1772,17 +1853,22 @@ being patched in the parser.
 
 ### D-T29 — **TARGET: EVERY JUNCTION RUNS AT A 4096 CONTEXT WINDOW** (Scott, 2026-08-07)
 
-> ## ⛔ STAGED, COMMITTED, **NOT DEPLOYED** — DO NOT BUILD INTO `rust/bin/` BEFORE SAT 2026-08-08 10:55 EDT
+> ## ✅ DEPLOYED 2026-08-08 16:03 EDT @ `39db36ee9d45` — the hold below is DISCHARGED
 >
-> **Scott's ruling, 2026-08-07: "Don't deploy until after Saturday."** The 4096 change is in the
-> tree and passing tests, but placing a binary in `rust/bin/` trips the `.path` watcher and
-> restarts `scoracle-cognition` — **inside 8.7's 48h watch window**, which already carries two
-> confounds (the flip, and D-T21's cap arming at 02:00 Aug 7). A third would make Saturday's
-> reading uninterpretable.
+> **It read:** *"STAGED, COMMITTED, NOT DEPLOYED — do not build into `rust/bin/` before Sat
+> 2026-08-08 10:55 EDT"*, per Scott 2026-08-07 *"Don't deploy until after Saturday"*, because the
+> `.path` watcher restart would land inside 8.7's 48 h window alongside its two existing confounds
+> (the flip; D-T21's cap arming at 02:00 Aug 7).
 >
-> **Safe until then:** `cargo build --lib` / `cargo test --lib` / `--target-dir target/debug`.
-> **After 8.7 closes:** deploy, then re-measure the Editor's wall-clock and VRAM against the
-> pre-change baseline (gemma3:4b resident at **5.3 GB of 8 GB** with an 8192 window).
+> **8.7 closed 10:55 and the binary shipped at 16:03**, verified by the journal boot stamp
+> `commit="39db36ee9d45" built="2026-08-08T20:01:56Z"`. Deployed narrowly — `cargo build --bin
+> scoracle-cognition`, staged outside `rust/bin/` and atomically renamed in (a plain `cp` over the
+> running binary fails `ETXTBSY`) — so no Go binary or API restart rode along.
+>
+> **The pre-change baseline this hold names — gemma3:4b resident at 5.3 GB of 8 GB at 8192 — was
+> read live at deploy time and still held**, because the runner had reloaded off the accidental 4096
+> hours earlier. **The VRAM before/after is therefore real: measure ~4.99 GB at the 02:00 drain**,
+> which is the next local call. Wall-clock is expected FLAT (`num_ctx` is memory, not compute).
 
 **Scott's instruction:** *"we can move to 4096 ctx for both the 1070 characters (Editor +
 Investigator) … the target is for all junctions to be working with a 4096 ctx window. That will
@@ -2027,6 +2113,39 @@ correct — this is WHY it is correct.**
 window pinned on the live card. The D-T19 rule — stop `scoracle-cognition` before the gate — keeps
 the gate honest, but it does not un-pin what the gate loaded.)*
 
+##### ⛔ THE PREMISE ABOVE EXPIRED BEFORE THE DEPLOY — MEASURED 2026-08-08 16:05 EDT
+
+**The accident did not survive to Saturday's deploy, and the banked prediction is void because its
+premise is.** Read at the deploy, `ollama ps` returned:
+
+```
+gemma3:4b   5.3 GB   100% GPU   CONTEXT 8192   Forever
+```
+
+**8192 at 5.3 GB — D-T29's documented pre-change baseline exactly**, not the 4096/4.99 GB recorded
+at 01:12. **The pinned 4096 runner was reloaded, and production's 8192 requests restored 8192.**
+
+**When, and by what.** Local `/api/generate` calls stop at **05:20 Aug 8** and there are none after
+(the local card has been idle since; the Mac voices carried the day). The editor drain ran
+02:00→05:20 Aug 8 under the **old `6fbf798` binary, which asks for 8192** — so the 02:00 ingest burst
+is what reloaded it. The accident lived from the Aug 7 ~18:55 eval to ~02:00 Aug 8 — it was already
+**~13 h dead when the binary was deployed at 16:03.**
+
+**What this does and does not change:**
+* **The ordering constraint is now proven by event, not by argument.** The plan said *"any event that
+  reloads that runner restores 8192, and with `ministral-3:3b` adopted that reload is the spill."*
+  **That reload happened.** Had the model been flipped without the binary, ministral would have
+  loaded into an 8192 runner at ~7.65 GB on an 8 GB card. The order was not a precaution; it was the
+  thing that saved it.
+* **"No speedup" still stands — for the OTHER reason.** Not because the window was already 4096, but
+  because `num_ctx` governs memory, not per-token compute (the correction at `92a63d6`). Flat
+  wall-clock remains the expected result.
+* **A real before/after on VRAM is now available and was not before:** 5.3 GB @ 8192 → ~4.99 GB @
+  4096. **Not yet observed** — nothing local is queued (the editor queue is empty, see D-T32), so the
+  first 4096 request is the **02:00 ingest drain**. Verify there.
+* **`ollama ps` is a usable check again** — the "blind verify" note above applied only while the
+  accident held. The journal `built=` stamp remains authoritative.
+
 ---
 
 ##### FLAGGED BEFORE THE DECISION, AND SCOTT DECIDED ANYWAY — SO IT IS A WATCH ITEM, NOT A BLOCKER
@@ -2118,6 +2237,127 @@ the one change this window gets (§0 rule 4). Sequence it AFTER the model swap h
 two are unattributable. **Also settle the disagreement rather than assuming the env is right** —
 D-T19's handoff may be describing a value that was since changed, or may simply have been wrong; the
 1070 Ti's 8 GB and f16 KV at 4 slots is the arithmetic that decides whether 4 was ever safe.
+
+##### ✅ SETTLED 2026-08-08 16:04 EDT — **D-T19's HANDOFF WAS RIGHT AND THE TABLE ABOVE IS WRONG. THERE IS NO ARCHBOX MIRROR.**
+
+**Read from the daemon's own boot line rather than from the env file, which is what the row above got
+wrong.** At the D-T29 restart:
+
+```
+ollama reachable base_url=http://192.168.1.77:11434  max_concurrent=3
+ollama reachable base_url=http://localhost:11434     max_concurrent=4
+```
+
+**The client sends FOUR locally, against a server running `OLLAMA_NUM_PARALLEL=4`. Client and server
+agree; there is nothing inverted and nothing to fix.**
+
+**Where the error came from:** the Rust client does not read `OLLAMA_MAX_CONCURRENT`. It reads
+**`COGNITION_BACKEND_CONCURRENCY`**, live in archbox `.env.local` as
+`"http://localhost:11434=4,http://192.168.1.77:11434=3"`. `OLLAMA_MAX_CONCURRENT=1` **is also in that
+file and is inert for this client** — grepping the env for a plausible-looking name found a variable
+nothing reads. **The lesson is the one T2 keeps making: read the observation (the boot line), not the
+label (the env var).**
+
+**Consequence: the "archbox mirror of D-T30" is struck from the queue** — it was an artifact of the
+misread, and the Editor is not being throttled to one call at a time. **D-T30 on the Mac is
+unaffected and remains real** (that one was measured on the host, not inferred from an env file).
+*(`ARTICLE_NUM_CTX`'s own doc already recorded local concurrency as 4 — "`COGNITION_BACKEND_CONCURRENCY=localhost=4`",
+effective parallelism ~1.85× — so the tree and the boot line agreed all along; only this table did not.)*
+
+---
+
+### D-T32 — **D-T21'S CAP AND §2 CLAUSE 1 CANNOT BOTH HOLD. THE EDITOR IS AT 100% OF WHAT IT IS ASKED; THE CAP SHRANK THE ASK BY 81%.** (measured 2026-08-08 15:50 EDT)
+
+**Found by running step 1 of the Saturday deploy — `rail-cutover-check.sh`, no `DAY` override, i.e.
+8.2 day 1. It came back FAIL and the session stopped on it (§0 rule 3) before deploying anything.**
+
+| clause | reading | verdict |
+|---|---|---|
+| 1 · coverage ≥95% | **921 / 4,813 = 19.1%** | **FAIL** |
+| 2 · packet presence | 206 / 206 legacy entity-days, 0 missing | PASS |
+| 3 · precision | 50-link sample emitted | **UNSCORED** (needs a human) |
+| 4a · dead-letters | 0 | PASS |
+| 4b · fixture gate | `rust/bin/eval` not present | NOT RUN |
+| 5 · accounting | 57,557 claims, 0 orphans | PASS |
+
+*(context: 1,238 packets compiled, 2,257 editor reads, 543 storylines opened)*
+
+##### THE COLLAPSE IS REAL, MONOTONIC, AND NOT A LATENCY ARTIFACT
+
+| day | articles | read within 24h | coverage |
+|---|---|---|---|
+| Aug 3 | 6,905 | 6,904 | **100.0%** |
+| Aug 4 | 7,985 | 7,984 | **100.0%** |
+| Aug 5 | 8,358 | 8,132 | 97.3% |
+| Aug 6 | 9,628 | 8,155 | 84.7% |
+| **Aug 7** | **4,813** | **921** | **19.1%** |
+
+**Checked before theorising: "read EVER" equals "read within 24 h" — both 921.** The missing 3,892
+were not read late, they were **never read**. So it is not the mid-drain sampling artifact that
+`ARTICLE_NUM_CTX`'s doc comment offers ("a low clause-1 reading means the sample was taken
+mid-drain, not that the Editor is starved") — **that sentence is now false and should be corrected
+when the constant is next touched.**
+
+##### THE CAUSE IS D-T21'S CAP, AND THE ARITHMETIC CLOSES TO THE ARTICLE
+
+`logs/pipeline-ingest.log` logs the bite directly —
+`msg="editor read cap reached" enqueued=10 withheld=N cap_per_entity_day=10`:
+
+| day | entities capped | withheld | + read | = arrivals |
+|---|---|---|---|---|
+| Aug 6 | **0** | 0 | — | — |
+| Aug 7 | 110 | 3,892 | 921 | **4,813 ✓ exact** |
+| Aug 8 (to 15:50) | 121 | 4,493 | 1,085 | **5,578 ✓ exact** |
+
+**Two days, two exact identities. The cap accounts for 100% of the coverage miss — there is no
+residual for anything else to explain.** Aug 6 shows `entities_capped=0`, so the cap's first bite is
+the **02:00 Aug 7 cron**, exactly where the curve breaks. (Aug 6's own 84.7% is the same cap reaching
+backwards: its late-arriving tail was enqueued by that Aug 7 run and capped there.)
+
+**Measured against what the Editor was actually ASKED to do, it read 921 of 921 = 100.0%.** Nothing
+is stuck: `pipeline_work` holds **zero `editor` rows**, 0 due and 0 deferred; no dead-letters; the
+harness is healthy and drained everything handed to it. **The Editor is not starving. It is idle
+because the queue is empty by design.**
+
+**The pre-cap baseline predicted this and named its own falsifier — it has been SCORED, in the
+one-rail phase 8 Log under "8.2 DAY 1".** Short version: `p50` held at 2 and the tail trimmed as
+intended (272 → 111 → 24 entities over 10), **but the volumes it said must not fall, fell** (entity-
+reads 16,077 → 5,966 → 2,039), which is verbatim the condition the baseline called *"the cap is
+over-reaching, and that is a finding."* **One trap recorded there: `max` does NOT clamp to 10 (101 on
+Aug 7), because the cap bounds ENQUEUES per entity while that metric counts a read once per LINKED
+entity — one enqueued article credits every entity it links to. Do not score `max` against the cap
+and conclude it is broken.**
+
+##### WHY THIS IS A RULING AND NOT A BUG REPORT
+
+**Both things are working as configured, and they are incompatible:**
+* **D-T21's cap** withholds at ENQUEUE, per entity per day, by Scott's chosen 10.
+* **§2 clause 1** measures reads against articles ARRIVED, and needs ≥95%.
+
+**While the cap is armed at 10, clause 1 is unreachable — so 8.2's "7 consecutive green days" can
+never start, and the rail cannot close on a condition it is configured to fail.** The cap hits the
+head of the distribution hardest (110 entities — the big clubs — withheld 3,892 between them), so
+raising it slightly would not move coverage much; the shape of the fix matters more than the number.
+
+**Scott's ruling, 2026-08-08: leave the cap at 10 and decide separately. One change, one
+measurement.** The candidates, not chosen and not ordered:
+1. **Redefine clause 1 against the QUEUE, not arrivals** — currently 100%. The 8.9 STATE already
+   pointed here (*"do not trip 8.7's `<80%` rollback trigger on that ratio without defining coverage
+   against the queue"*). Plan-file change only; makes the clause measure the Editor rather than the
+   ingest policy.
+2. **Raise or reshape the cap** — a production behaviour change, measured alone.
+3. **Accept that 81% of arrivals are deliberately unread** and say so in §2, which is a product
+   decision about how much of the feed the rail is meant to cover, not a tuning knob.
+
+##### ⚠ IT ALSO CONFOUNDS D-T31, WHICH IS WHY THE MODEL FLIP WAS HELD
+
+**The D-T31 before-picture (`fixture` 4,693 · `charged` 2,237 · `roster` 2,203 · `transfer` 1,831 ·
+`performance` 1,737 · `general` 1,655 · `injury` 349) was banked at D-T22 pass 3 — PRE-CAP.** An
+after-picture taken now would be drawn from a sample **81% smaller and reshaped toward the capped
+head of the distribution**. A tag-mix move would be unattributable between the cap and ministral —
+and `injury` (349, the one to watch hardest because nothing subscribes to it, D-T25) is the smallest
+count and the most vulnerable to exactly this. **Scott held the flip on this basis, 2026-08-08.**
+**Re-bank the before-picture post-cap before the swap, or the swap has no honest baseline.**
 
 ---
 

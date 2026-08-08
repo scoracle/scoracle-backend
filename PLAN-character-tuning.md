@@ -2230,6 +2230,52 @@ before-picture is already banked (D-T22 pass 3): packets carry `fixture` 4,693 �
 move in that mix after adoption is a finding, not noise — and `injury` is the one to watch hardest,
 since **nothing subscribes to it yet (D-T25)** and a change there would be silent.
 
+##### ✅ THE BASELINE IS RE-BANKED POST-CAP, PRE-FLIP — 2026-08-08 16:30 EDT, gemma3:4b
+
+**Banked to unblock the flip: D-T32's cap made the D-T22 numbers unusable as a comparator, and this
+replaces them.** Method, so the after-picture uses the same one:
+`unnest(packets.routing_tags)` grouped by `packets.compiled_at::date`.
+
+**FIRST, THE METHOD DEFECT IN THE OLD BASELINE.** D-T22 pass 3 was an **ALL-TIME CUMULATIVE** count,
+not a windowed one — re-running it today gives `fixture` 6,173 · `charged` 3,241 · `roster` 2,993 ·
+`transfer` 2,602 · `performance` 2,382 · `general` 2,054 · `injury` 534 · **`contract` 459**. Two
+consequences: **a cumulative total barely moves when new packets arrive, so it could never have
+detected the shift it was banked to detect**, and **it omits `contract` entirely — the taxonomy has
+EIGHT routing tags, not the seven on record.**
+
+**THE USABLE INSTRUMENT IS SHARE-PER-DAY, AND IT IS STABLE ACROSS THE CAP BOUNDARY:**
+
+| tag | Aug 6 (pre-cap) | Aug 7 (post-cap) | Aug 8 (post-cap) |
+|---|---|---|---|
+| `fixture` | 30.8% | 26.7% | 31.0% |
+| `charged` | 15.3% | 19.0% | 16.1% |
+| `roster` | 14.8% | 14.4% | 12.6% |
+| `transfer` | 12.1% | 15.0% | 16.0% |
+| `performance` | 11.8% | 11.2% | 10.5% |
+| `general` | 10.8% | 6.5% | 8.6% |
+| `injury` | 2.5% | 3.7% | 1.6% |
+| `contract` | 1.9% | 3.5% | 3.6% |
+| *packets compiled* | *9,914* | *1,238* | *523* |
+
+**This is the finding that matters for sequencing: packet VOLUME fell ~8×, but the SHARES held to a
+few points.** So **normalising to share largely neutralises the cap confound** — which means the
+swap does NOT have to wait for the cap ruling, as long as the comparison is share-based and never
+count-based. **The hold on D-T31 can be lifted on this instrument.**
+
+**Two honest limits on it:**
+* **`injury` is too small to read per-day at current volumes** (113 → 17 packets; 3.7% → 1.6% is
+  ~20 packets of noise). **Pool several days before calling any `injury` move**, which is awkward
+  precisely because it is the tag that most needs watching (D-T25).
+* **`general` is the one real pre-existing move** (10.8% → 6.5%/8.6%) and it happened WITHOUT a model
+  change, so some share drift is native to the cap/volume shift. Treat a post-swap move of that size
+  as suggestive, not conclusive.
+
+**`story_types` mirrors `routing_tags` exactly except `charged` is absent from it** — so `charged` is
+a derived routing tag, not a story type. **`register` is EMPTY on ~75% of packets** (Aug 6: 7,431 of
+9,914 blank; then `anticipation` 1,317 · `celebration` 521 · `outrage` 508 · `resignation` 137).
+**That blank majority is itself worth a look** — `register[outrage]` reading neutral is already a
+known 7.11 defect, and a three-quarters-empty field is a weak signal to route on.
+
 ##### ⚠ THE TOKENIZER IS DENSER — MEASURED 2026-08-07, AND IT CUTS BOTH WAYS
 
 Scott expected more token speed from the swap. **Half right, and the other half tightens D-T29.**

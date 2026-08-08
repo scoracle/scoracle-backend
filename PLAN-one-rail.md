@@ -30,12 +30,19 @@ Deployed **narrowly** (`cargo build --bin scoracle-cognition` + atomic rename in
 the Rust delta over `6fbf798` is the two `num_ctx` constants and doc comments, nothing else.
 *(`cp` onto the running binary fails `ETXTBSY`; stage outside `rust/bin/` and `mv` in, as release.sh does.)*
 
-**⛔ D-T31 IS HELD — NOT DEPLOYED, BY DECISION, NOT BY OVERSIGHT.** The Editor stays on `gemma3:4b`.
-Scott's ruling 2026-08-08: the swap's headline measurement is the **tag distribution**, its
-before-picture was banked **pre-cap**, and D-T21 now withholds 81% of arrivals — so an after-picture
-taken today is unattributable between the cap and ministral. **Re-bank the before-picture post-cap
-first.** The ordering constraint still stands for whenever it runs: **4096 binary first** — and that
-binary is now deployed, so the hazard is closed.
+**D-T31 WAS HELD AT 16:10 AND ITS BLOCKER IS NOW CLEARED AT 16:30 — the Editor is still `gemma3:4b`,
+and the flip is READY TO RUN ON SCOTT'S WORD.** The hold's only reason was a missing honest
+comparator: the before-picture was banked **pre-cap** and D-T21 withholds 81% of arrivals. **A
+post-cap, pre-flip baseline is now banked** (tuning §D-T31, "THE BASELINE IS RE-BANKED"), and it
+carries a result that removes the objection: **packet volume fell ~8× across the cap boundary but the
+tag SHARES held to a few points**, so a **share-based** comparison largely neutralises the cap.
+**Compare shares, never counts.** Two limits stand: `injury` is too small to read per-day (pool
+days), and `general` already moved 10.8% → 6.5% with no model change. **The ordering constraint is
+satisfied — the 4096 binary is deployed, so the spill hazard is closed.**
+
+**Also corrected while banking it: the old before-picture was an ALL-TIME CUMULATIVE count** (it
+could never have detected the shift it was banked for) **and it omits `contract` — there are EIGHT
+routing tags, not seven.**
 
 **⛔ 8.2 DAY 1 IS A FAIL, AND IT IS STRUCTURAL — see D-T32.** `rail-cutover-check.sh` (no `DAY`
 override) returned **clause 1 = 921/4,813 = 19.1%**, against a ≥95% bar. Clauses 2, 4a, 5 PASS;

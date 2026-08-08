@@ -1,5 +1,18 @@
 # PLAN — Character Tuning (session notes)
 
+> **COMPANION FILE — `PLAN-one-rail.md`.** These two are one document split by *kind*, not by topic,
+> and a session usually needs both:
+> * **That file is the RAIL** — phases, plumbing, migrations, cutover. **Its §0 working rules bind
+>   every tuning session too** (build to `target/debug`, never `rust/bin/`; one change one
+>   measurement; deploys are explicit; DB access from archbox; STOP on surprise). **Its Appendix D is
+>   the LEDGER — the index of every D-T number.**
+> * **This file is the DIAGNOSIS** — the numbers behind each D-T, plus **Appendix S** (the schema
+>   inbox) and the per-session handoff fences.
+>
+> **The rule that keeps them from drifting: a finding is written in BOTH — one line in Appendix D,
+> the detail here — in the same commit.** D-T20→D-T31 were indexed there only on 2026-08-08, twelve
+> entries late; the ledger had stopped at D-T19 while this file had run on to D-T31.
+
 **Founded 2026-08-05 by Scott's ruling: "this is a tuning issue… this session's goal is to
 get the new rail built. Then we focus on tuning the LLM junctions to really ratchet up the
 speed of the flow."**
@@ -305,6 +318,35 @@ rows. The ingest path: Google does the relevancy, the Editor is the valve.
 
 ## Handoff — TURBOFIELDFARE / MoE-on-SSD for the voice tier (fresh context window; Scott's request 2026-08-08)
 
+> ## ✅ CLOSED — NOT ADOPTED. **Scott's call, 2026-08-08 ~01:15 EDT: "forget we discussed the MoE."**
+> **DO NOT EXECUTE THIS HANDOFF.** Nothing was cloned, built, installed or benchmarked; the Mac was
+> never touched. Kept only for the measurements in it and so the question is not re-opened from
+> scratch. **The reasoning that closed it, briefly, because it is the reusable part:**
+> 1. **PREFILL, not decode, disqualifies it for the voice tier.** Prefill routes across ~all experts
+>    (decode touches only the ~4B active slice), so it is disk-bound and **structural, not tunable**.
+>    Even granting this M4 3.6× the M2's measured 27.7 tok/s, draining the queued ~3,500 `narratives`
+>    + ~3,100 `vibe` costs **5.4–19 days of prefill alone**, before one output token. Today's Editor
+>    baseline is ~200 tok/s prefill (derived from §7b's 87%-decode figure).
+> 2. **The memory it frees is the memory it needs.** Half of decode is SSD expert reads with a WARM
+>    page cache; the cache is the 14.3 GB expert file. Running it beside `ministral-3:14b` (8.8 GB
+>    resident, already 3.47M pageouts) starves that cache. **So it never traded quality for
+>    concurrency — it lost on both axes**, and D-T30's 1→4 slots is the competing claim on the same
+>    16 GB, measured and free.
+> 3. **"26B-A4B beats a 14B" was the load-bearing premise and it does not hold as stated.** Scott's
+>    pushback — *experts are dense in their field* — is the right question and the answer is that
+>    **learned routing is not domain routing**: it is per-token and per-layer, and published analysis
+>    (Mixtral) found specialization tracking **syntax and token identity, not topic**. TurboFieldfare's
+>    own slow prefill *is* that evidence — domain-specialized experts would give a sports prompt a
+>    small cacheable working set. Expected quality vs a dense 14B: **roughly a wash.**
+> 4. **THE POINT THAT GENERALIZES BEYOND THIS RUNTIME, and the reason this is worth keeping:**
+>    every open defect on the board — `momentum` answering in markdown, `sigil`'s NBA crowns (D-T28b),
+>    the `names[]` coach/manager class, `register[outrage]` reading neutral — is a **contract-adherence
+>    or labeling failure, not a knowledge failure.** Density buys knowledge. **These sit on the
+>    JUDGMENT axis of T2 CLARIFIED**, where gemma3:4b wrote the correct descriptor while mislabeling
+>    the role, seven iterations running. **`ministral-3:3b` beating `gemma3:4b` 52/53 to 47/53 is the
+>    same lesson with a number on it: the smaller model won.** Reach for post-training fit and prompt
+>    contracts before parameter count.
+
 **Read this whole section, then `route.rs`'s `VOICE_NUM_CTX` doc, then D-T29/D-T30/D-T31 below.
 Do NOT read the rest of the repo.** The question is narrow: *can an SSD-streamed MoE replace or
 augment `ministral-3:14b` on the Mac voice tier?*
@@ -393,6 +435,78 @@ failing ~86%). **Scope the experiment to the Oracle, not the voice tier.**
 deploy the 4096 binary FIRST, then switch the model** — ministral-3:3b at 8192 is ~7.65 GB on an
 8 GB card and spills. Saturday: 8.7 at ~10:55 → `rail-cutover-check.sh` (no `DAY`) = **8.2 day 1**
 → `rail-6.7-bands.sh` after 22:10.
+
+---
+
+## Handoff — D-T29 + D-T31, THE SATURDAY DEPLOY (fresh context window; written 2026-08-08 ~01:30 EDT)
+
+*This is the CURRENT handoff. The TurboFieldfare fence above it is CLOSED and must not be executed.*
+
+```
+Work the SATURDAY DEPLOY in scoracle-backend (Scoracle, /Users/scotty/scoracle/scoracle-backend).
+Two staged changes go out, IN ORDER, and then get measured. Nothing else.
+
+READ FIRST: PLAN-one-rail.md STATE block (top) + §0 working rules, then PLAN-character-tuning.md
+§D-T29 and §D-T31 including the "ALREADY RUNNING AT 4096 BY ACCIDENT" subsection. Do NOT read the
+rest of the repo. The TurboFieldfare handoff is CLOSED — skip it.
+
+TIME GATE. 8.7's watch closes ~10:55 EDT. Nothing deploys before that. Check the clock first.
+
+STATE. RAIL=packet live. Deployed binary 6fbf798 (built 2026-08-06 19:32Z). Tree clean at 6f306f9.
+Both changes committed, neither deployed. ministral-3:3b already pulled on archbox (3.0 GB).
+D-T21's cap is ARMED (EDITOR_MAX_READS_PER_ENTITY_DAY=10, verified 2026-08-08).
+
+ORDER — NOT OPTIONAL:
+  1. 8.7 closes ~10:55 -> scripts/rail-cutover-check.sh with NO DAY override (= 8.2 day 1).
+  2. DEPLOY the D-T29 4096 binary. This trips the .path watcher and restarts scoracle-cognition;
+     that is intended here and only here.
+  3. THEN edit COGNITION_ROUTE_EDITOR=gemma3:4b -> ministral-3:3b in archbox .env.local, restart.
+  4. Confirm resident ~6.0 GB and gemma3:4b evicted (MAX_LOADED_MODELS=1).
+  5. scripts/rail-6.7-bands.sh only AFTER 22:10 EDT. Never close phase 6 on an INTERIM banner.
+Flipping the model while the deployed binary still asks 8192 puts ministral at ~7.65 GB on an 8 GB
+card and spills it to CPU. That is the one mistake that breaks production.
+
+TWO THINGS ALREADY KNOWN THAT WILL MISLEAD YOU IF YOU FORGET THEM:
+  * THE DEPLOY WILL SHOW NO SPEEDUP. The Editor is already running at 4096 because
+    OLLAMA_KEEP_ALIVE=-1 pinned the runner the Aug 7 eval loaded from target/debug. FLAT IS THE
+    EXPECTED RESULT. Do not go hunting for a second knob to explain it. The deploy is still
+    required: any reload restores 8192, and under ministral that is the spill.
+  * `ollama ps` CANNOT VERIFY THE DEPLOY — it reads 4096 either side. Verify from the journal:
+    `scoracle-cognition starting ... built=` must postdate d4c80a0 (2026-08-07 10:03 EDT).
+
+WHAT TO MEASURE AFTER THE SWAP — THE TAG DISTRIBUTION, NOT THE GATE SCORE. story_type and register
+differ between the two models on fixtures that BOTH PASSED, and routing_tags derives from them, so
+the swap can shift which voices wake with the gate registering nothing. Before-picture (D-T22 pass
+3): fixture 4,693 / charged 2,237 / roster 2,203 / transfer 1,831 / performance 1,737 / general
+1,655 / injury 349. WATCH `injury` HARDEST — nothing subscribes to it (D-T25), so a change is silent.
+Also observe real Editor eval_count: the speed question is OPEN (decode +13%, tokenizer 32% denser
+= net wash). Do not promise a speed win.
+
+DO NOT:
+  * Do not deploy before 10:55. Do not run rail-6.7-bands.sh before 22:10.
+  * Do not change OLLAMA_MAX_CONCURRENT on archbox this session (see below) — one change, one
+    measurement, and the swap owns this window.
+  * Do not touch any prompt or *_PROMPT_VERSION (that is 7.11 — a bump is a cache key and reopens
+    ALL that stage's work fleet-wide).
+  * Do not raise ARTICLE_MAX_MODEL_CHARS (9_000). It is now load-bearing for the 4096 window under
+    ministral's denser tokenizer — headroom is 12%, not 28%.
+
+NEXT AFTER THIS, ALREADY QUEUED (do not start them here):
+  * D-T30 — Mac OLLAMA_NUM_PARALLEL 1 -> 2, measure, then consider 4. Largest throughput change
+    available; 4 slots already fit at 9.74 GB.
+  * The archbox mirror of it — server NUM_PARALLEL=4 while the client's OLLAMA_MAX_CONCURRENT=1,
+    on the Editor, the stage running at ~96% of ingest with no headroom (§0a). Settle the
+    disagreement with D-T19's handoff (which recorded 4) before changing it.
+  * The VOICE session proper: D-T23 -> D-T24 -> D-T25, logging schema observations to Appendix S.
+
+LAWS: describe-then-derive (T2 — the axis is OBSERVATION vs JUDGMENT, see PLAN-one-rail §0);
+ONE CHANGE, ONE MEASUREMENT; STOP on surprise and write it down rather than improvising; build to
+target/debug for tests, never rust/bin (except step 2); DB access from archbox, not the Mac.
+
+FINISH RITUAL: fill in the measured numbers, update BOTH files in the same commit (one line in
+PLAN-one-rail Appendix D, the detail in PLAN-character-tuning), update the STATE block, commit, and
+print the next handoff last.
+```
 
 ---
 

@@ -1,6 +1,45 @@
 # PLAN — One Rail
 
-**STATE: Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. Phase 7 complete on its plumbing (7.11 +
+> **COMPANION FILE — `PLAN-character-tuning.md`.** These two are one document split by *kind*, not
+> by topic, and a session usually needs both:
+> * **This file is the RAIL** — phases, plumbing, migrations, cutover. **Appendix D at the bottom is
+>   the tuning LEDGER: one D-T number + one-line measured baseline per finding, and nothing more.**
+> * **`PLAN-character-tuning.md` is the DIAGNOSIS** — the numbers, code pointers, candidate knobs and
+>   the measurement that would settle each D-T. It also carries **Appendix S** (the schema inbox) and
+>   the per-session **handoff fences**.
+>
+> **The rule that keeps them from drifting: a finding is written in BOTH — one line here, the detail
+> there — in the same commit.** (D-T20→D-T31 were indexed here only on 2026-08-08, twelve entries
+> late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
+> ledger, it may never HALT on it.**
+
+**STATE (2026-08-08 ~01:30 EDT — supersedes the 8.9 block below, which stays for its detail).**
+Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. **PHASE 6 IS STILL OPEN ON 6.7 ALONE** — its window
+closes ~Aug 8 22:08 EDT; run `scripts/rail-6.7-bands.sh` only after that, and **never close phase 6
+on an INTERIM banner.** Phase 7 complete on its plumbing (7.11 + 7.15 outstanding). Phase 9 (the
+Rust demolition + the 30,224 parked `article_read` rows) untouched. `RAIL=packet` live.
+
+**DEPLOYED: `6fbf798`, built 2026-08-06 19:32Z** (8.10 + 8.11 — `news_article_entities` 9 columns
+and two writers → 5 columns and ONE writer, the Editor; mig 214; schema snapshot `9986cab`).
+The 8.9 block below reads `9e4a12e`; that is superseded.
+
+**⛔ TWO CHANGES ARE COMMITTED AND NOT DEPLOYED, AND THEIR ORDER IS NOT OPTIONAL:**
+1. **D-T29** — `ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 @ `d4c80a0`, 400 lib tests pass.
+2. **D-T31** — Editor → `ministral-3:3b` (52/53 vs 47/53). Model already pulled on archbox.
+
+**Deploy the 4096 binary FIRST, then flip `COGNITION_ROUTE_EDITOR`** — ministral at 8192 is ~7.65 GB
+on an 8 GB card and spills. Both were held for **8.7's watch window, which closes Sat 2026-08-08
+10:55 EDT** (it already carried three confounds: the flip, D-T21's cap arming, and the deploy
+itself). **SATURDAY'S ORDER:** 8.7 closes ~10:55 → `rail-cutover-check.sh` (no `DAY` override) =
+**8.2 day 1** → deploy D-T29 → flip D-T31 → `rail-6.7-bands.sh` after 22:10.
+
+**Known before the measurement (D-T31 readiness, 2026-08-08 @ `6f306f9`): the Editor is ALREADY
+running at 4096 by accident** — `OLLAMA_KEEP_ALIVE=-1` on archbox pinned the 4096 runner that the
+Aug 7 eval loaded from `target/debug`. **So the D-T29 deploy will show NO speedup — flat is the
+expected result, not a failure — and `ollama ps` cannot verify the deploy landed** (it reads 4096
+either side). Verify from the journal's `built=` stamp instead.
+
+*(8.9 STATE, superseded 2026-08-08.)* **Phase 7 complete on its plumbing (7.11 +
 7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND THE HAND-ROLLED RELEVANCE
 MACHINERY IS GONE FROM BOTH ENDS OF INGEST — 8.8 deleted the judgment applied AFTER the fetch
 (the regex), 8.9 deleted the judgment applied BEFORE it (the query builder).** Deployed on archbox
@@ -4302,3 +4341,60 @@ sessions. Rail sessions append to both as findings surface; they fix nothing mid
   coach/manager class (Shanahan, Moyes, Arteta, Bellingham, Rangers-as-club) and `register[outrage]`
   reading neutral. **§2 clause 4b therefore stays FAIL and stays waived** — but it is now waived
   against a number that holds still, which is what the waiver was always owed.
+
+---
+
+### D-T20 → D-T31 · the index (backfilled 2026-08-08 ~01:30 EDT)
+
+**These twelve accumulated in `PLAN-character-tuning.md` across the 2026-08-06/07 sessions and were
+never indexed here, which broke the ledger convention above.** Backfilled as one-liners; the
+diagnosis, the numbers and the candidate knobs stay in the tuning file at the section named.
+
+- **D-T20 · the Insider's proximity gate went inert at the cutover, and nobody chose that.**
+  Knob (a) DONE — the title-proximity clause deleted at both sites @ `28fcf45`, a behaviour change
+  for the pre-flip tail only (0 of 271 post-flip rows carried a `title_pos`). Open: does
+  `entity_roles` replace what it did? → *tuning §7a*
+- **D-T21 · cap the reader per entity.** Built, unit-tested, shipped inert
+  (`EDITOR_MAX_READS_PER_ENTITY_DAY` defaults 0 = no cap). **ARMED at 10/day on archbox 2026-08-06
+  17:39 — verified still set 2026-08-08.** Buys the Investigator and the graph headroom out of the
+  Editor's parity budget (§0a). **One of 8.7's three confounds.** → *tuning §8a*
+- **D-T22 · the schema audit** — CLOSED, took a full session. The code was being contorted to fit a
+  schema built for the pre-Google, pre-AI pipeline. Its residue is **Appendix S** in the tuning file
+  and it spawned D-T23/24/25. Lesson banked: never delete ahead of the code. → *tuning §8b*
+- **D-T23 · one article, many tags.** A single article needs multiple routing tags; the taxonomy
+  emits one. **First item of the VOICE session.** → *tuning §8b, "new ledger items"*
+- **D-T24 · the heat index moves to the character.** Measured on the 200 hottest real pairs.
+  Retires a legacy SQL path that has two readers, both themselves legacy. → *same*
+- **D-T25 · the Scout is not listening, and the `injury` tag goes nowhere.** Nothing subscribes to
+  `injury` — **which is why it is the tag to watch hardest under D-T31's swap: a change there is
+  silent.** → *same*
+- **D-T26 · wire `assert_provenance_firewall`.** One line in `cron-narrative-links.sh`. The cheapest
+  item in the schema appendix. → *tuning Appendix S*
+- **D-T27 · settle the 6 caller-less SQL functions** — `COMMENT ON FUNCTION` or drop, per the table.
+  (Carries the 2026-08-06 lesson: **SQL functions are code** — `compute_transfer_heat` stayed live
+  six hours after being recorded as deleted from Rust. Check `pg_get_functiondef` too.)
+  → *tuning Appendix S*
+- **D-T28 · two live dead-letter streams.** (a) `momentum` answers in **markdown instead of its
+  contract** — 77 failed, 76 in one day, 8–12/hour. *The one-rail STATE said these stopped at the
+  deploy; that was true when written and is now false.* First candidate is the contract prompt, not
+  the model — the same model answers five other voices correctly, so it rides **7.11**.
+  **(b) `sigil` NBA-team crowns failing ~86% — UNDIAGNOSED.** Context overflow is RULED OUT (D-T29:
+  sigil maxes at ≈1,897 tok, under half the 4096 window). → *tuning §D-T28*
+- **D-T29 · every junction runs at a 4096 context window.** 1070 Ti half **DONE in the tree**
+  (`ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096 @ `d4c80a0`, 400 lib tests pass) — **committed, NOT
+  deployed.** Mac half **NOT met and it is a DIET, not a config change**: `narratives` ≈7,574 tok and
+  `vibe` ≈6,437 tok are ~1.8×/1.6× over 4096, and the failure mode is silent system-prompt eviction.
+  **Trim the prompts; never raise the window.** → *tuning §D-T29*
+- **D-T30 · the Mac serves ONE call at a time while the client sends three.**
+  `OLLAMA_NUM_PARALLEL=1` against `COGNITION_BACKEND_CONCURRENCY=…1.77=3`. **4 slots already fit**
+  (9.74 GB of a ~10.7 GB budget; `FLASH_ATTENTION`+`q8_0` already on), so the only thing in the way
+  is the env var. Budget **2–2.5× aggregate, not 4×**; step 1→2→4. **Largest single available
+  throughput change on the board.** → *tuning §D-T30*
+- **D-T31 · the Editor moves to `ministral-3:3b`.** Scott's decision on a measured win:
+  **52/53 vs gemma3:4b's 47/53**, the incumbent reproducing its documented baseline exactly. The win
+  is the **`names[]` discovery channel** — directly the D-T19 coach/manager class. **Speed is a wash,
+  not a win** (decode +13%, but the tokenizer is **32% denser**; 4096 headroom falls 28% → 12%, so
+  `ARTICLE_MAX_MODEL_CHARS = 9_000` is now load-bearing). **ORDERING IS NOT OPTIONAL: deploy the
+  D-T29 4096 binary FIRST, then flip `COGNITION_ROUTE_EDITOR`** — ministral at 8192 is ~7.65 GB on an
+  8 GB card and spills. **Watch the TAG DISTRIBUTION, not the gate score:** `story_type`/`register`
+  drift past the fixtures and decide which voices wake. → *tuning §D-T31*

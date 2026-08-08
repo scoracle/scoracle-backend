@@ -4483,11 +4483,21 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   a DIET, not a config change**: `narratives` ≈7,574 tok and `vibe` ≈6,437 tok are ~1.8×/1.6× over
   4096, and the failure mode is silent system-prompt eviction. **Trim the prompts; never raise the
   window.** → *tuning §D-T29*
-- **D-T30 · the Mac serves ONE call at a time while the client sends three.**
-  `OLLAMA_NUM_PARALLEL=1` against `COGNITION_BACKEND_CONCURRENCY=…1.77=3`. **4 slots already fit**
-  (9.74 GB of a ~10.7 GB budget; `FLASH_ATTENTION`+`q8_0` already on), so the only thing in the way
-  is the env var. Budget **2–2.5× aggregate, not 4×**; step 1→2→4. **Largest single available
-  throughput change on the board.** → *tuning §D-T30*
+- **D-T30 · ~~the Mac serves ONE call at a time~~ — IT SERVES TWO. CORRECTED 2026-08-08 from the
+  live process:** `OLLAMA_NUM_PARALLEL=**2**`, not 1, so **step 1→2 is ALREADY DONE and the remaining
+  move is 2→4.** **4 slots already fit** (9.74 GB of a ~10.7 GB budget; `FLASH_ATTENTION`+`q8_0`
+  confirmed on in the live runner flags), so the only thing in the way is the env var. Budget
+  **2–2.5× aggregate, not 4×**. **Still the largest single available throughput change on the
+  board.** **The live runner also shows `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as
+  `num_ctx × slots` — so halving voice `num_ctx` to 2048 would fund `-np 4` at the same KV, which is
+  the cheapest form of Scott's target 2.** ⚠ **`--context-shift` is ON with `--keep 4`, so
+  `narratives` (≈7,574 tok) and `vibe` (≈6,437 tok) are being cut against a 4096 slot right now —
+  mechanism not yet measured, but the overflow is arithmetic.** → *tuning §D-T30*
+- **D-T33 · the voice host was running TWO ollama servers.** `/usr/local/bin/ollama serve` (the
+  configured one) held :11434 while `Ollama.app` retried forever, writing **36 MB of
+  `bind: address already in use`**. **FIXED 2026-08-08 17:32** — GUI stopped, log truncated, voices
+  verified intact throughout (8.76 GB resident, unbroken). **It is a Login Item and will return at
+  next login: untick "launch at login" in Ollama.app.** → *tuning §D-T33*
 - **D-T31 · the Editor moves to `ministral-3:3b`.** Scott's decision on a measured win:
   **52/53 vs gemma3:4b's 47/53**, the incumbent reproducing its documented baseline exactly. The win
   is the **`names[]` discovery channel** — directly the D-T19 coach/manager class. **Speed is a wash,

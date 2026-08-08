@@ -1992,7 +1992,49 @@ hypothesis is dead, and the sigil cause is still open. Recorded so it is not re-
 
 ---
 
-### D-T30 — **MAC CONCURRENCY IS SET TO 1 AND THE CLIENT ALREADY SENDS 3** (measured 2026-08-07)
+### D-T30 — ~~MAC CONCURRENCY IS SET TO 1~~ **IT IS SET TO 2. CORRECTED 2026-08-08 17:30 EDT.**
+
+> ## ⚠ THE TITLE BELOW IS WRONG AND THE STEP PLAN IS HALF-DONE ALREADY
+>
+> **Read from the LIVE process rather than from recollection** (`ps eww` on the running
+> `ollama serve`, PID 63533, up since Aug 1):
+>
+> ```
+> OLLAMA_NUM_PARALLEL=2      OLLAMA_MAX_LOADED_MODELS=1   OLLAMA_KEEP_ALIVE=24h
+> OLLAMA_FLASH_ATTENTION=1   OLLAMA_KV_CACHE_TYPE=q8_0    OLLAMA_CONTEXT_LENGTH=16384
+> ```
+>
+> **`OLLAMA_NUM_PARALLEL` is 2, not 1.** So D-T30's plan — *"1 → 2, measure, then consider 4"* —
+> **has already had its first step taken.** The remaining move is **2 → 4**, and the "client sends 3
+> to a server that runs 1" framing below is wrong: the server runs 2.
+>
+> **This is the SECOND label-vs-observation error found on 2026-08-08** (the first: the phantom
+> archbox mirror, struck above). Both came from reading an env file or a memory instead of the
+> running system. **T2 applies to our own instrumentation, not just to the models.**
+>
+> ##### The live llama.cpp runner flags, which settle several open questions at once
+>
+> ```
+> llama-server -c 8192 -np 2 --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on
+>              --context-shift --keep 4 -b 512 -ub 512
+> ```
+>
+> * **`-c` is TOTAL context across slots, so 8192 / `-np 2` = 4096 PER SLOT** — which is exactly what
+>   `ollama ps` reports. **This confirms the client's per-request `num_ctx=4096` is being honoured
+>   and that KV scales as `num_ctx × slots`**, the relation §7's budget assumes.
+> * **Therefore the arithmetic for TARGET 2 is direct:** halving voice `num_ctx` to 2048 would fund
+>   `-np 4` at the SAME total KV. **That is the concrete form of "lower ctx → more slots → throughput"
+>   on this host**, and it is the cheapest version of D-T30 available.
+> * **`--context-shift` IS ON, with `--keep 4`.** ⚠ **This is the live mechanism for D-T29's silent
+>   degradation.** `narratives` (≈7,574 tok) and `vibe` (≈6,437 tok) **exceed the 4096-per-slot window
+>   right now**, so their prompts cannot fit and something is being discarded with no error and no
+>   dead-letter. **NOT YET MEASURED — do not assert the exact mechanism** (truncate vs shift) **until
+>   the `prompt_eval_count` test is run against an over-long prompt.** But that the two largest voices
+>   are being cut is arithmetic, not conjecture.
+>
+> *(Original entry follows, kept for its Mac-side sizing which is unaffected.)*
+
+### D-T30 (original text) — **MAC CONCURRENCY IS SET TO 1 AND THE CLIENT ALREADY SENDS 3** (measured 2026-08-07)
 
 **Scott's observation:** *"only two of our characters use more than 4096 tokens. Once we tune the
 ctx window to keep everything under 4096, we should be able to unlock concurrency on Mac. That
@@ -2466,6 +2508,79 @@ head of the distribution**. A tag-mix move would be unattributable between the c
 and `injury` (349, the one to watch hardest because nothing subscribes to it, D-T25) is the smallest
 count and the most vulnerable to exactly this. **Scott held the flip on this basis, 2026-08-08.**
 **Re-bank the before-picture post-cap before the swap, or the swap has no honest baseline.**
+
+---
+
+### D-T33 — **THE VOICE HOST WAS RUNNING TWO OLLAMA SERVERS. FIXED 2026-08-08 17:32 EDT.**
+
+**Found while checking the Mac's serving stack for the MLX question (D-T34).**
+
+| | |
+|---|---|
+| `/usr/local/bin/ollama serve` (PID 63533, PPID 1) | **holds :11434** — the configured server, correct env |
+| `Ollama.app` (PID 63515, PPID 1) | retried the bind **forever**, never succeeded |
+| `~/.ollama/logs/server.log` | **36 MB, 100% `bind: address already in use`** |
+
+**They are independent processes** (both parented to launchd, started 2 s apart on Aug 1), which is
+why stopping the GUI was safe — the CLI server and its `llama-server` child were untouched.
+
+**Fix applied:** AppleScript quit was refused (`-128`), so a direct `TERM` to the GUI only; log
+truncated in place. **Verified after: server ALIVE, runner ALIVE, `ministral-3:14b` still 8.76 GB
+resident at 4096 ctx, `/api/tags` 200, and ZERO new log lines in 12 s.** The voices never noticed.
+
+**⚠ IT WILL COME BACK.** The GUI is a **Login Item**, so it returns at next login and starts
+spamming again. **Untick "launch at login" in Ollama.app's settings** — left for Scott deliberately
+rather than poked at from a script.
+
+*(Worth knowing for any future Mac work: `/usr/local/bin/ollama` is a symlink INTO the app bundle
+(`/Applications/Ollama.app/Contents/Resources/ollama`), so the CLI and the GUI are the same build —
+the conflict is over who runs the SERVER, not which binary.)*
+
+---
+
+### D-T34 — **MLX vs llama.cpp FOR THE VOICE TIER (Scott, 2026-08-08). EVALUATION, NOT A DECISION.**
+
+> *Scott: "We're on Mac and using Ollama for the voice work. I think we should switch to oMLX as
+> we're using Ministral which isn't on the Ollama list for MLX."*
+
+**THE PREMISE IS CORRECT AND IS NOW CONFIRMED FROM THE RUNNING PROCESS, not from docs:** the voice
+tier runs `/Applications/Ollama.app/Contents/Resources/**llama-server**` — i.e. **llama.cpp/Metal,
+NOT MLX.** This ollama (0.32.4) *does* ship MLX internally (7,219 `mlx` symbol hits in the binary),
+so the engine exists but is not serving ministral. No `mlx`/`mlx_lm` was installed on the host.
+
+**AND THE MODEL EXISTS, so the path is viable:** `mlx-community/Ministral-3-14B-Instruct-2512-4bit`
+is published, matching the voice tier's `ministral-3:14b` (13.9B, `mistral3`, Q4_K_M, vision,
+Apache-2.0 → `Ministral-3-14B-Instruct-2512`).
+
+##### WHY THIS IS NOT THE "QUICK WIN" IT LOOKS LIKE — THREE COSTS, ONE OF WHICH COULD MAKE IT A LOSS
+
+1. **It is a PROTOCOL change, not a `BASE_URL` change.** The Rust client speaks **ollama's** API
+   (`/api/generate`, `keep_alive`, `options.num_ctx`). `mlx_lm.server` speaks **OpenAI-compatible**.
+   Switching means a second client path for the Mac host, or a shim.
+2. **Per-request `num_ctx` is the control TARGET 2 depends on**, and it does not map cleanly onto
+   mlx-lm's server. Losing it would cost the very lever the ctx work needs.
+3. **⚠ CONCURRENCY IS THE ONE THAT COULD INVERT THE RESULT.** The throughput win is *via slots*
+   (D-T30), so **a faster single stream on a runtime with weaker parallelism can still be LOWER
+   aggregate throughput** — the exact metric being optimised. **This must be measured at concurrency,
+   not just single-stream, or the benchmark will flatter whichever engine wins one request.**
+
+##### THE BOUNDED EXPERIMENT (Scott authorised it 2026-08-08; run in the 18:00 GPU rest window)
+
+**Constraint that shapes it: 16 GB unified, and the voice model already holds 8.76 GB.** An MLX 4-bit
+14B is ~8 GB, so **the two cannot co-reside** — the comparison requires unloading the voice model,
+which is why it runs inside the harness's own **18:00–19:00 pause** rather than against live traffic.
+
+* **Fixed prompt, byte-identical to both engines**, seeded and sized to **8,735 chars — deliberately
+  just under production's `ARTICLE_MAX_MODEL_CHARS = 9_000`.**
+* **Both at `num_ctx` 4096, `num_predict`/`max_tokens` 300, temperature 0**, warmup then 3 runs,
+  medians reported.
+* **Measured on BOTH axes: single-stream prefill + decode tok/s, AND aggregate tok/s at 2 and 4
+  concurrent.**
+* **⚠ HONEST CAVEAT TO CARRY INTO THE RESULT: this is an ENGINE + QUANT comparison, not a pure engine
+  one.** GGUF `Q4_K_M` (~4.5 bpw, mixed) and MLX `4bit` (group-wise) are different quantisations, so
+  a small quality/size difference is baked in and neither side is a perfect control.
+
+**NO RESULT YET — do not record a verdict here until the numbers land.**
 
 ---
 

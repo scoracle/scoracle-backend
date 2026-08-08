@@ -303,6 +303,99 @@ rows. The ingest path: Google does the relevancy, the Editor is the valve.
 
 ---
 
+## Handoff — TURBOFIELDFARE / MoE-on-SSD for the voice tier (fresh context window; Scott's request 2026-08-08)
+
+**Read this whole section, then `route.rs`'s `VOICE_NUM_CTX` doc, then D-T29/D-T30/D-T31 below.
+Do NOT read the rest of the repo.** The question is narrow: *can an SSD-streamed MoE replace or
+augment `ministral-3:14b` on the Mac voice tier?*
+
+### THE FIND
+
+**`https://github.com/drumih/turbo-fieldfare`** — *"Gemma 4 26B-A4B inference in ~2 GB of RAM on any
+M-series MacBook."* Swift 6.2 + Metal 4, macOS 26+, **Apache 2.0**. Not llama.cpp — a custom runtime.
+Model is **Gemma 4 26B-A4B** (26B total / 4B active), **14.3 GB on disk**. It keeps the **1.35 GB
+shared core + FP16 KV cache resident** and **streams only the experts each token needs from SSD**.
+Docs worth reading in order: `docs/SYSTEM_DESIGN.md`, `docs/BENCHMARKS.md`, `docs/OPENAI_SERVER.md`
+(**the integration path — an OpenAI-compatible local server**), `docs/OPTIMIZATION_JOURNEY.md`.
+
+*(Scott found this via a video and referred to it as "turbo-fieldflare". It is **fieldfare** — the
+bird. That spelling is why the first GitHub search returned nothing.)*
+
+### HARDWARE REALITY — THE DEMO IS NOT THIS MAC
+
+| host | decode | memory |
+|---|---:|---:|
+| 8 GB M2 Air, TurboFieldfare | **5.10–6.30 tok/s** | ~1.9–2.1 GB |
+| **24 GB M5 Pro, TurboFieldfare** | **31–35 tok/s** | ~2.1 GB |
+| 24 GB M5 Pro, **mlx-lm** (same box) | **76–82 tok/s** | 8.3–9.8 GB RSS / 14.7–15.3 GB GPU |
+
+**The 35 tok/s Scott saw is a 24 GB M5 Pro.** This machine is **`Mac16,10`, Apple M4 base, 10-core,
+16 GB, macOS 26.4, Swift 6.3.2** — it satisfies the build requirements but sits between those two
+rows, much nearer the M2. **Do not carry 35 tok/s into a plan for this box.**
+Baseline to beat: **`ministral-3:14b` decodes 12.3 tok/s here today at 8.8 GB resident.**
+
+### ⚠ THE FINDING THAT PROBABLY DECIDES IT: **PREFILL, NOT DECODE**
+
+From `BENCHMARKS.md`, 8 GB M2: a **1,017-token prompt took 36,729 ms of prefill** (TTFT 37.7 s).
+That is **~27.7 tok/s PREFILL**. For comparison the 1070 Ti prefills at **~1,200 tok/s**.
+
+**Scoracle's voice prompts are large** (measured, D-T29): `narratives` **7,574** · `vibe` **6,437** ·
+`momentum` 2,535 · `sigil` 1,897 · `transfers` 1,119 · `rating` 723 tokens. Even granting the M4
+several times the M2's prefill rate, a `narratives` call plausibly spends **minutes** in prefill
+alone. **The voice tier is prompt-heavy and queue-deep (~3,500 `narratives` + ~3,100 `vibe`
+pending), which is the worst possible shape for this runtime.** Decode is only 87% of model time
+when prefill is cheap (§7b) — that assumption does not survive here.
+
+**FIRST THING THE NEXT SESSION SHOULD MEASURE: prefill tok/s on THIS M4 at a realistic 3,000-token
+prompt.** If it lands near the M2's ~28 tok/s, the voice tier is disqualified and the rest is moot.
+
+### THE OTHER NUMBER THAT MATTERS
+
+On the **same** M5 Pro, **mlx-lm ran 2.4× faster (76–82 vs 31–35 tok/s) using ~7× more memory.**
+**TurboFieldfare buys MEMORY, not SPEED.** So the honest framing is: it is for boxes that cannot
+hold the model, and this box already holds a 14B comfortably. Half of `decode` is SSD (`expert
+reads 83.1 ms` of a 162.8 ms step), so **concurrent streams contend for SSD** — expect worse than
+linear degradation. That directly undercuts the "1.35 GB resident so we can run more channels" plan:
+**the freed memory is wanted by the page cache that makes expert reads fast.**
+
+### WHERE IT COULD STILL WIN — the honest case for testing it anyway
+
+A **26B model beats a 14B on quality**, and low-volume/high-value junctions have SHORT prompts:
+**`sigil` 1,897 tok · `rating` 723 tok.** The Oracle/Sigil seat is exactly where a smarter, slower
+model earns its keep — and `sigil` has an open, undiagnosed defect (**D-T28b**, NBA-team crowns
+failing ~86%). **Scope the experiment to the Oracle, not the voice tier.**
+
+### DO NOT DO THESE
+
+* **Do not install or benchmark before Saturday 2026-08-08 10:55 EDT** — 8.7's watch closes then and
+  already carries three confounds.
+* **Do not point production at it** until prefill is measured on this box.
+* **Note `llama.cpp` issue #19825 — "Managed SSD offloading for MoE to prevent macOS kernel
+  panics."** Different runtime, same technique class. This is Scott's working Mac AND the voice
+  host; a panic takes production with it.
+* The Mac is **already paging (3.47M pageouts, ~14 GB)** at 16 GB with the 14B resident.
+
+### SUGGESTED ORDER
+
+1. Clone + `swift build -c release` (build only — harmless, no production contact).
+2. **Measure prefill and decode on this M4** at 700 / 1,900 / 3,000 / 7,500-token prompts.
+   Compare against `ministral-3:14b`'s 12.3 tok/s decode and the 1070's ~1,200 tok/s prefill.
+3. Only if prefill survives: stand up `docs/OPENAI_SERVER.md` and A/B **the Oracle** through
+   `COGNITION_ROUTE_ORACLE_LOGIC_CANDIDATE` + `eval --task oracle` — the same discipline that gave
+   D-T31 its 52/53 (**adoption is a human editing the route, never an auto-promote**).
+4. Watch memory pressure and `pageouts` throughout; abort on any kernel instability.
+
+### SESSION STATE THIS HANDOFF INHERITS
+
+`RAIL=packet` live. **Two changes STAGED AND NOT DEPLOYED, both held until after 8.7 closes:**
+**D-T29** (`ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096, committed, 400 tests pass) and **D-T31**
+(Editor → `ministral-3:3b`, which scored **52/53 vs gemma3:4b's 47/53**). **ORDER IS NOT OPTIONAL:
+deploy the 4096 binary FIRST, then switch the model** — ministral-3:3b at 8192 is ~7.65 GB on an
+8 GB card and spills. Saturday: 8.7 at ~10:55 → `rail-cutover-check.sh` (no `DAY`) = **8.2 day 1**
+→ `rail-6.7-bands.sh` after 22:10.
+
+---
+
 ## 0 · THE REGISTER — every friction point, roadblock and concern going into the session
 
 *Assembled 2026-08-06 ~13:15 EDT, after 8.8, on Scott's instruction: "I want all the friction

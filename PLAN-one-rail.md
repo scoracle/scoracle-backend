@@ -523,6 +523,62 @@ This plan is executed one phase per session, by smaller models, on mobile. The p
 verdict, a routing decision, or an identity match as a bare field. The model describes what the
 text/page says; code computes the judgment. Every contract in this plan is shaped by this.
 
+#### T2 CLARIFIED — the axis is OBSERVATION vs JUDGMENT, not binary vs graded (2026-08-07)
+
+**Written because Scott challenged T2, and the challenge was worth answering properly:** *"T2 seems
+safe, but it also seems opposed to our core new design approach of empowering the LLM junctions to
+generate value. T2 seems like a move back to the regex legacy layer we are trying to get away
+from… LLMs perform very poorly when given definitive yes/no instructions. Where they perform very
+well is giving ranges which we can then use for thresholds."*
+
+**T2 is not the regex layer — it is the opposite of it.** The regex layer had **code guessing
+relevance from text patterns, never reading the article.** T2 has **the model read the full body
+and report what it says, with code combining those reports.** The model does strictly MORE work
+under T2. What it does not do is render the final verdict alone.
+
+**Scott is right that graded beats binary, and the rail already does it.** The Editor is forbidden
+from answering the relevance question at all — its system prompt says so in those words — and
+`entity_roles` is a FOUR-VALUE ordinal scale (`subject | opponent | passing_mention | absent`) that
+`derive_relevance()` thresholds in code. That is the proposed design, already shipped.
+
+**But the measurement in `editor/derive.rs` refines WHERE the line falls, and it is not where
+intuition puts it:**
+
+> *"gemma3:4b reliably writes the truth in the descriptor while still mislabeling the kind and the
+> role (`Paris` on a Tour de France page: kind `club`, role `subject`, descriptor **"capital
+> city"** — measured, stable across seven prompt iterations). The description is the model's; the
+> judgment is ours."*
+
+**`role` IS the graded scale — and the model got it WRONG. The `descriptor`, copied verbatim from
+the article, was RIGHT.** Seven iterations, stable. So the reliable axis is **not binary vs
+graded** — it is **OBSERVATION vs JUDGMENT**. A model is dependable when it copies what the text
+says and undependable when it labels, whether the label is a boolean, a four-value scale, or a
+0–100 score.
+
+**This is why a self-reported likelihood is the WRONG shape for the fix.** It sits on the judgment
+side of the line while *looking* quantitative: models cluster their confidence around 0.8–0.9 and
+the spread does not track accuracy, and unlike a descriptor there is no source text to check it
+against. That is precisely why the code makes the descriptor OUTRANK the role label — *"the
+descriptor is copied from the text; the label is a guess."*
+
+**The rule that follows, and it is the actionable form of T2:**
+> **Ask the model for a VERBATIM OBSERVATION, then threshold on a COUNT — never ask it for its own
+> confidence.** Corroboration across independent sources is a number code can compute and audit;
+> self-reported certainty is not.
+
+`source_performance` is the pattern already working this way: the model reports, and the CONFIRMED
+COUNT decides reliability.
+
+**Applied to 5.4's deferred prose arm — the Investigator's model path** (the fallback for names
+Wikidata does not know, still unbuilt; `Role::Investigator` idles today, which makes it the most
+legacy-shaped junction on the rail and is a fair criticism):
+* **NOT:** *"based on a web search, how likely is this a sports entity? (0–100)"*
+* **BUT:** *"what does this page say this person is? Quote the occupation phrase verbatim."*
+
+Code then matches that phrase against sport vocabulary and thresholds on **how many independent
+sources say it**. Same empowerment, the model on the side of the line where it measurably performs,
+and `source_documents` provenance preserved on every write.
+
 ---
 
 ## §1 — The packet (the contract; everything else is knobs)
@@ -2221,6 +2277,12 @@ trace (log-only) — a census row or players.meta note would let the review surf
 them. **D-T7** initials in nrm (A.J. ↔ AJ) — measure the class size before touching the
 normalizer. **D-T8** name-mismatch class (legal vs known name: Airious/Ace) — the
 Wikipedia-prose + gemma triage arm (5.4's deferred fallback) is the designed answer.
+**→ BEFORE BUILDING THAT ARM, read "T2 CLARIFIED" in §0.** It is the shape the model call must
+take: ask for a **verbatim occupation phrase**, then threshold on **how many independent sources
+say it** — never ask the model for its own confidence score. Scott raised exactly this in
+2026-08-07 (*"is this likely a sports related entity?"* + a threshold), and the measured answer is
+that a self-reported likelihood sits on the JUDGMENT side of the line, where `derive.rs` has the
+model failing while its verbatim descriptor succeeds. Same empowerment, different question.
 
 **OPERATIONAL (Scott, 2026-08-03 ~19:50 EDT): the Mac's character work is PAUSED** — his
 call mid-session (Mac memory pressure). `COGNITION_STAGES` on archbox narrowed to

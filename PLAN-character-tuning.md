@@ -1872,6 +1872,47 @@ it is an order-of-magnitude one.** The correct order, after 8.7 closes:
 2. **THEN** edit `COGNITION_ROUTE_EDITOR=ministral-3:3b` in archbox `.env.local` and restart.
 3. Confirm resident size ≈6.0 GB and that gemma3:4b has been evicted (`MAX_LOADED_MODELS=1`).
 
+**⚠ STEP 1'S VERIFY IS NOW BLIND — the live runner ALREADY reads `CONTEXT 4096`.** See the finding
+immediately below. `ollama ps` will show 4096 both before and after the deploy, so it cannot confirm
+the deploy landed. **Verify from the binary instead:** `scoracle-cognition starting … built=` in the
+journal must postdate `d4c80a0` (2026-08-07 10:03 EDT).
+
+---
+
+##### THE EDITOR IS ALREADY RUNNING AT 4096 — BY ACCIDENT, NOT BY DEPLOY (measured 2026-08-08 ~01:12 EDT)
+
+**Found while checking readiness for the swap. It does not change the order; it changes what the
+post-deploy measurement is allowed to mean.**
+
+| | |
+|---|---|
+| deployed binary | commit `6fbf798`, built **2026-08-06 19:32Z** — predates D-T29 (`d4c80a0`, Aug 7 10:03) |
+| what that binary requests | `EDITOR_NUM_CTX = 8192` (confirmed via `git show 6fbf798:…/editor/mod.rs`) |
+| what the live runner reports | `gemma3:4b`, **`context_length 4096`**, **4.99 GB**, `expires_at` **2318** |
+
+**The mechanism.** Archbox's ollama unit sets **`OLLAMA_KEEP_ALIVE=-1`**. Nothing in the Rust tree
+sets `keep_alive` (grepped — zero hits), so the pin is server-side. **The D-T31 eval run of
+2026-08-07 ~18:55 used the `target/debug` binary, which carries the 4096 constants** — it loaded a
+4096 runner, and `KEEP_ALIVE=-1` pinned it permanently. Production's 8192 requests have not forced a
+reload in the ~6 h since. The **4.99 GB** resident size corroborates a genuine 4096 runner: D-T29
+recorded gemma3:4b at **5.3 GB** at 8192.
+
+**PREDICTION BANKED BEFORE THE MEASUREMENT, which is the only reason it is worth writing down:**
+> **The D-T29 deploy will produce NO measurable Editor speedup.** The 4096 window is already in
+> effect at runtime. **A flat post-deploy wall-clock is the EXPECTED result, not a failed change** —
+> do not rationalise it afterwards, and do not go looking for a second knob to explain it.
+
+**The deploy is still required, and this finding is the sharpest argument for it.** Today 4096 is an
+accident held by a pinned runner. **Any event that reloads that runner restores 8192** — a manual
+`ollama stop`, an ollama restart, a host reboot. With `ministral-3:3b` adopted, that reload is
+D-T31's **~7.65 GB on an 8 GB card, i.e. the spill.** The deploy converts an accident into the
+binary's intent and closes the hole permanently. **The ordering constraint is not merely still
+correct — this is WHY it is correct.**
+
+*(Side effect worth knowing: `OLLAMA_KEEP_ALIVE=-1` means any eval run from `target/debug` leaves its
+window pinned on the live card. The D-T19 rule — stop `scoracle-cognition` before the gate — keeps
+the gate honest, but it does not un-pin what the gate loaded.)*
+
 ---
 
 ##### FLAGGED BEFORE THE DECISION, AND SCOTT DECIDED ANYWAY — SO IT IS A WATCH ITEM, NOT A BLOCKER
@@ -1935,6 +1976,34 @@ prompt alone (2,705) exceeds it.
 Mirroring the Mac's config on archbox would halve local KV (1.62 GB → 0.81 GB at 4096×4), buying
 back most of what the model swap costs. Untested on this card; Pascal's flash-attention support is
 the thing to verify first. **Not done, not assumed to work — logged as a candidate.**
+
+**CONFIRMED 2026-08-08 ~01:12 EDT** by reading the unit file directly, so the candidate above rests
+on a measurement rather than a recollection. Archbox's ollama unit carries exactly three settings:
+`OLLAMA_NUM_PARALLEL=4`, `OLLAMA_KEEP_ALIVE=-1`, `OLLAMA_MAX_LOADED_MODELS=1`. **No
+`OLLAMA_KV_CACHE_TYPE`, no `OLLAMA_FLASH_ATTENTION`** — the KV is f16, as D-T31's spill table assumed.
+
+---
+
+##### D-T30's FINDING HAS A MIRROR ON ARCHBOX — AND IT IS ON THE STAGE §0a CALLS "THE NUMBER TO PROTECT"
+
+**Measured 2026-08-08 ~01:12 EDT, same readiness check.**
+
+| | |
+|---|---|
+| archbox ollama server | **`OLLAMA_NUM_PARALLEL=4`** — can serve four at once |
+| Scoracle client cap, archbox `.env.local` | **`OLLAMA_MAX_CONCURRENT=1`** ← sends one at a time |
+| what D-T19's handoff recorded | `max_concurrent 4` — **the handoff and the live env disagree** |
+
+**This is D-T30 inverted.** On the Mac the client sends 3 to a server that runs 1. **On archbox the
+server can run 4 and the client sends 1.** Both are one-line env changes, and this one lands on the
+**Editor** — the stage §0a identifies as running at ~96% of ingest with *no headroom to burn down a
+backlog, absorb a re-read, or take a prompt that costs 20% more.*
+
+**NOT CHANGED, and deliberately so.** It is a second behaviour change, and D-T31's swap is already
+the one change this window gets (§0 rule 4). Sequence it AFTER the model swap has its reading, or the
+two are unattributable. **Also settle the disagreement rather than assuming the env is right** —
+D-T19's handoff may be describing a value that was since changed, or may simply have been wrong; the
+1070 Ti's 8 GB and f16 KV at 4 slots is the arithmetic that decides whether 4 was ever safe.
 
 ---
 

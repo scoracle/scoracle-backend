@@ -45,6 +45,74 @@ SCHEMA session follows it, and works APPENDIX S at the end of this file.**
 **These are not queue items to be scheduled. They are the direction every knob is judged against,
 and they outrank local tidiness.**
 
+### TARGET 3 — **CLEAR THE DAILY WORK IN 4–5 HOURS** (Scott, 2026-08-08, after D-T34)
+
+> *Scott: "oMLX is a big win here in speed. 2.3x means we can churn through our work that much
+> faster. And when ctx windows are optimized, that makes it that much faster as well. We should, I
+> believe, get to a place where we can get through our daily work in 4-5 hours on both machines."*
+
+**ADOPTED AS THE THROUGHPUT OBJECTIVE.** MLX is the engine for the Mac voice tier (D-T34: **2.13×**
+aggregate at 4 concurrent, measured). What follows is the arithmetic that says how far that gets us,
+because the objective deserves a number rather than a feeling.
+
+##### THE MEASURED BASELINE
+
+| | |
+|---|---|
+| voice calls completed, best full day (Aug 6) | **1,771** *(Aug 7: 1,515)* |
+| 7-day average | 1,108/day *(dragged by an Aug 4 outage: 0 calls)* |
+| harness availability | ~**16 h/day** (runs 2 h, rests 1 h) |
+| **effective rate today** | **≈111 calls/hour** |
+| backlog | **8,954 pending** (D-T32 §voice queue) |
+
+*(111/hour against a theoretical 174/hour at 2 concurrent × 41.4 s — the gap is real prompt variance;
+`narratives`/`vibe` are far larger than the 2,372-token benchmark prompt.)*
+
+##### WHAT THE OBJECTIVE REQUIRES, AND WHAT IS ACTUALLY IN HAND
+
+| scenario | rate | time to clear 1,771 calls |
+|---|---|---|
+| today (llama.cpp, 2 slots) | 111/hr | **16.0 h** |
+| **+ MLX at 2.13×** | ~236/hr | **~7.5 h** |
+| **the 4–5 h objective** | **354–443/hr** | 4–5 h |
+
+**MLX alone gets roughly 60% of the way there in time terms. It does not, by itself, reach 4–5 h.**
+The objective needs **3.2–4.0×** over today; D-T34 measured **2.13×**. **Recording the gap rather
+than rounding it away, because the remaining factor has to come from somewhere identified.**
+
+##### ⛔ THREE CORRECTIONS THE ARITHMETIC FORCES — each changes what work to do
+
+1. **"BOTH MACHINES" — MLX IS APPLE-ONLY. ARCHBOX GETS NOTHING FROM IT.** MLX is Apple-Silicon
+   Metal; the 1070 Ti is Pascal/CUDA and keeps llama.cpp via ollama. **The Editor's throughput
+   problem on archbox is not the engine — it is D-T32's cap** (which withholds 81% of arrivals) and
+   the Editor already reads 100% of what it is asked for. **Two machines, two entirely different
+   bottlenecks; do not apply the 2.13× to archbox.**
+2. **⛔ FIXING D-T35 COSTS THROUGHPUT — the ctx work is not purely a speed win.** `narratives` today
+   prefills only **2,051 tokens** because the rest is silently discarded. A *correct* prompt inside
+   the ~3,540-token budget is **~73% MORE prefill work than it does now.** **So the correctness
+   repair makes those two voices SLOWER, and part of MLX's 2.13× pays for it rather than banking it.**
+   *(This is the sharpest reason not to promise ctx work as speed: for the two voices that most need
+   fixing, correctness and speed point in opposite directions.)*
+3. **LOWER ctx STILL DOES NOT SPEED A CALL** (`92a63d6`) — it buys slots. **On llama.cpp more slots
+   measured WORSE (D-T30: 16.5 → 11.4). On MLX more concurrency measured BETTER (22.2 → 35.2).** So
+   the chain `lower ctx → more slots → throughput` is **live on MLX and dead on llama.cpp here.**
+   That is a second, independent argument for the engine change.
+
+##### THE CHEAPEST UNMEASURED THING THAT COULD CLOSE THE GAP
+
+**MLX was only tested to 4 concurrent, and it was still scaling** (13.1 → 22.2 → 35.2, not yet
+flattening). **Measuring MLX at 6 and 8 concurrent is one afternoon in a rest window and could
+supply most of the missing 1.5–1.9×.** **Also raise `COGNITION_BACKEND_CONCURRENCY` for the Mac
+(currently `…1.77=3`) — the client cannot use slots it never fills.** ⚠ Both are memory-bound on 16 GB
+and must be measured, not assumed — that is exactly the mistake D-T30 made.
+
+**HONEST STATUS: 4–5 h is a plausible objective, NOT a projection the measurements support yet.**
+The path is MLX (2.13×, in hand) + higher MLX concurrency (untested) + the D-T35 trim (a throughput
+COST, a correctness necessity). **Do not report progress against 4–5 h until the concurrency scaling
+above 4 is measured.**
+
+---
+
 ### TARGET 1 — **`ministral-3:3b` IS the 1070 Ti model. Tune to it, not to `gemma3:4b`.**
 
 > *Scott: "I want to tune to the better model and Ministral beat out Gemma significantly with

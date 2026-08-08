@@ -65,8 +65,18 @@ leave the cap, decide separately. **Do not roll the rail back for this number.**
    `COGNITION_BACKEND_CONCURRENCY`, **not** the inert `OLLAMA_MAX_CONCURRENT=1` that the earlier note
    grepped. **D-T19's handoff was right; that queue item is struck.** D-T30 on the Mac is unaffected.
 
-**⭐ TWO STANDING TARGETS (Scott, 2026-08-08) BIND EVERY TUNING AND RAIL SESSION FROM HERE.** Full
+**⭐ THREE STANDING TARGETS (Scott, 2026-08-08) BIND EVERY TUNING AND RAIL SESSION FROM HERE.** Full
 statement + the arithmetic in `PLAN-character-tuning.md` §"THE TWO STANDING TARGETS"; the short form:
+0. **CLEAR THE DAILY WORK IN 4–5 HOURS**, and **MLX is the engine for the Mac voice tier** (D-T34,
+   2.13× measured). **Baseline: ~111 calls/hour, 1,771 calls on the best full day = 16 h.** MLX takes
+   that to **~7.5 h**; the objective needs **3.2–4.0×** and MLX supplies **2.13×**. ⛔ **Three
+   corrections the arithmetic forces: (a) MLX is Apple-only — archbox gets NOTHING from it, its
+   bottleneck is D-T32's cap; (b) fixing D-T35 COSTS throughput (`narratives` prefills 2,051 tok
+   today because the rest is discarded — a correct prompt is ~73% MORE work), so the ctx repair is
+   correctness, not speed; (c) the `lower ctx → more slots → throughput` chain is LIVE on MLX and
+   DEAD on llama.cpp here (D-T30 measured 2→4 slots as a regression).** **Cheapest untested lever:
+   MLX above 4 concurrent — it was still scaling — plus raising the Mac's client concurrency from 3.
+   Do not report progress against 4–5 h until that is measured.**
 1. **`ministral-3:3b` IS the 1070 Ti model** — tune to it, not to `gemma3:4b`. It won **52/53 vs
    47/53 on prompts written FOR gemma**, so the margin understates the gap, and it keeps the whole
    rail in one model family (the six voices are already `ministral-3:14b`). **Gemma-specific numbers

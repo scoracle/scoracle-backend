@@ -38,6 +38,68 @@ rename.
 tags) → D-T24 (the heat index moves to the character) → D-T25 (the Scout listens). A dedicated
 SCHEMA session follows it, and works APPENDIX S at the end of this file.**
 
+---
+
+## ⭐ THE TWO STANDING TARGETS (Scott, 2026-08-08) — carry these through ALL tuning and rail work
+
+**These are not queue items to be scheduled. They are the direction every knob is judged against,
+and they outrank local tidiness.**
+
+### TARGET 1 — **`ministral-3:3b` IS the 1070 Ti model. Tune to it, not to `gemma3:4b`.**
+
+> *Scott: "I want to tune to the better model and Ministral beat out Gemma significantly with
+> prompts designed for Gemma. And it keeps us in the Mistral family of models which I align with
+> over Google. No sense in tuning for models other than the one we're using."*
+
+**Two reasons, and the second is the one that compounds:**
+1. **It won on the incumbent's home turf — 52/53 vs 47/53 on prompts written FOR gemma.** The
+   margin is therefore an UNDER-statement of the real gap; nothing has been tuned in its favour yet.
+2. **Family alignment.** The six voices already run `ministral-3:14b`. One family across the rail
+   means prompt formatting, chat templating and tokenizer behaviour stop being per-host variables.
+
+**The operative consequence: every prompt/window/fixture measurement taken against `gemma3:4b` is
+now provisional.** Do not spend effort tuning gemma-specific behaviour. When a knob is measured,
+measure it on ministral or say plainly that the number is a gemma number pending re-measurement.
+
+### TARGET 2 — **DRIVE CONTEXT WINDOWS DOWN. 4096 IS THE CEILING, NOT THE GOAL.**
+
+> *Scott: "4096 should be the highest, but some of the characters will genuinely need much less.
+> Lower ctx when it doesn't detract from the output is a win for throughput."*
+
+**Per-character floors, not one global number.** D-T29 made 4096 uniform per HOST for a real reason
+(one runner, no reloads), and that stays — but the target is now each character sized to what it
+actually needs, and several are far under 4096 (`rating` ≈723 tok, `transfers` ≈1,119, `sigil`
+≈1,897 on gemma's tokenizer).
+
+**⚠ THE MECHANISM MATTERS, OR THE WIN WILL NOT APPEAR — measured, and already corrected once in this
+repo (`92a63d6`).** `num_ctx` governs **MEMORY, not per-token compute**: attention cost scales with
+the ACTUAL sequence length, so a 2,049-token prompt costs the same at 8192 as at 4096. **Lowering
+`num_ctx` does NOT make a call faster.**
+
+**The throughput win is real but INDIRECT, and it is a two-step:**
+
+> **lower `num_ctx` → smaller KV → free VRAM → MORE CONCURRENT SLOTS → throughput**
+
+**Step two is not optional. Headroom that is never spent on slots buys nothing measurable** — which
+is exactly why D-T29's deploy is expected to read FLAT. **So every ctx reduction should be paired
+with the concurrency raise that spends it (D-T30), or booked as headroom banked, not as a win taken.**
+
+### ⚠ THE TWO TARGETS PULL AGAINST EACH OTHER — MEASURED, NOT PREDICTED
+
+**`ministral-3:3b` tokenizes the SAME TEXT into 32% MORE TOKENS than gemma3:4b** (2,705 vs 2,049 on
+a byte-identical prompt). So **adopting ministral makes every window effectively ~32% smaller**, and
+4096 headroom falls from 28% to **12%**.
+
+**The rule that follows, and it is the expensive mistake to avoid:** **every per-character ctx floor
+MUST be computed on ministral's tokenizer.** The voice numbers on record (`narratives` ≈7,574,
+`vibe` ≈6,437, and the small ones above) are **scaled from gemma's 4.75 chars/token ratio and are
+flagged in §D-T29 as indicative, not tokenizer-exact.** Setting a floor from a gemma number under a
+ministral runtime is the **silent system-prompt eviction** failure — no error, no dead-letter, just
+quietly worse output. **Re-measure first, then floor.**
+
+*(Consequence already live: `ARTICLE_MAX_MODEL_CHARS = 9_000` is load-bearing for the 4096 window
+under ministral and must not be raised without redoing that arithmetic.)*
+
 **→ WHILE DOING VOICE WORK, LOG EVERY SCHEMA OBSERVATION TO APPENDIX S §S2. Do not act on it
 unless it is COUPLED** — the test is *does the voice change make this safe, or is it merely near
 it?* Only coupled changes ride inside a voice migration; everything else is logged and handed on.

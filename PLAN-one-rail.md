@@ -58,6 +58,23 @@ leave the cap, decide separately. **Do not roll the rail back for this number.**
    `COGNITION_BACKEND_CONCURRENCY`, **not** the inert `OLLAMA_MAX_CONCURRENT=1` that the earlier note
    grepped. **D-T19's handoff was right; that queue item is struck.** D-T30 on the Mac is unaffected.
 
+**⭐ TWO STANDING TARGETS (Scott, 2026-08-08) BIND EVERY TUNING AND RAIL SESSION FROM HERE.** Full
+statement + the arithmetic in `PLAN-character-tuning.md` §"THE TWO STANDING TARGETS"; the short form:
+1. **`ministral-3:3b` IS the 1070 Ti model** — tune to it, not to `gemma3:4b`. It won **52/53 vs
+   47/53 on prompts written FOR gemma**, so the margin understates the gap, and it keeps the whole
+   rail in one model family (the six voices are already `ministral-3:14b`). **Gemma-specific numbers
+   are provisional; say so when you quote one.**
+2. **Drive context windows DOWN — 4096 is the CEILING, not the goal.** Per-character floors, several
+   far under 4096. **But `num_ctx` is MEMORY, not per-token compute (`92a63d6`): lowering it does not
+   make a call faster.** The win is `lower ctx → free VRAM → MORE SLOTS → throughput`, and **step two
+   is not optional** — unspent headroom is banked, not won. Pair every reduction with D-T30.
+
+**⚠ They pull against each other: ministral tokenizes the same text into 32% MORE tokens** (2,705 vs
+2,049), so adopting it shrinks every window ~32% and 4096 headroom falls 28% → 12%. **Compute every
+per-character floor on MINISTRAL's tokenizer** — the voice figures on record are scaled from gemma's
+ratio and are indicative only. A gemma-derived floor under a ministral runtime is the silent
+system-prompt eviction: no error, no dead-letter, quietly worse output.
+
 *(8.9 STATE, superseded 2026-08-08.)* **Phase 7 complete on its plumbing (7.11 +
 7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND THE HAND-ROLLED RELEVANCE
 MACHINERY IS GONE FROM BOTH ENDS OF INGEST — 8.8 deleted the judgment applied AFTER the fetch

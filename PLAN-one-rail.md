@@ -82,6 +82,13 @@ per-character floor on MINISTRAL's tokenizer** — the voice figures on record a
 ratio and are indicative only. A gemma-derived floor under a ministral runtime is the silent
 system-prompt eviction: no error, no dead-letter, quietly worse output.
 
+**⛔ AND THAT EVICTION IS NO LONGER HYPOTHETICAL — IT IS MEASURED AND LIVE (D-T35).** `narratives`
+and `vibe` lose **71.5% of their prompt** with the instructions gone and **`error: None`**; the model
+**fabricates** rather than fails. **So target 2 has a mandatory ORDER: TRIM THE PROMPTS FIRST, THEN
+LOWER THE WINDOW.** Lowering first evicts more and reads as a throughput win while corrupting output.
+**And "more slots" is not automatically more throughput** — the Mac's 2→4 raise was measured a
+**regression** (16.5 → 11.4 tok/s aggregate). Verify the chain on the host; never assume it.
+
 *(8.9 STATE, superseded 2026-08-08.)* **Phase 7 complete on its plumbing (7.11 +
 7.15 outstanding). **`RAIL=packet` IS LIVE, THE LEGACY RAIL IS OFF, AND THE HAND-ROLLED RELEVANCE
 MACHINERY IS GONE FROM BOTH ENDS OF INGEST — 8.8 deleted the judgment applied AFTER the fetch
@@ -4487,12 +4494,34 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   live process:** `OLLAMA_NUM_PARALLEL=**2**`, not 1, so **step 1→2 is ALREADY DONE and the remaining
   move is 2→4.** **4 slots already fit** (9.74 GB of a ~10.7 GB budget; `FLASH_ATTENTION`+`q8_0`
   confirmed on in the live runner flags), so the only thing in the way is the env var. Budget
-  **2–2.5× aggregate, not 4×**. **Still the largest single available throughput change on the
-  board.** **The live runner also shows `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as
-  `num_ctx × slots` — so halving voice `num_ctx` to 2048 would fund `-np 4` at the same KV, which is
-  the cheapest form of Scott's target 2.** ⚠ **`--context-shift` is ON with `--keep 4`, so
-  `narratives` (≈7,574 tok) and `vibe` (≈6,437 tok) are being cut against a 4096 slot right now —
-  mechanism not yet measured, but the overflow is arithmetic.** → *tuning §D-T30*
+  **2–2.5× aggregate, not 4×**. ⛔ **AND THE 2→4 MOVE IS NOW MEASURED: IT IS A REGRESSION — DO NOT
+  SHIP IT.** At `-np 4` every cell got worse (single 11.8→**10.4**; @2 16.7→**10.1**; @4
+  16.5→**11.4**), resident 8.83→9.54 GB with swap active. **The SIZING prediction was RIGHT (9.74 GB
+  predicted, 9.54 measured); the THROUGHPUT prediction was WRONG — 4 slots fit, they just don't
+  help**, because the larger KV costs more bandwidth than the extra slots recover on an M4. **So this
+  is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
+  `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
+  would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T35 · ⛔ THE SILENT SYSTEM-PROMPT EVICTION IS LIVE, AND IT IS THE MOST SERIOUS FINDING OF
+  2026-08-08.** A `narratives`-scale prompt (**7,192 tok**) at production's `num_ctx=4096` was
+  evaluated at **`prompt_eval_count` 2,051 — 5,141 tokens (71.5%) DISCARDED**, the head evicted, and
+  **`error: None`, no dead-letter.** A secret code placed only in the head did not come back; **the
+  model INVENTED one (`SYSTEM-947-AUTH`) and answered confidently.** Mechanism confirmed to three
+  tokens: `--context-shift --keep 4` halves the window (4096 → ~2048). **`narratives` (≈7,574) and
+  `vibe` (≈6,437) are corrupting output RIGHT NOW**; the others fit. Template overhead is ~554 tok,
+  so the real content budget is **~3,540**, not 4,096. **D-T29's Mac half is therefore a CORRECTNESS
+  repair, not a diet for speed.** ⛔ **ORDER IS NOT OPTIONAL: TRIM THE PROMPTS BEFORE LOWERING ANY
+  WINDOW** — and ministral's 32%-denser tokenizer makes it worse, not better. → *tuning §D-T35*
+- **D-T34 · MLX BEATS llama.cpp ON THE AXIS THAT MATTERS — SCOTT'S CALL, MEASURED.** Single stream is
+  a **wash** (per-call wall clock **41.4 s vs 41.4 s**: llama.cpp wins prefill 148 vs 126 tok/s, MLX
+  wins decode 13.1 vs 11.8). **Concurrency is the whole story: aggregate @4 = 16.5 tok/s llama.cpp vs
+  35.2 MLX — 2.13×**, and MLX *scales* 1→2→4 where llama.cpp is flat past its 2 slots.
+  **Understated, not overstated:** llama.cpp's aggregate runs got a full prefill cache hit (0.09 s)
+  while MLX did the prefill work each time. **Blockers before adoption: the OpenAI-vs-ollama protocol
+  gap needs a shim on :11434, and MLX's tokenizer emits an `incorrect regex pattern` warning that is
+  a QUALITY risk and must be settled first.** *(An earlier crash was MY memory exhaustion from running
+  MLX beside the resident voice model — NOT a batch-path bug; with the card to itself MLX batched 4
+  cleanly.)* → *tuning §D-T34*
 - **D-T33 · the voice host was running TWO ollama servers.** `/usr/local/bin/ollama serve` (the
   configured one) held :11434 while `Ollama.app` retried forever, writing **36 MB of
   `bind: address already in use`**. **FIXED 2026-08-08 17:32** — GUI stopped, log truncated, voices

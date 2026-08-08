@@ -82,7 +82,23 @@ the ACTUAL sequence length, so a 2,049-token prompt costs the same at 8192 as at
 
 **Step two is not optional. Headroom that is never spent on slots buys nothing measurable** — which
 is exactly why D-T29's deploy is expected to read FLAT. **So every ctx reduction should be paired
-with the concurrency raise that spends it (D-T30), or booked as headroom banked, not as a win taken.**
+with the concurrency raise that spends it, or booked as headroom banked, not as a win taken.**
+
+> ### ⛔ TWO MEASURED CONSTRAINTS ON TARGET 2, BOTH FOUND 2026-08-08. READ BEFORE LOWERING ANY WINDOW.
+>
+> **1. TRIM THE PROMPTS FIRST. LOWERING `num_ctx` BEFORE THAT IS A SILENT QUALITY CUT (D-T35).**
+> `narratives` and `vibe` already overflow 4096 and are **losing 71.5% of their prompt with their
+> instructions evicted and no error raised** — the model fabricates rather than fails. **A ctx
+> reduction applied before the trim evicts MORE and would look like a throughput win while corrupting
+> output.** The usable content budget inside 4096 is **~3,540 tokens**, not 4,096 (≈554 tok of chat
+> template). **Order: trim → verify nothing overflows → then lower.**
+>
+> **2. "MORE SLOTS" IS NOT AUTOMATICALLY MORE THROUGHPUT — MEASURED AND FALSIFIED (D-T30).**
+> Raising the Mac to `-np 4` at 4096 made **every** figure worse (aggregate @4: 16.5 → 11.4 tok/s).
+> The slots fit; the extra KV bandwidth cost more than they returned. **So the chain is
+> `lower ctx → more slots → throughput` ONLY where memory bandwidth allows — verify on the host, do
+> not assume it.** On the Mac the concurrency win came from a different engine entirely (D-T34: MLX
+> at 2.13×), not from more llama.cpp slots.
 
 ### ⚠ THE TWO TARGETS PULL AGAINST EACH OTHER — MEASURED, NOT PREDICTED
 
@@ -2032,6 +2048,37 @@ hypothesis is dead, and the sigil cause is still open. Recorded so it is not re-
 >   the `prompt_eval_count` test is run against an over-long prompt.** But that the two largest voices
 >   are being cut is arithmetic, not conjecture.
 >
+> ##### ⛔ AND THE 2→4 MOVE WAS MEASURED 2026-08-08 18:14 EDT. **IT IS A REGRESSION. DO NOT SHIP IT.**
+>
+> **Run on a throwaway `ollama serve` on port 11435 with `OLLAMA_NUM_PARALLEL=4` (production config
+> untouched), same prompt/settings as D-T34:**
+>
+> | | `-np 2` (production) | **`-np 4`** |
+> |---|---|---|
+> | single-stream decode | 11.8 tok/s | **10.4 tok/s** |
+> | aggregate @ 2 concurrent | 16.7 tok/s | **10.1 tok/s** |
+> | aggregate @ 4 concurrent | 16.5 tok/s | **11.4 tok/s** |
+>
+> **Every cell got worse.** The runner came up `-c 16384 -np 4` (4 slots × 4096) and resident rose
+> **8.83 GB → 9.54 GB**, with free pages down to ~66 MB and swap active on a 16 GB box.
+>
+> **THE SIZING PREDICTION WAS RIGHT AND THE THROUGHPUT PREDICTION WAS WRONG.** The entry below
+> predicted *"4 slots already fit at 9.74 GB"* — measured **9.54 GB**, essentially exact. **They fit.
+> They just don't help.** On a bandwidth-bound M4 the larger KV costs more memory traffic per token
+> than the extra slots recover, so *"budget 2–2.5× aggregate"* is not achievable this way.
+>
+> **THIS DOES NOT KILL THE THROUGHPUT GOAL — IT RELOCATES IT.** Two live routes remain, and D-T34
+> measured one of them working:
+> 1. **MLX reached 35.2 tok/s at 4 concurrent in the SAME 16 GB** where llama.cpp at 4 slots managed
+>    11.4. **The concurrency win is available; llama.cpp is simply not the engine that delivers it
+>    here.** → D-T34.
+> 2. **Cut `num_ctx`, THEN add slots** — 4 slots at 2048 costs the same total KV as today's 2 at 4096.
+>    ⛔ **But see D-T35: the prompts must be TRIMMED before the window is lowered, or that trade buys
+>    throughput by silently corrupting output.**
+>
+> *(Caveat: the `-np 2` figures were taken ~10 min earlier under slightly different memory
+> conditions. The direction is far too large to be that, but one re-verification is owed.)*
+>
 > *(Original entry follows, kept for its Mac-side sizing which is unaffected.)*
 
 ### D-T30 (original text) — **MAC CONCURRENCY IS SET TO 1 AND THE CLIENT ALREADY SENDS 3** (measured 2026-08-07)
@@ -2580,7 +2627,137 @@ which is why it runs inside the harness's own **18:00–19:00 pause** rather tha
   one.** GGUF `Q4_K_M` (~4.5 bpw, mixed) and MLX `4bit` (group-wise) are different quantisations, so
   a small quality/size difference is baked in and neither side is a perfect control.
 
-**NO RESULT YET — do not record a verdict here until the numbers land.**
+##### ✅ RESULT — MEASURED 2026-08-08 18:03–18:22 EDT IN THE GPU REST WINDOW. **SCOTT WAS RIGHT.**
+
+**All figures: `ministral-3:14b` / `Ministral-3-14B-Instruct-2512-4bit`, 2,3xx-token prompt,
+300 generated tokens, `num_ctx` 4096, temperature 0, M4 / 16 GB, voice model unloaded for the MLX
+runs so nothing else was resident.**
+
+| axis | llama.cpp (`-np 2`, production) | **MLX** | winner |
+|---|---|---|---|
+| prefill, **uncached** | **148 tok/s** | 126 tok/s | llama.cpp **+17%** |
+| decode, single stream | 11.8 tok/s | **13.1 tok/s** | MLX **+11%** |
+| **aggregate @ 2 concurrent** | 16.7 tok/s | **22.2 tok/s** | MLX **+33%** |
+| **aggregate @ 4 concurrent** | 16.5 tok/s | **35.2 tok/s** | **MLX +113% (2.13×)** |
+
+**SINGLE-STREAM IS A WASH. CONCURRENCY IS THE WHOLE STORY, AND IT IS SCOTT'S CALL THAT WAS RIGHT.**
+Per-call wall clock for a 2,372-token prompt + 300 out works out **identical to the second**:
+llama.cpp 16.0 s prefill + 25.4 s decode = **41.4 s**; MLX 18.5 s + 22.9 s = **41.4 s**. The engines
+are indistinguishable on one request. **They are 2.13× apart when four are in flight**, which is the
+regime production actually runs in.
+
+**MLX SCALES; llama.cpp AT `-np 2` DOES NOT.** MLX went 13.1 → 22.2 → 35.2 as concurrency rose 1→2→4.
+llama.cpp went 11.8 → 16.7 → **16.5** — flat from 2 to 4, because `-np 2` caps it. **The third
+request the client already sends (`…1.77=3`) is queueing today.**
+
+##### ⚠ THE COMPARISON UNDERSTATES MLX, FOR A REASON WORTH RECORDING
+
+**The concurrency runs resent a byte-identical prompt, and the two engines cached it differently.**
+llama.cpp's prefill collapsed to **0.09 s** (a full KV cache hit — that is where the absurd
+"27,000 tok/s prefill" in the first run came from, and it is NOT a prefill measurement). **MLX's
+server log shows it actually processing the prompt each time** (`Prompt processing progress:
+2048/2328`). **So llama.cpp's aggregate numbers were achieved with prefill nearly free, while MLX's
+were achieved while doing the prefill work. The real gap is wider than 2.13×, not narrower.**
+*(The uncached 148 tok/s figure above was measured separately with per-request unique prefixes.)*
+
+##### HONEST LIMITS ON THIS RESULT — none of them overturn it, all of them belong in the record
+
+1. **Engine + quant, not pure engine.** GGUF `Q4_K_M` (~4.5 bpw mixed) vs MLX group-wise `4bit`.
+2. **The `-np 2` aggregate figures were taken ~10 min before the `-np 4` ones**, under slightly
+   different memory conditions. Worth one re-verification before this is treated as final.
+3. **⚠ MLX's tokenizer emits a correctness warning:** *"incorrect regex pattern … will lead to
+   incorrect tokenization. You should set `fix_mistral_regex=True`."* **Unresolved, and it is a
+   QUALITY risk, not a speed one — it must be settled before any migration**, since the whole point
+   of standardising on Mistral is prompt/tokenizer consistency.
+4. **Synthetic prompt, not a rendered production packet.**
+5. **An earlier run crashed** (`broadcast_shapes … (3,1,1,3) and (3,32,1,2329)`) — **that was memory
+   exhaustion from running MLX beside the resident voice model, not a batch-path bug.** With the card
+   to itself, MLX batched 4 requests cleanly. *(Recorded because the crash is in the session history
+   and would otherwise look like evidence against MLX. It is not.)*
+
+##### WHAT STILL BLOCKS ADOPTION — the numbers justify the work, they do not remove it
+
+**The protocol gap is unchanged and is now the whole cost of the move:** the Rust client speaks
+ollama's API, `mlx_lm.server` speaks OpenAI-compatible. **A real-traffic test requires a shim on
+:11434** — and feeding live voice work through an untested translation layer is how shim bugs get
+mistaken for model-quality regressions, next to voices that ALREADY dead-letter on strict parsing.
+**Recommended order: settle the tokenizer warning → build the shim → shadow ONE voice → then cut
+over.** Per-request `num_ctx` control must survive the shim, or D-T35 gets worse.
+
+---
+
+### D-T35 — ⛔ **THE SILENT SYSTEM-PROMPT EVICTION IS NOT A RISK. IT IS HAPPENING NOW, AND IT IS THE MOST SERIOUS FINDING OF 2026-08-08.**
+
+**`route::VOICE_NUM_CTX`'s doc predicted this failure mode and D-T29 warned it "degrades quality
+invisibly". Both were right. Measured live 2026-08-08 18:01 EDT, and it is worse than described.**
+
+**Method — two independent signals, so neither can be argued away:**
+* **NUMERIC:** a `narratives`-scale prompt (34,660 chars, **7,192 tokens** by the model's own
+  tokenizer) sent at production's `num_ctx=4096`, reading back ollama's `prompt_eval_count`.
+* **BEHAVIOURAL:** a secret code (`ALPHA-7731`) placed **only in the prompt's HEAD**, in a system
+  instruction ordering the model to echo it. If the head survives, the model can obey. **If the head
+  is evicted, the model cannot possibly know the code.**
+
+**RESULT:**
+
+| | |
+|---|---|
+| true prompt length | **7,192 tokens** |
+| `prompt_eval_count` (what the model ACTUALLY saw) | **2,051 tokens** |
+| **discarded** | **5,141 tokens — 71.5% of the prompt** |
+| secret code in the reply | **NO — the head was evicted** |
+| `error` field | **`None`** |
+| dead-letter raised | **none** |
+
+**THE MODEL DID NOT FAIL. IT FABRICATED.** Asked to open with a code it had never seen, it invented a
+plausible substitute and continued in perfect confidence:
+
+> `**🔒 *SYSTEM-947-AUTH: PROCESSING TRANSFER TENSIONS…`
+
+**`SYSTEM-947-AUTH` does not exist anywhere in the prompt.** This is the exact shape of failure the
+rail is least equipped to notice: **no error, no dead-letter, no parse failure — just confident,
+well-formed, wrong output.** Nothing downstream can distinguish it from a good answer.
+
+##### THE MECHANISM, AND WHY 2,051 AND NOT ~4,000
+
+**`--context-shift` with `--keep 4` is live on the runner** (D-T30's flag dump). When the window
+fills, llama.cpp discards roughly the first HALF of the context beyond `--keep`. **4096 halved ≈
+2048 — and the measurement came back 2,051.** That is the mechanism, confirmed to within three
+tokens. **The `--keep 4` is why only the first four tokens of the system prompt survive.**
+
+##### WHO IS AFFECTED RIGHT NOW
+
+**Chat-template overhead is ~554 tokens** (control: a 1,792-token prompt reported
+`prompt_eval_count` 2,346), so **the usable content budget inside 4096 is ~3,540 tokens, not 4,096.**
+
+| voice | prompt | + template | vs 4096 | status |
+|---|---|---|---|---|
+| `narratives` | ≈7,574 tok | ≈8,128 | **~2× over** | ⛔ **EVICTING NOW** |
+| `vibe` | ≈6,437 tok | ≈6,991 | **~1.7× over** | ⛔ **EVICTING NOW** |
+| `momentum` | ≈2,535 tok | ≈3,089 | fits | ok |
+| `sigil` | ≈1,897 tok | ≈2,451 | fits | ok |
+| `transfers` | ≈1,119 tok | ≈1,673 | fits | ok |
+| `rating` | ≈723 tok | ≈1,277 | fits | ok |
+
+**HYPOTHESIS WORTH TESTING, NOT YET TESTED:** `narratives` carries **17 dead-letters** with
+`parse narratives failed (raw="{...` — **if its JSON contract lives in the evicted head, the parse
+failures are a SYMPTOM of this, not a separate defect.** *(It would NOT explain `momentum`, which
+fits the window comfortably — consistent with the existing reading that momentum is a contract-prompt
+problem (D-T28a). Two different causes that look alike.)*
+
+##### WHY THIS OUTRANKS THE THROUGHPUT WORK
+
+**D-T29's Mac half was filed as a DIET for speed. It is not. It is a CORRECTNESS repair.** The two
+largest voices are running on ~2,000 tokens of a ~7,500-token prompt with their instructions gone,
+and the rail cannot see it. **Trimming `narratives` and `vibe` to fit ~3,540 tokens of content stops
+active data corruption; it does not merely tidy the envelope.**
+
+**⚠ AND IT INTERACTS WITH BOTH STANDING TARGETS:**
+* **Target 1 (ministral):** ministral tokenizes ~32% denser, so **adopting it makes this WORSE** —
+  more voices cross the line, not fewer.
+* **Target 2 (lower ctx):** ⛔ **lowering `num_ctx` before the prompts are trimmed would evict
+  MORE.** The order is not optional: **TRIM THE PROMPTS FIRST, THEN LOWER THE WINDOW.** A ctx
+  reduction applied first is a silent quality cut dressed as a throughput win.
 
 ---
 

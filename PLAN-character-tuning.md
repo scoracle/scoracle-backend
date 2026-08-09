@@ -3419,10 +3419,38 @@ containment check (fix: decode in `strip_tags`).
 governor — never archbox), ~5 Wikimedia fetches/candidate at the 2s spacing. `acquisition_runs`
 rows self-describe (`model_version` + `parser_version` `ip1` from the run plan).
 
+**SAME-SESSION ADDENDUM — THE OWNER CLASS AND ON-DEMAND QUEUEING (Scott: "queue Jerry Jones…
+coaches, owners, agents, etc.", then "easy to queue up… grab metadata like headshots").** The
+Jerry Jones probe found THREE stacked failures for the owner class, all in code: he ranks 5th
+of 5 in Wikidata search behind four college-basketball namesakes (`MAX_ITEMS` 3 never fetched
+the item at all); his P106 carries "American football player" from a 1960s college career, so
+occupation-first classification misfiles him as Player; and owners carry no P54/P6087, so the
+discriminator had nothing to resolve. Shipped: **P1830 (owner of, current tenures) parses,
+outranks occupation history in `classify_role` (the same logic that puts P6087 above P106 for
+coaches), joins the discriminator QID resolution, and writes an `owner_of` relationship edge on
+accept**; `MAX_ITEMS` 3 → 5; **owner/executive words outrank the bare "manager"** in both role
+vocabularies (his lede says "general manager" — a coach-first chain misfiles it; FOOTBALL's
+"manager"-means-coach still classifies right because those phrases carry no owner word); and on
+the prose arm **a sport-scoped team match unlocks the role vocabulary for phrases with no sport
+keyword** (the lede says "owner … of the Dallas Cowboys", never "football owner" — the
+resolution itself proves the sport). Enrichment: **P18 Commons images become `photo_url`
+wherever the NBA CDN id is absent — NFL's headshot source** (no usable league-id property).
+`scripts/investigate.sh` queues a name, a sport's metadata gaps (the vetting-seed shape), or
+prints status.
+
+⭐ **THE LIVE RESULT IS A CONTROLLED BEFORE/AFTER ON ONE CANDIDATE.** "Jerry Jones" was already
+candidate 548 — nominated by the news 2026-08-04, **rejected `no sport-relevant item` by the old
+code 2026-08-07**. The manual queue reopened him; the owner class **accepted in ~20s**:
+`persons` 959 kind `owner`, team 19 (NFL → Dallas Cowboys, sport-scoped edge verified),
+`owner_of` relationship, `wikidata Q1280022` + `enwiki` external ids — and Wikidata's aliases
+rode along free, so "Jerral Wayne Jones Sr." now resolves too.
+
 ⚠ **OWED:** (1) an `investigator` eval task + authored fixtures — the D-T45 rule says the gate
 must see this contract before anyone TUNES it; the three probe cases above are the seed set;
 (2) the live reading once the nomination sweep refills `investigate_entity` (the queue is empty
-today); (3) `descriptor_role_class`'s vocabulary is unmeasured against real descriptors.
+today) — the Jerry Jones manual queue is the first live datapoint; (3) `descriptor_role_class`'s
+vocabulary is unmeasured against real descriptors; (4) the executive/agent classes have no
+structural Wikidata claim like P1830 — they ride description/occupation words only.
 
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 

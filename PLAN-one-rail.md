@@ -4977,8 +4977,15 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   ⭐ Live probe on ministral-3:14b at temp 0: D-T8 accept / club-page triage / wrong-sport
   refusal — **zero prompt iterations**. The probe caught two CODE bugs pre-deploy (contiguous
   prescreen would have dropped the D-T8 page — the nickname interrupts the phrase; undecoded
-  `&quot;` broke containment). ⚠ Owed: `investigator` eval task + fixtures (D-T45's rule: the
-  gate must see it before anyone tunes it), the live reading when nominations refill the queue.
+  `&quot;` broke containment). **Same session, the OWNER class (the Jerry Jones probe found
+  three stacked code failures):** P1830 parses, outranks occupation history, discriminates, and
+  writes `owner_of`; `MAX_ITEMS` 3 → 5 (he ranked 5th behind basketball namesakes);
+  owner/executive words outrank the bare "manager"; a sport-scoped team match unlocks prose role
+  words with no sport keyword; P18 Commons images are everyone's fallback `photo_url` (NFL's
+  only headshot source); `scripts/investigate.sh` queues a name / a sport's metadata gaps on
+  demand. ⚠ Owed: `investigator` eval task + fixtures (D-T45's rule: the gate must see it
+  before anyone tunes it), the live reading when nominations refill the queue, and structural
+  claims for the executive/agent classes (nothing like P1830 exists for them).
   → *tuning §D-T46*
 - **D-T45 · ✅ THE GATE READ ep5, BOUGHT `ep6`, AND CORRECTED D-T44: THE TRIM HAD COST QUALITY THE
   GATE COULDN'T SEE (2026-08-09).** ⛔ The on-disk fixtures were frozen at ep5, so the first "ep1

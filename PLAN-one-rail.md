@@ -20,6 +20,13 @@ SESSION, EACH ON A REAL DRAIN.** Boot stamps verified in order: `6d33e51be088` (
 `21741b65a469` (ep2, 09:42), **`58930480ecb7` (ep3, 09:52 — LIVE NOW)**, all
 `model=ministral-3:3b`, 9 handlers, no retired stages. `RAIL=packet` removed from archbox's
 `.env.local` (the switch is gone; `VOICE_NUM_CTX=4096` now stands alone).
+⏸ **THE DAEMON IS STOPPED AGAIN, DELIBERATELY — machines returned to the paused state they were
+handed over in.** ep3 is the binary in `rust/bin/`, so it is what starts next. **Stopping costs the
+owed reading NOTHING: `pipeline_work` is durable and the 02:00 ingest is a Go cron that does not
+need the daemon.** So the 02:00 sweep will ENQUEUE a full-mix batch of Editor work and it will sit
+there until someone starts the daemon — **which makes the next session's first act a clean ep3 drain
+on baseline material.** The voice queue was preserved (narratives 3,407 · vibe 3,002 · momentum
+1,936 +359 failed · sigil 291 · transfers 163).
 ⛔ **THE HEADLINE FINDING IS D-T43 AND IT IS A GENERAL LAW: A GRAMMAR CONSTRAINS SHAPE, NEVER
 MEANING.** D-T40 called the Editor's terminal JSON template redundant because the schema pins all
 11 keys, their order and every enum. It does — **and it types the free-text fields as bare strings,

@@ -1,126 +1,103 @@
-//! # THE EDITOR — the greenfield rail's reader (contract `ep1`)
+//! # THE EDITOR — the rail's reader (contract `ep5`)
 //!
-//! The first junction of PLAN-one-rail: it fetches the publisher page, persists the body, and
-//! DESCRIBES it on the ep1 contract; every judgment — relevance, entity links, nominations,
-//! routing tags, the box-score fork — is derived in code (T2). It shadows the legacy
-//! `article_read` seat (module `junctions/article_reader/`) until cutover.
+//! The first junction of PLAN-one-rail. It fetches the publisher page, persists the body, and
+//! DESCRIBES it. **Every judgment is derived in code from that description (T2)** — relevance
+//! (`derive::derive_relevance`), entity links (`derive::classify`), nominations (`nominate`),
+//! routing tags (`derive::routing_tags`), the box-score fork. The model is never asked a verdict.
+//!
+//! **What the Editor is for, in Scott's words (2026-08-09):** read the article, summarise it with
+//! special attention to **emotional text, names, injuries/suspensions and transfers**, and give
+//! code what it needs to compile packets and tag the downstream characters — more than one
+//! character can be tagged. It is also **the second layer of false-positive defence**: Google's
+//! ranked query does the first pass and is only a HYPOTHESIS, and `entity_roles.absent` is where
+//! this junction rejects it. And **names it does not recognise are the point, not a problem** —
+//! unresolved names are the Investigator's discovery channel.
 //!
 //! | | |
 //! |---|---|
-//! | **Seat** | `gemma3:4b` — pinned, settled by hardware (§4; OLMo is out) |
-//! | **Contract** | `ep1` — describe the page, name who is in it; nothing derived is asked |
-//! | **Reads** | the fetched publisher page |
-//! | **Writes** | `editor_reads` + `news_articles.full_text` ONLY (shadow purity) |
-//! | **Budget** | every arrival, best-first by Google's `feed_rank` |
-//!
-//! ## What ep1 changes from ar7 (the legacy contract it descends from)
-//!
-//! * `names[]` replaces `relevant_entities[]`: every person and club the TEXT involves, each with
-//!   a `kind_hint` and a ≤6-word `descriptor` FROM the text. The descriptor is what lets code
-//!   refuse `Paris`-the-city → Paris-the-club and route an unknown coach to person-discovery
-//!   instead of a fuzzy player match (T9).
-//! * `result_line` is new: the VERBATIM final-score line if the text states a completed result,
-//!   else empty. Verbatim-or-empty is the describe-then-derive shape — code parses it; the model
-//!   never says "a game happened".
-//! * `co_mentions[]` is GONE: the numbered-candidate voting loop dies with the legacy rail.
+//! | **Seat** | `ministral-3:3b` on archbox, `num_ctx` 4096 (`COGNITION_ROUTE_EDITOR`) |
+//! | **Reads** | the fetched publisher page, furniture stripped (`fetch::extract_article_text`) |
+//! | **Writes** | `editor_reads` + `news_articles.full_text` |
+//! | **Budget** | every arrival, best-first by Google's `feed_rank`, capped per entity-day (D-T21) |
 //!
 //! **Property order IS the contract** (the ar4 lesson): constrained decoding emits required
-//! properties in schema order, so extraction comes before anything a judgment could lean on.
-//! That order lives in ONE place — [`super::EDITOR_FORMAT_SCHEMA_RAW`]. `ep2` deleted the literal
-//! JSON template that used to restate it at the end of [`EDITOR_SYSTEM_PROMPT`]: the grammar
-//! already pins all 11 keys, their order, and every enum, so the template was belt-and-braces over
-//! a structural guarantee — 235 measured tokens on every one of ~27k weekly calls, and an
-//! UNTESTED coupling (no test ever compared the template to the schema; they agreed by luck).
-//! See D-T40.
+//! properties in schema order, so extraction lands before anything a judgment could lean on. That
+//! order lives in exactly ONE place — [`super::EDITOR_FORMAT_SCHEMA_RAW`].
+//!
+//! ⚠ **THE RULE THAT GOVERNS EVERY EDIT TO THE PROMPT BELOW (D-T43, learned the hard way):**
+//! **a grammar constrains SHAPE, never MEANING.** The schema pins keys, order, types and enums for
+//! free — it never enters the context window. It says NOTHING about the CONTENT of a free-text
+//! field. So: **put it in the schema when you can (free), in the prose only when you must (costs
+//! tokens on every call).** Deleting prose because "the grammar enforces it" is how ep2 shipped a
+//! 100% regression. The contract history lives in PLAN-character-tuning §D-T40/§D-T43, not here.
 
 use crate::util::truncate;
 
-/// The Editor's contract version — a CACHE KEY, not a label (T1): `editor_reads` rows carry it
-/// as `contract_version`, and bumping it is what reopens work.
-/// `ep2` (2026-08-09): the terminal JSON template was deleted from [`EDITOR_SYSTEM_PROMPT`] —
-/// −840 chars, worst-case overflow 68.1% → 55.4% (D-T40). A bump here is RETROACTIVELY FREE:
-/// only Go's ingest enqueues editor work, so nothing re-reads on a contract change.
+/// The Editor's contract version — a CACHE KEY, not a label (T1). `editor_reads` rows carry it as
+/// `contract_version`, and `read_is_current` is the only query that reads it, so bumping it is
+/// what reopens work. **Retroactively free:** only Go's ingest enqueues editor work, so a bump
+/// changes how NEW arrivals are read and re-reads nothing.
 ///
-/// `ep3` (2026-08-09, SAME SESSION, on a measured ep2 regression — D-T43): the template was NOT
-/// purely redundant. The grammar pins shape, order and every ENUM, but it types the free-text
-/// fields as bare strings, and the template's placeholders were the only place their SEMANTICS
-/// were stated. "ISO 639-1" appeared exactly once in ep1 — inside the deleted block — so ep2
-/// emitted `source_language:"unknown"` on **13 of 13** reads against ep1's 1.4% (95/7,031), and
-/// role words leaked into `descriptor` on 8.45% of name entries against ep1's 0.50%.
-/// ep3 restores those semantics in PROSE (~40 tok) rather than restoring the 981-char template,
-/// keeping most of the trim. **The lesson is general: a grammar constrains SHAPE, never MEANING.**
+/// `ep5` (2026-08-09) — the rewrite. Four contracts of accreted prose were cut back to the job:
+/// the phantom `FIELD 4` (there was never one), the ar7/`co_mentions` history, the `gemma3:4b`
+/// seat and the 8192-ctx sizing, the 250-char `names` example blob and two long worked `absent`
+/// examples whose content is now one clause each. `suspension` joins `story_type`. See §D-T44.
+pub const EDITOR_CONTRACT_VERSION: &str = "ep5";
+
+pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
+
+A ranked news query for one team found this page. That match is a HYPOTHESIS and nothing has checked it against the body. You are that check. Do not answer whether the article is relevant; describe the page accurately and the system decides.
+
+page_kind — what the page IS, judged by its body and not its headline:
+- article: prose reporting; someone wrote sentences about what happened and what it means.
+- score_table: a result, boxscore or live-score page whose body is a score plus lineups, stats, cards, attendance, next fixtures. A table with a headline is still a table.
+- listing_or_schedule: how-to-watch, TV times, streaming or kickoff-time pages, and schedule roundups. A page for a single broadcast is still a listing. But one titled "How to watch" carrying a real 1,000-word preview is an article — judge the body.
+- video_clip: a video or highlights wrapper with little prose.
+- roundup: a link list, tag page or "related stories" aggregation.
+- other: anything else.
+
+names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to eight, and a list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar.
+- name: as the text writes it, in full — "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club; if the text is about the city itself, it does not belong here at all.
+- kind_hint: what the text treats this name as.
+- descriptor: up to 6 words COPIED FROM THE TEXT giving the role or context — "Real Madrid manager", "PSG sporting director". Never your own knowledge, and never a role word from entity_roles. Empty string if the text gives none.
+People and clubs only — not competitions or trophies, not stadiums or their stands, not broadcasters, publications or sponsors. Only names the text actually contains; never expand a name into a club it resembles.
+
+entity_roles — one entry for each HYPOTHESIS ENTITY listed in the message below, and nothing else. Never put a name here that is not a hypothesis entity; those belong in names. Use the hypothesis entity's name exactly as given, even when it turns out to be absent:
+- subject: the story is about it.
+- opponent: it appears only as the opposition in a story about someone else.
+- passing_mention: named in passing, in a list, or as background.
+- absent: not in this text, or only a DIFFERENT thing sharing the name — a youth, academy, reserve, women's or flag-football team, a same-named club elsewhere even in the same sport, or a place that merely shares the club's name in a story that is not about the club.
+Be strict about subject. If the story is about another club's player and this entity is who they face, that is opponent. If the text never discusses the club itself — its matches, its players, its business — it is absent even where the name appears.
+
+story_type — what the story is ABOUT. A hiring or firing is roster. A ban, red-card ban or doping ban is suspension.
+
+result_line — if the text states a COMPLETED final result, copy that line verbatim, in the shape "Real Madrid 2-1 Arsenal". Copy names and score exactly as given; never compute, complete or infer a result the text does not state. Empty string if no completed result is stated.
+
+register_phrase, then register — how this text FEELS and what in it shows that. Quote the SHORT run of words carrying the most feeling: a fan reaction, a manager's complaint, a celebration, a warning. If the text carries anger, protest, celebration or complaint anywhere, this field must hold that quote, copied from the text and not written by you. Empty only when the whole piece is flat reporting — and an empty phrase means register neutral.
+
+key_facts — one claim each, attributable to the text or a source it names ("The Athletic: deal not agreed"). Never let an injury, a suspension or a transfer development go unrecorded: who, which club, and where it stands. If nothing in the text concerns a hypothesis entity, do not summarise the unrelated story — say why it does not match, in evidence_blurb.
+
+evidence_blurb — 2-4 compact sentences, dense and neutral: what happened, who is involved, where it stands, why it matters.
+
+caveats — short; say so when the page is mostly boilerplate. Empty string if none.
+
+source_language — the language the ARTICLE ITSELF is written in. Use "unknown" only when it genuinely cannot be told, never as a default.
+
+Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field — no markdown, no bold, no headings. Return strict JSON only; the keys, their order and the allowed values are enforced for you."#;
+
+/// The character budget for the article body — **re-derived at `ep5` from the window it actually
+/// has to fit in** (D-T40 item 2, which had flagged that the old 9,000 contradicted the budget).
 ///
-/// `ep4` (2026-08-09): the STRUCTURAL form of the ep3 fix — `source_language` became an **enum of
-/// 63 ISO 639-1 codes + `unknown`** in [`super::EDITOR_FORMAT_SCHEMA_RAW`], so the format is now
-/// pinned by constrained decoding instead of asked for in prose. This kills a class ep3 could only
-/// discourage: 35,288 ep1 reads contained `al`, `ge`, `md` and `me` — COUNTRY codes, not language
-/// codes, which no amount of prompt text prevents. The enum costs **zero prompt tokens** (the
-/// schema travels in `format_schema_raw`, not the context), so ep4 also drops ep3's ISO-639-1
-/// explanation and code list, buying back ~25 tok.
-/// ⚠ **The prose clause "`unknown` only when it genuinely cannot be told" MUST STAY: `unknown` is
-/// a legal enum member, so the grammar cannot stop the model choosing it lazily — which is exactly
-/// what ep2 did on 100% of reads.** Structure pins the value SET; only prose can discourage a
-/// legal-but-lazy choice within it.
-pub const EDITOR_CONTRACT_VERSION: &str = "ep4";
-
-pub const EDITOR_SYSTEM_PROMPT: &str = r#"Task: read one fetched sports article and describe it for the newsroom: what shape the page is, who is in it, what happened, and how it feels.
-
-This article reached you because a ranked Google News query for a team matched it. That match is a HYPOTHESIS and nothing has checked it against the full text. You are NOT asked whether the article is relevant, and you must not answer that question anywhere. Describe the page accurately and the system decides everything else from your description.
-
-FIELD 1 — page_kind: what SHAPE is this page, judged by its text, not its headline?
-- article — prose reporting: someone wrote sentences about what happened and what it means.
-- score_table — a result/boxscore/live-score page whose body is a score plus lineups, stats, possession, cards, attendance, next fixtures. A table with a headline is still a table.
-- listing_or_schedule — a "how to watch"/TV-times/streaming/kickoff-times page, or a schedule roundup of many fixtures. A page for a single broadcast — watch X vs Y, the channel, the start time, where to stream, check local listings — is a listing too, even when it names only one game. Note: a page TITLED "How to watch" that then contains a real 1,000-word preview is an `article`; judge the body.
-- video_clip — a page whose body is a video/highlights wrapper with little prose.
-- roundup — a link list, navigation, tags, or "related stories" aggregation.
-- other — anything else.
-
-FIELD 2 — names: WHO IS IN THIS ARTICLE? List EVERY person and EVERY club the text actually involves, one entry each: the clubs playing or negotiating, every player, every coach or manager — including anyone the text merely quotes — and every executive the text names. Work through the WHOLE text and do not stop after the first name: a typical article yields three to eight entries, and a list that names a club but not the people in the story is wrong.
-
-Example shape (a different, imaginary story): [{"name":"Feyenoord","kind_hint":"club","descriptor":"selling club"},{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"},{"name":"AC Milan","kind_hint":"club","descriptor":"club agreeing the fee"},{"name":"Zlatan Ibrahimovic","kind_hint":"person","descriptor":"Milan senior advisor"}]
-
-For each entry:
-- name: as the article writes it, in full: "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club — if the text is about the city itself (an event, a race, a venue), the city does not belong in names at all, and never with kind_hint club.
-After listing, re-scan the text once for people you missed: anyone the text quotes ("said", "told"), any scorer, any manager or coach mentioned even by surname alone — each of them belongs in names. People only in this re-scan — never stadiums, stands, streets, or competitions.
-- kind_hint: person, club, national_team, or other.
-- descriptor: up to 6 words FROM THE TEXT naming the role, club, or context — "Real Madrid manager", "PSG sporting director". Copy what the text says; never write your own knowledge. If the text gives no role or context, use an empty string. Never put a role word here: subject, opponent, passing_mention and absent belong to FIELD 3 alone.
-People and clubs only. Not competitions or trophies, not stadiums or their stands, ends, or streets, not broadcasters, newspapers or websites, not companies or sponsors. Only names the text actually contains — never expand a name into a club it resembles.
-
-FIELD 3 — entity_roles: for EVERY hypothesis entity listed above — and ONLY those — say what part it plays in THIS text. One entry per hypothesis entity, using the entity's name exactly as listed, even when the entity is absent from the text. Never add anyone else here — people and clubs you found in the text belong in `names`:
-- subject — the article is reporting ABOUT this entity; it is who the story concerns.
-- opponent — this entity appears only as the opposition in a story about someone else.
-- passing_mention — named in passing, in a list, or as background; the story is not about it.
-- absent — a different club, age level, or competition that merely shares the name (youth, academy, reserves, women's, flag football, a same-named club elsewhere — even in the same sport), a city or place that merely shares the club's name in a story that is not about the club, or not present in the text at all. This is NOT the hypothesis entity.
-
-Be strict about `subject`. If the story is about another club's player and this entity is who they face, that is `opponent`, not `subject`. If a youth or flag-football team shares the name, that is `absent`. If the hypothesis entity is a club but the text never discusses the club itself — its matches, its players, its business — the entity is `absent`, even when its name appears as a place.
-
-Two worked examples of `absent` (imaginary, for shape only). Hypothesis "Santos", but the text covers the port city of Santos welcoming a cruise terminal — the name is everywhere, yet nothing is about the football club → {"entity":"Santos","role":"absent"}. Hypothesis "Minnesota Vikings", but the text is a youth flag football bracket where a team called the Vikings plays → {"entity":"Minnesota Vikings","role":"absent"} — a youth team sharing the name is not the NFL club.
-
-Then story_type — what the story is ABOUT (transfer, injury, performance, fixture, roster, contract, general). A hiring or firing is `roster`.
-
-FIELD 5 — result_line: if the text states a COMPLETED final result, copy that line from the text verbatim, in the shape "Real Madrid 2-1 Arsenal". Copy the names and the score exactly as the text gives them; do not compute, complete, or infer a result the text does not state. If no completed result is stated, use an empty string.
-
-FIELD 6 — register_phrase, then register: how does this text FEEL, and what in it shows that?
-- register_phrase: quote the SHORT run of words from the article that carries the most feeling — a fan reaction, a manager's complaint, a celebration, a warning. If the text quotes anger, protest, celebration, or complaint anywhere, this field must carry that quote. Copy it from the text; do not write your own. Only when the whole text is flat reporting with no such phrase, use an empty string.
-- register: which one word best describes the phrase you just quoted? celebration, outrage, resignation, anticipation, or neutral. An empty register_phrase means neutral.
-
-Then the facts and the evidence card. key_facts: one claim per fact, each attributable to the text or its named source ("The Athletic: deal not agreed"). If nothing here is about a hypothesis entity, do not summarize the unrelated story; give a short evidence_blurb explaining the mismatch.
-
-Other rules:
-- Use only the article text and the hypothesis entities.
-- source_language: the language the ARTICLE ITSELF is written in. Use "unknown" only when it genuinely cannot be told — never as a default. Translate meaning into English before writing the evidence card.
-- evidence_blurb, key_facts, story_type, and caveats must be English.
-- Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.
-- Do not invent context, implications, or sourcing.
-- Keep the evidence_blurb dense and neutral, 2-4 compact English sentences: what happened, who is involved, where it stands, and why it matters. Plain prose in every field — no markdown, no ** bold **, no headings.
-- If the article is mostly boilerplate, say so in caveats.
-- Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
-
-Return strict JSON only. The key order and the allowed values are enforced for you by the response schema — write the content, not the shape."#;
-
-/// The character budget for the article body in the prompt — same value as the legacy seat's
-/// (`article_reader::ARTICLE_MAX_MODEL_CHARS`): both feed the same 8192-ctx runner.
-pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 9_000;
+/// The arithmetic, all four terms measured: `EDITOR_NUM_CTX` 4096 − 554 chat-template floor −
+/// ~1,010 for this system prompt − `EDITOR_NUM_PREDICT` 900 = **~1,630 tokens** for the user
+/// message, and at the measured 4.68 chars/token that is ~7,600 chars, of which the Source/Title/
+/// hypothesis preamble takes ~150.
+///
+/// **7,500 is not the squeeze it looks like**, because `fetch::extract_article_text` now strips
+/// site furniture before this cap ever applies: the old 9,000 was mostly spent on navigation and
+/// "Related Stories", so the cap used to truncate real prose to make room for menus. Measured
+/// across 12 publishers the extractor returns a median body well inside this budget.
+pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 7_500;
 
 pub fn build_editor_prompt_parts(
     source: &str,

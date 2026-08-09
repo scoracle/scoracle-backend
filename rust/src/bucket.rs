@@ -107,6 +107,13 @@ pub fn routing_tags_from_story_type(story_type: &str) -> Vec<&'static str> {
     match story_type.trim().to_lowercase().as_str() {
         "transfer" => vec!["transfer"],
         "injury" => vec!["injury"],
+        // `suspension` (ep5, Scott 2026-08-09: injuries/suspensions are what the Editor must never
+        // miss) carries `injury` TOO, deliberately. Both mean "this player is unavailable", and
+        // every existing `stage_routing_subscriptions` row is written against `injury` — emitting
+        // the new tag alone would route real availability news to NOBODY under the fail-open rule
+        // until someone remembered to INSERT. The extra tag is additive: subscribers keep working
+        // today, and `suspension` is there the moment a voice wants to subscribe to it alone.
+        "suspension" => vec!["injury", "suspension"],
         "roster" => vec!["roster"],
         "contract" => vec!["contract"],
         "performance" => vec!["performance"],

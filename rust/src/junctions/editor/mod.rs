@@ -1,11 +1,11 @@
-//! Editor stage (greenfield, PLAN-one-rail Phase 3) — the one seat that reads every arrival.
+//! Editor stage (PLAN-one-rail Phase 3) — the one seat that reads every arrival.
 //!
-//! Shadow mode: fetch the publisher page via `crate::fetch`, persist the body to
-//! `news_articles.full_text`, read on the ep1 contract, derive in code (`derive.rs`), and write
-//! `editor_reads`. It writes NOTHING the legacy rail reads — no `news_article_entities`, no
-//! `bucket`, no `routing_tags`, no downstream enqueues. The legacy `article_read` stage keeps
-//! running untouched beside it until cutover; forks (box scores, nominations, graph, the Desk)
-//! arrive in Phases 4–6.
+//! Fetch the publisher page via `crate::fetch` (site furniture stripped by
+//! `fetch::extract_article_text`), persist the body to `news_articles.full_text`, read it on the
+//! `ep5` contract, derive every judgment in code (`derive.rs`), and write `editor_reads`.
+//! Downstream forks — box scores, nominations, graph, storylines and packets — hang off that read.
+//!
+//! The prompt and the contract live in [`prompt`]; read its module doc before editing either.
 
 use crate::fetch::{
     content_hash, count_words, fetch_article, looks_paywalled, FetchedArticle, ARTICLE_MIN_WORDS,
@@ -34,13 +34,15 @@ pub mod storyline;
 pub use prompt::{build_editor_prompt_parts, EDITOR_CONTRACT_VERSION, EDITOR_SYSTEM_PROMPT};
 
 const EDITOR_NUM_PREDICT: i32 = 900;
-/// The context size the pinned gemma3:4b runner is loaded with. Must agree with the legacy
-/// seat's (`article_reader::ARTICLE_NUM_CTX`) and graph's for as long as those stages live —
-/// ollama reloads the runner whenever a request asks for a different `num_ctx`, and all three
-/// share one card. A unit test pins the agreement.
-/// 4096 since 2026-08-07 — moved WITH `ARTICLE_NUM_CTX`, which carries the sizing arithmetic.
-/// Measured worst case here: largest 24h prompt 9,731 chars = **2,049 tokens** through gemma3's
-/// tokenizer, + `EDITOR_NUM_PREDICT` 900 = 2,949, leaving 1,147 tokens of headroom.
+/// The context size the `ministral-3:3b` runner is loaded with. It is SHARED — graph and the
+/// Insider reach the same runner through `route::LOCAL_STAGE_NUM_CTX`, ollama reloads whenever a
+/// request asks for a different `num_ctx`, and all of them sit on one card. A unit test pins the
+/// agreement, and any change here moves those stages too.
+///
+/// ⛔ **Do not lower it to save memory — that makes the overflow worse, not better (D-T35's law:
+/// TRIM BEFORE SHRINKING).** The measured budget at 4096, all four terms on ministral:
+/// 554 chat-template floor + ~1,010 system prompt (`ep5`) + `EDITOR_NUM_PREDICT` 900 leaves
+/// ~1,630 tokens for the article, which is what `EDITOR_MAX_MODEL_CHARS` is derived from.
 pub(crate) const EDITOR_NUM_CTX: i32 = 4096;
 
 /// The model budget for one editor read — one definition for the stage and `bin/eval`, so a
@@ -69,9 +71,13 @@ pub fn editor_opts() -> GenerateOptions {
 /// before a single name or fact was written — the ar3 shape). The raw string is POSTed
 /// byte-for-byte via `format_schema_raw`.
 ///
-/// `relevant` is absent — the model is never given the question (ar6, carried forward);
-/// `co_mentions` is gone (the numbered-candidate loop dies with the legacy rail). Since `ep2`
-/// this is the ONLY statement of the order — the system prompt no longer restates it (D-T40).
+/// `relevant` is absent — the model is never given the question; relevance is derived in code
+/// from what it describes (T2). Since `ep2` this is also the ONLY statement of the key order, as
+/// the system prompt no longer restates it (D-T40).
+///
+/// ⚠ **Enums and bounds added here are FREE**: the schema is compiled to a grammar and never
+/// enters the context window, unlike every word of the system prompt. Constrain here first, and
+/// spend prose only on what a schema cannot express (D-T43).
 pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {
@@ -115,7 +121,8 @@ pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
             }
         },
         "story_type": { "type": "string", "enum": [
-            "transfer", "injury", "performance", "fixture", "roster", "contract", "general"
+            "transfer", "injury", "suspension", "performance", "fixture", "roster", "contract",
+            "general"
         ] },
         "result_line": { "type": "string" },
         "register_phrase": { "type": "string" },
@@ -337,9 +344,9 @@ impl StageHandler for EditorHandler {
         8
     }
 
-    /// Up to the whole gemma3 card when its group-mates are idle; bounded by
-    /// [`ARCHBOX_GEMMA_SLOTS`], so graph and the legacy reader reclaim their share the moment
-    /// they have work.
+    /// Up to the whole local card when its group-mates are idle; bounded by
+    /// [`ARCHBOX_GEMMA_SLOTS`], so graph and the Insider reclaim their share the moment they
+    /// have work.
     fn max_in_flight(&self) -> usize {
         ARCHBOX_GEMMA_SLOTS.1
     }
@@ -630,9 +637,8 @@ async fn write_links(
     Ok(())
 }
 
-/// enqueue_graph_for_article is the Editor's copy of the legacy seat's graph hand-off
-/// (`article_reader::enqueue_graph_for_article`), keyed on the EDITOR's read instead of
-/// `news_article_readings`: the input_version is `g:` || the editor read's content hash, so graph
+/// enqueue_graph_for_article is the Editor's graph hand-off, keyed on the EDITOR's read: the
+/// input_version is `g:` || the editor read's content hash, so graph
 /// re-runs when the article's TEXT changed and debounces when it did not — the same contract, off
 /// the table that survives the cutover.
 async fn enqueue_graph_for_article(pool: &sqlx::PgPool, article_id: i64, sport: &str) -> Result<()> {

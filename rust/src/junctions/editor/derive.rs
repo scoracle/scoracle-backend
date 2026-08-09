@@ -17,29 +17,31 @@ use std::collections::BTreeMap;
 /// (Ported from the legacy seat, where three measured prompt revisions earned it.)
 pub const NON_REPORTING_PAGE_KINDS: &[&str] = &["score_table", "listing_or_schedule", "roundup"];
 
-/// derive_relevance computes the verdict from the model's DESCRIPTION of the page. Ported from
-/// the legacy seat (`article_reader::derive_relevance`) minus the co-mention machinery; the
-/// fallback list is now ep1's `names[]` rather than ar7's `relevant_entities[]`.
+/// derive_relevance computes the verdict from the model's DESCRIPTION of the page — the
+/// second layer of false-positive defence, behind Google's ranked query, which is only ever a
+/// hypothesis.
 ///
 /// Two independent grounds for rejection:
 ///   * the page is not reporting at all (`page_kind`), or
 ///   * every one of our hypothesis entities is `absent` from it (`entity_roles`) — the model's
 ///     own word for "a different club that merely shares the name, or not in the text at all".
 ///
-/// The bar is `absent`, not `subject` (the ar7 lesson): an opponent-only or passing-mention
+/// The bar is `absent`, not `subject`: an opponent-only or passing-mention
 /// story is still in this entity's world. Only OUR entities vote — asked to label every listed
 /// entity, the model also volunteers people it found in the body, and an unfiltered scan lets
 /// those outvote the truth. Empty `entity_roles` is UNKNOWN, not rejection. When the model
 /// placed none of ours but still listed one among the names it found, the omission is
-/// sloppiness rather than a verdict (measured at 86% of the ar6 rejections), so `names[]` is
-/// consulted as a last resort before rejecting.
+/// sloppiness rather than a verdict (measured at 86% of the rejections it drove), so `names[]`
+/// is consulted as a last resort before rejecting.
 ///
 /// A third ground, the descriptor arm (§1a, measured 2026-08-01): a hypothesis entity whose
-/// own `names[]` entry DESCRIBES a place ("capital city") does not count as present. gemma3:4b
-/// reliably writes the truth in the descriptor while still mislabeling the kind and the role
-/// (`Paris` on a Tour de France page: kind `club`, role `subject`, descriptor "capital city" —
-/// measured, stable across seven prompt iterations). The description is the model's; the
-/// judgment is ours (T2).
+/// own `names[]` entry DESCRIBES a place ("capital city") does not count as present.
+/// ⚠ **Measured on `gemma3:4b`, the runner at the time — the seat is `ministral-3:3b` now and the
+/// behaviour has NOT been re-measured, but the arm is kept because it is cheap and fail-safe.**
+/// That model reliably wrote the truth in the descriptor while still mislabeling the kind and the
+/// role (`Paris` on a Tour de France page: kind `club`, role `subject`, descriptor "capital city"
+/// — stable across seven prompt iterations). The description is the model's; the judgment is
+/// ours (T2).
 pub fn derive_relevance(
     page_kind: &str,
     entity_roles: &[EditorEntityRole],
@@ -321,8 +323,8 @@ pub fn group_hits(names: &[NameMention], hits: &[SurfaceHit]) -> Resolved {
     let mut out = Resolved::default();
     for mention in names {
         // The descriptor arm (§1a): a mention whose descriptor names a place never takes a
-        // `team` link, whatever the kind_hint claims — gemma3:4b mislabels the kind ("Paris",
-        // kind `club`) while describing the truth ("capital city"). Person links are untouched.
+        // `team` link, whatever the kind_hint claims — the measured failure was a model labelling
+        // "Paris" kind `club` while describing the truth, "capital city". Person links untouched.
         let place = descriptor_names_place(&mention.descriptor);
         let compatible: Vec<&SurfaceHit> = hits
             .iter()

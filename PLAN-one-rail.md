@@ -13,8 +13,36 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-09 ~11:00 EDT Sun — THE EDITOR'S PROMPT session. Supersedes every block below,
+**STATE (2026-08-09 ~10:45 EDT Sun — THE EDITOR BUILD session, final. Supersedes every block below,
 which stay for their detail.)**
+⛔ **THE GOVERNING ORDER, GIVEN THIS SESSION AND HARDENED INTO MEMORY — READ IT BEFORE ANYTHING
+ELSE.** Scott: *"ENOUGH of the delay and drain nonsense. This is a BUILDING session. ALL production
+is paused until we actually have this new rail, the new prompt/character work, and the schema
+solidified… I want it BUILT and then I'll be able to tune it as I use the product. I'm NOT going to
+accept more 'we're bounded by some timer that Claude set 2 weeks ago'."* **Do not gate work on a
+drain, a reading, an A/B or a comparator. Do not turn a cron, a queue or a daily cap into a blocker.
+Ship the change, fix forward, keep building.** `ep2 → ep3 → ep4 → ep5` in one session is the RIGHT
+shape.
+✅ **THE EDITOR IS BUILT AND DEPLOYED: `ep5`, `commit 0ddec9451a13`.** Chain this session:
+prune `6d33e51` → ep2 `21741b6` → ep3 `5893048` → ep4 `e15ef96` → **ep5 `0ddec94`**, each
+boot-verified on `ministral-3:3b`.
+⭐ **THE BIGGEST WIN WAS NEVER IN THE PROMPT — it was the article body.** `fetch::extract_article_text`
+reclaims **31.7%** of the article budget across 12 real publishers (D-T44). Two thirds of a typical
+prompt was betting menus and "Related Stories".
+✅ **`ep5` cut the system prompt 1,431 → 692 tok (−52%)**, fixed cost **1,985 → 1,246**, article
+headroom **1,211 → 1,950**. With `EDITOR_MAX_MODEL_CHARS` 9,000 → 7,500, **overflow is structurally
+impossible** — **D-T40 IS RETIRED.**
+⚠ **THE ONE THING OWED: ep5 HAS NOT BEEN READ ON REAL OUTPUT.** 390 tests green and the token
+numbers are measured on the live runner, but production is paused so no ep5 read exists. **Start the
+daemon whenever you want it; tonight's 02:00 ingest enqueues the material either way.**
+⏭ **NEXT, per Scott: MORE TRIMMING OF `rust/src/junctions/editor/prompt.rs`** — he expects further
+cuts and is opening a fresh window for it. **The two biggest remaining blocks are `names` (~1,050
+chars) and `entity_roles` (~1,100 chars), together ~40% of ep5.** ⛔ **Before cutting either, read
+D-T43: the grammar pins shape, never meaning, and the enum'd fields were never the risk — the
+free-text semantics are.** Then: Investigator (now pinned to the 14B via
+`COGNITION_ROUTE_INVESTIGATOR`), then the voices, then Appendix S.
+
+*(11:00 STATE, superseded by this one at the end of the same session.)*
 ✅ **THE PRUNE IS DEPLOYED AND THE EDITOR'S PROMPT SHIPPED TWICE — `ep1 → ep2 → ep3` — IN ONE
 SESSION, EACH ON A REAL DRAIN.** Boot stamps verified in order: `6d33e51be088` (the prune, 09:37),
 `21741b65a469` (ep2, 09:42), **`58930480ecb7` (ep3, 09:52 — LIVE NOW)**, all
@@ -4904,6 +4932,24 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T44 · ✅ THE EDITOR REWRITE (`ep5`) + THE BODY EXTRACTOR — THE OVERFLOW IS CLOSED AND D-T40 IS
+  RETIRED (2026-08-09).** ⭐ **The slop was the ARTICLE BODY, not the prompt.** `fetch::clean_html`
+  kept every text node on the page, so a 7,922-char prompt was **~2,700 chars of article inside
+  ~5,200 of betting menus, "Related Stories" and the publisher's street address** — and the 9,000
+  cap was truncating real prose to make room for navigation. `fetch::extract_article_text` (drop
+  non-content elements, then prefer the LARGEST `<article>`/`<main>`) reclaims **31.7% across 12 real
+  publishers** (best 52.8%, worst 0.8%, nothing destroyed; fails safe under `ARTICLE_MIN_WORDS`).
+  ✅ **`ep5` cut the system prompt 1,431 → 692 tok (−52%)** by deleting a **phantom `FIELD 4`** (the
+  prompt went 1, 2, 3, story_type, 5, 6 — there was never a 4), the ar7/`co_mentions` history, the
+  `gemma3:4b`/8192 sizing, the `names` example blob and two worked `absent` examples. Fixed cost
+  **1,985 → 1,246**; article headroom **1,211 → 1,950 tok**. With `EDITOR_MAX_MODEL_CHARS` re-derived
+  **9,000 → 7,500**, worst case is **~3,781 of 4,096 — overflow is structurally impossible** at the
+  measured 4.68 ch/tok (only <4.0 ch/tok text could cross; a tail, vs 68.4% of ALL calls before).
+  Also: `suspension` joins `story_type` mapping to BOTH `injury`+`suspension` tags (emitting the new
+  tag alone would route availability news to NOBODY under the fail-open rule), and `entity_roles` is
+  now pinned to hypothesis entities only — the model had been emitting one row per `names[]` entry
+  into the false-positive gate. ⚠ **Deployed `0ddec9451a13`, NOT yet read on real output.**
+  → *tuning §D-T44*
 - **D-T43 · ⛔ A GRAMMAR CONSTRAINS SHAPE, NEVER MEANING — D-T40's TRIM SHIPPED, REGRESSED, AND WAS
   CORRECTED IN ONE SESSION (2026-08-09).** The Editor's terminal JSON template was deleted as `ep2`
   on D-T40's reasoning that `EDITOR_FORMAT_SCHEMA_RAW` already pins all 11 keys, their order and

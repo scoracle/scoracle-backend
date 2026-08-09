@@ -3197,6 +3197,79 @@ inside it.** Both halves are load-bearing.
 > **Enum or bound it in the schema (free); instruct in prose only for what the schema cannot express
 > (costs tokens on every call). Prefer the free one.**
 
+### D-T44 — ✅ **THE EDITOR REWRITE (`ep5`) AND THE BODY EXTRACTOR. THE OVERFLOW IS CLOSED, AND THE BIGGEST WIN WAS NEVER IN THE PROMPT.** (2026-08-09, Scott: *"this is a mess… we're burning LOTS of our context budget on slop"*)
+
+⭐ **THE HEADLINE: THE SLOP WAS THE ARTICLE BODY, NOT THE PROMPT.** `fetch::clean_html` stripped
+`<script>`/`<style>`, removed tags and kept **every remaining text node** — there was no content
+extraction at all, so the Editor was handed the whole page. A representative 7,922-char production
+prompt carried **~2,700 chars of article inside ~5,200 chars** of betting-site menus, an African
+country list, "Related To This Article", "Popular News" and the publisher's street address in Accra.
+**Two thirds of the article budget was site furniture** — and because `EDITOR_MAX_MODEL_CHARS`
+truncated at 9,000, the cap was cutting off real prose to make room for navigation.
+
+`fetch::extract_article_text`, two passes: delete every non-content element whole (`nav`, `header`,
+`footer`, `aside`, `form`, `noscript`, `svg`, `iframe`, `button`, `select`, `textarea`, `template`,
+`figure`), then prefer the **LARGEST** `<article>`, then `<main>` — largest because related-post
+cards are themselves `<article>` on most CMS themes.
+
+**Measured on 12 real publishers, one per domain, pulled from `editor_reads`:**
+| | |
+|---|---|
+| total | **88,011 → 60,143 chars = 31.7% of the article budget reclaimed** |
+| best | 7news 52.8% · 67hailhail 52.7% · iheart 52.0% · 933thedrive 47.9% |
+| worst | 49erswebzone 0.8% (already clean) — **nothing was destroyed** |
+
+⛔ **It can only SHRINK the body, and anything under `ARTICLE_MIN_WORDS` is discarded for the
+full-page text**, so a site it cannot parse is exactly as well off as before. Three tests pin it.
+`examples/extract_probe.rs` re-measures any URL set.
+
+✅ **`ep5` — THE PROMPT REWRITTEN TO THE JOB.** What was cut, and it was all real slop:
+* **a phantom `FIELD 4`** — the prompt numbered FIELD 1, 2, 3, then "Then story_type", then FIELD 5,
+  FIELD 6. **There has never been a FIELD 4.** Four contracts of edits and nobody noticed.
+* the **ar7 / `co_mentions` / `relevant_entities` history** — describing contracts the model has
+  never been asked to emit;
+* the **`gemma3:4b` seat and the 8192-ctx arithmetic**, both false since the runner became ministral
+  at 4096 (and the same stale attribution cleaned out of `derive.rs`, where the descriptor-arm
+  finding now says plainly it was measured on gemma and NOT re-measured on ministral);
+* a **250-char JSON example blob** for `names[]` and **two long worked `absent` examples**, whose
+  content survives as one clause each;
+* restatements of enum values **the grammar already pins for free** (D-T43).
+
+**Scott's statement of the job is now IN the prompt and the module doc:** read the article,
+summarise with special attention to **emotional text, names, injuries/suspensions, transfers**; be
+the **second layer of false-positive defence** behind Google's ranked query (which is only ever a
+hypothesis); and **surface unfamiliar names, because unresolved names are the Investigator's
+discovery channel.**
+
+**MEASURED ON THE LIVE RUNNER (`prompt_eval_count`, 554-token floor control):**
+| | ep1 | ep3 | **ep5** |
+|---|---|---|---|
+| system prompt | 8,312 ch = 1,431 tok | 7,819 ch = 1,287 tok | **5,429 ch = 692 tok** |
+| fixed cost/call | 1,985 | 1,841 | **1,246** |
+| article headroom | 1,211 tok | 1,355 tok | **1,950 tok** |
+| overflow @900 | 68.4% | 60.3% | **structurally impossible** |
+
+⭐ **THE OVERFLOW IS CLOSED, AND THAT RETIRES D-T40.** `EDITOR_MAX_MODEL_CHARS` was re-derived
+**9,000 → 7,500** (D-T40 item 2, finally done) from the budget that is actually left: 4096 − 554
+floor − 692 system − 900 `num_predict` = **1,950 tokens ≈ 9,100 chars**, so a 7,650-char worst-case
+user message (7,500 + ~150 preamble) lands at **~3,781 of 4,096 tokens**. ⚠ **Honest limit: that
+holds at the measured 4.68 ch/tok. Text denser than ~4.0 ch/tok could still cross — a TAIL now,
+against 68.4% of all calls before.**
+
+**TWO CONTRACT FIXES RODE ALONG:**
+1. **`suspension` joins `story_type`** (Scott: injuries/suspensions are what the Editor must never
+   miss) and maps to **BOTH** tags, `injury` + `suspension`. ⛔ Deliberate: every
+   `stage_routing_subscriptions` row today is written against `injury`, so emitting the new tag
+   ALONE would route real availability news **to nobody** under the fail-open rule. Additive today,
+   subscribable alone tomorrow.
+2. **`entity_roles` now says "one entry for each HYPOTHESIS ENTITY … and nothing else."** Observed
+   directly in ep2 envelopes: the model was emitting one row per `names[]` entry instead, and that
+   feeds `derive_relevance` — the false-positive gate — directly.
+
+⚠ **UNVERIFIED ON REAL OUTPUT AT WRITING.** ep5 is deployed (`0ddec9451a13`) and boot-verified, but
+production is paused, so no ep5 read exists yet. **The tests and the token measurements are real;
+the reading is not taken.** Next drain reads it.
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*

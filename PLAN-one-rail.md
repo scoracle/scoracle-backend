@@ -13,8 +13,22 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-08 ~16:10 EDT — the Saturday deploy session; supersedes the 01:30 block and the 8.9
-block below, both of which stay for their detail).**
+**STATE (2026-08-08 ~23:00 EDT — Scott's "the time for tinkering is over" session. Supersedes the
+16:10 block below, which stays for its detail.)**
+**Scott's weekend order, given 2026-08-08 ~22:30: (A) flip to the new rail — ⚠ ALREADY TRUE,
+`RAIL=packet` has been live since Aug 6, so what A actually means is CLOSE Phase 8 and run Phase 9;
+(B) schema to match the product; (C) gemma3:4b → ministral-3:3b on archbox + Ollama → MLX on the Mac;
+(D) voice tuning, ctx down.** ✅ **DONE THIS SESSION: mig 217** (the attach decision is persisted —
+`attach_score`/`matched_entities`/`seed_size`/`candidate_count`) and ✅ **C's archbox half — D-T38:
+archbox is uniform on `ministral-3:3b`, verified live.** ⛔ **TWO FINDINGS THAT CHANGE THE PLAN:**
+**(1) D-T36's feedback-loop mechanism is RETRACTED** — the join reads the FROZEN SEED (4/3/5
+entities), so it is SEED COMPOSITION, and `covers_seed`'s ratio means 2 of 4 is the whole bar.
+**(2) D-T37 — the Editor is IDLE ~20 h/day with 202,565 articles never read**, which retires the
+"model layer is the throughput ceiling" frame for the Editor and reframes D-T32.
+**STILL OPEN from Scott's list: A (Phase 8 close + Phase 9), B, C's Mac/MLX half, D.**
+
+*(16:10 STATE, superseded 2026-08-08 23:00 — the Saturday deploy session; itself superseded the
+01:30 block and the 8.9 block below, both of which stay for their detail.)*
 Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. ⛔ **PHASE 6 IS STILL OPEN ON 6.7 — AND IT IS NOW
 BLOCKED ON A MEASUREMENT, NOT ON A CLOCK.** `scripts/rail-6.7-bands.sh` **WAS RUN 2026-08-08 22:10
 EDT**, after the window closed at 22:08:27, and printed the real `READING` banner — **then failed its
@@ -4734,6 +4748,30 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T38 · ✅ D-T31 IS FLIPPED — archbox is uniform on `ministral-3:3b`, 2026-08-08 22:37 EDT, on
+  Scott's word.** Found HALF-FLIPPED: `.env.local` (edited 17:23, service restarted 17:25) already
+  carried `COGNITION_ROUTE_EDITOR=ministral-3:3b`, while `OLLAMA_MODEL`, `ARTICLE_READER` and
+  `EMOTIONAL_NEWS` still said `gemma3:4b` — **the exact reload-thrash configuration §3 forbids**
+  (`MAX_LOADED_MODELS=1`; the Investigator/Multilang/Sql fall back to `OLLAMA_MODEL`). It never bit
+  only because the Editor had no queue. **All six archbox-local roles now resolve to
+  `ministral-3:3b`**; the boot line's `resolved model topology` confirms it and the Mac voices stay
+  `ministral-3:14b`. Backup: `.env.local.bak-pre-ministral-20260808`. **Smoke-tested live** — 3
+  enqueued articles read `parser_outcome=parsed`, `model_version=ministral-3:3b`, 0 errors.
+  ⛔ **UNMEASURED: no before/after tag-share comparison has been run** (the flip's own gate; the
+  post-cap baseline is banked in tuning §D-T31 and is still owed a scoring). ⚠ **`ministral-3:3b`
+  costs MORE VRAM than gemma did: 6.07 GB @ 4096 vs 5.31 GB @ 8192**, leaving ~2.1 GB on the 8 GB
+  card — so archbox has LESS slot headroom after this, not more. → *tuning §D-T31*
+- **D-T37 · ⛔ THE EDITOR IS IDLE ~20 HOURS A DAY, AND 202,565 ARTICLES HAVE NEVER BEEN READ.**
+  Measured 2026-08-08 22:35: `pipeline_work` holds **zero** `editor` rows, the last `editor_reads`
+  row is stamped **05:20:55** (~17 h earlier), and the newest article with no read is **02:03** —
+  **news ingest itself last ran at 02:03.** The daily cycle is: ingest ~02:00 → D-T21's cap admits
+  ~1,000 → the Editor drains them by ~05:20 → **the card sits idle for 20 hours.**
+  ⛔ **THIS RETIRES THE "MODEL LAYER IS THE THROUGHPUT CEILING" FRAME FOR THE EDITOR** (tuning §0a:
+  *"runs at parity with ingest… never catches up"*) — **that was measured PRE-CAP.** Post-cap the
+  Editor has enormous unused capacity and a **202,565-article** backlog it is not allowed to touch.
+  **D-T32's clause-1 problem and this are ONE fact seen twice**, and it reframes the fix: the
+  question is not "can the Editor keep up" (it can, 20 h spare) but "why is the cap sized for a
+  throughput problem that no longer exists." → *tuning §D-T32*
 - **D-T36 · storyline attachment runs away on the HOTTEST topics, and the score is not persisted.**
   6.7's reading (2026-08-08 22:10) failed clause 2: **top cluster 62 vs a 15–25 band**, and the hand
   read found **~8 wrong merges** in the 62-article Vinicius saga (Norgaard→Everton, Vlahović→Beşiktaş,

@@ -2844,6 +2844,65 @@ this appendix. That order is not a preference, it is a dependency: most of the s
 only droppable *because* of something the voice work does, and D-T22 spent this entire session
 proving what happens when you delete ahead of the code.
 
+### ✅ D-T38 (2026-08-08 22:37 EDT) — **THE MINISTRAL FLIP IS DONE, AND IT WAS FOUND HALF-APPLIED**
+
+**Scott's word given ~22:30; executed 22:37.** The dangerous discovery first: `.env.local` on archbox
+had been edited at **17:23** and the service restarted at **17:25** with
+`COGNITION_ROUTE_EDITOR=ministral-3:3b` — **but `OLLAMA_MODEL=gemma3:4b` was untouched**, and the
+Investigator, Multilang and Sql roles fall back to `OLLAMA_MODEL`. With `MAX_LOADED_MODELS=1` that is
+**precisely the reload-thrash configuration §3 and `route.rs`'s `VOICE_NUM_CTX` doc both forbid** —
+two tags alternating on one 8 GB card. **It never bit only because the Editor's queue was empty for
+those five hours** (see D-T37). *Lesson: a route flip is not one variable — it is every role sharing
+the runner, and `OLLAMA_MODEL` is a route.*
+
+**Applied:** `OLLAMA_MODEL`, `COGNITION_ROUTE_ARTICLE_READER`, `COGNITION_ROUTE_EMOTIONAL_NEWS` →
+`ministral-3:3b`. Backup `.env.local.bak-pre-ministral-20260808`. The boot line's
+`resolved model topology` now reads all six local roles at `ministral-3:3b@localhost` with the Mac's
+six voices still `ministral-3:14b@192.168.1.77`.
+
+**Verified live, not asserted:** 3 articles enqueued by hand read back
+`parser_outcome=parsed`, `model_version=ministral-3:3b`, `last_error` NULL, queue drained to zero.
+*(All three came back `irrelevant`, which is NOT a quality signal — the probe forced
+`sport=FOOTBALL` onto three arbitrary newest articles, so resolution correctly found nothing.)*
+
+⚠ **THE VRAM WENT THE WRONG WAY.** `ministral-3:3b` @ 4096 = **6.07 GB resident**; `gemma3:4b` @ 8192
+was **5.31 GB**. A 3.0 GB model file costs 6.0 GB loaded, leaving **~2.1 GB** on the card. **Archbox
+has LESS headroom after this flip, not more** — anything that assumed the smaller model buys slots
+(target 2's `lower ctx → more slots` chain) must be re-measured on this number, not on the file size.
+
+⛔ **STILL UNMEASURED — THE FLIP'S OWN GATE IS UNSCORED.** The post-cap tag-share baseline is banked
+below and **no after-picture has been taken.** Compare SHARES, never counts. **Watch `injury`
+hardest — nothing subscribes to it (D-T25), so a regression there is silent.**
+
+### ⛔ D-T37 (2026-08-08 22:35) — **THE EDITOR IS IDLE 20 HOURS A DAY AND 202,565 ARTICLES ARE UNREAD**
+
+**Found while looking for something to exercise the ministral swap with — there was nothing in the
+queue, and that turned out to be the finding.**
+
+| observation | value |
+|---|---|
+| `editor` rows in `pipeline_work` | **0** (no pending, no running, no error) |
+| newest `editor_reads` | **2026-08-08 05:20:55** (~17 h stale at time of reading) |
+| newest article with NO read | **2026-08-08 02:03** → **news ingest last ran at 02:03** |
+| articles with no `editor_reads` row, all time | **202,565** |
+| `editor_reads` in last 24 h | 1,085 |
+
+**The daily cycle is: ingest fires ~02:00 → D-T21's cap admits ~1,000 → the Editor drains them by
+~05:20 → the card idles for twenty hours.**
+
+⛔ **THIS RETIRES §0a's FRAME FOR THE EDITOR.** §0a says the model layer is the throughput ceiling and
+the Editor *"runs at parity with ingest — about 96% — which means it never catches up."* **That was
+measured PRE-CAP (Aug 3–5, 7,041–8,063 reads/day).** Post-cap the Editor reads 1,085/day and has
+**20 hours of spare capacity** against a **202,565-article** backlog. **The ceiling moved from the
+model to the cap.**
+
+**This and D-T32 are one fact seen twice**, and together they reframe the question. It is NOT *"can
+the Editor keep up?"* — it demonstrably can. It is *"why is a cap sized for a throughput emergency
+still armed after the emergency ended?"* **Scott's answer to D-T32 (redefine clause 1 against the
+queue) remains correct for the GATE**, but this says the cap itself is now the live product question,
+with measured headroom to widen it. **Not changed here — one change, one measurement, and D-T38 was
+this session's one change on archbox.**
+
 ### ⛔ S-NEW (2026-08-08, from 6.7's failed reading) — **`storyline_articles` RECORDS NO ATTACH SCORE, AND THAT BLOCKS A PHASE**
 
 **This one is not a tidy-up. It is currently blocking Phase 6 from closing.** `rail-6.7-bands.sh`

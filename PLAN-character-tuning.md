@@ -3373,6 +3373,57 @@ this session's instrument error).
 drain at the 94.5%-article mix is the only honest measure of the register rate, the `unknown`
 rate, and the story_type distribution at scale.
 
+### D-T46 — ✅ **THE INVESTIGATOR'S PROSE ARM IS BUILT (5.4's deferred fallback, contract `ip1`) — THE SEAT'S FIRST MODEL PATH, AND THE VERBATIM CONTRACT SURVIVED ITS FIRST CONTACT WITH THE LIVE 14B UNTUNED.** (2026-08-09, same session as D-T45; Scott: *"start building out the Investigator"*)
+
+**WHAT IT IS.** The fallback for the D-T8 class: a name the news writes one way ("Airious
+Bailey") that the encyclopedia titles another ("Ace Bailey"), invisible to `wbsearchentities`
+(labels/aliases only) but sitting verbatim in the page's opening sentence. Flow, triggered ONLY
+on the Wikidata arm's `RejectedInsufficientEvidence` (not-sport already had identified evidence;
+a tie needs a discriminator, not more prose):
+1. **Wikipedia FULL-TEXT search** (`w/rest.php/v1/search/page`, new `discover::wikipedia_search`)
+   — validated live: the D-T8 page is rank 1 for the legal name, excerpt carrying
+   `Airious "Ace" Bailey … Utah Jazz`.
+2. **Code prescreen** — `mentions_all_tokens`: every word of the sought name in the page surface;
+   ≤2 surviving pages get a summary fetch + model read (`MAX_PROSE_PAGES`).
+3. **The model QUOTES, code decides (T2's rule for this arm, fixed before it was built):**
+   4 fields, all verbatim — `subject_kind` (enum, free), `sought_name_evidence`,
+   `occupation_phrase`, `team_names[]` — and **every free-text field must pass
+   `contains_normalized` against the exact page text the model was shown** (`prompt::page_text`
+   is the ONE definition both sides use). A hallucinated field fails containment and is treated
+   as absent. ep6's lessons applied from birth: order-true raw schema, worked example in the
+   prompt, enum for the triage field.
+4. **`gate::decide_prose`** — same three clauses, same shape as `decide`: evidence screen →
+   sport class (`prose_role_class`, sport-gated like the description screen) → team
+   discriminator (`resolve_team_names`: verbatim phrases → sport-scoped exact `nrm()` surfaces,
+   unique-only) → exactly-one-survivor. **Plus the count-threshold clause: the Editor's
+   descriptor is the second independent observation** (`descriptor_role_class`), and a
+   role-class CONFLICT between news and encyclopedia refuses.
+5. **Accept rides the ONE write path** — `accept_candidate`, generalized: pseudo-item with
+   empty `qid` (wikidata external-id/meta writes gated), `enwiki` external id instead, aliases =
+   the page's connecting form AND the news form — the news form is what makes the next resolver
+   pass hit. Merge-to-existing-player keeps the team-agreement discriminator, now over the
+   caller's pre-resolved teams (both arms).
+
+⭐ **LIVE PROBE, ministral-3:14b, temp 0, three real pages:** the D-T8 case → person /
+`Airious "Ace" Bailey` / "American professional basketball player" / ["Utah Jazz"] — a clean
+Accept; the Rutgers TEAM page (which legitimately passes the prescreen) → `club`, all fields
+empty; the 1930s hockey namesake → occupation quoted honestly, wrong sport, refused. **Zero
+prompt iterations were needed.** The instrument caught two REAL bugs before any deploy, both in
+CODE, not the prompt: (1) the prescreen was written as contiguous containment and the D-T8 page
+writes the nickname INSIDE the sought phrase — `Airious "Ace" Bailey` — so the arm would have
+dropped the exact page it exists to find (fix: token presence for discovery, contiguity for the
+model's evidence); (2) the search excerpt carries HTML entities (`&quot;`) that break every
+containment check (fix: decode in `strip_tags`).
+
+**COST PROFILE:** ≤2 model calls/candidate on the Mac's 14B (`Role::Investigator`, its own
+governor — never archbox), ~5 Wikimedia fetches/candidate at the 2s spacing. `acquisition_runs`
+rows self-describe (`model_version` + `parser_version` `ip1` from the run plan).
+
+⚠ **OWED:** (1) an `investigator` eval task + authored fixtures — the D-T45 rule says the gate
+must see this contract before anyone TUNES it; the three probe cases above are the seed set;
+(2) the live reading once the nomination sweep refills `investigate_entity` (the queue is empty
+today); (3) `descriptor_role_class`'s vocabulary is unmeasured against real descriptors.
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*

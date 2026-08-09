@@ -18,13 +18,21 @@
 //! tuning ledger; the seat (`Role::Investigator`) exists and idles until then.
 
 use super::discover::{
-    wikidata_item, wikidata_search, WikidataHit, WikidataItem,
+    wikidata_item, wikidata_search, wikipedia_search, wikipedia_summary, WikidataHit,
+    WikidataItem,
 };
 use super::gate::{
-    decide, display_height, display_weight, nba_headshot_url, wire_date, RoleClass, Verdict,
+    contains_normalized, decide, decide_prose, descriptor_role_class, display_height,
+    display_weight, mentions_all_tokens, nba_headshot_url, prose_role_class,
+    strip_paren_title, wire_date, ProseScreen, RoleClass, Verdict,
+};
+use super::prompt::{
+    build_prose_prompt, page_text, prose_opts, ProseRead, ProseReadParser,
+    INVESTIGATOR_PROSE_CONTRACT_VERSION,
 };
 use crate::fetch::{BudgetedFetcher, FetchPolicy};
 use crate::harness::Harness;
+use crate::route::Role;
 use crate::stage::StageHandler;
 use crate::work::{Item, Stage};
 use anyhow::{anyhow, Context, Result};
@@ -360,8 +368,8 @@ async fn investigate_candidate(hx: &Harness, fetcher: &BudgetedFetcher, item: &I
                     "accepted item has no writable kind").await?;
                 return Ok(());
             };
-            let team_id = d.our_teams[item_idx].first().copied();
-            accept_candidate(hx, &cand, &sport, it, kind, role, team_id, &run_plan).await?;
+            accept_candidate(hx, &cand, &sport, it, kind, role, &d.our_teams[item_idx], &run_plan)
+                .await?;
         }
         Verdict::Ambiguous { survivor_idxs } => {
             let reason = format!("{} sport-relevant survivors, no unique discriminator", survivor_idxs.len());
@@ -371,11 +379,202 @@ async fn investigate_candidate(hx: &Harness, fetcher: &BudgetedFetcher, item: &I
             finish_candidate(hx, &cand, "rejected_not_sport", None, &run_plan, "no sport-relevant item").await?;
         }
         Verdict::RejectedInsufficientEvidence => {
-            finish_candidate(hx, &cand, "rejected_insufficient_evidence", None, &run_plan,
-                "no name-agreeing item").await?;
+            // The 5.4 prose arm (D-T8): Wikidata's ENTITY search matches labels and
+            // aliases, so a name the news writes one way and the encyclopedia another
+            // refuses here honestly. Wikipedia FULL-TEXT search finds the page that
+            // MENTIONS the news form — usually the legal name in the lede — and the model
+            // quotes the connection for code to verify. Only this verdict falls through:
+            // not-sport already had identified evidence, and a tie needs a discriminator,
+            // not more prose.
+            investigate_candidate_prose(hx, fetcher, &cand, &sport, &search_name, &run_plan)
+                .await?;
         }
     }
     Ok(())
+}
+
+/// The prose arm — Wikipedia full-text discovery, a verbatim-quote model read per page,
+/// then [`decide_prose`] over CODE-verified screens. Everything the model returns is
+/// checked by containment against the exact page text it was shown before it can matter.
+async fn investigate_candidate_prose(
+    hx: &Harness,
+    fetcher: &BudgetedFetcher,
+    cand: &CandidateRow,
+    sport: &str,
+    sought: &str,
+    wikidata_run_plan: &serde_json::Value,
+) -> Result<()> {
+    let policy = wikimedia_policy();
+    let pages = wikipedia_search(fetcher, &hx.pool, &policy, sought, 5).await?;
+    // Pre-screen in code: only pages whose search surface carries EVERY word of the sought
+    // name go to the model. Token presence, not contiguous containment — the target page
+    // writes the name with a nickname inside it (`Airious "Ace" Bailey`), and the strict
+    // check belongs to the model's quoted evidence, not to discovery.
+    let mentioning: Vec<_> = pages
+        .iter()
+        .filter(|p| {
+            mentions_all_tokens(&format!("{}\n{}\n{}", p.title, p.description, p.excerpt), sought)
+        })
+        .take(MAX_PROSE_PAGES)
+        .collect();
+    if mentioning.is_empty() {
+        finish_candidate(hx, cand, "rejected_insufficient_evidence", None, wikidata_run_plan,
+            "no name-agreeing wikidata item; no wikipedia page mentions the name").await?;
+        return Ok(());
+    }
+
+    let mut screens: Vec<ProseScreen> = Vec::new();
+    let mut reads: Vec<(ProseRead, String, String, i64, Vec<i32>)> = Vec::new(); // (read, key, title, doc, teams)
+    let mut model_version = String::new();
+    for page in &mentioning {
+        let fetched = match wikipedia_summary(fetcher, &hx.pool, &policy, &page.key).await {
+            Ok(f) => f,
+            Err(e) => {
+                warn!(key = %page.key, error = %format!("{e:#}"), "summary fetch failed; page skipped");
+                continue;
+            }
+        };
+        let body: serde_json::Value = match serde_json::from_str(&fetched.body) {
+            Ok(v) => v,
+            Err(e) => {
+                warn!(key = %page.key, error = %e, "summary body unparseable; page skipped");
+                continue;
+            }
+        };
+        let title = body.get("title").and_then(serde_json::Value::as_str).unwrap_or(&page.title);
+        let description = body.get("description").and_then(serde_json::Value::as_str).unwrap_or("");
+        let extract = body.get("extract").and_then(serde_json::Value::as_str).unwrap_or("");
+        let text = page_text(title, description, extract);
+
+        let prompt = build_prose_prompt(sought, cand.descriptor.as_deref(), sport, title, description, extract);
+        let extracted = hx
+            .extract(Role::Investigator, &prompt, &prose_opts(), &ProseReadParser)
+            .await?;
+        model_version = extracted.model.clone();
+        let Some(read) = extracted.value else {
+            warn!(key = %page.key, "prose read unparseable; page skipped");
+            continue;
+        };
+
+        // Every screen is a CODE check over verbatim text (T2): the model's fields count
+        // only where containment proves they came from the page.
+        let evidence_ok = read.subject_kind == "person"
+            && contains_normalized(&text, &read.sought_name_evidence);
+        let occupation_ok = contains_normalized(&text, &read.occupation_phrase);
+        let role = if occupation_ok {
+            prose_role_class(sport, &read.occupation_phrase)
+        } else {
+            RoleClass::Unknown
+        };
+        let verified_teams: Vec<String> = read
+            .team_names
+            .iter()
+            .filter(|t| contains_normalized(&text, t))
+            .cloned()
+            .collect();
+        let our_teams = resolve_team_names(&hx.pool, sport, &verified_teams).await?;
+        let descriptor_role = cand
+            .descriptor
+            .as_deref()
+            .map(descriptor_role_class)
+            .unwrap_or(RoleClass::Unknown);
+        let descriptor_conflict = descriptor_role != RoleClass::Unknown
+            && role != RoleClass::Unknown
+            && descriptor_role != role;
+
+        screens.push(ProseScreen {
+            evidence_ok,
+            role,
+            team_matched: !our_teams.is_empty(),
+            descriptor_conflict,
+        });
+        reads.push((read, page.key.clone(), title.to_string(), fetched.document_id, our_teams));
+    }
+
+    let run_plan = json!({
+        "arm": "prose",
+        "contract": INVESTIGATOR_PROSE_CONTRACT_VERSION,
+        "model": model_version,
+        "wikidata": wikidata_run_plan,
+        "pages": reads.iter().map(|(r, key, _, doc, teams)| json!({
+            "key": key, "doc": doc,
+            "subject_kind": r.subject_kind,
+            "evidence": r.sought_name_evidence,
+            "occupation": r.occupation_phrase,
+            "teams": r.team_names,
+            "our_team_ids": teams,
+        })).collect::<Vec<_>>(),
+    });
+
+    match decide_prose(&screens) {
+        Verdict::Accept { item_idx, role } => {
+            let (read, key, title, doc, our_teams) = &reads[item_idx];
+            let Some(kind) = role.person_kind() else {
+                finish_candidate(hx, cand, "rejected_not_sport", None, &run_plan,
+                    "prose accept has no writable kind").await?;
+                return Ok(());
+            };
+            // The pseudo-item: label from the page title (code-derived, never asked of the
+            // model), aliases = the page's connecting form AND the news form — the news
+            // form is the alias that makes the next resolver pass hit.
+            let it = WikidataItem {
+                qid: String::new(),
+                label: strip_paren_title(title),
+                description: read.occupation_phrase.clone(),
+                aliases: vec![read.sought_name_evidence.clone(), cand.norm_name.clone()],
+                enwiki_title: Some(key.clone()),
+                source_document_id: *doc,
+                ..Default::default()
+            };
+            accept_candidate(hx, cand, sport, &it, kind, role, our_teams, &run_plan).await?;
+        }
+        Verdict::Ambiguous { survivor_idxs } => {
+            let reason = format!(
+                "prose: {} evidence-bearing pages, no unique team discriminator",
+                survivor_idxs.len()
+            );
+            finish_candidate(hx, cand, "ambiguous", None, &run_plan, &reason).await?;
+        }
+        Verdict::RejectedNotSport => {
+            finish_candidate(hx, cand, "rejected_not_sport", None, &run_plan,
+                "prose: page(s) connect the name but not to this sport").await?;
+        }
+        Verdict::RejectedInsufficientEvidence => {
+            finish_candidate(hx, cand, "rejected_insufficient_evidence", None, &run_plan,
+                "prose: no page connects the sought name to a person").await?;
+        }
+    }
+    Ok(())
+}
+
+/// How many mention-bearing pages get a summary fetch + model read. Two covers the
+/// namesake-tie shape without spending the Mac's slots on long-tail hits.
+const MAX_PROSE_PAGES: usize = 2;
+
+/// resolve_team_names maps VERBATIM team phrases onto OUR team ids — sport-scoped exact
+/// `nrm()` surface match, unique-only (two teams sharing a normalized surface refuse,
+/// never a coin flip). The prose twin of `resolve_team_qids`.
+async fn resolve_team_names(pool: &PgPool, sport: &str, names: &[String]) -> Result<Vec<i32>> {
+    let mut out = Vec::new();
+    for name in names {
+        let matches: Vec<i32> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT entity_id FROM public.entity_name_surfaces
+            WHERE sport = $1 AND entity_type = 'team' AND norm = public.nrm($2)
+            "#,
+        )
+        .bind(sport)
+        .bind(name)
+        .fetch_all(pool)
+        .await
+        .context("resolve prose team name")?;
+        if let [team_id] = matches.as_slice() {
+            if !out.contains(team_id) {
+                out.push(*team_id);
+            }
+        }
+    }
+    Ok(out)
 }
 
 fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
@@ -386,6 +585,12 @@ fn bools_of(our_teams: &[Vec<i32>]) -> Vec<bool> {
 /// resolve-to-existing first (alias, no new row), else a `persons` row; aliases (append-only)
 /// + direct surface mirror; a role fact; `coach_of` when the role is coach and a team
 /// resolved; the acquisition run; the candidate's state. Every row cites the source doc.
+///
+/// Serves BOTH arms since 5.4 shipped: the Wikidata arm passes a real item, the prose arm a
+/// pseudo-item with an empty `qid` (gating the wikidata external-id/meta writes) and an
+/// `enwiki_title` (which writes an `enwiki` external id instead). `career_team_ids` is the
+/// merge discriminator, pre-resolved by whichever arm called — QID mapping for Wikidata,
+/// verbatim-surface resolution for prose.
 #[allow(clippy::too_many_arguments)]
 async fn accept_candidate(
     hx: &Harness,
@@ -394,9 +599,10 @@ async fn accept_candidate(
     it: &WikidataItem,
     kind: &str,
     role: RoleClass,
-    team_id: Option<i32>,
+    career_team_ids: &[i32],
     run_plan: &serde_json::Value,
 ) -> Result<()> {
+    let team_id = career_team_ids.first().copied();
     let mut tx = hx.pool.begin().await.context("begin accept")?;
 
     // Resolve-to-existing FIRST (5.5): an exact-surface person/player whose sport matches.
@@ -422,7 +628,8 @@ async fn accept_candidate(
             let person_id: i32 = sqlx::query_scalar(
                 r#"
                 INSERT INTO public.persons (sport, full_name, kind, team_id, search_aliases, meta)
-                VALUES ($1, $2, $3, $4, $5, jsonb_build_object('wikidata', $6::text))
+                VALUES ($1, $2, $3, $4, $5,
+                        jsonb_strip_nulls(jsonb_build_object('wikidata', NULLIF($6, '')::text)))
                 RETURNING id
                 "#,
             )
@@ -442,7 +649,8 @@ async fn accept_candidate(
             let etype: String = r.get("entity_type");
             let eid: i32 = r.get("entity_id");
             // Merging onto an existing entity needs the discriminator to AGREE, not merely
-            // exist: for players, the item's career teams must include the player's team.
+            // exist: for players, the caller's resolved career teams must include the
+            // player's team. A team-less player on our side refuses (never a guess).
             if etype == "player" {
                 let player_team: Option<i32> =
                     sqlx::query_scalar("SELECT team_id FROM public.players WHERE id = $1")
@@ -451,26 +659,7 @@ async fn accept_candidate(
                         .await
                         .context("load player team for merge check")?
                         .flatten();
-                let agree = match (player_team, team_id) {
-                    (Some(pt), _) => {
-                        // team_id here is the FIRST resolved team; check all resolved.
-                        // Conservative: require the player's team among the item's teams.
-                        let all: Vec<i32> = sqlx::query_scalar(
-                            r#"
-                            SELECT entity_id FROM public.entity_external_ids
-                            WHERE namespace = 'wikidata' AND entity_type = 'team'
-                              AND sport = $1 AND external_id = ANY($2)
-                            "#,
-                        )
-                        .bind(sport)
-                        .bind(&it.member_of_teams)
-                        .fetch_all(&mut *tx)
-                        .await
-                        .context("merge team check")?;
-                        all.contains(&pt)
-                    }
-                    (None, _) => false,
-                };
+                let agree = player_team.is_some_and(|pt| career_team_ids.contains(&pt));
                 if !agree {
                     tx.rollback().await.ok();
                     finish_candidate(hx, cand, "ambiguous", None, run_plan,
@@ -524,27 +713,36 @@ async fn accept_candidate(
         .context("mirror surface")?;
     }
 
-    // External id + role fact + the coach_of relationship when it applies.
-    sqlx::query(
-        r#"
-        INSERT INTO public.entity_external_ids
-            (entity_type, entity_id, sport, namespace, external_id, source_document_id)
-        SELECT $1, $2, $3, 'wikidata', $4, $5
-        WHERE NOT EXISTS (
-            SELECT 1 FROM public.entity_external_ids
-            WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
-              AND namespace = 'wikidata' AND external_id = $4
+    // External ids + role fact + the coach_of relationship when it applies. The namespaces
+    // are per-arm: `wikidata` only with a real QID (the prose arm has none), `enwiki`
+    // whenever a page title anchors the identity.
+    for (ns, ext) in [
+        ("wikidata", (!it.qid.is_empty()).then(|| it.qid.clone())),
+        ("enwiki", it.enwiki_title.clone()),
+    ] {
+        let Some(ext) = ext else { continue };
+        sqlx::query(
+            r#"
+            INSERT INTO public.entity_external_ids
+                (entity_type, entity_id, sport, namespace, external_id, source_document_id)
+            SELECT $1, $2, $3, $4, $5, $6
+            WHERE NOT EXISTS (
+                SELECT 1 FROM public.entity_external_ids
+                WHERE entity_type = $1 AND entity_id = $2 AND sport = $3
+                  AND namespace = $4 AND external_id = $5
+            )
+            "#,
         )
-        "#,
-    )
-    .bind(&resolved_type)
-    .bind(resolved_id)
-    .bind(sport)
-    .bind(&it.qid)
-    .bind(it.source_document_id)
-    .execute(&mut *tx)
-    .await
-    .context("insert person external id")?;
+        .bind(&resolved_type)
+        .bind(resolved_id)
+        .bind(sport)
+        .bind(ns)
+        .bind(&ext)
+        .bind(it.source_document_id)
+        .execute(&mut *tx)
+        .await
+        .context("insert person external id")?;
+    }
 
     sqlx::query(
         r#"
@@ -651,19 +849,30 @@ async fn record_run(
     query_plan: &serde_json::Value,
     rejection_reason: Option<&str>,
 ) -> Result<()> {
+    // The prose arm's plan self-describes (`arm: "prose"` carries `model` + `contract`),
+    // so the ledger columns come from the plan rather than threading two more parameters
+    // through every verdict path. The Wikidata arm's plan has neither key → NULL model,
+    // wikidata parser version — exactly the pre-5.4 row shape.
+    let model_version = query_plan.get("model").and_then(serde_json::Value::as_str)
+        .filter(|m| !m.is_empty());
+    let parser_version = query_plan
+        .get("contract")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or(INVESTIGATE_PARSER_VERSION);
     sqlx::query(
         r#"
         INSERT INTO public.acquisition_runs
             (candidate_id, status, query_plan, outcome, rejection_reason,
              model_version, parser_version, started_at, finished_at)
-        VALUES ($1, 'completed', $2::jsonb, $3, $4, NULL, $5, NOW(), NOW())
+        VALUES ($1, 'completed', $2::jsonb, $3, $4, $5, $6, NOW(), NOW())
         "#,
     )
     .bind(candidate_id)
     .bind(query_plan)
     .bind(outcome)
     .bind(rejection_reason)
-    .bind(INVESTIGATE_PARSER_VERSION)
+    .bind(model_version)
+    .bind(parser_version)
     .execute(&mut **tx)
     .await
     .context("record acquisition run")?;

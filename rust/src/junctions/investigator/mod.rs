@@ -20,5 +20,6 @@ pub mod boxscore;
 pub mod discover;
 pub mod entity;
 pub mod gate;
+pub mod prompt;
 #[cfg(test)]
 mod tests;

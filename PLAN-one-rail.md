@@ -36,6 +36,13 @@ included. `EDITOR_MAX_MODEL_CHARS` re-derived 7,500 → 7,200; worst case ~3,940
 stays closed.
 ⚠ **Owed: the production reading, now of ep6** — register rate, `unknown` rate, and story_type
 distribution at the drain's real article mix (D-T45 closes with the list).
+✅ **THE INVESTIGATOR IS UNBLOCKED AND HAS ITS MODEL PATH (same day, Scott: "we move on to the
+Investigator"):** D-T10 knob (a) shipped — `slot_group` → `None`, the zero-model-call stage no
+longer queues behind the Editor for a card it never touches — and **5.4's deferred prose arm is
+BUILT (`ip1`, D-T46)**: Wikipedia full-text discovery → verbatim-quote model read on the 14B →
+containment-verified screens → `decide_prose` → the one write path. Live-probed untuned at
+temp 0: the D-T8 accept, a club-page triage, a wrong-sport refusal — all correct. Owed: the
+`investigator` eval task + fixtures, and the live reading when nominations refill the queue.
 
 *(~10:45 STATE, superseded by this one the same day.)*
 ⛔ **THE GOVERNING ORDER, GIVEN THIS SESSION AND HARDENED INTO MEMORY — READ IT BEFORE ANYTHING
@@ -4958,6 +4965,21 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T46 · ✅ THE INVESTIGATOR'S PROSE ARM (5.4's deferred fallback, `ip1`) IS BUILT — THE SEAT'S
+  FIRST MODEL PATH (2026-08-09).** For the D-T8 class ("Airious Bailey" vs "Ace Bailey"):
+  Wikipedia FULL-TEXT search (validated live: the target page is rank 1 for the legal name) →
+  token-presence prescreen → ≤2 pages read by the 14B on a **verbatim-quote contract — every
+  free-text field must pass substring containment against the exact page text shown, so a
+  hallucinated field is mechanically absent** → `decide_prose` (same three clauses + the
+  count-threshold: the Editor's descriptor is the second independent observation; a role-class
+  conflict refuses) → the ONE `accept_candidate` write path, generalized (empty qid gates
+  wikidata writes; `enwiki` id; the news form becomes an alias so the next resolver pass hits).
+  ⭐ Live probe on ministral-3:14b at temp 0: D-T8 accept / club-page triage / wrong-sport
+  refusal — **zero prompt iterations**. The probe caught two CODE bugs pre-deploy (contiguous
+  prescreen would have dropped the D-T8 page — the nickname interrupts the phrase; undecoded
+  `&quot;` broke containment). ⚠ Owed: `investigator` eval task + fixtures (D-T45's rule: the
+  gate must see it before anyone tunes it), the live reading when nominations refill the queue.
+  → *tuning §D-T46*
 - **D-T45 · ✅ THE GATE READ ep5, BOUGHT `ep6`, AND CORRECTED D-T44: THE TRIM HAD COST QUALITY THE
   GATE COULDN'T SEE (2026-08-09).** ⛔ The on-disk fixtures were frozen at ep5, so the first "ep1
   baseline" was ep5 vs itself; the TRUE ep1 (from git) scores **58/60 vs ep5's 48/60** — the

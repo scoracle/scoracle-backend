@@ -177,6 +177,195 @@ pub fn decide(
     }
 }
 
+// ---------------------------------------------------------------------------------------
+// The prose arm (5.4, built 2026-08-09) — the same three clauses over a model's VERBATIM
+// quotes instead of Wikidata's claims. Purity holds: these functions classify pre-fetched,
+// pre-screened facts; the handler owns retrieval, the model call and every write.
+// ---------------------------------------------------------------------------------------
+
+/// contains_normalized is the anti-hallucination check the verbatim contract makes
+/// possible: every model field must be a substring of the page text it was quoted from.
+/// Normalization is deliberately minimal — collapse whitespace, straighten curly quotes,
+/// case-fold — enough to survive markup residue, never enough to let a paraphrase pass.
+pub fn contains_normalized(haystack: &str, needle: &str) -> bool {
+    let n = norm_for_containment(needle);
+    if n.is_empty() {
+        return false;
+    }
+    norm_for_containment(haystack).contains(&n)
+}
+
+fn norm_for_containment(s: &str) -> String {
+    s.chars()
+        .map(|c| match c {
+            '\u{2018}' | '\u{2019}' => '\'',
+            '\u{201C}' | '\u{201D}' => '"',
+            '\u{2013}' | '\u{2014}' => '-',
+            c => c,
+        })
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// mentions_all_tokens is the DISCOVERY prescreen: every word of the sought name appears
+/// somewhere in the page surface. Deliberately weaker than [`contains_normalized`], and it
+/// has to be — measured on the live probe, the page the D-T8 arm exists for writes
+/// `Airious "Ace" Bailey`, so the sought "Airious Bailey" is never a contiguous substring:
+/// the nickname interrupts it. Token presence decides only WHICH pages earn a model read;
+/// the model's quoted evidence still passes the strict contiguous check.
+pub fn mentions_all_tokens(haystack: &str, name: &str) -> bool {
+    // Both sides get the SAME punctuation strip, or "A.J." (→ "aj") in a sought name can
+    // never match the page's own "A.J." (which would keep its dots).
+    let depunct = |s: &str| {
+        let mut n = norm_for_containment(s);
+        n.retain(|c| c.is_alphanumeric() || c.is_whitespace());
+        n
+    };
+    let h = depunct(haystack);
+    let tokens = depunct(name);
+    let mut any = false;
+    for t in tokens.split_whitespace() {
+        any = true;
+        if !h.contains(t) {
+            return false;
+        }
+    }
+    any
+}
+
+/// strip_paren_title derives the person's display name from a Wikipedia title — the model
+/// is deliberately NOT asked for a name field code can compute ("Ace Bailey (basketball,
+/// born 2006)" → "Ace Bailey").
+pub fn strip_paren_title(title: &str) -> String {
+    match title.split_once(" (") {
+        Some((head, _)) => head.trim().to_string(),
+        None => title.trim().to_string(),
+    }
+}
+
+/// prose_role_class maps a verbatim occupation phrase onto the role classes, sport-gated:
+/// the phrase must carry the sport's keyword (or an unambiguous sport-implying role word
+/// like "footballer") before any role word counts — "American author" stays Unknown on
+/// every sport, exactly like the description screen on the Wikidata arm.
+pub fn prose_role_class(sport: &str, occupation_phrase: &str) -> RoleClass {
+    let p = occupation_phrase.to_lowercase();
+    if p.is_empty() {
+        return RoleClass::Unknown;
+    }
+    let (_, _, kw) = sport_occupations(sport);
+    let sport_implied = match sport {
+        "FOOTBALL" => p.contains("footballer") || p.contains("soccer"),
+        _ => false,
+    };
+    if kw.is_empty() || (!p.contains(kw) && !sport_implied) {
+        return RoleClass::Unknown;
+    }
+    if p.contains("coach") || p.contains("manager") {
+        RoleClass::Coach
+    } else if p.contains("player") || p.contains("footballer") {
+        RoleClass::Player
+    } else if p.contains("executive") || p.contains("president") || p.contains("chairman") {
+        RoleClass::Executive
+    } else if p.contains("owner") {
+        RoleClass::Owner
+    } else if p.contains("agent") {
+        RoleClass::Agent
+    } else if p.contains("referee") || p.contains("official") {
+        RoleClass::Official
+    } else {
+        RoleClass::Unknown
+    }
+}
+
+/// descriptor_role_class reads the EDITOR's descriptor ("Rangers defender", "Villa head
+/// coach") into the same classes — the second, independent observation the count-threshold
+/// rule wants: one from the news text, one from the encyclopedia. Position words imply
+/// Player without any sport keyword (the news text rarely says "basketball").
+pub fn descriptor_role_class(descriptor: &str) -> RoleClass {
+    let d = descriptor.to_lowercase();
+    const PLAYER_WORDS: &[&str] = &[
+        "player", "footballer", "striker", "midfielder", "defender", "goalkeeper", "keeper",
+        "winger", "forward", "guard", "center", "centre-back", "full-back", "quarterback",
+        "rookie", "prospect", "signing", "loanee", "freshman",
+    ];
+    if d.contains("coach") || d.contains("manager") || d.contains("boss") {
+        return RoleClass::Coach;
+    }
+    if PLAYER_WORDS.iter().any(|w| d.contains(w)) {
+        return RoleClass::Player;
+    }
+    if d.contains("executive") || d.contains("director") || d.contains("president")
+        || d.contains("chairman") || d.contains("general manager")
+    {
+        return RoleClass::Executive;
+    }
+    if d.contains("owner") {
+        return RoleClass::Owner;
+    }
+    if d.contains("agent") {
+        return RoleClass::Agent;
+    }
+    if d.contains("referee") || d.contains("official") {
+        return RoleClass::Official;
+    }
+    RoleClass::Unknown
+}
+
+/// One page's pre-computed screens, assembled by the handler for [`decide_prose`]. Every
+/// boolean is a CODE check over verbatim text — nothing here trusts the model's judgment.
+#[derive(Clone, Debug)]
+pub struct ProseScreen {
+    /// The model said the page is about a person AND its `sought_name_evidence` survived
+    /// containment — the page itself connects the sought name to its subject.
+    pub evidence_ok: bool,
+    /// `prose_role_class` over the containment-surviving occupation phrase.
+    pub role: RoleClass,
+    /// ≥1 of the page's team names resolved onto OUR teams (sport-scoped exact nrm).
+    pub team_matched: bool,
+    /// The Editor's descriptor classifies to a DIFFERENT role class (both non-Unknown).
+    /// A conflict between the two independent observations refuses; agreement or silence
+    /// does not.
+    pub descriptor_conflict: bool,
+}
+
+/// decide_prose applies the same shape as [`decide`]: evidence screen, sport relevance,
+/// discriminator, exactly-one-survivor. The bar is deliberately the FULL three clauses —
+/// this arm exists to recover honest refusals, not to lower the bar that made them honest.
+pub fn decide_prose(screens: &[ProseScreen]) -> Verdict {
+    let evidenced: Vec<usize> = (0..screens.len()).filter(|&i| screens[i].evidence_ok).collect();
+    if evidenced.is_empty() {
+        return Verdict::RejectedInsufficientEvidence;
+    }
+    let relevant: Vec<usize> = evidenced
+        .iter()
+        .copied()
+        .filter(|&i| screens[i].role != RoleClass::Unknown && !screens[i].descriptor_conflict)
+        .collect();
+    if relevant.is_empty() {
+        return Verdict::RejectedNotSport;
+    }
+    let discriminated: Vec<usize> = relevant
+        .iter()
+        .copied()
+        .filter(|&i| screens[i].team_matched)
+        .collect();
+    match discriminated.as_slice() {
+        [] => Verdict::Ambiguous {
+            survivor_idxs: relevant,
+        },
+        [one] => Verdict::Accept {
+            item_idx: *one,
+            role: screens[*one].role,
+        },
+        many => Verdict::Ambiguous {
+            survivor_idxs: many.to_vec(),
+        },
+    }
+}
+
 /// nba_headshot_url derives the display URL from the NBA.com player id (P3647). Stored,
 /// never fetched by us — clients load it; cdn.nba.com serves browsers fine (it blocks
 /// bots, which is why the Investigator does not fetch it — 4.3 review).
@@ -293,6 +482,81 @@ mod tests {
             decide("NBA", &[stranger], &[false], &[true]),
             Verdict::RejectedInsufficientEvidence
         );
+    }
+
+    #[test]
+    fn containment_survives_markup_residue_but_never_a_paraphrase() {
+        let page = "Airious \u{201C}Ace\u{201D} Bailey Jr. (born August 28, 2006) is an American college basketball player";
+        assert!(contains_normalized(page, "Airious \"Ace\" Bailey Jr."));
+        assert!(contains_normalized(page, "american college basketball player"));
+        assert!(!contains_normalized(page, "plays basketball in college"), "paraphrase must fail");
+        assert!(!contains_normalized(page, ""), "empty evidence is no evidence");
+    }
+
+    #[test]
+    fn prose_role_class_is_sport_gated_like_the_description_screen() {
+        assert_eq!(prose_role_class("NBA", "American college basketball player"), RoleClass::Player);
+        assert_eq!(prose_role_class("NBA", "American basketball coach"), RoleClass::Coach);
+        assert_eq!(prose_role_class("NBA", "American author"), RoleClass::Unknown);
+        // "footballer" implies the sport without the keyword.
+        assert_eq!(prose_role_class("FOOTBALL", "Scottish footballer"), RoleClass::Player);
+        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager"), RoleClass::Coach);
+        assert_eq!(prose_role_class("NBA", ""), RoleClass::Unknown);
+    }
+
+    #[test]
+    fn descriptor_and_page_are_two_observations_and_a_conflict_refuses() {
+        assert_eq!(descriptor_role_class("Rangers defender"), RoleClass::Player);
+        assert_eq!(descriptor_role_class("Villa head coach"), RoleClass::Coach);
+        assert_eq!(descriptor_role_class("supporters' trust chair"), RoleClass::Unknown);
+        let ok = ProseScreen {
+            evidence_ok: true,
+            role: RoleClass::Player,
+            team_matched: true,
+            descriptor_conflict: false,
+        };
+        assert_eq!(
+            decide_prose(&[ok.clone()]),
+            Verdict::Accept { item_idx: 0, role: RoleClass::Player }
+        );
+        // The same page with a conflicting descriptor (news said coach, page says player)
+        // must not accept — two independent sources disagree on WHAT this person is.
+        let conflicted = ProseScreen { descriptor_conflict: true, ..ok.clone() };
+        assert_eq!(decide_prose(&[conflicted]), Verdict::RejectedNotSport);
+        // No team discriminator → ambiguous, never accept (the Pep rule holds on prose).
+        let undiscriminated = ProseScreen { team_matched: false, ..ok.clone() };
+        assert!(matches!(decide_prose(&[undiscriminated]), Verdict::Ambiguous { .. }));
+        // Two discriminated survivors → tie.
+        assert!(matches!(
+            decide_prose(&[ok.clone(), ok]),
+            Verdict::Ambiguous { .. }
+        ));
+        // No evidence at all → insufficient.
+        let no_evidence = ProseScreen {
+            evidence_ok: false,
+            role: RoleClass::Player,
+            team_matched: true,
+            descriptor_conflict: false,
+        };
+        assert_eq!(decide_prose(&[no_evidence]), Verdict::RejectedInsufficientEvidence);
+    }
+
+    #[test]
+    fn discovery_prescreen_is_token_presence_not_contiguity() {
+        // The D-T8 page shape: the nickname interrupts the sought phrase.
+        let page = "Ace Bailey (basketball)\nAmerican basketball player\nAirious \"Ace\" Bailey (born August 13, 2006) is an American professional basketball player";
+        assert!(!contains_normalized(page, "Airious Bailey"), "the strict check must fail here");
+        assert!(mentions_all_tokens(page, "Airious Bailey"), "the prescreen must pass here");
+        assert!(!mentions_all_tokens(page, "Matthew Bailey"), "a missing token drops the page");
+        assert!(!mentions_all_tokens(page, ""), "an empty name matches nothing");
+        // Punctuation in the sought form must not block its tokens ("A.J. Green").
+        assert!(mentions_all_tokens("A.J. Green is a receiver", "A.J. Green"));
+    }
+
+    #[test]
+    fn paren_titles_reduce_to_display_names() {
+        assert_eq!(strip_paren_title("Ace Bailey (basketball, born 2006)"), "Ace Bailey");
+        assert_eq!(strip_paren_title("Erik Spoelstra"), "Erik Spoelstra");
     }
 
     #[test]

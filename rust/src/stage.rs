@@ -79,6 +79,14 @@ pub trait StageHandler: Send + Sync {
     }
 }
 
-/// The gemma3 card on Archbox, shared by The Editor and graph. Four parallel slots
-/// (`max_concurrent=4`), allocated on demand rather than split down the middle.
-pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 4);
+/// The ministral card on Archbox (1070 Ti), shared by The Editor and graph. Six parallel slots
+/// (`max_concurrent=6`), allocated on demand rather than split down the middle.
+///
+/// **Six is a VRAM derivation, not a guess (2026-08-09):** at `num_ctx` 4096 the measured load
+/// is 6,072 MiB with 4 slots — weights+overhead plus ~570 MiB of KV per slot — so 6 slots lands
+/// ~7.2 GiB of the card's 8,192 and **8 would cross it**, spilling layers to CPU silently (the
+/// D-T35 failure class; `ollama ps` must say `100% GPU` after any change here). Raising this
+/// beyond the server's `OLLAMA_NUM_PARALLEL` only queues requests inside Ollama; the three knobs
+/// — this constant, `COGNITION_BACKEND_CONCURRENCY`'s localhost entry, and the systemd unit's
+/// `OLLAMA_NUM_PARALLEL` — move together or not at all.
+pub const ARCHBOX_GEMMA_SLOTS: (&str, usize) = ("archbox-gemma3", 6);

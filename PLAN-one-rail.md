@@ -4850,6 +4850,20 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T42 · ✅ MIG 217 WORKS — AND ITS FIRST READING DOES NOT SUPPORT D-T36's SEED-COMPOSITION
+  HYPOTHESIS.** The 02:00 Sun drain ran on the new binary (1,101 editor reads 02:00→07:03, **796
+  editor calls on `ministral-3:3b`**). **Reading (a) PASSES CLEAN: 227 scored / 121 unscored**, and
+  the 121 are **exactly** the 121 storylines OPENED in the window — `winner.map(|_| score)` writes
+  NULL on an opening article by design, because "no candidate" and "scored 0" are different claims.
+  `candidate_count` written on all 348 rows, 0 NULL, as its comment promises. **Nothing is missing.**
+  ⛔ **READING (b) POINTS AWAY FROM THE HYPOTHESIS.** Attaches per storyline by `seed_size`:
+  **2→1.48, 3→1.79, 4→1.97, 5→1.78, 6→1.64, 7→1.17, 8→1.33.** **Small seeds do NOT over-attract** —
+  the mild peak is at seed 4, and seed 2 is the *second lowest*. Matched-entity wins are **flat**
+  (12/11/9/9/8/8/8/8/7/7/7/6) — **no dominant hot club**, where the hypothesis predicts a steep head.
+  ⚠ **BUT 8 HOURS CANNOT SEE A TAIL THAT TAKES DAYS TO BUILD, SO THIS NEITHER CONFIRMS NOR KILLS
+  D-T36 — 6.7 STAYS OPEN.** The runaways now stand at **7477=173, 7474=171, 8012=75** total articles;
+  in this window **only 7477 grew (+3, seed_size 3, avg_score 5.33)** while 7474 and 8012 took none.
+  **7477 is the one to watch**: a 3-entity seed clearing a 2-match bar, repeatedly. → *tuning §D-T36*
 - **D-T41 · oMLX IS A PROGRAM (`jundot/omlx`, Apache-2.0, v0.5.7), NOT "MLX SERVING" — researched
   2026-08-09 on Scott's correction**, after this session misread D-T34's quote and started
   installing `mlx_lm.server`. macOS menu-bar app **and** headless server on **:8000**,

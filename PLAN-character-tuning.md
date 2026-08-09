@@ -3036,6 +3036,47 @@ including the Go/API path's own Rust bins (`statcommentary`, 248 MB, is still a 
 in `rust/bin/` right now). Fixing them is a one-line change in each plus the `target/debug` →
 `target/release` staging path, and it wants its own deploy and its own measurement. → *rail Appendix D D-T39*
 
+### D-T42 — **THE 217 READING, 2026-08-09 09:00 EDT. THE INSTRUMENT WORKS; THE HYPOTHESIS IT WAS BUILT FOR IS NOT SUPPORTED.**
+
+**The deploy earned its window.** The 02:00 Sun drain ran on `129d50e6f582`: 1,101 `editor_reads`
+between 02:00:28 and 07:03:32, **796 editor calls on `ministral-3:3b`** — the first real production
+volume on the new model, and the first attaches written by code that persists its own decision.
+
+**READING (a) — 217 POPULATES. CLEAN PASS.** 348 attaches in the window: **227 scored, 121 unscored**.
+The 121 are not a gap and not a bug — they are **exactly** the **121 storylines opened** in the same
+window (`storylines.first_seen_at`), and `storyline.rs`'s bind is deliberate:
+`.bind(winner.map(|_| score))` writes NULL when there is no winner, with a comment stating that
+writing 0 "would read back as *scored zero*, which is a different and false claim." `candidate_count`
+is written on **all 348, zero NULL**, exactly as designed — so "N were scored and none cleared the
+bar" remains distinguishable from "there were no candidates."
+
+**READING (b) — THE QUESTION 6.7 COULD NOT ASK, NOW ASKED. THE ANSWER IS "NOT THIS."**
+
+*Attaches per storyline, normalised by seed size* (the raw counts mislead — most storylines simply
+ARE size 3–4):
+| seed_size | 2 | 3 | **4** | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|
+| storylines | 27 | 29 | 38 | 9 | 11 | 6 | 6 |
+| **attaches/storyline** | **1.48** | 1.79 | **1.97** | 1.78 | 1.64 | 1.17 | 1.33 |
+
+⛔ **SMALL SEEDS DO NOT OVER-ATTRACT.** D-T36 predicts a small seed of hot entities running away;
+the measured peak is **seed 4**, and **seed 2 is the second LOWEST** rate on the board. The worst
+case in the window is 6 attaches, and it occurs at sizes 2, 3 and 4 alike.
+
+⛔ **AND THERE IS NO HOT CLUB.** Matched-entity wins are flat: **12, 11, 9, 9, 8, 8, 8, 8, 7, 7, 7,
+6.** The hypothesis predicts a steep head — one entity winning everything. This is a plateau.
+
+⚠ **WHAT THIS DOES *NOT* SETTLE, STATED PLAINLY: AN 8-HOUR WINDOW CANNOT SEE A TAIL THAT TOOK 72
+HOURS TO BUILD.** These are fresh storylines in their first hours; the runaways accumulated over
+days. **So D-T36 is NOT KILLED and 6.7 STAYS OPEN** — what has changed is that the aggregate
+mechanism it proposed now has evidence against it, and the instrument to settle it finally exists.
+
+**THE ONE THREAD WORTH PULLING — 7477.** The three known runaways now total **7477 = 173, 7474 =
+171, 8012 = 75** articles. In this window **only 7477 grew: +3 attaches, `seed_size` 3, avg_score
+5.33** (the bar is 4). 7474 and 8012 took **none**. A 3-entity seed needs `shared*2 >= 3` → **2
+matches**, and it keeps finding them. **Watch 7477 specifically across a multi-day window rather
+than re-running the aggregate** — the aggregate has now been asked and answered.
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*

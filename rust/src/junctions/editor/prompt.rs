@@ -42,7 +42,46 @@ use crate::util::truncate;
 /// the phantom `FIELD 4` (there was never one), the ar7/`co_mentions` history, the `gemma3:4b`
 /// seat and the 8192-ctx sizing, the 250-char `names` example blob and two long worked `absent`
 /// examples whose content is now one clause each. `suspension` joins `story_type`. See §D-T44.
-pub const EDITOR_CONTRACT_VERSION: &str = "ep5";
+///
+/// `ep6` (2026-08-09) — built against the fixture gate, five measured rounds (§D-T45). The
+/// gate's misses under ep5:
+/// * `kind_hint` was one line — "what the text treats this name as" — and ministral read it as
+///   AFFILIATION: `Vinicius <club "Real Madrid forward">`, `Dragojevic <club "Rangers defender">`.
+///   That one inversion drove 5 of the gate's 8 failures (both `name_kind` checks, the dropped
+///   club entry, a namesake tie collapsing to `unresolved` because person surfaces are
+///   kind-incompatible with `club`, and `Paris` auto-linking as a descriptor-less `club`).
+/// * `register` labeled its own quoted phrase wrong ("People are furious…" → `anticipation`);
+///   nothing said the label must describe the phrase.
+///
+/// Three more findings from sweeping the fields the gate had NO checks for (display lines):
+/// * **`story_type` smeared toward whichever enum value the prose named LAST.** ep5's clause
+///   ended on "…is suspension" → suspension on 4 fixtures (a fan protest, a Tour de France
+///   page); flipping the clause to end on injury smeared injury onto 6. The fix that held is a
+///   BALANCED taxonomy: every enum value glossed exactly once, ending on the safe fallback
+///   ("general for anything else"). All seven authored `story_type_is` checks pass under it.
+/// * "label the phrase" alone made the model force a CHARGED label onto flat quotes it was
+///   already in the habit of quoting (ep5 quoted the same sentences, labeled neutral), so
+///   neutral is stated as legal for a quoted-but-flat phrase, and `anticipation` is deliberately
+///   NOT glossed — "looking ahead" described every routine forward-looking club statement.
+/// * `en` is named outright — English articles came back "unknown" under ep5 too (English is
+///   unmarked; the model named `es` fine).
+///
+/// And the correction that mattered most (§D-T45): **the `names` example blob ep5 deleted was
+/// load-bearing.** The true ep1 prompt (recovered from git — the on-disk fixtures had been
+/// re-frozen at ep5, so the first "frozen baseline" was really ep5 vs itself) scored 58/60 where
+/// ep5 scored 48/60: D-T44's "the trim lost nothing" was wrong, the gate just couldn't see the
+/// fields it lost. ep6 restores a MINIMAL worked pair (club entry + person whose descriptor
+/// names that club — the exact shape the model kept inverting), at ~250 chars against ep1's
+/// full blob.
+///
+/// Measured on the 60-check gate (53 inherited + 7 authored this session), same fixtures, same
+/// runner, temp 0, daemon stopped: **ep1 58/60 · ep5 48/60 · ep6 59/60.** The one remaining
+/// failure — Fortuna Mining Corp accepted as `subject` for hypothesis "Fortuna" — fails under
+/// every prompt tested, ep1 included: capacity, not contract, and it is the documented honesty
+/// gap. System prompt: 6,384 ch = **914 tok measured** (ep5 692, ep1 1,431): ep6 beats ep1's
+/// gate score at 64% of its token cost, and `EDITOR_MAX_MODEL_CHARS` was re-derived below to
+/// keep the worst case inside the window.
+pub const EDITOR_CONTRACT_VERSION: &str = "ep6";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Read one fetched sports article and describe it for the newsroom: what the page is, who is in it, what happened, and how it feels. Describe only — code turns your description into every decision, so never state a verdict.
 
@@ -56,9 +95,9 @@ page_kind — what the page IS, judged by its body and not its headline:
 - roundup: a link list, tag page or "related stories" aggregation.
 - other: anything else.
 
-names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to eight, and a list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar.
-- name: as the text writes it, in full — "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club; if the text is about the city itself, it does not belong here at all.
-- kind_hint: what the text treats this name as.
+names — WHO IS IN THIS TEXT. Every person and every club it actually involves: the clubs playing or negotiating, every player, every coach or manager, anyone it quotes, every executive it names. Work through the whole text and do not stop at the first name — a typical report yields three to eight, and a list naming a club but none of its people is wrong. Names we do not already know are how new people enter the system, so list them even when they look unfamiliar. Example shape, from an imaginary story: [{"name":"Feyenoord","kind_hint":"club","descriptor":"selling club"},{"name":"Santiago Gimenez","kind_hint":"person","descriptor":"Feyenoord striker"}]
+- name: as the text writes it, in full — "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club; if the text is about the city itself — an event, a race, a venue — it does not belong here at all, and never as club.
+- kind_hint: what the name ITSELF is, never its affiliation — a "Rangers defender" is a person, and his club is its own entry in this list. Anything that is not a person or a club — a city, a competition — is other, never club.
 - descriptor: up to 6 words COPIED FROM THE TEXT giving the role or context — "Real Madrid manager", "PSG sporting director". Never your own knowledge, and never a role word from entity_roles. Empty string if the text gives none.
 People and clubs only — not competitions or trophies, not stadiums or their stands, not broadcasters, publications or sponsors. Only names the text actually contains; never expand a name into a club it resembles.
 
@@ -69,11 +108,11 @@ entity_roles — one entry for each HYPOTHESIS ENTITY listed in the message belo
 - absent: not in this text, or only a DIFFERENT thing sharing the name — a youth, academy, reserve, women's or flag-football team, a same-named club elsewhere even in the same sport, or a place that merely shares the club's name in a story that is not about the club.
 Be strict about subject. If the story is about another club's player and this entity is who they face, that is opponent. If the text never discusses the club itself — its matches, its players, its business — it is absent even where the name appears.
 
-story_type — what the story is ABOUT. A hiring or firing is roster. A ban, red-card ban or doping ban is suspension.
+story_type — what the story is ABOUT, one value: transfer for a move between clubs or talk of one; injury for fitness — a player hurt or ruled out hurt; suspension for a ban imposed as punishment; performance for a match played and how it went; fixture for a match still to come; roster for a hiring, firing or squad change; contract for a renewal or extension at the same club; general for anything else.
 
 result_line — if the text states a COMPLETED final result, copy that line verbatim, in the shape "Real Madrid 2-1 Arsenal". Copy names and score exactly as given; never compute, complete or infer a result the text does not state. Empty string if no completed result is stated.
 
-register_phrase, then register — how this text FEELS and what in it shows that. Quote the SHORT run of words carrying the most feeling: a fan reaction, a manager's complaint, a celebration, a warning. If the text carries anger, protest, celebration or complaint anywhere, this field must hold that quote, copied from the text and not written by you. Empty only when the whole piece is flat reporting — and an empty phrase means register neutral.
+register_phrase, then register — how this text FEELS and what in it shows that. Quote the SHORT run of words carrying the most feeling: a fan reaction, a manager's complaint, a celebration, a warning. If the text carries anger, protest, celebration or complaint anywhere, this field must hold that quote, copied from the text and not written by you. Empty only when the whole piece is flat reporting — and an empty phrase means register neutral. register labels the phrase you quoted, nothing else: fury or protest is outrage, joy is celebration, accepting defeat is resignation — and a phrase that merely reports, however important the news, is still neutral.
 
 key_facts — one claim each, attributable to the text or a source it names ("The Athletic: deal not agreed"). Never let an injury, a suspension or a transfer development go unrecorded: who, which club, and where it stands. If nothing in the text concerns a hypothesis entity, do not summarise the unrelated story — say why it does not match, in evidence_blurb.
 
@@ -81,23 +120,25 @@ evidence_blurb — 2-4 compact sentences, dense and neutral: what happened, who 
 
 caveats — short; say so when the page is mostly boilerplate. Empty string if none.
 
-source_language — the language the ARTICLE ITSELF is written in. Use "unknown" only when it genuinely cannot be told, never as a default.
+source_language — the language the ARTICLE ITSELF is written in; an article in English is "en". Use "unknown" only when it genuinely cannot be told, never as a default.
 
 Use only the article text and the hypothesis entities, and invent no context, implications or sourcing. Preserve dates, scores, injuries, transactions, quotes-as-claims and any stated uncertainty. Write key_facts, caveats and evidence_blurb in English, translating the meaning where the article is in another language, but keep proper names in their source spelling. Plain prose in every field — no markdown, no bold, no headings. Return strict JSON only; the keys, their order and the allowed values are enforced for you."#;
 
 /// The character budget for the article body — **re-derived at `ep5` from the window it actually
-/// has to fit in** (D-T40 item 2, which had flagged that the old 9,000 contradicted the budget).
+/// has to fit in** (D-T40 item 2, which had flagged that the old 9,000 contradicted the budget),
+/// and again at `ep6` (7,500 → 7,200) when the prompt grew 692 → 914 tok buying its gate wins.
 ///
-/// The arithmetic, all four terms measured: `EDITOR_NUM_CTX` 4096 − 554 chat-template floor −
-/// ~1,010 for this system prompt − `EDITOR_NUM_PREDICT` 900 = **~1,630 tokens** for the user
-/// message, and at the measured 4.68 chars/token that is ~7,600 chars, of which the Source/Title/
-/// hypothesis preamble takes ~150.
+/// The arithmetic, all four terms measured (ep6, live runner, 2026-08-09): `EDITOR_NUM_CTX` 4096
+/// − 554 chat-template floor − 914 for this system prompt − `EDITOR_NUM_PREDICT` 900 =
+/// **~1,728 tokens** for the user message, and at the measured 4.68 chars/token that is ~8,090
+/// chars, of which the Source/Title/hypothesis preamble takes ~150. At this cap the worst case
+/// is ~3,940 of 4,096; text denser than ~4.25 chars/token could still cross — a tail.
 ///
-/// **7,500 is not the squeeze it looks like**, because `fetch::extract_article_text` now strips
+/// **7,200 is not the squeeze it looks like**, because `fetch::extract_article_text` now strips
 /// site furniture before this cap ever applies: the old 9,000 was mostly spent on navigation and
 /// "Related Stories", so the cap used to truncate real prose to make room for menus. Measured
 /// across 12 publishers the extractor returns a median body well inside this budget.
-pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 7_500;
+pub(crate) const EDITOR_MAX_MODEL_CHARS: usize = 7_200;
 
 pub fn build_editor_prompt_parts(
     source: &str,

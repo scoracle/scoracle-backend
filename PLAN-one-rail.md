@@ -13,8 +13,31 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-09 ~10:45 EDT Sun — THE EDITOR BUILD session, final. Supersedes every block below,
-which stay for their detail.)**
+**STATE (2026-08-09 — THE ep6 GATE session. Supersedes every block below, which stay for their
+detail.)**
+✅ **THE READING D-T44 OWED WAS TAKEN ON THE FIXTURE GATE, AND IT BOUGHT `ep6` (D-T45).**
+⛔ **First, the correction: D-T44's "the trim lost nothing" was WRONG.** The true ep1 prompt
+(recovered from git — the on-disk fixtures had been re-frozen at ep5, so the session's first
+"ep1 baseline" was ep5 against itself) scores **58/60** where ep5 scores **48/60**: the deleted
+`names` example blob was load-bearing. The findings that built ep6: **`kind_hint` was being read
+as AFFILIATION** (`Vinicius <club "Real Madrid forward">` — one inversion behind 5 of ep5's 8
+failures), **`story_type` smeared toward the last enum value the prose named** (fixed by a
+balanced every-value gloss), the **`register` label now must describe its own quoted phrase**
+(with neutral legal for flat quotes), **English is named `en`** (ep5 said "unknown" on English),
+and **a minimal worked example returned** (~250 ch: club entry + person whose descriptor names
+that club — the shape prose alone never taught; it fixed Rangers and Paris on the next run).
+✅ **The gate itself grew 53 → 60 checks:** `story_type_is`/`register_is` were authored across
+seven more fixtures — three prompt variants had produced three story_type distributions on
+near-identical totals because no fixture asserted the field. *A field the gate cannot see is a
+field a prompt edit can quietly break.* Fixtures re-frozen at ep6.
+⭐ **Score: ep1 58/60 · ep5 48/60 · ep6 59/60 — at 914 tok vs ep1's 1,431 (64% of the cost).**
+The one residual (Fortuna Mining Corp as `subject`) fails under every prompt tested, ep1
+included. `EDITOR_MAX_MODEL_CHARS` re-derived 7,500 → 7,200; worst case ~3,940/4,096 — overflow
+stays closed.
+⚠ **Owed: the production reading, now of ep6** — register rate, `unknown` rate, and story_type
+distribution at the drain's real article mix (D-T45 closes with the list).
+
+*(~10:45 STATE, superseded by this one the same day.)*
 ⛔ **THE GOVERNING ORDER, GIVEN THIS SESSION AND HARDENED INTO MEMORY — READ IT BEFORE ANYTHING
 ELSE.** Scott: *"ENOUGH of the delay and drain nonsense. This is a BUILDING session. ALL production
 is paused until we actually have this new rail, the new prompt/character work, and the schema
@@ -4932,6 +4955,22 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T45 · ✅ THE GATE READ ep5, BOUGHT `ep6`, AND CORRECTED D-T44: THE TRIM HAD COST QUALITY THE
+  GATE COULDN'T SEE (2026-08-09).** ⛔ The on-disk fixtures were frozen at ep5, so the first "ep1
+  baseline" was ep5 vs itself; the TRUE ep1 (from git) scores **58/60 vs ep5's 48/60** — the
+  deleted `names` example blob was load-bearing. ep6's findings: **`kind_hint` was read as
+  AFFILIATION** (`Vinicius <club "Real Madrid forward">`; one inversion behind 5 of ep5's 8
+  failures) → identity stated ("a 'Rangers defender' is a person"); **`story_type` smeared toward
+  the LAST enum value the prose named** → balanced every-value gloss; `register` must label its
+  own quoted phrase, neutral legal for flat quotes; English named `en`; and a **minimal worked
+  example restored** (~250 ch — it fixed Rangers-as-own-entry and Paris where four rounds of
+  prose had not, and settled register over-charging as a side effect). **The gate grew 53 → 60
+  checks** (`story_type_is`/`register_is` authored on seven more fixtures; three variants had
+  drifted story_type on identical totals because no fixture asserted it); fixtures re-frozen at
+  ep6. ⭐ **ep1 58/60 · ep5 48/60 · ep6 59/60, at 914 tok vs ep1's 1,431**; the one residual
+  (Fortuna-the-miner as `subject`) fails under every prompt tested. `EDITOR_MAX_MODEL_CHARS`
+  7,500 → 7,200; worst case ~3,940/4,096. ⚠ Owed: the production reading of ep6 (register rate,
+  `unknown` rate, story_type mix). → *tuning §D-T45*
 - **D-T44 · ✅ THE EDITOR REWRITE (`ep5`) + THE BODY EXTRACTOR — THE OVERFLOW IS CLOSED AND D-T40 IS
   RETIRED (2026-08-09).** ⭐ **The slop was the ARTICLE BODY, not the prompt.** `fetch::clean_html`
   kept every text node on the page, so a 7,922-char prompt was **~2,700 chars of article inside

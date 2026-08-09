@@ -41,8 +41,8 @@ const EDITOR_NUM_PREDICT: i32 = 900;
 ///
 /// ⛔ **Do not lower it to save memory — that makes the overflow worse, not better (D-T35's law:
 /// TRIM BEFORE SHRINKING).** The measured budget at 4096, all four terms on ministral:
-/// 554 chat-template floor + ~1,010 system prompt (`ep5`) + `EDITOR_NUM_PREDICT` 900 leaves
-/// ~1,630 tokens for the article, which is what `EDITOR_MAX_MODEL_CHARS` is derived from.
+/// 554 chat-template floor + 914 system prompt (`ep6`, measured live) + `EDITOR_NUM_PREDICT` 900
+/// leaves ~1,728 tokens for the article, which is what `EDITOR_MAX_MODEL_CHARS` is derived from.
 pub(crate) const EDITOR_NUM_CTX: i32 = 4096;
 
 /// The model budget for one editor read — one definition for the stage and `bin/eval`, so a

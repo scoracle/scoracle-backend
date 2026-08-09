@@ -696,7 +696,10 @@ impl JudgeAgg {
 /// declares rather than assertions it makes: `reader_vetted` (the hypothesis list handed to the
 /// parser), `resolver_surfaces` (the surface table `group_hits` runs against) and
 /// `graph_candidate_types` (the numbered candidate list). That is the whole of the gap between
-/// the editor set's 60 authored expect-keys and the 53 checks it scores.
+/// the editor set's 67 authored expect-keys and the 60 checks it scores. (The set grew 53 → 60
+/// when `story_type_is`/`register_is` were authored across seven fixtures — the ep6 display-line
+/// sweep found `story_type` silently smearing toward whichever enum value the prompt's prose
+/// named LAST, and a field the gate cannot see is a field a prompt edit can quietly break.)
 fn expected_property_count(x: &Expect) -> usize {
     let mut n = 0usize;
     n += x.score_min.is_some() as usize;
@@ -1270,6 +1273,6 @@ mod tests {
             .iter()
             .map(|f| expected_property_count(&f.expect))
             .sum();
-        assert_eq!(total, 53, "authored editor property checks");
+        assert_eq!(total, 60, "authored editor property checks");
     }
 }

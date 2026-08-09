@@ -3268,7 +3268,102 @@ against 68.4% of all calls before.**
 
 ⚠ **UNVERIFIED ON REAL OUTPUT AT WRITING.** ep5 is deployed (`0ddec9451a13`) and boot-verified, but
 production is paused, so no ep5 read exists yet. **The tests and the token measurements are real;
-the reading is not taken.** Next drain reads it.
+the reading is not taken.** Next drain reads it. *(Superseded same day: the fixture gate read it —
+D-T45 — and `ep6` shipped on what it found. The production reading is still owed, now of ep6.)*
+
+### D-T45 — ✅ **THE GATE READ ep5, AND THE READING BOUGHT `ep6`: KIND_HINT WAS AFFILIATION, STORY_TYPE TRACKED THE LAST-NAMED ENUM VALUE, THE GATE COULDN'T SEE EITHER — AND D-T44'S "THE TRIM LOST NOTHING" WAS WRONG.** (2026-08-09, Scott: *"Okay, let's test it!"*, then *"I want an example of the output"*)
+
+**THE INSTRUMENT.** Production stays paused, so the reading D-T44 owed was taken on the fixture
+gate instead: `eval --task editor --fixtures` (frozen system) vs `--live-system` (current
+source), 12 fixtures, temp 0, daemon stopped (D-T19's validity condition, checked: `inactive`).
+Per-check diffs throughout, never totals (D-T19). Field-level probes via raw Ollama replays of
+fixture user-prompts — the same instrument that produced the worked examples below.
+
+⛔ **AN INSTRUMENT ERROR WORTH RECORDING FIRST, BECAUSE IT NEARLY SHIPPED A FALSE FINDING: the
+on-disk fixtures had been re-frozen at ep5** (the version-pin test enforces exactly that), so the
+session's first "frozen ep1-era baseline vs live ep5" A/B was **ep5 against itself** — the
+identical per-check tables it produced (45/53 twice) are a clean DETERMINISM check of the
+D-T19 condition, and NOTHING about the trim. The true ep1 system was recovered from git
+(`0b2da3a`, 8,312 ch) and spliced into the current fixtures for an honest run. **When a frozen
+baseline agrees with the live arm suspiciously well, check what is actually frozen.**
+
+**ep5's misses, 8 checks, five sharing one root cause:**
+
+⛔ **`kind_hint` WAS BEING READ AS AFFILIATION, NOT IDENTITY.** `Vinicius <club "Real Madrid
+forward">`, `Dragojevic <club "Rangers defender">`, `Buendia <club>` — the model set `kind_hint`
+from the club in the descriptor. Downstream that single inversion: failed both `name_kind`
+checks, collapsed the Vinicius namesake TIE to `unresolved` (person surfaces are kind-incompatible
+with `club`, so the refusal bucket never saw it), and let `Paris <club "">` auto-link (empty
+descriptor, so the place-arm could not fire). The ep5 prose was one line — "what the text treats
+this name as" — and the model answered a different question than the one intended. **The fix is
+identity stated outright: "what the name ITSELF is, never its affiliation — a 'Rangers defender'
+is a person, and his club is its own entry in this list."** Six checks flipped ✓ on the next run,
+zero regressed.
+
+⛔ **THEN THE DISPLAY-LINE SWEEP (fields the gate had NO checks for) CAUGHT THE PROMPT-EDIT CLASS
+D-T43 WARNED ABOUT, IN A NEW FORM: `story_type` SMEARS TOWARD WHICHEVER ENUM VALUE THE PROSE
+NAMES LAST.** ep5's clause ended "…is suspension": suspension on a fan protest and a Tour de
+France page. Round 2 ended the clause on injury: injury smeared onto SIX fixtures (a renovación,
+a 2-1 semi-final). Three prompt variants, three story_type distributions, near-identical check
+totals — **because not one fixture asserted `story_type`.** Two fixes, one structural:
+* **Balanced taxonomy:** every enum value glossed exactly once, ending on the fallback ("general
+  for anything else"). Under it story_type is right across the whole set and stable through a
+  subsequent unrelated edit.
+* **The gate now sees the field:** `story_type_is`/`register_is` existed in `Expect` but were
+  authored on ONE fixture. Now on eight (denominator 53 → 60, pinned in `eval.rs`). ⚠ *The rule
+  this buys: a field the gate cannot see is a field a prompt edit can quietly break — author the
+  check BEFORE tuning the field.*
+
+**TWO MORE, FROM THE WORKED EXAMPLES:**
+* **`register` mislabeled its own correct quote** ("People are furious…" → `anticipation`). Fix:
+  the label must describe the quoted phrase. But "label the phrase" ALONE made the model force
+  charged labels onto flat quotes (ep5 quoted the same sentences and said neutral), so neutral is
+  stated as legal for a quoted-but-flat phrase — and `anticipation` is deliberately NOT glossed:
+  "looking ahead" turned out to describe every routine "expect him back after the break" club
+  statement. The borderline over-charging seen mid-session (Pérez's "prioridad absoluta" →
+  outrage) disappeared once the example blob returned in round 5 — the final sweep is neutral
+  everywhere it should be, with one oddity left (Arteta's "remain confident" → `resignation`,
+  unchecked, phrase correct).
+* **English articles returned `source_language: "unknown"` — under ep5 too** (the model named
+  `es` fine; English is unmarked, so "genuinely cannot be told" read as license). Fix: `en` is
+  named outright. The D-T43 drain metric (1.4% ep1 baseline) is the production check owed.
+
+⭐ **AND THE HEADLINE, FROM THE HONEST ep1 RUN: D-T44's "THE 52% TRIM LOST NOTHING" WAS WRONG —
+THE `names` EXAMPLE BLOB WAS LOAD-BEARING.** True ep1: **58/60**, ep5: **48/60**. The gate had
+simply never been able to see the fields the trim broke (no `story_type_is` checks) and the
+production metrics D-T44 cited (tokens, overflow) measure cost, not quality. ep1's blob
+demonstrates the exact shape the model kept inverting — a club entry AND a person whose
+descriptor names that club — and prose alone never taught it: rounds 1–4 of clause-writing
+recovered Buendia/Dragojevic/Vinicius but never Rangers-as-own-entry or Paris. Restoring a
+MINIMAL worked pair (~250 ch against ep1's full blob) fixed both on the next run **and** settled
+the register over-charging as a side effect. **D-T43 gains its third clause: the grammar pins
+shape, prose carries meaning — and for a 3B, a worked EXAMPLE carries what prose cannot.**
+
+**THE SCORE, measured on the 60-check gate, same fixtures, same runner, temp 0, daemon stopped:**
+| | full 60 | system prompt |
+|---|---|---|
+| ep1 (true, from git) | 58/60 | 8,312 ch = 1,431 tok |
+| ep5 | 48/60 | 5,429 ch = 692 tok |
+| **ep6** | **59/60** | **6,384 ch = 914 tok measured** |
+
+⛔ **THE ONE THAT REMAINS FAILS UNDER EVERY PROMPT TESTED, ep1 INCLUDED — capacity, not
+contract:** Fortuna Mining Corp accepted as `subject` for hypothesis "Fortuna" (the
+false-positive class; flips run-to-run on near-ties). It is the documented honesty gap, and the
+code-side idea on file is a superset-name arm in `derive.rs` (a `subject` vote whose only
+`names[]` support is a LONGER name containing the hypothesis — "Fortuna Mining Corp" ⊇
+"Fortuna") — unbuilt, because it would also retract "Real Madrid Castilla"-class legitimates.
+
+**COST:** 914 tok measured via the nonce-prefix method (Ollama omits `prompt_eval_count` on a
+full cache hit — prepend a nonce to both arms and difference). Fixed cost/call 1,468 (ep1 1,985).
+`EDITOR_MAX_MODEL_CHARS` re-derived **7,500 → 7,200**: 4096 − 554 − 914 − 900 = 1,728 tok ≈
+8,090 ch of user budget; worst case ~3,940 of 4,096, dense-text tail at ~4.25 ch/tok. **ep6
+beats ep1's gate score at 64% of its token cost.** The fixtures are re-frozen at ep6 (the
+version-pin test in `eval_tasks.rs` enforces the re-freeze on every bump — it is what caught
+this session's instrument error).
+
+⚠ **STILL OWED: the production reading, now of ep6** — the gate is 12 curated pages; the 02:00
+drain at the 94.5%-article mix is the only honest measure of the register rate, the `unknown`
+rate, and the story_type distribution at scale.
 
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 

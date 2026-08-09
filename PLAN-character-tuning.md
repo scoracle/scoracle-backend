@@ -3079,6 +3079,56 @@ real, not built on speculation."* **It is real now.** A `Backend::OpenAi` impl i
 extension point, keeps `num_ctx` handling explicit and testable, and puts no untested translation
 layer in the live network path.
 
+##### ✅ INSTALLED AND PROBED ON THE MAC — 2026-08-09 00:30–00:50 EDT. **THREE ANSWERS, ONE OF THEM A BLOCKER.**
+
+`brew install --with-grammar omlx` → **v0.5.7**, xgrammar present, `python@3.11` venv. Model wired by
+symlinking the already-pulled HF snapshot into `~/.omlx/models/ministral-3-14b`; `omlx serve` also
+auto-discovers the HF cache (it found a **3B** MLX build already sitting there too). `/v1/models`
+reports `max_model_len` **262144**. **ollama's model was unloaded for these probes — the two cannot
+co-reside — and reloaded afterwards.**
+
+**1. ✅ STRUCTURED OUTPUT WORKS — the risk is retired.** `response_format: {"type":"json_object"}`
+returned valid JSON; `{"type":"json_schema", strict:true}` with a crown-shaped schema
+(`{reading, score}`) came back **exactly conforming and parsing clean**. So narratives, sigil and
+transfers keep their contracts — *provided the `--with-grammar` build is the one installed.*
+
+**2. ⭐ THE SILENT-EVICTION CLASS DOES NOT EXIST HERE — IT FAILS LOUDLY INSTEAD.** This is the
+single most valuable difference from llama.cpp and it is the direct antidote to D-T35/D-T40. An
+oversized prompt returns **HTTP 400** with a named code:
+`prefill_memory_exceeded` — *"Prefill context too large … pre-chunk guard at 7136 tokens … predicted
+peak would exceed prefill safety cap 10.7GB (90% of metal_cap 11.8GB)"*. **And at every size that
+PASSES, the head is intact:** a secret code placed at the very start was recalled correctly at
+1,394 / 2,549 / 3,869 / 5,189 / 6,835 tokens. **Either the whole prompt is evaluated, or the request
+errors — there is no quiet middle.** ⚠ *(This is the probe D-T40 botched by fighting the JSON
+contract; here the marker IS the requested output, which is why it works.)*
+
+**3. ⛔ THE BLOCKER — THE PREFILL CEILING IS BELOW THE NARRATIVES PROMPT.** Measured on this 16 GB
+M4, Metal capped at 11.84 GB:
+| memory guard | largest prompt accepted | rejected at |
+|---|---|---|
+| default | **5,189 tok** ok | **7,136 tok** |
+| `--memory-guard aggressive` | **6,835 tok** ok | ~9,300 tok |
+
+**`narratives` is ≈7,574 tok and `vibe` ≈6,437 (D-T35).** So **narratives would HARD FAIL on oMLX
+today**, and vibe sits right on the line. ⚠ **This INVERTS the cost of the voice diet: on ollama an
+oversized prompt is silently degraded; on oMLX it is a 400.** The trim stops being a quality nicety
+and becomes **a precondition of the migration.** Three levers, in order of preference:
+**(a) TRIM THE PROMPTS** — already mandated by D-T35 and Scott's order item (D), now load-bearing;
+**(b) `--memory-guard aggressive`** — free, buys ~1.6k tokens, already measured above;
+**(c) raise `iogpu.wired_limit_mb`** — the error message names it; **kernel-level and needs sudo, so
+it is SCOTT'S call, not an agent's.**
+
+**4. ⭐ THE PAGED KV CACHE IS DEMONSTRABLY HITTING.** `usage.prompt_tokens_details.cached_tokens`
+climbed **512 → 512 → 1,280 → 3,840** across probes sharing a prefix — **74% of a 5,189-token prompt
+served from cache.** ⚠ Still not a booked number for production: these probes shared a synthetic
+prefix by construction. **The real test is whether a voice's FIXED system prompt caches across
+different entities' calls** — that is the measurement to run, and `cached_tokens` is the instrument
+to run it with. It also gives the Rust backend something worth logging to the ledger.
+
+**API SHAPE FOR `Backend::OpenAi` — confirmed from live responses.** `usage.completion_tokens` →
+`GenerateResult.eval_count`; `choices[0].message.content` → `response`; `model` → `model`;
+`usage.total_time` (seconds) → `total_duration`; plus `cached_tokens` worth carrying for (4).
+
 **TWO COSTS TO CARRY IN, BOTH UNRESOLVED AT WRITING:**
 1. ⛔ **`num_ctx` HAS NO OpenAI EQUIVALENT** — D-T34's cost #2, still unpaid. `max_tokens` maps from
    `num_predict`; the *context window* does not map. **Whether oMLX exposes it per-request is

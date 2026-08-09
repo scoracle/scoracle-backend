@@ -70,8 +70,8 @@ pub fn editor_opts() -> GenerateOptions {
 /// byte-for-byte via `format_schema_raw`.
 ///
 /// `relevant` is absent — the model is never given the question (ar6, carried forward);
-/// `co_mentions` is gone (the numbered-candidate loop dies with the legacy rail). The literal
-/// template at the end of [`EDITOR_SYSTEM_PROMPT`] must match this order.
+/// `co_mentions` is gone (the numbered-candidate loop dies with the legacy rail). Since `ep2`
+/// this is the ONLY statement of the order — the system prompt no longer restates it (D-T40).
 pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
     "type": "object",
     "properties": {

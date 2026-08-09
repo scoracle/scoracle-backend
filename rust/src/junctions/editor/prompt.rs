@@ -26,14 +26,21 @@
 //!
 //! **Property order IS the contract** (the ar4 lesson): constrained decoding emits required
 //! properties in schema order, so extraction comes before anything a judgment could lean on.
-//! The literal template at the end of [`EDITOR_SYSTEM_PROMPT`] must match
-//! [`super::editor_format_schema`]'s order exactly.
+//! That order lives in ONE place — [`super::EDITOR_FORMAT_SCHEMA_RAW`]. `ep2` deleted the literal
+//! JSON template that used to restate it at the end of [`EDITOR_SYSTEM_PROMPT`]: the grammar
+//! already pins all 11 keys, their order, and every enum, so the template was belt-and-braces over
+//! a structural guarantee — 235 measured tokens on every one of ~27k weekly calls, and an
+//! UNTESTED coupling (no test ever compared the template to the schema; they agreed by luck).
+//! See D-T40.
 
 use crate::util::truncate;
 
 /// The Editor's contract version — a CACHE KEY, not a label (T1): `editor_reads` rows carry it
 /// as `contract_version`, and bumping it is what reopens work.
-pub const EDITOR_CONTRACT_VERSION: &str = "ep1";
+/// `ep2` (2026-08-09): the terminal JSON template was deleted from [`EDITOR_SYSTEM_PROMPT`] —
+/// −235 tok/call, worst-case overflow 68.1% → 55.4% (D-T40). A bump here is RETROACTIVELY FREE:
+/// only Go's ingest enqueues editor work, so nothing re-reads on a contract change.
+pub const EDITOR_CONTRACT_VERSION: &str = "ep2";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Task: read one fetched sports article and describe it for the newsroom: what shape the page is, who is in it, what happened, and how it feels.
 
@@ -88,8 +95,7 @@ Other rules:
 - If the article is mostly boilerplate, say so in caveats.
 - Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
 
-Return strict JSON only, with the keys in exactly this order:
-{"source_language":"<ISO 639-1 language code or unknown>","page_kind":"article|score_table|listing_or_schedule|video_clip|roundup|other","names":[{"name":"<full name as the article writes it>","kind_hint":"person|club|national_team|other","descriptor":"<up to 6 words from the text, or empty string>"}],"entity_roles":[{"entity":"<hypothesis entity name exactly as listed>","role":"subject|opponent|passing_mention|absent"}],"story_type":"transfer|injury|performance|fixture|roster|contract|general","result_line":"<verbatim final-score line from the text, or empty string>","register_phrase":"<short quote from the text, or empty string>","register":"celebration|outrage|resignation|anticipation|neutral","key_facts":["<English fact>", "..."],"caveats":"<short English caveat or empty string>","evidence_blurb":"<2-4 compact English sentences, or a short mismatch reason if the text is not about a hypothesis entity>"}"#;
+Return strict JSON only. The key order and the allowed values are enforced for you by the response schema — write the content, not the shape."#;
 
 /// The character budget for the article body in the prompt — same value as the legacy seat's
 /// (`article_reader::ARTICLE_MAX_MODEL_CHARS`): both feed the same 8192-ctx runner.

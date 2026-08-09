@@ -42,11 +42,9 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?,
         embedder: None,
-        scrub: cfg.scrub.clone(),
         // Unbounded: a probe is not a queue item and has no worker timeout to land inside.
         handler_budget: std::time::Duration::ZERO,
-        rail: cfg.rail,
-        voice_num_ctx: scoracle_cognition::route::voice_num_ctx(cfg.rail),
+        voice_num_ctx: cfg.voice_num_ctx,
     };
 
     let n: i64 = std::env::var("CROWN_PROBE_N")

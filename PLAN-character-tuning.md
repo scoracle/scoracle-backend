@@ -3206,6 +3206,55 @@ nothing.** This is the opposite of narratives, where the debounce hash regenerat
 (§S-NEW). **The Editor is both the top of the funnel and the cheapest character to tune — start
 here, exactly as Scott said.**
 
+##### ✅ FIRST TRIM MEASURED, AND A SECOND FINDING UNDERNEATH IT — 2026-08-09 01:00–01:25 EDT
+
+**THE GRAMMAR ALREADY ENFORCES WHAT THE PROMPT'S LAST PARAGRAPH SPELLS OUT.** `EDITOR_FORMAT_SCHEMA_RAW`
+(2,043 chars) pins the **exact key order** — all 11 keys — **and every enum** (`page_kind` 6,
+`kind_hint` 4, `role` 4, `story_type` 7, `register` 5). The system prompt then closes with a literal
+`Return strict JSON only, with the keys in exactly this order: {…}` template restating both. **The
+model cannot emit a different shape, order, or out-of-enum value — constrained decoding forbids it.**
+So the template is belt-and-braces over a structural guarantee.
+* **Measured saving: 981 chars → 235 TOKENS PER CALL** (system prompt 1,985 → 1,750 incl. the 554
+  template floor), on ~27k calls/week.
+* **Effect on the overflow, stated honestly: 68.1% → 55.4% worst-case. THAT IS PROGRESS, NOT A FIX.**
+  The prompt is still far too large for the window; `names` (FIELD 2) and `entity_roles` (FIELD 3)
+  are together ~50% of what remains and can only be cut by ablation + scoring, not by inspection.
+* ⭐ **Bonus: it removes an UNTESTED coupling.** `prompt.rs`'s module doc says *"The literal template
+  … must match `editor_format_schema`'s order exactly"* — but the only test pins the SCHEMA's order
+  against a hardcoded list; **nothing checks the template against the schema.** They agree today by
+  luck. Deleting the template deletes the drift risk.
+
+**⛔ SECOND FINDING — THE OUTPUT RESERVATION IS UNDERSIZED, AND THE EDITOR IS FAILING 3.33% OF CALLS.**
+Measured `editor_reads.read` through ministral's tokenizer (7-day window, successes only):
+| | p50 | p90 | p99 | max |
+|---|---|---|---|---|
+| output tokens | 490 | 784 | **921** | **940** |
+
+**`EDITOR_NUM_PREDICT` is 900.** The p99 and max outputs are ABOVE the reservation. In the same
+window the ledger shows **894 `fail_closed` (3.33%)** and `editor_reads` shows **906 `parse_failed`**
+— the same ~900 articles. ⚠ **With a GRAMMAR enforcing shape, the main remaining way to emit
+unparseable JSON is to be CUT OFF before the closing brace**, which makes truncation the leading
+suspect for those failures.
+⛔ **BUT IT IS A HYPOTHESIS, NOT A MEASUREMENT — THE TEST TIMED OUT AND HAS NOT BEEN RUN.** The
+direct experiment is written and ready (`/tmp/trunc.py` on archbox): replay a `fail_closed` row's
+`built_prompt` at `num_predict` 900 vs 1400 and see whether the 1400 run parses. It needs ~100 s per
+call on this card, so it wants the daemon stopped and a clear window. **Do not act on this until it
+is run** — and note the `editor_reads` figures are jsonb-normalized text, not the raw reply bytes,
+so they are indicative of the raw output size, not identical to it.
+
+**IF IT CONFIRMS, THE TWO FINDINGS PAY FOR EACH OTHER:** spend ~150 of the template trim's 235
+tokens on `num_predict` 900 → ~1,050 (clearing the measured 940 max), and the Editor still nets
+**+85 tokens of article headroom AND ~900 fewer failed reads a week.** That is one coherent change
+with two measurable effects, not two guesses.
+
+**TOOLING THIS REQUIRED (shipped, `aa5e64a`):** `eval --task editor --fixtures` **could not have
+scored any of this.** `run_one_fixture` overwrote the options' system prompt with the fixture's
+FROZEN copy unconditionally, so a prompt edit was never actually sent — an A/B would have scored the
+old prompt twice and reported "no difference." **`--live-system`** sends the current source constant
+instead, holding `user_prompt` and `expect` fixed so the prompt is the one variable, and the run
+banner now states which prompt was used. ⚠ **D-T19's condition still binds: daemon stopped, and diff
+the per-check table, never the score** — greedy decode is not deterministic on a busy GPU.
+
 **WHAT THE FIX IS, IN ORDER (D-T35's law applies with force — TRIM BEFORE SHRINKING):**
 1. **Trim `EDITOR_SYSTEM_PROMPT` (1,431 tok, 8,312 chars).** Paid on every call, ~48% of the fixed
    cost. Every token removed is bought back for the article on all 27k calls.

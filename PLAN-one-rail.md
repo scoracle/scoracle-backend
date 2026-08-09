@@ -32,6 +32,17 @@ unaffected; any wall-clock reading across 22:55 is confounded.** `overflow-check
 seed-composition question, (c) D-T38's tag-share after-picture. **The deploy was the enabler; the
 reading is the point.**
 
+✅ **DEPLOYED 2026-08-09 09:09 EDT — the demolition binary is live on archbox: `commit="b52a1d40c70d"`,
+`model=ministral-3:3b`.** Verified WITHOUT resuming work (machines paused on Scott's word) by running
+the binary directly with `COGNITION_STAGES=scrub,article_read` — which **proved the RETIRED path in
+production**: both names warned `names a retired stage; ignoring`, `handlers=0`, clean boot, no
+failure. archbox's unit file was refreshed from the repo in the same act. ⚠ **The route table's
+FALLBACK is now the thing to watch: `investigator`, `multilang` and `sql` resolve to
+`ministral-3:3b` only because they are unconfigured.** All three make ZERO calls today (ledger,
+14 days), so nothing is misrouted — **but Phase 4 is exactly where the Investigator starts calling,
+and it would silently default to the 3B against Scott's "only Editor and graph on 3B" rule.**
+Set `COGNITION_ROUTE_INVESTIGATOR` before 4.4, not after.
+
 ✅ **THEN, SAME SESSION: PHASE 9's RUST DEMOLITION IS DONE — 3,179 LINES DELETED, 144 ADDED**
 (23:14 EDT; commits `6a62af6`/`e0f785f`/`61ccc17`, `cargo test` green after each; rollback tag
 `pre-phase9-demolition`). `article_reader`, `scrub`, `novelty`, `ScrubConfig`, `Role::ArticleReader`,

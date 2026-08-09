@@ -76,6 +76,12 @@ pub fn classify_role(sport: &str, item: &WikidataItem) -> RoleClass {
     if !item.coach_of_teams.is_empty() {
         return RoleClass::Coach;
     }
+    // Ownership (P1830, current) outranks occupation history for the same reason coaching
+    // does: P106 accumulates a whole career. The measured case is Jerry Jones — occupation
+    // "American football player" (college, 1960s), P54 Arkansas, P1830 Dallas Cowboys NOW.
+    if !item.owner_of_teams.is_empty() {
+        return RoleClass::Owner;
+    }
     // Coach occupation before player occupation: a dual player+coach P106 record is a
     // retired player who coaches NOW (actives never carry the coach occupation), while the
     // reverse order misfiled Spoelstra as player on the 2026-08-03 smoke (his item has no
@@ -250,7 +256,13 @@ pub fn strip_paren_title(title: &str) -> String {
 /// the phrase must carry the sport's keyword (or an unambiguous sport-implying role word
 /// like "footballer") before any role word counts — "American author" stays Unknown on
 /// every sport, exactly like the description screen on the Wikidata arm.
-pub fn prose_role_class(sport: &str, occupation_phrase: &str) -> RoleClass {
+///
+/// `team_matched` relaxes ONLY the keyword gate, never the role words: when the page's own
+/// team names already resolved onto OUR sport's teams, the sport is proven by the
+/// resolution (which is sport-scoped), and requiring the word "football" too is what
+/// blocks the owner/executive class — Jerry Jones's lede says "owner … of the Dallas
+/// Cowboys", never "football owner". A phrase with no role word stays Unknown regardless.
+pub fn prose_role_class(sport: &str, occupation_phrase: &str, team_matched: bool) -> RoleClass {
     let p = occupation_phrase.to_lowercase();
     if p.is_empty() {
         return RoleClass::Unknown;
@@ -260,17 +272,23 @@ pub fn prose_role_class(sport: &str, occupation_phrase: &str) -> RoleClass {
         "FOOTBALL" => p.contains("footballer") || p.contains("soccer"),
         _ => false,
     };
-    if kw.is_empty() || (!p.contains(kw) && !sport_implied) {
+    if !team_matched && (kw.is_empty() || (!p.contains(kw) && !sport_implied)) {
         return RoleClass::Unknown;
     }
-    if p.contains("coach") || p.contains("manager") {
+    // Owner and executive words OUTRANK the bare "manager": Jerry Jones's lede is "owner,
+    // president, and general manager of the Dallas Cowboys" — a coach-first chain reads
+    // "general manager" as Coach. FOOTBALL's "manager" (= head coach) still classifies
+    // right because those phrases carry no owner/executive word.
+    if p.contains("owner") {
+        RoleClass::Owner
+    } else if p.contains("general manager") || p.contains("executive") || p.contains("president")
+        || p.contains("chairman")
+    {
+        RoleClass::Executive
+    } else if p.contains("coach") || p.contains("manager") {
         RoleClass::Coach
     } else if p.contains("player") || p.contains("footballer") {
         RoleClass::Player
-    } else if p.contains("executive") || p.contains("president") || p.contains("chairman") {
-        RoleClass::Executive
-    } else if p.contains("owner") {
-        RoleClass::Owner
     } else if p.contains("agent") {
         RoleClass::Agent
     } else if p.contains("referee") || p.contains("official") {
@@ -291,19 +309,21 @@ pub fn descriptor_role_class(descriptor: &str) -> RoleClass {
         "winger", "forward", "guard", "center", "centre-back", "full-back", "quarterback",
         "rookie", "prospect", "signing", "loanee", "freshman",
     ];
-    if d.contains("coach") || d.contains("manager") || d.contains("boss") {
-        return RoleClass::Coach;
-    }
-    if PLAYER_WORDS.iter().any(|w| d.contains(w)) {
-        return RoleClass::Player;
+    // Same precedence as prose_role_class: owner, then executive words (which include
+    // "general manager"), THEN the bare coach/manager/boss check.
+    if d.contains("owner") {
+        return RoleClass::Owner;
     }
     if d.contains("executive") || d.contains("director") || d.contains("president")
         || d.contains("chairman") || d.contains("general manager")
     {
         return RoleClass::Executive;
     }
-    if d.contains("owner") {
-        return RoleClass::Owner;
+    if d.contains("coach") || d.contains("manager") || d.contains("boss") {
+        return RoleClass::Coach;
+    }
+    if PLAYER_WORDS.iter().any(|w| d.contains(w)) {
+        return RoleClass::Player;
     }
     if d.contains("agent") {
         return RoleClass::Agent;
@@ -364,6 +384,20 @@ pub fn decide_prose(screens: &[ProseScreen]) -> Verdict {
             survivor_idxs: many.to_vec(),
         },
     }
+}
+
+/// commons_image_url renders a P18 Commons filename as a stable thumbnail URL — the
+/// sport-agnostic portrait source (Special:FilePath redirects to the current file, width
+/// keeps it headshot-sized). Stored, never fetched by us, like the NBA URL.
+pub fn commons_image_url(file: &str) -> Option<String> {
+    let f = file.trim();
+    if f.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "https://commons.wikimedia.org/wiki/Special:FilePath/{}?width=600",
+        super::discover::urlencode(&f.replace(' ', "_"))
+    ))
 }
 
 /// nba_headshot_url derives the display URL from the NBA.com player id (P3647). Stored,
@@ -495,13 +529,57 @@ mod tests {
 
     #[test]
     fn prose_role_class_is_sport_gated_like_the_description_screen() {
-        assert_eq!(prose_role_class("NBA", "American college basketball player"), RoleClass::Player);
-        assert_eq!(prose_role_class("NBA", "American basketball coach"), RoleClass::Coach);
-        assert_eq!(prose_role_class("NBA", "American author"), RoleClass::Unknown);
+        assert_eq!(prose_role_class("NBA", "American college basketball player", false), RoleClass::Player);
+        assert_eq!(prose_role_class("NBA", "American basketball coach", false), RoleClass::Coach);
+        assert_eq!(prose_role_class("NBA", "American author", false), RoleClass::Unknown);
         // "footballer" implies the sport without the keyword.
-        assert_eq!(prose_role_class("FOOTBALL", "Scottish footballer"), RoleClass::Player);
-        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager"), RoleClass::Coach);
-        assert_eq!(prose_role_class("NBA", ""), RoleClass::Unknown);
+        assert_eq!(prose_role_class("FOOTBALL", "Scottish footballer", false), RoleClass::Player);
+        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager", false), RoleClass::Coach);
+        assert_eq!(prose_role_class("NBA", "", false), RoleClass::Unknown);
+    }
+
+    #[test]
+    fn team_anchor_unlocks_the_owner_class_but_never_invents_a_role() {
+        // The Jerry Jones lede: no sport keyword, "general manager" inside — must be Owner,
+        // and ONLY with the team anchor.
+        let jones = "owner, president, and general manager of the Dallas Cowboys";
+        assert_eq!(prose_role_class("NFL", jones, true), RoleClass::Owner);
+        assert_eq!(prose_role_class("NFL", jones, false), RoleClass::Unknown);
+        // A team anchor with no role word stays Unknown — the anchor relaxes the sport
+        // gate, never the role vocabulary.
+        assert_eq!(prose_role_class("NFL", "American businessman", true), RoleClass::Unknown);
+        // GM-without-owner is Executive, not Coach, under either gate.
+        assert_eq!(
+            prose_role_class("NBA", "general manager of the Los Angeles Lakers", true),
+            RoleClass::Executive
+        );
+        // FOOTBALL's "manager" still reads Coach (no owner/executive word present).
+        assert_eq!(prose_role_class("FOOTBALL", "Spanish football manager", true), RoleClass::Coach);
+    }
+
+    #[test]
+    fn ownership_outranks_occupation_history_on_the_wikidata_arm() {
+        // The Jerry Jones item shape: P106 carries "American football player" (college,
+        // 1960s), P1830 carries the Cowboys NOW. Player-first classification misfiles him.
+        let jones = WikidataItem {
+            qid: "Q1280022".to_string(),
+            label: "Jerry Jones".to_string(),
+            description: "American businessman and owner of the Dallas Cowboys".to_string(),
+            occupations: vec!["Q19204627".to_string()],
+            owner_of_teams: vec!["Q204862".to_string()],
+            ..Default::default()
+        };
+        assert_eq!(classify_role("NFL", &jones), RoleClass::Owner);
+        assert_eq!(RoleClass::Owner.person_kind(), Some("owner"));
+    }
+
+    #[test]
+    fn commons_image_url_renders_p18_files() {
+        assert_eq!(
+            commons_image_url("Jerry Jones at the 2018 draft.jpg").as_deref(),
+            Some("https://commons.wikimedia.org/wiki/Special:FilePath/Jerry_Jones_at_the_2018_draft.jpg?width=600")
+        );
+        assert_eq!(commons_image_url("  "), None);
     }
 
     #[test]

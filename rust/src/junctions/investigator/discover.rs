@@ -41,6 +41,12 @@ pub struct WikidataItem {
     pub member_of_teams: Vec<String>,
     /// P6087 (coach of sports team) target QIDs.
     pub coach_of_teams: Vec<String>,
+    /// P1830 (owner of) target QIDs, CURRENT tenures only — the owner class's structural
+    /// claim, discovered on the Jerry Jones probe (2026-08-09): his P106 carries "American
+    /// football player" from a college career and his P54 is the Arkansas Razorbacks, so
+    /// occupation- and membership-based classification both misfile him; the ownership
+    /// claim is the only truthful signal.
+    pub owner_of_teams: Vec<String>,
     /// P569 date of birth, as the wire "+1988-12-30T00:00:00Z" shape (code trims to date).
     pub date_of_birth: Option<String>,
     /// P2067 mass in kilograms (unit-checked: only Q11570 kilogram amounts are kept).
@@ -49,6 +55,10 @@ pub struct WikidataItem {
     pub height_cm: Option<f64>,
     /// P3647 NBA.com player id — the headshot URL derives from this.
     pub nba_id: Option<String>,
+    /// P18 image — a Wikimedia Commons filename, the sport-agnostic portrait source
+    /// (Scott 2026-08-09: NBA/NFL entities have no headshots; NFL has no cdn id property,
+    /// Commons covers everyone). Rendered by `gate::commons_image_url`.
+    pub image_file: Option<String>,
     /// The source_documents row the wbgetentities response landed as.
     pub source_document_id: i64,
 }
@@ -148,6 +158,7 @@ pub fn parse_wikidata_entity(qid: &str, entity: &Value, source_document_id: i64)
     // executive now, coach decades ago).
     item.member_of_teams = claim_item_ids(entity, "P54", false);
     item.coach_of_teams = claim_item_ids(entity, "P6087", true);
+    item.owner_of_teams = claim_item_ids(entity, "P1830", true);
     item.date_of_birth = entity
         .pointer("/claims/P569/0/mainsnak/datavalue/value/time")
         .and_then(Value::as_str)
@@ -156,6 +167,10 @@ pub fn parse_wikidata_entity(qid: &str, entity: &Value, source_document_id: i64)
     item.height_cm = quantity_in(entity, "P2048", &[("Q174728", 1.0), ("Q11573", 100.0)]);
     item.nba_id = entity
         .pointer("/claims/P3647/0/mainsnak/datavalue/value")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    item.image_file = entity
+        .pointer("/claims/P18/0/mainsnak/datavalue/value")
         .and_then(Value::as_str)
         .map(str::to_string);
     item

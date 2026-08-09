@@ -22,8 +22,8 @@ use super::discover::{
     WikidataItem,
 };
 use super::gate::{
-    contains_normalized, decide, decide_prose, descriptor_role_class, display_height,
-    display_weight, mentions_all_tokens, nba_headshot_url, prose_role_class,
+    commons_image_url, contains_normalized, decide, decide_prose, descriptor_role_class,
+    display_height, display_weight, mentions_all_tokens, nba_headshot_url, prose_role_class,
     strip_paren_title, wire_date, ProseScreen, RoleClass, Verdict,
 };
 use super::prompt::{
@@ -44,9 +44,11 @@ use std::time::Duration;
 use tracing::{info, warn};
 
 pub const INVESTIGATE_PARSER_VERSION: &str = "investigate-entity-wikidata-v1";
-/// How many search hits get a full item fetch. Three covers namesakes without burning the
-/// budget on long-tail hits.
-const MAX_ITEMS: usize = 3;
+/// How many search hits get a full item fetch. FIVE, the search limit — measured on the
+/// Jerry Jones probe (2026-08-09): the Cowboys owner ranks 5th of 5 behind four college
+/// basketball namesakes, so the old 3 never even fetched the item this stage exists to
+/// find. Cost: up to two more Wikimedia fetches per candidate at the 2s spacing.
+const MAX_ITEMS: usize = 5;
 
 /// Wikimedia gets a polite, long-cache policy: labels and claims move slowly, and repeat
 /// investigations (30 NBA teams, recurring coaches) should be cache hits, not fetches.
@@ -136,6 +138,7 @@ async fn discover(
         name_agreed.push(name_forms_agree(&hx.pool, name, it).await?);
         let mut qids: Vec<String> = it.member_of_teams.clone();
         qids.extend(it.coach_of_teams.iter().cloned());
+        qids.extend(it.owner_of_teams.iter().cloned());
         qids.truncate(24);
         our_teams.push(resolve_team_qids(hx, fetcher, sport, &qids).await?);
     }
@@ -461,11 +464,8 @@ async fn investigate_candidate_prose(
         let evidence_ok = read.subject_kind == "person"
             && contains_normalized(&text, &read.sought_name_evidence);
         let occupation_ok = contains_normalized(&text, &read.occupation_phrase);
-        let role = if occupation_ok {
-            prose_role_class(sport, &read.occupation_phrase)
-        } else {
-            RoleClass::Unknown
-        };
+        // Teams resolve BEFORE the role classifies: a sport-scoped team match unlocks the
+        // role vocabulary for phrases with no sport keyword (the owner/executive class).
         let verified_teams: Vec<String> = read
             .team_names
             .iter()
@@ -473,6 +473,11 @@ async fn investigate_candidate_prose(
             .cloned()
             .collect();
         let our_teams = resolve_team_names(&hx.pool, sport, &verified_teams).await?;
+        let role = if occupation_ok {
+            prose_role_class(sport, &read.occupation_phrase, !our_teams.is_empty())
+        } else {
+            RoleClass::Unknown
+        };
         let descriptor_role = cand
             .descriptor
             .as_deref()
@@ -760,26 +765,32 @@ async fn accept_candidate(
     .await
     .context("insert role fact")?;
 
-    if role == RoleClass::Coach {
-        if let Some(team) = team_id {
-            sqlx::query(
-                r#"
-                INSERT INTO public.entity_relationships
-                    (subject_entity_type, subject_entity_id, subject_sport,
-                     predicate, object_entity_type, object_entity_id, object_sport,
-                     source_document_id, state)
-                VALUES ($1, $2, $3, 'coach_of', 'team', $4, $3, $5, 'active')
-                "#,
-            )
-            .bind(&resolved_type)
-            .bind(resolved_id)
-            .bind(sport)
-            .bind(team)
-            .bind(it.source_document_id)
-            .execute(&mut *tx)
-            .await
-            .context("insert coach_of relationship")?;
-        }
+    // Structural role → relationship edge, when a team discriminated. `coach_of` since 5.5;
+    // `owner_of` since the owner class landed (Jerry Jones, 2026-08-09).
+    let predicate = match role {
+        RoleClass::Coach => Some("coach_of"),
+        RoleClass::Owner => Some("owner_of"),
+        _ => None,
+    };
+    if let (Some(predicate), Some(team)) = (predicate, team_id) {
+        sqlx::query(
+            r#"
+            INSERT INTO public.entity_relationships
+                (subject_entity_type, subject_entity_id, subject_sport,
+                 predicate, object_entity_type, object_entity_id, object_sport,
+                 source_document_id, state)
+            VALUES ($1, $2, $3, $4, 'team', $5, $3, $6, 'active')
+            "#,
+        )
+        .bind(&resolved_type)
+        .bind(resolved_id)
+        .bind(sport)
+        .bind(predicate)
+        .bind(team)
+        .bind(it.source_document_id)
+        .execute(&mut *tx)
+        .await
+        .context("insert role relationship")?;
     }
 
     record_run(&mut tx, cand.id, "accepted", run_plan, None).await?;
@@ -923,7 +934,15 @@ async fn enrich_player(hx: &Harness, fetcher: &BudgetedFetcher, item: &Item) -> 
     let dob = it.date_of_birth.as_deref().and_then(wire_date);
     let weight = it.weight_kg.map(|kg| display_weight(&sport, kg));
     let height = it.height_cm.map(|cm| display_height(&sport, cm));
-    let photo = it.nba_id.as_deref().and_then(nba_headshot_url).filter(|_| sport == "NBA");
+    // NBA prefers the league CDN headshot (consistent framing); everyone else — and any
+    // NBA player without a P3647 id — gets the P18 Commons portrait. NFL has no usable
+    // league-id property, so Commons IS its headshot source (Scott, 2026-08-09).
+    let photo = it
+        .nba_id
+        .as_deref()
+        .and_then(nba_headshot_url)
+        .filter(|_| sport == "NBA")
+        .or_else(|| it.image_file.as_deref().and_then(commons_image_url));
 
     let mut tx = hx.pool.begin().await.context("begin enrichment")?;
 

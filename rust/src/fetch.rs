@@ -64,10 +64,10 @@ pub async fn fetch_article(raw_url: &str) -> Result<FetchedArticle> {
         return Err(anyhow!("article HTTP {}", status.as_u16()));
     }
     let html = resp.text().await.context("read article body")?;
-    let mut text = clean_html(&html);
+    let mut text = extract_article_text(&html);
     if count_words(&text) < ARTICLE_MIN_WORDS {
         if let Some(rendered) = fetch_with_chrome(&fetch_url) {
-            let rendered_text = clean_html(&rendered);
+            let rendered_text = extract_article_text(&rendered);
             if count_words(&rendered_text) > count_words(&text) {
                 text = rendered_text;
             }
@@ -256,6 +256,73 @@ pub fn looks_paywalled(text: &str) -> bool {
         || lower.contains("sign in")
         || lower.contains("sign up")
         || lower.contains("register to continue")
+}
+
+/// Elements whose text is SITE CHROME, never article prose: navigation, promo rails, footers,
+/// cookie forms, share widgets. Stripped whole, tag and contents together.
+///
+/// `header`/`footer` are in the list even though an `<article>` may carry its own: the headline
+/// and byline reach the model as `Title` in the user prompt already, so losing them costs nothing
+/// and dropping page furniture is worth far more.
+const NON_CONTENT_TAGS: &[&str] = &[
+    "script", "style", "nav", "header", "footer", "aside", "form", "noscript", "svg", "iframe",
+    "button", "select", "textarea", "template", "figure",
+];
+
+/// extract_article_text pulls the READING BODY out of a publisher page.
+///
+/// **Why this exists, measured 2026-08-09.** [`clean_html`] strips `<script>`/`<style>` and then
+/// removes tags while keeping EVERY remaining text node — so the model was handed the whole page.
+/// A representative 7,922-char Editor prompt carried **~2,700 chars of article** inside ~5,200
+/// chars of betting-site menus, a country list, "Related To This Article", "Popular News", and the
+/// publisher's street address. **Two thirds of the article budget was site furniture**, on a runner
+/// whose window D-T40 showed was already overflowing on the common case.
+///
+/// Two passes, cheapest first:
+/// 1. delete every [`NON_CONTENT_TAGS`] element, contents included;
+/// 2. prefer the LARGEST `<article>` element, then `<main>`. Largest matters because related-post
+///    cards are themselves `<article>` on most CMS themes — the real story is the big one.
+///
+/// ⛔ **It can only ever SHRINK the body, so it fails safe:** any result under
+/// [`ARTICLE_MIN_WORDS`] is discarded and the caller keeps the full-page text, which is exactly
+/// today's behaviour. A site this cannot parse is no worse off than before.
+pub fn extract_article_text(html: &str) -> String {
+    let mut doc = html.to_string();
+    for tag in NON_CONTENT_TAGS {
+        doc = strip_element_blocks(&doc, tag);
+    }
+    for tag in ["article", "main"] {
+        if let Some(inner) = largest_element_inner(&doc, tag) {
+            let text = clean_html(&inner);
+            if count_words(&text) >= ARTICLE_MIN_WORDS {
+                return text;
+            }
+        }
+    }
+    clean_html(&doc)
+}
+
+/// largest_element_inner returns the inner HTML of the LONGEST `<tag>…</tag>` span, nested spans
+/// included as candidates (a related-post `<article>` inside the main one is a real layout).
+fn largest_element_inner(html: &str, tag: &str) -> Option<String> {
+    let open = format!("<{tag}");
+    let close = format!("</{tag}>");
+    let mut best: Option<&str> = None;
+    let mut pos = 0usize;
+    while let Some(start) = find_ascii_ci(html, &open, pos) {
+        let Some(gt) = html[start..].find('>').map(|i| start + i + 1) else {
+            break;
+        };
+        let Some(end) = find_ascii_ci(html, &close, gt) else {
+            break;
+        };
+        let inner = &html[gt..end];
+        if best.is_none_or(|b| inner.len() > b.len()) {
+            best = Some(inner);
+        }
+        pos = gt;
+    }
+    best.map(str::to_string)
 }
 
 pub fn clean_html(html: &str) -> String {
@@ -845,6 +912,67 @@ mod tests {
         let s = "É".repeat(10);
         assert_eq!(truncate_chars(&s, 4).chars().count(), 4);
         assert_eq!(truncate_chars("short", 100), "short");
+    }
+
+    /// The measured 2026-08-09 case: a real page is ~2/3 site furniture, and the old whole-page
+    /// clean handed all of it to the model. Pins BOTH halves of the contract — the furniture goes,
+    /// and the prose survives intact.
+    #[test]
+    fn extract_article_text_drops_site_furniture_and_keeps_the_prose() {
+        let prose = "Barcelona were beaten by Udinese in the final minute of the Friuli Venezia \
+             Giulia Cup, and Hans Flick's side lacked penetration in the final third all evening \
+             despite controlling possession for long spells against a deep Udinese block. ";
+        let html = format!(
+            "<html><head><style>.a{{}}</style></head><body>\
+             <nav>Live Scores Betting Sites Megapari App Betpawa App Fortebet Ghana Nigeria</nav>\
+             <header>Skip to content</header>\
+             <main><article><p>{}</p></article>\
+             <article><p>Related: Savinho set for Tottenham move</p></article></main>\
+             <aside>Popular News Trending Riyad Mahrez weighs Saudi moves</aside>\
+             <footer>Contact GSDS Sports Data Services Accra Ghana Privacy Policy</footer>\
+             </body></html>",
+            prose.repeat(3)
+        );
+        let extracted = extract_article_text(&html);
+        assert!(
+            extracted.contains("lacked penetration in the final third"),
+            "the article prose must survive: {extracted}"
+        );
+        for furniture in [
+            "Megapari",
+            "Privacy Policy",
+            "Popular News",
+            "Skip to content",
+            "Savinho",
+        ] {
+            assert!(
+                !extracted.contains(furniture),
+                "{furniture} is site furniture and must not reach the model: {extracted}"
+            );
+        }
+        assert!(
+            extracted.len() < clean_html(&html).len(),
+            "extraction must shrink the body"
+        );
+    }
+
+    /// Fails SAFE: a page the extractor cannot parse must come back whole, never empty — an
+    /// over-aggressive strip that silently returned nothing would lose articles.
+    #[test]
+    fn extract_article_text_falls_back_to_the_whole_page_when_it_cannot_parse() {
+        let body = "word ".repeat(ARTICLE_MIN_WORDS * 2);
+        let html = format!("<html><body><div id=post>{body}</div></body></html>");
+        let extracted = extract_article_text(&html);
+        assert!(count_words(&extracted) >= ARTICLE_MIN_WORDS, "{extracted}");
+    }
+
+    /// A short `<article>` (a stub card) must not win over the real page body.
+    #[test]
+    fn extract_article_text_ignores_an_article_element_below_the_word_floor() {
+        let body = "sentence about the match ".repeat(ARTICLE_MIN_WORDS);
+        let html =
+            format!("<html><body><article>too short</article><div>{body}</div></body></html>");
+        assert!(count_words(&extract_article_text(&html)) >= ARTICLE_MIN_WORDS);
     }
 
     #[test]

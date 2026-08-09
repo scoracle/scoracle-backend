@@ -91,11 +91,11 @@ pub const EDITOR_FORMAT_SCHEMA_RAW: &str = r#"{
             "items": {
                 "type": "object",
                 "properties": {
-                    "name": { "type": "string" },
+                    "name": { "type": "string", "maxLength": 60 },
                     "kind_hint": { "type": "string", "enum": [
                         "person", "club", "national_team", "other"
                     ] },
-                    "descriptor": { "type": "string" }
+                    "descriptor": { "type": "string", "maxLength": 48 }
                 },
                 "required": ["name", "kind_hint", "descriptor"]
             }

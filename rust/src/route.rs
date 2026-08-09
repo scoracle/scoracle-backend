@@ -70,10 +70,25 @@ use tokio::sync::Semaphore;
 /// 16384 that tail falls to 6 calls (0.07%).
 ///
 /// **This is for voices on the character host only.** `EmotionalNews`, `Multilang` and `Sql` are
-/// utility roles that resolve LOCALLY to gemma3:4b, where the shared runner is The Editor's and the
-/// agreed size is [`crate::junctions::article_reader::ARTICLE_NUM_CTX`]. Sending this value there would put
-/// a 16384 KV allocation on an 8 GB card and reintroduce exactly the thrash described above.
+/// utility roles that resolve LOCALLY to the archbox model, where the shared runner is The Editor's
+/// and the agreed size is [`LOCAL_STAGE_NUM_CTX`]. Sending this value there would put a 16384 KV
+/// allocation on an 8 GB card and reintroduce exactly the thrash described above.
 pub const VOICE_NUM_CTX: i32 = 16384;
+
+/// The window every ARCHBOX-LOCAL model stage requests — the Editor, graph and the Insider's
+/// transfer call alike.
+///
+/// **The uniformity is the point, not the number.** `VOICE_NUM_CTX`'s note above is the whole
+/// argument: roles that share one runner and DISAGREE about `num_ctx` force a reload per rotation.
+/// These stages share archbox's single runner (`MAX_LOADED_MODELS=1`), so they move together or not
+/// at all.
+///
+/// Anchored here in Phase 9 (9.1). It previously lived as `article_reader::ARTICLE_NUM_CTX` and was
+/// borrowed across the tree from inside the legacy reader; when that module was demolished the
+/// constant had to outlive it, and `route.rs` — which already owns the voice windows — is where a
+/// per-host window belongs. **Value unchanged at 4096** (D-T29), so the demolition moved no numbers.
+/// `EDITOR_NUM_CTX` still exists as the Editor's own name for it and is pinned equal by test.
+pub const LOCAL_STAGE_NUM_CTX: i32 = 4096;
 
 /// The packet rail's window (§7's envelope): prompt + memory + packet render + reservation, all
 /// inside 4096. This is the number the whole diet is sized against — a voice that still needed

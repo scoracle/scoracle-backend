@@ -1129,6 +1129,49 @@ pub enum NarrativesBuild {
     Ready(Box<NarrativesReady>),
 }
 
+/// reading_fingerprint — MOVED HERE VERBATIM from `junctions/article_reader` in Phase 9 (9.1), when
+/// that module was demolished. **It is NOT legacy-reader machinery any more; it is part of the
+/// narratives debounce pre-image**, and that is the whole reason it survived the demolition.
+///
+/// ⛔ **DO NOT "TIDY" THIS FORMAT.** The output feeds `build_article_reading_input_components` →
+/// `hash_components` → the narratives `input_hash`. Any change to the shape — including dropping
+/// the `none`/empty/`0` fallbacks — changes every entity's hash at once, which is EXACTLY a
+/// `NARRATIVES_PROMPT_VERSION` bump by another route: one forced regen of the whole fleet. The
+/// demolition preserved it byte-for-byte so that Phase 9 cost zero model calls.
+pub fn reading_fingerprint(
+    status: Option<&str>,
+    content_hash: Option<&str>,
+    updated_epoch: Option<i64>,
+) -> String {
+    format!(
+        "{}:{}:{}",
+        status.unwrap_or("none"),
+        content_hash.unwrap_or(""),
+        updated_epoch.unwrap_or(0)
+    )
+}
+
+/// build_article_reading_input_components — also moved verbatim from `article_reader` in 9.1. Sorts
+/// by article id so corpus ordering cannot move the hash, then hashes the canonical pairs. See the
+/// warning on [`reading_fingerprint`]: this is a live cache key, not dead legacy code.
+pub fn build_article_reading_input_components(items: &[(i64, String)]) -> String {
+    let mut pairs = items.to_vec();
+    pairs.sort_by_key(|(id, _)| *id);
+    let mut out = String::from("[");
+    for (i, (id, fp)) in pairs.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        out.push('[');
+        out.push_str(&id.to_string());
+        out.push(',');
+        out.push_str(&crate::util::go_json_string(fp));
+        out.push(']');
+    }
+    out.push(']');
+    crate::util::hash_components(&out)
+}
+
 /// build_narratives_input_components is the canonical debounce pre-image: the `prompt_version` (so a
 /// contract bump forces exactly one regen — see below), the vetted corpus article ids (pre-dedup —
 /// the material fact is WHAT NEWS EXISTS, not what the embedder kept), plus the transfer-heat facts in
@@ -1160,7 +1203,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .map(|c| {
             (
                 c.id,
-                crate::junctions::article_reader::reading_fingerprint(
+                reading_fingerprint(
                     c.article_read_status.as_deref(),
                     c.article_read_content_hash.as_deref(),
                     c.article_read_updated_epoch,
@@ -1170,7 +1213,7 @@ pub fn build_narratives_input_components(corpus: &[CorpusItem], heat: &[HeatItem
         .collect();
     out.push_str(",\"article_readings_hash\":");
     out.push_str(&crate::util::go_json_string(
-        &crate::junctions::article_reader::build_article_reading_input_components(&article_readings),
+        &build_article_reading_input_components(&article_readings),
     ));
     if !heat.is_empty() {
         let mut lines: Vec<String> = heat

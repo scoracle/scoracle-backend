@@ -73,7 +73,7 @@ pub fn graph_opts() -> GenerateOptions {
         system: Some(GRAPH_SYSTEM_PROMPT.to_string()),
         temperature: Some(0.2),
         num_predict: 768,
-        num_ctx: crate::junctions::article_reader::ARTICLE_NUM_CTX,
+        num_ctx: crate::route::LOCAL_STAGE_NUM_CTX,
         json_mode: true,
         format_schema: None,
         format_schema_raw: None,

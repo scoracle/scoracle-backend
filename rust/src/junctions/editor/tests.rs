@@ -432,14 +432,13 @@ fn a_person_may_resolve_to_a_person_entity() {
 
 // ── shared-runner agreement ─────────────────────────────────────────────────────────────────
 
-/// The Editor, the legacy reader, and graph share one pinned runner; a num_ctx disagreement
-/// forces a reload on every alternation (measured — see route.rs's VOICE_NUM_CTX history).
+/// The Editor, graph and the Insider's transfer call share one pinned runner; a num_ctx
+/// disagreement forces a reload on every alternation (measured — see route.rs's VOICE_NUM_CTX
+/// history). Phase 9 removed the legacy reader from this set and re-anchored the shared size on
+/// `route::LOCAL_STAGE_NUM_CTX`; the agreement this test defends is unchanged.
 #[test]
 fn editor_num_ctx_matches_the_shared_runner() {
-    assert_eq!(
-        EDITOR_NUM_CTX,
-        crate::junctions::article_reader::ARTICLE_NUM_CTX
-    );
+    assert_eq!(EDITOR_NUM_CTX, crate::route::LOCAL_STAGE_NUM_CTX);
 }
 
 /// Property order IS the contract (§1a): extraction first, in the exact ep1 order. The schema's

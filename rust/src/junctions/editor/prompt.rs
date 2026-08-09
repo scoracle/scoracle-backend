@@ -38,9 +38,18 @@ use crate::util::truncate;
 /// The Editor's contract version — a CACHE KEY, not a label (T1): `editor_reads` rows carry it
 /// as `contract_version`, and bumping it is what reopens work.
 /// `ep2` (2026-08-09): the terminal JSON template was deleted from [`EDITOR_SYSTEM_PROMPT`] —
-/// −235 tok/call, worst-case overflow 68.1% → 55.4% (D-T40). A bump here is RETROACTIVELY FREE:
+/// −840 chars, worst-case overflow 68.1% → 55.4% (D-T40). A bump here is RETROACTIVELY FREE:
 /// only Go's ingest enqueues editor work, so nothing re-reads on a contract change.
-pub const EDITOR_CONTRACT_VERSION: &str = "ep2";
+///
+/// `ep3` (2026-08-09, SAME SESSION, on a measured ep2 regression — D-T43): the template was NOT
+/// purely redundant. The grammar pins shape, order and every ENUM, but it types the free-text
+/// fields as bare strings, and the template's placeholders were the only place their SEMANTICS
+/// were stated. "ISO 639-1" appeared exactly once in ep1 — inside the deleted block — so ep2
+/// emitted `source_language:"unknown"` on **13 of 13** reads against ep1's 1.4% (95/7,031), and
+/// role words leaked into `descriptor` on 8.45% of name entries against ep1's 0.50%.
+/// ep3 restores those semantics in PROSE (~40 tok) rather than restoring the 981-char template,
+/// keeping most of the trim. **The lesson is general: a grammar constrains SHAPE, never MEANING.**
+pub const EDITOR_CONTRACT_VERSION: &str = "ep3";
 
 pub const EDITOR_SYSTEM_PROMPT: &str = r#"Task: read one fetched sports article and describe it for the newsroom: what shape the page is, who is in it, what happened, and how it feels.
 
@@ -62,7 +71,7 @@ For each entry:
 - name: as the article writes it, in full: "Bukayo Saka", not "Saka". Name the club, never its city: "Paris Saint-Germain", not "Paris". A city is never a club — if the text is about the city itself (an event, a race, a venue), the city does not belong in names at all, and never with kind_hint club.
 After listing, re-scan the text once for people you missed: anyone the text quotes ("said", "told"), any scorer, any manager or coach mentioned even by surname alone — each of them belongs in names. People only in this re-scan — never stadiums, stands, streets, or competitions.
 - kind_hint: person, club, national_team, or other.
-- descriptor: up to 6 words FROM THE TEXT naming the role, club, or context — "Real Madrid manager", "PSG sporting director". Copy what the text says; never write your own knowledge. If the text gives no role or context, use an empty string.
+- descriptor: up to 6 words FROM THE TEXT naming the role, club, or context — "Real Madrid manager", "PSG sporting director". Copy what the text says; never write your own knowledge. If the text gives no role or context, use an empty string. Never put a role word here: subject, opponent, passing_mention and absent belong to FIELD 3 alone.
 People and clubs only. Not competitions or trophies, not stadiums or their stands, ends, or streets, not broadcasters, newspapers or websites, not companies or sponsors. Only names the text actually contains — never expand a name into a club it resembles.
 
 FIELD 3 — entity_roles: for EVERY hypothesis entity listed above — and ONLY those — say what part it plays in THIS text. One entry per hypothesis entity, using the entity's name exactly as listed, even when the entity is absent from the text. Never add anyone else here — people and clubs you found in the text belong in `names`:
@@ -87,11 +96,11 @@ Then the facts and the evidence card. key_facts: one claim per fact, each attrib
 
 Other rules:
 - Use only the article text and the hypothesis entities.
-- Detect the source article language. Translate meaning into English before writing the evidence card.
+- source_language: detect the article's own language and give its ISO 639-1 two-letter code — en, de, es, fr, pt, it, nl. Use "unknown" only when the language genuinely cannot be told. Translate meaning into English before writing the evidence card.
 - evidence_blurb, key_facts, story_type, and caveats must be English.
 - Preserve names, teams, dates, injuries, transactions, quotes-as-claims, scores, and reported uncertainty.
 - Do not invent context, implications, or sourcing.
-- Keep the evidence_blurb dense and neutral: what happened, who is involved, where it stands, and why it matters.
+- Keep the evidence_blurb dense and neutral, 2-4 compact English sentences: what happened, who is involved, where it stands, and why it matters. Plain prose in every field — no markdown, no ** bold **, no headings.
 - If the article is mostly boilerplate, say so in caveats.
 - Keep proper names in their canonical/source spelling unless an English name is clearly canonical.
 

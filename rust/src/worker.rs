@@ -860,24 +860,29 @@ mod tests {
     /// once, at its budget); only the single-slot count moved, 7 → 7: dropping scrub's slot and
     /// gaining `investigate_entity`, which registered after this fixture was last written.
     const GEMMA: Option<(&'static str, usize)> = Some(ARCHBOX_GEMMA_SLOTS);
+    /// Grouped caps mirror production's `max_in_flight()` = `ARCHBOX_GEMMA_SLOTS.1`, DERIVED so a
+    /// re-size of the card's slot budget (4 → 6 on 2026-08-09) cannot strand this fixture.
     const LIVE_CAPS: &[StageCap] = &[
-        (4, GEMMA),    // graph
-        (4, GEMMA),    // editor
-        (1, None),     // investigate_entity
-        (1, None),     // transfers
-        (1, None),     // narratives
-        (1, None),     // vibe
-        (1, None),     // peak
-        (1, None),     // momentum
-        (1, None),     // sigil
+        (ARCHBOX_GEMMA_SLOTS.1, GEMMA), // graph
+        (ARCHBOX_GEMMA_SLOTS.1, GEMMA), // editor
+        (1, None),                      // investigate_entity
+        (1, None),                      // transfers
+        (1, None),                      // narratives
+        (1, None),                      // vibe
+        (1, None),                      // peak
+        (1, None),                      // momentum
+        (1, None),                      // sigil
     ];
 
     #[test]
     fn unset_drain_concurrency_counts_a_shared_group_once() {
-        // 4 for the whole archbox card + 7 single-slot stages = 11 — the card's capacity did not
-        // change, only who may use it. Summing both grouped stages would say 15 and admit four
+        // The whole archbox card once + 7 single-slot stages — the card's capacity does not
+        // change with membership, only who may use it. Summing both grouped stages would admit
         // claims the host cannot run.
-        assert_eq!(resolve_drain_concurrency(None, LIVE_CAPS), 11);
+        assert_eq!(
+            resolve_drain_concurrency(None, LIVE_CAPS),
+            ARCHBOX_GEMMA_SLOTS.1 + 7
+        );
     }
 
     #[test]
@@ -909,15 +914,21 @@ mod tests {
         // graph idle: the Editor may take the whole card. This is the change — it was pinned to 2
         // while 5,852 reads queued against a card that was half asleep.
         let group_running = 0;
-        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 4);
+        assert_eq!(
+            stage_room(budget, 0, 10).min(budget - group_running),
+            budget
+        );
 
-        // graph holding 2: the Editor is held to the remaining 2, never oversubscribing the host.
+        // graph holding 2: the Editor is held to the remainder, never oversubscribing the host.
         let group_running = 2;
-        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 2);
+        assert_eq!(
+            stage_room(budget, 0, 10).min(budget - group_running),
+            budget - 2
+        );
 
-        // graph holding all 4: the Editor waits rather than deepening the host's own queue.
-        let group_running = 4;
-        assert_eq!(stage_room(4, 0, 10).min(budget - group_running), 0);
+        // graph holding the whole card: the Editor waits rather than deepening the host's queue.
+        let group_running = budget;
+        assert_eq!(stage_room(budget, 0, 10).min(budget - group_running), 0);
     }
 
     #[test]

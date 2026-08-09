@@ -471,16 +471,6 @@ fn ep1_schema_property_order_is_the_contract() {
 }
 
 /// 7.13 (G1): the Editor hands graph its article ONLY on the packet rail. Under `RAIL=legacy`
-/// graph keeps riding the legacy `article_read` seat via mig 193, and a second enqueue writing
-/// `g:` versions from a different table would be two writers on one `pipeline_work` row — the
-/// mig-197 churn loop, which this codebase has now paid for twice.
-#[test]
-fn graph_enqueue_is_gated_on_the_packet_rail() {
-    use crate::config::Rail;
-    assert!(!Rail::Legacy.is_packet(), "legacy must not enqueue graph from the Editor");
-    assert!(Rail::Packet.is_packet());
-}
-
 /// The cutover blocker measured 2026-08-06: three Editor rows at attempts≥5, one per day, all
 /// `persist article full_text <id>: invalid byte sequence for encoding "UTF8": 0x00`. A NUL in a
 /// scraped body is not storable in a Postgres text column at all, so the write can only ever

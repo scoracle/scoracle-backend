@@ -513,7 +513,7 @@ impl StageHandler for EditorHandler {
         // `news_article_entities WHERE vetted`, so an enqueue that beat the links would extract
         // against an empty candidate set and fail closed for a reason that has nothing to do with
         // the article.
-        if hx.rail.is_packet() {
+        {
             // 8.5, and it must come FIRST: the link writes are what `enqueue_graph_for_article`
             // below reads as its candidate set.
             if let Err(e) =

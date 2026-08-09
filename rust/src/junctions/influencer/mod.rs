@@ -352,13 +352,7 @@ pub async fn load_vibe_context(
     let ((mut narratives, news_ids), heat, packets) = tokio::try_join!(
         load_latest_narratives(&hx.pool, entity_type, entity_id, &sport),
         load_transfer_heat(&hx.pool, entity_type, entity_id, &sport),
-        async {
-            if hx.rail.is_packet() {
-                load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport).await
-            } else {
-                Ok(Vec::new())
-            }
-        },
+        load_vibe_packets(&hx.pool, entity_type, entity_id, entity_name, &sport),
     )?;
     order_narratives(&mut narratives);
 

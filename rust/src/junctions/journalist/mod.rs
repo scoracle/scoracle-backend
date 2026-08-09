@@ -4,7 +4,7 @@
 //! the dedup the Go pipeline never had) with `route(NarrativeLogic) + extract + persist`.
 //!
 //! Rust implementation of the news narrative stage:
-//! - `load_vetted_corpus` reads the vetted article context from Postgres.
+//! - `load_packet_corpus` reads the entity's compiled packets from Postgres.
 //! - `build_narratives_prompt` is deterministic and shares the transfer-heat grounding lines with
 //!   vibe via [`corpus::write_heat_lines`].
 //! - The n13 system prompt is model-neutral and schema-first for smaller local models.
@@ -286,276 +286,17 @@ impl Parser<ParsedNarratives> for NarrativesParser {
 // runs once at the tip of the spear and narratives sees the full de-duplicated breadth.
 // ---------------------------------------------------------------------------
 
-/// load_vetted_corpus reads the entity's recent VETTED, CANONICAL news links (the scrub gate kept and
-/// the novelty gate did not suppress). Phase 3 widened it: the transfer-bucket exclusion is gone (the
-/// Journalist now labels transfer articles itself) and the 25-item cap is gone ("we cannot cap data";
-/// dedup is the compressor). `published_at` is projected as an epoch `bigint`
-/// (`EXTRACT(EPOCH …)::bigint`, NULL-preserving) so the recency math needs no datetime crate; the
-/// lookback is `make_interval(secs => $4)`. `sport` is the UPPER-cased value.
-pub async fn load_vetted_corpus(
-    pool: &PgPool,
-    num_ctx: i32,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<Vec<CorpusItem>> {
-    #[allow(clippy::type_complexity)]
-    let rows: Vec<(
-        i64,
-        String,
-        String,
-        String,
-        String,
-        Option<i64>,
-        Option<i64>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<i64>,
-    )> = sqlx::query_as(
-        r#"
-        SELECT * FROM (
-            SELECT a.id, a.title, COALESCE(a.description, '') AS description,
-                   COALESCE(a.source, '') AS source,
-                   COALESCE(a.url, '') AS url,
-                   EXTRACT(EPOCH FROM a.published_at)::bigint AS published_at,
-                   EXTRACT(EPOCH FROM a.fetched_at)::bigint AS fetched_at,
-                   a.full_text,
-                   r.evidence_blurb,
-                   r.status,
-                   r.content_hash,
-                   EXTRACT(EPOCH FROM r.updated_at)::bigint AS read_updated_at
-            FROM news_article_entities nae
-            JOIN news_articles a ON a.id = nae.article_id
-            LEFT JOIN news_article_readings r ON r.article_id = a.id
-            WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-              AND a.duplicate_of IS NULL
-              AND (
-                  a.published_at IS NULL
-                  OR a.published_at > NOW() - make_interval(secs => $4)
-                  OR r.updated_at > NOW() - make_interval(secs => $4)
-              )
-            -- WHICH articles: Google's ranking, same signal the read budget cuts on.
-            ORDER BY a.feed_rank ASC NULLS LAST, COALESCE(a.published_at, a.fetched_at) DESC, a.id
-            LIMIT $5
-        ) top
-        -- IN WHAT ORDER: newest first, unchanged. Selection is a relevance decision;
-        -- presentation is a voice decision, and this query should only make the first.
-        ORDER BY COALESCE(published_at, fetched_at) DESC
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(NEWS_LOOKBACK_SECS)
-    .bind(corpus_limit(num_ctx))
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load vetted corpus {entity_type}/{entity_id}"))?;
-
-    Ok(rows
-        .into_iter()
-        .map(
-            |(
-                id,
-                title,
-                description,
-                source,
-                url,
-                published_at_epoch,
-                fetched_at_epoch,
-                full_text,
-                article_read_blurb,
-                article_read_status,
-                article_read_content_hash,
-                article_read_updated_epoch,
-            )| {
-                CorpusItem {
-                    id,
-                    title,
-                    description,
-                    source,
-                    url,
-                    published_at_epoch,
-                    fetched_at_epoch,
-                    full_text,
-                    article_read_blurb,
-                    article_read_status,
-                    article_read_content_hash,
-                    article_read_updated_epoch,
-                }
-            },
-        )
-        .collect())
-}
-
-/// load_vetted_corpus_with_exclusions is [`load_vetted_corpus`] plus the exclusions diagnostic in ONE
-/// base scan. Kept rows carry the full payload in freshest-first order; excluded rows return only
-/// `(id, status)` (payload NULLed in SQL, so months of stale history never ride the wire) for the
-/// excluded-evidence telemetry.
-///
-/// ## A5 — the cap is back, on the path that actually runs
-///
-/// Phase 3 removed the size cap and retired `budget_truncated` with it. The cap was later restored
-/// on [`load_vetted_corpus`] — but that function is only reached by `eval_tasks`. **This one is the
-/// production path** (the narratives handler calls it), and it kept scanning UNBOUNDED, ordered by
-/// recency. So the fix landed on the eval path and the live path never got it, which is why the
-/// Journalist's prompt reaches 8,915 tokens at p99 while five of six voices fit 4096.
-///
-/// Two orderings, deliberately separate, matching [`load_vetted_corpus`]: `feed_rank` decides WHICH
-/// articles survive the budget (Google's ranking, the same signal the read budget cuts on), and
-/// recency decides what order the survivors are PRESENTED in.
-///
-/// The truncated ids are reported as their own exclusion band rather than dropped. An article that
-/// silently vanishes from the evidence accounting is the failure this codebase has already paid for
-/// twice — a gate whose inputs were not persisted, and a funnel that counted admissions instead of
-/// usefulness.
-async fn load_vetted_corpus_with_exclusions(
-    pool: &PgPool,
-    num_ctx: i32,
-    entity_type: &str,
-    entity_id: i32,
-    sport: &str,
-) -> Result<(Vec<CorpusItem>, CorpusExclusions)> {
-    #[allow(clippy::type_complexity)]
-    let rows: Vec<(
-        i64,
-        String,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<i64>,
-        Option<i64>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<i64>,
-    )> = sqlx::query_as(
-        r#"
-        WITH base AS (
-            SELECT a.id, a.title, a.description, a.source, a.url,
-                   a.published_at, a.fetched_at, a.full_text, a.feed_rank,
-                   r.evidence_blurb, r.status AS article_read_status,
-                   r.content_hash AS article_read_content_hash, r.updated_at AS article_read_updated_at,
-                   CASE
-                     WHEN a.published_at IS NOT NULL
-                      AND a.published_at <= NOW() - make_interval(secs => $4)
-                      AND (
-                          r.updated_at IS NULL
-                          OR r.updated_at <= NOW() - make_interval(secs => $4)
-                      )
-                       THEN 'stale_news'
-                     ELSE 'kept'
-                   END AS status
-            FROM news_article_entities nae
-            JOIN news_articles a ON a.id = nae.article_id
-            LEFT JOIN news_article_readings r ON r.article_id = a.id
-            WHERE nae.entity_type = $1 AND nae.entity_id = $2 AND nae.sport = $3
-              AND a.duplicate_of IS NULL
-        ),
-        -- WHICH articles survive the budget: Google's ranking, the same signal the read budget
-        -- cuts on (mig 194). Ranking only the in-window rows keeps a stale article from consuming
-        -- a slot it would be excluded from anyway.
-        ranked AS (
-            SELECT base.*,
-                   CASE WHEN status = 'kept' THEN row_number() OVER (
-                       PARTITION BY (status = 'kept')
-                       ORDER BY feed_rank ASC NULLS LAST,
-                                COALESCE(published_at, fetched_at) DESC,
-                                id
-                   ) END AS rk
-            FROM base
-        ),
-        final AS (
-            SELECT ranked.*,
-                   CASE
-                     WHEN status <> 'kept' THEN status
-                     WHEN rk > $5      THEN 'budget_truncated'
-                     ELSE 'kept'
-                   END AS final_status
-            FROM ranked
-        )
-        SELECT id, final_status,
-               CASE WHEN final_status = 'kept' THEN title END,
-               CASE WHEN final_status = 'kept' THEN COALESCE(description, '') END,
-               CASE WHEN final_status = 'kept' THEN COALESCE(source, '') END,
-               CASE WHEN final_status = 'kept' THEN COALESCE(url, '') END,
-               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM published_at)::bigint END,
-               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM fetched_at)::bigint END,
-               CASE WHEN final_status = 'kept' THEN full_text END,
-               CASE WHEN final_status = 'kept' THEN evidence_blurb END,
-               CASE WHEN final_status = 'kept' THEN article_read_status END,
-               CASE WHEN final_status = 'kept' THEN article_read_content_hash END,
-               CASE WHEN final_status = 'kept' THEN EXTRACT(EPOCH FROM article_read_updated_at)::bigint END
-        FROM final
-        -- IN WHAT ORDER: newest first, unchanged. Selection is a relevance decision; presentation
-        -- is a voice decision, and this query should only make the first.
-        ORDER BY (final_status = 'kept') DESC, COALESCE(published_at, fetched_at) DESC NULLS LAST, id
-        "#,
-    )
-    .bind(entity_type)
-    .bind(entity_id)
-    .bind(sport)
-    .bind(NEWS_LOOKBACK_SECS)
-    .bind(corpus_limit(num_ctx))
-    .fetch_all(pool)
-    .await
-    .with_context(|| format!("load vetted corpus + exclusions {entity_type}/{entity_id}"))?;
-
-    let mut corpus = Vec::new();
-    let mut exclusions = CorpusExclusions::default();
-    for (
-        id,
-        status,
-        title,
-        description,
-        source,
-        url,
-        published_at_epoch,
-        fetched_at_epoch,
-        full_text,
-        article_read_blurb,
-        article_read_status,
-        article_read_content_hash,
-        article_read_updated_epoch,
-    ) in rows
-    {
-        match status.as_str() {
-            "kept" => corpus.push(CorpusItem {
-                id,
-                title: title.unwrap_or_default(),
-                description: description.unwrap_or_default(),
-                source: source.unwrap_or_default(),
-                url: url.unwrap_or_default(),
-                published_at_epoch,
-                fetched_at_epoch,
-                full_text,
-                article_read_blurb,
-                article_read_status,
-                article_read_content_hash,
-                article_read_updated_epoch,
-            }),
-            "budget_truncated" => exclusions.budget_truncated_ids.push(id),
-            _ => exclusions.stale_news_ids.push(id),
-        }
-    }
-    // The exclusions arrays mirror the old array_agg(id ORDER BY id) — keep them ascending.
-    exclusions.stale_news_ids.sort_unstable();
-    exclusions.budget_truncated_ids.sort_unstable();
-    Ok((corpus, exclusions))
-}
-
-/// How far back the packet rail looks. 72h matches the legacy narratives news lookback, so the
-/// cutover changes WHAT the corpus is made of, not WHEN it starts.
+/// How far back the corpus looks. 72h was matched to the legacy narratives news lookback at
+/// cutover, so the flip changed WHAT the corpus is made of, not WHEN it starts. (The legacy
+/// loaders it was matched to were deleted in the Phase 9 prune; the number stays because 72h is
+/// also the storyline window.)
 pub const PACKET_LOOKBACK_HOURS: i64 = 72;
 /// Packets read per entity per run. An entity in more than this many live storylines at once is
 /// having an extraordinary week; the newest-compiled win and the rest are named as exclusions.
 pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 
-/// load_packet_corpus is `load_vetted_corpus_with_exclusions`'s successor (7.3): the entity's
+/// load_packet_corpus is THE corpus loader (7.3). It replaced the vetted-article-window
+/// loaders, which were deleted with the rail in the Phase 9 prune. It reads the entity's
 /// storylines, compiled, instead of its articles, raw.
 ///
 /// **The shape is deliberately unchanged.** It returns the same `Vec<CorpusItem>` — one item per
@@ -568,7 +309,7 @@ pub const MAX_PACKETS_PER_ENTITY: usize = 5;
 /// The storyline framing (the story, this entity's part in it, what the prior packet said) rides
 /// separately, as the returned string — `build_narratives_prompt` renders it above the numbered
 /// evidence.
-async fn load_packet_corpus(
+pub async fn load_packet_corpus(
     pool: &PgPool,
     entity_type: &str,
     entity_id: i32,
@@ -1287,27 +1028,15 @@ pub async fn load_narratives_material(
     // the debounce hash down is shared code and the cutover is one branch wide.
     let ((corpus, corpus_exclusions, packet_framing), heat) = tokio::try_join!(
         async {
-            if hx.rail.is_packet() {
-                let (c, e, f) = load_packet_corpus(
-                    &hx.pool,
-                    &req.entity_type,
-                    req.entity_id,
-                    &sport_up,
-                    &req.entity_name,
-                )
-                .await?;
-                Ok::<_, anyhow::Error>((c, e, Some(f)))
-            } else {
-                let (c, e) = load_vetted_corpus_with_exclusions(
-                    &hx.pool,
-                    hx.voice_num_ctx,
-                    &req.entity_type,
-                    req.entity_id,
-                    &sport_up,
-                )
-                .await?;
-                Ok((c, e, None))
-            }
+            let (c, e, f) = load_packet_corpus(
+                &hx.pool,
+                &req.entity_type,
+                req.entity_id,
+                &sport_up,
+                &req.entity_name,
+            )
+            .await?;
+            Ok::<_, anyhow::Error>((c, e, Some(f)))
         },
         async {
             Ok::<Vec<HeatItem>, anyhow::Error>(
@@ -2017,35 +1746,14 @@ impl StageHandler for NarrativesHandler {
         // (The scrub `vetted` trigger no longer enqueues vibe — mig 174.) Any transfers routing
         // rides the news_articles.bucket write in persist_narratives (mig 175 trigger).
         //
-        // **LEGACY ONLY (7.6/E3).** On the packet rail the Influencer is woken by the packet's
-        // `charged` tag through mig 206's subscription fan-out, and she may file BEFORE this
-        // handler ever runs. Leaving this call armed on that rail would put two writers on one
-        // `pipeline_work` row with different `input_version` prefixes (`vibe:` here, `pk:` from
-        // the trigger), and `work::enqueue` reopens on any version change — the mig-197 churn
-        // loop, arriving through a third door. One rail, one waker.
-        if hx.rail.is_packet() {
-            debug!(
-                entity_type = %item.entity_type,
-                entity_id,
-                sport = %sport_up,
-                "narratives: vibe enqueue skipped — the packet trigger owns her wake-up on this rail"
-            );
-        } else if !crate::junctions::influencer::enqueue_vibe_if_needed(
-            hx,
-            &item.entity_type,
-            entity_id,
-            &req.entity_name,
-            &sport_up,
-        )
-        .await?
-        {
-            debug!(
-                entity_type = %item.entity_type,
-                entity_id,
-                sport = %sport_up,
-                "narratives: vibe enqueue skipped unchanged/empty context"
-            );
-        }
+        // **THE JOURNALIST DOES NOT WAKE THE INFLUENCER (7.6/E3).** She is woken by the packet's
+        // `charged` tag through mig 206's subscription fan-out, and may file BEFORE this handler
+        // ever runs. An enqueue here would put two writers on one `pipeline_work` row with
+        // different `input_version` prefixes (`vibe:` here, `pk:` from the trigger), and
+        // `work::enqueue` reopens on any version change — the mig-197 churn loop through a third
+        // door. **One waker.** The legacy arm that called `enqueue_vibe_if_needed` was removed
+        // with the rail in Phase 9; this comment is what remains of it, because the reason it must
+        // not come back is the part worth keeping.
 
         Ok(())
     }

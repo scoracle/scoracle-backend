@@ -125,7 +125,6 @@ async fn main() -> Result<()> {
         // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
-        rail: cfg.rail,
         voice_num_ctx: cfg.voice_num_ctx,
     };
 
@@ -193,20 +192,10 @@ async fn main() -> Result<()> {
     // The rail the voices read (7.1). Louder than the Desk switch, because this one decides what
     // every voice's prompt is made of: under `legacy` the corpora and the prompt consts are
     // byte-identical to the pre-Phase-7 binary. Phase 8 flips it.
-    info!(
-        rail = cfg.rail.as_str(),
-        voices = if cfg.rail.is_packet() {
-            "packets (§1c) via editor::render"
-        } else {
-            "legacy corpora (vetted article windows)"
-        },
-        "RAIL: the voices read {}",
-        cfg.rail.as_str()
-    );
-    // The window, logged separately from the rail because they are now separable: `VOICE_NUM_CTX`
-    // may pin 4096 while the rail stays legacy (Scott, 2026-08-06). Every reservation and context
-    // cap in the six voices follows THIS number, so a boot that does not state it leaves the
-    // budgets unexplainable from the journal.
+    // The voice window. The RAIL boot line went with the rail itself in the Phase 9 prune — there
+    // is one corpus now, so announcing which one would be noise. This line stays: every
+    // reservation and context cap in the six voices follows THIS number, so a boot that does not
+    // state it leaves the budgets unexplainable from the journal.
     info!(
         voice_num_ctx = cfg.voice_num_ctx,
         pinned = std::env::var("VOICE_NUM_CTX").is_ok(),

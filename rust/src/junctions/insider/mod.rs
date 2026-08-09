@@ -1032,7 +1032,7 @@ pub async fn build_pair_request(
     // `news_ids`, the attribution and the fingerprint are computed from the same list either
     // way, so the debounce, the evidence card and the identity chain cannot tell the rails
     // apart — which is exactly the property that lets the flip be one env var.
-    let packet_framing = if hx.rail.is_packet() {
+    let packet_framing = {
         let (facts, framing) =
             load_pair_packet_material(&hx.pool, team_id, team_name, sport, &news_ids).await?;
         for n in news.iter_mut() {
@@ -1046,8 +1046,6 @@ pub async fn build_pair_request(
             }
         }
         Some(framing).filter(|f| !f.trim().is_empty())
-    } else {
-        None
     };
     let prompted_news_ids = news.iter().map(|n| n.id).collect();
     let attribution = primary_source(&news);

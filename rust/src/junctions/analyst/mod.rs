@@ -499,7 +499,7 @@ impl StageHandler for MomentumHandler {
         // context for WHY the numbers moved, exactly like the scouting paragraph and the memory
         // card above it: rendered into the prompt, kept out of the `input_hash`, and degrading
         // to an unenriched prompt on failure rather than failing the item.
-        let packets = if hx.rail.is_packet() {
+        let packets = {
             match crate::junctions::editor::packet::render_packets_for_entity(
                 &hx.pool,
                 &item.entity_type,
@@ -523,8 +523,6 @@ impl StageHandler for MomentumHandler {
                     Vec::new()
                 }
             }
-        } else {
-            Vec::new()
         };
         let packet_blocks: Vec<&str> = packets.iter().map(|(_, t)| t.as_str()).collect();
 

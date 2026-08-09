@@ -47,7 +47,7 @@ use crate::junctions::analyst::{
     MOMENTUM_SYSTEM_PROMPT,
 };
 use crate::junctions::journalist::{
-    build_narratives_prompt, load_vetted_corpus, NarrativesParser, NarrativesReq,
+    build_narratives_prompt, load_packet_corpus, NarrativesParser, NarrativesReq,
     NARRATIVES_NUM_CTX, NARRATIVES_NUM_PREDICT, NARRATIVES_PROMPT_VERSION,
     NARRATIVES_SYSTEM_PROMPT,
 };
@@ -842,7 +842,12 @@ impl LensTask for NarrativeTask {
         let name = lookup_entity_name(&hx.pool, &e.entity_type, e.entity_id, &e.sport).await?;
         // Reads use the upper-cased sport; the prompt renders the request-case value (build_narratives_request).
         let sport = e.sport.to_uppercase();
-        let corpus = load_vetted_corpus(&hx.pool, hx.voice_num_ctx, &e.entity_type, e.entity_id, &sport).await?;
+        // The PACKET corpus — the one production reads. This used `load_vetted_corpus` until the
+        // Phase 9 rail prune, which meant the narratives eval was scoring a prompt the live stage
+        // no longer builds: the same "measures the wrong thing" trap the fixtures' frozen system
+        // prompt had (see `eval --live-system`).
+        let (corpus, _exclusions, _framing) =
+            load_packet_corpus(&hx.pool, &e.entity_type, e.entity_id, &sport, &name).await?;
         // No corpus ⇒ the stage writes the NULL-narrative marker without a model call — nothing to score.
         if corpus.is_empty() {
             return Ok(None);

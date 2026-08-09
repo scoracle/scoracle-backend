@@ -3077,6 +3077,101 @@ mechanism it proposed now has evidence against it, and the instrument to settle 
 matches**, and it keeps finding them. **Watch 7477 specifically across a multi-day window rather
 than re-running the aggregate** — the aggregate has now been asked and answered.
 
+### D-T43 — ⛔ **A GRAMMAR CONSTRAINS SHAPE, NEVER MEANING. THE EDITOR TRIM SHIPPED, REGRESSED, AND WAS CORRECTED IN ONE SESSION.** (2026-08-09 09:30–11:00 EDT; the ep1 → ep2 → ep3 drain)
+
+**This is the D-T40 trim actually shipped, and the reading D-T40 asked for killed its central
+premise.** Written at length because the mistake is a GENERAL one and the next voice to be trimmed
+will meet it again.
+
+**WHAT D-T40 CLAIMED, AND WHY IT WAS REASONABLE.** `EDITOR_FORMAT_SCHEMA_RAW` pins all 11 keys,
+their order, and every enum via constrained decoding, so the system prompt's closing
+`Return strict JSON only, with the keys in exactly this order: {…}` template looked like
+belt-and-braces over a structural guarantee. It cost a measured 235 tok on every one of ~27k weekly
+calls. Deleting it was called safe. **The deletion was shipped as `ep2` and deployed at 09:42.**
+
+⛔ **WHAT THE DRAIN SHOWED — THE TEMPLATE WAS NOT REDUNDANT.** The schema types the FREE-TEXT fields
+as bare `{"type":"string"}`. The grammar therefore constrains nothing about what goes IN them, and
+the template's placeholders were the ONLY place their semantics were ever written down.
+**`"ISO 639-1"` appeared EXACTLY ONCE in the whole ep1 prompt — inside the block ep2 deleted.** The
+surviving prose said only *"Detect the source article language"*, which never asks for a code.
+
+| measured on real production reads | ep1 (3-day baseline) | ep2 | ep3 |
+|---|---|---|---|
+| `source_language` = `"unknown"` | **1.4%** (95/6,950) | ⛔ **100%** (29/29) | ✅ **12.1%** (4/33) |
+| markdown (`**`) inside `caveats`/`evidence_blurb` | **0.3%** | ⛔ **13.8%** | ✅ **0%** |
+| role word (`absent`…) sitting in `names[].descriptor` | **0.50%** (224/44,729) | ⛔ **4.51%** (6/133) | ✅ **1.49%** (2/134) |
+
+⭐ **WHY THESE THREE ROWS ARE TRUSTWORTHY WHEN THE OTHERS ARE NOT: ep2 AND ep3 DRAINED THE SAME
+SWEEP, INTERLEAVED.** ep3 was deployed mid-queue at 09:52, so both arms read the same 98 articles'
+worth of material. **The ep2 → ep3 contrast is therefore a controlled A/B**, and it is the contrast
+that carries the finding; the ep1 column merely corroborates. **100% → 12.1% on shared material is
+not a mix artefact.** ⚠ ep3 is still ~8× ep1's rate, so the prose fix is a large recovery, **not a
+full one** — the remaining 4 are worth reading before trimming further.
+
+⛔ **AND THE COLUMN THAT MUST *NOT* BE READ THAT WAY — THE MATERIAL WAS THE CAP'S DREGS.** Because
+the 02:00 sweep had already spent the day's allowance, the 09:45 re-sweep returned what `feed_rank`
+leaves for last, and the page mix is nothing like the baseline's:
+
+| `page_kind` | ep1 baseline | ep2 | ep3 |
+|---|---|---|---|
+| `article` | **94.5%** | 51.7% | 40.5% |
+| `score_table` | 2.3% | **34.5%** | **35.1%** |
+| `listing_or_schedule` | 1.3% | 10.3% | 16.2% |
+
+**So two alarming-looking rows are CONFOUNDED and must not be attributed to the prompt:**
+* **`avg_names` 6.44 → 4.59 → 4.06.** Score tables and TV listings name fewer people than match
+  reports. Expected under this mix; **no conclusion about the trim.**
+* **`fail_closed` 3.37% (7d) / 4.77% (today's 02:00 ep1 drain) → 9.38% ep2 → 11.90% ep3.** The rise
+  is real in the data and **may well be the material**, not the prompt — and ep2 vs ep3 are
+  indistinguishable at this n (3/32 vs 5/42). ⛔ **DO NOT bank this as "the trim broke parsing" and
+  do NOT bank it as "the trim is fine". It is the open question, and it is the SAME question D-T40
+  left open about `EDITOR_NUM_PREDICT`.**
+
+✅ **THE FIX — `ep3`: RESTORE THE MEANING IN PROSE, NOT THE TEMPLATE.** Three lines, each aimed at a
+field the grammar cannot carry: name ISO 639-1 and its code set; say outright that
+`subject|opponent|passing_mention|absent` belong to FIELD 3 and never to `descriptor`; restore
+`evidence_blurb`'s "2-4 compact English sentences" and ban markdown in every field. **~40 tokens
+instead of 235, so most of the trim survives.**
+
+**THE MEASURED COST, on the live ministral runner** (`prompt_eval_count`, empty-user control = the
+554-token chat-template floor — this reproduces D-T40's numbers exactly, which validates the
+instrument):
+
+| | system prompt | fixed cost/call | article headroom | overflow @900 | overflow @~450 |
+|---|---|---|---|---|---|
+| ep1 | 8,312 ch = **1,431 tok** | 1,985 | 1,211 tok | 68.4% | 45.7% |
+| ep2 | 7,472 ch = **1,192 tok** | 1,746 | 1,450 tok | 55.5% | 35.1% |
+| **ep3** | 7,819 ch = **1,287 tok** | **1,841** | **1,355 tok** | **60.3%** | **39.1%** |
+
+*(Overflow computed over all 27,667 real 7-day prompts at 4.68 ch/tok — the ratio implied by D-T40's
+own p50 datapoint. It reproduces D-T40's published 68.1%/45.5%/55.4% to within 0.3 pt.)*
+
+**SO THE NET RESULT IS REAL BUT HALF THE HEADLINE: −144 tok/call, not −235**, and the Editor's
+prompt is still far too big for its window. `names` (FIELD 2) and `entity_roles` (FIELD 3) remain
+~50% of what is left.
+
+⚠ **THE RULE THIS BUYS, AND IT APPLIES TO EVERY REMAINING VOICE:**
+> **Before deleting anything from a prompt because "the grammar enforces it", check WHICH of the
+> two things the grammar enforces. It pins SHAPE — keys, order, types, enums. It says NOTHING about
+> the CONTENT of a free-text field. Any semantics stated only inside a JSON template — formats,
+> lengths, "verbatim", "from the text", units, codes — is load-bearing prose in disguise.**
+
+**Concretely, the enum'd fields (`page_kind`, `kind_hint`, `role`, `story_type`, `register`) were
+NEVER at risk and did not move. Every field that regressed was a bare string.**
+
+⚠ **WHAT THIS READING DOES NOT SETTLE.** n≈30 per arm is decisive for a 100%-vs-12% effect on shared
+material and **useless for the fail-rate question**, which is additionally confounded by the page
+mix above. **`EDITOR_NUM_PREDICT` was deliberately NOT touched** (§0 rule 4 — one change at a time),
+so D-T40's truncation hypothesis is **still unproven and still owed the `/tmp/trunc.py` replay or a
+large drain.** **The 02:00 drain is the instrument for both** — it reads ~800–1,100 articles at the
+baseline's 94.5%-`article` mix, which is the only honest comparator.
+
+⛔ **AND THE THING THAT MADE THIS SESSION SMALL: D-T21's CAP.** The 02:00 sweep had already spent
+today's allowance, so a fresh 09:45 sweep yielded **98 fresh articles and withheld 1,954**. The cap
+was NOT re-sized (it is on the session's DO-NOT list). **The Editor's daily read budget is now the
+binding constraint on how fast a prompt change can be measured at all** — a same-day A/B is
+~50 reads per arm, and anything statistical needs the 02:00 drain.
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*

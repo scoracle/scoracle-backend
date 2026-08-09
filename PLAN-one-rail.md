@@ -15,11 +15,25 @@
 
 **STATE (2026-08-08 ~16:10 EDT — the Saturday deploy session; supersedes the 01:30 block and the 8.9
 block below, both of which stay for their detail).**
-Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. **PHASE 6 IS STILL OPEN ON 6.7 ALONE** — its window
-closes ~Aug 8 22:08 EDT; **`scripts/rail-6.7-bands.sh` HAS NOT BEEN RUN — it was still ~6 h out when
-this session worked.** Run it after 22:10 and **never close phase 6 on an INTERIM banner.** Phase 7
-complete on its plumbing (7.11 + 7.15 outstanding). Phase 9 (the Rust demolition + the 30,222 parked
-`article_read` rows) untouched. `RAIL=packet` live.
+Phases 0–3 and 5 CLOSED. Phase 4 OPEN-PARKED. ⛔ **PHASE 6 IS STILL OPEN ON 6.7 — AND IT IS NOW
+BLOCKED ON A MEASUREMENT, NOT ON A CLOCK.** `scripts/rail-6.7-bands.sh` **WAS RUN 2026-08-08 22:10
+EDT**, after the window closed at 22:08:27, and printed the real `READING` banner — **then failed its
+own band. Clause 2's top cluster is 62 against a 15–25 band, and the clause-4 hand read found ~8
+wrong merges in the largest storyline.** §0 rule 3 says STOP; **Phase 6 is NOT closed and must not be
+marked closed.** Full reading in the phase 6 Log at "6.7 — THE 72h READING". Phase 7 complete on its
+plumbing (7.11 + 7.15 outstanding). Phase 9 (the Rust demolition + the 30,222 parked `article_read`
+rows) untouched. `RAIL=packet` live.
+
+**⚠ READ 6.7'S RESULT PRECISELY — IT IS A TAIL PROBLEM, NOT A BROKEN RAIL.** p50 = **1**, p90 = **3**:
+**3,890 of 3,893 storylines are correctly small**, and 98.6% of reads attach. **Only the hottest
+topics run away (top three: 62/61/53).** The mechanism is a **feedback loop** — `storyline_entities`
+shows the Vinicius contract saga carrying **169 entities**, because every attached article donates
+its entities and a fatter set then matches more articles. ⛔ **Do NOT apply a global attach-threshold
+change: it would break 3,890 healthy storylines to repair three.** ⛔ **And the fix cannot even be
+diagnosed yet — `storyline_articles` persists NO attach score** (4 columns; `attach_method='auto'`
+for all 7,349 rows), so the band verdict's own instruction, "inspect attach scores", is currently
+impossible. **Persist the score + matched entity FIRST.** **This does not gate the rail** (quality,
+not plumbing) and **is not grounds for rollback.**
 
 **✅ DEPLOYED THIS SESSION: `39db36ee9d45`, built `2026-08-08T20:01:56Z`, live 16:03:03 → boot
 16:04:18 EDT.** This is **D-T29** — `ARTICLE_NUM_CTX`/`EDITOR_NUM_CTX` 8192→4096. Verified the only
@@ -2723,6 +2737,92 @@ legacy stays bit-identical; nothing user-visible changes until Phase 8 flips RAI
 
 ---
 
+### 6.7 — **THE 72h READING, TAKEN 2026-08-08 22:10 EDT. ⛔ IT IS A STOP, NOT A CLOSE. PHASE 6 STAYS OPEN.**
+
+**The window closed at 22:08:27 (72.0 h) and the script printed the real banner, not INTERIM:**
+`READING — the 72h window has CLOSED. These numbers close Phase 6.` **It then failed its own band,
+so they do not.**
+
+| clause | reading | verdict |
+|---|---|---|
+| 1 · storylines/day/sport | FOOTBALL 123/1259/344/209 · NFL 123/579/138/6 · NBA 7/272/61/92 | recorded |
+| **2 · articles-per-storyline** | 3,893 storylines · 7,349 attaches · mean **1.89** · p50 **1** · p90 **3** · p99 **17** · **top cluster 62** | ⛔ **ABOVE BAND (15–25)** |
+| 3 · reads attached | 7,349 / 7,452 = **98.6%** | healthy |
+| 3b · joined vs opened-new | 4,135 joined / 3,214 new = **56.3% joined** | recorded |
+| 4 · hand inspection | wrong merges FOUND — see below | ⛔ **FAIL** |
+
+**§0 rule 3 is explicit and the script repeats it: *"OUTSIDE THAT BAND: STOP and inspect attach
+scores."* Phase 6 is NOT closed and must not be marked closed.**
+
+##### THE DISTRIBUTION IS HEALTHY. THE TAIL IS NOT. THAT DISTINCTION IS THE FINDING.
+
+**p50 = 1, p90 = 3 — the overwhelming majority of storylines are correctly small.** This is **not**
+systemic over-merging. **It is the HOTTEST topics that over-merge, by ~2.5–3×**: the top three are
+**62 / 61 / 53** articles against a 15–25 band. **Do not "fix" attachment globally on this evidence —
+the median is fine and a global threshold change would break 3,890 healthy storylines to repair
+three.**
+
+##### THE HAND READ (clause 4, storyline 7474 — 62 articles, "Vinicius/Arsenal/Real Madrid")
+
+**The core saga is CORRECTLY merged and genuinely impressive** — ~50 headlines tracking one
+continuous story (the contract offer, the Instagram wipe, the agent's message, Romano/Ornstein
+confirmations, the final extension). **That is exactly what 6.7 was built to produce.**
+
+**But it has swallowed clearly unrelated stories.** Confirmed intruders, by headline:
+* `Danish international midfielder Norgaard leaves Arsenal for Everton in two-year deal`
+* `Beşiktaş chief gives clear update on ambitious Dušan Vlahović move`
+* `Elche win race for Buonanotte after Brighton approve season-long loan`
+* `Disappointed Mbappe is back in Madrid after the World Cup`
+* `Brahim Díaz Faces Fierce Competition for Real Madrid Role Under Mourinho`
+* `Arsenal squad list for Real Betis friendly`
+* `Diomande to Real Madrid…` **— which is storyline 7477's OWN subject**
+
+**~8 of ~55 inspected are wrong. The pattern: anything in the transfer-news stream touching Real
+Madrid or Arsenal gets pulled in.** *(Checked and RULED OUT: 7474 and 7477 share **zero** articles,
+so this is not double-attachment — they are separate articles on overlapping topics.)*
+
+##### THE MECHANISM — AND IT IS A FEEDBACK LOOP, WHICH IS WHY THE TAIL RUNS AWAY
+
+**`storyline_entities` for the three biggest storylines:**
+
+| storyline | articles | **entities** |
+|---|---|---|
+| 7474 (Vinicius contract saga) | 62 | **169** |
+| 7477 (Diomande transfer) | 61 | **127** |
+| 8012 (Commanders camp) | 53 | **84** |
+
+**A single player's contract story is carrying 169 entities** — most of the Premier League and half
+of LaLiga. **Every attached article contributes its entities to the storyline, and a fatter entity
+set matches more future articles, which fatten it further.** That is a positive feedback loop with
+no damping, and it explains precisely why the *tail* diverges while the median stays at 1: a
+storyline only runs away **after** it gets hot enough to accrete a broad entity set.
+
+##### ⛔ THE INSTRUMENTATION THE BAND VERDICT ASKS FOR DOES NOT EXIST
+
+**The script says "inspect attach scores." THERE ARE NO ATTACH SCORES TO INSPECT.**
+`storyline_articles` is `(storyline_id, article_id, attached_at, attach_method)` — **four columns, no
+score, no matched-entity, no reason.** `attach_method` is `'auto'` for all 7,349 rows, so it
+discriminates nothing.
+
+**A wrong merge therefore cannot be audited after the fact — only re-derived by re-running the code.**
+**This is the first thing to fix, before any threshold is touched:** persisting the score and the
+matched entity turns "inspect the attach scores" from an impossible instruction into a query.
+**It is also a schema item — belongs in Appendix S** (`PLAN-character-tuning.md`), and it is the same
+lesson as D-T30/the archbox mirror: **we keep being asked to read an observation we never recorded.**
+
+##### WHAT THIS DOES AND DOES NOT BLOCK
+
+* **It does NOT block the rail.** `RAIL=packet` is live, 98.6% of reads attach, packets compile,
+  and the median storyline is correct. **6.7 is a QUALITY gate on storyline assembly, not plumbing**
+  (§0 rule 3: plumbing gates phases). **Nothing here justifies a rollback.**
+* **It DOES block closing Phase 6**, which was the one thing Phase 6 was waiting on.
+* **No fix was attempted** (§0 rule 3: do not improvise). The candidates — cap/decay the entity set,
+  require the storyline's PRIMARY subject to match rather than any entity, score by subject overlap
+  instead of entity-set intersection — are **unmeasured and belong to a session with the scoring code
+  open.**
+
+---
+
 ## Phase 7 — Brain: the voices read packets, keep their memories, and go on a diet
 
 Everything lands behind `RAIL` (env, default `legacy`). Legacy behavior is bit-identical until
@@ -4596,6 +4696,17 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T36 · storyline attachment runs away on the HOTTEST topics, and the score is not persisted.**
+  6.7's reading (2026-08-08 22:10) failed clause 2: **top cluster 62 vs a 15–25 band**, and the hand
+  read found **~8 wrong merges** in the 62-article Vinicius saga (Norgaard→Everton, Vlahović→Beşiktaş,
+  Buonanotte→Elche…). **p50 = 1 and p90 = 3, so this is a TAIL failure — 3,890 of 3,893 storylines are
+  fine; a global threshold change would break them to fix three.** Mechanism is a **feedback loop**:
+  `storyline_entities` carries **169 entities** on one player's contract story, each attached article
+  donating more, a fatter set matching more articles. ⛔ **Blocked on instrumentation before any
+  tuning — `storyline_articles` keeps NO score** (4 cols; `attach_method='auto'` on all 7,349 rows),
+  so "inspect attach scores" is impossible. **Persist score + matched entity first.** Quality, not
+  plumbing: **does not gate the rail, does not justify rollback — but it does keep Phase 6 OPEN.**
+  → *phase 6 Log, "6.7 — THE 72h READING"*
 - **D-T35 · ⛔ THE SILENT SYSTEM-PROMPT EVICTION IS LIVE, AND IT IS THE MOST SERIOUS FINDING OF
   2026-08-08.** A `narratives`-scale prompt (**7,192 tok**) at production's `num_ctx=4096` was
   evaluated at **`prompt_eval_count` 2,051 — 5,141 tokens (71.5%) DISCARDED**, the head evicted, and

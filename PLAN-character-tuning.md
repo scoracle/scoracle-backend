@@ -2844,6 +2844,28 @@ this appendix. That order is not a preference, it is a dependency: most of the s
 only droppable *because* of something the voice work does, and D-T22 spent this entire session
 proving what happens when you delete ahead of the code.
 
+### ⛔ S-NEW (2026-08-08, from 6.7's failed reading) — **`storyline_articles` RECORDS NO ATTACH SCORE, AND THAT BLOCKS A PHASE**
+
+**This one is not a tidy-up. It is currently blocking Phase 6 from closing.** `rail-6.7-bands.sh`
+failed its band and instructed *"STOP and inspect attach scores"* — **and there are none to inspect.**
+
+```
+storyline_articles(storyline_id, article_id, attached_at, attach_method)
+```
+
+**Four columns. No score, no matched entity, no reason.** `attach_method` is `'auto'` for **all
+7,349** rows in the window, so it discriminates nothing. **A wrong merge cannot be audited after the
+fact — only re-derived by re-running the scoring code against a moving corpus.**
+
+**Wanted (additive, no rewrite): the attach SCORE and the MATCHED ENTITY that won, per row.** That
+converts an impossible instruction into a query, and it is the prerequisite for D-T36's tuning — do
+not touch an attach threshold before it exists, or the change cannot be measured either.
+
+**This is the third instance in one day of the same failure class** — the phantom archbox mirror, the
+`OLLAMA_NUM_PARALLEL` misread, and now this. **We keep being asked to read an observation we never
+recorded.** T2 says the model describes and code judges; **this is the corollary — when code judges,
+it must WRITE DOWN WHY, or the judgment is unauditable.**
+
 ### THE WORKING RULE WHILE DOING VOICE WORK
 
 **Log every schema observation here as you hit it. Do not act on it unless it is COUPLED** (§B's

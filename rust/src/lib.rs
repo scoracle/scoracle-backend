@@ -38,6 +38,7 @@ pub mod fetch;
 pub mod harness;
 pub mod ledger;
 pub mod ollama;
+pub mod openai;
 pub mod route;
 pub mod stage;
 pub mod work;

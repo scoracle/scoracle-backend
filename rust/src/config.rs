@@ -217,13 +217,32 @@ impl EmbedConfig {
     }
 }
 
-/// Backend selects which `impl Inference` a [`ModelSpec`] constructs (Plan §2.1). Ollama is
-/// the only backend built today; vLLM lands as a second variant + a second `impl Inference`
-/// when it is real, not on speculation — at which point this enum and the match in
-/// `Router::from_config` each grow one arm. It is the *committed shape* of the backend swap.
+/// Backend selects which `impl Inference` a [`ModelSpec`] constructs (Plan §2.1).
+///
+/// The second variant arrived 2026-08-09 and it was **oMLX, not vLLM** — the MLX server on the
+/// voice host (D-T41). The shape this enum committed to held exactly as designed: one arm here,
+/// one arm in `Router::from_config`, and no stage moved.
+///
+/// `OpenAi` is named for the PROTOCOL, not the vendor — nothing external is called. It speaks
+/// `/v1/chat/completions`, which is what oMLX (and vLLM, when it comes) serves.
+/// ⛔ **It cannot carry `num_ctx` or `think`** — neither exists in that protocol. See `openai.rs`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Backend {
     Ollama,
+    OpenAi,
+}
+
+impl Backend {
+    /// from_env_str parses `COGNITION_ROUTE_<ROLE>_BACKEND`. **Unknown values resolve to Ollama
+    /// rather than failing a boot** — the same total-parse discipline as `RAIL` and
+    /// `resolve_voice_num_ctx`: a typo in one role's backend must not take the daemon down, it
+    /// must leave that role where it already was.
+    pub fn from_env_str(raw: &str) -> Self {
+        match raw.trim().to_ascii_lowercase().as_str() {
+            "openai" | "omlx" | "mlx" => Backend::OpenAi,
+            _ => Backend::Ollama,
+        }
+    }
 }
 
 /// ModelSpec is the concrete model a [`Role`] resolves to — and the ONE place a model id may
@@ -299,7 +318,9 @@ impl RouteConfig {
             roles.insert(
                 role,
                 ModelSpec {
-                    backend: Backend::Ollama,
+                    backend: env_opt(&format!("{key}_BACKEND"))
+                        .map(|v| Backend::from_env_str(&v))
+                        .unwrap_or(Backend::Ollama),
                     model: env_or(&key, default_model),
                     base_url: role_base.clone(),
                     think: parse_think(&format!("{key}_THINK")),
@@ -309,7 +330,12 @@ impl RouteConfig {
                 candidates.insert(
                     role,
                     ModelSpec {
-                        backend: Backend::Ollama,
+                        // A challenger inherits its role's backend unless told otherwise, so an
+                        // A/B never silently compares two ENGINES when it means to compare models.
+                        backend: env_opt(&format!("{key}_CANDIDATE_BACKEND"))
+                            .or_else(|| env_opt(&format!("{key}_BACKEND")))
+                            .map(|v| Backend::from_env_str(&v))
+                            .unwrap_or(Backend::Ollama),
                         model: candidate_model,
                         // A challenger defaults to its role's host, not the global one, so
                         // A/B-ing a remote role does not silently pull the challenger local.

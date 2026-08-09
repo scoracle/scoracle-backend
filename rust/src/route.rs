@@ -22,6 +22,7 @@
 
 use crate::config::{Backend, ModelSpec, Rail, RouteConfig};
 use crate::ollama::{GenerateOptions, GenerateResult, OllamaClient};
+use crate::openai::OpenAiClient;
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -134,6 +135,25 @@ pub fn resolve_voice_num_ctx(rail: Rail, raw: Option<&str>) -> i32 {
     raw.and_then(|v| v.trim().parse::<i32>().ok())
         .filter(|n| *n >= 512)
         .unwrap_or_else(|| voice_num_ctx(rail))
+}
+
+#[async_trait]
+impl Inference for OpenAiClient {
+    async fn generate(
+        &self,
+        prompt: &str,
+        opts: &GenerateOptions,
+    ) -> Result<(GenerateResult, serde_json::Value)> {
+        OpenAiClient::generate_with_body(self, prompt, opts).await
+    }
+
+    fn model(&self) -> &str {
+        OpenAiClient::model(self)
+    }
+
+    fn request_body(&self, prompt: &str, opts: &GenerateOptions) -> serde_json::Value {
+        OpenAiClient::request_body(self, prompt, opts)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -427,6 +447,13 @@ fn build_backend(
         Backend::Ollama => Arc::new(
             OllamaClient::with_think(&spec.base_url, &spec.model, timeout, spec.think)
                 .with_context(|| format!("build ollama backend for {}", spec.model))?,
+        ),
+        // oMLX and anything else speaking `/v1/chat/completions` (D-T41). `think` is deliberately
+        // NOT threaded through: it is an ollama extension, so a role that needs it must stay on
+        // ollama rather than have the flag silently dropped here.
+        Backend::OpenAi => Arc::new(
+            OpenAiClient::new(&spec.base_url, &spec.model, timeout)
+                .with_context(|| format!("build openai backend for {}", spec.model))?,
         ),
     };
     // Wrap in the shared GPU governor before caching — so every role resolving to this model

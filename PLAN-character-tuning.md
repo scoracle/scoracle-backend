@@ -3172,6 +3172,31 @@ was NOT re-sized (it is on the session's DO-NOT list). **The Editor's daily read
 binding constraint on how fast a prompt change can be measured at all** — a same-day A/B is
 ~50 reads per arm, and anything statistical needs the 02:00 drain.
 
+##### ✅ `ep4` — THE STRUCTURAL FORM OF THE FIX, SHIPPED SAME SESSION (deployed `e15ef96a0923`)
+
+**Scott's steer: stop asking the model to remember a convention when the schema can make the wrong
+answer unrepresentable.** `source_language` is now an **enum of 63 ISO 639-1 codes + `unknown`**.
+
+**What only structure could fix:** across 35,288 ep1 reads the field held **59 distinct values**,
+including **`al`, `ge`, `md`, `me` — COUNTRY codes, not language codes.** No amount of prompt text
+prevents that; an enum makes it unrepresentable.
+
+⭐ **AND THE ENUM IS FREE.** `format_schema_raw` is compiled to a grammar and **never enters the
+context window** — the 2,043-char schema is not part of D-T40's 1,985-token fixed cost (which is
+floor 554 + system 1,431 only). **So structural constraints cost ZERO prompt tokens while prose
+constraints cost real ones.** ep4 therefore also deleted ep3's ISO-639-1 explanation and code list:
+**8,312 → 7,472 → 7,819 → 7,774 chars.**
+
+⛔ **WHAT WAS DELIBERATELY KEPT, AND IT IS THE LIMIT OF THE STRUCTURAL FIX:** the prose clause
+*"use `unknown` only when it genuinely cannot be told — never as a default"*. **`unknown` is a legal
+enum member, so the grammar cannot stop the model choosing it lazily — which is exactly what ep2 did
+on 100% of reads.** **Structure pins the value SET; only prose discourages a legal-but-lazy choice
+inside it.** Both halves are load-bearing.
+
+**THE GENERAL RULE, now the working method for every remaining character:**
+> **Enum or bound it in the schema (free); instruct in prose only for what the schema cannot express
+> (costs tokens on every call). Prefer the free one.**
+
 ### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
 
 ⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*

@@ -4918,7 +4918,14 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   ⛔ **But the sweep was D-T21's dregs — 40–52% `article` vs the baseline's 94.5% — so `avg_names`
   (6.44→4.32) and `fail_closed` (3.37%→9.4%/12.0%) are CONFOUNDED by material and settle nothing
   either way.** Take both off the 02:00 drain; `NUM_PREDICT` deliberately untouched.
-  → *tuning §D-T43*
+  ✅ **`ep4` SHIPPED THE STRUCTURAL FORM SAME SESSION** (`e15ef96a0923`): `source_language` is now an
+  **enum of 63 ISO 639-1 codes + `unknown`**, killing the `al`/`ge`/`md`/`me` COUNTRY-code class that
+  no prose can prevent (59 distinct values had been written into a one-vocabulary field).
+  ⭐ **The schema travels in `format_schema_raw` and is compiled to a grammar, so it NEVER enters the
+  context — structural constraints cost ZERO prompt tokens, prose constraints cost them on every
+  call. Prefer structure; that is the working method for every remaining character.** ⚠ The clause
+  "`unknown` only when it genuinely cannot be told" STAYS — `unknown` is a legal enum member, so the
+  grammar cannot stop a lazy-but-legal choice. → *tuning §D-T43*
 - **D-T42 · ✅ MIG 217 WORKS — AND ITS FIRST READING DOES NOT SUPPORT D-T36's SEED-COMPOSITION
   HYPOTHESIS.** The 02:00 Sun drain ran on the new binary (1,101 editor reads 02:00→07:03, **796
   editor calls on `ministral-3:3b`**). **Reading (a) PASSES CLEAN: 227 scored / 121 unscored**, and

@@ -2,17 +2,19 @@
 //!
 //! A *junction* is a named seat with an identity, an authority, and a versioned contract. Six of
 //! them are **characters**: they are tuned for voice, their words reach the reader, and a deviation
-//! from the doctrine model has to re-earn its place. The seventh, [`article_reader`], is extraction
-//! rather than voice — the legacy relevance seat (stage `article_read`), renamed from `editor/` so
-//! the character's name is free for the greenfield Editor junction; it dies at cutover (Phase 9).
-//! [`graph`] calls a model too, but it is typed extraction with no persona and no seat
-//! at the table.
+//! from the doctrine model has to re-earn its place. [`graph`] calls a model too, but it is typed
+//! extraction with no persona and no seat at the table.
+//!
+//! **The legacy reader is gone.** `article_reader` (stage `article_read`, contract `ar7`) held the
+//! relevance judgment on the old rail; it was demolished in Phase 9 (9.1) once `RAIL=packet` made
+//! [`editor`] the sole reader. Two of its functions outlived it inside [`journalist`] — they had
+//! become part of the narratives debounce key — and its `num_ctx` anchor moved to
+//! `route::LOCAL_STAGE_NUM_CTX`.
 //!
 //! | junction | module | seat | contract |
 //! |---|---|---|---|
 //! | **The Editor** | [`editor`] | the greenfield rail's reader (shadow until cutover) | `ep1` |
 //! | **The Investigator** | [`investigator`] | verification: box scores + entity discovery (no memory, no voice) | `fbf1` + `investigate-entity-wikidata-v1` |
-//! | *(legacy reader)* | [`article_reader`] | sole relevance judge | `ar7` |
 //! | **The Journalist** | [`journalist`] | narrative memory | `n13` |
 //! | **The Oracle** | [`oracle`] | the sigil card's voice | `or5` |
 //! | **The Insider** | [`insider`] | transfer/trade vetting | `t11` + `is1` |
@@ -42,7 +44,6 @@
 //! depend on a junction.
 
 pub mod analyst;
-pub mod article_reader;
 pub mod editor;
 pub mod graph;
 pub mod influencer;

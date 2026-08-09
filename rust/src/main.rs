@@ -22,7 +22,7 @@ use scoracle_cognition::buildinfo;
 use scoracle_cognition::harness::Harness;
 use scoracle_cognition::route::Router;
 use scoracle_cognition::junctions::{
-    analyst, article_reader, editor, graph, influencer, insider, journalist, oracle, scout,
+    analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::junctions::investigator::boxscore;
 use scoracle_cognition::{config, db, embed, ollama, scrub, stage, worker};
@@ -153,9 +153,6 @@ async fn main() -> Result<()> {
         handlers.push(Box::new(
             scoracle_cognition::junctions::investigator::entity::InvestigateEntityHandler::new()?,
         ));
-    }
-    if enabled.contains("article_read") {
-        handlers.push(Box::new(article_reader::ArticleReadHandler::new()));
     }
     if enabled.contains("fixture_boxscore") {
         handlers.push(Box::new(boxscore::FixtureBoxscoreHandler::new()));

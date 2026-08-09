@@ -45,9 +45,9 @@ use tokio::sync::Semaphore;
 /// `OracleLogic` backs the crown (the Sigil): the ONE call that reads the five pillar cards and
 /// emits the reading + score (the panel's `SynthesisLogic` was folded in and retired, 2026-07-21).
 /// Identity split from day one (2026-07-12): the persona voice must never silently flip with
-/// another rail's route change; un-configured it resolves to the default model. `ArticleReader`
-/// is the post-scrub, pre-Journalist compressor: it reads fetched publisher bodies and emits compact
-/// evidence cards for Narratives, without carrying The Journalist's public voice.
+/// another rail's route change; un-configured it resolves to the default model.
+/// *(The `ArticleReader` role — the post-scrub, pre-Journalist compressor — was deleted in Phase 9
+/// (9.1) with the legacy rail. `Role::all()` is 11 seats now, not 12.)*
 /// The context window EVERY character-voice role must request, because they share one runner.
 ///
 /// ollama keys a loaded runner on its context size, so two roles on the same host and model asking
@@ -141,10 +141,10 @@ pub enum Role {
     StatsLogic,
     MomentumLogic,
     NarrativeLogic,
-    ArticleReader,
-    /// The greenfield Editor (PLAN-one-rail Phase 3): reads every arrival on the ep1 contract.
-    /// Settled by hardware on gemma3:4b (§4 ruling) — `COGNITION_ROUTE_EDITOR` on archbox.
-    /// `ArticleReader` is the legacy seat it shadows; that role dies at cutover (Phase 9).
+    /// The Editor (PLAN-one-rail Phase 3): reads every arrival on the ep1 contract.
+    /// Settled by hardware (§4 ruling) — `COGNITION_ROUTE_EDITOR` on archbox. It shadowed the
+    /// legacy `ArticleReader` seat until cutover; that role was deleted in Phase 9 (9.1), and
+    /// `COGNITION_ROUTE_ARTICLE_READER` retired with it on BOTH machines.
     Editor,
     /// The Investigator (PLAN-one-rail Phases 4–5): box-score retrieval and entity discovery.
     /// Rides the SAME pinned gemma3:4b as the Editor (§3 — `MAX_LOADED_MODELS=1` makes any other
@@ -162,12 +162,11 @@ pub enum Role {
 impl Role {
     /// all is every role, so config and router can populate the full map — keeping
     /// `Router::for_role` total (a role always resolves to a model).
-    pub fn all() -> [Role; 12] {
+    pub fn all() -> [Role; 11] {
         [
             Role::StatsLogic,
             Role::MomentumLogic,
             Role::NarrativeLogic,
-            Role::ArticleReader,
             Role::Editor,
             Role::Investigator,
             Role::TransferLogic,
@@ -186,7 +185,6 @@ impl Role {
             Role::StatsLogic => "stats-logic",
             Role::MomentumLogic => "momentum-logic",
             Role::NarrativeLogic => "narrative-logic",
-            Role::ArticleReader => "article-reader",
             Role::Editor => "editor",
             Role::Investigator => "investigator",
             Role::TransferLogic => "transfer-logic",
@@ -206,7 +204,6 @@ impl Role {
             Role::StatsLogic => "STATS_LOGIC",
             Role::MomentumLogic => "MOMENTUM_LOGIC",
             Role::NarrativeLogic => "NARRATIVE_LOGIC",
-            Role::ArticleReader => "ARTICLE_READER",
             Role::Editor => "EDITOR",
             Role::Investigator => "INVESTIGATOR",
             Role::TransferLogic => "TRANSFER_LOGIC",
@@ -555,10 +552,10 @@ mod tests {
         // Ledger rows key on as_str and deploys key on env_suffix — lock both spellings.
         assert_eq!(Role::TransferLogic.as_str(), "transfer-logic");
         assert_eq!(Role::VibeLogic.as_str(), "vibe-logic");
-        assert_eq!(Role::ArticleReader.as_str(), "article-reader");
+        assert_eq!(Role::Editor.as_str(), "editor");
         assert_eq!(Role::TransferLogic.env_suffix(), "TRANSFER_LOGIC");
         assert_eq!(Role::VibeLogic.env_suffix(), "VIBE_LOGIC");
-        assert_eq!(Role::ArticleReader.env_suffix(), "ARTICLE_READER");
+        assert_eq!(Role::Editor.env_suffix(), "EDITOR");
     }
 
     #[test]

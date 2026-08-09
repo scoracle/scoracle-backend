@@ -135,6 +135,19 @@ struct Args {
     /// --judge: score each reply with the independent critic model (COGNITION_JUDGE_MODEL,
     /// default gemma3:4b) on specificity/grounding/non-genericness — the Phase 4 quality axis.
     judge: bool,
+    /// `--live-system`: send the CURRENT `EDITOR_SYSTEM_PROMPT` (whatever the task's
+    /// `gen_options` carries) instead of the fixture's frozen `system`.
+    ///
+    /// **Why this exists.** A fixture freezes the system prompt so a replay is reproducible — that
+    /// is right for "did the MODEL change?", and it is exactly wrong for "did the PROMPT change
+    /// help?", because the frozen copy silently wins and the edit under test is never sent. Prompt
+    /// tuning (D-T40: the Editor's system prompt is 1,431 tok, 48% of its window) needs the other
+    /// question, so it is opt-in and off by default: the fixture stays the reproducible artifact
+    /// it was, and an A/B says out loud that it is one.
+    ///
+    /// The `user_prompt` and `expect` still come from the fixture — same articles, same rubric,
+    /// one variable.
+    live_system: bool,
 }
 
 #[tokio::main]
@@ -173,7 +186,8 @@ async fn main() -> Result<()> {
     match args.mode {
         Mode::Live => run_live(&cfg, task.as_ref(), &args.cases).await,
         Mode::Fixtures { filter } => {
-            run_fixtures(&cfg, task.as_ref(), filter.as_deref(), judge_backend).await
+            run_fixtures(&cfg, task.as_ref(), filter.as_deref(), judge_backend, args.live_system)
+                .await
         }
         Mode::Capture => run_capture(&cfg, task.as_ref(), &args.cases).await,
         Mode::CaptureLedger { ledger_id } => {
@@ -188,6 +202,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
     let mut task_name = "vibe".to_string();
     let mut mode = Mode::Live;
     let mut judge = false;
+    let mut live_system = false;
     let mut positionals: Vec<String> = Vec::new();
 
     let mut it = argv.peekable();
@@ -207,6 +222,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
                 mode = Mode::Fixtures { filter };
             }
             "--judge" => judge = true,
+            "--live-system" => live_system = true,
             "--capture" => mode = Mode::Capture,
             "--capture-ledger" => {
                 let raw = it
@@ -230,6 +246,7 @@ fn parse_args(argv: impl Iterator<Item = String>) -> Result<Args> {
         mode,
         cases,
         judge,
+        live_system,
     })
 }
 
@@ -431,6 +448,7 @@ async fn run_fixtures(
     task: &dyn LensTask,
     filter: Option<&str>,
     judge: Option<Arc<dyn Inference>>,
+    live_system: bool,
 ) -> Result<()> {
     // Router-only: no DB pool, no Harness — fixtures carry their own frozen prompts.
     let router = Router::from_config(&cfg.route, cfg.ollama_timeout, 1)?;
@@ -471,6 +489,18 @@ async fn run_fixtures(
          these numbers are a busy GPU's, not the model's (greedy decode is not deterministic under\n\
          batching). Comparing two runs? Diff the per-check table, never the score."
     );
+    // Which prompt was actually sent is the difference between two incomparable runs, so it is
+    // stated rather than inferred from the flags someone remembers typing.
+    println!(
+        "system prompt: {}",
+        if live_system {
+            "LIVE (--live-system) — the current source constant, NOT the fixture's frozen copy. \
+             Comparable only with another --live-system run."
+        } else {
+            "FROZEN (from each fixture) — reproducible replay; a source-side prompt edit is NOT \
+             under test in this run."
+        }
+    );
 
     let mut inc_pass = 0usize;
     let mut inc_total = 0usize;
@@ -484,11 +514,14 @@ async fn run_fixtures(
         }
         println!("\n[{}]  (temp={})", fx.name, fx.temperature);
         let (p, t) =
-            run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx).await;
+            run_one_fixture("A", &incumbent, task, judge.as_ref(), &mut inc_judge, fx, live_system)
+                .await;
         inc_pass += p;
         inc_total += t;
         if let Some(c) = candidate.as_ref() {
-            let (p, t) = run_one_fixture("B", c, task, judge.as_ref(), &mut cand_judge, fx).await;
+            let (p, t) =
+                run_one_fixture("B", c, task, judge.as_ref(), &mut cand_judge, fx, live_system)
+                    .await;
             cand_pass += p;
             cand_total += t;
         }
@@ -519,6 +552,7 @@ async fn run_fixtures(
 /// run_one_fixture runs one frozen fixture through one backend and prints the per-property table.
 /// It uses the fixture's FROZEN system prompt (the point of a frozen fixture) with the task's
 /// num_predict/json_mode. Returns (checks_passed, checks_total) for the summary tally.
+#[allow(clippy::too_many_arguments)]
 async fn run_one_fixture(
     label: &str,
     backend: &Arc<dyn Inference>,
@@ -527,9 +561,15 @@ async fn run_one_fixture(
     judge: Option<&Arc<dyn Inference>>,
     judge_agg: &mut JudgeAgg,
     fx: &Fixture,
+    live_system: bool,
 ) -> (usize, usize) {
     let mut opts = task.gen_options(fx.temperature);
-    opts.system = Some(fx.system.clone());
+    // Default: replay the fixture's frozen system prompt, so the run is reproducible and the only
+    // moving part is the model. `--live-system` sends the CURRENT prompt instead — the one variable
+    // a prompt A/B is actually about (see `Args::live_system`).
+    if !live_system {
+        opts.system = Some(fx.system.clone());
+    }
     let gen = match backend.generate(&fx.user_prompt, &opts).await {
         Ok((g, _)) => g,
         Err(e) => {

@@ -27,14 +27,14 @@ so the template was the only place their semantics were written down.** `"ISO 63
 exactly once in ep1: inside the deleted block. ep2 emitted `source_language:"unknown"` on **100%** of
 reads against ep1's **1.4%**, markdown leaked into `caveats`/`evidence_blurb` (**0.3% → 13.8%**), and
 role words into `names[].descriptor` (**0.50% → 4.51%**). **ep3 restores the meaning in ~40 tok of
-prose rather than the 981-char template → 12.1% / 0% / 1.49%.** Net **−144 tok/call** (fixed cost
+prose rather than the 981-char template → 9.1% / 0% / 1.58%.** Net **−144 tok/call** (fixed cost
 1,985 → 1,841; overflow at the full reservation **68.4% → 60.3%**). **The enum'd fields never moved.**
 ⭐ **ep2 AND ep3 DRAINED THE SAME SWEEP, INTERLEAVED — that contrast is a controlled A/B**, which is
 why the three rows above are trustworthy.
 ⛔ **BUT THE MATERIAL WAS D-T21's DREGS AND TWO NUMBERS ARE CONFOUNDED BY IT.** The 02:00 sweep had
 spent the day's allowance, so the 09:45 re-sweep returned **98 fresh against 1,954 withheld** — and
 what it returned was **40–52% `article` against the baseline's 94.5%**, a third of it score tables.
-So **`avg_names` (6.44 → 4.06) and `fail_closed` (3.37% 7d / 4.77% today → 9.4% ep2 / 11.9% ep3) say
+So **`avg_names` (6.44 → 4.32) and `fail_closed` (3.37% 7d / 4.77% today → 9.4% ep2 / 12.0% ep3) say
 nothing about the trim either way** — do NOT bank them in either direction. **`EDITOR_NUM_PREDICT`
 was deliberately NOT touched**, so D-T40's truncation hypothesis is still unproven.
 ⚠ **WHAT IS OWED: take the fail-rate and names readings off the 02:00 drain**, which reads
@@ -4905,11 +4905,11 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   exactly once in ep1: inside the deleted block. Measured on the drain: `source_language='unknown'`
   **1.4% → 100%**, markdown in `caveats`/`evidence_blurb` **0.3% → 13.8%**, role words in
   `names[].descriptor` **0.50% → 4.51%**. **The enum'd fields never moved.** `ep3` restores the
-  meaning in ~40 tok of prose instead of the 981-char template → **12.1% / 0% / 1.49%**, and keeps
+  meaning in ~40 tok of prose instead of the 981-char template → **9.1% / 0% / 1.58%**, and keeps
   **−144 tok/call** of the −239 (fixed cost 1,985 → 1,841; overflow @900 **68.4% → 60.3%**).
   **ep2 and ep3 drained the SAME sweep interleaved, so that contrast is a controlled A/B.**
   ⛔ **But the sweep was D-T21's dregs — 40–52% `article` vs the baseline's 94.5% — so `avg_names`
-  (6.44→4.06) and `fail_closed` (3.37%→9.4%/11.9%) are CONFOUNDED by material and settle nothing
+  (6.44→4.32) and `fail_closed` (3.37%→9.4%/12.0%) are CONFOUNDED by material and settle nothing
   either way.** Take both off the 02:00 drain; `NUM_PREDICT` deliberately untouched.
   → *tuning §D-T43*
 - **D-T42 · ✅ MIG 217 WORKS — AND ITS FIRST READING DOES NOT SUPPORT D-T36's SEED-COMPOSITION

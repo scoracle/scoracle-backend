@@ -3097,15 +3097,15 @@ surviving prose said only *"Detect the source article language"*, which never as
 
 | measured on real production reads | ep1 (3-day baseline) | ep2 | ep3 |
 |---|---|---|---|
-| `source_language` = `"unknown"` | **1.4%** (95/6,950) | ⛔ **100%** (29/29) | ✅ **12.1%** (4/33) |
+| `source_language` = `"unknown"` | **1.4%** (95/6,939) | ⛔ **100%** (29/29) | ✅ **9.1%** (4/44) |
 | markdown (`**`) inside `caveats`/`evidence_blurb` | **0.3%** | ⛔ **13.8%** | ✅ **0%** |
-| role word (`absent`…) sitting in `names[].descriptor` | **0.50%** (224/44,729) | ⛔ **4.51%** (6/133) | ✅ **1.49%** (2/134) |
+| role word (`absent`…) sitting in `names[].descriptor` | **0.50%** (224/44,655) | ⛔ **4.51%** (6/133) | ✅ **1.58%** (3/190) |
 
 ⭐ **WHY THESE THREE ROWS ARE TRUSTWORTHY WHEN THE OTHERS ARE NOT: ep2 AND ep3 DRAINED THE SAME
 SWEEP, INTERLEAVED.** ep3 was deployed mid-queue at 09:52, so both arms read the same 98 articles'
 worth of material. **The ep2 → ep3 contrast is therefore a controlled A/B**, and it is the contrast
-that carries the finding; the ep1 column merely corroborates. **100% → 12.1% on shared material is
-not a mix artefact.** ⚠ ep3 is still ~8× ep1's rate, so the prose fix is a large recovery, **not a
+that carries the finding; the ep1 column merely corroborates. **100% → 9.1% on shared material is
+not a mix artefact.** ⚠ ep3 is still ~6× ep1's rate, so the prose fix is a large recovery, **not a
 full one** — the remaining 4 are worth reading before trimming further.
 
 ⛔ **AND THE COLUMN THAT MUST *NOT* BE READ THAT WAY — THE MATERIAL WAS THE CAP'S DREGS.** Because
@@ -3119,11 +3119,11 @@ leaves for last, and the page mix is nothing like the baseline's:
 | `listing_or_schedule` | 1.3% | 10.3% | 16.2% |
 
 **So two alarming-looking rows are CONFOUNDED and must not be attributed to the prompt:**
-* **`avg_names` 6.44 → 4.59 → 4.06.** Score tables and TV listings name fewer people than match
+* **`avg_names` 6.44 → 4.59 → 4.32.** Score tables and TV listings name fewer people than match
   reports. Expected under this mix; **no conclusion about the trim.**
-* **`fail_closed` 3.37% (7d) / 4.77% (today's 02:00 ep1 drain) → 9.38% ep2 → 11.90% ep3.** The rise
+* **`fail_closed` 3.37% (7d) / 4.77% (today's 02:00 ep1 drain) → 9.38% ep2 → 12.00% ep3.** The rise
   is real in the data and **may well be the material**, not the prompt — and ep2 vs ep3 are
-  indistinguishable at this n (3/32 vs 5/42). ⛔ **DO NOT bank this as "the trim broke parsing" and
+  indistinguishable at this n (3/32 vs 6/50). ⛔ **DO NOT bank this as "the trim broke parsing" and
   do NOT bank it as "the trim is fine". It is the open question, and it is the SAME question D-T40
   left open about `EDITOR_NUM_PREDICT`.**
 

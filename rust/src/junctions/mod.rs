@@ -39,9 +39,9 @@
 //! need to know which of the two files a symbol lives in.
 //!
 //! Infrastructure (`harness`, `route`, `ollama`, `work`, `worker`, `stage`, `db`, `config`,
-//! `ledger`, `embed`) and shared primitives (`novelty`, `threads`, `trajectory`, `bucket`,
-//! `corpus`, `util`) stay at the crate root. A junction may depend on those; nothing there may
-//! depend on a junction.
+//! `ledger`, `embed`) and shared primitives (`threads`, `trajectory`, `bucket`, `corpus`, `util`)
+//! stay at the crate root. (`novelty` was the scrub gate's and died with it in Phase 9.)
+//! A junction may depend on those; nothing there may depend on a junction.
 
 pub mod analyst;
 pub mod editor;

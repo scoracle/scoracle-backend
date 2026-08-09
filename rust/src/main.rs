@@ -6,7 +6,7 @@
 //!
 //! Handlers register from `COGNITION_STAGES` (comma-separated; default = every stage).
 //! Post Step-3 cutover (2026-06-28) the Rust daemon owns all LLM queue stages —
-//! scrub, graph, article_read, peak, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
+//! graph, editor, investigate_entity, peak, momentum, transfers, narratives, vibe, sigil — and the Go API's derive worker is retired
 //! (`DERIVE_WORKER_ENABLED=false` keeps it off). The committed systemd unit
 //! (`scripts/systemd/scoracle-cognition.service`) hardcodes the production set, so this
 //! default only fires when the unit isn't the one starting the process (a fresh-box boot
@@ -25,7 +25,7 @@ use scoracle_cognition::junctions::{
     analyst, editor, graph, influencer, insider, journalist, oracle, scout,
 };
 use scoracle_cognition::junctions::investigator::boxscore;
-use scoracle_cognition::{config, db, embed, ollama, scrub, stage, worker};
+use scoracle_cognition::{config, db, embed, ollama, stage, worker};
 use std::collections::HashSet;
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -94,18 +94,21 @@ async fn main() -> Result<()> {
 
     // Env-driven stage registration (COGNITION_STAGES, comma-separated; default = every stage).
     // Post Step-3 cutover the daemon owns the live cognition stages. Headlines has been folded into
-    // narratives, so the news rail is scrub -> graph/article_read -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
+    // narratives, and Phase 9 demolished the legacy rail's two stages, so the news rail is
+    // editor -> graph -> transfers -> narratives -> vibe -> momentum -> sigil. The Go derive worker is
     // retired. To revert Step 3 in an emergency, set
     // DERIVE_WORKER_ENABLED=true (re-arm Go) and stop this service — see RUNBOOK.md §3 rollback.
     let enabled = parse_enabled_stages(&std::env::var("COGNITION_STAGES").unwrap_or_else(|_| {
-        "scrub,graph,article_read,fixture_boxscore,peak,momentum,transfers,narratives,vibe,sigil".to_string()
+        "graph,editor,investigate_entity,fixture_boxscore,peak,momentum,transfers,narratives,vibe,sigil"
+            .to_string()
     }))?;
 
     // The CPU embedder (candle, Plan §1.4) now has exactly ONE consumer left: narratives, for its
-    // pre-model corpus clustering and its thread-identity centroid cosine. Scrub no longer embeds
-    // anything — both its relevance gate and its novelty gate were deleted in the teardown
-    // (§2.1/§2.2). When Phase 3 moves thread identity into The Journalist's output contract, this
-    // whole block and `Harness.embedder` go with it.
+    // pre-model corpus clustering and its thread-identity centroid cosine. Scrub's own relevance and
+    // novelty gates were deleted in the teardown (§2.1/§2.2) and the stage itself in Phase 9.
+    // Appendix A's remaining embedder item — retiring the narratives clustering — is NOT a deletion:
+    // it changes what narratives reads and therefore its debounce hash, so it owes its own measured
+    // session. Until then this block and `Harness.embedder` stay.
     let embedder = if enabled.contains("narratives") {
         info!(model = %cfg.embed.model_repo, "loading embedder (CPU) for narratives");
         Some(embed::Embedder::from_config(&cfg.embed)?)
@@ -119,7 +122,6 @@ async fn main() -> Result<()> {
         pool,
         router: Router::from_config(&cfg.route, cfg.ollama_timeout, cfg.ollama_max_concurrent)?,
         embedder,
-        scrub: cfg.scrub.clone(),
         // The same ceiling the worker enforces, handed to the handlers so a multi-call stage can
         // land inside it under its own power rather than being cancelled at it.
         handler_budget: cfg.handler_timeout,
@@ -132,18 +134,15 @@ async fn main() -> Result<()> {
     // still be narrowed (e.g. a debug run that wants only `vibe`), but the systemd unit on
     // the prod box hardcodes the full set.
     let mut handlers: Vec<Box<dyn stage::StageHandler>> = Vec::new();
-    if enabled.contains("scrub") {
-        handlers.push(Box::new(scrub::ScrubHandler::new()));
-    }
-    // graph is article-keyed directly downstream of scrub (the mig-165 vetted-trigger
-    // enqueue): typed extraction into narrative_events + person-candidate evidence.
+    // graph is article-keyed, now downstream of the Editor's own enqueue (7.13) rather than the
+    // retired mig-165 vetted trigger: typed extraction into narrative_events + person-candidate evidence.
     // Wired 2026-07-19 after the fixture gate measured 12/12 at g2.
     if enabled.contains("graph") {
         handlers.push(Box::new(graph::GraphHandler::new()));
     }
-    // The greenfield Editor registers BEFORE the legacy article_read: registration order is
-    // claim order, so new arrivals outrank the legacy backlog inside the shared gemma group
-    // (PLAN-one-rail 3.2/3.8). graph stays first — it reclaims its slots on the next pass.
+    // The Editor is the rail's sole reader since the flip; the legacy `article_read` it once
+    // outranked in claim order was demolished in Phase 9. graph stays registered first — it
+    // reclaims its slots on the next pass inside the shared archbox group (PLAN-one-rail 3.2/3.8).
     if enabled.contains("editor") {
         handlers.push(Box::new(editor::EditorHandler::new()));
     }
@@ -235,9 +234,7 @@ async fn main() -> Result<()> {
 
 fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     const KNOWN: &[&str] = &[
-        "scrub",
         "graph",
-        "article_read",
         "editor",
         "investigate_entity",
         "fixture_boxscore",
@@ -251,7 +248,10 @@ fn parse_enabled_stages(raw: &str) -> Result<HashSet<String>> {
     // Retired stage names are tolerated with a warning (never a boot failure): a stale
     // COGNITION_STAGES in a unit override or .env must not take prod down at a cutover.
     // `oracle` folded into the sigil stage 2026-07-16 (Session B).
-    const RETIRED: &[&str] = &["oracle"];
+    // `scrub` and `article_read` are the legacy rail's two stages, demolished in Phase 9 (9.1).
+    // They land HERE rather than simply disappearing precisely because this list exists: an
+    // archbox unit or a stale .env still naming them must warn and boot, not fail closed.
+    const RETIRED: &[&str] = &["oracle", "scrub", "article_read"];
 
     let mut stages = HashSet::new();
     let mut unknown = Vec::new();
@@ -285,12 +285,12 @@ mod tests {
     #[test]
     fn parse_enabled_stages_normalizes_and_dedupes() {
         let stages = parse_enabled_stages(
-            " Scrub, article_read, fixture_boxscore, peak, momentum, vibe, VIBE ,,sigil ",
+            " Graph, editor, fixture_boxscore, peak, momentum, vibe, VIBE ,,sigil ",
         )
         .unwrap();
         assert_eq!(stages.len(), 7);
-        assert!(stages.contains("scrub"));
-        assert!(stages.contains("article_read"));
+        assert!(stages.contains("graph"));
+        assert!(stages.contains("editor"));
         assert!(stages.contains("fixture_boxscore"));
         assert!(stages.contains("peak"));
         assert!(stages.contains("momentum"));
@@ -298,9 +298,20 @@ mod tests {
         assert!(stages.contains("sigil"));
     }
 
+    /// The legacy rail's stage names must WARN and drop, never fail a boot — an archbox unit or a
+    /// stale .env still naming them is a config lag, not an outage. (Phase 9 demolition, 9.1.)
+    #[test]
+    fn parse_enabled_stages_tolerates_the_demolished_legacy_stages() {
+        let stages = parse_enabled_stages("scrub,article_read,editor").unwrap();
+        assert_eq!(stages.len(), 1);
+        assert!(stages.contains("editor"));
+        assert!(!stages.contains("scrub"));
+        assert!(!stages.contains("article_read"));
+    }
+
     #[test]
     fn parse_enabled_stages_rejects_unknown_values() {
-        let err = parse_enabled_stages("scrub,headlinez")
+        let err = parse_enabled_stages("graph,headlinez")
             .unwrap_err()
             .to_string();
         assert!(err.contains("headlinez"));

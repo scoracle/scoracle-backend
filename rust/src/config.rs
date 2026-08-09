@@ -38,8 +38,6 @@ pub struct Config {
     /// the experiment harness and (once the hybrid Resolve gate lands) the service; the model
     /// is named here, never in stage code (the same boundary the router holds for generation).
     pub embed: EmbedConfig,
-    /// Near-verbatim novelty policy — `COGNITION_NOVELTY_*`.
-    pub scrub: ScrubConfig,
     /// Per-item ceiling on one stage handler run. A wedged await inside a handler (model
     /// call, DB acquire, embed) fails the item after this long instead of stalling the
     /// drain forever (2026-07-15 incident follow-up). Zero disables.
@@ -167,7 +165,6 @@ impl Config {
             stale_lease: Duration::from_secs(env_u64("COGNITION_STALE_LEASE_SECONDS", 1800)?),
             route,
             embed: EmbedConfig::from_env()?,
-            scrub: ScrubConfig::from_env()?,
             // 1200s = 20 min: generous over the slowest observed item (a narratives batch
             // item ran ~4-7 min under the 07-15 catch-up load) yet still under stale-lease,
             // with room for the semaphore wait a concurrent drain adds on a busy host.
@@ -188,48 +185,6 @@ impl Config {
             packet_compile: env_bool("COGNITION_PACKET_COMPILE", false),
             rail,
             voice_num_ctx,
-        })
-    }
-}
-
-/// ScrubConfig drives the near-verbatim novelty gate (`COGNITION_NOVELTY_*`). The novelty pass
-/// compares a freshly-scrubbed article against recent CANONICAL coverage of its own entities and —
-/// FIRST-SEEN wins — suppresses only a near-VERBATIM copy. `novelty_cosine` is gone with the
-/// embedder: the cosine prefilter was the half of the rule that had no text check behind it, and it
-/// produced every measured false suppression.
-#[derive(Clone, Debug)]
-pub struct ScrubConfig {
-    /// Token-Jaccard at/above which two articles are near-VERBATIM (syndicated wire copy) and the
-    /// second carries no new prose. Below it, anyone writing their own words — including the same
-    /// outlet filing a second piece — passes through and is read.
-    pub verbatim_jaccard: f32,
-    /// How far back to look for a canonical original to dedup against. Reposts/syndication are
-    /// recent; the default matches the narratives news lookback (72h) so anything still inside a
-    /// corpus window can be collapsed at the gate.
-    pub novelty_lookback: Duration,
-}
-
-impl Default for ScrubConfig {
-    fn default() -> Self {
-        Self {
-            verbatim_jaccard: 0.90,
-            novelty_lookback: Duration::from_secs(259_200),
-        }
-    }
-}
-
-impl ScrubConfig {
-    /// from_env reads `COGNITION_NOVELTY_{VERBATIM_JACCARD,LOOKBACK_SECONDS}`, defaulting to the
-    /// tuned band (0.90 / 72h). Raising `verbatim_jaccard` suppresses LESS (more pass-through, the
-    /// safe direction); lowering it suppresses more aggressively.
-    pub fn from_env() -> Result<Self> {
-        let d = Self::default();
-        Ok(Self {
-            verbatim_jaccard: env_f32("COGNITION_NOVELTY_VERBATIM_JACCARD", d.verbatim_jaccard)?,
-            novelty_lookback: Duration::from_secs(env_u64(
-                "COGNITION_NOVELTY_LOOKBACK_SECONDS",
-                d.novelty_lookback.as_secs(),
-            )?),
         })
     }
 }
@@ -465,19 +420,6 @@ fn env_usize(key: &str, default: usize) -> Result<usize> {
         .with_context(|| format!("{key} must be an unsigned integer, got {raw:?}"))
 }
 
-fn env_f32(key: &str, default: f32) -> Result<f32> {
-    let Some(raw) = env_opt(key) else {
-        return Ok(default);
-    };
-    let value = raw
-        .parse::<f32>()
-        .with_context(|| format!("{key} must be a finite float, got {raw:?}"))?;
-    if !value.is_finite() {
-        anyhow::bail!("{key} must be a finite float, got {raw:?}");
-    }
-    Ok(value)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -496,15 +438,6 @@ mod tests {
         let key = "__SCORACLE_TEST_BAD_U64";
         std::env::set_var(key, "-1");
         let err = env_u64(key, 60).unwrap_err();
-        std::env::remove_var(key);
-        assert!(format!("{err:#}").contains(key));
-    }
-
-    #[test]
-    fn env_f32_rejects_non_finite_value() {
-        let key = "__SCORACLE_TEST_BAD_F32";
-        std::env::set_var(key, "NaN");
-        let err = env_f32(key, 0.5).unwrap_err();
         std::env::remove_var(key);
         assert!(format!("{err:#}").contains(key));
     }

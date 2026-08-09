@@ -1,6 +1,6 @@
 //! scoracle-cognition — the **Rust Cognition Harness** (the LLM-derivation / cognition layer).
 //!
-//! The layer that *empowers* the local models. (Renamed from `scoracle-scrubber` — the
+//! The layer that *empowers* the local models. (Named for `scoracle-scrubber` — the
 //! original clean-the-data framing.) A durable `pipeline_work`
 //! queue consumer plus an Ollama client, wired to a LISTEN/NOTIFY drain loop, with
 //! per-stage derivation handlers. This library crate holds the reusable modules; the
@@ -47,7 +47,6 @@ pub mod worker;
 pub mod bucket;
 pub mod buildinfo;
 pub mod corpus;
-pub mod novelty;
 pub mod threads;
 pub mod trajectory;
 pub mod util;
@@ -55,4 +54,3 @@ pub mod util;
 // Non-junction stages and offline tooling.
 pub mod eval_tasks;
 pub mod judge;
-pub mod scrub;

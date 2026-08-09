@@ -852,14 +852,18 @@ mod tests {
         ));
     }
 
-    /// The live shape: scrub, graph(2), article_read(2), then six Mac voices at 1 each.
-    /// Production's shape: scrub, graph, article_read, then six single-slot remote stages.
-    /// graph and article_read share the gemma3 card's 4 slots rather than splitting them.
+    /// Production's shape after the Phase 9 demolition (9.1): graph and the Editor share the
+    /// archbox card's 4 slots rather than splitting them, then the single-slot stages.
+    ///
+    /// `scrub` and `article_read` left this table with the legacy rail — the shared group is now
+    /// graph + editor. The ceiling arithmetic below is unchanged in KIND (a group still counts
+    /// once, at its budget); only the single-slot count moved, 7 → 7: dropping scrub's slot and
+    /// gaining `investigate_entity`, which registered after this fixture was last written.
     const GEMMA: Option<(&'static str, usize)> = Some(ARCHBOX_GEMMA_SLOTS);
     const LIVE_CAPS: &[StageCap] = &[
-        (1, None),     // scrub
         (4, GEMMA),    // graph
-        (4, GEMMA),    // article_read
+        (4, GEMMA),    // editor
+        (1, None),     // investigate_entity
         (1, None),     // transfers
         (1, None),     // narratives
         (1, None),     // vibe
@@ -870,9 +874,9 @@ mod tests {
 
     #[test]
     fn unset_drain_concurrency_counts_a_shared_group_once() {
-        // 4 for the whole gemma3 card + 7 single-slot stages = 11 — the SAME ceiling as the old
-        // fixed 2 + 2 split, because the card's capacity did not change, only who may use it.
-        // Summing both grouped stages would say 15 and admit four claims the host cannot run.
+        // 4 for the whole archbox card + 7 single-slot stages = 11 — the card's capacity did not
+        // change, only who may use it. Summing both grouped stages would say 15 and admit four
+        // claims the host cannot run.
         assert_eq!(resolve_drain_concurrency(None, LIVE_CAPS), 11);
     }
 

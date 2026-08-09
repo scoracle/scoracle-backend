@@ -16,7 +16,7 @@
 //! real signatures + types), so the floor is drawn for the HORIZON stages without building
 //! infrastructure on speculation. See Plan §1.
 
-use crate::config::{Rail, ScrubConfig};
+use crate::config::Rail;
 use crate::embed::{cosine_similarity, Embedder};
 use crate::ollama::{GenerateOptions, GenerateResult};
 use crate::route::{Role, Router};
@@ -42,8 +42,6 @@ pub struct Harness {
     /// `threads`' centroid cosine — both retire in Phase 3, when The Journalist declares thread
     /// identity itself and the embedder can be deleted outright.
     pub embedder: Option<Embedder>,
-    /// Near-verbatim novelty policy.
-    pub scrub: ScrubConfig,
     /// The worker's per-item ceiling (`COGNITION_HANDLER_TIMEOUT_SECONDS`), exposed so a handler
     /// that makes N *sequential* model calls can stop itself before the axe falls instead of being
     /// cancelled mid-loop. `Duration::ZERO` means unbounded, matching the worker's own reading of

@@ -2979,6 +2979,63 @@ Two failure modes this is designed to prevent, both already demonstrated this we
    it *wrong*, which is how `season_recompute_needed` and `provider_entity_map` came within one
    migration of being dropped while live.
 
+### D-T39 — ⛔ **EVERY RUST PRODUCTION BINARY UNTIL 2026-08-08 22:55 EDT WAS AN UNOPTIMIZED `debug` BUILD.**
+
+**Found by a size check during the mig-217 deploy, not by looking for it.** The staged binary came
+out **23,280,384 bytes** where the running one was **300,966,352** — 12.9× smaller. That is not a
+code delta; that is `debug` vs `release`.
+
+**OBSERVATION (not judgment) — three independent confirmations:**
+1. `rust/target/debug/scoracle-cognition` is **300,966,352 bytes**, byte-size-identical to what was
+   sitting in `rust/bin/` (placed 16:03 Aug 8). `rust/target/release/scoracle-cognition` is
+   **23,280,384**.
+2. **`scripts/hosting/release.sh:137` builds without `--release`**, and line 139 copies from
+   **`$REPO_ROOT/rust/target/debug/$bin`** — the comment at line 133 says so in as many words
+   (*"cargo writes to rust/target/debug/<bin>"*). `scripts/hosting/install.sh:95` is the same.
+3. **`rust/Cargo.toml` has NO `[profile.*]` section at all**, so nothing was overriding the defaults
+   in the other direction.
+
+**So this is not a slip in one deploy — the release path itself has always shipped `debug`.**
+
+**WHAT CHANGED AT 22:55, beyond the 217 code** (`--release` was explicit in this session's authorised
+deploy block, so it was instructed, not improvised):
+| | `debug` (all prior deploys) | `release` (live now) |
+|---|---|---|
+| `opt-level` | **0** | **3** |
+| `debug-assertions` | **on** | **off** |
+| `overflow-checks` | **on** — integer overflow **panics** | **off** — integer overflow **wraps silently** |
+
+⚠ **THE OVERFLOW CHANGE IS THE RISK, AND IT CUTS THE UNSAFE WAY.** Arithmetic that would previously
+have died loudly now wraps and continues. Two `debug_assert_eq!` (`investigator/gate.rs:143-144`,
+length invariants) also stop firing. Neither is load-bearing, but **a new class of silent-wrong is
+now possible where a panic used to be** — the same failure shape as D-T35, and worth remembering if
+a number starts coming back subtly wrong rather than not at all.
+
+⛔ **DO NOT CLAIM A THROUGHPUT WIN FROM THIS UNTIL IT IS MEASURED.** It is tempting to book it
+against standing target 0 (4–5 h) and that would be a theory, not a reading. **Most of a cognition
+call's wall-clock is spent waiting on ollama (GPU-bound); `opt-level` touches only the Rust-side
+work** — prompt assembly, JSON parse, DB serialization, the packet compile. The honest prior is
+"the CPU share of the call gets much faster and the GPU share does not move," and nobody has
+measured what that share is. **D-T37 also says the Editor is idle 20 h/day, so even a real speedup
+buys nothing the cap is not already withholding.**
+
+⚠ **THIS DEPLOY IS THEREFORE BUNDLED — a §0-rule-4 violation, recorded rather than hidden.** The
+22:55 binary carries **two** changes: the 217 provenance writes *and* debug→release. Consequences
+for tomorrow's readings, stated precisely so nothing is misattributed:
+* **Reading (a) — 217 columns populate: UNAFFECTED.** Scored-vs-unscored is presence/absence of a
+  write path; optimization cannot fake it either way.
+* **Reading (c) — ministral tag shares: UNAFFECTED.** That is model output content; the Rust build
+  profile does not touch what the model is asked or what it answers.
+* **Any wall-clock or throughput comparison across the 22:55 boundary: CONFOUNDED.** Do not read the
+  02:00 drain's duration as a ministral number or a 217 number. It is now a three-variable change.
+
+**THE FOLLOW-UP THAT IS OWED (not done here — it is a separate change, and this session's authorised
+block was cognition only):** `release.sh` and `install.sh` still build and stage `debug`. **The next
+routine `release.sh` run will therefore REVERT this binary to `debug` without anyone noticing** —
+including the Go/API path's own Rust bins (`statcommentary`, 248 MB, is still a debug build sitting
+in `rust/bin/` right now). Fixing them is a one-line change in each plus the `target/debug` →
+`target/release` staging path, and it wants its own deploy and its own measurement. → *rail Appendix D D-T39*
+
 ### WHY THE TAG SYSTEM IS THE REFERENCE SHAPE
 
 **Scott, 2026-08-06:** *"The tag system is pretty dramatically better than our old one. Much more

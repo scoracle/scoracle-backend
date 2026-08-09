@@ -13,8 +13,27 @@
 > late; that is what the drift costs.) **§0 rule 3 — plumbing gates phases; a phase may CITE the
 > ledger, it may never HALT on it.**
 
-**STATE (2026-08-08 ~23:00 EDT — Scott's "the time for tinkering is over" session. Supersedes the
-16:10 block below, which stays for its detail.)**
+**STATE (2026-08-08 ~23:05 EDT Sat — the 217 DEPLOY session. Supersedes the 23:00 block below, which
+stays for its detail.)**
+✅ **THE 217 BINARY IS LIVE ON ARCHBOX, DEPLOYED 22:55:28 EDT, ~3 h AHEAD OF THE 02:00 DRAIN.**
+Boot stamp verified: `scoracle-cognition starting model=ministral-3:3b commit="129d50e6f582"
+built="2026-08-09T02:53:07Z"` — commit is NOT `39db36ee9d45`, so the code that writes
+`attach_score`/`matched_entities` is finally the code that is running. archbox went `39db36e` → `129d50e`
+(ten commits); its dirty scp'd files were verified md5-identical to the Mac's committed copies before
+being discarded, so nothing was lost. Deployed **narrowly** — cognition only, staged outside
+`rust/bin/` and `mv`'d in (one watcher trigger, 75 s graceful drain), no Go binary, no API restart.
+`ollama ps` confirms `ministral-3:3b`, **6.0 GB, 100% GPU, CONTEXT 4096** — the 4096 window is live
+under ministral (real-prompt confirmation still owed by the drain).
+⛔ **ONE SURPRISE, WRITTEN DOWN NOT IMPROVISED — D-T39: every prior Rust production binary was an
+unoptimized `debug` build** (23 MB vs 300 MB; `release.sh` itself stages from `target/debug/`). This
+deploy is therefore **BUNDLED** — 217 writes + debug→release. **The 217 and tag-share readings are
+unaffected; any wall-clock reading across 22:55 is confounded.** `overflow-checks` is now off.
+⏳ **PENDING — THE READING, at/after ~02:30 Sun 2026-08-09:** (a) does 217 populate, (b) 6.7's
+seed-composition question, (c) D-T38's tag-share after-picture. **The deploy was the enabler; the
+reading is the point.**
+
+*(23:00 STATE, superseded 2026-08-08 23:05 — Scott's "the time for tinkering is over" session. Itself
+superseded the 16:10 block below, which stays for its detail.)*
 **Scott's weekend order, given 2026-08-08 ~22:30: (A) flip to the new rail — ⚠ ALREADY TRUE,
 `RAIL=packet` has been live since Aug 6, so what A actually means is CLOSE Phase 8 and run Phase 9;
 (B) schema to match the product; (C) gemma3:4b → ministral-3:3b on archbox + Ollama → MLX on the Mac;
@@ -4748,6 +4767,20 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T39 · ⛔ EVERY RUST PRODUCTION BINARY UNTIL 2026-08-08 22:55 EDT WAS AN UNOPTIMIZED `debug`
+  BUILD.** Found by a size check during the 217 deploy: staged **23,280,384 B** vs the running
+  **300,966,352 B** (12.9×), and `rust/target/debug/scoracle-cognition` matches the old size exactly.
+  **The release path itself is the cause, not one bad deploy — `release.sh:137` builds without
+  `--release` and line 139 stages from `rust/target/debug/`; `install.sh:95` likewise; `rust/Cargo.toml`
+  has no `[profile.*]` at all.** The 22:55 binary is the FIRST optimized one. ⚠ **`overflow-checks`
+  went on→off, so integer overflow now WRAPS SILENTLY where it used to panic** — a new silent-wrong
+  class, same shape as D-T35. ⛔ **BOOK NO THROUGHPUT WIN UNTIL MEASURED:** most of a call is
+  GPU-wait, `opt-level` touches only the Rust share, and D-T37's idle 20 h/day means a speedup buys
+  nothing the cap already withholds. ⚠ **THIS DEPLOY IS BUNDLED (§0 rule 4), recorded not hidden** —
+  217 writes AND debug→release. Readings (a) 217 columns and (c) tag shares are UNAFFECTED; **any
+  wall-clock comparison across the 22:55 boundary is CONFOUNDED.** ⚠ **OWED: `release.sh`/`install.sh`
+  still stage `debug`, so the next routine release SILENTLY REVERTS this** (and `statcommentary`,
+  248 MB, is still debug in `rust/bin/`). Separate change, separate measurement. → *tuning §D-T39*
 - **D-T38 · ✅ D-T31 IS FLIPPED — archbox is uniform on `ministral-3:3b`, 2026-08-08 22:37 EDT, on
   Scott's word.** Found HALF-FLIPPED: `.env.local` (edited 17:23, service restarted 17:25) already
   carried `COGNITION_ROUTE_EDITOR=ministral-3:3b`, while `OLLAMA_MODEL`, `ARTICLE_READER` and

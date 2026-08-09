@@ -4850,6 +4850,23 @@ diagnosis, the numbers and the candidate knobs stay in the tuning file at the se
   is no longer "the largest available throughput change" — D-T34 is.** The live runner shows
   `-c 8192 -np 2` = 4096 PER SLOT, confirming KV scales as `num_ctx × slots`, so 4 slots at 2048
   would cost today's KV — ⛔ **but only AFTER D-T35's prompt trim, never before.** → *tuning §D-T30*
+- **D-T41 · oMLX IS A PROGRAM (`jundot/omlx`, Apache-2.0, v0.5.7), NOT "MLX SERVING" — researched
+  2026-08-09 on Scott's correction**, after this session misread D-T34's quote and started
+  installing `mlx_lm.server`. macOS menu-bar app **and** headless server on **:8000**,
+  **OpenAI + Anthropic** compatible (`/v1/chat/completions`, `/v1/messages`), `brew tap jundot/omlx`.
+  ⭐ **`--max-concurrent-requests` DEFAULT 8 with CONTINUOUS BATCHING** — D-T34's 2.13×-at-4-concurrent
+  win made native, against production llama.cpp's `-np 2` and a client budget of 3. ⭐ **Paged SSD KV
+  caching** — every voice sends a FIXED system prompt, the exact recurring-prefix case, **UNMEASURED
+  on our prompts, do not book it yet.** ✅ **Structured output is real but OPT-IN — the formula
+  carries `option "with-grammar"` (xgrammar, ~2 GB torch); WITHOUT IT narratives, sigil and transfers
+  lose their contract** (vibe/rating/momentum don't constrain). Also `depends_on "python@3.11"`,
+  which sidesteps the Mac's python being 3.14.6. ⛔ **DO NOT build D-T34's `:11434` shim** — `route.rs`
+  already has the seam (`Backend` enum → `Arc<dyn Inference>`, a 3-method trait whose own doc says a
+  second impl "waits until it is real"). **`Backend::OpenAi` is the designed path.** ⛔ **Two costs
+  unpaid: `num_ctx` has NO OpenAI equivalent** (may be moot — MLX grows KV rather than pre-allocating,
+  so D-T35/D-T40's silent-eviction class may not exist there; TEST, don't assume), **and 16 GB means
+  ollama's 8.8 GB resident model and MLX's 7.9 GB CANNOT co-reside** — cutover unloads ollama.
+  → *tuning §D-T41*
 - **D-T40 · ⛔ THE EDITOR IS THE NEXT D-T35 — 45.5–68.1% OF ITS CALLS OVERFLOW 4096 DURING
   GENERATION.** Measured 2026-08-08 23:40 on ministral against 26,837 real `built_prompt` rows.
   **Fixed cost before any article text: 1,985 tok** = 554 template + **1,431 system prompt** (8,312

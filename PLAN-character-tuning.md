@@ -3036,6 +3036,61 @@ including the Go/API path's own Rust bins (`statcommentary`, 248 MB, is still a 
 in `rust/bin/` right now). Fixing them is a one-line change in each plus the `target/debug` →
 `target/release` staging path, and it wants its own deploy and its own measurement. → *rail Appendix D D-T39*
 
+### D-T41 — **oMLX IS A PROGRAM, NOT "MLX SERVING". RESEARCHED 2026-08-09 00:20 EDT, ON SCOTT'S CORRECTION.**
+
+⚠ **Written because this session got it wrong first.** D-T34 quotes Scott saying *"switch to oMLX"*
+and the session read that as shorthand for MLX-in-general, and began installing `mlx-lm` +
+`mlx_lm.server`. **Scott: "oMLX is a program like Ollama that's used on Mac. Research this before
+going any further."** He is right, and the distinction changes the plan.
+
+**WHAT IT ACTUALLY IS:** [`github.com/jundot/omlx`](https://github.com/jundot/omlx), **Apache-2.0** —
+a macOS **menu-bar app AND headless inference server** for Apple Silicon, currently **v0.5.7**.
+* **Serves `http://localhost:8000`.** Endpoints: `/v1/chat/completions` (OpenAI),
+  **`/v1/messages` (Anthropic)**, `/v1/completions`, `/v1/embeddings`, `/v1/models`. Admin UI at
+  `/admin`; model search + download from HuggingFace in the dashboard.
+* ⭐ **`--max-concurrent-requests`, DEFAULT 8, with CONTINUOUS BATCHING.** **This is the whole
+  D-T34 win made native** — D-T34 measured MLX **2.13× at 4 concurrent** and noted it *"was still
+  scaling"*; production llama.cpp runs `-np 2` and the Mac's client budget is **3**.
+* ⭐ **PAGED SSD KV CACHING** — KV blocks persist to disk and are restored when a prefix recurs
+  (reported TTFT 30–90 s → 1–3 s on long contexts). ⚠ **Potentially large here for a reason nobody
+  has costed yet: every voice sends a FIXED system prompt on every call** (D-T40 measured the
+  Editor's at 1,431 tok; the voices' are larger). That is exactly the recurring-prefix case.
+  **UNMEASURED — do not book it until measured on our own prompts.**
+* Install: `brew tap jundot/omlx https://github.com/jundot/omlx && brew install omlx`, or a signed +
+  notarized DMG. `omlx serve` / `omlx start|stop|restart`; the formula ships a `service` block, so
+  `brew services` can run it headless. Requires macOS 15+, **Python 3.11–3.13**.
+
+✅ **THE STRUCTURED-OUTPUT ANSWER WAS IN THE FORMULA, NOT THE DOCS — AND IT IS OPT-IN:**
+`option "with-grammar", "Install xgrammar for structured output (requires torch, ~2GB)"`.
+⛔ **INSTALL IT WITH `--with-grammar` OR THREE VOICES LOSE THEIR CONTRACT.** Measured which:
+**narratives (`format_schema`), sigil (`format_schema`), transfers (`json_mode`)** constrain
+decoding; **vibe, rating, momentum do not.** *(The Insider's identity adjudication also uses
+`json_mode` but runs on `EmotionalNews` = archbox/ollama, so it is unaffected.)*
+⚠ Also solves a prerequisite clash for free: **the Mac's python is 3.14.6** and oMLX wants ≤3.13 —
+the formula `depends_on "python@3.11"` and builds its own venv, so the brew path works where a
+`pip install` would have failed.
+
+**WHAT DOES *NOT* CHANGE — THE ARCHITECTURE CALL STANDS.** oMLX is **OpenAI/Anthropic-compatible,
+NOT ollama-compatible**, so the protocol gap D-T34 identified is real and unchanged. ⛔ **But do NOT
+build D-T34's "shim on :11434".** `route.rs` already has the seam: `Backend` is an enum with one
+variant dispatching into `Arc<dyn Inference>`, and the trait is **three methods**
+(`generate`, `model`, `request_body`). Its own doc says *"a second impl (vLLM) waits until it is
+real, not built on speculation."* **It is real now.** A `Backend::OpenAi` impl is the designed
+extension point, keeps `num_ctx` handling explicit and testable, and puts no untested translation
+layer in the live network path.
+
+**TWO COSTS TO CARRY IN, BOTH UNRESOLVED AT WRITING:**
+1. ⛔ **`num_ctx` HAS NO OpenAI EQUIVALENT** — D-T34's cost #2, still unpaid. `max_tokens` maps from
+   `num_predict`; the *context window* does not map. **Whether oMLX exposes it per-request is
+   UNVERIFIED.** ⚠ It may also be moot in a good way: MLX grows KV as needed rather than
+   pre-allocating a fixed window, so **D-T35/D-T40's silent-eviction class may simply not exist on
+   this runtime** — which would be a correctness win, not just a speed one. **Test it; do not
+   assume it.**
+2. ⚠ **16 GB, AND THE TWO CANNOT CO-RESIDE.** The Mac's ollama holds `ministral-3:14b` at **8.8 GB
+   resident, `keep_alive` 24 h**; the MLX 4-bit build is **7.9 GB** (already pulled to the HF cache).
+   8.8 + 7.9 > 16, so **cutover means unloading ollama's model, not running both.** Scott has
+   authorised the disruption explicitly.
+
 ### D-T40 — ⛔ **THE EDITOR IS THE NEXT D-T35, AND ITS OWN CODE COMMENT SAYS THE OPPOSITE.** (measured 2026-08-08 23:40 EDT, on ministral, on live production prompts)
 
 **Scott asked to start character tuning at the Editor and to drive ctx down. The measurement
